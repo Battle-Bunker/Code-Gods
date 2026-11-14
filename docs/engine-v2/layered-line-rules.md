@@ -17,7 +17,10 @@ Measurements: `node docs/engine-v2/scripts/layered-ladders.mjs` (about five minu
 few seconds for 20 and 50). Its full output, every rung of every family, is
 [scripts/layered-ladders-results.md](scripts/layered-ladders-results.md). §3 says what it measures and what it does not.
 
-> **Read §9, §8 and §7 first.** §9 re-measures the pools under mixed costing (owner decision 17, the current v2 law); §8 (ungated rules, several secondaries per family, finer primaries) supersedes §7.5's first pool. After this document first merged, the owner required graded rungs only, two-rung beginner rules
+> **Read §10 first** (rules an exact sum can value, owner decision 19: classes A–E, every family classified, the
+> beginner pool with exact tops; it supersedes §9.2's pool). Then:
+>
+> **Read §9, §8 and §7 next.** §9 re-measures the pools under mixed costing (owner decision 17, the current v2 law); §8 (ungated rules, several secondaries per family, finer primaries) supersedes §7.5's first pool. After this document first merged, the owner required graded rungs only, two-rung beginner rules
 > with school-level primaries, and cards that state a graded quantity. §7 applies those rules to all five brainstorm
 > documents, measures them with one method, and gives the current pools and spec changes. §0–§6 are the first pass and
 > are superseded wherever they differ.
@@ -1544,3 +1547,337 @@ Below the primary's top, though, an ungated secondary still orders lines and ear
 the joint top: a cheap whole-number condition, then a multiplicative sieve, then "larger" last. Coin Line × big bill and
 Parabola Chord × wide chord are that recipe as two rungs: the primary is the condition and sieve, the secondary is
 "larger".
+
+## 10. Rules an exact sum can value (owner decision 19)
+
+The owner (relayed 14 November): "Now that we have analytical methods working often for calibrating the relationship
+between utility and cross-rule-commensurate energy levels, let's pick out rule families so that an analytical approach
+is available." Prices are now an exact potential ([owner-decisions.md](owner-decisions.md) decision 19,
+[analytic-calibration.md](analytic-calibration.md)), so a rung's value is a sum over its level set. The simulation is no
+longer the source of upper values. This section:
+
+- sorts every family into five tractability classes, each with its summation recipe (§10.2);
+- classifies every family × secondary of the catalogue and the five brainstorms (§10.3);
+- gives exact joint tops and steps for every pairing that is dealt (§10.4), from
+  [scripts/analytic-classes.ts](scripts/analytic-classes.ts) (output:
+  [scripts/analytic-classes-results.md](scripts/analytic-classes-results.md));
+- re-proposes the beginner pool (§10.5) and, briefly, the second pool (§10.6).
+
+Everything here is for **line-z** (whole m and c, one line), the beginner variant, because the exact law exists for it
+alone (`oneLine` in lib/v2-valuation/src/exact.ts). The rational variant needs its own law first (§10.7).
+
+### 10.1 The law the sums use
+
+On line-z, π(m, c) = p(m)·p(c), with p(0) = ½ and, for n ≠ 0, p(n) = f(|n|)/(4Z), where:
+
+- f(n) = 2^−sopfr(n)/2 (sopfr is the sum of prime factors with repeats), which is **completely multiplicative**;
+- Z = Σ_{n≥1} f(n) = Π_p (1 − 2^−p/2)^−1 = 4.2823, and log2 Z = 2.098 is the constant of the mixed code;
+- Z₂ = Σ f(n)² = 1.5863 and Z₃ = Σ f(n)³ = 1.2032 appear below.
+
+Three facts follow, and they decide which rules can be summed:
+
+1. **Any set described by multiplication has an Euler product for its mass.** Examples are "n has no prime factor
+   below q", "L divides n" and "the area is a square". Smooth numbers are cheap: f(2^k) = 2^−k.
+2. **Primes are thin.** A prime p carries 2^−p/2/(4Z), so the mass of "a prime ≥ t" falls by about half a bit per unit
+   of t. Each prime in a ladder is a rung, and the steps are 1.3 to 2.7 bits.
+3. **The 1D tail is small and known.** Listing the integers within b bits (`integersWithin(b)`) leaves outside mass
+   T1(b). T1(30) = 2^−17.0, T1(35) = 2^−20.8 and T1(40) = 2^−24.6.
+
+A rung is **certified** when its interval [−log2 (M + outside), −log2 M] is narrower than 2% (log2 1.02 = 0.029 bits).
+The generic 2D enumeration that values any rule is limited by its outside mass:
+
+- at a 26-bit budget it is 3·10^−3, and it certifies only rungs up to about 3 bits;
+- at 34 bits it reaches about 8 bits, the spec session's figure.
+
+So every rung above about 8 bits needs one of the recipes below. The hybrid ladder of analytic-calibration.md §5 fills
+the middle: there the simulation converges and was checked against exact values (88 of 91 rungs within 2%).
+
+### 10.2 The five classes, the recipe for each, and the interface a rule declares
+
+The interface was agreed with the spec session (14 November). It is `lineSums` in lib/v2-linear/src/sums.ts, which
+the engine `exactLadder` in lib/v2-valuation/src/exact.ts reads. A family declares how its upper level sets can be
+summed, and the engine evaluates the rule itself on the lines that declaration yields, so no rule logic is duplicated.
+Rungs below `fromMain` use the 2D enumeration. Each class maps onto one field:
+
+| Class | What it means | Recipe | Outside bound | `lineSums` field |
+|---|---|---|---|---|
+| **A** separable | every layer reads m alone or c alone (or their residues mod N) | product of two 1D laws; a multiplicative layer is an Euler product in closed form | 2·T1(b) (generic), or none for a closed form | `separable: { layer: "m" \| "c" }` (checked at run time on random lines) |
+| **B** fibre | the main top fixes c from m by a linear equation (c = T − k·m, c = T(1 − m), c = m), or a unimodular substitution (u = k·m + c) does | 1D sum over m of p(m)·p(g(m)); a tie-breaker is evaluated on each of those lines | T1(b) · max p(g(m)) over m outside the list (the spec session's 2·T1 is the cruder bound) | `band: { fromMain, ranges(m) }`, one-point or windowed ranges of c |
+| **B·thin** | the main top forces one coordinate (possibly after a substitution) into a set of fast-falling mass: c prime, y(1) prime, L·Z | enumerate that thin set exactly (the primes up to P); the other coordinate over a list | Σ_c p(c)·T1(b_c) + mass of the thin set beyond P | `band` with c ranging over the thin set |
+| **C** product | the main top is a multiplicative parametrisation: area a square ⇔ m = ±2t², c = 2tk; c = −m·k; c = L·j; m = ±3u², c = ±6u | Dirichlet/Euler sums: the top's total mass, and that of every tie-breaker on the parameters' multiplicative functions (spf, gpf, Ω, prime, size), in closed form | none (closed form), or total − enumerated | `support: { fromMain, lines(budget), outside(budget) }` (the spec session is adding it) |
+| **D** bespoke | needs number theory per rule: prime constellations with no thin coordinate, lattice points near a conic (Pell-type: distance of a quadratic to the squares), squares in progression, continued fractions | a sieve bound, a Pell parametrisation, or a decay argument written for that rule | rule-specific | none yet |
+| **E** none known | iteration, digits, words, floors of rationals, dynamics | — | — | none |
+
+Three findings while writing these recipes:
+
+- **Prime Staircase is not class D.** Every rung of its main layer from "run ≥ 1" up needs y(0) = c to be a prime, so
+  its upper sets lie inside the thin set {c prime}. Enumerating the primes c exactly, with m over a list, bounds the
+  skipped mass by Σ_c p(c)·T1. No sieve is needed. Its top is B·thin.
+- **A function of one coordinate is class A however wild it is.** Collatz steps of c, the multiplicative order of 10,
+  and σ(c) − 2c are all exact 1D sums. Tractability is about how many coordinates a level set ties together, not how
+  hard the function is.
+- **The middle of a "distance to a square" ladder is D, even when its top is C.** Square Area's top (area exactly a
+  square) is a closed form. Its rungs "within ¼ of a square" are lattice points near the conic c² = 2|m|s², a Pell-type
+  set. They are valued only by the 2D enumeration, or by the simulation, below about 8 bits. The same holds for every
+  near-miss rung of a quadratic quantity. Such a family stays dealable because its main layer's middle rungs are cheap
+  (2–6 bits). All of its upper ladder is the top set and the tie-breakers on it, which are C.
+
+**The rule for designers that follows:** a deep ladder should be (a cheap main layer whose top is a linear equation,
+a thin set or a multiplicative parametrisation) followed by (a tie-breaker that climbs by primes through a
+multiplicative function: spf, gpf, "a prime ≥ t"). Those are exact, and their steps are the prime ladder's 1.3–2.7
+bits. Smooth-number climbs (Ω, "as big as possible") are exact too, but cheap under mixed costing: their steps are
+0.2–1 bit and their tops are low.
+
+### 10.3 Every family and secondary, classified (line-z)
+
+Each class is the class of the pairing's **upper** sets (the main layer's top with each tie-breaker). The main layer's
+middle rungs are valued by the 2D enumeration and the simulation (§10.1); where they are D, it is noted.
+
+"deg." means the family degenerates on whole m and c:
+
+- its quantity is constant, or always whole;
+- or its top is a single cheap line;
+- or its story breaks (one coin is always 1).
+
+Such families are for line-q once it has a law (§10.7). Sources: A = this document §2, K = §7's coordinator's nine,
+and B, C, D, E = the brainstorms.
+
+**Owner's examples and owner's rules**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Prime Landing (owner's example 1 on Z) | A (c prime) | that prime ≥ t: A; gradient's spf / gpf: A (proposed); gradient near a prime: A; y(1) near a prime: B·thin | **pool** |
+| Whole Intercept / Prime-Factor Line (owner's example 1, A1, C WL) | deg. (c is always whole on Z); A on line-q (den c alone) | spf, Ω of that whole number: A | line-q |
+| Square Area (owner's example 2, A2, K2, C SC) | C at the top; D in the middle (near-square) | root's spf, gpf, Ω, "root a prime ≥ t", root size: C; slanted side² near a square, legs near primes: C (evaluated on the top's parametrisation) | **pool** |
+| Prime Gradient, Prime Pegs (owner's rule 1, A3) | A | that prime ≥ t: A; c near a prime: A; c's spf / gpf: A; prime pegs: deg. (every whole x is a peg) | reserve (the mirror of Prime Landing) |
+| Pythagorean Area / Ladder (owner's rule 2, A4, B §1.5) | C (A = 6: m = ±3u², c = ±6u) | slanted side² near a square, \|c\| near a prime, legs near whole: C (1-parameter top, in u) | measured, not dealt (§10.4) |
+| m Meets c (owner's rule 3, A5) | B (c = m) | \|c\| size: B; c near a prime: B; shared number's spf / gpf: B (proposed); unit-circle triple: deg. | reserve |
+| Crossing Check (owner's rule 4, A6) | B (y(k) = x(q) fixes c = (q − m²k)/(m + 1)) | dials whole: deg.; meeting number near a prime: B | – |
+
+**The number line of slope-intercept**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Twin Coefficients (A7) | A (m, c near primes, separately) | \|\|m − c\| − 2\|: B; smaller twin: B | – |
+| Pell Gradient / Root Hunter (A8, D) | deg. (m whole); D on line-q (Pell) | — | line-q |
+| Crowded Intercept / Taxi Meter (A9, B §2.2) | deg. (y(K) whole) | divisors of y(K) over the plane: D (no thin top) | – |
+| Euclid's Long Way / Euclid's Staircase (A10, D) | deg.; D/E on line-q (continued fractions) | — | line-q |
+| Farey Neighbours / Matched Pair (A11, C MA) | deg.; D on line-q | — | line-q |
+| Egyptian Line / Pharaoh's Gradient (A12, D) | deg.; E on line-q | — | line-q |
+| Perfect Line / Amicable Line (A13, D) | A (σ(c) − 2c reads c alone) | — | – (sporadic top) |
+| Hailstone Intercept (A14) | A (Collatz steps of c alone) | — | – (low top) |
+| Prime Slope (K6) | deg. (run 1) | — | line-q |
+| Steady Gradient (C SG) | deg. (m whole) | divisors of m: A | – |
+| Half-Way House (C HW) | A (y(½) whole ⇔ m even) | spf of y(½) over the plane: D | – |
+| Long Division / Cyclic Decimal (C LD, D) | deg.; A on line-q (den m alone) | — | line-q |
+| Matchstick Chains (B §1.1) | A (\|c − 1\|) | m + 1 near a prime: A | – (low top) |
+| Mental Shortcut (B §2.15) | B (finitely many good lines) | — | – |
+
+**The growth pattern and the table**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Prime Staircase / Prime Parade (K1, D) | B·thin (c prime from run ≥ 1) | first prime, last prime, near miss, step back: B·thin | **pool** (D in the brief: §10.2) |
+| Prime Run / Prime Table (A15, C PT) | B·thin, a union of six thin sets (y(i) prime, by substitution u = i·m + c) | first prime: B·thin; m near a prime: B·thin | reserve (Staircase's sibling) |
+| Square Terms / Square Steps (A16, K8, C ST, D) | D (squares in arithmetic progression) | — | – |
+| Treasure / Treasure Prime Run (A17, K) | B (c = 37 − 2m) | primes among y(1..8), gradient near a prime, c near a square: B; gradient's spf / gpf: B (proposed) | **pool** |
+| Divisibility Treasure / Digit Treasure (A18, A19) | deg. (y(K) whole) | divisors, digit sums: B on a fibre, E over the plane | – |
+| Divisibility Ladder (D §11) | **A** (n \| y(n) ⇔ n \| c, so run ≥ k ⇔ lcm(1..k) \| c: mass f(L)/2) | gradient's steepness, spf, gpf, nearness to a prime: A | **pool** (new) |
+| Steady vs Doubling (B §1.2) | B (a union of fibres c = 2ⁿ − n·m) | second gap: B | – (low top) |
+| Savings Goal (B §1.6) | D (c ≡ G mod m: a shifted lattice, no Euler product) | — | – |
+| Price per Minute (B §1.8) | A (10 \| c) | — | – (low top) |
+| Plant Diary (B §2.9) | deg. (every height whole) | squares among heights: D | – |
+| Speeding Up (B §2.10) | A (residues of m and c) | triangular distance: D | – |
+| Catch-Up (B §2.3) | C (t = c/(r − m) whole: Σ_m p(r − m)·f(m)/2 per divisor class) | head start whole: deg.; speed whole: deg. | – |
+| Fence Painters (B §2.7) | line-q | — | line-q |
+
+**The machine**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Same on Both Rulers / Fixed Point / Same Reading / Lamp and Rulers (K5, B §1.4, C FP, E §11) | B (c = T(1 − m)) | steep, \|c\| near a prime, lamp whole: B; whole values: deg.; gradient's spf / gpf: B (proposed); Same Reading's "fixed point whole" + Ω: C ((1 − m) \| c) | **pool** |
+| Cunningham Machine / Prime Feedback (A20, D) | B·thin (the first iterate m·s + c prime, by substitution) | — | reserve |
+| Firefly Jar (E §17) | E (escape of an iteration) | — | – |
+| Sweet Chord (E §19) | E | — | – |
+
+**The intercept triangle**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Two-Square Area (A21) | C (2\|m\| \| c²) | r₂(area): C on the top | – |
+| Square Triangle Area (A22) | D (c² = \|m\|·T(T + 1)) | — | – |
+| Prime Hypotenuse (A23) | C (m \| c) | h² = k²(m² + 1) prime: D (Landau's m² + 1) | – |
+| Vieta Intercepts (A24) | B (finitely many lines) | — | – |
+| Whole Numbers Everywhere (A25) | deg. | — | – |
+| Pythagoras' Corner / Congruent Corner (D §6) | deg. (h² = k²(m² + 1) is never a square for m ≠ 0) | — | line-q |
+| Rectangle Field (D) | C (divisors of the area on c = m·k) | — | – |
+| Whole Crossing / Empty Tank (C WC, B §1.7, B §2.1) | **C** (c = −m·k) | crossing's spf, gpf, size: C; gradient's spf: C; \|k\| near a prime: C; "drains whole litres": deg. | **pool** (new) |
+
+**The general form, the plane and the pegboard**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Twin Sum / Prime Equation / Prime Coefficients / ABC Line (A26, K7, C PC, D) | B (\|a + b + c\| = \|m − 1 + c\| → c = 1 − m) | prime coefficients: deg. (b = −1); ABC radical: E | line-q |
+| Stepping Coefficients (A27) | B (c = −m − 2) | primes on the top: B | – |
+| Tangent Circle / Kiss the Circle / Circle Kiss / Tangent Kite (A28, E §14–15, D) | deg. (c² = R²(1 + m²) only at m = 0) | — | line-q |
+| Ruler (C RU) | deg. (exact only at m = 0, which the variant refuses) | — | **dropped from the pool** |
+| Perpendicular Foot / Plumb Line (K9, E §16) | C ((1 + m²) \| c: a 1D sum over m of f(1 + m²)/2) | — | – |
+| Peg Ruler / Peg Line / Pythagorean Normal / Orchard Walk / Long Shot / Gatekeeper / Midpoint Peg (A29, K4, C PN, B §2.13, C LS, C GK, C MP) | deg. (every whole x is a peg) or B (Gatekeeper: c = g − m·x) | — | – |
+| Pick's Pegs (A30) | C (m \| c) | inside pegs by Pick: C on the top | – |
+| Parabola Kiss (A31) | B (c = −(m/2)²) | touch point whole: B; its size: B | second pool |
+| Parabola Chord (D §16) | C (whole crossings r₁, r₂: m = r₁ + r₂, c = −r₁r₂, weight p(r₁ + r₂)·f(r₁)f(r₂)/(4Z)) | both crossings near primes, chord width, gradient near a prime: C on the top | second pool |
+| Coin Line / Shopping Baskets / Exact Change (D §9, B §1.3, E §13) | deg. (the coins are \|m\| and 1) | — | **dropped from the pool**; line-q |
+
+**Brainstorm E's lenses**
+
+| Family | Primary | Secondaries | Note |
+|---|---|---|---|
+| Constellation Mirror (E §1) | B (every level ≥ 2 is a finite set of perpendicular bisectors) | — | – (bounded) |
+| Haga's Fold (E §2) | D (rational reflection formulas) | — | – |
+| Fair Cut (E §3) | B (half the board ⇔ the line passes the centre: c = 4 − 4m) | dark minus light: B on the top | – (low top) |
+| Sheep Fence (E §4) | D (lattice polygons in (m, c)) | — | – |
+| Palindrome Path (E §5) | E | — | – |
+| Tresillo, Homecoming Gear, Trick Shot (E §6, §9, §7) | deg. (hits = m; mod 1 is 0; folds read c mod 8) | — | line-q |
+| One Thread, Cipher Wheel (E §8, §18) | A (residues of m and c mod N: a product of two residue laws) | — | – (low top) |
+| Crate Ramp (E §10) | D | — | – |
+| Prime Threads (E §12) | B·thin (union) at best; six different primes is D | — | – |
+| B's stories (Wheelchair Ramp, Taxi Meter) | deg. | — | line-q |
+
+### 10.4 Exact values of the pairings
+
+Every number below is exact: a closed form, or an interval narrower than 2%. Where the interval is wider it is shown
+as an interval, and the rung is not dealt. Nothing comes from the simulation. All values are in bits, on line-z.
+
+The results file has every rung, including the main layers' middle rungs from the generic sum (shown as intervals) and
+the support checks. Each support was checked against every generic line that reaches the main top.
+
+Two cross-checks against independent routes:
+
+- **Prime Landing**, "that prime ≥ 37": 22.10, and "≥ 47": 27.40. These equal the spec session's own exact values
+  (analytic-calibration.md §3), from a different code path.
+- **Square Area**, "root's spf ≥ 11": 12.62, both from Z₃·F/(16Z²) and from the lib-evaluated enumeration of the
+  parametrised support. At ≥ 13 the two give 13.91 and 13.87–13.91.
+
+| Family (class) | Main top | Tie-breaker at the top: rungs (bits), steps |
+|---|--:|---|
+| Prime Landing (A) | 3.89 | that prime ≥ 2 … 47: 3.89 → 27.40, steps 0.8–2.7 · gradient's spf ≥ 2 … 37: 5.27 → 24.99, steps 1.3–2.7 · gradient's gpf: 5.27 → 22.89 · gradient near a prime: 6.78 · y(1) near a prime (B·thin): 4.46 |
+| Prime Gradient (A) | 3.89 | its mirror: that prime 27.40; c's spf 24.99; c's gpf 22.89; c near a prime 6.78 |
+| Square Area (C) | 5.83 | root's spf ≥ 2 … 47: 6.22 → 31.23, steps 1.3–2.7 · root's gpf: 6.22 → 29.13 · Ω(root) ≥ 1 … 10: 6.22 → 14.17, steps 0.6–1.0 · root a prime ≥ t: 7.72 → 31.23 |
+| Whole Crossing (C) | 1.55 | crossing's spf ≥ 2 … 47: 3.82 → 28.83, steps 1.3–2.7 · crossing's gpf: 3.82 → 26.73 · gradient's spf ≥ 2 … 23: 4.87 → 27.07, steps 1.6–4.1 · crossing far from 0: 7.17 (steps 0.2–0.4) · crossing or gradient near a prime: 5.3 |
+| Divisibility Ladder (A) | main rungs: run ≥ 2, 3, 4, 5, 7, 8, 9, 11, 13, 16: 2.0, 3.5, 4.5, 7.0, 10.5, 11.5, 13.0, 18.5, 25.0, 26.0 (= 1 + sopfr(lcm(1..k))/2) | at run ≥ 11: gradient's spf ≥ 2 … 31: 19.88 → 36.86 · gradient's gpf: 19.88 → 34.77 · gradient steep ≥ 2 … 128: 19.88 → 23.24 (steps 0.2–0.4) · gradient near a prime: 21.39 |
+| Treasure, (2, 37) (B) | 10.79 | different primes among y(1..8) ≥ 1 … 6: 10.79 → 15.18 (steps 0.0 0.0 0.1 0.5 0.3 3.6; seven is not reached within 28.7 bits) · gradient near a prime: 14.18 · c near a square: 11.93 · gradient's spf ≥ 2 … 23: 10.97 → 22.63 (steps 0.1–5.0) · gradient's gpf: 10.97 → 22.58 |
+| Same on Both Rulers, T = 6 (B) | 7.32 | steep \|m − 1\| ≥ 2 … 8: 10.29 → 13.98 · \|c\| near a prime: never reaches distance 0 (6·\|1 − m\| is not prime) · lamp whole: 7.52 (flat) · gradient's spf ≥ 2 … 19: 10.29 → 23.22, steps 1.6–2.5 · gradient's gpf: 10.29 → 23.04 |
+| Prime Staircase (B·thin) | 16.24 (run of 6) | first prime ≥ 11: 19.04, ≥ 13: 20.85 (certified by restricting the skip to c ≥ q, as the first prime is c itself: ≤ 2^−27.0 and 2^−28.0; the script's global bound gives 19.01–19.04 and 20.74–20.85), ≥ 17 and above: intervals (24.3–27.0 …) · near miss ≤ 2: 19.64–19.69, then unreached · step back: 16.24 → 16.68 · last prime: flat (a run of six always ends above 47) |
+| m Meets c (B) | 1.94 | \|c\| ≥ 1 … 24: 6.53 → 13.32 · c near a prime: 9.47 · shared number's spf ≥ 2 … 31: 7.97 → 38.17, steps 1.6–5.7 · its gpf: 7.97 → 37.51 |
+| Pythagorean Area, A = 6 (C) | 9.93 (m = ±3u², c = ±6u: closed form) | slanted side² near a square: 13.87 at ≤ ½, never 0 · \|c\| near a prime: flat (6u is never prime) · legs whole: 10.03 (flat) |
+| Ruler, Exact Change | degenerate | Ruler's main is never exact (m = 0 is refused); Exact Change's coins are \|m\| and 1, and its upper rungs are not certified by the generic sum |
+
+The spf and gpf ladders read their steps straight off the prime ladder: rung "≥ q" falls by about q′/2 bits to the next
+prime q′. So every prime-climbing tie-breaker on a multiplicative parameter steps 1.3–2.7 bits from 11 upward. On the
+weight f² (Whole Crossing's gradient, m Meets c), the steps double. On a one-parameter top that couples m and c
+(Treasure's c = 37 − 2m), the steps are uneven, 0.1–5 bits, because the price of c = 37 − 2m jumps with m.
+
+### 10.5 The beginner pool, again (only A–C pairings dealt)
+
+The owner's standing rules hold:
+
+- the primary is maximally accessible to a 12-year-old on a linear-equations curriculum, with latitude for area and the
+  like;
+- every rung is graded, with at least 6 levels;
+- one primary and several alternative secondaries, and no third rung;
+- the dealt top is in the band (15–25 bits here);
+- the lenses vary;
+- the owner's two examples are kept.
+
+The rule added now: **a pairing is dealt only if its class is A–C** and its rungs up to the dealt cap are certified.
+
+| # | Family (class) | Primary card | Dealable secondaries (card: exact joint top at a cap in the band) | Lens |
+|---|---|---|---|---|
+| 1 | **Prime Landing** (A), the owner's example 1 on whole lines | "The y-intercept should be as close as possible to a prime number." | "That prime should be as big as possible.": 19.36 at ≥ 31, 22.10 at ≥ 37 · "The gradient's smallest prime factor should be as big as possible.": 18.23 at ≥ 23, 20.82 at ≥ 29 · "The gradient's largest prime factor should be as big as possible.": 18.72 at ≥ 29, 20.15 at ≥ 31 | y-intercept, factor tree |
+| 2 | **Square Area** (C), the owner's example 2 | "The triangle the line cuts off the axes should have an area as close as possible to a square number." | "The smallest prime factor of that square's root should be as big as possible.": 19.17 at ≥ 23, 21.76 at ≥ 29 · "The largest prime factor of that square's root should be as big as possible.": 19.66 at ≥ 29, 21.10 at ≥ 31 · "That square's root should have as many prime factors as possible.": 14.17 at ≥ 10, for a lower band | intercept triangle, factor tree |
+| 3 | **Whole Crossing** (C), new: B's Empty Tank, C's Whole Crossing; the owner's example 1 moved to the x-axis, where it is not trivial on whole lines | "The line should cross the x-axis as close as possible to a whole number." | "That whole number's smallest prime factor should be as big as possible.": 19.36 at ≥ 29, 20.80 at ≥ 31 · "That whole number's largest prime factor should be as big as possible.": 18.70 at ≥ 31, 21.44 at ≥ 37 · "The gradient's smallest prime factor should be as big as possible.": 16.99 at ≥ 13, 20.76 at ≥ 17 | x-intercept (solving y = 0) |
+| 4 | **Divisibility Ladder** (A), new: D §11 | "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible." | main capped at run ≥ 9 (13.0) or ≥ 11 (18.5): "The gradient's smallest prime factor should be as big as possible.": 22.98 at ≥ 5 (cap 11) · "The gradient's largest prime factor should be as big as possible.": 22.53 at ≥ 7 (cap 11) · "The gradient should be as steep as possible.": 20.80 at \|m\| ≥ 8 (cap 11; steps of ¼ bit) · "The gradient should be as close as possible to a prime.": 21.39 (cap 11) | table of values, multiples |
+| 5 | **Treasure** (B) | "When x is 2, y should be as close as possible to 37." | "The gradient's smallest prime factor should be as big as possible.": 17.63 at ≥ 19, 22.63 at ≥ 23 · "The gradient's largest prime factor should be as big as possible.": 17.63 at ≥ 19, 22.58 at ≥ 23 · "As many as possible of y(1) … y(8) should be different primes.": 15.18 at six (3 effective levels) | substitution, table |
+| 6 | **Same on Both Rulers** (B) | "The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to 6." | "The gradient's smallest prime factor should be as big as possible.": 19.68 at ≥ 13, 21.62 at ≥ 17 · "The gradient's largest prime factor should be as big as possible.": 19.26 at ≥ 13, 21.40 at ≥ 17 · "The gradient should be as far from 1 as possible.": 13.98, for a lower band | function machine |
+| 7 | **Prime Gradient** (A), the owner's rule 1 | "The gradient should be as close as possible to a prime number." | "That prime should be as big as possible.": 19.36 at ≥ 31, 22.10 at ≥ 37 · "The y-intercept's smallest prime factor should be as big as possible.": 18.23 at ≥ 23, 20.82 at ≥ 29 · "The y-intercept's largest prime factor should be as big as possible.": 18.72 at ≥ 29 | gradient, factor tree |
+| 8 | **Prime Staircase** (B·thin) | "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible." | "The first prime should be as big as possible.": 19.04 at ≥ 11, 20.85 at ≥ 13 (§10.4) · *near miss (19.6, two effective levels) and step back (16.7, 0.4 bits of range) are A–C but barely graded at the top: not dealt* | growth pattern |
+
+**Honest count.** Six families have three or more dealable A–C secondaries in the band: Prime Landing, Square Area,
+Whole Crossing, Divisibility Ladder, Treasure and Prime Gradient. Two have fewer:
+
+- Same on Both Rulers has two in the band, plus "steep" for a lower band.
+- Prime Staircase has one, the first prime. Its run of six fixes the step at a multiple of 30 and the last prime above
+  47, so its other secondaries have almost nothing left to order. It stays for its lens (the sequence), and a third
+  secondary is a design task. The gradient's largest prime factor, which climbs over m = 30·j, is the candidate; it is
+  not measured.
+
+**What changed from §9.2, and why.**
+
+| Family | Change | Reason |
+|---|---|---|
+| Ruler | **dropped** (replaced by Whole Crossing) | degenerate on line-z: the squared distance c²/(1 + m²) is a square only at m = 0, which the variant refuses (the spec session agrees) |
+| Exact Change | **dropped** (replaced by Divisibility Ladder) | degenerate on line-z: the coins are \|m\| and 1, so "ways to pay" is ⌊c/\|m\|⌋ + 1 and the story is gone; its upper rungs are not certified |
+| Pythagorean Area | **moved to reserve** (replaced by Prime Gradient) | class C, but on whole lines its top is one family (m = ±3u², c = ±6u) on which every listed secondary is flat or never exact: tops 9.9–13.9 |
+| Prime Staircase | **kept, reclassified** D → B·thin | its upper sets all need c prime (§10.2); first prime certified to 20.85 bits |
+| Prime Landing, Treasure, Same on Both Rulers | **secondaries re-expressed** | "gradient near a prime" (6.8, 14.2), "next prime" (4.5) and "\|c\| near a prime" (never exact) are A–C but low or flat on whole lines. They are replaced by the gradient's smallest and largest prime factor: the same idea (primes in the gradient), graded, and an exact Euler-type sum |
+| Square Area | prime-root secondary folded into "smallest prime factor of the root" | identical ladder at the top; one card instead of two |
+
+The pool's lenses are: the y-intercept, the gradient, the intercept triangle, the x-axis crossing, a table of
+multiples, substitution, the function machine and the sequence.
+
+**For the spec session (lib/v2-linear).**
+
+- Add the families Whole Crossing and Divisibility Ladder.
+- Add the tie-breakers spf and gpf of m to Prime Landing, Treasure and Same on Both Rulers, and spf and gpf of c to
+  Prime Gradient.
+- Remove ruler, exact-change and pythagorean-area from `beginnerFamilies` (decision 15: delete).
+- Declare `lineSums` for each family as follows:
+  - Prime Landing, Prime Gradient and Divisibility Ladder: `separable`;
+  - Treasure, Same on Both Rulers and Prime Staircase: `band`, with one point or the primes;
+  - Square Area and Whole Crossing: `support`, with the closed totals Z₃/(16Z) and ¼ + Z₂/(4Z).
+
+### 10.6 The second pool, briefly
+
+On line-z, only these second-pool candidates are A–C:
+
+- m Meets c (B): the shared number's spf gives 20.09 at ≥ 13 and its gpf 19.42 at ≥ 13; size reaches 13.3;
+- Parabola Chord (C, by factorisation c = −r₁r₂);
+- Parabola Kiss (B);
+- Prime Run and Cunningham Machine (B·thin);
+- Same Reading with Ω of the fixed point (C);
+- Pick's Pegs and Catch-Up (C);
+- Pythagorean Area (C, low on Z).
+
+Only m Meets c and Pythagorean Area have exact values here. The others have a class and a recipe but no numbers yet.
+
+The second pool's deepest families of §9.5 live on rational lines: Coin Line, Pythagoras' Corner, Pell Gradient,
+Euclid's Long Way, Twin Sum and Tangent Circle. On line-z they are degenerate. On line-q their classes are:
+
+- Coin Line: B (c = ab − a − b over the coins);
+- Pythagoras' Corner: C (rational Pythagorean slopes are parametrised);
+- Pell Gradient: D;
+- Euclid's Long Way: D/E;
+- Twin Sum: D (three primes, no thin coordinate);
+- Tangent Circle: D (Pell).
+
+None can be valued until line-q has an exact law.
+
+### 10.7 What is not settled
+
+- **line-q has no exact law yet.** exact.ts is for one whole-number line. I assume the rational variant's potential is
+  a product over the general form's coprime triple (a, b, g). If so, every class above carries over with a Möbius
+  factor for coprimality, but this is not checked.
+- **Middle rungs.** Below each main top, the main layer's middle rungs are certified only up to about 3 bits by the
+  generic sum at a 26-bit budget (about 8 bits at 34). Square Area's near-square rungs are class D. They rest on the
+  hybrid ladder's simulation, as decision 19's study proposes.
+- **Prime Staircase's middle runs (2–5)** lie inside its thin support too. The script reports them from the generic sum
+  only, so their exact values are a cheap follow-up.
+- **The new families and the proposed tie-breakers** (Whole Crossing, Divisibility Ladder, every spf/gpf tie-breaker,
+  and Prime Landing's and Prime Gradient's A pairs) are valued by closed forms and 1D sums in the script, not by
+  lib-evaluated rules: the library does not have them yet. Square Area's closed form matches its lib-evaluated
+  enumeration (§10.4), and Prime Landing's matches the spec session's. The others should be re-run through `lineSums`
+  once implemented.
+- **The library's isPrime** is trial division to 10^5, so it is exact below 10^10. The thin enumerations here keep
+  |m| within 36-bit lists, so a few far terms of Prime Staircase's runs (up to about 2·10^10) may be misjudged. The
+  mass of such lines is below 2^−36. A Miller–Rabin isPrime in lib/v2-linear would remove the caveat.
+- **The band** (15–25 bits) is §9.2's working assumption, not a ruling; the caps above move with it.
