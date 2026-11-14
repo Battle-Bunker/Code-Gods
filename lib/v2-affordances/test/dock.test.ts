@@ -61,9 +61,9 @@ test("opening a pane shows it on the screen in view and takes nothing away; one 
   let v = applyView(EMPTY_VIEW, "view.openPane", { pane: "public-chat", place: "right" }, live).view;
   const tree = v.dock.live!;
   assert.deepEqual(dockPanes(tree).filter(p => p !== "public-chat"), dockPanes(defaultDock("live")), "every default pane stays");
-  assert.equal(formatDock(tree), "row(column(my-card 50, agents 50) 28, objects 42, column(feed 50, race|*public-chat 50) 30)");
+  assert.equal(formatDock(tree), "row(column(my-card 45, agents 55) 30, objects 40, column(feed 50, race|*public-chat 50) 30)");
   v = applyView(v, "view.openObject", { objectId: "o1" }, live).view;
-  assert.equal(formatDock(v.dock.live!), "row(column(my-card 50, agents 50) 28, column(objects 45, object 55) 42, column(feed 50, race|*public-chat 50) 30)");
+  assert.equal(formatDock(v.dock.live!), "row(column(my-card 45, agents 55) 30, column(objects 45, object 55) 40, column(feed 50, race|*public-chat 50) 30)");
   const room = applyView(EMPTY_VIEW, "view.openPane", { pane: "rules" }, { ...live, context: "room" }).view;
   assert.deepEqual(room.dock, {}, "the room page has no dock: the pane joins when a game shows it");
 });

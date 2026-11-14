@@ -18,14 +18,14 @@ test("each phase's default shows its panes side by side, none behind a tab", () 
     assert.deepEqual(visible(EMPTY_VIEW, phase).sort(), [...panes].sort(), phase);
   }
   assert.deepEqual(visible(EMPTY_VIEW, "live").sort(), ["agents", "feed", "my-card", "objects", "race"]);
-  // Usable sizes: at 1280 px every column is at least a quarter of the width, every pane at least half the height.
+  // Usable sizes: at 1280 px every column is at least a quarter of the width, every pane at least 40 % of the height.
   for (const phase of ["planning", "live", "ended", "replay"] as const) {
-    for (const l of dockGroups(dockFor(EMPTY_VIEW, phase)!)) assert.ok(l.rect.w >= 0.25 && l.rect.h >= 0.5, `${phase} ${l.group.active}`);
+    for (const l of dockGroups(dockFor(EMPTY_VIEW, phase)!)) assert.ok(l.rect.w >= 0.25 && l.rect.h >= 0.4, `${phase} ${l.group.active}`);
   }
 });
 
 test("opening One line keeps What just changed and the lines in view; opening more adds tabs, never evicts", () => {
-  const v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "live", "object"), "live");
+  let v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "live", "object"), "live");
   assert.deepEqual(visible(v, "live").sort(), ["agents", "feed", "my-card", "object", "objects", "race"]);
   for (const pane of ["public-chat", "rules", "assistant", "others-care"]) v = run(v, openPlan(v, "live", pane), "live");
   const tree = dockFor(v, "live")!;

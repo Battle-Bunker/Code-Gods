@@ -2,8 +2,8 @@
  * The desktop dock gives every open pane a usable size (playtest round 1, item 1), against the LIVE local engine. At
  * 1440×900 and 1280×720, in a practice game:
  *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
- *   its key element (the goal card's rule, the lines' sort, the act log, the agents' power, the leaderboard's chart,
- *   the results' "Watch the replay") lies wholly inside the pane, inside the window → opening One line keeps What just
+ *   its key elements (the goal card's rule, the lines' sort, the act log, the agents' power and the agent's stats line,
+ *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → opening One line keeps What just
  *   changed and the lines in view → a dragged gutter is stored and comes back after a reload.
  * At 390×844 the phone stays stacked, and the forge's "Open My agents" adds My agents to the stack (every other pane
  * stays in the jump row) and scrolls to it (a persona walk saw it replace the stack with Lines).
@@ -71,16 +71,17 @@ const inside = (inner: Box, outer: Box, slack = 1) =>
   inner.x >= outer.x - slack && inner.y >= outer.y - slack && inner.x + inner.width <= outer.x + outer.width + slack && inner.y + inner.height <= outer.y + outer.height + slack;
 
 /** The key element of each pane: what a player must see without scrolling. */
-const KEY: Record<string, string> = {
+const KEY: Record<string, string | string[]> = {
   overview: "[data-testid=text-next-step]",
   "my-card": "[data-testid=text-rule-parts]",
   forge: "[data-testid=select-forge-language]",
   objects: "[data-testid=lines-sort]",
   object: "[data-testid=text-line-points]",
   feed: "[data-testid=text-move-line], [data-testid=text-tug-line], [data-testid=feed-empty]",
-  agents: "[data-testid=text-own-power], [data-testid=agents-empty]",
+  // The agent's stats line (energy, moves, skips, failures, spend, points: round 2 saw it cut at 1440×900).
+  agents: ["[data-testid=text-own-power]", "[data-testid^=text-agent-work-]"],
   race: "[data-testid=race-chart], [data-testid=race-empty]",
-  results: "[data-testid=button-watch-replay]",
+  results: ["[data-testid=text-results-headline]", "[data-testid=button-watch-replay]"],
 };
 
 /** Every pane named is on screen with a usable body, and its key element is wholly inside it. */
@@ -93,10 +94,12 @@ async function usable(page: Page, panes: string[], what: string) {
     const box = await section.boundingBox() as Box;
     assert.ok(box.width >= 300 && box.height >= 220, `${what}: ${pane}'s body is ${Math.round(box.width)}×${Math.round(box.height)} px`);
     assert.ok(inside(box, screen), `${what}: ${pane} is inside the window (${JSON.stringify(box)})`);
-    const key = section.locator(KEY[pane]!).first();
-    await key.waitFor({ timeout: 30_000 });
-    const k = await key.boundingBox() as Box;
-    assert.ok(inside(k, box), `${what}: ${pane}'s key element (${KEY[pane]}) is cut: ${JSON.stringify(k)} in ${JSON.stringify(box)}`);
+    for (const sel of [KEY[pane]!].flat()) {
+      const key = section.locator(sel).first();
+      await key.waitFor({ timeout: 30_000 });
+      const k = await key.boundingBox() as Box;
+      assert.ok(inside(k, box), `${what}: ${pane}'s key element (${sel}) is cut: ${JSON.stringify(k)} in ${JSON.stringify(box)}`);
+    }
   }
 }
 

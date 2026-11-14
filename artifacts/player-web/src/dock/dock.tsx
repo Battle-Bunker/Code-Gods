@@ -6,7 +6,7 @@
  */
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from "react";
 import { readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
-import { useView } from "@/core/affordance-runtime";
+import { useRuntime, useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { onReveal } from "./open-pane";
 import { DockScopeContext, PaneBody, PaneHeader, usePaneName, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
@@ -46,18 +46,21 @@ function StackedDock({ panes }: { panes: string[] }) {
 }
 
 export function Dock({ phase, panes: components, stored: Stored }: { phase: GamePhase; panes: PaneComponents; stored?: StoredPaneComponent }) {
-  const view = useView();
+  const stored = useView();
   const wide = useWide();
+  // A room without AI shows no assistant, even one opened before AI was turned off.
+  const aiOff = !!useRuntime().context.room?.aiOff;
+  const view = useMemo(() => (aiOff ? { ...stored, panes: stored.panes.filter(p => p.pane !== "assistant") } : stored), [stored, aiOff]);
   const open = useMemo(() => shownPanes(view, phase), [view, phase]);
   const scope = useMemo(() => ({
-    phase, open,
+    phase, view, open,
     body: (pane: string) => {
       const slug = storedSlugOf(pane);
       if (slug && Stored) return <Stored slug={slug} />;
       const C = components[pane];
       return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
     },
-  }), [phase, open, components, Stored]);
+  }), [phase, view, open, components, Stored]);
   return (
     <DockScopeContext.Provider value={scope}>
       {wide

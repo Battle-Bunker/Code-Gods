@@ -16,10 +16,10 @@ import { DockviewReact, type DockviewApi, type DockviewReadyEvent, type Dockview
 import "dockview-react/dist/styles/dockview.css";
 import { dockKindOf, formatDock, isGroup, type DockNode } from "@workspace/v2-affordances";
 import { dockFor, type GamePhase } from "@workspace/v2-client";
-import { useRuntime, useView } from "@/core/affordance-runtime";
+import { useRuntime } from "@/core/affordance-runtime";
 import { toast } from "@/hooks/use-toast";
 import { fromDockview, toDockview } from "./adapter";
-import { PaneBody, PaneHeader, usePaneName } from "./pane-parts";
+import { PaneBody, PaneHeader, useDockScope, usePaneName } from "./pane-parts";
 
 function PaneContent(props: IDockviewPanelProps) {
   const pane = props.api.id;
@@ -44,7 +44,7 @@ export function sameDock(a: DockNode | null, b: DockNode | null): boolean {
 }
 
 export default function DesktopDock({ phase }: { phase: GamePhase }) {
-  const view = useView();
+  const { view } = useDockScope();
   const rt = useRuntime();
   const name = usePaneName();
   const tree = useMemo(() => dockFor(view, phase), [view.panes, view.dock, phase]); // eslint-disable-line react-hooks/exhaustive-deps

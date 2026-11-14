@@ -6,19 +6,23 @@ import { createContext, useCallback, useContext, type ReactNode } from "react";
 import { MoreHorizontal, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { PANES, PANE_IDS, isPaneId, paneTitle, storedSlugOf, type GamePhase, type OpenPane } from "@workspace/v2-client";
-import type { Place } from "@workspace/v2-affordances";
+import type { Place, ViewState } from "@workspace/v2-affordances";
 import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api, useLive } from "@/site/lib/convex";
 import { objectWord, useGame } from "@/sdk";
+import { useRuntime } from "@/core/affordance-runtime";
 import { usePaneOps } from "./open-pane";
 
 export type PaneComponents = Partial<Record<string, () => ReactNode>>;
 /** A stored panel's pane (`panel:<slug>`). */
 export type StoredPaneComponent = (props: { slug: string }) => ReactNode;
 
-/** What every pane of the dock needs: the phase, the panes shown, and how to draw a pane's body. */
-export interface DockScope { phase: GamePhase; open: OpenPane[]; body(pane: string): ReactNode }
+/**
+ * What every pane of the dock needs: the phase, the view state the dock draws (without the panes this room cannot
+ * show: the assistant in a room without AI), the panes shown, and how to draw a pane's body.
+ */
+export interface DockScope { phase: GamePhase; view: ViewState; open: OpenPane[]; body(pane: string): ReactNode }
 export const DockScopeContext = createContext<DockScope | null>(null);
 export function useDockScope(): DockScope {
   const scope = useContext(DockScopeContext);
@@ -65,7 +69,8 @@ export function PaneMenu({ pane }: { pane: string }) {
   const close = useAffordance("view.closePane");
   const ops = usePaneOps(phase);
   const name = usePaneName();
-  const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object");
+  const aiOff = !!useRuntime().context.room?.aiOff;
+  const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object" && !(aiOff && id === "assistant"));
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
