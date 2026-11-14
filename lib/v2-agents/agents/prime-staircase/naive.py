@@ -22,7 +22,7 @@ def score(m, c, p, tie):
     main = len(run)
     # main: how many different primes the pattern y(0), y(1), ... starts with (more is better)
     if tie == "first-prime":   # a bigger first prime is better
-        return [min(main, 6), run[0] if run else 0]
+        return [main, run[0] if run else 0]
     return [main]
 
 

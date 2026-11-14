@@ -19,7 +19,7 @@ function score(m, c, p) {
     main++;
   }
   const fm = factors(m) ?? [];                    // the gradient's prime factors ([] for 0, 1, -1)
-  return [Math.min(main, 11), fm.at(-1) ?? 1];   // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: the gradient's largest prime factor big is better
+  return [main, fm.at(-1) ?? 1];   // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: the gradient's largest prime factor big is better
 }
 
 const FAR = 6;      // how far one change may go

@@ -2,7 +2,9 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { fromMC, lineType, lineZ } from "@workspace/v2-linear";
-import { applyCalls, isInvalid, q } from "@workspace/v2-core";
+import { applyCalls, isInvalid, q, Qn } from "@workspace/v2-core";
+import { valueLookup } from "@workspace/v2-valuation";
+import { findValues } from "../src/harness.ts";
 import type { HostReply, HostRequest } from "@workspace/v2-sandbox";
 import { EngineHost, runAct, sandboxes, SPEC_ECONOMY, type RuleRef } from "../src/index.ts";
 
@@ -44,9 +46,9 @@ test("myScore charges the rule's views and reports each layer; myRule and budget
   const h = host();
   const s = ask(h, { op: "myScore" });
   assert.deepEqual(s.result.score, ["-1", "3"], "main part: −|m − c|; tie-breaker (the family's first, size): |c|");
-  assert.equal(s.result.layers[0].level, 6, "|m − c| = 1: the Z ladder's 'within 1' rung");
-  assert.equal(s.result.layers[0].top, 7);
-  assert.equal(s.result.layers[1].id, "size");
+  assert.deepEqual(s.result.layers.map((l: { id: string }) => l.id), ["gap", "size"]);
+  assert.equal(s.result.bits, null, "without the game's value function, no bits");
+  assert.equal("level" in s.result || "top" in s.result, false, "no levels (owner decision 23)");
   assert.equal(s.bits, PHI);
   const r = ask(h, { op: "myRule" }).result;
   assert.equal(r.tieBreaker, "size");
@@ -113,4 +115,16 @@ test("skips, invalid calls and broken programs change nothing and are charged th
   const compile = await act(`function agent(o) {`);
   assert.equal(compile.record.code, "COMPILE");
   assert.equal(compile.record.charge, 3 / 32);
+});
+
+test("with the rule's value function, myScore and rarity give the bits valueLookup gives at the utility (owner decision 23)", () => {
+  const vf = findValues("line-z", { family: "m-meets-c", params: {}, tieBreaker: "size" });
+  assert.ok(vf, "line-z m-meets-c/size has a committed value function");
+  const h = new EngineHost({ type: lineType, variant: lineZ, state, rule, energy: 50, values: vf! });
+  const look = valueLookup(vf!);
+  const s = ask(h, { op: "myScore" }).result;
+  assert.equal(s.bits, look(s.score.map((x: string) => Qn.parse(x))).bits);
+  assert.ok(s.bits > 0);
+  assert.equal(ask(h, { op: "rarity", score: ["0", "5"] }).result.bits, look([Qn.parse("0"), Qn.parse("5")]).bits);
+  assert.equal(ask(h, { op: "rarity", score: null }).result.bits, 0, "the worst score is worth nothing");
 });

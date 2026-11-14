@@ -22,7 +22,7 @@ def score(m, c, p):
         main += 1
     fm = factors(m) or []                           # the gradient's prime factors ([] for 0, 1, -1)
     mp = near(m, prime)
-    return [min(main, 11), -abs(m - mp)]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: a gradient close to a prime is better
+    return [main, -abs(m - mp)]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: a gradient close to a prime is better
 
 
 FAR = 4      # how far one change may go

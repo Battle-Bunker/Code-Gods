@@ -23,7 +23,7 @@ def score(m, c, p):
         if not is_prime and miss is None:
             miss = t
     main = len(run)
-    return [min(main, 6), run[0] if run else 0]   # main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better
+    return [main, run[0] if run else 0]   # main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better
 
 
 FAR = 6      # how far one change may go

@@ -96,7 +96,6 @@ const WHICH_BITS = Math.log2(Object.keys(MUTATORS).length);
 const phi = (s: Line) => codes.int(s.m) + codes.int(s.c);
 
 // --- The toy rules: a distance on the Z ladder d ≤ 13, 8, 5, 3, 2, 1, 0 (spec §12.5).
-const LADDER = [13n, 8n, 5n, 3n, 2n, 1n, 0n].map(t => q(t));
 function nearestPrimeDistance(m: bigint): bigint {
   const prime = (p: bigint) => { if (p < 2n) return false; for (let d = 2n; d * d <= p; d++) if (p % d === 0n) return false; return true; };
   for (let d = 0n; ; d++) if (prime(m - d) || prime(m + d)) return d;
@@ -234,8 +233,7 @@ export class FakeHost implements AgentHost {
   private score(): HostReply {
     const bits = this.chargeStatic("si", this.full("si"));
     const d = FAMILIES[this.rule.family].gap(this.state, this.rule.params);
-    const level = d === null ? 0 : LADDER.filter(t => cmp(d, t) <= 0).length;
-    return ok({ score: d === null ? null : [wire(q(-d.n, d.d))], level, top: LADDER.length, layers: [{ id: "gap", level, top: LADDER.length }], terms: [{ id: "gap", value: d === null ? null : wire(d) }] }, bits);
+    return ok({ score: d === null ? null : [wire(q(-d.n, d.d))], bits: null, layers: [{ id: "gap" }], terms: [{ id: "gap", value: d === null ? null : wire(d) }] }, bits);
   }
 
   /** Prices of `calls` applied in order from `state`, or why one is invalid. */

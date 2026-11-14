@@ -8,7 +8,7 @@ def agent(offer):
     def w(x):
         return str(x.numerator) if x.denominator == 1 else f"{x.numerator}/{x.denominator}"
     seen = [
-        g.family, g.card, before.level, before.top, w(before.main), "none" if before.tiebreak is None else "some",
+        g.family, g.card, "no bits" if before.bits is None else "bits", str(len(before.layers)), w(before.main), "none" if before.tiebreak is None else "some",
         w(t3), "no triangle" if isinstance(area, Undefined) else w(area),
         str(energy(offer)), str(price(offer, move("si.shift", k=0)) is None).lower(),
         str(prime(7)).lower(), str(prime(Fraction(9, 1))).lower(), str(prime(Fraction(1, 2))).lower(),
