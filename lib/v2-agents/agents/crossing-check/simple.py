@@ -62,6 +62,9 @@ def agent(offer):
     # A promise: on these lines, only moves that leave the other players at least as well off.
     if offer.object in PROTECT:
         plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]
+    # Contested (another player's move lowered your points here): only moves that raise your own points.
+    if hurt(offer):
+        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]
     if not plans:
         return None
     plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best
