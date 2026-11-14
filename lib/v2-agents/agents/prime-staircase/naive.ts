@@ -1,5 +1,5 @@
 // Prime Staircase · Naive (for learning)
-// Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime; the last prime of the run; the first non-prime term close to a prime; y(−1) close to a prime).
+// Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -18,15 +18,6 @@ function score(m, c, p, tie) {
   const main = run.length;
   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better)
   if (tie === "first-prime") return [Math.min(main, 6), run.length ? run[0] : 0];   // a bigger first prime is better
-  if (tie === "last-prime") return [Math.min(main, 6), run.length ? run[run.length - 1] : 0];   // a bigger last prime is better
-  if (tie === "near-miss") {   // the first term that is not prime should be close to a prime
-    const far = miss === null ? null : Q.abs(miss);
-    return [Math.min(main, 6), far === null ? null : Q.neg(Q.abs(Q.sub(far, near(far, prime))))];
-  }
-  if (tie === "step-back") {   // y(-1) close to a prime is better
-    const back = Q.abs(Q.sub(c, m));                // y(-1), ignoring its sign
-    return [Math.min(main, 6), Q.neg(Q.abs(Q.sub(back, near(back, prime))))];
-  }
   return [main];
 }
 

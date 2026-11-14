@@ -19,7 +19,11 @@ export interface CRange { readonly lo: bigint; readonly hi: bigint; readonly ste
 
 export interface LineSums<P> {
   readonly separable?: Readonly<Record<string, "m" | "c">>;
-  readonly band?: { fromMain(p: P): number; ranges(m: bigint, p: P): readonly CRange[] };
+  /**
+   * `fixed`: the ranges do not depend on m and are single points (Prime Staircase's primes). They are then evaluated
+   * whatever their size, and the lines with m beyond the budget are bounded by T(m) times their mass, not by T(m).
+   */
+  readonly band?: { fromMain(p: P): number; ranges(m: bigint, p: P): readonly CRange[]; readonly fixed?: boolean };
 }
 
 const abs = (x: bigint) => (x < 0n ? -x : x);
@@ -40,19 +44,16 @@ function areaBand(m: bigint, A: number, d: number): CRange[] {
 
 /** The plans, by family id. Rules on other object types, or families absent here, use the generic fallback. */
 export const lineSums: Readonly<Record<string, LineSums<any>>> = {
-  "prime-gradient": { separable: { near: "m", prime: "m", cPrime: "c" } },
-  "prime-landing": {
-    separable: { landing: "c", "big-prime": "c", "prime-gradient": "m" },
-    // c exactly a prime (the main layer's last threshold, 0): y(1) = m + c is then a sum over primes c.
-    band: { fromMain: () => 4, ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) },
-  },
+  "prime-gradient": { separable: { near: "m", prime: "m", "c-spf": "c", "c-gpf": "c" } },
+  "prime-landing": { separable: { landing: "c", "big-prime": "c", "m-spf": "m", "m-gpf": "m" } },
+  // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
+  "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },
   "m-meets-c": { band: { fromMain: () => 6, ranges: m => [{ lo: m - 1n, hi: m + 1n }] } },          // |m − c| ≤ 1
   "treasure": { band: { fromMain: () => 4, ranges: (m, p: { k: number; T: number }) => {       // |c + km − T| ≤ 4
     const c0 = BigInt(p.T) - BigInt(p.k) * m;
     return [{ lo: c0 - 4n, hi: c0 + 4n }];
   } } },
   "triangle-area": { band: { fromMain: () => 5, ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) } },   // within 2
-  "pythagorean-area": { band: { fromMain: () => 4, ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) } }, // within 2
   "same-on-both-rulers": { band: { fromMain: () => 4, ranges: (m, p: { T: number }) => {      // |c/(1 − m) − T| ≤ 2
     if (m === 1n) return [];
     const k = 1n - m, a = BigInt(p.T - 2) * k, b = BigInt(p.T + 2) * k;
@@ -64,4 +65,8 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
     const t = isqrt(2n * abs(m));
     return t * t === 2n * abs(m) ? [{ lo: -BIG, hi: BIG, step: t }] : [];
   } } },
+  // The x-axis crossing −c/m is whole exactly when m divides c.
+  "whole-crossing": { band: { fromMain: () => 7, ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) } },
+  // A run of one or more different primes from y(0) needs c prime: every rung above the first is a sum over the primes.
+  "prime-staircase": { band: { fromMain: () => 1, fixed: true, ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) } },
 };

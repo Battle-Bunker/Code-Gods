@@ -99,7 +99,8 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
   const states = births(lineType, lineZ, "parity", 3);
   for (const ts of all.filter(a => a.language === "typescript")) {
     const py = all.find(a => a.language === "python" && a.family === ts.family && a.kind === ts.kind && a.tieBreaker === ts.tieBreaker)!;
-    const tieBreaker = ts.tieBreaker ?? Object.keys(CATALOGUE.find(e => e.family === ts.family)!.tieBreakers)[1]!;   // starters: the second, not the default
+    const live = Object.keys(CATALOGUE.find(e => e.family === ts.family)!.tieBreakers).filter(tb => familyOf(ts.family).tieBreakers.some(t => t.id === tb));
+    const tieBreaker = ts.tieBreaker ?? live[1] ?? live[0]!;   // starters: the second the family still has, not the default
     for (const [i, state] of states.entries()) {
       const records = [];
       for (const a of [ts, py]) {
@@ -115,18 +116,11 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
   }
 });
 
-/**
- * Rules whose tie-breaker cannot move on whole-number lines, and why (reported to the spec session). On line-z the
- * Ruler's distance² c²/(m² + 1) is a square only when m = 0, which the rule refuses: the main part never reaches its
- * top, an agent chases d² → 1 (m = c, ever larger), and the whole distance stays 1.
- */
-const STUCK_TIE: Record<string, string> = { "ruler/far": "the main part has no exact solutions on whole-number lines" };
+/** Rules whose tie-breaker cannot move on whole-number lines, and why (reported to the spec session). None today. */
+const STUCK_TIE: Record<string, string> = {};
 /** Rules whose main part's top is out of reach in 25 turns of small moves from newborn lines: there it only has to rise. */
 const STUCK_MAIN: Record<string, string> = {
-  "ruler/far": "no exact solutions on whole-number lines", "ruler/prime-gradient": "no exact solutions on whole-number lines",
-  "ruler/square-area": "no exact solutions on whole-number lines",
   "prime-staircase/first-prime": "six different primes in a row (y = 30x + 7) is far from small lines",
-  "prime-staircase/last-prime": "as above", "prime-staircase/near-miss": "as above", "prime-staircase/step-back": "as above",
 };
 
 test("each example climbs both rungs: some line reaches the main part's top, some line's tie-breaker rises", async () => {

@@ -21,10 +21,9 @@
   "initialSamples": 64,
   "minLevels": 6
  },
- "status": "flagged",
+ "status": "hybrid",
  "reasons": [
-  "not within 2% after 30174081 steps (budget 32000000)",
-  "rung 5: simulated 6.171 ± 0.043 against exact 6.022"
+  "not within 2% after 30174081 steps (budget 32000000)"
  ],
  "rungs": [
   {
@@ -79,8 +78,8 @@
    "label": "a run of primes at least 1",
    "layer": 0,
    "main": 1,
-   "bits": 3.8745,
-   "error": 0.0149,
+   "bits": 3.8887,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -91,8 +90,8 @@
    "label": "a run of primes at least 1; y(0) at least 7",
    "layer": 1,
    "main": 1,
-   "bits": 6.0221,
-   "error": 0.0662,
+   "bits": 6.087,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -103,8 +102,8 @@
    "label": "a run of primes at least 1; y(0) at least 17",
    "layer": 1,
    "main": 1,
-   "bits": 6.78,
-   "error": 0.1119,
+   "bits": 6.891,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -115,8 +114,8 @@
    "label": "a run of primes at least 1; y(0) at least 23",
    "layer": 1,
    "main": 1,
-   "bits": 6.8143,
-   "error": 0.1146,
+   "bits": 6.9283,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -126,8 +125,8 @@
    "label": "a run of primes at least 2",
    "layer": 0,
    "main": 2,
-   "bits": 6.8177,
-   "error": 0.1148,
+   "bits": 6.9322,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -138,9 +137,9 @@
    "label": "a run of primes at least 2; y(0) at least 7",
    "layer": 1,
    "main": 2,
-   "bits": 8.7582,
-   "error": 0.0924,
-   "source": "simulated"
+   "bits": 8.6227,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -150,9 +149,9 @@
    "label": "a run of primes at least 2; y(0) at least 17",
    "layer": 1,
    "main": 2,
-   "bits": 9.0926,
-   "error": 0.0983,
-   "source": "simulated"
+   "bits": 8.9254,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -162,9 +161,9 @@
    "label": "a run of primes at least 2; y(0) at least 23",
    "layer": 1,
    "main": 2,
-   "bits": 9.0958,
-   "error": 0.0987,
-   "source": "simulated"
+   "bits": 8.9389,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -173,9 +172,9 @@
    "label": "a run of primes at least 3",
    "layer": 0,
    "main": 3,
-   "bits": 9.0962,
-   "error": 0.0988,
-   "source": "simulated"
+   "bits": 8.9401,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -185,9 +184,9 @@
    "label": "a run of primes at least 3; y(0) at least 7",
    "layer": 1,
    "main": 3,
-   "bits": 10.7836,
-   "error": 0.2892,
-   "source": "simulated"
+   "bits": 10.7223,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -197,9 +196,9 @@
    "label": "a run of primes at least 3; y(0) at least 17",
    "layer": 1,
    "main": 3,
-   "bits": 11.7118,
-   "error": 0.3718,
-   "source": "simulated"
+   "bits": 11.5621,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -209,9 +208,9 @@
    "label": "a run of primes at least 3; y(0) at least 23",
    "layer": 1,
    "main": 3,
-   "bits": 11.7224,
-   "error": 0.3749,
-   "source": "simulated"
+   "bits": 11.5908,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -220,9 +219,9 @@
    "label": "a run of primes at least 4",
    "layer": 0,
    "main": 4,
-   "bits": 11.723,
-   "error": 0.3754,
-   "source": "simulated"
+   "bits": 11.5923,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -232,9 +231,9 @@
    "label": "a run of primes at least 4; y(0) at least 7",
    "layer": 1,
    "main": 4,
-   "bits": 11.7963,
-   "error": 0.38,
-   "source": "simulated"
+   "bits": 11.883,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -244,9 +243,9 @@
    "label": "a run of primes at least 4; y(0) at least 17",
    "layer": 1,
    "main": 4,
-   "bits": 12.2073,
-   "error": 0.3207,
-   "source": "simulated"
+   "bits": 12.1954,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -256,9 +255,9 @@
    "label": "a run of primes at least 4; y(0) at least 23",
    "layer": 1,
    "main": 4,
-   "bits": 12.2074,
-   "error": 0.3207,
-   "source": "simulated"
+   "bits": 12.2029,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -267,9 +266,9 @@
    "label": "a run of primes at least 5",
    "layer": 0,
    "main": 5,
-   "bits": 12.2074,
-   "error": 0.3207,
-   "source": "simulated"
+   "bits": 12.2048,
+   "error": 0,
+   "source": "exact"
   },
   {
    "score": [
@@ -279,9 +278,9 @@
    "label": "a run of primes at least 5; y(0) at least 7",
    "layer": 1,
    "main": 5,
-   "bits": 18.2789,
-   "error": 1.8138,
-   "source": "simulated"
+   "bits": 15.862,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -291,10 +290,9 @@
    "label": "a run of primes at least 5; y(0) at least 17",
    "layer": 1,
    "main": 5,
-   "bits": 18.3224,
-   "error": 1.8973,
-   "source": "simulated",
-   "empty": true
+   "bits": 16.2252,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -304,9 +302,9 @@
    "label": "a run of primes at least 5; y(0) at least 23",
    "layer": 1,
    "main": 5,
-   "bits": 18.3224,
-   "error": 1.8973,
-   "source": "simulated"
+   "bits": 16.234,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -315,10 +313,9 @@
    "label": "a run of primes at least 6",
    "layer": 0,
    "main": 6,
-   "bits": 18.3224,
-   "error": 1.8973,
-   "source": "simulated",
-   "empty": true
+   "bits": 16.2377,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -328,10 +325,9 @@
    "label": "a run of primes at least 6; y(0) at least 3",
    "layer": 1,
    "main": 6,
-   "bits": 18.3224,
-   "error": 1.8973,
-   "source": "simulated",
-   "empty": true
+   "bits": 16.2377,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -341,10 +337,9 @@
    "label": "a run of primes at least 6; y(0) at least 5",
    "layer": 1,
    "main": 6,
-   "bits": 18.3224,
-   "error": 1.8973,
-   "source": "simulated",
-   "empty": true
+   "bits": 16.2377,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -354,9 +349,9 @@
    "label": "a run of primes at least 6; y(0) at least 7",
    "layer": 1,
    "main": 6,
-   "bits": 18.3224,
-   "error": 1.8973,
-   "source": "simulated"
+   "bits": 16.2377,
+   "error": 0.0001,
+   "source": "exact"
   },
   {
    "score": [
@@ -366,9 +361,9 @@
    "label": "a run of primes at least 6; y(0) at least 11",
    "layer": 1,
    "main": 6,
-   "bits": 21.5775,
-   "error": 11.0309,
-   "source": "simulated"
+   "bits": 19.0405,
+   "error": 0.001,
+   "source": "exact"
   },
   {
    "score": [
@@ -378,9 +373,9 @@
    "label": "a run of primes at least 6; y(0) at least 13",
    "layer": 1,
    "main": 6,
-   "bits": null,
-   "error": null,
-   "source": "simulated"
+   "bits": 20.8459,
+   "error": 0.0036,
+   "source": "exact"
   },
   {
    "score": [
@@ -390,10 +385,9 @@
    "label": "a run of primes at least 6; y(0) at least 17",
    "layer": 1,
    "main": 6,
-   "bits": null,
-   "error": null,
-   "source": "simulated",
-   "empty": true
+   "bits": 26.8049,
+   "error": 0.2215,
+   "source": "exact"
   },
   {
    "score": [
@@ -403,10 +397,9 @@
    "label": "a run of primes at least 6; y(0) at least 19",
    "layer": 1,
    "main": 6,
-   "bits": null,
-   "error": null,
-   "source": "simulated",
-   "empty": true
+   "bits": 27.09,
+   "error": 0.2693,
+   "source": "exact"
   },
   {
    "score": [
@@ -416,10 +409,9 @@
    "label": "a run of primes at least 6; y(0) at least 23",
    "layer": 1,
    "main": 6,
-   "bits": null,
-   "error": null,
-   "source": "simulated",
-   "empty": true
+   "bits": 27.2532,
+   "error": 0.3012,
+   "source": "exact"
   },
   {
    "score": [
@@ -447,8 +439,8 @@
    "source": "simulated"
   }
  ],
- "cap": 12,
- "convergedCap": 12,
+ "cap": 32,
+ "convergedCap": 32,
  "tail": null,
  "dealable": true,
  "primarySense": "max",
@@ -460,111 +452,111 @@
     "enumeration",
     "enumeration",
     "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration",
-    "enumeration"
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band"
    ],
    "lo": [
     0,
     3.8595,
     3.8595,
     3.8595,
-    3.8595,
-    5.9559,
-    6.6681,
-    6.6997,
-    6.7029,
-    7.9846,
-    8.1714,
-    8.1793,
-    8.18,
-    8.9627,
-    9.164,
-    9.1694,
-    9.1696,
-    9.2196,
-    9.2646,
-    9.2655,
-    9.2657,
-    9.4502,
-    9.454,
-    9.4541,
-    9.4541,
-    9.4541,
-    9.4541,
-    9.4541,
-    9.4654,
-    9.4667,
-    9.4672,
-    9.4672,
-    9.4672,
-    9.4673,
-    9.4673
+    3.8887,
+    6.087,
+    6.891,
+    6.9283,
+    6.9322,
+    8.6227,
+    8.9254,
+    8.9389,
+    8.9401,
+    10.7222,
+    11.5621,
+    11.5907,
+    11.5923,
+    11.883,
+    12.1954,
+    12.2029,
+    12.2048,
+    15.8619,
+    16.2251,
+    16.2339,
+    16.2376,
+    16.2376,
+    16.2376,
+    16.2376,
+    19.0395,
+    20.8424,
+    26.5835,
+    26.8207,
+    26.952,
+    28.4748,
+    28.4988
    ],
    "hi": [
     0,
     3.8894,
     3.8894,
     3.8894,
-    3.8894,
-    6.0883,
-    6.8919,
-    6.9289,
-    6.9326,
-    8.6236,
-    8.9261,
-    8.9394,
-    8.9405,
-    10.7233,
-    11.5633,
-    11.5917,
-    11.5931,
-    11.8838,
-    12.196,
-    12.2034,
-    12.2052,
-    15.865,
-    16.2273,
-    16.2359,
-    16.2388,
-    16.2388,
-    16.2388,
-    16.2388,
-    19.0452,
-    20.8622,
-    27.6968,
-    27.6968,
-    27.6968,
-    null,
-    null
+    3.8887,
+    6.087,
+    6.891,
+    6.9283,
+    6.9322,
+    8.6227,
+    8.9254,
+    8.9389,
+    8.9401,
+    10.7223,
+    11.5621,
+    11.5908,
+    11.5923,
+    11.883,
+    12.1954,
+    12.2029,
+    12.2049,
+    15.8621,
+    16.2254,
+    16.2342,
+    16.2379,
+    16.2379,
+    16.2379,
+    16.2379,
+    19.0415,
+    20.8495,
+    27.0264,
+    27.3593,
+    27.5543,
+    34.1707,
+    36.9663
    ]
   },
   "simulation": {
@@ -2126,5 +2118,5 @@
    ]
   }
  },
- "contentHash": "b9c9c84b5fbdd691"
+ "contentHash": "2f582b886783eed8"
 }

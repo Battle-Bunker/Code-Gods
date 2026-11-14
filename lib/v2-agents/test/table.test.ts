@@ -31,7 +31,7 @@ test("model seats read, chat and replace through the directory's tools; a propos
   const bo: MockStep[] = [{ tools: [t("chat.list")] }, { tools: [t("chat.send", { text: "Deal! Line 2 it is." })] }, { text: "Accepted." }];
   const report = await runTable(boxes, {
     type: lineType, variant: lineZ, lines: 6, seed: "t", rounds: 2, acts: 2, energy: 600, income: 50,
-    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "last-prime"), seat("Cy", "naive", "prime-landing", "big-prime")],
+    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "first-prime"), seat("Cy", "naive", "prime-landing", "big-prime")],
     model: { provider: name => mockProvider(name === "Ada" ? ada : bo), budget: new Budget({ tokens: 10_000_000, usd: 5 }), every: 2 },
   });
   const [a, b, c] = report.seats;

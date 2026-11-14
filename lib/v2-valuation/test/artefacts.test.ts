@@ -39,12 +39,12 @@ test("call (g): the cap is the last rung through which every rung converged; lin
   assert.equal(cap(rungs, "too-coarse").dealable, false);
   assert.equal(cap([rung(0, 0), ...[1, 2, 3, 4, 5, 6, 7].map(b => rung(b / 4, 0.01))]).dealable, false);
   // The committed Prime Staircase + first-prime artefact on line-z is capped below its top (a hybrid: exact low rungs,
-  // simulated above, neither to the top): y = 30x + 7 (7, 37, 67, 97, 127, 157) scores as the cap.
+  // simulated above, neither to the top): y = 210x + 47 (a run of six from 47, above the cap's y(0) ≥ 23) scores as the cap.
   const { readFileSync, readdirSync } = await import("node:fs");
   const dir = new URL("../artefacts/line-z/prime-staircase/", import.meta.url);
   const a = JSON.parse(readFileSync(new URL(readdirSync(dir).find(f => f.endsWith("-first-prime.json"))!, dir), "utf8"));
   assert.ok(a.dealable && a.cap < a.rungs.length - 1);
-  const top = evaluateObject(lineType, primeStaircase, {}, { lines: [{ a: -30n, b: 1n, c: -7n }] }, lineZ, "first-prime").score;
+  const top = evaluateObject(lineType, primeStaircase, {}, { lines: [{ a: -210n, b: 1n, c: -47n }] }, lineZ, "first-prime").score;
   const { rungBits } = await import("../src/artefact.ts");
   assert.equal(bitsFor(a, top), rungBits(a, a.cap));
 });

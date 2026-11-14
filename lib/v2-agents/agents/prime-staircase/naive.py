@@ -1,5 +1,5 @@
 # Prime Staircase · Naive (for learning)
-# Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime; the last prime of the run; the first non-prime term close to a prime; y(−1) close to a prime).
+# Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -23,14 +23,6 @@ def score(m, c, p, tie):
     # main: how many different primes the pattern y(0), y(1), ... starts with (more is better)
     if tie == "first-prime":   # a bigger first prime is better
         return [min(main, 6), run[0] if run else 0]
-    if tie == "last-prime":   # a bigger last prime is better
-        return [min(main, 6), run[-1] if run else 0]
-    if tie == "near-miss":   # the first term that is not prime should be close to a prime
-        far = None if miss is None else abs(miss)
-        return [min(main, 6), None if far is None else -abs(far - near(far, prime))]
-    if tie == "step-back":   # y(-1) close to a prime is better
-        back = abs(c - m)                               # y(-1), ignoring its sign
-        return [min(main, 6), -abs(back - near(back, prime))]
     return [main]
 
 

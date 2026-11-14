@@ -24,7 +24,7 @@ test("Prime Gradient: distance to the nearest prime, then its size", () => {
   assert.equal(score(ev(primeGradient, {}, mc(Qn.q(5, 2), 0), lineQ)), "-1/2,2");
   assert.equal(score(ev(primeGradient, {}, abc(1, 0, -3), lineQ)), "WORST");
   assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, null)), "0");     // the main layer alone
-  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, "cPrime")), "0,-5"); // the other tie-breaker: c = −3, nearest prime 2
+  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, "c-gpf")), "0,3");   // another tie-breaker: c = −3, largest prime factor 3
   const cands = ev(primeGradient, {}, mc(4, -3)).marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref));
   assert.deepEqual(cands.sort(), ["cart.ghost(g=3)", "cart.ghost(g=5)"]);
 });

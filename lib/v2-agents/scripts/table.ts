@@ -25,7 +25,7 @@ const provider: ChatProvider = key ? anthropicProvider({ apiKey: key, model: che
 const budget = new Budget({ tokens: 50_000_000, usd: Number(o.usd) });
 
 const beginner = presets.find(p => p.id === "lines-beginner")!.rules;
-const RULES = [["treasure", "prime-terms"], ["prime-staircase", "last-prime"], ["square-area", "lpf"]] as const;
+const RULES = [["treasure", "prime-terms"], ["prime-staircase", "first-prime"], ["square-area", "lpf"]] as const;
 const NAMES = ["Ada", "Bo", "Cy"];
 const seat = (k: number, kind: SeatKind): TableSeat => {
   const [family, tieBreaker] = RULES[k]!;

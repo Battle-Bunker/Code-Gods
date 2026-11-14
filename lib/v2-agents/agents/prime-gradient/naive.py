@@ -1,5 +1,5 @@
 # Prime Gradient · Naive (for learning)
-# Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime; the y-intercept close to a prime too).
+# Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -16,11 +16,6 @@ def score(m, c, p, tie):
     # main: how far the gradient is from the nearest prime (closer is better)
     if tie == "prime":   # a bigger prime is better
         return [main, nearest]
-    if tie == "cPrime":   # the y-intercept close to a prime too
-        cp = near(c, prime)
-        if cp is None:
-            return None
-        return [main, -abs(c - cp)]
     return [main]
 
 

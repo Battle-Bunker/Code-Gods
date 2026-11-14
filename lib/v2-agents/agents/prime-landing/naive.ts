@@ -1,5 +1,5 @@
 // Prime Landing · Naive (for learning)
-// Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to a prime too; y(1) close to a prime too).
+// Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -12,11 +12,6 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
   // main: how far the y-intercept is from the nearest prime (closer is better)
   if (tie === "big-prime") return [main, landing];   // a bigger prime is better
-  if (tie === "prime-gradient") return [main, Q.neg(Q.abs(Q.sub(m, near(m, prime))))];   // a gradient close to a prime too is better
-  if (tie === "next-prime") {   // y(1) close to a prime too is better
-    const y1 = Q.abs(Q.add(m, c));                  // y(1) = m + c, ignoring its sign
-    return [main, Q.neg(Q.abs(Q.sub(y1, near(y1, prime))))];
-  }
   return [main];
 }
 

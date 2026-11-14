@@ -1,5 +1,5 @@
 // Treasure · Naive (for learning)
-// Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8); the gradient close to a prime; the y-intercept close to a square).
+// Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8)).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -14,8 +14,6 @@ function score(m, c, p, tie) {
     const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)
     return [main, primes.size];
   }
-  if (tie === "prime-gradient") return [main, Q.neg(Q.abs(Q.sub(m, near(m, prime))))];   // a gradient close to a prime is better
-  if (tie === "square-start") return [main, Q.neg(Q.abs(Q.sub(c, near(c, square))))];   // a y-intercept close to a square number is better
   return [main];
 }
 
