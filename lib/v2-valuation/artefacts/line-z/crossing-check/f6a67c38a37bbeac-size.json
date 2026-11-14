@@ -1,0 +1,229 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/crossing-check/{\"k\":1,\"q\":2}/tb=size",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "crossing-check",
+ "params": {
+  "k": 1,
+  "q": 2
+ },
+ "tieBreaker": "size",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "too-coarse",
+ "reasons": [
+  "ladder truncated at rung 7: no state found at rung 8 (|x(q)| at least 1) within 40000 climbing proposals",
+  "layer 1 (size) takes 1 distinct values where it counts, fewer than 6: too coarse to extend the ladder"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-13"
+   ],
+   "label": "y(k) to x(q) within 13",
+   "layer": 0,
+   "bits": 1.5179,
+   "error": 0.0176
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "y(k) to x(q) within 8",
+   "layer": 0,
+   "bits": 1.7152,
+   "error": 0.0171
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "y(k) to x(q) within 5",
+   "layer": 0,
+   "bits": 1.9484,
+   "error": 0.0181
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "y(k) to x(q) within 3",
+   "layer": 0,
+   "bits": 2.246,
+   "error": 0.0179
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "y(k) to x(q) within 2",
+   "layer": 0,
+   "bits": 2.5605,
+   "error": 0.0169
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "y(k) to x(q) within 1",
+   "layer": 0,
+   "bits": 2.6461,
+   "error": 0.0194
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "y(k) to x(q) exactly",
+   "layer": 0,
+   "bits": 9.7607,
+   "error": 0.1022
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0174,
+  "mixingSteps": 43.9018,
+  "steps": 13713502,
+  "samplesPerChain": 4096,
+  "distinctLevels": [
+   1754,
+   1
+  ],
+  "examples": [
+   "0,1,0",
+   "-13,1,1",
+   "-4,1,0",
+   "-1,1,0",
+   "2,1,0",
+   "1,1,0",
+   "1,1,0",
+   "2,1,-2"
+  ],
+  "split": [
+   0,
+   1.5323,
+   1.7262,
+   1.9627,
+   2.2673,
+   2.5858,
+   2.669,
+   9.8945
+  ],
+  "direct": [
+   0,
+   1.5323,
+   1.7181,
+   1.95,
+   2.2566,
+   2.5753,
+   2.6527,
+   null
+  ],
+  "levelMatrix": [
+   [
+    79349,
+    1038,
+    668,
+    614,
+    623,
+    140,
+    3281,
+    31
+   ],
+   [
+    983,
+    2840,
+    687,
+    369,
+    176,
+    74,
+    348,
+    3
+   ],
+   [
+    633,
+    792,
+    2793,
+    682,
+    298,
+    104,
+    608,
+    6
+   ],
+   [
+    669,
+    391,
+    738,
+    2971,
+    544,
+    145,
+    1030,
+    12
+   ],
+   [
+    590,
+    157,
+    313,
+    541,
+    2432,
+    148,
+    1244,
+    11
+   ],
+   [
+    133,
+    58,
+    81,
+    148,
+    122,
+    304,
+    286,
+    16
+   ],
+   [
+    3251,
+    381,
+    615,
+    1026,
+    1195,
+    309,
+    13869,
+    42
+   ],
+   [
+    81,
+    12,
+    32,
+    44,
+    62,
+    71,
+    166,
+    108
+   ]
+  ]
+ },
+ "contentHash": "42cc33b2535effe9"
+}

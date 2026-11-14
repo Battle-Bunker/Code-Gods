@@ -49,6 +49,8 @@ priority." So, in v2 work (decision 15):
   (integration plan §5.8). Old code lives only on the archive branch: no legacy copies, no adapters, no frozen v1
   directories kept "for reference" on `develop`.
 - No compatibility with stored games, old calibration tables, old settings or the old event log.
+- Every operation is an affordance in one directory (`lib/v2-affordances`, owner decision 16) that generates the
+  assistant tools, MCP, CLI, command palette and buttons; never add an operation to one surface by hand.
 - Nothing in v2 imports from the old rule/object/annotation/calibration libraries (`game-types`, `game-utilities`,
   `game-core`, `object-views`, `player-client`, `ai-player`, `game-runtime`); copy and clean what is good.
   `lib/v2-core/test/import-boundary.test.ts` enforces it.

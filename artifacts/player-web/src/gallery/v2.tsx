@@ -123,7 +123,7 @@ function FamilySection({ f }: { f: Family }) {
   return (
     <section className="g-rule" data-family={f.id}>
       <h3>{f.title}{f === emptyTank ? " (storyboard rule, not in v2-linear's pool)" : ""}</h3>
-      <p className="g-note">{f.card(p)}</p>
+      <p className="g-note">{f.card(p, f.tieBreakers[0]?.id ?? null)}</p>
       {lines.map(s => <LineRow key={lineType.encode(s)} rule={rule} state={s} />)}
     </section>
   );

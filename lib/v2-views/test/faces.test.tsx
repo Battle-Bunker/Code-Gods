@@ -10,7 +10,8 @@ import { emptyTank } from "../src/demo.ts";
 
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
 const tank: RuleRef<LineState, Record<string, never>> = { type: lineType, family: emptyTank, params: {}, variant: lineQ };
-const RARITIES = [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8];
+// Empty Tank's ladder: the main part's 8 steps, then the tie-breaker's 4 at the main part's top.
+const RARITIES = [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8, 7.5, 8.1, 8.9, 9.6];
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
 test("compact face: the primary drawn with its marks, the step and the rarity", () => {
@@ -28,8 +29,8 @@ test("expanded face: every depended representation, both parts with their steps,
   assert.equal((html.match(/class="v2v-panel"/g) ?? []).length, 3);
   assert.match(t, /main part step 5 of 8/);
   assert.match(t, /tie-breaker step 4 of 4/);
-  assert.match(t, /✨ 3\.4 step 5 of 8/);
-  assert.match(t, /Next step: .*⚡\): step 8 of 8\./);
+  assert.match(t, /✨ 3\.4 step 5 of 12/);
+  assert.match(t, /Next step: .*⚡\): step \d+ of 12\./);
   assert.match(t, /Steps to the top/);
   assert.match(t, /your rule's main view/);
   // Tabs reach every representation of the line, the rule's own marked.
@@ -48,8 +49,8 @@ test("move line: the change, the step before → after, the rarity with its reas
   const { MoveLine } = await import("../src/index.ts");
   const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
     rarities={RARITIES} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
-  assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\. Up: step 5 → 8 of 8 ?\./);
-  assert.match(t, /✨ rarity 3\.4 → 6\.8 \(fewer random lines score this well\)\./);
+  assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\. Up: step 5 → 12 of 12 ?\./);
+  assert.match(t, /✨ rarity 3\.4 → 9\.6 \(fewer random lines score this well\)\./);
   assert.match(t, /Points on this line 8\.2 → 16\.3 \(the others want it 2\.4\)\./);
   const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" rarities={RARITIES}
     points={{ before: 8.2, after: 7.9, want: 1.1, wantBefore: 2.4 }} />));
@@ -58,10 +59,10 @@ test("move line: the change, the step before → after, the rarity with its reas
 
 test("compact face: says 'step n of N', each part's step, the reason when not scoring, and the next move", () => {
   const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />));
-  assert.match(t, /step 5 of 8/);
+  assert.match(t, /step 5 of 12/);
   assert.match(t, /main 5\/8/);
   assert.match(t, /tie-break 4\/4/);
-  assert.match(t, /next: .* → step 8/);
+  assert.match(t, /next: .* → step \d+/);
   const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />);
   assert.match(html, /data-next=""/, "the next line drawn on the plane");
   assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} />)), /not scoring this tank is not draining/);

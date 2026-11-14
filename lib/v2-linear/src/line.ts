@@ -2,7 +2,7 @@
  * The line object (spec §12.1): a tuple of k lines, each the primitive integer triple (a, b, c) of a·x + b·y + c = 0
  * with gcd 1 and b > 0, or b = 0 and a > 0.
  */
-import { gcd, intBits, Qn, q, type Invalid, type Q, type Variant } from "@workspace/v2-core";
+import { gcd, mixedIntBits, Qn, q, type Invalid, type Q, type Variant } from "@workspace/v2-core";
 
 export interface Line {
   readonly a: bigint;
@@ -71,9 +71,9 @@ export const yAt = (l: Line, t: Q): Q => Qn.add(Qn.mul(slope(l), t), intercept(l
 /** x at y = t for a non-horizontal line. */
 export const xAt = (l: Line, t: Q): Q => q(-l.c * t.d - l.b * t.n, l.a * t.d);
 
-/** φ (spec §12.2). */
+/** φ (spec §12.2): the mixed number code (owner decision 17) on (m, c) for Z, on the primitive triple for Q. */
 export function lineBits(l: Line, p: LineParams): number {
-  return p.domain === "Z" ? intBits(-l.a) + intBits(-l.c) : intBits(l.a) + intBits(l.b) + intBits(l.c);
+  return p.domain === "Z" ? mixedIntBits(-l.a) + mixedIntBits(-l.c) : mixedIntBits(l.a) + mixedIntBits(l.b) + mixedIntBits(l.c);
 }
 
 export const encodeLine = (l: Line): string => `${l.a},${l.b},${l.c}`;

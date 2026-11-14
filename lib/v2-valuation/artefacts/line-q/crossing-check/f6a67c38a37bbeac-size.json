@@ -1,0 +1,330 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-q#27ee6970d0d6e90d/crossing-check/{\"k\":1,\"q\":2}/tb=size",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-q",
+ "variantHash": "27ee6970d0d6e90d",
+ "family": "crossing-check",
+ "params": {
+  "k": 1,
+  "q": 2
+ },
+ "tieBreaker": "size",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "unconverged",
+ "reasons": [
+  "ladder truncated at rung 10: no state found at rung 11 (|x(q)| at least 3) within 40000 climbing proposals",
+  "not within 2% after 18942443 steps (budget 32000000)"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "y(k) to x(q) within 8",
+   "layer": 0,
+   "bits": 2.3014,
+   "error": 0.0155
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "y(k) to x(q) within 4",
+   "layer": 0,
+   "bits": 2.7189,
+   "error": 0.0175
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "y(k) to x(q) within 2",
+   "layer": 0,
+   "bits": 3.3576,
+   "error": 0.026
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "y(k) to x(q) within 1",
+   "layer": 0,
+   "bits": 3.6074,
+   "error": 0.0249
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "y(k) to x(q) within 1/2",
+   "layer": 0,
+   "bits": 6.2146,
+   "error": 0.0581
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "y(k) to x(q) within 1/4",
+   "layer": 0,
+   "bits": 7.0856,
+   "error": 0.0618
+  },
+  {
+   "score": [
+    "-1/8"
+   ],
+   "label": "y(k) to x(q) within 1/8",
+   "layer": 0,
+   "bits": 8.8708,
+   "error": 0.0979
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "y(k) to x(q) exactly",
+   "layer": 0,
+   "bits": 9.7861,
+   "error": 0.1289
+  },
+  {
+   "score": [
+    "0",
+    "1"
+   ],
+   "label": "|x(q)| at least 1",
+   "layer": 1,
+   "bits": 10.4238,
+   "error": 0.1421
+  },
+  {
+   "score": [
+    "0",
+    "2"
+   ],
+   "label": "|x(q)| at least 2",
+   "layer": 1,
+   "bits": 13.175,
+   "error": 0.5719
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0201,
+  "mixingSteps": 68.7503,
+  "steps": 18942443,
+  "samplesPerChain": 4096,
+  "distinctLevels": [
+   4033,
+   14
+  ],
+  "examples": [
+   "0,2,1",
+   "-2,1,0",
+   "-9,8,1",
+   "2,1,0",
+   "-4,1,2",
+   "-5,3,0",
+   "3,2,-1",
+   "3,2,-1",
+   "-2,2,-1",
+   "-2,2,-1",
+   "1,2,-7"
+  ],
+  "split": [
+   0,
+   2.2277,
+   2.6811,
+   3.3154,
+   3.5587,
+   6.1807,
+   7.0362,
+   9.0855,
+   10.2273,
+   10.8271,
+   13.7697
+  ],
+  "direct": [
+   0,
+   2.2277,
+   2.6527,
+   3.2918,
+   3.5578,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    100118,
+    1026,
+    693,
+    171,
+    919,
+    54,
+    55,
+    11,
+    2,
+    5,
+    2
+   ],
+   [
+    1125,
+    4344,
+    847,
+    225,
+    440,
+    99,
+    46,
+    11,
+    5,
+    5,
+    1
+   ],
+   [
+    734,
+    825,
+    4482,
+    307,
+    822,
+    120,
+    130,
+    22,
+    11,
+    13,
+    2
+   ],
+   [
+    200,
+    234,
+    294,
+    1116,
+    208,
+    99,
+    50,
+    14,
+    9,
+    14,
+    2
+   ],
+   [
+    930,
+    445,
+    833,
+    183,
+    6617,
+    81,
+    57,
+    10,
+    5,
+    13,
+    2
+   ],
+   [
+    64,
+    81,
+    125,
+    86,
+    89,
+    346,
+    14,
+    8,
+    6,
+    5,
+    0
+   ],
+   [
+    318,
+    297,
+    710,
+    321,
+    445,
+    111,
+    2226,
+    38,
+    2,
+    8,
+    4
+   ],
+   [
+    1005,
+    951,
+    1769,
+    1223,
+    1263,
+    815,
+    451,
+    5000,
+    3,
+    21,
+    15
+   ],
+   [
+    3147,
+    2760,
+    6185,
+    4741,
+    4427,
+    1946,
+    211,
+    29,
+    10676,
+    21,
+    9
+   ],
+   [
+    9273,
+    7531,
+    15565,
+    15537,
+    22900,
+    5888,
+    2595,
+    359,
+    61,
+    40432,
+    31
+   ],
+   [
+    41,
+    44,
+    36,
+    18,
+    24,
+    11,
+    6,
+    4,
+    0,
+    0,
+    92
+   ]
+  ]
+ },
+ "contentHash": "52f9f53436f79ec5"
+}

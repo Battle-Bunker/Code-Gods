@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { isInvalid } from "@workspace/v2-core";
+import { isInvalid, mixedIntBits } from "@workspace/v2-core";
 import { describeLine, lineType, lineQ, lineZ, normalise } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
@@ -23,8 +23,10 @@ test("wire round trip, read length and descriptions", () => {
   const s = mc(2, 1);
   assert.deepEqual(lineType.decode(lineType.encode(s)), s);
   assert.throws(() => lineType.decode("2,-1,1"));   // not sign-normalised
-  assert.equal(lineType.readLength(mc(0, 0), lineZ), 2);  // int(0) + int(0)
-  assert.equal(lineType.readLength(mc(1, 5), lineZ), 3 + 7);
+  assert.equal(lineType.readLength(mc(0, 0), lineZ), 2);  // the centre: 0 and 0, one bit each
+  assert.equal(lineType.readLength(mc(1, 5), lineZ), mixedIntBits(1n) + mixedIntBits(5n));
+  // Mixed costing (owner decision 17): a large prime is dear, a large smooth number cheap.
+  assert.ok(lineType.readLength(mc(0, 47), lineZ) > lineType.readLength(mc(0, 48), lineZ) + 15);
   assert.equal(describeLine(mc(2, 1).lines[0]!), "y = 2x + 1");
   assert.equal(describeLine(abc(1, 0, -3).lines[0]!), "x = 3");
 });

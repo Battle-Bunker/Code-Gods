@@ -45,7 +45,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const site = props.site ?? 0;
   const e = a.sites[site]!.evaluation;
   const parts = a.sites[site]!.parts;
-  const rep = props.rep ?? props.rule.family.primary;
+  const rep = props.rep ?? props.rule.family.main.rep;
   const imp = useMemo(
     () => (props.next === true ? (a.level === a.top ? null : nearestImprovement(props.rule, props.state)) : props.next || null),
     [props.next, props.rule, props.state, a.level, a.top],
@@ -236,7 +236,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const sa = a.sites[site]!;
   const e = sa.evaluation;
   const depends = rule.family.depends;
-  const [active, setActive] = useState(props.initialRep ?? rule.family.primary);
+  const [active, setActive] = useState(props.initialRep ?? rule.family.main.rep);
   const [compare, setCompare] = useState<string | null>(null);
   const [hl, setHl] = useState<string | null>(null);
   const [activePart, setActivePart] = useState<number | null>(null);
@@ -269,14 +269,14 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       </header>
       {a.worst && <p className="v2v-worst">This line does not score for your rule: {a.worst}.</p>}
 
-      <RepSwitcher type={rule.type} depends={depends} primary={rule.family.primary} active={active} compare={compare} onActive={setActive} onCompare={setCompare} />
+      <RepSwitcher type={rule.type} depends={depends} primary={rule.family.main.rep} active={active} compare={compare} onActive={setActive} onCompare={setCompare} />
       <div className="v2v-panels" data-compare={compare ? "" : undefined}>
         {panels.map(id => (
           <section key={id} className="v2v-panel" data-active={id === active ? "" : undefined} data-compare={id === compare ? "" : undefined}
             data-depends={depends.includes(id) ? "" : undefined} aria-label={title(id)}>
             <h4 className="v2v-panel-title">
               {title(id)}
-              {id === rule.family.primary && <span className="v2v-panel-tag">your rule's main view</span>}
+              {id === rule.family.main.rep && <span className="v2v-panel-tag">your rule's main view</span>}
               {!depends.includes(id) && <span className="v2v-panel-tag" data-other="">not read by your rule</span>}
             </h4>
             <RepView type={rule.type} state={state} rep={id} size="expanded" site={site} marks={marks} terms={e.terms}
