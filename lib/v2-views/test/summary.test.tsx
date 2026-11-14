@@ -88,6 +88,9 @@ test("the component: three short sections, no steps, the noun of the object type
   const hh = renderToStaticMarkup(<GameSummary summary={hold} rule={g} />);
   assert.match(hh, /data-testid="text-summary-next"[\s\S]*class="v2v-grid"/, "the board drawn in the advice");
   assert.doesNotMatch(text(hh), /5 3 2 9 \//);
+  // A board cannot be held by the starters yet: its advice names no TARGET.
+  const gr = summarise({ rule: g, objects: [], rotates: true, tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
+  assert.doesNotMatch(gr.next.text, /TARGET|SETTLE/, gr.next.text);
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
@@ -103,4 +106,16 @@ test("the hold advice names the agent's settings for that line", () => {
   assert.equal(held.next.text, "Next game, hold line 24 at y = 2x + 7: it was worth 79.50 points to you there. In your agent's code: TARGET = { m: 2, c: 7 }; SETTLE = [24].");
   const people = summarise(base);
   assert.match(people.next.text, /then both hold it\. In your agent's code: SETTLE = \[4\] and TARGET = the line you agree\.$/);
+});
+
+test("in a rotation (the next game deals another rule) the advice is the lesson, with this game's line as its example", () => {
+  const practice = summarise({ ...base, rotates: true, tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
+  assert.equal(practice.next.text, "Next game, when your agent and another player's pull the same line back and forth, hold it at a line your rule likes: set TARGET and SETTLE in your agent's code. This game, line 24 at y = 2x + 7 was worth 79.50 points to you.");
+  const people = summarise({ ...base, rotates: true });
+  assert.equal(people.next.text, "Next game, when you and another player pull the same line back and forth, tell each other what your rules want, settle it at a line that suits you both, and both hold it: TARGET and SETTLE in your agent's code.");
+});
+
+test("a partial act log says so: the costs are from the moves read", () => {
+  const s = summarise({ ...base, movesRead: 1000 });
+  assert.match(s.costNote ?? "", /from your last 1,000 moves/);
 });

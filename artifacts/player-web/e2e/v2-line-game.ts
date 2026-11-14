@@ -192,7 +192,8 @@ try {
     assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
     assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
-    assert.match(main, /\d+(\.\d+)? (above|below) |\bon [−\d]|off by |exactly|: [−\d≈]/, `the main part says where the number is: ${main}`);
+    // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
+    assert.match(main, /\d+(\.\d+)? (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |undefined|cannot/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
@@ -209,6 +210,12 @@ try {
     await line.screenshot({ path: path.join(shots, `annotations-${label}-one-line.png`) });
     await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
     await line.screenshot({ path: path.join(shots, `annotations-${label}-parts.png`) });
+    // A contested line offers "Hold it here" first, with the starters' settings for it.
+    const hold = line.getByTestId("hold-it-here");
+    if (await hold.count()) {
+      assert.match(await hold.innerText(), /TARGET = \{ m: [−\-\d /]+, c: [−\-\d /]+ \}; SETTLE = \[\d+\]/);
+      await hold.screenshot({ path: path.join(shots, `annotations-${label}-hold.png`) });
+    }
     await shot(page, `game-${label}-line`);
 
 
@@ -225,7 +232,7 @@ try {
     const said = await summary.innerText();
     assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(settle line \d+ at|hold line \d+ at|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(settle line \d+ at|hold line \d+ |pull the same line back and forth|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();

@@ -47,6 +47,10 @@ export interface SummaryInput<S> {
   readonly tugs: readonly SummaryTug<S>[];
   /** The player's final total. */
   readonly total: number;
+  /** The next game deals another rule (a rotation): the advice is the lesson, this game's object its example. */
+  readonly rotates?: boolean;
+  /** Set when the act log was read only in part: how many moves the costs come from. */
+  readonly movesRead?: number | null;
 }
 
 export interface Summary<S = unknown> {
@@ -95,14 +99,25 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const tugs = [...input.tugs].sort((a, b) => b.mySpend - a.mySpend);
   const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} pulled ${noun} ${t.number} back and forth (${t.flips} pulls, ${fmtEnergy(t.mySpend)}).` }));
   const spent = tugs.reduce((t, x) => t + x.mySpend, 0);
-  const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all: energy that moved no ${noun} for good.` : null;
+  const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
+  const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
 
   // One thing to try. What pays on a contested line (docs/engine-v2/rule-compatibility.md) is settling it at a state
   // both sides like and holding it, not keeping off it: with people, agree it; with practice partners (who do not
   // talk), the state the pull passed through that was worth most to you, to hold next time.
   let next: Summary<S>["next"];
   const top = tugs[0];
-  if (top) {
+  // The starters can hold a line (TARGET and SETTLE); not yet a board.
+  const canHold = holdHere(rule.type, (input.objects[0]?.state ?? rule.type.origin(rule.variant)) as S, 0) !== null;
+  const code = (s: string) => (canHold ? s : "");
+  if (top && input.rotates) {
+    // The next game deals another rule: this line may mean nothing to it, so the lesson, with this game's example.
+    const shown = top.best ? written(rule, top.best.state) : null;
+    next = { number: top.number, text: top.practice
+      ? `Next game, when your agent and another player's pull the same ${noun} back and forth, hold it at a ${noun} your rule likes${code(": set TARGET and SETTLE in your agent's code")}.${top.best ? ` This game, ${noun} ${top.number}${shown ? ` at ${shown}` : " as drawn"} was worth ${pointsText(top.best.points)} to you.` : ""}`
+      : `Next game, when you and another player pull the same ${noun} back and forth, tell each other what your rules want, settle it at a ${noun} that suits you both, and both hold it${code(": TARGET and SETTLE in your agent's code")}.`,
+      ...(top.practice && top.best && written(rule, top.best.state) === null ? { state: top.best.state } : {}) };
+  } else if (top) {
     const at = `${noun} ${top.number}`;
     next = { number: top.number, text: !top.practice
       ? `Next game, tell each other what your rules want and settle ${at} at a ${noun} that suits you both; then both hold it.${holdHere(rule.type, top.best?.state ?? input.objects[0]?.state ?? (rule.type.origin(rule.variant) as S), top.number) ? ` In your agent's code: SETTLE = [${top.number}] and TARGET = the ${noun} you agree.` : ""}`
