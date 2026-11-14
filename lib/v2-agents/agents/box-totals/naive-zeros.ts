@@ -13,7 +13,7 @@ function score(b, p) {
   return [main, b.filter(x => x === 0).length];   // main: how far the corner boxes' totals are from T, added up (closer is better); tie-breaker: more 0s is better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 

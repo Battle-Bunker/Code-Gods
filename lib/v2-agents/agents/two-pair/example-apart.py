@@ -5,7 +5,7 @@
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 # a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
 # changes that keep them.
-# Try this: change FAR = 2 to 3 so a pair can jump further (it thinks longer: mind the step limit).
+# Try this: remove the "twin" line: can single cells push the pairs apart?
 
 
 def score(b, p):

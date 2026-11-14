@@ -15,7 +15,7 @@ def score(b, p):
     return [main, sum(b[:8])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
 
 
-FAR = 2      # how far one change may go
+FAR = 1      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 
 

@@ -5,7 +5,7 @@
 # there times the other players' rarity there added up, so where another player's move lowered your points it only
 # makes changes that keep them (a tug-of-war burns energy on both sides). It notes a tug-of-war for you, so you can
 # make a deal: LEAVE, PROTECT and TARGET below are how you keep one.
-# Try this: change FAR = 3 to 2: jumps of 2 only, cheaper moves.
+# Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
 
 def score(b, p):
@@ -16,7 +16,7 @@ def score(b, p):
     return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
 
 
-FAR = 3      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 6  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
@@ -48,7 +48,7 @@ def agent(offer):
     b = [int(v[n]) for n in NAME]   # their 16 numbers
     tries = []                 # (plan, board after): changes tried in the agent's own head
     for k in range(-FAR, FAR + 1):
-        if k * k < 4:          # only jumps of 2 or more
+        if k * k < 4:          # only steps of 2 (each costs two single steps)
             continue
         for i in range(16):   # move k from one cell to another (their total is kept)
             for i2 in range(i + 1, 16):

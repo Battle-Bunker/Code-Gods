@@ -5,7 +5,7 @@
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 // a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
 // changes that keep them.
-// Try this: change FAR = 2 to 3: a 0 folds onto a 3 (it thinks longer: mind the step limit).
+// Try this: remove the "trade" line: can single steps still make the zeros?
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
 function score(b, p) {

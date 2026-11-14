@@ -5,7 +5,7 @@
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 # a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
 # changes that keep them.
-# Try this: change FAR = 2 to 3 so a trade can reach a prime further away (it thinks longer: mind the step limit).
+# Try this: remove the "trade" line: can single cells reach the primes?
 
 
 def score(b, p):

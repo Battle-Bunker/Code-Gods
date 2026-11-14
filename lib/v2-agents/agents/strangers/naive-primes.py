@@ -22,7 +22,7 @@ def score(b, p):
     return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 
 
-FAR = 2      # how far one change may go
+FAR = 1      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 

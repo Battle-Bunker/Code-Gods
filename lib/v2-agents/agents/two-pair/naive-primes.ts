@@ -16,7 +16,7 @@ function score(b, p) {
   return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 

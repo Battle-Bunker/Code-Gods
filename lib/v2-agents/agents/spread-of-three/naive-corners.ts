@@ -16,7 +16,7 @@ function score(b, p) {
   return [main, b[0] + b[3] + b[12] + b[15]];   // main: how far each 2×2 square's spread is from 3, added up (closer is better); tie-breaker: bigger corners of the board are better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9

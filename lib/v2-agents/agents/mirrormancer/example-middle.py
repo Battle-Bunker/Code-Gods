@@ -16,7 +16,7 @@ def score(b, p):
     return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
 
 
-FAR = 3      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

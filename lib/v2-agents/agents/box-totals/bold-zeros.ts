@@ -5,7 +5,7 @@
 // there times the other players' rarity there added up, so where another player's move lowered your points it only
 // makes changes that keep them (a tug-of-war burns energy on both sides). It notes a tug-of-war for you, so you can
 // make a deal: LEAVE, PROTECT and TARGET below are how you keep one.
-// Try this: change FAR = 3 to 2: jumps of 2 only, cheaper moves.
+// Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
 function score(b, p) {
@@ -14,7 +14,7 @@ function score(b, p) {
   return [main, b.filter(x => x === 0).length];   // main: how far the corner boxes' totals are from T, added up (closer is better); tie-breaker: more 0s is better
 }
 
-const FAR = 3;      // how far one change may go
+const FAR = 2;      // how far one change may go
 const QUOTES = 6;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
@@ -42,7 +42,7 @@ function agent(offer) {
   const b = NAME.map(n => Q.toNumber(v[n]));   // their 16 numbers
   const tries = [];                 // [plan, board after]: changes tried in the agent's own head
   for (let k = -FAR; k <= FAR; k++) {
-    if (k * k < 4) continue;   // only jumps of 2 or more
+    if (k * k < 4) continue;   // only steps of 2 (each costs two single steps)
     for (let i = 0; i < 16; i++) for (let i2 = i + 1; i2 < 16; i2++) tries.push([[move("cells.add", { cell: NAME[i], k }), move("cells.add", { cell: NAME[i2], k: -k })], edit(b, [i, i2], j => (j ? -k : k))]);   // move k from one cell to another (their total is kept)
     for (let i = 0; i < 4; i++) tries.push([move("boxes.add", { box: "box" + i, k }), edit(b, BOXES[i], j => k)]);   // add k to every cell of a corner box
   }

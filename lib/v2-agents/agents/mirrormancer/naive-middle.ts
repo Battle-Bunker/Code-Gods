@@ -13,7 +13,7 @@ function score(b, p) {
   return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]];   // main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
