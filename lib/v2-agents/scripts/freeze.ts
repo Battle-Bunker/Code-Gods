@@ -13,7 +13,7 @@
 import { parseArgs } from "node:util";
 import { evaluateSite, q, type Q } from "@workspace/v2-core";
 import { LINES_BEGINNER_ECONOMY as E } from "@workspace/v2-economy";
-import { lineQ, lineType, lineZ, presets, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineQ, lineType, lineZ, presets, type LineState } from "@workspace/v2-linear";
 import { valueLookup } from "@workspace/v2-valuation";
 import { changeCharge, EngineHost, sandboxes, startersFor } from "../src/index.ts";
 import { findValues } from "../src/harness.ts";
@@ -70,6 +70,17 @@ const program = (family: string) => {
   return { language: a.language, source };
 };
 
+// A rule-knowing search for comparison: the best table total of any whole-number line with |m| <= 10, |c| <= 60.
+const tableTotal = (s: LineState) => { const n = bitsOf.map(b => b(s)), t = n.reduce((a, b) => a + b, 0); return n.reduce((a, x) => a + x * (t - x), 0); };
+let windowBest = 0;
+for (let m = -10; m <= 10; m++) if (m) for (let c = -60; c <= 60; c++) windowBest = Math.max(windowBest, tableTotal({ lines: [fromMC(q(m), q(c))] }));
+// The size of a line's numbers: its largest numerator or denominator (in y = mx + c), in decimal digits.
+const digits = (s: LineState) => {
+  const v = new EngineHost({ type: lineType, variant, state: s, rule: rules[0]!, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { ok: boolean; result?: { elements: { m: { q?: string }; c: { q?: string } } } };
+  if (!v.ok) return 0;
+  return Math.max(...[v.result!.elements.m.q, v.result!.elements.c.q].flatMap(x => (x ?? "0").replace("-", "").split("/")).map(x => x.length));
+};
+
 const boxes = sandboxes();
 const steps = (far: number) => Array.from({ length: far }, (_, k) => k + 1).flatMap(k => [k, -k]).flatMap(k => [
   { mutator: "si.shift", site: 0, args: { k: String(k) } }, { mutator: "si.tilt", site: 0, args: { k: String(k) } }]);
@@ -121,6 +132,9 @@ for (let g = 0; g < Number(o.games); g++) {
   const idle = r.seats.reduce((a, s) => a + s.lateIdleShare, 0) / r.seats.length;
   console.log(JSON.stringify({ table: o.table, agents: o.agents, variant: variant.id, births: Number(o.births), game: g, objects: r.objects,
     lateMoves: r.late.moves, lateObjectsMoved: r.late.objectsMoved, lateIdle: +idle.toFixed(2),
-    frozen: Object.fromEntries(Object.entries(frozen).map(([k, v]) => [k, +v.toFixed(2)])), gained: Math.round(r.seats.reduce((a, s) => a + s.gained, 0)) }));
+    frozen: Object.fromEntries(Object.entries(frozen).map(([k, v]) => [k, +v.toFixed(2)])), gained: Math.round(r.seats.reduce((a, s) => a + s.gained, 0)),
+    byMutator: Object.fromEntries(Object.entries(r.byMutator).map(([k, v]) => [k, { moves: v.moves, points: Math.round(v.points), charge: Math.round(v.charge) }])),
+    digits: { max: Math.max(...final.map(digits)), mean: +(final.reduce((a, s) => a + digits(s), 0) / final.length).toFixed(1) },
+    endpoint: { meanPerObject: +(final.reduce((a, s) => a + tableTotal(s), 0) / final.length).toFixed(1), bestPerObject: +Math.max(...final.map(tableTotal)).toFixed(1), windowBest: +windowBest.toFixed(1) } }));
 }
 await boxes.close();

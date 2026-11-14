@@ -110,6 +110,8 @@ export interface TableReport {
   readonly final: readonly unknown[];
   /** Dynamics: committed moves in the last 60 world seconds, and how many distinct objects they moved. */
   readonly late: { readonly moves: number; readonly objectsMoved: number };
+  /** Committed moves by their first mutator: how many, and the points they added for all seats together (dynamics). */
+  readonly byMutator: Readonly<Record<string, { readonly moves: number; readonly points: number; readonly charge: number }>>;
 }
 
 /** The tools a table answers: the server tools an AI seat is offered, less the room's admin. */
@@ -427,6 +429,12 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     chat: chat.map(({ from, text, at }) => ({ from, text, at })),
     deals: found.deals, usd, objects: lines.length, final: lines,
     late: (l => ({ moves: l.length, objectsMoved: new Set(l.map(e => e.object)).size }))(log.filter(e => e.at >= input.seconds - 60)),
+    byMutator: log.reduce<Record<string, { moves: number; points: number; charge: number }>>((acc, e) => {
+      const k = e.record.calls.map(c => c.mutator).join("+") || "?";
+      const x = (acc[k] ??= { moves: 0, points: 0, charge: 0 });
+      x.moves++; x.points += e.after.reduce((t, v, i) => t + v - e.before[i]!, 0); x.charge += e.charge;
+      return acc;
+    }, {}),
   };
 }
 
