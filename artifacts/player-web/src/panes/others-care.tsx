@@ -5,13 +5,15 @@
  * (worth offering in a deal), only you (no points until they want it too), nobody yet.
  */
 import { useMemo } from "react";
-import { objectWord, useDigest, useGame, useGameScope } from "@/sdk";
+import { objectWord, useDigest, useGame, useGameScope, useOthersBlurred } from "@/sdk";
+import { BLURRED_NOTE } from "@/core/words";
 import { CareScatter, slotColour } from "@/components/charts";
 import { CARE_KINDS, careCounts, carePoints } from "./chart-model";
 
 export function OthersCarePane() {
   const { seated } = useGameScope();
   const digest = useDigest();
+  const blurred = useOthersBlurred();
   const w = objectWord(useGame()?.variant);
   const points = useMemo(() => carePoints(digest?.packed), [digest?.packed]);
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="others-care-spectator">You are watching: this shows a player's own {w.many}, so it is empty for a spectator.</p>;
@@ -21,9 +23,9 @@ export function OthersCarePane() {
   return (
     <div className="space-y-3 p-3 text-sm" data-testid="others-care">
       <p className="text-xs text-muted-foreground">
-        How much the others want a {w.one} is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.
+        How much the others want a {w.one} is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.{blurred ? ` ${BLURRED_NOTE}` : ""}
       </p>
-      <CareScatter points={points} word={w} />
+      <CareScatter points={points} word={w} approx={blurred} />
       <ul className="space-y-1 text-xs" data-testid="others-care-counts">
         {CARE_KINDS.map(k => (
           <li key={k.kind} className="flex items-center gap-2" data-testid={`care-count-${k.kind}`}>

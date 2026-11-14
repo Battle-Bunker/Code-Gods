@@ -5,7 +5,7 @@
  */
 import { createContext, useContext, useMemo } from "react";
 import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
-import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
 import { useReplaying } from "@/core/affordance-runtime";
 import { callWords, moveSentence, moveWho } from "./move-line";
@@ -25,6 +25,7 @@ function lineText(state: unknown, rep: string, site: number, variant: string): s
 
 function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<string, string>; variant: string }) {
   const anonymous = useContext(AnonymousContext);
+  const blurred = useOthersBlurred();
   const length = useGame()?.worldSeconds ?? null;
   const notes = useContext(NotesContext).get(move.seq);
   // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
@@ -37,11 +38,11 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
     if (!board) try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
-    return moveSentence({ noun: objectWord(variant).one,
+    return moveSentence({ noun: objectWord(variant).one, approx: blurred,
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
       change, what: move.mine || !anonymous ? callWords(move.calls, variantOf(variant)) : null, before: move.before, after: move.after,
     });
-  }, [move, names, variant, board, anonymous]);
+  }, [move, names, variant, board, anonymous, blurred]);
   return (
     <li className={`space-y-0.5 px-4 py-2 ${move.mine ? "" : "text-muted-foreground"}`} data-testid={`row-move-${move.seq}`} data-mine={move.mine || undefined}>
       <p className="text-xs text-muted-foreground tabular-nums">

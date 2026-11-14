@@ -169,8 +169,8 @@ export const CARE_KINDS: readonly { kind: CareKind; slot: number | null; label: 
 ];
 
 /** A dot's hover text: the line's score in the one formula, and why it scores nothing when only you care. */
-export function careTitle(p: CarePoint, One = "Line"): string {
+export function careTitle(p: CarePoint, One = "Line", approx = false): string {
   const only = onlyYouNote(p.rarity, p.want, One.toLowerCase());
-  return `${One} ${p.number}: ${scoreFormula(p.rarity, p.want)}${only ? `. ${only}` : ""}`;
+  return `${One} ${p.number}: ${scoreFormula(p.rarity, p.want, approx)}${only ? `. ${only}` : ""}`;
 }
 

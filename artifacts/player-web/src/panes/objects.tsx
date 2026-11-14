@@ -7,14 +7,14 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { bitsText, num, othersNote, pointsText, scoreFormula } from "@/core/words";
+import { bitsText, num, othersNote, pointsText, scoreFormula, BLURRED_NOTE } from "@/core/words";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { stableOrder } from "./stable-order";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import type { Score } from "@workspace/v2-core";
 import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v2-views";
-import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule } from "@/sdk";
+import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule, useOthersBlurred } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { usePaneOps } from "@/dock/open-pane";
@@ -32,9 +32,9 @@ const YOURS = "#1f6f8b", OTHERS = "#b8336a", AREA = "rgba(217, 150, 30, 0.55)";
 const ROW_H = 214, SPECTATOR_ROW_H = 36;
 
 
-function PointsRectangle({ number, rarity, want, scale }: { number: number; rarity: number; want: number; scale: PayoffScale }) {
+function PointsRectangle({ number, rarity, want, scale, approx = false }: { number: number; rarity: number; want: number; scale: PayoffScale; approx?: boolean }) {
   const g = payoffRect({ rarity, want }, scale, SIDE);
-  const title = scoreFormula(rarity, want);
+  const title = scoreFormula(rarity, want, approx);
   const top = SIDE - g.height;
   const wText = num(rarity), hText = num(want);
   return (
@@ -53,6 +53,7 @@ function PointsRectangle({ number, rarity, want, scale }: { number: number; rari
 /** The colour coding, said once above the list in the formula's words. */
 function PointsKey() {
   const word = objectWord(useGame()?.variant);
+  const blurred = useOthersBlurred();
   const swatch = (c: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: c }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground" data-testid="text-points-key">
@@ -60,7 +61,7 @@ function PointsKey() {
       <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
       <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
       <BitsHelp testId="button-bits-help-lines" />
-      <span className="basis-full" data-testid="text-others-note">{othersNote(word.one)}</span>
+      <span className="basis-full" data-testid="text-others-note">{othersNote(word.one)}{blurred ? ` ${BLURRED_NOTE}` : ""}</span>
     </p>
   );
 }
@@ -83,6 +84,7 @@ function SortControl() {
 function LineRow({ objectId, number, rule, value, rep, scale, focused, contested, onOpen, variant }: {
   objectId: string; number: number; rule: GameRule | null; value: ((u: Score) => number) | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void; variant: string;
 }) {
+  const blurred = useOthersBlurred();
   const o = useMyObject(objectId);
   const word = objectWord(variant);
   const state = useMemo(() => (o ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,10 +111,10 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
       </p>
-      {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} />}
+      {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} approx={blurred} />}
       {v && (
         <p className="line-clamp-5 text-muted-foreground" data-testid={`text-why-line-${number}`}>
-          <span className="font-medium text-foreground">Why? </span>{whyLine({ rarity: v.rarityBits, want: v.want }, { sentence: main?.sentence, worst: a?.worst }, word.one)}
+          <span className="font-medium text-foreground">Why? </span>{whyLine({ rarity: v.rarityBits, want: v.want }, { sentence: main?.sentence, worst: a?.worst }, word.one, blurred)}
         </p>
       )}
     </div>

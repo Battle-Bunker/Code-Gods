@@ -28,6 +28,8 @@ export interface MoveSentenceInput {
   readonly what?: string | null;
   readonly before: MoveSnap;
   readonly after: MoveSnap;
+  /** Live, with the others' numbers blurred: the formula is an estimate ("about", ≈). */
+  readonly approx?: boolean;
   /** What the game calls its objects: "line" (the default) or "grid" (objectWord(variant).one). */
   readonly noun?: string;
 }
@@ -85,9 +87,9 @@ export function pointsCause(before: MoveSnap, after: MoveSnap, noun = "line"): s
  * "Points on this line 8.16 → 16.32: your 6.80 bits × others' 2.40 bits = 16.32 points", the others' bits before when
  * they changed, the reason when the points moved against your rarity, and why a line only you care about scores nothing.
  */
-export function pointsText(before: MoveSnap, after: MoveSnap, noun = "line"): string {
-  const formula = scoreFormula(after.rarityBits, after.want);
-  const was = same(before.want, after.want) ? "" : ` (others' bits were ${num(before.want)})`;
+export function pointsText(before: MoveSnap, after: MoveSnap, noun = "line", approx = false): string {
+  const formula = scoreFormula(after.rarityBits, after.want, approx);
+  const was = same(before.want, after.want) ? "" : ` (others' bits were ${approx ? "about " : ""}${num(before.want)})`;
   if (same(before.points, 0) && same(after.points, 0)) {
     const why = onlyYouNote(after.rarityBits, after.want, noun) ?? (same(after.rarityBits, 0) ? "It is not rare by your rule yet." : "");
     return `No points on this ${noun} yet: ${formula}${was}.${why ? ` ${why}` : ""}`;
@@ -113,7 +115,7 @@ export function moveSentence(i: MoveSentenceInput): string {
   const parts = [
     `${i.who} changed a ${i.noun ?? "line"}${change}${what}.`,
     same(i.before.rarityBits, 0) && same(i.after.rarityBits, 0) ? null : rarityText(i.before.rarityBits, i.after.rarityBits),
-    pointsText(i.before, i.after, i.noun),
+    pointsText(i.before, i.after, i.noun, i.approx),
   ];
   return parts.filter(Boolean).map(p => (p!.endsWith(".") ? p : `${p}.`)).join(" ");
 }
