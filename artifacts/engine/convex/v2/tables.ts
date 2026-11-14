@@ -154,6 +154,8 @@ export const v2Tables = {
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), memberId: v.id("v2Members"), number: v.number(),
     score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
     version: v.number(), changedAt: v.number(),
+    /** The last moves on it that concerned this player (at most HISTORY, oldest first): their agents' `history`. */
+    recent: v.optional(v.array(v.object({ mine: v.boolean(), pointsBefore: v.number(), pointsAfter: v.number() }))),
   }).index("by_object_member", ["objectId", "memberId"])
     .index("by_game_member_points", ["gameId", "memberId", "points"])
     .index("by_game_member_rarity", ["gameId", "memberId", "rarityBits"])

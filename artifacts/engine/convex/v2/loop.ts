@@ -78,8 +78,14 @@ async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule
   return { objectId, values };
 }
 
-/** Rewrites an object's state and every player's value; returns the values before and after. */
-async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, wire: string, world: number) {
+/** Whether a move is recorded for a player (a `v2Moves` row): their own, or one that changed their points. */
+const concerns = (mine: boolean, was: number, now: number) => mine || Math.abs(now - was) > CONCERN;
+
+/**
+ * Rewrites an object's state and every player's value; returns the values before and after. Each player the move
+ * concerns gets it on their row's `recent` (the last HISTORY, what actInputs tells their agents), beside its move row.
+ */
+async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, wire: string, world: number, mover: string) {
   const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
   await ctx.db.patch(st._id, { state: wire, version: st.version + 1, changedAt: world });
   const after = valuesOf(decode(wire, game.variant), game.variant, seats);
@@ -87,7 +93,9 @@ async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatR
   for (const val of after) {
     const row = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique())!;
     before.set(val.memberId, { memberId: val.memberId, score: row.score, rarityBits: row.rarityBits, want: row.want, points: row.points });
-    await ctx.db.patch(row._id, { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: row.version + 1, changedAt: world });
+    const mine = val.memberId === mover;
+    const recent = concerns(mine, row.points, val.points) ? [...(row.recent ?? []), { mine, pointsBefore: row.points, pointsAfter: val.points }].slice(-HISTORY) : undefined;
+    await ctx.db.patch(row._id, { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: row.version + 1, changedAt: world, ...(recent ? { recent } : {}) });
   }
   return { before, after, stateBefore: st.state };
 }
@@ -274,12 +282,9 @@ export const actInputs = internalQuery({
   handler: async (ctx, { gameId, memberIds, objectIds }) => {
     const out: { memberId: string; objectId: string; value?: { mine: number; others: number; points: number }; history: { mine: boolean; pointsBefore: number; pointsAfter: number }[] }[] = [];
     for (const objectId of objectIds) for (const memberId of memberIds) {
+      // One document a pair: the value row carries the last moves that concerned this player (changeObject).
       const val = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique();
-      const moves = await ctx.db.query("v2Moves").withIndex("by_game_member_object", q => q.eq("gameId", gameId).eq("memberId", memberId).eq("objectId", objectId)).order("desc").take(HISTORY);
-      out.push({
-        memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.want, points: val.points } } : {}),
-        history: moves.reverse().map(m => ({ mine: m.mine, pointsBefore: m.before.points, pointsAfter: m.after.points })),
-      });
+      out.push({ memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.want, points: val.points } } : {}), history: val?.recent ?? [] });
     }
     return out;
   },
@@ -364,7 +369,7 @@ export const commit = internalMutation({
         ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
       });
       if (!committed) continue;
-      const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world);
+      const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
       changes.push({ number: act.number, values: after, before });
       await appendEvent(ctx, game._id, "values", { objectId: act.objectId, number: act.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
       const gained = (after.find(x => x.memberId === act.memberId)?.points ?? 0) - (before.get(act.memberId)?.points ?? 0);
@@ -375,7 +380,7 @@ export const commit = internalMutation({
       for (const val of after) {
         const was = before.get(val.memberId)!;
         const mine = val.memberId === act.memberId;
-        if (!mine && Math.abs(val.points - was.points) <= CONCERN) continue;
+        if (!concerns(mine, was.points, val.points)) continue;
         await ctx.db.insert("v2Moves", {
           gameId: game._id, memberId: val.memberId as Id<"v2Members">, seq, worldSeconds: world, objectId: act.objectId, number: act.number,
           ...(mine ? { agentId: act.agentId, charge, ...(record.notes?.length ? { notes: record.notes } : {}) } : {}), mine, by: act.memberId as Id<"v2Members">,
