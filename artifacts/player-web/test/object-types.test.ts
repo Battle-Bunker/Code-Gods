@@ -29,7 +29,7 @@ test("a dealt grid rule resolves against the grid type, and its moves are descri
   assert.equal(familyOf(f.id), f);
   const rule = ruleRefOf({ family: f.id, params: f.dealable(grid4)[0], tieBreaker: f.tieBreakers[0]!.id } as never, "grid-4-d10")!;
   assert.equal(rule.type, gridType);
-  assert.equal(callWords([{ mutator: "cells.add", site: 0, args: { cell: "r0c1", k: "2" } }], grid4), "+2 in r0c1");
+  assert.equal(callWords([{ mutator: "cells.add", site: 0, args: { cell: "r0c1", k: "2" } }], grid4), "+2 in row 1, column 2");
   const choices = mutatorChoices(grid4);
   assert.deepEqual(choices.map(c => c.id), grid4.mutators);
   const out = whatIf({ rule, state: decodeState("0120/3001/0000/9000", "grid-4-d10"), call: { mutator: "cells.add", args: { cell: "r0c0", k: "1" } }, rarities: [0], want: null } as never);
