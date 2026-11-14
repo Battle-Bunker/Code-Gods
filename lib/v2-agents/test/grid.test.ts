@@ -27,6 +27,32 @@ const DESCRIBED = GRID_CATALOGUE.filter(e => gridType.families.some(f => f.id ==
 const all = shippedAgents().filter(a => DESCRIBED.some(e => e.family === a.family));
 const program = (a: ShippedAgent) => ({ language: a.language, source: a.source });
 
+/**
+ * What a rule's boards are worth: the committed artefact's rungs, or, for a family not calibrated yet, its own ladder
+ * with one bit a rung (rarity rising with the rung is all the points-aware starters rely on).
+ */
+const worthOf = (rule: { family: string; params: Record<string, unknown>; tieBreaker: string }) => valuer(gridType, grid4, rule, true);
+
+test("the starters without a tie-breaker (they read the dealt one) run, and the languages agree", async () => {
+  const [state] = births(gridType, grid4, "generic", 1);
+  for (const e of DESCRIBED) {
+    const tieBreaker = familyOf(e.family).tieBreakers.at(-1)!.id;
+    const rule = { family: e.family, params: paramsOf(e.family), tieBreaker };
+    const [ts, py] = (["typescript", "python"] as const).map(l => startersFor(e.family, l));
+    for (const [i, a] of ts!.entries()) {
+      const records = [];
+      for (const x of [a, py![i]!]) {
+        const { record } = await runAct(await boxes.get(x.language), { type: gridType, variant: grid4, state: state!, rule, program: program(x), seed: "1", energy: 500 });
+        assert.notEqual(record.outcome, "failed", `${e.family} ${x.title} (${x.language}): ${record.reason}`);
+        const { steps: _s, ...rest } = record;
+        records.push(rest);
+      }
+      assert.deepEqual(records[1], records[0], `${e.family} ${a.title}: the languages differ`);
+    }
+  }
+  assert.throws(() => startersFor("mirrormancer", "python", "no-such-tie-breaker"), /no tie-breaker/);
+});
+
 // ---------------------------------------------------------------- the host on a board
 
 // 1 2 3 4 / 0 0 0 0 / 5 6 7 8 / 9 0 1 2: boxes 3, 7, 20, 18; corners 1 + 4 + 9 + 2 = 16.
@@ -139,9 +165,9 @@ test("both languages make the same moves on newborn boards, with and without wha
   const states = births(gridType, grid4, "parity", 3);
   for (const ts of all.filter(a => a.language === "typescript")) {
     const py = all.find(a => a.language === "python" && a.family === ts.family && a.kind === ts.kind && a.tieBreaker === ts.tieBreaker)!;
-    const tieBreaker = ts.tieBreaker ?? familyOf(ts.family).tieBreakers.at(-1)!.id;   // starters: not the family's first
+    const tieBreaker = ts.tieBreaker!;   // every shipped grid agent is written for one tie-breaker
     const rule = { family: ts.family, params: paramsOf(ts.family), tieBreaker };
-    const v = valuer(gridType, grid4, rule);
+    const v = worthOf(rule);
     for (const [i, state] of states.entries()) for (const others of [undefined, 0, 40]) {
       const told = others === undefined ? {} : { rungs: v.rungs, value: { mine: v.bits(state), others, points: v.bits(state) * others } };
       const records = [];
@@ -156,7 +182,9 @@ test("both languages make the same moves on newborn boards, with and without wha
   }
 });
 
+
 test("each grid example climbs: some board's main part reaches its top, some board's tie-breaker rises", async () => {
+  const stuck: string[] = [];
   for (const e of DESCRIBED) {
     const f = familyOf(e.family), params = paramsOf(e.family);
     for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.id)) {
@@ -180,29 +208,30 @@ test("each grid example climbs: some board's main part reaches its top, some boa
         if (m1 === ladders[0]!.length - 1) mainTop = true;
         if (t1! > t0!) tieUp = true;
       }
-      assert.ok(mainTop, `${e.family}/${tb}: no board reached the main part's top`);
-      assert.ok(tieUp, `${e.family}/${tb}: no board's tie-breaker rose`);
+      if (!mainTop) stuck.push(`${e.family}/${tb}: no board reached the main part's top`);
+      if (!tieUp) stuck.push(`${e.family}/${tb}: no board's tie-breaker rose`);
     }
   }
+  assert.deepEqual(stuck, []);
 });
 
 test("the starters play for points: below their reserve they keep their energy where nobody else values the board, and pay where others do", async () => {
   for (const e of DESCRIBED) {
     const f = familyOf(e.family), tieBreaker = f.tieBreakers[0]!.id;
     const rule = { family: e.family, params: paramsOf(e.family), tieBreaker };
-    const v = valuer(gridType, grid4, rule);
+    const v = worthOf(rule);
     const [start] = births(gridType, grid4, `points-${e.family}`, 1);
     const run = async (a: ShippedAgent, others: number, energy: number) => (await runAct(await boxes.get(a.language), {
       type: gridType, variant: grid4, state: start!, rule, program: program(a), seed: "1", energy,
       rungs: v.rungs, value: { mine: v.bits(start!), others, points: v.bits(start!) * others },
     })).record.outcome;
     for (const language of ["typescript", "python"] as const) {
-      const [simple, thorough, bold, naive] = startersFor(e.family, language);
-      assert.equal(await run(naive!, 0, 200), "committed", `${e.family}: Naive pays on a board only it values`);
+      const [simple, thorough, bold, naive] = startersFor(e.family, language, tieBreaker);
+      assert.equal(await run(naive!, 0, 280), "committed", `${e.family}: Naive pays on a board only it values`);
       for (const a of [simple!, thorough!, bold!]) {
         const what = `${e.family} ${a.title} (${language})`;
-        assert.equal(await run(a, 0, 200), "skipped", `${what}: below its reserve, a board nobody else values is not worth a move`);
-        assert.equal(await run(a, 60, 200), "committed", `${what}: a board the others value is`);
+        assert.equal(await run(a, 0, 280), "skipped", `${what}: below its reserve, a board nobody else values is not worth a move`);
+        assert.equal(await run(a, 60, 280), "committed", `${what}: a board the others value is`);
         assert.equal(await run(a, 0, 500), "committed", `${what}: above its reserve it climbs`);
       }
     }

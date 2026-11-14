@@ -6,7 +6,7 @@
 import type { ObjectType } from "@workspace/v2-core";
 import { lineType } from "@workspace/v2-linear";
 import { GRID_CATALOGUE } from "./grid-catalogue.ts";
-import { exampleFor } from "./starters.ts";
+import { exampleFor, hasStarters } from "./starters.ts";
 
 /** The helpers every act's prelude defines, in both languages (lib/v2-sandbox/guest/helpers.{js,py}). */
 export const HELPERS: readonly { readonly name: string; readonly ts: string; readonly py: string; readonly says: string }[] = [
@@ -99,7 +99,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   },
   grid: {
     title: "grids", one: "board", many: "boards",
-    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards, made of a main part and a tie-breaker (for example \"each corner box of four cells should add up to 12; tie-breaker: the board's four corners as big as possible\").",
+    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards, made of a main part and a tie-breaker (for example \"every row should read the same backwards, like 3 1 1 3; tie-breaker: the middle two columns as big as possible\").",
     prices: "Amounts are priced by steps (a bigger k costs more), and a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
     deal: "\"I leave board 4's top row alone if you keep its corners big\"",
     typescript: "the same shape, with plain numbers (a view's numbers are Q: Q.toNumber reads them)",
@@ -108,7 +108,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
       peek: { ts: `peek(offer, "tally", "row0")`, py: `peek(offer, "tally", "row0")`, says: "one number of a view" },
       move: { ts: `move("cells.add", { cell: "r0c1", k: 2 })`, py: `move("cells.add", cell="r0c1", k=2)` },
     },
-    example: () => { const e = GRID_CATALOGUE[0]; return e ? [e.family, Object.keys(e.tieBreakers)[0]!] : null; },
+    example: () => { const e = GRID_CATALOGUE.find(x => hasStarters(x.family)); return e ? [e.family, Object.keys(e.tieBreakers)[0]!] : null; },
   },
 };
 

@@ -11,7 +11,7 @@ import {
   divisibilityLadder, fromMC, lineQ, lineZ, lineType, normalise, primeGradient, primeLanding, primeStaircase, sameOnBothRulers,
   squareArea, treasure, wholeCrossing, type Line, type LineState,
 } from "@workspace/v2-linear";
-import { annotate, projectRef, type RuleRef } from "../src/index.ts";
+import { annotate, meaningKey, projectRef, type RuleRef } from "../src/index.ts";
 import { fitViewport } from "../src/plot/viewport.ts";
 import { placeLabels, overlap } from "../src/plot/labels.ts";
 import { planeLayout, planeRenderer } from "../src/render/plane.tsx";
@@ -120,4 +120,18 @@ test("an area rule's triangle labels both legs at rest", () => {
   const legs = L.labels.filter(l => l.shown && l.text.startsWith("leg"));
   assert.deepEqual(legs.map(l => l.text).sort(), ["leg 7", "leg 7"]);
   assert.ok(legs.every(l => l.priority === 1));
+});
+
+test("Square Area draws the nearest square beside the triangle on equal scales, and not on unequal ones", () => {
+  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea, params: {}, variant: lineZ };
+  const layout = (s: LineState) => {
+    const e = annotate(rule, s).sites[0]!.evaluation;
+    const scene = lineType.representations.find(r => r.id === "tri")!.layout(s, 0);
+    return planeLayout({ rep: "tri", scene: scene as never, values: valuesOf(lineType, s, 0), marks: e.marks, terms: new Map(e.terms.map(t => [t.id, t])), size: "expanded", box: planeRenderer.box.expanded, project: (r, reps) => projectRef(lineType, r, reps), meaningOf: r => meaningKey(lineType, r) })!;
+  };
+  const L = layout(mc(-1, 7)); // area 24½, nearest square 25 = 5 × 5
+  assert.ok(L.square, "the square is drawn");
+  assert.equal(L.square!.label, "5 × 5 = 25");
+  assert.ok(L.square!.x >= 0 && L.square!.y >= 0 && L.square!.x + L.square!.side <= L.view.box.w && L.square!.y + L.square!.side <= L.view.box.h, "inside the drawing");
+  assert.equal(layout(mc(290, 59)).square, null, "unequal scales: no square");
 });
