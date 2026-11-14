@@ -182,3 +182,12 @@ test("stuck: when no move raises the points from here, the face says so", async 
   const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} moves={list} others={{ now: 1000, at: () => 0.01 }} />);
   assert.match(text(html), /Stuck here: no single move raises your points above/);
 });
+
+test("a blurred others' total can be negative: points use max(0, others), so no candidate shows negative points", async () => {
+  const { moves } = await import("../src/index.ts");
+  const s = mc(-3, 10);
+  const list = moves(tank, s, VALUE, { k: 4 });
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} moves={list} others={{ now: -3, at: () => -2, approx: true }} />);
+  for (const p of [...html.matchAll(/data-points="([^"]+)"/g)].map(x => Number(x[1]))) assert.ok(p >= 0, `points ${p}`);
+  assert.doesNotMatch(text(html), /−[\d.,]+ points/, "no negative points written");
+});

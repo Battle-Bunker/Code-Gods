@@ -88,3 +88,24 @@ test("live, another player's move on an object is unattributed; only the player'
   for (const r of rows) if (!r.mine) assert.equal(r.by, null, `seq ${r.seq}: ${JSON.stringify(r.by)}`);
   assert.ok(!JSON.stringify(rows).includes("Disc Bo"), "Bo is not named");
 });
+
+test("live, the others' total after a candidate is blurred like every other disclosed sum: the state's keyed noise, the same on every read, exact after the end", async () => {
+  const { noiseAt } = await import("../convex/v2/disclose.ts");
+  const g = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId], objects: 4, noise: true });
+  const objectId = g.objects[0]!;
+  const shift = { mutator: "si.shift", site: 0, args: { k: "1" } }, none = { mutator: "si.shift", site: 0, args: { k: "0" } };
+  const now = await bo!.query("v2/play:object", { objectId });
+  const live = await bo!.query("v2/play:othersAt", { objectId, calls: [shift, none] });
+  // A move that changes nothing answers exactly the disclosed (blurred) value the object shows: no difference to read.
+  if (live.after[1]?.state === now.state) assert.equal(live.after[1].want, now.value.want, "the no-op candidate is the shown want");
+  // Keyed by the state: the same answer on every read (nothing to average away).
+  const again = await bo!.query("v2/play:othersAt", { objectId, calls: [shift] });
+  assert.equal(again.after[0].want, live.after[0].want, "the same draw on a second read");
+  // After the end, exact; the live answer was the exact sum plus that state's noise, which is not zero.
+  await admin.mutation("v2/testing:markEnded", { gameId: g.gameId });
+  const exact = (await bo!.query("v2/play:othersAt", { objectId, calls: [shift] })).after[0];
+  const key = await admin.query("v2/testing:noiseOf", { gameId: g.gameId });
+  const noise = noiseAt(key, exact.state);
+  assert.ok(Math.abs(noise) > 1e-6, "the noise is not zero");
+  assert.ok(Math.abs(live.after[0].want - (exact.want + noise)) < 1e-9, `live ${live.after[0].want} = exact ${exact.want} + noise ${noise}`);
+});
