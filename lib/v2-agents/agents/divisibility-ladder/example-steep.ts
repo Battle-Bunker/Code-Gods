@@ -1,5 +1,5 @@
-// Divisibility Ladder · Example: the gradient steep
-// Main part: a run of n dividing y(n). Tie-breaker: the gradient steep.
+// Divisibility Ladder · Example: how steep the line is
+// Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: how steep the line is.
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
