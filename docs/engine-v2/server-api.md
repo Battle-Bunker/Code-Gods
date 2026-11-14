@@ -9,7 +9,7 @@ Code: `artifacts/engine/convex/v2/`.
 |---|---|---|
 | Tables | `convex/v2/tables.ts` | spread into `convex/schema.ts`; players are `v2Members` rows (human, practice, ai), so game tables key by `memberId` |
 | Live queries (subscriptions) | `rooms.ts`, `games.ts`, `play.ts`, `spectate.ts`, `layout.ts`, `replays.ts`, `bids.ts` | each declares `returns:` from `validators.ts`; app types come from the generated api (`FunctionReturnType<typeof api.v2.play.object>`) |
-| Operations | `ops/<namespace>.ts` | one `defineOp` per server affordance of `lib/v2-affordances` (`v2/ops/<ns>:<verb>` and its twin `<verb>As`); unbuilt ones answer `{ok: false, error: {code: "failed", message: "Not built yet: … W3-x"}}` |
+| Operations | `ops/<namespace>.ts` | one `defineOp` per server affordance of `lib/v2-affordances` (`v2/ops/<ns>:<verb>` and its twin `<verb>As`); every one is built. A domain failure is `{ok: false, error: {code: "failed", message, fix?}}` (a mutation throws it as a ConvexError whose data is the outcome) |
 | Caller and context | `access.ts`, `ops/define.ts` | sign-in everywhere; the affordance context is derived from v2's own rows; a credential bound to a room acts there only |
 | Lobby and deal | `lobby.ts`, `deal.ts`, `artefacts.ts` (+ `artefacts.gen.ts`, `scripts/gen-v2-artefacts.mjs`) | only rules with a converged artefact are dealt; rotation as v1, keyed by rule key |
 | Loop | `loop.ts` (world start, commit, scoreboard, pause, resume, end, watchdog), `tick.ts` (Node: births, offers, `runAct`) | one lease per live game; the commit owns every write |
