@@ -139,7 +139,7 @@ export async function summonPracticePartners(ctx: MutationCtx, game: Doc<"v2Game
     if (p.kind !== "practice") continue;
     const rule = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", p.memberId)).unique())!;
     const language: Language = k++ === 0 ? "typescript" : "python";
-    const starters = startersFor(rule.family, language).map(s => ({ s, price: priceOf(language, s.source) }));
+    const starters = startersFor(rule.family, language, rule.tieBreaker).map(s => ({ s, price: priceOf(language, s.source) }));
     // The Simple starter; in a room whose starting energy is too low for it, the dearest one that fits; else none.
     const fits = starters.filter(x => x.price <= p.energy).sort((x, y) => y.price - x.price);
     const pick = fits.find(x => x.s.kind === "simple") ?? fits[0];

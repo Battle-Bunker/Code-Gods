@@ -19,7 +19,7 @@ import { performAs } from "./perform";
 
 type Input = {
   roomId: string; userId: string; gameId: Id<"v2Games"> | null; memberId: Id<"v2Members">; name: string; grant: Grant; mode: Mode;
-  trigger: "autopilot" | null; history: ChatMessage[]; rule: { card: string; family: string } | null;
+  trigger: "autopilot" | null; history: ChatMessage[]; rule: { card: string; family: string; tieBreaker: string | null } | null;
 } | null;
 const INPUT = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, Input>("v2/assistantRun:turnInput");
 const STATUS = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, string | null>("v2/assistantCore:turnStatus");
@@ -68,7 +68,7 @@ export const turnInput = internalQuery({
     return {
       roomId: turn.roomId as string, userId: turn.userId, gameId: turn.gameId ?? null, memberId: member._id, name: member.name,
       grant: turn.grant, mode: turn.mode, trigger: turn.trigger ?? null, history: historyOf(rows),
-      rule: rule ? { card: rule.card, family: rule.family } : null,
+      rule: rule ? { card: rule.card, family: rule.family, tieBreaker: rule.tieBreaker } : null,
     };
   },
 });
@@ -86,7 +86,7 @@ export const run = internalAction({
       const scope = input.gameId ? { gameId: input.gameId as string } : {};
       const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope });
       const tools = assistantTools(caller.ctx);
-      const starters = input.rule ? startersFor(input.rule.family, "typescript").slice(0, 1).map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
+      const starters = input.rule ? startersFor(input.rule.family, "typescript", input.rule.tieBreaker).slice(0, 1).map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
       const system = assistantSystemPrompt({ context: caller.ctx.context, playerName: input.name, ...(input.rule ? { rule: input.rule.card } : {}), affordances: tools, starters }) +
         (input.mode === "readOnly" ? "\n\nMODE. Read-only: answer and explain; you cannot change anything." : "");
       result = await spendWithin(ctx, { roomId: input.roomId as Id<"v2Rooms">, ...(input.gameId ? { gameId: input.gameId } : {}), memberId: input.memberId, pool: "assistant" }, budget => runAssistant({
