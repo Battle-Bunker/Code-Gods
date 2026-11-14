@@ -55,21 +55,19 @@ export const deals = internalQuery({
     const game = await ctx.db.get(gameId);
     const me = game?.roster.find(r => r.memberId === memberId);
     if (!game || !me) return null;
-    const names = new Map(game.roster.map(r => [r.memberId as string, r.name]));
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
     // World time runs to endsAt (tick.ts); while paused it stands still at the clock's.
     const worldAt = (at: number) => game.endsAt !== undefined ? game.settings.worldSeconds - (game.endsAt - at) / 1000 : Math.min(clock?.worldSeconds ?? 0, (clock?.worldSeconds ?? 0) - (Date.now() - at) / 1000);
     const since = game.createdAt;   // deals struck while planning count too
     const chat = (await ctx.db.query("v2Chat").withIndex("by_room", q => q.eq("roomId", game.roomId).gte("at", since)).order("desc").take(CHAT_ROWS))
       .reverse().map(m => ({ from: m.from, text: m.text, at: worldAt(m.at) }));
-    // A row is the move as one player saw it: it lowered them when their points fell and someone else moved.
+    // What this seat may know, as a human player would (v1's public log: live moves are unattributed): its own agents'
+    // moves, and whether each lowered the others' summed bits as disclosed. Who moved against it is not known while live.
     const moves: MoveRow[] = [];
-    for (const r of game.roster) {
-      const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", gameId).eq("memberId", r.memberId)).order("desc").take(MOVE_ROWS);
-      // On the points as disclosed (disclose.ts): the noisy others' sums while live, as the players saw them.
-      for (const m of rows) if (m.by && m.by !== r.memberId && disclosed(game, m.after).points < disclosed(game, m.before).points)
-        moves.push({ by: names.get(m.by) ?? "", line: m.number, at: m.worldSeconds, lowered: [r.name] });
-    }
+    const others = game.roster.filter(r => r.memberId !== memberId).map(r => r.name);
+    const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", gameId).eq("memberId", memberId)).order("desc").take(MOVE_ROWS);
+    for (const m of rows) if (m.mine && disclosed(game, m.after).want < disclosed(game, m.before).want)
+      moves.push({ by: me.name, line: m.number, at: m.worldSeconds, lowered: others });
     const agents = await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).collect();
     return { me: me.name, chat, moves, programs: agents.filter(a => a.destroyedAt === undefined).map(a => a.source) };
   },

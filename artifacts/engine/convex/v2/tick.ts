@@ -106,7 +106,9 @@ export const tick = internalAction({
           rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
           ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
-          occupied: e => { const h = holder.get(e); return h !== undefined && h !== s.objectId; }, disclosed,
+          // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
+          // (including the object's own) fails entirely".
+          occupied: e => holder.has(e), disclosed,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.

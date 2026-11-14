@@ -18,7 +18,7 @@ import {
   agentEnergyV, agentProgramsV, agentRowV, digestV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
-import { disclosed, disclosesNoise, noiseAt } from "./disclose";
+import { attributed, disclosed, disclosesNoise, noiseAt } from "./disclose";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -167,12 +167,17 @@ export const moves = query({
     const page = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts));
     return {
       ...page,
-      page: page.page.map(m => ({
-        seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: m.agentId ?? null, mine: m.mine,
-        calls: m.calls, rep: m.rep, stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snapIn(game)(m.before), after: snapIn(game)(m.after), charge: m.charge ?? null,
-        by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
-        notes: m.notes ?? [],
-      })),
+      // Live, another player's move carries no mover, agent, calls or cost (attributed: v1's public log).
+      page: page.page.map(m => {
+        const open = attributed(game, m.mine);
+        return {
+          seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: open ? m.agentId ?? null : null, mine: m.mine,
+          calls: open ? m.calls : [], rep: open ? m.rep : "", stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snapIn(game)(m.before), after: snapIn(game)(m.after),
+          charge: open ? m.charge ?? null : null,
+          by: open && m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
+          notes: m.notes ?? [],
+        };
+      }),
     };
   },
 });
@@ -193,7 +198,8 @@ export const tugs = query({
     const nameOf = (id: string) => game.roster.find(r => r.memberId === id)?.name ?? "A player";
     return rows.map(t => ({
       objectId: t.objectId, number: t.number, moves: t.moves, flips: t.flips, mySpend: t.mySpend,
-      others: t.others.map(memberId => ({ memberId, name: nameOf(memberId) })), from: t.from, to: t.to, best: t.best,
+      // Live, a tug names nobody on the other side (v1's public log); an ended game does.
+      others: attributed(game, false) ? t.others.map(memberId => ({ memberId, name: nameOf(memberId) })) : [], from: t.from, to: t.to, best: t.best,
     }));
   },
 });
@@ -276,7 +282,7 @@ export const objectMoves = query({
       before: { rarityBits: m.before.rarityBits, ...disclosed(game, m.before) },
       after: { rarityBits: m.after.rarityBits, ...disclosed(game, m.after) },
       // Live, another player's move is unattributed (v1's public log, #587): only an ended game names who moved it.
-      by: m.by && (m.mine || game.phase === "ended") ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
+      by: m.by && attributed(game, m.mine) ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
     }));
   },
 });

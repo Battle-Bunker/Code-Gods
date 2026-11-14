@@ -79,6 +79,11 @@ shown are own × max(0, others shown). Stored exact, with `shownWant`/`shownPoin
 `standings` (the disclosed totals), `objects.list`, `moves.list`, `object.score`, the agents' `value`, `history` and
 `othersAfter` (the tick passes `disclosed`), tugs and agents' points gained all disclose. After the end: exact
 (standings, digest, values, moves); replays are exact. The noise key is never returned and not in the replay file.
+Live anonymity (v1's public log): a read about another player's move carries no mover (`by`), agent, calls or cost
+while live (`moves`, `objectMoves`, `moves.list`), a tug names nobody on the other side, and the AI seat's deal tracking
+knows only its own agents' moves; an ended game names them all. A move onto any held state, the object's own included,
+fails (v1): the tick's `occupied` counts the acting object's state.
+
 `v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 

@@ -10,6 +10,7 @@
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { readLeave, startersFor } from "@workspace/v2-agents";
+import { presetOf } from "../convex/v2/presets.ts";
 import { admin, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, roomId: string, gameId: string;
@@ -128,10 +129,10 @@ test("ready: the world starts when every human is ready", async () => {
     assert.ok(i < 60, "the own store accrues while the world runs, read as of now");
     await new Promise(r => setTimeout(r, 500));
   }
-  // The 24 starting objects, born at world second 0 (a slow first tick may already have added a birth).
+  // The preset's starting objects, born at world second 0 (a slow first tick may already have added a birth).
   const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   const born = await Promise.all(ids.map((o: any) => ada!.query("v2/spectate:object", { objectId: o.objectId })));
-  assert.equal(born.filter((o: any) => o.bornAt === 0).length, 24);
+  assert.equal(born.filter((o: any) => o.bornAt === 0).length, presetOf("lines-beginner").startingObjects);
 });
 
 test("reads: a representation, an element, a quote and a score, as an agent is told them", async () => {
@@ -213,7 +214,8 @@ test("pause once, resume by the owner, end by the owner", async () => {
   const energy = await ada!.query("v2/play:agentEnergy", { agentId: (await ada!.query("v2/play:agents", { gameId }))[0].agentId });
   assert.ok(energy.acts > 0 || moves.page.length > 0, "Ada's agent acts once the world runs");
   for (const m of moves.page) {
-    assert.ok(m.by && (m.mine ? m.by.name === "Play Ada" : m.by.name !== "Play Ada"), `every move names its mover: ${JSON.stringify(m.by)}`);
+    // Live, only Ada's own moves name their mover; another player's move is unattributed (v1's public log).
+    assert.ok(m.mine ? m.by?.name === "Play Ada" : m.by === null && m.calls.length === 0, `only Ada's own moves are attributed while live: ${JSON.stringify(m.by)}`);
     if (!m.mine) assert.equal(m.charge, null, "another player's spend is theirs");
     assert.ok(Array.isArray(m.notes) && (m.mine || m.notes.length === 0), "notes are the caller's own agent's");
     if (m.mine) {   // Ada's one agent, which notes its bits on every move

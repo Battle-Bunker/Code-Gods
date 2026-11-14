@@ -54,7 +54,19 @@ test("while live every others' sum is the exact one plus its state's noise, the 
   assert.ok(totals.shown, "the engine keeps disclosed totals");
   assert.ok(live.rows.some((r: any) => !close(r.total, totals.exact[r.memberId] ?? 0, 1e-3)), "the published standings are not the exact totals");
 
+  // Live anonymity (v1's public log): another player's move carries no mover, agent, calls or cost; tugs name nobody.
+  const liveMoves = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  const theirs = liveMoves.filter((m: any) => !m.mine);
+  assert.ok(theirs.length > 0, "another player's moves concerned Ada");
+  for (const m of theirs) assert.deepEqual([m.by, m.agentId, m.calls, m.charge], [null, null, [], null], "unattributed while live");
+  for (const m of liveMoves.filter((x: any) => x.mine)) assert.ok(m.by && m.calls.length > 0, "Ada's own moves keep their calls");
+  for (const t of await ada!.query("v2/play:tugs", { gameId })) assert.deepEqual(t.others, [], "a live tug names nobody");
+  const listed = await perform(ada!, "moves.list", { limit: 50 }, { gameId }, "query");
+  for (const m of listed.result.page.filter((x: any) => !x.mine)) assert.deepEqual([m.agentId, m.calls, m.charge], [null, [], null]);
+
   assert.equal((await perform(ada!, "game.end", {}, { gameId })).ok, true);
+  const ended = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.filter((m: any) => !m.mine);
+  assert.ok(ended.length > 0 && ended.every((m: any) => m.by && m.calls.length > 0), "after the end every move names its mover and calls");
   for (const objectId of ids.slice(0, 8)) {
     const a = await ada!.query("v2/play:object", { objectId });
     const ea = await admin.query("v2/testing:valueOf", { objectId, userId: ada!.userId });

@@ -766,6 +766,15 @@ This is today's payoff with no defence goal (`lib/game-core/src/scoring.ts`, `π
 n ≥ 0 the max is redundant). Disclosure is unchanged: a player sees its own n_i, the peer sum Σ_{j≠i} n_j and π_i per
 object, and everyone sees standings. Hold rarity and defence goals are not part of v2's first version.
 
+**Disclosure while live (v1's public log, restored).** While a game is live a player sees the peer sum with the
+disclosure noise (`peerNoiseBits`, σ bits, default 8: a keyed function of the object's state, one draw for every
+viewer, so own + others shown is one salience), and π_i and the standings built on the noisy sum; stored values are
+exact and an ended game shows everything exact. Nothing a player reads about another player's transformation says who
+made it (no mover, agent, calls or cost) until the end. **Any conditional act** (v1's `only_if_better`: commit only if
+it raises the owner's payoff) must decide on the disclosed values (own exact, others with their noise), never the exact
+ones: each conditional act answers one comparison, so deciding on exact values would let an agent binary-search the
+exact peer sum in about a dozen acts (public-log-design.md §5.2 on archive/engine-v1). v2 has no conditional act yet.
+
 ## 9. The event log and replay
 
 ### 9.1 Events
