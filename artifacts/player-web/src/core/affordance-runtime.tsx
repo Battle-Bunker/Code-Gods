@@ -21,7 +21,19 @@ import { VIEW_OP_PATH, opPath, outcomeOf } from "@workspace/v2-affordances/conve
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
 
-export interface RuntimeScope { roomId?: string; gameId?: string; replay?: boolean }
+export interface RuntimeScope { roomId?: string; gameId?: string }
+
+/**
+ * An ended game whose replay the human has open (`replay.open`; their view state) is in the "replay" context: the
+ * replay's controls are offered, and the server is told (`replay: true`).
+ */
+export function replayContext(ctx: AffordanceContext, view: ViewState, gameId: string | undefined): AffordanceContext {
+  return ctx.context === "ended" && !!gameId && view.replay?.gameId === gameId ? { ...ctx, context: "replay" } : ctx;
+}
+/** Whether the game in view is shown in replay (see replayContext). */
+export function useReplaying(): boolean {
+  return useRuntime().context.context === "replay";
+}
 
 const failed = (e: unknown): OpOutcome => outcomeOf(e) ?? { ok: false, error: { code: "failed", message: e instanceof Error ? e.message : String(e) } };
 
@@ -44,7 +56,8 @@ export function useView(): ViewState {
  */
 function useStoredView(roomId: string | undefined): ViewState {
   const row = useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data;
-  return ((row?.layout as { view?: ViewState } | null | undefined)?.view) ?? EMPTY_VIEW;
+  // The server keeps the view beside the dock layout (v2Layouts.view; convex/v2/ops/view.ts saveView).
+  return (row?.view as ViewState | null | undefined) ?? EMPTY_VIEW;
 }
 
 export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }: {
@@ -61,15 +74,18 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
   viewNow.current = view;
   const contextNow = useRef(context);
   contextNow.current = context;
-  const scopeKey = `${scope.roomId ?? ""}|${scope.gameId ?? ""}|${scope.replay ? 1 : 0}`;
+  const scopeKey = `${scope.roomId ?? ""}|${scope.gameId ?? ""}`;
+  const effective = useMemo(() => replayContext(context, view, scope.gameId), [context, view.replay?.gameId, scope.gameId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const perform = useCallback(async (id: AffordanceId, args: unknown): Promise<OpOutcome> => {
     const a = AFFORDANCES[id];
-    const where = { ...(scope.roomId ? { roomId: scope.roomId } : {}), ...(scope.gameId ? { gameId: scope.gameId } : {}), ...(scope.replay ? { replay: true } : {}) };
+    // Read now, not at the last render: an operation right after another (replay.open, then a seek) sees its result.
+    const ctx = replayContext(contextNow.current, viewNow.current, scope.gameId);
+    const where = { ...(scope.roomId ? { roomId: scope.roomId } : {}), ...(scope.gameId ? { gameId: scope.gameId } : {}), ...(ctx.context === "replay" ? { replay: true } : {}) };
     if (a.runs === "client") {
       if (id === "account.signIn") { onSignIn?.(); return { ok: true, result: { ok: true } }; }
       if (!isViewOp(id)) return { ok: false, error: { code: "unknown", message: `${id} cannot run in the app.` } };
-      const applied = applyView(viewNow.current, id, args, contextNow.current);
+      const applied = applyView(viewNow.current, id, args, ctx);
       if (!applied.outcome.ok || !applied.changed) return applied.outcome;
       const before = viewNow.current;
       viewNow.current = applied.view;
@@ -92,7 +108,7 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
     } catch (e) { return failed(e); }
   }, [convex, scopeKey, onSignIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const runtime = useMemo((): AffordanceRuntime => ({ context, perform }), [context, perform]);
+  const runtime = useMemo((): AffordanceRuntime => ({ context: effective, perform }), [effective, perform]);
   return (
     <AffordanceProvider runtime={runtime}>
       <RuntimeContext.Provider value={runtime}>
