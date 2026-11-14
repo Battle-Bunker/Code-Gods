@@ -45,6 +45,11 @@ query needs an entry in the query-cost gate (R8).
   totals. An AI model's bias is toward single-point optimisation; correct for it.
 - **Agents are dynamic hill climbers.** Objects are unique within a game; a far move in one act costs at least the path
   of small ones; "all strategies should be incremental hill climbing towards profitable combined states."
+- **Representation shortcuts are wanted (owner decision 25).** The far-move rule is about the *size* of an additive
+  change in one act: an amount added costs in proportion to its size, and more in one act than as a path. Mutators
+  that operate in another representation (swap, rotate, reverse, spin, mirror, stretch by a factor) are intended
+  shortcuts, priced as choices (or by digits), never by the unit path: "That makes the state space more interestingly
+  shaped in terms of cost function topology and more like real life exploration of problem spaces."
 - **The old game is the spec; only its implementation is disposable.** "The old code acts as a precious spec of what I
   want and a demonstration of what I'm trying to accomplish, even though the specific implementation of that logic is
   not precious." The owner (later the same day): "keep the rules we already designed prior to this engine upgrade, but
