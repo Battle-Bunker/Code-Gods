@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, instantiate } from "@workspace/game-types";
 import {
-  FAMILIES, card, context, family, paramOptions, paramsInDomain,
+  FAMILIES, card, context, evaluator, explainer, family, paramOptions, paramsInDomain,
 } from "../src/index.ts";
 import { allGrids, familiesOf, intInsts, stringInsts } from "./support.ts";
 
@@ -51,8 +51,7 @@ test("every typed family × every shape: named params, exact domains, support in
         // The canonical form (a calibration orbit's representative) has the same names, and its colours and symbols are the
         // shape's own; a number may be the orbit's mirror image outside the dealt range (Magic Accountant's T ↔ N·Σ − T).
         const canon = f.canonical(p, ctx) as Record<string, unknown>;
-        // An optional param (a tiered draw's `tiers`, docs/tiered-rules.md) is absent from a base draw.
-        assert.deepEqual(Object.keys(canon).sort(), fields.filter(x => !x.optional).map(x => x.key).sort(), `${where}: canonical names`);
+        assert.deepEqual(Object.keys(canon).sort(), fields.map(x => x.key).sort(), `${where}: canonical names`);
         for (const x of fields.filter(y => y.kind === "colour" || y.kind === "symbol")) {
           assert.ok(x.options.some(o => o.value === canon[x.key]), `${where}: canonical ${x.key} ${String(canon[x.key])} is not one of the shape's`);
         }
@@ -67,6 +66,16 @@ test("goal cards carry the typed params with how each value reads", () => {
   assert.match(c.source.python, /MY_COLOUR = "green"/);
   const withGoal = card({ familyId: "kingdom", params: { colour: "green" }, penalty: { familyId: "hate_colour", params: { colour: "blue" } } }, context(rgb));
   assert.deepEqual(withGoal.penalty?.params, [{ key: "colour", label: "Hated colour", kind: "colour", value: "blue", text: "blue" }]);
+});
+
+test("a draw stored with ★ tiers (deleted in D1) reads as its base rule: the base card and score, no explanation", () => {
+  const mono = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" }), ctx = context(mono);
+  const old = { familyId: "opposite_nines", params: { tiers: [{ id: "lines", x: 18, gate: 6 }] } };
+  assert.deepEqual(card(old, ctx), card({ familyId: "opposite_nines", params: {} }, ctx));
+  assert.equal(paramsInDomain(family("opposite_nines").params(ctx), old.params), false, "not a draw a game deals today");
+  const board = family("opposite_nines").exemplar!({}, ctx);
+  assert.deepEqual(evaluator(old, mono)(board), evaluator({ familyId: "opposite_nines", params: {} }, mono)(board));
+  assert.equal(explainer(old, mono), null);
 });
 
 test("a set param: Bingo Caller's called ranks, by name in rank order, no repeats", () => {

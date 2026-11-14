@@ -5,8 +5,6 @@
  *   families  the richly annotated families (game-utilities LENSES) the setup's board can deal
  *   params    one draw of a family: each param a named, typed field (game-utilities params.ts: a colour picker, a symbol
  *             picker, a number, a choice) whose values are its type's domain on this board, within the family's support
- *   tiers     a family with tiers (archive/engine-v1:docs/layered-rules-design.md) has one more, optional field, "To score even higher":
- *             "none" (the base rule, whose params carry no `tiers` key) or one of its gated tiers (`family.tiered(ctx, 1)`)
  *
  * The family page keeps everything in GET params (the gallery keeps its board there; a tile's params ride on its link): the type args by their own names (size, symbols, colours; objectType
  * only when it is not Grid), every family param by its name and `lang` for TypeScript source, so a tile's link opens its family page on exactly
@@ -18,8 +16,8 @@ import {
 } from "@workspace/game-utilities";
 
 export interface GallerySetup { objectType: string; typeArgs: TypeArgs }
-/** A field's value: a scalar, a list (a preset, a dealt tier list), or null for an optional field left out. */
-export type GalleryValue = ParamJson | null;
+/** A field's value: a scalar or a list (a preset, a set). */
+export type GalleryValue = ParamJson;
 
 const DEFAULT_TYPE = "Grid";
 export const DEFAULT_SETUP: GallerySetup = Object.freeze({ objectType: DEFAULT_TYPE, typeArgs: Object.freeze({ ...objectType(DEFAULT_TYPE).defaults }) });
@@ -69,33 +67,15 @@ export function galleryFamilies(inst: Instantiation): string[] {
   });
 }
 
-/**
- * The draws the gallery offers: the family's support, then (a family with tiers) each base with each gated tier. The
- * base draws come first, so a tie between a base draw and a tiered one goes to the base.
- */
-function draws(familyId: string, inst: Instantiation): readonly Params[] {
-  const f = family(familyId), ctx = context(inst);
-  return [...f.support(ctx), ...(f.tiered?.(ctx, 1) ?? [])] as readonly Params[];
-}
+/** The draws the gallery offers: the family's support. */
+const draws = (familyId: string, inst: Instantiation): readonly Params[] => family(familyId).support(context(inst)) as readonly Params[];
 
-/**
- * A value as one short string: an option's key in a select and its form in a link. A scalar is itself; a dealt tier
- * list is each interaction with its own params, without the gate (the board fixes it): "lines.x18"; null (an optional
- * field left out) is "". Any other list or object is its JSON.
- */
+/** A value as one short string: an option's key in a select and its form in a link. A scalar is itself, anything else its JSON. */
 export function optionKey(value: GalleryValue | undefined): string {
   if (value === null || value === undefined) return "";
-  if (typeof value !== "object") return String(value);
-  const tier = (t: unknown): string | null => {
-    if (typeof t !== "object" || t === null || Array.isArray(t) || typeof (t as { id?: unknown }).id !== "string") return null;
-    const { id, gate: _gate, compose: _compose, ...own } = t as Record<string, unknown>;
-    if (Object.values(own).some(v => typeof v === "object")) return null;
-    return [id as string, ...Object.entries(own).map(([k, v]) => `${k}${String(v)}`)].join(".");
-  };
-  const tiers = Array.isArray(value) && value.length ? value.map(tier) : [null];
-  return tiers.every(t => t !== null) ? tiers.join("~") : JSON.stringify(value);
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
-/** The key of a draw's value for a field ("" when the draw leaves an optional field out). */
+/** The key of a draw's value for a field. */
 export const currentKey = (params: Params, key: string): string => optionKey(params[key] as GalleryValue | undefined);
 const same = (a: unknown, b: unknown) => optionKey(a as GalleryValue) === optionKey(b as GalleryValue);
 
@@ -104,48 +84,36 @@ export interface GalleryField {
   readonly key: string;
   readonly label: string;
   readonly kind: ParamKind;
-  /** The field may be left out: its first option is then "none" (value null). */
-  readonly optional?: boolean;
   readonly options: readonly (Omit<ParamOption, "value"> & { readonly value: GalleryValue })[];
 }
 
-/**
- * A tile's fields: each declared param of the family with the values of its domain that its draws use. An optional
- * field (a family's tiers) starts with "none"; one with nothing else to offer on this board is left out.
- */
+/** A tile's fields: each declared param of the family with the values of its domain that its draws use. */
 export function paramFields(familyId: string, inst: Instantiation): GalleryField[] {
   const f = family(familyId), ctx = context(inst), all = draws(familyId, inst);
-  // Whole values are compared (as JSON): a tier list dealt with another gate or composition is another value.
+  // Whole values are compared (as JSON).
   const used = (key: string) => new Set(all.filter(p => p[key] !== undefined).map(p => JSON.stringify(p[key])));
-  return f.params(ctx).flatMap((field): GalleryField[] => {
-    const u = used(field.key), options: GalleryField["options"] = field.options.filter(o => u.has(JSON.stringify(o.value)));
-    if (!field.optional) return [{ key: field.key, label: field.label, kind: field.kind, options }];
-    return options.length ? [{ key: field.key, label: field.label, kind: field.kind, optional: true, options: [{ value: null, label: "none (the base rule)" }, ...options] }] : [];
+  return f.params(ctx).map((field): GalleryField => {
+    const u = used(field.key);
+    return { key: field.key, label: field.label, kind: field.kind, options: field.options.filter(o => u.has(JSON.stringify(o.value))) };
   });
 }
 
-/**
- * The offered draw that agrees with `wanted` on the most keys (`must` keys exactly, a left-out key matching only a
- * draw without it), the first on a tie. A draw with an optional field `wanted` leaves out (or the reverse) ranks below
- * one that agrees on it, so a base rule stays a base rule when another field changes.
- */
+/** The offered draw that agrees with `wanted` on the most keys (`must` keys exactly), the first on a tie. */
 function closest(familyId: string, inst: Instantiation, wanted: Record<string, unknown>, must: readonly string[] = []): Params {
-  const all = draws(familyId, inst), absent = (v: unknown) => v === undefined || v === null;
+  const all = draws(familyId, inst);
   let best: Params | undefined, bestScore = -Infinity;
   for (const p of all) {
     if (must.some(k => !same(p[k], wanted[k]))) continue;
-    const keys = new Set([...Object.keys(p), ...Object.keys(wanted).filter(k => !absent(wanted[k]))]);
     let score = 0;
-    for (const k of keys) score += same(p[k], wanted[k]) ? 1 : absent(p[k]) !== absent(wanted[k]) ? -0.5 : 0;
+    for (const k of Object.keys(p)) if (same(p[k], wanted[k])) score += 1;
     if (score > bestScore) { best = p; bestScore = score; }
   }
   return { ...(best ?? all[0]) };
 }
 
-/** The params after one field changes: that field's value (null: left out), the rest kept where the draws allow. */
+/** The params after one field changes: that field's value, the rest kept where the draws allow. */
 export function withParam(familyId: string, inst: Instantiation, params: Params, key: string, value: GalleryValue): Params {
-  const { [key]: _old, ...rest } = params;
-  return closest(familyId, inst, value === null ? rest : { ...rest, [key]: value }, [key]);
+  return closest(familyId, inst, { ...params, [key]: value }, [key]);
 }
 
 /** A random draw of the family's params (its own sampler), repeatable by seed. */
@@ -174,17 +142,13 @@ export function gallerySearch(setup: GallerySetup, params: Params = {}, language
   return s ? `?${s}` : "";
 }
 
-/**
- * A family's params from a query string: each named param matched against its offered values, the rest completed. An
- * optional field the link leaves out (or names with a value the board does not offer) is left out: the base rule.
- */
+/** A family's params from a query string: each named param matched against its offered values, the rest completed. */
 export function paramsFromSearch(familyId: string, inst: Instantiation, search: string): Params {
   const q = new URLSearchParams(search), wanted: Record<string, unknown> = {}, given: string[] = [];
-  for (const { key, options, optional } of paramFields(familyId, inst)) {
+  for (const { key, options } of paramFields(familyId, inst)) {
     const raw = q.get(key);
-    const match = raw === null ? undefined : options.find(o => o.value !== null && optionKey(o.value) === raw);
+    const match = raw === null ? undefined : options.find(o => optionKey(o.value) === raw);
     if (match !== undefined) { wanted[key] = match.value; given.push(key); }
-    else if (optional) given.push(key);
   }
   return closest(familyId, inst, wanted, given);
 }

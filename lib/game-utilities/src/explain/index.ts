@@ -44,13 +44,10 @@ import { twoPair } from "./lenses/two-pair.ts";
 import { spreadThree } from "./lenses/spread-three.ts";
 import { crosswiseThrees } from "./lenses/crosswise-threes.ts";
 import { magicEighteen } from "./lenses/magic-eighteen.ts";
-import { explainableTiers, tieredLens } from "./tier-lenses.ts";
-import { baseParams, isTiered } from "../families/grid/tiers.ts";
 import { kingsAndSubjects } from "./lenses/royal-court.ts";
 
 export * from "./model.ts";
 export { type Lens } from "./lens.ts";
-export { TIER_LENSES, tieredLens, type TierLens } from "./tier-lenses.ts";
 export * from "./units.ts";
 export { boardOf, readBoard, type Board } from "./board.ts";
 export { scoreWorkings, curveOf, type ScoreWorkings, type RarityWorkings, type DefenceWorkings, type TableSpot, type WorkingsTables } from "./workings.ts";
@@ -121,12 +118,7 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
   // explained: no annotation rather than a wrong one.
   const f = family(draw.familyId), ctx = context(inst);
   if (!paramsInDomain(f.params(ctx), draw.params)) return null;
-  // A tiered draw (params carrying `tiers`) is explained by its base's lens and its tiers' (tier-lenses.ts). A draw
-  // whose units cannot add up to its ordinal (the unlocked composition's clamped first component, or an interaction
-  // with no tier lens) is annotated like a family without a lens: the example board and its score, no units.
-  const own = lensFor(draw.familyId), p = draw.params;
-  const l = isTiered(p) && !explainableTiers(p) ? undefined
-    : own && f.cardTiers ? tieredLens(own, q => f.cardTiers!(q, ctx)) : own;
+  const l = lensFor(draw.familyId), p = draw.params;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
   const score = (value: ObjectValue): Ordinal | null => {
     try {
@@ -155,8 +147,7 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
       try { parts = l.parts(p, b); components = l.components(p, b); } catch { return null; }
       const ordinal = score(value);
       if (ordinal === null) return null;
-      const tiers = l.tiers?.(p, b);
-      return { familyId: draw.familyId, size: b.N, parts, components, ordinal, verified: addsUp(parts, components.length, ordinal), ...(tiers ? { tiers } : {}) };
+      return { familyId: draw.familyId, size: b.N, parts, components, ordinal, verified: addsUp(parts, components.length, ordinal) };
     },
     hover(value) {
       const b = board(value);
@@ -228,69 +219,8 @@ function illumination(l: Lens, p: Draw["params"], b: Board): number {
   const total = parts.reduce((s, t) => s + t.points[0], 0), won = parts.reduce((s, t) => s + Math.max(0, t.points[0]), 0);
   // A varied board (several numbers, every colour) looks like a real game, not a test pattern.
   const variety = Math.min(new Set(b.cells.map(x => b.sym(x))).size, 8) + 2 * new Set(b.cells.map(x => b.col(x))).size;
-  // A tiered draw (docs/tiered-rules.md) teaches most on a board past its gate that already holds a ★ point. A ★ unit
-  // that is hard to hit by chance is never found by a plateau walk, so a board with none is rated by how near its
-  // nearest two come (`Part.heat`) — a gradient the hill-climb can follow, always worth less than one ★ point.
-  const tier = parts.filter(t => t.id.startsWith("tier"));
-  const warm = tier.filter(t => !t.points.some(x => x > 0)).map(t => t.heat ?? 0).sort((a, b) => b - a);
-  const star = tier.some(t => t.points.some(x => x > 0)) ? 45 : tier.length ? 15 + (warm[0] ?? 0) * 18 + (warm[1] ?? 0) * 6 : 0;
-  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2 + star
+  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2
     - Math.max(0, parts.length - 24) - (gains === 0 ? 40 : 0) - (total <= 0 ? 20 : 0);
-}
-
-/**
- * A climb on a tiered draw's ★ tiers alone, for a board the ordinary climb left with none of them scored. The rating is
- * the number of ★ units that score, then how near the two nearest of the rest come (`Part.heat`); it never looks at how
- * well the board teaches — the caller rates what comes back and keeps it only if it scores a ★ unit.
- *
- * Every move stays inside one near unit, and one of the three is a *class* move: every cell of the unit showing one
- * number takes another. These rules are built on numbers that match (pairs, mirrors, roads of equals) and on what they
- * add up to, so a move that changes one cell of a matching set almost always breaks it and is turned down, which leaves
- * a plain cell-by-cell walk stuck as soon as it has the matching part right. A class move keeps every set a set and
- * still moves the totals.
- */
-function climbTier(rng: Rng, g: GridSpec, l: Lens, p: Draw["params"], from: Candidate, steps: number): Candidate {
-  const look = (x: Candidate) => {
-    const parts = l.parts(p, boardOf(g, x.sym, x.col)).filter(t => t.id.startsWith("tier"));
-    const [won, missed] = [parts.filter(t => t.points.some(n => n > 0)), parts.filter(t => !t.points.some(n => n > 0))];
-    missed.sort((a, b) => (b.heat ?? 0) - (a.heat ?? 0));
-    return { rating: won.length * 100 + (missed[0]?.heat ?? 0) * 10 + (missed[1]?.heat ?? 0) * 3, missed };
-  };
-  const at = (c: { r: number; c: number }) => c.r * g.N + c.c;
-  let cur = from, best = look(from);
-  for (let k = 0; k < steps; k++) {
-    // Aim at one of the three nearest units that do not score; without one there is nothing to aim at.
-    if (!best.missed.length) break;
-    const unit = best.missed[rng.int(Math.min(3, best.missed.length))];
-    if (!unit.cells.length) break;
-    const sym = cur.sym.slice(), col = cur.col.slice();
-    const pick = () => at(unit.cells[rng.int(unit.cells.length)]);
-    if (rng.int(3) === 0) {
-      const from = sym[pick()], to = rng.int(2) ? sym[pick()] : (from + 1 + rng.int(g.S - 1)) % g.S;
-      for (const c of unit.cells) if (sym[at(c)] === from) sym[at(c)] = to;
-    } else {
-      for (let m = 0; m < 1 + rng.int(2); m++) {
-        const i = pick();
-        if (rng.int(2)) sym[i] = sym[pick()];
-        else if (rng.int(4)) sym[i] = rng.int(g.S);
-        else col[i] = rng.int(g.C);
-      }
-    }
-    const next = { sym, col }, nb = look(next);
-    if (nb.rating >= best.rating) { cur = next; best = nb; }
-  }
-  return cur;
-}
-
-/**
- * Whether a board scores at least one of a tiered draw's ★ tiers. A base draw has none to score, so it always passes.
- * A tiered draw must really score one: below the gate a board has no ★ units at all, which is a board to reject rather
- * than one that has nothing to improve — taking it for the latter would let the tier climb hand back a board whose base
- * is unfinished, ahead of the better board the ordinary climb had found.
- */
-function scoresTier(l: Lens, p: Draw["params"], b: Board): boolean {
-  if (!isTiered(p)) return true;
-  return l.parts(p, b).some(t => t.id.startsWith("tier") && t.points.some(x => x > 0));
 }
 
 function caption(ordinal: Ordinal | null, rich: boolean): string {
@@ -305,8 +235,7 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
   const rng = seededRng(`goal-example|${inst.key}|${draw.familyId}|${paramsKey(p)}`);
   const pool: Candidate[] = [];
   let exemplar: Candidate | null = null;
-  // A tiered draw starts from its base's exemplar: its own is a search that takes seconds, too slow for a goal card.
-  try { if (f.exemplar) exemplar = fromWire(g, inst, f.exemplar(baseParams(p), ctx)); } catch { exemplar = null; }
+  try { if (f.exemplar) exemplar = fromWire(g, inst, f.exemplar(p, ctx)); } catch { exemplar = null; }
   // The search shrinks on bigger boards (a rating looks at every cell's pieces), so it stays well under a second.
   const budget = g.N <= 4 ? 160 : g.N <= 5 ? 100 : 60;
   for (let k = 0; k < budget; k++) pool.push(randomBoard(rng, g));
@@ -328,7 +257,7 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
   const rate = (x: Candidate) => illumination(l, p, boardOf(g, x.sym, x.col));
   const ranked = pool.map(x => ({ x, r: rate(x) })).sort((a, b) => b.r - a.r);
   // Hill-climb the best few: single-cell changes that do not make the board teach worse.
-  let climbed = ranked.slice(0, g.N <= 5 ? 4 : 2).map(({ x, r }) => {
+  const climbed = ranked.slice(0, g.N <= 5 ? 4 : 2).map(({ x, r }) => {
     let cur = x, curR = r;
     for (let k = 0; k < (g.N <= 5 ? 120 : 60); k++) {
       const next = mutate(rng, g, cur, 1), nr = rate(next);
@@ -336,16 +265,6 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
     }
     return { x: cur, r: curR };
   }).sort((a, b) => b.r - a.r);
-  // A ★ tier whose units are hard to hit by chance survives that climb unscored, because one ★ point is worth less
-  // than the rest of the rating put together, and because a cell change anywhere on the board almost never moves one
-  // of these units. A board that shows the player nothing of the tier teaches half the rule, so try again on the tier
-  // alone, where `climbTier` aims its moves at the units themselves.
-  if (climbed.length && !scoresTier(l, p, boardOf(g, climbed[0].x.sym, climbed[0].x.col))) {
-    const warmed = climbed.slice(0, 2).map(({ x }) => climbTier(rng, g, l, p, x, g.N <= 5 ? 400 : 200))
-      .filter(c => scoresTier(l, p, boardOf(g, c.sym, c.col)))
-      .map(x => ({ x, r: rate(x) }));
-    if (warmed.length) climbed = [...warmed.sort((a, b) => b.r - a.r), ...climbed];
-  }
   for (const { x } of [...climbed, ...ranked]) {
     const value = toWire(g, x), o = score(value);
     if (o === null) continue;

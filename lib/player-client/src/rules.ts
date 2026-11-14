@@ -32,7 +32,7 @@ ${s.bidPricing === "second" ? "Second price: a winner's handicap is the highest 
 export function settingsExplained(s: Settings): string {
   return Object.entries(SETTINGS_DOCS as Record<string, FieldDoc>).map(([key, doc]) => {
     const value = key === "costModel" ? costModelOf(s) : s[key];   // optional: absent means the default model
-    // An optional setting (tiered rules) is absent when it is off.
+    // An optional setting is absent when it is off.
     const shown = value === undefined ? ((OPTIONAL_SETTINGS_FIELDS as readonly string[]).includes(key) ? "none" : "?")
       : Array.isArray(value) ? (value.length ? value.join(", ") : "none") : typeof value === "object" ? JSON.stringify(value) : String(value);
     return `- ${key} = ${shown}${doc.unit ? ` ${doc.unit}` : ""}: ${doc.meaning} ${doc.consequence}`;

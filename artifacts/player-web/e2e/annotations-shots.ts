@@ -29,14 +29,7 @@ try {
     await board.locator("[data-testid=goal-unit]").first().hover();
     await board.screenshot({ path: `${OUT}/${f}.png` });
   }
-  // The ★ sections: the whole pair of boards, so the shot shows the open-but-empty one beside the one that scores.
-  const tiered = await page.locator("[data-tiered-family]").evaluateAll(els => els.map(e => e.getAttribute("data-tiered-family")!));
-  for (const f of tiered) {
-    const section = page.locator(`[data-tiered-family=${f}]`);
-    await section.scrollIntoViewIfNeeded();
-    await section.screenshot({ path: `${OUT}/star-${f}.png` });
-  }
-  console.log(`annotation screenshots: ${families.length} families and ${tiered.length} ★ sections in ${OUT}`);
+  console.log(`annotation screenshots: ${families.length} families in ${OUT}`);
 } finally {
   await browser.close();
   stop();

@@ -31,32 +31,33 @@ export function budgetOf(used: { tokens: number; usd: number } | null): Budget {
 }
 
 export const usageOf = internalQuery({
-  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
+  args: { gameId: v.optional(v.id("v2Games")), memberId: v.id("v2Members") },
   handler: async (ctx, { gameId, memberId }) => {
-    const row = await ctx.db.query("v2AiUsage").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
+    const row = await ctx.db.query("v2AiUsage").withIndex("by_member_game", q => q.eq("memberId", memberId).eq("gameId", gameId)).unique();
     return row ? { tokens: row.tokens, usd: row.usd } : null;
   },
 });
 
 export const record = internalMutation({
-  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() },
+  args: { gameId: v.optional(v.id("v2Games")), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() },
   handler: async (ctx, a) => {
-    const row = await ctx.db.query("v2AiUsage").withIndex("by_game_member", q => q.eq("gameId", a.gameId).eq("memberId", a.memberId)).unique();
+    const row = await ctx.db.query("v2AiUsage").withIndex("by_member_game", q => q.eq("memberId", a.memberId).eq("gameId", a.gameId)).unique();
     if (row) await ctx.db.patch(row._id, { tokens: row.tokens + a.tokens, usd: row.usd + a.usd, calls: row.calls + a.calls });
-    else await ctx.db.insert("v2AiUsage", { gameId: a.gameId, memberId: a.memberId, tokens: a.tokens, usd: a.usd, calls: a.calls });
+    else await ctx.db.insert("v2AiUsage", { ...(a.gameId ? { gameId: a.gameId } : {}), memberId: a.memberId, tokens: a.tokens, usd: a.usd, calls: a.calls });
   },
 });
 
-const USAGE = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: Id<"v2Members"> }, { tokens: number; usd: number } | null>("v2/ai:usageOf");
-const RECORD = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; tokens: number; usd: number; calls: number }>("v2/ai:record");
+const USAGE = makeFunctionReference<"query", { gameId?: Id<"v2Games">; memberId: Id<"v2Members"> }, { tokens: number; usd: number } | null>("v2/ai:usageOf");
+const RECORD = makeFunctionReference<"mutation", { gameId?: Id<"v2Games">; memberId: Id<"v2Members">; tokens: number; usd: number; calls: number }>("v2/ai:record");
 
 /**
  * Runs model calls for a member within what is left of their allowance, and records what was spent whatever happens
  * (a billed failure included), so the allowance holds across runs. A model failure reaches the caller as an
  * OpFailure with its words; "allowance used up" is an OpFailure before any call.
  */
-export async function spendWithin<T>(ctx: ActionCtx, gameId: Id<"v2Games">, memberId: Id<"v2Members">, run: (budget: Budget) => Promise<T>): Promise<T> {
-  const budget = budgetOf(await ctx.runQuery(USAGE, { gameId, memberId }));
+export async function spendWithin<T>(ctx: ActionCtx, gameId: Id<"v2Games"> | undefined, memberId: Id<"v2Members">, run: (budget: Budget) => Promise<T>): Promise<T> {
+  const key = { ...(gameId ? { gameId } : {}), memberId };
+  const budget = budgetOf(await ctx.runQuery(USAGE, key));
   try {
     return await run(budget);
   } catch (e) {
@@ -64,7 +65,7 @@ export async function spendWithin<T>(ctx: ActionCtx, gameId: Id<"v2Games">, memb
     throw e;
   } finally {
     const spent = budget.snapshot();
-    if (spent.calls > 0) await ctx.runMutation(RECORD, { gameId, memberId, tokens: spent.tokens, usd: spent.usd, calls: spent.calls });
+    if (spent.calls > 0) await ctx.runMutation(RECORD, { ...key, tokens: spent.tokens, usd: spent.usd, calls: spent.calls });
   }
 }
 

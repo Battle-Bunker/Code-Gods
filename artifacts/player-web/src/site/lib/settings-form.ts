@@ -16,9 +16,9 @@
  * - the cost model (an optional setting: absent means "set-v1"): its choices are the models the draft's world supports
  *   (`costModelChoices`), its value is read with game-core `costModelOf`, and it hides in a world with only one model.
  */
-import { ENERGY_LIMITS, LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, costModelOf, sameSettings, supportedCostModels, validateSettings, type CostModel, type FamilyRole, type FieldDoc, type GameSettings, type RuleTiers, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { ENERGY_LIMITS, LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, costModelOf, sameSettings, supportedCostModels, validateSettings, type CostModel, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
-import { availableFamilies, familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
+import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
 export type Settings = GameSettings;
 export type SettingsKey = keyof GameSettings;
@@ -49,7 +49,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   stepBudget: "Steps per act", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
   powerPerSecond: "Power per player", fullChargeSeconds: "Energy fills in", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
-  priorId: "Rarity reference", ruleTiers: "Rule tiers",
+  priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates",
   costModel: "Change pricing",
   bidSeconds: "Bidding time", bidPricing: "Bid price", bidVisibility: "Bids shown", bidDisclosure: "Bid results shown",
@@ -195,11 +195,6 @@ export function settingsDomain(types: readonly PlayableTypes[]): SettingsDomain 
     isPlayable: (objectType, typeArgs) => { try { return isPlayableInstantiation(instantiate(objectType, typeArgs)); } catch { return false; } },
     families: (objectType, typeArgs, role) => existingFamilies(objectType, typeArgs, role).map(e => e.id),
     typeFamilies: (objectType, role) => familiesFor(objectType, utilityRole(role)).map(f => f.id),
-    // The pool of a tiered game, exactly as the engine computes it (convex/engine/settingsDomain.ts), so the draft
-    // refuses tiered rules on a world that offers none instead of failing only when the owner saves.
-    tiered: (objectType, typeArgs, tiers) => {
-      try { return availableFamilies(instantiate(objectType, typeArgs), "reward", [], tiers).map(f => f.id); } catch { return []; }
-    },
   };
 }
 
@@ -278,27 +273,8 @@ export function dealerNote(type: PlayableTypes | undefined, s: Pick<Settings, "t
   return listed?.synergy?.includes(s.priorId) ? null : "No synergy has been measured for this shape: the Aligned Lottery deals like the Divine Lottery here.";
 }
 
-/**
- * The choices of the tiered-rules control: none (the setting is absent), or one or two ★ tiers with the standard (gated)
- * composition. The experiments' compositions (game-core RULE_TIER_COMPOSITIONS) are not offered: a setup that has one
- * shows it as its current value.
- */
-export const RULE_TIER_CHOICES: readonly { id: string; label: string; value: RuleTiers | null }[] = [
-  { id: "none", label: "No tiers: base rules only", value: null },
-  { id: "1", label: "One ★ tier on every rule", value: { depth: 1 } },
-  { id: "2", label: "Two ★ tiers on every rule", value: { depth: 2 } },
-];
-/** The id of a `ruleTiers` value among RULE_TIER_CHOICES ("none", "1", "2"), or "<depth>:<composition>" for an experiment's. */
-export const ruleTiersId = (t: RuleTiers | undefined | null): string => (!t ? "none" : t.compose ? `${t.depth}:${t.compose}` : String(t.depth));
-/** The settings change a choice makes: null switches tiered rules off (game-core applySettingsChange). */
-export const ruleTiersPatch = (id: string): Partial<Settings> => ({ ruleTiers: RULE_TIER_CHOICES.find(c => c.id === id)?.value ?? null } as Partial<Settings>);
-
 /** A value in plain words: "25 acts/s", "4 × base10 × rgb", "11 rules", "offered". */
 export function formatValue(key: SettingsKey, v: unknown): string {
-  if (key === "ruleTiers") {
-    const t = v as RuleTiers | undefined | null;
-    return !t ? "none" : `${t.depth === 1 ? "one ★ tier" : "two ★ tiers"}${t.compose ? ` (${t.compose})` : ""}`;
-  }
   if (key === "typeArgs" && v && typeof v === "object") return Object.values(v).join(" · ");
   if (key === "excludedFamilies" && Array.isArray(v)) return v.length ? `${v.length} rule${v.length === 1 ? "" : "s"}` : "none";
   if (key === "excludedDefenceFamilies" && Array.isArray(v)) return v.length ? `${v.length} defence goal${v.length === 1 ? "" : "s"}` : "none";

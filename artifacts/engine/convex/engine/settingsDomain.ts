@@ -7,7 +7,7 @@
  */
 import type { FamilyRole, SettingsDomain } from "@workspace/game-core";
 import { instantiate, type TypeArgs } from "@workspace/game-types";
-import { availableFamilies, familiesFor, isPlayableInstantiation, playableInstantiations, publicCatalog } from "@workspace/game-utilities";
+import { familiesFor, isPlayableInstantiation, playableInstantiations, publicCatalog } from "@workspace/game-utilities";
 
 const familyIds = new Map<string, readonly string[]>();
 /** The settings' family role in game-utilities' words. */
@@ -30,8 +30,6 @@ const DOMAIN: SettingsDomain = {
     if (!found) familyIds.set(key, found = publicCatalog(inst).filter(e => e.available && e.role === utilityRole(role)).map(e => e.id));
     return found;
   },
-  // The pool of a tiered game (settings.ruleTiers): the available reward families with tiered draws of that kind here.
-  tiered: (objectTypeId, typeArgs, tiers) => availableFamilies(instantiate(objectTypeId, typeArgs), "reward", [], tiers).map(f => f.id),
   typeFamilies: (objectTypeId, role) => familiesFor(objectTypeId, utilityRole(role)).map(f => f.id),
 };
 

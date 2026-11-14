@@ -294,6 +294,24 @@ export const clock = internalQuery({
   },
 });
 
+/** A finished assistant conversation of `turns` turns, each a message, an answer and 3 tool calls (the R8 gate's). */
+export const seedAssistant = internalMutation({
+  args: { roomId: v.id("v2Rooms"), userId: v.string(), turns: v.number() },
+  handler: async (ctx, { roomId, userId, turns }) => {
+    fixtures();
+    const room = (await ctx.db.get(roomId))!, now = Date.now();
+    const threadId = await ctx.db.insert("v2AssistantThreads", { roomId, userId, ...(room.gameId ? { gameId: room.gameId } : {}), title: "Gate", createdAt: now, updatedAt: now });
+    let turnId: Id<"v2AssistantTurns"> | null = null, seq = 0;
+    for (let i = 0; i < turns; i++) {
+      turnId = await ctx.db.insert("v2AssistantTurns", { threadId, roomId, userId, ...(room.gameId ? { gameId: room.gameId } : {}), status: "done", grant: "act", mode: "onRequest", steps: 2, tokens: 900, usd: 0.01, createdAt: now + i, finishedAt: now + i });
+      await ctx.db.insert("v2AssistantMessages", { threadId, turnId, seq: ++seq, role: "user", text: `Question ${i}`, createdAt: now });
+      await ctx.db.insert("v2AssistantMessages", { threadId, turnId, seq: ++seq, role: "assistant", text: "Answer ".repeat(40), contentJson: JSON.stringify([{ type: "text", text: "Answer ".repeat(40) }]), createdAt: now });
+      for (let k = 0; k < 3; k++) await ctx.db.insert("v2AssistantCalls", { turnId, threadId, index: k, tool: "rule_explain", argsJson: "{}", ok: true, summary: "done", createdAt: now });
+    }
+    return { threadId, turnId: turnId! };
+  },
+});
+
 /** A pending device request for a v2 room (the device flow's request half), and how a test reads it back. */
 export const seedDevice = internalMutation({
   args: { roomId: v.string(), userCodeHash: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")) },
@@ -315,6 +333,6 @@ export const aiUsage = internalQuery({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
   handler: async (ctx, { gameId, memberId }) => {
     fixtures();
-    return await ctx.db.query("v2AiUsage").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
+    return await ctx.db.query("v2AiUsage").withIndex("by_member_game", q => q.eq("memberId", memberId).eq("gameId", gameId)).unique();
   },
 });

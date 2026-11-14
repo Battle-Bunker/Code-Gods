@@ -68,19 +68,6 @@ export function fairSummonBits(language: Language, cost: number, structure: numb
 /** Resource limit: at most this many live agents per god. */
 export const MAX_AGENTS_PER_GOD = 200;
 
-/** How a tiered rule's ★ tiers compose with its base (archive/engine-v1:docs/layered-rules-design.md); absent means gated. */
-export const RULE_TIER_COMPOSITIONS = ["plain", "unlock", "uncapped"] as const;
-export type RuleTierCompose = (typeof RULE_TIER_COMPOSITIONS)[number];
-/**
- * Tiered rules (archive/engine-v1:docs/layered-rules-design.md): every dealt rule is a base rule plus `depth` ★ tiers (1 or 2). `compose`
- * is for experiments: absent, a tier counts only once the base is well along (gated); "plain" has no gate; "unlock"
- * shows the tier's points only once the gate is passed; "uncapped" is gated with tier values of unequal reach.
- */
-export interface RuleTiers {
-  readonly depth: 1 | 2;
-  readonly compose?: RuleTierCompose;
-}
-
 export interface GameSettings {
   /**
    * The languages agents may be written in (non-empty, each once; the first is the default). Each agent's grammar and
@@ -138,12 +125,6 @@ export interface GameSettings {
   /** Defence family ids the dealer never deals (the complement of the allowed defence goals). */
   excludedDefenceFamilies: readonly string[];
   /**
-   * Tiered rules: when present, the dealer deals only tiered draws (a base rule plus ★ tiers), from the reward families
-   * that offer them on this board, minus `excludedFamilies`. Absent (every setting stored before 2026-11-11, and every
-   * ordinary game): base rules only, exactly as before. An optional setting (OPTIONAL_SETTINGS_FIELDS): absent means off.
-   */
-  ruleTiers?: RuleTiers;
-  /**
    * The reference prior that rarity is measured against (calibration tables are keyed by it). "uniform" is
    * the spawn prior; later seasons may use an empirical mixture (archive/engine-v1:lib/grid-lab/docs/explore/priors.md).
    */
@@ -191,7 +172,7 @@ export interface GameSettings {
 }
 
 /** The fields a settings object may leave out (each has a reader that supplies its default): not in DEFAULT_SETTINGS. */
-export const OPTIONAL_SETTINGS_FIELDS = Object.freeze(["costModel", "ruleTiers"] as const);
+export const OPTIONAL_SETTINGS_FIELDS = Object.freeze(["costModel"] as const);
 
 /**
  * A room's cost model: from its settings or the observation's economy (their `costModel`), or the value itself.
@@ -312,14 +293,6 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
 } satisfies GameSettings);
 
 
-/** Whether `value` is a valid `ruleTiers`: a depth of 1 or 2, and at most a known composition. */
-export function validRuleTiers(value: unknown): value is RuleTiers {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const t = value as Record<string, unknown>;
-  return (t.depth === 1 || t.depth === 2) && (t.compose === undefined || (RULE_TIER_COMPOSITIONS as readonly unknown[]).includes(t.compose))
-    && Object.keys(t).every(k => k === "depth" || k === "compose");
-}
-
 /**
  * The languages a game allows (the first is the game's default). Settings stored before `languages` existed held a single `language` (with its grammar
  * and price ids): that one language is the set. Languages no longer supported (an ended game's stored "haskell") are
@@ -369,7 +342,7 @@ export function upgradeStoredSettings(settings: unknown, played = false, { keepR
  * Settings of features deleted from the engine (engine v2 deletion D1; the code is on archive/engine-v1). Stored rooms,
  * setups and games may still carry them; they are dropped wherever stored settings are read, and ignored in a change.
  */
-export const RETIRED_SETTINGS: readonly string[] = Object.freeze(["observation", "peerNoiseBits"]);
+export const RETIRED_SETTINGS: readonly string[] = Object.freeze(["observation", "peerNoiseBits", "ruleTiers"]);
 
 /** These settings without the RETIRED_SETTINGS keys, or null when they carry none (or are not a settings object). */
 export function withoutRetiredSettings(settings: unknown): Record<string, unknown> | null {
@@ -438,8 +411,6 @@ function finiteNonnegative(settings: GameSettings, keys: readonly (keyof GameSet
 /** Which families exist where, as far as validation needs it (settings-model.ts SettingsDomain provides it). */
 export interface FamilyDomain {
   families(objectType: string, typeArgs: TypeArgs, role: FamilyRole): readonly string[];
-  /** The reward families that offer tiered draws of this kind in an instantiation. Absent: not known here (unchecked). */
-  tiered?(objectType: string, typeArgs: TypeArgs, tiers: RuleTiers): readonly string[];
 }
 /** A utility family's role: a reward rule every god is dealt, or a defence goal (game-utilities "penalty"). */
 export type FamilyRole = "reward" | "defence";
@@ -525,15 +496,6 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   for (const key of OPTION_KEYS) {
     if (!settingsOptionsFor(key, settings.objectType).some(o => o.id === settings[key])) {
       throw new Error(`Unsupported ${key} for this object type`);
-    }
-  }
-  if (settings.ruleTiers !== undefined) {
-    if (!validRuleTiers(settings.ruleTiers)) throw new Error(`ruleTiers must be a depth of 1 or 2, with at most a composition among ${RULE_TIER_COMPOSITIONS.join(", ")}`);
-    if (domain?.tiered) {
-      const excluded = new Set(settings.excludedFamilies);
-      if (!domain.tiered(settings.objectType, settings.typeArgs, settings.ruleTiers).some(id => !excluded.has(id))) {
-        throw new Error(`Tiered rules need at least one allowed rule with ${settings.ruleTiers.depth === 1 ? "one tier" : "two tiers"} in this world: none is offered here yet`);
-      }
     }
   }
   if (settings.defenceGoals && domain) {
@@ -745,15 +707,6 @@ const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
   costModel: "distance-v1",
 });
 
-/** Tiered rules for players (docs/tiered-rules.md); the other compositions are Lab setups (LAB_SETUPS). */
-export const TIERED_RULES_SEED_ID = "grid-tiered";
-/**
- * A tiered setup: Annotated basics' board, pace and economy, with every rule dealt with ★ tiers. Its pool is not the
- * beginner eight but the families that offer tiers there, so it excludes nothing of its own.
- */
-const tieredPatch = (ruleTiers: RuleTiers): Partial<GameSettings> =>
-  ({ ...ANNOTATED_BASICS_PATCH, excludedFamilies: [], ruleTiers: Object.freeze(ruleTiers) });
-
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
@@ -778,11 +731,8 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
-  // Tiered rules (archive/engine-v1:docs/layered-rules-design.md). The order above is the learning order, with the twins of Annotated
-  // basics (the same board with one setting changed, such as a bid phase) sitting together right after it; any other
-  // new seed goes at the end.
-  seed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along",
-    "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1 })),
+  // The order above is the learning order, with the twins of Annotated basics (the same board with one setting changed,
+  // such as a bid phase) sitting together right after it; any other new seed goes at the end.
 ]);
 
 /** An experimental setup: `seed(...)` marked `lab` (see LAB_SETUPS). */
@@ -827,15 +777,6 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
     const bidding = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BIDDING_SEED_ID)!.settings;
     return lab(seedId, name, summary, bidding.objectType, { ...bidding.typeArgs }, { ...bidding, ...patch });
   }),
-  // Tiered rules' other compositions and balance policy (docs/tiered-rules.md; measured in archive/engine-v1:docs/layered-rules-measurements/).
-  lab("lab-tiers-plain", "Lab · tiers without a gate", "Tiered rules, but the ★ bonus counts from the first move instead of opening at a gate",
-    "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "plain" })),
-  lab("lab-tiers-unlock", "Lab · unlocking tiers", "Tiered rules, but once unlocked the ★ bonus outranks the rest of the base; rarity near the top is a rough estimate (sampled tables)",
-    "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "unlock" })),
-  lab("lab-tiers-expert", "Lab · two ★ tiers", "Tiered rules, but each rule carries two ★ bonuses: the second breaks ties among boards equal on the first",
-    "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 2 })),
-  lab("lab-tiers-uncapped", "Lab · tiers with unequal reach", "Tiered rules, with ★ bonuses outside the balance band added: some rules reach much further than others",
-    "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "uncapped" })),
 ]);
 
 /** Every setup the engine seeds: the system's, then the Lab's. */
@@ -847,7 +788,6 @@ export function seedSetupSettings(seedId: string): GameSettings {
   if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
   return {
     ...found.settings, languages: [...found.settings.languages], typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies],
-    ...(found.settings.ruleTiers ? { ruleTiers: { ...found.settings.ruleTiers } } : {}),
   };
 }
 
@@ -913,11 +853,6 @@ export const SETTINGS_DOCS = {
     question: "Which rules are never dealt?", section: "goals", tier: "more", control: "checklist", dependsOn: ["objectType", "typeArgs"],
     meaning: "Families of reward rules that are never dealt in this game.",
     consequence: "Excluding more families makes goals more predictable, and restoring the weak families lowers fairness.",
-  },
-  ruleTiers: {
-    question: "Does every rule come with ★ bonus tiers?", section: "goals", tier: "more", control: "select", dependsOn: ["objectType", "typeArgs", "excludedFamilies"],
-    meaning: "When set, every dealt rule is an easy base rule plus one or two ★ bonus tiers that open once the base is well along, drawn only from the rules that offer tiers in this world.",
-    consequence: "Tiers give beginners an early goal and experts a longer climb, but only the rules that offer them are dealt, so the pool is smaller.",
   },
   defenceGoals: {
     question: "Does every player also get something to defend?", section: "goals", tier: "ask", control: "switch",

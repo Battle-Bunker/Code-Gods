@@ -102,7 +102,6 @@ export function familyCard(familyId: string, params: Params, inst: Instantiation
   return {
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, language, source: c.source[language],
     ...(c.example ? { example: { value: String(c.example.value), size: c.example.size, caption: c.example.caption } } : {}),
-    ...(c.tiers ? { tiers: c.tiers } : {}),
   };
 }
 

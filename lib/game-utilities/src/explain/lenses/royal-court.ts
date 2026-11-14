@@ -2,8 +2,7 @@
  * 🫅 Kings and Subjects: one unit per 2×2 box that tiles the board (the 4 corner boxes on 4×4), or per overlapping 2×2
  * square in the expert variant. A box whose single biggest number (the king, marked) equals the other three added up
  * is a court: a primary point. Every box deducts how far its king is from that sum; a tie for biggest crowns no king
- * and deducts the card's NO_KING. The lens explains the base's two components (a tiered draw's ★ points are not units
- * of a box).
+ * and deducts the card's NO_KING.
  */
 import { lens, tally, count } from "../lens.ts";
 import type { Part } from "../model.ts";

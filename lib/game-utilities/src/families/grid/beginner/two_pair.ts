@@ -10,7 +10,6 @@
 import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { tierPoints } from "../../../tuples.ts";
-import { pairTiers } from "../layered/pair-tiers.ts";
 
 type TwoPairP = Record<string, never>;
 
@@ -34,7 +33,6 @@ const twoPairText = (g: GridSpec): CardText => {
 };
 
 export const twoPair = gridFamily<TwoPairP>({
-  tiers: pairTiers,
   id: "two_pair", name: "Two Pair", emoji: "✌️", theme: "Two different pairs in every box",
   // Numbers, not cards; boxes tile the board only on even sizes; up to 6×6 keeps the calibrated shapes modest.
   requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
