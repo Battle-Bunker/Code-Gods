@@ -1,0 +1,679 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/two-pair/{}/tb=corners",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "two-pair",
+ "params": {},
+ "tieBreaker": "corners",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "8"
+   ],
+   "label": "anything; the corners at least 8",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.0665,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "12"
+   ],
+   "label": "anything; the corners at least 12",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.1241,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "14"
+   ],
+   "label": "anything; the corners at least 14",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.1494,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 16 in all",
+   "layer": 0,
+   "main": 1,
+   "bits": 0.2034,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 8",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.4121,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 12",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.5953,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 14",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.67,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 12 in all",
+   "layer": 0,
+   "main": 2,
+   "bits": 0.7901,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 8",
+   "layer": 1,
+   "main": 2,
+   "bits": 1.3285,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 12",
+   "layer": 1,
+   "main": 2,
+   "bits": 1.8442,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 14",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.0463,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 8 in all",
+   "layer": 0,
+   "main": 3,
+   "bits": 2.2952,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 8",
+   "layer": 1,
+   "main": 3,
+   "bits": 2.9205,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 12",
+   "layer": 1,
+   "main": 3,
+   "bits": 3.4146,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 14",
+   "layer": 1,
+   "main": 3,
+   "bits": 3.559,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 6 in all",
+   "layer": 0,
+   "main": 4,
+   "bits": 3.6823,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 8",
+   "layer": 1,
+   "main": 4,
+   "bits": 4.6742,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 12",
+   "layer": 1,
+   "main": 4,
+   "bits": 5.4542,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 14",
+   "layer": 1,
+   "main": 4,
+   "bits": 5.6688,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 4 in all",
+   "layer": 0,
+   "main": 5,
+   "bits": 5.8322,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 8",
+   "layer": 1,
+   "main": 5,
+   "bits": 6.7142,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 12",
+   "layer": 1,
+   "main": 5,
+   "bits": 7.1932,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 14",
+   "layer": 1,
+   "main": 5,
+   "bits": 7.2912,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 3 in all",
+   "layer": 0,
+   "main": 6,
+   "bits": 7.3534,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 8",
+   "layer": 1,
+   "main": 6,
+   "bits": 8.4924,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 12",
+   "layer": 1,
+   "main": 6,
+   "bits": 9.1161,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 14",
+   "layer": 1,
+   "main": 6,
+   "bits": 9.2427,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 2 in all",
+   "layer": 0,
+   "main": 7,
+   "bits": 9.3205,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 8",
+   "layer": 1,
+   "main": 7,
+   "bits": 10.772,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 12",
+   "layer": 1,
+   "main": 7,
+   "bits": 11.6348,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 14",
+   "layer": 1,
+   "main": 7,
+   "bits": 11.8195,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 1 in all",
+   "layer": 0,
+   "main": 8,
+   "bits": 11.9323,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 8",
+   "layer": 1,
+   "main": 8,
+   "bits": 13.7487,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 12",
+   "layer": 1,
+   "main": 8,
+   "bits": 15.0664,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 14",
+   "layer": 1,
+   "main": 8,
+   "bits": 15.407,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the boxes' gaps from two pairs exactly",
+   "layer": 0,
+   "main": 9,
+   "bits": 15.6289,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "6"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 6",
+   "layer": 1,
+   "main": 9,
+   "bits": 16.8899,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "8"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 8",
+   "layer": 1,
+   "main": 9,
+   "bits": 17.8563,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "10"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 10",
+   "layer": 1,
+   "main": 9,
+   "bits": 19.0255,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "12"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 12",
+   "layer": 1,
+   "main": 9,
+   "bits": 20.3845,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 14",
+   "layer": 1,
+   "main": 9,
+   "bits": 21.9199,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "16"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 16",
+   "layer": 1,
+   "main": 9,
+   "bits": 23.6178,
+   "error": 0,
+   "source": "exact"
+  }
+ ],
+ "cap": 42,
+ "convergedCap": 42,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution"
+   ],
+   "lo": [
+    0,
+    0.0665,
+    0.1241,
+    0.1494,
+    0.2034,
+    0.4121,
+    0.5953,
+    0.67,
+    0.7901,
+    1.3285,
+    1.8442,
+    2.0463,
+    2.2952,
+    2.9205,
+    3.4146,
+    3.559,
+    3.6823,
+    4.6742,
+    5.4542,
+    5.6688,
+    5.8322,
+    6.7142,
+    7.1932,
+    7.2912,
+    7.3534,
+    8.4924,
+    9.1161,
+    9.2427,
+    9.3205,
+    10.772,
+    11.6348,
+    11.8195,
+    11.9323,
+    13.7487,
+    15.0664,
+    15.407,
+    15.6289,
+    16.8899,
+    17.8563,
+    19.0255,
+    20.3845,
+    21.9199,
+    23.6178
+   ],
+   "hi": [
+    0,
+    0.0665,
+    0.1241,
+    0.1494,
+    0.2034,
+    0.4121,
+    0.5953,
+    0.67,
+    0.7901,
+    1.3285,
+    1.8442,
+    2.0463,
+    2.2952,
+    2.9205,
+    3.4146,
+    3.559,
+    3.6823,
+    4.6742,
+    5.4542,
+    5.6688,
+    5.8322,
+    6.7142,
+    7.1932,
+    7.2912,
+    7.3534,
+    8.4924,
+    9.1161,
+    9.2427,
+    9.3205,
+    10.772,
+    11.6348,
+    11.8195,
+    11.9323,
+    13.7487,
+    15.0664,
+    15.407,
+    15.6289,
+    16.8899,
+    17.8563,
+    19.0255,
+    20.3845,
+    21.9199,
+    23.6178
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "9bb67fe6c42737bd"
+}

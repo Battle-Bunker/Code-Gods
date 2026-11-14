@@ -186,7 +186,7 @@ export class EngineHost<S> implements AgentHost {
 
   private site(site: number): string | null {
     return Number.isInteger(site) && site >= 0 && site < this.sites ? null
-      : this.sites === 1 ? `there is only one ${this.type.id === "line" ? "line" : "board"} here: use 0, not ${site}` : `lines are numbered 0 to ${this.sites - 1}`;
+      : this.sites === 1 ? `this object has one line: there is no line ${site}` : `lines are numbered 0 to ${this.sites - 1}`;
   }
 
   private value(rep: string, name: string, site: number): ElementValue {

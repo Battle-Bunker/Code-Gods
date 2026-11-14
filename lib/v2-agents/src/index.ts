@@ -6,6 +6,4 @@ export * from "./summon.ts";
 export * from "./check.ts";
 export * from "./births.ts";
 export { CATALOGUE, LENSES, type FamilyEntry, type TieBreakerEntry, type Lens, type LensId } from "./catalogue.ts";
-export { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridTieBreakerEntry, type GridLens, type GridLensId } from "./grid-catalogue.ts";
-export { gridUndescribed } from "./grid-starters.ts";
 export * from "./primer.ts";

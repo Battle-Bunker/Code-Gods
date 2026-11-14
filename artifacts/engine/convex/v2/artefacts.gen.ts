@@ -1314,9 +1314,3950 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirror-rows/{}/tb=middle",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/crosswise-threes/{}/tb=fold-line",
   "variant": "grid-4-d10",
-  "family": "mirror-rows",
+  "family": "crosswise-threes",
+  "params": {},
+  "tieBreaker": "fold-line",
+  "status": "exact",
+  "cap": 46,
+  "convergedCap": 46,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "874f8ca845abb62a",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; the fold line at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.2118
+   },
+   {
+    "score": [
+     null,
+     "16"
+    ],
+    "label": "anything; the fold line at least 16",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.4609
+   },
+   {
+    "score": [
+     null,
+     "18"
+    ],
+    "label": "anything; the fold line at least 18",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.482
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 0.5014
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.7802
+   },
+   {
+    "score": [
+     "-12",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.1271
+   },
+   {
+    "score": [
+     "-12",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.1576
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 1.1859
+   },
+   {
+    "score": [
+     "-10",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.6276
+   },
+   {
+    "score": [
+     "-10",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.2696
+   },
+   {
+    "score": [
+     "-10",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.3333
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.3937
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.9939
+   },
+   {
+    "score": [
+     "-8",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 3,
+    "bits": 4.0451
+   },
+   {
+    "score": [
+     "-8",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 3,
+    "bits": 4.1694
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 4.2926
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.7513
+   },
+   {
+    "score": [
+     "-6",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.4301
+   },
+   {
+    "score": [
+     "-6",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.4984
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 5.5635
+   },
+   {
+    "score": [
+     "-5",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.0868
+   },
+   {
+    "score": [
+     "-5",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.9193
+   },
+   {
+    "score": [
+     "-5",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.0087
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 7.0952
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.6853
+   },
+   {
+    "score": [
+     "-4",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.7051
+   },
+   {
+    "score": [
+     "-4",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.824
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 8.9415
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.6014
+   },
+   {
+    "score": [
+     "-3",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 7,
+    "bits": 10.8586
+   },
+   {
+    "score": [
+     "-3",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.0218
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 11.1885
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.9224
+   },
+   {
+    "score": [
+     "-2",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 8,
+    "bits": 13.5
+   },
+   {
+    "score": [
+     "-2",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 8,
+    "bits": 13.7391
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all",
+    "layer": 0,
+    "main": 9,
+    "bits": 13.9978
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; the fold line at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 14.8118
+   },
+   {
+    "score": [
+     "-1",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; the fold line at least 16",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.8717
+   },
+   {
+    "score": [
+     "-1",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; the fold line at least 18",
+    "layer": 1,
+    "main": 9,
+    "bits": 17.2751
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the folded pairs from 3 apart exactly",
+    "layer": 0,
+    "main": 10,
+    "bits": 17.7769
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the folded pairs from 3 apart exactly; the fold line at least 4",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.9825
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart exactly; the fold line at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 18.6794
+   },
+   {
+    "score": [
+     "0",
+     "12"
+    ],
+    "label": "the folded pairs from 3 apart exactly; the fold line at least 12",
+    "layer": 1,
+    "main": 10,
+    "bits": 19.8994
+   },
+   {
+    "score": [
+     "0",
+     "16"
+    ],
+    "label": "the folded pairs from 3 apart exactly; the fold line at least 16",
+    "layer": 1,
+    "main": 10,
+    "bits": 21.6431
+   },
+   {
+    "score": [
+     "0",
+     "18"
+    ],
+    "label": "the folded pairs from 3 apart exactly; the fold line at least 18",
+    "layer": 1,
+    "main": 10,
+    "bits": 22.7123
+   },
+   {
+    "score": [
+     "0",
+     "20"
+    ],
+    "label": "the folded pairs from 3 apart exactly; the fold line at least 20",
+    "layer": 1,
+    "main": 10,
+    "bits": 23.922
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/crosswise-threes/{}/tb=primes",
+  "variant": "grid-4-d10",
+  "family": "crosswise-threes",
+  "params": {},
+  "tieBreaker": "primes",
+  "status": "exact",
+  "cap": 46,
+  "convergedCap": 46,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "931ae05c865a13d3",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; prime numbers at least 6",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.3027
+   },
+   {
+    "score": [
+     null,
+     "9"
+    ],
+    "label": "anything; prime numbers at least 9",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.4818
+   },
+   {
+    "score": [
+     null,
+     "10"
+    ],
+    "label": "anything; prime numbers at least 10",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.4952
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 0.5014
+   },
+   {
+    "score": [
+     "-12",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.8355
+   },
+   {
+    "score": [
+     "-12",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.1424
+   },
+   {
+    "score": [
+     "-12",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.1715
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 1.1859
+   },
+   {
+    "score": [
+     "-10",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.6442
+   },
+   {
+    "score": [
+     "-10",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.2786
+   },
+   {
+    "score": [
+     "-10",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.3549
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.3937
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.9135
+   },
+   {
+    "score": [
+     "-8",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 3,
+    "bits": 4.0154
+   },
+   {
+    "score": [
+     "-8",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 3,
+    "bits": 4.196
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 4.2926
+   },
+   {
+    "score": [
+     "-6",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.6362
+   },
+   {
+    "score": [
+     "-6",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.39
+   },
+   {
+    "score": [
+     "-6",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.5048
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 5.5635
+   },
+   {
+    "score": [
+     "-5",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.919
+   },
+   {
+    "score": [
+     "-5",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.8481
+   },
+   {
+    "score": [
+     "-5",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.0102
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 7.0952
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.4604
+   },
+   {
+    "score": [
+     "-4",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.5875
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.8162
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 8.9415
+   },
+   {
+    "score": [
+     "-3",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.3175
+   },
+   {
+    "score": [
+     "-3",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 7,
+    "bits": 10.6707
+   },
+   {
+    "score": [
+     "-3",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 7,
+    "bits": 10.9967
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 11.1885
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.5807
+   },
+   {
+    "score": [
+     "-2",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 8,
+    "bits": 13.2014
+   },
+   {
+    "score": [
+     "-2",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 8,
+    "bits": 13.6798
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all",
+    "layer": 0,
+    "main": 9,
+    "bits": 13.9978
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 9,
+    "bits": 14.418
+   },
+   {
+    "score": [
+     "-1",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.378
+   },
+   {
+    "score": [
+     "-1",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 9,
+    "bits": 17.1338
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the folded pairs from 3 apart exactly",
+    "layer": 0,
+    "main": 10,
+    "bits": 17.7769
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the folded pairs from 3 apart exactly; prime numbers at least 4",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.8318
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart exactly; prime numbers at least 6",
+    "layer": 1,
+    "main": 10,
+    "bits": 18.2449
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart exactly; prime numbers at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 19.559
+   },
+   {
+    "score": [
+     "0",
+     "9"
+    ],
+    "label": "the folded pairs from 3 apart exactly; prime numbers at least 9",
+    "layer": 1,
+    "main": 10,
+    "bits": 20.6911
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the folded pairs from 3 apart exactly; prime numbers at least 10",
+    "layer": 1,
+    "main": 10,
+    "bits": 22.1881
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the folded pairs from 3 apart exactly; prime numbers at least 11",
+    "layer": 1,
+    "main": 10,
+    "bits": 24.0815
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/crosswise-threes/{}/tb=zeros",
+  "variant": "grid-4-d10",
+  "family": "crosswise-threes",
+  "params": {},
+  "tieBreaker": "zeros",
+  "status": "exact",
+  "cap": 47,
+  "convergedCap": 47,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "18625a1f589fd89e",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; 0s at least 3",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.0327
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; 0s at least 5",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.1672
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; 0s at least 7",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.3613
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 0.5014
+   },
+   {
+    "score": [
+     "-12",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; 0s at least 3",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.5538
+   },
+   {
+    "score": [
+     "-12",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; 0s at least 5",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.7575
+   },
+   {
+    "score": [
+     "-12",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 12 in all; 0s at least 7",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.0286
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 1.1859
+   },
+   {
+    "score": [
+     "-10",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; 0s at least 3",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.2747
+   },
+   {
+    "score": [
+     "-10",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; 0s at least 5",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.6366
+   },
+   {
+    "score": [
+     "-10",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 10 in all; 0s at least 7",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.1347
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.3937
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; 0s at least 3",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.5198
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; 0s at least 5",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.0733
+   },
+   {
+    "score": [
+     "-8",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 8 in all; 0s at least 7",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.8951
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 4.2926
+   },
+   {
+    "score": [
+     "-6",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; 0s at least 3",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.398
+   },
+   {
+    "score": [
+     "-6",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; 0s at least 5",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.8428
+   },
+   {
+    "score": [
+     "-6",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 6 in all; 0s at least 7",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.3831
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 5.5635
+   },
+   {
+    "score": [
+     "-5",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; 0s at least 3",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.6846
+   },
+   {
+    "score": [
+     "-5",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; 0s at least 5",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.2143
+   },
+   {
+    "score": [
+     "-5",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 5 in all; 0s at least 7",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.8823
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 7.0952
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; 0s at least 3",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.2319
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; 0s at least 5",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.8515
+   },
+   {
+    "score": [
+     "-4",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 4 in all; 0s at least 7",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.68
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 8.9415
+   },
+   {
+    "score": [
+     "-3",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; 0s at least 3",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.0933
+   },
+   {
+    "score": [
+     "-3",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; 0s at least 5",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.8073
+   },
+   {
+    "score": [
+     "-3",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 3 in all; 0s at least 7",
+    "layer": 1,
+    "main": 7,
+    "bits": 10.8451
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 11.1885
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; 0s at least 3",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.3549
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; 0s at least 5",
+    "layer": 1,
+    "main": 8,
+    "bits": 12.1675
+   },
+   {
+    "score": [
+     "-2",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 2 in all; 0s at least 7",
+    "layer": 1,
+    "main": 8,
+    "bits": 13.494
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all",
+    "layer": 0,
+    "main": 9,
+    "bits": 13.9978
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; 0s at least 3",
+    "layer": 1,
+    "main": 9,
+    "bits": 14.1787
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; 0s at least 5",
+    "layer": 1,
+    "main": 9,
+    "bits": 15.0957
+   },
+   {
+    "score": [
+     "-1",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart off by at most 1 in all; 0s at least 7",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.8622
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the folded pairs from 3 apart exactly",
+    "layer": 0,
+    "main": 10,
+    "bits": 17.7769
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 2",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.8226
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 3",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.973
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 4",
+    "layer": 1,
+    "main": 10,
+    "bits": 18.3359
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 5",
+    "layer": 1,
+    "main": 10,
+    "bits": 19.0101
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 6",
+    "layer": 1,
+    "main": 10,
+    "bits": 20.0793
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 7",
+    "layer": 1,
+    "main": 10,
+    "bits": 21.6227
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the folded pairs from 3 apart exactly; 0s at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 23.74
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/leapfrog/{}/tb=first-column",
+  "variant": "grid-4-d10",
+  "family": "leapfrog",
+  "params": {},
+  "tieBreaker": "first-column",
+  "status": "exact",
+  "cap": 46,
+  "convergedCap": 46,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "ebc70138f03d9964",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; the first column at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.3569
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; the first column at least 12",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.714
+   },
+   {
+    "score": [
+     null,
+     "14"
+    ],
+    "label": "anything; the first column at least 14",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.8776
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 1.1821
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; the first column at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.4592
+   },
+   {
+    "score": [
+     "-12",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; the first column at least 12",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.6699
+   },
+   {
+    "score": [
+     "-12",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; the first column at least 14",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.738
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 1.8063
+   },
+   {
+    "score": [
+     "-10",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; the first column at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.227
+   },
+   {
+    "score": [
+     "-10",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; the first column at least 12",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.5386
+   },
+   {
+    "score": [
+     "-10",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; the first column at least 14",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.6281
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.7039
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; the first column at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.3493
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; the first column at least 12",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.8173
+   },
+   {
+    "score": [
+     "-8",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; the first column at least 14",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.9364
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 4.0239
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; the first column at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.5428
+   },
+   {
+    "score": [
+     "-6",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; the first column at least 12",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.8329
+   },
+   {
+    "score": [
+     "-6",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; the first column at least 14",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.8915
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 4.9286
+   },
+   {
+    "score": [
+     "-5",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; the first column at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.5962
+   },
+   {
+    "score": [
+     "-5",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; the first column at least 12",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.9611
+   },
+   {
+    "score": [
+     "-5",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; the first column at least 14",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.0314
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 6.0737
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; the first column at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 6.9283
+   },
+   {
+    "score": [
+     "-4",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; the first column at least 12",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.4027
+   },
+   {
+    "score": [
+     "-4",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; the first column at least 14",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.4923
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 7.5443
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; the first column at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 8.6237
+   },
+   {
+    "score": [
+     "-3",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; the first column at least 12",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.2655
+   },
+   {
+    "score": [
+     "-3",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; the first column at least 14",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.3895
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 9.46
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; the first column at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 10.7976
+   },
+   {
+    "score": [
+     "-2",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; the first column at least 12",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.71
+   },
+   {
+    "score": [
+     "-2",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; the first column at least 14",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.9024
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all",
+    "layer": 0,
+    "main": 9,
+    "bits": 12.013
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; the first column at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 13.6371
+   },
+   {
+    "score": [
+     "-1",
+     "12"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; the first column at least 12",
+    "layer": 1,
+    "main": 9,
+    "bits": 15.0354
+   },
+   {
+    "score": [
+     "-1",
+     "14"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; the first column at least 14",
+    "layer": 1,
+    "main": 9,
+    "bits": 15.4041
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the leaps from one apart exactly",
+    "layer": 0,
+    "main": 10,
+    "bits": 15.6346
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the leaps from one apart exactly; the first column at least 6",
+    "layer": 1,
+    "main": 10,
+    "bits": 16.6197
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the leaps from one apart exactly; the first column at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.5692
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the leaps from one apart exactly; the first column at least 10",
+    "layer": 1,
+    "main": 10,
+    "bits": 18.7474
+   },
+   {
+    "score": [
+     "0",
+     "12"
+    ],
+    "label": "the leaps from one apart exactly; the first column at least 12",
+    "layer": 1,
+    "main": 10,
+    "bits": 20.1352
+   },
+   {
+    "score": [
+     "0",
+     "14"
+    ],
+    "label": "the leaps from one apart exactly; the first column at least 14",
+    "layer": 1,
+    "main": 10,
+    "bits": 21.7206
+   },
+   {
+    "score": [
+     "0",
+     "16"
+    ],
+    "label": "the leaps from one apart exactly; the first column at least 16",
+    "layer": 1,
+    "main": 10,
+    "bits": 23.4828
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/leapfrog/{}/tb=primes",
+  "variant": "grid-4-d10",
+  "family": "leapfrog",
+  "params": {},
+  "tieBreaker": "primes",
+  "status": "exact",
+  "cap": 46,
+  "convergedCap": 46,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "12e2f90d71f4ef21",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; prime numbers at least 4",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.1392
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; prime numbers at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.9751
+   },
+   {
+    "score": [
+     null,
+     "10"
+    ],
+    "label": "anything; prime numbers at least 10",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.1564
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 1.1821
+   },
+   {
+    "score": [
+     "-12",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.2564
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.6928
+   },
+   {
+    "score": [
+     "-12",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.7899
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 1.8063
+   },
+   {
+    "score": [
+     "-10",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.9042
+   },
+   {
+    "score": [
+     "-10",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.5213
+   },
+   {
+    "score": [
+     "-10",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.6758
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.7039
+   },
+   {
+    "score": [
+     "-8",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.8348
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.7192
+   },
+   {
+    "score": [
+     "-8",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.9738
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 4.0239
+   },
+   {
+    "score": [
+     "-6",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.1293
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.7471
+   },
+   {
+    "score": [
+     "-6",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.8996
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 4.9286
+   },
+   {
+    "score": [
+     "-5",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.0599
+   },
+   {
+    "score": [
+     "-5",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.8348
+   },
+   {
+    "score": [
+     "-5",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.035
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 6.0737
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 6,
+    "bits": 6.2391
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.2221
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.4914
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 7.5443
+   },
+   {
+    "score": [
+     "-3",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 7,
+    "bits": 7.7532
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.0092
+   },
+   {
+    "score": [
+     "-3",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.3845
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 9.46
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 8,
+    "bits": 9.721
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.3377
+   },
+   {
+    "score": [
+     "-2",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.8945
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all",
+    "layer": 0,
+    "main": 9,
+    "bits": 12.013
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 9,
+    "bits": 12.3332
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 14.4464
+   },
+   {
+    "score": [
+     "-1",
+     "10"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 9,
+    "bits": 15.3972
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the leaps from one apart exactly",
+    "layer": 0,
+    "main": 10,
+    "bits": 15.6346
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the leaps from one apart exactly; prime numbers at least 3",
+    "layer": 1,
+    "main": 10,
+    "bits": 15.7851
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the leaps from one apart exactly; prime numbers at least 4",
+    "layer": 1,
+    "main": 10,
+    "bits": 16.019
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the leaps from one apart exactly; prime numbers at least 6",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.022
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the leaps from one apart exactly; prime numbers at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 18.8978
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the leaps from one apart exactly; prime numbers at least 10",
+    "layer": 1,
+    "main": 10,
+    "bits": 21.7729
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the leaps from one apart exactly; prime numbers at least 11",
+    "layer": 1,
+    "main": 10,
+    "bits": 23.6317
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/leapfrog/{}/tb=zeros",
+  "variant": "grid-4-d10",
+  "family": "leapfrog",
+  "params": {},
+  "tieBreaker": "zeros",
+  "status": "exact",
+  "cap": 47,
+  "convergedCap": 47,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "229b362dbbb0e6a6",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; 0s at least 3",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.0768
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; 0s at least 5",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.4106
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; 0s at least 7",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.8945
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 1.1821
+   },
+   {
+    "score": [
+     "-12",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; 0s at least 3",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.2334
+   },
+   {
+    "score": [
+     "-12",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; 0s at least 5",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.4254
+   },
+   {
+    "score": [
+     "-12",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 12 in all; 0s at least 7",
+    "layer": 1,
+    "main": 1,
+    "bits": 1.6677
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 1.8063
+   },
+   {
+    "score": [
+     "-10",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; 0s at least 3",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.8748
+   },
+   {
+    "score": [
+     "-10",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; 0s at least 5",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.1344
+   },
+   {
+    "score": [
+     "-10",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 10 in all; 0s at least 7",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.4836
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.7039
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; 0s at least 3",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.7932
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; 0s at least 5",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.141
+   },
+   {
+    "score": [
+     "-8",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 8 in all; 0s at least 7",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.653
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 4.0239
+   },
+   {
+    "score": [
+     "-6",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; 0s at least 3",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.0931
+   },
+   {
+    "score": [
+     "-6",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; 0s at least 5",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.3518
+   },
+   {
+    "score": [
+     "-6",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 6 in all; 0s at least 7",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.7008
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 4.9286
+   },
+   {
+    "score": [
+     "-5",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; 0s at least 3",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.0115
+   },
+   {
+    "score": [
+     "-5",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; 0s at least 5",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.3284
+   },
+   {
+    "score": [
+     "-5",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 5 in all; 0s at least 7",
+    "layer": 1,
+    "main": 5,
+    "bits": 5.7745
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 6.0737
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; 0s at least 3",
+    "layer": 1,
+    "main": 6,
+    "bits": 6.174
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; 0s at least 5",
+    "layer": 1,
+    "main": 6,
+    "bits": 6.5693
+   },
+   {
+    "score": [
+     "-4",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 4 in all; 0s at least 7",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.1531
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 7.5443
+   },
+   {
+    "score": [
+     "-3",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; 0s at least 3",
+    "layer": 1,
+    "main": 7,
+    "bits": 7.6666
+   },
+   {
+    "score": [
+     "-3",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; 0s at least 5",
+    "layer": 1,
+    "main": 7,
+    "bits": 8.1696
+   },
+   {
+    "score": [
+     "-3",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 3 in all; 0s at least 7",
+    "layer": 1,
+    "main": 7,
+    "bits": 8.9544
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 9.46
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; 0s at least 3",
+    "layer": 1,
+    "main": 8,
+    "bits": 9.6096
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; 0s at least 5",
+    "layer": 1,
+    "main": 8,
+    "bits": 10.2639
+   },
+   {
+    "score": [
+     "-2",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 2 in all; 0s at least 7",
+    "layer": 1,
+    "main": 8,
+    "bits": 11.3609
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all",
+    "layer": 0,
+    "main": 9,
+    "bits": 12.013
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; 0s at least 3",
+    "layer": 1,
+    "main": 9,
+    "bits": 12.196
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; 0s at least 5",
+    "layer": 1,
+    "main": 9,
+    "bits": 13.0723
+   },
+   {
+    "score": [
+     "-1",
+     "7"
+    ],
+    "label": "the leaps from one apart off by at most 1 in all; 0s at least 7",
+    "layer": 1,
+    "main": 9,
+    "bits": 14.7313
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the leaps from one apart exactly",
+    "layer": 0,
+    "main": 10,
+    "bits": 15.6346
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 2",
+    "layer": 1,
+    "main": 10,
+    "bits": 15.6856
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 3",
+    "layer": 1,
+    "main": 10,
+    "bits": 15.8576
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 4",
+    "layer": 1,
+    "main": 10,
+    "bits": 16.281
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 5",
+    "layer": 1,
+    "main": 10,
+    "bits": 17.0869
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 6",
+    "layer": 1,
+    "main": 10,
+    "bits": 18.4123
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 7",
+    "layer": 1,
+    "main": 10,
+    "bits": 20.4471
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the leaps from one apart exactly; 0s at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 23.612
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/magic-eighteen/{\"T\":18}/tb=first-column",
+  "variant": "grid-4-d10",
+  "family": "magic-eighteen",
+  "params": {
+   "T": 18
+  },
+  "tieBreaker": "first-column",
+  "status": "exact",
+  "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "ac8c591bfac6247e",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "20"
+    ],
+    "label": "anything; the first column at least 20",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.1695
+   },
+   {
+    "score": [
+     null,
+     "26"
+    ],
+    "label": "anything; the first column at least 26",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.1896
+   },
+   {
+    "score": [
+     null,
+     "28"
+    ],
+    "label": "anything; the first column at least 28",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.1897
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "the rows' totals off by at most 32 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 2.1898
+   },
+   {
+    "score": [
+     "-32",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 32 in all; the first column at least 20",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.2683
+   },
+   {
+    "score": [
+     "-32",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 32 in all; the first column at least 26",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.4462
+   },
+   {
+    "score": [
+     "-32",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 32 in all; the first column at least 28",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.4512
+   },
+   {
+    "score": [
+     "-24"
+    ],
+    "label": "the rows' totals off by at most 24 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 4.4526
+   },
+   {
+    "score": [
+     "-24",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 24 in all; the first column at least 20",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.932
+   },
+   {
+    "score": [
+     "-24",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 24 in all; the first column at least 26",
+    "layer": 1,
+    "main": 2,
+    "bits": 7.8017
+   },
+   {
+    "score": [
+     "-24",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 24 in all; the first column at least 28",
+    "layer": 1,
+    "main": 2,
+    "bits": 7.8662
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the rows' totals off by at most 16 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 7.8938
+   },
+   {
+    "score": [
+     "-16",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 16 in all; the first column at least 20",
+    "layer": 1,
+    "main": 3,
+    "bits": 9.4368
+   },
+   {
+    "score": [
+     "-16",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 16 in all; the first column at least 26",
+    "layer": 1,
+    "main": 3,
+    "bits": 10.1115
+   },
+   {
+    "score": [
+     "-16",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 16 in all; the first column at least 28",
+    "layer": 1,
+    "main": 3,
+    "bits": 10.1844
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the rows' totals off by at most 12 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 10.2268
+   },
+   {
+    "score": [
+     "-12",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 12 in all; the first column at least 20",
+    "layer": 1,
+    "main": 4,
+    "bits": 11.7922
+   },
+   {
+    "score": [
+     "-12",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 12 in all; the first column at least 26",
+    "layer": 1,
+    "main": 4,
+    "bits": 12.8841
+   },
+   {
+    "score": [
+     "-12",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 12 in all; the first column at least 28",
+    "layer": 1,
+    "main": 4,
+    "bits": 13.0633
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the rows' totals off by at most 8 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 13.1944
+   },
+   {
+    "score": [
+     "-8",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 8 in all; the first column at least 20",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.2219
+   },
+   {
+    "score": [
+     "-8",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 8 in all; the first column at least 26",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.8724
+   },
+   {
+    "score": [
+     "-8",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 8 in all; the first column at least 28",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.9759
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the rows' totals off by at most 6 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 15.0573
+   },
+   {
+    "score": [
+     "-6",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 6 in all; the first column at least 20",
+    "layer": 1,
+    "main": 6,
+    "bits": 16.1617
+   },
+   {
+    "score": [
+     "-6",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 6 in all; the first column at least 26",
+    "layer": 1,
+    "main": 6,
+    "bits": 17.0494
+   },
+   {
+    "score": [
+     "-6",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 6 in all; the first column at least 28",
+    "layer": 1,
+    "main": 6,
+    "bits": 17.2213
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the rows' totals off by at most 4 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 17.3717
+   },
+   {
+    "score": [
+     "-4",
+     "16"
+    ],
+    "label": "the rows' totals off by at most 4 in all; the first column at least 16",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.0153
+   },
+   {
+    "score": [
+     "-4",
+     "20"
+    ],
+    "label": "the rows' totals off by at most 4 in all; the first column at least 20",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.8347
+   },
+   {
+    "score": [
+     "-4",
+     "24"
+    ],
+    "label": "the rows' totals off by at most 4 in all; the first column at least 24",
+    "layer": 1,
+    "main": 7,
+    "bits": 20.1822
+   },
+   {
+    "score": [
+     "-4",
+     "26"
+    ],
+    "label": "the rows' totals off by at most 4 in all; the first column at least 26",
+    "layer": 1,
+    "main": 7,
+    "bits": 21.1118
+   },
+   {
+    "score": [
+     "-4",
+     "28"
+    ],
+    "label": "the rows' totals off by at most 4 in all; the first column at least 28",
+    "layer": 1,
+    "main": 7,
+    "bits": 22.2569
+   },
+   {
+    "score": [
+     "-4",
+     "30"
+    ],
+    "label": "the rows' totals off by at most 4 in all; the first column at least 30",
+    "layer": 1,
+    "main": 7,
+    "bits": 23.6721
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/magic-eighteen/{\"T\":18}/tb=odd",
+  "variant": "grid-4-d10",
+  "family": "magic-eighteen",
+  "params": {
+   "T": 18
+  },
+  "tieBreaker": "odd",
+  "status": "exact",
+  "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "f4ea8c1c8a32ca11",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; odd numbers at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.1581
+   },
+   {
+    "score": [
+     null,
+     "11"
+    ],
+    "label": "anything; odd numbers at least 11",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.0893
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; odd numbers at least 12",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.165
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "the rows' totals off by at most 32 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 2.1898
+   },
+   {
+    "score": [
+     "-32",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 32 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 3.0652
+   },
+   {
+    "score": [
+     "-32",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 32 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.2454
+   },
+   {
+    "score": [
+     "-32",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 32 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.3861
+   },
+   {
+    "score": [
+     "-24"
+    ],
+    "label": "the rows' totals off by at most 24 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 4.4526
+   },
+   {
+    "score": [
+     "-24",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 24 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 5.3514
+   },
+   {
+    "score": [
+     "-24",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 24 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 2,
+    "bits": 7.274
+   },
+   {
+    "score": [
+     "-24",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 24 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 2,
+    "bits": 7.6467
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the rows' totals off by at most 16 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 7.8938
+   },
+   {
+    "score": [
+     "-16",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 16 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.5535
+   },
+   {
+    "score": [
+     "-16",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 16 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 3,
+    "bits": 9.8811
+   },
+   {
+    "score": [
+     "-16",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 16 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 3,
+    "bits": 10.0821
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the rows' totals off by at most 12 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 10.2268
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 12 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.9028
+   },
+   {
+    "score": [
+     "-12",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 12 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 4,
+    "bits": 12.6062
+   },
+   {
+    "score": [
+     "-12",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 12 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 4,
+    "bits": 12.9182
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the rows' totals off by at most 8 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 13.1944
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 8 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 13.6939
+   },
+   {
+    "score": [
+     "-8",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 8 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.7855
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 8 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.9278
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the rows' totals off by at most 6 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 15.0573
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 6 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 15.5923
+   },
+   {
+    "score": [
+     "-6",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 6 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 6,
+    "bits": 16.9731
+   },
+   {
+    "score": [
+     "-6",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 6 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 6,
+    "bits": 17.1652
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the rows' totals off by at most 4 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 17.3717
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 4 in all; odd numbers at least 6",
+    "layer": 1,
+    "main": 7,
+    "bits": 17.5
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 4 in all; odd numbers at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.028
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 4 in all; odd numbers at least 10",
+    "layer": 1,
+    "main": 7,
+    "bits": 19.3857
+   },
+   {
+    "score": [
+     "-4",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 4 in all; odd numbers at least 11",
+    "layer": 1,
+    "main": 7,
+    "bits": 21.0536
+   },
+   {
+    "score": [
+     "-4",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 4 in all; odd numbers at least 12",
+    "layer": 1,
+    "main": 7,
+    "bits": 21.9076
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "the rows' totals off by at most 4 in all; odd numbers at least 13",
+    "layer": 1,
+    "main": 7,
+    "bits": 24.525
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/magic-eighteen/{\"T\":18}/tb=primes",
+  "variant": "grid-4-d10",
+  "family": "magic-eighteen",
+  "params": {
+   "T": 18
+  },
+  "tieBreaker": "primes",
+  "status": "exact",
+  "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "e547aeb57a1d5e3a",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; prime numbers at least 6",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.8698
+   },
+   {
+    "score": [
+     null,
+     "10"
+    ],
+    "label": "anything; prime numbers at least 10",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.14
+   },
+   {
+    "score": [
+     null,
+     "11"
+    ],
+    "label": "anything; prime numbers at least 11",
+    "layer": 1,
+    "main": 0,
+    "bits": 2.1794
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "the rows' totals off by at most 32 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 2.1898
+   },
+   {
+    "score": [
+     "-32",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 32 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 1,
+    "bits": 2.6845
+   },
+   {
+    "score": [
+     "-32",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 32 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.2455
+   },
+   {
+    "score": [
+     "-32",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 32 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.3906
+   },
+   {
+    "score": [
+     "-24"
+    ],
+    "label": "the rows' totals off by at most 24 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 4.4526
+   },
+   {
+    "score": [
+     "-24",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 24 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 2,
+    "bits": 4.9191
+   },
+   {
+    "score": [
+     "-24",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 24 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 2,
+    "bits": 7.1821
+   },
+   {
+    "score": [
+     "-24",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 24 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 2,
+    "bits": 7.6182
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the rows' totals off by at most 16 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 7.8938
+   },
+   {
+    "score": [
+     "-16",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 16 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.2447
+   },
+   {
+    "score": [
+     "-16",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 16 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 3,
+    "bits": 9.8088
+   },
+   {
+    "score": [
+     "-16",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 16 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 3,
+    "bits": 10.0632
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the rows' totals off by at most 12 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 10.2268
+   },
+   {
+    "score": [
+     "-12",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 12 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.5947
+   },
+   {
+    "score": [
+     "-12",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 12 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 4,
+    "bits": 12.501
+   },
+   {
+    "score": [
+     "-12",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 12 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 4,
+    "bits": 12.8997
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the rows' totals off by at most 8 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 13.1944
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 8 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 5,
+    "bits": 13.4867
+   },
+   {
+    "score": [
+     "-8",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 8 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.7377
+   },
+   {
+    "score": [
+     "-8",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 8 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 5,
+    "bits": 14.9301
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the rows' totals off by at most 6 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 15.0573
+   },
+   {
+    "score": [
+     "-6",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 6 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 6,
+    "bits": 15.3824
+   },
+   {
+    "score": [
+     "-6",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 6 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 6,
+    "bits": 16.9113
+   },
+   {
+    "score": [
+     "-6",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 6 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 6,
+    "bits": 17.1826
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the rows' totals off by at most 4 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 17.3717
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the rows' totals off by at most 4 in all; prime numbers at least 5",
+    "layer": 1,
+    "main": 7,
+    "bits": 17.5558
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the rows' totals off by at most 4 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 7,
+    "bits": 17.794
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the rows' totals off by at most 4 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.8071
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "the rows' totals off by at most 4 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 7,
+    "bits": 20.7795
+   },
+   {
+    "score": [
+     "-4",
+     "11"
+    ],
+    "label": "the rows' totals off by at most 4 in all; prime numbers at least 11",
+    "layer": 1,
+    "main": 7,
+    "bits": 22.207
+   },
+   {
+    "score": [
+     "-4",
+     "12"
+    ],
+    "label": "the rows' totals off by at most 4 in all; prime numbers at least 12",
+    "layer": 1,
+    "main": 7,
+    "bits": 23.9802
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirrormancer/{}/tb=middle",
+  "variant": "grid-4-d10",
+  "family": "mirrormancer",
   "params": {},
   "tieBreaker": "middle",
   "status": "exact",
@@ -1326,7 +5267,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "99580a96d96d0376",
+  "contentHash": "9d8c07599fd4d802",
   "rungs": [
    {
     "score": null,
@@ -1710,9 +5651,9 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirror-rows/{}/tb=primes",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirrormancer/{}/tb=primes",
   "variant": "grid-4-d10",
-  "family": "mirror-rows",
+  "family": "mirrormancer",
   "params": {},
   "tieBreaker": "primes",
   "status": "exact",
@@ -1722,7 +5663,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "9280d543187c4ea6",
+  "contentHash": "3a0dccf04427ec3a",
   "rungs": [
    {
     "score": null,
@@ -2106,9 +6047,9 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirror-rows/{}/tb=zeros",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirrormancer/{}/tb=zeros",
   "variant": "grid-4-d10",
-  "family": "mirror-rows",
+  "family": "mirrormancer",
   "params": {},
   "tieBreaker": "zeros",
   "status": "exact",
@@ -2118,7 +6059,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "fc6cb48bc42d01b5",
+  "contentHash": "40f61787afc92199",
   "rungs": [
    {
     "score": null,
@@ -2512,9 +6453,9 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-pairs/{\"T\":9}/tb=odd",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-nines/{\"T\":9}/tb=odd",
   "variant": "grid-4-d10",
-  "family": "opposite-pairs",
+  "family": "opposite-nines",
   "params": {
    "T": 9
   },
@@ -2526,7 +6467,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1e5d08253dd83036",
+  "contentHash": "6384cabebd15300a",
   "rungs": [
    {
     "score": null,
@@ -2871,9 +6812,9 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-pairs/{\"T\":9}/tb=primes",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-nines/{\"T\":9}/tb=primes",
   "variant": "grid-4-d10",
-  "family": "opposite-pairs",
+  "family": "opposite-nines",
   "params": {
    "T": 9
   },
@@ -2885,7 +6826,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "591339d06cd89c37",
+  "contentHash": "32f3de4ea9c0b8e3",
   "rungs": [
    {
     "score": null,
@@ -3230,9 +7171,9 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-pairs/{\"T\":9}/tb=top-half",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-nines/{\"T\":9}/tb=top-half",
   "variant": "grid-4-d10",
-  "family": "opposite-pairs",
+  "family": "opposite-nines",
   "params": {
    "T": 9
   },
@@ -3244,7 +7185,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "afc6cf13a8a069ee",
+  "contentHash": "bd1acc0330e99402",
   "rungs": [
    {
     "score": null,
@@ -4904,21 +8845,19 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/row-totals/{\"T\":12}/tb=first-column",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/spread-of-three/{}/tb=corners",
   "variant": "grid-4-d10",
-  "family": "row-totals",
-  "params": {
-   "T": 12
-  },
-  "tieBreaker": "first-column",
-  "status": "exact",
-  "cap": 42,
-  "convergedCap": 42,
+  "family": "spread-of-three",
+  "params": {},
+  "tieBreaker": "corners",
+  "status": "unconverged",
+  "cap": 45,
+  "convergedCap": 45,
   "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "8233ddf204981569",
+  "contentHash": "37f23178bc3d2ac7",
   "rungs": [
    {
     "score": null,
@@ -4930,432 +8869,508 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    {
     "score": [
      null,
-     "16"
+     "6"
     ],
-    "label": "anything; the first column at least 16",
+    "label": "anything; the corners at least 6",
     "layer": 1,
     "main": 0,
-    "bits": 1.4839
+    "bits": 0.0668
    },
    {
     "score": [
      null,
-     "22"
+     "10"
     ],
-    "label": "anything; the first column at least 22",
+    "label": "anything; the corners at least 10",
     "layer": 1,
     "main": 0,
-    "bits": 1.599
+    "bits": 0.1559
    },
    {
     "score": [
      null,
-     "24"
+     "11"
     ],
-    "label": "anything; the first column at least 24",
+    "label": "anything; the corners at least 11",
     "layer": 1,
     "main": 0,
-    "bits": 1.6044
+    "bits": 0.1777
    },
    {
     "score": [
-     "-16"
+     "-24"
     ],
-    "label": "the rows' totals off by at most 16 in all",
+    "label": "the squares' spreads from 3 off by at most 24 in all",
     "layer": 0,
     "main": 1,
-    "bits": 1.6071
+    "bits": 0.2806
    },
    {
     "score": [
-     "-16",
-     "16"
+     "-24",
+     "6"
     ],
-    "label": "the rows' totals off by at most 16 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 24 in all; the corners at least 6",
     "layer": 1,
     "main": 1,
-    "bits": 2.7318
+    "bits": 0.3933
    },
    {
     "score": [
-     "-16",
-     "22"
+     "-24",
+     "10"
     ],
-    "label": "the rows' totals off by at most 16 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 24 in all; the corners at least 10",
     "layer": 1,
     "main": 1,
-    "bits": 2.914
+    "bits": 0.5433
    },
    {
     "score": [
-     "-16",
-     "24"
+     "-24",
+     "11"
     ],
-    "label": "the rows' totals off by at most 16 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 24 in all; the corners at least 11",
     "layer": 1,
     "main": 1,
-    "bits": 2.9251
+    "bits": 0.5786
    },
    {
     "score": [
-     "-12"
+     "-18"
     ],
-    "label": "the rows' totals off by at most 12 in all",
+    "label": "the squares' spreads from 3 off by at most 18 in all",
     "layer": 0,
     "main": 2,
-    "bits": 2.931
+    "bits": 0.7497
    },
    {
     "score": [
-     "-12",
-     "16"
+     "-18",
+     "6"
     ],
-    "label": "the rows' totals off by at most 12 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 18 in all; the corners at least 6",
     "layer": 1,
     "main": 2,
-    "bits": 4.4685
+    "bits": 0.8968
    },
    {
     "score": [
-     "-12",
-     "22"
+     "-18",
+     "10"
     ],
-    "label": "the rows' totals off by at most 12 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 18 in all; the corners at least 10",
     "layer": 1,
     "main": 2,
-    "bits": 4.9422
+    "bits": 1.0977
    },
    {
     "score": [
-     "-12",
-     "24"
+     "-18",
+     "11"
     ],
-    "label": "the rows' totals off by at most 12 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 18 in all; the corners at least 11",
     "layer": 1,
     "main": 2,
-    "bits": 4.9823
+    "bits": 1.1475
+   },
+   {
+    "score": [
+     "-14"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 1.373
+   },
+   {
+    "score": [
+     "-14",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; the corners at least 6",
+    "layer": 1,
+    "main": 3,
+    "bits": 1.616
+   },
+   {
+    "score": [
+     "-14",
+     "10"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; the corners at least 10",
+    "layer": 1,
+    "main": 3,
+    "bits": 1.9874
+   },
+   {
+    "score": [
+     "-14",
+     "11"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; the corners at least 11",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.0796
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 2.4976
+   },
+   {
+    "score": [
+     "-10",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; the corners at least 6",
+    "layer": 1,
+    "main": 4,
+    "bits": 2.73
+   },
+   {
+    "score": [
+     "-10",
+     "10"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; the corners at least 10",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.0628
+   },
+   {
+    "score": [
+     "-10",
+     "11"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; the corners at least 11",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.1421
    },
    {
     "score": [
      "-8"
     ],
-    "label": "the rows' totals off by at most 8 in all",
+    "label": "the squares' spreads from 3 off by at most 8 in all",
     "layer": 0,
-    "main": 3,
-    "bits": 5.0062
+    "main": 5,
+    "bits": 3.4068
    },
    {
     "score": [
      "-8",
-     "16"
+     "6"
     ],
-    "label": "the rows' totals off by at most 8 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 8 in all; the corners at least 6",
     "layer": 1,
-    "main": 3,
-    "bits": 6.0878
+    "main": 5,
+    "bits": 3.7406
    },
    {
     "score": [
      "-8",
-     "22"
+     "10"
     ],
-    "label": "the rows' totals off by at most 8 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 8 in all; the corners at least 10",
     "layer": 1,
-    "main": 3,
-    "bits": 6.4342
+    "main": 5,
+    "bits": 4.2535
    },
    {
     "score": [
      "-8",
-     "24"
+     "11"
     ],
-    "label": "the rows' totals off by at most 8 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 8 in all; the corners at least 11",
     "layer": 1,
-    "main": 3,
-    "bits": 6.4669
+    "main": 5,
+    "bits": 4.3704
    },
    {
     "score": [
      "-6"
     ],
-    "label": "the rows' totals off by at most 6 in all",
+    "label": "the squares' spreads from 3 off by at most 6 in all",
     "layer": 0,
-    "main": 4,
-    "bits": 6.4881
+    "main": 6,
+    "bits": 4.7105
    },
    {
     "score": [
      "-6",
-     "16"
+     "6"
     ],
-    "label": "the rows' totals off by at most 6 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 6 in all; the corners at least 6",
     "layer": 1,
-    "main": 4,
-    "bits": 7.8107
+    "main": 6,
+    "bits": 5.1788
    },
    {
     "score": [
      "-6",
-     "22"
+     "10"
     ],
-    "label": "the rows' totals off by at most 6 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 6 in all; the corners at least 10",
     "layer": 1,
-    "main": 4,
-    "bits": 8.3807
+    "main": 6,
+    "bits": 5.9733
    },
    {
     "score": [
      "-6",
-     "24"
+     "11"
     ],
-    "label": "the rows' totals off by at most 6 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 6 in all; the corners at least 11",
     "layer": 1,
-    "main": 4,
-    "bits": 8.4446
+    "main": 6,
+    "bits": 6.1535
    },
    {
     "score": [
      "-4"
     ],
-    "label": "the rows' totals off by at most 4 in all",
+    "label": "the squares' spreads from 3 off by at most 4 in all",
     "layer": 0,
-    "main": 5,
-    "bits": 8.4892
+    "main": 7,
+    "bits": 6.5736
    },
    {
     "score": [
      "-4",
-     "16"
+     "6"
     ],
-    "label": "the rows' totals off by at most 4 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 4 in all; the corners at least 6",
     "layer": 1,
-    "main": 5,
-    "bits": 9.4044
+    "main": 7,
+    "bits": 6.9662
    },
    {
     "score": [
      "-4",
-     "22"
+     "10"
     ],
-    "label": "the rows' totals off by at most 4 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 4 in all; the corners at least 10",
     "layer": 1,
-    "main": 5,
-    "bits": 9.7433
+    "main": 7,
+    "bits": 7.5279
    },
    {
     "score": [
      "-4",
-     "24"
+     "11"
     ],
-    "label": "the rows' totals off by at most 4 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 4 in all; the corners at least 11",
     "layer": 1,
-    "main": 5,
-    "bits": 9.7797
+    "main": 7,
+    "bits": 7.6318
    },
    {
     "score": [
      "-3"
     ],
-    "label": "the rows' totals off by at most 3 in all",
+    "label": "the squares' spreads from 3 off by at most 3 in all",
     "layer": 0,
-    "main": 6,
-    "bits": 9.8055
+    "main": 8,
+    "bits": 7.8195
    },
    {
     "score": [
      "-3",
-     "16"
+     "6"
     ],
-    "label": "the rows' totals off by at most 3 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 3 in all; the corners at least 6",
     "layer": 1,
-    "main": 6,
-    "bits": 10.8972
+    "main": 8,
+    "bits": 8.2854
    },
    {
     "score": [
      "-3",
-     "22"
+     "10"
     ],
-    "label": "the rows' totals off by at most 3 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 3 in all; the corners at least 10",
     "layer": 1,
-    "main": 6,
-    "bits": 11.3673
+    "main": 8,
+    "bits": 8.9785
    },
    {
     "score": [
      "-3",
-     "24"
+     "11"
     ],
-    "label": "the rows' totals off by at most 3 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 3 in all; the corners at least 11",
     "layer": 1,
-    "main": 6,
-    "bits": 11.4217
+    "main": 8,
+    "bits": 9.0961
    },
    {
     "score": [
      "-2"
     ],
-    "label": "the rows' totals off by at most 2 in all",
+    "label": "the squares' spreads from 3 off by at most 2 in all",
     "layer": 0,
-    "main": 7,
-    "bits": 11.4615
+    "main": 9,
+    "bits": 9.3047
    },
    {
     "score": [
      "-2",
-     "16"
+     "6"
     ],
-    "label": "the rows' totals off by at most 2 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 2 in all; the corners at least 6",
     "layer": 1,
-    "main": 7,
-    "bits": 12.793
+    "main": 9,
+    "bits": 9.9231
    },
    {
     "score": [
      "-2",
-     "22"
+     "10"
     ],
-    "label": "the rows' totals off by at most 2 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 2 in all; the corners at least 10",
     "layer": 1,
-    "main": 7,
-    "bits": 13.4924
+    "main": 9,
+    "bits": 10.8336
    },
    {
     "score": [
      "-2",
-     "24"
+     "11"
     ],
-    "label": "the rows' totals off by at most 2 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 2 in all; the corners at least 11",
     "layer": 1,
-    "main": 7,
-    "bits": 13.5831
+    "main": 9,
+    "bits": 10.9921
    },
    {
     "score": [
      "-1"
     ],
-    "label": "the rows' totals off by at most 1 in all",
+    "label": "the squares' spreads from 3 off by at most 1 in all",
     "layer": 0,
-    "main": 8,
-    "bits": 13.6518
+    "main": 10,
+    "bits": 11.19
    },
    {
     "score": [
      "-1",
-     "16"
+     "6"
     ],
-    "label": "the rows' totals off by at most 1 in all; the first column at least 16",
+    "label": "the squares' spreads from 3 off by at most 1 in all; the corners at least 6",
     "layer": 1,
-    "main": 8,
-    "bits": 15.3065
+    "main": 10,
+    "bits": 11.8955
    },
    {
     "score": [
      "-1",
-     "22"
+     "10"
     ],
-    "label": "the rows' totals off by at most 1 in all; the first column at least 22",
+    "label": "the squares' spreads from 3 off by at most 1 in all; the corners at least 10",
     "layer": 1,
-    "main": 8,
-    "bits": 16.478
+    "main": 10,
+    "bits": 13.1033
    },
    {
     "score": [
      "-1",
-     "24"
+     "11"
     ],
-    "label": "the rows' totals off by at most 1 in all; the first column at least 24",
+    "label": "the squares' spreads from 3 off by at most 1 in all; the corners at least 11",
     "layer": 1,
-    "main": 8,
-    "bits": 16.6689
+    "main": 10,
+    "bits": 13.2882
    },
    {
     "score": [
      "0"
     ],
-    "label": "the rows' totals exactly",
+    "label": "the squares' spreads from 3 exactly",
     "layer": 0,
-    "main": 9,
-    "bits": 16.8241
+    "main": 11,
+    "bits": 13.6242
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the squares' spreads from 3 exactly; the corners at least 4",
+    "layer": 1,
+    "main": 11,
+    "bits": 14.0284
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 exactly; the corners at least 6",
+    "layer": 1,
+    "main": 11,
+    "bits": 14.7976
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 exactly; the corners at least 8",
+    "layer": 1,
+    "main": 11,
+    "bits": 16.2118
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the squares' spreads from 3 exactly; the corners at least 10",
+    "layer": 1,
+    "main": 11,
+    "bits": 18.2415
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the squares' spreads from 3 exactly; the corners at least 11",
+    "layer": 1,
+    "main": 11,
+    "bits": 19.3669
    },
    {
     "score": [
      "0",
      "12"
     ],
-    "label": "the rows' totals exactly; the first column at least 12",
+    "label": "the squares' spreads from 3 exactly; the corners at least 12",
     "layer": 1,
-    "main": 9,
-    "bits": 17.7741
-   },
-   {
-    "score": [
-     "0",
-     "16"
-    ],
-    "label": "the rows' totals exactly; the first column at least 16",
-    "layer": 1,
-    "main": 9,
-    "bits": 18.9112
-   },
-   {
-    "score": [
-     "0",
-     "20"
-    ],
-    "label": "the rows' totals exactly; the first column at least 20",
-    "layer": 1,
-    "main": 9,
-    "bits": 20.6028
-   },
-   {
-    "score": [
-     "0",
-     "22"
-    ],
-    "label": "the rows' totals exactly; the first column at least 22",
-    "layer": 1,
-    "main": 9,
-    "bits": 21.6796
-   },
-   {
-    "score": [
-     "0",
-     "24"
-    ],
-    "label": "the rows' totals exactly; the first column at least 24",
-    "layer": 1,
-    "main": 9,
-    "bits": 22.9297
-   },
-   {
-    "score": [
-     "0",
-     "26"
-    ],
-    "label": "the rows' totals exactly; the first column at least 26",
-    "layer": 1,
-    "main": 9,
-    "bits": 24.3778
+    "main": 11,
+    "bits": 20.4936
    }
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/row-totals/{\"T\":12}/tb=primes",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/spread-of-three/{}/tb=primes",
   "variant": "grid-4-d10",
-  "family": "row-totals",
-  "params": {
-   "T": 12
-  },
+  "family": "spread-of-three",
+  "params": {},
   "tieBreaker": "primes",
-  "status": "exact",
-  "cap": 42,
-  "convergedCap": 42,
+  "status": "unconverged",
+  "cap": 49,
+  "convergedCap": 49,
   "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "49ba971e257992c8",
+  "contentHash": "7455e41dbcba0dd5",
   "rungs": [
    {
     "score": null,
@@ -5372,427 +9387,503 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime numbers at least 6",
     "layer": 1,
     "main": 0,
-    "bits": 0.7539
+    "bits": 0.1679
    },
    {
     "score": [
      null,
-     "10"
+     "8"
     ],
-    "label": "anything; prime numbers at least 10",
+    "label": "anything; prime numbers at least 8",
     "layer": 1,
     "main": 0,
-    "bits": 1.5847
+    "bits": 0.2534
    },
    {
     "score": [
      null,
-     "11"
+     "9"
     ],
-    "label": "anything; prime numbers at least 11",
+    "label": "anything; prime numbers at least 9",
     "layer": 1,
     "main": 0,
-    "bits": 1.6027
+    "bits": 0.2706
    },
    {
     "score": [
-     "-16"
+     "-24"
     ],
-    "label": "the rows' totals off by at most 16 in all",
+    "label": "the squares' spreads from 3 off by at most 24 in all",
     "layer": 0,
     "main": 1,
-    "bits": 1.6071
+    "bits": 0.2792
    },
    {
     "score": [
-     "-16",
+     "-24",
      "6"
     ],
-    "label": "the rows' totals off by at most 16 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 24 in all; prime numbers at least 6",
     "layer": 1,
     "main": 1,
-    "bits": 2.0073
+    "bits": 0.5188
    },
    {
     "score": [
-     "-16",
-     "10"
+     "-24",
+     "8"
     ],
-    "label": "the rows' totals off by at most 16 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 24 in all; prime numbers at least 8",
     "layer": 1,
     "main": 1,
-    "bits": 2.8684
+    "bits": 0.6788
    },
    {
     "score": [
-     "-16",
-     "11"
+     "-24",
+     "9"
     ],
-    "label": "the rows' totals off by at most 16 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 24 in all; prime numbers at least 9",
     "layer": 1,
     "main": 1,
-    "bits": 2.9148
+    "bits": 0.7184
    },
    {
     "score": [
-     "-12"
+     "-18"
     ],
-    "label": "the rows' totals off by at most 12 in all",
+    "label": "the squares' spreads from 3 off by at most 18 in all",
     "layer": 0,
     "main": 2,
-    "bits": 2.931
+    "bits": 0.744
    },
    {
     "score": [
-     "-12",
+     "-18",
      "6"
     ],
-    "label": "the rows' totals off by at most 12 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 18 in all; prime numbers at least 6",
     "layer": 1,
     "main": 2,
-    "bits": 3.3673
+    "bits": 1.0436
    },
    {
     "score": [
-     "-12",
-     "10"
+     "-18",
+     "8"
     ],
-    "label": "the rows' totals off by at most 12 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 18 in all; prime numbers at least 8",
     "layer": 1,
     "main": 2,
-    "bits": 4.7999
+    "bits": 1.2635
    },
    {
     "score": [
-     "-12",
-     "11"
+     "-18",
+     "9"
     ],
-    "label": "the rows' totals off by at most 12 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 18 in all; prime numbers at least 9",
     "layer": 1,
     "main": 2,
-    "bits": 4.9416
+    "bits": 1.3239
+   },
+   {
+    "score": [
+     "-14"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 1.3664
+   },
+   {
+    "score": [
+     "-14",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 3,
+    "bits": 1.8162
+   },
+   {
+    "score": [
+     "-14",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.2445
+   },
+   {
+    "score": [
+     "-14",
+     "9"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.3844
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 2.4935
+   },
+   {
+    "score": [
+     "-10",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; prime numbers at least 6",
+    "layer": 1,
+    "main": 4,
+    "bits": 2.8417
+   },
+   {
+    "score": [
+     "-10",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.1927
+   },
+   {
+    "score": [
+     "-10",
+     "9"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; prime numbers at least 9",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.3049
    },
    {
     "score": [
      "-8"
     ],
-    "label": "the rows' totals off by at most 8 in all",
+    "label": "the squares' spreads from 3 off by at most 8 in all",
     "layer": 0,
-    "main": 3,
-    "bits": 5.0062
+    "main": 5,
+    "bits": 3.3955
    },
    {
     "score": [
      "-8",
      "6"
     ],
-    "label": "the rows' totals off by at most 8 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 8 in all; prime numbers at least 6",
     "layer": 1,
-    "main": 3,
-    "bits": 5.3235
+    "main": 5,
+    "bits": 3.8151
    },
    {
     "score": [
      "-8",
-     "10"
+     "8"
     ],
-    "label": "the rows' totals off by at most 8 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 8 in all; prime numbers at least 8",
     "layer": 1,
-    "main": 3,
-    "bits": 6.3346
+    "main": 5,
+    "bits": 4.345
    },
    {
     "score": [
      "-8",
-     "11"
+     "9"
     ],
-    "label": "the rows' totals off by at most 8 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 8 in all; prime numbers at least 9",
     "layer": 1,
-    "main": 3,
-    "bits": 6.4364
+    "main": 5,
+    "bits": 4.5321
    },
    {
     "score": [
      "-6"
     ],
-    "label": "the rows' totals off by at most 6 in all",
+    "label": "the squares' spreads from 3 off by at most 6 in all",
     "layer": 0,
-    "main": 4,
-    "bits": 6.4881
+    "main": 6,
+    "bits": 4.6888
    },
    {
     "score": [
      "-6",
      "6"
     ],
-    "label": "the rows' totals off by at most 6 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 6 in all; prime numbers at least 6",
     "layer": 1,
-    "main": 4,
-    "bits": 6.8464
+    "main": 6,
+    "bits": 5.1645
    },
    {
     "score": [
      "-6",
-     "10"
+     "8"
     ],
-    "label": "the rows' totals off by at most 6 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 6 in all; prime numbers at least 8",
     "layer": 1,
-    "main": 4,
-    "bits": 8.2145
+    "main": 6,
+    "bits": 5.948
    },
    {
     "score": [
      "-6",
-     "11"
+     "9"
     ],
-    "label": "the rows' totals off by at most 6 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 6 in all; prime numbers at least 9",
     "layer": 1,
-    "main": 4,
-    "bits": 8.3905
+    "main": 6,
+    "bits": 6.2732
    },
    {
     "score": [
      "-4"
     ],
-    "label": "the rows' totals off by at most 4 in all",
+    "label": "the squares' spreads from 3 off by at most 4 in all",
     "layer": 0,
-    "main": 5,
-    "bits": 8.4892
+    "main": 7,
+    "bits": 6.5521
    },
    {
     "score": [
      "-4",
      "6"
     ],
-    "label": "the rows' totals off by at most 4 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 4 in all; prime numbers at least 6",
     "layer": 1,
-    "main": 5,
-    "bits": 8.7573
+    "main": 7,
+    "bits": 6.8769
    },
    {
     "score": [
      "-4",
-     "10"
+     "8"
     ],
-    "label": "the rows' totals off by at most 4 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 4 in all; prime numbers at least 8",
     "layer": 1,
-    "main": 5,
-    "bits": 9.6534
+    "main": 7,
+    "bits": 7.4402
    },
    {
     "score": [
      "-4",
-     "11"
+     "9"
     ],
-    "label": "the rows' totals off by at most 4 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 4 in all; prime numbers at least 9",
     "layer": 1,
-    "main": 5,
-    "bits": 9.7512
+    "main": 7,
+    "bits": 7.6467
    },
    {
     "score": [
      "-3"
     ],
-    "label": "the rows' totals off by at most 3 in all",
+    "label": "the squares' spreads from 3 off by at most 3 in all",
     "layer": 0,
-    "main": 6,
-    "bits": 9.8055
+    "main": 8,
+    "bits": 7.7907
    },
    {
     "score": [
      "-3",
      "6"
     ],
-    "label": "the rows' totals off by at most 3 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 3 in all; prime numbers at least 6",
     "layer": 1,
-    "main": 6,
-    "bits": 10.1095
+    "main": 8,
+    "bits": 8.113
    },
    {
     "score": [
      "-3",
-     "10"
+     "8"
     ],
-    "label": "the rows' totals off by at most 3 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 3 in all; prime numbers at least 8",
     "layer": 1,
-    "main": 6,
-    "bits": 11.2405
+    "main": 8,
+    "bits": 8.8023
    },
    {
     "score": [
      "-3",
-     "11"
+     "9"
     ],
-    "label": "the rows' totals off by at most 3 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 3 in all; prime numbers at least 9",
     "layer": 1,
-    "main": 6,
-    "bits": 11.3805
+    "main": 8,
+    "bits": 9.074
    },
    {
     "score": [
      "-2"
     ],
-    "label": "the rows' totals off by at most 2 in all",
+    "label": "the squares' spreads from 3 off by at most 2 in all",
     "layer": 0,
-    "main": 7,
-    "bits": 11.4615
+    "main": 9,
+    "bits": 9.2826
    },
    {
     "score": [
      "-2",
      "6"
     ],
-    "label": "the rows' totals off by at most 2 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 2 in all; prime numbers at least 6",
     "layer": 1,
-    "main": 7,
-    "bits": 11.8086
+    "main": 9,
+    "bits": 9.6002
    },
    {
     "score": [
      "-2",
-     "10"
+     "8"
     ],
-    "label": "the rows' totals off by at most 2 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 2 in all; prime numbers at least 8",
     "layer": 1,
-    "main": 7,
-    "bits": 13.2943
+    "main": 9,
+    "bits": 10.4445
    },
    {
     "score": [
      "-2",
-     "11"
+     "9"
     ],
-    "label": "the rows' totals off by at most 2 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 2 in all; prime numbers at least 9",
     "layer": 1,
-    "main": 7,
-    "bits": 13.5155
+    "main": 9,
+    "bits": 10.8365
    },
    {
     "score": [
      "-1"
     ],
-    "label": "the rows' totals off by at most 1 in all",
+    "label": "the squares' spreads from 3 off by at most 1 in all",
     "layer": 0,
-    "main": 8,
-    "bits": 13.6518
+    "main": 10,
+    "bits": 11.1617
    },
    {
     "score": [
      "-1",
      "6"
     ],
-    "label": "the rows' totals off by at most 1 in all; prime numbers at least 6",
+    "label": "the squares' spreads from 3 off by at most 1 in all; prime numbers at least 6",
     "layer": 1,
-    "main": 8,
-    "bits": 14.0481
+    "main": 10,
+    "bits": 11.4858
    },
    {
     "score": [
      "-1",
-     "10"
+     "8"
     ],
-    "label": "the rows' totals off by at most 1 in all; prime numbers at least 10",
+    "label": "the squares' spreads from 3 off by at most 1 in all; prime numbers at least 8",
     "layer": 1,
-    "main": 8,
-    "bits": 16.1061
+    "main": 10,
+    "bits": 12.5533
    },
    {
     "score": [
      "-1",
-     "11"
+     "9"
     ],
-    "label": "the rows' totals off by at most 1 in all; prime numbers at least 11",
+    "label": "the squares' spreads from 3 off by at most 1 in all; prime numbers at least 9",
     "layer": 1,
-    "main": 8,
-    "bits": 16.5261
+    "main": 10,
+    "bits": 13.1513
    },
    {
     "score": [
      "0"
     ],
-    "label": "the rows' totals exactly",
+    "label": "the squares' spreads from 3 exactly",
     "layer": 0,
-    "main": 9,
-    "bits": 16.8241
+    "main": 11,
+    "bits": 13.6366
    },
    {
     "score": [
      "0",
-     "5"
+     "4"
     ],
-    "label": "the rows' totals exactly; prime numbers at least 5",
+    "label": "the squares' spreads from 3 exactly; prime numbers at least 4",
     "layer": 1,
-    "main": 9,
-    "bits": 17.0132
+    "main": 11,
+    "bits": 13.6723
    },
    {
     "score": [
      "0",
      "6"
     ],
-    "label": "the rows' totals exactly; prime numbers at least 6",
+    "label": "the squares' spreads from 3 exactly; prime numbers at least 6",
     "layer": 1,
-    "main": 9,
-    "bits": 17.2736
+    "main": 11,
+    "bits": 13.9445
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the squares' spreads from 3 exactly; prime numbers at least 7",
+    "layer": 1,
+    "main": 11,
+    "bits": 14.4558
    },
    {
     "score": [
      "0",
      "8"
     ],
-    "label": "the rows' totals exactly; prime numbers at least 8",
+    "label": "the squares' spreads from 3 exactly; prime numbers at least 8",
     "layer": 1,
-    "main": 9,
-    "bits": 18.3663
+    "main": 11,
+    "bits": 15.4136
+   },
+   {
+    "score": [
+     "0",
+     "9"
+    ],
+    "label": "the squares' spreads from 3 exactly; prime numbers at least 9",
+    "layer": 1,
+    "main": 11,
+    "bits": 16.8411
    },
    {
     "score": [
      "0",
      "10"
     ],
-    "label": "the rows' totals exactly; prime numbers at least 10",
+    "label": "the squares' spreads from 3 exactly; prime numbers at least 10",
     "layer": 1,
-    "main": 9,
-    "bits": 20.4349
-   },
-   {
-    "score": [
-     "0",
-     "11"
-    ],
-    "label": "the rows' totals exactly; prime numbers at least 11",
-    "layer": 1,
-    "main": 9,
-    "bits": 21.9103
-   },
-   {
-    "score": [
-     "0",
-     "12"
-    ],
-    "label": "the rows' totals exactly; prime numbers at least 12",
-    "layer": 1,
-    "main": 9,
-    "bits": 23.7344
+    "main": 11,
+    "bits": 18.8055
    }
   ]
  },
  {
-  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/row-totals/{\"T\":12}/tb=zeros",
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/spread-of-three/{}/tb=zeros",
   "variant": "grid-4-d10",
-  "family": "row-totals",
-  "params": {
-   "T": 12
-  },
+  "family": "spread-of-three",
+  "params": {},
   "tieBreaker": "zeros",
-  "status": "exact",
-  "cap": 42,
-  "convergedCap": 42,
+  "status": "converged",
+  "cap": 51,
+  "convergedCap": 51,
   "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "05dfabc36a27c84b",
+  "contentHash": "0ca4001ebb450e1c",
   "rungs": [
    {
     "score": null,
@@ -5804,413 +9895,501 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    {
     "score": [
      null,
-     "2"
-    ],
-    "label": "anything; 0s at least 2",
-    "layer": 1,
-    "main": 0,
-    "bits": 0.0103
-   },
-   {
-    "score": [
-     null,
      "4"
     ],
     "label": "anything; 0s at least 4",
     "layer": 1,
     "main": 0,
-    "bits": 0.1506
+    "bits": 0.0591
    },
    {
     "score": [
      null,
-     "5"
+     "6"
     ],
-    "label": "anything; 0s at least 5",
+    "label": "anything; 0s at least 6",
     "layer": 1,
     "main": 0,
-    "bits": 0.3524
+    "bits": 0.1768
    },
    {
     "score": [
-     "-16"
+     null,
+     "8"
     ],
-    "label": "the rows' totals off by at most 16 in all",
+    "label": "anything; 0s at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.2623
+   },
+   {
+    "score": [
+     "-24"
+    ],
+    "label": "the squares' spreads from 3 off by at most 24 in all",
     "layer": 0,
     "main": 1,
-    "bits": 1.6071
+    "bits": 0.2833
    },
    {
     "score": [
-     "-16",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 16 in all; 0s at least 2",
-    "layer": 1,
-    "main": 1,
-    "bits": 1.6408
-   },
-   {
-    "score": [
-     "-16",
+     "-24",
      "4"
     ],
-    "label": "the rows' totals off by at most 16 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 24 in all; 0s at least 4",
     "layer": 1,
     "main": 1,
-    "bits": 1.9638
+    "bits": 0.3819
    },
    {
     "score": [
-     "-16",
-     "5"
+     "-24",
+     "6"
     ],
-    "label": "the rows' totals off by at most 16 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 24 in all; 0s at least 6",
     "layer": 1,
     "main": 1,
-    "bits": 2.2903
+    "bits": 0.5826
    },
    {
     "score": [
-     "-12"
+     "-24",
+     "8"
     ],
-    "label": "the rows' totals off by at most 12 in all",
+    "label": "the squares' spreads from 3 off by at most 24 in all; 0s at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.7228
+   },
+   {
+    "score": [
+     "-18"
+    ],
+    "label": "the squares' spreads from 3 off by at most 18 in all",
     "layer": 0,
     "main": 2,
-    "bits": 2.931
+    "bits": 0.7639
    },
    {
     "score": [
-     "-12",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 12 in all; 0s at least 2",
-    "layer": 1,
-    "main": 2,
-    "bits": 3.0096
-   },
-   {
-    "score": [
-     "-12",
+     "-18",
      "4"
     ],
-    "label": "the rows' totals off by at most 12 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 18 in all; 0s at least 4",
     "layer": 1,
     "main": 2,
-    "bits": 3.6157
+    "bits": 0.8812
    },
    {
     "score": [
-     "-12",
-     "5"
+     "-18",
+     "6"
     ],
-    "label": "the rows' totals off by at most 12 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 18 in all; 0s at least 6",
     "layer": 1,
     "main": 2,
-    "bits": 4.1583
+    "bits": 1.1251
+   },
+   {
+    "score": [
+     "-18",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 18 in all; 0s at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.3045
+   },
+   {
+    "score": [
+     "-14"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 1.3678
+   },
+   {
+    "score": [
+     "-14",
+     "4"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; 0s at least 4",
+    "layer": 1,
+    "main": 3,
+    "bits": 1.5666
+   },
+   {
+    "score": [
+     "-14",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; 0s at least 6",
+    "layer": 1,
+    "main": 3,
+    "bits": 1.9914
+   },
+   {
+    "score": [
+     "-14",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 14 in all; 0s at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.3542
+   },
+   {
+    "score": [
+     "-10"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 2.4804
+   },
+   {
+    "score": [
+     "-10",
+     "4"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; 0s at least 4",
+    "layer": 1,
+    "main": 4,
+    "bits": 2.6547
+   },
+   {
+    "score": [
+     "-10",
+     "6"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; 0s at least 6",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.0134
+   },
+   {
+    "score": [
+     "-10",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 10 in all; 0s at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.3042
    },
    {
     "score": [
      "-8"
     ],
-    "label": "the rows' totals off by at most 8 in all",
+    "label": "the squares' spreads from 3 off by at most 8 in all",
     "layer": 0,
-    "main": 3,
-    "bits": 5.0062
-   },
-   {
-    "score": [
-     "-8",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 8 in all; 0s at least 2",
-    "layer": 1,
-    "main": 3,
-    "bits": 5.1023
+    "main": 5,
+    "bits": 3.4005
    },
    {
     "score": [
      "-8",
      "4"
     ],
-    "label": "the rows' totals off by at most 8 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 8 in all; 0s at least 4",
     "layer": 1,
-    "main": 3,
-    "bits": 5.6922
+    "main": 5,
+    "bits": 3.6314
    },
    {
     "score": [
      "-8",
-     "5"
+     "6"
     ],
-    "label": "the rows' totals off by at most 8 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 8 in all; 0s at least 6",
     "layer": 1,
-    "main": 3,
-    "bits": 6.0936
+    "main": 5,
+    "bits": 4.1062
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 8 in all; 0s at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 4.557
    },
    {
     "score": [
      "-6"
     ],
-    "label": "the rows' totals off by at most 6 in all",
+    "label": "the squares' spreads from 3 off by at most 6 in all",
     "layer": 0,
-    "main": 4,
-    "bits": 6.4881
-   },
-   {
-    "score": [
-     "-6",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 6 in all; 0s at least 2",
-    "layer": 1,
-    "main": 4,
-    "bits": 6.6224
+    "main": 6,
+    "bits": 4.693
    },
    {
     "score": [
      "-6",
      "4"
     ],
-    "label": "the rows' totals off by at most 6 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 6 in all; 0s at least 4",
     "layer": 1,
-    "main": 4,
-    "bits": 7.4224
+    "main": 6,
+    "bits": 4.935
    },
    {
     "score": [
      "-6",
-     "5"
+     "6"
     ],
-    "label": "the rows' totals off by at most 6 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 6 in all; 0s at least 6",
     "layer": 1,
-    "main": 4,
-    "bits": 7.9735
+    "main": 6,
+    "bits": 5.5929
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 6 in all; 0s at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 6.3285
    },
    {
     "score": [
      "-4"
     ],
-    "label": "the rows' totals off by at most 4 in all",
+    "label": "the squares' spreads from 3 off by at most 4 in all",
     "layer": 0,
-    "main": 5,
-    "bits": 8.4892
-   },
-   {
-    "score": [
-     "-4",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 4 in all; 0s at least 2",
-    "layer": 1,
-    "main": 5,
-    "bits": 8.6074
+    "main": 7,
+    "bits": 6.574
    },
    {
     "score": [
      "-4",
      "4"
     ],
-    "label": "the rows' totals off by at most 4 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 4 in all; 0s at least 4",
     "layer": 1,
-    "main": 5,
-    "bits": 9.2243
+    "main": 7,
+    "bits": 6.7619
    },
    {
     "score": [
      "-4",
-     "5"
+     "6"
     ],
-    "label": "the rows' totals off by at most 4 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 4 in all; 0s at least 6",
     "layer": 1,
-    "main": 5,
-    "bits": 9.5648
+    "main": 7,
+    "bits": 7.2071
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 4 in all; 0s at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 7.6593
    },
    {
     "score": [
      "-3"
     ],
-    "label": "the rows' totals off by at most 3 in all",
+    "label": "the squares' spreads from 3 off by at most 3 in all",
     "layer": 0,
-    "main": 6,
-    "bits": 9.8055
-   },
-   {
-    "score": [
-     "-3",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 3 in all; 0s at least 2",
-    "layer": 1,
-    "main": 6,
-    "bits": 9.9485
+    "main": 8,
+    "bits": 7.8081
    },
    {
     "score": [
      "-3",
      "4"
     ],
-    "label": "the rows' totals off by at most 3 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 3 in all; 0s at least 4",
     "layer": 1,
-    "main": 6,
-    "bits": 10.7112
+    "main": 8,
+    "bits": 7.9607
    },
    {
     "score": [
      "-3",
-     "5"
+     "6"
     ],
-    "label": "the rows' totals off by at most 3 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 3 in all; 0s at least 6",
     "layer": 1,
-    "main": 6,
-    "bits": 11.151
+    "main": 8,
+    "bits": 8.4987
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 3 in all; 0s at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 9.1234
    },
    {
     "score": [
      "-2"
     ],
-    "label": "the rows' totals off by at most 2 in all",
+    "label": "the squares' spreads from 3 off by at most 2 in all",
     "layer": 0,
-    "main": 7,
-    "bits": 11.4615
-   },
-   {
-    "score": [
-     "-2",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 2 in all; 0s at least 2",
-    "layer": 1,
-    "main": 7,
-    "bits": 11.6333
+    "main": 9,
+    "bits": 9.324
    },
    {
     "score": [
      "-2",
      "4"
     ],
-    "label": "the rows' totals off by at most 2 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 2 in all; 0s at least 4",
     "layer": 1,
-    "main": 7,
-    "bits": 12.5919
+    "main": 9,
+    "bits": 9.4282
    },
    {
     "score": [
      "-2",
-     "5"
+     "6"
     ],
-    "label": "the rows' totals off by at most 2 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 2 in all; 0s at least 6",
     "layer": 1,
-    "main": 7,
-    "bits": 13.1977
+    "main": 9,
+    "bits": 9.9917
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 2 in all; 0s at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 10.8734
    },
    {
     "score": [
      "-1"
     ],
-    "label": "the rows' totals off by at most 1 in all",
+    "label": "the squares' spreads from 3 off by at most 1 in all",
     "layer": 0,
-    "main": 8,
-    "bits": 13.6518
-   },
-   {
-    "score": [
-     "-1",
-     "2"
-    ],
-    "label": "the rows' totals off by at most 1 in all; 0s at least 2",
-    "layer": 1,
-    "main": 8,
-    "bits": 13.8553
+    "main": 10,
+    "bits": 11.2935
    },
    {
     "score": [
      "-1",
      "4"
     ],
-    "label": "the rows' totals off by at most 1 in all; 0s at least 4",
+    "label": "the squares' spreads from 3 off by at most 1 in all; 0s at least 4",
     "layer": 1,
-    "main": 8,
-    "bits": 15.0734
+    "main": 10,
+    "bits": 11.3618
    },
    {
     "score": [
      "-1",
-     "5"
+     "6"
     ],
-    "label": "the rows' totals off by at most 1 in all; 0s at least 5",
+    "label": "the squares' spreads from 3 off by at most 1 in all; 0s at least 6",
     "layer": 1,
-    "main": 8,
-    "bits": 15.9857
+    "main": 10,
+    "bits": 11.9396
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 off by at most 1 in all; 0s at least 8",
+    "layer": 1,
+    "main": 10,
+    "bits": 13.0596
    },
    {
     "score": [
      "0"
     ],
-    "label": "the rows' totals exactly",
+    "label": "the squares' spreads from 3 exactly",
     "layer": 0,
-    "main": 9,
-    "bits": 16.8241
-   },
-   {
-    "score": [
-     "0",
-     "1"
-    ],
-    "label": "the rows' totals exactly; 0s at least 1",
-    "layer": 1,
-    "main": 9,
-    "bits": 16.8606
+    "main": 11,
+    "bits": 13.7652
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "the rows' totals exactly; 0s at least 2",
+    "label": "the squares' spreads from 3 exactly; 0s at least 2",
     "layer": 1,
-    "main": 9,
-    "bits": 17.0603
-   },
-   {
-    "score": [
-     "0",
-     "3"
-    ],
-    "label": "the rows' totals exactly; 0s at least 3",
-    "layer": 1,
-    "main": 9,
-    "bits": 17.5969
+    "main": 11,
+    "bits": 13.7652
    },
    {
     "score": [
      "0",
      "4"
     ],
-    "label": "the rows' totals exactly; 0s at least 4",
+    "label": "the squares' spreads from 3 exactly; 0s at least 4",
     "layer": 1,
-    "main": 9,
-    "bits": 18.6157
+    "main": 11,
+    "bits": 13.7721
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "the rows' totals exactly; 0s at least 5",
+    "label": "the squares' spreads from 3 exactly; 0s at least 5",
     "layer": 1,
-    "main": 9,
-    "bits": 20.2241
+    "main": 11,
+    "bits": 13.8988
    },
    {
     "score": [
      "0",
      "6"
     ],
-    "label": "the rows' totals exactly; 0s at least 6",
+    "label": "the squares' spreads from 3 exactly; 0s at least 6",
     "layer": 1,
-    "main": 9,
-    "bits": 22.5217
+    "main": 11,
+    "bits": 14.2313
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the squares' spreads from 3 exactly; 0s at least 7",
+    "layer": 1,
+    "main": 11,
+    "bits": 14.8516
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the squares' spreads from 3 exactly; 0s at least 8",
+    "layer": 1,
+    "main": 11,
+    "bits": 16.0663
+   },
+   {
+    "score": [
+     "0",
+     "9"
+    ],
+    "label": "the squares' spreads from 3 exactly; 0s at least 9",
+    "layer": 1,
+    "main": 11,
+    "bits": 17.9141
    }
   ]
  },
@@ -7419,6 +11598,2400 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "layer": 1,
     "main": 8,
     "bits": 23.8004
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/strangers/{}/tb=corners",
+  "variant": "grid-4-d10",
+  "family": "strangers",
+  "params": {},
+  "tieBreaker": "corners",
+  "status": "exact",
+  "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "max",
+  "curve": {
+   "model": "quadratic-count",
+   "alpha": -0.5792657615111007,
+   "beta": 1.0439180932703203,
+   "gamma": 0.08428043093270757,
+   "snapped": false
+  },
+  "contentHash": "89fc5e95c70beb99",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; the corners at least 12",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.2832
+   },
+   {
+    "score": [
+     null,
+     "20"
+    ],
+    "label": "anything; the corners at least 20",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.8257
+   },
+   {
+    "score": [
+     null,
+     "24"
+    ],
+    "label": "anything; the corners at least 24",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.8546
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "pairs of strangers at least 2",
+    "layer": 0,
+    "main": 1,
+    "bits": 1.8585
+   },
+   {
+    "score": [
+     "2",
+     "12"
+    ],
+    "label": "pairs of strangers at least 2; the corners at least 12",
+    "layer": 1,
+    "main": 1,
+    "bits": 3.1571
+   },
+   {
+    "score": [
+     "2",
+     "20"
+    ],
+    "label": "pairs of strangers at least 2; the corners at least 20",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.669
+   },
+   {
+    "score": [
+     "2",
+     "24"
+    ],
+    "label": "pairs of strangers at least 2; the corners at least 24",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.8696
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "pairs of strangers at least 4",
+    "layer": 0,
+    "main": 2,
+    "bits": 4.9074
+   },
+   {
+    "score": [
+     "4",
+     "12"
+    ],
+    "label": "pairs of strangers at least 4; the corners at least 12",
+    "layer": 1,
+    "main": 2,
+    "bits": 5.646
+   },
+   {
+    "score": [
+     "4",
+     "20"
+    ],
+    "label": "pairs of strangers at least 4; the corners at least 20",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.5947
+   },
+   {
+    "score": [
+     "4",
+     "24"
+    ],
+    "label": "pairs of strangers at least 4; the corners at least 24",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.7317
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "pairs of strangers at least 5",
+    "layer": 0,
+    "main": 3,
+    "bits": 6.7621
+   },
+   {
+    "score": [
+     "5",
+     "12"
+    ],
+    "label": "pairs of strangers at least 5; the corners at least 12",
+    "layer": 1,
+    "main": 3,
+    "bits": 7.3915
+   },
+   {
+    "score": [
+     "5",
+     "20"
+    ],
+    "label": "pairs of strangers at least 5; the corners at least 20",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.4594
+   },
+   {
+    "score": [
+     "5",
+     "24"
+    ],
+    "label": "pairs of strangers at least 5; the corners at least 24",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.6592
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "pairs of strangers at least 6",
+    "layer": 0,
+    "main": 4,
+    "bits": 8.7097
+   },
+   {
+    "score": [
+     "6",
+     "12"
+    ],
+    "label": "pairs of strangers at least 6; the corners at least 12",
+    "layer": 1,
+    "main": 4,
+    "bits": 9.283
+   },
+   {
+    "score": [
+     "6",
+     "20"
+    ],
+    "label": "pairs of strangers at least 6; the corners at least 20",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.5229
+   },
+   {
+    "score": [
+     "6",
+     "24"
+    ],
+    "label": "pairs of strangers at least 6; the corners at least 24",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.8166
+   },
+   {
+    "score": [
+     "7"
+    ],
+    "label": "pairs of strangers at least 7",
+    "layer": 0,
+    "main": 5,
+    "bits": 10.9012
+   },
+   {
+    "score": [
+     "7",
+     "12"
+    ],
+    "label": "pairs of strangers at least 7; the corners at least 12",
+    "layer": 1,
+    "main": 5,
+    "bits": 11.3656
+   },
+   {
+    "score": [
+     "7",
+     "20"
+    ],
+    "label": "pairs of strangers at least 7; the corners at least 20",
+    "layer": 1,
+    "main": 5,
+    "bits": 12.641
+   },
+   {
+    "score": [
+     "7",
+     "24"
+    ],
+    "label": "pairs of strangers at least 7; the corners at least 24",
+    "layer": 1,
+    "main": 5,
+    "bits": 13.0189
+   },
+   {
+    "score": [
+     "8"
+    ],
+    "label": "pairs of strangers at least 8",
+    "layer": 0,
+    "main": 6,
+    "bits": 13.1441
+   },
+   {
+    "score": [
+     "8",
+     "12"
+    ],
+    "label": "pairs of strangers at least 8; the corners at least 12",
+    "layer": 1,
+    "main": 6,
+    "bits": 13.5541
+   },
+   {
+    "score": [
+     "8",
+     "20"
+    ],
+    "label": "pairs of strangers at least 8; the corners at least 20",
+    "layer": 1,
+    "main": 6,
+    "bits": 14.9429
+   },
+   {
+    "score": [
+     "8",
+     "24"
+    ],
+    "label": "pairs of strangers at least 8; the corners at least 24",
+    "layer": 1,
+    "main": 6,
+    "bits": 15.4469
+   },
+   {
+    "score": [
+     "9"
+    ],
+    "label": "pairs of strangers at least 9",
+    "layer": 0,
+    "main": 7,
+    "bits": 15.6399
+   },
+   {
+    "score": [
+     "9",
+     "8"
+    ],
+    "label": "pairs of strangers at least 9; the corners at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 15.7041
+   },
+   {
+    "score": [
+     "9",
+     "12"
+    ],
+    "label": "pairs of strangers at least 9; the corners at least 12",
+    "layer": 1,
+    "main": 7,
+    "bits": 16.0229
+   },
+   {
+    "score": [
+     "9",
+     "16"
+    ],
+    "label": "pairs of strangers at least 9; the corners at least 16",
+    "layer": 1,
+    "main": 7,
+    "bits": 16.8014
+   },
+   {
+    "score": [
+     "9",
+     "20"
+    ],
+    "label": "pairs of strangers at least 9; the corners at least 20",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.1494
+   },
+   {
+    "score": [
+     "9",
+     "24"
+    ],
+    "label": "pairs of strangers at least 9; the corners at least 24",
+    "layer": 1,
+    "main": 7,
+    "bits": 20.1428
+   },
+   {
+    "score": [
+     "9",
+     "28"
+    ],
+    "label": "pairs of strangers at least 9; the corners at least 28",
+    "layer": 1,
+    "main": 7,
+    "bits": 22.9251
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/strangers/{}/tb=ones",
+  "variant": "grid-4-d10",
+  "family": "strangers",
+  "params": {},
+  "tieBreaker": "ones",
+  "status": "exact",
+  "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "max",
+  "curve": {
+   "model": "quadratic-count",
+   "alpha": -0.5792657615111007,
+   "beta": 1.0439180932703203,
+   "gamma": 0.08428043093270757,
+   "snapped": false
+  },
+  "contentHash": "bb97a8d21975cd9e",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.1713
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.7324
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.1048
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "pairs of strangers at least 2",
+    "layer": 0,
+    "main": 1,
+    "bits": 1.8585
+   },
+   {
+    "score": [
+     "2",
+     "2"
+    ],
+    "label": "pairs of strangers at least 2; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 1,
+    "bits": 2.1227
+   },
+   {
+    "score": [
+     "2",
+     "4"
+    ],
+    "label": "pairs of strangers at least 2; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 1,
+    "bits": 2.9425
+   },
+   {
+    "score": [
+     "2",
+     "5"
+    ],
+    "label": "pairs of strangers at least 2; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 1,
+    "bits": 3.5474
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "pairs of strangers at least 4",
+    "layer": 0,
+    "main": 2,
+    "bits": 4.9074
+   },
+   {
+    "score": [
+     "4",
+     "2"
+    ],
+    "label": "pairs of strangers at least 4; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 2,
+    "bits": 5.1853
+   },
+   {
+    "score": [
+     "4",
+     "4"
+    ],
+    "label": "pairs of strangers at least 4; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 2,
+    "bits": 5.8669
+   },
+   {
+    "score": [
+     "4",
+     "5"
+    ],
+    "label": "pairs of strangers at least 4; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.267
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "pairs of strangers at least 5",
+    "layer": 0,
+    "main": 3,
+    "bits": 6.7621
+   },
+   {
+    "score": [
+     "5",
+     "2"
+    ],
+    "label": "pairs of strangers at least 5; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 3,
+    "bits": 7.0917
+   },
+   {
+    "score": [
+     "5",
+     "4"
+    ],
+    "label": "pairs of strangers at least 5; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 3,
+    "bits": 7.8491
+   },
+   {
+    "score": [
+     "5",
+     "5"
+    ],
+    "label": "pairs of strangers at least 5; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.2793
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "pairs of strangers at least 6",
+    "layer": 0,
+    "main": 4,
+    "bits": 8.7097
+   },
+   {
+    "score": [
+     "6",
+     "2"
+    ],
+    "label": "pairs of strangers at least 6; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 4,
+    "bits": 9.1188
+   },
+   {
+    "score": [
+     "6",
+     "4"
+    ],
+    "label": "pairs of strangers at least 6; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 4,
+    "bits": 9.9962
+   },
+   {
+    "score": [
+     "6",
+     "5"
+    ],
+    "label": "pairs of strangers at least 6; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.4974
+   },
+   {
+    "score": [
+     "7"
+    ],
+    "label": "pairs of strangers at least 7",
+    "layer": 0,
+    "main": 5,
+    "bits": 10.9012
+   },
+   {
+    "score": [
+     "7",
+     "2"
+    ],
+    "label": "pairs of strangers at least 7; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 5,
+    "bits": 11.3826
+   },
+   {
+    "score": [
+     "7",
+     "4"
+    ],
+    "label": "pairs of strangers at least 7; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 5,
+    "bits": 12.3326
+   },
+   {
+    "score": [
+     "7",
+     "5"
+    ],
+    "label": "pairs of strangers at least 7; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 5,
+    "bits": 12.8445
+   },
+   {
+    "score": [
+     "8"
+    ],
+    "label": "pairs of strangers at least 8",
+    "layer": 0,
+    "main": 6,
+    "bits": 13.1441
+   },
+   {
+    "score": [
+     "8",
+     "2"
+    ],
+    "label": "pairs of strangers at least 8; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 6,
+    "bits": 13.7346
+   },
+   {
+    "score": [
+     "8",
+     "4"
+    ],
+    "label": "pairs of strangers at least 8; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 6,
+    "bits": 14.8234
+   },
+   {
+    "score": [
+     "8",
+     "5"
+    ],
+    "label": "pairs of strangers at least 8; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 6,
+    "bits": 15.4056
+   },
+   {
+    "score": [
+     "9"
+    ],
+    "label": "pairs of strangers at least 9",
+    "layer": 0,
+    "main": 7,
+    "bits": 15.6399
+   },
+   {
+    "score": [
+     "9",
+     "1"
+    ],
+    "label": "pairs of strangers at least 9; 1s beside bigger numbers at least 1",
+    "layer": 1,
+    "main": 7,
+    "bits": 16.1732
+   },
+   {
+    "score": [
+     "9",
+     "2"
+    ],
+    "label": "pairs of strangers at least 9; 1s beside bigger numbers at least 2",
+    "layer": 1,
+    "main": 7,
+    "bits": 16.5657
+   },
+   {
+    "score": [
+     "9",
+     "3"
+    ],
+    "label": "pairs of strangers at least 9; 1s beside bigger numbers at least 3",
+    "layer": 1,
+    "main": 7,
+    "bits": 17.9835
+   },
+   {
+    "score": [
+     "9",
+     "4"
+    ],
+    "label": "pairs of strangers at least 9; 1s beside bigger numbers at least 4",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.7328
+   },
+   {
+    "score": [
+     "9",
+     "5"
+    ],
+    "label": "pairs of strangers at least 9; 1s beside bigger numbers at least 5",
+    "layer": 1,
+    "main": 7,
+    "bits": 21.6596
+   },
+   {
+    "score": [
+     "9",
+     "6"
+    ],
+    "label": "pairs of strangers at least 9; 1s beside bigger numbers at least 6",
+    "layer": 1,
+    "main": 7,
+    "bits": 22.2793
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/strangers/{}/tb=primes",
+  "variant": "grid-4-d10",
+  "family": "strangers",
+  "params": {},
+  "tieBreaker": "primes",
+  "status": "exact",
+  "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "max",
+  "curve": {
+   "model": "quadratic-count",
+   "alpha": -0.5792657615111007,
+   "beta": 1.0439180932703203,
+   "gamma": 0.08428043093270757,
+   "snapped": false
+  },
+  "contentHash": "152d8f88ec50bbdf",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "11"
+    ],
+    "label": "anything; prime numbers at least 11",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.8546
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; prime numbers at least 13",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.8584
+   },
+   {
+    "score": [
+     null,
+     "14"
+    ],
+    "label": "anything; prime numbers at least 14",
+    "layer": 1,
+    "main": 0,
+    "bits": 1.8585
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "pairs of strangers at least 2",
+    "layer": 0,
+    "main": 1,
+    "bits": 1.8585
+   },
+   {
+    "score": [
+     "2",
+     "11"
+    ],
+    "label": "pairs of strangers at least 2; prime numbers at least 11",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.8279
+   },
+   {
+    "score": [
+     "2",
+     "13"
+    ],
+    "label": "pairs of strangers at least 2; prime numbers at least 13",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.9057
+   },
+   {
+    "score": [
+     "2",
+     "14"
+    ],
+    "label": "pairs of strangers at least 2; prime numbers at least 14",
+    "layer": 1,
+    "main": 1,
+    "bits": 4.9072
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "pairs of strangers at least 4",
+    "layer": 0,
+    "main": 2,
+    "bits": 4.9074
+   },
+   {
+    "score": [
+     "4",
+     "11"
+    ],
+    "label": "pairs of strangers at least 4; prime numbers at least 11",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.6254
+   },
+   {
+    "score": [
+     "4",
+     "13"
+    ],
+    "label": "pairs of strangers at least 4; prime numbers at least 13",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.7577
+   },
+   {
+    "score": [
+     "4",
+     "14"
+    ],
+    "label": "pairs of strangers at least 4; prime numbers at least 14",
+    "layer": 1,
+    "main": 2,
+    "bits": 6.7617
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "pairs of strangers at least 5",
+    "layer": 0,
+    "main": 3,
+    "bits": 6.7621
+   },
+   {
+    "score": [
+     "5",
+     "11"
+    ],
+    "label": "pairs of strangers at least 5; prime numbers at least 11",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.397
+   },
+   {
+    "score": [
+     "5",
+     "13"
+    ],
+    "label": "pairs of strangers at least 5; prime numbers at least 13",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.6958
+   },
+   {
+    "score": [
+     "5",
+     "14"
+    ],
+    "label": "pairs of strangers at least 5; prime numbers at least 14",
+    "layer": 1,
+    "main": 3,
+    "bits": 8.7083
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "pairs of strangers at least 6",
+    "layer": 0,
+    "main": 4,
+    "bits": 8.7097
+   },
+   {
+    "score": [
+     "6",
+     "11"
+    ],
+    "label": "pairs of strangers at least 6; prime numbers at least 11",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.2336
+   },
+   {
+    "score": [
+     "6",
+     "13"
+    ],
+    "label": "pairs of strangers at least 6; prime numbers at least 13",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.8494
+   },
+   {
+    "score": [
+     "6",
+     "14"
+    ],
+    "label": "pairs of strangers at least 6; prime numbers at least 14",
+    "layer": 1,
+    "main": 4,
+    "bits": 10.8945
+   },
+   {
+    "score": [
+     "7"
+    ],
+    "label": "pairs of strangers at least 7",
+    "layer": 0,
+    "main": 5,
+    "bits": 10.9012
+   },
+   {
+    "score": [
+     "7",
+     "11"
+    ],
+    "label": "pairs of strangers at least 7; prime numbers at least 11",
+    "layer": 1,
+    "main": 5,
+    "bits": 12.098
+   },
+   {
+    "score": [
+     "7",
+     "13"
+    ],
+    "label": "pairs of strangers at least 7; prime numbers at least 13",
+    "layer": 1,
+    "main": 5,
+    "bits": 13.0119
+   },
+   {
+    "score": [
+     "7",
+     "14"
+    ],
+    "label": "pairs of strangers at least 7; prime numbers at least 14",
+    "layer": 1,
+    "main": 5,
+    "bits": 13.1242
+   },
+   {
+    "score": [
+     "8"
+    ],
+    "label": "pairs of strangers at least 8",
+    "layer": 0,
+    "main": 6,
+    "bits": 13.1441
+   },
+   {
+    "score": [
+     "8",
+     "11"
+    ],
+    "label": "pairs of strangers at least 8; prime numbers at least 11",
+    "layer": 1,
+    "main": 6,
+    "bits": 14.0568
+   },
+   {
+    "score": [
+     "8",
+     "13"
+    ],
+    "label": "pairs of strangers at least 8; prime numbers at least 13",
+    "layer": 1,
+    "main": 6,
+    "bits": 15.2883
+   },
+   {
+    "score": [
+     "8",
+     "14"
+    ],
+    "label": "pairs of strangers at least 8; prime numbers at least 14",
+    "layer": 1,
+    "main": 6,
+    "bits": 15.5681
+   },
+   {
+    "score": [
+     "9"
+    ],
+    "label": "pairs of strangers at least 9",
+    "layer": 0,
+    "main": 7,
+    "bits": 15.6399
+   },
+   {
+    "score": [
+     "9",
+     "10"
+    ],
+    "label": "pairs of strangers at least 9; prime numbers at least 10",
+    "layer": 1,
+    "main": 7,
+    "bits": 15.9259
+   },
+   {
+    "score": [
+     "9",
+     "11"
+    ],
+    "label": "pairs of strangers at least 9; prime numbers at least 11",
+    "layer": 1,
+    "main": 7,
+    "bits": 16.3492
+   },
+   {
+    "score": [
+     "9",
+     "12"
+    ],
+    "label": "pairs of strangers at least 9; prime numbers at least 12",
+    "layer": 1,
+    "main": 7,
+    "bits": 17.1456
+   },
+   {
+    "score": [
+     "9",
+     "13"
+    ],
+    "label": "pairs of strangers at least 9; prime numbers at least 13",
+    "layer": 1,
+    "main": 7,
+    "bits": 18.4705
+   },
+   {
+    "score": [
+     "9",
+     "14"
+    ],
+    "label": "pairs of strangers at least 9; prime numbers at least 14",
+    "layer": 1,
+    "main": 7,
+    "bits": 20.4852
+   },
+   {
+    "score": [
+     "9",
+     "15"
+    ],
+    "label": "pairs of strangers at least 9; prime numbers at least 15",
+    "layer": 1,
+    "main": 7,
+    "bits": 23.3963
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/two-pair/{}/tb=apart",
+  "variant": "grid-4-d10",
+  "family": "two-pair",
+  "params": {},
+  "tieBreaker": "apart",
+  "status": "exact",
+  "cap": 42,
+  "convergedCap": 42,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "60b735f45f0f8ca3",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "14"
+    ],
+    "label": "anything; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "16"
+    ],
+    "label": "anything; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 0.2034
+   },
+   {
+    "score": [
+     "-16",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.2034
+   },
+   {
+    "score": [
+     "-16",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.2054
+   },
+   {
+    "score": [
+     "-16",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.2358
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 0.7901
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 0.7902
+   },
+   {
+    "score": [
+     "-12",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 2,
+    "bits": 0.9973
+   },
+   {
+    "score": [
+     "-12",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.3342
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.2952
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.3
+   },
+   {
+    "score": [
+     "-8",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.9509
+   },
+   {
+    "score": [
+     "-8",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.2966
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 3.6823
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.7496
+   },
+   {
+    "score": [
+     "-6",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.0254
+   },
+   {
+    "score": [
+     "-6",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.4516
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 5.8322
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.0106
+   },
+   {
+    "score": [
+     "-4",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.0589
+   },
+   {
+    "score": [
+     "-4",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.2391
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 7.3534
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.6857
+   },
+   {
+    "score": [
+     "-3",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.9998
+   },
+   {
+    "score": [
+     "-3",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 6,
+    "bits": 9.201
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 9.3205
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.8541
+   },
+   {
+    "score": [
+     "-2",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.5347
+   },
+   {
+    "score": [
+     "-2",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.7875
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 11.9323
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 12.7001
+   },
+   {
+    "score": [
+     "-1",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 8,
+    "bits": 14.9864
+   },
+   {
+    "score": [
+     "-1",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 8,
+    "bits": 15.3896
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the boxes' gaps from two pairs exactly",
+    "layer": 0,
+    "main": 9,
+    "bits": 15.6289
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the pairs' distance at least 4",
+    "layer": 1,
+    "main": 9,
+    "bits": 15.6289
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the pairs' distance at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.6459
+   },
+   {
+    "score": [
+     "0",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the pairs' distance at least 12",
+    "layer": 1,
+    "main": 9,
+    "bits": 18.9026
+   },
+   {
+    "score": [
+     "0",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the pairs' distance at least 14",
+    "layer": 1,
+    "main": 9,
+    "bits": 20.3765
+   },
+   {
+    "score": [
+     "0",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the pairs' distance at least 16",
+    "layer": 1,
+    "main": 9,
+    "bits": 22.0533
+   },
+   {
+    "score": [
+     "0",
+     "18"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the pairs' distance at least 18",
+    "layer": 1,
+    "main": 9,
+    "bits": 23.9147
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/two-pair/{}/tb=corners",
+  "variant": "grid-4-d10",
+  "family": "two-pair",
+  "params": {},
+  "tieBreaker": "corners",
+  "status": "exact",
+  "cap": 42,
+  "convergedCap": 42,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "9bb67fe6c42737bd",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; the corners at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.0665
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; the corners at least 12",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.1241
+   },
+   {
+    "score": [
+     null,
+     "14"
+    ],
+    "label": "anything; the corners at least 14",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.1494
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 0.2034
+   },
+   {
+    "score": [
+     "-16",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.4121
+   },
+   {
+    "score": [
+     "-16",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 12",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.5953
+   },
+   {
+    "score": [
+     "-16",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 14",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.67
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 0.7901
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.3285
+   },
+   {
+    "score": [
+     "-12",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 12",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.8442
+   },
+   {
+    "score": [
+     "-12",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 14",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.0463
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.2952
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.9205
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 12",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.4146
+   },
+   {
+    "score": [
+     "-8",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 14",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.559
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 3.6823
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 4.6742
+   },
+   {
+    "score": [
+     "-6",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 12",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.4542
+   },
+   {
+    "score": [
+     "-6",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 14",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.6688
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 5.8322
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.7142
+   },
+   {
+    "score": [
+     "-4",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 12",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.1932
+   },
+   {
+    "score": [
+     "-4",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 14",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.2912
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 7.3534
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.4924
+   },
+   {
+    "score": [
+     "-3",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 12",
+    "layer": 1,
+    "main": 6,
+    "bits": 9.1161
+   },
+   {
+    "score": [
+     "-3",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 14",
+    "layer": 1,
+    "main": 6,
+    "bits": 9.2427
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 9.3205
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 10.772
+   },
+   {
+    "score": [
+     "-2",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 12",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.6348
+   },
+   {
+    "score": [
+     "-2",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 14",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.8195
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 11.9323
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 13.7487
+   },
+   {
+    "score": [
+     "-1",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 12",
+    "layer": 1,
+    "main": 8,
+    "bits": 15.0664
+   },
+   {
+    "score": [
+     "-1",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 14",
+    "layer": 1,
+    "main": 8,
+    "bits": 15.407
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the boxes' gaps from two pairs exactly",
+    "layer": 0,
+    "main": 9,
+    "bits": 15.6289
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the corners at least 6",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.8899
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the corners at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 17.8563
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the corners at least 10",
+    "layer": 1,
+    "main": 9,
+    "bits": 19.0255
+   },
+   {
+    "score": [
+     "0",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the corners at least 12",
+    "layer": 1,
+    "main": 9,
+    "bits": 20.3845
+   },
+   {
+    "score": [
+     "0",
+     "14"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the corners at least 14",
+    "layer": 1,
+    "main": 9,
+    "bits": 21.9199
+   },
+   {
+    "score": [
+     "0",
+     "16"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; the corners at least 16",
+    "layer": 1,
+    "main": 9,
+    "bits": 23.6178
+   }
+  ]
+ },
+ {
+  "ruleKey": "grid@1/grid-4-d10#76e049325923b745/two-pair/{}/tb=primes",
+  "variant": "grid-4-d10",
+  "family": "two-pair",
+  "params": {},
+  "tieBreaker": "primes",
+  "status": "exact",
+  "cap": 42,
+  "convergedCap": 42,
+  "tail": null,
+  "dealable": true,
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "bf29d6f6e2063eff",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "main": 0,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; prime numbers at least 4",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.0349
+   },
+   {
+    "score": [
+     null,
+     "8"
+    ],
+    "label": "anything; prime numbers at least 8",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.1789
+   },
+   {
+    "score": [
+     null,
+     "10"
+    ],
+    "label": "anything; prime numbers at least 10",
+    "layer": 1,
+    "main": 0,
+    "bits": 0.2007
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all",
+    "layer": 0,
+    "main": 1,
+    "bits": 0.2034
+   },
+   {
+    "score": [
+     "-16",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.2771
+   },
+   {
+    "score": [
+     "-16",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.6933
+   },
+   {
+    "score": [
+     "-16",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 16 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 1,
+    "bits": 0.7774
+   },
+   {
+    "score": [
+     "-12"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all",
+    "layer": 0,
+    "main": 2,
+    "bits": 0.7901
+   },
+   {
+    "score": [
+     "-12",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 2,
+    "bits": 0.9312
+   },
+   {
+    "score": [
+     "-12",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 2,
+    "bits": 1.9557
+   },
+   {
+    "score": [
+     "-12",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 12 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 2,
+    "bits": 2.2444
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all",
+    "layer": 0,
+    "main": 3,
+    "bits": 2.2952
+   },
+   {
+    "score": [
+     "-8",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 3,
+    "bits": 2.4419
+   },
+   {
+    "score": [
+     "-8",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.3945
+   },
+   {
+    "score": [
+     "-8",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 8 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 3,
+    "bits": 3.6393
+   },
+   {
+    "score": [
+     "-6"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all",
+    "layer": 0,
+    "main": 4,
+    "bits": 3.6823
+   },
+   {
+    "score": [
+     "-6",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 4,
+    "bits": 3.9036
+   },
+   {
+    "score": [
+     "-6",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.3177
+   },
+   {
+    "score": [
+     "-6",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 6 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 4,
+    "bits": 5.7495
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all",
+    "layer": 0,
+    "main": 5,
+    "bits": 5.8322
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 5,
+    "bits": 6.0573
+   },
+   {
+    "score": [
+     "-4",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.0781
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 4 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 5,
+    "bits": 7.3119
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all",
+    "layer": 0,
+    "main": 6,
+    "bits": 7.3534
+   },
+   {
+    "score": [
+     "-3",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 6,
+    "bits": 7.6608
+   },
+   {
+    "score": [
+     "-3",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 6,
+    "bits": 8.9387
+   },
+   {
+    "score": [
+     "-3",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 3 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 6,
+    "bits": 9.2603
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all",
+    "layer": 0,
+    "main": 7,
+    "bits": 9.3205
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 7,
+    "bits": 9.7291
+   },
+   {
+    "score": [
+     "-2",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.3504
+   },
+   {
+    "score": [
+     "-2",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 2 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 7,
+    "bits": 11.8327
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all",
+    "layer": 0,
+    "main": 8,
+    "bits": 11.9323
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; prime numbers at least 4",
+    "layer": 1,
+    "main": 8,
+    "bits": 12.413
+   },
+   {
+    "score": [
+     "-1",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; prime numbers at least 8",
+    "layer": 1,
+    "main": 8,
+    "bits": 14.4952
+   },
+   {
+    "score": [
+     "-1",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs off by at most 1 in all; prime numbers at least 10",
+    "layer": 1,
+    "main": 8,
+    "bits": 15.3883
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the boxes' gaps from two pairs exactly",
+    "layer": 0,
+    "main": 9,
+    "bits": 15.6289
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; prime numbers at least 2",
+    "layer": 1,
+    "main": 9,
+    "bits": 15.7023
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; prime numbers at least 4",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.0576
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; prime numbers at least 6",
+    "layer": 1,
+    "main": 9,
+    "bits": 16.9397
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; prime numbers at least 8",
+    "layer": 1,
+    "main": 9,
+    "bits": 18.5651
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; prime numbers at least 10",
+    "layer": 1,
+    "main": 9,
+    "bits": 21.138
+   },
+   {
+    "score": [
+     "0",
+     "12"
+    ],
+    "label": "the boxes' gaps from two pairs exactly; prime numbers at least 12",
+    "layer": 1,
+    "main": 9,
+    "bits": 24.652
    }
   ]
  },

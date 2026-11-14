@@ -201,7 +201,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "object.read": {
           const j = objectArg(args);
           const host = new EngineHost({ type, variant, state: lines[j]!, rule: seat.rule, energy: 0 });
-          const reply = host.handle({ op: "view", rep: String(args.rep ?? type.representations[0]!.id), site: Number(args.site ?? 0) }, { hostCallsLeft: 10 });
+          const reply = host.handle({ op: "view", rep: String(args.rep ?? "si"), site: Number(args.site ?? 0) }, { hostCallsLeft: 10 });
           if (!reply.ok) throw new Error(reply.error);
           return reply.result;
         }

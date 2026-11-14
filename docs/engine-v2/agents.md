@@ -207,38 +207,6 @@ v2-economy's `firstAgentShare` (about 70% of power), the player's own store can 
 result (`verdict`, `summary`, `price`, `sample`) plus `acts`, each sample's `ActRecord`. It runs one act per sample
 object and spends nothing. `births(type, variant, seed, n)` samples newborn objects for it.
 
-## Agents on the grid
-
-The host, `runAct`, the harness and the primer take the object type: a grid game (`gridType`, variant `grid-4-d10`)
-runs through the same `EngineHost` (a board is one site; `look(offer, "cells")` reads its sixteen numbers
-`r0c0` … `r3c3`; any view or one element is priced as for lines; quotes are v2-grid's prices, charged through the
-move's own view), and `agentPrimer(gridType)` is the grids primer (board words, the grid's views and moves, a grid
-example).
-
-- **Shipped agents.** A second description beside the line's: `GRID_CATALOGUE` (`src/grid-catalogue.ts`: each
-  family's score of the board `b`, in both languages, and the moves that can raise each tie-breaker) and its
-  generator `src/grid-starters.ts`. `exampleFor`, `startersFor`, `shippedAgents` and `scoreSource` choose by family
-  (grid family ids differ from line ids), so callers need no change. Moves are simulated in the agent's own head with
-  one helper, `edit(b, cells, f)`; `GRID_LENSES` has adding to a cell, moving an amount between two cells ("trade"),
-  adding to two cells ("twin"), swapping, a row or column, a step tilt, an opposite pair, a corner box.
-- **`hasStarters(family)`** (pure) says whether a family of any type has shipped agents; the deal should use it in
-  place of `CATALOGUE.some(...)`, which knows lines only. **`gridUndescribed()`** lists grid families with none, and
-  `test/grid.test.ts` reports them as a todo, so a new family in v2-grid shows up as missing rather than silently.
-- **Only Box Totals is described so far**, as the pattern: the grid pool is being revised (owner decision 22) and the
-  rest wait for the final family list.
-- **Playing for points.** The grid starters (Simple, Thorough, Bold) find the cheapest change to the best board, as
-  the examples do; below `RESERVE` (300 ⚡) they pay only for a change worth a point per ⚡: (the bits it gains + 1)
-  × (the others' bits + 1), read with `worth` and `rarity` (the +1s: a better board is a step towards the next rung; a
-  board nobody else wants yet is worth a little). Above the reserve they climb: energy left idle is lost to the store's
-  cap, and a game where every agent waits for the others never starts. When the game does not say what boards are
-  worth they climb. This is the smallest additive design on the points reads that exist (`worth`, `rarity`, `recent`);
-  nothing from the line starters' own points work had landed when it was written, so the two are to be unified.
-- **Prices and steps are tight.** Every grid agent costs at most 600 ⚡ to summon (Bold 597, TypeScript), and the
-  heaviest use about 320,000 of the 500,000 steps an act may take: a board has many more possible moves than a line.
-  The summon vocabulary now counts the points helpers (`worth`, `rarity`, `recent`, `pushback`, `note`, `contested`)
-  and a few built-ins (`every`, `some`, `includes`, `reduce`, `Object.keys`; Python `all`, `any`, `count`, `keys`) as
-  words, as it already did the older helpers; line agents got a little cheaper with it.
-
 ## The harness: comparing families for difficulty
 
 ```
@@ -246,7 +214,6 @@ pnpm --filter @workspace/v2-agents harness -- --rule m-meets-c/size             
 pnpm --filter @workspace/v2-agents harness -- --rule m-meets-c/size --rule prime-gradient/prime --agent bold
 pnpm --filter @workspace/v2-agents harness -- --rule triangle-area/legs --source my-agent.py --budget 300
 pnpm --filter @workspace/v2-agents harness -- --pool docs/engine-v2/agent-harness-results.md
-pnpm --filter @workspace/v2-agents harness -- --variant grid-4-d10 --pool grids.md   # the grid: solo, then three players per kind of agent
 ```
 
 Players take turns on shared newborn lines with a fixed energy budget each (no births, power or accrual). It prints,

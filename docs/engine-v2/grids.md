@@ -16,12 +16,16 @@ the v2 rules cannot be (§6).
 - **Product-form law.** Every mutator is a potential move (a move and its inverse are proposed with equal weight), so the
   walk's stationary law is π(board) = Π cells p(v), p(v) = 2^−v/2 / Z: the cells are independent and identically
   distributed. A rule whose layers add up over disjoint units of cells (rows, boxes, opposite pairs, cells) has an
-  **exact** value at every rung, by convolving the units' laws. No simulation, no tail bound, a few milliseconds a rule.
-- **Six representations**, each a way a 12-year-old can read the board: the cells, the row and column totals, the
-  opposite pairs, the rows read backwards, the steps along each row, the four corner boxes. Nine mutators, each tied to
-  one of them; the three that rearrange numbers cost no energy.
-- **Six rule families**, each one main layer (one representation, school arithmetic) and three alternative
-  tie-breakers. Every pairing is in the exact class.
+  **exact** value at every rung, by convolving the units' laws: no simulation, about a second a rule. Any other rule
+  (overlapping windows, rows with columns, regions, histograms) is **sampled** directly from π, with importance
+  sampling for the rare rungs (owner decision 22, §5.2); the sampler is validated against every exact rule.
+- **Nine representations**, each a way a 12-year-old can read the board: the cells, the row and column totals, the
+  opposite pairs, the rows read backwards, the steps along each row, the four corner boxes, the nine 2×2 squares, the
+  leaps two cells along a row, the board folded on its other diagonal. Nine mutators, each tied to one of them; those
+  that only rearrange numbers cost no energy.
+- **The beginner pool is the old beginner grid's eight rules, regraded** (owner decision 22): each one main layer
+  (school arithmetic) and three alternative tie-breakers. Seven are exact; Spread of Three is sampled. Three new
+  families (Steady Steps, Box Totals, Prime Cells) form a second pool.
 
 ## 1. The object
 
@@ -91,10 +95,12 @@ cross-highlighting work by meaning (`cellValue(r, c)`, `rowTotal(r)`).
 | `turn` | each cell joined to its opposite (where a half turn of the board takes it) | — | `pair0` … `pair7`: the two cells' total, pairs numbered by the top-half cell in reading order |
 | `mirror` | each row beside itself read backwards | — | `gap0` … `gap3`: how far row r is from reading the same both ways, \|a − d\| + \|b − c\| |
 | `steps` | the step from each number to the next along a row | — | `s(r,j)` = cell (r, j+1) − cell (r, j) as `s00` … `s32`; `bend0` … `bend3`: how far row r's steps are from equal, \|s0 − s1\| + \|s1 − s2\| |
-| `boxes` | the board cut into four 2×2 corner boxes | — | `box0` … `box3` (top-left, top-right, bottom-left, bottom-right): the box's total |
+| `boxes` | the board cut into four 2×2 corner boxes | — | `box0` … `box3` (top-left, top-right, bottom-left, bottom-right): the box's total; `pairs0` … `pairs3`: how far the box is from two different pairs; `strangers0` … `strangers3`: touching strangers in the box |
+| `windows` | every 2×2 square (nine, overlapping) and its spread | — | `w0` … `w8`: biggest minus smallest in the square, by top-left cell in reading order |
+| `leaps` | each number and the number two cells along its row | — | `leap0` … `leap7`: the far cell minus the near one |
+| `fold` | the board folded along the diagonal from the top-right corner | — | `fold0` … `fold5`: a cell minus the cell it folds onto; `line`: the fold line's total |
 
-The tallies are the required "row/column tallies"; the opposite pairs, the backward rows, the steps and the boxes are
-the representations rules anchor to. A priced query of a representation returns its static elements (spec §3.1); a
+The tallies are the required "row/column tallies"; the others are the representations rules anchor to. A priced query of a representation returns its static elements (spec §3.1); a
 read of `tally` costs the bits of its eight totals, capped (as for lines) at the board's read length.
 
 ## 4. Mutators and their handling fees
@@ -119,7 +125,16 @@ here is half the growth of the total. A result past the cap or below 0 is refuse
 The cycle test is the hard gate it is on the line: lib/v2-grid's potential test proposes every call from a corpus of
 boards on every variant and fails on any one-way move or any pair of opposite moves whose weights differ.
 
-## 5. Value: the exact sum, what it buys and what it rules out
+## 5. Value: an exact sum where one exists, direct sampling everywhere else
+
+The owner (decision 22, on the first draft's "what the exact method rules out"): "I don't want to give up the affordance
+for grid rules like these. If we can calculate calibration stats for such rules accurately enough using simulation,
+then keep them." And decision 20: exact scoring never blocks anything. So each grid rule is valued by whichever method
+reaches a principled value, chosen by what the family declares: an exact convolution when it declares units (§5.1), the
+direct sampler otherwise (§5.2). A row-by-row transfer matrix (§5.3) is the exact method still to build for rules whose
+dependence crosses units.
+
+### 5.1 Exact: convolution over units
 
 **The law.** π(board) = Π cells p(v) (§0). A rung's value is V_k = −log2 π(level ≥ k), as for lines (spec §7.1).
 
@@ -140,7 +155,7 @@ interface GridSums { units(variant: Variant): readonly (readonly number[])[] }  
 level each support point with the rule's own ladder; sum upwards. On a bounded board the result is exact up to
 floating point (no outside mass); on an unbounded variant each unit is enumerated within a bit budget and the outside
 mass bounds the error, as `integersWithin` does for lines. Every rung is then `exact` in the artefact (spec §7.2), and
-continuity (decision 13) is read off the law's support: each dealt layer must take at least six values.
+continuity (decision 13) is read off the law: each dealt layer must take at least six values of probability 2^−25 or more.
 
 **What it buys.**
 - Every rung of every dealt pairing is exact to the top, with no compute budget and no cap: calibrating the whole pool is
@@ -150,10 +165,9 @@ continuity (decision 13) is read off the law's support: each dealt layer must ta
   worked examples and the tests' corpora.
 - The 2×2 test board lets every exact value be checked against brute force over all 81 boards.
 
-**What it rules out.**
+**What the exact class leaves to the sampler.**
 - **Overlapping units**: the nine overlapping 2×2 windows (Spread of Three), touching pairs across the whole board
-  (Strangers), runs that cross rows. They would need a transfer matrix over rows (10^4 states a row on 4×4 digits, too
-  big with scores attached).
+  (Strangers), runs that cross rows. A transfer matrix over rows (§5.3) could sum some of them exactly.
 - **Layers on different partitions**: a main layer on rows with a tie-breaker on columns, a magic square (rows and
   columns both). A tie-breaker must read the main layer's units or finer ones (single cells).
 - **Whole-board shape**: regions, paths, connectivity, symmetry of the board as a whole (except through pairs), and
@@ -161,40 +175,124 @@ continuity (decision 13) is read off the law's support: each dealt layer must ta
 - **Energy that prefers patterns**: a per-cell law cannot make a repeated row or a symmetric board cheaper than its
   numbers alone. Prices for rearranging are fees, never energy.
 - **Asymmetric mutators**: "write v in a cell" priced by v is not a potential move (its inverse writes a different
-  number at a different price); every mutator above is symmetric by construction.
+  number at a different price); every mutator above is symmetric by construction. (This one the sampler cannot help
+  with either: it needs the product law.)
 
-## 6. The first rule pool
+### 5.2 Sampled: direct draws from π, importance sampling for the rare rungs
 
-Six families. Each main layer is in one representation and in a 12-year-old's words; each has three alternative
-tie-breakers, and a dealt rule is the main layer plus exactly one (decision 14). Every layer is graded (a distance, a
-count, a size; decision 13). All six are unit-additive (§5), so every pairing is exact. The figures are from the exact
-law on `grid-4-d10`. The ladders' last rungs are set so that every dealt top is in the 15–25 bit band: the committed
-artefacts (`lib/v2-valuation/artefacts/grid-4-d10/`, every one `exact`) put the eighteen pairings' tops at 21.8–24.8
-bits.
+`lib/v2-valuation/src/sample-grid.ts`. The law is known exactly and its cells are independent, so no walk is needed
+and nothing is stitched (the restricted-walk estimator was biased by 6–8 bits at the top on lines, invisibly to its
+jackknife: analytic-calibration.md §1).
 
-| # | Family (rep, units) | Main layer: the card | Tie-breakers (alternatives) | Main top (bits) |
-|---|---|---|---|---|
-| 1 | **Row Totals** (tally, rows) | "Every row should add up to 12." Distance: Σ rows \|total − 12\| | the first column as big as possible (Σ, size) · as many prime numbers as possible (count) · as many 0s as possible (count) | 16.8 |
-| 2 | **Opposite Pairs** (turn, pairs) | "Every cell and its opposite (a half turn away) should add up to 9." Σ pairs \|a + b − 9\| | the top half adds up to as much as possible · as many primes as possible · as many odd numbers as possible | 37.0 exact (capped near 20) |
-| 3 | **Mirror Rows** (mirror, rows) | "Every row should read the same backwards." Σ rows (\|a − d\| + \|b − c\|) | the two middle columns as big as possible · as many primes as possible · as many 0s as possible | 19.6 exact (capped at 1: 16.0) |
-| 4 | **Steady Steps** (steps, rows) | "Along every row the numbers should go up (or down) in equal steps, like 1 3 5 7." Σ rows \|s0 − s1\| + \|s1 − s2\| | each row climbs as far as possible (Σ \|last − first\|) · the rows start as high as possible (first column) · as many primes as possible | ≈ 26 exact (capped near 20) |
-| 5 | **Box Totals** (boxes, corner boxes) | "Each corner box of four should add up to 12." Σ boxes \|total − 12\| | the four corners of the board as big as possible · as many primes as possible · as many 0s as possible | 16.8 |
-| 6 | **Prime Cells** (cells, cells) | "As many cells as possible should hold a prime number (2, 3, 5 or 7)." count | those primes add up to as much as possible · as many 7s as possible · the corners as big as possible | 25.0 (capped near 14 cells) |
+1. **Adaptation (cross-entropy).** From q₀ = π, each round draws 2,000 boards from a product proposal (a categorical law
+   per cell, or per pair of cells the rule ties together), keeps the best 10% by level, and refits the proposal to them,
+   weighted by π/q, smoothed (α = 0.7) and floored (1% spread evenly), until the elite reach the top rung.
+2. **Estimation.** Boards are drawn from a fixed mixture of every proposal (half from the last, half evenly over all,
+   π included) and weighted by π(x)/q_mix(x), which is exact. One sample values every rung; each rung reports its
+   standard error and the effective sample size of its weights. Passes double until every rung is within the error
+   target (2%, or 0.03 bits) or the budget (3.2M boards, about a minute) is spent; a rung that misses is capped
+   (call (g)) and listed for a longer background run, never dropped.
+3. **What did not work** (measured): proposals over the joint values of four-cell blocks (10⁴ entries) cannot be fitted
+   from a few hundred elite boards, and their weights degenerate (effective sample size 1–2 at the top). The sampler
+   uses blocks of at most two cells.
 
-Collisions are on purpose (decision 5): all six compete for the same sixteen numbers. Row Totals and Box Totals want
-the same totals over crossing units; Mirror Rows and Steady Steps want incompatible rows except a constant one; every
-"as big as possible" tie-breaker fights gravity and the "add up to" layers; Prime Cells pulls numbers away from the 0s
-the centre favours.
+**Validation** (decision 22: mandatory before an empirical value is dealt). Every grid rule that has an exact value is
+also sampled, and every rung is compared with the exact sum in units of the sampler's own standard error
+(`pnpm --filter @workspace/v2-valuation grid-validate`; two pairings in test/sample-grid.test.ts):
 
-**What became of the old beginner eight.** Magic Eighteen → Row Totals (18 is 26 bits under the energy, 12 is 17);
-Opposite Nines → Opposite Pairs (same rule, graded); Mirrormancer → Mirror Rows (graded); Two Pair, Spread of Three,
-Strangers, Leapfrog and Crosswise Threes are not ported: Spread of Three and Strangers read overlapping units, and Two
-Pair's score is a category, not a quantity. Leapfrog and Crosswise Threes are exact and could return as alternatives
-in a second pool.
+| Pairing | Rungs | Converged through (bits there) | Worst \|z\|, converged rungs | Worst \|z\|, all rungs | Exact top | Sampled top | Boards |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| mirrormancer + middle | 38 | 25 (12.4) | 1.72 | 8.86 | 23.85 | — (never hit) | 3.2M |
+| mirrormancer + primes | 38 | 28 (13.4) | 2.55 | 2.55 | 24.46 | 23.42 ± 1.02 | 3.2M |
+| mirrormancer + zeros | 39 | 29 (14.3) | 1.77 | 3.15 | 22.63 | 22.71 ± 0.16 | 3.2M |
+| magic-eighteen + first-column | 34 | 31 (20.2) | 2.27 | 2.27 | 23.67 | 23.91 ± 0.25 | 3.2M |
+| magic-eighteen + primes | 34 | 31 (18.8) | 1.68 | 1.68 | 23.98 | 23.79 ± 0.23 | 3.2M |
+| magic-eighteen + odd | 34 | 30 (18.0) | 1.35 | 2.10 | 24.53 | 25.13 ± 0.45 | 3.2M |
+| opposite-nines + top-half | 34 | 21 (13.3) | 2.82 | 3.28 | 22.95 | 23.21 ± 0.91 | 3.2M |
+| opposite-nines + primes | 34 | 20 (12.8) | 1.77 | 1.77 | 24.63 | 25.15 ± 0.33 | 3.2M |
+| opposite-nines + odd | 34 | 20 (12.8) | 1.92 | 2.95 | 24.84 | 25.80 ± 0.51 | 3.2M |
+| two-pair + apart | 42 | 33 (12.7) | 2.40 | 2.40 | 23.91 | — (never hit) | 3.2M |
+| two-pair + primes | 42 | 33 (12.4) | 1.61 | 1.79 | 24.65 | — (never hit) | 3.2M |
+| two-pair + corners | 42 | 32 (11.9) | 1.92 | 3.02 | 23.62 | 20.55 ± 1.44 | 3.2M |
+| strangers + ones | 34 | 29 (16.2) | 3.19 | 3.19 | 22.28 | 23.14 ± 0.42 | 3.2M |
+| strangers + primes | 34 | 33 (20.5) | 1.49 | 1.49 | 23.40 | 23.48 ± 0.11 | 3.2M |
+| strangers + corners | 34 | 32 (18.1) | 2.98 | 2.98 | 22.93 | 23.01 ± 0.22 | 3.2M |
+| leapfrog + first-column | 46 | 36 (12.0) | 2.27 | 2.27 | 23.48 | — (never hit) | 3.2M |
+| leapfrog + primes | 46 | 37 (12.3) | 3.97 | 13.30 | 23.63 | 33.76 ± 0.76 | 3.2M |
+| leapfrog + zeros | 47 | 38 (13.1) | 1.85 | 2.26 | 23.61 | 23.55 ± 0.15 | 3.2M |
+| crosswise-threes + fold-line | 46 | 46 (23.9) | 2.26 | 2.26 | 23.92 | 23.97 ± 0.05 | 0.2M |
+| crosswise-threes + primes | 46 | 46 (24.1) | 1.94 | 1.94 | 24.08 | 24.00 ± 0.07 | 0.2M |
+| crosswise-threes + zeros | 47 | 47 (23.7) | 3.30 | 3.30 | 23.74 | 23.77 ± 0.02 | 0.1M |
+| steady-steps + climb | 39 | 25 (12.9) | 3.00 | 3.00 | 22.71 | — (never hit) | 3.2M |
+| steady-steps + start | 38 | 24 (12.7) | 1.94 | 1.96 | 23.80 | — (never hit) | 3.2M |
+| steady-steps + primes | 39 | 24 (12.7) | 1.45 | 2.13 | 22.90 | 24.14 ± 0.84 | 3.2M |
+| box-totals + corners | 42 | 32 (13.7) | 1.64 | 1.64 | 24.38 | — (never hit) | 3.2M |
+| box-totals + primes | 42 | 29 (11.8) | 1.60 | 4.32 | 23.73 | — (never hit) | 3.2M |
+| box-totals + zeros | 42 | 33 (13.9) | 1.77 | 1.77 | 22.52 | 23.50 ± 1.28 | 3.2M |
+| prime-cells + prime-total | 43 | 43 (24.8) | 2.88 | 2.88 | 24.82 | 24.81 ± 0.05 | 0.1M |
+| prime-cells + sevens | 42 | 42 (24.7) | 2.84 | 2.84 | 24.66 | 24.57 ± 0.05 | 0.1M |
+| prime-cells + corners | 42 | 42 (21.8) | 2.44 | 2.44 | 21.81 | 21.89 ± 0.06 | 0.1M |
+
+What it says (seed "validate", 3.2M boards a pairing at most):
+- **The method is unbiased.** On the 1,030 rungs that converged, every sampled value is within 4 of its own
+  standard errors of the exact one (worst 3.97, Leapfrog + primes; four pairings have a rung past 3). That is a little
+  more than independent normal errors would give, so the standard error of importance weights is slightly optimistic,
+  even with the effective-sample-size floor of 200 that a converged rung now needs. (Without that floor, rungs with an
+  effective size under ~30 missed by up to 3.3 standard errors and were counted as converged: the floor was added
+  for this.)
+- **How far it reaches.** For rules over single cells (Prime Cells, Crosswise Threes' zeros) it reaches the top (24–25
+  bits) in under 0.2M boards. For rules that tie pairs or rows of cells together it converges to 12–20 bits in 3.2M boards;
+  a product of cells cannot propose "these two add up to 9" well, and fitting four-cell blocks failed (above). Those rules
+  are exact, so this limits only the sampled ones: Spread of Three converges to 14–18 bits (§6).
+
+The same direct and importance sampler applies to `line-z`, whose law is also a product (π = p(m)·p(c)); it is offered to
+the spec session as the replacement for the restricted-walk estimator there.
+
+### 5.3 Exact by transfer matrix (not built)
+
+Processing the board row by row with the previous row as the state (10⁴ states on 4×4 digits) sums exactly any rule
+whose terms read two neighbouring rows at a time: Spread of Three, touching pairs across the whole board, vertical
+leaps. With a score attached the state grows by the score's range, so it is feasible for a main layer with a few dozen
+values (Spread of Three's distance: 10⁴ × 25 states, 10⁸ transitions a row) and costly with a tie-breaker. Not needed
+while the sampler validates.
+
+## 6. The rule pools
+
+**The beginner pool** is the old beginner grid's eight rules (archive/engine-v1, docs/beginner-pool.md), regraded to the
+standing rules (decision 22): every layer graded, one main layer and three alternative tie-breakers, no third layer.
+Each family's ladder ends where its dealt tops sit in the 15–25 bit band; the tops are from the committed artefacts.
+
+| # | Family (rep, units) | Main layer (the card) | Tie-breakers | Method | Dealt tops (bits) |
+|---|---|---|---|---|---|
+| 1 | **Mirrormancer** (mirror, rows) | "Every row should read the same backwards, like 3 1 1 3." Σ rows (\|a − d\| + \|b − c\|), capped at 1 | middle columns big · primes · 0s | exact | middle 23.9 · primes 24.5 · 0s 22.6 |
+| 2 | **Magic Eighteen** (tally, rows) | "Every row should add up to 18." Σ rows \|total − 18\|, capped at 4 (exact 0 is 26 bits) | first column big · primes · odd numbers | exact | first column 23.7 · primes 24.0 · odd 24.5 |
+| 3 | **Opposite Nines** (turn, half-turn pairs) | "Every cell and its opposite should add up to 9." Σ pairs \|a + b − 9\|, capped at 10 | top half big · primes · odd numbers | exact | top half 23.0 · primes 24.6 · odd 24.8 |
+| 4 | **Two Pair** (boxes, corner boxes) | "Each corner box should hold two different pairs, like 3 3 8 8." Σ boxes (best pairing's gaps, +1 for four of a kind) | the pairs far apart · primes · corners big | exact | apart 23.9 · primes 24.7 · corners 23.6 |
+| 5 | **Spread of Three** (windows, overlapping) | "Every 2×2 square should spread by exactly 3." Σ squares \|spread − 3\| (exactly 3 everywhere: 13 bits) | primes · 0s · corners big | **sampled** | primes 16.8 · 0s 17.9 · corners 14.0 (primes and corners capped) |
+| 6 | **Strangers** (boxes, corner boxes) | "Touching numbers in a corner box should be strangers (both > 1, no common divisor, 2 or more apart)." count, capped at 9 of 16 | 1s beside bigger numbers · primes · corners big | exact | 1s 22.3 · primes 23.4 · corners 22.9 |
+| 7 | **Leapfrog** (leaps, rows) | "Each number and the number two cells along should be one apart, like 4 _ 5." Σ \|\|a − b\| − 1\| | first column big · primes · 0s | exact | first column 23.5 · primes 23.6 · 0s 23.6 |
+| 8 | **Crosswise Threes** (fold, fold pairs and the fold line) | "Fold the board on its other diagonal: each number and the number it lands on should be 3 apart." Σ \|\|a − b\| − 3\| | fold line big · primes · 0s | exact | fold line 23.9 · primes 24.1 · 0s 23.7 |
+
+Magic Eighteen keeps its 18 (the owner: a target changes only for a reason other than exactness); its main ladder is
+capped at "off by 4 in all" because "exactly 18 in every row" is 26.1 bits before any tie-breaker, past the band. Old
+scores that were categories (Two Pair's "two pairs, one pair, nothing") or yes/no counts became distances or counts
+with many values. Strangers' old secondary ("a 1 beside a bigger number") is one of its tie-breakers.
+
+**The second pool** (new, exact, not dealt by a preset yet): Steady Steps (steps; rows in equal steps, like 1 3 5 7;
+tops 22.7–23.8), Box Totals (boxes; each corner box adds up to 12; 22.5–24.4) and Prime Cells (cells; as many primes as
+possible; 21.8–24.8), with three tie-breakers each.
+
+**The background list** (decision 22: capped, not dropped): Spread of Three + primes (capped at 16.8 bits, rung 49 of
+50) and + corners (capped at 14.0, rung 45 of 50). Their upper rungs need a longer sampling run, or a better proposal
+than a product of cells, or the transfer matrix of §5.3.
+
+Collisions are on purpose (decision 5): all compete for the same sixteen numbers. Mirrormancer and Leapfrog want
+incompatible rows (a b b a has leaps a–b and b–a, which Leapfrog wants one apart: compatible only as 4 5 5 4); Opposite
+Nines and Crosswise Threes pair the same cells differently; Magic Eighteen and every "big" tie-breaker fight gravity.
 
 ## 7. Views, agents, server
 
-- **Views** (lib/v2-views): one `grid` renderer for all six representations. Compact face: the main layer's
+- **Views** (lib/v2-views): one `grid` renderer for every representation. Compact face: the main layer's
   representation with its marks (the rows that miss 12, with their totals). Expanded face: the representations the rule
   depends on side by side. Marks: focus on cells and derived elements, notes ("3 short"), candidates.
 - **Agents**: priced host reads (a representation, or one element) exactly as for lines; starters Simple, Thorough and
@@ -202,16 +300,18 @@ in a second pool.
   family × tie-breaker in Python and TypeScript.
 - **Server**: a `grids-beginner` preset on `grid-4-d10` and its deal (bids included), with the server and app sessions.
 
-## 8. Decisions for the owner, and judgment calls
+## 8. Decisions and judgment calls
 
-**For the owner** (I proceed on the first option of each unless told otherwise):
-1. The cell's energy on the beginner board: **steps** (energy = half the board's total, so bigger numbers are rarer) or
-   the line's factorisation code (7 dearer than 9, a mostly blank board). §2.
-2. The pool drops five of the old eight (overlapping units or category scores, §6) and moves Magic Eighteen's target
-   from 18 to 12.
+**The owner's, since the first draft:** decision 22 (keep the old beginner rules and every kind of grid rule; value what
+the exact sums cannot by sampling, validated against them) and decision 20 (exact scoring never blocks anything).
+
+**For the owner** (I proceed on the first option unless told otherwise): the cell's energy on the beginner board is
+**steps** (energy = half the board's total, so bigger numbers are rarer), not the line's factorisation code (7 dearer
+than 9, a mostly blank board). §2.
 
 **Judgment calls** (mine; revisit freely):
+- Magic Eighteen keeps 18 with its main ladder capped below exact (§6); Strangers' main ladder is capped at 9 of 16.
 - One site per board; orientation is part of the state.
 - Births use the engine's birth walk (spec §2.4), though exact i.i.d. draws are available; the walk keeps one code path.
-- Units of at most four cells, so a unit's law is enumerated directly.
+- Units of at most four cells, so a unit's law is enumerated directly; sampler blocks of at most two cells (§5.2).
 - Cell element names are 0-based (`r0c0`) for agents; every label people read is 1-based ("row 1, column 1").

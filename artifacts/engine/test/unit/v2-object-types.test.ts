@@ -19,15 +19,15 @@ test("family ids are unique across object types", () => {
 test("a grid variant is read, written and valued as a grid", () => {
   assert.equal(typeOf("grid-4-d10").id, "grid");
   assert.equal(typeOf("line-z").id, "line");
-  const wire = "3333/0390/1290/2235";
+  const wire = "9090/0909/4545/3366";
   assert.equal(encode(decode(wire, "grid-4-d10"), "grid-4-d10"), wire);
   const type = typeOf("grid-4-d10"), variant = type.variants[0]!;
-  const f = familyOf("row-totals");
-  const key = ruleKey(type, variant, f.id, { T: 12 }, "first-column");
+  const f = familyOf("magic-eighteen");
+  const key = ruleKey(type, variant, f.id, { T: 18 }, "first-column");
   const a = artefactFor(key)!;
   assert.ok(a && a.dealable, key);
-  const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", [{ memberId: "m1", rule: { family: f.id, params: { T: 12 }, tieBreaker: "first-column", ruleKey: key, contentHash: a.contentHash } }]);
-  assert.ok(v!.rarityBits > 16, `every row adds up to 12: ${v!.rarityBits} bits`);
+  const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", [{ memberId: "m1", rule: { family: f.id, params: { T: 18 }, tieBreaker: "first-column", ruleKey: key, contentHash: a.contentHash } }]);
+  assert.ok(v!.rarityBits > 16, `every row adds up to 18: ${v!.rarityBits} bits`);
 });
 
 test("a grid representation's mutators name their arguments, with choices for cells and lines", () => {

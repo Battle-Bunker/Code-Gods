@@ -27,22 +27,34 @@ test("representations: tallies, opposite pairs, mirror gaps, steps and boxes", (
 });
 
 test("each family's terms on one board", () => {
-  assert.deepEqual(terms("row-totals", B, { T: 12 }), { rows: 9 + 8 + 12 + 3, "first-column": 12, primes: 2, zeros: 11 });
-  assert.deepEqual(terms("opposite-pairs", B, { T: 9 }), { pairs: 9 + 8 + 7 + 0 + 6 + 9 + 9 + 8, "top-half": 7, primes: 2, odd: 4 });
-  assert.deepEqual(terms("mirror-rows", B, {}), { mirror: 1 + 2 + 0 + 9, middle: 3, primes: 2, zeros: 11 });
+  assert.deepEqual(terms("mirrormancer", B, {}), { mirror: 1 + 2 + 0 + 9, middle: 3, primes: 2, zeros: 11 });
+  assert.deepEqual(terms("magic-eighteen", B, { T: 18 }), { rows: 15 + 14 + 18 + 9, "first-column": 12, primes: 2, odd: 4 });
+  assert.deepEqual(terms("opposite-nines", B, { T: 9 }), { pairs: 9 + 8 + 7 + 0 + 6 + 9 + 9 + 8, "top-half": 7, primes: 2, odd: 4 });
+  assert.deepEqual(terms("two-pair", B, {}), { "two-pair": 2 + 1 + 9 + 1, apart: 3 + 2 + 9 + 0, primes: 2, corners: 9 });
+  assert.deepEqual(terms("spread-of-three", B, {}), { spread: 0 + 1 + 1 + 0 + 3 + 2 + 6 + 3 + 3, primes: 2, zeros: 11, corners: 9 });
+  assert.deepEqual(terms("strangers", B, {}), { strangers: 0, ones: 0, primes: 2, corners: 9 });
+  assert.deepEqual(terms("leapfrog", B, {}), { leap: 1 + 0 + 2 + 0 + 1 + 1 + 8 + 1, "first-column": 12, primes: 2, zeros: 11 });
+  assert.deepEqual(terms("crosswise-threes", B, {}), { crosswise: 3 + 2 + 2 + 0 + 3 + 3, "fold-line": 9, primes: 2, zeros: 11 });
   assert.deepEqual(terms("steady-steps", B, {}), { steady: 3 + 4 + 0 + 9, climb: 0 + 2 + 0 + 9, start: 12, primes: 2 });
   assert.deepEqual(terms("box-totals", B, { T: 12 }), { boxes: 8 + 9 + 3 + 12, corners: 9, primes: 2, zeros: 11 });
   assert.deepEqual(terms("prime-cells", B, {}), { "prime-count": 2, "prime-total": 5, sevens: 0, corners: 9 });
 });
 
-test("a perfect Row Totals board is at the main layer's top, and its tie-breaker grades it", () => {
-  const s = board("3333", "0390", "1290", "2235");
-  const f = fam("row-totals");
-  const e = evaluateSite(gridType, f, { T: 12 }, s, grid4, 0, "first-column");
-  const ladder = ruleLadder(f, { T: 12 }, grid4, "first-column");
+test("strangers and two pairs on boards made for them", () => {
+  assert.equal(terms("strangers", board("2525", "5252", "2525", "5252"), {}).strangers, 16);
+  assert.equal(terms("strangers", board("1200", "0000", "0000", "0000"), {}).ones, 1);
+  assert.equal(terms("two-pair", board("3838", "3838", "1256", "1256"), {})["two-pair"], 0);
+  assert.equal(terms("two-pair", board("3300", "3300", "0000", "0000"), {})["two-pair"], 1 + 1 + 1 + 1, "four of a kind is one off");
+});
+
+test("a perfect Magic Eighteen board is at the main layer's top, and its tie-breaker grades it", () => {
+  const s = board("9090", "0909", "4545", "3366");
+  const f = fam("magic-eighteen");
+  const e = evaluateSite(gridType, f, { T: 18 }, s, grid4, 0, "first-column");
+  const ladder = ruleLadder(f, { T: 18 }, grid4, "first-column");
   const lvl = levelOf(e.score, ladder);
-  assert.equal(ladder[lvl]!.main, f.main.thresholds({ T: 12 }, grid4).length);
-  assert.ok(lvl < ladder.length - 1, "the first column (6) is far from its top");
+  assert.equal(ladder[lvl]!.main, f.main.thresholds({ T: 18 }, grid4).length);
+  assert.ok(lvl < ladder.length - 1, "the first column (16) is not at its top");
 });
 
 test("every family evaluates every tie-breaker on random boards, its marks citing what it read", () => {

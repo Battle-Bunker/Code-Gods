@@ -15,7 +15,6 @@ import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
-import { gridExampleFor, gridScoreSource, gridShippedAgents, gridStartersFor, isGridFamily, isGridTypeFamily } from "./grid-starters.ts";
 
 export type AgentKind = "example" | "simple" | "thorough" | "bold" | "naive";
 export type ShippedLanguage = Extract<Language, "typescript" | "python">;
@@ -285,33 +284,22 @@ const LANGUAGES: readonly ShippedLanguage[] = ["typescript", "python"];
 
 /** The example for a dealt rule, in one language (null: no example for that family or tie-breaker). */
 export function exampleFor(family: string, tieBreaker: string, language: ShippedLanguage): ShippedAgent | null {
-  if (isGridTypeFamily(family)) return gridExampleFor(family, tieBreaker, language);
   const e = CATALOGUE.find(x => x.family === family);
   return e?.tieBreakers[tieBreaker] ? render("example", family, tieBreaker, language) : null;
 }
 
 /** The Simple, Thorough and Bold starters for a family, then Naive (a teaching example, never a default), in one language. */
 export function startersFor(family: string, language: ShippedLanguage): ShippedAgent[] {
-  if (isGridTypeFamily(family)) return gridStartersFor(family, language);
   return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
 }
 
-/** Every shipped agent: per family, each tie-breaker's example and the four starters, in both languages; lines, then grids. */
+/** Every shipped agent: per family, each tie-breaker's example and the four starters, in both languages. */
 export function shippedAgents(): ShippedAgent[] {
   // Only what v2-linear still deals: a catalogue entry for a family or tie-breaker it dropped is skipped (stale()).
   return CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family)).flatMap(e => LANGUAGES.flatMap(language => [
     ...Object.keys(e.tieBreakers).filter(tb => familyOf(e.family).tieBreakers.some(t => t.id === tb)).map(tb => render("example", e.family, tb, language)),
     ...startersFor(e.family, language),
-  ])).concat(gridShippedAgents());
-}
-
-/**
- * Does a family of any object type have shipped agents (an example per tie-breaker and the starters)? The deal should
- * deal only families that do (artifacts/engine/convex/v2/deal.ts still checks the line-only CATALOGUE), so a player
- * can always summon one.
- */
-export function hasStarters(family: string): boolean {
-  return isGridFamily(family) || (CATALOGUE.some(e => e.family === family) && lineType.families.some(f => f.id === family));
+  ]));
 }
 
 /** Where a shipped agent's rendered copy is committed (for reading and review): agents/<family>/<name>.<ext>. */
@@ -325,12 +313,11 @@ export function shippedPath(a: ShippedAgent): string {
  * check an agent's own idea of the score against the engine's.
  */
 export function scoreSource(family: string, tieBreaker: string | null, language: ShippedLanguage): string {
-  if (isGridTypeFamily(family)) return gridScoreSource(family, tieBreaker, language);
   const e = entryOf(family);
   return (language === "typescript" ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)).join("\n") + "\n";
 }
 
-/** Starting energy of the beginner economy (v2-economy's Lines · beginner; grids have none of their own yet); every shipped agent fits. */
+/** Starting energy of the beginner economy (v2-economy's Lines · beginner); every shipped agent fits. */
 export const BEGINNER_STARTING_ENERGY = LINES_BEGINNER_ECONOMY.startingEnergy;
 
 /** Families and tie-breakers of the line type that have no shipped agents yet (each needs a catalogue entry). */

@@ -5,7 +5,7 @@
  */
 import { q, ref, type ElementDecl, type ElementValue, type Representation } from "@workspace/v2-core";
 import { at, cellLabel, cellName, type GridState } from "./grid.ts";
-import { BOX_NAMES, boxes, cols, pairs, rows } from "./units.ts";
+import { BOX_NAMES, boxEdges, boxes, cols, foldLine, folds, leaps, pairs, rows, strangers, twoPairGap, windows } from "./units.ts";
 
 type Decl = ElementDecl<GridState>;
 const num = (x: number): ElementValue => ({ kind: "number", q: q(x) });
@@ -85,9 +85,38 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const bx = n % 2 === 0 ? boxes(n) : [];
   const boxRep: Representation<GridState> = {
     id: "boxes", title: "the board cut into four corner boxes", scene: "grid", perSite: false,
-    elements: bx.map((cs, k) => derived(`box${k}`, `the ${BOX_NAMES[k]} box's total`, s => sum(s, cs), `boxTotal:${k}`)),
+    elements: [
+      ...bx.map((cs, k) => derived(`box${k}`, `the ${BOX_NAMES[k]} box's total`, s => sum(s, cs), `boxTotal:${k}`)),
+      ...bx.map((cs, k) => derived(`pairs${k}`, `how far the ${BOX_NAMES[k]} box is from two different pairs`, s => (cs.length < 4 ? 0 : twoPairGap(s.cells[cs[0]!]!, s.cells[cs[1]!]!, s.cells[cs[2]!]!, s.cells[cs[3]!]!)))),
+      ...bx.map((cs, k) => derived(`strangers${k}`, `touching strangers in the ${BOX_NAMES[k]} box`, s => (cs.length < 4 ? [] : boxEdges(cs)).filter(([a, b]) => strangers(s.cells[a]!, s.cells[b]!)).length)),
+    ],
     layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals" }),
   };
 
-  return [cells, tally, turn, mirror, steps, boxRep];
+  const ws = windows(n);
+  const spread = (s: GridState, cs: readonly number[]) => { const v = cs.map(i => s.cells[i]!); return Math.max(...v) - Math.min(...v); };
+  const windowRep: Representation<GridState> = {
+    id: "windows", title: "every 2×2 square, and its spread (biggest minus smallest)", scene: "grid", perSite: false,
+    elements: ws.map((cs, k) => derived(`w${k}`, `the spread of the square whose top-left cell is ${cellLabel(n, cs[0]!)}`, s => spread(s, cs), `windowSpread:${k}`)),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: ws.map((cs, k) => ({ cells: cs, el: ref("windows", `w${k}`) })) }),
+  };
+
+  const lp = leaps(n);
+  const leapRep: Representation<GridState> = {
+    id: "leaps", title: "each number and the number two cells along its row", scene: "grid", perSite: false,
+    elements: lp.map(([a, b], k) => derived(`leap${k}`, `${cellLabel(n, b)} minus ${cellLabel(n, a)}`, s => s.cells[b]! - s.cells[a]!)),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: lp.map(([a, b], k) => ({ cells: [a, b], el: ref("leaps", `leap${k}`) })) }),
+  };
+
+  const fp = folds(n);
+  const foldRep: Representation<GridState> = {
+    id: "fold", title: "the board folded along the diagonal from the top-right corner", scene: "grid", perSite: false,
+    elements: [
+      ...fp.map(([a, b], k) => derived(`fold${k}`, `${cellLabel(n, a)} minus the cell it folds onto (${cellLabel(n, b)})`, s => s.cells[a]! - s.cells[b]!)),
+      derived("line", "the fold line's total", s => sum(s, foldLine(n))),
+    ],
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: [...fp.map(([a, b], k) => ({ cells: [a, b], el: ref("fold", `fold${k}`) })), { cells: foldLine(n), el: ref("fold", "line") }] }),
+  };
+
+  return [cells, tally, turn, mirror, steps, boxRep, windowRep, leapRep, foldRep];
 }
