@@ -66,6 +66,12 @@ export const tick = internalAction({
       const per = Math.max(1, Math.floor(PAIRS_PER_BATCH / Math.max(1, memberIds.length)));
       const batches = [];
       for (let i = 0; i < objectIds.length; i += per) batches.push(ctx.runQuery(ACT_INPUTS, { gameId, memberIds, objectIds: objectIds.slice(i, i + per) }));
+      // Each seat's view of the others (W2 #517): their rules and value functions, for the host's othersAfter.
+      const ruleOf = (r: Snapshot["seats"][number]["rule"]) => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
+      const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
+        const vf = o.memberId === seat.memberId ? null : valueRecord(o.rule.ruleKey);
+        return vf ? [{ rule: ruleOf(o.rule), values: { knots: vf.knots, tail: vf.tail } }] : [];
+      })]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
       const acts = [];
@@ -86,9 +92,9 @@ export const tick = internalAction({
         const vf = valueRecord(seat.rule.ruleKey);
         const { record } = await runAct(sandbox, {
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
-          rule: { family: seat.rule.family, params: seat.rule.params as Record<string, unknown>, tieBreaker: seat.rule.tieBreaker },
+          rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
-          ...input, ...(vf ? { values: { knots: vf.knots, tail: vf.tail } } : {}),
+          ...input, ...(vf ? { values: { knots: vf.knots, tail: vf.tail } } : {}), others: othersOf.get(seat.memberId)!,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.
