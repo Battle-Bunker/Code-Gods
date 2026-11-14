@@ -1,7 +1,7 @@
 /** The fetch adapters against a stubbed fetch (no network): request shape, answer mapping, refusals. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { anthropicProvider, Budget, ChatError, findModel, MODELS, openAIProvider, type ChatMessage } from "../src/index.ts";
+import { anthropicProvider, Budget, ChatError, findModel, MODELS, openAIProvider, quotaTokens, type ChatMessage } from "../src/index.ts";
 
 function stubFetch(answer: unknown, status = 200) {
   const sent: { url: string; headers: Record<string, string>; body: Record<string, unknown> }[] = [];
@@ -81,4 +81,17 @@ test("the catalogue prices every model, and the budget counts dollars", () => {
   b.record(opus.prices, { inputTokens: 1000, outputTokens: 1000, cacheReadTokens: 0, cacheWriteTokens: 0 }); // $0.024
   assert.equal(b.allows(opus.prices, 1000, 1000), false);
   assert.throws(() => anthropicProvider({ apiKey: " ", model: opus.id, prices: opus.prices }));
+});
+
+test("a quota counts a cached read at its price's share of plain input, so a cached prompt does not eat the allowance", () => {
+  const opus = findModel("claude-opus-5-5")!;
+  // A turn's call: a 20k-token prompt, 18k of it read from the cache, and 1k out.
+  const call = { inputTokens: 20_000, outputTokens: 1_000, cacheReadTokens: 18_000, cacheWriteTokens: 0 };
+  const w = opus.prices.cacheRead! / opus.prices.input;
+  assert.equal(quotaTokens(opus.prices, call), Math.ceil(2_000 + 18_000 * w + 1_000));
+  assert.equal(quotaTokens(opus.prices, { ...call, cacheReadTokens: 0 }), 21_000, "nothing cached: every token");
+  assert.equal(quotaTokens({ input: 1, output: 1 }, call), 21_000, "a provider without a cache price: every token");
+  const b = new Budget({ tokens: 300_000, usd: 100 });
+  for (let i = 0; i < 40; i++) b.record(opus.prices, call);
+  assert.ok(b.snapshot().tokens < 300_000, `forty cached calls fit a 300k allowance: ${b.snapshot().tokens}`);
 });

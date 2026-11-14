@@ -16,8 +16,10 @@ import type { SpendKey } from "./spend";
 export function providerFor(): ChatProvider {
   if (process.env.AI_MOCK === "1") return mockProvider();
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  const model = findModel(DEFAULT_MODEL);
-  if (!apiKey || !model) throw new OpFailure("No AI model is configured on this deployment.");
+  // The deployment's model: AI_MODEL (one of lib/v2-ai's MODELS), else the default.
+  const id = process.env.AI_MODEL || DEFAULT_MODEL, model = findModel(id);
+  if (!model) throw new OpFailure(`This deployment's AI_MODEL (${id}) is not a model the server knows.`);
+  if (!apiKey) throw new OpFailure("No AI model is configured on this deployment.");
   return anthropicProvider({ apiKey, model: model.id, prices: model.prices });
 }
 

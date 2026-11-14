@@ -6,7 +6,7 @@
 import { usageUsd, type Prices, type Usage } from "./chat.ts";
 
 export interface Limits {
-  /** Input plus output tokens. */
+  /** Input plus output tokens, a cached read counted at its price's share of plain input (`quotaTokens`). */
   tokens: number;
   usd: number;
   /** Model calls; unlimited when absent. */
@@ -14,6 +14,16 @@ export interface Limits {
 }
 
 export interface Spent { tokens: number; usd: number; calls: number }
+
+/**
+ * A call's tokens as quotas count them: output and plain input in full, a cached read at its price's share of plain
+ * input (a tenth on Anthropic's models). A turn re-reads its cached prompt every call; counted in full, a game's
+ * allowance lasted about four requests.
+ */
+export function quotaTokens(prices: Prices, usage: Usage): number {
+  const weight = prices.cacheRead !== undefined && prices.input > 0 ? Math.min(1, prices.cacheRead / prices.input) : 1;
+  return Math.ceil(usage.inputTokens - usage.cacheReadTokens * (1 - weight) + usage.outputTokens);
+}
 
 export class Budget {
   private spent: Spent = { tokens: 0, usd: 0, calls: 0 };
@@ -36,7 +46,7 @@ export class Budget {
   /** Records one call's reported usage; returns its USD. */
   record(prices: Prices, usage: Usage): number {
     const usd = usageUsd(prices, usage);
-    this.spent = { tokens: this.spent.tokens + usage.inputTokens + usage.outputTokens, usd: this.spent.usd + usd, calls: this.spent.calls + 1 };
+    this.spent = { tokens: this.spent.tokens + quotaTokens(prices, usage), usd: this.spent.usd + usd, calls: this.spent.calls + 1 };
     return usd;
   }
   snapshot(): Spent { return { ...this.spent }; }
