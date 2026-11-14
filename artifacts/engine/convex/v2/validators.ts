@@ -98,6 +98,8 @@ export const movesPageV = paginationResultValidator(v.object({
   charge: v.union(v.number(), v.null()),
   /** The player whose agent moved the line (the caller for their own moves). */
   by: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
+  /** What the caller's own agent noted for them on this move (lib/v2-agents `note`); empty on others' moves. */
+  notes: v.array(v.string()),
 }));
 export const digestV = v.object({ version: v.number(), packed: v.array(v.number()) });
 

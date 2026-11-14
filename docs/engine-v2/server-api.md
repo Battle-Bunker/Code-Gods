@@ -37,7 +37,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
-| `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` only on the caller's own moves |
+| `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` and `notes` (what their agent noted for them) only on the caller's own moves |
 | `v2/spectate:objectIds`, `object` | as above | member; states only |
 | `v2/layout:current` | `roomId` | member |
 | `v2/replays:stored` | `gameId` | member |
