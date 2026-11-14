@@ -1,10 +1,12 @@
 /**
  * How the game went (integration plan §1.7; ux-lessons 2.9): the result first ("You finished 1st of 3 with N points",
- * or "Ada won with N points" for a spectator), then the final standings, your row marked.
+ * or "Ada won with N points" for a spectator), then your points over time with the caption that points rise and fall
+ * (a peak above the final figure read as a mismatch), then the final standings, your row marked.
  */
 import { useGame, useLeaderboard } from "@/sdk";
 import { ordinal, pointsText } from "@/core/words";
 import { resultsHeadline } from "./results-headline";
+import { MyPointsChart } from "./points-over-time";
 
 export function ResultsPane() {
   const header = useGame();
@@ -14,6 +16,9 @@ export function ResultsPane() {
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
+      {header.me && rows.length > 0 && (
+        <MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={header.phase === "ended"} testId="results-points" />
+      )}
       {rows.length > 0 && (
         <ol className="divide-y border-y" data-testid="results-standings">
           {rows.map(r => (

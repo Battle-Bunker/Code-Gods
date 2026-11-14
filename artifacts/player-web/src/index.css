@@ -131,6 +131,12 @@
   --chart-3: 232 38% 30%;
   --chart-4: 42 80% 48%;
   --chart-5: 300 20% 40%;
+  /* Chart series (the dataviz skill's categorical order, validated against --card: adjacent CVD ΔE ≥ 9.1, normal ≥ 19.6;
+     the first three also all-pairs). Slots 3–5 sit below 3:1 on the card, so every chart that uses them has labels or
+     a table beside it. Past the eighth, the grey. */
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --series-other: #898781;
 
   --app-font-sans: 'Bricolage Grotesque', sans-serif;
   --app-font-serif: 'Fraunces', serif;
@@ -253,6 +259,12 @@
   --chart-3: 232 38% 30%;
   --chart-4: 42 80% 48%;
   --chart-5: 300 20% 40%;
+  /* Chart series (the dataviz skill's categorical order, validated against --card: adjacent CVD ΔE ≥ 9.1, normal ≥ 19.6;
+     the first three also all-pairs). Slots 3–5 sit below 3:1 on the card, so every chart that uses them has labels or
+     a table beside it. Past the eighth, the grey. */
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+  --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6; --series-8: #e34948;
+  --series-other: #898781;
 
   --shadow-2xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
   --shadow-xs: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EMPTY_VIEW } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, MAX_PANES, openPlan, readingOrder, shownPanes } from "../src/panels.ts";
+import { closePlan, columns, defaultPanes, MAX_PANES, openPlan, PANE_IDS, PANES, readingOrder, shownPanes } from "../src/panels.ts";
 
 test("an empty view follows the phase's defaults; an own arrangement is kept", () => {
   assert.deepEqual(shownPanes(EMPTY_VIEW, "planning"), defaultPanes("planning"));
@@ -57,6 +57,13 @@ test("closing a default pane keeps the other defaults", () => {
 test("moving an open pane is one move", () => {
   const view = { panes: defaultPanes("live") };
   assert.deepEqual(openPlan(view, "live", "feed", "left").ops, [{ id: "view.movePane", args: { pane: "feed", place: "left" } }]);
+});
+
+test("the others-care, points-over-time and rules panes are offered where they have something to show", () => {
+  assert.deepEqual(PANES["others-care"].phases, ["live", "paused", "ended"]);
+  assert.deepEqual(PANES["points-over-time"].phases, ["live", "paused", "ended"]);
+  assert.deepEqual(PANES.rules.phases, ["planning", "live", "paused", "ended"]);
+  for (const id of PANE_IDS) assert.doesNotMatch(`${PANES[id].title} ${PANES[id].blurb}`, /\b(bits|payoff|objects?|grids?)\b/i, id);
 });
 
 test("opening one line from a full screen keeps the list it was opened from", () => {

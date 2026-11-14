@@ -113,7 +113,7 @@ export function ForgePane() {
         </select>
         <span className="text-xs text-muted-foreground">{agent ? `${agent.name}, version ${agent.version}` : opening ? `${opening.title}: ${opening.summary}` : ""}</span>
       </div>
-      <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} aria-label="Agent code"
+      <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
         className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {primary === "summonFirst" && (
