@@ -3,9 +3,9 @@
  * the first agent exists (ux-lessons 2.4: walkers asked "11 points and I haven't done anything?").
  */
 import { summonFirst } from "@/panes/first-summon";
-import { useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule } from "@/sdk";
+import { objectWord, useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
-import { bidNote, isTied, ordinal, pointsText, powerText, SCORE_SENTENCE, TIE_NOTE, totalNote, TOTAL_NOTE, countedNote } from "@/core/words";
+import { bidNote, isTied, ordinal, pointsText, powerText, scoreSentence, TIE_NOTE, totalNote, TOTAL_NOTE, countedNote } from "@/core/words";
 import { BitsHelp, LineByLine, TiedMark } from "@/core/score-help";
 
 export function OverviewPane() {
@@ -45,7 +45,7 @@ export function OverviewPane() {
       )}
       {seated && (
         <div className="space-y-2" data-testid="text-points-explained">
-          <p>{SCORE_SENTENCE}</p>
+          <p>{scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many)}</p>
           <p className="text-muted-foreground">
             {totalNote(TOTAL_NOTE, (mine?.handicap ?? 0) > 0)} Every line counts, not only the lines your agent moved, so you can have points before you do anything. Rarity is
             counted in bits <BitsHelp testId="button-bits-help-overview" />. Your agent's job is to raise your total.

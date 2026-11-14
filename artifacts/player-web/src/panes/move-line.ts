@@ -28,6 +28,8 @@ export interface MoveSentenceInput {
   readonly what?: string | null;
   readonly before: MoveSnap;
   readonly after: MoveSnap;
+  /** What the game calls its objects: "line" (the default) or "grid" (objectWord(variant).one). */
+  readonly noun?: string;
 }
 
 import { bitsText, chanceText, num, onlyYouNote, scoreFormula } from "../core/words.ts";
@@ -68,13 +70,13 @@ export function rarityText(before: number, after: number): string {
  * change pushed them that way. Points = your bits × the others' bits, so the move splits into yours₀ × Δothers and
  * Δyours × others₁.
  */
-export function pointsCause(before: MoveSnap, after: MoveSnap): string | null {
+export function pointsCause(before: MoveSnap, after: MoveSnap, noun = "line"): string | null {
   const way = Math.sign(after.points - before.points);
   if (way === 0) return null;
   const byWant = before.rarityBits * (after.want - before.want), byRarity = (after.rarityBits - before.rarityBits) * after.want;
   const causes: string[] = [];
-  if (Math.sign(byWant) === way && !same(before.want, after.want)) causes.push(`the others want this line ${after.want > before.want ? "more" : "less"} now`);
-  if (Math.sign(byRarity) === way && !same(before.rarityBits, after.rarityBits)) causes.push(`this line is ${after.rarityBits > before.rarityBits ? "rarer" : "less rare"} by your rule now`);
+  if (Math.sign(byWant) === way && !same(before.want, after.want)) causes.push(`the others want this ${noun} ${after.want > before.want ? "more" : "less"} now`);
+  if (Math.sign(byRarity) === way && !same(before.rarityBits, after.rarityBits)) causes.push(`this ${noun} is ${after.rarityBits > before.rarityBits ? "rarer" : "less rare"} by your rule now`);
   return causes.length ? causes.join(" and ") : null;
 }
 
@@ -82,21 +84,21 @@ export function pointsCause(before: MoveSnap, after: MoveSnap): string | null {
  * "Points on this line 8.16 → 16.32: your 6.80 bits × others' 2.40 bits = 16.32 points", the others' bits before when
  * they changed, the reason when the points moved against your rarity, and why a line only you care about scores nothing.
  */
-export function pointsText(before: MoveSnap, after: MoveSnap): string {
+export function pointsText(before: MoveSnap, after: MoveSnap, noun = "line"): string {
   const formula = scoreFormula(after.rarityBits, after.want);
   const was = same(before.want, after.want) ? "" : ` (others' bits were ${num(before.want)})`;
   if (same(before.points, 0) && same(after.points, 0)) {
     const why = onlyYouNote(after.rarityBits, after.want) ?? (same(after.rarityBits, 0) ? "It is not rare by your rule yet." : "");
-    return `No points on this line yet: ${formula}${was}.${why ? ` ${why}` : ""}`;
+    return `No points on this ${noun} yet: ${formula}${was}.${why ? ` ${why}` : ""}`;
   }
-  if (same(before.points, after.points)) return `Points on this line stayed ${num(after.points)}: ${formula}${was}`;
-  const head = `Points on this line ${num(before.points)} → ${num(after.points)}`;
+  if (same(before.points, after.points)) return `Points on this ${noun} stayed ${num(after.points)}: ${formula}${was}`;
+  const head = `Points on this ${noun} ${num(before.points)} → ${num(after.points)}`;
   const better = rarityDirection(before, after), way = Math.sign(after.points - before.points);
   if (better === way) return `${head}: ${formula}${was}`;
-  const cause = pointsCause(before, after);
+  const cause = pointsCause(before, after, noun);
   if (cause) return `${head}, because ${cause}: ${formula}${was}`;
   // Neither factor explains it from these figures: say the rule, never a guessed cause.
-  return `${head}: ${formula}${was}. A line's points are your bits × the others' bits`;
+  return `${head}: ${formula}${was}. A ${noun}'s points are your bits × the others' bits`;
 }
 
 /**
@@ -108,9 +110,9 @@ export function moveSentence(i: MoveSentenceInput): string {
   const change = i.change ? `: ${i.change.before} → ${i.change.after}` : "";
   const what = i.what ? ` (${i.what})` : "";
   const parts = [
-    `${i.who} changed a line${change}${what}.`,
+    `${i.who} changed a ${i.noun ?? "line"}${change}${what}.`,
     same(i.before.rarityBits, 0) && same(i.after.rarityBits, 0) ? null : rarityText(i.before.rarityBits, i.after.rarityBits),
-    pointsText(i.before, i.after),
+    pointsText(i.before, i.after, i.noun),
   ];
   return parts.filter(Boolean).map(p => (p!.endsWith(".") ? p : `${p}.`)).join(" ");
 }
