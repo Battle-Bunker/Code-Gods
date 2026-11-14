@@ -125,5 +125,13 @@ test("hold it here: a contested line names its own TARGET and SETTLE (the starte
   const h = holdHere(lineType, mc(2, 7), 24)!;
   assert.equal(h.code, "TARGET = { m: 2, c: 7 }; SETTLE = [24]");
   assert.match(h.why, /tug-of-war/);
-  assert.equal(holdHere(lineType, mc(q(1, 2), -3), 5)!.code, "TARGET = { m: 1 / 2, c: -3 }; SETTLE = [5]");
+  // A fraction is a string, which both languages parse exactly (a bare 1 / 2 is 0.5 and the starters refuse it).
+  assert.equal(holdHere(lineType, mc(q(1, 2), -3), 5)!.code, 'TARGET = { m: "1/2", c: -3 }; SETTLE = [5]');
+  // Python wants a dict with quoted keys.
+  assert.equal(holdHere(lineType, mc(q(1, 2), -3), 5, "python")!.code, 'TARGET = {"m": "1/2", "c": -3}; SETTLE = [5]');
+  assert.equal(holdHere(lineType, mc(2, 7), 24, "python")!.code, 'TARGET = {"m": 2, "c": 7}; SETTLE = [24]');
+  const { gridType } = await import("@workspace/v2-grid");
+  const g = holdHere(gridType, { cells: [9, 7, 7, 9, 8, 5, 5, 8, 7, 9, 9, 7, 9, 7, 7, 9] }, 3)!;
+  assert.equal(g.code, 'TARGET = "9779855879979779"; SETTLE = [3]');
+  assert.match(g.why, /This grid is contested/);
 });

@@ -133,21 +133,28 @@ function frontierOf<F extends Found>(found: readonly F[], better: (u: Score, bit
   return frontier;
 }
 
-/** A number as a JavaScript literal a player can paste: 2, -3, 1 / 2. */
-const lit = (n: bigint, d: bigint) => (d === 1n ? `${n}` : `${n} / ${d}`);
+/** A number as a literal the starters parse exactly: 2, -3, or a fraction as a string, "1/2" (W2: a bare 1 / 2 is 0.5). */
+const lit = (n: bigint, d: bigint) => (d === 1n ? `${n}` : `"${n}/${d}"`);
 
 /**
  * "Hold it here" on a contested line (agents session, #531; docs/engine-v2/rule-compatibility.md: settling a contested
  * line at a state the sides like and holding it pays, pulling it back and forth does not): the starters' TARGET and
- * SETTLE settings that hold this line where it is. Lines only (TARGET is y = mx + c); null for anything else.
+ * SETTLE settings that hold this object where it is: a line's { m, c } (y = mx + c), a board's sixteen digits row by row
+ * (#538); null for anything else.
  */
-export function holdHere<S>(type: ObjectType<S>, state: S, number: number): { why: string; code: string } | null {
+export function holdHere<S>(type: ObjectType<S>, state: S, number: number, language: "typescript" | "python" = "typescript"): { why: string; code: string } | null {
+  const why = (noun: string) => `This ${noun} is contested: moving it starts a tug-of-war that costs both sides. Holding it here pays while the rules on every side still like it.`;
+  // A board (#538): its sixteen digits, row by row.
+  const cells = (state as { cells?: unknown }).cells;
+  if (Array.isArray(cells) && cells.every(c => Number.isInteger(c) && c >= 0 && c <= 9)) return { why: why(type.id), code: `TARGET = "${cells.join("")}"; SETTLE = [${number}]` };
   try {
     const m = elementValue(type, state, { rep: "si", name: "m" }, 0), c = elementValue(type, state, { rep: "si", name: "c" }, 0);
     if (m.kind !== "number" || c.kind !== "number") return null;
     return {
-      why: "This line is contested: moving it starts a tug-of-war that costs both sides. Holding it here pays while the rules on every side still like it.",
-      code: `TARGET = { m: ${lit(m.q.n, m.q.d)}, c: ${lit(c.q.n, c.q.d)} }; SETTLE = [${number}]`,
+      why: why(type.id),
+      code: language === "python"
+        ? `TARGET = {"m": ${lit(m.q.n, m.q.d)}, "c": ${lit(c.q.n, c.q.d)}}; SETTLE = [${number}]`
+        : `TARGET = { m: ${lit(m.q.n, m.q.d)}, c: ${lit(c.q.n, c.q.d)} }; SETTLE = [${number}]`,
     };
   } catch { return null; }
 }

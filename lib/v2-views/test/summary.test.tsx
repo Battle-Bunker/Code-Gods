@@ -84,13 +84,13 @@ test("the component: three short sections, no steps, the noun of the object type
   // A held board is drawn in the advice, not written as sixteen digits.
   const board = { cells: [5, 3, 2, 9, 3, 7, 3, 5, 5, 2, 4, 7, 9, 5, 1, 2] };
   const hold = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
-  assert.equal(hold.next.text, "Next game, hold grid 22 like this: it was worth 783.27 points to you there.");
+  assert.match(hold.next.text, /^Next game, hold grid 22 like this: it was worth 783\.27 points to you there\./);
   const hh = renderToStaticMarkup(<GameSummary summary={hold} rule={g} />);
   assert.match(hh, /data-testid="text-summary-next"[\s\S]*class="v2v-grid"/, "the board drawn in the advice");
   assert.doesNotMatch(text(hh), /5 3 2 9 \//);
-  // A board cannot be held by the starters yet: its advice names no TARGET.
-  const gr = summarise({ rule: g, objects: [], rotates: true, tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
-  assert.doesNotMatch(gr.next.text, /TARGET|SETTLE/, gr.next.text);
+  // A board is held the same way (#538): its TARGET is its sixteen digits, row by row.
+  const gr = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
+  assert.match(gr.next.text, /In your agent's code: TARGET = "5329373552479512"; SETTLE = \[22\]\.$/, gr.next.text);
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
@@ -118,4 +118,9 @@ test("in a rotation (the next game deals another rule) the advice is the lesson,
 test("a partial act log says so: the costs are from the moves read", () => {
   const s = summarise({ ...base, movesRead: 1000 });
   assert.match(s.costNote ?? "", /from your last 1,000 moves/);
+});
+
+test("the hold advice writes the settings in the agent's own language", () => {
+  const held = summarise({ ...base, language: "python", tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
+  assert.match(held.next.text, /In your agent's code: TARGET = \{"m": 2, "c": 7\}; SETTLE = \[24\]\.$/);
 });
