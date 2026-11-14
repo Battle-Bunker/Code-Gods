@@ -34,6 +34,8 @@ export interface PaletteHost {
   roomPath?: string;
   /** The dock's pane operations when it is on screen (pane rows open panes there, keeping the panes shown). */
   panes?: { open(pane: string): Promise<unknown>; close(pane: string): Promise<void> };
+  /** A short confirmation once something typed in the palette was done (playtest: a chat sent from it said nothing). */
+  notify?(title: string): void;
 }
 
 const run = async (host: PaletteHost, id: AffordanceId, args: unknown) => {
@@ -78,19 +80,26 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
       page: {
         kind: "field", title: e.title, label: FIELD_LABELS[sole.name] ?? sole.name, placeholder: sole.name === "code" ? "ABC123" : "",
         validate: v => (!v.trim() ? "Type something first." : sole.kind === "number" && !Number.isFinite(Number(v)) ? "A number, please." : null),
-        onSubmit: v => run(host, id, { [sole.name]: sole.kind === "number" ? Number(v) : v.trim() }),
+        onSubmit: async v => {
+          const out = await run(host, id, { [sole.name]: sole.kind === "number" ? Number(v) : v.trim() });
+          host.notify?.(DONE[id] ?? `Done: ${e.title}.`);
+          return out;
+        },
       },
     };
   }
   return { kind: "form", page: { kind: "info", title: e.title, lines: [e.tooltip, "Use its controls on the screen; your assistant can also do it for you."] } };
 }
 
+/** What a field's operation says once done. */
+const DONE: Partial<Record<AffordanceId, string>> = { "chat.send": "Message sent to the room's chat.", "room.join": "You joined the room." };
+
 /** A field's label in words: the parameter's name only when there is none. */
 const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question" };
 
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {
-  return paletteFor(ctx).map(e => ({
+  const rows: Command[] = paletteFor(ctx).map(e => ({
     id: e.id,
     human: { title: e.title, tooltip: e.tooltip },
     group: e.group,
@@ -99,4 +108,16 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     performer: performerFor(e, host),
     available: () => e.availability,
   }));
+  // Each pane by its own title, once a query is typed ("Lines" finds "Open Lines"); the dock's own pane plan opens it.
+  const panes = host.panes;
+  if (panes && ctx.game) {
+    for (const p of PANE_IDS) {
+      if (p === "assistant" && ctx.room?.aiOff) continue;
+      rows.push({
+        id: `pane:${p}`, human: { title: `Open ${PANES[p].title}`, tooltip: PANES[p].blurb }, group: "view", keywords: [...PANES[p].keywords],
+        typedOnly: true, performer: { kind: "submit", run: () => panes.open(p) }, available: () => ({ ok: true }),
+      });
+    }
+  }
+  return rows;
 }

@@ -43,3 +43,21 @@ test("every read the palette offers in a game opens where the app shows it live 
     assert.ok(shown, `${a.id}: the palette has nowhere to show it`);
   }
 });
+
+test("each pane is a typed-only row by its own title, which opens it (playtest round 2: search found no pane)", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const opened: string[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} } };
+  const rows = paletteCommands(ctx, host as never);
+  const lines = rows.find(r => r.human.title === "Open Lines");
+  assert.ok(lines && lines.typedOnly, "Open Lines is a typed-only row");
+  assert.ok(lines.performer.kind === "submit");
+  void lines.performer.run();
+  assert.deepEqual(opened, ["objects"]);
+});
+
+test("in a room without AI, none of the assistant's operations is listed", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: false, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never, aiOff: "AI is only available in rooms run by an administrator." });
+  const ids = paletteCommands(ctx, { perform: async () => ({ ok: true as const, result: {} }), navigate() {} } as never).map(r => r.id);
+  assert.deepEqual(ids.filter(id => id.startsWith("assistant.") || id === "pitch.draft"), []);
+});
