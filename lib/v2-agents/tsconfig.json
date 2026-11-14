@@ -31,6 +31,12 @@
     },
     {
       "path": "../v2-economy"
+    },
+    {
+      "path": "../v2-ai"
+    },
+    {
+      "path": "../v2-affordances"
     }
   ]
 }

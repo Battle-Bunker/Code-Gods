@@ -6,18 +6,22 @@
   "exports": {
     ".": "./src/index.ts",
     "./harness": "./src/harness.ts",
-    "./pure": "./src/pure.ts"
+    "./pure": "./src/pure.ts",
+    "./table": "./src/table.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "render": "node --experimental-strip-types scripts/render.ts",
-    "harness": "node --experimental-strip-types scripts/harness.ts"
+    "harness": "node --experimental-strip-types scripts/harness.ts",
+    "table": "node --experimental-strip-types scripts/table.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-sandbox": "workspace:*",
-    "@workspace/v2-economy": "workspace:*"
+    "@workspace/v2-economy": "workspace:*",
+    "@workspace/v2-ai": "workspace:*",
+    "@workspace/v2-affordances": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:"

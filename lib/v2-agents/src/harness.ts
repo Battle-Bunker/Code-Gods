@@ -110,6 +110,25 @@ function bitsOf(a: ArtefactFile, score: Score): number {
   return a.rungs[levelOf(score, ladder)]!.bits ?? 0;
 }
 
+/**
+ * A player's value of a line: `bits(s)` is n_i, their rarity on their committed artefact (0 without values); `level(s)`
+ * the rung their rule's score reaches; `rungs` the ladder with each rung's rarity, as `runAct`'s `rungs` takes it.
+ */
+export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
+  const family = type.families.find(f => f.id === rule.family)!;
+  const found = findArtefact(variant.id, rule);
+  const a = found && found.rungs.every(x => x.bits !== null) ? found : null;
+  const scoreOf = (s: S) => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
+  const ladder = a ? a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) })) : [];
+  return {
+    scoreOf,
+    bits: (s: S) => (ladder.length ? a!.rungs[levelOf(scoreOf(s), ladder)]!.bits ?? 0 : 0),
+    level: (s: S) => (ladder.length ? levelOf(scoreOf(s), ladder) : 0),
+    labels: a ? a.rungs.map(g => g.label) : [],
+    rungs: a ? a.rungs.map(g => ({ score: g.score, bits: g.bits ?? 0, layer: g.layer, ...(g.main !== undefined ? { main: g.main } : {}) })) : [],
+  };
+}
+
 // ---------------------------------------------------------------- the run
 
 export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): Promise<HarnessReport> {
@@ -123,16 +142,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
   const sandboxOf = new Map<string, Sandbox>();
   for (const p of players) sandboxOf.set(p.program.language, await boxes.get(p.program.language));
 
-  // Each player's value of a line (n_i, bits on their artefact; 0 without values), and their rung rarities.
-  const valuers = players.map(p => {
-    const family = type.families.find(f => f.id === p.rule.family)!;
-    const found = findArtefact(variant.id, p.rule);
-    const a = found && found.rungs.every(x => x.bits !== null) ? found : null;
-    return {
-      bits: (s: S) => (a ? bitsOf(a, evaluateSite(type, family, p.rule.params, s, variant, 0, p.rule.tieBreaker).score) : 0),
-      rungs: a ? a.rungs.map(g => ({ score: g.score, bits: g.bits ?? 0, layer: g.layer, ...(g.main !== undefined ? { main: g.main } : {}) })) : [],
-    };
-  });
+  const valuers = players.map(p => valuer(type, variant, p.rule));
   /** Every player's points on a state: π_i = n_i · Σ_{j≠i} n_j. */
   const pointsOf = (s: S) => { const n = valuers.map(v => v.bits(s)); const total = n.reduce((a, b) => a + b, 0); return n.map(x => x * (total - x)); };
   const bitsAll = (s: S) => valuers.map(v => v.bits(s));
