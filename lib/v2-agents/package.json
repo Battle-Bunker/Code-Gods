@@ -13,7 +13,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "render": "node --experimental-strip-types scripts/render.ts",
     "harness": "node --experimental-strip-types scripts/harness.ts",
-    "table": "node --experimental-strip-types scripts/table.ts"
+    "table": "node --experimental-strip-types scripts/table.ts",
+    "gen-compat": "node --experimental-strip-types scripts/gen-compat.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",

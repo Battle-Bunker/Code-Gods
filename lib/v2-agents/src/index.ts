@@ -9,3 +9,4 @@ export { CATALOGUE, LENSES, type FamilyEntry, type TieBreakerEntry, type Lens, t
 export { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridTieBreakerEntry, type GridLens, type GridLensId } from "./grid-catalogue.ts";
 export { gridUndescribed } from "./grid-starters.ts";
 export * from "./primer.ts";
+export * from "./compat.gen.ts";
