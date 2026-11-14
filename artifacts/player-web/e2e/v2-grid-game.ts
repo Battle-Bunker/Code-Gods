@@ -81,7 +81,7 @@ async function myFamily(page: Page, gameId: string): Promise<string> {
 
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 /** A line's score as every pane writes it (src/core/words.ts scoreFormula), 2 decimal places. */
-const FORMULA = /your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
+const FORMULA = /your [\d,]+\.\d\d bits? × others' (about )?−?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
 const SCORE_SENTENCE = /You score on a (grid|line) when/;
 const clock = (t0: number) => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 
@@ -169,8 +169,12 @@ try {
     const feed = page.getByTestId("pane-feed");
     // The first scoring move (a move can also leave the step and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
-    const mine = feed.locator("[data-testid=feed] > ol > li > div > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
-    await mine.waitFor({ timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
+    // Its own row, or inside a tug-of-war entry (contested grids fold their moves under "Show the N moves").
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
+    await mine.waitFor({ state: "attached", timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
+    const folded = mine.locator("xpath=ancestor::details[1]");
+    if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();
+    await mine.waitFor();
     const sentence = await mine.innerText();
     // While the game runs another player's move is unattributed (v1's public log): no name, no agent, no calls.
     const logText = await feed.innerText();
@@ -178,6 +182,8 @@ try {
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this grid [−\d.,]+ → [−\d.,]+|Points on this grid stayed|No points on this grid/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
+    // Live, the others' sums are blurred (W3 #608, v1 peerNoiseBits): the figure is written as an estimate.
+    assert.match(sentence, /others' about −?[\d,]+\.\d\d bits? ≈/, `${label}: live, the others' bits are an estimate: ${sentence}`);
     assert.doesNotMatch(sentence, /payoff|object|✨/i);
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     // The change is drawn as a small board beside the sentence, not written as sixteen digits (coordinator, round 6).

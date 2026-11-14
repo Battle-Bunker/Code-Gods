@@ -135,7 +135,8 @@ export function scoreFormula(yours: number, others: number, approx = false): str
   // A blurred others' total can read below zero; points never do (yours × max(0, others)).
   const product = yours * Math.max(0, others);
   // Live, the others' numbers are deliberately blurred (peerNoiseBits): never write them as exact.
-  if (approx) return `your ${fmtBits(yours)} × others' about ${fmtBits(others)} ≈ ${pointsText(product)}`;
+  // The blurred sum may be negative; points are your bits × max(0, that) (the server's rule, W3 #608).
+  if (approx) return `your ${fmtBits(yours)} × others' about ${fmtBits(others)} ≈ ${pointsText(yours * Math.max(0, others))}`;
   const sign = Math.round(hundredths(yours) * hundredths(others) / 100) === hundredths(product) ? "=" : "≈";
   return `your ${fmtBits(yours)} × others' ${fmtBits(others)} ${sign} ${pointsText(product)}`;
 }
