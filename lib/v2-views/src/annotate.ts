@@ -124,6 +124,8 @@ export function annotateEvaluation<S, P>(rule: RuleRef<S, P>, state: S, ev: Obje
     const u = ev.sites.flatMap(e => e.terms).find(t => isUndef(t.value));
     worst = u ? (u.value as Undef).undefined : `this rule does not score this ${nounOf(rule.type)}`;
   }
-  const utility = ev.utility ?? ev.sites[0]?.utility ?? null;
-  return { noun: nounOf(rule.type), score: ev.score, utility, bits: opts.value ? opts.value(utility) : null, worst, sites };
+  // A multi-site object's utility is the object's own; one site's utility never stands for it.
+  const utility = ev.utility ?? (ev.sites.length === 1 ? ev.sites[0]!.utility : null) ?? null;
+  const bits = opts.value && (ev.utility !== undefined || ev.sites.length === 1) ? opts.value(utility) : null;
+  return { noun: nounOf(rule.type), score: ev.score, utility, bits, worst, sites };
 }

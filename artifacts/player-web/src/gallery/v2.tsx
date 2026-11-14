@@ -67,7 +67,7 @@ const examplesOf = (f: Family) => {
 };
 
 /** The rule's value function from its calibrated record (the storyboard rule has none: no bits shown for it). */
-const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.tieBreaker ?? r.family.tieBreakers[0]?.id);
+const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.params, r.tieBreaker === undefined ? r.family.tieBreakers[0]?.id : r.tieBreaker);
 
 const params = new URLSearchParams(location.search);
 const scheme = params.get("scheme") === "dark" ? "dark" : "light";

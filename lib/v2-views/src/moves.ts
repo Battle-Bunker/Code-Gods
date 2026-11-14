@@ -9,7 +9,7 @@ import {
   applyPriced, compareScores, evaluateObject, isInvalid, variantMutators, type Call, type Mutator, type ObjectType, type Price, type Score,
 } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
-import { contributors } from "./contributors.ts";
+import { changesBetween, contributors } from "./contributors.ts";
 import { candidateArgs, DEFAULT_BUDGET, type ImproveBudget } from "./improve.ts";
 import { chipRep, repText } from "./rep-view.tsx";
 
@@ -43,7 +43,11 @@ function wordsOf<S>(type: ObjectType<S>, m: Mutator<unknown, unknown>, args: unk
 export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) => number) | null | undefined, opts: MovesOptions = {}): Move<S>[] {
   const { type, family, params, variant, tieBreaker } = rule;
   const budget = opts.budget ?? DEFAULT_BUDGET;
-  const u0 = evaluateObject(type, family, params, state, variant, tieBreaker).utility ?? null;
+  // The object's utility; a multi-site object without one is ranked by its score, never by one site's utility.
+  const utilOf = (s: S): Score => { const ev = evaluateObject(type, family, params, s, variant, tieBreaker); return ev.utility ?? (ev.sites.length === 1 ? ev.sites[0]!.utility : ev.score) ?? null; };
+  const priced = (s: S) => { const ev = evaluateObject(type, family, params, s, variant, tieBreaker); return ev.utility !== undefined || ev.sites.length === 1; };
+  const u0 = utilOf(state);
+  if (!priced(state)) value = null;
   const before = value ? value(u0) : null;
   // Better: more bits; without a value function, a better utility (lexicographic).
   const better = (u: Score, bits: number | null, than: { utility: Score; bits: number | null }) =>
@@ -59,13 +63,20 @@ export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) =>
   cands.sort((x, y) => x.base - y.base);
   const found: Omit<Move<S>, "changes" | "words" | "text">[] = [];
   const meta = new Map<object, { m: Mutator<unknown, unknown>; a: unknown }>();
+  const want = opts.k ?? 3;
   let tried = 0;
   for (const c of cands) {
-    if (tried++ >= budget.evaluations) break;
+    if (tried >= budget.evaluations) break;
+    // Enough of the frontier is found and every later call costs at least as much as its last move.
+    if (found.length >= want) {
+      const f = frontierOf(found, better);
+      if (f.length >= want && c.base >= f[want - 1]!.price.total) break;
+    }
     const r = applyPriced(type as ObjectType<unknown>, variant, state, c.m, c.site, c.a);
     if (isInvalid(r)) continue;
+    tried++;
     const after = r.result as S;
-    const utility = evaluateObject(type, family, params, after, variant, tieBreaker).utility ?? null;
+    const utility = utilOf(after);
     const bits = value ? value(utility) : null;
     if (!better(utility, bits, { utility: u0, bits: before })) continue;
     const call: Call = { mutator: c.m.id, site: c.site, args: c.m.args(variant).encode(c.a) as Record<string, string> };
@@ -73,22 +84,19 @@ export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) =>
     meta.set(f, { m: c.m, a: c.a });
     found.push(f);
   }
-  // The frontier: cheapest first; each later move worth more than every cheaper one.
-  found.sort((a, b) => a.price.total - b.price.total || (b.bits ?? 0) - (a.bits ?? 0) || compareScores(b.utility, a.utility));
-  const frontier: typeof found = [];
-  for (const f of found) if (!frontier.length || better(f.utility, f.bits, frontier[frontier.length - 1]!)) frontier.push(f);
   const was = contributors(rule, state).parts;
-  return frontier.slice(0, opts.k ?? 3).map(f => {
-    const now = contributors(rule, f.after).parts;
-    const changes: string[] = [];
-    was.forEach((p, i) => {
-      const q = now[i];
-      if (!q) return;
-      const a = p.source.find(s => s.value), b = q.source.find(s => s.value && s.label === a?.label);
-      if (p.sense === "min" && a && b && a.text !== b.text) changes.push(`${a.label} ${a.text} → ${b.text}${q.distance?.startsWith("on ") ? ` (${q.distance})` : ""}`);
-      else if (p.sense === "max" && p.valueText !== q.valueText) changes.push(`${p.title.replace(/^(the|that) /, "")} ${p.valueText} → ${q.valueText}`);
-    });
+  return frontierOf(found, better).slice(0, want).map(f => {
     const { m, a } = meta.get(f)!;
+    const changes = changesBetween(was, contributors(rule, f.after).parts);
     return { ...f, words: wordsOf(type, m, a, f.after), changes, text: repText(type, f.after, chipRep(type, f.after)) };
   });
+}
+
+type Found = { price: Price; utility: Score; bits: number | null };
+/** The frontier: cheapest first; each later move worth more than every cheaper one. */
+function frontierOf<F extends Found>(found: readonly F[], better: (u: Score, bits: number | null, than: Found) => boolean): F[] {
+  const sorted = [...found].sort((a, b) => a.price.total - b.price.total || (b.bits ?? 0) - (a.bits ?? 0) || compareScores(b.utility, a.utility));
+  const frontier: F[] = [];
+  for (const f of sorted) if (!frontier.length || better(f.utility, f.bits, frontier[frontier.length - 1]!)) frontier.push(f);
+  return frontier;
 }

@@ -76,6 +76,16 @@ test("move line: the change, what it did to the rule's quantities, the rarity wi
   assert.match(t2, /the others want it 1\.10, was 2\.40\): because the others want this line less now/);
 });
 
+test("move line: without the rule's value function, up or down is the score's own", async () => {
+  const { MoveLine, annotate } = await import("../src/index.ts");
+  const [x, y] = [mc(-3, 10), mc(-3, 9)];
+  const better = (await import("@workspace/v2-core")).compareScores(annotate(tank, y).score, annotate(tank, x).score);
+  assert.notEqual(better, 0, "the two lines score differently");
+  const dir = (b: LineState, c: LineState) => /data-dir="(\w+)"/.exec(renderToStaticMarkup(<MoveLine rule={tank} before={b} after={c} who="You" />))![1];
+  assert.equal(dir(x, y), better > 0 ? "up" : "down");
+  assert.equal(dir(y, x), better > 0 ? "down" : "up");
+});
+
 test("compact face: the next move drawn and said, with its new bits; the reason when not scoring", () => {
   const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} value={VALUE} next />));
   assert.match(t, /next: .* → [\d.]+ bits/);

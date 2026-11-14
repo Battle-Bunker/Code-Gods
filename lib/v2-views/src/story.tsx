@@ -3,8 +3,9 @@
  * annotation and the faces; neither computes a score of its own.
  */
 import type { ReactElement } from "react";
-import { representation, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
+import { compareScores, representation, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
+import { changesBetween } from "./contributors.ts";
 import { ExpandedFace } from "./faces.tsx";
 import { chanceText, fmtBits, fmtNum, fmtValue } from "./format.ts";
 import { nounOf } from "./refs.ts";
@@ -107,15 +108,10 @@ export function MoveLine<S, P>(props: MoveLineProps<S, P>): ReactElement {
   const rep = chipRep(rule.type, after);
   const noun = nounOf(rule.type);
   const p0 = a0.sites[0]?.parts ?? [], p1 = a1.sites[0]?.parts ?? [];
-  const changes = p0.flatMap((p, i) => {
-    const q = p1[i];
-    if (!q) return [];
-    const s0 = p.source.find(s => s.value), s1 = q.source.find(s => s.value && s.label === s0?.label);
-    if (p.sense === "min" && s0 && s1 && s0.text !== s1.text) return [`${s0.label} ${s0.text} → ${s1.text}${q.distance?.startsWith("on ") ? ` (${q.distance})` : ""}`];
-    if (p.sense === "max" && p.valueText !== q.valueText) return [`${p.title} ${p.valueText} → ${q.valueText}`];
-    return [];
-  });
-  const up = (a1.bits ?? 0) > (a0.bits ?? 0) + 1e-9, down = (a1.bits ?? 0) < (a0.bits ?? 0) - 1e-9;
+  const changes = changesBetween(p0, p1);
+  // Up or down by bits; without the rule's value function, by the score itself.
+  const cmp = a0.bits !== null && a1.bits !== null ? Math.sign(Math.round((a1.bits - a0.bits) * 1e9)) : compareScores(a1.score, a0.score);
+  const up = cmp > 0, down = cmp < 0;
   const scoring = a0.score === null && a1.score !== null ? "Now it scores" : a0.score !== null && a1.score === null ? "It no longer scores" : null;
   const rarity = a0.bits !== null && a1.bits !== null && fmtNum(a0.bits) !== fmtNum(a1.bits)
     ? `Rarity ${fmtNum(a0.bits)} → ${fmtBits(a1.bits)}, ${chanceText(a1.bits)} by chance (${a1.bits > a0.bits ? "fewer" : "more"} random ${noun}s are this good)`

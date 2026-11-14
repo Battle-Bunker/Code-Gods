@@ -32,7 +32,7 @@ const params = new URLSearchParams(location.search);
 const scheme = params.get("scheme") === "dark" ? "dark" : "light";
 const ruleId = params.get("rule");
 const frame = params.get("frame") ?? "line";
-const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.tieBreaker);
+const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.params, r.tieBreaker);
 
 function Frame({ s, f }: { s: Story; f: string }): ReactElement {
   const value = useMemo(() => valueOf(s.rule), [s]);

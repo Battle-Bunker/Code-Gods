@@ -173,12 +173,13 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const kind = title + " " + term.label;
   if (layer.sense === "min" && !isUndef(value)) {
     if (reference && src) {
+      // The size is the rule's own term (what it scores); only the direction comes from the source and reference.
       const d = N(src) - reference.value;
-      distance = Math.abs(d) < 1e-12 ? `on ${reference.text}` : `${readableN(Math.abs(d))} ${d > 0 ? "above" : "below"} ${reference.text}`;
+      distance = Qn.isZero(value) ? `on ${reference.text}` : `${readable(Qn.abs(value))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
       const lo = Math.min(N(src), reference.value), hi = Math.max(N(src), reference.value), span = Math.max(hi - lo, 2);
       const pad = Math.max(span, 6), near = neighbours(kind, lo - pad, hi + pad).filter(x => x !== reference!.value);
       ruler = {
-        value: N(src), valueText: `${source[0]!.label} ${source.find(s => s.value)!.text}`,
+        value: N(src), valueText: (s => `${s.label} ${s.text}`)(source.find(s => s.value)!),
         refs: [{ at: reference.value, label: reference.text, strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))],
       };
     } else {
@@ -216,5 +217,21 @@ export function contributors<S, P>(rule: RuleRef<S, P>, state: S, site = 0): Con
   const e = ev.sites[site]!;
   const parts = contributorsOf(rule, state, e, site);
   const u = e.terms.find(t => isUndef(t.value));
-  return { evaluation: e, utility: ev.utility ?? e.utility ?? null, parts, worst: e.utility === null ? (u ? (u.value as Undef).undefined : "this rule does not score this line") : null };
+  return { evaluation: e, utility: ev.utility ?? (ev.sites.length === 1 ? e.utility : null) ?? null, parts, worst: e.utility === null ? (u ? (u.value as Undef).undefined : "this rule does not score this line") : null };
+}
+
+/**
+ * What a change did to the rule's quantities, part by part: a distance part's source ("y-intercept 25 → 24 (on 23)"),
+ * a size part's value ("prime 23 → 29").
+ */
+export function changesBetween(was: readonly Contributor[], now: readonly Contributor[]): string[] {
+  const out: string[] = [];
+  was.forEach((p, i) => {
+    const q = now[i];
+    if (!q) return;
+    const a = p.source.find(s => s.value), b = q.source.find(s => s.value && s.label === a?.label);
+    if (p.sense === "min" && a && b && a.text !== b.text) out.push(`${a.label} ${a.text} → ${b.text}${q.distance?.startsWith("on ") ? ` (${q.distance})` : ""}`);
+    else if (p.sense === "max" && p.valueText !== q.valueText) out.push(`${p.title.replace(/^(the|that) /, "")} ${p.valueText} → ${q.valueText}`);
+  });
+  return out;
 }
