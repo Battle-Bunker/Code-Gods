@@ -73,7 +73,8 @@ export interface MoveLineProps<S, P> {
 
 /** The written form of a line in the representation that changed, or its equation. */
 function form<S>(type: ObjectType<S>, state: S, rep: string): string {
-  return repText(type, state, representation(type, rep).scene === "equation" ? rep : chipRep(type, state, rep));
+  // The form asked for when it can write this state, else one that can ("x = 3" for a vertical line, never its reason).
+  return repText(type, state, chipRep(type, state, rep));
 }
 
 /** Changed elements listed at most this many; the rest counted. */

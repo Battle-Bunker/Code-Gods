@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./demo": "./src/demo.ts",
     "./format": "./src/format.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./equation-text": "./src/equation-text.ts"
   },
   "scripts": {
     "test": "node --import tsx --test test/*.test.ts test/*.test.tsx"

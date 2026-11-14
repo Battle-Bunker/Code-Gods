@@ -30,6 +30,7 @@
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-sandbox": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",
+    "@workspace/v2-views": "workspace:*",
     "better-auth": "1.6.33",
     "convex": "1.48.0",
     "jose": "6.2.13",

@@ -78,8 +78,12 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
   if (!renderer) {
     return <div className="v2v-rep" data-size={size} data-rep={repId}><div className="v2v-undef">{rep.title}: no drawing for “{rep.scene}” yet</div></div>;
   }
+  // A view that cannot show this object (a vertical line has no y = mx + c) names it first ("x = 3"), so a reader knows
+  // what it is before reading why the view has nothing to draw.
+  const named = expresses(type, state, repId, site) ? null : repText(type, state, chipRep(type, state, undefined, site), site);
   return (
     <div className="v2v-rep" data-size={size} data-rep={repId} data-scene={rep.scene} aria-label={props.label ?? rep.title}>
+      {named && <div className="v2v-undef-what" data-testid="text-rep-object">{named}</div>}
       {renderer.render({
         rep: repId, scene, values, size,
         // A plane also draws the marks of other representations that project onto it by meaning.

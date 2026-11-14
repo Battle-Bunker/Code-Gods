@@ -1,7 +1,9 @@
 /** `object.*`: reads of an object (free for a human; `bits` is what an agent pays), quotes and scores (reads.ts). */
 import { defineOp, inGame, seated } from "./define";
 import { ask, hostFor, objectIn } from "../reads.ts";
-import { encode, scopeOf, valueOf } from "../world.ts";
+import { decode, encode, scopeOf, typeOf, valueOf } from "../world.ts";
+import { elementValue, representation } from "@workspace/v2-core";
+import { equationText } from "@workspace/v2-views/equation-text";
 import { disclosed } from "../disclose.ts";
 import type { Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
@@ -14,7 +16,11 @@ export const { op: read, as: readAs } = defineOp("object.read", "query", async (
   const { game, member } = inGame(env);
   const { state } = await objectIn(env.ctx, game, a.objectId);
   const r = ask(await hostFor(env.ctx, game, member, state), { op: "view", rep: a.rep, site: a.site ?? 0 });
-  return { rep: r.rep, site: r.site, elements: r.elements, bits: r.bits };
+  // An equation as a person writes it, by the views' one writer ("y = −x + 12", never "−1x" or "+ 0").
+  const type = typeOf(game.variant), s = decode(state, game.variant);
+  const scene = representation(type, r.rep).layout(s, r.site);
+  const text = scene.kind === "equation" ? equationText(scene as never, ref => elementValue(type, s, ref, r.site), r.rep) : null;
+  return { rep: r.rep, site: r.site, elements: r.elements, bits: r.bits, text };
 });
 
 export const { op: element, as: elementAs } = defineOp("object.element", "query", async (env, a) => {

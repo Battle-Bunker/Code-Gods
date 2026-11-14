@@ -4,13 +4,14 @@
  *   /annotations-lines.html                                   every storyboard, listed
  *   ?rule=<family>&frame=line|compare|compact|goal            one frame;   ?rule=scale   y = 290x + 59
  *   ?rational=<family>                                        a rational line under that family on line-q (lines-beginner)
+ *   &vertical=1                                               … a vertical line instead (x = 3: about 30% of newborn lines)
  *   &scheme=dark                                              the dark scheme
  * e2e/annotations-lines.ts checks them in a browser and captures docs/screenshots/annotations-lines/.
  */
 import { StrictMode, useMemo, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { q, type Q } from "@workspace/v2-core";
-import { beginnerPool, divisibilityLadder, fromMC, lineQ, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
+import { beginnerPool, divisibilityLadder, fromMC, lineQ, normalise, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
 import { tieBreakersOn } from "@workspace/v2-core";
 import { CompactFace, ExpandedFace, GoalCard, MoveLine, moves, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import "@workspace/v2-views/styles.css";
@@ -40,7 +41,9 @@ const rationalStory = (family: string): Story | undefined => {
   if (!f) return undefined;
   const tb = tieBreakersOn(f, lineQ)[0]?.id ?? null;
   const r = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ, tieBreaker: tb } as RuleRef<LineState, unknown>;
-  return { title: `${f.id} on a rational line`, rule: r, line: RATIONAL_LINE[family] ?? mc(q(2, 3), q(7, 4)), number: 7, others: [mc(q(-5, 2), q(17, 6)), mc(q(13, 5), q(29, 7))] };
+  const vertical: LineState = { lines: [normalise(1n, 0n, -3n) as never] };
+  const line = params.get("vertical") ? vertical : RATIONAL_LINE[family] ?? mc(q(2, 3), q(7, 4));
+  return { title: `${f.id} on a ${params.get("vertical") ? "vertical" : "rational"} line`, rule: r, line, number: 7, others: [mc(q(-5, 2), q(17, 6)), mc(q(13, 5), q(29, 7))] };
 };
 
 const params = new URLSearchParams(location.search);
