@@ -1,17 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compareScores, evaluateObject, evaluateSite, levelOf, objectLadder, refKey, rng, ruleLadder, walkStep, Qn, type Evaluation, type RuleFamily } from "@workspace/v2-core";
+import { compareScores, evaluateObject, evaluateSite, layerLadders, levelOf, objectLadder, refKey, rng, ruleLadder, ruleLayers, walkStep, Qn, type Evaluation, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
 import { crossingCheck, families, lineType, lineQ, lineZ, lineZ4, mMeetsC, primeGradient, squareArea, triangleArea, wholeIntercept, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const score = (e: Evaluation) => (e.score === null ? "WORST" : e.score.map(x => (x === null ? "_" : Qn.toWire(x))).join(","));
-const ev = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ, layers?: number) => evaluateSite(lineType, f, p, s, v, 0, layers);
+const ev = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ, tb?: TieBreaker) => evaluateSite(lineType, f, p, s, v, 0, tb);
 
-test("every family is a ladder of graded layers: a textbook primary and one secondary", () => {
+test("every family: a textbook main layer and at least two alternative tie-breakers, all graded", () => {
   for (const f of families) {
-    assert.equal(f.layers.length, 2, f.id);
-    assert.ok(f.depends.includes(f.layers[0]!.rep), f.id);
-    for (const l of f.layers) assert.ok(l.thresholds({} as never, lineQ).length >= 6, `${f.id}.${l.id}: at least six rungs`);
+    assert.ok(f.tieBreakers.length >= 2, f.id);
+    assert.ok(f.depends.includes(f.main.rep), f.id);
+    const p = f.dealable(lineQ)[0]!;
+    for (const l of [f.main, ...f.tieBreakers]) assert.ok(l.thresholds(p as never, lineQ).length >= 6, `${f.id}.${l.id}: at least six rungs`);
+    for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Tie-breaker/);
   }
 });
 
@@ -21,7 +23,8 @@ test("Prime Gradient: distance to the nearest prime, then its size", () => {
   assert.equal(score(ev(primeGradient, {}, mc(-2, 1))), "-4,2");
   assert.equal(score(ev(primeGradient, {}, mc(Qn.q(5, 2), 0), lineQ)), "-1/2,2");
   assert.equal(score(ev(primeGradient, {}, abc(1, 0, -3), lineQ)), "WORST");
-  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, 1)), "0");   // a pool that deals one layer
+  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, null)), "0");     // the main layer alone
+  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, "cPrime")), "0,-5"); // the other tie-breaker: c = −3, nearest prime 2
   const cands = ev(primeGradient, {}, mc(4, -3)).marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref));
   assert.deepEqual(cands.sort(), ["cart.ghost(g=3)", "cart.ghost(g=5)"]);
 });
@@ -34,8 +37,10 @@ test("the owner's other three, and the two layered examples of decision 12", () 
   assert.equal(score(ev(mMeetsC, {}, mc(1, 5))), "-4,5");
   assert.equal(score(ev(crossingCheck, { k: 1, q: 5 }, mc(2, 1))), "-1,2");  // y(1) = 3, x(5) = 2
   assert.equal(score(ev(crossingCheck, { k: 1, q: 4 }, mc(2, 1))), "-3/2,3/2"); // x(4) = 3/2
+  assert.equal(score(ev(crossingCheck, { k: 1, q: 4 }, mc(2, 1), lineZ, "whole")), "-3/2,-1");
   assert.equal(score(ev(wholeIntercept, {}, mc(1, Qn.q(29, 2)), lineQ)), "-1/2,3");  // 14.5 → 15, smallest prime factor 3
   assert.equal(score(ev(wholeIntercept, {}, mc(1, 49), lineQ)), "0,7");
+  assert.equal(score(ev(wholeIntercept, {}, mc(1, 48), lineQ, "omega")), "0,5");
   assert.equal(score(ev(squareArea, {}, mc(-1, 6))), "-2,2");                // legs 6, 6: area 18, nearest square 16 = 4², Ω(4) = 2
   assert.equal(score(ev(squareArea, {}, mc(-2, 12))), "0,2");                // legs 6, 12: area 36 = 6², Ω(6) = 2
   assert.equal(score(ev(squareArea, {}, mc(-1, 12))), "-8,3");               // legs 12, 12: area 72, nearest square 64 = 8², Ω(8) = 3
@@ -43,9 +48,9 @@ test("the owner's other three, and the two layered examples of decision 12", () 
 
 /** A test family: primary |m| (bigger is better, top 3), secondary: c, undefined when c is 0. */
 const toy: RuleFamily<LineState, object> = {
-  id: "toy", title: "toy", card: () => "", params: [], dealable: () => [{}], depends: ["si"], primary: "si",
-  layers: [
-    { id: "big", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size", thresholds: () => [Qn.q(1), Qn.q(2), Qn.q(3)], rungLabel: t => `|m| ≥ ${Qn.toWire(t)}` },
+  id: "toy", title: "toy", card: () => "", params: [], dealable: () => [{}], depends: ["si"],
+  main: { id: "big", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size", thresholds: () => [Qn.q(1), Qn.q(2), Qn.q(3)], rungLabel: t => `|m| ≥ ${Qn.toWire(t)}` },
+  tieBreakers: [
     { id: "c", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size", thresholds: () => [Qn.q(1), Qn.q(5)], rungLabel: t => `c ≥ ${Qn.toWire(t)}` },
   ],
   evaluate(ctx) {
@@ -82,9 +87,10 @@ test("score and annotation come from the same terms; every mark cites a read", (
     for (const f of families) {
       const p = f.dealable(lineQ)[0]!;
       const e = evaluateSite(lineType, f as RuleFamily<LineState, unknown>, p, s, lineQ);
-      const t = e.terms.find(x => x.id === f.layers[0]!.id)!;
+      const t = e.terms.find(x => x.id === f.main.id)!;
+      assert.deepEqual(e.components.map(c => c.term), ruleLayers(f, undefined).map(l => l.id));
       if (e.score === null) assert.ok("undefined" in t.value);
-      else assert.equal(Qn.toWire(e.score[0]!), Qn.toWire(f.layers[0]!.sense === "min" ? Qn.neg(t.value as never) : t.value as never));
+      else assert.equal(Qn.toWire(e.score[0]!), Qn.toWire(f.main.sense === "min" ? Qn.neg(t.value as never) : t.value as never));
       const reads = new Set(e.reads.map(x => refKey(x, true)));
       for (const m of e.marks) for (const x of m.kind === "measure" ? [m.from, m.to] : [m.ref]) assert.ok(reads.has(refKey(x, true)));
     }
@@ -111,14 +117,17 @@ test("the ladder: primary rungs, then the secondary's rungs at the primary's top
   assert.equal(levelOf(ev(mMeetsC, {}, mc(3, 3)).score, ladder), 7 + 3);        // gap 0, |c| = 3
   assert.equal(levelOf(ev(mMeetsC, {}, mc(24, 24)).score, ladder), 7 + 9);      // the top
   assert.equal(levelOf(null, ladder), 0);
-  assert.equal(ruleLadder(mMeetsC, {}, lineZ, 1).length, 8);
+  assert.equal(ruleLadder(mMeetsC, {}, lineZ, null).length, 8);
+  assert.equal(ruleLadder(mMeetsC, {}, lineZ, "meetPrime").length, 1 + 7 + 7);
+  const parts = layerLadders(mMeetsC, {}, lineZ);
+  assert.deepEqual(parts.map(l => l.length), [8, 10]);
 });
 
 test("a k-line object is calibrated on the totals of its lines' levels", () => {
-  const ladder = objectLadder(lineType, mMeetsC, {}, lineZ4, 1);
+  const ladder = objectLadder(lineType, mMeetsC, {}, lineZ4, null);
   assert.equal(ladder.length, 1 + 4 * 7);
   const four: LineState = { lines: [mc(3, 3).lines[0]!, mc(1, 5).lines[0]!, mc(0, 0).lines[0]!, mc(0, 40).lines[0]!] };
-  const e = evaluateObject(lineType, mMeetsC, {}, four, lineZ4, 1);
+  const e = evaluateObject(lineType, mMeetsC, {}, four, lineZ4, null);
   assert.equal(e.score!.map(x => Qn.toWire(x!)).join(","), `${7 + 3 + 7 + 0},0,0,-4,-40`);
   assert.equal(levelOf(e.score, ladder), 17);
 });

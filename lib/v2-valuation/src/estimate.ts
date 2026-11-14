@@ -5,8 +5,8 @@
  * at least that good. Checked against an exactly solvable price list in test/estimate.test.ts.
  */
 import {
-  canonicalJson, dealtLayers, evaluateObject, hashHex, levelOf, meets, objectLadder, rng, toWireQ, walkStep,
-  type ObjectType, type RuleFamily, type Rung, type Score, type Variant,
+  canonicalJson, evaluateObject, hashHex, levelOf, meets, objectLadder, rng, ruleLayers, tieBreakerId, toWireQ, walkStep,
+  type ObjectType, type RuleFamily, type Rung, type Score, type TieBreaker, type Variant,
 } from "@workspace/v2-core";
 import { stationary } from "./linalg.ts";
 
@@ -65,14 +65,16 @@ export interface Estimate {
   readonly mixingSteps: number;
   readonly samplesPerChain: number;
   readonly steps: number;
+  /** Per rung: a state from replicate 0's chain on that rung's upper set at the end of the run (wire), to show sizes. */
+  readonly examples: readonly string[];
   /** Per dealt layer: distinct values it took among samples where it counts (null for multi-line objects). */
   readonly distinctLevels: readonly (number | null)[];
   /** The pooled level-matrix counts the values come from: row l, column j. */
   readonly levelMatrix: readonly (readonly number[])[];
 }
 
-export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown, layers: number): string {
-  return `${type.id}@${type.version}/${variant.id}#${hashHex(canonicalJson(variant))}/${familyId}/${canonicalJson(params)}/layers=${layers}`;
+export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown, tieBreaker: string): string {
+  return `${type.id}@${type.version}/${variant.id}#${hashHex(canonicalJson(variant))}/${familyId}/${canonicalJson(params)}/tb=${tieBreaker}`;
 }
 
 const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -122,8 +124,8 @@ export interface EstimateInput<S, P> {
   readonly variant: Variant;
   readonly family: RuleFamily<S, P>;
   readonly params: P;
-  /** How many layers of the family's ladder are dealt (default: all). */
-  readonly layers?: number;
+  /** The dealt tie-breaker (default: the family's first; null: the main layer alone). */
+  readonly tieBreaker?: TieBreaker;
   readonly seed?: string;
   readonly config?: Partial<ValuationConfig>;
 }
@@ -132,9 +134,10 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   const { type, variant, family, params } = input;
   const cfg = { ...DEFAULT_CONFIG, ...input.config };
   const seed = input.seed ?? "v2";
-  const layers = dealtLayers(family, input.layers);
-  const key = ruleKey(type as ObjectType<unknown>, variant, family.id, params, layers);
-  const fullLadder: readonly Rung[] = objectLadder(type, family, params, variant, layers);
+  const tb = tieBreakerId(family, input.tieBreaker) === "none" ? null : tieBreakerId(family, input.tieBreaker);
+  const layers = ruleLayers(family, tb).length;
+  const key = ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreakerId(family, tb));
+  const fullLadder: readonly Rung[] = objectLadder(type, family, params, variant, tb);
   // The ladder calibrated: the full one, truncated below the first rung no replicate's climb could reach (step 1).
   let rungs: readonly Rung[] = fullLadder;
   const singleSite = type.sites(type.origin(variant), variant) === 1;
@@ -151,7 +154,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     const k = type.encode(s);
     let e = cache.get(k);
     if (e === undefined) {
-      e = { score: evaluateObject(type, family, params, s, variant, layers).score };
+      e = { score: evaluateObject(type, family, params, s, variant, tb).score };
       if (cache.size > 400_000) cache.clear();
       cache.set(k, e);
     }
@@ -218,7 +221,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     if (reached === 0) {
       return {
         status: "unreachable", reasons: truncation,
-        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [],
+        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [], examples: [],
       };
     }
     rungs = rungs.slice(0, reached + 1);
@@ -391,9 +394,10 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   const distinctLevels = Array.from({ length: layers }, (_, j) => (singleSite ? distinct[j]!.size : null));
   distinctLevels.forEach((d, j) => {
     if (d !== null && d < cfg.minLevels) {
-      reasons.push(`layer ${j} (${family.layers[j]!.id}) takes ${d} distinct values where it counts, fewer than ${cfg.minLevels}: too coarse to extend the ladder`);
+      reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values where it counts, fewer than ${cfg.minLevels}: too coarse to extend the ladder`);
       status = "too-coarse";   // a design fault, whatever the budget did
     }
   });
-  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled };
+  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled,
+    examples: reps[0]!.chains.map(c => type.encode(c.state)) };
 }

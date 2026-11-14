@@ -1,0 +1,489 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-gradient/{}/tb=cPrime",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "prime-gradient",
+ "params": {},
+ "tieBreaker": "cPrime",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "converged",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-13"
+   ],
+   "label": "gradient to a prime within 13",
+   "layer": 0,
+   "bits": 0.0657,
+   "error": 0.0066
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "gradient to a prime within 8",
+   "layer": 0,
+   "bits": 0.0996,
+   "error": 0.0076
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "gradient to a prime within 5",
+   "layer": 0,
+   "bits": 0.1568,
+   "error": 0.0099
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "gradient to a prime within 3",
+   "layer": 0,
+   "bits": 0.2475,
+   "error": 0.0115
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "gradient to a prime within 2",
+   "layer": 0,
+   "bits": 0.3699,
+   "error": 0.0123
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "gradient to a prime within 1",
+   "layer": 0,
+   "bits": 2.3308,
+   "error": 0.035
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "gradient to a prime exactly",
+   "layer": 0,
+   "bits": 3.8231,
+   "error": 0.0487
+  },
+  {
+   "score": [
+    "0",
+    "-13"
+   ],
+   "label": "c to a prime within 13",
+   "layer": 1,
+   "bits": 3.8936,
+   "error": 0.0502
+  },
+  {
+   "score": [
+    "0",
+    "-8"
+   ],
+   "label": "c to a prime within 8",
+   "layer": 1,
+   "bits": 3.9358,
+   "error": 0.0529
+  },
+  {
+   "score": [
+    "0",
+    "-5"
+   ],
+   "label": "c to a prime within 5",
+   "layer": 1,
+   "bits": 3.9857,
+   "error": 0.0514
+  },
+  {
+   "score": [
+    "0",
+    "-3"
+   ],
+   "label": "c to a prime within 3",
+   "layer": 1,
+   "bits": 4.0704,
+   "error": 0.052
+  },
+  {
+   "score": [
+    "0",
+    "-2"
+   ],
+   "label": "c to a prime within 2",
+   "layer": 1,
+   "bits": 4.1753,
+   "error": 0.0494
+  },
+  {
+   "score": [
+    "0",
+    "-1"
+   ],
+   "label": "c to a prime within 1",
+   "layer": 1,
+   "bits": 6.1306,
+   "error": 0.045
+  },
+  {
+   "score": [
+    "0",
+    "0"
+   ],
+   "label": "c to a prime exactly",
+   "layer": 1,
+   "bits": 7.575,
+   "error": 0.1256
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0482,
+  "mixingSteps": 39.1684,
+  "steps": 6958413,
+  "samplesPerChain": 1024,
+  "distinctLevels": [
+   84,
+   102
+  ],
+  "examples": [
+   "0,1,0",
+   "0,1,-1",
+   "-3,1,0",
+   "0,1,0",
+   "-4,1,0",
+   "0,1,0",
+   "-1,1,0",
+   "-3,1,35",
+   "-3,1,-1",
+   "-3,1,-4",
+   "-3,1,3",
+   "-3,1,0",
+   "-7,1,0",
+   "-3,1,-1",
+   "-5,1,-3"
+  ],
+  "split": [
+   0,
+   0.0631,
+   0.0986,
+   0.1532,
+   0.2454,
+   0.3717,
+   2.3607,
+   3.861,
+   3.9602,
+   3.9953,
+   4.0587,
+   4.1427,
+   4.273,
+   6.2625,
+   7.8062
+  ],
+  "direct": [
+   0,
+   0.0631,
+   0.0979,
+   0.1605,
+   0.2463,
+   0.3648,
+   2.3142,
+   3.8265,
+   3.8853,
+   3.9276,
+   3.9925,
+   4.0871,
+   4.2326,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    1046,
+    56,
+    23,
+    7,
+    16,
+    76,
+    156,
+    0,
+    0,
+    1,
+    0,
+    2,
+    13,
+    2,
+    2
+   ],
+   [
+    54,
+    368,
+    95,
+    37,
+    10,
+    54,
+    81,
+    2,
+    2,
+    4,
+    3,
+    1,
+    28,
+    6,
+    3
+   ],
+   [
+    25,
+    89,
+    619,
+    153,
+    65,
+    81,
+    170,
+    7,
+    2,
+    5,
+    4,
+    8,
+    54,
+    13,
+    5
+   ],
+   [
+    9,
+    35,
+    113,
+    796,
+    151,
+    201,
+    143,
+    11,
+    5,
+    7,
+    10,
+    14,
+    140,
+    31,
+    26
+   ],
+   [
+    17,
+    16,
+    59,
+    140,
+    1151,
+    329,
+    357,
+    5,
+    5,
+    4,
+    6,
+    5,
+    63,
+    16,
+    7
+   ],
+   [
+    87,
+    48,
+    76,
+    206,
+    314,
+    17379,
+    515,
+    10,
+    7,
+    7,
+    9,
+    22,
+    122,
+    33,
+    17
+   ],
+   [
+    167,
+    88,
+    146,
+    173,
+    374,
+    501,
+    2446,
+    25,
+    13,
+    13,
+    25,
+    26,
+    193,
+    53,
+    37
+   ],
+   [
+    3,
+    8,
+    17,
+    33,
+    22,
+    39,
+    51,
+    119,
+    4,
+    3,
+    0,
+    1,
+    7,
+    9,
+    0
+   ],
+   [
+    1,
+    7,
+    15,
+    32,
+    19,
+    32,
+    57,
+    19,
+    91,
+    22,
+    5,
+    2,
+    4,
+    9,
+    9
+   ],
+   [
+    1,
+    3,
+    15,
+    37,
+    18,
+    30,
+    42,
+    1,
+    14,
+    61,
+    14,
+    6,
+    3,
+    8,
+    11
+   ],
+   [
+    3,
+    3,
+    19,
+    30,
+    21,
+    31,
+    50,
+    1,
+    3,
+    4,
+    83,
+    9,
+    11,
+    14,
+    14
+   ],
+   [
+    1,
+    2,
+    19,
+    43,
+    21,
+    28,
+    49,
+    0,
+    0,
+    4,
+    11,
+    83,
+    19,
+    24,
+    12
+   ],
+   [
+    9,
+    22,
+    50,
+    130,
+    71,
+    125,
+    183,
+    0,
+    0,
+    1,
+    8,
+    6,
+    660,
+    16,
+    3
+   ],
+   [
+    4,
+    19,
+    35,
+    76,
+    39,
+    60,
+    143,
+    11,
+    8,
+    7,
+    12,
+    16,
+    31,
+    200,
+    27
+   ],
+   [
+    3,
+    8,
+    20,
+    38,
+    18,
+    29,
+    69,
+    0,
+    4,
+    5,
+    10,
+    8,
+    20,
+    33,
+    91
+   ]
+  ]
+ },
+ "contentHash": "1290372c7e99cf7c"
+}

@@ -139,8 +139,16 @@ export interface EvalContext<S> {
   mark(mark: Mark): void;
 }
 
+/** A component of a score: the term that measures a layer, and its sense. */
+export interface ScoreComponent {
+  readonly term: TermId;
+  readonly sense: "max" | "min";
+}
+
 export interface Evaluation {
   readonly score: Score;
+  /** The terms that make the score, in order: the main layer, then the dealt tie-breaker (views: main part, tie-breaker). */
+  readonly components: readonly ScoreComponent[];
   readonly terms: readonly Term[];
   readonly marks: readonly Mark[];
   readonly reads: readonly ElementRef[];
@@ -155,13 +163,12 @@ export interface Rung {
 }
 
 /**
- * One layer of a rule (spec §4.4): a graded quantity with a direction, never a yes/no test (owner decision 13). The
- * primary layer is layer 0; a later layer only counts once every earlier layer is at its top.
+ * One layer of a rule (spec §4.1): a graded quantity with a direction, never a yes/no test (owner decision 13).
  */
 export interface Layer<P> {
   /** Also the id of the term that measures it. */
   readonly id: string;
-  /** "gradient near a prime", in a 12-year-old's words for the primary (owner decision 14). */
+  /** "gradient close to a prime": in a 12-year-old's words for the main layer (owner decision 14). */
   readonly title: string;
   sentence(params: P): string;
   /** The representation this layer is read in: the compact view of the layer. */
@@ -176,19 +183,30 @@ export interface Layer<P> {
   rungLabel(threshold: Q, params: P): string;
 }
 
+/**
+ * A rule family (spec §4.1): one main layer and a list of alternative tie-breakers (owner decision 14 and its
+ * correction: "I will want several secondary rule candidates within each family"). A dealt rule is the main layer plus
+ * at most one chosen tie-breaker; never a third layer.
+ */
 export interface RuleFamily<S, P> {
   readonly id: string;
   readonly title: string;
-  card(params: P): string;
+  /** The rule in a sentence or two; with the dealt tie-breaker when there is one. */
+  card(params: P, tieBreaker: string | null): string;
   readonly params: readonly ParamDecl[];
   dealable(variant: Variant): readonly P[];
   readonly depends: readonly string[];
-  readonly primary: string;
-  /** The ladder, primary first; a pool deals a prefix of it (the beginner pool deals two). */
-  readonly layers: readonly Layer<P>[];
-  /** Reads elements, records one term per layer (by the layer's id) and any others, adds marks. */
+  readonly main: Layer<P>;
+  /** Alternatives; each has its own artefact with the main layer. */
+  readonly tieBreakers: readonly Layer<P>[];
+  /** Reads elements, records the main layer's term and every tie-breaker's (by the layers' ids), adds marks. */
   evaluate(ctx: EvalContext<S>, params: P): void;
+  /** Worked examples for the goal card (integration plan §5.7); a seeded search when absent. */
+  examples?(params: P, variant: Variant): readonly S[];
 }
+
+/** Which tie-breaker a dealt rule uses: an id of the family's, or null for the main layer alone. */
+export type TieBreaker = string | null;
 
 // ---------------------------------------------------------------- mutators (§5)
 

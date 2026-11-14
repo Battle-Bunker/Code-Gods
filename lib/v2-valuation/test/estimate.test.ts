@@ -1,10 +1,10 @@
 /**
  * The estimator against an exactly solvable price list: shift and tilt only. Both are priced the same both ways, so
- * with the read-length surcharge the walk satisfies detailed balance and π(m, c) ∝ 2^−(int(m) + int(c)) exactly.
+ * with the read-length surcharge the walk satisfies detailed balance and π(m, c) ∝ 2^−φ exactly (φ the mixed code).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { intBits } from "@workspace/v2-core";
+import { mixedIntBits } from "@workspace/v2-core";
 import { lineType, lineZ, mMeetsC, primeGradient, wholeIntercept } from "@workspace/v2-linear";
 import { estimate, irreducible } from "../src/estimate.ts";
 import { stationary } from "../src/linalg.ts";
@@ -18,7 +18,7 @@ function exactMMeetsC(): number[] {
   let Z = 0;
   const byGap = new Map<number, number>();
   for (let m = -R; m <= R; m++) for (let c = -R; c <= R; c++) {
-    const p = 2 ** -(intBits(BigInt(m)) + intBits(BigInt(c)));
+    const p = 2 ** -(mixedIntBits(BigInt(m)) + mixedIntBits(BigInt(c)));
     Z += p;
     const g = Math.abs(m - c);
     byGap.set(g, (byGap.get(g) ?? 0) + p);
@@ -39,7 +39,7 @@ test("the stationary vector of a small chain", () => {
 
 test("on a reversible price list the estimate matches the exact values within three errors", () => {
   const exact = exactMMeetsC();
-  const e = estimate({ type: lineType, variant: reversible, family: mMeetsC, params: {}, layers: 1, config: { computeBudget: 6_000_000 } });
+  const e = estimate({ type: lineType, variant: reversible, family: mMeetsC, params: {}, tieBreaker: null, config: { computeBudget: 16_000_000, initialSamples: 2048 } });
   assert.notEqual(e.status, "unreachable");
   e.rungs.slice(1).forEach((r, i) => {
     assert.ok(Math.abs(r.bits - exact[i]!) <= 3 * r.error + 0.01, `rung ${i + 1}: ${r.bits.toFixed(3)} ± ${r.error.toFixed(3)} against ${exact[i]!.toFixed(3)}`);

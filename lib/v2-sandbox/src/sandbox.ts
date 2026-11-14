@@ -238,7 +238,9 @@ class WorkerSandbox implements Sandbox {
     if (this.closed) throw new SandboxError("UNAVAILABLE", "The sandbox is closed");
     const prepared = prepare(this.language, request);
     if (prepared instanceof SandboxError) return failed(prepared, null);
-    await this.start();
+    try { await this.start(); }
+    catch (error) { if (this.closed) throw new SandboxError("UNAVAILABLE", "The sandbox was closed"); throw error; }
+    if (this.closed) throw new SandboxError("UNAVAILABLE", "The sandbox was closed");
     const channel = new Channel(request.host, prepared.limits.hostCallCap);
     return new Promise<ActResult>((resolve, reject) => {
       const pending: Pending = { channel, resolve, reject };

@@ -31,6 +31,6 @@ test("malformed requests never reach the host or use the cap", () => {
 test("closing a worker sandbox with an act in flight rejects that act", async () => {
   const sandbox = await createSandbox({ language: "javascript", execution: "worker" });
   const act = sandbox.act({ source: "function agent(o) { for (;;) { 'x'.repeat(20000).split('').reverse(); } }", offer: { object: 0 }, seed: "1", host: answering({ ok: false, error: "no" }), limits: { stepBudget: 10_000_000, wallMs: 10_000 } });
-  setTimeout(() => sandbox.close(), 300);
+  setTimeout(() => sandbox.close(), 300);   // during startup on a slow machine, or mid-act: both are "closed"
   await assert.rejects(act, /closed/);
 });

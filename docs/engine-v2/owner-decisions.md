@@ -57,6 +57,21 @@ existing code. The specification that follows from them is [spec.md](spec.md).
 13. "binary decisions are worthless for extending the ladder. Require all rules to be continuous"
 14. "optimise for the primary rules being maximally accessible to 12yos currently learning a standard linear equations
     curriculum at school. Secondary rules can be more advanced. Don't include tertiary rules for the beginner set."
+    Clarified the same day: "I said I don't want tertiary preferences but I will want several secondary rule candidates
+    within each family." (A family declares one primary and a list of alternative secondaries; a dealt rule is the
+    primary plus exactly one of them.)
+15. "Keep a dedicated branch for wherever you reached on develop before starting on the new engine in preparation for
+    pushing this new work to develop that should throw away most of the code and any trace of the integers and strings
+    objects and the old engine and anything else older than that that we don't need anymore." (The branch is
+    `archive/engine-v1`, at 1018e913.)
+16. "It's essential that we keep the architecture that ensures that every single operation is available to an AI
+    assistant whether embedded or via the remote AI assistant delegation protocol as well as via the searchable command
+    pallete. There should be a single dynamic directory of affordances available by context that generates each of
+    those interface surfaces DRYly."
+17. On number codes: "Use mixed costing now. I like that." (Additive moves are priced by steps, in proportion to the
+    size of the amount added, as the owner first asked: "Adding to a number should have cost proportional to the
+    absolute value of the amount added"; multiplicative moves by digits, about the code length of the factor; so large
+    composites are cheap, large primes are dear, and a number's energy is roughly its shortest arithmetic description.)
 
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
@@ -74,6 +89,11 @@ existing code. The specification that follows from them is [spec.md](spec.md).
 - **(e) A clean break.** No compatibility with stored games, old calibration tables, old settings or the old event log;
   v2 lives beside the old engine in new packages and new Convex tables until it replaces it, and nothing in v2 may
   import from the old rule/object/annotation/calibration libraries (copy and clean what is good).
+
+- **(f) No gating** (14 November, after decision 14's clarification): a score is a plain lexicographic tuple; the
+  secondary orders lines at every primary level. The ladder that values a rule still puts the secondary's rungs at the
+  primary's top (spec §4.4): ordering is lexicographic everywhere, and bits are earned by the secondary once the primary
+  is met. See spec §4.2 for the one place this matters (saturation of a "bigger is better" primary).
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

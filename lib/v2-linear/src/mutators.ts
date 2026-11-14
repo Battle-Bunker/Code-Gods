@@ -1,6 +1,7 @@
 /** The line's nine mutators (spec §12.4). Prices are the call's code length; v2-core adds "which", "where" and the surcharge. */
 import {
-  choiceBits, intBits, nonzeroBits, nonzeroRatBits, Qn, q, ratBits, sampleInt, sampleNonzero, sampleNonzeroRat, sampleRat,
+  choiceBits, nonzeroRatBits, Qn, q, sampleNonzeroRat, sampleStepsInt, sampleStepsNonzero, sampleStepsNonzeroRat, sampleStepsRat,
+  stepsIntBits, stepsNonzeroBits, stepsNonzeroRatBits, stepsRatBits,
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
 import { fromMC, inDomain, intercept, isVertical, lineParams, normalise, slope, type Domain, type Line, type LineState } from "./line.ts";
@@ -25,16 +26,16 @@ function inArgDomain(x: Q, d: Domain): Q {
   return x;
 }
 
-/** A nonzero number in the domain: Z → nonzero(n), Q → nonzeroRat. */
+/** An amount added (owner decision 17: priced by steps, in proportion to its size): Z → steps on n, Q → on p and q. */
 const nz = (d: Domain): Field => ({
-  bits: v => (d === "Z" ? nonzeroBits((v as Q).n) : nonzeroRatBits(v as Q)),
-  sample: rng => (d === "Z" ? q(sampleNonzero(rng)) : sampleNonzeroRat(rng)),
+  bits: v => (d === "Z" ? stepsNonzeroBits((v as Q).n) : stepsNonzeroRatBits(v as Q)),
+  sample: rng => (d === "Z" ? q(sampleStepsNonzero(rng)) : sampleStepsNonzeroRat(rng)),
   decode: w => { const x = inArgDomain(toQ(w), d); if (x.n === 0n) throw new RangeError("must not be 0"); return x; },
 });
-/** Any number in the domain: Z → int(n), Q → rat. */
+/** A position or displacement, possibly 0 (an anchor x0, a slide), priced by steps like an amount added. */
 const anyNum = (d: Domain): Field => ({
-  bits: v => (d === "Z" ? intBits((v as Q).n) : ratBits(v as Q)),
-  sample: rng => (d === "Z" ? q(sampleInt(rng)) : sampleRat(rng)),
+  bits: v => (d === "Z" ? stepsIntBits((v as Q).n) : stepsRatBits(v as Q)),
+  sample: rng => (d === "Z" ? q(sampleStepsInt(rng)) : sampleStepsRat(rng)),
   decode: w => inArgDomain(toQ(w), d),
 });
 /** One of a few named choices. */
@@ -43,9 +44,9 @@ const oneOf = (values: readonly string[]): Field => ({
   sample: rng => values[rng.below(values.length)]!,
   decode: w => { if (typeof w !== "string" || !values.includes(w)) throw new RangeError(`must be one of ${values.join(", ")}`); return w; },
 });
-/** A nonzero rational factor other than ±1. */
+/** A multiplicative factor (priced by digits: its gamma code), any nonzero rational other than ±1. */
 const factor = (_d: Domain): Field => ({
-  ...nz("Q"),
+  bits: v => nonzeroRatBits(v as Q),
   // ±1 are not factors: their code mass is left over (the walk stays put), not offered as a call.
   sample: rng => { const x = sampleNonzeroRat(rng); return x === null || (x.d === 1n && (x.n === 1n || x.n === -1n)) ? null : x; },
   decode: w => { const x = toQ(w); if (x.n === 0n || (x.d === 1n && (x.n === 1n || x.n === -1n))) throw new RangeError("must not be 0, 1 or −1"); return x; },
@@ -201,7 +202,7 @@ export const stretch: M = {
   describe: a => `multiply every output by ${w(Qa(a, "f"))}`,
   args: v => fields({ f: factor(argD(v)) }),
   apply: viaMC((m, c, a) => [Qn.mul(m, Qa(a, "f")), Qn.mul(c, Qa(a, "f"))]),
-  inverse: { kind: "partial", id: "mach.stretch", args: a => ({ f: Qn.inv(Qa(a, "f")) }), note: "undone by the reciprocal factor, whose code length differs" },
+  inverse: { kind: "partial", id: "mach.stretch", args: a => ({ f: Qn.inv(Qa(a, "f")) }), note: "undone by the reciprocal factor, at the same price, wherever it keeps the line on the board" },
 };
 
 export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, stretch];

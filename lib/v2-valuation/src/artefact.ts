@@ -1,5 +1,5 @@
 /** The committed artefact per rule (spec §7.6) and the run-time lookup (§7.7). */
-import { canonicalJson, dealtLayers, hashHex, levelOf, objectLadder, scoreFromWire, scoreToWire, Qn, type ObjectType, type RuleFamily, type Score, type Variant } from "@workspace/v2-core";
+import { canonicalJson, hashHex, levelOf, objectLadder, ruleLayers, scoreFromWire, tieBreakerId, scoreToWire, Qn, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { estimate, ruleKey, DEFAULT_CONFIG, type Estimate, type ValuationConfig } from "./estimate.ts";
 import { evalCurve, fit, type Curve } from "./fit.ts";
 
@@ -14,7 +14,7 @@ export interface ArtefactRung {
 }
 
 export interface Artefact {
-  /** 2: layered ladders (layers, rungs[].layer, primarySense, distinctLevels). */
+  /** 2: layered ladders (tieBreaker, rungs[].layer, primarySense, distinctLevels). */
   readonly schema: 2;
   readonly ruleKey: string;
   readonly objectType: string;
@@ -23,8 +23,8 @@ export interface Artefact {
   readonly variantHash: string;
   readonly family: string;
   readonly params: unknown;
-  /** How many layers of the family's ladder this artefact covers. */
-  readonly layers: number;
+  /** The dealt tie-breaker this artefact calibrates with the main layer ("none": the main layer alone). */
+  readonly tieBreaker: string;
   readonly seed: string;
   readonly config: ValuationConfig;
   readonly status: Estimate["status"];
@@ -40,6 +40,8 @@ export interface Artefact {
     readonly steps: number;
     readonly samplesPerChain: number;
     readonly distinctLevels: readonly (number | null)[];
+    /** Per rung, a state from the chain on that rung's upper set (wire). */
+    readonly examples: readonly string[];
     readonly split: readonly number[];
     readonly direct: readonly (number | null)[];
     readonly levelMatrix: readonly (readonly number[])[];
@@ -54,18 +56,19 @@ export function contentHash(a: Omit<Artefact, "contentHash">): string {
 }
 
 export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: RuleFamily<S, P>, params: P,
-  options: { seed?: string; config?: Partial<ValuationConfig>; layers?: number } = {}): { artefact: Artefact; estimate: Estimate } {
+  options: { seed?: string; config?: Partial<ValuationConfig>; tieBreaker?: TieBreaker } = {}): { artefact: Artefact; estimate: Estimate } {
   const seed = options.seed ?? "v2";
   const config = { ...DEFAULT_CONFIG, ...options.config };
-  const layers = dealtLayers(family, options.layers);
-  const est = estimate({ type, variant, family, params, seed, config, layers });
-  const ladder = objectLadder(type, family, params, variant, layers).slice(0, Math.max(est.rungs.length, 1));
+  const tieBreaker = tieBreakerId(family, options.tieBreaker);
+  const tb = tieBreaker === "none" ? null : tieBreaker;
+  const est = estimate({ type, variant, family, params, seed, config, tieBreaker: tb });
+  const ladder = objectLadder(type, family, params, variant, tb).slice(0, Math.max(est.rungs.length, 1));
   const rungs: ArtefactRung[] = est.rungs.map((r, i) => ({
     score: scoreToWire(ladder[i]!.score), label: r.label, layer: ladder[i]!.layer, bits: r4(r.bits), error: r4(r.error), ...(r.empty ? { empty: true as const } : {}),
   }));
   let curve: Artefact["curve"] = null;
   // Curves are fitted to the primary layer's rungs (§7.4), on single-line objects.
-  const primary = family.layers[0]!;
+  const primary = ruleLayers(family, tb)[0]!;
   if (est.status === "converged" && type.sites(type.origin(variant), variant) === 1) {
     const points = est.rungs.flatMap((r, i) => {
       const s = ladder[i]!.score;
@@ -77,12 +80,12 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
     if (f && f.accepted) curve = { ...f.curve, snapped: f.snapped };
   }
   const body: Omit<Artefact, "contentHash"> = {
-    schema: 2, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, layers), objectType: type.id, objectTypeVersion: type.version,
-    variant: variant.id, variantHash: hashHex(canonicalJson(variant)), family: family.id, params, layers, seed, config,
+    schema: 2, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
+    variant: variant.id, variantHash: hashHex(canonicalJson(variant)), family: family.id, params, tieBreaker, seed, config,
     status: est.status, reasons: est.reasons, rungs, primarySense: primary.sense, curve,
     diagnostics: {
       reversibility: r4(est.reversibility), mixingSteps: r4(est.mixingSteps), steps: est.steps, samplesPerChain: est.samplesPerChain,
-      distinctLevels: est.distinctLevels,
+      distinctLevels: est.distinctLevels, examples: est.examples,
       split: est.rungs.map(r => r4(r.split)), direct: est.rungs.map(r => (r.direct === null ? null : r4(r.direct))),
       levelMatrix: est.levelMatrix,
     },

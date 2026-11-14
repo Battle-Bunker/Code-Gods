@@ -42,8 +42,11 @@ technical debt. Try to adjust against that bias for this project. We are in rapi
 faster than ever with AI coding ... Being encumbered by backwards compatibility baggage and attachment to prior work is
 one of the biggest hazards to our rapid exploration priority." So, in v2 work:
 
-- No compatibility with stored games, old calibration tables, old settings or the old event log; v2 lives beside the
-  old engine until it replaces it.
+- No compatibility with stored games, old calibration tables, old settings or the old event log. The old engine is kept
+  on the branch `archive/engine-v1` (owner decision 15): v1 code, the integer and string objects and anything else v2
+  does not need are deleted from `develop` as the integration plan schedules (§5.8), not kept beside v2 for safety.
+- Every operation is an affordance in one directory (`lib/v2-affordances`, owner decision 16) that generates the
+  assistant tools, MCP, CLI, command palette and buttons; never add an operation to one surface by hand.
 - Nothing in v2 imports from the old rule/object/annotation/calibration libraries (`game-types`, `game-utilities`,
   `game-core`, `object-views`, `grid-lab`, `player-client`, `ai-player`, `game-runtime`); copy and clean what is good.
   `lib/v2-core/test/import-boundary.test.ts` enforces it.
