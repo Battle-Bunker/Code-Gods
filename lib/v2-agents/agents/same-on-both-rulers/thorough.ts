@@ -1,5 +1,5 @@
 // Same on Both Rulers · Thorough
-// Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; the gradient far from 1).
+// Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1; |c| close to a prime; different whole numbers among y(−5) … y(5); the lamp's height close to whole; the gradient's smallest prime factor; the gradient's largest prime factor).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -15,6 +15,19 @@ function score(m, c, p, tie) {
   const fixed = Q.div(c, Q.sub(1, m));            // where y = mx + c meets y = x
   const main = Q.neg(Q.abs(Q.sub(fixed, p.T)));
   // main: how far the number the machine leaves unchanged is from T (closer is better)
+  if (tie === "steep") return [main, Q.abs(Q.sub(m, 1))];   // a gradient far from 1 is better
+  if (tie === "prime-start") {   // a y-intercept (ignoring sign) close to a prime is better
+    const start = Q.abs(c);                        // the y-intercept, ignoring its sign
+    return [main, Q.neg(Q.abs(Q.sub(start, near(start, prime))))];
+  }
+  if (tie === "whole-values") {   // more different whole numbers among y(-5) ... y(5) is better
+    const wholes = new Set(Array.from({ length: 11 }, (_, i) => Q.add(Q.mul(m, i - 5), c)).filter(Q.isInteger).map(Q.toString));   // y(-5) ... y(5)
+    return [main, wholes.size];
+  }
+  if (tie === "whole-lamp") {   // a lamp height close to a whole number is better
+    const lamp = Q.div(m, Q.sub(m, 1));            // the lamp's height m/(m - 1)
+    return [main, Q.neg(Q.abs(Q.sub(lamp, whole(lamp))))];
+  }
   if (tie === "m-spf") {   // the gradient's smallest prime factor big is better
     const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
     return [main, fm[0] ?? 1];
@@ -23,7 +36,6 @@ function score(m, c, p, tie) {
     const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
     return [main, fm.at(-1) ?? 1];
   }
-  if (tie === "steep") return [main, Q.abs(Q.sub(m, 1))];   // a gradient far from 1 is better
   return [main];
 }
 
@@ -47,10 +59,7 @@ function agent(offer) {
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
     tries.push([move("seq.step", { k }), Q.add(m, k), Q.sub(c, k)]);   // change the pattern's step, keeping y(1)
-    tries.push([move("cart.pivot", { x0: -1, k }), Q.add(m, k), Q.add(c, k)]);   // turn the line about its point at x = -1 (m and c both change by k)
     tries.push([move("cart.pivot", { x0: p.T, k }), Q.add(m, k), Q.sub(c, Q.mul(k, p.T))]);   // turn the line about its point at x = T (if it crosses y = x there, it still does)
-    const f = k > 0 ? k + 1 : k - 1;
-    tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
   }
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.

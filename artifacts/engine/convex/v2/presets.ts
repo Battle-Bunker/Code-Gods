@@ -38,7 +38,9 @@ export interface Preset {
 
 const ECONOMY: PresetEconomy = {
   powerPerSecond: LINES_BEGINNER_ECONOMY.powerPerSecond, fullChargeSeconds: LINES_BEGINNER_ECONOMY.fullChargeSeconds,
-  opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 0.1,
+  // Births: the coordinator's TRIAL (14 Nov, declared to the owner, who wants fewer objects in the beginner game): 0.05/s
+  // instead of v1 Annotated basics' 0.1/s.
+  opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 0.05,
 };
 
 /** A pool by id: the line presets' (v2-linear) or the grid's (v2-grid). */
@@ -52,7 +54,9 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
   const pool = p.rules;
   return {
     id: p.id, title: p.title, variant: p.variant, pool, families: [...new Set(pool.map(r => r.family))],
-    minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy, startingObjects: 24,
+    minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
+    // v1 Annotated basics' starting count, restored (coordinator's call, 14 Nov).
+    startingObjects: 10,
     economy: ECONOMY, ...extra,
   };
 }

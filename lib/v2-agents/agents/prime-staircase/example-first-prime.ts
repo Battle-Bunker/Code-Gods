@@ -12,11 +12,11 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
   const run = [];                                 // the different primes it starts with
-  let stopped = false, miss = null;               // miss: the first term that is not prime
+  let stopped = false, miss = null;               // miss: the size of the first term that is not prime
   for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)
     const t = Q.add(Q.mul(m, n), c), isPrime = prime(t);
     if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;
-    if (!isPrime && miss === null) miss = t;
+    if (!isPrime && miss === null) miss = Q.abs(t);
   }
   const main = run.length;
   return [main, run.length ? run[0] : 0];   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better

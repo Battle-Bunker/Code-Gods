@@ -19,7 +19,7 @@ test("the beginner pool: the curator's eight families and the three restored one
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "exact-change", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // Prime Staircase has one secondary (its run of six leaves the others almost nothing to order); the rest three or four.
-    assert.ok(f.tieBreakers.length >= (f.id === "prime-staircase" ? 1 : 2) && f.tieBreakers.length <= 4, f.id);
+    assert.ok(f.tieBreakers.length >= (f.id === "prime-staircase" ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -39,16 +39,16 @@ test("restored families (decision 22), worked by hand", () => {
 });
 
 test("worked examples, one line per family", () => {
-  assert.deepEqual(terms(primeStaircase, {}, mc(30, 7)), { run: "6", "first-prime": "7" });   // 7, 37, 67, 97, 127, 157, then 187 = 11·17
+  assert.deepEqual(terms(primeStaircase, {}, mc(30, 7)), { run: "6", "first-prime": "7", "last-prime": "157", "near-miss": "4", "step-back": "0" });   // 7, 37, 67, 97, 127, 157, then 187 = 11·17 (4 from 191); y(−1) = −23
   assert.deepEqual(terms(squareArea, {}, mc(-2, 6)),
     { square: "0", "spf": "3", "lpf": "3", "omega": "1" });   // legs 3 and 6: area 9
   // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
   const t12 = terms(squareArea, {}, mc(-2, 24));
   assert.deepEqual([t12.square, t12["spf"], t12["lpf"], t12["omega"]], ["0", "2", "3", "3"]);
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, mc(30, -23)),
-    { treasure: "0", "m-spf": "2", "m-gpf": "5", "prime-terms": "6" });   // y(2) = 37; 30 = 2·3·5
-  assert.deepEqual(terms(primeLanding, {}, mc(2, 13)), { landing: "0", "big-prime": "13", "m-spf": "2", "m-gpf": "2" });
-  assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", "m-spf": "3", "m-gpf": "3", steep: "2" });   // 3x − 12 = x at x = 6
+    { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23", "m-spf": "2", "m-gpf": "5" });   // y(2) = 37; 30 = 2·3·5, 1 from 29 and 31
+  assert.deepEqual(terms(primeLanding, {}, mc(2, 13)), { landing: "0", "big-prime": "13", "prime-gradient": "0", "next-prime": "2", "m-spf": "2", "m-gpf": "2" });   // y(1) = 15, 2 from 13 and 17
+  assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
   assert.deepEqual(terms(wholeCrossing, {}, mc(4, -20)), { crossing: "0", "k-spf": "5", "k-gpf": "5", "m-spf": "2" });       // crosses at 5
   assert.deepEqual(terms(wholeCrossing, {}, mc(3, 1)), { crossing: "1/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3" });       // at −⅓, nearest 0
   assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "6", "m-spf": "5", "m-gpf": "5", steep: "5", "m-prime": "0" });   // 1 … 6 divide 60, 7 does not
@@ -87,7 +87,7 @@ test("presets: three pools over the beginner families, every named tie-breaker e
 });
 
 test("Prime Staircase: a repeated prime stops the run; no run, no first prime", () => {
-  assert.deepEqual(terms(primeStaircase, {}, mc(0, 7)), { run: "1", "first-prime": "7" });   // 7, 7, …: a run of one
-  assert.deepEqual(terms(primeStaircase, {}, mc(1, 1000)), { run: "0", "first-prime": "0" });  // 1000 is not prime
+  assert.deepEqual(terms(primeStaircase, {}, mc(0, 7)), { run: "1", "first-prime": "7", "last-prime": "7", "near-miss": "—", "step-back": "0" });   // 7, 7, …: a run of one, never a miss
+  assert.deepEqual(terms(primeStaircase, {}, mc(1, 1000)), { run: "0", "first-prime": "0", "last-prime": "0", "near-miss": "3", "step-back": "2" });  // 1000 is not prime (3 from 997); 999 is 2 from 997
 });
 

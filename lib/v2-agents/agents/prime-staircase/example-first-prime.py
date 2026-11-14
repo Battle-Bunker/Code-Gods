@@ -12,7 +12,7 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    run, stopped, miss = [], False, None            # miss: the first term that is not prime
+    run, stopped, miss = [], False, None            # miss: the size of the first term that is not prime
     for n in range(12):                             # y(0) ... y(11)
         t = m * n + c
         is_prime = prime(t)
@@ -21,7 +21,7 @@ def score(m, c, p):
         else:
             stopped = True
         if not is_prime and miss is None:
-            miss = t
+            miss = abs(t)
     main = len(run)
     return [main, run[0] if run else 0]   # main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better
 

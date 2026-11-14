@@ -1,5 +1,5 @@
 # Same on Both Rulers · Thorough
-# Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; the gradient far from 1).
+# Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1; |c| close to a prime; different whole numbers among y(−5) … y(5); the lamp's height close to whole; the gradient's smallest prime factor; the gradient's largest prime factor).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -17,14 +17,23 @@ def score(m, c, p, tie):
     fixed = c / (1 - m)                             # where y = mx + c meets y = x
     main = -abs(fixed - p["T"])
     # main: how far the number the machine leaves unchanged is from T (closer is better)
+    if tie == "steep":   # a gradient far from 1 is better
+        return [main, abs(m - 1)]
+    if tie == "prime-start":   # a y-intercept (ignoring sign) close to a prime is better
+        start = abs(c)                             # the y-intercept, ignoring its sign
+        return [main, -abs(start - near(start, prime))]
+    if tie == "whole-values":   # more different whole numbers among y(-5) ... y(5) is better
+        wholes = {m * x + c for x in range(-5, 6) if (m * x + c).denominator == 1}   # y(-5) ... y(5)
+        return [main, len(wholes)]
+    if tie == "whole-lamp":   # a lamp height close to a whole number is better
+        lamp = m / (m - 1)                         # the lamp's height m/(m - 1)
+        return [main, -abs(lamp - whole(lamp))]
     if tie == "m-spf":   # the gradient's smallest prime factor big is better
         fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
         return [main, fm[0] if fm else 1]
     if tie == "m-gpf":   # the gradient's largest prime factor big is better
         fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
         return [main, fm[-1] if fm else 1]
-    if tie == "steep":   # a gradient far from 1 is better
-        return [main, abs(m - 1)]
     return [main]
 
 
@@ -52,10 +61,7 @@ def agent(offer):
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
         tries.append((move("seq.step", k=k), m + k, c - k))   # change the pattern's step, keeping y(1)
-        tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
         tries.append((move("cart.pivot", x0=p["T"], k=k), m + k, c - k * p["T"]))   # turn the line about its point at x = T (if it crosses y = x there, it still does)
-        f = k + 1 if k > 0 else k - 1
-        tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

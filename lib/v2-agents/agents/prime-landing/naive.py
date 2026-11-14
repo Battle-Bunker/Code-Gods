@@ -1,5 +1,5 @@
 # Prime Landing · Naive (for learning)
-# Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime; the gradient's smallest prime factor; the gradient's largest prime factor).
+# Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to a prime too; y(1) close to a prime too; the gradient's smallest prime factor; the gradient's largest prime factor).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -14,6 +14,12 @@ def score(m, c, p, tie):
     # main: how far the y-intercept is from the nearest prime (closer is better)
     if tie == "big-prime":   # a bigger prime is better
         return [main, landing]
+    if tie == "prime-gradient":   # a gradient close to a prime too is better
+        mp = near(m, prime)                        # the prime nearest the gradient
+        return [main, -abs(m - mp)]
+    if tie == "next-prime":   # y(1) (ignoring sign) close to a prime too is better
+        y1 = abs(m + c)                            # y(1) = m + c, ignoring its sign
+        return [main, -abs(y1 - near(y1, prime))]
     if tie == "m-spf":   # the gradient's smallest prime factor big is better
         fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
         return [main, fm[0] if fm else 1]

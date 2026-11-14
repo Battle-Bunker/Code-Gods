@@ -36,6 +36,8 @@ const pg = {
   tieBreakers: [
     { id: "prime", title: "the size of that prime", sentence: () => "Tie-breaker: the bigger that prime, the better.",
       rep: "si", sense: "max" },
+    { id: "cPrime", title: "the y-intercept close to a prime too", sentence: () => "Tie-breaker: make the y-intercept as close as possible to a prime too.",
+      rep: "si", sense: "min" },
     { id: "c-spf", title: "the y-intercept's smallest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's smallest prime factor, the better.",
       rep: "si", sense: "max" },
     { id: "c-gpf", title: "the y-intercept's largest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's largest prime factor, the better.",
@@ -60,6 +62,7 @@ export const primeGradient: RuleFamily<LineState, object> = {
     const whole = c.d === 1n;
     ctx.term("near", "distance from the gradient to the nearest prime", near.d, [mRef]);
     ctx.term("prime", "that prime", q(near.p), [mRef]);
+    ctx.term("cPrime", `distance from the y-intercept to ${primeGap(c).p}`, primeGap(c).d, [cRef]);
     ctx.term("c-spf", "the y-intercept's smallest prime factor", q(whole ? smallestPrimeFactor(c.n) : 1n), [cRef]);
     ctx.term("c-gpf", "the y-intercept's largest prime factor", q(whole ? largestPrimeFactor(c.n) : 1n), [cRef]);
     ctx.mark({ kind: "focus", ref: mRef });

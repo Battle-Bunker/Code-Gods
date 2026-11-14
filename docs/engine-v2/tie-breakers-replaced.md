@@ -3,8 +3,10 @@
 On 14 November 2026, while the beginner pool was cut to rules an exact sum could value, sessions replaced some
 families' tie-breakers with ones a sum could handle (mostly the prime factors of one coefficient). That was a change of
 game logic made without the owner's words (`.agents/memory/metastable-ecosystem.md`). Owner decision 22 lets sampled
-values stand in where no sum exists, so every replaced tie-breaker below can come back. Nothing here has been changed
-yet: the owner chooses, per family, the old set, the new set or both.
+values stand in where no sum exists, so every replaced tie-breaker below can come back. **Restored** (coordinator's call
+under the owner's delegation, 14 November): every removed tie-breaker is back, first in each family's list (so the old
+default is the default again); the added spf/gpf tie-breakers stay after them until the collapse check shows which are
+ramps (those go).
 
 The old definitions are at commit `4154ef71` (`lib/v2-linear/src/beginner.ts`, `families.ts`).
 

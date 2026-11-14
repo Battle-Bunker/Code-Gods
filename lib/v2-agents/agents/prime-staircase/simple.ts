@@ -1,5 +1,5 @@
 // Prime Staircase · Simple
-// Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime).
+// Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime; the last prime of the run; the first non-prime term close to a prime; y(−1) close to a prime).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,15 +12,21 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const run = [];                                 // the different primes it starts with
-  let stopped = false, miss = null;               // miss: the first term that is not prime
+  let stopped = false, miss = null;               // miss: the size of the first term that is not prime
   for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)
     const t = Q.add(Q.mul(m, n), c), isPrime = prime(t);
     if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;
-    if (!isPrime && miss === null) miss = t;
+    if (!isPrime && miss === null) miss = Q.abs(t);
   }
   const main = run.length;
   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better)
   if (tie === "first-prime") return [main, run.length ? run[0] : 0];   // a bigger first prime is better
+  if (tie === "last-prime") return [main, run.length ? run.at(-1) : 0];   // a bigger last prime of the run is better
+  if (tie === "near-miss") return [main, miss === null ? null : Q.neg(Q.abs(Q.sub(miss, near(miss, prime))))];   // a first non-prime term (ignoring sign) close to a prime is better (none in twelve terms: no tie-breaker)
+  if (tie === "step-back") {   // y(-1) (ignoring sign) close to a prime is better
+    const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign
+    return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime))))];
+  }
   return [main];
 }
 
