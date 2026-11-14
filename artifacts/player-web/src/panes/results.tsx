@@ -11,7 +11,7 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
-import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
+import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useMyAgents, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
@@ -104,6 +104,7 @@ function EndSummary({ total }: { total: number }) {
   const ids = useObjectIds("points");
   const moves = useMoves();
   const round = useRotationRound();
+  const agents = useMyAgents();
   // Every tug-of-war of the game, not only the newest page's (a walk read "no tug-of-war" beside a 99 ⚡ fight): the act
   // log's own pages, read on to the start of the game, up to a cap.
   const done = moves.status === "Exhausted" || moves.results.length >= MOVES_CAP;
@@ -126,8 +127,8 @@ function EndSummary({ total }: { total: number }) {
     // In a rotation that goes on, the next game deals another rule: the advice is the lesson, not this game's line.
     const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
     const partial = moves.status !== "Exhausted" ? moves.results.length : null;
-    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: partial });
-  }, [my, header, objects, moves.results, moves.status, total, round]);
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: partial, language: agents?.[0]?.language === "python" ? "python" : "typescript" });
+  }, [my, header, objects, moves.results, moves.status, total, round, agents]);
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(header?.phase ?? "ended");
   const onOpen = async (id: string | undefined) => {
