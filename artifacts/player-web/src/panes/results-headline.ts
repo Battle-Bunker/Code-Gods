@@ -47,10 +47,10 @@ export interface RotationRound {
 export function rotationSummary(r: RotationRound | null | undefined, me: string | null, gameId: string) {
   if (!r || !r.games.some(g => g.gameId === gameId)) return null;
   // After the first game the running totals are this game's standings, shown just below: no second table.
-  if (r.round === 1 && r.of > 1) return { heading: `Game 1 of ${r.of} in this rotation: every player gets each rule once.`, rows: [] };
+  if (r.round === 1 && r.of > 1) return { heading: `Game 1 of ${r.of}: you get a different rule each game, and your totals add up over the ${r.of} games.`, rows: [] };
   const heading = r.round >= r.of
-    ? "The rotation is over: every player has had each rule once. Final totals:"
-    : `Game ${r.round} of ${r.of} in this rotation: every player gets each rule once. Totals so far:`;
+    ? `The ${r.of} games are over: everyone has played each rule once. Totals over the ${r.of} games:`
+    : `Game ${r.round} of ${r.of}: you get a different rule each game, and your totals add up over the ${r.of} games. Totals so far:`;
   const rows = sharedRanks(r.totals.map(t => ({ ...t, rank: 0 }))).map(t => ({ ...t, mine: t.memberId === me }));
   return { heading, rows };
 }

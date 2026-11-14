@@ -6,7 +6,7 @@
 import { createContext, useContext, useMemo } from "react";
 import { chipRep, repText } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
-import { clock, num } from "@/core/words";
+import { num, timeLeft } from "@/core/words";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 import { noteLines } from "./move-notes";
@@ -21,6 +21,7 @@ function lineText(state: unknown, rep: string, site: number, variant: string): s
 }
 
 function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<string, string>; variant: string }) {
+  const length = useGame()?.worldSeconds ?? null;
   const notes = useContext(NotesContext).get(move.seq);
   const text = useMemo(() => {
     const site = move.calls[0]?.site ?? 0;
@@ -34,7 +35,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
   return (
     <li className={`space-y-0.5 px-4 py-2 ${move.mine ? "" : "text-muted-foreground"}`} data-testid={`row-move-${move.seq}`} data-mine={move.mine || undefined}>
       <p className="text-xs text-muted-foreground tabular-nums">
-        {clock(move.worldSeconds)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} ⚡` : ""}
+        {timeLeft(move.worldSeconds, length)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} ⚡` : ""}
       </p>
       <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
       {notes?.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
@@ -44,13 +45,14 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
 
 /** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
 function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; variant: string; kinds: ReadonlyMap<string, string> }) {
+  const length = useGame()?.worldSeconds ?? null;
   // Its moves' notes show on the entry itself: the moves are folded away below.
   const notesBySeq = useContext(NotesContext);
   const tugNotes = [...new Set(tug.moves.flatMap(m => notesBySeq.get(m.seq) ?? []))];
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
-      <p className="text-xs text-muted-foreground tabular-nums">{clock(tug.to)} · contested {objectWord(variant).one}</p>
-      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one)}</p>
+      <p className="text-xs text-muted-foreground tabular-nums">{timeLeft(tug.to, length)} · contested {objectWord(variant).one}</p>
+      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one, length)}</p>
       {tugNotes.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>

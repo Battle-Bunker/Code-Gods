@@ -70,3 +70,8 @@ test("a grid game's tug-of-war says grid, never line (ux-lessons 2.8)", () => {
   assert.match(s, /^Tug-of-war on grid 10: .* Talk to Ada in chat about this grid\.$/);
   assert.doesNotMatch(s, /\bline\b/);
 });
+
+test("with the world's length, a tug-of-war's times read as the countdown does (persona walk: 0:13 beside 3:39 left)", () => {
+  const s = tugSentence({ kind: "tug", objectId: "o1", number: 7, from: 12, to: 17, mySpend: 3, moves: [{ seq: 1, mine: true, at: 12 }, { seq: 2, mine: false, at: 17, by: { memberId: "m2", name: "Ada" } }] } as never, undefined, "line", 300);
+  assert.match(s, /\(from 4:48 left to 4:43 left\)/);
+});

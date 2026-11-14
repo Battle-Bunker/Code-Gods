@@ -12,14 +12,16 @@ import { Page } from "@/site/components/layout";
 import { EmptyState, Section } from "@/site/components/page-parts";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch, type GalleryEntry, type GallerySetup } from "@/site/lib/rule-gallery";
 import { ruleFamilyPath, ruleGalleryPath } from "@/site/lib/routes";
-import { objectWord } from "@/sdk/object-types";
+import { objectTypeOf, objectWord } from "@/sdk/object-types";
 
 const field = "h-9 min-w-0 max-w-full border bg-background px-2 text-sm";
 
-function BoardPicker({ board, onPick }: { board: string; onPick: (b: string) => void }) {
+/** The boards to pick from: on a rule's page, only those its object type is played on (a line rule offered "Grids"). */
+function BoardPicker({ board, onPick, family }: { board: string; onPick: (b: string) => void; family?: string }) {
+  const boards = family ? BOARDS.filter(b => objectTypeOf(b.id).families.some(f => f.id === family)) : BOARDS;
   return (
     <div role="radiogroup" aria-label="Board" className="flex flex-wrap gap-2" data-testid="board-picker">
-      {BOARDS.map(b => (
+      {boards.map(b => (
         <button key={b.id} type="button" role="radio" aria-checked={b.id === board} onClick={() => onPick(b.id)} title={b.blurb}
           className={`border px-3 py-1.5 text-sm ${b.id === board ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`} data-testid={`button-board-${b.id}`}>
           {b.title}
@@ -95,7 +97,7 @@ export function RuleFamily() {
             <div className="space-y-6 min-w-0">
               <Section title="Try a version" testId="section-family-choices">
                 <div className="space-y-3 p-4 text-sm">
-                  <BoardPicker board={page.setup.board} onPick={b => go({ board: b, params: 0, tb: null })} />
+                  <BoardPicker board={page.setup.board} family={page.family.id} onPick={b => go({ board: b, params: 0, tb: null })} />
                   <label className="flex flex-col gap-1">
                     <span className="text-xs text-muted-foreground">Its numbers</span>
                     <select value={page.setup.params} onChange={e => go({ params: Number(e.target.value) })} disabled={page.params.length < 2} className={field} data-testid="select-family-params">

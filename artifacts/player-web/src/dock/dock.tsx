@@ -15,6 +15,9 @@ export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
 const DesktopDock = lazy(() => import("./desktop"));
 
+/** Panes read top to bottom as one page on a phone (persona walk: Results scrolled inside itself, past "What cost you"). */
+const UNCAPPED = new Set(["results"]);
+
 function StackedDock({ panes }: { panes: string[] }) {
   const name = usePaneName();
   const scroller = useRef<HTMLDivElement>(null);
@@ -47,7 +50,7 @@ function StackedDock({ panes }: { panes: string[] }) {
       </nav>
       <div className="space-y-2 p-2">
         {panes.map(p => (
-          <div key={p} className="max-h-[60dvh] min-h-[200px] flex">
+          <div key={p} className={`${UNCAPPED.has(p) ? "" : "max-h-[60dvh] "}min-h-[200px] flex`}>
             <section data-pane={p} data-testid={`pane-${p}`} aria-label={name(p)} style={{ scrollMarginTop: navHeight + 8 }} className="flex min-h-0 flex-1 flex-col border border-[hsl(var(--card-border))] bg-card">
               <PaneHeader pane={p} className="border-b border-[hsl(var(--card-border))]" />
               <PaneBody pane={p} />

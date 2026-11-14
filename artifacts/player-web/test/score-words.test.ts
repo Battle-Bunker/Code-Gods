@@ -68,6 +68,7 @@ test("others' bits are said to be every other player's bits on the line added to
   const { othersNote, countedNote } = await import("../src/core/words.ts");
   assert.equal(othersNote(), "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.");
   assert.equal(countedNote(40), "Totals are counted every few seconds; this one at 0:40, so a move's points join the total at the next count.");
+  assert.equal(countedNote(40, 300), "Totals are counted every few seconds; this one with 4:20 left, so a move's points join the total at the next count.");
   assert.equal(countedNote(null), null);
 });
 

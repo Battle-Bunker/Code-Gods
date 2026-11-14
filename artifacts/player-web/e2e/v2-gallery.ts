@@ -82,6 +82,9 @@ try {
     await page.waitForURL(/board=line-q/);
     await page.getByTestId("button-board-line-z").click();
     await page.getByTestId("link-family-triangle-area").click();
+    // A line rule's page offers only line boards (round 6: "Grids" was offered on a line-only rule).
+    await page.getByTestId("board-picker").waitFor();
+    assert.equal(await page.getByTestId("button-board-grid-4-d10").count(), 0, "no grid board on a line rule's page");
     await page.getByTestId("page-rule-family").waitFor();
     const card = page.getByTestId("text-family-card");
     await card.getByText(/area as close as possible to 4\./).waitFor();

@@ -8,7 +8,8 @@
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
 import { bitsText, num, othersNote, pointsText, scoreFormula } from "@/core/words";
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { stableOrder } from "./stable-order";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import type { Score } from "@workspace/v2-core";
@@ -139,7 +140,14 @@ function SeatedLines() {
     try { await openObject.run({ objectId }); }
     catch (e) { toast({ title: `The ${objectWord(header?.variant).one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
   }, [panes, openObject]);
-  const { results, status, loadMore } = ids;
+  const { status, loadMore } = ids;
+  // Hold the order while the player points at the list (and a second after a tap): the rows must not move under them.
+  const [hold, setHold] = useState<string[] | null>(null);
+  const holdRef = useRef<{ order: string[] | null; timer?: ReturnType<typeof setTimeout> }>({ order: null });
+  const results = useMemo(() => stableOrder(hold, ids.results), [hold, ids.results]);
+  const grab = () => { clearTimeout(holdRef.current.timer); if (!holdRef.current.order) { holdRef.current.order = results.map(r => r.objectId); setHold(holdRef.current.order); } };
+  const release = (after: number) => { clearTimeout(holdRef.current.timer); holdRef.current.timer = setTimeout(() => { holdRef.current.order = null; setHold(null); }, after); };
+  useEffect(() => () => clearTimeout(holdRef.current.timer), []);
   const onNearEnd = useCallback(() => { if (status === "CanLoadMore") loadMore(30); }, [status, loadMore]);
   if (status === "LoadingFirstPage") return <p className="p-4 text-sm text-muted-foreground">Loading your lines…</p>;
   if (!results.length) {
@@ -152,7 +160,8 @@ function SeatedLines() {
   }
   const maxHeight = listMaxHeight({ phone: !wide, viewportHeight: typeof window === "undefined" ? 0 : window.innerHeight });
   return (
-    <div className="space-y-2 pt-2" data-testid="lines">
+    <div className="space-y-2 pt-2" data-testid="lines" data-held={hold ? "" : undefined}
+      onPointerEnter={grab} onPointerDown={grab} onPointerLeave={() => release(0)} onPointerUp={e => { if (e.pointerType !== "mouse") release(1000); }}>
       <div className="flex flex-wrap items-center justify-between gap-2 px-3">
         <SortControl />
         <PointsKey />
