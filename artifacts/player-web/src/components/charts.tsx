@@ -10,6 +10,7 @@ import { clock, pointsText } from "@/core/words";
 import {
   axisNumber, CARE_KINDS, careTitle, scale, ticks, timeDomain, timeTicks, valueDomain, valuesAt, type CareKind, type CarePoint, type Series,
 } from "@/panes/chart-model";
+import type { ObjectWord } from "@/sdk";
 
 /** The colour of a categorical slot (0-based); past the eighth, the muted grey. */
 export const slotColour = (slot: number | null) => (slot !== null && slot >= 0 && slot < 8 ? `var(--series-${slot + 1})` : "var(--series-other)");
@@ -129,7 +130,7 @@ const KIND_SLOT = Object.fromEntries(CARE_KINDS.map(k => [k.kind, k.slot])) as R
  * Every line as a dot: across, your bits; up, the others' bits added together. Lines on the same spot share one dot,
  * bigger by their number (the read-out lists them).
  */
-export function CareScatter({ points, height = 220 }: { points: readonly CarePoint[]; height?: number }) {
+export function CareScatter({ points, height = 220, word = { one: "line", One: "Line", many: "lines", Many: "Lines" } }: { points: readonly CarePoint[]; height?: number; word?: ObjectWord }) {
   const { ref, width } = useWidth();
   const [hover, setHover] = useState<string | null>(null);
   const groups = useMemo(() => {
@@ -150,7 +151,7 @@ export function CareScatter({ points, height = 220 }: { points: readonly CarePoi
   return (
     <div ref={ref} className="relative w-full" data-testid="care-scatter">
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" className="block touch-pan-y select-none"
-        aria-label={`${points.length} lines: across, your bits; up, the others' bits added together`} onPointerLeave={() => setHover(null)}>
+        aria-label={`${points.length} ${word.many}: across, your bits; up, the others' bits added together`} onPointerLeave={() => setHover(null)}>
         {yTicks.map(t => (
           <g key={`y${t}`}>
             <line x1={left} x2={width - right} y1={sy(t)} y2={sy(t)} stroke={GRID} strokeWidth={1} shapeRendering="crispEdges" />
@@ -171,10 +172,10 @@ export function CareScatter({ points, height = 220 }: { points: readonly CarePoi
       </svg>
       {shown && (
         <Tooltip x={sx(shown.p.rarity)} width={width}>
-          {shown.list.length === 1 ? <p>{careTitle(shown.p)}</p> : (
+          {shown.list.length === 1 ? <p>{careTitle(shown.p, word.One)}</p> : (
             <>
-              <p>{shown.list.length} lines here: {shown.list.slice(0, 8).map(p => p.number).join(", ")}{shown.list.length > 8 ? " …" : ""}</p>
-              <p className="text-muted-foreground">{careTitle(shown.p).replace(/^Line \d+: /, "each: ")}</p>
+              <p>{shown.list.length} {word.many} here: {shown.list.slice(0, 8).map(p => p.number).join(", ")}{shown.list.length > 8 ? " …" : ""}</p>
+              <p className="text-muted-foreground">{careTitle(shown.p, word.One).replace(/^\S+ \d+: /, "each: ")}</p>
             </>
           )}
         </Tooltip>

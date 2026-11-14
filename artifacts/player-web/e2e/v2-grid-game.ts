@@ -18,7 +18,7 @@
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
-import { assertNoSteps } from "./no-steps.ts";
+import { assertNoLineWord, assertNoSteps } from "./no-steps.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -169,7 +169,7 @@ try {
     const mine = feed.locator("[data-testid=feed] > ol > li > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
     await mine.waitFor({ timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
     const sentence = await mine.innerText();
-    assert.match(sentence, /Your rarity [\d.,]+ → [\d.,]+ bits?/, `the move says your rarity in bits: ${sentence}`);
+    assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this grid [−\d.,]+ → [−\d.,]+|Points on this grid stayed|No points on this grid/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
     assert.doesNotMatch(sentence, /payoff|object|✨/i);
@@ -184,6 +184,7 @@ try {
     if (label === "phone") await goal.screenshot({ path: path.join(shots, "grid-phone-goal-card.png") });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
     await assertNoSteps(page, `${label}: the live game`);
+    await assertNoLineWord(page, `${label}: the live game`);
     await shot(page, `grid-${label}-live`);
 
     if (label === "phone") {
@@ -228,6 +229,7 @@ try {
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     await assertNoSteps(page, `${label}: the results`);
+    await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.
     const note = await results.getByTestId("text-results-note").innerText();
     assert.match(note, /points on every grid\./, `${label}: the results note says grid`);

@@ -18,7 +18,7 @@ function RaceChart() {
   return (
     <div className="px-4 pt-3" data-testid="race-chart">
       <LineChart series={series} height={170} label="Every player's points over time" />
-      <p className="mt-1 text-xs text-muted-foreground">Points rise and fall as agents change lines and the others' wants change.</p>
+      <p className="mt-1 text-xs text-muted-foreground">Points rise and fall as agents change {objectWord(header?.variant).many} and the others' wants change.</p>
     </div>
   );
 }

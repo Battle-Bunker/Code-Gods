@@ -49,8 +49,8 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
   const tugNotes = [...new Set(tug.moves.flatMap(m => notesBySeq.get(m.seq) ?? []))];
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
-      <p className="text-xs text-muted-foreground tabular-nums">{clock(tug.to)} · contested line</p>
-      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds)}</p>
+      <p className="text-xs text-muted-foreground tabular-nums">{clock(tug.to)} · contested {objectWord(variant).one}</p>
+      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one)}</p>
       {tugNotes.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
@@ -78,8 +78,8 @@ export function FeedPane() {
     return (
       <p className="p-4 text-sm text-muted-foreground" data-testid="feed-empty">
         {header.phase === "planning" ? "Nothing has moved yet: the world starts after planning. " : "Nothing has changed your points yet. "}
-        Each time your agent moves a line, or another player's move changes your points on a line, it appears here: what changed, your rarity
-        in bits (how rarely a random line scores as well), and why your points moved: your bits × the others' bits.
+        Each time your agent moves a {objectWord(header.variant).one}, or another player's move changes your points on a {objectWord(header.variant).one}, it appears here: what changed, your rarity
+        in bits (how rarely a random {objectWord(header.variant).one} scores as well), and why your points moved: your bits × the others' bits.
       </p>
     );
   }

@@ -5,34 +5,35 @@
  * (worth offering in a deal), only you (no points until they want it too), nobody yet.
  */
 import { useMemo } from "react";
-import { useDigest, useGameScope } from "@/sdk";
+import { objectWord, useDigest, useGame, useGameScope } from "@/sdk";
 import { CareScatter, slotColour } from "@/components/charts";
 import { CARE_KINDS, careCounts, carePoints } from "./chart-model";
 
 export function OthersCarePane() {
   const { seated } = useGameScope();
   const digest = useDigest();
+  const w = objectWord(useGame()?.variant);
   const points = useMemo(() => carePoints(digest?.packed), [digest?.packed]);
-  if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="others-care-spectator">You are watching: this shows a player's own lines, so it is empty for a spectator.</p>;
-  if (digest === undefined) return <p className="p-4 text-sm text-muted-foreground">Loading your lines…</p>;
-  if (!points.length) return <p className="p-4 text-sm text-muted-foreground" data-testid="others-care-empty">Once the world runs, every line shows here as a dot: how rare it is by your rule, and how much the others want it.</p>;
+  if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="others-care-spectator">You are watching: this shows a player's own {w.many}, so it is empty for a spectator.</p>;
+  if (digest === undefined) return <p className="p-4 text-sm text-muted-foreground">Loading your {w.many}…</p>;
+  if (!points.length) return <p className="p-4 text-sm text-muted-foreground" data-testid="others-care-empty">Once the world runs, every {w.one} shows here as a dot: how rare it is by your rule, and how much the others want it.</p>;
   const counts = careCounts(points);
   return (
     <div className="space-y-3 p-3 text-sm" data-testid="others-care">
       <p className="text-xs text-muted-foreground">
-        How much the others want a line is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.
+        How much the others want a {w.one} is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.
       </p>
-      <CareScatter points={points} />
+      <CareScatter points={points} word={w} />
       <ul className="space-y-1 text-xs" data-testid="others-care-counts">
         {CARE_KINDS.map(k => (
           <li key={k.kind} className="flex items-center gap-2" data-testid={`care-count-${k.kind}`}>
             <span aria-hidden className="inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: slotColour(k.slot) }} />
             <span className="flex-1">{k.label}</span>
-            <span className="tabular-nums">{counts[k.kind]} {counts[k.kind] === 1 ? "line" : "lines"}</span>
+            <span className="tabular-nums">{counts[k.kind]} {counts[k.kind] === 1 ? w.one : w.many}</span>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-muted-foreground">Your points from a line are the two multiplied, so dots high and to the right earn the most. A bigger dot is several lines on one spot.</p>
+      <p className="text-xs text-muted-foreground">Your points from a {w.one} are the two multiplied, so dots high and to the right earn the most. A bigger dot is several {w.many} on one spot.</p>
     </div>
   );
 }

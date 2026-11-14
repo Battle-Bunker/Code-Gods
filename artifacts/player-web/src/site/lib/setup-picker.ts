@@ -21,13 +21,13 @@ export function setupGroups(presets: readonly Preset[], who: { admin: boolean; c
 }
 
 
-/** Boards the rule gallery does not list yet (it reads lines only). */
+/** A board said in full where a setup is summed up (the gallery's short titles are for its board picker). */
 const BOARD_TITLES: Readonly<Record<string, string>> = { "grid-4-d10": "A 4 × 4 grid of digits", "grid-2-d3": "A 2 × 2 grid of small digits" };
 
 /** What a setup plays, in words. */
 export function setupBlurb(p: Preset): string {
   const rules = `${p.families.length} kind${p.families.length === 1 ? "" : "s"} of rule`;
-  return `${BOARDS.find(b => b.id === p.variant)?.title ?? BOARD_TITLES[p.variant] ?? p.variant}, ${rules}${p.bid ? ", and players bid for the rules they want first" : ""}.`;
+  return `${BOARD_TITLES[p.variant] ?? BOARDS.find(b => b.id === p.variant)?.title ?? p.variant}, ${rules}${p.bid ? ", and players bid for the rules they want first" : ""}.`;
 }
 
 export interface SettingsForm { planningSeconds: string; worldMinutes: string; startingEnergy: string }
