@@ -29,7 +29,7 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "rarity", ts: "rarity(offer, score)", py: "rarity(offer, score)", says: "the rarity your rule gives a score your own score function computed (so: what a move would be worth to you). Free" },
   { name: "pushback", ts: "pushback(offer)", py: "pushback(offer)", says: "how many times lately another player's move took back points your agent had just won on this line" },
   { name: "recent", ts: "recent(offer)", py: "recent(offer)", says: "the latest moves on this line you may see, newest last: mine, points before and after" },
-  { name: "contested", ts: "contested(offer, 3)", py: "contested(offer, 3)", says: "true / True once pushback(offer) reaches the number; it then leaves the owner a note that the agent is leaving the line" },
+  { name: "contested", ts: "contested(offer, 3)", py: "contested(offer, 3)", says: "true / True once pushback(offer) reaches the number; it then leaves the owner a note naming the tug-of-war" },
   { name: "note", ts: "note(offer, text)", py: "note(offer, text)", says: "leave your owner a short note in the act log (at most 3 a turn), e.g. why the agent stopped" },
 ];
 
@@ -132,7 +132,8 @@ WHAT COSTS ⚡.
 - Looking: each view read costs a little, once per turn (looking again is free; reading everything never costs more than one full look). Looking is about 32 times cheaper than changing.
 - Changing: each move is priced by the view it is made through: which move (a few ⚡), how big its numbers are, and a surcharge when the new ${one} takes more to write down. ${w.prices} A turn's changes cost W + 0.05·W², so a few small moves per turn beat one huge plan.
 - Thinking is free but capped: about half a million steps and 64 calls to the game (looks, goal, prices) per turn. So: look once, try many changes in your own code, price only the best few, and make the cheapest. The same change often costs different amounts through different views; choosing the view is the skill.
-- Summoning costs ⚡ by the program's length; comments are free, so explain in comments.
+- Summoning costs ⚡ by the program's length; comments are free, so explain in comments. Replacing a program costs only the change, so deal edits are cheap.
+- Energy moves with power. If the store cannot pay a summon: give the agents a small share each (Split power), pay, then share power out again.
 
 VIEWS (look(offer, view); * marks the numbers a view's moves change; names with inputs are read with peek):
 ${views(type)}
@@ -144,7 +145,7 @@ HELPERS (the same names in both languages):
 ${HELPERS.map(h => ({ ...h, says: h.says.replace(/\bline\b/g, one), ...w.helpers?.[h.name] })).map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
 Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rationals: Q.add, Q.sub, Q.mul, Q.div, Q.abs, Q.cmp, Q.eq) and Python's Fraction.
 
-PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up. So a ${one} only they like scores nothing, and a move that spoils a ${one} for the others lowers their own points too; a tug-of-war (moving a ${one} back and forth with another player) burns ⚡ on both sides and scores nothing. A good agent only makes changes that make the ${one} better for its rule, keeps each move's price well under its energy, and leaves a ${one} when another player keeps taking its gains back (contested(offer, 3) does this and leaves its owner a note); the shipped starters do these three things, and "Naive" is a teaching example that does none of them. worth(offer) and rarity(offer, score) let an agent go further: skip a ${one} where the others' rarity is 0 (it scores nothing yet), or a change that does not lift its rarity to a new level. Deals made in chat (${w.deal}) are honoured by changing the agent: skip that ${one} (offer.object is its number) or only make the moves agreed.
+PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up. So a ${one} only they like scores nothing, and a move that spoils a ${one} for the others lowers their own points too; a tug-of-war (moving a ${one} back and forth with another player) burns ⚡ on both sides and scores nothing. A good agent only makes changes that make the ${one} better for its rule, keeps each move's price well under its energy, and tells its owner when another player keeps taking its gains back (contested(offer, 3) leaves a note, so the owner can make a deal; leaving the ${one} gives it away); the shipped starters do these three things, and "Naive" is a teaching example that does none of them. worth(offer) and rarity(offer, score) let an agent go further: skip a ${one} where the others' rarity is 0 (it scores nothing yet), or a change that does not lift its rarity to a new level. Deals made in chat (${w.deal}) are honoured by changing the agent: skip that ${one} (offer.object is its number) or only make the moves agreed.
 
 STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
 ${ex ? `

@@ -32,8 +32,8 @@
 #   pushback(offer)              how many times lately someone else's move took back points your agent had just won
 #                                on this line (a tug-of-war).
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
-#   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note saying
-#                                the agent is leaving this line and suggesting they talk to the other player.
+#   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
+#                                the tug-of-war and suggesting a deal with the other player.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -206,7 +206,7 @@ def note(offer, text):
 def contested(offer, times):
     if pushback(offer) < times:
         return False
-    note(offer, f"Leaving line {offer.object}: another player keeps pulling it back. Talk to them?")
+    note(offer, f"Tug-of-war on line {offer.object}: another player keeps pulling it back. Make a deal with them?")
     return True
 
 
