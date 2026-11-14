@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { noteSummoned, useAgentCount, useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
+import { noteSummoned, objectWord, useAgentCount, useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
 import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
 import { onFirstSummon, takeFirstSummon } from "./first-summon";
@@ -118,12 +118,12 @@ export function ForgePane() {
     } catch (e) { fail(e); return false; }
   };
   const doCheck = async () => {
-    setReport("Checking: one move on a sample line…");
+    setReport(`Checking: one move on a sample ${objectWord(header?.variant).one}…`);
     try {
       const r = await check.run({ language, source });
       const moves = r.sample.map(x => x.outcome === "committed" ? "made a move" : x.outcome === "skipped" ? "chose not to move" : `failed${x.reason ? `: ${x.reason}` : ""}`);
       setReport([`${r.verdict === "works" ? "It works" : r.verdict === "warns" ? "It works, with a warning" : "It does not work yet"}: ${r.summary}`,
-        `Summoning it costs ${energyText(r.price)}.`, ...(moves.length ? [`On sample lines it ${[...new Set(moves)].join(", ")}.`] : [])].join("\n"));
+        `Summoning it costs ${energyText(r.price)}.`, ...(moves.length ? [`On sample ${objectWord(header?.variant).many} it ${[...new Set(moves)].join(", ")}.`] : [])].join("\n"));
     } catch (e) { setReport(failureText(e)); }
   };
   const previous = programs?.[1];
@@ -144,11 +144,11 @@ export function ForgePane() {
         <span className="text-xs text-muted-foreground">{agent ? `${agent.name}, version ${agent.version}` : opening ? `${opening.title}: ${opening.summary}` : ""}</span>
       </div>
       {count === 0 && (
-        <p className="text-sm" data-testid="text-forge-hint">You don't need to change anything: <span className="font-medium">Summon my first agent</span> runs this code as it is. Later, try the one line marked "Try this:".</p>
+        <p className="text-sm" data-testid="text-forge-hint">You don't need to change anything: <span className="font-medium">Summon my first agent</span> runs this code as it is. Later, try changing the part marked "Try this:".</p>
       )}
       {!wide && !showCode && draft === null ? (
         <button type="button" onClick={() => setShowCode(true)} className="self-start text-xs underline underline-offset-4" data-testid="button-forge-show-code">
-          Show the code ({source.split("\n").length} lines; you don't need to read it to play)
+          Show the code (you don't need to read it to play)
         </button>
       ) : (
         <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
@@ -172,7 +172,7 @@ export function ForgePane() {
           <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => { if (runner.busy) return; setWantMore(true); if (summon.available) void doSummon(source, false).then(id => { if (id) setWantMore(false); }); else setStatus(null); }}
             className="border px-3 py-2" data-testid="button-summon-beside">{primary === "replace" ? "Summon beside it" : "Summon another agent"}</button>
         )}
-        <button type="button" aria-disabled={!check.available || undefined} onClick={() => check.available && void doCheck()} className="border px-3 py-2" title="Try one move on a sample line without spending energy. Summon does not wait for it." data-testid="button-check">Check</button>
+        <button type="button" aria-disabled={!check.available || undefined} onClick={() => check.available && void doCheck()} className="border px-3 py-2" title={`Try one move on a sample ${objectWord(header?.variant).one} without spending energy. Summon does not wait for it.`} data-testid="button-check">Check</button>
         {others.length > 0 && (
           <details className="relative" data-testid="other-starting-points">
             <summary className="cursor-pointer select-none border px-3 py-2">Other starting points</summary>

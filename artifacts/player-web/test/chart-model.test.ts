@@ -107,3 +107,9 @@ test("the rules say the game on lines in player words, with this game's values",
 test("durations in words", () => {
   assert.deepEqual([0, 1, 45, 60, 150, 300].map(duration), ["0 seconds", "1 second", "45 seconds", "1 minute", "2 minutes 30 seconds", "5 minutes"]);
 });
+
+test("the rise-and-fall caption speaks the game's noun", () => {
+  const s = riseAndFall([{ x: 0, y: 0 }, { x: 10, y: 5 }], { you: true, ended: true, one: "grid" });
+  assert.match(s, /a grid's points change whenever an agent changes it/);
+  assert.doesNotMatch(s, /\bline\b/);
+});

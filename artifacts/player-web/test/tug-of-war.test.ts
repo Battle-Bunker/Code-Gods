@@ -64,3 +64,9 @@ test("against practice partners or AI players only, the entry does not tell you 
   assert.match(s, /Practice partners do not read chat: with people, this is when you would talk to them\.$/);
   assert.match(tugSentence(tug, new Map([["Practice partner 1", "human"]])), /Talk to Practice partner 1 in chat/);
 });
+
+test("a grid game's tug-of-war says grid, never line (ux-lessons 2.8)", () => {
+  const s = tugSentence({ kind: "tug", objectId: "o1", number: 10, from: 0, to: 20, mySpend: 3, moves: [{ seq: 1, mine: true, at: 0 }, { seq: 2, mine: false, at: 10, by: { memberId: "m2", name: "Ada" } }] } as never, undefined, "grid");
+  assert.match(s, /^Tug-of-war on grid 10: .* Talk to Ada in chat about this grid\.$/);
+  assert.doesNotMatch(s, /\bline\b/);
+});

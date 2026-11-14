@@ -39,7 +39,7 @@ export function LineByLine({ testId, className }: { testId: string; className?: 
   const go = async () => {
     try { await sort.run({ sort: "points" }); }
     catch (e) { toast({ title: "The order did not change", description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
-    if (await panes.open("objects")) toast({ title: `${w.Many}, best for you first`, description: `Each row is one ${w.one}'s points; all of them added up make your total.` });
+    if (await panes.open("objects")) toast({ title: `${w.Many}, best for you first`, description: `Each entry is one ${w.one}'s points; all of them added up make your total.` });
   };
   return (
     <button type="button" onClick={() => void go()} data-testid={testId} title={`Open ${w.Many}, best for you first: each ${w.one}'s points, which add up to the total.`}

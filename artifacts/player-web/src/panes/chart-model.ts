@@ -121,8 +121,8 @@ export function valuesAt(series: readonly Series[], x: number): { at: number; ro
  * The caption under every points-over-time chart (ux-lessons 2.9: a peak above the final value read as a mismatch).
  * Always says points rise and fall; when the highest point is above the last, says both.
  */
-export function riseAndFall(points: readonly XY[], s: { you: boolean; ended: boolean }): string {
-  const head = "Points rise and fall: a line's points change whenever an agent changes it, and whenever the others come to want it more or less.";
+export function riseAndFall(points: readonly XY[], s: { you: boolean; ended: boolean; one?: string }): string {
+  const head = `Points rise and fall: a ${s.one ?? "line"}'s points change whenever an agent changes it, and whenever the others come to want it more or less.`;
   if (points.length < 2) return head;
   const last = points.at(-1)!;
   const peak = points.reduce((a, b) => (b.y > a.y ? b : a));
@@ -169,8 +169,8 @@ export const CARE_KINDS: readonly { kind: CareKind; slot: number | null; label: 
 ];
 
 /** A dot's hover text: the line's score in the one formula, and why it scores nothing when only you care. */
-export function careTitle(p: CarePoint): string {
-  const only = onlyYouNote(p.rarity, p.want);
-  return `Line ${p.number}: ${scoreFormula(p.rarity, p.want)}${only ? `. ${only}` : ""}`;
+export function careTitle(p: CarePoint, One = "Line"): string {
+  const only = onlyYouNote(p.rarity, p.want, One.toLowerCase());
+  return `${One} ${p.number}: ${scoreFormula(p.rarity, p.want)}${only ? `. ${only}` : ""}`;
 }
 

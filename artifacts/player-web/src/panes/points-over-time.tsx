@@ -4,7 +4,7 @@
  * with the caption that points rise and fall (ux-lessons 2.9). Also drawn on the results pane.
  */
 import { useMemo, useState } from "react";
-import { useGame, useReplaySource, useStandingsHistory } from "@/sdk";
+import { objectWord, useGame, useReplaySource, useStandingsHistory } from "@/sdk";
 import { LineChart } from "@/components/charts";
 import { clock, pointsText } from "@/core/words";
 import { riseAndFall, seriesOf, type Series } from "./chart-model";
@@ -18,11 +18,12 @@ export function MyPointsChart({ me, slot, ended, testId = "points-over-time" }: 
   const points = useMemo(() => seriesOf(history, me), [history, me]);
   const series: Series[] = useMemo(() => [{ key: me, label: "You", you: true, slot, points }], [me, slot, points]);
   const [table, setTable] = useState(false);
+  const word = objectWord(useGame()?.variant);
   if (!points.length) return <p className="text-sm text-muted-foreground" data-testid={`${testId}-empty`}>Your points show here over time once the first scores are published.</p>;
   return (
     <div className="space-y-2" data-testid={testId}>
       <LineChart series={series} label={`Your points over time: ${pointsText(points.at(-1)!.y)} at ${clock(points.at(-1)!.x)}`} />
-      <p className="text-xs text-muted-foreground" data-testid={`${testId}-caption`}>{riseAndFall(points, { you: true, ended })}</p>
+      <p className="text-xs text-muted-foreground" data-testid={`${testId}-caption`}>{riseAndFall(points, { you: true, ended, one: word.one })}</p>
       <button type="button" className="text-xs text-muted-foreground underline" onClick={() => setTable(t => !t)} data-testid={`${testId}-table-toggle`}>
         {table ? "Hide the table" : "Show as a table"}
       </button>
