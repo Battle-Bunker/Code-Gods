@@ -11,13 +11,11 @@ import { lineType, type LineState } from "@workspace/v2-linear";
 import { decodeState, useGameScope, useMyObject, useMyRule, type LineRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { energyText, one, pointsText, rarityText } from "@/core/words";
-import { argError, mutatorChoices, whatIf, wireNumber, type MutatorChoice } from "./what-if-model";
+import { argError, mutatorChoices, standing, whatIf, wireNumber, type MutatorChoice } from "./what-if-model";
 
 const field = "h-9 min-w-0 border bg-background px-2 text-sm";
 
-function defaults(c: MutatorChoice): Record<string, string> {
-  return Object.fromEntries(c.args.map(a => [a.name, a.kind === "choice" ? a.choices![0]! : "1"]));
-}
+const defaults = (c: MutatorChoice): Record<string, string> => Object.fromEntries(c.args.map(a => [a.name, a.start]));
 
 function Delta({ label, from, to, fmt, testId }: { label: string; from: number | null; to: number | null; fmt: (x: number) => string; testId: string }) {
   if (from === null || to === null) return null;
@@ -37,12 +35,14 @@ function Tryout({ rule, my, state, want, sites }: { rule: LineRule; my: MyRule; 
   const [args, setArgs] = useState<Record<string, string>>(() => defaults(choice));
   const [site, setSite] = useState(0);
   const pick = (next: string) => { const c = choices.find(x => x.id === next)!; setId(next); setArgs(defaults(c)); };
-  const bad = choice.args.filter(a => a.kind === "number").map(a => [a.name, argError(args[a.name] ?? "", rule.variant)] as const).find(([, e]) => e);
+  const bad = choice.args.flatMap(a => (a.kind === "number" ? [[a.name, argError(args[a.name] ?? "", a.fractions)] as const] : [])).find(([, e]) => e) ?? null;
+  // The line as it is now, worked out once per line rather than once per keystroke.
+  const before = useMemo(() => { try { return standing(rule, state, my.rarities, want); } catch { return undefined; } }, [rule, state, my.rarities, want]);
   const out = useMemo(() => {
     if (bad) return null;
     const wire = Object.fromEntries(choice.args.map(a => [a.name, a.kind === "number" ? wireNumber(args[a.name] ?? "") : args[a.name] ?? ""]));
-    return whatIf({ rule, state, call: { mutator: choice.id, site, args: wire }, rarities: my.rarities, want });
-  }, [rule, state, choice, args, site, my.rarities, want, bad]);
+    return whatIf({ rule, state, call: { mutator: choice.id, site, args: wire }, rarities: my.rarities, want }, before);
+  }, [rule, state, choice, args, site, my.rarities, want, bad?.[1], before]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = [...new Set(choices.map(c => c.repTitle))];
   return (
     <div className="space-y-3">
@@ -70,7 +70,7 @@ function Tryout({ rule, my, state, want, sites }: { rule: LineRule; my: MyRule; 
             <span className="text-xs text-muted-foreground font-mono">{a.name}</span>
             {a.kind === "choice" ? (
               <select value={args[a.name]} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={field} data-testid={`select-what-if-${a.name}`}>
-                {a.choices!.map(v => <option key={v} value={v}>{v}</option>)}
+                {a.choices.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             ) : (
               <input value={args[a.name] ?? ""} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={`${field} w-24`} inputMode="text"

@@ -4,6 +4,7 @@
  * affordance's overrides; and the next game's summary in words.
  */
 import type { Preset } from "@workspace/engine/convex/v2/presets.ts";
+import { BOARDS } from "./rule-gallery.ts";
 
 /** The `room.settings` overrides (the room's `overrides` field). */
 export interface Overrides { planningSeconds?: number; worldSeconds?: number; startingEnergy?: number }
@@ -19,12 +20,11 @@ export function setupGroups(presets: readonly Preset[], who: { admin: boolean; c
   return [{ label: "Setups", presets: presets.filter(p => !isLab(p)) }, ...(lab.length ? [{ label: "Lab (admins only)", presets: lab }] : [])];
 }
 
-const BOARD: Record<string, string> = { "line-z": "Whole-number lines", "line-q": "Lines with fractions", "line-z4": "Four whole-number lines per object" };
 
 /** What a setup plays, in words. */
 export function setupBlurb(p: Preset): string {
   const rules = `${p.families.length} kind${p.families.length === 1 ? "" : "s"} of rule`;
-  return `${BOARD[p.variant] ?? p.variant}, ${rules}${p.bid ? ", and players bid for the rules they want first" : ""}.`;
+  return `${BOARDS.find(b => b.id === p.variant)?.title ?? p.variant}, ${rules}${p.bid ? ", and players bid for the rules they want first" : ""}.`;
 }
 
 export interface SettingsForm { planningSeconds: string; worldMinutes: string; startingEnergy: string }
