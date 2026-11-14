@@ -31,6 +31,8 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "recent", ts: "recent(offer)", py: "recent(offer)", says: "the latest moves on this line you may see, newest last: mine, points before and after" },
   { name: "contested", ts: "contested(offer, 3)", py: "contested(offer, 3)", says: "true / True once pushback(offer) reaches the number; it then leaves the owner a note naming the tug-of-war" },
   { name: "settle", ts: "settle(offer, { m: -1, c: 59 })", py: "settle(offer, {\"m\": -1, \"c\": 59})", says: "lines only: the moves that bring the line to y = mx + c, or null / None when it is there (hold it)" },
+  { name: "hurt", ts: "hurt(offer)", py: "hurt(offer)", says: "true / True when another player's move here lately lowered your points" },
+  { name: "pays", ts: "pays(offer, plan, s)", py: "pays(offer, plan, s)", says: "true / True when the plan, reaching score s, keeps your points here (a small read)" },
   { name: "fair", ts: "fair(offer, plan)", py: "fair(offer, plan)", says: "true / True when the plan would not lower the other players' rarity here, added up (a small read)" },
   { name: "note", ts: "note(offer, text)", py: "note(offer, text)", says: "leave your owner a short note in the act log (at most 3 a turn), e.g. why the agent stopped" },
 ];

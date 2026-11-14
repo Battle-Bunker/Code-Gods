@@ -37,6 +37,9 @@
 #                                None when it is there (hold it).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
+#   hurt(offer)                  True when another player's recent move on this line lowered your points.
+#   pays(offer, plan, s)         True when the plan leaves your points on this line at least where they are: your rarity
+#                                at score s times the others' total after it (True when the game does not say).
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -219,6 +222,21 @@ def settle(offer, target):
         eq = cs if not mx else mx if cs == "0" else mx + (" - " + cs[1:] if cs.startswith("-") else " + " + cs)
         note(offer, "Holding line " + str(offer.object) + " at y = " + eq + " as agreed.")
     return plan or None
+
+
+def hurt(offer):
+    return any(not m.mine and m.points_after < m.points_before for m in recent(offer))
+
+
+def pays(offer, plan, s):
+    w = worth(offer)
+    if w is None:
+        return True
+    try:
+        o = offer.others_after(_as_plan(plan))
+        return o.after is not None and rarity(offer, s) * o.after >= w.mine * w.others
+    except HostError:
+        return True
 
 
 def fair(offer, plan):

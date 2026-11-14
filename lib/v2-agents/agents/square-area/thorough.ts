@@ -59,6 +59,8 @@ function agent(offer) {
   }
   // A promise: on these lines, only moves that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));
+  // Contested (another player's move lowered your points here): only moves that raise your own points.
+  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));
   if (!plans.length) return null;
   const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
   return plan;
