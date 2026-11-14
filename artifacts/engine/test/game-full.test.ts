@@ -1,5 +1,5 @@
 /**
- * Full games on Int, string and Grid with three gods, in TypeScript and Python (ported from api-server
+ * Full games on two Grid boards with three gods, in TypeScript and Python (ported from api-server
  * game-integration "full games through the real routes"): start, planning → running, observation schema,
  * scoring parity with game-core personalView/leaderboard, validation (free; broken source; wrong language),
  * summon (god pays description bits; agent starts with what its god held above its lowered capacity: here nothing), transforms with charges summing to the agent's
@@ -12,17 +12,16 @@ import { observationSchema } from "@workspace/player-client";
 import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const SPECS = [
-  { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 } },
-  { objectType: "string", typeArgs: { maxLength: 128 } },
-  { objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" } },
+  { label: "4×4 numbers", objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" } },
+  { label: "5×5 colours", objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" } },
 ] as const;
-const BROKEN = { python: "def agent(x):\n    return [", typescript: "function agent(x) { return [; }" } as const;
+const BROKEN = { python: "def agent(grid):\n    return [", typescript: "function agent(grid) { return [; }" } as const;
 const languages = (process.env.CODE_GODS_TEST_LANGUAGES ?? "typescript,python").split(",") as ("typescript" | "python")[];
 const near = (a: number, b: number, label: string) => assert.ok(Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b)), `${label}: ${a} vs ${b}`);
 
 for (const spec of SPECS) for (const language of languages) {
-  test(`full ${spec.objectType} game in ${language}: scores, agents, energy, transforms, destroy, history`, { timeout: 300000 }, async () => {
-    const [host, ada, bo] = await gods(`${spec.objectType} Host`, `${spec.objectType} Ada`, `${spec.objectType} Bo`);
+  test(`full ${spec.label} game in ${language}: scores, agents, energy, transforms, destroy, history`, { timeout: 300000 }, async () => {
+    const [host, ada, bo] = await gods(`${spec.label} Host`, `${spec.label} Ada`, `${spec.label} Bo`);
     await touch(host);
     const source = (language === "python" ? PY : TS)[spec.objectType];
     const other = language === "python" ? "typescript" : "python";

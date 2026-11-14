@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
-import { ENCODE_CALLS_JS, GRID, INT, OBJECT_TYPES, STRING, sha256, withCommitClause, type Instantiation } from "../src/index.ts";
+import { ENCODE_CALLS_JS, GRID, OBJECT_TYPES, sha256, withCommitClause, type Instantiation } from "../src/index.ts";
 
 const python3 = spawnSync("python3", ["--version"]).status === 0;
 const skipPy = python3 ? false : "python3 is not installed";
@@ -18,8 +18,6 @@ const g4 = GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" });    
 const W4 = "1G,9B,1G,1B/8R,1R,7R,6R/6R,7R,6R,6R/6R,2G,3B,6R";
 const cards = GRID.instantiate({ size: 3, symbols: "cards", colours: "rainbow6" });    // S = 52, V = 13, C = 6, suits, faces
 const WC = "KHV,ASR,TDO/2CY,QSG,JHB/9DV,8CR,AHG";
-const int32 = INT.instantiate({}), int4 = INT.instantiate({ min: 0, max: 9999 });
-const str16 = STRING.instantiate({ maxLength: 16 });
 const lg = Math.log2;
 const near = (a: number[], b: number[], msg?: string) => {
   assert.equal(a.length, b.length, msg);
@@ -181,80 +179,6 @@ test("grid: hidden board data is not reachable through the cell or the grid (JS)
 });
 
 // ------------------------------------------------------------------------------------------------
-// Int
-// ------------------------------------------------------------------------------------------------
-
-test("int: value, digit and negative charge their bits, capped at log2 W per act", { skip: skipPy }, () => {
-  assert.deepEqual(trace(int32, 5000, [["v.value", "v.value"]]), [32]);
-  near(trace(int32, -5000, [
-    ["v.digit(0)", "v.digit(0)"], ["v.digit(0)", "v.digit(0)"], ["v.digit(3)", "v.digit(3)"], ["v.negative", "v.negative"], ["v.value", "v.value"], ["v.digit(7)", "v.digit(7)"],
-  ]), [lg(10), lg(10), 2 * lg(10), 2 * lg(10) + 1, 32, 32]);
-  // ten digits and the sign add up to more than log2 W; the act never pays past it
-  assert.deepEqual(trace(int32, 1234567890, [
-    ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((p): Step => [`v.digit(${p})`, `v.digit(${p})`]), ["v.negative", "v.negative"],
-  ]).slice(-2), [32, 32]);
-  // W = 10000 on 0..9999: 13.29 bits
-  near(trace(int4, 1234, [["v.value", "v.value"], ["v.digit(2)", "v.digit(2)"]]), [lg(10000), lg(10000)]);
-});
-
-test("int: digits, sign and the number itself read what the view says", { skip: skipPy }, () => {
-  const values = runJs(int32, `const n = __agent_view(-305); return JSON.stringify([n.value, n.digit(0), n.digit(1), n.digit(2), n.digit(3), n.negative]);`);
-  assert.deepEqual(values, [-305, 5, 0, 3, 0, true]);
-  assert.deepEqual(runPy(int32, `n = __agent_view(-305)\nprint(json.dumps([n.value, n.digit(0), n.digit(1), n.digit(2), n.digit(3), n.negative]))`), values);
-  assert.deepEqual(runJs(int32, `const n = __agent_view(7); return JSON.stringify([n + 1, n * 2, \`\${n}\`, String(n), n > 5, JSON.stringify([n.value])]);`), [8, 14, "7", "7", true, "[7]"]);
-});
-
-test("int (Python): used as a number it reads the whole number, once", { skip: skipPy }, () => {
-  const ops = ["n + 1", "1 + n", "n - 1", "5 - n", "n * 3", "3 * n", "n // 2", "100 // n", "n % 2", "100 % n", "n / 4", "10 / n", "divmod(n, 3)", "divmod(100, n)",
-    "n ** 2", "2 ** n", "pow(n, 2, 7)", "n << 1", "1 << n", "n >> 1", "n & 6", "n | 1", "n ^ 3", "-n", "+n", "abs(n)", "~n", "n == 7", "7 == n", "n != 7", "n < 9", "n <= 9",
-    "n > 9", "n >= 9", "bool(n)", "hash(n)", "int(n)", "float(n)", "round(n)", "round(n, -1)", "range(n)[0]", "[0] * n", "list(range(n))", "str(n)", "repr(n)", "'%d' % n", "f'{n}'", "format(n, '04d')",
-    "n + n", "n == n", "[10, 20, 30, 40, 50, 60, 70, 80][n]", "int.bit_length(int(n))", "digits(n)", "max(n, 3)", "sum([n, n])"];
-  const res = runPy(int4, `out = {}\n${ops.map(o => `n = __agent_view(7)\ntry:\n    x = ${o}\n    ok = True\nexcept Exception as e:\n    ok = repr(e)\nout[${JSON.stringify(o)}] = [ok, __read_bits()]`).join("\n")}\nprint(json.dumps(out))`);
-  for (const o of ops) assert.deepEqual([o, res[o][0], +res[o][1].toFixed(9)], [o, true, +lg(10000).toFixed(9)], `${o} charges the full read`);
-  // and behaves as the int
-  const vals = runPy(int4, `n = __agent_view(7)\nprint(json.dumps([n + 1, 3 * n, n % 4, n > 5, n == 7, str(n), f"{n:03d}", divmod(n, 2), pow(n, 2), int(n), float(n), range(n)[-1], hash(n) == hash(7), bool(n), abs(n), round(n / 2)]))`);
-  assert.deepEqual(vals, [8, 21, 3, true, true, "7", "007", [3, 1], 49, 7, 7, 6, true, true, 7, 4]);
-  // looking at digit(0) first, then using it as a number: still log2 W in total
-  const mixed = runPy(int4, `n = __agent_view(1234)\nn.digit(0)\na = __read_bits()\nn + 1\nprint(json.dumps([a, __read_bits()]))`);
-  near(mixed, [lg(10), lg(10000)]);
-});
-
-// ------------------------------------------------------------------------------------------------
-// string
-// ------------------------------------------------------------------------------------------------
-
-test("string: length, char and text charge their bits; the total never passes the whole text", { skip: skipPy }, () => {
-  const Lb = lg(17), Ab = 7;
-  near(trace(str16, "hello", [
-    ["v.length", "v.length"], ["v.length", "v.length"], ["v.char(1)", "v.char(1)"], ["v.char(1)", "v.char(1)"], ["v.char(4)", "v.char(4)"], ["v.text", "v.text"], ["v.char(0)", "v.char(0)"],
-  ]), [Lb, Lb, Lb + Ab, Lb + Ab, Lb + 2 * Ab, Lb + 5 * Ab, Lb + 5 * Ab]);
-  near(trace(str16, "hello", [["v.text", "v.text"]]), [Lb + 5 * Ab]);
-  near(trace(str16, "", [["v.text", "v.text"]]), [Lb]);
-  near(trace(str16, "abc", [["v.char(0)", "v.char(0)"], ["v.char(1)", "v.char(1)"], ["v.char(2)", "v.char(2)"], ["v.length", "v.length"]]), [Ab, 2 * Ab, 3 * Ab, 3 * Ab + Lb]);
-  near(trace(STRING.instantiate({ maxLength: 0 }), "", [["v.length", "v.length"], ["v.text", "v.text"]]), [0, 0]);
-  assert.throws(() => runJs(str16, `__agent_view("abc").char(3)`), /no character at place 3/);
-  assert.throws(() => runJs(str16, `__agent_view("é")`), /not text/);
-});
-
-test("string (Python): len, indexing, slices, iteration, in, str and comparisons charge as they read", { skip: skipPy }, () => {
-  const Lb = lg(17), Ab = 7;
-  const bitsOf = (expr: string) => runPy(str16, `s = __agent_view("hello")\nx = ${expr}\nprint(json.dumps([x if isinstance(x, (int, str, bool)) else repr(x), __read_bits()]))`);
-  const cases: [string, unknown, number][] = [
-    ["len(s)", 5, Lb], ["s[1]", "e", Lb * 0 + Ab], ["s[-1]", "o", Lb + Ab], ["s[1:3]", "el", Lb + 2 * Ab], ["s[::-1]", "olleh", Lb + 5 * Ab],
-    ["''.join(c for c in s)", "hello", Lb + 5 * Ab], ["'l' in s", true, Lb + 5 * Ab], ["str(s)", "hello", Lb + 5 * Ab], ["s == 'hello'", true, Lb + 5 * Ab],
-    ["s < 'help'", true, Lb + 5 * Ab], ["'say ' + s", "say hello", Lb + 5 * Ab], ["s.upper()", "HELLO", Lb + 5 * Ab], ["s.text", "hello", Lb + 5 * Ab],
-    ["f'{s}'", "hello", Lb + 5 * Ab], ["bool(s)", true, Lb], ["s.length", 5, Lb], ["s.char(2)", "l", Ab],
-  ];
-  for (const [expr, value, bits] of cases) {
-    const [v, b] = bitsOf(expr);
-    assert.deepEqual(v, value, expr);
-    assert.ok(Math.abs(b - bits) < 1e-9, `${expr}: ${b} bits, expected ${bits}`);
-  }
-  assert.throws(() => bitsOf("s[9]"), /IndexError/);
-  assert.deepEqual(runPy(str16, `s = __agent_view("hello")\nit = iter(s)\nnext(it)\nprint(json.dumps([__read_bits()]))`).map((b: number) => +b.toFixed(6)), [+(Lb + Ab).toFixed(6)]);
-});
-
-// ------------------------------------------------------------------------------------------------
 // types, docs, vocabulary
 // ------------------------------------------------------------------------------------------------
 
@@ -271,31 +195,20 @@ const agentParam = "type View = ReturnType<typeof __agent_view>;\nconst bits: nu
 
 test("dts: the agent's parameter type is ReturnType<typeof __agent_view>", () => {
   assert.deepEqual(diagnostics(GRID.prelude(cards).dts, `${agentParam}function agent(g: View) { const c = g.cell(0, 0); return [c.colour, c.symbol, c.value, c.suit, c.isPicture, g.cells.length]; }`), []);
-  assert.deepEqual(diagnostics(INT.prelude(int32).dts, `${agentParam}function agent(n: View) { return [n.value + 1, n.digit(2), n.negative, digits(n)]; }`), []);
-  assert.deepEqual(diagnostics(STRING.prelude(str16).dts, `${agentParam}function agent(s: View) { return [s.length, s.char(0), s.text.toUpperCase()]; }`), []);
-  assert.ok(diagnostics(INT.prelude(int32).dts, `${agentParam}function agent(n: View) { return n + 1; }`).length > 0, "a bare Num is not a number in TS");
-  assert.ok(diagnostics(STRING.prelude(str16).dts, `${agentParam}function agent(s: View) { return s.charAt(0); }`).length > 0);
   assert.ok(diagnostics(GRID.prelude(g4).dts, `${agentParam}function agent(g: View) { return g.cell(0, 0).suit; }`).length > 0, "no suit on base10");
 });
 
 test("helper docs state the read costs", () => {
   const kid = (inst: Instantiation, name: string) => preludeOf(inst).helpers.find(h => h.name.python === name)!.kid;
-  assert.match(kid(int32, "n.value"), /Reads the whole number: 32 bits/);
-  assert.match(kid(int32, "n.digit"), /3\.32 bits/);
-  assert.match(kid(int32, "n.negative"), /1 bit/);
-  assert.match(kid(int4, "n.value"), /13\.29 bits/);
-  assert.match(kid(str16, "s.char"), /7 bits/);
-  assert.match(kid(str16, "s.length"), /4\.09 bits/);
   assert.match(kid(g4, "cell.colour"), /1\.58 bits/);
   assert.match(kid(g4, "cell.symbol"), /3\.32 bits/);
   assert.match(kid(cards, "cell.suit"), /2 bits/);
   assert.match(kid(cards, "cell.is_picture"), /1 bit/);
   assert.match(kid(cards, "cell.value"), /3\.7 bits.*5\.7 bits per cell/);
-  assert.equal(preludeOf(int32).helpers.find(h => h.name.python === "n.digit")!.name.typescript, "n.digit");
 });
 
 test("pricing vocabulary knows the view's attributes", () => {
-  for (const [inst, names] of [[int32, ["value", "digit", "negative"]], [str16, ["text", "char", "length"]], [g4, ["colour", "symbol", "value"]]] as const)
+  for (const [inst, names] of [[g4, ["colour", "symbol", "value"]]] as const)
     for (const lang of ["python", "typescript"] as const)
       for (const n of names) assert.ok(preludeOf(inst).pricing[lang].attrs.includes(n), `${inst.key} ${lang} attrs has ${n}`);
   assert.ok(preludeOf(cards).pricing.python.attrs.includes("is_picture") && preludeOf(cards).pricing.typescript.attrs.includes("isPicture"));
@@ -323,14 +236,7 @@ test("utility hash: the JS text before the call encoder is unchanged for every r
 });
 
 test("the commit clause still follows the view", () => {
-  const p = withCommitClause(INT.prelude(int32));
+  const p = withCommitClause(GRID.prelude(g4));
   assert.ok(p.js.indexOf("function __agent_view") < p.js.indexOf("function onlyIfBetter"));
 });
 
-test("mutator constructors take the metered views themselves, reading them in full", { skip: skipPy }, () => {
-  // Python: add(max(n, 0)) passes the Num itself; write(0, s) passes the Text.
-  const num = trace(int32, 12345, [["c = add(max(v, 0))", "const c = add(v)"], both("c")]);
-  near(num, [32, 32]);
-  const txt = trace(str16, "hello", [["c = write(0, v)", "const c = write(0, v)"]]);
-  near(txt, [lg(17) + 5 * 7]);
-});

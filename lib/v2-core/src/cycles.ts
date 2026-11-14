@@ -6,7 +6,9 @@
  * maps s to t. Around any loop the Δφ terms telescope, so the price list is cycle-consistent with E = φ (up to a
  * gradient) exactly when the argument asymmetries r(s → t) = log2 q(s → t) / q(t → s) sum to zero around every loop.
  */
-import { isInvalid, variantMutators, type ObjectType, type Variant } from "@workspace/v2-core";
+import { isInvalid } from "./contracts.ts";
+import type { ObjectType, Variant } from "./contracts.ts";
+import { variantMutators } from "./walk.ts";
 
 export interface Edge { readonly to: string; q: number; readonly byMutator: Map<string, number> }
 export interface ProposalTable<S> { readonly out: (s: S) => Map<string, Edge>; readonly decode: (w: string) => S }

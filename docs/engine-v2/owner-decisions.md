@@ -85,7 +85,8 @@ existing code. The specification that follows from them is [spec.md](spec.md).
 
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
-- **(a) No detailed balance requirement.** Mutator price lists are NOT required to satisfy detailed balance; value is
+- **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
+  potential, gated by lib/v2-linear's potential test.* The original call: Mutator price lists are NOT required to satisfy detailed balance; value is
   whatever the stationary law of the actual priced walk gives, and the cycle test from #347 is reported per price list
   as a diagnostic, because requiring consistency makes prices drop out of value, which is the opposite of what the
   owner asked for.

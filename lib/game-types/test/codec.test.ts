@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  GRID, INT, OBJECT_TYPES, STRING, decodeGrid, encodeGrid, glyphForCode, gridTypeKey, instantiate, objectType,
+  GRID, OBJECT_TYPES, decodeGrid, encodeGrid, glyphForCode, gridTypeKey, instantiate, objectType,
   parseGridForDisplay, seededRng, type GridValue,
 } from "../src/index.ts";
 
@@ -22,7 +22,7 @@ for (const type of OBJECT_TYPES) {
         if (typeof wire === "string") {
           assert.ok(ASCII.test(wire) && wire.length <= codec.maxLength);
           for (const bad of [wire + "/", " " + wire, wire.toLowerCase(), wire.replace(",", ", "), wire + "é"]) {
-            if (bad !== wire && !(type.id === "string" && codec.isValid(bad))) {
+            if (bad !== wire) {
               assert.ok(!codec.isValid(bad), `rejects ${JSON.stringify(bad)}`);
               assert.throws(() => codec.decode(bad));
             }
@@ -30,7 +30,7 @@ for (const type of OBJECT_TYPES) {
         } else assert.ok(Number.isSafeInteger(wire));
       }
       for (const bad of [null, undefined, {}, [], 1.5, NaN, true]) assert.ok(!codec.isValid(bad));
-      assert.throws(() => codec.assert(type.id === "Int" ? "1" : 1));
+      assert.throws(() => codec.assert(1));
     });
   }
 }
@@ -60,20 +60,7 @@ test("display helpers", () => {
   assert.equal(parseGridForDisplay(42), null);
 });
 
-test("Int and string domains", () => {
-  const big = INT.instantiate({}), small = INT.instantiate({ min: 0, max: 9999 });
-  assert.equal(big.key, "Int(-2147483648,2147483647)");
-  assert.equal(small.key, "Int(0,9999)");
-  assert.ok(!INT.codec(small).isValid(10000) && !INT.codec(small).isValid(-1) && INT.codec(small).isValid(0));
-  assert.ok(!INT.codec(big).isValid(2147483648));
-  assert.throws(() => INT.instantiate({ min: 5, max: 4 }));
-  assert.throws(() => INT.instantiate({ min: 0, max: 2 ** 31 }));
-  assert.throws(() => INT.instantiate({ bits: 3 }));
-  const s = STRING.instantiate({}), short = STRING.instantiate({ maxLength: 16 });
-  assert.equal(s.key, "string(128)");
-  assert.equal(STRING.codec(s).maxLength, 128);
-  assert.ok(STRING.codec(short).isValid("\u0000\u007f") && !STRING.codec(short).isValid("x".repeat(17)) && !STRING.codec(short).isValid("é"));
-  assert.throws(() => STRING.instantiate({ maxLength: 1025 }));
+test("unknown types and bad grid arguments", () => {
   assert.throws(() => objectType("Chess"));
   assert.throws(() => GRID.instantiate({ size: 8 }));
   assert.throws(() => GRID.instantiate({ symbols: "emoji" }));

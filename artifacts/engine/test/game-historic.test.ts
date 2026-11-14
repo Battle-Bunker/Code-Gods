@@ -9,16 +9,16 @@ import assert from "node:assert/strict";
 import { admin, api, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
-const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
+const BOARD_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 
 test("a historic game opens read-only for its participants and the owner, and for nobody else", { timeout: 180000 }, async () => {
   const [host, ada, bo, cy] = await gods("Historic Host", "Historic Ada", "Historic Bo", "Historic Cy Latecomer");
   await touch(host);
-  const { roomId, shortCode } = await roomWith([host, ada, bo], INT_TS);
+  const { roomId, shortCode } = await roomWith([host, ada, bo], BOARD_TS);
   const game1 = await startGame(host, roomId);
   const SECRET = "historic_bo_marker";
   const summon = await bo.c.action(api.commands.submit, { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: game1.gameId,
-    command: { type: "summon", name: "Test agent", language: "typescript", source: `function agent(n) { const ${SECRET} = 1; return [add(${SECRET})]; }` } } });
+    command: { type: "summon", name: "Test agent", language: "typescript", source: `function agent(grid) { const ${SECRET} = 1; return [slide(row(0), ${SECRET})]; }` } } });
   assert.equal(summon.accepted, true, summon.message);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   // Cy joins after game 1 ended: a member who neither played nor watched it (a mid-game joiner watches: game-spectators).

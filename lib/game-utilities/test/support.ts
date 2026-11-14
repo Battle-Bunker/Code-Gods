@@ -33,11 +33,6 @@ export function coveringGrids(): Instantiation[] {
   return [...out.values()];
 }
 
-export const intInsts = (): Instantiation[] =>
-  [{}, { min: 0, max: 9999 }, { min: -1000, max: 1000 }, { min: 0, max: 1 }, { min: 2147483000, max: 2147483647 }]
-    .map(a => instantiate("Int", a));
-export const stringInsts = (): Instantiation[] => [128, 16, 8, 5, 1, 0, 40].map(maxLength => instantiate("string", { maxLength }));
-
 export const familiesOf = (inst: Instantiation) => FAMILIES.filter(f => f.objectType === inst.objectType && available(f, inst).ok);
 
 /** Uniform spawns plus structured values that make ties and rare events common. */
@@ -65,20 +60,6 @@ export function sampleObjects(inst: Instantiation, rng: Rng, n: number, extra: r
         }
         out.push(codec.encode({ size, sym, col }));
       }
-    }
-  } else if (inst.objectType === "Int") {
-    const { min, max } = inst.args as { min: number; max: number };
-    for (const x of [min, max, 0, 1, -1, 7, 10, 100, 1431655765, -1431655766, 223092870, 73939133, 123456789, 2147483647, -2147483648]) {
-      if (x >= min && x <= max) out.push(x);
-    }
-    for (let k = 0; k < n / 2; k++) out.push(min + rng.int(Math.min(max - min + 1, 1000)));
-  } else {
-    const L = Number(inst.args.maxLength);
-    for (const s of ["", "a", "aa", "abcabcabc", "((()))", "(()", "the quick brown fox", "0123456789", "zyxw", "aeiou",
-      "bakemoti", "xxkumano", "racecar", "999", "AAAA bb cc"]) if (s.length <= L) out.push(s);
-    for (let k = 0; k < n / 2 && L > 0; k++) {
-      const len = rng.int(L + 1), alpha = ["ab", "0123456789", "( )", "aeiou bkm"][rng.int(4)];
-      out.push(Array.from({ length: len }, () => alpha[rng.int(alpha.length)]).join(""));
     }
   }
   return [...out, ...extra];

@@ -12,7 +12,7 @@ test("power: shares out of a fixed budget, re-allocation, destroy returns the sh
   const [host, ada, bo] = await gods("Power Host", "Power Ada", "Power Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 5,
     fullChargeSeconds: 3600,   // a store far larger than this test fills: capacity has its own test below
   });
@@ -20,9 +20,9 @@ test("power: shares out of a fixed budget, re-allocation, destroy returns the sh
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const observe = async () => observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
 
-  const first = await send({ type: "summon", name: "One", language: "typescript", source: "function agent(n) { return []; }" });
+  const first = await send({ type: "summon", name: "One", language: "typescript", source: "function agent(grid) { return []; }" });
   assert.equal(first.accepted, true, first.message);
-  const second = await send({ type: "summon", name: "Two", language: "typescript", source: "function agent(n) { return [add(1)]; }", powerShare: 0.3 });
+  const second = await send({ type: "summon", name: "Two", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }", powerShare: 0.3 });
   assert.equal(second.accepted, true, second.message);
   let obs = await observe();
   const [one, two] = ["One", "Two"].map(n => obs.agents.find(a => a.name === n)!);
@@ -34,7 +34,7 @@ test("power: shares out of a fixed budget, re-allocation, destroy returns the sh
   assert.ok(Math.abs(one.income! - 20) < 1e-9 && Math.abs(two.income! - 12) < 1e-9);
 
   // The budget binds: shares total at most 1.
-  const over = await send({ type: "summon", name: "Three", language: "typescript", source: "function agent(n) { return [add(2)]; }", powerShare: 0.5 });
+  const over = await send({ type: "summon", name: "Three", language: "typescript", source: "function agent(grid) { return [slide(row(0), 2)]; }", powerShare: 0.5 });
   assert.equal(over.accepted, false);
   assert.match(over.message, /unallocated/);
   const tooMuch = await send({ type: "allocatePower", agentId: two.id, share: 0.6 });
@@ -79,7 +79,7 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; energy abo
   const [host, ada, bo] = await gods("Cap Host", "Cap Ada", "Cap Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 5,
     fullChargeSeconds: 10,
   });
@@ -95,11 +95,11 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; energy abo
 
   // A summon far above what the unallocated power can ever store is refused, and says why.
   const huge = await send({ type: "summon", name: "Huge", language: "typescript",
-    source: `function agent(n) { const table = [${Array.from({ length: 400 }, (_, i) => 7919 * (i + 3)).join(", ")}]; return [add(table[0])]; }` });
+    source: `function agent(grid) { const table = [${Array.from({ length: 400 }, (_, i) => 7919 * (i + 3)).join(", ")}]; return [slide(row(0), table[0])]; }` });
   assert.equal(huge.accepted, false);
   assert.match(huge.message, /holds at most 400 bits/);
 
-  const first = await send({ type: "summon", name: "Saver", language: "typescript", source: "function agent(n) { return []; }" });
+  const first = await send({ type: "summon", name: "Saver", language: "typescript", source: "function agent(grid) { return []; }" });
   assert.equal(first.accepted, true, first.message);
   obs = await observe();
   const saver = obs.agents.find(a => a.name === "Saver")!;
@@ -148,14 +148,14 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; energy abo
   assert.equal(obs.agents.find(a => a.id === saver.id)!.capacity, undefined);
   assert.ok(obs.self.energy > 360 + 2 * 36, `no capacity: ${obs.self.energy}`);
   // Such a game is still examined and summoned into: its settings validate without the field.
-  const checked = await send({ type: "validate", language: "typescript", source: "function agent(n) { return [add(3)]; }" });
+  const checked = await send({ type: "validate", language: "typescript", source: "function agent(grid) { return [slide(row(0), 3)]; }" });
   assert.equal(checked.accepted, true, checked.message);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 
 /**
  * Debt within capacity, and debt moves with power (docs/energy-model.md §7.2). P = 40 bits/s, T = 10 s. Both agents
- * add 11111 (five digit adds: more than 40 bits, less than 360).
+ * slide the top row (at the flat price, set-v1, three or four rewritten numbers: 83 to 133 bits, more than 40, less than 360).
  *  - "Small" has 5% of the power: it holds 20 bits and may owe 20, so it can never commit that change. Each try fails
  *    as "unaffordable" and pays only its reads.
  *  - "Big" has 90%: it holds 360 and may owe 360, so it commits with almost nothing and then owes. Its god keeps 10%
@@ -166,13 +166,14 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
   const [host, ada, bo] = await gods("Debt Host", "Debt Ada", "Debt Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+    costModel: "set-v1",
   });
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const observe = async (god: typeof ada) => observationSchema.parse(await god.c.query(api.player.observation, { roomId }));
-  const source = "function agent(n) { return [add(11111)]; }";
+  const source = "function agent(grid) { return [slide(row(0), 1)]; }";
   const small = await send(ada, { type: "summon", name: "Small", language: "typescript", source, powerShare: 0.05 });
   assert.equal(small.accepted, true, small.message);
   const big = await send(bo, { type: "summon", name: "Big", language: "typescript", source, powerShare: 0.9 });
@@ -233,7 +234,7 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
   assert.ok(Math.abs(log.find((e: any) => e.t === "power").owed - half) < 1e-9);
   // Bo's own income (all 40 bits/s now) repays it: within its capacity time Bo is out of debt and can summon again.
   await waitFor(async () => (await observe(bo)).self.energy >= 60, "Bo's income repays the debt", 60000, 250);
-  const again = await send(bo, { type: "summon", name: "Again", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.5 });
+  const again = await send(bo, { type: "summon", name: "Again", language: "typescript", source: "function agent(grid) { return []; }", powerShare: 0.5 });
   assert.equal(again.accepted, true, again.message);
   // A re-summoned agent brings no new energy (here: at most a second or two of its own 20 bits/s): nothing was gained.
   assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent gains nothing");
@@ -242,8 +243,8 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
 
 /**
  * Debt moves with power, from a god to an agent (docs/energy-model.md §7.2; game-core movePower). P = 40 bits/s,
- * T = 10 s. Bo keeps 10% for itself (holds 40), gives "Big" 80% (it adds 111111111 on credit: holds 320, may owe 320) and
- * "Idle" 10% (it never acts: holds 40). Big's change is nine digit adds (about 210 bits). Bo destroys Big while it owes more than 150, so Bo itself owes more than 110
+ * T = 10 s. Bo keeps 10% for itself (holds 40), gives "Big" 80% (it slides two rows on credit: holds 320, may owe 320) and
+ * "Idle" 10% (it never acts: holds 40). Big's change rewrites up to eight numbers at the flat price (about 300 to 450 bits). Bo destroys Big while it owes more than 150, so Bo itself owes more than 110
  * and has 90% unallocated. Bo then gives Idle half of that unallocated power (10% → 55%): Idle takes exactly half of
  * what Bo owes, so what Bo still owes equals what moved. Giving it the rest moves the rest: Bo owes nothing, Idle owes
  * it all, and nothing was lost on the way. What would break: a god shedding its debt by re-allocating (the amount
@@ -253,14 +254,15 @@ test("debt: a god that owes gives an agent power, and the same fraction of its d
   const [host, ada, bo] = await gods("Owing Host", "Owing Ada", "Owing Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -2000000000, max: 2000000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+    costModel: "set-v1",
   });
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => bo.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  const big = await send({ type: "summon", name: "Big", language: "typescript", source: "function agent(n) { return [add(111111111)]; }", powerShare: 0.8 });
+  const big = await send({ type: "summon", name: "Big", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1), slide(row(1), 1)]; }", powerShare: 0.8 });
   assert.equal(big.accepted, true, big.message);
-  const idle = await send({ type: "summon", name: "Idle", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.1 });
+  const idle = await send({ type: "summon", name: "Idle", language: "typescript", source: "function agent(grid) { return []; }", powerShare: 0.1 });
   assert.equal(idle.accepted, true, idle.message);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
   const stored = async () => {
@@ -309,13 +311,13 @@ test("replace: the god pays the new program's summon price; the agent keeps its 
   const [host, ada, bo] = await gods("Replace Host", "Replace Ada", "Replace Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
   });
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const observe = async () => observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
-  const skipper = "function agent(n) { return []; }", mover = "function agent(n) { return [add(3)]; }";
+  const skipper = "function agent(grid) { return []; }", mover = "function agent(grid) { return [slide(row(0), 3)]; }";
   const summoned = await send(ada, { type: "summon", name: "Keeper", description: "Waits.", language: "typescript", source: skipper, powerShare: 0.5 });
   assert.equal(summoned.accepted, true, summoned.message);
   const other = await send(ada, { type: "summon", name: "Other", language: "typescript", source: mover, powerShare: 0.25 });

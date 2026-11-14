@@ -182,7 +182,7 @@ function godAccount(): void {
   const start = DEFAULT_SETTINGS.startingEnergy, T6 = [15, 30, 60, 120];
   console.log(`## 6. The god's own account: capacity = retained share × P × T (energyCapacity). Refilling from empty takes T world seconds at any retained share (capacity ÷ income). "fits" = the largest reference program (${PROGRAMS.join(", ")} bits) a full account pays for. startingEnergy = ${start}.\n`);
   for (const P of [64, 32, 8]) {
-    console.log(`### P = ${P}${P === 64 ? " (Grid)" : P === 32 ? " (grid-low-income)" : " (default Int settings)"}\n`);
+    console.log(`### P = ${P}${P === 64 ? " (Grid)" : P === 32 ? " (grid-low-income)" : " (general defaults)"}\n`);
     table(["T (s)", ...[0.1, 0.25, 0.5, 1].map(r => `retained ${pc(r)}: capacity (fits)`), "seconds to refill from empty", "startingEnergy kept in planning"],
       T6.map(T => [T, ...[0.1, 0.25, 0.5, 1].map(r => { const cap = energyCapacity(P * r, T); return `${f(cap, 0)} (${fits(cap)})`; }), T, f(Math.min(start, energyCapacity(P, T)), 0)]));
     table(["program (bits)", ...[0.1, 0.25, 0.5, 1].map(r => `retained ${pc(r)}: smallest T that fits it (s); seconds to save it from empty`)],

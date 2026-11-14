@@ -1,8 +1,7 @@
 /**
  * The object-type contract (archive/engine-v1:docs/clean-implementation-plan.md §2, docs/research/grid/architecture.md).
  *
- * An object type is a type constructor over runtime parameters: Int(min, max), string(maxLength),
- * Grid(size, symbols, colours). Applying it to arguments gives an Instantiation. Everything else a
+ * An object type is a type constructor over runtime parameters: Grid(size, symbols, colours). Applying it to arguments gives an Instantiation. Everything else a
  * type needs (wire codec, uniform spawn prior, capability classes, mutators, guest prelude) hangs off
  * its ObjectTypeDef, so a new type is one module plus a renderer in lib/object-views.
  *
@@ -15,7 +14,7 @@ import type { CostModel, CostRow } from "./structure/index.ts";
 // values and randomness
 // ------------------------------------------------------------------------------------------------
 
-/** What crosses the wire, the database and the sandboxes: Int is a safe integer, others an ASCII string. */
+/** What crosses the wire, the database and the sandboxes (Grid: an ASCII string). */
 export type ObjectValue = number | string;
 export type ParamValue = number | string;
 export type TypeArgs = Readonly<Record<string, ParamValue>>;
@@ -69,7 +68,7 @@ export interface Badge {
 export interface CapabilityClass {
   /** "Valued", "Ranked", "Numeral", "Suited", "Faced", "Spectral", "Wheel", "Mixable", ... */
   readonly id: string;
-  /** Which parameter the class attaches to ("symbols", "colours", "size", "bounds", ...). */
+  /** Which parameter the class attaches to ("symbols", "colours", "size", ...). */
   readonly slot: string;
   readonly superclasses: readonly string[];
   readonly badge: Badge;
@@ -77,8 +76,7 @@ export interface CapabilityClass {
 
 /**
  * Constraints are data: a small JSON AST evaluated identically by the server, both UIs and AI prompts.
- * Terms are numbers an instantiation exposes ("size", "colours.count", "symbols.base", "bounds.max",
- * "length.max", ...).
+ * Terms are numbers an instantiation exposes ("size", "colours.count", "symbols.base", ...).
  */
 export type Constraint =
   | { readonly has: string }
@@ -95,7 +93,7 @@ export type Resolution =
 export interface Instantiation {
   readonly objectType: string;
   readonly args: TypeArgs;
-  /** Canonical key, e.g. "Grid(5,base10,rgby)", "Int(-2147483648,2147483647)", "string(128)". Keys caches and tables. */
+  /** Canonical key, e.g. "Grid(5,base10,rgby)". Keys caches and tables. */
   readonly key: string;
   readonly terms: Readonly<Record<string, number>>;
   /** Capability classes this instantiation has, superclass closure applied. */
@@ -258,7 +256,7 @@ export interface InstanceInfo {
 }
 
 export interface ObjectTypeDef<V = unknown> {
-  /** "Int" | "string" | "Grid" | future. Immutable once shipped. */
+  /** "Grid" | future. Immutable once shipped. */
   readonly id: string;
   readonly label: string;
   readonly emoji: string;
@@ -281,7 +279,7 @@ export interface ObjectTypeDef<V = unknown> {
   /**
    * W of one call (docs/energy-model.md §4.1–4.2): the cost of the cheapest decomposition the type knows of the call's
    * net effect (`before` → `after`, which differ) into its elementary mutators. `call` is the mutator id and its parsed
-   * params, for an elementary mutator priced by its parameters (Int's multiply). `model` is the room's cost model
+   * params, for an elementary mutator priced by its parameters. `model` is the room's cost model
    * (structure/index.ts; absent means set-v1).
    */
   callWork(before: V, after: V, call: { readonly id: string; readonly params: unknown }, inst: Instantiation, model?: CostModel): number;

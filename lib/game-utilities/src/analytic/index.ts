@@ -10,25 +10,19 @@
 import type { Instantiation } from "@workspace/game-types";
 import type { Params } from "../types.ts";
 import { GRID_SOLVED, gridApplies, gridLevels } from "./grid.ts";
-import { INT_SOLVED, intLevels } from "./int.ts";
-import { STRING_SOLVED, stringLevels } from "./string.ts";
 import type { Levels } from "./kit.ts";
 
 export type { Levels } from "./kit.ts";
 
 export function analyticLevels(familyId: string, params: Params, inst: Instantiation): Levels | null {
   if (inst.objectType === "Grid") return gridLevels(familyId, params, inst);
-  if (inst.objectType === "Int") return intLevels(familyId, params, inst);
-  if (inst.objectType === "string") return stringLevels(familyId, params, inst);
   return null;
 }
 
 /** Family ids with an analytic solution for at least some draws, by object type. */
-export const ANALYTIC_FAMILIES: Readonly<Record<string, readonly string[]>> = { Grid: GRID_SOLVED, Int: INT_SOLVED, string: STRING_SOLVED };
+export const ANALYTIC_FAMILIES: Readonly<Record<string, readonly string[]>> = { Grid: GRID_SOLVED };
 
 /** Whether `analyticLevels` returns levels for this draw, without computing them (the table key needs only this). */
 export function hasSolution(familyId: string, params: Params, inst: Instantiation): boolean {
-  if (inst.objectType === "Grid") return gridApplies(familyId, params, inst);
-  // Int and string solvers cover every params of their family (none declines a draw), so membership decides.
-  return (ANALYTIC_FAMILIES[inst.objectType] ?? []).includes(familyId);
+  return inst.objectType === "Grid" && gridApplies(familyId, params, inst);
 }

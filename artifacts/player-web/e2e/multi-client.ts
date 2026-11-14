@@ -19,7 +19,7 @@
  *   each app shows its credential's room page with the members; in the first game, each app's dock is its own
  *   player's; the dock: the default (goal | objects over assistant | agents | race, no tabs), the panel menu
  *   changes a pane, the assistant closes and reopens, and the layout is stored in the engine; a layout written
- *   to the engine reaches the open client; full Int, string and Grid games (validate + summon in the Agent code
+ *   to the engine reaches the open client; three full Grid games (validate + summon in the Agent code
  *   panel, transformations, chat, owner end: the page turns into the replay, room history); live HMR of a new panel
  *   in one app during a running game (it opens as a pane by itself; no reload, live data, the other apps unaffected);
  *   a syntax error contained in its pane; the room assistant acting for its player (chat, summon, owner start)
@@ -289,10 +289,8 @@ await check("an AI seat joins the room (mock provider)", async () => {
 // full games
 // ------------------------------------------------------------------------------------------------
 const AGENTS = {
-  Int: { language: "python", source: "def agent(x):\n    return [add(1)]" },
-  // A cheap move: rotating all 128 characters costs ~273 bits an act (≈ 2 minutes of agent income); a swap costs a few bits.
-  string: { language: "typescript", source: "function agent(s) { return [swapChars(0, 1)]; }" },
-  Grid: { language: "python", source: "def agent(grid):\n    return [slide(row(0), 1)]" },
+  python: { language: "python", source: "def agent(grid):\n    return [slide(row(0), 1)]" },
+  typescript: { language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }" },
 } as const;
 
 async function summonThroughUi(p: Player, language: string, source: string) {
@@ -318,12 +316,13 @@ async function summonThroughUi(p: Player, language: string, source: string) {
 async function activeGame() {
   return (await (await ownerClient()).query(ref.query("rooms:get"), { room: roomId }) as { activeGame: { shortCode: string } | null }).activeGame?.shortCode ?? null;
 }
-async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>, during?: () => Promise<void>, first?: () => Promise<void>) {
-  const { language, source } = AGENTS[type];
+/** One full game on the room's Grid board; `type` names it in the check lines. */
+async function playGame(type: string, agent: keyof typeof AGENTS, start: () => Promise<unknown>, during?: () => Promise<void>, first?: () => Promise<void>) {
+  const { language, source } = AGENTS[agent];
   let gameCode = "";
   await check(`${type} game (${language}): owner configures and starts it; the room page takes every app to the game's page, its dock`, async () => {
     // A long half-life: the game must not end by its (random) lifetime in the middle of the checks.
-    await owner("settings", { settings: { objectType: type, languages: ["python", "typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
+    await owner("settings", { settings: { objectType: "Grid", languages: ["python", "typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
     await start();
     gameCode = await until(activeGame, "the game starts", 300_000);
     for (const p of PLAYERS) {
@@ -358,8 +357,8 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
         .catch(async () => { throw new Error(`${p} shows no replay; phase ${await pages[p].textContent("[data-testid=text-phase]").catch(() => "none")}`); });
       assert(new URL(pages[p].url()).pathname === `/rooms/${shortCode}/games/${gameCode}`, `${p} left the game's page: ${pages[p].url()}`);
     }
-    const history = await (await ownerClient()).query(ref.query("rooms:history"), { room: roomId }) as { settings: { objectType: string } }[];
-    assert(history.some(h => h.settings.objectType === type), "history entry");
+    const history = await (await ownerClient()).query(ref.query("rooms:history"), { room: roomId }) as { shortCode: string }[];
+    assert(history.some(h => h.shortCode === gameCode), "history entry");
   });
   await check(`${type} game: the replay's header leads each app back to the room page, without a reload`, async () => {
     for (const p of PLAYERS) {
@@ -371,17 +370,17 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
   });
 }
 
-// Int: started from the engine (the owner's browser session). The dock's own checks run in it first.
-await playGame("Int", () => owner("start"), undefined, dockChecks);
+// The first game: started from the engine (the owner's browser session). The dock's own checks run in it first.
+await playGame("First", "python", () => owner("start"), undefined, dockChecks);
 
-// string: started by ada's coding agent as her room assistant, with an owner credential she approved.
+// The second game: started by ada's coding agent as her room assistant, with an owner credential she approved.
 const ownerSecrets = await (async () => {
   const device = await deviceRequest(roomId, "owner", "ada's coding agent");
   await client(await browserJwt(sessionOf("admin"))).mutation("auth/device:approve", { userCode: device.userCode, ownerConsent: true });
   const claimed = await until(async () => { const r = await poll(device); if (r.status === 200) return r.body; await sleep(2100); return undefined; }, "owner credential");
   return { CODE_GODS_ENGINE_URL: SITE, CODE_GODS_CREDENTIAL: claimed.credential as string };
 })();
-await playGame("string", async () => {
+await playGame("Second", "typescript", async () => {
   const out = JSON.parse(playerCli("admin", ["assistant", "room-command"], JSON.stringify({ action: "start", requestId: crypto.randomUUID() }), ownerSecrets));
   assert(JSON.stringify(out).includes("gameId") || out.ok !== false, `start via assistant: ${JSON.stringify(out).slice(0, 200)}`);
 }, async () => {
@@ -396,7 +395,7 @@ await playGame("string", async () => {
     // it covers the price. A refused command has a final receipt, so each attempt is a new command.
     const result = await until(() => {
       const summon = { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId,
-        command: { type: "summon", name: "Test agent", language: "typescript", source: "function agent(s) { return [swapChars(1, 2)]; }" } };
+        command: { type: "summon", name: "Test agent", language: "typescript", source: "function agent(grid) { return [slide(row(1), 1)]; }" } };
       const receipt = JSON.parse(playerCli("bob", ["assistant", "command"], JSON.stringify(summon)));
       const text = JSON.stringify(receipt);
       if (text.includes("\"accepted\":true")) return text;
@@ -429,8 +428,8 @@ await playGame("string", async () => {
   });
 });
 
-// Grid: the HMR test runs while it is live.
-await playGame("Grid", () => owner("start"), async () => {
+// The third game: the HMR test runs while it is live.
+await playGame("Third", "python", () => owner("start"), async () => {
   const panelFile = join(appDir("admin"), "artifacts/player-web/src/panels/test-live.tsx");
   await check("HMR: a panel written into ada's app mid-game appears without a reload and updates live", async () => {
     writeFileSync(panelFile, `import { definePanel, useGame, useObjects } from "@sdk";

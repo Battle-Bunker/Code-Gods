@@ -7,7 +7,7 @@
  * `piece` write nothing without one), so the probe is repeatable on shapes whose tables are shipped. Where the shipped
  * single-run table of a key exists, the merged table is compared with it (max |Δ bits|, RMS z with both nominal se).
  *
- *   CONVEX_DEPLOY_KEY=… node --experimental-transform-types scripts/first-use-probe.ts "Grid(4,base10,rgby)" "Int(0,2147483647)" [--gods 6] [--plan-only] [--only family] [--family family]
+ *   CONVEX_DEPLOY_KEY=… node --experimental-transform-types scripts/first-use-probe.ts "Grid(4,base10,rgby)" "Grid(7,cards,rainbow6)" [--gods 6] [--plan-only] [--only family] [--family family]
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -58,7 +58,7 @@ function agreement(split: CalibrationTable, single: CalibrationTable) {
 for (const key of args) {
   const inst = instantiateKey(key), ctx = context(inst);
   const rng = seededRng(`first-use-probe:${inst.key}`);
-  // --family: that family's every canonical params instead of a deal (a family the deal may miss, e.g. Int's slowest).
+  // --family: that family's every canonical params instead of a deal (a family the deal may miss, e.g. the slowest).
   const dealt = forced
     ? canonicalSupport(family(forced), ctx).map(params => ({ familyId: forced, params }) as { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } })
     : divineLottery.select(inst, gods, rng, { defenceGoals: inst.objectType === "Grid" });

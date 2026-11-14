@@ -137,7 +137,7 @@ export function toggleLanguage(current: readonly Language[], language: Language,
   return next.length ? next : [...current];
 }
 
-/** The cost models the draft's world offers, the default first (one for Int and string, which have no other). */
+/** The cost models the draft's world offers, the default first (only the default where the board offers no other). */
 export function costModelChoices(s: Pick<Settings, "objectType" | "typeArgs">): CostModel[] {
   try { return supportedCostModels(s); } catch { return [costModelOf(undefined)]; }
 }
@@ -215,9 +215,9 @@ const shapeLabel = (objectType: string, args: TypeArgs) => { try { return instan
 /** One value of one type argument: its label, and whether picking it (the other arguments unchanged) is playable. */
 export interface ArgChoice { value: number | string; label: string; enabled: boolean; reason?: string }
 /**
- * The controls of a type's arguments (Grid: size, symbols, colours; Int: smallest, biggest; string: longest), one per
- * parameter of the manifest's `params`. Each lists the parameter's values that some playable instantiation uses (a
- * component's options, an integer's presets: so the retired 3×3 is not a size), plus the current value. A value is
+ * The controls of a type's arguments (Grid: size, symbols, colours), one per parameter of the manifest's `params`. Each
+ * lists the parameter's values that some playable instantiation uses (a component's options, a size's presets: so the
+ * retired 3×3 is not a size), plus the current value. A value is
  * enabled when the combination with the other arguments as they are is playable (valid and not retired); whether its
  * tables are shipped does not matter (`firstUseNote`). Picking a value never changes another argument.
  */
@@ -244,8 +244,8 @@ export function argChoices(type: PlayableTypes, args: TypeArgs): { param: ParamS
 /**
  * The light note under the shape controls when the first game on this shape will compute some of its rule tables
  * (none are shipped or analytic for those draws): "The first game on this shape prepares its rule tables (about 70 s)
- * before planning starts; later games start at once." Null when every table is ready. An unlisted shape (a custom Int
- * range) takes the measured estimate for its type (game-utilities firstUseSeconds).
+ * before planning starts; later games start at once." Null when every table is ready. An unlisted shape takes the
+ * measured estimate for its type (game-utilities firstUseSeconds).
  */
 export function firstUseNote(type: PlayableTypes, args: TypeArgs): string | null {
   const key = argKey(type.id, { ...(type.defaults ?? {}), ...args });

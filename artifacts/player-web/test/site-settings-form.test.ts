@@ -16,9 +16,8 @@ import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.t
 
 const GRID5 = { size: 5, symbols: "base10", colours: "rgby" };
 const GRID7 = { size: 7, symbols: "cards", colours: "rainbow6" };
-/** A manifest's object types as the engine sends them, hand-cut to three listed instantiations. */
+/** A manifest's object types as the engine sends them, hand-cut to two listed instantiations. */
 const types = [
-  { id: "Int", defaults: { min: -2147483648, max: 2147483647 }, playable: [{ key: "Int(0,9999)", args: { min: 0, max: 9999 } }] },
   { id: "Grid", defaults: { size: 4, symbols: "base10", colours: "rgb" }, playable: [{ key: "Grid(5,base10,rgby)", args: GRID5 }, { key: "Grid(7,cards,rainbow6)", args: GRID7 }] },
 ];
 
@@ -68,17 +67,19 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
 test("the domain lists the manifest's playable instantiations, accepts any other valid unretired one, and the families of each", () => {
   const domain = settingsDomain(types);
   assert.deepEqual(domain.playable("Grid"), [GRID5, GRID7]);
-  assert.deepEqual(domain.playable("string"), [], "a type the manifest does not list lists nothing");
+  assert.deepEqual(domain.playable("Tree"), [], "a type the manifest does not list lists nothing");
   assert.equal(domain.isPlayable!("Grid", { size: 6, symbols: "base16", colours: "rainbow6" }), true, "no table needed");
   assert.equal(domain.isPlayable!("Grid", { size: 3, symbols: "base10", colours: "rgb" }), false, "3×3 is retired");
   assert.ok(domain.families("Grid", GRID5, "reward").includes("ladder_of_numbers"));
   assert.ok(!domain.families("Grid", GRID7, "reward").includes("ladder_of_numbers"), "a locked family does not exist on that board");
   assert.ok(domain.families("Grid", GRID5, "defence").every(id => id.startsWith("hate_")) && domain.families("Grid", GRID5, "defence").length > 0);
   assert.ok(!domain.families("Grid", GRID5, "reward").some(id => id.startsWith("hate_")), "rewards and defence goals are separate lists");
-  // The page's controls run through the model with this domain: a new world takes its first listed instantiation.
+  // The page's controls run through the model with this domain: a room stored on a removed object type (Int) moves to
+  // the first listed Grid instantiation (the default board is not listed here), keeping the owner's other choices.
   const classic = seedSetupSettings("grid-classic");
-  const toInt = applySettingsChange(classic, { objectType: "Int" }, domain);
-  assert.deepEqual([toInt.typeArgs, toInt.excludedFamilies, toInt.startingObjectCount], [{ min: 0, max: 9999 }, [], classic.startingObjectCount]);
+  const removed = { ...classic, objectType: "Int", typeArgs: { min: 0, max: 9999 }, excludedFamilies: ["removed_rule"] };
+  const toGrid = applySettingsChange(removed, { objectType: "Grid" }, domain);
+  assert.deepEqual([toGrid.typeArgs, toGrid.excludedFamilies, toGrid.startingObjectCount], [GRID5, [], classic.startingObjectCount]);
   assert.deepEqual(applySettingsChange(classic, { typeArgs: { size: 6, symbols: "base16", colours: "rainbow6" } }, domain).typeArgs, { size: 6, symbols: "base16", colours: "rainbow6" });
   assert.throws(() => applySettingsChange(classic, { typeArgs: { size: 3, symbols: "base10", colours: "rgb" } }, domain), /not playable/);
   // The shelf shows only the families that exist on the board, marked as the draft deals them.
@@ -90,7 +91,6 @@ test("the domain lists the manifest's playable instantiations, accepts any other
   assert.ok(defence.length > 0 && defence.every(e => e.role === "penalty"));
   assert.deepEqual(defence.filter(e => e.excluded).map(e => e.id), ["hate_colour"]);
   assert.equal(defenceBlocker({ objectType: "Grid", typeArgs: GRID5 }), null);
-  assert.equal(defenceBlocker({ objectType: "Int", typeArgs: { min: 0, max: 9999 } }), "This world has no defence goals to deal.");
 });
 
 /** The playable Grid shapes as the engine lists them (every size 4–7 × symbols × colours); some prepare tables first. */
@@ -112,19 +112,13 @@ test("the board shape is one control per argument; every playable combination is
   // A retired combination (the current value kept on screen) is disabled with the reason.
   const retired = argChoices(GRID, { size: 3, symbols: "base10", colours: "rgb" })[1]!;
   assert.ok(retired.choices.every(c => !c.enabled && /retired/.test(c.reason!)));
-  // Int: every combination of its presets, including ranges nobody shipped tables for.
-  const int = { id: "Int", params: objectType("Int").params, defaults: objectType("Int").defaults,
-    playable: [[-2147483648, 2147483647], [-2147483648, 9999], [0, 2147483647], [0, 9999]].map(([min, max]) => ({ args: { min, max } })) };
-  const [min, max] = argChoices(int, { min: 0, max: 9999 });
-  assert.deepEqual(min!.choices.map(c => [c.value, c.enabled]), [[-2147483648, true], [0, true]]);
-  assert.deepEqual(max!.choices.map(c => [c.value, c.enabled]), [[2147483647, true], [9999, true]]);
 });
 
 test("a shape whose first game computes tables says so with the measured time; the dealer says when it deals like the Divine Lottery", () => {
   assert.equal(firstUseNote(GRID, GRID5), null, "every table shipped or analytic: nothing to say");
   assert.equal(firstUseNote(GRID, GRID7), "The first game on this shape on this server prepares up to 12 rule tables (about 4 min 20 s) before planning starts; later games start at once.");
-  const int = { id: "Int", params: objectType("Int").params, defaults: objectType("Int").defaults, playable: [{ args: { min: 0, max: 9999 }, prepare: null }] };
-  assert.match(firstUseNote(int, { min: 5, max: 100 })!, /prepares its rule tables \(about 35 s\)/, "an unlisted range: the type's measured estimate");
+  const one = { ...GRID, playable: [{ args: GRID5, prepare: null }] };
+  assert.match(firstUseNote(one, { size: 6, symbols: "base16", colours: "rainbow6" })!, /prepares its rule tables \(about 30 s\)/, "an unlisted board: the type's measured estimate");
   assert.equal(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned", priorId: "uniform" }), null, "synergy measured");
   assert.match(dealerNote(GRID, { typeArgs: GRID5, utilitySelectorId: "fair-aligned", priorId: "other" })!, /deals like the Divine Lottery/, "but not under this prior");
   assert.match(dealerNote(GRID, { typeArgs: GRID7, utilitySelectorId: "fair-aligned", priorId: "uniform" })!, /deals like the Divine Lottery/);
@@ -225,19 +219,19 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
   assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
   assert.equal(isHidden("costModel", classic), false);
-  for (const s of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, objectType: "string", typeArgs: { maxLength: 128 } }]) {
-    assert.deepEqual(costModelChoices(s), ["set-v1"]);
-    assert.equal(isHidden("costModel", s), true, `${s.objectType} has one model: nothing to choose`);
-  }
+  // The 7×7 cards in six colours offer only the default (a full look there would cost more than its cheapest change).
+  const cards = { ...classic, typeArgs: GRID7, excludedFamilies: [] };
+  assert.deepEqual(costModelChoices(cards), ["set-v1"]);
+  assert.equal(isHidden("costModel", cards), true, "one model: nothing to choose");
   assert.equal(formatValue("costModel", classic.costModel), "Flat: every change alike", "absent is the default");
   assert.equal(formatValue("costModel", basics.costModel), "Distance: further costs more", "the default setup prices by distance");
   // A pick goes through the settings model: the default is the field's absence, so picking it back leaves no unsaved change.
-  const domain = settingsDomain([{ id: "Grid", playable: [{ args: classic.typeArgs }] }, { id: "Int", defaults: DEFAULT_SETTINGS.typeArgs, playable: [{ args: DEFAULT_SETTINGS.typeArgs }] }]);
+  const domain = settingsDomain([{ id: "Grid", playable: [{ args: classic.typeArgs }, { args: GRID7 }] }]);
   const picked = applySettingsChange(classic, { costModel: "distance-v1" }, domain);
   assert.deepEqual(draftErrors(picked, domain), {});
   assert.deepEqual(applySettingsChange(picked, { costModel: "set-v1" }, domain), classic);
-  assert.ok(!("costModel" in applySettingsChange(picked, { objectType: "Int" }, domain)), "a world without the model drops it");
-  assert.match(draftErrors({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }, domain)._form ?? "", /costModel distance-v1 is not offered/);
+  assert.ok(!("costModel" in applySettingsChange(picked, { typeArgs: GRID7 }, domain)), "a board without the model drops it");
+  assert.match(draftErrors({ ...cards, costModel: "distance-v1" }, domain)._form ?? "", /costModel distance-v1 is not offered/);
 });
 
 test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {

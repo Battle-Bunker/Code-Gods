@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, rejects, roomWith, startGame, touch, waitFor, TS } from "./game-helpers.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 12, spawnRateHz: 0, interactionRateHz: 20, planningSeconds: 3600,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 12, spawnRateHz: 0, interactionRateHz: 20, planningSeconds: 3600,
   halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
@@ -21,7 +21,7 @@ test("dock.state, agents and transformations equal the observation's; the agent 
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);
   for (const god of [ada, bo]) {
-    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Dock agent", language: "typescript", source: TS.Int }, game.gameId) });
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Dock agent", language: "typescript", source: TS.Grid }, game.gameId) });
     assert.equal(r.accepted, true, r.message);
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });

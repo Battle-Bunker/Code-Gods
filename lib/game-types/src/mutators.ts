@@ -9,8 +9,7 @@
  *
  * callWork prices a call by the decomposition of its net effect into the type's ELEMENTARY mutators, each with its own
  * information cost w (the surprisal of its parameters under a maximum-entropy prior, plus the bits an overwrite erases):
- * Grid sets one cell's colour or symbol; Int adds d·10ᵖ or multiplies by a prime; string sets, inserts or deletes one
- * character. A COMPOSITE mutator (paint a row, ×2401, reverse) costs its decomposition, so it is never cheaper than its
+ * Grid sets one cell's colour or symbol. A COMPOSITE mutator (paint a row, swap two cells) costs its decomposition, so it is never cheaper than its
  * elementary steps, and the quadratic term makes one big act cost more than the same steps spread over several acts:
  * prefer small incremental acts. A call that changes nothing adds nothing; a change undone later in the act still paid
  * for both steps. A failed act (bad JSON, unknown or unavailable mutator, bad params, a null apply, more than MAX_CALLS

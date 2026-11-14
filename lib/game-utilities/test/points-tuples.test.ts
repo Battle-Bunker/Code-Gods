@@ -13,7 +13,7 @@ const rng = { int: (b: number) => { seed = (seed * 1103515245 + 12345) % 2147483
 
 /** Every family on every playable shape, with a few sampled params: its card (summary, theme and the card source). */
 function* cards() {
-  for (const inst of ["Grid", "Int", "string"].flatMap(t => [...playableInstantiations(t)])) {
+  for (const inst of playableInstantiations("Grid")) {
     const ctx = context(inst);
     for (const f of familiesFor(inst.objectType)) {
       if (!available(f, inst).ok) continue;

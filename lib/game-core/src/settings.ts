@@ -2,7 +2,7 @@
  * Room/game settings (archive/engine-v1:docs/clean-implementation-plan.md §§1, 4.3–4.4).
  *
  * The object type is a type constructor applied to runtime arguments: `objectType` names it and
- * `typeArgs` are its arguments (Int → {min, max}, string → {maxLength}, Grid → {size, symbols, colours}).
+ * `typeArgs` are its arguments (Grid → {size, symbols, colours}).
  * game-core knows no object type itself: arguments, codecs and spawn priors all come from the
  * `@workspace/game-types` registry.
  */
@@ -75,7 +75,7 @@ export interface GameSettings {
    * read them through `allowedLanguages`, or convert them with `upgradeLegacyLanguage`.
    */
   languages: readonly Language[];
-  /** Registered object type id ("Int", "string", "Grid", ...). */
+  /** Registered object type id ("Grid", ...). */
   objectType: string;
   /** Arguments of the type constructor, validated by the type's `instantiate`. */
   typeArgs: TypeArgs;
@@ -261,8 +261,8 @@ export const DEFAULT_FULL_CHARGE_SECONDS = 30;
 // These IDs describe the contract, not a claim that runners are installed.
 export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   languages: Object.freeze(["python"]) as readonly Language[],
-  objectType: "Int",
-  typeArgs: Object.freeze({ min: -2147483648, max: 2147483647 }),
+  objectType: "Grid",
+  typeArgs: Object.freeze({ size: 4, symbols: "base10", colours: "rgb" }),
   utilitySelectorId: "fair-aligned",
   spawnFunctionId: "uniform",
   planningSeconds: 60,
@@ -372,7 +372,7 @@ export interface SettingsOption {
   readonly objectTypes: readonly string[];
 }
 
-const ALL_TYPES = ["Int", "string", "Grid"] as const;
+const ALL_TYPES = ["Grid"] as const;
 
 /** Pre-authored dropdown choices; unknown identifiers are always rejected. Languages are LANGUAGE_SPECS. */
 export const SETTINGS_OPTIONS: Readonly<Record<"utilitySelectorId" | "spawnFunctionId", readonly SettingsOption[]>> = Object.freeze({
@@ -574,11 +574,6 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly of?: (inst: Instantiation) => Partial<GameSettings>;
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
-  // The general defaults give each deity 8 bits/s (Int and string worlds). At 30 s a deity would hold 240 bits, and its
-  // first summon at the default half share would leave it a store of 120: less than what is left of its 200 starting
-  // bits. 60 s keeps the starting energy through the first two default summons (docs/energy-model.md §6.1).
-  Int: { all: { fullChargeSeconds: 60 } },
-  string: { all: { fullChargeSeconds: 60 } },
   Grid: {
     // Power 64 bits/s per deity (docs/energy-model.md §6): two agents at the former 32 bits/s each. The 32 was the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
@@ -830,13 +825,13 @@ export interface FieldDoc {
 /** Every GameSettings field (the optional ones too), documented once; a field without docs (or a stale key) fails the typecheck. */
 export const SETTINGS_DOCS = {
   objectType: {
-    question: "What are the objects in the world?", section: "world", tier: "ask", control: "segmented", suggested: ["Grid", "Int", "string"],
-    meaning: "The kind of thing every player scores and every agent changes: a grid of coloured symbols, a whole number or a piece of text.",
-    consequence: "Grids give the richest and most visual rules, while numbers and text give terser, more abstract games.",
+    question: "What are the objects in the world?", section: "world", tier: "ask", control: "segmented", suggested: ["Grid"],
+    meaning: "The kind of thing every player scores and every agent changes: a grid of coloured symbols.",
+    consequence: "It decides which rules exist and how the objects look.",
   },
   typeArgs: {
     question: "What shape does each object have?", section: "world", tier: "ask", control: "typeArgs", dependsOn: ["objectType"],
-    meaning: "The arguments of the object type, such as a board's size, symbols and colours, or a range of numbers.",
+    meaning: "The arguments of the object type, such as a board's size, symbols and colours.",
     consequence: "They decide which rules can be dealt and how hard each object is to read at a glance.",
   },
   languages: {

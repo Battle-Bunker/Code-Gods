@@ -1,6 +1,6 @@
 /**
  * The analytic calibration study's tools (docs/engine-v2/analytic-calibration.md). What would break: the cycle
- * diagnostic missing the one asymmetric mutator, or calling a symmetric one asymmetric; the exact sums losing the
+ * diagnostic calling a symmetric mutator asymmetric (lib/v2-linear's potential test is the gate itself); the exact sums losing the
  * Kraft identity (the outside mass is what makes their intervals rigorous); a separable sum disagreeing with the
  * closed form for the simplest rung.
  */
@@ -8,16 +8,16 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mixedIntBits, q } from "@workspace/v2-core";
 import { fromMC, lineType, lineZ, primeLanding } from "@workspace/v2-linear";
-import { cycleDiagnostic } from "../src/cycles.ts";
+import { cycleDiagnostic } from "@workspace/v2-core";
 import { exactRungsSeparable, integersWithin } from "../src/exact.ts";
 
-test("cycle diagnostic on line-z: every mutator but gen.nudge is symmetric; nudge's renormalising branch is one-way", () => {
+test("cycle diagnostic on line-z: every mutator is symmetric (gen.nudge refuses a result it would have to divide through)", () => {
   const states = [];
   for (let m = -2; m <= 2; m++) for (let c = -2; c <= 2; c++) states.push({ lines: [fromMC(q(m), q(c))] });
   const r = cycleDiagnostic(lineType, lineZ, states, 12);
-  for (const [id, s] of Object.entries(r.perMutator)) if (id !== "gen.nudge") assert.equal(s.asymmetric, 0, id);
-  assert.deepEqual(Object.keys(r.oneWay), ["gen.nudge"]);
-  assert.ok(r.perMutator["gen.nudge"]!.asymmetric > 0);
+  for (const [id, s] of Object.entries(r.perMutator)) assert.equal(s.asymmetric, 0, id);
+  assert.deepEqual(r.oneWay, {});
+  assert.ok(r.perMutator["gen.nudge"]!.edges > 0);
 });
 
 test("integersWithin: the cheapest integers, each once with its bits; their mass approaches 1 (Kraft equality)", () => {

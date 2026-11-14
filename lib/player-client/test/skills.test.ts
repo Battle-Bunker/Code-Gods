@@ -94,11 +94,12 @@ test("the writing-agents skill carries a first agent for the player's game: shor
   assert.ok(lines.length >= 5 && lines.length <= 15, `${lines.length} lines`);
   assert.ok(lines.filter(l => l.trim().startsWith("#")).length >= 2 && lines.some(l => l.startsWith("def agent(")), example!.source);
   assert.doesNotMatch(example!.source, /\bbits\b/, "plain words in the comments");
-  for (const [objectType, language, opens] of [["Grid", "typescript", "function agent(grid) {"], ["Int", "python", "def agent(x):"], ["string", "typescript", "function agent(s) {"]] as const) {
-    assert.ok(firstAgentFor({ objectType, language })!.source.includes(opens), `${objectType} in ${language}`);
+  for (const [language, opens] of [["typescript", "function agent(grid) {"], ["python", "def agent(grid):"]] as const) {
+    assert.ok(firstAgentFor({ objectType: "Grid", language })!.source.includes(opens), language);
   }
   // A game whose prelude lacks the move's mutator, an unknown type and the lobby get no example (the assistant says so).
   assert.equal(firstAgentFor({ objectType: "Grid", language: "python", mutators: ["paint"] }), null);
+  assert.equal(firstAgentFor({ objectType: "Int", language: "python" }), null, "an object type that no longer exists");
   assert.equal(firstAgentIn(skillBody("writing-agents", { observation: { ...grid, instance: { objectType: "Grid", helpers: [] } } })), null);
   assert.equal(firstAgentIn(skillBody("writing-agents", { observation })), null, "no object type known");
   assert.equal(firstAgentIn(skillBody("writing-agents", {})), null);

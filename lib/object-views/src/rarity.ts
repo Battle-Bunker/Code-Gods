@@ -73,7 +73,7 @@ export interface RarityText {
 
 const plural = (noun: string) => (noun.endsWith("s") ? noun : `${noun}s`);
 
-/** Rarity wording for reward bits; `noun` is the object type's kid word ("grid", "number", "string"). */
+/** Rarity wording for reward bits; `noun` is the object type's kid word ("grid"). */
 export function rarityText(bits: number, noun = "object"): RarityText {
   const n = oneInN(bits);
   const everyday = n < 2;
@@ -90,7 +90,7 @@ export function rarityText(bits: number, noun = "object"): RarityText {
 
 /** The kid word for an object type. */
 export function objectNoun(objectType: string | undefined): string {
-  return objectType === "Grid" ? "grid" : objectType === "Int" ? "number" : objectType === "string" ? "string" : "object";
+  return objectType === "Grid" ? "grid" : "object";
 }
 
 // ---------------------------------------------------------------------------------------------

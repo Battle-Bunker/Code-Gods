@@ -35,8 +35,7 @@ import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type Analyt
  * the lookup semantics or the default budget): every key changes, so every table is regenerated.
  *  id "mc-ams", version 3: grid-lab estimator 3 semantics (Monte Carlo body, adaptive multilevel splitting tail
  *  with the type's symmetric `propose` kernel, weighted isotonic + strictly increasing clean-up, interpolation in
- *  ordinal distance, uncapped extrapolation above the top). Domains of at most EXACT_DOMAIN values (Int(0,9999))
- *  are enumerated exactly instead.
+ *  ordinal distance, uncapped extrapolation above the top).
  */
 export const ESTIMATOR = Object.freeze({ id: "mc-ams", version: 3 });
 const analyticMemo = new Map<string, AnalyticSurvival | null>();
@@ -82,7 +81,7 @@ export interface CalibrationBudget {
   readonly particles: number;
   /** Target survival fraction per splitting stage. */
   readonly p0: number;
-  /** MCMC steps per particle per stage = ceil(sweeps × kernel size) (Grid: cells; Int: bit width; string: maxLength). */
+  /** MCMC steps per particle per stage = ceil(sweeps × kernel size) (Grid: cells). */
   readonly sweeps: number;
   readonly targetBits: number;
   readonly maxStages: number;
@@ -348,10 +347,7 @@ export function instantiateKey(key: string): Instantiation {
   const m = /^(\w+)\((.*)\)$/.exec(key);
   if (!m) throw new Error(`Bad instance key ${key}`);
   const parts = m[2].split(",");
-  const args: Record<string, string | number> =
-    m[1] === "Int" ? { min: Number(parts[0]), max: Number(parts[1]) }
-      : m[1] === "string" ? { maxLength: Number(parts[0]) }
-        : { size: Number(parts[0]), symbols: parts[1], colours: parts[2] };
+  const args: Record<string, string | number> = { size: Number(parts[0]), symbols: parts[1], colours: parts[2] };
   const inst = objectType(m[1]).instantiate(args);
   if (inst.key !== key) throw new Error(`Instance key ${key} does not round-trip (${inst.key})`);
   return inst;
@@ -487,10 +483,10 @@ export const isPlayableInstantiation = (inst: Instantiation): boolean =>
 const playableMemo = new Map<string, readonly Instantiation[]>();
 /**
  * The instantiations the settings UI lists for an object type (docs/analytic-calibration/architecture.md §3.5): every
- * combination of its parameters' choices (a component's options, an integer's presets), the type's defaults first,
+ * combination of its parameters' choices (a component's options), the type's defaults first,
  * minus what the type itself refuses and the retired shapes (3×3). Whether tables exist plays no part: a shape with no
  * shipped tables prepares them on its first game (`firstUseSeconds`). Any other valid arguments are playable too
- * (`isPlayableInstantiation`), so an owner may still name, say, Int(5,100): this list is what pickers show.
+ * (`isPlayableInstantiation`): this list is what pickers show.
  */
 export function playableInstantiations(objectTypeId: string): readonly Instantiation[] {
   let found = playableMemo.get(objectTypeId);
@@ -515,12 +511,12 @@ export function playableInstantiations(objectTypeId: string): readonly Instantia
 /**
  * Cloud first-use latency (architecture.md §9.2, measured on the dev deployment with `scripts/first-use-probe.ts`): the
  * wall time, in seconds, from dealing a 6-god game with defence goals on a shape with no tables to every table ready,
- * slow tables split into up to 8 replicate pieces, all running concurrently. Rounded up, with the slowest family of the
- * type for Int (truncation-saint, 32 s); what the settings page's "first game prepares its tables" note and the room's
- * preparing estimate quote. (Before the split, Phase B2: Int 250, Grid 35 / 70 / 130 / 260.)
+ * slow tables split into up to 8 replicate pieces, all running concurrently. Rounded up; what the settings page's "first
+ * game prepares its tables" note and the room's preparing estimate quote. (Before the split, Phase B2: Grid 35 / 70 /
+ * 130 / 260.)
  */
 export const FIRST_USE_SECONDS: Readonly<Record<string, number | Readonly<Record<number, number>>>> = Object.freeze({
-  Int: 35, string: 15, Grid: Object.freeze({ 4: 35, 5: 30, 6: 30, 7: 95 }),
+  Grid: Object.freeze({ 4: 35, 5: 30, 6: 30, 7: 95 }),
 });
 /** The expected wall time of preparing a first game's missing tables on `inst` (seconds, `FIRST_USE_SECONDS`). */
 export function firstUseSeconds(inst: Instantiation): number {
@@ -551,8 +547,8 @@ export interface OfferOptions {
  * A partial rule ("enough families") would make the catalog the settings page shows dishonest: it lists every
  * available family as possible, and the selector would silently never deal the uncalibrated ones. Penalty families
  * count even though defence goals are opt-in, so turning `defenceGoals` on can never break a room. Stale tables
- * (key ≠ current code) count as missing. The order is the manifest's (the pipeline's curated order: Int and string
- * presets, then the curated GridTypes with the Grid default first).
+ * (key ≠ current code) count as missing. The order is the manifest's (the pipeline's curated order: the curated
+ * GridTypes with the Grid default first).
  */
 export function offeredInstantiations(manifest: CalibrationManifest, objectTypeId: string, options: OfferOptions = {}): Instantiation[] {
   const T = objectType(objectTypeId);

@@ -249,7 +249,7 @@ test("a leader who is tied and then pulls ahead again has not changed: one lead 
 });
 
 test("the SDK's answers at a playhead, for any god: the observation, the event window, trajectories and the utility", () => {
-  const full = { ...settings, languages: ["typescript"], objectType: "Int", typeArgs: { min: 0, max: 9 }, priorId: "uniform", penaltyWeight: 0,
+  const full = { ...settings, languages: ["typescript"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, priorId: "uniform", penaltyWeight: 0,
     maxAgentsPerGod: 4 } as unknown as GameSettings;
   const replay = buildReplay([page([
     { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [
@@ -298,7 +298,7 @@ test("the SDK's answers at a playhead, for any god: the observation, the event w
   assert.deepEqual(replayTrajectories(replay, at(4, 0)).objects, [{ objectId: "o1", points: [
     { seq: 0, worldSeconds: 0, value: 1, ownNetBits: 3, peerNetBits: 2, payoff: 6 }, { seq: 1, worldSeconds: 4, value: 2, ownNetBits: -1, peerNetBits: 4, payoff: -4 }] }]);
   const mine = replayMyUtility(replay, 1)!;
-  assert.deepEqual([mine.godId, mine.utility, mine.objectType], ["you", { familyId: "g", params: { b: 2 } }, "Int"]);
+  assert.deepEqual([mine.godId, mine.utility, mine.objectType], ["you", { familyId: "g", params: { b: 2 } }, "Grid"]);
 });
 
 test("the event window is the last `limit` batches up to the playhead (at most 50, as live); trajectories honour afterSeq and name their point of view", () => {

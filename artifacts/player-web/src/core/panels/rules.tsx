@@ -28,7 +28,7 @@ export default function Rules({ params }: PanelProps<"rules">) {
   const { noun } = useObjectContext();
   const settings = (room?.settings ?? {}) as Record<string, unknown>;
   const objectType = typeof settings.objectType === "string" ? settings.objectType : undefined;
-  const world = objectType === "Grid" || !objectType ? "usually small grids of coloured numbers" : objectType === "Int" ? "whole numbers" : "pieces of text";
+  const world = "usually small grids of coloured numbers";
   const fullChargeSeconds = typeof settings.fullChargeSeconds === "number" ? settings.fullChargeSeconds : undefined;
   const all = params.section === "all";
   const rows: [string, unknown][] = [

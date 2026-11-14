@@ -38,15 +38,15 @@ test("the room's explanation names its model, lists its prices and says the rule
   assert.doesNotMatch(changeCostExplained(RGB, "set-v1"), /how far it moved:/);
   assert.match(changeCostExplained(CARDS, "distance-v1"), /change a cell's suit: 11\.8 bits/);
   assert.ok(Math.abs(rowFactor(RGB, "set-v1")! - 7.5) < 0.05);
-  // A type without a price list (Int) still gets the rule and its steps in words.
-  assert.match(changeCostExplained({ objectType: "Int", typeArgs: { min: 0, max: 99 } }, "set-v1"), /one digit added/);
+  // A shape that is not valid has no price list but still gets the rule.
+  assert.match(changeCostExplained({ objectType: "Grid", typeArgs: { size: 9 } }, "set-v1"), /no price list/);
 });
 
 test("the kid texts: short, concrete, and every model has one", () => {
   assert.equal(changeCostKid("distance-v1"), "A move costs the changes it makes, cell by cell. Adding 1 to a number is the cheapest change; the further a number moves, the more it costs. Writing a 7 over a 5 costs the same as adding 2.");
   assert.match(changeCostHint(MONO, "distance-v1"), /moving a number by 1 costs 7\.1 bits, by 2 9\.7, by 9 34\.9\./);
   assert.match(changeCostHint(MONO, "set-v1"), /changing a cell's symbol costs 16\.3 bits/);
-  assert.equal(changeCostHint({ objectType: "Int", typeArgs: { min: 0, max: 99 } }, "set-v1"), "");
+  assert.equal(changeCostHint({ objectType: "Grid", typeArgs: { size: 9 } }, "set-v1"), "");
   // Every model the engine knows has its words, and a price list on a Grid.
   for (const model of COST_MODELS) {
     assert.ok(changeCostKid(model).startsWith("A move costs the changes it makes, cell by cell") && changeCostRule(model).length > 40, model);

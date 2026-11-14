@@ -45,7 +45,7 @@ export type LoadOptions = {
   /**
    * Every summoned agent is a different program (a different constant), so no examination is answered from the
    * examination cache: the load of players each writing their own code. Default false: everyone summons the same
-   * `add(1)` (the pre-filled example every beginner summons).
+   * `slide(row(0), 1)` (the pre-filled example every beginner summons).
    */
   uniqueSources?: boolean;
   /** The game's fixed length in world seconds (settings.halfLifeSeconds with durationMode "fixed": `endAtWorld`). */
@@ -154,8 +154,8 @@ async function pooled<T, R>(items: T[], width: number, fn: (item: T, index: numb
 }
 
 const SOURCES = {
-  typescript: "function agent(x) { return [add(1)]; }",
-  python: "def agent(x):\n    return [add(1)]",
+  typescript: "function agent(grid) { return [slide(row(0), 1)]; }",
+  python: "def agent(grid):\n    return [slide(row(0), 1)]",
 } as const;
 
 type God = { subject: string; c: ConvexHttpClient };
@@ -281,7 +281,7 @@ export async function runLoad(options: LoadOptions): Promise<LoadResult> {
   const capMs = options.capMs ?? (planningSeconds + lifetimeSeconds) * 1000 + 240_000;
   const say = options.log ?? (() => {});
   const settings = {
-    languages: [language], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0.2,
+    languages: [language], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 0.2,
     planningSeconds, durationMode: "fixed", halfLifeSeconds: lifetimeSeconds, ...options.settings,
   };
 
@@ -348,7 +348,7 @@ export async function runLoad(options: LoadOptions): Promise<LoadResult> {
       const from = Date.now();
       // A player told "the sandbox is busy; send the same command again" does so: the identical envelope, a few seconds later, up to twelve times.
       const envelope = { version: VERSION, commandId: randomUUID(), gameId, command: { type: "summon", name: `Load agent ${seat}.${k}`, language,
-        source: options.uniqueSources ? SOURCES[language].replace("add(1)", `add(${2 + Math.floor(Math.random() * 1e9)})`) : SOURCES[language] } };
+        source: options.uniqueSources ? `${SOURCES[language]}\n${language === "python" ? "#" : "//"} program ${2 + Math.floor(Math.random() * 1e9)}` : SOURCES[language] } };
       for (let attempt = 0; ; attempt++) {
         try {
           const result = await god.c.action(api.commands.submit, { roomId: room.roomId, envelope });

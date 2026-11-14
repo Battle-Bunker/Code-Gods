@@ -9,7 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, raw, rejects, roomWith, sandboxesWarm, startGame, touch, PY, waitFor, makeAdmin } from "./game-helpers.ts";
 
-const INT = { languages: ["python"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600,
+const BOARD = { languages: ["python"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, spawnRateHz: 0, planningSeconds: 3600,
   startingObjectCount: 4, powerPerSecond: 2000, interactionRateHz: 20, halfLifeSeconds: 1e9 };
 
 const pythonRow = async () => (await admin.query(internal.testing.sandboxes, {})).find((r: any) => r.language === "python");
@@ -25,7 +25,7 @@ async function rewarm() {
 test("a start never waits for a cold sandbox; validate, summon and AI seats wait for it; planning holds until it is warm", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("Warm Host", "Warm Ada", "Warm Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], INT);
+  const { roomId } = await roomWith([host, ada, bo], BOARD);
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
   await makeAdmin(host);
   const { godId: aiId } = await host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" });
@@ -42,14 +42,14 @@ test("a start never waits for a cold sandbox; validate, summon and AI seats wait
     const obs = await ada.c.query(api.player.observation, { roomId });
     assert.deepEqual(obs.sandboxes, [{ language: "python", state: "warming" }], "players see the sandbox warming");
 
-    const validate = envelope({ type: "validate", language: "python", source: PY.Int }, game.gameId);
+    const validate = envelope({ type: "validate", language: "python", source: PY.Grid }, game.gameId);
     const early = await ada.c.action(api.commands.submit, { roomId, envelope: validate });
     assert.equal(early.accepted, false);
     assert.equal(early.notReady.state, "warming");
     assert.equal(early.notReady.language, "python");
     assert.ok(early.notReady.retryAfterMs > 0);
     assert.match(early.message, /Python agent sandbox is warming up/);
-    const summon = await bo.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "python", source: PY.Int }, game.gameId) });
+    const summon = await bo.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "python", source: PY.Grid }, game.gameId) });
     assert.equal(summon.notReady?.state, "warming", "summon waits too");
 
     // The AI seat waits without calling its provider.
@@ -89,7 +89,7 @@ test("a sandbox that fails to boot says why: in the observation, at validate, an
   await sandboxesWarm();
   const [host, ada, bo] = await gods("Fail Host", "Fail Ada", "Fail Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], INT);
+  const { roomId } = await roomWith([host, ada, bo], BOARD);
   const game = await startGame(host, roomId);
   try {
     // A boot is scheduled, then reports a failure (the warm-up action's own report path).
@@ -102,7 +102,7 @@ test("a sandbox that fails to boot says why: in the observation, at validate, an
 
     const obs = await ada.c.query(api.player.observation, { roomId });
     assert.deepEqual(obs.sandboxes, [{ language: "python", state: "failed", reason: "the probe agent crashed" }]);
-    const refused = await ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "validate", language: "python", source: PY.Int }, game.gameId) });
+    const refused = await ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "validate", language: "python", source: PY.Grid }, game.gameId) });
     assert.equal(refused.accepted, false);
     assert.deepEqual([refused.notReady.state, refused.notReady.reason], ["failed", "the probe agent crashed"]);
     assert.match(refused.message, /Python agent sandbox failed to start: the probe agent crashed/);

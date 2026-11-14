@@ -12,7 +12,7 @@ export interface FirstAgent { name: string; source: string }
 export interface FirstAgentContext {
   /** The player's rule family (observation self.utility.familyId), for the shared generator. */
   familyId?: string;
-  /** The game's object type: "Grid", "Int" or "string". */
+  /** The game's object type ("Grid"). */
   objectType?: string;
   language: string;
   /** The mutator names the game offers in that language; an example that needs a missing one is not offered. Absent: not checked. */
@@ -28,10 +28,8 @@ const INTRO = (what: string) => [
 /** Per object type: the mutator the move needs, what it does in words, and the call in each language. */
 const GENERIC: Record<string, { name: string; needs: string; what: string; note: string; call: string }> = {
   Grid: { name: "Row slider", needs: "slide", what: "slides the top row one step sideways", note: "row(0) is the top row; 1 is one step.", call: "slide(row(0), 1)" },
-  Int: { name: "Step up", needs: "add", what: "adds 1 to the number", note: "A small step costs little energy.", call: "add(1)" },
-  string: { name: "Letter turner", needs: "rotate", what: "moves the letters round by one place", note: "1 is one place.", call: "rotate(1)" },
 };
-const PARAM: Record<string, string> = { Grid: "grid", Int: "x", string: "s" };
+const PARAM: Record<string, string> = { Grid: "grid" };
 
 /** The first agent for a player's rule in a language, or null when none can be offered (unknown object type, missing mutator). */
 export function firstAgentFor({ objectType, language, mutators }: FirstAgentContext): FirstAgent | null {

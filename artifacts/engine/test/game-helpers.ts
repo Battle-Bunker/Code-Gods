@@ -199,12 +199,8 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
 }
 
 export const TS = {
-  Int: "function agent(x) { return [add(1)]; }",
-  string: "function agent(s) { return [rotate(1)]; }",
   Grid: "function agent(grid) { return [slide(row(0), 1)]; }",
 } as const;
 export const PY = {
-  Int: "def agent(x):\n    return [add(1)]",
-  string: "def agent(s):\n    return [rotate(1)]",
   Grid: "def agent(grid):\n    return [slide(row(0), 1)]",
 } as const;

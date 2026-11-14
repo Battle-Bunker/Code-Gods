@@ -8,6 +8,7 @@
  * `owner.command` is the room assistant's `room-command`: one entry point for settings, start, resume,
  * endGame, addAi, removeAi (browser owner, or an `owner` credential of the room's current owner).
  */
+import { OBJECT_TYPES } from "@workspace/game-types";
 import { ConvexError, v } from "convex/values";
 import { LANGUAGE_SPECS, instantiationOf, gameEndSeconds, upgradeStoredSettings, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { api, internal } from "./_generated/api";
@@ -202,6 +203,8 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   }
   // A room the single-language migration has not reached yet plays its one language (upgradeStoredSettings).
   const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
+  // A room stored on a removed object type (Int and string, deleted in D1): say so, not "unknown object type".
+  if (!OBJECT_TYPES.some(t => t.id === settings.objectType)) fail("BAD_REQUEST", `The ${settings.objectType} object type was removed: choose a Grid board (or a setup) for this room`);
   const manifest = await calibrationManifest(ctx);
   try { validateSettings(settings, settingsDomain()); } catch (error) { fail("BAD_REQUEST", (error as Error).message); }
   assertShape(manifest, settings);

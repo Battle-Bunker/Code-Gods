@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  CHANGE_READ_RATIO, GRID, INT, READ_PRICE, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent,
+  CHANGE_READ_RATIO, GRID, READ_PRICE, actCharge, applyCalls, gridFromHex, isSkip, measureAgent,
   mixtureFromHexFixture, readBound, failedReadBits, referenceMixture, withComponents, type ObjectValue,
 } from "../src/index.ts";
 
@@ -36,8 +36,6 @@ test("the published reference grids load as wire values", () => {
 for (const [label, typeDef, i] of [
   ["Grid(5,base10,rgby)", GRID, inst],
   ["Grid(7,cards,rainbow6)", GRID, GRID.instantiate({ size: 7, symbols: "cards", colours: "rainbow6" })],
-  ["Int(0,9999)", INT, INT.instantiate({ min: 0, max: 9999 })],
-  ["string(16)", STRING, STRING.instantiate({ maxLength: 16 })],
 ] as const) {
   test(`referenceMixture(${label}) is deterministic in the salt, valid, uniform then structured`, () => {
     const a = referenceMixture(i, "season-1 secret", { nUniform: 32, nStructured: 16 });
@@ -135,19 +133,6 @@ test("a run that raises or errs does nothing but still pays what it read", async
   assert.equal(junk.diagnostics.invalidRate, 1);
 });
 
-test("measureAgent works for Int and string agents too", async () => {
-  const ii = INT.instantiate({ min: 0, max: 9999 });
-  const mix = referenceMixture(ii, "unit", { nUniform: 64, nStructured: 32 });
-  const odd = await measureAgent(v => ({ calls: [["set_digit", { place: 0, digit: (v as number) % 2 ? 1 : 0 }]], readBits: Math.log2(10) }), ii, mix, { salt: "unit" });
-  close(odd.expectedReadBits, Math.log2(10), 1e-12, "read");
-  close(odd.expectedRead, Math.log2(10) * READ_PRICE, 1e-12, "read charge");
-  assert.ok(odd.expectedChange > 0);
-  const si = STRING.instantiate({ maxLength: 16 });
-  const smix = referenceMixture(si, "unit", { nUniform: 32, nStructured: 16 });
-  const part = await measureAgent(() => [["reverse", { range: [0, 4] }]], si, smix, { salt: "unit" });
-  assert.ok(part.diagnostics.invalidRate > 0 && part.diagnostics.changeRate > 0);
-});
-
 test("measureAgent refuses a missing salt or a mixture of another instantiation", async () => {
   await assert.rejects(measureAgent(() => [], inst, small, { salt: "" }));
   const other = referenceMixture(GRID.instantiate({ size: 4, symbols: "base10", colours: "rgby" }), "unit", { nUniform: 2, nStructured: 0 });
@@ -201,7 +186,6 @@ test("isSkip: an empty call list, None/null, or a clause around no calls", () =>
 
 test("readBound: an unreadable meter is charged the whole object's information", () => {
   close(readBound(GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" })), 16 * (Math.log2(10) + Math.log2(3)), 1e-9, "4×4 grid");
-  close(readBound(INT.instantiate({ min: -2147483648, max: 2147483647 })), 32, 1e-9, "Int32");
 });
 
 test("failedReadBits: the meter if it reported, the bound only for an act cut off while running, else nothing", () => {

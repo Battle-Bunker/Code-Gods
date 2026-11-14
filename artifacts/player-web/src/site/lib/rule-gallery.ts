@@ -28,7 +28,7 @@ export const galleryObjectTypes = (): { id: string; label: string; emoji: string
 
 /**
  * The setup form's fields for a setup: each type param with the values some playable board has, plus the setup's own
- * value when it is a valid board the presets do not list (Int(5,100)), so a select always shows what the page uses.
+ * value when it is a valid board the presets do not list (a retired 3×3), so a select always shows what the page uses.
  */
 export function setupFields(setup: GallerySetup): { id: string; label: string; options: { value: string | number; label: string }[] }[] {
   const t = objectType(setup.objectType), boards = playableInstantiations(setup.objectType);

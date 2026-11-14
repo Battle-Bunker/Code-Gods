@@ -158,7 +158,7 @@ test("a chip never ends in silence: no example, a failed test and a refused tool
   const refusedSkill = await mock.stream(ask([asked, { role: "assistant", content: first.content }, toolResult("mock_0_0", { error: { code: "UNAUTHENTICATED", message: "revoked" } }, true)]));
   assert.ok(textOf(refusedSkill).length > 0);
 
-  const example = firstAgentFor({ objectType: "Int", language: "typescript" })!;
+  const example = firstAgentFor({ objectType: "Grid", language: "typescript" })!;
   const loaded = [asked, { role: "assistant" as const, content: first.content }, toolResult("mock_0_0", { data: { body: firstAgentSection(example, "typescript") } })];
   const second = await mock.stream(ask(loaded));
   const failing = (validation: ChatMessage) => mock.stream(ask([...loaded, { role: "assistant" as const, content: second.content }, validation]));

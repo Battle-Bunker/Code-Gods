@@ -170,8 +170,8 @@ export interface DrawPlan { readonly key: string; readonly familyId: string; rea
 /**
  * The split plan of each missing table (architecture.md §3.2): its single-run cost measured here (`estimateCost`: a few
  * hundred evaluations, tens of milliseconds, at this machine's speed, which is the compute actions'), then as many
- * replicate pieces as keep each near PIECE_TARGET_SECONDS. Tables that are not sampled (an enumerable Int range) and
- * cheap ones stay one action.
+ * replicate pieces as keep each near PIECE_TARGET_SECONDS. Tables that are not sampled (an analytic) and cheap ones
+ * stay one action.
  */
 export function planDraws(inst: Instantiation, draws: readonly { draw: Draw; canon: Draw["params"]; key: string }[]): DrawPlan[] {
   const budget = budgetFor(inst.objectType), seen = new Map<string, DrawPlan>();

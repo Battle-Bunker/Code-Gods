@@ -13,8 +13,8 @@ import assert from "node:assert/strict";
 import { admin, adminGods, api, makeAdmin, gods, internal, rejects, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const ADMIN_ONLY = /AI is only available in rooms run by an administrator for now/;
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify({ steps })}`;

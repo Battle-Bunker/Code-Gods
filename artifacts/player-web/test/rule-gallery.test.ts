@@ -22,13 +22,12 @@ test("the setup comes from GET params, falling back to the beginner board for an
   assert.deepEqual(setupFromSearch("?size=6&symbols=cards&colours=rainbow6"), { objectType: "Grid", typeArgs: { size: 6, symbols: "cards", colours: "rainbow6" } });
   assert.deepEqual(setupFromSearch("?size=3"), DEFAULT_SETUP, "3×3 is retired");
   assert.deepEqual(setupFromSearch("?size=99&colours=rgby"), DEFAULT_SETUP, "an unplayable board falls back whole");
-  assert.deepEqual(setupFromSearch("?objectType=Int&min=0&max=9999"), { objectType: "Int", typeArgs: { min: 0, max: 9999 } });
+  assert.deepEqual(setupFromSearch("?objectType=Int&min=0&max=9999"), DEFAULT_SETUP, "an object type that no longer exists falls back");
 });
 
 test("the gallery lists exactly the annotated families each board can deal, in the lens order", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
   assert.deepEqual(galleryFamilies(inst), LENSES.map(l => l.familyId));
-  assert.deepEqual(galleryFamilies(instantiate("Int", { min: 0, max: 9999 })), [], "no Int family is annotated yet");
 });
 
 test("a tile's fields are the family's named, typed params with the values its support allows; changing one snaps to the support", () => {
@@ -86,14 +85,13 @@ test("no annotated family has a param named like a board arg or the language, so
     const inst = instantiate("Grid", args);
     for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(!RESERVED_PARAMS.includes(f.key), `${id}.${f.key}`);
   }
-  assert.ok(RESERVED_PARAMS.includes("size") && RESERVED_PARAMS.includes("max") && RESERVED_PARAMS.includes("lang"));
+  assert.ok(RESERVED_PARAMS.includes("size") && RESERVED_PARAMS.includes("colours") && RESERVED_PARAMS.includes("lang"));
   assert.deepEqual(rawParamsOf("?size=4&X=1&lang=typescript&axis=rows"), { X: "1", axis: "rows" });
 });
 
 test("a valid board the presets do not list still shows its own values in the setup selects", () => {
-  const fields = setupFields({ objectType: "Int", typeArgs: { min: 5, max: 100 } });
-  assert.ok(fields.find(f => f.id === "min")!.options.some(o => o.value === 5));
-  assert.ok(fields.find(f => f.id === "max")!.options.some(o => o.value === 100));
+  const fields = setupFields({ objectType: "Grid", typeArgs: { size: 3, symbols: "base10", colours: "rgb" } });
+  assert.ok(fields.find(f => f.id === "size")!.options.some(o => o.value === 3), "the retired 3×3 is no preset, but the page shows it");
 });
 
 test("an option's key is the scalar itself or a list's JSON, and a family without params draws {}", () => {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
-import { GRID, INT, OBJECT_TYPES, STRING, availableMutators, instanceInfo, seededRng, sha256, withCommitClause, type Instantiation } from "../src/index.ts";
+import { GRID, OBJECT_TYPES, availableMutators, instanceInfo, seededRng, sha256, withCommitClause, type Instantiation } from "../src/index.ts";
 
 const JS_GLOBALS = new Set([...Object.getOwnPropertyNames(globalThis), "escape", "unescape", "print", "name", "length", "self", "window"]);
 
@@ -64,10 +64,6 @@ test("kid API values match the host tables", () => {
   assert.throws(() => run(inst, `nextColour("pink")`));
   assert.throws(() => run(inst, `__decode("KHV")`));
   assert.throws(() => run(inst, `__decode(${JSON.stringify(wire)}).cell(3, 0)`));
-  const ints = INT.instantiate({ min: 0, max: 9999 });
-  assert.deepEqual(run(ints, `[digits(-305), fromDigits([3, 0, 5]), LOWEST, HIGHEST]`), [[3, 0, 5], 305, 0, 9999]);
-  assert.throws(() => run(ints, `__decode(10000)`));
-  assert.equal(run(STRING.instantiate({ maxLength: 3 }), "MAX_LENGTH"), 3);
 });
 
 test("__encode_calls", () => {
@@ -117,8 +113,6 @@ test("dts type-checks kid cards, and only offers the room's helpers", () => {
   assert.deepEqual(diagnostics(GRID.prelude(cards).dts, fancy), []);
   const errs = diagnostics(GRID.prelude(digits).dts, fancy);
   assert.ok(errs.some(e => /suit/.test(e)) && errs.some(e => /isPicture/.test(e)) && errs.some(e => /mix/.test(e)), errs.join("\n"));
-  assert.deepEqual(diagnostics(INT.prelude(INT.instantiate({})).dts, `const d: number[] = digits(LOWEST); fromDigits(d); __decode(3);`), []);
-  assert.deepEqual(diagnostics(STRING.prelude(STRING.instantiate({})).dts, `const n: number = MAX_LENGTH; __decode("x");`), []);
 });
 
 // The derived fields (pricing vocabulary, hash) are computed on first read (prelude.ts withDerived, so describing an

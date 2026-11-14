@@ -358,7 +358,7 @@ test("a beginner's first agent asks for as much power as still leaves a store fo
   assert.equal(summonShare({ ...beginner, allocated: 0.5 }), undefined, "power already given out with no agent listed: nothing above the default is left");
   assert.equal(summonShare({ ...beginner, allocated: undefined }), undefined, "the state has not arrived: the default");
   assert.equal(summonShare({ ...beginner, fullChargeSeconds: undefined }), undefined, "a game with no capacity: the default");
-  assert.equal(summonShare({ ...beginner, powerPerSecond: 8, fullChargeSeconds: 60 }), undefined, "a small store (Int and string worlds): the default");
+  assert.equal(summonShare({ ...beginner, powerPerSecond: 8, fullChargeSeconds: 60 }), undefined, "a small store: the default");
 });
 
 test("the summon preview says what the new agent starts with when the player's store would overflow its new limit", () => {

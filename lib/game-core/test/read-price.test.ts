@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { READ_PRICE, changeCost, digitAddCost, gridElementaryCosts, multiplyCost, objectType, readBound, stringElementaryCosts, type CostModel } from "@workspace/game-types";
+import { READ_PRICE, changeCost, gridElementaryCosts, objectType, readBound, type CostModel } from "@workspace/game-types";
 import { COST_MODELS, SEED_SETUPS, costModelOf, defaultSettingsFor, instantiationOf, lookIsCheaperThanChange, supportedCostModels, validateSettings } from "../src/index.ts";
 
 /** The cheapest change an act can make to an object of this instantiation (one elementary mutator) under a cost model. */
@@ -18,8 +18,6 @@ function cheapestChange(settings: Parameters<typeof instantiationOf>[0], model: 
     return Math.min(...rows.map(r => changeCost(r.work)));
   }
   if (inst.objectType === "Grid") { const w = gridElementaryCosts(inst); return Math.min(changeCost(w.colour), changeCost(w.symbol)); }
-  if (inst.objectType === "Int") return Math.min(changeCost(digitAddCost(inst)), changeCost(multiplyCost(-1)));
-  if (inst.objectType === "string") { const w = stringElementaryCosts(inst); return changeCost(Math.min(w.set, w.insert, w.delete)); }
   throw new Error(`no cheapest change for ${inst.objectType}: add it here`);
 }
 

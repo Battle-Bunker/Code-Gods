@@ -33,8 +33,8 @@ import { executionLog, type Execution } from "./execution-log.ts";
 import { BUDGETS, LIMITS, refOf, type Budget, type Fixture } from "./query-budgets.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 1000, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 0,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 1000, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 0,
   halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 const RUNS = 10;
@@ -83,7 +83,7 @@ before(async () => {
   gameId = game.gameId;
   let commandId = "";
   for (const god of [ada, bo, cy]) {
-    const summon = envelope({ type: "summon", name: "Gate agent", language: "typescript", source: TS.Int }, gameId);
+    const summon = envelope({ type: "summon", name: "Gate agent", language: "typescript", source: TS.Grid }, gameId);
     const summoned = await god.c.action(api.commands.submit, { roomId, envelope: summon });
     assert.equal(summoned.accepted, true, `${god.name} summons: ${summoned.message}`);
     if (god === ada) commandId = summon.commandId;

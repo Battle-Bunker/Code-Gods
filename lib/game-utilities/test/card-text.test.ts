@@ -57,7 +57,6 @@ test("the verb is left alone, and decimal or negative amounts are reworded", () 
 test("no family's card text, reworded, uses the reserved word for what the card counts", () => {
   const shapes = [
     instantiate("Grid", {}), instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), instantiate("Grid", { size: 7, symbols: "cards", colours: "rainbow6" }),
-    instantiate("Int", {}), instantiate("string", {}),
   ];
   let checked = 0;
   for (const inst of shapes) {

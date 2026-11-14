@@ -27,9 +27,9 @@ const SITE = process.env.CG_TEST_SITE_URL ?? `http://127.0.0.1:${ports?.site ?? 
 const MCP = `${SITE}/mcp`;
 const MODERN = "2026-07-28";
 const LEGACY = "2025-06-18";
-const TS_INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, languages: ["typescript"],
+const TS_BOARD = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
   startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 200, interactionRateHz: 20, startingEnergy: 1000 };
-const AGENT = "function agent(x) { return [add(1)]; }";
+const AGENT = "function agent(grid) { return [slide(row(0), 1)]; }";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 /** A real `cgc_` device credential for `god` in `roomId`: the engine stores only its hash. */
@@ -73,7 +73,7 @@ async function listTools(token: string): Promise<string[]> {
 async function lobby() {
   const [host, ada, bo] = await gods("Mcp Host", "Mcp Ada", "Mcp Bo");
   await touch(host);
-  const { roomId, shortCode } = await roomWith([host, ada, bo], TS_INT);
+  const { roomId, shortCode } = await roomWith([host, ada, bo], TS_BOARD);
   return { host, ada, bo, roomId, shortCode };
 }
 
@@ -239,7 +239,7 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
 test("bid phase: the bid tools show, place, replace, withdraw and finish; bids are sealed; a read grant cannot bid; the phase ends when every human is done", { timeout: 240000 }, async () => {
   const [host, ada, bo] = await gods("Bid Host", "Bid Ada", "Bid Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...TS_INT, bidSeconds: 300 });
+  const { roomId } = await roomWith([host, ada, bo], { ...TS_BOARD, bidSeconds: 300 });
   const owner = await credential(host, roomId, "owner"), actor = await credential(ada, roomId, "act");
   const reader = await credential(bo, roomId, "read"), boActs = await credential(bo, roomId, "act");
   const BID_TOOLS = ["place_bid", "withdraw_bid", "finish_bidding"];
@@ -351,7 +351,7 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   assert.equal(agents.length, 1, "exactly one agent after the replay");
   // waitMs 0: the summon runs on the server after the call answers `pending`; get_receipt completes it.
   const later = randomUUID();
-  const pending = await call(actor.token, "summon_agent", { name: "Test agent", source: "function agent(x) { return [add(3)]; }", commandId: later, waitMs: 0 });
+  const pending = await call(actor.token, "summon_agent", { name: "Test agent", source: "function agent(grid) { return [slide(row(0), 3)]; }", commandId: later, waitMs: 0 });
   assert.equal(pending.data.status, "pending");
   assert.equal(pending.data.commandId, later);
   const done = await waitFor(async () => {
@@ -374,7 +374,7 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
 test("disclosure: every read tool, as one of three players, reveals no other god's scores, descriptors or sources", { timeout: 240000 }, async () => {
   const [host, ada, bo] = await gods("Mcp Disclosure Host", "Mcp Disclosure Ada", "Mcp Disclosure Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...TS_INT, objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" },
+  const { roomId } = await roomWith([host, ada, bo], { ...TS_BOARD, objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" },
     startingObjectCount: 12, spawnRateHz: 2, interactionRateHz: 40 });
   const game = await startGame(host, roomId);
   const send = (god: God, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });

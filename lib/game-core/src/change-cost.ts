@@ -18,7 +18,7 @@ type Shape = Parameters<typeof instantiationOf>[0];
 /** One kind of one-cell move with its work W (bits) and what an act that makes only that change pays (energy bits). */
 export interface ChangePrice { readonly move: string; readonly work: number; readonly energy: number }
 
-/** The shape's price list under a model; empty when the type has none (Int, string) or the shape is not valid. */
+/** The shape's price list under a model; empty when the type has none or the shape is not valid. */
 export function changePrices(shape: Shape, model: CostModel = DEFAULT_COST_MODEL): ChangePrice[] {
   try {
     const rows = objectType(shape.objectType).costTable?.(instantiationOf(shape), model) ?? [];
@@ -43,7 +43,7 @@ export function changePriceList(shape: Shape, model: CostModel = DEFAULT_COST_MO
 }
 
 /** The rule that is true of every model, for an AI. */
-export const CHANGE_COST_RULE = `A change costs W + ${CHANGE_BETA}·W², where W adds up what the act's calls really changed, cell by cell (digit by digit on an Int, character by character on a string), whatever mutator made the change.`;
+export const CHANGE_COST_RULE = `A change costs W + ${CHANGE_BETA}·W², where W adds up what the act's calls really changed, cell by cell, whatever mutator made the change.`;
 
 const NET_EFFECT = "Every mutator is priced by its net effect on each cell: write(cell, 7) on a 5 costs what add(cell, 2) costs, and rows, slides and swaps pay for each cell by how far its number moved.";
 const FLAT = "A colour (or a card's suit) pays one flat price for changing.";
@@ -85,14 +85,13 @@ export function rowFactor(shape: Shape, model: CostModel = DEFAULT_COST_MODEL): 
 }
 
 /**
- * A room's change cost for an AI: the rule, this room's model, its price list and the square's effect. A type without
- * a price list (Int, string) gets its elementary steps in words.
+ * A room's change cost for an AI: the rule, this room's model, its price list and the square's effect.
  */
 export function changeCostExplained(shape: Shape, model: CostModel = DEFAULT_COST_MODEL): string {
   const list = changePriceList(shape, model), factor = rowFactor(shape, model);
   const here = list
     ? `${model === "set-v1" ? "This room prices every changed cell alike" : "This room prices by distance"} (cost model ${model}). ${changeCostRule(model)}\nAn act that makes only that one change pays: ${list}.`
-    : "On an Int the steps are one digit added (d·10^p) or a multiplication by a prime; on a string one character set, inserted or deleted.";
+    : "This room's shape has no price list.";
   const square = factor !== undefined
     ? `The square makes big acts dear: changing 4 cells in one act costs about ${f1(factor)}× the cheapest one-cell change.`
     : "The square makes big acts dear.";

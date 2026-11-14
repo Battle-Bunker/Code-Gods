@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { admin, api, gods, internal, rejects, roomWith, startGame, touch, waitFor, makeAdmin } from "./game-helpers.ts";
 
-const INT_TS = { languages: ["typescript"], objectType: "Int", spawnRateHz: 0 };
+const BOARD_TS = { languages: ["typescript"], objectType: "Grid", spawnRateHz: 0 };
 
 test("room lobby lifecycle: launch, spectate, end by lifetime, history, second game, end by owner", { timeout: 180000 }, async () => {
   const [host, ada, bo, cy] = await gods("Lobby Host", "Ada Seated", "Bo Seated", "Cy Latecomer");
@@ -35,14 +35,14 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
 
   // Settings: optimistic on the revision; owner only; invalid instantiations refused (any valid one is playable: its
   // tables are prepared on its first game).
-  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision + 7, settings: { ...INT_TS } })), /refresh/);
-  assert.match(await rejects(ada.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS } })), /owner/i);
-  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS, typeArgs: { min: 5, max: 0 } } })), /typeArgs/);
-  const first = await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS, startingObjectCount: 4 } });
+  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision + 7, settings: { ...BOARD_TS } })), /refresh/);
+  assert.match(await rejects(ada.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...BOARD_TS } })), /owner/i);
+  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...BOARD_TS, typeArgs: { size: 4, symbols: "base10", colours: "plaid" } } })), /typeArgs/);
+  const first = await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...BOARD_TS, startingObjectCount: 4 } });
   assert.equal(first.revision, room.revision + 1);
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.equal(room.settings.startingObjectCount, 4);
-  assert.equal(room.objectInstance.objectType, "Int");
+  assert.equal(room.objectInstance.objectType, "Grid");
 
   assert.match(await rejects(ada.c.action(api.owner.start, { roomId })), /owner/i);
   const two = await gods("Lonely Owner", "Only Friend");
@@ -64,7 +64,7 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   assert.deepEqual(view.winners, []);
   assert.equal((await host.c.query(api.games.resolve, { code: game1.shortCode.toLowerCase() })).status, "current");
   assert.match(await rejects(host.c.action(api.owner.start, { roomId })), /already a live game/);
-  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS } })), /frozen/);
+  assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...BOARD_TS } })), /frozen/);
   await makeAdmin(host);
   assert.match(await rejects(host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" })), /frozen/);
 

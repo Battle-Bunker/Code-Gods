@@ -198,8 +198,10 @@ export function Bidding({ room, bidding, isOwner, meId }: { room: RoomState; bid
 
   // "See the full card": the rule's page in the gallery, on this room's board (a new tab: the clock is running here).
   const cardHref = useMemo(() => {
+    const instance = room.objectInstance;
+    if (!instance) return () => null;
     try {
-      const setup = { objectType: room.objectInstance.objectType, typeArgs: room.objectInstance.args };
+      const setup = { objectType: instance.objectType, typeArgs: instance.args };
       const annotated = new Set(galleryFamilies(instOf(setup)));
       const search = gallerySearch(setup);
       return (id: string) => (annotated.has(id) ? routeHref(import.meta.env.BASE_URL, { kind: "ruleFamily", family: id }, search) : null);

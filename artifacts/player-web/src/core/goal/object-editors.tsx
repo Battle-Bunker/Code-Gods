@@ -1,12 +1,11 @@
 /**
- * Object editors: one per object type (a registry keyed by the editor kind, src/lib/object-editor-model.ts), each able
- * to set every legal value of its instantiation. Grid: pick a cell (click, or arrow keys), then its symbol and colour
- * from the board's own palette. Int: a whole number in range. string: ASCII text within its length.
+ * The object editor, able to set every legal value of its instantiation: pick a cell (click, or arrow keys), then its
+ * symbol and colour from the board's own palette (src/lib/object-editor-model.ts).
  */
 import { MONO_TILE } from "@workspace/object-views";
-import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { isMonoColours, type GridColourSet, type Instantiation, type ObjectValue } from "@workspace/game-types";
-import { editorKindOf, gridCellsOf, gridPalette, parseObjectText, withGridCell, type EditorKind } from "@/lib/object-editor-model";
+import { gridCellsOf, gridPalette, withGridCell } from "@/lib/object-editor-model";
 
 export interface ObjectEditorProps {
   value: ObjectValue;
@@ -14,12 +13,9 @@ export interface ObjectEditorProps {
   onChange: (value: ObjectValue) => void;
 }
 
-const OBJECT_EDITORS: Record<EditorKind, ComponentType<ObjectEditorProps>> = { grid: GridEditor, number: TextEditor, text: TextEditor };
-
-/** The editor for the instantiation's object type. */
+/** The editor for the instantiation's objects (grids are the only object type). */
 export function ObjectEditor(props: ObjectEditorProps) {
-  const Editor = OBJECT_EDITORS[editorKindOf(props.inst.objectType)];
-  return <Editor {...props} />;
+  return <GridEditor {...props} />;
 }
 
 function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
@@ -96,32 +92,5 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
         </fieldset>}
       </div>
     </div>
-  );
-}
-
-function TextEditor({ value, inst, onChange }: ObjectEditorProps) {
-  const [text, setText] = useState(String(value));
-  const [error, setError] = useState<string | null>(null);
-  // A new value from elsewhere (Randomise) replaces the text; the user's own typing of the same value is left alone.
-  useEffect(() => {
-    setText(t => { const typed = parseObjectText(t, inst); return typed.ok && typed.value === value ? t : String(value); });
-    setError(null);
-  }, [value, inst]);
-  const number = inst.objectType === "Int";
-  const args = inst.args as { min?: number; max?: number; maxLength?: number };
-  return (
-    <label className="flex flex-col gap-1 text-xs" data-testid="object-editor-text">
-      <span className="text-muted-foreground">
-        {number ? `A whole number from ${args.min} to ${args.max}` : `Text (ASCII, at most ${args.maxLength ?? "any"} characters)`}
-      </span>
-      <input className="border bg-background px-2 py-1 font-mono text-sm" value={text} inputMode={number ? "numeric" : "text"}
-        aria-invalid={!!error} data-testid="editor-text"
-        onChange={e => {
-          setText(e.target.value);
-          const parsed = parseObjectText(e.target.value, inst);
-          if (parsed.ok) { setError(null); if (parsed.value !== value) onChange(parsed.value); } else setError(parsed.error);
-        }} />
-      {error && <span className="text-destructive" role="alert">{error}</span>}
-    </label>
   );
 }

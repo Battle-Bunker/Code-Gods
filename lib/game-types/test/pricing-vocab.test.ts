@@ -32,7 +32,7 @@ test("every prelude carries a pricing vocabulary consistent with its constructor
 
 test("the commit clause: wrapper only when offered, object form parsed, flag carried by applyCalls", async () => {
   const { withCommitClause, applyCalls, parseAct, objectType: T, instantiate } = await import("../src/index.ts");
-  const inst = instantiate("Int", {}), base = T("Int").prelude(inst), offered = withCommitClause(base);
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), base = T("Grid").prelude(inst), offered = withCommitClause(base);
   assert.ok(!base.python.includes("def only_if_better") && !base.js.includes("function onlyIfBetter"));
   assert.ok(offered.python.includes("def only_if_better") && offered.js.includes("function onlyIfBetter") && offered.dts.includes("onlyIfBetter"));
   assert.notEqual(offered.hash, base.hash);
@@ -43,8 +43,9 @@ test("the commit clause: wrapper only when offered, object form parsed, flag car
   assert.deepEqual(parseAct('[["add",{"k":1}]]'), { list: [["add", { k: 1 }]] });
   for (const bad of ['{"calls":[],"commit":"do-no-harm"}', '{"calls":[]}', '{"calls":[],"commit":"if-improves","x":1}', '{"calls":{},"commit":"if-improves"}'])
     assert.throws(() => parseAct(bad));
-  const out = applyCalls(T("Int"), inst, 5, '{"calls":[["add",{"k":1}]],"commit":"if-improves"}');
-  assert.ok(out.ok && out.commit === "if-improves" && out.value === 6);
-  const plain = applyCalls(T("Int"), inst, 5, '[["add",{"k":1}]]');
+  const row = "0R,0R,0R,0R", board = [row, row, row, row].join("/"), write = '[["write",{"kind":"cell","region":[0,0],"symbol":1}]]';
+  const out = applyCalls(T("Grid"), inst, board, `{"calls":${write},"commit":"if-improves"}`);
+  assert.ok(out.ok && out.commit === "if-improves" && out.value === ["1R,0R,0R,0R", row, row, row].join("/"));
+  const plain = applyCalls(T("Grid"), inst, board, write);
   assert.ok(plain.ok && plain.commit === undefined);
 });

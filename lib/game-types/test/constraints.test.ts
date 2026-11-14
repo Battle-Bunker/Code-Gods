@@ -28,9 +28,6 @@ const cases: [string, Constraint[], ReturnType<typeof grid>, string, Record<stri
   ["two params", [has("Suited"), odd()], grid(4, "base10", "rgb"), "needs ♠ Suits: pick Playing cards", { size: 3, symbols: "cards" }],
   ["without suits", [not(has("Suited"))], grid(5, "cards", "rgb"), "doesn't work with ♠ Suits: pick Digits 0–9, Base 12 (0–B) or Hex (0–F)", { symbols: "base10" }],
   ["impossible", [minSize(9)], grid(5, "base10", "rgb"), "needs a bigger board: size 9 or more", undefined],
-  ["natural", [has("Natural")], instantiate("Int", {}), "needs 🔢 Counting numbers: pick smallest 0", { min: 0 }],
-  ["bounds", [atLeast("bounds.max", 50000)], instantiate("Int", { min: 0, max: 9999 }), "needs the biggest number to be at least 50000: pick biggest 2147483647", { max: 50000 }],
-  ["length", [atLeast("length.max", 64)], instantiate("string", { maxLength: 16 }), "needs the longest text to be at least 64: pick longest 128", { maxLength: 64 }],
 ];
 
 for (const [name, cs, inst, reason, patch] of cases) {

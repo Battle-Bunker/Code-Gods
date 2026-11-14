@@ -59,23 +59,15 @@ export function useObjectRenderer(type: string): string | undefined {
   return useSyncExternalStore(subscribeObjectRenderer, () => getObjectRenderer(type), () => objectViews.get(type)?.defaultRenderer);
 }
 
-/** Text form used today for Int and string values: numbers as-is, strings JSON-quoted so spaces, quotes and control characters stay visible. */
+/** Text form of a value no renderer can draw: numbers as-is, strings JSON-quoted so spaces, quotes and control characters stay visible. */
 export function objectText(value: ObjectValue): string {
   return typeof value === "number" ? String(value) : JSON.stringify(value);
 }
 
-/** Int and string values: the text. */
-function TextObject({ value, className, showTitle, type }: ObjectViewProps & { type: "Int" | "string" }) {
+/** The fallback for a value no renderer can draw (a malformed grid, an unknown type): the text. */
+function TextObject({ value, className, showTitle }: ObjectViewProps) {
   const text = objectText(value);
-  return <span className={className} title={showTitle ? text : undefined} data-object-type={type}>{text}</span>;
-}
-
-export function IntObject(props: ObjectViewProps) {
-  return <TextObject {...props} type="Int" />;
-}
-
-export function StringObject(props: ObjectViewProps) {
-  return <TextObject {...props} type="string" />;
+  return <span className={className} title={showTitle ? text : undefined}>{text}</span>;
 }
 
 function useColourCue(): ColourCue {
@@ -284,16 +276,12 @@ export function GridObject(props: ObjectViewProps) {
   const key = `${grid?.size}|${grid?.symbols}|${grid?.colours}`;
   const model = useMemo(() => gridModel(value, grid), [value, key]);
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
-  if (!model) return <StringObject {...props} />;
+  if (!model) return <TextObject {...props} />;
   const typeLabel = grid?.size && grid.symbols && grid.colours ? `Grid(${grid.size},${grid.symbols},${grid.colours})` : undefined;
   return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} grid={grid} plain={props.plain} />;
 }
 
-// Built-in types. Later registrations are tried first when inferring, so Grid wins over string.
-objectViews.register({ type: "string", infer: (v) => typeof v === "string",
-  renderers: [{ id: "text", label: "Text", blurb: "The string in quotes, so spaces and symbols stay visible.", Component: StringObject }] });
-objectViews.register({ type: "Int", infer: (v) => typeof v === "number",
-  renderers: [{ id: "text", label: "Text", blurb: "The number.", Component: IntObject }] });
+// Built-in types.
 objectViews.register({ type: "Grid", infer: looksLikeGrid, defaultRenderer: "digits", renderers: [
   { id: "digits", label: "Digits", blurb: "Rows of coloured digits (cards: rank and suit), compact enough for lists.", Component: GridObject },
   { id: "tiles", label: "Tiles", blurb: "A small board of coloured tiles, with a letter for each colour on request.", Component: GridObject },
@@ -314,7 +302,7 @@ export function ObjectView(props: ObjectViewProps) {
   const entry = objectViews.resolve(props.value, props);
   const chosen = useObjectRenderer(entry?.type ?? "");
   const picked = entry ? objectViews.pick(entry.type, props.renderer ?? chosen) : undefined;
-  const Component = picked?.Component ?? StringObject;
+  const Component = picked?.Component ?? TextObject;
   return <Component {...props} renderer={picked?.id ?? props.renderer} />;
 }
 

@@ -21,7 +21,7 @@
     "upload-calibration": "node scripts/upload-calibration.mjs",
     "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts test/external-clients.test.ts",
     "test:unit": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts",
-    "test:calibration": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game-calibration.test.ts test/calibration-ondemand.test.ts",
+    "test:calibration": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game-calibration.test.ts",
     "test:v2": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/v2-*.test.ts"
   },
   "dependencies": {

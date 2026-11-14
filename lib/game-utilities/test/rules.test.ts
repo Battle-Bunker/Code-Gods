@@ -18,8 +18,6 @@ import type { Params, UtilityFamily } from "../src/types.ts";
 
 const SHAPES: readonly Instantiation[] = [
   ...playableInstantiations("Grid"),
-  instantiate("Int", objectType("Int").defaults), instantiate("Int", { min: 0, max: 9999 }),
-  instantiate("string", objectType("string").defaults), instantiate("string", { maxLength: 16 }),
 ];
 const SAMPLE = 48;
 

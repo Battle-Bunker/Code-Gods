@@ -55,23 +55,23 @@ import { createRuntime, RuntimeError } from "@workspace/game-runtime";
 const runtime = createRuntime({ language: "python", workers: 2, queueLimit: 32 });
 const parts = objectType.prelude(inst);              // lib/game-types PreludeParts
 const settings = {
-  objectType: "Int", wireMaxLength: 0,               // 0 for numeric types
+  objectType: "Grid", wireMaxLength: codec.maxLength, // the type codec's longest wire string
   interactionComputeMs: 1000, stepBudget: 500000,    // CPU backstop; deterministic step budget
   prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
              pricing: { python: vocab, typescript: vocabTs } },   // see "Prelude contract"
 };
-const source = "def agent(n):\n    return [add(1)]\n";
+const source = "def agent(grid):\n    return [slide(row(0), 1)]\n";
 await runtime.inspect(source, settings);
-// {complexityFunctionId: "ast-bits-v1", cost, astBytes: 11, parts: {structure, names, literals, moveFlags},
-//  literalMoves: [["add", {"k": 1}]], literalMoveFallbackBits: [...]}; never evaluates the source
-await runtime.act(source, 41, settings, seed);  // seed: 64-bit decimal / 0x-hex string, per act
-// {calls: '[["add",{"k":1}]]' (UNTRUSTED text), usedRandom: false, steps: 2}
-await runtime.validate(source, [0, 10], settings, [seed0, seed1]);
+// {complexityFunctionId: "ast-bits-v1", cost, astBytes, parts: {structure, names, literals, moveFlags},
+//  literalMoves: [["shift_line", {...}]], literalMoveFallbackBits: [...]}; never evaluates the source
+await runtime.act(source, wire, settings, seed);  // wire: the object's wire string; seed: 64-bit decimal / 0x-hex string, per act
+// {calls: '[["shift_line",{...}]]' (UNTRUSTED text), usedRandom: false, steps: ...}
+await runtime.validate(source, [wire0, wire1], settings, [seed0, seed1]);
 // {inspection, acts: [ActResult, ActResult]}; each sample gets a fresh guest
 runtime.close(); // shutdown hook: rejects outstanding work, kills workers
 ```
 
-TypeScript source: `function agent(n) { return [add(1)]; }` (annotations allowed).
+TypeScript source: `function agent(grid) { return [slide(row(0), 1)]; }` (annotations allowed).
 `runtime.grammarId` is `python-agent-v1` or `typescript-agent-v1` (`GRAMMAR_IDS`).
 
 ### Pool options

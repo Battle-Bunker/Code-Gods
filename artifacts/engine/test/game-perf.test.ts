@@ -19,8 +19,8 @@ import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, 
 import { executionsOf } from "./execution-log.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
   halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 
@@ -46,7 +46,7 @@ test("the hot queries read and cost no more in a room with forty past games than
   for (let g = 0; g < 2; g++) {
     const game = await startGame(host, old.roomId);
     const send = (god: God, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId: old.roomId, envelope: envelope(command, game.gameId) });
-    for (const god of [ada, bo]) assert.equal((await send(god, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
+    for (const god of [ada, bo]) assert.equal((await send(god, { type: "summon", name: "Test agent", language: "typescript", source: TS.Grid })).accepted, true);
     await send(ada, { type: "chat", text: `game ${g}` });
     await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });
     await waitFor(async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "transform").length >= 60,

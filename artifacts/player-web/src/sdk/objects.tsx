@@ -1,6 +1,6 @@
 /**
- * Object rendering for panels, reusing the site pages' renderers (lib/object-views): an Int, string or
- * Grid value draws the same way here as everywhere else in the game.
+ * Object rendering for panels, reusing the site pages' renderers (lib/object-views): a Grid value draws the same way
+ * here as everywhere else in the game.
  */
 import type { ReactNode } from "react";
 import { ObjectView, TransformationView, objectContext, objectNoun, formatBits } from "@workspace/object-views";

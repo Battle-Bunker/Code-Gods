@@ -1,6 +1,6 @@
 /**
  * Analytic survival functions (src/analytic.ts): every family's `analytic` is well formed, agrees with fresh spawns,
- * is keyed by its formula id, matches exact enumeration where a domain is enumerable, and agrees with the archived
+ * is keyed by its formula id, and agrees with the archived
  * Monte Carlo reference tables (data/analytic-reference/) within the estimator's error. The toolkit itself is checked
  * against hand-derived laws.
  */
@@ -19,7 +19,7 @@ import {
   poissonTail, rowTransferCount, survivalLevels, totalMass, type AnalyticSurvival,
 } from "../src/analytic.ts";
 import {
-  MAX_RMS_Z_BELOW_32, assertAnalyticAgainstSpawns, compareWithEnumeration, compareWithTable, nominalSe, keyOfOrdinal, tableViolations,
+  MAX_RMS_Z_BELOW_32, assertAnalyticAgainstSpawns, compareWithTable, nominalSe, keyOfOrdinal, tableViolations,
 } from "../src/analytic-verify.ts";
 import { DEFAULT_BUDGET, buildTable, mcTableKey } from "../scripts/estimator.ts";
 import { shardCount, shardOf } from "./shard.ts";   // CG_SHARD="k/n": the families loop below is split across CI jobs
@@ -123,19 +123,10 @@ test("harness: compareWithTable reports Δ, z, unattainable levels and the top; 
   assert.equal(nominalSe({ ...table, estimator: { ...table.estimator, budget: "exact" } }, 10), 0);
 });
 
-test("harness: enumeration agrees with itself on Int(0,9999) and catches a wrong level; spawns catch a wrong formula", () => {
-  const inst = instantiate("Int", { min: 0, max: 9999 }), draw = { familyId: "digit-devotee", params: { digit: 7 } };
-  const ev = evaluator(draw, inst), counts = new Map<number, number>();
-  for (let x = 0; x <= 9999; x++) { const o = ev(x) as number; counts.set(o, (counts.get(o) ?? 0) + 1); }
-  const d = distOf([...counts].map(([o, c]) => [o, c / 10000] as const));
-  const a = exactSurvival("digits@1", d);
-  const e = compareWithEnumeration(a, draw, inst)!;
-  assert.equal(e.values, 10000);
-  assert.ok(e.maxAbsDelta < 1e-9);
-  assert.deepEqual(e.mismatchedOrdinals, []);
-  const wrong = { ...a, levels: a.levels.map(([o, l]) => [o, o === 2 ? l + 1 : l] as const) };   // one bit too common at ≥ 2
-  assert.ok(compareWithEnumeration(wrong, draw, inst)!.maxAbsDelta > 0.99);
-  assert.equal(compareWithEnumeration(a, draw, instantiate("Int", {})), null, "the full Int range is not enumerable");
+test("harness: spawns agree with a right formula and catch a wrong level or a missing one", () => {
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), draw = { familyId: "hate_colour", params: { colour: "red" } };
+  const a = analyticFor(draw.familyId, draw.params, inst)!;
+  const wrong = { ...a, levels: a.levels.map(([o, l]) => [o, 1.5 * l] as const) };   // every level rarer than it is
   assert.doesNotThrow(() => assertAnalyticAgainstSpawns(a, draw, inst, 2000));
   assert.throws(() => assertAnalyticAgainstSpawns(wrong, { ...draw }, inst, 4000), /spawns give|missing/);
   assert.throws(() => assertAnalyticAgainstSpawns({ ...a, levels: a.levels.slice(0, 2) }, draw, inst, 2000), /missing from the analytic levels/);
@@ -163,8 +154,6 @@ test("every family analytic is well formed, lists every spawned ordinal, matches
           const top = evaluator(draw, inst)(f.exemplar(p, ctx)), last = a.levels[a.levels.length - 1][0];
           assert.equal(cmpOrdinal(top, last), 0, `${f.id} on ${instKey}: exemplar ordinal ${JSON.stringify(top)} is not the top level ${JSON.stringify(last)}`);
         }
-        const e = compareWithEnumeration(a, draw, inst);
-        if (e) { assert.deepEqual(e.mismatchedOrdinals, [], `${f.id} on ${instKey}`); assert.ok(e.maxAbsDelta < 1e-9, `${f.id} on ${instKey}: enumeration differs by ${e.maxAbsDelta} bits`); }
       }
     }
   }

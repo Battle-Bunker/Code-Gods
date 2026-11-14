@@ -9,17 +9,17 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { instantiate, objectType, type ObjectValue } from "@workspace/game-types";
 import { FAMILIES, canonicalSupport, context, entryPoint, evaluator, paramsKey } from "../src/index.ts";
-import { coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
+import { coveringGrids, familiesOf, sampleObjects, seededRng } from "./support.ts";
 
 const here = dirname(new URL(import.meta.url).pathname);
 
 export function cardsFixture() {
   const preludes: Record<string, string> = {};
   const cases: unknown[] = [];
-  for (const inst of [...coveringGrids(), ...intInsts(), ...stringInsts()]) {
+  for (const inst of coveringGrids()) {
     preludes[inst.key] = objectType(inst.objectType).prelude(inst).python;
     const ctx = context(inst), rng = seededRng(`cards:${inst.key}`);
-    const base = sampleObjects(inst, rng, inst.objectType === "Grid" ? 24 : 40);
+    const base = sampleObjects(inst, rng, 24);
     for (const f of familiesOf(inst)) {
       const canon = canonicalSupport(f, ctx);
       const draws = [f.sample(rng, ctx), f.sample(rng, ctx), canon[rng.int(canon.length)]];
@@ -39,7 +39,7 @@ export function cardsFixture() {
 
 export function evalRequests(reqs: { key: string; args: Record<string, number | string>; family: string; params: any; wires: ObjectValue[] }[]) {
   return reqs.map(r => {
-    const inst = instantiate(objectType(r.key.startsWith("Grid") ? "Grid" : r.key.startsWith("Int") ? "Int" : "string").id, r.args);
+    const inst = instantiate("Grid", r.args);
     const u = evaluator({ familyId: r.family, params: r.params }, inst);
     return r.wires.map(w => u(w));
   });

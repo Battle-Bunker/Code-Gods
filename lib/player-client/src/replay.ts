@@ -621,7 +621,7 @@ export function replayMyUtility(replay: Replay, pov: number) {
   return {
     gameId: replay.game.id, godId: dealt.godId,
     utility: { familyId: utility.familyId, params: utility.params, ...(utility.penalty ? { penalty: { familyId: utility.penalty.familyId, params: utility.penalty.params } } : {}) },
-    instantiationKey: instantiationOf(settings).key, objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId,
+    instantiationKey: (() => { try { return instantiationOf(settings).key; } catch { return `${settings.objectType}(removed)`; } })(), objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId,
     penaltyWeight: settings.penaltyWeight, language: allowedLanguages(settings)[0], settings,
   };
 }

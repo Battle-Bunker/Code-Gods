@@ -16,8 +16,8 @@ let seed = 12345;
 const rng = { int: (b: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % b; }, big: (b: bigint) => BigInt(rng.int(Number(b))) };
 
 test("an object's utility depends only on that object's own value, for every family on every playable shape", () => {
-  // Every playable shape of every object type (Grid sizes × symbols × colours, Int ranges, string lengths).
-  const shapes = ["Grid", "Int", "string"].flatMap(t => [...playableInstantiations(t)]);
+  // Every playable shape (Grid sizes × symbols × colours).
+  const shapes = playableInstantiations("Grid");
   let checked = 0;
   for (const inst of shapes) {
     const T = objectType(inst.objectType), codec = T.codec(inst), ctx = context(inst);

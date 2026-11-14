@@ -25,7 +25,7 @@ test("an edited agent validates within five seconds while two AI seats play", { 
   const { gameId } = await startGame(host, roomId);
   // The player's own agents act too (as after a first summon).
   for (let i = 0; i < 2; i++) {
-    const summoned = await host.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: `Mine ${i}`, language: "python", source: `def agent(x):\n    return [add(${i + 1})]` }, gameId) });
+    const summoned = await host.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: `Mine ${i}`, language: "python", source: `def agent(grid):\n    return [slide(row(0), ${i + 1})]` }, gameId) });
     assert.equal(summoned.accepted, true, JSON.stringify(summoned).slice(0, 300));
   }
   await waitFor(async () => (await raw(gameId)).game.phase === "running" || undefined, "the world runs", 120_000, 500);
@@ -33,7 +33,7 @@ test("an edited agent validates within five seconds while two AI seats play", { 
   const times: number[] = [];
   // Six validations over the seats' first turns (they start 1 s and 3.5 s in, then every 12 s), each of new code.
   for (let i = 0; i < ROUNDS; i++) {
-    const source = `def agent(x):\n    return [add(${randomInt(2, 1_000_000)})]`;
+    const source = `def agent(grid):\n    edit = ${randomInt(2, 1_000_000)}\n    return [slide(row(0), 1)]`;
     const from = Date.now();
     const result = await host.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "validate", language: "python", source }, gameId) });
     times.push(Date.now() - from);

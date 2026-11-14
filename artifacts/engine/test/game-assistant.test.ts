@@ -18,8 +18,8 @@ import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
 const derived = (turnId: string, callId: string) => commandIdFor(turnId, callId, sha1);
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify({ steps })}`;
 const DONE = ["done", "failed", "cancelled", "budget_exhausted"];
@@ -57,7 +57,7 @@ test("a scripted turn reads, validates and answers as the human's assistant cred
   const { members: [ann, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
     { tools: [{ name: "get_observation", input: { objectsLimit: 3 } }] },
-    { tools: [{ name: "validate_agent", input: { source: TS.Int, commandId: "00000000-0000-4000-8000-000000000000" } }] },
+    { tools: [{ name: "validate_agent", input: { source: TS.Grid, commandId: "00000000-0000-4000-8000-000000000000" } }] },
     { text: ["The agent ", "is valid."] },
   ]) });
   const t = await until(ann, sent, DONE, "the turn finishes");
@@ -326,7 +326,7 @@ test("a turn still streaming when the next game starts is stopped, and does not 
 
 test("permissions: a read assistant cannot summon; act has no owner tools; owner needs the owner and consent", { timeout: 180_000 }, async () => {
   const { members: [ann, bob], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
-  const sent = await bob.c.mutation(api.assistant.send, { roomId, permission: "read", text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int } }] }, { text: "ok" }]) });
+  const sent = await bob.c.mutation(api.assistant.send, { roomId, permission: "read", text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Grid } }] }, { text: "ok" }]) });
   const t = await until(bob, sent, DONE, "the read turn ends");
   assert.equal(t.calls.length, 1);
   assert.equal(t.calls[0].status, "error", "refused at once");
@@ -377,7 +377,7 @@ test("revoking the assistant credential mid-turn fails its next call and ends th
 
 test("a summon runs at once with the derived id, exactly once; public chat the player asked for is sent", { timeout: 240_000 }, async () => {
   const { members: [ann], roomId, game } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
-  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "Summoned." }]) });
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Grid, name: "Test agent" } }] }, { text: "Summoned." }]) });
   const t = await until(ann, sent, DONE, "the turn finishes");
   assert.equal(t.turn.status, "done");
   const commandId = derived(sent.turnId, "mock_0_0");
@@ -451,7 +451,7 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
 test("disclosure: threads are their human's only; stored tool results pass the disclosure checker", { timeout: 240_000 }, async () => {
   const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const SECRET = "bob_assistant_marker";
-  const r = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: `function agent(x) { const ${SECRET} = 1; return [add(${SECRET})]; }` }, game!.gameId) });
+  const r = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: `function agent(grid) { const ${SECRET} = 1; return [slide(row(0), ${SECRET})]; }` }, game!.gameId) });
   assert.equal(r.accepted, true, r.message);
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [
     { name: "get_observation" }, { name: "get_events" }, { name: "get_trajectories" }, { name: "get_my_utility" }, { name: "get_chat" },
@@ -514,7 +514,7 @@ test("a new game starts the assistant afresh: no thread, run, note or allowance 
   assert.equal(one.turn.status, "done", JSON.stringify(one.turn.error));
   const run1 = JSON.parse(one.calls[0].resultJson).data;
   assert.deepEqual(run1.store, { written: ["notes/plan", "scripts/plan"], deleted: [] }, JSON.stringify(run1));
-  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ text: ["a", "b", "c", "d"], delayMs: 2000, tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "never" }]) });
+  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ text: ["a", "b", "c", "d"], delayMs: 2000, tools: [{ name: "summon_agent", input: { source: TS.Grid, name: "Test agent" } }] }, { text: "never" }]) });
   await waitFor(async () => (await turnOf(ann, first.threadId, waiting.turnId)).messages.some((m: any) => m.role === "assistant"), "the turn streams", 30_000, 100);
   assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
 

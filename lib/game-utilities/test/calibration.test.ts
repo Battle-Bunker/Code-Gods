@@ -33,9 +33,7 @@ const instOf = (key: string): Instantiation => {
 
 test("determinism: the same key gives a byte-identical table", () => {
   const cases: [string, Instantiation][] = [
-    ["digit-devotee", instantiate("Int", {})],
-    ["digit-devotee", instantiate("Int", { min: 0, max: 9999 })],
-    ["echo", instantiate("string", { maxLength: 16 })],
+    ["snap", instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" })],
     ["seed3_green_ones", instantiate("Grid", { size: 4, symbols: "base12", colours: "rgby" })],
   ];
   for (const [id, inst] of cases) {
@@ -84,8 +82,7 @@ test("cardProgram: prose and notes never reach the key; code, strings and consta
 });
 
 test("the host evaluates the program it keys: every card's program scores spawns exactly like its full source", () => {
-  const shapes = [instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" }), instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" }),
-    instantiate("Int", objectType("Int").defaults), instantiate("string", objectType("string").defaults)];
+  const shapes = [instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" }), instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" })];
   for (const inst of shapes) {
     const ctx = context(inst), T = objectType(inst.objectType), rng = seededRng(`program:${inst.key}`), prelude = T.prelude(inst).js;
     const boards = Array.from({ length: 4 }, () => T.codec(inst).encode(T.spawn(inst, rng)));
@@ -244,8 +241,8 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
     const ratio = pooled[k] / pooledN * 2 ** k;
     assert.ok(ratio <= 1.1, `pooled P(s ≥ ${k})·2^${k} = ${ratio.toFixed(3)}`);
   }
-  // Exemplars are the family's best value: almost all reach high bits (the few exceptions are small domains or
-  // families whose top is common, e.g. Int(0,9999) where 13.3 bits is the most any value can have).
+  // Exemplars are the family's best value: almost all reach high bits (the few exceptions are families whose top is
+  // common).
   const allowed = mine.reduce((n, [, f]) => n + f.tables.length, 0) * 0.15;
   assert.ok(lowExemplars.length <= allowed, `exemplars below 8 bits:\n${lowExemplars.join("\n")}`);
 });
@@ -277,9 +274,9 @@ test("every dealable draw of every shipped instantiation has a fresh table, so a
     assert.deepEqual(c.missing.map(m => `${m.familyId} ${JSON.stringify(m.params)}${m.stale ? " (stale)" : ""}`), [],
       `${instKey} lacks tables; regenerate with: ${REGENERATE_COMMAND}`);
   }
-  const offered = ["Int", "string", "Grid"].flatMap(t => offeredInstantiations(MANIFEST, t)).map(i => i.key);
+  const offered = offeredInstantiations(MANIFEST, "Grid").map(i => i.key);
   assert.deepEqual(offered.sort(), Object.keys(MANIFEST.instances).sort());
-  assert.ok(offered.includes("Grid(5,base10,rgby)") && offered.includes("Int(-2147483648,2147483647)") && offered.includes("string(128)"));
+  assert.ok(offered.includes("Grid(5,base10,rgby)"));
   assert.ok(!offeredInstantiations(MANIFEST, "Grid").some(i => i.terms.size === 3), "3×3 grids are retired from play");
 });
 
@@ -302,12 +299,12 @@ test("offered follows the manifest it is given: an instance without an entry, or
 });
 
 test("manifestEntry lists every table of a file by family and canonical params", () => {
-  const file = FILES["Int(0,9999)"], e = manifestEntry(file);
-  assert.equal(e.objectType, "Int");
-  assert.deepEqual(e.args, { max: 9999, min: 0 });
+  const file = FILES["Grid(4,base10,rgb)"], e = manifestEntry(file);
+  assert.equal(e.objectType, "Grid");
+  assert.deepEqual(e.args, { size: 4, symbols: "base10", colours: "rgb" });
   assert.equal(Object.values(e.tables).reduce((n, byParams) => n + Object.keys(byParams).length, 0), file.tables.length);
-  assert.throws(() => manifestEntry({ ...file, instance: "Int(0,9998)" }), /is in the file of/);
-  assert.throws(() => instanceTables("Int(0,9998)", file), /given as/);
+  assert.throws(() => manifestEntry({ ...file, instance: "Grid(4,base10,rgby)" }), /is in the file of/);
+  assert.throws(() => instanceTables("Grid(4,base10,rgby)", file), /given as/);
 });
 
 test("offered ignores excluded families: excluded rules need no tables", () => {
@@ -330,7 +327,7 @@ test("tableFor canonicalises raw draws and serves fresh tables only", () => {
     assert.equal(t!.key, tableKey(f.id, f.canonical(p, ctx), inst));
     assert.ok(hasTable(tables, { familyId: f.id, params: p }, inst));
   }
-  assert.equal(tableFor(tables, { familyId: "digit-devotee", params: { digit: 3 } }, inst), undefined);
+  assert.equal(tableFor(tables, { familyId: "royal_court", params: {} }, inst), undefined);
   // Nothing shipped for an instantiation: an empty set, every lookup misses.
   const none = instantiate("Grid", { size: 3, symbols: "cards", colours: "rgb" });
   assert.equal(hasTable(instanceTables(none.key, null), { familyId: "seed3_green_ones", params: { colour: "red", value: 0 } }, none), false);
@@ -362,40 +359,40 @@ test("families with analytics (picture_frame, lone_peak) are keyed by the formul
 test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every level; keyed by the pool's content", async () => {
   const { mixtureTable, poolPrior, MIXTURE_DISPLAY_SCALE } = await import("../scripts/mixture.ts");
   const { UNIFORM_PRIOR, displayScale } = await import("../src/calibration.ts");
-  const inst = instantiate("Int", { min: 0, max: 9999 });
-  const uniform = buildTable("digit-devotee", { digit: 7 }, inst).table; // exact enumeration: G_uniform is exact
-  assert.match(String(uniform.estimator.budget), /^exact(:|$)/); // exact enumeration or digit-devotee's exact analytic
-  const pool = { id: "synthetic", instance: inst.key, wires: [7777, 7770, 1234, 7, 0, 77] };
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), ctx = context(inst), rng = seededRng("mixture");
+  const draw = { familyId: "picture_frame", params: { colour: "red", symbol: "7" } }, ev = evaluator(draw, inst);
+  const uniform = buildTable(draw.familyId, draw.params, inst).table; // the family's exact analytic: G_uniform is exact
+  assert.match(String(uniform.estimator.budget), /^exact:/);
+  const T = objectType("Grid"), codec = T.codec(inst);
+  // Five spawns and the exemplar (the top, 48), so the pool reaches the top level.
+  const pool = { id: "synthetic", instance: inst.key,
+    wires: [...Array.from({ length: 5 }, () => codec.encode(T.spawn(inst, rng))), family(draw.familyId).exemplar!(draw.params, ctx)] };
   const mix = mixtureTable(uniform, pool, inst);
-  const count = (k: number) => pool.wires.filter(x => String(x).split("").filter(c => c === "7").length >= k).length;
-  const Gu = (k: number) => {
-    let c = 0;
-    for (let x = 0; x <= 9999; x++) if (String(x).split("").filter(ch => ch === "7").length >= k) c++;
-    return c / 10000;
-  };
-  for (const [o, bits] of uniform.levels) assert.ok(Math.abs(2 ** -bits - Gu(o as number)) < 1e-9 + 1e-6 * Gu(o as number));
+  const count = (k: number) => pool.wires.filter(w => (ev(w) as number) >= k).length;
   for (const [o, bits] of mix.levels) {
     const k = o as number, want = -Math.log2(0.5 * 2 ** -surprisal(uniform, k) + 0.5 * count(k) / pool.wires.length);
-    assert.ok(Math.abs(bits - Math.max(want, 1e-6)) < 1e-6, `k=${k}: ${bits} vs ${want}`);
+    // The clean-up keeps the bits strictly increasing (at least a minimum step of 1e-6 per level, from a floor of 1e-6),
+    // so where G_ρ is flat (the exemplar alone above the spawns) each level sits a step above the last.
+    assert.ok(bits >= Math.max(want, 1e-6) - 1e-9 && bits - want < 1e-4, `k=${k}: ${bits} vs ${want}`);
   }
   // Above the top: ½·G_uniform, i.e. exactly one bit more than uniform, at the uniform slope.
   assert.equal(mix.slope, uniform.slope);
-  assert.ok(Math.abs(surprisal(mix, 9) - (surprisal(uniform, 9) + 1)) < 1e-6);
+  assert.ok(Math.abs(surprisal(mix, 60) - (surprisal(uniform, 60) + 1)) < 1e-6);
   assert.equal(displayScale(mix), MIXTURE_DISPLAY_SCALE);
   assert.equal(displayScale(uniform), 1);
   // Keys: the prior is part of the key, and the pool's content is part of the prior.
   const prior = poolPrior(pool);
   assert.notEqual(mix.key, uniform.key);
-  assert.equal(mix.key, tableKey("digit-devotee", { digit: 7 }, inst, prior));
-  assert.equal(uniform.key, tableKey("digit-devotee", { digit: 7 }, inst, UNIFORM_PRIOR));
-  assert.notEqual(poolPrior({ ...pool, wires: [...pool.wires, 1] }).version, prior.version);
-  assert.notEqual(tableKey("digit-devotee", { digit: 7 }, inst, poolPrior({ ...pool, wires: [1] })), mix.key);
+  assert.equal(mix.key, tableKey(draw.familyId, draw.params, inst, prior));
+  assert.equal(uniform.key, tableKey(draw.familyId, draw.params, inst, UNIFORM_PRIOR));
+  assert.notEqual(poolPrior({ ...pool, wires: pool.wires.slice(1) }).version, prior.version);
+  assert.notEqual(tableKey(draw.familyId, draw.params, inst, poolPrior({ ...pool, wires: pool.wires.slice(0, 1) })), mix.key);
   // Byte-identical, and strictly increasing.
   assert.equal(tableJson(mixtureTable(uniform, pool, inst)), tableJson(mix));
   for (let i = 1; i < mix.levels.length; i++) assert.ok(mix.levels[i][1] > mix.levels[i - 1][1]);
   // Not shipped: the registry serves uniform tables only unless a mixture is shipped.
-  assert.equal(tableFor(shippedTables(inst.key), { familyId: "digit-devotee", params: { digit: 7 } }, inst, prior), undefined);
-  assert.throws(() => mixtureTable(uniform, { ...pool, wires: [-5] }, inst));
+  assert.equal(tableFor(shippedTables(inst.key), draw, inst, prior), undefined);
+  assert.throws(() => mixtureTable(uniform, { ...pool, wires: ["garbage"] }, inst));
 });
 
 test("shipped priors: uniform first, then every prior the manifest has tables for", async () => {
@@ -415,12 +412,6 @@ test("every shape the type can instantiate is playable, shipped tables or not; o
   assert.equal(grid[0]!.key, instantiate("Grid", {}).key, "the type's default first");
   assert.ok(!grid.some(i => i.terms.size === 3), "3×3 stays retired");
   assert.equal(isPlayableInstantiation(instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })), false);
-  assert.deepEqual(playableInstantiations("Int").map(i => i.key), ["Int(-2147483648,2147483647)", "Int(-2147483648,9999)", "Int(0,2147483647)", "Int(0,9999)"]);
-  assert.deepEqual(playableInstantiations("string").map(i => i.key), ["string(128)", "string(16)"]);
-  // Shipping is diagnostics now: an Int range nobody calibrated is still playable.
-  const shipped = new Set(offeredInstantiations(shippedManifest(), "Int").map(i => i.key));
-  assert.ok(!shipped.has("Int(0,2147483647)") && isPlayableInstantiation(instantiate("Int", { min: 0, max: 2147483647 })));
   // The first-use estimate is the measured cloud wall time (architecture.md §9): per Grid size, nearest size otherwise.
   assert.deepEqual([4, 5, 6, 7].map(size => firstUseSeconds(instantiate("Grid", { size, symbols: "base10", colours: "rgb" }))), [35, 30, 30, 95]);
-  assert.equal(firstUseSeconds(instantiate("string", { maxLength: 20 })), 15);
 });

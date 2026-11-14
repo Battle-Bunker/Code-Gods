@@ -1,6 +1,6 @@
 /**
- * The energy model end to end (docs/energy-model.md): an act pays only what it does. An agent that reads one digit
- * and returns no calls skips: it pays exactly what it read (at READ_PRICE: 1/32 energy bit per bit), is never counted as a failure or remembered as futile, and
+ * The energy model end to end (docs/energy-model.md): an act pays only what it does. An agent that reads one cell's
+ * number and returns no calls skips: it pays exactly what it read (at READ_PRICE: 1/32 energy bit per bit), is never counted as a failure or remembered as futile, and
  * is offered opportunities in proportion to its energy, with no limit per agent. An agent that acts pays its reads plus
  * its change. Agent-count neutrality (§7): the same power split over four agents gets the turns of one.
  * What the change costs follows the room's cost model (settings.costModel; docs/mutation-cost-design.md §0):
@@ -17,17 +17,17 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   const [host, ada, bo] = await gods("Energy Host", "Energy Ada", "Energy Bo");
   await touch(host);
   const settings = {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 2000, interactionRateHz: 50,
   };
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  // Reads the ones digit (log2 10 bits) and does nothing: a pure skipper.
-  const skipper = await send(ada, { type: "summon", name: "Looker", language: "typescript", source: "function agent(n) { n.digit(0); return []; }" });
+  // Reads one cell's number (log2 10 bits on the numbers-only board) and does nothing: a pure skipper.
+  const skipper = await send(ada, { type: "summon", name: "Looker", language: "typescript", source: "function agent(grid) { grid.cell(0, 0).symbol; return []; }" });
   assert.equal(skipper.accepted, true, skipper.message);
-  // Reads nothing and adds one: it pays its change only.
-  const adder = await send(bo, { type: "summon", name: "Adder", language: "typescript", source: "function agent(n) { return [add(1)]; }" });
+  // Reads nothing and slides the top row: it pays its change only.
+  const adder = await send(bo, { type: "summon", name: "Adder", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }" });
   assert.equal(adder.accepted, true, adder.message);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
 
@@ -37,7 +37,7 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   const looker = state.agents.find((a: any) => a.ownerId === ada.subject);
   const world = state.game.worldSeconds;
   const offer = Math.log2(5) * READ_PRICE;  // the offer itself: which of the 5 live objects (log2 5 bits) at 1/32: ≈ 0.073
-  const digit = Math.log2(10) * READ_PRICE + offer; // plus one digit read (log2 10 bits): ≈ 0.176 energy bits in all
+  const digit = Math.log2(10) * READ_PRICE + offer; // plus one number read (log2 10 bits): ≈ 0.176 energy bits in all
 
   // Skips: every act, each paying log2 10 bits read at the read price, none a failure, no futile memo.
   assert.equal(looker.skips, looker.acts);
@@ -150,12 +150,12 @@ test("agent-count neutrality: one agent with 80% of the power gets the turns of 
   const [host, ada, bo] = await gods("Neutral Host", "Neutral Ada", "Neutral Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 30,
   });
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  const source = "function agent(n) { return []; }";
+  const source = "function agent(grid) { return []; }";
   const one = await send(ada, { type: "summon", name: "Solo", language: "typescript", source, powerShare: 0.8 });
   assert.equal(one.accepted, true, one.message);
   for (let i = 0; i < 4; i++) {
@@ -182,8 +182,8 @@ test("agent-count neutrality: one agent with 80% of the power gets the turns of 
 
 /**
  * Agent-count neutrality with debts (docs/energy-model.md §7.2: "credit is a function of power"). The same split as
- * above, but the program acts on credit: it adds 11111 (five digit adds, about 117 bits, measured below) with whatever
- * it holds, so every agent owes right after it acts. P = 40 bits/s, T = 30 s: Ada's one agent has 80% (32 bits/s; holds
+ * above, but the program acts on credit: it slides the top row (up to four numbers rewritten at the flat price, about
+ * 133 bits, measured below) with whatever it holds, so every agent owes right after it acts. P = 40 bits/s, T = 30 s: Ada's one agent has 80% (32 bits/s; holds
  * and may owe 960), each of Bo's four has 20% (8 bits/s; holds and may owe 240, twice the price, so the bound refuses
  * none of them). Each god's agents earn 32 bits/s together and spend it on the same change, so the two gods commit the
  * same number of changes; and Bo's four together never owe more than one agent with their power may (960).
@@ -194,12 +194,13 @@ test("agent-count neutrality with debts: four agents acting on credit commit wha
   const [host, ada, bo] = await gods("Credit Host", "Credit Ada", "Credit Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    objectType: "Int", typeArgs: { min: -2000000000, max: 2000000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 30,
+    costModel: "set-v1",
   });
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  const source = "function agent(n) { return [add(11111)]; }";
+  const source = "function agent(grid) { return [slide(row(0), 1)]; }";
   const one = await send(ada, { type: "summon", name: "Solo", language: "typescript", source, powerShare: 0.8 });
   assert.equal(one.accepted, true, one.message);
   for (let i = 0; i < 4; i++) {
@@ -218,7 +219,9 @@ test("agent-count neutrality with debts: four agents acting on credit commit wha
   }, "the world runs 60 seconds", 180000, 200);
   const total = (god: typeof ada, key: "transforms" | "spent") => state.agents.filter((a: any) => a.ownerId === god.subject).reduce((sum: number, a: any) => sum + (a[key] ?? 0), 0);
   const price = state.batches.flatMap((b: any) => b.events).find((e: any) => e.t === "transform").cost.total;
-  assert.ok(price > 80 && price < 200, `the change costs ${price}: under a 20% agent's credit of 240`);
+  // Each rewritten number costs W = log2 16 + 2·log2 10 = 10.6 bits (set-v1), so a slide changing three or four of them
+  // costs C = W + 0.05·W² = 83 to 133.
+  assert.ok(price > 40 && price < 200, `the change costs ${price}: under a 20% agent's credit of 240`);
   // Income-bound: 32 bits/s × 60 s ÷ the price is about 16 changes per god; one change either way is 6%.
   const solo = total(ada, "transforms"), quad = total(bo, "transforms");
   assert.ok(solo >= 10 && quad >= 10, `both gods' agents commit: ${solo} and ${quad}`);

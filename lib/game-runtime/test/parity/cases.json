@@ -1,7 +1,7 @@
 {
  "settings": [
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "3fc95a75328b2aa5aef05076410067be790e86734fbc32d5d73419955576d26e",
@@ -28,7 +28,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "3fc95a75328b2aa5aef05076410067be790e86734fbc32d5d73419955576d26e",
@@ -56,7 +56,7 @@
    "stepBudget": 1000
   },
   {
-   "objectType": "string",
+   "objectType": "FixtureText",
    "wireMaxLength": 256,
    "prelude": {
     "key": "3fc95a75328b2aa5aef05076410067be790e86734fbc32d5d73419955576d26e",
@@ -83,7 +83,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "broken",
@@ -110,7 +110,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "raising",
@@ -137,7 +137,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "no-encoder",
@@ -164,7 +164,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "doubled",
@@ -191,7 +191,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "slow",
@@ -218,7 +218,7 @@
    "interactionComputeMs": 1000
   },
   {
-   "objectType": "Int",
+   "objectType": "Fixture",
    "wireMaxLength": 0,
    "prelude": {
     "key": "gridlab-vocab",
@@ -491,309 +491,6 @@
     }
    },
    "interactionComputeMs": 1000
-  },
-  {
-   "objectType": "Int",
-   "wireMaxLength": 0,
-   "interactionComputeMs": 1000,
-   "stepBudget": 500000,
-   "prelude": {
-    "key": "eebeab8394c0a64cc65e35c2c142ab244feea44086d1d39a49f4f7df72a6adab",
-    "python": "# Room helpers for Int(-2147483648,2147483647). Generated; do not edit.\n\nLOWEST = -2147483648\nHIGHEST = 2147483647\n\n\ndef digits(x):\n    \"\"\"The decimal digits of a whole number, biggest first: digits(-305) == [3, 0, 5].\"\"\"\n    return [int(d) for d in str(abs(int(x)))]\n\n\ndef from_digits(ds):\n    \"\"\"The number some digits make: from_digits([3, 0, 5]) == 305.\"\"\"\n    n = 0\n    for d in ds:\n        n = n * 10 + d\n    return n\n\n\ndef __decode(wire):\n    if type(wire) is not int or not LOWEST <= wire <= HIGHEST:\n        raise ValueError(\"not a number of this room\")\n    return wire\n\ndef _JSON(x, depth=0):\n    if depth > 8:\n        raise ValueError(\"move settings are nested too deeply\")\n    if x is None:\n        return \"null\"\n    if x is True:\n        return \"true\"\n    if x is False:\n        return \"false\"\n    if isinstance(x, float):\n        if x != x or x in (float(\"inf\"), float(\"-inf\")) or not x.is_integer():\n            raise ValueError(\"move settings must be whole numbers\")\n        x = int(x)\n    if isinstance(x, int):\n        if abs(x) > 9007199254740991:\n            raise ValueError(\"move settings must be smaller numbers\")\n        return str(x)\n    if isinstance(x, str):\n        out = ['\"']\n        for ch in x:\n            c = ord(ch)\n            if c == 34 or c == 92:\n                out.append(\"\\\\\" + ch)\n            elif 32 <= c < 127:\n                out.append(ch)\n            elif c < 65536:\n                out.append(\"\\\\u%04x\" % c)\n            else:\n                c -= 65536\n                out.append(\"\\\\u%04x\\\\u%04x\" % (55296 + (c >> 10), 56320 + (c & 1023)))\n        out.append('\"')\n        return \"\".join(out)\n    if isinstance(x, (list, tuple)):\n        return \"[\" + \",\".join(_JSON(v, depth + 1) for v in x) + \"]\"\n    if isinstance(x, dict):\n        if not all(isinstance(k, str) for k in x):\n            raise ValueError(\"move setting names must be words\")\n        return \"{\" + \",\".join(_JSON(k) + \":\" + _JSON(x[k], depth + 1) for k in sorted(x)) + \"}\"\n    raise ValueError(\"can't send a %s as a move setting\" % type(x).__name__)\n\n\ndef __encode_calls(calls):\n    \"\"\"Mutator calls -> the ASCII JSON text the engine reads: [[id, params], ...] (or the commit-clause object).\"\"\"\n    commit = None\n    if isinstance(calls, dict) and \"__commit\" in calls:\n        commit = calls[\"__commit\"]\n        if commit != \"if-improves\":\n            raise ValueError(\"unknown commit clause\")\n        calls = calls.get(\"calls\")\n    if calls is None:\n        calls = []\n    if isinstance(calls, dict):\n        calls = [calls]\n    if not isinstance(calls, (list, tuple)):\n        raise ValueError(\"agent(...) must return a list of moves\")\n    if len(calls) > 16:\n        raise ValueError(\"an agent can make at most 16 moves at a time\")\n    out = []\n    for call in calls:\n        if not isinstance(call, dict) or not isinstance(call.get(\"__m\"), str):\n            raise ValueError(\"every move must come from a move helper\")\n        params = {k: v for k, v in call.items() if k != \"__m\"}\n        out.append(\"[\" + _JSON(call[\"__m\"]) + \",\" + _JSON(params) + \"]\")\n    text = \"[\" + \",\".join(out) + \"]\"\n    return text if commit is None else '{\"calls\":' + text + ',\"commit\":\"if-improves\"}'\n\ndef _M_CALL(_m, **params):\n    params[\"__m\"] = _m\n    return params\n\n\ndef _M_INT(x, what):\n    if isinstance(x, bool) or not isinstance(x, int):\n        raise ValueError(what + \" must be a whole number, not \" + repr(x))\n    return x\n\ndef add(k):\n    return _M_CALL(\"add\", k=_M_INT(k, \"k\"))\n\ndef reflect():\n    return _M_CALL(\"reflect\")\n\ndef swap_digits(i, j):\n    i, j = sorted([_M_INT(i, \"place\"), _M_INT(j, \"place\")])\n    return _M_CALL(\"swap_digits\", i=i, j=j)\n\ndef reverse_digits():\n    return _M_CALL(\"reverse_digits\")\n\ndef rotate_digits(steps=1):\n    return _M_CALL(\"rotate_digits\", k=_M_INT(steps, \"steps\"))\n\ndef set_digit(place, digit):\n    return _M_CALL(\"set_digit\", place=_M_INT(place, \"place\"), digit=_M_INT(digit, \"digit\"))\n\ndef round_off(places=1):\n    return _M_CALL(\"round\", places=_M_INT(places, \"places\"))\n\ndef set_to(value):\n    return _M_CALL(\"set\", value=_M_INT(value, \"value\"))\n",
-    "js": "// Room helpers for Int(-2147483648,2147483647). Generated; do not edit.\n\nconst LOWEST = -2147483648;\nconst HIGHEST = 2147483647;\n\nfunction digits(x) {\n  return String(Math.abs(Math.trunc(x))).split(\"\").map(Number);\n}\n\nfunction fromDigits(ds) {\n  let n = 0;\n  for (const d of ds) n = n * 10 + d;\n  return n;\n}\n\nfunction __decode(wire) {\n  if (!Number.isSafeInteger(wire) || wire < LOWEST || wire > HIGHEST) throw new Error(\"not a number of this room\");\n  return wire;\n}\n\nfunction __JSON(x, depth) {\n  if (depth > 8) throw new Error(\"move settings are nested too deeply\");\n  if (x === null || x === undefined) return \"null\";\n  if (x === true) return \"true\";\n  if (x === false) return \"false\";\n  if (typeof x === \"number\") {\n    if (!Number.isInteger(x)) throw new Error(\"move settings must be whole numbers\");\n    if (!Number.isSafeInteger(x)) throw new Error(\"move settings must be smaller numbers\");\n    return String(x);\n  }\n  if (typeof x === \"string\") {\n    let out = '\"';\n    for (let i = 0; i < x.length; i++) {\n      const c = x.charCodeAt(i);\n      if (c === 34 || c === 92) out += \"\\\\\" + x[i];\n      else if (c >= 32 && c < 127) out += x[i];\n      else out += \"\\\\u\" + c.toString(16).padStart(4, \"0\");\n    }\n    return out + '\"';\n  }\n  if (Array.isArray(x)) return \"[\" + x.map((v) => __JSON(v, depth + 1)).join(\",\") + \"]\";\n  if (typeof x === \"object\") {\n    return \"{\" + Object.keys(x).sort().map((k) => __JSON(k, 0) + \":\" + __JSON(x[k], depth + 1)).join(\",\") + \"}\";\n  }\n  throw new Error(\"can't send a \" + typeof x + \" as a move setting\");\n}\n\nfunction __encode_calls(calls) {\n  let commit = null;\n  if (calls !== null && typeof calls === \"object\" && !Array.isArray(calls) && \"__commit\" in calls) {\n    commit = calls.__commit;\n    if (commit !== \"if-improves\") throw new Error(\"unknown commit clause\");\n    calls = calls.calls;\n  }\n  if (calls === null || calls === undefined) calls = [];\n  if (!Array.isArray(calls) && typeof calls === \"object\" && typeof calls.__m === \"string\") calls = [calls];\n  if (!Array.isArray(calls)) throw new Error(\"agent(...) must return a list of moves\");\n  if (calls.length > 16) throw new Error(\"an agent can make at most 16 moves at a time\");\n  const text = \"[\" + calls.map((call) => {\n    if (call === null || typeof call !== \"object\" || typeof call.__m !== \"string\") throw new Error(\"every move must come from a move helper\");\n    const params = {};\n    for (const k of Object.keys(call)) if (k !== \"__m\") params[k] = call[k];\n    return \"[\" + __JSON(call.__m, 0) + \",\" + __JSON(params, 0) + \"]\";\n  }).join(\",\") + \"]\";\n  return commit === null ? text : '{\"calls\":' + text + ',\"commit\":\"if-improves\"}';\n}\n\nfunction __M_INT(x, what) {\n  if (!Number.isInteger(x)) throw new Error(what + \" must be a whole number, not \" + JSON.stringify(x));\n  return x;\n}\n\nfunction add(k) {\n  return { __m: \"add\", k: __M_INT(k, \"k\") };\n}\n\nfunction reflect() {\n  return { __m: \"reflect\" };\n}\n\nfunction swapDigits(i, j) {\n  const [a, b] = [__M_INT(i, \"place\"), __M_INT(j, \"place\")].sort((x, y) => x - y);\n  return { __m: \"swap_digits\", i: a, j: b };\n}\n\nfunction reverseDigits() {\n  return { __m: \"reverse_digits\" };\n}\n\nfunction rotateDigits(steps = 1) {\n  return { __m: \"rotate_digits\", k: __M_INT(steps, \"steps\") };\n}\n\nfunction setDigit(place, digit) {\n  return { __m: \"set_digit\", place: __M_INT(place, \"place\"), digit: __M_INT(digit, \"digit\") };\n}\n\nfunction roundOff(places = 1) {\n  return { __m: \"round\", places: __M_INT(places, \"places\") };\n}\n\nfunction setTo(value) {\n  return { __m: \"set\", value: __M_INT(value, \"value\") };\n}\n",
-    "dts": "// Room helpers for Int(-2147483648,2147483647). Generated; do not edit.\n\ntype Score = number | number[];\n/** The smallest and biggest numbers in this room. */\ndeclare const LOWEST: -2147483648;\ndeclare const HIGHEST: 2147483647;\ndeclare function digits(x: number): number[];\ndeclare function fromDigits(ds: readonly number[]): number;\ndeclare function __decode(wire: number): number;\n\n/** What a move helper returns. Return a list of these from agent(...). */\ninterface MutatorCall { readonly __m: string }\n/** Moves wrapped by the commit clause (only rooms with commitClause offer the wrapper). */\ninterface CommitClause { readonly __commit: \"if-improves\"; readonly calls: readonly MutatorCall[] }\ndeclare function __encode_calls(calls: MutatorCall | readonly MutatorCall[] | CommitClause | null | undefined): string;\ndeclare function add(k: number): MutatorCall;\n\ndeclare function reflect(): MutatorCall;\n\ndeclare function swapDigits(i: number, j: number): MutatorCall;\n\ndeclare function reverseDigits(): MutatorCall;\n\ndeclare function rotateDigits(steps?: number): MutatorCall;\n\ndeclare function setDigit(place: number, digit: number): MutatorCall;\n\ndeclare function roundOff(places?: number): MutatorCall;\n\ndeclare function setTo(value: number): MutatorCall;\n",
-    "pricing": {
-     "python": {
-      "api": [
-       "HIGHEST",
-       "LOWEST",
-       "add",
-       "digits",
-       "from_digits",
-       "reflect",
-       "reverse_digits",
-       "rotate_digits",
-       "round_off",
-       "set_digit",
-       "set_to",
-       "swap_digits"
-      ],
-      "attrs": [],
-      "params": [
-       "digit",
-       "ds",
-       "i",
-       "j",
-       "k",
-       "place",
-       "places",
-       "steps",
-       "value",
-       "x"
-      ],
-      "strings": [
-       "\"",
-       ",",
-       "-inf",
-       ":",
-       "[",
-       "]",
-       "add",
-       "calls",
-       "digit",
-       "false",
-       "if-improves",
-       "inf",
-       "k",
-       "null",
-       "place",
-       "places",
-       "reflect",
-       "reverse_digits",
-       "rotate_digits",
-       "round",
-       "set",
-       "set_digit",
-       "steps",
-       "swap_digits",
-       "true",
-       "value"
-      ],
-      "mutators": [
-       "add",
-       "reflect",
-       "reverse_digits",
-       "rotate_digits",
-       "round_off",
-       "set_digit",
-       "set_to",
-       "swap_digits"
-      ],
-      "areas": []
-     },
-     "typescript": {
-      "api": [
-       "HIGHEST",
-       "LOWEST",
-       "add",
-       "digits",
-       "fromDigits",
-       "reflect",
-       "reverseDigits",
-       "rotateDigits",
-       "roundOff",
-       "setDigit",
-       "setTo",
-       "swapDigits"
-      ],
-      "attrs": [],
-      "params": [
-       "digit",
-       "ds",
-       "i",
-       "j",
-       "k",
-       "place",
-       "places",
-       "steps",
-       "value",
-       "x"
-      ],
-      "strings": [
-       "\"",
-       ",",
-       "0",
-       ":",
-       "[",
-       "]",
-       "add",
-       "digit",
-       "false",
-       "if-improves",
-       "k",
-       "null",
-       "number",
-       "object",
-       "place",
-       "places",
-       "reflect",
-       "reverse_digits",
-       "rotate_digits",
-       "round",
-       "set",
-       "set_digit",
-       "steps",
-       "string",
-       "swap_digits",
-       "true",
-       "value"
-      ],
-      "mutators": [
-       "add",
-       "reflect",
-       "reverseDigits",
-       "rotateDigits",
-       "roundOff",
-       "setDigit",
-       "setTo",
-       "swapDigits"
-      ],
-      "areas": []
-     }
-    }
-   }
-  },
-  {
-   "objectType": "string",
-   "wireMaxLength": 128,
-   "interactionComputeMs": 1000,
-   "stepBudget": 500000,
-   "prelude": {
-    "key": "36ea7ddfb9a7ba4a2f1e3fc24c96803fdc4217802d94e93d2172c3d13c0e6706",
-    "python": "# Room helpers for string(128). Generated; do not edit.\n\nMAX_LENGTH = 128\n\n\ndef __decode(wire):\n    if type(wire) is not str or len(wire) > MAX_LENGTH or any(ord(ch) > 127 for ch in wire):\n        raise ValueError(\"not text of this room\")\n    return wire\n\ndef _JSON(x, depth=0):\n    if depth > 8:\n        raise ValueError(\"move settings are nested too deeply\")\n    if x is None:\n        return \"null\"\n    if x is True:\n        return \"true\"\n    if x is False:\n        return \"false\"\n    if isinstance(x, float):\n        if x != x or x in (float(\"inf\"), float(\"-inf\")) or not x.is_integer():\n            raise ValueError(\"move settings must be whole numbers\")\n        x = int(x)\n    if isinstance(x, int):\n        if abs(x) > 9007199254740991:\n            raise ValueError(\"move settings must be smaller numbers\")\n        return str(x)\n    if isinstance(x, str):\n        out = ['\"']\n        for ch in x:\n            c = ord(ch)\n            if c == 34 or c == 92:\n                out.append(\"\\\\\" + ch)\n            elif 32 <= c < 127:\n                out.append(ch)\n            elif c < 65536:\n                out.append(\"\\\\u%04x\" % c)\n            else:\n                c -= 65536\n                out.append(\"\\\\u%04x\\\\u%04x\" % (55296 + (c >> 10), 56320 + (c & 1023)))\n        out.append('\"')\n        return \"\".join(out)\n    if isinstance(x, (list, tuple)):\n        return \"[\" + \",\".join(_JSON(v, depth + 1) for v in x) + \"]\"\n    if isinstance(x, dict):\n        if not all(isinstance(k, str) for k in x):\n            raise ValueError(\"move setting names must be words\")\n        return \"{\" + \",\".join(_JSON(k) + \":\" + _JSON(x[k], depth + 1) for k in sorted(x)) + \"}\"\n    raise ValueError(\"can't send a %s as a move setting\" % type(x).__name__)\n\n\ndef __encode_calls(calls):\n    \"\"\"Mutator calls -> the ASCII JSON text the engine reads: [[id, params], ...] (or the commit-clause object).\"\"\"\n    commit = None\n    if isinstance(calls, dict) and \"__commit\" in calls:\n        commit = calls[\"__commit\"]\n        if commit != \"if-improves\":\n            raise ValueError(\"unknown commit clause\")\n        calls = calls.get(\"calls\")\n    if calls is None:\n        calls = []\n    if isinstance(calls, dict):\n        calls = [calls]\n    if not isinstance(calls, (list, tuple)):\n        raise ValueError(\"agent(...) must return a list of moves\")\n    if len(calls) > 16:\n        raise ValueError(\"an agent can make at most 16 moves at a time\")\n    out = []\n    for call in calls:\n        if not isinstance(call, dict) or not isinstance(call.get(\"__m\"), str):\n            raise ValueError(\"every move must come from a move helper\")\n        params = {k: v for k, v in call.items() if k != \"__m\"}\n        out.append(\"[\" + _JSON(call[\"__m\"]) + \",\" + _JSON(params) + \"]\")\n    text = \"[\" + \",\".join(out) + \"]\"\n    return text if commit is None else '{\"calls\":' + text + ',\"commit\":\"if-improves\"}'\n\ndef _M_CALL(_m, **params):\n    params[\"__m\"] = _m\n    return params\n\n\ndef _M_INT(x, what):\n    if isinstance(x, bool) or not isinstance(x, int):\n        raise ValueError(what + \" must be a whole number, not \" + repr(x))\n    return x\n\n\ndef _M_CHAR(x):\n    if not isinstance(x, str) or len(x) != 1 or ord(x) > 127:\n        raise ValueError(\"expected one ASCII character, not \" + repr(x))\n    return x\n\n\ndef _M_TEXT(x):\n    if not isinstance(x, str) or not x or any(ord(ch) > 127 for ch in x):\n        raise ValueError(\"expected some ASCII text, not \" + repr(x))\n    return x\n\n\ndef _M_RANGE(start, end):\n    s = 0 if start is None else _M_INT(start, \"start\")\n    e = MAX_LENGTH if end is None else _M_INT(end, \"end\")\n    return {} if (s == 0 and e == MAX_LENGTH) else {\"range\": [s, e]}\n\ndef set_char(i, ch):\n    return _M_CALL(\"set_char\", i=_M_INT(i, \"position\"), c=_M_CHAR(ch))\n\ndef write(i, text):\n    return _M_CALL(\"write\", i=_M_INT(i, \"position\"), text=_M_TEXT(text))\n\ndef fill(ch, start=None, end=None):\n    return _M_CALL(\"fill\", c=_M_CHAR(ch), **_M_RANGE(start, end))\n\ndef swap_chars(i, j):\n    i, j = sorted([_M_INT(i, \"position\"), _M_INT(j, \"position\")])\n    return _M_CALL(\"swap_chars\", i=i, j=j)\n\ndef reverse(start=None, end=None):\n    return _M_CALL(\"reverse\", **_M_RANGE(start, end))\n\ndef rotate(steps=1):\n    return _M_CALL(\"rotate\", k=_M_INT(steps, \"steps\"))\n\ndef shift_chars(steps, start=None, end=None):\n    k = _M_INT(steps, \"steps\") % 128\n    if k == 0:\n        raise ValueError(\"shifting by a whole lap of 128 does nothing\")\n    return _M_CALL(\"shift_chars\", k=k, **_M_RANGE(start, end))\n\ndef insert(i, text):\n    return _M_CALL(\"insert\", i=_M_INT(i, \"position\"), text=_M_TEXT(text))\n\ndef remove(start, end=None):\n    s = _M_INT(start, \"start\")\n    return _M_CALL(\"delete\", range=[s, s + 1 if end is None else _M_INT(end, \"end\")])\n\ndef truncate(length):\n    return _M_CALL(\"truncate\", n=_M_INT(length, \"length\"))\n",
-    "js": "// Room helpers for string(128). Generated; do not edit.\n\nconst MAX_LENGTH = 128;\n\nfunction __decode(wire) {\n  if (typeof wire !== \"string\" || wire.length > MAX_LENGTH || !/^[\\x00-\\x7f]*$/.test(wire)) throw new Error(\"not text of this room\");\n  return wire;\n}\n\nfunction __JSON(x, depth) {\n  if (depth > 8) throw new Error(\"move settings are nested too deeply\");\n  if (x === null || x === undefined) return \"null\";\n  if (x === true) return \"true\";\n  if (x === false) return \"false\";\n  if (typeof x === \"number\") {\n    if (!Number.isInteger(x)) throw new Error(\"move settings must be whole numbers\");\n    if (!Number.isSafeInteger(x)) throw new Error(\"move settings must be smaller numbers\");\n    return String(x);\n  }\n  if (typeof x === \"string\") {\n    let out = '\"';\n    for (let i = 0; i < x.length; i++) {\n      const c = x.charCodeAt(i);\n      if (c === 34 || c === 92) out += \"\\\\\" + x[i];\n      else if (c >= 32 && c < 127) out += x[i];\n      else out += \"\\\\u\" + c.toString(16).padStart(4, \"0\");\n    }\n    return out + '\"';\n  }\n  if (Array.isArray(x)) return \"[\" + x.map((v) => __JSON(v, depth + 1)).join(\",\") + \"]\";\n  if (typeof x === \"object\") {\n    return \"{\" + Object.keys(x).sort().map((k) => __JSON(k, 0) + \":\" + __JSON(x[k], depth + 1)).join(\",\") + \"}\";\n  }\n  throw new Error(\"can't send a \" + typeof x + \" as a move setting\");\n}\n\nfunction __encode_calls(calls) {\n  let commit = null;\n  if (calls !== null && typeof calls === \"object\" && !Array.isArray(calls) && \"__commit\" in calls) {\n    commit = calls.__commit;\n    if (commit !== \"if-improves\") throw new Error(\"unknown commit clause\");\n    calls = calls.calls;\n  }\n  if (calls === null || calls === undefined) calls = [];\n  if (!Array.isArray(calls) && typeof calls === \"object\" && typeof calls.__m === \"string\") calls = [calls];\n  if (!Array.isArray(calls)) throw new Error(\"agent(...) must return a list of moves\");\n  if (calls.length > 16) throw new Error(\"an agent can make at most 16 moves at a time\");\n  const text = \"[\" + calls.map((call) => {\n    if (call === null || typeof call !== \"object\" || typeof call.__m !== \"string\") throw new Error(\"every move must come from a move helper\");\n    const params = {};\n    for (const k of Object.keys(call)) if (k !== \"__m\") params[k] = call[k];\n    return \"[\" + __JSON(call.__m, 0) + \",\" + __JSON(params, 0) + \"]\";\n  }).join(\",\") + \"]\";\n  return commit === null ? text : '{\"calls\":' + text + ',\"commit\":\"if-improves\"}';\n}\n\nfunction __M_INT(x, what) {\n  if (!Number.isInteger(x)) throw new Error(what + \" must be a whole number, not \" + JSON.stringify(x));\n  return x;\n}\nfunction __M_CHAR(x) {\n  if (typeof x !== \"string\" || x.length !== 1 || x.charCodeAt(0) > 127) throw new Error(\"expected one ASCII character, not \" + JSON.stringify(x));\n  return x;\n}\nfunction __M_TEXT(x) {\n  if (typeof x !== \"string\" || !x.length || !/^[\\x00-\\x7f]*$/.test(x)) throw new Error(\"expected some ASCII text, not \" + JSON.stringify(x));\n  return x;\n}\nfunction __M_RANGE(start, end) {\n  const s = start == null ? 0 : __M_INT(start, \"start\"), e = end == null ? MAX_LENGTH : __M_INT(end, \"end\");\n  return s === 0 && e === MAX_LENGTH ? {} : { range: [s, e] };\n}\n\nfunction setChar(i, ch) {\n  return { __m: \"set_char\", i: __M_INT(i, \"position\"), c: __M_CHAR(ch) };\n}\n\nfunction write(i, text) {\n  return { __m: \"write\", i: __M_INT(i, \"position\"), text: __M_TEXT(text) };\n}\n\nfunction fill(ch, start = null, end = null) {\n  return { __m: \"fill\", c: __M_CHAR(ch), ...__M_RANGE(start, end) };\n}\n\nfunction swapChars(i, j) {\n  const [a, b] = [__M_INT(i, \"position\"), __M_INT(j, \"position\")].sort((x, y) => x - y);\n  return { __m: \"swap_chars\", i: a, j: b };\n}\n\nfunction reverse(start = null, end = null) {\n  return { __m: \"reverse\", ...__M_RANGE(start, end) };\n}\n\nfunction rotate(steps = 1) {\n  return { __m: \"rotate\", k: __M_INT(steps, \"steps\") };\n}\n\nfunction shiftChars(steps, start = null, end = null) {\n  const k = ((__M_INT(steps, \"steps\") % 128) + 128) % 128;\n  if (k === 0) throw new Error(\"shifting by a whole lap of 128 does nothing\");\n  return { __m: \"shift_chars\", k, ...__M_RANGE(start, end) };\n}\n\nfunction insert(i, text) {\n  return { __m: \"insert\", i: __M_INT(i, \"position\"), text: __M_TEXT(text) };\n}\n\nfunction remove(start, end = null) {\n  const s = __M_INT(start, \"start\");\n  return { __m: \"delete\", range: [s, end == null ? s + 1 : __M_INT(end, \"end\")] };\n}\n\nfunction truncate(length) {\n  return { __m: \"truncate\", n: __M_INT(length, \"length\") };\n}\n",
-    "dts": "// Room helpers for string(128). Generated; do not edit.\n\ntype Score = number | number[];\n/** The longest text allowed in this room. */\ndeclare const MAX_LENGTH: 128;\ndeclare function __decode(wire: string): string;\n\n/** What a move helper returns. Return a list of these from agent(...). */\ninterface MutatorCall { readonly __m: string }\n/** Moves wrapped by the commit clause (only rooms with commitClause offer the wrapper). */\ninterface CommitClause { readonly __commit: \"if-improves\"; readonly calls: readonly MutatorCall[] }\ndeclare function __encode_calls(calls: MutatorCall | readonly MutatorCall[] | CommitClause | null | undefined): string;\ndeclare function setChar(i: number, ch: string): MutatorCall;\n\ndeclare function write(i: number, text: string): MutatorCall;\n\ndeclare function fill(ch: string, start?: number | null, end?: number | null): MutatorCall;\n\ndeclare function swapChars(i: number, j: number): MutatorCall;\n\ndeclare function reverse(start?: number | null, end?: number | null): MutatorCall;\n\ndeclare function rotate(steps?: number): MutatorCall;\n\ndeclare function shiftChars(steps: number, start?: number | null, end?: number | null): MutatorCall;\n\ndeclare function insert(i: number, text: string): MutatorCall;\n\ndeclare function remove(start: number, end?: number | null): MutatorCall;\n\ndeclare function truncate(length: number): MutatorCall;\n",
-    "pricing": {
-     "python": {
-      "api": [
-       "MAX_LENGTH",
-       "fill",
-       "insert",
-       "remove",
-       "reverse",
-       "rotate",
-       "set_char",
-       "shift_chars",
-       "swap_chars",
-       "truncate",
-       "write"
-      ],
-      "attrs": [],
-      "params": [
-       "ch",
-       "end",
-       "i",
-       "j",
-       "length",
-       "start",
-       "steps",
-       "text"
-      ],
-      "strings": [
-       "\"",
-       ",",
-       "-inf",
-       ":",
-       "[",
-       "]",
-       "calls",
-       "delete",
-       "end",
-       "false",
-       "fill",
-       "if-improves",
-       "inf",
-       "insert",
-       "length",
-       "null",
-       "position",
-       "range",
-       "reverse",
-       "rotate",
-       "set_char",
-       "shift_chars",
-       "start",
-       "steps",
-       "swap_chars",
-       "true",
-       "truncate",
-       "write"
-      ],
-      "mutators": [
-       "fill",
-       "insert",
-       "remove",
-       "reverse",
-       "rotate",
-       "set_char",
-       "shift_chars",
-       "swap_chars",
-       "truncate",
-       "write"
-      ],
-      "areas": []
-     },
-     "typescript": {
-      "api": [
-       "MAX_LENGTH",
-       "fill",
-       "insert",
-       "remove",
-       "reverse",
-       "rotate",
-       "setChar",
-       "shiftChars",
-       "swapChars",
-       "truncate",
-       "write"
-      ],
-      "attrs": [],
-      "params": [
-       "ch",
-       "end",
-       "i",
-       "j",
-       "length",
-       "start",
-       "steps",
-       "text"
-      ],
-      "strings": [
-       "\"",
-       ",",
-       "0",
-       ":",
-       "[",
-       "]",
-       "delete",
-       "end",
-       "false",
-       "fill",
-       "if-improves",
-       "insert",
-       "length",
-       "null",
-       "number",
-       "object",
-       "position",
-       "reverse",
-       "rotate",
-       "set_char",
-       "shift_chars",
-       "start",
-       "steps",
-       "string",
-       "swap_chars",
-       "true",
-       "truncate",
-       "write"
-      ],
-      "mutators": [
-       "fill",
-       "insert",
-       "remove",
-       "reverse",
-       "rotate",
-       "setChar",
-       "shiftChars",
-       "swapChars",
-       "truncate",
-       "write"
-      ],
-      "areas": []
-     }
-    }
-   }
   },
   {
    "objectType": "Grid",
@@ -4043,233 +3740,17 @@
    ]
   },
   {
-   "id": "types/Int/empty/inspect",
-   "mode": "inspect",
-   "source": "def agent(x):\n    return []",
-   "settings": 9
-  },
-  {
-   "id": "types/Int/empty/act-0-5",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": -821442393,
-   "settings": 9,
-   "seed": "5"
-  },
-  {
-   "id": "types/Int/empty/act-0-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": -821442393,
-   "settings": 9,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/Int/empty/act-1-5",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": -1418220277,
-   "settings": 9,
-   "seed": "5"
-  },
-  {
-   "id": "types/Int/empty/act-1-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": -1418220277,
-   "settings": 9,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/Int/empty/act-2-5",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": -108210510,
-   "settings": 9,
-   "seed": "5"
-  },
-  {
-   "id": "types/Int/empty/act-2-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": -108210510,
-   "settings": 9,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/Int/realistic/inspect",
-   "mode": "inspect",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "settings": 9
-  },
-  {
-   "id": "types/Int/realistic/act-0-5",
-   "mode": "act",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "input": -821442393,
-   "settings": 9,
-   "seed": "5"
-  },
-  {
-   "id": "types/Int/realistic/act-0-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "input": -821442393,
-   "settings": 9,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/Int/realistic/act-1-5",
-   "mode": "act",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "input": -1418220277,
-   "settings": 9,
-   "seed": "5"
-  },
-  {
-   "id": "types/Int/realistic/act-1-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "input": -1418220277,
-   "settings": 9,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/Int/realistic/act-2-5",
-   "mode": "act",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "input": -108210510,
-   "settings": 9,
-   "seed": "5"
-  },
-  {
-   "id": "types/Int/realistic/act-2-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    ds = digits(x)\n    best = max(range(len(ds)), key=lambda i: ds[i])\n    return [add(sum(ds) % 7 + 1), set_digit(0, ds[best])]\n",
-   "input": -108210510,
-   "settings": 9,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/string/empty/inspect",
-   "mode": "inspect",
-   "source": "def agent(x):\n    return []",
-   "settings": 10
-  },
-  {
-   "id": "types/string/empty/act-0-5",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": "^h2zH\u000bc\u001f)O.F\u0005\u0011\u0001:\rpS\r\" fFl\u001f&_X2w3~u\u0005Dh.\u0015</Hw\u0005Lt@+0R\"ec^&eht\u0017<K\u001d6\u0004^pV!\u001a\u0016k]\rs\u0016PzK3\u0012KsF\u0005XF-(<b[-z$G\u0018n/%INs&dS5RQMU\u0003w\b\\[1\u0016\u001b9c>\t]=",
-   "settings": 10,
-   "seed": "5"
-  },
-  {
-   "id": "types/string/empty/act-0-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": "^h2zH\u000bc\u001f)O.F\u0005\u0011\u0001:\rpS\r\" fFl\u001f&_X2w3~u\u0005Dh.\u0015</Hw\u0005Lt@+0R\"ec^&eht\u0017<K\u001d6\u0004^pV!\u001a\u0016k]\rs\u0016PzK3\u0012KsF\u0005XF-(<b[-z$G\u0018n/%INs&dS5RQMU\u0003w\b\\[1\u0016\u001b9c>\t]=",
-   "settings": 10,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/string/empty/act-1-5",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": "!\u001d<dNLaAv9\u0003]=\"M6Tj\u0011S\tB\u0002dz8\u001a\u0003\u001a\u0010\u001ao[\u0010Y`|(\u000en\u001f |u[|HDNW.?[\u000et<\u0001\u0019/BV|auZvk\rH|@\u0017<Jyqqn\u001a2=\":4q\u000fr\u0002\u001dER\u001c@I@Ov-UE\u0011O`xGMI<\u0016\u001c\u0016\u0000$1%;o|[Js/v\u0006\u000b?A",
-   "settings": 10,
-   "seed": "5"
-  },
-  {
-   "id": "types/string/empty/act-1-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": "!\u001d<dNLaAv9\u0003]=\"M6Tj\u0011S\tB\u0002dz8\u001a\u0003\u001a\u0010\u001ao[\u0010Y`|(\u000en\u001f |u[|HDNW.?[\u000et<\u0001\u0019/BV|auZvk\rH|@\u0017<Jyqqn\u001a2=\":4q\u000fr\u0002\u001dER\u001c@I@Ov-UE\u0011O`xGMI<\u0016\u001c\u0016\u0000$1%;o|[Js/v\u0006\u000b?A",
-   "settings": 10,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/string/empty/act-2-5",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": "nI79UCV\u001ab\u0005LqD\u001b\u001b\u0003)t]q)*z[\u0018vf+d\\o(1\u0011K\u0015o.p8.\u0012g'+$ b?_>w\u001bU\u001b]X-f+j&Uj.\u0007Iy0|e\u000fi\"\u001b\u0003a>]o8W@<4R*\f\u0004Q\u0000\u0017Q)[fa\u0017\u001am>[Q\u0018$t\u000fg&T@g_@` li1\u0001W\u0000j\u0012y0o",
-   "settings": 10,
-   "seed": "5"
-  },
-  {
-   "id": "types/string/empty/act-2-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(x):\n    return []",
-   "input": "nI79UCV\u001ab\u0005LqD\u001b\u001b\u0003)t]q)*z[\u0018vf+d\\o(1\u0011K\u0015o.p8.\u0012g'+$ b?_>w\u001bU\u001b]X-f+j&Uj.\u0007Iy0|e\u000fi\"\u001b\u0003a>]o8W@<4R*\f\u0004Q\u0000\u0017Q)[fa\u0017\u001am>[Q\u0018$t\u000fg&T@g_@` li1\u0001W\u0000j\u0012y0o",
-   "settings": 10,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/string/realistic/inspect",
-   "mode": "inspect",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "settings": 10
-  },
-  {
-   "id": "types/string/realistic/act-0-5",
-   "mode": "act",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "input": "^h2zH\u000bc\u001f)O.F\u0005\u0011\u0001:\rpS\r\" fFl\u001f&_X2w3~u\u0005Dh.\u0015</Hw\u0005Lt@+0R\"ec^&eht\u0017<K\u001d6\u0004^pV!\u001a\u0016k]\rs\u0016PzK3\u0012KsF\u0005XF-(<b[-z$G\u0018n/%INs&dS5RQMU\u0003w\b\\[1\u0016\u001b9c>\t]=",
-   "settings": 10,
-   "seed": "5"
-  },
-  {
-   "id": "types/string/realistic/act-0-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "input": "^h2zH\u000bc\u001f)O.F\u0005\u0011\u0001:\rpS\r\" fFl\u001f&_X2w3~u\u0005Dh.\u0015</Hw\u0005Lt@+0R\"ec^&eht\u0017<K\u001d6\u0004^pV!\u001a\u0016k]\rs\u0016PzK3\u0012KsF\u0005XF-(<b[-z$G\u0018n/%INs&dS5RQMU\u0003w\b\\[1\u0016\u001b9c>\t]=",
-   "settings": 10,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/string/realistic/act-1-5",
-   "mode": "act",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "input": "!\u001d<dNLaAv9\u0003]=\"M6Tj\u0011S\tB\u0002dz8\u001a\u0003\u001a\u0010\u001ao[\u0010Y`|(\u000en\u001f |u[|HDNW.?[\u000et<\u0001\u0019/BV|auZvk\rH|@\u0017<Jyqqn\u001a2=\":4q\u000fr\u0002\u001dER\u001c@I@Ov-UE\u0011O`xGMI<\u0016\u001c\u0016\u0000$1%;o|[Js/v\u0006\u000b?A",
-   "settings": 10,
-   "seed": "5"
-  },
-  {
-   "id": "types/string/realistic/act-1-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "input": "!\u001d<dNLaAv9\u0003]=\"M6Tj\u0011S\tB\u0002dz8\u001a\u0003\u001a\u0010\u001ao[\u0010Y`|(\u000en\u001f |u[|HDNW.?[\u000et<\u0001\u0019/BV|auZvk\rH|@\u0017<Jyqqn\u001a2=\":4q\u000fr\u0002\u001dER\u001c@I@Ov-UE\u0011O`xGMI<\u0016\u001c\u0016\u0000$1%;o|[Js/v\u0006\u000b?A",
-   "settings": 10,
-   "seed": "0xdeadbeef"
-  },
-  {
-   "id": "types/string/realistic/act-2-5",
-   "mode": "act",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "input": "nI79UCV\u001ab\u0005LqD\u001b\u001b\u0003)t]q)*z[\u0018vf+d\\o(1\u0011K\u0015o.p8.\u0012g'+$ b?_>w\u001bU\u001b]X-f+j&Uj.\u0007Iy0|e\u000fi\"\u001b\u0003a>]o8W@<4R*\f\u0004Q\u0000\u0017Q)[fa\u0017\u001am>[Q\u0018$t\u000fg&T@g_@` li1\u0001W\u0000j\u0012y0o",
-   "settings": 10,
-   "seed": "5"
-  },
-  {
-   "id": "types/string/realistic/act-2-0xdeadbeef",
-   "mode": "act",
-   "source": "def agent(s):\n    counts = {}\n    for ch in s:\n        counts[ch] = counts.get(ch, 0) + 1\n    common = max(counts, key=counts.get) if counts else 'a'\n    return [insert(0, common), reverse()]\n",
-   "input": "nI79UCV\u001ab\u0005LqD\u001b\u001b\u0003)t]q)*z[\u0018vf+d\\o(1\u0011K\u0015o.p8.\u0012g'+$ b?_>w\u001bU\u001b]X-f+j&Uj.\u0007Iy0|e\u000fi\"\u001b\u0003a>]o8W@<4R*\f\u0004Q\u0000\u0017Q)[fa\u0017\u001am>[Q\u0018$t\u000fg&T@g_@` li1\u0001W\u0000j\u0012y0o",
-   "settings": 10,
-   "seed": "0xdeadbeef"
-  },
-  {
    "id": "types/Grid/empty/inspect",
    "mode": "inspect",
    "source": "def agent(x):\n    return []",
-   "settings": 11
+   "settings": 9
   },
   {
    "id": "types/Grid/empty/act-0-5",
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "3B,8B,1B,5G/4B,0B,4G,9R/9R,1R,4B,3R/3R,5B,7G,6B",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4277,7 +3758,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "3B,8B,1B,5G/4B,0B,4G,9R/9R,1R,4B,3R/3R,5B,7G,6B",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
@@ -4285,7 +3766,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "3R,8R,1R,6R/1G,5G,7B,6G/8B,7R,8G,3B/5B,5B,4G,0B",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4293,7 +3774,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "3R,8R,1R,6R/1G,5G,7B,6G/8B,7R,8G,3B/5B,5B,4G,0B",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
@@ -4301,7 +3782,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "5R,7B,0R,7R/9B,0G,8R,7B/1R,6R,5G,3R/6R,2B,6G,7G",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4309,21 +3790,21 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "5R,7B,0R,7R/9B,0G,8R,7B/1R,6R,5G,3R/6R,2B,6G,7G",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
    "id": "types/Grid/realistic/inspect",
    "mode": "inspect",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
-   "settings": 11
+   "settings": 9
   },
   {
    "id": "types/Grid/realistic/act-0-5",
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "3B,8B,1B,5G/4B,0B,4G,9R/9R,1R,4B,3R/3R,5B,7G,6B",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4331,7 +3812,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "3B,8B,1B,5G/4B,0B,4G,9R/9R,1R,4B,3R/3R,5B,7G,6B",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
@@ -4339,7 +3820,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "3R,8R,1R,6R/1G,5G,7B,6G/8B,7R,8G,3B/5B,5B,4G,0B",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4347,7 +3828,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "3R,8R,1R,6R/1G,5G,7B,6G/8B,7R,8G,3B/5B,5B,4G,0B",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
@@ -4355,7 +3836,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "5R,7B,0R,7R/9B,0G,8R,7B/1R,6R,5G,3R/6R,2B,6G,7G",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4363,21 +3844,21 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "5R,7B,0R,7R/9B,0G,8R,7B/1R,6R,5G,3R/6R,2B,6G,7G",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
    "id": "types/Grid/all/inspect",
    "mode": "inspect",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
-   "settings": 11
+   "settings": 9
   },
   {
    "id": "types/Grid/all/act-0-5",
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "3B,8B,1B,5G/4B,0B,4G,9R/9R,1R,4B,3R/3R,5B,7G,6B",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4385,7 +3866,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "3B,8B,1B,5G/4B,0B,4G,9R/9R,1R,4B,3R/3R,5B,7G,6B",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
@@ -4393,7 +3874,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "3R,8R,1R,6R/1G,5G,7B,6G/8B,7R,8G,3B/5B,5B,4G,0B",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4401,7 +3882,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "3R,8R,1R,6R/1G,5G,7B,6G/8B,7R,8G,3B/5B,5B,4G,0B",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
@@ -4409,7 +3890,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "5R,7B,0R,7R/9B,0G,8R,7B/1R,6R,5G,3R/6R,2B,6G,7G",
-   "settings": 11,
+   "settings": 9,
    "seed": "5"
   },
   {
@@ -4417,21 +3898,21 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "5R,7B,0R,7R/9B,0G,8R,7B/1R,6R,5G,3R/6R,2B,6G,7G",
-   "settings": 11,
+   "settings": 9,
    "seed": "0xdeadbeef"
   },
   {
    "id": "types/Grid-5-base10-rgby/empty/inspect",
    "mode": "inspect",
    "source": "def agent(x):\n    return []",
-   "settings": 12
+   "settings": 10
   },
   {
    "id": "types/Grid-5-base10-rgby/empty/act-0-5",
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "0Y,1G,7Y,2B,8R/8G,9B,3Y,1B,9G/1B,7G,8B,6Y,9B/2R,8G,2G,1R,8R/1G,4R,3R,0G,6Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4439,7 +3920,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "0Y,1G,7Y,2B,8R/8G,9B,3Y,1B,9G/1B,7G,8B,6Y,9B/2R,8G,2G,1R,8R/1G,4R,3R,0G,6Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
@@ -4447,7 +3928,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "9R,3G,1B,2G,3R/5R,0Y,1B,2G,1Y/7B,5G,2B,0Y,6R/8G,8R,3Y,0G,9Y/5G,1B,9B,2B,2B",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4455,7 +3936,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "9R,3G,1B,2G,3R/5R,0Y,1B,2G,1Y/7B,5G,2B,0Y,6R/8G,8R,3Y,0G,9Y/5G,1B,9B,2B,2B",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
@@ -4463,7 +3944,7 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "1G,1B,4Y,3G,9G/4R,8B,9G,0Y,6Y/8Y,3G,1B,6B,0Y/6G,9G,5B,1B,5R/5R,2G,3G,0B,3Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4471,21 +3952,21 @@
    "mode": "act",
    "source": "def agent(x):\n    return []",
    "input": "1G,1B,4Y,3G,9G/4R,8B,9G,0Y,6Y/8Y,3G,1B,6B,0Y/6G,9G,5B,1B,5R/5R,2G,3G,0B,3Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
    "id": "types/Grid-5-base10-rgby/realistic/inspect",
    "mode": "inspect",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
-   "settings": 12
+   "settings": 10
   },
   {
    "id": "types/Grid-5-base10-rgby/realistic/act-0-5",
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "0Y,1G,7Y,2B,8R/8G,9B,3Y,1B,9G/1B,7G,8B,6Y,9B/2R,8G,2G,1R,8R/1G,4R,3R,0G,6Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4493,7 +3974,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "0Y,1G,7Y,2B,8R/8G,9B,3Y,1B,9G/1B,7G,8B,6Y,9B/2R,8G,2G,1R,8R/1G,4R,3R,0G,6Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
@@ -4501,7 +3982,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "9R,3G,1B,2G,3R/5R,0Y,1B,2G,1Y/7B,5G,2B,0Y,6R/8G,8R,3Y,0G,9Y/5G,1B,9B,2B,2B",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4509,7 +3990,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "9R,3G,1B,2G,3R/5R,0Y,1B,2G,1Y/7B,5G,2B,0Y,6R/8G,8R,3Y,0G,9Y/5G,1B,9B,2B,2B",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
@@ -4517,7 +3998,7 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "1G,1B,4Y,3G,9G/4R,8B,9G,0Y,6Y/8Y,3G,1B,6B,0Y/6G,9G,5B,1B,5R/5R,2G,3G,0B,3Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4525,21 +4006,21 @@
    "mode": "act",
    "source": "def agent(grid):\n    best = None\n    for line in grid.rows + grid.columns + grid.diagonals:\n        counts = {}\n        for c in line:\n            counts[c.colour] = counts.get(c.colour, 0) + 1\n        colour = max(counts, key=counts.get)\n        if best is None or counts[colour] > best[0]:\n            best = (counts[colour], line, colour)\n    groups = grid.regions(lambda a, b: a.colour == b.colour)\n    big = max(groups, key=len)\n    target = big[0].colour\n    calls = [paint(row(best[1][0].row), best[2])]\n    if len(big) < grid.size * grid.size:\n        calls.append(recolour(everything(), next_colour(target), target))\n    return calls\n",
    "input": "1G,1B,4Y,3G,9G/4R,8B,9G,0Y,6Y/8Y,3G,1B,6B,0Y/6G,9G,5B,1B,5R/5R,2G,3G,0B,3Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
    "id": "types/Grid-5-base10-rgby/all/inspect",
    "mode": "inspect",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
-   "settings": 12
+   "settings": 10
   },
   {
    "id": "types/Grid-5-base10-rgby/all/act-0-5",
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "0Y,1G,7Y,2B,8R/8G,9B,3Y,1B,9G/1B,7G,8B,6Y,9B/2R,8G,2G,1R,8R/1G,4R,3R,0G,6Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4547,7 +4028,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "0Y,1G,7Y,2B,8R/8G,9B,3Y,1B,9G/1B,7G,8B,6Y,9B/2R,8G,2G,1R,8R/1G,4R,3R,0G,6Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
@@ -4555,7 +4036,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "9R,3G,1B,2G,3R/5R,0Y,1B,2G,1Y/7B,5G,2B,0Y,6R/8G,8R,3Y,0G,9Y/5G,1B,9B,2B,2B",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4563,7 +4044,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "9R,3G,1B,2G,3R/5R,0Y,1B,2G,1Y/7B,5G,2B,0Y,6R/8G,8R,3Y,0G,9Y/5G,1B,9B,2B,2B",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   },
   {
@@ -4571,7 +4052,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "1G,1B,4Y,3G,9G/4R,8B,9G,0Y,6Y/8Y,3G,1B,6B,0Y/6G,9G,5B,1B,5R/5R,2G,3G,0B,3Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "5"
   },
   {
@@ -4579,7 +4060,7 @@
    "mode": "act",
    "source": "\ndef agent(grid):\n    calls = [\n        paint(row(2), \"red\"), paint(grid.rows[1], \"R\"), paint(grid.cell(0, 0), grid.palette[1]), paint(everything(), \"red\"),\n        paint(busiest_line(), \"red\"), paint(edge(), \"red\"), paint(grid.diagonals[1], \"red\"), paint(square(0, 0), \"red\"),\n        swap_cells(grid.cell(0, 1), grid.cell(0, 0)), swap_cells((0, 0), (2, 2), \"colour\"), slide(column(1), -1), slide(grid.rows[0], 2, \"symbol\"),\n        reverse(row(0)), swap_rows(2, 0), swap_columns(1, 0), turn_square(square(1, 1, 2), \"clockwise\"), turn_grid(\"half\"),\n        sort_line(row(1), True), mirror_line(row(2), \"second\", \"colour\"), mirror_grid(\"left\"), mirror_grid(\"below_other_diagonal\", \"symbol\"),\n        recolour(column(0), \"red\", grid.palette[2]), swap_colours(ring(0), grid.palette[2], \"red\"), rainbow_step(grid.cell(1, 1), -1),\n        rainbow_line(row(0), \"red\", True), alternate_line(column(2), \"red\", grid.palette[1]), stripes(\"red\", True), diagonal_rainbow(\"red\"),\n        chessboard(\"red\", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),\n        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, \"2\"),\n        paint_even_odd(everything(), \"red\", grid.palette[1]), paint_by_number(row(0), 1),\n        stamp(everything(), \"red\", grid.cell(0, 0).symbol),\n    ]\n    if \"count_mines\" in globals():\n        calls.append(count_mines(everything(), \"red\"))\n    if \"mix_paint\" in globals():\n        calls.append(mix_paint(everything(), \"blue\", \"yellow\"))\n    if \"swap_suits\" in globals():\n        calls += [swap_suits(everything(), \"hearts\", \"\\u2660\"), set_suit(row(0), \"clubs\"), paint_red_black(row(0), \"red\", grid.palette[1])]\n    if grid.size >= 4:\n        calls.append(paint(middle(), \"red\"))\n    return calls\n",
    "input": "1G,1B,4Y,3G,9G/4R,8B,9G,0Y,6Y/8Y,3G,1B,6B,0Y/6G,9G,5B,1B,5R/5R,2G,3G,0B,3Y",
-   "settings": 12,
+   "settings": 10,
    "seed": "0xdeadbeef"
   }
  ]

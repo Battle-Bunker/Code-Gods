@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { api, gods, roomWith, startedGame, touch } from "./game-helpers.ts";
 
-const settings = { languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600 };
+const settings = { languages: ["typescript"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600 };
 const ROOMS = 20;
 
 test(`${ROOMS} rooms starting at the same moment all start`, { timeout: 300000 }, async () => {

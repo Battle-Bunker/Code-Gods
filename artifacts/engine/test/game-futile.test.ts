@@ -12,17 +12,17 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   const [host, ada, bo] = await gods("Futile Host", "Futile Ada", "Futile Bo");
   await touch(host);
   const settings = {
-    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"],
     startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 2000, interactionRateHz: 50, startingEnergy: 1000,
   };
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  const summoned = await send(ada, { type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return x.value === 7 ? [add(1), add(-1)] : [add(7 - x.value)]; }" });
+  const summoned = await send(ada, { type: "summon", name: "Seven", language: "typescript", source: "function agent(grid) { return [write(everything(), 7)]; }" });
   assert.equal(summoned.accepted, true, summoned.message);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
 
-  // Five objects: one becomes 7; the others collide once each, and on the holder the act changes nothing, once.
+  // Five objects: one becomes all 7s; the others collide once each, and on the holder the act changes nothing, once.
   const agentOf = async () => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === ada.subject);
   await waitFor(async () => (await agentOf())?.acts >= 6, "the agent tries every object", 60000, 250);
   await sleep(4000); // several more ticks at 50 opportunities a second: without the memo, hundreds more acts
@@ -41,8 +41,8 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   assert.equal(mine.diagnosis?.summary, "5 of 6 acts failed: another object already has this value ×4, the act changed nothing ×1");
   assert.match(mine.diagnosis?.hint ?? "", /depend on the object/);
 
-  // Another agent changes the objects (and frees 7): the pairs are worth trying again.
-  assert.equal((await send(host, { type: "summon", name: "Adder", language: "typescript", source: "function agent(x) { return [add(1)]; }" })).accepted, true);
+  // Another agent changes the objects: the pairs are worth trying again.
+  assert.equal((await send(host, { type: "summon", name: "Adder", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }" })).accepted, true);
   await waitFor(async () => (await agentOf()).acts > 6, "the constant agent is offered changed objects again", 60000, 250);
   const values = (await raw(game.gameId)).objects.map((o: any) => o.value);
   assert.equal(new Set(values).size, values.length, "every object stays unique");
@@ -56,28 +56,29 @@ test("a constant agent stops colliding: one act per object version, then a diagn
 test("validation warns before the summon: a constant agent, an idempotent one, and copies of the player's own agent", { timeout: 180000 }, async () => {
   const [host, ada, bo] = await gods("Warn Host", "Warn Ada", "Warn Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"], startingObjectCount: 8, spawnRateHz: 0, planningSeconds: 3600, startingEnergy: 5000 });
+  const { roomId } = await roomWith([host, ada, bo], { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"], startingObjectCount: 8, spawnRateHz: 0, planningSeconds: 3600, startingEnergy: 5000 });
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
 
-  const constant = (await send({ type: "validate", language: "typescript", source: "function agent(x) { return x.value === 7 ? [add(1), add(-1)] : [add(7 - x.value)]; }" })).validation;
+  const constant = (await send({ type: "validate", language: "typescript", source: "function agent(grid) { return [write(everything(), 7)]; }" })).validation;
   assert.equal(constant.valid, true);
   assert.equal(constant.futility.constant, true);
   assert.ok(constant.expectedSuccessRate < 0.2, `${constant.expectedSuccessRate}`);
   assert.match(constant.warnings.join(" "), /only one object can ever hold this value/);
 
-  const rounding = (await send({ type: "validate", language: "typescript", source: "function agent(x) { return [roundOff(3)]; }" })).validation;
+  const rounding = (await send({ type: "validate", language: "typescript", source: "function agent(grid) { return [sortLine(row(0))]; }" })).validation;
   assert.equal(rounding.futility.idempotent, true);
   assert.equal(rounding.futility.secondPass, 0);
   assert.match(rounding.warnings.join(" "), /acts once per object, then wastes acts/);
 
-  const adder = "function agent(x) { return [add(1)]; }";
+  const adder = "function agent(grid) { return [slide(row(0), 1)]; }";
   const working = (await send({ type: "validate", language: "typescript", source: adder })).validation;
   assert.equal(working.warnings, undefined, "a working agent has nothing to warn about");
-  assert.equal(working.expectedSuccessRate, 1);
+  // A row slide fails only on a sample whose row is already one digit (nothing moves): almost always.
+  assert.ok(working.expectedSuccessRate >= 0.9, `${working.expectedSuccessRate}`);
 
   // The summon is never refused for a warning; the receipt carries it.
-  const summoned = await send({ type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return x.value === 7 ? [add(1), add(-1)] : [add(7 - x.value)]; }" });
+  const summoned = await send({ type: "summon", name: "Seven", language: "typescript", source: "function agent(grid) { return [write(everything(), 7)]; }" });
   assert.equal(summoned.accepted, true);
   assert.match(summoned.warnings.join(" "), /only one object can ever hold/);
   // Code the player already runs: a copies warning.

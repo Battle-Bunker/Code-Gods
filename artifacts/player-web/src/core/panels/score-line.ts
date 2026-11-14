@@ -102,10 +102,7 @@ export function describeChange(before: Value, after: Value, noun = "object"): st
     if (from.code === to.code) return `changed the ${glyphForCode(from.code)} ${at} from ${colour(from.letter)} to ${colour(to.letter)}`;
     return `changed ${colour(from.letter)} ${glyphForCode(from.code)} to ${colour(to.letter)} ${glyphForCode(to.code)} ${at}`;
   }
-  if (before === after) return `left ${article(noun)} as it was`;
-  if (typeof before === "number" && typeof after === "number") return `changed ${whole(before)} to ${whole(after)}`;
-  const short = (v: Value) => String(v).length <= 24;
-  return short(before) && short(after) && !a && !b ? `changed “${before}” to “${after}”` : `changed ${article(noun)}`;
+  return before === after ? `left ${article(noun)} as it was` : `changed ${article(noun)}`;
 }
 
 export interface ActLineInput {

@@ -14,8 +14,8 @@ import { admin, api, gods, internal, playerClient, roomWith, sleep, startGame, t
 import { QUEUED_NOTE } from "../convex/assistant/rules.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify({ steps })}`;
 const DONE = ["done", "failed", "cancelled", "budget_exhausted"];

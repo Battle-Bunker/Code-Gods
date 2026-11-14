@@ -15,7 +15,7 @@ import { rankTotals } from "@workspace/game-core";
 import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 30, spawnRateHz: 1,
+  languages: ["typescript"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 30, spawnRateHz: 1,
   interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 const close = (a: number, b: number) => Math.abs(a - b) < 1e-9;
@@ -47,7 +47,7 @@ test("spectator read model: header, standings and their history, the salience sk
 
   // ---- the instance and catalog (static for the game) ------------------------------------------------------------
   const instance = await watcher.c.query(api.games.instance, { gameId: game.gameId });
-  assert.equal(instance.objectInstance.key, "Int(-2147483648,2147483647)");
+  assert.equal(instance.objectInstance.key, "Grid(4,base10,mono)");
   assert.ok(Array.isArray(instance.utilityCatalog) && instance.utilityCatalog.length > 0, "the game's utility catalog");
 
   // ---- standings at the start: the first scoreboard, ranked -------------------------------------------------------
@@ -66,7 +66,7 @@ test("spectator read model: header, standings and their history, the salience sk
 
   // ---- run the world: publications every 2 world seconds ---------------------------------------------------------
   for (const god of [ada, bo]) {
-    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Spec agent", language: "typescript", source: "function agent(x) { return [add(3)]; }" }, game.gameId) });
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Spec agent", language: "typescript", source: "function agent(grid) { return [slide(row(0), 3)]; }" }, game.gameId) });
     assert.equal(r.accepted, true, r.message);
   }
   // Catches: an agent count that waits for the next publication (in planning, none comes).

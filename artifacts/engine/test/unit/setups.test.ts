@@ -21,29 +21,27 @@ test("every seed setup is valid, playable and canonical for the settings model",
     assert.deepEqual(s.settings.excludedFamilies.filter(id => !families.has(id)), [], `${s.seedId}: excludes only reward families its board can deal`);
     assert.deepEqual(s.settings.excludedDefenceFamilies, [], `${s.seedId}: every defence goal allowed`);
     assert.equal(s.settings.defenceGoals, false, `${s.seedId}: defence goals stay opt-in`);
-    // Re-entering every field through the model from another world lands on the seed exactly.
-    const elsewhere = applySettingsChange(s.settings, { objectType: "Int" }, SETTINGS_DOMAIN);
+    // Re-entering every field through the model from another board lands on the seed exactly.
+    const elsewhere = applySettingsChange(s.settings, { typeArgs: { size: 7, symbols: "cards", colours: "rainbow6" } }, SETTINGS_DOMAIN);
     assert.deepEqual(applySettingsChange(elsewhere, s.settings, SETTINGS_DOMAIN), s.settings, s.seedId);
   }
 });
 
 test("the server domain lists every playable shape, shipped tables or not, and the families of each instantiation", () => {
   // Every combination of the parameters' presets, the type's default first; tables are never a condition.
-  assert.deepEqual(SETTINGS_DOMAIN.playable("Int"), [{ min: -2147483648, max: 2147483647 }, { min: -2147483648, max: 9999 }, { min: 0, max: 2147483647 }, { min: 0, max: 9999 }]);
-  assert.deepEqual(SETTINGS_DOMAIN.playable("string"), [{ maxLength: 128 }, { maxLength: 16 }]);
   assert.equal(SETTINGS_DOMAIN.playable("Grid").length, 4 * 4 * 4, "sizes 4–7 × four symbol sets × four colour sets (mono included)");
   assert.ok(!SETTINGS_DOMAIN.playable("Grid").some(a => a.size === 3), "3×3 is retired");
-  const shipped = new Set(offeredInstantiations(shippedManifest(), "Int").map(i => i.key));
-  assert.ok(playableInstantiations("Int").some(i => !shipped.has(i.key)), "an Int range with no shipped file is playable");
-  // Unlisted but valid arguments are playable; retired and invalid ones are not.
-  assert.equal(SETTINGS_DOMAIN.isPlayable!("Int", { min: 5, max: 100 }), true);
+  // Every playable shape ships its tables; retired, invalid and removed ones are not playable.
+  const shipped = new Set(offeredInstantiations(shippedManifest(), "Grid").map(i => i.key));
+  assert.ok(playableInstantiations("Grid").every(i => shipped.has(i.key)), "every Grid shape has a shipped file");
   assert.equal(SETTINGS_DOMAIN.isPlayable!("Grid", { size: 3, symbols: "base10", colours: "rgb" }), false);
-  assert.equal(SETTINGS_DOMAIN.isPlayable!("Int", { min: 100, max: 5 }), false);
+  assert.equal(SETTINGS_DOMAIN.isPlayable!("Grid", { size: 5, symbols: "base10", colours: "plaid" }), false);
+  assert.equal(SETTINGS_DOMAIN.isPlayable!("Int", { min: 0, max: 9999 }), false, "the integer type is gone");
+  assert.deepEqual(SETTINGS_DOMAIN.playable("Int"), [], "a type that no longer exists lists nothing");
   assert.ok(SETTINGS_DOMAIN.families("Grid", { size: 5, symbols: "base10", colours: "rgby" }, "reward").includes("ladder_of_numbers"));
   assert.ok(!SETTINGS_DOMAIN.families("Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, "reward").includes("ladder_of_numbers"), "needs numerals");
   const defence = SETTINGS_DOMAIN.families("Grid", { size: 5, symbols: "base10", colours: "rgby" }, "defence");
   assert.ok(defence.length > 0 && defence.every(id => id.startsWith("hate_")), "the defence goals, apart from the rewards");
-  assert.deepEqual(SETTINGS_DOMAIN.families("Int", { min: 0, max: 9999 }, "defence"), [], "Int has no defence goals");
   const typeDefence = SETTINGS_DOMAIN.typeFamilies("Grid", "defence");
   assert.equal(typeDefence.length, 8, "the eight hate_* families");
   assert.ok(typeDefence.every(id => id.startsWith("hate_")) && !SETTINGS_DOMAIN.typeFamilies("Grid", "reward").some(id => id.startsWith("hate_")));

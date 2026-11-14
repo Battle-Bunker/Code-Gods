@@ -14,7 +14,7 @@
  *  3. Clean-up: weighted isotonic regression (weights 1/se²), then at least MIN_STEP_BITS between neighbours, so
  *     the bits are STRICTLY increasing. The extrapolation slope is fitted over the last SLOPE_LEVELS levels.
  *  Analytic mode: a family with an analytic survival function for the draw (src/analytic.ts, `analyticFor`) gets its
- *  levels verbatim (no sampling); otherwise domains of at most EXACT_DOMAIN values (Int ranges) are enumerated outright.
+ *  levels verbatim (no sampling).
  *
  *  Split (on-demand latency, docs/analytic-calibration/architecture.md §3.2, §9.2): R replicates on 1/R of the spawns
  *  and particles each, run anywhere (`buildReplicate`) and merged in probability (`mergeReplicates`). A replicate's climb
@@ -35,19 +35,13 @@ import {
 import type { Ordinal, Params } from "../src/types.ts";
 import { assertAnalytic } from "../src/analytic.ts";
 
-/** The shipped default (measured: 13–30 µs per Grid evaluation incl. encode + decode, 2–10 µs Int/string). */
+/** The shipped default (measured: 13–30 µs per Grid evaluation incl. encode + decode). */
 export const DEFAULT_BUDGET: CalibrationBudget = Object.freeze({
   nMc: 1 << 15, minMcCount: 128, particles: 500, p0: 0.5, sweeps: 1, targetBits: 64, maxStages: 400, maxStuck: 3,
 });
-/**
- * Per-type defaults. Int and string evaluations are 5–10× cheaper than Grid ones, so their Monte Carlo body is
- * much deeper (2^20 / 2^18 samples): it resolves levels down to ~2^-13 / 2^-11 directly, below which a few
- * arithmetic families (Residue Oracle, Many-Faced) have level sets the splitting kernel cannot climb.
- */
+/** Per-type defaults. */
 export const TYPE_BUDGETS: Readonly<Record<string, CalibrationBudget>> = Object.freeze({
   Grid: DEFAULT_BUDGET,
-  Int: Object.freeze({ ...DEFAULT_BUDGET, nMc: 1 << 20 }),
-  string: Object.freeze({ ...DEFAULT_BUDGET, nMc: 1 << 18 }),
 });
 export const budgetFor = (objectType: string): CalibrationBudget => TYPE_BUDGETS[objectType] ?? DEFAULT_BUDGET;
 
@@ -57,8 +51,6 @@ export const SMOKE_BUDGET: CalibrationBudget = Object.freeze({
 });
 export const BUDGETS: Readonly<Record<string, CalibrationBudget>> = { default: DEFAULT_BUDGET, smoke: SMOKE_BUDGET };
 
-/** Domains with at most this many values are enumerated exactly. */
-export const EXACT_DOMAIN = 1 << 20;
 /** Correlation between cloned particles: splitting levels' se is inflated by this margin (calibrate.py). */
 const SE_INFLATION = 1.6;
 const LN2 = Math.LN2;
@@ -67,17 +59,7 @@ const round9 = (x: number) => Math.round(x * 1e9) / 1e9;
 /** MCMC steps per particle per stage scale with this "dimension" of the type. */
 export function kernelSize(inst: Instantiation): number {
   if (inst.objectType === "Grid") return inst.terms.cells;
-  if (inst.objectType === "Int") return Math.max(1, (Number(inst.args.max) - Number(inst.args.min)).toString(2).length);
-  if (inst.objectType === "string") return Math.max(1, Number(inst.args.maxLength));
   return 16;
-}
-
-/** Every value of a small finite domain (Int ranges), or null. */
-function enumerate(inst: Instantiation): ObjectValue[] | null {
-  if (inst.objectType !== "Int") return null;
-  const min = Number(inst.args.min), max = Number(inst.args.max);
-  if (max - min + 1 > EXACT_DOMAIN) return null;
-  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
 }
 
 /** Weighted pool-adjacent-violators: the closest non-decreasing sequence to y. */
@@ -418,7 +400,6 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
   const analytic = options.exact === false ? null : analyticFor(familyId, params, inst);
   // The key of what this build produces: with the analytic id when the analytic is used, the estimator's key otherwise.
   const key = options.exact === false ? mcTableKey(familyId, params, inst) : tableKey(familyId, params, inst);
-  const domain = options.exact === false || analytic ? null : enumerate(inst);
   if (analytic) {
     assertAnalytic(analytic, `${familyId} ${JSON.stringify(params)} on ${inst.key}`);   // reads the (possibly lazy) levels
     const v = analytic.kind !== "exact" ? analytic.maxErrorBits! : 0;
@@ -427,28 +408,14 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
       curve: { points, mcLevels: points.length, splitLevels: 0, stoppedEarly: false, bodyTop: null } };
     return { table: finishTable(familyId, params, inst, raw), seconds: (performance.now() - t0) / 1000, evaluations: 0 };
   }
-  if (domain) {
-    const ev = evaluator({ familyId, params }, inst);
-    const ords = domain.map(w => ev(w));
-    const sorted = ords.slice().sort(cmpOrdinal), n = sorted.length;
-    const levels: Ordinal[] = [], log2p: number[] = [];
-    for (let i = 0; i < n; i++) {
-      if (i > 0 && cmpOrdinal(sorted[i], sorted[i - 1]) === 0) continue;
-      levels.push(sorted[i]); log2p.push(Math.log2((n - i) / n));
-    }
-    const points = sortedPoints(levels, log2p, levels.map(() => 0), levels.length);
-    const raw: Raw = { key, seed: key.slice(0, 16), budgetLabel: "exact", analytic: false, exactMode: true,
-      curve: { points, mcLevels: points.length, splitLevels: 0, stoppedEarly: false, bodyTop: null } };
-    return { table: finishTable(familyId, params, inst, raw), seconds: (performance.now() - t0) / 1000, evaluations: n };
-  }
   const reps = Array.from({ length: plan.replicates }, (_, r) => buildReplicate(familyId, params, inst, budget, plan, r, options));
   const table = mergeReplicates(familyId, params, inst, budget, plan, reps, options);
   return { table, seconds: (performance.now() - t0) / 1000, evaluations: reps.reduce((a, x) => a + x.evaluations, 0) };
 }
 
-/** Whether a draw is built by sampling (and can therefore be split): no analytic answer and no enumerable domain. */
+/** Whether a draw is built by sampling (and can therefore be split): no analytic answer. */
 export function isSampled(familyId: string, params: Params, inst: Instantiation): boolean {
-  return !analyticFor(familyId, params, inst) && !enumerate(inst);
+  return !analyticFor(familyId, params, inst);
 }
 
 /**
@@ -566,7 +533,7 @@ export function expectedEvaluations(inst: Instantiation, budget: CalibrationBudg
 
 /**
  * Measures the draw's evaluation cost where it runs (a cloud action is several times slower than a laptop, and
- * families differ tenfold: an Int family that factorises costs 40 µs, a digit count 2 µs): `samples` evaluations of
+ * families differ tenfold): `samples` evaluations of
  * spawned values and as many of a proposal chain, each after a warm-up of as many. Deterministic values; tens of
  * milliseconds of work.
  */
