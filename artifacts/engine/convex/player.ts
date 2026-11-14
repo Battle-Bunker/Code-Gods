@@ -306,7 +306,7 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
       return closed ? range.lte("seq", args.upTo!) : range;
     }).take(limit);
     const nextCursor = batches.at(-1)?.seq ?? after;
-    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor, latestCursor: (await latest()) ?? nextCursor };
+    return { gameId: game._id, objects: trajectoriesOf(batches, index), nextCursor, latestCursor: (await latest()) ?? nextCursor };
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -532,8 +532,8 @@ export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 40
 type Wire = number | string;
 
 /** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
-/** Live (`noise` given), the others' sum carries the version's disclosure noise; ended, it is exact. */
-const viewAt = (net: readonly number[], index: number, noise = 0) => { const v = viewOfNet(net, index, noise); return { own: v.netBits, others: v.peerNetBits, payoff: v.payoff }; };
+/** A god's own bits, the others' sum and the payoff, from a log row's net vector. */
+const viewAt = (net: readonly number[], index: number) => { const v = viewOfNet(net, index); return { own: v.netBits, others: v.peerNetBits, payoff: v.payoff }; };
 
 async function seatedGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameRef?: string) {
   const { game, index, viewer } = await gameFor(ctx, caller, roomId, gameRef);
@@ -557,7 +557,7 @@ async function partialSeries(ctx: QueryCtx, gameId: Doc<"games">["_id"]) {
 /**
  * One page of the caller's utility series: every spawn and transform of the game in world-time order, in columns, with
  * the object's value before and after and the caller's OWN bits and the OTHER gods' summed bits before and after
- * (while live, the others' sums carry the game's disclosure noise, fixed per value; exact after the end). Another god's transformation is unattributed while the
+ * Another god's transformation is unattributed while the
  * game is live; `mine` marks the caller's own. Page with `cursor` until `pageDone` (`done`: and the game has ended); a
  * live game's series keeps growing (poll with the last cursor). `objectId` reads one object's history. `partial`: the
  * game started before these rows were written, so its early events are missing. Never another god's individual bits.
@@ -582,10 +582,9 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
     : ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", game._id).gte("world", from));
   const page = await rowsOf.paginate({ cursor: args.cursor ?? null, numItems: limit });
   // Each row's "before" is the same object's previous row (version − 1): in this page, or one indexed read per object.
-  const live = game.phase !== "ended";
-  // A row as the caller sees it: live, the others' sum with that version's disclosure noise (settings.peerNoiseBits).
-  const seen = (r: Pick<Doc<"objectEvents">, "net" | "noise">) => viewAt(r.net, index, live ? r.noise ?? 0 : 0);
-  const last = new Map<string, Pick<Doc<"objectEvents">, "net" | "noise">>();
+  // A row as the caller sees it.
+  const seen = (r: Pick<Doc<"objectEvents">, "net">) => viewAt(r.net, index);
+  const last = new Map<string, Pick<Doc<"objectEvents">, "net">>();
   // The rows before this page of each object first seen here, read in parallel (one indexed read each).
   const firstSeen = new Map<string, Doc<"objectEvents">>();
   for (const row of page.page) if (!firstSeen.has(row.objectId)) firstSeen.set(row.objectId, row);
@@ -646,13 +645,12 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
   const page = await ctx.db.query("objectViews")
     .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
     .paginate({ cursor: atCursor !== undefined ? args.cursor!.slice(split + 1) : null, numItems: limit });
-  const live = game.phase !== "ended";
   const objects = current
     ? page.page.map(r => ({ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.lastMutatedAt ?? r.createdAt,
       own: r.netBits, others: r.peerNetBits, payoff: r.payoff }))
     : (await Promise.all(page.page.map(r => ctx.db.query("objectEvents")
       .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", r.objectId).lte("world", world)).order("desc").first())))
-      .flatMap(e => (e ? [{ objectId: e.objectId as string, value: e.value, version: e.version, changedAt: e.world, ...viewAt(e.net, index, live ? e.noise ?? 0 : 0) }] : []));
+      .flatMap(e => (e ? [{ objectId: e.objectId as string, value: e.value, version: e.version, changedAt: e.world, ...viewAt(e.net, index) }] : []));
   return {
     gameId: game._id, world, partial: !current && await partialSeries(ctx, game._id),
     objects, cursor: `${world}|${page.continueCursor}`, done: page.isDone,

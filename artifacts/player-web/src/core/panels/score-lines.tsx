@@ -11,7 +11,7 @@ import { runner, useRunner } from "@/core/game/runner";
 import { boundaryOf } from "./first-agent";
 import { useGoalExplainer } from "@workspace/object-views";
 import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
-import { useDockState, useEvents, useGameId, useMyAgents, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
+import { useDockState, useEvents, useGameId, useMyAgents, useMyTotals, useObjectContext } from "@/sdk";
 import { useStandings } from "@/sdk/hooks";
 import { agentLabel } from "./agent-name";
 import { pointsBeforeAgent, actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type AgentEarnings, type OwnAct } from "./score-line";
@@ -33,13 +33,10 @@ export function PointsNow({ className = "" }: { className?: string }) {
   const score = count?.score;
   const age = dock?.phase === "ended" ? null : asOfText(dock?.economy?.worldSeconds, count?.world);
   const { noun } = useObjectContext();
-  // Live points are blurred only where the room blurs what the others want (peerNoiseBits; 0 on the beginner setup).
-  const room = useRoomInfo();
-  const estimate = dock?.phase !== "ended" && liveIsEstimate(room?.settings);
   // Before the player has an agent: one short clause, on a phone too ("why do I already have points?").
   const { agents, loading } = useMyAgents({ hz: 1 });
   const noAgent = !loading && agents.length === 0 && dock?.phase !== "ended";
-  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} estimate={estimate} noAgent={noAgent} className={className} /> : null;
+  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} noAgent={noAgent} className={className} /> : null;
 }
 
 /**
@@ -48,19 +45,14 @@ export function PointsNow({ className = "" }: { className?: string }) {
  * already have points?"). On a phone the second line is left to the "points" help (its gloss says the same), so the
  * goal card stays on the first screen.
  */
-/** Whether the live figures are an estimate: the room adds noise to what the others want (unknown settings: assume so). */
-export const liveIsEstimate = (settings: unknown): boolean => {
-  const noise = (settings as { peerNoiseBits?: unknown } | null | undefined)?.peerNoiseBits;
-  return typeof noise === "number" ? noise > 0 : true;
-};
-export function PointsNowView({ score, age, noun = "object", estimate = false, noAgent = false, className = "" }: { score: number; age?: string | null; noun?: string; estimate?: boolean; /** The player has no agent yet: the short clause shows on every screen. */ noAgent?: boolean; className?: string }) {
+export function PointsNowView({ score, age, noun = "object", noAgent = false, className = "" }: { score: number; age?: string | null; noun?: string; /** The player has no agent yet: the short clause shows on every screen. */ noAgent?: boolean; className?: string }) {
   const why = scoreMovesLine(noun);
   return (
     <div className={className} title={`${why} ${SCORE_LINES.total}`} data-testid="text-points-now">
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-sm font-semibold">Your <Term id="payoff">points</Term> now:</span>
         <span className={`font-mono text-2xl font-semibold leading-none tabular-nums ${score < 0 ? "text-destructive" : ""}`} data-testid="value-points-now">{pointsNowText(score)}</span>
-        <span className="text-xs text-muted-foreground">{estimate ? "an estimate" : ""}{estimate && age ? ", " : ""}{age ?? ""}{estimate || age ? "; " : ""}what the leaderboard ranks</span>
+        <span className="text-xs text-muted-foreground">{age ?? ""}{age ? "; " : ""}what the leaderboard ranks</span>
       </p>
       {noAgent
         ? <p className="text-xs leading-snug text-muted-foreground" data-testid="text-points-before-agent">{pointsBeforeAgent(noun)}</p>
@@ -79,9 +71,8 @@ export interface OwnActLines {
   latestObject?: string;
   /** Agent id → what its moves among the recent events earned, with the window said (score-line.ts earningsLine). */
   earned: ReadonlyMap<string, string>;
-  /** Agent id → the counted moves behind that line (empty where the line is hidden), and whether the figures are an estimate. */
+  /** Agent id → the counted moves behind that line (empty where the line is hidden). */
   sums: ReadonlyMap<string, AgentEarnings>;
-  estimate: boolean;
 }
 
 /**
@@ -92,12 +83,7 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
   const events = useEvents({ hz: 1, limit: 50 });
   const goal = useGoalExplainer();
   const { noun } = useObjectContext();
-  // A room that blurs the others' side: a small move of it is not named as the cause (score-line.ts pointsCause).
-  const room = useRoomInfo();
-  const dockNow = useDockState({ hz: 1 });
   const previous = useRunner().previous;
-  const ended = dockNow?.phase === "ended";
-  const estimate = !ended && liveIsEstimate(room?.settings);
   return useMemo(() => {
     const acts = latestOwnActs(events);
     const say = (act: OwnAct): string => {
@@ -108,7 +94,7 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
         // An act by an agent no longer in the list is never told as a live agent's.
         agent: index < 0 ? "(now destroyed)" : agentLabel(agents[index]?.name, index), before: act.before, after: act.after, noun,
         ruleBefore: score(act.before), ruleAfter: score(act.after), rarityBefore: rarity(act.before), rarityAfter: rarity(act.after), pointsBefore: act.pointsBefore, pointsAfter: act.pointsAfter,
-        ownAfter: act.ownAfter, othersAfter: act.othersAfter, ownBefore: act.ownBefore, othersBefore: act.othersBefore, third, estimate,
+        ownAfter: act.ownAfter, othersAfter: act.othersAfter, ownBefore: act.ownBefore, othersBefore: act.othersBefore, third,
       });
     };
     const byAgent = new Map<string, string>();
@@ -116,11 +102,11 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const earned = new Map<string, string>();
     // A replace keeps the agent's id: its figure is its current program's, from its latest replace on.
     const sums = agentEarnings(events, boundaryOf(previous));
-    for (const [id, sum] of sums) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
+    for (const [id, sum] of sums) { const line = earningsLine(sum, noun, { third }); if (line) earned.set(id, line); }
     const objects = new Map<string, string>();
     for (const [id, act] of acts) objects.set(id, act.objectId);
-    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, objects, latestObject: acts.latest?.objectId, earned, sums, estimate };
-  }, [events, goal, noun, agents, third, estimate, previous]);
+    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, objects, latestObject: acts.latest?.objectId, earned, sums };
+  }, [events, goal, noun, agents, third, previous]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

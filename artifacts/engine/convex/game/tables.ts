@@ -56,8 +56,7 @@ const charge = v.union(
  * god's net bits of the object AFTER the event, in roster order: server-private, projected per viewer to its own bits
  * and the peer aggregate. Together with the game document's fixed header (settings, roster, createdAt, planningEndsAt)
  * and the chat rows stamped with the game, the log replays the game exactly by playing back recorded outcomes:
- * nothing is re-run. `noise` (PRIVATE, settings.peerNoiseBits) is the disclosure noise on the peers' sum of this version
- * of the object while the game is live. `summon` carries the agent's whole record (its source is PRIVATE to its owner); an agent's account
+ * nothing is re-run. `noise` is LEGACY (D1: disclosure noise, no longer written or read). `summon` carries the agent's whole record (its source is PRIVATE to its owner); an agent's account
  * then follows from its acts' charges (lib/player-client replay.ts).
  */
 export const eventV = v.union(
@@ -120,10 +119,7 @@ export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: 
 export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));
 
 export const gameTables = {
-  /**
-   * Hold-rarity correction tables (docs/energy-model.md §8), computed on demand and kept: one per (static table key, m,
-   * noise version) in `key` (engine/hold.ts holdCacheKey). Engine only, never projected.
-   */
+  /** LEGACY (D1): hold rarity's correction tables. No longer written or read; rows stay until D3. */
   holdTables: defineTable({ key: v.string(), table: v.any(), computedAt: v.number() }).index("by_key", ["key"]),
 
   /**
@@ -144,7 +140,7 @@ export const gameTables = {
     kind: v.union(v.literal("examination"), v.literal("hold"), v.literal("turn"), v.literal("turnQueue"), v.literal("holdQueue")), expiresAt: v.number(),
     /** A `turnQueue` row: the AI seat's turn waiting for a `turn` slot, oldest first (ai/turn.ts runs it when one is free). */
     turn: v.optional(v.object({ gameId: v.id("games"), godId: v.string(), chain: v.number() })),
-    /** A `holdQueue` row: the hold computation waiting for a `hold` slot (engine/hold.ts computeOne). */
+    /** LEGACY (D1): a queued hold computation ("hold" and "holdQueue" kinds are no longer written). */
     hold: v.optional(v.object({ gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() })),
   }).index("by_kind", ["kind"]),
 
@@ -267,7 +263,7 @@ export const gameTables = {
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
-    /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
+    /** LEGACY (D1): the disclosure noise's key. No longer written or read; rows stay until D3. */
     noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
@@ -283,15 +279,9 @@ export const gameTables = {
      * projected; a god's own handicap is on its card.
      */
     handicaps: v.optional(v.array(v.number())),
-    /**
-     * Hold rarity (docs/energy-model.md §8): the hold corrections of a game with more than one player are computed
-     * during planning (engine/hold.ts); planning waits while `computing`. Absent: none needed (one player, or a game
-     * from before hold rarity). `failed` plays on static rarity, `holdError` says why.
-     */
+    /** LEGACY (D1): hold rarity's state. No longer written or read; rows stay until D3. */
     holdState: v.optional(v.union(v.literal("computing"), v.literal("ready"), v.literal("failed"))),
-    holdPending: v.optional(v.array(v.string())), holdError: v.optional(v.string()),
-    /** Wall ms the hold state left `computing` (ready or failed): planning ends no earlier, like a sandbox's readyAt. */
-    holdReadyAt: v.optional(v.number()),
+    holdPending: v.optional(v.array(v.string())), holdError: v.optional(v.string()), holdReadyAt: v.optional(v.number()),
     /**
      * Public: the engine's ticks for this game are failing and being retried with backoff (engine/loop.ts tickFailed);
      * cleared by the next tick that succeeds. Written when the failures start (or their reason changes), never per retry
@@ -396,14 +386,13 @@ export const gameTables = {
     gameId: v.id("games"), value: wire, version: v.number(),
     /** PRIVATE: every god's score of the current value. */
     scores: v.array(scoreV),
-    /** Public: Σ net bits (disclosed live with `noise` added). */
+    /** Public: Σ net bits. */
     salience: v.number(),
-    /** PRIVATE: the live disclosure noise on this value's peers' sums and salience (settings.peerNoiseBits). */
+    /** LEGACY (D1): disclosure noise. No longer written or read. */
     noise: v.optional(v.number()),
     /**
-     * Public: the salience as disclosed now (read-architecture §4.3): `salience + noise` while the game is live, exact
-     * once it has ended (engine/readModel.ts). The spectator's skeleton orders by it (by_game_salience) and its object
-     * row shows it, so neither ever reads `noise`.
+     * Public: the salience (read-architecture §4.3), equal to `salience`; the spectator's skeleton orders by it
+     * (by_game_salience). Games stored before D1 may hold a noisy value here.
      */
     publicSalience: v.number(),
     /**
@@ -422,7 +411,7 @@ export const gameTables = {
    * PRIVATE to `godId`: one object as that god sees it (read-architecture §4.1, §4.3), one row per roster god per object,
    * so the objects panel's skeletons, its rows, the top N and a rank each read one index page or one document, never the
    * world. Only the owning god's queries read a row: other gods' scores never leave the server. The numbers are the
-   * observation's (lib/views.ts viewRowOf): live, the others' sum carries the value's disclosure noise; once ended, exact.
+   * observation's (lib/views.ts viewRowOf).
    * The public figures (version = mutations, createdAt, lastMutatedAt) are copied so every sort is one index.
    * Written off the tick's commit by game/objectViews.ts (a scheduled sync of the objects the commit changed, which
    * reads the objects as they are then), filled at the start and after hold rescoring, and made exact at the end.
@@ -510,8 +499,8 @@ export const gameTables = {
      */
     totals: v.optional(v.array(v.number())),
     /**
-     * Schema 3: this batch's commit published the live scoreboard, as disclosed (every god's total from the noisy peers'
-     * sums, settings.peerNoiseBits): games.scoreboard.totals. A live replay shows these, never the exact `totals`.
+     * Schema 3: this batch's commit published the live scoreboard (every god's total): games.scoreboard.totals. A live
+     * replay shows these. Before D1 they were computed from noisy peers' sums.
      */
     scoreboard: v.optional(v.array(v.number())),
     /** Engine sample of the commit that wrote this batch: acts, world window, simulate time, previous commit round trip. */
@@ -531,7 +520,7 @@ export const gameTables = {
     before: v.optional(wire), value: wire, version: v.number(),
     calls: v.optional(v.any()), agentId: v.optional(v.string()), ownerId: v.optional(v.string()),
     net: v.array(v.number()),
-    /** PRIVATE: the live disclosure noise on this version's others' sums (settings.peerNoiseBits). */
+    /** LEGACY (D1): disclosure noise. No longer written or read. */
     noise: v.optional(v.number()),
     /**
      * The event's position in its tickBatches doc (`seq`), and a transform's charge (cost.total): the observation's

@@ -34,7 +34,7 @@ async function seat(ctx: QueryCtx, roomId: string) {
 
 /**
  * The observation without its collections (objects, agents, transformations, chat, leaderboard): phase, codes, clocks,
- * notice, languages, sandboxes, hold rarity, instance, economy and self. The own score is the read model's total
+ * notice, languages, sandboxes, instance, economy and self. The own score is the read model's total
  * (godTotals: the sum of the payoffs as disclosed, as the observation computes it). Re-runs with each commit (the clock).
  */
 export const state = query({

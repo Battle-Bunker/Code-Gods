@@ -76,11 +76,6 @@ export interface FitInput {
   /** Whether every god also holds a defence goal. */
   readonly defenceGoals?: boolean;
   readonly hints?: readonly Hint[];
-  /**
-   * The disclosure noise's standard deviation in bits (the game's peerNoiseBits): the others' sums the player sees are
-   * the exact sums plus independent Gaussian noise of this scale, so the likelihood never trusts them more closely.
-   */
-  readonly noiseBits?: number;
   /** Beam width (default 64) and hypotheses reported (default 5). */
   readonly beam?: number;
   readonly top?: number;
@@ -103,10 +98,10 @@ export interface FitResult {
   /** Distinct columns after merging identical ones. */
   readonly distinct: number;
   readonly others: number;
-  /** The Gaussian noise scale behind the likelihood: max(best RMS, SIGMA_FLOOR_BITS, noiseBits). */
+  /** The Gaussian noise scale behind the likelihood: max(best RMS, SIGMA_FLOOR_BITS). */
   readonly sigma: number;
   /**
-   * Whether the best hypothesis explains the observations to within the noise (max(SIGMA_FLOOR_BITS, noiseBits) RMS, with
+   * Whether the best hypothesis explains the observations to within the noise (SIGMA_FLOOR_BITS RMS, with
    * three standard errors of slack). When false, no hypothesis in
    * the beam is right (too few observations, a draw without a table, or too many gods for the search): the posterior is
    * then relative to wrong hypotheses, and the spectrum's families are the better guide.
@@ -186,7 +181,7 @@ export function fitMixture(input: FitInput): FitResult {
   const classes = [...byKey.values()];
   const mean = T ? y.reduce((a, b) => a + b, 0) / T : 0;
   const tss = y.reduce((s, v) => s + (v - mean) ** 2, 0);
-  const floor = Math.max(SIGMA_FLOOR_BITS, input.noiseBits ?? 0);
+  const floor = SIGMA_FLOOR_BITS;
   const searchSigma2 = floor ** 2;
 
   // Beam search: k reward classes, then k defence classes, each a set of distinct classes (increasing class index): the

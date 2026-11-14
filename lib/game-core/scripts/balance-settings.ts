@@ -192,8 +192,7 @@ export function play(c: Config, seed: number): Result {
           if (!canPay(0)) { g.blocked++; continue; }
           objs[oi] = edit(o, u, frac); pay(changeBits); changeSpent += changeBits; acts++; g.acts++; continue;
         }
-        const noise = () => s.peerNoiseBits * Math.sqrt(-2 * Math.log(uo())) * Math.cos(2 * Math.PI * u());
-        const value = (x: Obj) => { const p = payoffs(x, n, s); const own = p[a.god] + noise(); if (pol === "greedy") return own; return own - (p.reduce((q, v) => q + v, 0) - p[a.god]) / Math.max(1, n - 1); };
+        const value = (x: Obj) => { const p = payoffs(x, n, s); const own = p[a.god]; if (pol === "greedy") return own; return own - (p.reduce((q, v) => q + v, 0) - p[a.god]) / Math.max(1, n - 1); };
         const base = value(o); let best: Obj | null = null, bestV = base;
         for (let k = 0; k < 4; k++) { const cand = edit(o, u, frac), v = value(cand); if (v > bestV) { bestV = v; best = cand; } }
         readSpent += lookCharge;
@@ -262,7 +261,6 @@ function configs(): Config[] {
   for (const so of [0, 10, 160]) add(`${B} objects=${so}`, base(B, {}, { startingObjectCount: so }));
   add(`${B} objects=0 spawn=0`, base(B, {}, { startingObjectCount: 0, spawnRateHz: 0 }));
   for (const w of [0, 0.5, 2, 10]) add(`${B} defence w=${w}`, base(B, {}, { defenceGoals: true, penaltyWeight: w }));
-  for (const nb of [0, 16]) add(`${B} peerNoise=${nb}`, base(B, {}, { peerNoiseBits: nb }));
   add(`${B} 1 agent/god`, base(B, { agentsPerGod: 1 }));
   add(`${B} 10 agents/god`, base(B, { agentsPerGod: 10 }));
   add(`${B} random vs greedy vs deny`, base(B, { policies: ["random", "greedy", "deny"] }));

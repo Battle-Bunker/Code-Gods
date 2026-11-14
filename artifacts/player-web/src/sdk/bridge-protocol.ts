@@ -99,7 +99,7 @@ export type HostMessage =
   | { type: "result"; id: string; ok: false; message: string };
 
 /** What the frame's evaluator needs, sent once per (game, god): your descriptor, the settings and its calibration tables. */
-export type CalibrationReply = { key: string; settings: unknown; utility: unknown; reward: unknown; penalty?: unknown; hold?: unknown };
+export type CalibrationReply = { key: string; settings: unknown; utility: unknown; reward: unknown; penalty?: unknown };
 
 const FRAME_TYPES = new Set(["ready", "subscribe", "unsubscribe", "command", "calibration", "resize", "status"]);
 export const isFrameMessage = (data: unknown): data is FrameMessage & { nonce: string } =>

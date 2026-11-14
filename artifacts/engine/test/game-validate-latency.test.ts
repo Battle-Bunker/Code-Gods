@@ -22,7 +22,7 @@ test("an edited agent validates within five seconds while two AI seats play", { 
   // A short planning phase, so the validations below meet the running world: every agent's acts each tick.
   const room = await host.c.query(api.rooms.get, { room: roomId });
   await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...room.settings, planningSeconds: PLANNING } });
-  const { gameId } = await startGame(host, roomId, { holdSettled: false });
+  const { gameId } = await startGame(host, roomId);
   // The player's own agents act too (as after a first summon).
   for (let i = 0; i < 2; i++) {
     const summoned = await host.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: `Mine ${i}`, language: "python", source: `def agent(x):\n    return [add(${i + 1})]` }, gameId) });

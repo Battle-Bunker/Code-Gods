@@ -59,18 +59,6 @@ export function disclosureChecker(gameId: string, viewerSubject: string, secrets
       const distinctive = Math.abs(s.netBits) > 1e-6 && !isSmallInteger(s.netBits) && !allowed.has(JSON.stringify(s.netBits));
       if (distinctive) assert.ok(!seen.has(JSON.stringify(s.netBits)), `${label}: ${s.god}'s net bits ${s.netBits} on ${o._id}`);
     }
-    // Live with disclosure noise (settings.peerNoiseBits, docs/public-log-design.md §5): the viewer's EXACT others' sum of
-    // any object version, and the exact payoff built on it, never appear; only the noisy ones do.
-    if (scope.live && (secret.game.settings.peerNoiseBits ?? 0) > 0) {
-      const index = secret.game.roster.findIndex((m: any) => m.id === viewerSubject);
-      for (const r of secret.objectEvents) {
-        if (index < 0 || !r.noise) continue;
-        const own = r.net[index], others = r.net.reduce((n: number, x: number, i: number) => (i === index ? n : n + x), 0);
-        for (const [what, x] of [["others' sum", others], ["payoff", own * Math.max(0, others)]] as const) {
-          if (Math.abs(x) > 1e-6 && !isSmallInteger(x)) assert.ok(!seen.has(JSON.stringify(x)), `${label}: the exact ${what} ${x} of ${r.objectId} v${r.version}`);
-        }
-      }
-    }
     // Another god's outcome of the bid phase (what they bid, won and pay: on their own card only) never appears.
     const ownBid = JSON.stringify(secret.deities.find((x: any) => x.godId === viewerSubject)?.card?.bid);
     for (const d of secret.deities) {

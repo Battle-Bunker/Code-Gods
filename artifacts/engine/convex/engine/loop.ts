@@ -12,7 +12,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../game/tables";
 import { engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
-import { publicSalienceOf } from "../game/readModel";
 import { godTotalsV, scheduleFill } from "../game/objectViews";
 import { writeAgentSamples } from "../game/agentSeries";
 /** World seconds between sweeps of the per-god read model (game/objectViews.ts). */
@@ -80,11 +79,11 @@ export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, 
   for (const [i, e] of events.entries()) {
     const index = first + i;
     if (e.t === "spawn") {
-      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}) });
+      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net });
     } else if (e.t === "transform") {
       await ctx.db.insert("objectEvents", {
         gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
-        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, cost: e.cost.total, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}),
+        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, cost: e.cost.total, net: e.net,
       });
     }
   }
@@ -117,9 +116,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   }
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
   await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
-  // Its disclosure is exact from now on: the public salience and each god's object rows and totals lose the live noise
-  // (paged, off this commit).
-  await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId: game._id, cursor: null });
+  // Each god's object rows and totals, final (paged, off this commit).
   await scheduleFill(ctx, game._id);
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
@@ -168,7 +165,7 @@ export const snapshot = internalQuery({
     ]);
     return {
       game, lastActivity: await lastHumanActivity(ctx),
-      objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience, noise: o.noise })),
+      objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience })),
       agents: agents.map(a => ({
         id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), 
         account: a.account, acts: a.acts, spent: a.spent, spentRead: a.spentRead ?? 0, powerShare: a.powerShare,
@@ -219,7 +216,8 @@ export const commit = internalMutation({
     gameId: v.id("games"), seq: v.number(), epoch: v.number(), phaseBefore: v.string(), lastTickBefore: v.number(),
     kind: v.union(v.literal("window"), v.literal("wait"), v.literal("park")),
     clock: v.optional(clockV),
-    objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
+    objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(),
+      /** LEGACY (D1): disclosure noise, from a tick that started before the deploy. Ignored. */ noise: v.optional(v.number()) })),
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), spentRead: v.optional(v.number()), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }),
       transforms: v.number(), skips: v.optional(v.number()), failures: failuresV, lastFailures: lastFailuresV,
@@ -231,9 +229,9 @@ export const commit = internalMutation({
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
     /** The leaderboard after the window (every roster god's exact total payoff, roster order), stored on scoring batches. */
     totals: v.optional(v.array(v.number())),
-    /** The same as disclosed live (payoffs from the noisy peers' sums): the scoreboard, published when due. */
+    /** LEGACY (D1): the noisy scoreboard of a tick that started before the deploy. Ignored: `totals` is published. */
     disclosedTotals: v.optional(v.array(v.number())),
-    /** Each roster god's totals after the window as disclosed (lib/views.ts godTotalsOf), when objects changed. */
+    /** Each roster god's totals after the window (lib/views.ts godTotalsOf), when objects changed. */
     godTotals: v.optional(v.array(godTotalsV)),
     wakeAt: v.optional(v.number()),
     /** LEGACY (D1): paid observation's tellings, sent by a tick that started before the deploy. Ignored. */
@@ -295,15 +293,15 @@ export const commit = internalMutation({
     for (const e of events) if (e.t === "transform") mutatedAt.set(e.objectId, Math.max(mutatedAt.get(e.objectId) ?? 0, e.world));
     for (const change of args.objects) {
       const at = mutatedAt.get(change.id);
-      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise,
-        publicSalience: publicSalienceOf(change, true), ...(at !== undefined ? { lastMutatedAt: at } : {}) });
+      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience,
+        publicSalience: change.salience, ...(at !== undefined ? { lastMutatedAt: at } : {}) });
     }
     const spawnedAt = new Map<string, number>();
     for (const e of events) if (e.t === "spawn") spawnedAt.set(e.objectId, e.world);
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
-      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
-        publicSalience: publicSalienceOf(spawn, true), createdAt: spawnedAt.get(spawn.tmp) ?? args.clock!.worldSeconds }));
+      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience,
+        publicSalience: spawn.salience, createdAt: spawnedAt.get(spawn.tmp) ?? args.clock!.worldSeconds }));
     }
     for (const state of args.agents) {
       if (live.has(state.id)) {
@@ -329,16 +327,16 @@ export const commit = internalMutation({
     // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
     // (docs/public-log-design.md §3); the end publishes its own (endGame). A game without one (started before
     // scoreboards) keeps its live leaderboard.
-    const publish = !!game.scoreboard && !!args.disclosedTotals && clock.phase !== "ended" &&
+    const publish = !!game.scoreboard && !!args.totals && clock.phase !== "ended" &&
       scoreboardDue(game.scoreboard.world, clock.worldSeconds, scoreIntervalOf(game));
-    const scoreboard = publish ? { totals: args.disclosedTotals!, world: clock.worldSeconds, at: now } : undefined;
+    const scoreboard = publish ? { totals: args.totals!, world: clock.worldSeconds, at: now } : undefined;
     // With each publication, every god's agents' energy (the agents panel's series; game/agentSeries.ts).
     if (publish) await writeAgentSamples(ctx, game, clock.worldSeconds);
     // Once a world minute, a sweep of every god's rows and totals (game/objectViews.ts fill, paged, off this commit): a
     // sync that failed leaves no row stale for longer.
     if (clock.phase === "running" && Math.floor(clock.worldSeconds / SWEEP_SECONDS) > Math.floor(game.worldSeconds / SWEEP_SECONDS)) await scheduleFill(ctx, game._id, true);
-    // The stored totals stay exact on every scoring batch (the replay of an ended game steps per event); the live
-    // projection shows only the disclosed scoreboard, on the batch that published it.
+    // The stored totals stay on every scoring batch (the replay of an ended game steps per event); the live projection
+    // shows only the published scoreboard, on the batch that published it.
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
     const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined,
       scored || publish ? args.totals : undefined, scoreboard?.totals);

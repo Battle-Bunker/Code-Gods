@@ -4,8 +4,7 @@
  *
  * Order: the sort key descending, then the object id ascending, so every object has one place and a cursor `{key, id}`
  * names a position that stays valid while values move (a page starts strictly after it). The keys are the VIEWER's
- * disclosed numbers: live games hand in the noisy others-sum (settings.peerNoiseBits), never an exact one; ended games
- * and replays hand in exact values. This module only orders what it is given.
+ * disclosed numbers. This module only orders what it is given.
  */
 export const OBJECT_SORTS = ["payoff", "mine", "othersCare", "mutations", "newest", "oldest", "recentlyMutated"] as const;
 export type ObjectSort = (typeof OBJECT_SORTS)[number];

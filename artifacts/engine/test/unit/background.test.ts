@@ -9,8 +9,8 @@ test("a background job takes a slot only below the cap; expired slots do not cou
   assert.equal(slotFree([live, live], now, 3), true);
   assert.equal(slotFree([live, live, live], now, 3), false);
   assert.equal(slotFree([live, live, dead, dead], now, 3), true);
-  // Every examination and its nested actions, plus every hold computation, leave most of 64 actions to ticks.
-  assert.ok(BACKGROUND_LIMITS.examination * 3 + BACKGROUND_LIMITS.hold + BACKGROUND_LIMITS.turn * 4 <= 40);
+  // Every examination and its nested actions and every AI seat turn leave most of 64 actions to ticks.
+  assert.ok(BACKGROUND_LIMITS.examination * 3 + BACKGROUND_LIMITS.turn * 4 <= 40);
 });
 
 test("only a running game whose last commit is old is overdue", () => {

@@ -68,14 +68,7 @@ export interface Econ {
   readonly distancePricing: boolean;
   /** Candidate rule "breaking costs extra": each bit of salience (Σ every god's bits) a change destroys adds this many bits to its work W. 0 = develop. */
   readonly erasure: number;
-  /**
-   * σ (bits) of the disclosure noise on the salience the erasure charge is computed from: 0 charges on the exact
-   * salience; the engine's live disclosure adds a fixed N(0, σ²) per value (settings.peerNoiseBits, 8 by default).
-   */
-  readonly erasureNoiseBits: number;
   readonly aggregate: Aggregate;
-  /** settings.peerNoiseBits: σ of the fixed noise on the others' sum a god (and the commit clause) sees per value. */
-  readonly peerNoiseBits: number;
   /** What decides the game: the payoff at the end (develop) or its average over the game's time. */
   readonly scoring: "final" | "integral";
   /** World seconds before a policy that uses the other gods' rules knows them (it plays greedy until then). */
@@ -95,7 +88,7 @@ export interface Econ {
    */
   readonly debtBound: boolean;
 }
-export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", peerNoiseBits: 8, scoring: "final", learnSeconds: 0, candidates: 24, offerReads: true, debtBound: true } as const;
+export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, aggregate: "sum", scoring: "final", learnSeconds: 0, candidates: 24, offerReads: true, debtBound: true } as const;
 
 /** The work W (bits) of one write and its erasure surcharge; the charge is changeCost(W). */
 export function writeWork(sp: Space, econ: Pick<Econ, "distancePricing" | "erasure">, from: number, to: number, salienceBefore: number, salienceAfter: number): number {
@@ -224,10 +217,10 @@ export function decide(policy: Policy, v: ActView): Decision {
   }
   if (!bestMove) return { move: null, readBits: fullRead };
   if (policy === "clause") {
-    // The commit clause (engine lib/world.ts commitRaises): own bits exact, the others' sum with each value's noise.
+    // The commit clause (engine lib/world.ts commitRaises): the owner's payoff must strictly rise.
     const after = score(apply(o.grid, bestMove));
-    const seen = (bits: readonly number[], grid: GridValue) => { const peers = sum(bits) - bits[i] + econ.peerNoiseBits * valueNoise(grid); return peers > 0 ? bits[i] * peers : 0; };
-    if (!(seen(after.bits, after.grid) - seen(o.bits, o.grid) > 0)) return { move: null, readBits: fullRead };
+    const seen = (bits: readonly number[]) => { const peers = sum(bits) - bits[i]; return peers > 0 ? bits[i] * peers : 0; };
+    if (!(seen(after.bits) - seen(o.bits) > 0)) return { move: null, readBits: fullRead };
     return { move: bestMove, readBits: fullRead, after };
   }
   return { move: bestMove, readBits: fullRead, after: best ?? score(apply(o.grid, bestMove)) };
@@ -264,14 +257,6 @@ export interface GameResult {
   /** Opportunities nobody could take (no agent with energy and off the cap). */
   readonly idle: number;
   readonly objects: number;
-}
-
-/** A value's disclosure noise: a fixed standard normal per board (the engine keys it by the game and the value). */
-export function valueNoise(g: GridValue): number {
-  let h = 2166136261;
-  for (const s of g.sym) h = Math.imul(h ^ (s + 1), 16777619) >>> 0;
-  const r = (k: number) => { let t = (h + k * 0x6d2b79f5) >>> 0; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return (((t ^ (t >>> 14)) >>> 0) + 0.5) / 4294967296; };
-  return Math.sqrt(-2 * Math.log(r(1))) * Math.cos(2 * Math.PI * r(2));
 }
 
 /** Uniform in (0, 1) from an Rng. */
@@ -337,9 +322,7 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
       continue;
     }
     const sBefore = sum(o.bits), sAfter = sum(d.after.bits);
-    const noisy = econ.erasure > 0 && econ.erasureNoiseBits > 0;
-    const change = changeCost(writeWork(sp, econ, o.grid.sym[d.move.cell], d.move.value,
-      sBefore + (noisy ? econ.erasureNoiseBits * valueNoise(o.grid) : 0), sAfter + (noisy ? econ.erasureNoiseBits * valueNoise(d.after.grid) : 0)));
+    const change = changeCost(writeWork(sp, econ, o.grid.sym[d.move.cell], d.move.value, sBefore, sAfter));
     if (econ.debtBound && Number.isFinite(cap) && !affordable(agent.account.balance, read + change, actCredit(cap))) {
       // Refused (§7.2): the agent would owe more than it can hold. It pays its reads, like any change that does not commit.
       r.refused[g]++;

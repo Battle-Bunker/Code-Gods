@@ -24,7 +24,6 @@ import { fail } from "./lib/errors";
 import { objectsOf } from "./lib/load";
 import { activeGameRef, gameRecord, gameSetup, objectInstance, publicGame, rosterEntry, type Standing } from "./lib/projection";
 import { withClock } from "./game/state";
-import { publicSalienceOf } from "./game/readModel";
 import { findGame, getCatalog, isHistoric, recentChat, requireHistoricReaderAs } from "./lib/rooms";
 
 /** The game a signed-in viewer may read, by id, GUID or short code, with its room (null once the room is deleted). */
@@ -175,17 +174,15 @@ export const objectIds = query({
   },
 });
 
-/** One object as disclosed: its value and its salience (live with its value's disclosure noise, exact once ended). */
+/** One object as disclosed: its value and its salience. */
 export const object = query({
   args: { objectId: v.string() },
   handler: async (ctx, { objectId }) => {
     const id = ctx.db.normalizeId("objects", objectId);
     const o = id ? await ctx.db.get(id) : null;
     if (!o) { await requireViewer(ctx); return null; }
-    const { game } = await readable(ctx, o.gameId);
-    // Exact once the game has ended, before game/readModel.ts finalizeObjects reaches this object too.
-    const live = game.phase !== "ended";
-    return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience : publicSalienceOf(o, false) };
+    await readable(ctx, o.gameId);
+    return { id: o._id, value: o.value, version: o.version, salience: o.salience };
   },
 });
 

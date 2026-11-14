@@ -258,7 +258,6 @@ test("did the change help: before against the new version's FIRST moves, frozen 
   assert.equal(versionComparison(before, { moves: 20, points: -70, frozen: true }), "Before your change: +8.1 points a move. Since: −3.5 a move over its first 20 moves.");
   assert.equal(versionComparison(undefined, { moves: 20, points: -70, frozen: true }), "Since your change: −3.5 points a move over its first 20 moves. Nothing was counted for the version before it.");
   assert.equal(versionComparison({ moves: 0, points: 0 }, { moves: 9, points: 18 }), "Since your change: +2 points a move so far, over its first 9 moves. Nothing was counted for the version before it.");
-  assert.equal(versionComparison(before, { moves: 20, points: -70, frozen: true }, { estimate: true }), "Before your change: about +8.1 points a move. Since: about −3.5 a move over its first 20 moves.");
   // After a put-back: how the restored version is doing, in the same terms.
   assert.equal(versionComparison(undefined, { moves: 20, points: 720, frozen: true }, { restored: true }), "Back on the previous version: +36 points a move over its first 20 moves since.");
   assert.equal(versionComparison(undefined, { moves: 9, points: 90 }, { restored: true }), "Back on the previous version: +10 points a move so far, over its first 9 moves since.");

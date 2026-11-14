@@ -29,14 +29,14 @@ export const godTotalsV = v.object({
 type Row = Omit<Doc<"objectViews">, "_id" | "_creationTime">;
 const stored = ({ _id, _creationTime, ...row }: Doc<"objectViews">): Row => row;
 /** What a row is computed from: an object as stored. */
-type ObjectState = Pick<Doc<"objects">, "_id" | "gameId" | "value" | "version" | "scores" | "noise" | "createdAt" | "lastMutatedAt">;
+type ObjectState = Pick<Doc<"objects">, "_id" | "gameId" | "value" | "version" | "scores" | "createdAt" | "lastMutatedAt">;
 
 
 /** Every roster god's row of one object as disclosed now. */
-function rowsOf(o: ObjectState, live: boolean): Row[] {
+function rowsOf(o: ObjectState): Row[] {
   const rows: Row[] = [];
   for (const { god } of o.scores) {
-    const view = viewRowOf(o, god, live)!;
+    const view = viewRowOf(o, god)!;
     rows.push({
       gameId: o.gameId, godId: god, objectId: o._id, value: o.value, version: o.version, createdAt: o.createdAt ?? 0,
       ...(o.lastMutatedAt !== undefined ? { lastMutatedAt: o.lastMutatedAt } : {}), ...view,
@@ -49,11 +49,11 @@ function rowsOf(o: ObjectState, live: boolean): Row[] {
  * Write each roster god's row of these objects where it differs from the stored one (insert the missing), never over a
  * newer version (a late or out-of-order write).
  */
-export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[], live: boolean) {
+export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[]) {
   for (const o of objects) {
     // bounded: one row per roster god (≤ 8).
     const have = new Map((await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", o._id)).take(16)).map(r => [r.godId, r]));
-    for (const row of rowsOf(o, live)) {
+    for (const row of rowsOf(o)) {
       const old = have.get(row.godId);
       if (!old) await ctx.db.insert("objectViews", row);
       else if (old.version <= row.version && JSON.stringify(stored(old)) !== JSON.stringify(row)) await ctx.db.replace(old._id, row);
@@ -84,7 +84,7 @@ export const sync = internalMutation({
     // Once ended, the end's fill writes the exact rows and totals; a late tick's live ones are dropped.
     if (!game || game.phase === "ended") return;
     const objects = (await Promise.all(objectIds.map(id => ctx.db.get(id)))).filter((o): o is Doc<"objects"> => !!o && o.gameId === gameId);
-    await syncRows(ctx, objects, true);
+    await syncRows(ctx, objects);
     if (totals) await writeTotals(ctx, gameId, world, totals, false);
   },
 });
@@ -100,7 +100,7 @@ export const fill = internalMutation({
     const game = await ctx.db.get(gameId);
     if (!game) return;
     const page = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: FILL_PAGE });
-    await syncRows(ctx, page.page, game.phase !== "ended");
+    await syncRows(ctx, page.page);
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: page.continueCursor, ...(rowsOnly ? { rowsOnly } : {}) });
     else if (!rowsOnly) await ctx.scheduler.runAfter(0, internal.game.objectViews.fillTotals, { gameId });
   },
@@ -114,7 +114,7 @@ export const fillTotals = internalMutation({
     if (!game) return;
     const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
     const world = (await clockDoc(ctx, gameId))?.worldSeconds ?? 0;
-    await writeTotals(ctx, gameId, world, godTotalsOf(game.roster.map(m => m.id), objects, game.phase !== "ended", game.handicaps), true);
+    await writeTotals(ctx, gameId, world, godTotalsOf(game.roster.map(m => m.id), objects, game.handicaps), true);
   },
 });
 

@@ -230,9 +230,10 @@ test("upgradeStoredSettings gives stored settings without a duration mode the ha
 // Haskell was removed (2026-11): stored rooms and setups that allowed it must still validate.
 test("upgradeStoredSettings drops the settings of deleted features, so stored rooms and setups still load and validate", () => {
   // A room stored on "Basics with paid looks" (deleted in D1; archive/engine-v1) carried observation: "paid".
-  const stored = { ...DEFAULT_SETTINGS, observation: "paid" };
+  // A room on the general default before D1 carried disclosure noise: peerNoiseBits 8.
+  const stored = { ...DEFAULT_SETTINGS, observation: "paid", peerNoiseBits: 8 };
   const upgraded = upgradeStoredSettings(stored);
-  assert.ok(upgraded && !("observation" in upgraded));
+  assert.ok(upgraded && !("observation" in upgraded) && !("peerNoiseBits" in upgraded));
   assert.doesNotThrow(() => validateSettings(upgraded as never));
   assert.equal(upgradeStoredSettings(upgraded), null, "idempotent");
   assert.equal(upgradeStoredSettings(stored, false, { keepRetired: true }), null, "the stored-data migration leaves the rows alone");
@@ -263,11 +264,9 @@ test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans f
   assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 60]);
   assert.doesNotThrow(() => validateSettings(s));
 });
-test("Annotated basics is sized for a first game: five minutes with a countdown, and live points that equal the final", () => {
+test("Annotated basics is sized for a first game: five minutes with a countdown", () => {
   const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
   assert.deepEqual([s.durationMode, s.halfLifeSeconds], ["fixed", 300]);
-  // Disclosure noise makes every live total read high and drop at the end (the others' sum is floored after the noise).
-  assert.equal(s.peerNoiseBits, 0);
 });
 
 test("energy settings have upper bounds, so no allowed value overflows an account or a score (balance harness)", () => {

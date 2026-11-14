@@ -15,8 +15,7 @@ import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client"
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { boardFacts, buildExampleAgent, mutatorNames, starterAgents } from "@workspace/game-utilities/example-agents";
-import { useEvents, useMyAgents, useMutators, useDockState, useMyCard, useRoomInfo } from "@/sdk";
-import { liveIsEstimate } from "./score-lines";
+import { useEvents, useMyAgents, useMutators, useDockState, useMyCard } from "@/sdk";
 import { usePreviousVersion } from "./use-previous-version";
 import { agentEarnings } from "./score-line";
 import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isBeginnerGoal, isLanguage } from "@workspace/game-core";
@@ -326,7 +325,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // version so the two can be compared.
   const events = useEvents({ hz: 1, limit: 50 });
   const remembered = usePreviousVersion(obs?.gameId, agents, agentsLoading, events, obs?.economy?.worldSeconds);
-  const room = useRoomInfo();
   // Since a replace keeps the agent's id, each agent's figure is its CURRENT program's: from its latest replace on.
   const earnings = useMemo(() => agentEarnings(events, boundaryOf(remembered?.previous)), [events, remembered?.previous]);
   const pressReplace = (checkedCost?: number) => {
@@ -537,7 +535,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       {(() => {
         // Only the agent the replace made, in this game (use-previous-version.ts), and only while the editor holds its code.
         const mine = remembered && remembered.previous.newSource === source ? agents.find(a => a.id === remembered.agentId) : undefined;
-        const line = mine ? versionComparison(remembered!.previous.before, remembered!.previous.since, { estimate: obs?.phase !== "ended" && liveIsEstimate(room?.settings), restored: remembered!.previous.restored }) : null;
+        const line = mine ? versionComparison(remembered!.previous.before, remembered!.previous.since, { restored: remembered!.previous.restored }) : null;
         return line && <p data-testid="text-version-comparison" className="text-xs text-foreground" title={MOVE_MEANS}>{line} <span className="text-muted-foreground">{COMPARISON_CAVEAT}</span></p>;
       })()}
       {refused && !busy && !armed && <p data-testid="text-armed-refused" className="text-sm font-semibold text-destructive">{refused.armed.name} was not summoned: {refused.message} <TextButton onClick={() => { const again = { ...refused.armed }; setRefused(null); setArmed(again); }}>Try again</TextButton></p>}

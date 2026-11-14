@@ -49,7 +49,7 @@ export const EVENTS_PER_BATCH = 400;
  * agent summons and destructions, per-batch leaderboard totals and chat stamped with its game and world time; 3 added
  * each act's seed to transform and fail events. A batch without the stamp predates them. 4 marks the batches that
  * published the live scoreboard (`scoreboard`, every scoreIntervalSeconds of world time, docs/public-log-design.md §3),
- * adds the live disclosure noise per spawn and transform (`noise`) and writes one objectEvents row per spawn and
+ * added the live disclosure noise per spawn and transform (`noise`; deleted in D1) and writes one objectEvents row per spawn and
  * transform. 5 is the energy model (docs/energy-model.md): an act's cost is {read, change, total} (no decision or floor),
  * summons carry no decisionBits or perActFloorBits, and an act that returned no calls is a `skip` event. Bump it whenever
  * an event's meaning or fields change. 6 is the power budget (docs/energy-model.md §6): a summon carries the agent's
@@ -121,42 +121,23 @@ export function godEnergy(game: { settings: GameSettings }, deity: DeityPower, w
   return deityAccount(game, deity, world).balance;
 }
 
-/**
- * A god's own view of one object from the private score list: own score and peer aggregates only. `noise` is added to
- * the peers' sum before care and payoff (the live disclosure, settings.peerNoiseBits; 0 for the exact view).
- */
-export function viewOf(scores: readonly { god: string; netBits: number }[], godId: string, noise = 0) {
-  const view = personalView(new Map(scores.map(s => [s.god, s.netBits])), godId);
-  return noise === 0 ? view : withPeers(view.netBits, view.peerNetBits + noise);
+/** A god's own view of one object from the private score list: own score and peer aggregates only. */
+export function viewOf(scores: readonly { god: string; netBits: number }[], godId: string) {
+  return personalView(new Map(scores.map(s => [s.god, s.netBits])), godId);
 }
 const withPeers = (own: number, peer: number) => {
   const peerCare = Math.max(0, peer);
   return { netBits: own, peerNetBits: peer, peerCare, payoff: peerCare === 0 ? 0 : own * peerCare };
 };
-/** The same from a roster-ordered net-bits vector (event log), with the disclosure `noise` on the peers' sum. */
-export function viewOfNet(net: readonly number[], index: number, noise = 0) {
+/** The same from a roster-ordered net-bits vector (event log). */
+export function viewOfNet(net: readonly number[], index: number) {
   let peer = 0;
   for (let i = 0; i < net.length; i++) if (i !== index) peer += net[i];
-  return withPeers(net[index], peer + noise);
+  return withPeers(net[index], peer);
 }
-/**
- * The commit clause's test (docs/public-log-design.md §5.2): does the act strictly raise the owner's payoff on the object
- * AS THE OWNER SEES IT, own bits exact and the others' sum with each value's live disclosure noise? Deciding on the
- * exact payoff would leak one bit of the exact others' sum per conditional act; on the disclosed values it reveals only
- * what the owner is shown (and the noise is a fixed function of the value, so repeating a probe adds nothing).
- */
-export function commitRaises(before: readonly { god: string; netBits: number }[], after: readonly { god: string; netBits: number }[],
-  ownerId: string, beforeNoise: number, afterNoise: number): boolean {
-  return viewOf(after, ownerId, afterNoise).payoff - viewOf(before, ownerId, beforeNoise).payoff > 0;
-}
-
-/**
- * Every roster god's total payoff as disclosed live (the published scoreboard): each object's payoff computed from its
- * noisy peers' sum (the object's stored `noise`), so a god's published total is consistent with what that god sees.
- */
-export function disclosedTotalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[]; noise?: number }[],
-  handicaps?: readonly number[]): number[] {
-  return withHandicaps(roster.map(id => objects.reduce((sum, o) => sum + (o.scores.some(s => s.god === id) ? viewOf(o.scores, id, o.noise ?? 0).payoff : 0), 0)), handicaps);
+/** The commit clause's test (docs/public-log-design.md §5.2): does the act strictly raise the owner's payoff on the object? */
+export function commitRaises(before: readonly { god: string; netBits: number }[], after: readonly { god: string; netBits: number }[], ownerId: string): boolean {
+  return viewOf(after, ownerId).payoff - viewOf(before, ownerId).payoff > 0;
 }
 /**
  * A handicap taken off a total (docs/bid-phase.md): `percent` of its size, always downwards (a negative total, possible
