@@ -1,7 +1,7 @@
 /** The committed artefact per rule (spec §7.6) and the run-time lookup (§7.7). */
 import { canonicalJson, hashHex, levelOf, objectLadder, ruleLayers, scoreFromWire, tieBreakerId, scoreToWire, Qn, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { estimate, ruleKey, DEFAULT_CONFIG, type Estimate, type ValuationConfig } from "./estimate.ts";
-import { evalCurve, fit, type Curve } from "./fit.ts";
+import { evalCurve, fit, type Curve, type Point } from "./fit.ts";
 
 export interface ArtefactRung {
   readonly score: readonly (string | null)[] | null;
@@ -16,8 +16,8 @@ export interface ArtefactRung {
 }
 
 export interface Artefact {
-  /** 3: the dealable cap (coordinator's call (g)); 2: layered ladders (tieBreaker, rungs[].layer, primarySense). */
-  readonly schema: 3;
+  /** 4: the fitted tail and the converged cap; 3: the dealable cap (call (g)); 2: layered ladders. */
+  readonly schema: 4;
   readonly ruleKey: string;
   readonly objectType: string;
   readonly objectTypeVersion: number;
@@ -34,11 +34,15 @@ export interface Artefact {
   /** The rungs calibrated: the rule's ladder, or a prefix of it when its top rungs could not be reached (see reasons). */
   readonly rungs: readonly ArtefactRung[];
   /**
-   * The dealt ladder's top (coordinator's call (g)): the last rung through which every rung met the error target. A
-   * line above it scores as the cap, so a rule that misses only its rarest rungs is still dealt, capped.
+   * The dealt ladder's top (coordinator's call (g)): the converged cap, or the last rung of the fitted tail. A line
+   * above it scores as the cap, so a rule that misses only its rarest rungs is still dealt, capped.
    */
   readonly cap: number;
-  /** Dealt: not too coarse or unreachable, and at least MIN_DEALABLE_RUNGS converged rungs up to the cap. */
+  /** The last rung through which every rung met the error target. */
+  readonly convergedCap: number;
+  /** Fitted values for rungs convergedCap + 1 … cap (null: no tail). */
+  readonly tail: Tail | null;
+  /** Dealt: see dealtLadder. */
   readonly dealable: boolean;
   /** The primary layer's sense: a curve's argument t is −score[0] for "min", score[0] for "max". */
   readonly primarySense: "min" | "max";
@@ -73,25 +77,96 @@ export const BACKLOG_HEAD = "# Too-hard backlog (spec §7.5)\n\nRules that are n
 
 /** A rule is too hard (backlogged, never dealt) when fewer rungs than this converge (coordinator's call (g)). */
 export const MIN_DEALABLE_RUNGS = 6;
+/** Nor is a pairing whose dealt top is worth less than this many bits (the coordinator, after call (g)). */
+export const MIN_DEALT_TOP_BITS = 4;
+/** A fitted tail needs at least this many converged tie-breaker rungs at the main top to fit. */
+export const MIN_TAIL_POINTS = 4;
 
 /**
- * The cap and whether the rule is dealt (call (g)), from an artefact's stored figures alone: the last rung r such that
- * every non-empty rung 1 … r has a finite value within max(targetRelError · bits, absFloorBits); dealable when the rule
- * is neither too coarse nor unreachable and at least MIN_DEALABLE_RUNGS non-empty rungs lie at or below the cap.
+ * Rungs above the converged cap, valued by a curve through the converged tie-breaker rungs at the main top (call (g):
+ * "where the converged rungs fit an algebraic curve well, the tail may be snapped to that curve and marked fitted").
+ * `bits[k]` is rung `from + k`'s fitted value.
  */
-export function capOf(a: { readonly status: string; readonly rungs: readonly { bits: number | null; error: number | null; empty?: true }[]; readonly config: ValuationConfig }): { cap: number; dealable: boolean; converged: number } {
-  let cap = 0, converged = 0;
+export interface Tail { readonly from: number; readonly bits: readonly number[]; readonly curve: Curve & { readonly snapped: boolean } }
+
+export interface Dealt {
+  /** The dealt top: the converged cap, or the last fitted rung. */
+  readonly cap: number;
+  /** The last rung through which every non-empty rung converged. */
+  readonly convergedCap: number;
+  readonly converged: number;
+  readonly tail: Tail | null;
+  readonly dealable: boolean;
+}
+
+type StoredRung = { readonly bits: number | null; readonly error: number | null; readonly empty?: true; readonly layer: number; readonly main?: number; readonly score: readonly (string | null)[] | null };
+
+/**
+ * The dealt ladder (call (g)), from an artefact's stored figures: the converged cap (the last rung r such that every
+ * non-empty rung 1 … r has a finite value within max(targetRelError · bits, absFloorBits)); a fitted tail when every
+ * rung above the cap is a tie-breaker rung at the main top and at least MIN_TAIL_POINTS converged ones there fit the
+ * layer's curve (distance: log-distance; size or count: quadratic) within twice their errors, extrapolating at most one
+ * span of the fitted thresholds past the last and never decreasing; and dealable unless the rule is too coarse or
+ * unreachable, fewer than MIN_DEALABLE_RUNGS rungs converged, or the dealt top is worth under MIN_DEALT_TOP_BITS bits.
+ */
+export function dealtLadder(a: { readonly status: string; readonly rungs: readonly StoredRung[]; readonly config: ValuationConfig },
+  tie: { readonly sense: "min" | "max"; readonly measure: "distance" | "count" | "size" } | null): Dealt {
+  let convergedCap = 0, converged = 0;
   for (let i = 1; i < a.rungs.length; i++) {
     const r = a.rungs[i]!;
     if (r.empty) continue;   // passes, but the cap only ever sits on a converged rung
     const { bits, error } = r;
     if (bits === null || error === null || !Number.isFinite(bits) || !Number.isFinite(error)) break;
     if (error > Math.max(a.config.targetRelError * bits, a.config.absFloorBits)) break;
-    cap = i;
+    convergedCap = i;
     converged++;
   }
-  const dealable = a.status !== "too-coarse" && a.status !== "unreachable" && converged >= MIN_DEALABLE_RUNGS;
-  return { cap, dealable, converged };
+  const tail = tie ? fitTail(a, convergedCap, tie) : null;
+  const cap = convergedCap + (tail?.bits.length ?? 0);
+  const topBits = tail ? tail.bits[tail.bits.length - 1]! : (a.rungs[convergedCap]!.bits ?? 0);
+  const dealable = a.status !== "too-coarse" && a.status !== "unreachable" && converged >= MIN_DEALABLE_RUNGS && topBits >= MIN_DEALT_TOP_BITS;
+  return { cap, convergedCap, converged, tail, dealable };
+}
+
+function fitTail(a: { readonly rungs: readonly StoredRung[]; readonly config: ValuationConfig }, convergedCap: number,
+  tie: { readonly sense: "min" | "max"; readonly measure: "distance" | "count" | "size" }): Tail | null {
+  const last = a.rungs.length - 1;
+  if (convergedCap >= last) return null;
+  const mainTop = Math.max(...a.rungs.map(r => r.main ?? 0));
+  const atTop = (i: number) => a.rungs[i]!.layer === 1 && a.rungs[i]!.main === mainTop;
+  for (let i = convergedCap + 1; i <= last; i++) if (!atTop(i)) return null;
+  // t: the tie-breaker's threshold as the curve's argument (a distance for "min", a size or count for "max").
+  const tOf = (i: number): number => { const w = a.rungs[i]!.score?.[1]; if (w === null || w === undefined) return NaN; const x = Qn.toNumber(Qn.parse(w)); return tie.sense === "min" ? -x : x; };
+  const points: Point[] = [];
+  for (let i = 1; i <= convergedCap; i++) {
+    const r = a.rungs[i]!;
+    if (!atTop(i) || r.empty || r.bits === null || r.error === null) continue;
+    points.push({ t: tOf(i), v: r.bits, err: Math.max(r.error, a.config.absFloorBits) });
+  }
+  if (points.length < MIN_TAIL_POINTS || points.some(p => !Number.isFinite(p.t))) return null;
+  const f = fit(tie.measure === "distance" ? "distance" : "count", points);
+  if (!f || !f.accepted) return null;
+  const ts = points.map(p => p.t), span = Math.max(...ts) - Math.min(...ts);
+  // How far the curve may be trusted: one more span of thresholds (sizes grow, distances shrink towards 0).
+  const within = (t: number) => (tie.sense === "max" ? t <= Math.max(...ts) + span : t >= Math.max(0, Math.min(...ts) - span));
+  const bits: number[] = [];
+  let prev = a.rungs[convergedCap]!.bits ?? 0;
+  for (let i = convergedCap + 1; i <= last; i++) {
+    const t = tOf(i);
+    if (!Number.isFinite(t) || !within(t)) break;
+    const v = evalCurve(f.curve, t);
+    if (!Number.isFinite(v)) break;
+    prev = Math.max(prev, r4(v));
+    bits.push(prev);
+  }
+  return bits.length ? { from: convergedCap + 1, bits, curve: { ...f.curve, snapped: f.snapped } } : null;
+}
+
+/** A dealt rung's bits: its measured value up to the converged cap, the fitted tail's above it. */
+export function rungBits(a: { readonly rungs: readonly { readonly bits: number | null }[]; readonly tail?: Tail | null }, i: number): number {
+  const t = a.tail;
+  if (t && i >= t.from) return t.bits[Math.min(i - t.from, t.bits.length - 1)]!;
+  return a.rungs[i]?.bits ?? 0;
 }
 
 export function contentHash(a: Omit<Artefact, "contentHash">): string {
@@ -122,11 +197,12 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
     const f = fit(primary.measure === "distance" ? "distance" : "count", points);
     if (f && f.accepted) curve = { ...f.curve, snapped: f.snapped };
   }
-  const { cap, dealable } = capOf({ status: est.status, rungs, config });
+  const tieLayer = ruleLayers(family, tb)[1] ?? null;
+  const { cap, convergedCap, tail, dealable } = dealtLadder({ status: est.status, rungs, config }, tieLayer);
   const body: Omit<Artefact, "contentHash"> = {
-    schema: 3, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
+    schema: 4, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
     variant: variant.id, variantHash: hashHex(canonicalJson(variant)), family: family.id, params, tieBreaker, seed, config,
-    status: est.status, reasons: est.reasons, rungs, cap, dealable, primarySense: primary.sense, curve,
+    status: est.status, reasons: est.reasons, rungs, cap, convergedCap, tail, dealable, primarySense: primary.sense, curve,
     diagnostics: {
       reversibility: r4(est.reversibility), mixingSteps: r4(est.mixingSteps), steps: est.steps, samplesPerChain: est.samplesPerChain,
       distinctLevels: est.distinctLevels, examples: est.examples,
@@ -145,7 +221,7 @@ export function bitsFor(a: Artefact, score: Score): number {
   const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
   // Above the cap a line scores as the cap (call (g)): those rungs' values did not converge.
   const level = Math.min(levelOf(score, ladder), a.cap);
-  const base = a.rungs[level]!.bits;
+  const base = rungBits(a, level);
   // The curve interpolates between main rungs, and only on a one-layer ladder: on a joint ladder the tie-breaker's rungs
   // sit between main rungs, and a value read off the main curve alone would not follow the lexicographic order.
   if (a.rungs.some(r => r.layer === 1)) return base;

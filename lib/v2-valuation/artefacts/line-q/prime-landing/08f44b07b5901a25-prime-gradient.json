@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-landing/{}/tb=prime-gradient",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1965,5 +1965,7 @@
  },
  "cap": 34,
  "dealable": true,
- "contentHash": "8c0f0ab98d5d66c6"
+ "convergedCap": 34,
+ "tail": null,
+ "contentHash": "4886fb887f2e1b7c"
 }

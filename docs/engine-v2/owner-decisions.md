@@ -102,8 +102,8 @@ existing code. The specification that follows from them is [spec.md](spec.md).
   only its rarest rungs is NOT backlogged. Its dealable ladder is capped at the last rung that converged to the 2%
   margin (or, where the converged rungs fit an algebraic curve well, the tail may be snapped to that curve and marked
   'fitted'); rungs above the cap score as the cap. A rule is 'too hard' only if fewer than 6 rungs converge." Built as
-  the artefact's `cap` and `dealable` (spec §7.5); the snapped tail is not built yet (curves are fitted to one-layer
-  ladders only, and the joint ladders have none).
+  the artefact's `cap`, `convergedCap`, `tail` and `dealable` (spec §7.5): the fitted tail is built for tie-breaker
+  rungs at the main top. The coordinator added the same day: a pairing whose dealt top is under 4 bits is not dealable.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

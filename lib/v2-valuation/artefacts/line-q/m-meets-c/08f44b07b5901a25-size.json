@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/m-meets-c/{}/tb=size",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2646,6 +2646,8 @@
   ]
  },
  "cap": 28,
- "dealable": true,
- "contentHash": "de861317b3c11049"
+ "dealable": false,
+ "convergedCap": 28,
+ "tail": null,
+ "contentHash": "3c9a650cc2168883"
 }
