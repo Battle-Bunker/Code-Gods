@@ -42,9 +42,10 @@ export function useView(): ViewState {
  * The stored view state of the room (or the empty one before a room). A failed read shows the empty view (the phase's
  * defaults) rather than tearing the screen down (ux-lessons 4.2); the next value the subscription delivers replaces it.
  */
-function useStoredView(roomId: string | undefined): ViewState {
+export function useStoredView(roomId: string | undefined): ViewState {
   const row = useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data;
-  return ((row?.layout as { view?: ViewState } | null | undefined)?.view) ?? EMPTY_VIEW;
+  // The server keeps the view beside the dock layout (v2Layouts.view; convex/v2/ops/view.ts saveView).
+  return (row?.view as ViewState | null | undefined) ?? EMPTY_VIEW;
 }
 
 export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }: {

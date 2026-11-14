@@ -114,6 +114,12 @@ export const viewOps = [
     contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
+    id: "replay.watchAs", title: "Watch the replay as a player", group: "replay", scope: "game",
+    description: "Shows the replay through one player's eyes: their rule, their points on every line and the moves that changed them. After the end every rule is open.",
+    tooltip: "See the game as another player saw it.", keywords: ["watch as", "point of view", "their rule", "player"],
+    params: obj({ memberId: id }), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
     id: "replay.speed", title: "Set the replay speed", group: "replay", scope: "game",
     description: "Sets how many world seconds the replay plays per real second.", tooltip: "Faster or slower.", keywords: ["speed", "fast forward", "slow motion"],
     params: obj({ speed: z.union([z.literal(0.5), z.literal(1), z.literal(2), z.literal(4), z.literal(8)]) }), result: done,

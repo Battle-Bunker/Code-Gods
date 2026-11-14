@@ -60,10 +60,32 @@ test("moving an open pane is one move", () => {
 });
 
 test("the others-care, points-over-time and rules panes are offered where they have something to show", () => {
-  assert.deepEqual(PANES["others-care"].phases, ["live", "paused", "ended"]);
-  assert.deepEqual(PANES["points-over-time"].phases, ["live", "paused", "ended"]);
-  assert.deepEqual(PANES.rules.phases, ["planning", "live", "paused", "ended"]);
+  assert.deepEqual(PANES["others-care"].phases, ["live", "paused", "ended", "replay"]);
+  assert.deepEqual(PANES["points-over-time"].phases, ["live", "paused", "ended", "replay"]);
+  assert.deepEqual(PANES.rules.phases, ["planning", "live", "paused", "ended", "replay"]);
   for (const id of PANE_IDS) assert.doesNotMatch(`${PANES[id].title} ${PANES[id].blurb}`, /\b(bits|payoff|objects?|grids?)\b/i, id);
+});
+
+test("in a replay the replay's own entry is never drawn, the replay's defaults show, and the results do not lead", () => {
+  // Catches: the replay pane (replay.open adds it) taking the whole screen, or the results pane covering the playhead.
+  const opened = { panes: [{ pane: "replay", place: "main" as const }] };
+  assert.deepEqual(shownPanes(opened, "replay"), defaultPanes("replay"));
+  const panes = defaultPanes("replay").map(p => p.pane);
+  assert.ok(panes.includes("objects") && panes.includes("feed") && panes.includes("race"), panes.join());
+  const own = { panes: [{ pane: "replay", place: "main" as const }, { pane: "race", place: "main" as const }] };
+  assert.deepEqual(shownPanes(own, "replay"), [{ pane: "race", place: "main" }]);
+  for (const id of ["forge", "agents", "overview", "results"] as const) assert.ok(!PANES[id].phases.includes("replay"), `${id} has nothing to show in a replay`);
+  assert.ok(!shownPanes({ panes: [{ pane: "results", place: "main" }] }, "replay").some(p => p.pane === "results"));
+});
+
+test("arranging panes in a replay keeps the replay open", () => {
+  // Catches: keepShown closing the replay's entry (view.closePane "replay" ends the replay) when a pane is opened.
+  const opened = { panes: [{ pane: "replay", place: "main" as const }] };
+  for (const ops of [openPlan(opened, "replay", "public-chat").ops, closePlan(opened, "replay", "race")]) {
+    assert.ok(!ops.some(o => o.args.pane === "replay"), JSON.stringify(ops));
+  }
+  const arranged = { panes: [{ pane: "replay", place: "main" as const }, ...defaultPanes("replay")] };
+  assert.deepEqual(openPlan(arranged, "replay", "feed").ops, [], "an arrangement equal to what is shown needs no ops");
 });
 
 test("opening one line from a full screen keeps the list it was opened from", () => {

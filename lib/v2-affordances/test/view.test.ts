@@ -60,6 +60,19 @@ test("replay controls move a cursor and refuse without a replay", () => {
   assert.equal((applyView(v, "replay.play", {}, live).outcome as { ok: false; error: { message: string } }).error.message, "Not available while the game runs.");
 });
 
+test("a replay is watched through one player's eyes, chosen by the human and kept while the cursor moves", () => {
+  // Catches: the point of view lost on a seek or a step (the panes would jump back to the viewer's own rule).
+  const replay: AffordanceContext = { context: "replay", principal: PRINCIPALS.member! };
+  assert.equal(applyView(EMPTY_VIEW, "replay.watchAs", { memberId: "m2" }, replay).outcome.ok, false, "no replay open");
+  let v = applyView(EMPTY_VIEW, "replay.open", { gameId: "g1" }, replay).view;
+  v = applyView(v, "replay.watchAs", { memberId: "m2" }, replay).view;
+  v = applyView(v, "replay.seek", { seq: 40 }, replay).view;
+  v = applyView(v, "replay.step", { by: 2 }, replay).view;
+  assert.deepEqual(v.replay, { gameId: "g1", cursor: { seq: 42 }, playing: false, speed: 1, as: "m2" });
+  v = applyView(v, "replay.open", { gameId: "g2" }, replay).view;
+  assert.equal(v.replay!.as, undefined, "another game starts from the human's own seat");
+});
+
 test("a remote assistant changes what the human sees; a read-only credential cannot", async () => {
   const f = createFake();
   for (const u of ["u1", "u2", "u3"]) f.addUser(u, u);

@@ -13,7 +13,7 @@ import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v2-views";
 import { lineType } from "@workspace/v2-linear";
-import { decodeState, DEFAULT_REP, useDigest, useGame, useGameScope, useMyObject, useMyRule, useObjectIds, useSpectatorObjectIds, type LineRule } from "@/sdk";
+import { decodeState, DEFAULT_REP, useDigest, useGame, useGameScope, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type LineRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { usePaneOps } from "@/dock/open-pane";
@@ -119,7 +119,7 @@ function SeatedLines() {
   const digest = useDigest();
   const ids = useObjectIds(serverSort(view.objects.sort));
   const openObject = useAffordance("view.openObject");
-  const panes = usePaneOps(header?.phase ?? "live");
+  const panes = usePaneOps(useReplaySource() ? "replay" : header?.phase ?? "live");
   const scale = useMemo(() => digestScale(digest?.packed), [digest?.packed]);
   const rule = my?.rule ?? null;
   const rep = rule ? pinnedRep(view, rule.family.id, my!.row.primary) : DEFAULT_REP;
