@@ -137,6 +137,17 @@ export const seedLabSetup = internalMutation({
   },
 });
 
+/** A system setup whose seed is no longer in the code (as a deploy leaves one the code retired): an ordinary system row. */
+export const seedRetiredSetup = internalMutation({
+  args: { seedId: v.string(), name: v.string(), settings: v.any() },
+  handler: async (ctx, { seedId, name, settings }) => {
+    dev();
+    const now = Date.now(), summary = "A retired setup for the tests";
+    const fields = { ownerId: null, name, summary, seedId };
+    return await ctx.db.insert("gameSetups", { ...fields, settings, createdAt: now, updatedAt: now, ...listingOf(fields, "System") });
+  },
+});
+
 /** Put the system setups back as shipped (the seed sync does exactly that). */
 export const resetSeedSetups = internalMutation({
   args: {},
