@@ -648,6 +648,19 @@ between knots is within delta/2 of the truth.
   0.4, 0.3), each draw weighted p/q_mix and the estimate self-normalised; its ±2σ interval (delta method) is certified
   within max(5% · bits, 0.2 bits) with at least 30 draws at or above the knot.
 
+**The board's box is part of the law, not a truncation of it.** Every line variant has a `heightCap` (10^6): a line
+with |a|, |b| or |c| above it is not a state of the game (§12), and a mutator call that would make one is invalid, so the
+walk stays where it is (`walkStep`: an invalid result is a rejection). Proposals are symmetric and each refused move
+is a rejection in both directions, so detailed balance under the potential holds on the box, and the walk's
+stationary law is π conditioned on the box: π_box(x) = 2^−φ(x) / Z_box. That is the law values are taken under. The
+sums use it exactly: they keep only in-box numbers and divide by Z_box, computed in full by a sieve over every
+integer up to the cap (`capMass`). The direct draws use it too (a drawn coordinate past the cap is refused). Nothing
+else is truncated: the enumeration budget is a truncation of the *sum*, and its remainder is the certified interval.
+For scale, the code puts 3.4·10^−5 of a coordinate's mass past 10^6, so the box holds all but 6.7·10^−5 of the
+unconfined product law on line-z (1.0·10^−4 on line-q). It matters only for very rare scores: about 78% of the lines
+with c a multiple of lcm(1..16) lie past the cap. The cycle diagnostic is about prices, and a refusal has none, so the
+cycle gate (lib/v2-linear/test/potential.test.ts) is unaffected by the boundary.
+
 The old rung values are this function at the old thresholds (checked: `test/value.test.ts`). Server, agents and views
 switch to value lookups; the rung machinery of §4.4 and §7.1–7.8 is deleted when they have (decision 23, PR 2).
 
@@ -982,7 +995,7 @@ a·x + b·y + c = 0 with gcd(|a|, |b|, |c|) = 1 and the sign fixed by b > 0, or 
 | | `"Q"` | every line with rational coefficients, vertical included |
 | `linesPerObject` | 1 … 8 | k |
 | `argDomain` | `"Z"`, `"Q"` | whether mutator arguments are integers or rationals (default: the domain's) |
-| `heightCap` | integer | a safety bound on \|a\|, \|b\|, \|c\| (default 10^6); a call past it is invalid; its effect on values is below the error bars because the surcharge makes such states vanishingly rare (checked: the direct check in §7.2 reports the fraction of samples above cap/1000) |
+| `heightCap` | integer | the board's box: \|a\|, \|b\|, \|c\| at most this (default 10^6); a call past it is invalid, so the walk's law is π conditioned on the box, and values are taken under that law (§7.0) |
 
 Variants shipped first: `line-z` (Z, k = 1), `line-q` (Q, k = 1), `line-z4` (Z, k = 4).
 
