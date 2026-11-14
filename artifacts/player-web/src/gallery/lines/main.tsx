@@ -3,13 +3,15 @@
  * real rules and their calibrated value functions (owner decision 23: no steps):
  *   /annotations-lines.html                                   every storyboard, listed
  *   ?rule=<family>&frame=line|compare|compact|goal            one frame;   ?rule=scale   y = 290x + 59
+ *   ?rational=<family>                                        a rational line under that family on line-q (lines-beginner)
  *   &scheme=dark                                              the dark scheme
  * e2e/annotations-lines.ts checks them in a browser and captures docs/screenshots/annotations-lines/.
  */
 import { StrictMode, useMemo, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { q, type Q } from "@workspace/v2-core";
-import { divisibilityLadder, fromMC, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
+import { beginnerPool, divisibilityLadder, fromMC, lineQ, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
+import { tieBreakersOn } from "@workspace/v2-core";
 import { CompactFace, ExpandedFace, GoalCard, MoveLine, moves, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import "@workspace/v2-views/styles.css";
 import "./style.css";
@@ -26,6 +28,19 @@ const STORIES: Record<string, Story> = {
   "whole-crossing": { title: "Whole Crossing", rule: rule(wholeCrossing, "k-gpf"), line: mc(3, 7), number: 12, others: [mc(3, 6), mc(5, 2)] },
   treasure: { title: "Treasure", rule: rule(treasure, "m-spf"), line: mc(15, 6), number: 5, others: [mc(16, 5), mc(10, 20)] },
   "divisibility-ladder": { title: "Divisibility Ladder", rule: rule(divisibilityLadder, "m-spf"), line: mc(12, 12), number: 9, others: [mc(60, 60), mc(5, 3)] },
+};
+
+/**
+ * Rational lines (lines-beginner plays on line-q): one per pool family, a line whose gradient and y-intercept are
+ * fractions with different denominators, chosen so the family's parts are defined on it (a coin line needs a, b > 0).
+ */
+const RATIONAL_LINE: Record<string, LineState> = { "exact-change": mc(q(-3, 4), q(9, 2)), "pythagorean-area": mc(q(-5, 3), q(11, 4)), ruler: mc(q(3, 4), q(-7, 3)) };
+const rationalStory = (family: string): Story | undefined => {
+  const f = beginnerPool.find(x => x.id === family);
+  if (!f) return undefined;
+  const tb = tieBreakersOn(f, lineQ)[0]?.id ?? null;
+  const r = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ, tieBreaker: tb } as RuleRef<LineState, unknown>;
+  return { title: `${f.id} on a rational line`, rule: r, line: RATIONAL_LINE[family] ?? mc(q(2, 3), q(7, 4)), number: 7, others: [mc(q(-5, 2), q(17, 6)), mc(q(13, 5), q(29, 7))] };
 };
 
 const params = new URLSearchParams(location.search);
@@ -81,17 +96,19 @@ function Index(): ReactElement {
           <li key={id}>{s.title}: {["line", "compare", "compact", "goal"].map(f => <a key={f} href={`?rule=${id}&frame=${f}`} style={{ marginRight: 10 }}>{f}</a>)}</li>
         ))}
         <li><a href="?rule=scale">Scale: y = 290x + 59</a></li>
+        {beginnerPool.map(f => <li key={f.id}><a href={`?rational=${f.id}`}>{f.id} on a rational line</a> · <a href={`?rational=${f.id}&frame=compact`}>compact</a></li>)}
       </ul>
     </div>
   );
 }
 
 function Page(): ReactElement {
-  const s = ruleId ? STORIES[ruleId] : undefined;
+  const rational = params.get("rational");
+  const s = rational ? rationalStory(rational) : ruleId ? STORIES[ruleId] : undefined;
   return (
     <div data-v2v-scheme={scheme}>
       <main className="v2v la-page">
-        {ruleId === "scale" ? <Scale /> : s ? <><h2 className="la-story-title">{s.title} · {frame}</h2><Frame s={s} f={frame} /></> : <Index />}
+        {ruleId === "scale" && !rational ? <Scale /> : s ? <><h2 className="la-story-title">{s.title} · {frame}</h2><Frame s={s} f={frame} /></> : <Index />}
       </main>
     </div>
   );

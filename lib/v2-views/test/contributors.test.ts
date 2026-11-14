@@ -119,3 +119,41 @@ test("contributors never throw, and say no steps, on a walk of lines under every
     }
   }
 });
+
+test("a change from or to an undefined quantity says 'none', not the reason sentence", async () => {
+  const { changesBetween, contributors } = await import("../src/index.ts");
+  const { sameOnBothRulers, normalise } = await import("@workspace/v2-linear");
+  const rule = { type: lineType, family: sameOnBothRulers, params: sameOnBothRulers.dealable(lineQ)[0], variant: lineQ, tieBreaker: "m-spf" } as never;
+  const vertical = { lines: [normalise(1n, 0n, -1n) as never] } as LineState, sloped = mc(q(2, 3), q(7, 4));
+  const up = changesBetween(contributors(rule, vertical).parts, contributors(rule, sloped).parts);
+  assert.ok(up.length > 0, "the parts changed");
+  for (const c of up) assert.doesNotMatch(c, /vertical line|no gradient/, c);
+  assert.match(up[0]!, /: none → /, up[0]);
+  const down = changesBetween(contributors(rule, sloped).parts, contributors(rule, vertical).parts);
+  assert.match(down[0]!, / → none$/, down[0]);
+});
+
+test("rational lines: every pool family's parts and moves typeset their fractions; candidates include a fractional step and the stretch by a denominator", async () => {
+  const { partLine } = await import("../src/index.ts");
+  const { tieBreakersOn } = await import("@workspace/v2-core");
+  const lines = [mc(q(2, 3), q(7, 4)), mc(q(-5, 2), q(17, 6)), mc(q(3, 4), q(-1, 3)), mc(q(-13, 5), q(29, 7))];
+  let fractionalStep = 0, stretchByDenominator = 0;
+  for (const f of beginnerPool) for (const tb of tieBreakersOn(f, lineQ)) for (const s of lines) {
+    const rule = { type: lineType, family: f, params: f.dealable(lineQ)[0], variant: lineQ, tieBreaker: tb.id } as RuleRef<LineState, unknown>;
+    const c = contributors(rule, s);
+    const ms = moves(rule, s, null, { k: 4 });
+    const text = [...c.parts.map(p => `${partLine(p)} | ${p.sentence}`), ...c.parts.flatMap(p => p.units.map(u => u.text)), ...ms.flatMap(m => [m.words, m.text, ...m.changes])].join("\n");
+    assert.doesNotMatch(text, /\d\/\d/, `${f.id}/${tb.id}: a fraction written with a slash:\n${text}`);
+    assert.doesNotMatch(text, /NaN|undefined|Infinity/, `${f.id}/${tb.id}:\n${text}`);
+    for (const m of ms) {
+      const k = m.call.args.k ?? m.call.args.f ?? "";
+      if (m.call.mutator !== "mach.stretch" && /\//.test(k)) fractionalStep++;
+      // The line's own denominators (its gradient's and its y-intercept's): a whole stretch by one clears it.
+      const line = s.lines[0]!, dens = [q(-line.a, line.b).d, q(-line.c, line.b).d].filter(x => x > 1n);
+      const f = m.call.args.f ?? "";
+      if (m.call.mutator === "mach.stretch" && /^-?\d+$/.test(f) && dens.some(x => BigInt(f) % x === 0n)) stretchByDenominator++;
+    }
+  }
+  assert.ok(fractionalStep > 0, "some candidate moves by a fraction");
+  assert.ok(stretchByDenominator > 0, "some candidate stretches by a denominator, clearing the fractions");
+});

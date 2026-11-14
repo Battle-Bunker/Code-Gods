@@ -2,7 +2,9 @@
  * The line annotations storyboards (docs/engine-v2/annotations-design.md §9) in a browser: annotations-lines.html on a
  * Vite dev server this script starts, at desktop (1440 px) and phone (390 px), light and dark. Checks what only a
  * browser can: no page errors, no sideways scroll, a tap on a contributor selects it (a chip says so and ✕ clears it),
- * a phone selection shows the lit twin in a second, stacked view, and compare keeps the rule's main view. With an
+ * a phone selection shows the lit twin in a second, stacked view, and compare keeps the rule's main view. On rational
+ * lines (lines-beginner plays on line-q), every pool family's face: fractions typeset (never "8/11"), the plots fitted
+ * (the line crosses its drawing, every main label inside it and clear of the others). With an
  * output directory, saves the design document's screenshots (deviceScaleFactor 2, each under 400 KB).
  *
  *   node --experimental-transform-types e2e/annotations-lines.ts [screenshot dir]
@@ -11,6 +13,7 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { mkdirSync, statSync, writeFileSync } from "node:fs";
 import assert from "node:assert/strict";
+import { beginnerPool } from "@workspace/v2-linear";
 
 const OUT = process.argv[2];
 const PORT = Number(process.env.PORT_ANNOTATIONS ?? 22799), BASE = `http://127.0.0.1:${PORT}`;
@@ -130,6 +133,54 @@ try {
       assert.ok(buf.length <= MAX, `${file}: ${buf.length} bytes`);
       writeFileSync(`${OUT}/${file}.${ext}`, buf);
       console.log(`${file}.${ext} ${Math.round(statSync(`${OUT}/${file}.${ext}`).size / 1024)} KB`);
+    }
+    await page.close();
+    console.log(`ok ${file}`);
+  }
+
+  // Rational lines: every pool family's face at desktop, three at phone width.
+  for (const [i, family] of beginnerPool.map(f => f.id).entries()) for (const width of i < 3 ? [1440, 390] : [1440]) {
+    const file = `rational-${family}-${width}`;
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: OUT ? 2 : 1 });
+    const errors: string[] = [];
+    page.on("pageerror", e => errors.push(e.message));
+    page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
+    await page.goto(`${BASE}/annotations-lines.html?rational=${family}`);
+    await page.locator(".v2v-expanded").first().waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    assert.deepEqual(errors, [], `${file}: page errors`);
+    const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    assert.ok(sideways <= 0, `${file}: the page scrolls sideways by ${sideways}px`);
+    const text = await page.locator(".la-page").innerText();
+    assert.doesNotMatch(text, /\d\/\d/, `${file}: a fraction written with a slash`);
+    assert.doesNotMatch(text, /NaN|undefined|Infinity/, `${file}: a broken number`);
+    assert.match(text, /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|⁄/, `${file}: the rational line's fractions are typeset`);
+    const bad = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const svg of document.querySelectorAll<SVGSVGElement>("svg.v2v-plane")) {
+        const frame = svg.getBoundingClientRect();
+        if (frame.width === 0) continue;
+        // Fitted: the line itself crosses the drawing.
+        const line = svg.querySelector<SVGLineElement>("line.line");
+        if (line) {
+          const r = line.getBoundingClientRect();
+          if (r.right < frame.left || r.left > frame.right || r.bottom < frame.top || r.top > frame.bottom) out.push("the line is outside its drawing");
+        }
+        const boxes = [...svg.querySelectorAll<SVGTextElement>('text[data-priority="1"]')].map(t => ({ t: t.textContent, r: t.getBoundingClientRect() }));
+        for (const b of boxes) {
+          if (b.r.left < frame.left - 1 || b.r.right > frame.right + 1 || b.r.top < frame.top - 1 || b.r.bottom > frame.bottom + 1) out.push(`"${b.t}" leaves its drawing`);
+          for (const o of boxes) if (o !== b && b.r.left < o.r.right - 1 && o.r.left < b.r.right - 1 && b.r.top < o.r.bottom - 1 && o.r.top < b.r.bottom - 1) out.push(`"${b.t}" overlaps "${o.t}"`);
+        }
+      }
+      return out;
+    });
+    assert.deepEqual(bad, [], `${file}: plots`);
+    if (OUT) {
+      const target = page.locator(".la-page");
+      let buf = await target.screenshot({ type: "jpeg", quality: 70 });
+      for (const quality of [58, 48, 40]) { if (buf.length <= MAX) break; buf = await target.screenshot({ type: "jpeg", quality }); }
+      assert.ok(buf.length <= MAX, `${file}: ${buf.length} bytes`);
+      writeFileSync(`${OUT}/${file}.jpg`, buf);
     }
     await page.close();
     console.log(`ok ${file}`);

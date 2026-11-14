@@ -12,6 +12,7 @@ import type { RuleRef } from "./annotate.ts";
 import { changesBetween, contributors } from "./contributors.ts";
 import { candidateArgs, DEFAULT_BUDGET, type ImproveBudget } from "./improve.ts";
 import { chipRep, repText } from "./rep-view.tsx";
+import { typesetNumbers } from "./format.ts";
 
 export interface Move<S> {
   readonly call: Call;
@@ -38,7 +39,8 @@ export interface MovesOptions {
 
 /** A move's own words, unless they name a coefficient letter of the general form ("add −1 to b"). */
 function wordsOf<S>(type: ObjectType<S>, m: Mutator<unknown, unknown>, args: unknown, after: S): string {
-  const d = m.describe(args).replace(/(^|[\s(])-(?=\d)/g, "$1−");
+  // The mutator says its numbers plainly ("by 1/2", "-3"): typeset them as every other number ("by ½", "−3").
+  const d = typesetNumbers(m.describe(args));
   return /\b(to|from|of) [abc]\b/.test(d) ? `change the equation to ${repText(type, after, chipRep(type, after))}` : d;
 }
 
