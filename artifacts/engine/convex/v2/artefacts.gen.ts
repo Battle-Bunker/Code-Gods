@@ -18584,13 +18584,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "m-gpf",
   "status": "hybrid",
-  "cap": 34,
-  "convergedCap": 34,
+  "cap": 40,
+  "convergedCap": 40,
   "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "629577ff911ef5f7",
+  "contentHash": "8e54c23332d82053",
   "rungs": [
    {
     "score": null,
@@ -18909,7 +18909,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly",
     "layer": 0,
     "main": 8,
-    "bits": 7.3114
+    "bits": 7.3196
    },
    {
     "score": [
@@ -18919,7 +18919,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 2",
     "layer": 1,
     "main": 8,
-    "bits": 10.2281
+    "bits": 10.2898
    },
    {
     "score": [
@@ -18929,7 +18929,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 3",
     "layer": 1,
     "main": 8,
-    "bits": 11.5822
+    "bits": 11.7396
    },
    {
     "score": [
@@ -18939,7 +18939,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 12.9581
+    "bits": 13.5341
    },
    {
     "score": [
@@ -18949,7 +18949,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 7",
     "layer": 1,
     "main": 8,
-    "bits": 13.9915
+    "bits": 15.298
    },
    {
     "score": [
@@ -18959,7 +18959,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 11",
     "layer": 1,
     "main": 8,
-    "bits": 16.9005
+    "bits": 17.7609
    },
    {
     "score": [
@@ -18969,7 +18969,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 13",
     "layer": 1,
     "main": 8,
-    "bits": 17.7732
+    "bits": 19.2539
    },
    {
     "score": [
@@ -18979,7 +18979,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 17",
     "layer": 1,
     "main": 8,
-    "bits": 24.6965
+    "bits": 21.366
    },
    {
     "score": [
@@ -18989,7 +18989,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 19",
     "layer": 1,
     "main": 8,
-    "bits": 25.0499
+    "bits": 22.9268
    }
   ]
  },
@@ -19002,13 +19002,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "m-spf",
   "status": "hybrid",
-  "cap": 34,
-  "convergedCap": 34,
+  "cap": 40,
+  "convergedCap": 40,
   "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "5a4db146ae95676c",
+  "contentHash": "1ad1d6294db72de8",
   "rungs": [
    {
     "score": null,
@@ -19327,7 +19327,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly",
     "layer": 0,
     "main": 8,
-    "bits": 7.3114
+    "bits": 7.3196
    },
    {
     "score": [
@@ -19337,7 +19337,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 2",
     "layer": 1,
     "main": 8,
-    "bits": 10.2281
+    "bits": 10.2898
    },
    {
     "score": [
@@ -19347,7 +19347,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 3",
     "layer": 1,
     "main": 8,
-    "bits": 11.7906
+    "bits": 11.9727
    },
    {
     "score": [
@@ -19357,7 +19357,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 12.9581
+    "bits": 13.8732
    },
    {
     "score": [
@@ -19367,7 +19367,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 7",
     "layer": 1,
     "main": 8,
-    "bits": 14.882
+    "bits": 15.6227
    },
    {
     "score": [
@@ -19377,7 +19377,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 11",
     "layer": 1,
     "main": 8,
-    "bits": 18.3136
+    "bits": 18.0996
    },
    {
     "score": [
@@ -19387,7 +19387,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 13",
     "layer": 1,
     "main": 8,
-    "bits": 18.3664
+    "bits": 19.6647
    },
    {
     "score": [
@@ -19397,7 +19397,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 17",
     "layer": 1,
     "main": 8,
-    "bits": 19.1041
+    "bits": 21.5746
    },
    {
     "score": [
@@ -19407,7 +19407,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 19",
     "layer": 1,
     "main": 8,
-    "bits": 29.623
+    "bits": 23.0918
    }
   ]
  },
@@ -19419,14 +19419,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "T": 6
   },
   "tieBreaker": "steep",
-  "status": "hybrid",
-  "cap": 37,
-  "convergedCap": 37,
+  "status": "exact",
+  "cap": 39,
+  "convergedCap": 39,
   "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "7f22cc22175425b3",
+  "contentHash": "6f61d2f31b2e98ae",
   "rungs": [
    {
     "score": null,
@@ -19745,7 +19745,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly",
     "layer": 0,
     "main": 8,
-    "bits": 7.3114
+    "bits": 7.3196
    },
    {
     "score": [
@@ -19755,7 +19755,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 1/4",
     "layer": 1,
     "main": 8,
-    "bits": 7.3114
+    "bits": 7.3196
    },
    {
     "score": [
@@ -19765,7 +19765,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 1/2",
     "layer": 1,
     "main": 8,
-    "bits": 7.3114
+    "bits": 7.3196
    },
    {
     "score": [
@@ -19775,7 +19775,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 1",
     "layer": 1,
     "main": 8,
-    "bits": 7.3114
+    "bits": 7.3196
    },
    {
     "score": [
@@ -19785,7 +19785,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 2",
     "layer": 1,
     "main": 8,
-    "bits": 10.2281
+    "bits": 10.2898
    },
    {
     "score": [
@@ -19795,7 +19795,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 3",
     "layer": 1,
     "main": 8,
-    "bits": 11.1993
+    "bits": 11.3202
    },
    {
     "score": [
@@ -19805,7 +19805,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 11.6132
+    "bits": 12.6887
    },
    {
     "score": [
@@ -19815,7 +19815,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 8",
     "layer": 1,
     "main": 8,
-    "bits": 14.4155
+    "bits": 13.9843
    }
   ]
  },
@@ -21250,7 +21250,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "f4cf762bf2c6b929",
+  "contentHash": "826d2bfe71dfb558",
   "rungs": [
    {
     "score": null,
@@ -21530,7 +21530,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly",
     "layer": 0,
     "main": 7,
-    "bits": 10.7924
+    "bits": 10.7925
    },
    {
     "score": [
@@ -21540,7 +21540,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 2",
     "layer": 1,
     "main": 7,
-    "bits": 10.9739
+    "bits": 10.974
    },
    {
     "score": [
@@ -21550,7 +21550,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 3",
     "layer": 1,
     "main": 7,
-    "bits": 11.2549
+    "bits": 11.255
    },
    {
     "score": [
@@ -21560,7 +21560,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 12.5998
+    "bits": 12.6
    },
    {
     "score": [
@@ -21570,7 +21570,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 7",
     "layer": 1,
     "main": 7,
-    "bits": 14.0442
+    "bits": 14.0449
    },
    {
     "score": [
@@ -21580,7 +21580,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 11",
     "layer": 1,
     "main": 7,
-    "bits": 15.6392
+    "bits": 15.6414
    },
    {
     "score": [
@@ -21590,7 +21590,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 13",
     "layer": 1,
     "main": 7,
-    "bits": 16.5005
+    "bits": 16.5044
    },
    {
     "score": [
@@ -21600,7 +21600,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 17",
     "layer": 1,
     "main": 7,
-    "bits": 16.8708
+    "bits": 16.8758
    },
    {
     "score": [
@@ -21610,7 +21610,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 19",
     "layer": 1,
     "main": 7,
-    "bits": 17.617
+    "bits": 17.6254
    },
    {
     "score": [
@@ -21620,7 +21620,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's largest prime factor at least 23",
     "layer": 1,
     "main": 7,
-    "bits": 22.2965
+    "bits": 22.5007
    },
    {
     "score": [
@@ -21660,7 +21660,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "f57c18ba7d64ee85",
+  "contentHash": "690d935dbbb7da05",
   "rungs": [
    {
     "score": null,
@@ -21940,7 +21940,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly",
     "layer": 0,
     "main": 7,
-    "bits": 10.7924
+    "bits": 10.7925
    },
    {
     "score": [
@@ -21950,7 +21950,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 2",
     "layer": 1,
     "main": 7,
-    "bits": 10.9739
+    "bits": 10.974
    },
    {
     "score": [
@@ -21960,7 +21960,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 3",
     "layer": 1,
     "main": 7,
-    "bits": 13.5406
+    "bits": 13.5411
    },
    {
     "score": [
@@ -21970,7 +21970,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 14.5016
+    "bits": 14.5026
    },
    {
     "score": [
@@ -21980,7 +21980,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 7",
     "layer": 1,
     "main": 7,
-    "bits": 16.0389
+    "bits": 16.0418
    },
    {
     "score": [
@@ -21990,7 +21990,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 11",
     "layer": 1,
     "main": 7,
-    "bits": 16.1
+    "bits": 16.103
    },
    {
     "score": [
@@ -22000,7 +22000,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 13",
     "layer": 1,
     "main": 7,
-    "bits": 16.6792
+    "bits": 16.6836
    },
    {
     "score": [
@@ -22010,7 +22010,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 17",
     "layer": 1,
     "main": 7,
-    "bits": 16.8819
+    "bits": 16.887
    },
    {
     "score": [
@@ -22020,7 +22020,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 19",
     "layer": 1,
     "main": 7,
-    "bits": 17.6236
+    "bits": 17.6321
    },
    {
     "score": [
@@ -22030,7 +22030,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; the gradient's smallest prime factor at least 23",
     "layer": 1,
     "main": 7,
-    "bits": 22.3331
+    "bits": 22.5422
    },
    {
     "score": [
@@ -22070,7 +22070,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "7a1d04c822cca990",
+  "contentHash": "5769de9b051543ea",
   "rungs": [
    {
     "score": null,
@@ -22350,7 +22350,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly",
     "layer": 0,
     "main": 7,
-    "bits": 10.7924
+    "bits": 10.7925
    },
    {
     "score": [
@@ -22360,7 +22360,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 1",
     "layer": 1,
     "main": 7,
-    "bits": 10.7924
+    "bits": 10.7925
    },
    {
     "score": [
@@ -22390,7 +22390,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 4",
     "layer": 1,
     "main": 7,
-    "bits": 11.3288
+    "bits": 11.3289
    },
    {
     "score": [
@@ -22400,7 +22400,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 11.6038
+    "bits": 11.6039
    },
    {
     "score": [
@@ -22410,7 +22410,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 6",
     "layer": 1,
     "main": 7,
-    "bits": 15.1795
+    "bits": 15.181
    }
   ]
  },
