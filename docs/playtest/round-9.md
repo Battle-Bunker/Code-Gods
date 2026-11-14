@@ -70,3 +70,19 @@ and a game whose tick stops shows a 0:00 clock that never ends.
 | 8 | PILOT.md's CLI section works as written (`pnpm player connect/status/tools/help`) | — | — (good) |
 
 Not re-tested this round: the end summary and holds (round 8 #2), the phone width, a bidding room, two humans in chat.
+
+## Dynamics (added after the owner's standing instruction #577)
+
+Read from this round's screens; no extra games were played for it.
+
+| Question | What round 9 showed | Evidence |
+|---|---|---|
+| Did objects keep moving to the end? | **Yes.** Tug-of-war cards kept arriving until the last minute: carol's rematch had a grid 27 fight at 1:32 left with 18 pulls. Alice's game 3 listed several grids at 17–19 pulls each ("Tug-of-wars cost you 6,491.54 ⚡"). Everyone's score lines rose until 5:00 | 08, 09 |
+| Did the board converge or freeze? | **Partly converged.** Alice's game 1 (Crosswise Threes): her three best grids (45, 44, 40) were all scored "folded cells three apart · exactly", with **identical scores**: 23.74 bits × others' 34.37 bits = 816.06 points each. All three boards hold only 0s and 3s, so one family of states was reached on several objects. Carol (Opposite Nines): grids 1, 2, 17 and 19 all reached **"exactly"** on her main part, each at 37.04 bits, within about 3 minutes of plain starter play | 02, 01 |
+| Did one strategy dominate? | Not measurable this round: every human ran the Simple starter or an idle agent | — |
+| Could a player find a best state and sit on it? | **The UI invites it.** The Hold control ("Hold this grid here"), the palette's "Settle and hold grids", the CLI/MCP `agent hold` and the end summary's "Try next game … hold it at a grid your rule likes: set TARGET and SETTLE" all help a player fix a state and keep it there. Under the new instruction these are fixed-point features. Finding 4 above should read this way, not as a wording issue | 01, 02 |
+
+| # | Finding | Severity |
+|---|---|---|
+| D1 | Beginner grid rules reach their best main-part score ("exactly") on several grids within minutes of plain starter play. In one game, three grids reached the same joint score (816.06) with boards from one 0-and-3 family. That is a high peak easy to find and to repeat across objects | **major** (rules / grids; owner's criterion) |
+| D2 | The app and the affordances still offer settle-and-hold (Hold control, palette, `agent hold`, the "Try next game" advice), which the new instruction forbids | **major** (app, affordances, annotations; coordinator to decide removal) |
