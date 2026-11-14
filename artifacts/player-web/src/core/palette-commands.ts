@@ -17,7 +17,7 @@ import { requestForge } from "../panes/forge-request.ts";
 /** Reads that a pane shows live: the row opens that pane. */
 export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "game.standings": "race", "game.get": "overview", "rule.explain": "my-card", "rule.values": "my-card", "rule.worth": "my-card", "objects.list": "objects",
-  "moves.list": "feed", "agents.list": "agents", "agent.programs": "forge", "chat.list": "public-chat", "rep.mutators": "what-if",
+  "moves.list": "feed", "log.list": "feed", "agents.list": "agents", "agent.programs": "forge", "chat.list": "public-chat", "rep.mutators": "what-if",
   "panel.list": "my-panels", "panel.code": "my-panels",
   // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
   "game.auction": "overview", "object.read": "object", "object.element": "object",

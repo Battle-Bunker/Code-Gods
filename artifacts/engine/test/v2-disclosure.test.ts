@@ -32,6 +32,11 @@ test("nothing Bo is told names Ada's rule, and every value Bo gets is Bo's own",
   for (const id of ["game.get", "game.standings", "rule.explain", "rule.values", "agents.list"]) await op(id, {});
   await op("objects.list", { sort: "points", limit: 50 });
   await op("moves.list", { limit: 50 });
+  // The public log, as the directory serves it (assistants, MCP, CLI) and as the app reads it: the same rows.
+  const logged = await op("log.list", { limit: 20 }) as { ok: boolean; result: { page: unknown[] } };
+  assert.equal(logged.ok, true, JSON.stringify(logged));
+  const read = await q("v2/play:log", { gameId, paginationOpts: { cursor: null, numItems: 20 } }) as { page: unknown[] };
+  assert.deepEqual(logged.result.page, read.page, "log.list answers play:log's page");
   for (const objectId of objects) {
     const mine = await q("v2/play:object", { objectId });
     const value = await admin.query("v2/testing:valueOf", { objectId, userId: bo!.userId });

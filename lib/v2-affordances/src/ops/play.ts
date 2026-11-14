@@ -129,6 +129,20 @@ export const playOps = [
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "log.list", title: "Read the public log", group: "objects", scope: "game",
+    description: "Pages through every move in the game, newest first (the public log): each object's state before and after, the caller's own bits, the others' bits added together and the caller's points before and after. While the game runs the log is unattributed (no mover, agent, calls or cost on other players' moves) and the others' bits are deliberately blurred; after the end every move is attributed and exact. Read it to work out what the other players want.",
+    tooltip: "Every move in the game.", keywords: ["public log", "all moves", "everything", "history", "what others want"],
+    params: obj({ ...paging }),
+    result: page(z.object({
+      seq: z.number().int(), worldSeconds: z.number(), kind: z.enum(["born", "move"]), objectId: id, number: z.number().int(), version: z.number().int(),
+      stateBefore: z.string().nullable(), state: z.string(), mine: z.boolean(),
+      own: z.number().nullable(), others: z.number().nullable(), points: z.number().nullable(),
+      ownBefore: z.number().nullable(), othersBefore: z.number().nullable(), pointsBefore: z.number().nullable(),
+      by: z.object({ memberId: id, name: z.string() }).nullable(), agentId: id.nullable(), calls: z.array(call).nullable(), charge: z.number().nullable(),
+    })),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
     id: "pitch.draft", title: "Draft a cooperation pitch", group: "play", scope: "game",
     description: "Drafts a chat message proposing cooperation to other players: which states serve both rules and which objects to defend together. Returns the draft only; send it with chat.send.",
     tooltip: "Help me pitch a deal to other players.", keywords: ["negotiate", "pitch", "deal", "cooperate"],
