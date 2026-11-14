@@ -4,6 +4,8 @@
  * (a peak above the final figure read as a mismatch), then the final standings, your row marked.
  */
 import { Play } from "lucide-react";
+import { Link, useParams } from "wouter";
+import { roomPath } from "@/site/lib/routes";
 import { objectWord, useGame, useLeaderboard, useRotationRound } from "@/sdk";
 import { AffordanceButton } from "@/site/components/action";
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
@@ -15,12 +17,18 @@ export function ResultsPane() {
   const header = useGame();
   const standings = useLeaderboard();
   const round = useRotationRound();
+  const { roomId: code } = useParams<{ roomId?: string }>();
   if (!header || standings === undefined) return null;
   const rows = standings ? [...standings.rows].sort((a, b) => a.rank - b.rank) : [];
   const tied = rows.some(r => isTied(rows, r));
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
+      {header.phase === "ended" && code && (
+        <Link href={roomPath(code)} className="inline-flex items-center bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground" data-testid="link-back-to-room">
+          Back to the room for the next game
+        </Link>
+      )}
       {header.phase === "ended" && (
         <AffordanceButton id="replay.open" args={{ gameId: header.gameId }} label="Watch the replay" busyLabel="Opening the replay…" tone="secondary" testId="button-watch-replay"
           icon={<Play className="mr-1.5 h-4 w-4" aria-hidden />} />

@@ -195,6 +195,10 @@ try {
     // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.
     await results.getByTestId("results-rotation").getByText(/^Game 1 of 3 in this rotation/).waitFor({ timeout: 10_000 });
     await shot(page, `game-${label}-end`);
+    // The standings once, in Results (a persona walk met the same table three times), and the way back to the room.
+    assert.equal(await page.getByTestId("leaderboard").count(), 0, "no second standings table once the game has ended");
+    await results.getByTestId("link-back-to-room").click();
+    await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     assert.deepEqual(errors, [], `${label}: no page errors`);
     await context.close();
   }

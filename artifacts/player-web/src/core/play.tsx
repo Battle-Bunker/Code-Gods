@@ -42,6 +42,7 @@ function GameBar({ header }: { header: Header }) {
   const standings = useLeaderboard();
   const me = useMe();
   const replay = useReplayControls();
+  const openPane = useOpenPane(header.phase);
   const seat = replay ? replay.member : header.me;
   const mine = standings?.rows.find(r => r.memberId === seat);
   const who = !replay || seat === header.me ? "You" : header.roster.find(m => m.memberId === seat)?.name ?? "This player";
@@ -54,7 +55,10 @@ function GameBar({ header }: { header: Header }) {
           {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>
         <LineByLine testId="button-line-by-line-bar" />
-        {me && (() => { const e = ownEnergy(me); return <span data-testid="text-my-energy" data-full={e.full || undefined} title={e.title}>Energy <span className="font-semibold tabular-nums">{e.text}</span></span>; })()}
+        {me && (() => { const e = ownEnergy(me); return <span data-testid="text-my-energy" data-full={e.full || undefined} title={e.title}>Energy <span className="font-semibold tabular-nums">{e.text}</span>
+          {/* A full store stops rising: say so where a phone (no hover) can read it, with the way to spend it. */}
+          {e.full && !replay && header.phase !== "ended" && <> <button type="button" className="text-xs underline underline-offset-4" onClick={() => void openPane("forge")} data-testid="button-energy-full">spend it on another agent</button></>}
+        </span>; })()}
       </>) : <span className="text-muted-foreground" data-testid="text-watching">You're watching this game.</span>}
     </div>
   );

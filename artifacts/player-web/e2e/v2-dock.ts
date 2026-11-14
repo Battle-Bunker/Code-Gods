@@ -180,6 +180,11 @@ try {
       const now = await jumps();
       for (const p of first) assert.ok(now.includes(p), `${p} stays after opening My agents: ${now.join()}`);
       assert.ok(now.includes("agents"), now.join());
+      // Every pane name is on screen: the row wraps rather than running off the right edge (a persona walk missed three).
+      for (const b of await page.locator("[data-testid^=button-jump-]").all()) {
+        const r = await b.boundingBox() as Box;
+        assert.ok(r.x >= 0 && r.x + r.width <= 390, `${await b.innerText()} is on screen (${r.x}–${r.x + r.width})`);
+      }
       await page.waitForTimeout(800);   // the smooth scroll
       const box = await page.getByTestId("pane-agents").boundingBox() as Box;
       assert.ok(box.y >= 0 && box.y < 844 / 2, `the phone scrolled to My agents (top at ${box.y})`);
