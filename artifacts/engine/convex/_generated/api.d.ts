@@ -43,6 +43,7 @@ import type * as runtime_assets from "../runtime/assets.js";
 import type * as v2_access from "../v2/access.js";
 import type * as v2_agents from "../v2/agents.js";
 import type * as v2_ai from "../v2/ai.js";
+import type * as v2_aiModel from "../v2/aiModel.js";
 import type * as v2_aiTurn from "../v2/aiTurn.js";
 import type * as v2_assistant from "../v2/assistant.js";
 import type * as v2_assistantCore from "../v2/assistantCore.js";
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   "v2/access": typeof v2_access;
   "v2/agents": typeof v2_agents;
   "v2/ai": typeof v2_ai;
+  "v2/aiModel": typeof v2_aiModel;
   "v2/aiTurn": typeof v2_aiTurn;
   "v2/assistant": typeof v2_assistant;
   "v2/assistantCore": typeof v2_assistantCore;

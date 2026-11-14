@@ -12,7 +12,7 @@ export const { op: fillPracticePartners, as: fillPracticePartnersAs } = defineOp
 export const { op: addAi, as: addAiAs } = defineOp("seats.addAi", "mutation", async (env, a) => {
   const { room, user } = inRoom(env);
   if (!user.admin) throw new OpFailure("Only admins can seat model-backed AI players.", "seats.fillPracticePartners");
-  providerFor();   // refuses on a deployment with no model configured
+  providerFor("seat");   // refuses on a deployment with no model configured
 
   return { memberId: await addAiSeat(env.ctx, room, a.template) };
 });

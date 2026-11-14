@@ -4,7 +4,8 @@
  * own (ANTHROPIC_API_KEY); local deployments with AI_MOCK=1 use the offline mock, so tests never reach a network.
  */
 import { OpFailure } from "@workspace/v2-affordances";
-import { anthropicProvider, Budget, ChatError, DEFAULT_MODEL, findModel, mockProvider, type ChatProvider } from "@workspace/v2-ai";
+import { anthropicProvider, Budget, ChatError, findModel, mockProvider, type ChatProvider } from "@workspace/v2-ai";
+import { modelSetting, type StepKind } from "./aiModel";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
@@ -13,12 +14,12 @@ import { resolveContext, userById } from "./access";
 import type { SpendKey } from "./spend";
 
 /** The deployment's provider, or a refusal when none is configured. */
-export function providerFor(): ChatProvider {
+/** The provider for a kind of step, on the model the deployment chose for it (aiModel.ts). */
+export function providerFor(kind: StepKind = "assistant"): ChatProvider {
   if (process.env.AI_MOCK === "1") return mockProvider();
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  // The deployment's model: AI_MODEL (one of lib/v2-ai's MODELS), else the default.
-  const id = process.env.AI_MODEL || DEFAULT_MODEL, model = findModel(id);
-  if (!model) throw new OpFailure(`This deployment's AI_MODEL (${id}) is not a model the server knows.`);
+  const { setting, id } = modelSetting(kind, process.env), model = findModel(id);
+  if (!model) throw new OpFailure(`This deployment's ${setting} (${id}) is not a model the server knows.`);
   if (!apiKey) throw new OpFailure("No AI model is configured on this deployment.");
   return anthropicProvider({ apiKey, model: model.id, prices: model.prices });
 }

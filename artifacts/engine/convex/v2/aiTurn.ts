@@ -93,7 +93,7 @@ export const turn = internalAction({
       + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / 1000))}` : "");
     try {
       await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({
-        provider: providerFor(), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools, starters }),
+        provider: providerFor("seat"), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools, starters }),
         messages: [{ role: "user", content: briefing }], tools, maxSteps: 6, budget,
         perform: (name, args) => performAs(ctx, delegate, { gameId }, affordanceForTool(name)!.id, args),
       }));

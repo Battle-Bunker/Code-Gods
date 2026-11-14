@@ -14,6 +14,6 @@ export const { op: draft, as: draftAs } = defineOp("pitch.draft", "action", asyn
   const context = await env.ctx.runQuery(CONTEXT, { userId: c.userId!, scope: c.scope, ...(a.to ? { to: a.to } : {}) });
   if (!context) throw new OpFailure("Only players with a seat in this game can do this.");
   const out = await spendWithin(env.ctx, { roomId: context.roomId, gameId: context.gameId, memberId: context.memberId, pool: "assistant" }, budget =>
-    pitchDraft({ provider: providerFor(), myCard: context.card, players: context.players, ...(a.aim ? { aim: a.aim } : {}), budget }));
+    pitchDraft({ provider: providerFor("pitch"), myCard: context.card, players: context.players, ...(a.aim ? { aim: a.aim } : {}), budget }));
   return { draft: out.draft };
 });
