@@ -1,13 +1,13 @@
 {
  "schema": 5,
- "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirror-rows/{}/tb=zeros",
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirrormancer/{}/tb=middle",
  "objectType": "grid",
  "objectTypeVersion": 1,
  "variant": "grid-4-d10",
  "variantHash": "76e049325923b745",
- "family": "mirror-rows",
+ "family": "mirrormancer",
  "params": {},
- "tieBreaker": "zeros",
+ "tieBreaker": "middle",
  "seed": "v2",
  "config": {
   "computeBudget": 32000000,
@@ -36,36 +36,36 @@
   {
    "score": [
     null,
-    "8"
+    "12"
    ],
-   "label": "anything; 0s at least 8",
+   "label": "anything; the middle columns at least 12",
    "layer": 1,
    "main": 0,
-   "bits": 1.2945,
+   "bits": 0.1165,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     null,
-    "11"
+    "20"
    ],
-   "label": "anything; 0s at least 11",
+   "label": "anything; the middle columns at least 20",
    "layer": 1,
    "main": 0,
-   "bits": 1.4242,
+   "bits": 0.6889,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     null,
-    "13"
+    "24"
    ],
-   "label": "anything; 0s at least 13",
+   "label": "anything; the middle columns at least 24",
    "layer": 1,
    "main": 0,
-   "bits": 1.4254,
+   "bits": 1.0268,
    "error": 0,
    "source": "exact"
   },
@@ -83,36 +83,36 @@
   {
    "score": [
     "-16",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 16 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 16 in all; the middle columns at least 12",
    "layer": 1,
    "main": 1,
-   "bits": 2.6097,
+   "bits": 1.7182,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-16",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 16 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 16 in all; the middle columns at least 20",
    "layer": 1,
    "main": 1,
-   "bits": 2.8046,
+   "bits": 2.4058,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-16",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 16 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 16 in all; the middle columns at least 24",
    "layer": 1,
    "main": 1,
-   "bits": 2.8089,
+   "bits": 2.6345,
    "error": 0,
    "source": "exact"
   },
@@ -130,36 +130,36 @@
   {
    "score": [
     "-12",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 12 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 12 in all; the middle columns at least 12",
    "layer": 1,
    "main": 2,
-   "bits": 4.5702,
+   "bits": 3.4304,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-12",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 12 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 12 in all; the middle columns at least 20",
    "layer": 1,
    "main": 2,
-   "bits": 5.1906,
+   "bits": 4.5554,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-12",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 12 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 12 in all; the middle columns at least 24",
    "layer": 1,
    "main": 2,
-   "bits": 5.2185,
+   "bits": 4.9309,
    "error": 0,
    "source": "exact"
   },
@@ -177,36 +177,36 @@
   {
    "score": [
     "-8",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 8 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 8 in all; the middle columns at least 12",
    "layer": 1,
    "main": 3,
-   "bits": 6.4871,
+   "bits": 5.9457,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-8",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 8 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 8 in all; the middle columns at least 20",
    "layer": 1,
    "main": 3,
-   "bits": 7.0261,
+   "bits": 6.7515,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-8",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 8 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 8 in all; the middle columns at least 24",
    "layer": 1,
    "main": 3,
-   "bits": 7.0661,
+   "bits": 6.9445,
    "error": 0,
    "source": "exact"
   },
@@ -224,36 +224,36 @@
   {
    "score": [
     "-6",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 6 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 6 in all; the middle columns at least 12",
    "layer": 1,
    "main": 4,
-   "bits": 8.4751,
+   "bits": 8.0969,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-6",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 6 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 6 in all; the middle columns at least 20",
    "layer": 1,
    "main": 4,
-   "bits": 9.4815,
+   "bits": 9.1777,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-6",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 6 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 6 in all; the middle columns at least 24",
    "layer": 1,
    "main": 4,
-   "bits": 9.6216,
+   "bits": 9.4524,
    "error": 0,
    "source": "exact"
   },
@@ -271,36 +271,36 @@
   {
    "score": [
     "-4",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 4 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 4 in all; the middle columns at least 12",
    "layer": 1,
    "main": 5,
-   "bits": 10.5371,
+   "bits": 10.5137,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-4",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 4 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 4 in all; the middle columns at least 20",
    "layer": 1,
    "main": 5,
-   "bits": 11.1816,
+   "bits": 11.1248,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-4",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 4 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 4 in all; the middle columns at least 24",
    "layer": 1,
    "main": 5,
-   "bits": 11.2966,
+   "bits": 11.2411,
    "error": 0,
    "source": "exact"
   },
@@ -318,36 +318,36 @@
   {
    "score": [
     "-3",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 3 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 3 in all; the middle columns at least 12",
    "layer": 1,
    "main": 6,
-   "bits": 12.2408,
+   "bits": 12.3939,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-3",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 3 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 3 in all; the middle columns at least 20",
    "layer": 1,
    "main": 6,
-   "bits": 13.1113,
+   "bits": 13.1417,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-3",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 3 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 3 in all; the middle columns at least 24",
    "layer": 1,
    "main": 6,
-   "bits": 13.3393,
+   "bits": 13.2881,
    "error": 0,
    "source": "exact"
   },
@@ -365,36 +365,36 @@
   {
    "score": [
     "-2",
-    "8"
+    "12"
    ],
-   "label": "the rows' mirror gaps off by at most 2 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 2 in all; the middle columns at least 12",
    "layer": 1,
    "main": 7,
-   "bits": 14.3033,
+   "bits": 14.7145,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-2",
-    "11"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 2 in all; 0s at least 11",
+   "label": "the rows' mirror gaps off by at most 2 in all; the middle columns at least 20",
    "layer": 1,
    "main": 7,
-   "bits": 15.4302,
+   "bits": 15.6799,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-2",
-    "13"
+    "24"
    ],
-   "label": "the rows' mirror gaps off by at most 2 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 2 in all; the middle columns at least 24",
    "layer": 1,
    "main": 7,
-   "bits": 15.8959,
+   "bits": 15.8834,
    "error": 0,
    "source": "exact"
   },
@@ -412,48 +412,12 @@
   {
    "score": [
     "-1",
-    "6"
-   ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 6",
-   "layer": 1,
-   "main": 8,
-   "bits": 16.3592,
-   "error": 0,
-   "source": "exact"
-  },
-  {
-   "score": [
-    "-1",
     "8"
    ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 8",
+   "label": "the rows' mirror gaps off by at most 1 in all; the middle columns at least 8",
    "layer": 1,
    "main": 8,
-   "bits": 16.9676,
-   "error": 0,
-   "source": "exact"
-  },
-  {
-   "score": [
-    "-1",
-    "10"
-   ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 10",
-   "layer": 1,
-   "main": 8,
-   "bits": 18.0703,
-   "error": 0,
-   "source": "exact"
-  },
-  {
-   "score": [
-    "-1",
-    "11"
-   ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 11",
-   "layer": 1,
-   "main": 8,
-   "bits": 18.7858,
+   "bits": 17.0087,
    "error": 0,
    "source": "exact"
   },
@@ -462,40 +426,64 @@
     "-1",
     "12"
    ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 12",
+   "label": "the rows' mirror gaps off by at most 1 in all; the middle columns at least 12",
    "layer": 1,
    "main": 8,
-   "bits": 19.8489,
+   "bits": 17.9986,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-1",
-    "13"
+    "16"
    ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 13",
+   "label": "the rows' mirror gaps off by at most 1 in all; the middle columns at least 16",
    "layer": 1,
    "main": 8,
-   "bits": 20.8227,
+   "bits": 19.1946,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-1",
-    "14"
+    "20"
    ],
-   "label": "the rows' mirror gaps off by at most 1 in all; 0s at least 14",
+   "label": "the rows' mirror gaps off by at most 1 in all; the middle columns at least 20",
    "layer": 1,
    "main": 8,
-   "bits": 22.6316,
+   "bits": 20.5747,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "24"
+   ],
+   "label": "the rows' mirror gaps off by at most 1 in all; the middle columns at least 24",
+   "layer": 1,
+   "main": 8,
+   "bits": 22.1354,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "28"
+   ],
+   "label": "the rows' mirror gaps off by at most 1 in all; the middle columns at least 28",
+   "layer": 1,
+   "main": 8,
+   "bits": 23.8525,
    "error": 0,
    "source": "exact"
   }
  ],
- "cap": 39,
- "convergedCap": 39,
+ "cap": 38,
+ "convergedCap": 38,
  "tail": null,
  "dealable": true,
  "primarySense": "min",
@@ -541,95 +529,92 @@
     "convolution",
     "convolution",
     "convolution",
-    "convolution",
     "convolution"
    ],
    "lo": [
     0,
-    1.2945,
-    1.4242,
+    0.1165,
+    0.6889,
+    1.0268,
     1.4254,
-    1.4254,
-    2.6097,
-    2.8046,
+    1.7182,
+    2.4058,
+    2.6345,
     2.8089,
-    2.8089,
-    4.5702,
-    5.1906,
-    5.2185,
+    3.4304,
+    4.5554,
+    4.9309,
     5.2191,
-    6.4871,
-    7.0261,
-    7.0661,
+    5.9457,
+    6.7515,
+    6.9445,
     7.0676,
-    8.4751,
-    9.4815,
-    9.6216,
+    8.0969,
+    9.1777,
+    9.4524,
     9.63,
-    10.5371,
-    11.1816,
-    11.2966,
+    10.5137,
+    11.1248,
+    11.2411,
     11.3077,
-    12.2408,
-    13.1113,
-    13.3393,
+    12.3939,
+    13.1417,
+    13.2881,
     13.3721,
-    14.3033,
-    15.4302,
-    15.8959,
+    14.7145,
+    15.6799,
+    15.8834,
     16.0024,
-    16.3592,
-    16.9676,
-    18.0703,
-    18.7858,
-    19.8489,
-    20.8227,
-    22.6316
+    17.0087,
+    17.9986,
+    19.1946,
+    20.5747,
+    22.1354,
+    23.8525
    ],
    "hi": [
     0,
-    1.2945,
-    1.4242,
+    0.1165,
+    0.6889,
+    1.0268,
     1.4254,
-    1.4254,
-    2.6097,
-    2.8046,
+    1.7182,
+    2.4058,
+    2.6345,
     2.8089,
-    2.8089,
-    4.5702,
-    5.1906,
-    5.2185,
+    3.4304,
+    4.5554,
+    4.9309,
     5.2191,
-    6.4871,
-    7.0261,
-    7.0661,
+    5.9457,
+    6.7515,
+    6.9445,
     7.0676,
-    8.4751,
-    9.4815,
-    9.6216,
+    8.0969,
+    9.1777,
+    9.4524,
     9.63,
-    10.5371,
-    11.1816,
-    11.2966,
+    10.5137,
+    11.1248,
+    11.2411,
     11.3077,
-    12.2408,
-    13.1113,
-    13.3393,
+    12.3939,
+    13.1417,
+    13.2881,
     13.3721,
-    14.3033,
-    15.4302,
-    15.8959,
+    14.7145,
+    15.6799,
+    15.8834,
     16.0024,
-    16.3592,
-    16.9676,
-    18.0703,
-    18.7858,
-    19.8489,
-    20.8227,
-    22.6316
+    17.0087,
+    17.9986,
+    19.1946,
+    20.5747,
+    22.1354,
+    23.8525
    ]
   },
   "simulation": null
  },
- "contentHash": "fc6cb48bc42d01b5"
+ "contentHash": "9d8c07599fd4d802"
 }

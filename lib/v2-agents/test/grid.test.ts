@@ -217,5 +217,6 @@ test("the primer for grids lists the board's views and moves, says board, and sh
   assert.match(primer, /engine v2: grids/);
   assert.doesNotMatch(primer, /\b(a|the|this|one|that) lines?\b/i, "no line words on a board");
   assert.match(primer, /def agent\(offer\)/, "the example");
-  assert.ok(primer.length < 12000, `${primer.length} characters`);
+  // Nine representations since the old beginner rules returned (windows, leaps, fold): 12,000 characters exactly.
+  assert.ok(primer.length < 13000, `${primer.length} characters`);
 });

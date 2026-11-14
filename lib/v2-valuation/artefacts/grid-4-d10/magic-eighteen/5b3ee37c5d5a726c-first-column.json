@@ -1,0 +1,563 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/magic-eighteen/{\"T\":18}/tb=first-column",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "magic-eighteen",
+ "params": {
+  "T": 18
+ },
+ "tieBreaker": "first-column",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "20"
+   ],
+   "label": "anything; the first column at least 20",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.1695,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "26"
+   ],
+   "label": "anything; the first column at least 26",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.1896,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "28"
+   ],
+   "label": "anything; the first column at least 28",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.1897,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32"
+   ],
+   "label": "the rows' totals off by at most 32 in all",
+   "layer": 0,
+   "main": 1,
+   "bits": 2.1898,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 32 in all; the first column at least 20",
+   "layer": 1,
+   "main": 1,
+   "bits": 4.2683,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 32 in all; the first column at least 26",
+   "layer": 1,
+   "main": 1,
+   "bits": 4.4462,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 32 in all; the first column at least 28",
+   "layer": 1,
+   "main": 1,
+   "bits": 4.4512,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24"
+   ],
+   "label": "the rows' totals off by at most 24 in all",
+   "layer": 0,
+   "main": 2,
+   "bits": 4.4526,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 24 in all; the first column at least 20",
+   "layer": 1,
+   "main": 2,
+   "bits": 6.932,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 24 in all; the first column at least 26",
+   "layer": 1,
+   "main": 2,
+   "bits": 7.8017,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 24 in all; the first column at least 28",
+   "layer": 1,
+   "main": 2,
+   "bits": 7.8662,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "the rows' totals off by at most 16 in all",
+   "layer": 0,
+   "main": 3,
+   "bits": 7.8938,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 16 in all; the first column at least 20",
+   "layer": 1,
+   "main": 3,
+   "bits": 9.4368,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 16 in all; the first column at least 26",
+   "layer": 1,
+   "main": 3,
+   "bits": 10.1115,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 16 in all; the first column at least 28",
+   "layer": 1,
+   "main": 3,
+   "bits": 10.1844,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12"
+   ],
+   "label": "the rows' totals off by at most 12 in all",
+   "layer": 0,
+   "main": 4,
+   "bits": 10.2268,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 12 in all; the first column at least 20",
+   "layer": 1,
+   "main": 4,
+   "bits": 11.7922,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 12 in all; the first column at least 26",
+   "layer": 1,
+   "main": 4,
+   "bits": 12.8841,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 12 in all; the first column at least 28",
+   "layer": 1,
+   "main": 4,
+   "bits": 13.0633,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the rows' totals off by at most 8 in all",
+   "layer": 0,
+   "main": 5,
+   "bits": 13.1944,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 8 in all; the first column at least 20",
+   "layer": 1,
+   "main": 5,
+   "bits": 14.2219,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 8 in all; the first column at least 26",
+   "layer": 1,
+   "main": 5,
+   "bits": 14.8724,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 8 in all; the first column at least 28",
+   "layer": 1,
+   "main": 5,
+   "bits": 14.9759,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6"
+   ],
+   "label": "the rows' totals off by at most 6 in all",
+   "layer": 0,
+   "main": 6,
+   "bits": 15.0573,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 6 in all; the first column at least 20",
+   "layer": 1,
+   "main": 6,
+   "bits": 16.1617,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 6 in all; the first column at least 26",
+   "layer": 1,
+   "main": 6,
+   "bits": 17.0494,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 6 in all; the first column at least 28",
+   "layer": 1,
+   "main": 6,
+   "bits": 17.2213,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the rows' totals off by at most 4 in all",
+   "layer": 0,
+   "main": 7,
+   "bits": 17.3717,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "16"
+   ],
+   "label": "the rows' totals off by at most 4 in all; the first column at least 16",
+   "layer": 1,
+   "main": 7,
+   "bits": 18.0153,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "20"
+   ],
+   "label": "the rows' totals off by at most 4 in all; the first column at least 20",
+   "layer": 1,
+   "main": 7,
+   "bits": 18.8347,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "24"
+   ],
+   "label": "the rows' totals off by at most 4 in all; the first column at least 24",
+   "layer": 1,
+   "main": 7,
+   "bits": 20.1822,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "26"
+   ],
+   "label": "the rows' totals off by at most 4 in all; the first column at least 26",
+   "layer": 1,
+   "main": 7,
+   "bits": 21.1118,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "28"
+   ],
+   "label": "the rows' totals off by at most 4 in all; the first column at least 28",
+   "layer": 1,
+   "main": 7,
+   "bits": 22.2569,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "30"
+   ],
+   "label": "the rows' totals off by at most 4 in all; the first column at least 30",
+   "layer": 1,
+   "main": 7,
+   "bits": 23.6721,
+   "error": 0,
+   "source": "exact"
+  }
+ ],
+ "cap": 34,
+ "convergedCap": 34,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution"
+   ],
+   "lo": [
+    0,
+    2.1695,
+    2.1896,
+    2.1897,
+    2.1898,
+    4.2683,
+    4.4462,
+    4.4512,
+    4.4526,
+    6.932,
+    7.8017,
+    7.8662,
+    7.8938,
+    9.4368,
+    10.1115,
+    10.1844,
+    10.2268,
+    11.7922,
+    12.8841,
+    13.0633,
+    13.1944,
+    14.2219,
+    14.8724,
+    14.9759,
+    15.0573,
+    16.1617,
+    17.0494,
+    17.2213,
+    17.3717,
+    18.0153,
+    18.8347,
+    20.1822,
+    21.1118,
+    22.2569,
+    23.6721
+   ],
+   "hi": [
+    0,
+    2.1695,
+    2.1896,
+    2.1897,
+    2.1898,
+    4.2683,
+    4.4462,
+    4.4512,
+    4.4526,
+    6.932,
+    7.8017,
+    7.8662,
+    7.8938,
+    9.4368,
+    10.1115,
+    10.1844,
+    10.2268,
+    11.7922,
+    12.8841,
+    13.0633,
+    13.1944,
+    14.2219,
+    14.8724,
+    14.9759,
+    15.0573,
+    16.1617,
+    17.0494,
+    17.2213,
+    17.3717,
+    18.0153,
+    18.8347,
+    20.1822,
+    21.1118,
+    22.2569,
+    23.6721
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "ac8c591bfac6247e"
+}

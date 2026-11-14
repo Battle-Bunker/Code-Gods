@@ -1,11 +1,11 @@
 {
  "schema": 5,
- "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirror-rows/{}/tb=primes",
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/mirrormancer/{}/tb=primes",
  "objectType": "grid",
  "objectTypeVersion": 1,
  "variant": "grid-4-d10",
  "variantHash": "76e049325923b745",
- "family": "mirror-rows",
+ "family": "mirrormancer",
  "params": {},
  "tieBreaker": "primes",
  "seed": "v2",
@@ -616,5 +616,5 @@
   },
   "simulation": null
  },
- "contentHash": "9280d543187c4ea6"
+ "contentHash": "3a0dccf04427ec3a"
 }

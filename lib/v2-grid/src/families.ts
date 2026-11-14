@@ -1,12 +1,13 @@
 /**
- * The grid's first rule pool (docs/engine-v2/grids.md §6): six families, each a main layer in one representation and in
- * a 12-year-old's words, and three alternative tie-breakers; a dealt rule is the main layer plus one (owner decision 14).
- * Every layer is graded (decision 13), and every layer of a family adds up over the family's units (sums.ts), so every
- * pairing has an exact value (§5).
+ * The grid's rule families (docs/engine-v2/grids.md §6). The beginner pool is the old beginner grid's eight rules
+ * (archive/engine-v1, docs/beginner-pool.md), regraded: each a main layer in one representation and in a 12-year-old's
+ * words, and three alternative tie-breakers; a dealt rule is the main layer plus one (owner decision 14); every layer
+ * graded (decision 13). Steady Steps, Box Totals and Prime Cells are a second pool. A family whose layers add up over
+ * disjoint units declares them (sums.ts) and is valued exactly; the others are sampled (owner decision 22).
  */
 import { q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
 import { at, cellName, type GridState } from "./grid.ts";
-import { boxes, corners, pairs, rows } from "./units.ts";
+import { boxEdges, boxes, corners, folds, leaps, pairs, rows, windows } from "./units.ts";
 
 type Ctx = EvalContext<GridState>;
 type L<P> = Layer<P>;
@@ -56,32 +57,70 @@ function totalOf(ctx: Ctx, id: string, label: string, cells: { v: number[]; refs
 const primesTie = <P,>(ts: readonly number[]): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells", ts, "prime numbers", "count");
 const zerosTie = <P,>(ts: readonly number[]): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells", ts, "0s", "count");
 
-// ---------------------------------------------------------------- 1. Row Totals
+// ---------------------------------------------------------------- shared readers
+
+/** Read a list of derived elements of one representation (row totals, pair totals, gaps …) as numbers. */
+function readAll(ctx: Ctx, rep: string, names: readonly string[]): { refs: ElementRef[]; v: number[] } {
+  const refs = names.map(nm => ref(rep, nm));
+  return { refs, v: refs.map(r => readNum(ctx, r)) };
+}
+const sumOf = (xs: readonly number[]) => xs.reduce((t, x) => t + x, 0);
+/** Notes on each unit: a focus where it is perfect, else a short word. */
+function noteEach(ctx: Ctx, units: { refs: ElementRef[]; v: number[] }, perfect: (x: number) => boolean, word: (x: number) => string): void {
+  units.refs.forEach((r, i) => ctx.mark(perfect(units.v[i]!) ? { kind: "focus", ref: r } : { kind: "note", ref: r, text: word(units.v[i]!) }));
+}
 
 type T = { T: number };
-export function rowTotals(n: number): RuleFamily<GridState, T> {
-  const shape: Shape<T> = {
-    main: distance<T>("rows", "every row adds up to the target", p => `Every row should add up to ${p.T}.`, "tally", [16, 12, 8, 6, 4, 3, 2, 1, 0], "the rows' totals"),
+type None = Record<string, never>;
+
+// ---------------------------------------------------------------- 1. Mirrormancer
+
+export function mirrormancer(n: number): RuleFamily<GridState, None> {
+  const middle = rows(n).flatMap((_, r) => Array.from({ length: n - 2 }, (_, j) => at(n, r, j + 1)));
+  const shape: Shape<None> = {
+    main: distance<None>("mirror", "every row reads the same backwards", () => "Every row should read the same backwards, like 3 1 1 3.", "mirror", [16, 12, 8, 6, 4, 3, 2, 1], "the rows' mirror gaps"),
     tieBreakers: [
-      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells", [12, 16, 20, 22, 24, 26], "the first column"),
-      primesTie([5, 6, 8, 10, 11, 12]), zerosTie([1, 2, 3, 4, 5, 6]),
+      more("middle", "the middle columns' total", "The middle two columns should add up to as much as possible.", "cells", [8, 12, 16, 20, 24, 28], "the middle columns"),
+      primesTie([4, 6, 8, 9, 10, 11]),
+      zerosTie([6, 8, 10, 11, 12, 13, 14]),
     ],
   };
-  return family<T>("row-totals", "Row Totals", ["tally", "cells"], shape, [{ T: 12 }], (ctx, p) => {
-    const rs = rows(n).map((_, r) => ref("tally", `row${r}`));
-    const totals = rs.map(r => readNum(ctx, r));
-    ctx.term("rows", `how far the rows' totals are from ${p.T}, added up`, q(totals.reduce((t, x) => t + Math.abs(x - p.T), 0)), rs);
-    rs.forEach((r, i) => { const d = totals[i]! - p.T; ctx.mark(d === 0 ? { kind: "focus", ref: r } : { kind: "note", ref: r, text: d < 0 ? `${-d} short` : `${d} over` }); });
+  return family<None>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, [{}], ctx => {
+    const gaps = readAll(ctx, "mirror", rows(n).map((_, r) => `gap${r}`));
+    ctx.term("mirror", "how far the rows are from reading the same backwards, added up", q(sumOf(gaps.v)), gaps.refs);
+    noteEach(ctx, gaps, x => x === 0, x => `off by ${x}`);
     const cells = readCells(ctx, n);
-    totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
+    totalOf(ctx, "middle", "the middle columns' total", cells, middle);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
   }, n);
 }
 
-// ---------------------------------------------------------------- 2. Opposite Pairs
+// ---------------------------------------------------------------- 2. Magic Eighteen
 
-export function oppositePairs(n: number): RuleFamily<GridState, T> {
+export function magicEighteen(n: number): RuleFamily<GridState, T> {
+  const shape: Shape<T> = {
+    main: distance<T>("rows", "every row adds up to the target", p => `Every row should add up to ${p.T}.`, "tally", [32, 24, 16, 12, 8, 6, 4], "the rows' totals"),
+    tieBreakers: [
+      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells", [16, 20, 24, 26, 28, 30], "the first column"),
+      primesTie([5, 6, 8, 10, 11, 12]),
+      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells", [6, 8, 10, 11, 12, 13], "odd numbers", "count"),
+    ],
+  };
+  return family<T>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, [{ T: 18 }], (ctx, p) => {
+    const totals = readAll(ctx, "tally", rows(n).map((_, r) => `row${r}`));
+    ctx.term("rows", `how far the rows' totals are from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
+    noteEach(ctx, totals, x => x === p.T, x => (x < p.T ? `${p.T - x} short` : `${x - p.T} over`));
+    const cells = readCells(ctx, n);
+    totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
+    countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
+    countCells(ctx, "odd", "odd numbers on the board", cells, x => x % 2 === 1, false);
+  }, n);
+}
+
+// ---------------------------------------------------------------- 3. Opposite Nines
+
+export function oppositeNines(n: number): RuleFamily<GridState, T> {
   const ps = pairs(n);
   const shape: Shape<T> = {
     main: distance<T>("pairs", "every cell and its opposite add up to the target",
@@ -92,11 +131,10 @@ export function oppositePairs(n: number): RuleFamily<GridState, T> {
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells", [6, 8, 10, 11, 12, 13], "odd numbers", "count"),
     ],
   };
-  return family<T>("opposite-pairs", "Opposite Pairs", ["turn", "cells"], shape, [{ T: 9 }], (ctx, p) => {
-    const rs = ps.map((_, k) => ref("turn", `pair${k}`));
-    const totals = rs.map(r => readNum(ctx, r));
-    ctx.term("pairs", `how far each pair's total is from ${p.T}, added up`, q(totals.reduce((t, x) => t + Math.abs(x - p.T), 0)), rs);
-    rs.forEach((r, i) => { if (totals[i] === p.T) ctx.mark({ kind: "focus", ref: r }); else ctx.mark({ kind: "note", ref: r, text: `${totals[i]}` }); });
+  return family<T>("opposite-nines", "Opposite Nines", ["turn", "cells"], shape, [{ T: 9 }], (ctx, p) => {
+    const totals = readAll(ctx, "turn", ps.map((_, k) => `pair${k}`));
+    ctx.term("pairs", `how far each pair's total is from ${p.T}, added up`, q(sumOf(totals.v.map(x => Math.abs(x - p.T)))), totals.refs);
+    noteEach(ctx, totals, x => x === p.T, x => `${x}`);
     const cells = readCells(ctx, n);
     totalOf(ctx, "top-half", "the top half's total", cells, ps.map(([a]) => a));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
@@ -104,32 +142,131 @@ export function oppositePairs(n: number): RuleFamily<GridState, T> {
   }, n);
 }
 
-// ---------------------------------------------------------------- 3. Mirror Rows
+// ---------------------------------------------------------------- 4. Two Pair
 
-type None = Record<string, never>;
-export function mirrorRows(n: number): RuleFamily<GridState, None> {
-  const middle = rows(n).flatMap((_, r) => Array.from({ length: n - 2 }, (_, j) => at(n, r, j + 1)));
+export function twoPair(n: number): RuleFamily<GridState, None> {
+  const bx = boxes(n);
   const shape: Shape<None> = {
-    main: distance<None>("mirror", "every row reads the same backwards", () => "Every row should read the same backwards, like 3 1 1 3.", "mirror", [16, 12, 8, 6, 4, 3, 2, 1], "the rows' mirror gaps"),
+    main: distance<None>("two-pair", "every corner box holds two different pairs",
+      () => "Each corner box of four cells should hold two different pairs, like 3 3 8 8 in any order.", "boxes", [16, 12, 8, 6, 4, 3, 2, 1, 0], "the boxes' gaps from two pairs"),
     tieBreakers: [
-      more("middle", "the middle columns' total", "The middle two columns should add up to as much as possible.", "cells", [8, 12, 16, 20, 24, 28], "the middle columns"),
-      primesTie([4, 6, 8, 9, 10, 11]),
-      zerosTie([6, 8, 10, 11, 12, 13, 14]),
+      more("apart", "how far apart each box's pairs are", "In each box the two pairs should be as far apart as possible (biggest minus smallest, added up).", "cells", [4, 8, 12, 14, 16, 18], "the pairs' distance"),
+      primesTie([2, 4, 6, 8, 10, 12]),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [6, 8, 10, 12, 14, 16], "the corners"),
     ],
   };
-  return family<None>("mirror-rows", "Mirror Rows", ["mirror", "cells"], shape, [{}], ctx => {
-    const gs = rows(n).map((_, r) => ref("mirror", `gap${r}`));
-    const gaps = gs.map(r => readNum(ctx, r));
-    ctx.term("mirror", "how far the rows are from reading the same backwards, added up", q(gaps.reduce((t, x) => t + x, 0)), gs);
-    gs.forEach((r, i) => ctx.mark(gaps[i] === 0 ? { kind: "focus", ref: r } : { kind: "note", ref: r, text: `off by ${gaps[i]}` }));
+  return family<None>("two-pair", "Two Pair", ["boxes", "cells"], shape, [{}], ctx => {
+    const gaps = readAll(ctx, "boxes", bx.map((_, k) => `pairs${k}`));
+    ctx.term("two-pair", "how far the boxes are from two different pairs, added up", q(sumOf(gaps.v)), gaps.refs);
+    noteEach(ctx, gaps, x => x === 0, x => `off by ${x}`);
     const cells = readCells(ctx, n);
-    totalOf(ctx, "middle", "the middle columns' total", cells, middle);
+    const apart = sumOf(bx.map(cs => { const v = cs.map(i => cells.v[i]!); return Math.max(...v) - Math.min(...v); }));
+    ctx.term("apart", "biggest minus smallest in each box, added up", q(apart), cells.refs);
+    countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
+    totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
+  }, n);
+}
+
+// ---------------------------------------------------------------- 5. Spread of Three (overlapping windows: sampled)
+
+export function spreadOfThree(n: number): RuleFamily<GridState, None> {
+  const ws = windows(n);
+  const shape: Shape<None> = {
+    main: distance<None>("spread", "every 2×2 square spreads by 3",
+      () => "Every 2×2 square should have a spread of exactly 3: its biggest number 3 more than its smallest. The squares overlap.", "windows", [24, 18, 14, 10, 8, 6, 4, 3, 2, 1, 0], "the squares' spreads from 3"),
+    tieBreakers: [
+      primesTie([4, 6, 7, 8, 9, 10]),
+      zerosTie([2, 4, 5, 6, 7, 8, 9]),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [4, 6, 8, 10, 11, 12], "the corners"),
+    ],
+  };
+  return family<None>("spread-of-three", "Spread of Three", ["windows", "cells"], shape, [{}], ctx => {
+    const sp = readAll(ctx, "windows", ws.map((_, k) => `w${k}`));
+    ctx.term("spread", "how far each square's spread is from 3, added up", q(sumOf(sp.v.map(x => Math.abs(x - 3)))), sp.refs);
+    noteEach(ctx, sp, x => x === 3, x => `spread ${x}`);
+    const cells = readCells(ctx, n);
+    countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
+    countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
+    totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
+  }, n);
+}
+
+// ---------------------------------------------------------------- 6. Strangers
+
+export function strangersFamily(n: number): RuleFamily<GridState, None> {
+  const bx = boxes(n);
+  const shape: Shape<None> = {
+    main: more<None>("strangers", "touching strangers in the corner boxes",
+      "Touching numbers in the same corner box should be strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart (like 2 and 5).", "boxes",
+      [2, 4, 5, 6, 7, 8, 9], "pairs of strangers", "count"),
+    tieBreakers: [
+      more("ones", "1s beside a bigger number in their box", "As many 1s as possible should touch a number bigger than 1 in their box (count each touch).", "cells", [1, 2, 3, 4, 5, 6], "1s beside bigger numbers", "count"),
+      primesTie([10, 11, 12, 13, 14, 15]),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [8, 12, 16, 20, 24, 28], "the corners"),
+    ],
+  };
+  return family<None>("strangers", "Strangers", ["boxes", "cells"], shape, [{}], ctx => {
+    const st = readAll(ctx, "boxes", bx.map((_, k) => `strangers${k}`));
+    ctx.term("strangers", "touching strangers in the boxes", q(sumOf(st.v)), st.refs);
+    noteEach(ctx, st, x => x === 4, x => `${x} of 4`);
+    const cells = readCells(ctx, n);
+    const ones = sumOf(bx.map(cs => boxEdges(cs).filter(([a, b]) => { const x = cells.v[a]!, y = cells.v[b]!; return (x === 1 && y > 1) || (y === 1 && x > 1); }).length));
+    ctx.term("ones", "1s touching a bigger number in their box", q(ones), cells.refs);
+    countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
+    totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
+  }, n);
+}
+
+// ---------------------------------------------------------------- 7. Leapfrog
+
+export function leapfrog(n: number): RuleFamily<GridState, None> {
+  const lp = leaps(n);
+  const shape: Shape<None> = {
+    main: distance<None>("leap", "each number one apart from the number two cells along",
+      () => "In every row, each number and the number two cells along (leaping over the one between) should be one apart, like 4 _ 5.", "leaps", [12, 10, 8, 6, 5, 4, 3, 2, 1, 0], "the leaps from one apart"),
+    tieBreakers: [
+      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells", [6, 8, 10, 12, 14, 16], "the first column"),
+      primesTie([3, 4, 6, 8, 10, 11]),
+      zerosTie([2, 3, 4, 5, 6, 7, 8]),
+    ],
+  };
+  return family<None>("leapfrog", "Leapfrog", ["leaps", "cells"], shape, [{}], ctx => {
+    const d = readAll(ctx, "leaps", lp.map((_, k) => `leap${k}`));
+    ctx.term("leap", "how far each leap is from one apart, added up", q(sumOf(d.v.map(x => Math.abs(Math.abs(x) - 1)))), d.refs);
+    noteEach(ctx, d, x => Math.abs(x) === 1, x => `${Math.abs(x)} apart`);
+    const cells = readCells(ctx, n);
+    totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
   }, n);
 }
 
-// ---------------------------------------------------------------- 4. Steady Steps
+// ---------------------------------------------------------------- 8. Crosswise Threes
+
+export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
+  const fp = folds(n);
+  const shape: Shape<None> = {
+    main: distance<None>("crosswise", "folded cells three apart",
+      () => "Fold the board along the diagonal from the top-right corner: each number and the number it lands on should be 3 apart, like 2 and 5.", "fold", [12, 10, 8, 6, 5, 4, 3, 2, 1, 0], "the folded pairs from 3 apart"),
+    tieBreakers: [
+      more("fold-line", "the fold line's total", "The cells on the fold line should add up to as much as possible.", "fold", [4, 8, 12, 16, 18, 20], "the fold line"),
+      primesTie([4, 6, 8, 9, 10, 11]),
+      zerosTie([2, 3, 4, 5, 6, 7, 8]),
+    ],
+  };
+  return family<None>("crosswise-threes", "Crosswise Threes", ["fold", "cells"], shape, [{}], ctx => {
+    const d = readAll(ctx, "fold", fp.map((_, k) => `fold${k}`));
+    ctx.term("crosswise", "how far each folded pair is from 3 apart, added up", q(sumOf(d.v.map(x => Math.abs(Math.abs(x) - 3)))), d.refs);
+    noteEach(ctx, d, x => Math.abs(x) === 3, x => `${Math.abs(x)} apart`);
+    const line = ref("fold", "line");
+    ctx.term("fold-line", "the fold line's total", q(readNum(ctx, line)), [line]);
+    const cells = readCells(ctx, n);
+    countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
+    countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
+  }, n);
+}
+
+// ---------------------------------------------------------------- 9. Steady Steps (second pool)
 
 export function steadySteps(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
@@ -154,7 +291,7 @@ export function steadySteps(n: number): RuleFamily<GridState, None> {
   }, n);
 }
 
-// ---------------------------------------------------------------- 5. Box Totals
+// ---------------------------------------------------------------- 10. Box Totals (second pool)
 
 export function boxTotals(n: number): RuleFamily<GridState, T> {
   const shape: Shape<T> = {
@@ -176,7 +313,7 @@ export function boxTotals(n: number): RuleFamily<GridState, T> {
   }, n);
 }
 
-// ---------------------------------------------------------------- 6. Prime Cells
+// ---------------------------------------------------------------- 11. Prime Cells (second pool)
 
 export function primeCells(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
@@ -196,6 +333,10 @@ export function primeCells(n: number): RuleFamily<GridState, None> {
   }, n);
 }
 
-export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
-  [rowTotals(n), oppositePairs(n), mirrorRows(n), steadySteps(n), boxTotals(n), primeCells(n)];
+/** The beginner pool: the old beginner grid's eight rules, regraded. */
+export const beginnerGridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
+  [mirrormancer(n), magicEighteen(n), oppositeNines(n), twoPair(n), spreadOfThree(n), strangersFamily(n), leapfrog(n), crosswiseThrees(n)];
 
+/** Every grid family: the beginner pool, then the second pool. */
+export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
+  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n)];
