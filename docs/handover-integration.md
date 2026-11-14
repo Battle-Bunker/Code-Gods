@@ -20,7 +20,8 @@ numbers; where they conflict with this one, this one is current.
   `mcp.test.ts` fixed (18/18); `test:auth` 19/19; `e2e:account` 8/8; 20-game load check: 20/20 started, late p50
   1.3 s / max 2.1 s, 0 restarts. The 895-before-1,007 leaderboard: the public scoreboard publishes every 10 world
   seconds (`scoreIntervalSeconds`) and the final is published exactly at the end; by design, not a bug.
-- **Not done:** a browser look at the rotation line and the practice partner on the page; `e2e:panels`; the assistant
+- Browser: `artifacts/player-web/e2e/rotation-shot.ts` (practice partners summon, the room page shows the rotation line at 1440×900 and 390×844): pass; multi-client e2e 35/35.
+- **Not done:** the rotation totals in a browser (they appear from game 2; unit-tested only); `e2e:panels`; the assistant
   live suite (needs a provider key); full `test:game`; the model against engine games under #320.
 
 Written for a successor who has not seen the session. Branch: `claude/integration-pass` (from `develop` at 06a598c1).
