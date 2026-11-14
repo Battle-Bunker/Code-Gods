@@ -16,6 +16,7 @@
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
+import { assertNoSteps } from "./no-steps.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -65,6 +66,15 @@ async function shorten(page: Page, code: string) {
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
 }
 
+/** Whether the server deals a grid setup (`v2/setups:presets` lists only setups whose rules have value functions). */
+async function gridsPlayable(page: Page): Promise<boolean> {
+  const token = await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token);
+  const client = new ConvexHttpClient(CLOUD);
+  client.setAuth(token);
+  const presets = await client.query("v2/setups:presets" as never, {} as never) as { id: string }[];
+  return presets.some(p => p.id === "grids-beginner");
+}
+
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 /** A line's score as every pane writes it (src/core/words.ts scoreFormula), 2 decimal places. */
 const FORMULA = /your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
@@ -81,6 +91,16 @@ try {
     const code = page.url().split("/").at(-1)!;
     await page.screenshot({ path: path.join(shots, `grid-${label}-room-before.png`), fullPage: true });
     // The owner picks the grid setup in the room (a radio in "Next game").
+    // Owner decision 23: a rule without a value function is never dealt, so the server withholds the grid setups until
+    // the grid value functions are generated. Until then this walk checks the withholding and stops (W3's grids suite
+    // does the same); it runs in full by itself once a grid setup is listed.
+    if (!(await gridsPlayable(page))) {
+      await page.getByTestId("radio-setup-grids-beginner").click();
+      await page.getByText(/The setup did not change/).first().waitFor({ timeout: 15_000 });
+      console.log(`${label}: the grid setups are withheld (no grid value functions on this deployment): the walk stops here`);
+      await context.close();
+      continue;
+    }
     const t1 = Date.now();
     await page.getByTestId("radio-setup-grids-beginner").click();
     await page.waitForFunction(() => (document.querySelector('[data-testid="radio-setup-grids-beginner"]') as HTMLInputElement | null)?.checked === true, null, { timeout: 15_000 });
@@ -112,6 +132,8 @@ try {
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
       const box = page.getByTestId("input-forge-code");
       await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");
+      // The price line follows the edit once the forge has re-rendered (reading it at once raced the render).
+      await page.getByTestId("text-forge-price").getByText(/changes only:/).waitFor({ timeout: 10_000 });
       const priced = await page.getByTestId("text-forge-price").innerText();
       const m = /changes only: ([\d,.]+) ⚡ \(the whole program would be ([\d,.]+) ⚡\)/.exec(priced);
       assert.ok(m, `the edit is priced by its change: ${priced}`);
@@ -143,18 +165,14 @@ try {
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
-    // The goal card: the ladder, each step's chance and the next step (before one line's pane takes the oldest pane's place).
+    // The goal card (decision 23): a worked example and the rule's parts, no steps.
     const goal = page.getByTestId("pane-my-card");
-    await goal.getByText(/Steps to the top/).first().waitFor();
-    await goal.getByText(/^1 in [\d.,]+( [a-z]+)? by chance$/).first().waitFor({ timeout: 10_000 });
-    await goal.getByText(/Next step:/).first().waitFor({ timeout: 5000 }).catch(() => {});   // absent only at the top of the ladder
-    if (label === "phone") {
-      await goal.screenshot({ path: path.join(shots, "grid-phone-goal-card.png") });
-      const ladder = goal.locator(".v2v-ladder").first();
-      await ladder.scrollIntoViewIfNeeded();
-      await ladder.screenshot({ path: path.join(shots, "grid-phone-goal-ladder.png") });
-    }
+    await goal.getByText(/A worked example/).first().waitFor();
+    await goal.locator(".v2v-part").first().waitFor();
+    assert.equal(await goal.getByText(/Steps to the top|step \d+ of \d+/).count(), 0, "no steps on the goal card");
+    if (label === "phone") await goal.screenshot({ path: path.join(shots, "grid-phone-goal-card.png") });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
+    await assertNoSteps(page, `${label}: the live game`);
     await shot(page, `grid-${label}-live`);
 
     if (label === "phone") {
@@ -165,6 +183,8 @@ try {
     // From the total to the line-by-line list in one step (the header's button): Lines, sorted by your points.
     const sortSelect = page.getByTestId("select-lines-sort");
     if (await sortSelect.count()) await sortSelect.selectOption("recent");
+    // The game's own noun (playtest round 3, ux-lessons 2.8): "See it grid by grid".
+    assert.equal((await page.getByTestId("button-line-by-line-bar").innerText()).trim(), "See it grid by grid");
     await page.getByTestId("button-line-by-line-bar").click();
     await page.getByTestId("pane-objects").waitFor();
     await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible", timeout: 10_000 });
@@ -180,18 +200,26 @@ try {
     // What a bit is, on tap (a phone has no hover).
     await line.getByTestId("button-bits-help-line").click();
     await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
-    await page.keyboard.press("Escape");
+    assert.doesNotMatch(await page.getByTestId("text-bits-help").innerText(), /\blines?\b/, "the bits help says grid, not line");
+    // Closed as a phone closes it: a second tap on its button (Escape needs the focus inside the popover).
+    await line.getByTestId("button-bits-help-line").click();
     await page.getByTestId("text-bits-help").waitFor({ state: "detached" });
-    if (label === "phone") await line.screenshot({ path: path.join(shots, "grid-phone-one-line.png") });
+    if (label === "phone") {
+      // The representation tabs take one scrolling row, so the board comes right after them (round 3: nine wrapped chips).
+      const tabs = await line.locator(".v2v-tabs").first().boundingBox();
+      assert.ok(tabs && tabs.height < 48, `phone: the tabs are one row (${tabs?.height} px tall)`);
+      await line.screenshot({ path: path.join(shots, "grid-phone-one-line.png") });
+    }
     await shot(page, `grid-${label}-line`);
 
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
+    await assertNoSteps(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.
     const note = await results.getByTestId("text-results-note").innerText();
-    if (!/points on every grid\./.test(note)) console.log(`${label}: FINDING: the results note does not say "grid": ${note.slice(0, 120)}`);
+    assert.match(note, /points on every grid\./, `${label}: the results note says grid`);
     await results.getByTestId("button-line-by-line-results").waitFor();
     console.log(`${label}: natural end at ${clock(t0)}: ${(await results.getByText(/You finished/).first().innerText()).slice(0, 120)}`);
     // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.

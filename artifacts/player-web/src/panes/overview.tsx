@@ -5,7 +5,7 @@
 import { summonFirst } from "@/panes/first-summon";
 import { objectWord, useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
-import { bidNote, isTied, ordinal, pointsText, powerText, scoreSentence, TIE_NOTE, totalNote, TOTAL_NOTE, countedNote } from "@/core/words";
+import { bidNote, isTied, ordinal, pointsText, powerText, scoreSentence, TIE_NOTE, totalNote, totalSumNote, countedNote } from "@/core/words";
 import { BitsHelp, LineByLine, TiedMark } from "@/core/score-help";
 
 export function OverviewPane() {
@@ -22,7 +22,7 @@ export function OverviewPane() {
   const none = seated && count === 0;
   const step = !seated ? "You're watching: open Lines to see the world, and the Leaderboard to see who leads."
     : header.phase === "ended" ? "The game is over: How the game went says where you finished."
-    : none ? "Summon your first agent: it moves lines towards your goal, and every move that helps raises your points."
+    : none ? `Summon your first agent: it moves ${objectWord(header?.variant).many} towards your goal, and every move that helps raises your points.`
     : header.phase === "planning" ? "Your agent is ready. When the world starts, watch What just changed to see each move it makes and why your points moved."
     : "Watch What just changed: each move of your agent says what changed and why your points moved. Try a change to your agent's code in Agent code.";
   return (
@@ -47,7 +47,7 @@ export function OverviewPane() {
         <div className="space-y-2" data-testid="text-points-explained">
           <p>{scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many)}</p>
           <p className="text-muted-foreground">
-            {totalNote(TOTAL_NOTE, (mine?.handicap ?? 0) > 0)} Every line counts, not only the lines your agent moved, so you can have points before you do anything. Rarity is
+            {totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0)} Every {objectWord(header.variant).one} counts, not only the {objectWord(header.variant).many} your agent moved, so you can have points before you do anything. Rarity is
             counted in bits <BitsHelp testId="button-bits-help-overview" />. Your agent's job is to raise your total.
           </p>
           <LineByLine testId="button-line-by-line-overview" className="border border-border px-3 py-1.5 text-sm hover:bg-muted" />

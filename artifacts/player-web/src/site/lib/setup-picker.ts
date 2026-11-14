@@ -22,7 +22,7 @@ export function setupGroups(presets: readonly Preset[], who: { admin: boolean; c
 
 
 /** Boards the rule gallery does not list yet (it reads lines only). */
-const BOARD_TITLES: Readonly<Record<string, string>> = { "grid-4-d10": "A 4 × 4 grid of digits" };
+const BOARD_TITLES: Readonly<Record<string, string>> = { "grid-4-d10": "A 4 × 4 grid of digits", "grid-2-d3": "A 2 × 2 grid of small digits" };
 
 /** What a setup plays, in words. */
 export function setupBlurb(p: Preset): string {

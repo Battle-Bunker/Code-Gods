@@ -6,6 +6,7 @@
  */
 import { useMemo } from "react";
 import { GoalCard } from "@workspace/v2-views";
+import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { partsNote } from "./lines";
@@ -22,14 +23,15 @@ function useFocusedMine(): { state: unknown; name: string } | null {
   return { state, name: `${word.One} ${o.number}` };
 }
 
-function Card({ rule, parts }: { rule: GameRule; parts: number }) {
+function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((u: Score) => number) | null }) {
   const example = useMemo(() => workedExample(rule), [rule]);
   const mine = useFocusedMine();
-  const note = partsNote(parts);
+  const word = objectWord(rule.variant.id);
+  const note = partsNote(parts, word.one, word.many);
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
       {note && <p className="text-xs text-muted-foreground" data-testid="text-rule-parts">{note}</p>}
-      <GoalCard rule={rule} example={example} mine={mine} />
+      <GoalCard rule={rule} example={example} mine={mine} value={value ?? undefined} />
     </div>
   );
 }
@@ -47,7 +49,7 @@ function SeatedCard() {
       </div>
     );
   }
-  return <Card rule={my.rule} parts={my.row.layers.length} />;
+  return <Card rule={my.rule} parts={my.row.layers.length} value={my.bits} />;
 }
 
 export function MyCardPane() {

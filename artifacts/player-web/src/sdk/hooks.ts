@@ -15,7 +15,8 @@ import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
-import { ruleRefOf, rungRarities, valueOf, type GameRule, type ValueOf } from "./rule";
+import { bitsOf, ruleRefOf, valueOf, type GameRule, type ValueOf } from "./rule";
+import type { Score } from "@workspace/v2-core";
 import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint } from "./types";
 import { sharedRanks } from "@/core/words";
 
@@ -52,12 +53,12 @@ export interface MyRule {
   row: MyRuleRow;
   /** What the view components draw with; null when this build does not know the family. */
   rule: GameRule | null;
-  /** The rule's worth in bits at any score, from the server's value function (null in a replay, which has none). */
+  /** The rule's worth at any score, from the server's value function, with its bounds (null without knots). */
   value: ValueOf | null;
-  /** rarity in bits at each rung of the rule's ladder, read from `value` (until the faces take `value` itself). */
-  rarities: number[];
+  /** Just the bits of `value`: what the faces take (lib/v2-views `value`). */
+  bits: ((u: Score) => number) | null;
 }
-/** The viewer's private rule: family, parameters, card, ladder with rung rarities, the primary representation. */
+/** The viewer's private rule: family, parameters, card, value function, the primary representation. */
 export function useMyRule(): MyRule | undefined {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
@@ -68,7 +69,7 @@ export function useMyRule(): MyRule | undefined {
     if (!row || !header) return undefined;
     const rule = ruleRefOf(row, header.variant);
     const value = valueOf(row.value?.knots, row.value?.tail);
-    return { row, rule, value, rarities: rungRarities(rule, value) };
+    return { row, rule, value, bits: bitsOf(value) };
   }, [row, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
