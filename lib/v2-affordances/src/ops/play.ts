@@ -4,7 +4,7 @@
  * A human's reads are free; each answer carries `bits`, what an agent would pay for the same read.
  */
 import { z } from "zod/v4";
-import { affordance, call, elementValue, id, none, obj, ok, page, paging, q, rep, requestId, rung, score, site } from "../define.ts";
+import { affordance, call, elementValue, id, knot, none, obj, ok, page, paging, q, rep, requestId, score, scoreWire, site } from "../define.ts";
 import { IN_GAME, type AffordanceContext, type Availability } from "../types.ts";
 
 /** Contexts with a game in view whose objects can be read. */
@@ -50,36 +50,35 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, its ladder, and the handicap if it was won by bid. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
-      family: z.string(), params: z.record(z.string(), z.unknown()), layers: z.array(z.string()), card: z.string(), depends: z.array(z.string()), ladder: z.array(rung),
+      family: z.string(), params: z.record(z.string(), z.unknown()), layers: z.array(z.string()), card: z.string(), depends: z.array(z.string()),
       wonByBid: z.object({ handicap: z.number().int() }).nullable(),
     }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
-    id: "rule.ladder", title: "Show my rule's ladder", group: "play", scope: "game",
-    description: "The rungs of the caller's rule score, worst to best, each with its rarity in bits (each bit = twice as rare): how many bits an object on that rung is worth.",
-    tooltip: "The levels your rule scores and how rare each is.", keywords: ["ladder", "levels", "rungs", "rarity"],
-    params: none, result: z.object({ rungs: z.array(rung) }),
+    id: "rule.values", title: "Show my rule's value curve", group: "play", scope: "game",
+    description: "How many bits the caller's rule pays at each score, worst to best: the knots of its value function (bits = minus log2 of the share of all states scoring at least that well; each bit is twice as rare). Values between knots follow the curve; rule.worth looks one score up.",
+    tooltip: "How much each score is worth to you.", keywords: ["values", "curve", "rarity", "bits", "worth"],
+    params: none, result: z.object({ points: z.array(knot) }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
-    id: "rule.rarity", title: "Look up a level's rarity", group: "play", scope: "game",
-    description: "The calibrated rarity, in bits, of one level of the caller's rule: minus log2 of the stationary mass of states at least that good.",
-    tooltip: "How rare a level is.", keywords: ["rarity", "bits", "how rare", "value"],
-    params: obj({ level: z.number().int().min(0).max(64) }), result: z.object({ level: z.number().int(), rarityBits: z.number() }),
+    id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",
+    description: "The value in bits of one score of the caller's rule (a score tuple as object.score returns it), with the calibration's lower and upper bounds.",
+    tooltip: "How rare a score is.", keywords: ["worth", "rarity", "bits", "how rare", "value"],
+    params: obj({ score: scoreWire }), result: z.object({ bits: z.number(), lo: z.number(), hi: z.number() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
-
   affordance({
     id: "objects.list", title: "List objects", group: "objects", scope: "game",
-    description: "Pages through the game's objects for the viewer, sorted by the viewer's points, level or most recent change, with each object's level and points.",
+    description: "Pages through the game's objects for the viewer, sorted by the viewer's points, rarity (bits) or most recent change, with each object's bits and points.",
     tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse"],
-    params: obj({ sort: z.enum(["points", "level", "recent"]).default("points"), ...paging }),
-    result: page(z.object({ objectId: id, number: z.number().int().describe("The line's number: what the app shows and an agent's offer.object."), level: z.number().int(), points: z.number() })),
+    params: obj({ sort: z.enum(["points", "rarity", "recent"]).default("points"), ...paging }),
+    result: page(z.object({ objectId: id, number: z.number().int().describe("The line's number: what the app shows and an agent's offer.object."), bits: z.number().describe("Its value under the caller's rule."), points: z.number() })),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -116,14 +115,14 @@ export const playOps = [
   }),
   affordance({
     id: "object.score", title: "Score an object under my rule", group: "objects", scope: "game",
-    description: "The caller's rule evaluated on one object: score tuple, level, the recorded terms, its rarity in bits and the caller's points from it (the caller's bits × the other players' bits on it added together).",
-    tooltip: "How your rule rates this object.", keywords: ["score", "my points", "level", "evaluate"],
-    params: obj({ objectId: id }), result: score.extend({ number: z.number().int(), rarityBits: z.number(), points: z.number() }),
+    description: "The caller's rule evaluated on one object: score tuple, the recorded terms, its value in bits and the caller's points from it (the caller's bits × the other players' bits on it added together).",
+    tooltip: "How your rule rates this object.", keywords: ["score", "my points", "rarity", "evaluate"],
+    params: obj({ objectId: id }), result: score.extend({ number: z.number().int(), bits: z.number(), points: z.number() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
     id: "moves.list", title: "List moves that concern me", group: "objects", scope: "game",
-    description: "Pages through the moves that changed the caller's points or were made by the caller's agents: calls, states before and after, level and points before and after, charge.",
+    description: "Pages through the moves that changed the caller's points or were made by the caller's agents: calls, states before and after, points before and after, charge.",
     tooltip: "What happened to your objects.", keywords: ["log", "moves", "history", "what happened"],
     params: obj({ ...paging }),
     result: page(z.object({ seq: z.number().int(), objectId: id, number: z.number().int(), agentId: id.nullable(), mine: z.boolean(), calls: z.array(call), pointsBefore: z.number(), pointsAfter: z.number(), charge: z.number().nullable() })),

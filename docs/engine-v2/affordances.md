@@ -173,8 +173,8 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.ready` | Mark me ready | ready | server · game | seated | planning | write |
 | `game.pause` | Pause the game | — | server · game | seated | live | write; confirm inline |
 | `rule.explain` | Explain my rule | — | server · game | seated | planning, live, paused, ended, replay | read |
-| `rule.ladder` | Show my rule's ladder | — | server · game | seated | planning, live, paused, ended, replay | read |
-| `rule.rarity` | Look up a level's rarity | level | server · game | seated | planning, live, paused, ended, replay | read |
+| `rule.values` | Show my rule's value curve | — | server · game | seated | planning, live, paused, ended, replay | read |
+| `rule.worth` | Look up what a score is worth | score | server · game | seated | planning, live, paused, ended, replay | read |
 | `objects.list` | List objects | sort, cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `object.read` | Read an object in one representation | objectId, rep, site | server · game | member | planning, live, paused, ended, replay | read |
 | `object.element` | Read one element of an object | objectId, rep, name, args, site | server · game | member | planning, live, paused, ended, replay | read |
@@ -199,7 +199,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `view.compareRepresentations` | Compare representations side by side | objectId, reps | client · room | member | planning, live, paused, ended, replay | write |
 | `view.openObject` | Open an object | objectId | client · room | member | planning, live, paused, ended, replay | write |
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
-| `view.filterObjects` | Filter objects | mine, minLevel | client · room | member | planning, live, paused, ended, replay | write |
+| `view.filterObjects` | Filter objects | mine, minBits | client · room | member | planning, live, paused, ended, replay | write |
 | `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
 | `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
 | `replay.play` | Play the replay | — | client · game | member | replay | write |

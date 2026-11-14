@@ -105,3 +105,10 @@ test("useAffordance's handle: availability, reason, confirmation, and run throug
   await assert.rejects(pause.run({}), (e: unknown) => e instanceof AffordanceError && e.message === "Too dear." && e.code === "failed" && e.name === "AffordanceError");
   assert.deepEqual(calls, [["game.pause", {}]]);
 });
+
+test("objects sort by rarity and filter by bits (decision 23: values, not levels)", () => {
+  let v = applyView(EMPTY_VIEW, "view.sortObjects", { sort: "rarity" }, live).view;
+  v = applyView(v, "view.filterObjects", { minBits: 2.5 }, live).view;
+  assert.deepEqual(v.objects, { sort: "rarity", filter: { minBits: 2.5 } });
+  assert.equal(applyView(v, "view.sortObjects", { sort: "level" }, live).outcome.ok, false);
+});

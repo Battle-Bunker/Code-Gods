@@ -15,11 +15,11 @@ import type { z } from "zod/v4";
 
 /** Reads that a pane shows live: the row opens that pane. */
 export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
-  "game.standings": "race", "game.get": "overview", "rule.explain": "my-card", "rule.ladder": "my-card", "objects.list": "objects",
+  "game.standings": "race", "game.get": "overview", "rule.explain": "my-card", "rule.values": "my-card", "rule.worth": "my-card", "objects.list": "objects",
   "moves.list": "feed", "agents.list": "agents", "agent.programs": "forge", "chat.list": "public-chat", "rep.mutators": "what-if",
   "panel.list": "my-panels", "panel.code": "my-panels",
   // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
-  "game.auction": "overview", "rule.rarity": "my-card", "object.read": "object", "object.element": "object",
+  "game.auction": "overview", "object.read": "object", "object.element": "object",
   "object.quote": "what-if", "object.score": "what-if",
 };
 /** Reads the room page shows (its members, past games, the rotation, the bid phase). */
