@@ -12,6 +12,9 @@ import { ForgePane } from "./forge";
 import { FeedPane } from "./feed";
 import { AgentsPane } from "./agents";
 import { ResultsPane } from "./results";
+import { OthersCarePane } from "./others-care";
+import { PointsOverTimePane } from "./points-over-time";
+import { RulesPane } from "./rules";
 
 function ChatPane() {
   return <RoomChat roomId={useGameScope().roomId} height="h-full min-h-[200px]" />;
@@ -28,4 +31,7 @@ export const PANE_COMPONENTS: PaneComponents = {
   results: ResultsPane,
   "public-chat": ChatPane,
   forge: ForgePane,
+  "others-care": OthersCarePane,
+  "points-over-time": PointsOverTimePane,
+  rules: RulesPane,
 };

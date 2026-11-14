@@ -10,7 +10,7 @@ export type GamePhase = "planning" | "live" | "paused" | "ended";
 const ALL: readonly GamePhase[] = ["planning", "live", "paused", "ended"];
 const WORLD: readonly GamePhase[] = ["live", "paused", "ended"];
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -35,6 +35,9 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"] }),
   race: def({ id: "race", title: "Leaderboard", blurb: "Who's winning, and is anyone catching up.", phases: WORLD, keywords: ["standings", "scores", "race"] }),
   "public-chat": def({ id: "public-chat", title: "Public chat", blurb: "Everything said to everyone.", phases: ALL, keywords: ["talk", "message", "pitch"] }),
+  "others-care": def({ id: "others-care", title: "What others care about", blurb: "Every line by your ✨ rarity and how much the others want it: who cares about what.", phases: WORLD, keywords: ["others", "want", "deals", "scatter"] }),
+  "points-over-time": def({ id: "points-over-time", title: "Your points over time", blurb: "Your points at every scoreboard, rising and falling.", phases: WORLD, keywords: ["history", "chart", "points", "trend"] }),
+  rules: def({ id: "rules", title: "How to play", blurb: "The game in 90 seconds, with this game's settings.", phases: ALL, keywords: ["rules", "help", "how", "settings", "energy", "power"] }),
   results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended"], keywords: ["end", "winner", "final"] }),
 };
 
