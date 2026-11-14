@@ -14,6 +14,7 @@ const agentRow = z.object({
 });
 const checkReport = z.object({
   verdict: z.enum(["works", "warns", "fails", "rejected"]), summary: z.string(), price: z.number().describe("The summon price in energy."),
+  editPrice: z.number().nullable().describe("With agentId: what agent.replace with this program would cost, only the change (the full price if the language changes); else null."),
   sample: z.array(z.object({ objectId: id, outcome: z.enum(["committed", "skipped", "failed"]), reason: z.string().optional() })),
 });
 
@@ -35,9 +36,9 @@ export const agentOps = [
   }),
   affordance({
     id: "agent.check", title: "Check an agent's code", group: "agents", scope: "game",
-    description: "Runs a program once on sample objects in the sandbox without spending energy: whether it compiles, what it does, and what summoning it would cost. Always check before summoning.",
-    tooltip: "Try your code without spending energy.", keywords: ["validate", "test", "dry run", "check code"],
-    params: obj({ language, source }), result: checkReport,
+    description: "Runs a program once on sample objects in the sandbox without spending energy: whether it compiles, what it does, what summoning it would cost and, given one of your agents, what replacing that agent's program with it would cost (only the change). Always check before summoning or replacing.",
+    tooltip: "Try your code without spending energy.", keywords: ["validate", "test", "dry run", "check code", "edit price"],
+    params: obj({ language, source, agentId: id.optional().describe("One of your agents: also quote the edit price of replacing its program with this one.") }), result: checkReport,
     contexts: IN_GAME, caller: "seated", effect: "read", confirm: "none", runs: "server", action: true,
   }),
   affordance({

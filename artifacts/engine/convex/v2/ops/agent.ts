@@ -28,7 +28,9 @@ export const { op: programs, as: programsAs } = defineOp("agent.programs", "quer
 
 export const { op: check, as: checkAs } = defineOp("agent.check", "action", async (env, a) => {
   const c = callerOf(env);
-  return await env.ctx.runAction(CHECK, { userId: c.userId!, scope: c.scope, language: a.language, source: a.source }) as never;
+  const out = await env.ctx.runAction(CHECK, { userId: c.userId!, scope: c.scope, language: a.language, source: a.source, ...(a.agentId ? { agentId: a.agentId } : {}) }) as { refused?: string };
+  if (out.refused) throw new OpFailure(out.refused);
+  return out as never;
 });
 
 export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", async (env, a) => {

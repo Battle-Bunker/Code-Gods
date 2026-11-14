@@ -340,11 +340,18 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
   "agents.list": e => ({ agents: gameOf(e).agents.filter(a => a.ownerId === e.userId).map(a => ({ agentId: a.agentId, name: a.name, language: a.language, share: a.share, energy: a.energy, acts: a.acts, version: a.versions.length - 1 })) }),
   "agent.programs": (e, a) => ({ versions: agentOf(e, a.agentId).versions.map((v, version) => ({ version, ...v, acts: 0 })).reverse() }),
-  "agent.check": (_e, a) => {
+  "agent.check": (e, a) => {
     const defined = a.language === "python" ? /def\s+agent\s*\(/.test(a.source) : /function\s+agent\s*\(/.test(a.source);
+    // The fake prices an edit as the full price when the language changes, else one energy a changed line.
+    const editPrice = a.agentId === undefined ? null : (() => {
+      const was = agentOf(e, a.agentId).versions.at(-1)!;
+      if (was.language !== a.language) return FAKE_PRESET.summonPrice;
+      const old = new Set(was.source.split("\n"));
+      return Math.min(FAKE_PRESET.summonPrice, a.source.split("\n").filter(l => !old.has(l)).length);
+    })();
     return defined
-      ? { verdict: "works", summary: "Ran on 3 sample objects.", price: FAKE_PRESET.summonPrice, sample: [] }
-      : { verdict: "rejected", summary: "The program defines no agent function.", price: FAKE_PRESET.summonPrice, sample: [] };
+      ? { verdict: "works", summary: "Ran on 3 sample objects.", price: FAKE_PRESET.summonPrice, editPrice, sample: [] }
+      : { verdict: "rejected", summary: "The program defines no agent function.", price: FAKE_PRESET.summonPrice, editPrice, sample: [] };
   },
   "agent.summon": (e, a) => {
     spend(e, FAKE_PRESET.summonPrice);

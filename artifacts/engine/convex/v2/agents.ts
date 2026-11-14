@@ -6,7 +6,9 @@
  */
 import { OpFailure } from "@workspace/v2-affordances";
 import { hashHex } from "@workspace/v2-core";
-import { startersFor, summonBits } from "@workspace/v2-agents/pure";
+import { startersFor } from "@workspace/v2-agents/pure";
+import { editPriceOf, priceOf } from "./pricing";
+export { editPriceOf, priceOf };
 import {
   agentIncome, defaultShare, energyCapacity, firstAgentShare, floorShare, movePower, roundShare, settle, settleOwn, spend, type Account,
 } from "@workspace/v2-economy";
@@ -37,9 +39,6 @@ function pay(game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, pric
   }
   return spend(own, price);
 }
-
-/** The summon price of a program, in energy. */
-export const priceOf = (language: Language, source: string) => summonBits(language, source).energy;
 
 export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">,
   a: { language: Language; source: string; name?: string; share?: number }): Promise<{ agentId: Id<"v2Agents">; price: number }> {
@@ -72,10 +71,10 @@ export async function ownAgent(ctx: MutationCtx, player: Doc<"v2Players">, agent
   return agent;
 }
 
-/** Swaps a new program into an agent (a replace, or an earlier version put back), paying its summon price. */
+/** Swaps a new program into an agent (a replace, or an earlier version put back), paying only for the change. */
 export async function reprogram(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, agent: Doc<"v2Agents">,
   a: { language: Language; source: string; kind: "replace" | "putBack"; from?: number }): Promise<{ version: number; price: number }> {
-  const world = (await clockOf(ctx, game._id)).worldSeconds, price = priceOf(a.language, a.source);
+  const world = (await clockOf(ctx, game._id)).worldSeconds, price = editPriceOf(agent, a.language, a.source);
   const own = pay(game, player, world, price);
   const version = agent.version + 1, sourceHash = hashHex(a.source);
   await ctx.db.patch(agent._id, { language: a.language, source: a.source, sourceHash, version });
