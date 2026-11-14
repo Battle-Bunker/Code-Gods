@@ -7,7 +7,7 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { bitsText, num, pointsText, scoreFormula } from "@/core/words";
+import { bitsText, num, pointsText, scoreFormula, OTHERS_NOTE } from "@/core/words";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -58,6 +58,7 @@ function PointsKey() {
       <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
       <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
       <BitsHelp testId="button-bits-help-lines" />
+      <span className="basis-full" data-testid="text-others-note">{OTHERS_NOTE}</span>
     </p>
   );
 }
@@ -102,7 +103,7 @@ function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpe
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">Line {number}</span>
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
-          title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">contested</span>}
+          title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} />}

@@ -228,6 +228,9 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
+      '@workspace/v2-valuation':
+        specifier: workspace:*
+        version: link:../../lib/v2-valuation
       '@workspace/v2-views':
         specifier: workspace:*
         version: link:../../lib/v2-views

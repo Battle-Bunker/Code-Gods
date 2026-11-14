@@ -36,3 +36,31 @@ test("contested lines are the lines of the folded entries", () => {
   const moves = [m(4, "L7", false, 30), m(3, "L7", true, 28), m(2, "L7", false, 26), m(1, "L2", true, 24)];
   assert.deepEqual([...contestedLines(foldTugs(moves))], ["L7"]);
 });
+
+test("the entry names the other player when the moves say who moved, and both when two pull against you", () => {
+  const by = (name: string) => ({ memberId: name, name });
+  const tug = (others: string[]) => foldTugs([
+    { ...m(4, "L7", false, 30), by: by(others[0]!) }, { ...m(3, "L7", true, 28), by: by("Sam") },
+    { ...m(2, "L7", false, 26), by: by(others[1] ?? others[0]!) }, { ...m(1, "L7", true, 24, 4.5), by: by("Sam") },
+  ])[0]!;
+  const one = tug(["Ada"]);
+  assert.ok(one.kind === "tug");
+  assert.match(tugSentence(one), /^Tug-of-war on line 7: your agent and Ada's agent moved it back and forth 4 times .* Talk to Ada in chat about this line\.$/);
+  const two = tug(["Ada", "Bo"]);
+  assert.ok(two.kind === "tug");
+  assert.match(tugSentence(two), /your agent and the agents of Ada and Bo moved it .* Talk to Ada and Bo in chat about this line\.$/);
+});
+
+test("against practice partners or AI players only, the entry does not tell you to chat with them", () => {
+  const by = (name: string) => ({ memberId: name, name });
+  const tug = foldTugs([
+    { ...m(4, "L7", false, 30), by: by("Practice partner 1") }, { ...m(3, "L7", true, 28), by: by("Sam") },
+    { ...m(2, "L7", false, 26), by: by("Practice partner 1") }, { ...m(1, "L7", true, 24), by: by("Sam") },
+  ])[0]!;
+  assert.ok(tug.kind === "tug");
+  const kinds = new Map([["Practice partner 1", "practice"]]);
+  const s = tugSentence(tug, kinds);
+  assert.doesNotMatch(s, /Talk to/);
+  assert.match(s, /Practice partners do not read chat: with people, this is when you would talk to them\.$/);
+  assert.match(tugSentence(tug, new Map([["Practice partner 1", "human"]])), /Talk to Practice partner 1 in chat/);
+});

@@ -37,6 +37,11 @@ export const clock = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String
 export const SCORE_SENTENCE = "You score on a line when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the lines.";
 /** Under a total: what it is made of. */
 export const TOTAL_NOTE = "Your total is the sum of your points on every line.";
+/** Beside the formula's "others' bits". */
+export const OTHERS_NOTE = "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.";
+/** When the standings were counted (world seconds): a move's points join a total only at the next count. */
+export const countedNote = (worldSeconds: number | null | undefined): string | null =>
+  worldSeconds == null ? null : `Totals are counted every few seconds; this one at ${clock(worldSeconds)}, so a move's points join the total at the next count.`;
 /** Under the standings: the same for every player. */
 export const TOTALS_NOTE = "Each total is the sum of that player's points on every line.";
 /** After either note, when a won bid's handicap (the "−N%" beside a total) came off it. */
@@ -77,3 +82,16 @@ export function sharedRanks<R extends { net: number; rank: number }>(rows: reado
 export const isTied = <R extends { rank: number }>(rows: readonly R[], row: R) => rows.some(r => r !== row && r.rank === row.rank);
 /** Beside a shared place. */
 export const TIE_NOTE = "Equal totals share a place.";
+
+/**
+ * Your own energy in the header: the figure, "(full)" once the store holds all it can (it then stops rising, which a
+ * walker read as frozen), and a tooltip that says how it fills.
+ */
+export function ownEnergy(m: { energy: number; capacity: number; ownPerSecond: number }): { text: string; full: boolean; title: string } {
+  const full = m.capacity > 0 && m.energy >= m.capacity - 0.01;
+  const seconds = m.ownPerSecond > 0 ? Math.round(m.capacity / m.ownPerSecond) : 0;
+  const title = full
+    ? `Your store is full: it holds ${seconds} seconds of your income (${powerText(m.ownPerSecond)}), so it stops rising. Spend it on a summon or a replacement, or give more of your power to your agents.`
+    : `Your own energy: ${exactEnergy(m.energy)}. It rises by ${powerText(m.ownPerSecond)}, up to ${exactEnergy(m.capacity)}. Summons and replacements are paid from it.`;
+  return { text: `${energyText(m.energy)}${full ? " (full)" : ""}`, full, title };
+}

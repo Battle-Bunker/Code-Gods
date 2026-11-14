@@ -8,7 +8,7 @@ import { useGame, useReplaySource } from "@/sdk";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { BITS_HELP, TIE_NOTE } from "./words";
+import { BITS_HELP, OTHERS_NOTE, TIE_NOTE } from "./words";
 
 /** A "?" beside a figure in bits: "Each bit = twice as rare." on hover and on tap. */
 export function BitsHelp({ testId = "button-bits-help" }: { testId?: string }) {
@@ -21,7 +21,7 @@ export function BitsHelp({ testId = "button-bits-help" }: { testId?: string }) {
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-auto max-w-xs p-2 text-xs" data-testid="text-bits-help">
-        Rarity is counted in bits. {BITS_HELP} A line worth 3 bits to you turns up 1 time in 8 by chance.
+        Rarity is counted in bits. {BITS_HELP} A line worth 3 bits to you turns up 1 time in 8 by chance. {OTHERS_NOTE}
       </PopoverContent>
     </Popover>
   );
@@ -37,7 +37,7 @@ export function LineByLine({ testId, className }: { testId: string; className?: 
   const go = async () => {
     try { await sort.run({ sort: "points" }); }
     catch (e) { toast({ title: "The order did not change", description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
-    await panes.open("objects");
+    if (await panes.open("objects")) toast({ title: "Lines, best for you first", description: "Each row is one line's points; all of them added up make your total." });
   };
   return (
     <button type="button" onClick={() => void go()} data-testid={testId} title="Open Lines, best for you first: each line's points, which add up to the total."

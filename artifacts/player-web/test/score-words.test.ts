@@ -63,3 +63,10 @@ test("equal shown totals share a place, the next place skips, and a shared place
   assert.deepEqual(ranked.map(r => isTied(ranked, r)), [false, true, true, false]);
   assert.equal(TIE_NOTE, "Equal totals share a place.");
 });
+
+test("others' bits are said to be every other player's bits on the line added together; a total says when it was counted", async () => {
+  const { OTHERS_NOTE, countedNote } = await import("../src/core/words.ts");
+  assert.equal(OTHERS_NOTE, "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.");
+  assert.equal(countedNote(40), "Totals are counted every few seconds; this one at 0:40, so a move's points join the total at the next count.");
+  assert.equal(countedNote(null), null);
+});
