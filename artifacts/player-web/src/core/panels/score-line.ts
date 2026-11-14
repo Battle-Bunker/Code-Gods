@@ -68,7 +68,7 @@ export function ruleScoreText(score: RuleScore): string {
 }
 
 /**
- * "your rule score +1 (4 → 5)", "your rule score stayed 5", "your rule score (primary, secondary) (0, 4) → (1, 3)" for
+ * "your rule score +1 (4 → 5)", "your rule score stayed 5", "your rule score (main part, tie-breaker) (0, 4) → (1, 3)" for
  * a rule with parts (the part names once, so "(6, −8)" is not jargon), or null when either side is unknown.
  */
 export function ruleScoreChange(before: RuleScore, after: RuleScore): string | null {
@@ -79,8 +79,9 @@ export function ruleScoreChange(before: RuleScore, after: RuleScore): string | n
   const a = ruleScoreText(before), b = ruleScoreText(after), parts = partNames(after);
   return a === b ? `your rule score${parts} stayed ${b}` : `your rule score${parts} ${a} → ${b}`;
 }
-/** The names of a rule score's parts, said once: " (primary, secondary)"; nothing for a plain number. */
-const PART_NAMES = ["primary", "secondary", "tertiary"];
+/** The names of a rule score's parts, said once: " (main part, tie-breaker)"; nothing for a plain number. */
+// Plain words (a walker stumbled on "primary, secondary"): the first part decides, the next only breaks a tie.
+const PART_NAMES = ["main part", "tie-breaker", "second tie-breaker"];
 const partNames = (score: RuleScore): string =>
   typeof score === "object" && score && score.length > 1 && score.length <= PART_NAMES.length ? ` (${PART_NAMES.slice(0, score.length).join(", ")})` : "";
 
@@ -221,7 +222,7 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
     const delta = pointsAfter - pointsBefore, moved = signed(delta) !== "+0";
     const way = ruleDirection(ruleBefore, ruleAfter);
     if (moved && way !== null && Math.sign(delta) !== way) {
-      const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", primary first" : ""}${rarity})`;
+      const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", main part first" : ""}${rarity})`;
       const change = `but this ${noun}'s points ${delta > 0 ? "rose" : "fell"} ${signed(Math.abs(delta)).slice(1)} (${amount(pointsBefore)} → ${amount(pointsAfter)})`;
       const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun, estimate });
       return cause ? `${head}: ${told}, ${change} because ${cause}.`

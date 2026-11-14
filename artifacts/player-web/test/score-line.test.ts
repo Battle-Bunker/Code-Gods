@@ -26,9 +26,9 @@ test("rule scores and their change", () => {
   assert.equal(ruleScoreChange(5, 3), "your rule score −2 (5 → 3)");
   assert.equal(ruleScoreChange(5, 5), "your rule score stayed 5");
   // A rule score with parts names them once ("(6, −8)" alone read as jargon).
-  assert.equal(ruleScoreChange([1, 4], [2, 1]), "your rule score (primary, secondary) (1, 4) → (2, 1)");
-  assert.equal(ruleScoreChange([6, -8], [6, -8]), "your rule score (primary, secondary) stayed (6, −8)");
-  assert.equal(ruleScoreChange([1, 2, 3], [1, 2, 4]), "your rule score (primary, secondary, tertiary) (1, 2, 3) → (1, 2, 4)");
+  assert.equal(ruleScoreChange([1, 4], [2, 1]), "your rule score (main part, tie-breaker) (1, 4) → (2, 1)");
+  assert.equal(ruleScoreChange([6, -8], [6, -8]), "your rule score (main part, tie-breaker) stayed (6, −8)");
+  assert.equal(ruleScoreChange([1, 2, 3], [1, 2, 4]), "your rule score (main part, tie-breaker, second tie-breaker) (1, 2, 3) → (1, 2, 4)");
   assert.equal(ruleScoreChange(null, 5), null);
 });
 
@@ -44,7 +44,7 @@ test("the line after an act: the change, the rule score, the points", () => {
     "Your agent Nudger changed 3 to 4 at row 2, column 1: your rule score +1 (4 → 5), this grid's points +0 (the others do not want this grid).");
   // The others want it, but your own rarity is 0 (a real line: rule score (0, 0) → (0, 1), still as common as chance).
   assert.equal(actLine({ ...base, ruleBefore: [0, 0], ruleAfter: [0, 1], pointsBefore: 0, pointsAfter: 0, ownAfter: 0, othersAfter: 3.2 }),
-    "Your agent Nudger changed 3 to 4 at row 2, column 1: your rule score (primary, secondary) (0, 0) → (0, 1), this grid's points +0 (this grid is not rare by your rule yet).");
+    "Your agent Nudger changed 3 to 4 at row 2, column 1: your rule score (main part, tie-breaker) (0, 0) → (0, 1), this grid's points +0 (this grid is not rare by your rule yet).");
   // Neither side known to be 0: no reason is made up.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 0, pointsAfter: 0 }),
     "Your agent Nudger changed 3 to 4 at row 2, column 1: your rule score +1 (4 → 5), this grid's points +0.");
@@ -63,7 +63,7 @@ test("when the points and the rule score disagree, the line names the factor tha
   const head = "Your agent Keeper changed 3 to 4 at row 2, column 1: ";
   // A real line: (4, −6) → (5, −5), points −3.6 (102.1 → 98.4). Points = ✨ rarity × the others' side: 25.525 × 4 = 102.1, 25.9 × 3.8 = 98.42.
   assert.equal(actLine({ ...base, ruleBefore: [4, -6], ruleAfter: [5, -5], pointsBefore: 102.1, pointsAfter: 98.42, ownBefore: 25.525, othersBefore: 4, ownAfter: 25.9, othersAfter: 3.8 }),
-    `${head}your rule score went up ((4, −6) → (5, −5), primary first), but this grid's points fell 3.7 (102.1 → 98.4) because the others want this grid less now (4.0 → 3.8).`);
+    `${head}your rule score went up ((4, −6) → (5, −5), main part first), but this grid's points fell 3.7 (102.1 → 98.4) because the others want this grid less now (4.0 → 3.8).`);
   // The player's own rarity fell although the rule score rose: 30 × 4 = 120, 25 × 4 = 100.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 120, pointsAfter: 100, ownBefore: 30, othersBefore: 4, ownAfter: 25, othersAfter: 4 }),
     `${head}your rule score went up (4 → 5), but this grid's points fell 20 (120.0 → 100.0) because a higher rule score is not rarer here (your ✨ rarity 30.0 → 25.0).`);
@@ -97,7 +97,7 @@ test("when the points and the rule score disagree, the line names the factor tha
     `${head}your rule score went up (4 → 5), but this grid's points fell 10 (50.0 → 40.0). A grid's points are your ✨ rarity for it × how much the others want it, not the rule score alone.`);
   // Both moved the same way: the short line stands.
   assert.equal(actLine({ ...base, ruleBefore: [3, -11], ruleAfter: [2, -11], pointsBefore: 20, pointsAfter: 13, ownBefore: 5, othersBefore: 4, ownAfter: 3.25, othersAfter: 4 }),
-    `${head}your rule score (primary, secondary) (3, −11) → (2, −11), this grid's points −7 (20.0 → 13.0; how much the others want this grid: 4.0).`);
+    `${head}your rule score (main part, tie-breaker) (3, −11) → (2, −11), this grid's points −7 (20.0 → 13.0; how much the others want this grid: 4.0).`);
   // The third person.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 120, pointsAfter: 100, ownBefore: 30, othersBefore: 4, ownAfter: 25, othersAfter: 4, third: true }),
     "Their agent Keeper changed 3 to 4 at row 2, column 1: their rule score went up (4 → 5), but this grid's points fell 20 (120.0 → 100.0) because a higher rule score is not rarer here (their ✨ rarity 30.0 → 25.0).");
@@ -119,11 +119,11 @@ test("how much the others want a grid is always said when the event gives it", (
   // The same (3, 7) → (4, 8) step on two grids: +41.6 once and +0.4 another time.
   const base = { agent: "Keeper", before: "1R,2R/3R,4R", after: "1R,2R/4R,4R", noun: "grid", ruleBefore: [3, 7], ruleAfter: [4, 8] };
   assert.equal(actLine({ ...base, pointsBefore: 100, pointsAfter: 141.6, othersAfter: 12 }),
-    "Your agent Keeper changed 3 to 4 at row 2, column 1: your rule score (primary, secondary) (3, 7) → (4, 8), this grid's points +41.6 (100.0 → 141.6; the others want this grid a lot: 12.0).");
+    "Your agent Keeper changed 3 to 4 at row 2, column 1: your rule score (main part, tie-breaker) (3, 7) → (4, 8), this grid's points +41.6 (100.0 → 141.6; the others want this grid a lot: 12.0).");
   assert.equal(actLine({ ...base, pointsBefore: 1, pointsAfter: 1.4, othersAfter: 0.1 }),
-    "Your agent Keeper changed 3 to 4 at row 2, column 1: your rule score (primary, secondary) (3, 7) → (4, 8), this grid's points +0.4 (1.0 → 1.4; the others barely want this grid: 0.1).");
+    "Your agent Keeper changed 3 to 4 at row 2, column 1: your rule score (main part, tie-breaker) (3, 7) → (4, 8), this grid's points +0.4 (1.0 → 1.4; the others barely want this grid: 0.1).");
   assert.equal(actLine({ ...base, pointsAfter: 1.4, othersAfter: 0.1 }),
-    "Your agent Keeper changed 3 to 4 at row 2, column 1: your rule score (primary, secondary) (3, 7) → (4, 8); this grid now gives you 1.4 points (the others barely want this grid: 0.1).");
+    "Your agent Keeper changed 3 to 4 at row 2, column 1: your rule score (main part, tie-breaker) (3, 7) → (4, 8); this grid now gives you 1.4 points (the others barely want this grid: 0.1).");
   assert.equal(ruleDirection([4, -6], [5, -5]), 1);
   assert.equal(ruleDirection([4, -6], [4, -7]), -1);
   assert.equal(ruleDirection(5, 5), 0);
@@ -143,7 +143,7 @@ test("the act line gives the rarity move beside the rule score when the player's
   const base = { agent: "Keeper", before: "1R,2R/3R,4R", after: "1R,2R/4R,4R", noun: "grid" };
   const head = "Your agent Keeper changed 3 to 4 at row 2, column 1: ";
   assert.equal(actLine({ ...base, ruleBefore: [3, -26], ruleAfter: [4, -21], rarityBefore: 9.1, rarityAfter: 12.42, pointsBefore: 36.4, pointsAfter: 49.6 }),
-    `${head}your rule score (primary, secondary) (3, −26) → (4, −21): ✨ rarity 9.1 → 12.4 (fewer random grids score this well), this grid's points +13.2 (36.4 → 49.6).`);
+    `${head}your rule score (main part, tie-breaker) (3, −26) → (4, −21): ✨ rarity 9.1 → 12.4 (fewer random grids score this well), this grid's points +13.2 (36.4 → 49.6).`);
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2, rarityAfter: 3.5, pointsAfter: 22.4 }),
     `${head}your rule score +1 (4 → 5): ✨ rarity 2.0 → 3.5 (fewer random grids score this well); this grid now gives you 22.4 points.`);
   // The same ✨ to one decimal, a rule score that stayed, or one side unknown: the tuple alone.
