@@ -25,7 +25,7 @@ import { runAct, type ActRecord, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { check } from "./check.ts";
 import { valuer, type HarnessPlayer } from "./harness.ts";
-import { EngineHost } from "./host.ts";
+import { EngineHost, type Economy as ActEconomy } from "./host.ts";
 import type { Sandboxes } from "./sandboxes.ts";
 import { editBits, summonBits } from "./summon.ts";
 
@@ -70,6 +70,21 @@ export interface TableInput<S> {
   readonly model?: TableModel;
   /** Called after each model turn (for logs). */
   readonly onTurn?: (seat: string, at: number, run: RunResult) => void;
+  /** The act's price constants (κ, β), for experiments; default v2-economy's (host.ts SPEC_ECONOMY). */
+  readonly actEconomy?: ActEconomy;
+  /** Called after every act, for measurements (scripts/collapse-check.ts): what it did and the line's state after it. */
+  readonly onAct?: (e: TableAct<S>) => void;
+}
+
+/** One act as `onAct` sees it. `committed` is false for an act that changed nothing or could not pay. */
+export interface TableAct<S> {
+  readonly at: number;
+  readonly object: number;
+  readonly seat: number;
+  readonly outcome: ActRecord["outcome"];
+  readonly committed: boolean;
+  readonly state: S;
+  readonly objects: number;
 }
 
 export interface SeatReport {
@@ -214,7 +229,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
-      seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length,
+      seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
       value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
       ...(input.unique ? { occupied: (e: string) => lines.some((l, j) => j !== object && type.encode(l) === e) } : {}),
@@ -228,6 +243,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
+    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", state: verdict === "committed" ? state : lines[object]!, objects: lines.length });
     if (verdict !== "committed") return;
     lines = lines.map((l, j) => (j === object ? state : l));
     const before = points[object]!, after = pointsOf(state);

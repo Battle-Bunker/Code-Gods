@@ -22,6 +22,7 @@ import { cellProbability, gridPresets, gridType, grid4, type GridState } from "@
 import { valueLookup } from "@workspace/v2-valuation";
 import { findValues, valuer } from "../src/harness.ts";
 import { births } from "../src/index.ts";
+import { gauss, median, MinHeap, total } from "./landscape-lib.ts";
 
 const { values: o } = parseArgs({ options: { part: { type: "string", default: "all" } } });
 const want = (p: string) => o.part === "all" || o.part!.split(",").includes(p);
@@ -31,14 +32,13 @@ const fmt = (x: number) => (Math.abs(x) >= 1e5 ? x.toExponential(2) : Math.round
 const time = <T,>(f: () => T): [T, number] => { const t = performance.now(); const r = f(); return [r, (performance.now() - t) / 1000]; };
 
 type Rule = { family: string; params: Record<string, unknown>; tieBreaker: string };
-const pool = presets.find(p => p.id === "lines-beginner")!.rules;
+const pool = presets.find(p => p.variant === "line-z")!.rules;   // by variant: a preset's id may move between variants
 const ruleOf = (id: string): Rule => { const [family, tieBreaker] = id.split("/") as [string, string]; return { family, params: pool.find(r => r.family === family)!.params as Record<string, unknown>, tieBreaker }; };
 const ALL_RULES: Rule[] = pool.flatMap(r => (r.tieBreakers as string[]).map(t => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: t })));
 const name = (r: Rule) => `${r.family}/${r.tieBreaker}`;
 const MIXED3 = ["prime-landing/big-prime", "treasure/prime-terms", "whole-crossing/k-spf"].map(ruleOf);
 
 /** Table total on one object: Σ_i n_i · Σ_{j≠i} n_j. */
-const total = (n: number[]) => { const t = n.reduce((a, b) => a + b, 0); return n.reduce((a, x) => a + x * (t - x), 0); };
 
 // ---------------------------------------------------------------- line-z helpers
 
@@ -65,12 +65,11 @@ const flipCharge = () => changeCharge([WHICH + 2]);   // a mirror: one of four a
 function dijkstra1D(x0: number, X: number, K: number): Float64Array {
   const N = 2 * X + 1, cost = new Float64Array(N).fill(Infinity), done = new Uint8Array(N);
   const ph = new Float64Array(N); for (let i = 0; i < N; i++) ph[i] = phi(i - X);
-  const heap: [number, number][] = [];
-  const push = (d: number, i: number) => { heap.push([d, i]); let j = heap.length - 1; while (j > 0) { const p = (j - 1) >> 1; if (heap[p]![0] <= heap[j]![0]) break; [heap[p], heap[j]] = [heap[j]!, heap[p]!]; j = p; } };
-  const pop = () => { const top = heap[0]!; const last = heap.pop()!; if (heap.length) { heap[0] = last; let j = 0; for (;;) { const l = 2 * j + 1, r = l + 1; let s = j; if (l < heap.length && heap[l]![0] < heap[s]![0]) s = l; if (r < heap.length && heap[r]![0] < heap[s]![0]) s = r; if (s === j) break; [heap[s], heap[j]] = [heap[j]!, heap[s]!]; j = s; } } return top; };
+  const heap = new MinHeap<number>();
+  const push = (d: number, i: number) => heap.push(d, i), pop = () => heap.pop();
   const jc = new Float64Array(K + 1); for (let k = 1; k <= K; k++) jc[k] = WHICH + stepsNonzeroBits(BigInt(k));
   cost[x0 + X] = 0; push(0, x0 + X);
-  while (heap.length) {
+  while (heap.size) {
     const [d, i] = pop();
     if (done[i]) continue;
     done[i] = 1;
@@ -88,7 +87,6 @@ function countWithin(cm: Float64Array, cc: Float64Array, E: number): number {
   return n;
 }
 const birthMC = (seed: string, n: number) => births(lineType, lineZ, seed, n).map(s => { const l = s.lines[0]!; return { m: Number(-l.a / l.b), c: Number(-l.c / l.b) }; });
-const median = (xs: number[]) => { const s = xs.slice().sort((a, b) => a - b); return s[Math.floor(s.length / 2)]!; };
 
 // ---------------------------------------------------------------- law: concentration
 
@@ -308,7 +306,6 @@ if (want("ident")) {
   }
   say();
 }
-function gauss(r: ReturnType<typeof rng>): number { return Math.sqrt(-2 * Math.log(1 - r.unit())) * Math.cos(2 * Math.PI * r.unit()); }
 function candidatesCount(): number { let n = 0; for (let i = 0; i < ALL_RULES.length; i++) for (let j = i + 1; j < ALL_RULES.length; j++) if (ALL_RULES[i]!.family !== ALL_RULES[j]!.family) n++; return n; }
 
 // ---------------------------------------------------------------- grid
