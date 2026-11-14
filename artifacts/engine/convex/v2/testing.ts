@@ -435,6 +435,17 @@ export const setEnd = internalMutation({
   handler: async (ctx, { gameId, endAtWorld }) => { fixtures(); await ctx.db.patch(gameId, { endAtWorld }); },
 });
 
+/** Sets when a human last acted (idle parking: activity.ts), to make the engine idle without waiting 30 minutes. */
+export const setActivity = internalMutation({
+  args: { at: v.number() },
+  handler: async (ctx, { at }) => {
+    fixtures();
+    const doc = await ctx.db.query("v2Activity").withIndex("by_key", q => q.eq("key", "global")).unique();
+    if (doc) await ctx.db.patch(doc._id, { lastHumanActivityAt: at });
+    else await ctx.db.insert("v2Activity", { key: "global", lastHumanActivityAt: at });
+  },
+});
+
 /** Ends a seeded game as the loop would leave it (phase only). */
 export const markEnded = internalMutation({
   args: { gameId: v.id("v2Games") },

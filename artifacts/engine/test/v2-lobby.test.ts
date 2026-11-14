@@ -7,7 +7,7 @@
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { humans, perform, type Human } from "./v2-helpers.ts";
+import { admin, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, cy: Human;
 let roomId: string;
@@ -96,4 +96,19 @@ test("the setup picker: the server's own presets, and nothing else; a family's v
   assert.ok(rules.length > 0, "the family's dealable rules");
   for (const r of rules) assert.ok(r.points.length > 1 && r.points.every((p: any) => p.bits >= 0) && r.points.at(-1).bits > 0, JSON.stringify(r.points.slice(-3)));
   assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "prime-landing" }), []);
+});
+
+test("at most eight players can play (v1's cap); the rest of the room watches", { timeout: 60_000 }, async () => {
+  const many = await humans(...Array.from({ length: 9 }, (_, i) => `Cap ${i}`));
+  const { roomId } = (await perform(many[0]!, "room.create", { name: "Cap room" })).result;
+  const code = (await many[0]!.query("v2/rooms:get", { roomId })).code;
+  for (const h of many.slice(1)) assert.equal((await perform(h!, "room.join", { code }, {})).ok, true);
+  const refused = await perform(many[0]!, "game.start", {}, { roomId }).catch((e: any) => e.data);
+  assert.equal(refused.ok, false);
+  assert.match(refused.error.message, /At most 8 players/);
+  await perform(many[8]!, "room.setSpectator", { spectator: true }, { roomId });
+  const started = await perform(many[0]!, "game.start", {}, { roomId });
+  assert.equal(started.ok, true, JSON.stringify(started));
+  assert.equal((await admin.query("v2/testing:header", { gameId: started.result.gameId })).roster.length, 8);
+  await perform(many[0]!, "game.end", {}, { gameId: started.result.gameId });
 });

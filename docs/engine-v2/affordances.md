@@ -215,6 +215,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `account.whoami` | Show who I am | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.connections` | List connected assistants | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.revokeConnection` | Disconnect an assistant | connectionId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
+| `account.touch` | I'm here | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
 | `account.signIn` | Sign in | — | client · none | anyone | signedOut | write; not on assistant/mcp/cli (consent) |
 | `account.approveConnection` | Approve a connection | request, grant, room, completion, ownerConsent, accountConsent | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm modal; not on assistant/mcp/cli (consent) |
 | `account.denyConnection` | Deny a connection | request | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; not on assistant/mcp/cli (consent) |

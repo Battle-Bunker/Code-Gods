@@ -41,6 +41,7 @@ import type * as lib_http from "../lib/http.js";
 import type * as migrations from "../migrations.js";
 import type * as runtime_assets from "../runtime/assets.js";
 import type * as v2_access from "../v2/access.js";
+import type * as v2_activity from "../v2/activity.js";
 import type * as v2_agents from "../v2/agents.js";
 import type * as v2_ai from "../v2/ai.js";
 import type * as v2_aiModel from "../v2/aiModel.js";
@@ -155,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   "runtime/assets": typeof runtime_assets;
   "v2/access": typeof v2_access;
+  "v2/activity": typeof v2_activity;
   "v2/agents": typeof v2_agents;
   "v2/ai": typeof v2_ai;
   "v2/aiModel": typeof v2_aiModel;

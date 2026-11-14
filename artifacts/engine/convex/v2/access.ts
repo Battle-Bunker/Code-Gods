@@ -19,6 +19,8 @@ export function fail(code: V2Code, message: string): never {
 
 /** A room holds at most this many members, seats and spectators together (a bounded read, R3). */
 export const MAX_MEMBERS = 16;
+/** At most this many seated players in a game (v1's cap: "At most eight players can play"); the rest of a room watches. */
+export const MAX_PLAYERS = 8;
 
 /** The human calling: a browser session or an account grant. Room credentials of v1 rooms are not v2 callers. */
 export interface User { userId: string; name: string; admin: boolean }

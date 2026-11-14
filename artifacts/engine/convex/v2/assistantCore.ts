@@ -159,6 +159,7 @@ export const autopilotTick = internalMutation({
     if (!prefs || prefs.mode !== "autopilot" || prefs.chain !== chain || !room?.gameId) return;
     const game = await ctx.db.get(room.gameId);
     if (!game || game.phase === "ended") return;   // the next game's start restarts the chain (restartAutopilots)
+    if (game.parked) return;   // idle-parked (activity.ts): the next human activity restarts the chain
     const member = await memberOf(ctx, roomId, userId);
     if (!member) return;
     const again = (ms: number = LIMITS.autopilotMs) => scheduleAutopilot(ctx, roomId, userId, chain, ms);
@@ -176,6 +177,12 @@ export const autopilotTick = internalMutation({
 });
 
 /** A game started: every human of the room who chose autopilot gets a new chain of ticks. */
+/** `restartAutopilots` as a function of its own (activity.ts schedules it, so the loop does not import this module). */
+export const restartAutopilotsIn = internalMutation({
+  args: { roomId: v.id("v2Rooms") },
+  handler: async (ctx, { roomId }) => { await restartAutopilots(ctx, roomId); },
+});
+
 export async function restartAutopilots(ctx: MutationCtx, roomId: Id<"v2Rooms">) {
   for (const p of await ctx.db.query("v2AssistantPrefs").withIndex("by_room_user", q => q.eq("roomId", roomId)).take(64)) {
     if (p.mode !== "autopilot") continue;

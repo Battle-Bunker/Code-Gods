@@ -14,6 +14,7 @@ import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
 import { disclosesNoise, noiseAt, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
+import { shouldPark } from "./activity.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -258,6 +259,14 @@ export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
     if (m.seatNext) await ctx.db.patch(m._id, { spectator: false, seatNext: undefined });
 }
 
+/** Parks a live game for idleness: paused with no owner's pause used, resumed by the next human activity. */
+export async function parkGame(ctx: MutationCtx, game: Doc<"v2Games">) {
+  const engine = await engineOf(ctx, game._id);
+  await ctx.db.patch(engine._id, { leaseId: "" });
+  await ctx.db.patch(game._id, { phase: "paused", parked: true, endsAt: undefined });
+  await appendEvent(ctx, game._id, "phase", { phase: "paused", parked: true });
+}
+
 export async function pauseGame(ctx: MutationCtx, game: Doc<"v2Games">, by: Id<"v2Members">) {
   const engine = await engineOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
@@ -488,6 +497,8 @@ export const commit = internalMutation({
     const fresh = (await ctx.db.get(game._id))!;
     if (world >= endWorldOf(game)) { await endGame(ctx, fresh); return { committed: true, ended: true }; }
     if (world - engine.scoreboardAt >= scoreIntervalOf(game)) await scoreboard(ctx, fresh, world);
+    // Nobody has acted for 30 minutes (activity.ts, v1's idle parking): park, so ticks cost nothing until someone returns.
+    if (await shouldPark(ctx, fresh)) { await parkGame(ctx, fresh); return { committed: true, ended: false }; }
     await ctx.scheduler.runAfter(TICK_MS, TICK, { gameId: game._id, leaseId: a.leaseId });
     return { committed: true, ended: false };
   },

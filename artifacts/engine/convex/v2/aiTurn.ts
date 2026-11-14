@@ -27,7 +27,7 @@ const INFO = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: I
 const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
 const TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
 
-type Info = { phase: string; roomId: string; name: string; card: string; family: string | null; tieBreaker: string | null; energy: number; agents: number; worldSeconds: number };
+type Info = { phase: string; parked: boolean; roomId: string; name: string; card: string; family: string | null; tieBreaker: string | null; energy: number; agents: number; worldSeconds: number };
 
 export const info = internalQuery({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
@@ -37,7 +37,7 @@ export const info = internalQuery({
     const rule = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const player = await ctx.db.query("v2Players").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
-    return { phase: game.phase, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, tieBreaker: rule?.tieBreaker ?? null, energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
+    return { phase: game.phase, parked: !!game.parked, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, tieBreaker: rule?.tieBreaker ?? null, energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
   },
 });
 
@@ -78,7 +78,8 @@ export const turn = internalAction({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members"), n: v.number() },
   handler: async (ctx, { gameId, memberId, n }) => {
     const seat = await ctx.runQuery(INFO, { gameId, memberId });
-    if (!seat || seat.phase === "ended") return;
+    // An idle-parked game takes no AI turns (activity.ts); the next human activity starts them again.
+    if (!seat || seat.phase === "ended" || seat.parked) return;
     const schedule = (k: number) => k < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS, TURN, { gameId, memberId, n: k }) : null;
     if (seat.phase === "paused") { await schedule(n); return; }   // a paused turn does not count
     const delegate: Delegate = { userId: `${AI_PRINCIPAL}${memberId}`, roomId: seat.roomId, grant: "act", via: "assistant" };

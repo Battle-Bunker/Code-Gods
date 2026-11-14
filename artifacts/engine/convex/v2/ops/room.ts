@@ -1,4 +1,5 @@
 /** `room.*`: the caller's rooms, creating and joining one, the room in view, leaving it, watching (plan §2.2, §4.3). */
+import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
 import { quotasOf, setQuotas } from "../spend";
 import { roomView } from "../rooms";
@@ -31,10 +32,12 @@ function checkPreset(preset: string | undefined) {
 
 export const { op: create, as: createAs } = defineOp("room.create", "mutation", async (env, a) => {
   checkPreset(a.preset);
+  await touchActivity(env.ctx);   // human activity (activity.ts)
   return await createRoom(env.ctx, env.caller.userId!, { name: a.name, preset: a.preset ?? DEFAULT_PRESET });
 });
 
 export const { op: join, as: joinAs } = defineOp("room.join", "mutation", async ({ ctx, caller }, a) => {
+  await touchActivity(ctx);
   return { roomId: await joinRoom(ctx, caller.userId!, a.code) };
 });
 

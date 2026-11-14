@@ -91,6 +91,11 @@ v1's game settings as room settings (`room.settings` overrides): `durationMode` 
 (default 10) and `peerNoiseBits` (0, 2, 4, 8, 16; default 8). Presets are fixed, as v1's beginner setups were
 (`duration.ts`). The header carries `durationMode` and `scoreIntervalSeconds`.
 
+Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
+real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
+paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
+At most 8 players can play (v1's cap); the rest of a room watches.
+
 `v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 

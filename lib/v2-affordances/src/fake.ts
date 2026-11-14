@@ -437,6 +437,10 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     as.queue = [];
     return { turnId: newId(e.state, "turn") };
   },
+  "account.touch": e => {
+    if (e.grant === "read") throw new OpFailure("A read-only connection cannot wake the engine.");
+    return { resumed: 0 };
+  },
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),
   "account.revokeConnection": (e, a) => {
