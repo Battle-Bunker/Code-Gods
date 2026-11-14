@@ -178,7 +178,7 @@ export function ForgePane() {
           </details>
         )}
       </div>
-      {!runner.busy && (primary || !agent) && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source })}</p>}
+      {!runner.busy && (primary || !agent) && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
       <div ref={statusRef} aria-live="polite">
         {status && (
           <div className={`border px-3 py-2 ${status.tone === "error" ? "border-destructive/50 text-destructive" : status.tone === "ok" ? "border-primary/40" : ""}`} data-testid="text-forge-status">
