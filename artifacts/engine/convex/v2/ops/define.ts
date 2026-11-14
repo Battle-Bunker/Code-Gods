@@ -26,6 +26,8 @@ export interface V2Caller extends Caller {
   scope: OpScope;
   /** The room a delegated credential is bound to (it acts there only), or null. */
   boundRoom: string | null;
+  /** The surface calling: the app (a signed-in session), or a delegate's (the in-client assistant, MCP, the CLI). */
+  via: Delegate["via"] | "app";
   records?: Resolved;
 }
 
@@ -35,7 +37,7 @@ async function resolveIn(ctx: QueryCtx, who: Who, scope: OpScope): Promise<V2Cal
   // A credential bound to one room acts in that room only, whatever it names.
   const bound = boundRoom ? { ...scope, roomId: boundRoom } : scope;
   const records = await resolveContext(ctx, user, bound, "delegate" in who ? who.delegate.grant : undefined);
-  return { ctx: records.ctx, callerKey: user?.userId ?? "signed-out", userId: user?.userId ?? null, scope: bound, boundRoom, records };
+  return { ctx: records.ctx, callerKey: user?.userId ?? "signed-out", userId: user?.userId ?? null, scope: bound, boundRoom, via: "delegate" in who ? who.delegate.via : "app", records };
 }
 
 const scopeV = v.object({ roomId: v.optional(v.string()), gameId: v.optional(v.string()), replay: v.optional(v.boolean()) });
