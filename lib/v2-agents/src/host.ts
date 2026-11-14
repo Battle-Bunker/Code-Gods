@@ -175,7 +175,11 @@ export class EngineHost<S> implements AgentHost {
         if (!this.others?.length) return err("this game does not say what lines are worth to the others");
         const priced = this.price(request.calls);
         const total = (s: S) => this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, s, this.variant, o.tieBreaker).score).bits, 0);
-        return ok({ before: total(this.state), after: priced.valid ? total(priced.result) : null }, this.attribute("othersAfter", OTHERS_AFTER_BITS));
+        // The others' totals and nothing else: a failure scoring another player's rule must not name it in its message.
+        let before: number, after: number | null;
+        try { before = total(this.state); after = priced.valid ? total(priced.result) : null; }
+        catch { return err("the others' worth could not be worked out for this plan"); }
+        return ok({ before, after }, this.attribute("othersAfter", OTHERS_AFTER_BITS));
       }
       case "rarity": {
         if (!this.lookup) return err("this game does not say what scores are worth");
