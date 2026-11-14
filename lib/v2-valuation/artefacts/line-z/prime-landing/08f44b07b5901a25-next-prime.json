@@ -1,0 +1,450 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-landing/{}/tb=next-prime",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "prime-landing",
+ "params": {},
+ "tieBreaker": "next-prime",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "converged",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "c to a prime within 4",
+   "layer": 0,
+   "bits": 0.1937,
+   "error": 0.0093
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "c to a prime within 2",
+   "layer": 0,
+   "bits": 0.3647,
+   "error": 0.0126
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "c to a prime within 1",
+   "layer": 0,
+   "bits": 2.2905,
+   "error": 0.0244
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "c to a prime within 1/2",
+   "layer": 0,
+   "bits": 3.7748,
+   "error": 0.052,
+   "empty": true
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "c to a prime within 1/4",
+   "layer": 0,
+   "bits": 3.7748,
+   "error": 0.052,
+   "empty": true
+  },
+  {
+   "score": [
+    "-1/8"
+   ],
+   "label": "c to a prime within 1/8",
+   "layer": 0,
+   "bits": 3.7748,
+   "error": 0.052,
+   "empty": true
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "c to a prime exactly",
+   "layer": 0,
+   "bits": 3.7748,
+   "error": 0.052
+  },
+  {
+   "score": [
+    "0",
+    "-4"
+   ],
+   "label": "y(1) to a prime within 4",
+   "layer": 1,
+   "bits": 3.7773,
+   "error": 0.0512
+  },
+  {
+   "score": [
+    "0",
+    "-2"
+   ],
+   "label": "y(1) to a prime within 2",
+   "layer": 1,
+   "bits": 3.7864,
+   "error": 0.0495
+  },
+  {
+   "score": [
+    "0",
+    "-1"
+   ],
+   "label": "y(1) to a prime within 1",
+   "layer": 1,
+   "bits": 3.8787,
+   "error": 0.0464
+  },
+  {
+   "score": [
+    "0",
+    "-1/2"
+   ],
+   "label": "y(1) to a prime within 1/2",
+   "layer": 1,
+   "bits": 4.2411,
+   "error": 0.0508,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-1/4"
+   ],
+   "label": "y(1) to a prime within 1/4",
+   "layer": 1,
+   "bits": 4.2411,
+   "error": 0.0508,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "0"
+   ],
+   "label": "y(1) to a prime exactly",
+   "layer": 1,
+   "bits": 4.2411,
+   "error": 0.0508
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0217,
+  "mixingSteps": 35,
+  "steps": 12138945,
+  "samplesPerChain": 2048,
+  "distinctLevels": [
+   115,
+   17
+  ],
+  "examples": [
+   "0,1,-1",
+   "3,1,-54",
+   "0,1,0",
+   "0,1,-6",
+   "-1,1,-2",
+   "0,1,-2",
+   "-12,1,-5",
+   "30,1,-3",
+   "0,1,-5",
+   "0,1,-2",
+   "1,1,-3",
+   "0,1,-5",
+   "5,1,-2",
+   "0,1,-5"
+  ],
+  "split": [
+   0,
+   0.192,
+   0.3677,
+   2.2645,
+   3.8037,
+   3.8037,
+   3.8037,
+   3.8037,
+   3.8135,
+   3.821,
+   3.9177,
+   4.3451,
+   4.3451,
+   4.3451
+  ],
+  "direct": [
+   0,
+   0.192,
+   0.359,
+   2.2395,
+   3.7358,
+   3.7358,
+   3.7358,
+   3.7358,
+   3.7358,
+   3.7449,
+   3.8341,
+   4.2472,
+   4.2472,
+   4.2472
+  ],
+  "levelMatrix": [
+   [
+    5514,
+    513,
+    543,
+    1013,
+    0,
+    0,
+    0,
+    1,
+    3,
+    29,
+    136,
+    0,
+    0,
+    412
+   ],
+   [
+    510,
+    3435,
+    827,
+    964,
+    0,
+    0,
+    0,
+    2,
+    6,
+    21,
+    125,
+    0,
+    0,
+    378
+   ],
+   [
+    526,
+    822,
+    34414,
+    986,
+    0,
+    0,
+    0,
+    0,
+    3,
+    21,
+    107,
+    0,
+    0,
+    337
+   ],
+   [
+    1074,
+    1061,
+    990,
+    4986,
+    0,
+    0,
+    0,
+    1,
+    4,
+    76,
+    194,
+    0,
+    0,
+    566
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    75,
+    112,
+    42,
+    103,
+    0,
+    0,
+    0,
+    420,
+    24,
+    19,
+    15,
+    0,
+    0,
+    6
+   ],
+   [
+    62,
+    109,
+    62,
+    128,
+    0,
+    0,
+    0,
+    3,
+    217,
+    45,
+    55,
+    0,
+    0,
+    23
+   ],
+   [
+    28,
+    36,
+    37,
+    49,
+    0,
+    0,
+    0,
+    0,
+    0,
+    76,
+    36,
+    0,
+    0,
+    30
+   ],
+   [
+    141,
+    145,
+    106,
+    238,
+    0,
+    0,
+    0,
+    0,
+    4,
+    40,
+    320,
+    0,
+    0,
+    150
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    436,
+    361,
+    347,
+    552,
+    0,
+    0,
+    0,
+    0,
+    1,
+    36,
+    115,
+    0,
+    0,
+    1620
+   ]
+  ]
+ },
+ "contentHash": "0ba32f758c8c43d1"
+}

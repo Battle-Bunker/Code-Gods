@@ -1,0 +1,453 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/pythagorean-area/{\"A\":6}/tb=whole-legs",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "pythagorean-area",
+ "params": {
+  "A": 6
+ },
+ "tieBreaker": "whole-legs",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "too-coarse",
+ "reasons": [
+  "rung 13: splitting estimate 10.085 against 9.539",
+  "layer 1 (whole-legs) takes 5 distinct values where it counts, fewer than 6: too coarse to extend the ladder"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "the area to A within 16",
+   "layer": 0,
+   "bits": 2.5874,
+   "error": 0.0421
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the area to A within 8",
+   "layer": 0,
+   "bits": 2.6673,
+   "error": 0.0429
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the area to A within 4",
+   "layer": 0,
+   "bits": 4.4648,
+   "error": 0.0545
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the area to A within 2",
+   "layer": 0,
+   "bits": 5.4968,
+   "error": 0.073
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the area to A within 1",
+   "layer": 0,
+   "bits": 7.3648,
+   "error": 0.122
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "the area to A within 1/2",
+   "layer": 0,
+   "bits": 7.7961,
+   "error": 0.1136
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "the area to A within 1/4",
+   "layer": 0,
+   "bits": 8.0142,
+   "error": 0.14
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the area to A exactly",
+   "layer": 0,
+   "bits": 9.4681,
+   "error": 0.1417,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-1/2"
+   ],
+   "label": "the legs to whole within 1/2",
+   "layer": 1,
+   "bits": 9.4681,
+   "error": 0.1417
+  },
+  {
+   "score": [
+    "0",
+    "-1/4"
+   ],
+   "label": "the legs to whole within 1/4",
+   "layer": 1,
+   "bits": 9.5385,
+   "error": 0.1303,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-1/8"
+   ],
+   "label": "the legs to whole within 1/8",
+   "layer": 1,
+   "bits": 9.5385,
+   "error": 0.1303,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-1/16"
+   ],
+   "label": "the legs to whole within 1/16",
+   "layer": 1,
+   "bits": 9.5385,
+   "error": 0.1303,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "0"
+   ],
+   "label": "the legs to whole exactly",
+   "layer": 1,
+   "bits": 9.5385,
+   "error": 0.1303
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0291,
+  "mixingSteps": 46.6024,
+  "steps": 12138945,
+  "samplesPerChain": 2048,
+  "distinctLevels": [
+   1796,
+   5
+  ],
+  "examples": [
+   "4,1,0",
+   "-8,1,5",
+   "-8,1,1",
+   "-5,1,6",
+   "2,1,4",
+   "-4,1,7",
+   "2,1,-5",
+   "3,1,-6",
+   "12,1,-12",
+   "3,1,6",
+   "3,1,-6",
+   "-3,1,6",
+   "-3,1,6",
+   "-3,1,-6"
+  ],
+  "split": [
+   0,
+   2.5965,
+   2.6645,
+   4.5009,
+   5.5795,
+   7.5747,
+   8.0316,
+   8.306,
+   9.9335,
+   9.9335,
+   10.0854,
+   10.0854,
+   10.0854,
+   10.0854
+  ],
+  "direct": [
+   0,
+   2.5965,
+   2.6763,
+   4.5277,
+   5.6086,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    52660,
+    160,
+    1256,
+    298,
+    246,
+    13,
+    7,
+    30,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ],
+   [
+    186,
+    225,
+    73,
+    39,
+    35,
+    3,
+    1,
+    13,
+    0,
+    1,
+    0,
+    0,
+    0,
+    8
+   ],
+   [
+    1267,
+    106,
+    5348,
+    395,
+    217,
+    25,
+    7,
+    33,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ],
+   [
+    274,
+    41,
+    415,
+    585,
+    136,
+    10,
+    3,
+    18,
+    0,
+    0,
+    0,
+    0,
+    0,
+    14
+   ],
+   [
+    225,
+    34,
+    201,
+    121,
+    348,
+    13,
+    6,
+    18,
+    0,
+    1,
+    0,
+    0,
+    0,
+    9
+   ],
+   [
+    69,
+    21,
+    103,
+    109,
+    72,
+    185,
+    10,
+    22,
+    0,
+    3,
+    0,
+    0,
+    0,
+    6
+   ],
+   [
+    45,
+    15,
+    67,
+    58,
+    36,
+    19,
+    124,
+    14,
+    0,
+    0,
+    0,
+    0,
+    0,
+    2
+   ],
+   [
+    366,
+    94,
+    450,
+    276,
+    215,
+    43,
+    15,
+    495,
+    0,
+    0,
+    0,
+    0,
+    0,
+    22
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    359,
+    232,
+    1361,
+    1651,
+    1661,
+    1017,
+    361,
+    443,
+    0,
+    4938,
+    0,
+    0,
+    0,
+    1
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    91,
+    29,
+    122,
+    94,
+    56,
+    1,
+    2,
+    10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    99
+   ]
+  ]
+ },
+ "contentHash": "38141c21d1ce1c0e"
+}

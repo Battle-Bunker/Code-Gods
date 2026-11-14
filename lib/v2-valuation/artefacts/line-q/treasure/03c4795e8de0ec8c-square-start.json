@@ -1,0 +1,541 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-q#27ee6970d0d6e90d/treasure/{\"T\":37,\"k\":2}/tb=square-start",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-q",
+ "variantHash": "27ee6970d0d6e90d",
+ "family": "treasure",
+ "params": {
+  "k": 2,
+  "T": 37
+ },
+ "tieBreaker": "square-start",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "unconverged",
+ "reasons": [
+  "not within 2% after 26712992 steps (budget 32000000)",
+  "rung 2: splitting estimate 6.642 against 6.935",
+  "rung 14: splitting estimate 15.964 against 13.496",
+  "rung 15: splitting estimate 15.989 against 13.498"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-32"
+   ],
+   "label": "y(k) to T within 32",
+   "layer": 0,
+   "bits": 4.2183,
+   "error": 0.0344
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "y(k) to T within 16",
+   "layer": 0,
+   "bits": 6.9345,
+   "error": 0.052
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "y(k) to T within 8",
+   "layer": 0,
+   "bits": 8.0985,
+   "error": 0.1382
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "y(k) to T within 4",
+   "layer": 0,
+   "bits": 9.2354,
+   "error": 0.2125
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "y(k) to T within 2",
+   "layer": 0,
+   "bits": 10.0344,
+   "error": 0.2615
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "y(k) to T within 1",
+   "layer": 0,
+   "bits": 10.6004,
+   "error": 0.2589
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "y(k) to T within 1/2",
+   "layer": 0,
+   "bits": 12.3025,
+   "error": 0.4318
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "y(k) to T within 1/4",
+   "layer": 0,
+   "bits": 12.5922,
+   "error": 0.5358
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "y(k) to T exactly",
+   "layer": 0,
+   "bits": 12.7288,
+   "error": 0.4837
+  },
+  {
+   "score": [
+    "0",
+    "-8"
+   ],
+   "label": "c to a square within 8",
+   "layer": 1,
+   "bits": 12.7288,
+   "error": 0.4837
+  },
+  {
+   "score": [
+    "0",
+    "-4"
+   ],
+   "label": "c to a square within 4",
+   "layer": 1,
+   "bits": 12.7306,
+   "error": 0.485
+  },
+  {
+   "score": [
+    "0",
+    "-2"
+   ],
+   "label": "c to a square within 2",
+   "layer": 1,
+   "bits": 13.0104,
+   "error": 0.452
+  },
+  {
+   "score": [
+    "0",
+    "-1"
+   ],
+   "label": "c to a square within 1",
+   "layer": 1,
+   "bits": 13.0469,
+   "error": 0.4685
+  },
+  {
+   "score": [
+    "0",
+    "-1/2"
+   ],
+   "label": "c to a square within 1/2",
+   "layer": 1,
+   "bits": 13.4959,
+   "error": 0.518
+  },
+  {
+   "score": [
+    "0",
+    "0"
+   ],
+   "label": "c to a square exactly",
+   "layer": 1,
+   "bits": 13.4983,
+   "error": 0.519
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0213,
+  "mixingSteps": 44.2917,
+  "steps": 26712992,
+  "samplesPerChain": 4096,
+  "distinctLevels": [
+   1951,
+   44
+  ],
+  "examples": [
+   "0,1,-3",
+   "-6,1,0",
+   "-1,1,-25",
+   "-21,1,0",
+   "-1,1,-36",
+   "-18,1,0",
+   "-18,1,0",
+   "-18,1,-1",
+   "-18,1,-1",
+   "-14,1,-9",
+   "-14,1,-9",
+   "-18,1,-1",
+   "-1,2,-72",
+   "-19,1,1",
+   "-6,1,-25",
+   "-18,1,-1"
+  ],
+  "split": [
+   0,
+   4.1406,
+   6.6425,
+   7.7771,
+   8.8728,
+   9.7372,
+   10.2682,
+   12.6577,
+   13.496,
+   13.6596,
+   13.6838,
+   13.7571,
+   14.19,
+   14.541,
+   15.9639,
+   15.9887
+  ],
+  "direct": [
+   0,
+   4.1406,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    121017,
+    2278,
+    173,
+    86,
+    29,
+    10,
+    17,
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    3
+   ],
+   [
+    2344,
+    3738,
+    76,
+    26,
+    5,
+    4,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+   ],
+   [
+    256,
+    67,
+    420,
+    21,
+    8,
+    0,
+    3,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    84,
+    18,
+    17,
+    120,
+    3,
+    4,
+    5,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    1,
+    0,
+    2
+   ],
+   [
+    702,
+    146,
+    89,
+    159,
+    1097,
+    44,
+    48,
+    4,
+    0,
+    0,
+    0,
+    3,
+    4,
+    6,
+    0,
+    6
+   ],
+   [
+    267,
+    34,
+    36,
+    28,
+    45,
+    373,
+    19,
+    3,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    4
+   ],
+   [
+    3236,
+    733,
+    325,
+    391,
+    327,
+    137,
+    4894,
+    15,
+    5,
+    0,
+    2,
+    9,
+    2,
+    9,
+    1,
+    30
+   ],
+   [
+    682,
+    109,
+    91,
+    88,
+    60,
+    62,
+    68,
+    1065,
+    0,
+    0,
+    1,
+    2,
+    1,
+    2,
+    2,
+    11
+   ],
+   [
+    5408,
+    1047,
+    790,
+    632,
+    613,
+    566,
+    508,
+    211,
+    8394,
+    2,
+    2,
+    8,
+    2,
+    5,
+    5,
+    11
+   ],
+   [
+    2231,
+    536,
+    288,
+    363,
+    281,
+    287,
+    226,
+    44,
+    0,
+    2868,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    6634,
+    2252,
+    1737,
+    1294,
+    1131,
+    1140,
+    1048,
+    145,
+    7,
+    0,
+    9689,
+    16,
+    2,
+    0,
+    0,
+    5
+   ],
+   [
+    8307,
+    2388,
+    1918,
+    2368,
+    2095,
+    1431,
+    968,
+    113,
+    6,
+    0,
+    4,
+    13532,
+    6,
+    15,
+    0,
+    9
+   ],
+   [
+    4925,
+    1657,
+    759,
+    1025,
+    869,
+    907,
+    648,
+    110,
+    10,
+    0,
+    0,
+    8,
+    7040,
+    3,
+    0,
+    15
+   ],
+   [
+    14298,
+    2157,
+    1516,
+    2604,
+    4747,
+    2478,
+    2170,
+    101,
+    3,
+    0,
+    5,
+    25,
+    6,
+    22512,
+    0,
+    18
+   ],
+   [
+    3396,
+    448,
+    245,
+    220,
+    270,
+    293,
+    897,
+    340,
+    28,
+    0,
+    0,
+    1,
+    1,
+    3,
+    4772,
+    2
+   ],
+   [
+    223,
+    32,
+    14,
+    23,
+    30,
+    52,
+    28,
+    1,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    284
+   ]
+  ]
+ },
+ "contentHash": "1056dfbd7f52dc5f"
+}

@@ -309,6 +309,9 @@ type TieBreaker = string | null;                         // a dealt rule's choic
   layer plus that tie-breaker, never a third layer. Each (family, params, tie-breaker, variant) has its own artefact, and
   `ruleKey` = object type and version + variant and its hash + family + canonical params + `tb=<id>` identifies it (§7.6).
   The deal picks the tie-breaker as it picks parameters (W3-3 decides the distribution; uniform over converged ones).
+- **Won by bid** (owner decision 18): a bid names a family only; the dealer draws the winner's parameters and tie-breaker
+  from that family's converged rules in the room's pool, records `wonByBid` and the `handicap` on `v2Rules`, and the
+  standings carry the handicap and the net total (integration plan §5.9).
 - **Continuity is checked, not trusted.** Calibration counts the distinct values each dealt layer takes among the samples
   where it counts (the main layer everywhere, the tie-breaker where the main layer is at its top); a layer with fewer
   than `minLevels` (default 6) makes the rule **too coarse**, and it goes on the backlog (§7.5) whatever its values.
@@ -631,7 +634,10 @@ interface ValuationConfig {
 }
 ```
 
-1. **Seeds, per replicate.** Each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs,
+1. **Seeds, per replicate.** When the object type offers `enumerate(variant)` (small states near the centre: on `line-z`
+   every y = mx + c with |m| ≤ 40, |c| ≤ 120), every enumerated state is levelled once, and each replicate starts the
+   climb to a rung at a random enumerated state already on it: thin rungs (a run of six primes, an exact area) are found
+   by enumeration, not by a random climb. Otherwise each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs,
    alternating a single walk step filtered to keep the level and a kernel proposal (1 … K walk steps, uniformly) kept
    only if the level did not drop, until each U_i is reached or 20 × burnIn proposals pass. The ladder is calibrated up to
    the last rung every replicate reached; the rungs above are dropped and the artefact says so (a rule with no reachable
@@ -909,8 +915,11 @@ Elements are per line. "—" means undefined for that line, with the sentence in
 | `tri` intercept triangle | plane | — | `legX` = \|x-intercept\|, `legY` = \|y-intercept\|, `area` = legX·legY/2, `hyp2` = legX² + legY² | — | through the origin, parallel to an axis |
 | `seq` growth pattern | sequence | `first` = y(1), `step` = m | `zeroth` = c | `term(n)` = y(n) | vertical lines |
 | `table` table of values | table | — | `y0` … `y5` = y(0) … y(5) | `y(q)` | vertical lines |
-| `mach` function machine (×m, then +c) | machine | `times` = m, `plus` = c | — | `out(q)` = y(q), `reverse(q)` = x(q) = (q − c)/m, `twice(q)` = y(y(q)) | vertical lines; `reverse` for horizontal lines |
-| `peg` pegboard | pegboard | — | `pegs` (count of lattice points of [−6, 6]² on the line), `firstPeg`, `lastPeg` | `nearestPeg(px, py)` | — |
+| `mach` function machine (×m, then +c) | machine | `times` = m, `plus` = c | `fixed` = c/(1 − m), `lamp` = m/(m − 1) (the nomogram) | `in(q)`, `out(q)` = y(q), `reverse(q)` = x(q) = (q − c)/m, `twice(q)` = y(y(q)) | vertical lines; `reverse` for horizontal lines; `fixed`, `lamp` for m = 1 |
+| `peg` pegboard | pegboard | — | `pegs` (count of lattice points of [−6, 6]² on the line), `firstPeg`, `lastPeg` | `nearestPeg(px, py)` | — (not built yet) |
+| `table` table of values | table | — | — | `y(x)` (x whole) | vertical lines |
+| `norm` the line seen from the origin | plane | — | `dist2` = c²/(a² + b²), `foot` (the perpendicular's foot) | — | — |
+| `coins` exact change: a·x + b·y = N | pegboard | — | `bill` N = −c, `ways` (whole x, y ≥ 0), `smallestPile` | — | unless a > 0 and b > 0 |
 
 Shared meanings: `yIntercept` (si.c, cart.yInt's y, int.q, seq.zeroth, table.y0, mach.out(0), mach.plus), `gradient`
 (si.m, seq.step, mach.times, cart.slope), `xIntercept` (cart.xInt's x, int.p, mach.reverse(0)), `valueAt(q)` (si.y(q),
@@ -941,36 +950,23 @@ line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 
 ### 12.5 Rule families
 
 Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
-them. Distance layers use the domain's thresholds: on Z `13, 8, 5, 3, 2, 1, 0`, on Q `8, 4, 2, 1, 1/2, 1/4, 1/8, 0`. **Built** (PR 3 and
-its amendment): families 1–6. **To build in PR 5**: families 7–12, written here as two-layer ladders; a separate
-session's catalogue of layered families (`docs/engine-v2/layered-line-rules.md`) will propose changes to this list, to be
-folded in when it lands.
+them. **The beginner pool** is the curator's (`docs/engine-v2/layered-line-rules.md` §8, definitions in
+`docs/engine-v2/scripts/line-families.mjs`), built in `lib/v2-linear/src/beginner.ts` and dealt by the presets of
+`presets.ts` (`lines-beginner` on `line-z`, `lines-rational` on `line-q`, `lines-four` on `line-z4`):
 
-| # | Family | Main layer (rep) | Tie-breakers, alternatives (rep) | Params (dealable grid) |
-|---|---|---|---|---|
-| 1 | `prime-gradient` (owner) | gradient close to a prime: min dist(m, nearest prime) (si) | `prime`: the size of that prime, max; `cPrime`: the y-intercept close to a prime too, min (si) | — |
-| 2 | `triangle-area` (owner) | triangle area close to A: min \|area − A\| (tri) | `legs`: legs nearly whole, min den(legX) + den(legY) − 2; `even`: legs nearly equal, min \|legX − legY\| (tri) | A ∈ {4, 6, 8, 12, 18} |
-| 3 | `m-meets-c` (owner) | gradient close to the y-intercept: min \|m − c\| (si) | `size`: they meet at a big number, max \|c\|; `meetPrime`: they meet at a prime, min dist(c, prime) (si) | — |
-| 4 | `crossing-check` (owner) | y(k) close to x(q): min \|out(k) − reverse(q)\| (mach) | `size`: they cross at a big number, max \|x(q)\|; `whole`: x(q) nearly whole, min den(x(q)) − 1 (mach) | k ∈ {1, 2, 3}, q ∈ {2, 4, 6} |
-| 5 | `whole-intercept` (owner decision 12) | y-intercept close to a whole number: min dist(c, nearest integer) (si) | `spf`: that number's smallest prime factor, max; `omega`: its prime factors with repeats, max (si) | — |
-| 6 | `square-area` (owner decision 12) | triangle area close to a square number: min dist(area, nearest square) (tri) | `factors`: prime factors of the square's root with repeats, max; `rootSpf`: the root's smallest prime factor, max (tri) | — |
-| 7 | `y-intercept-prime` | y-intercept close to a prime: min dist(yInt, nearest prime) (cart) | the size of that prime; the gradient whole | — |
-| 8 | `treasure` | when x is k, y close to T: min \|y(k) − T\| (table) | the gradient's bottom number small; the gradient prime | (k, T) ∈ {(2, 7), (3, 11), (4, 5), (−2, 9)} |
-| 9 | `sequence-contains` | a pattern term close to T: min over n ≤ 10 of \|term(n) − T\| (seq) | T reached early (min n); the step prime | T ∈ {12, 20, 30, 50} |
-| 10 | `prime-run` | different primes among the first ten terms: max count (seq) | the largest of them; the first of them early | — |
-| 11 | `zero-sum` | a + b + c close to 0: min \|gen.sum\| (gen) | the numbers big: max \|a\| + \|b\|; prime coefficients: max count (gen) | — |
-| 12 | `intercept-sum` | x-intercept + y-intercept close to S: min \|p + q − S\| (int) | the intercepts' bottom numbers small; their product close to P | S ∈ {4, 7, 10} |
+| Family | Main layer (rep) | Tie-breakers (alternatives) | Params |
+|---|---|---|---|
+| `prime-staircase` | the run of different primes from y(0): max (seq) | `first-prime`, `last-prime` (sizes), `near-miss`, `step-back` (distances to a prime) | — |
+| `square-area` | the triangle's area close to a square: min (tri) | `root-factors` (Ω of the root), `big-root`, `slanted-square`, `prime-root` | — |
+| `treasure` | y(k) close to T: min (table) | `prime-terms` (different primes among y(1)…y(8)), `prime-gradient`, `square-start` | (k, T) = (2, 37) |
+| `ruler` | distance² from (0, 0) close to a square: min (norm) | `far` (that distance), `prime-gradient`, `square-area` | — |
+| `exact-change` | ways to pay N with coins a and b close to 6: min (coins) | `big-piles`, `big-bill`, `prime-coins` | ways = 6 |
+| `prime-landing` | the y-intercept close to a prime: min (si) | `big-prime` (that prime), `prime-gradient`, `next-prime` (y(1)) | — |
+| `same-on-both-rulers` | the number the machine leaves unchanged close to T: min (mach) | `steep` (\|m − 1\|), `prime-start`, `whole-values`, `whole-lamp` | T = 6 |
+| `pythagorean-area` | the triangle's area close to A: min (tri) | `slanted-square`, `prime-height`, `whole-legs` | A = 6 |
 
-Families 7–12 follow the curator's revised change list (`docs/engine-v2/layered-line-rules.md`, #358, and its revision)
-when it lands; the rows above are placeholders in the contract's shape.
-
-Annotations: each layer marks the elements its term reads (the primes either side as `cart.ghost` candidates for
-family 1, the nearby primes as `cart.yAxisMark` ticks with their distances for family 7, the point at x = −1 for
-family 3, the nearest whole number on the y axis for family 5).
-
-**Measured** (`calibrate --variant line-z` and `--variant line-q`, artefacts committed, statuses in the backlog file):
-whole-intercept's primary takes one value on the Z domain (every intercept there is whole), so it is too coarse on
-`line-z` and dealable only on `line-q`. That is the continuity check doing its job.
+The owner's first examples remain as a second tier (`families.ts`): `prime-gradient`, `triangle-area`, `m-meets-c`,
+`crossing-check` and `whole-intercept`, each with two tie-breakers.
 
 ### 12.6 Variants and multi-line scoring
 

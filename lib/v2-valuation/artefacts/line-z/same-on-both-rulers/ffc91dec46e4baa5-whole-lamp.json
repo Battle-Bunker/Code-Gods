@@ -1,0 +1,447 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/same-on-both-rulers/{\"T\":6}/tb=whole-lamp",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "same-on-both-rulers",
+ "params": {
+  "T": 6
+ },
+ "tieBreaker": "whole-lamp",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "converged",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "the unchanged number to T within 16",
+   "layer": 0,
+   "bits": 0.1687,
+   "error": 0.0121
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the unchanged number to T within 8",
+   "layer": 0,
+   "bits": 0.2885,
+   "error": 0.0179
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the unchanged number to T within 4",
+   "layer": 0,
+   "bits": 3.4719,
+   "error": 0.0468
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the unchanged number to T within 2",
+   "layer": 0,
+   "bits": 4.8047,
+   "error": 0.0768
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the unchanged number to T within 1",
+   "layer": 0,
+   "bits": 5.5408,
+   "error": 0.1026
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "the unchanged number to T within 1/2",
+   "layer": 0,
+   "bits": 7.0262,
+   "error": 0.1365
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "the unchanged number to T within 1/4",
+   "layer": 0,
+   "bits": 7.1772,
+   "error": 0.1318
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the unchanged number to T exactly",
+   "layer": 0,
+   "bits": 7.227,
+   "error": 0.1269,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-1/2"
+   ],
+   "label": "the lamp to whole within 1/2",
+   "layer": 1,
+   "bits": 7.227,
+   "error": 0.1269
+  },
+  {
+   "score": [
+    "0",
+    "-1/4"
+   ],
+   "label": "the lamp to whole within 1/4",
+   "layer": 1,
+   "bits": 7.3335,
+   "error": 0.1149
+  },
+  {
+   "score": [
+    "0",
+    "-1/8"
+   ],
+   "label": "the lamp to whole within 1/8",
+   "layer": 1,
+   "bits": 7.3471,
+   "error": 0.1098
+  },
+  {
+   "score": [
+    "0",
+    "-1/16"
+   ],
+   "label": "the lamp to whole within 1/16",
+   "layer": 1,
+   "bits": 7.3494,
+   "error": 0.1097
+  },
+  {
+   "score": [
+    "0",
+    "0"
+   ],
+   "label": "the lamp to whole exactly",
+   "layer": 1,
+   "bits": 7.3501,
+   "error": 0.11
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0639,
+  "mixingSteps": 39.7997,
+  "steps": 3709377,
+  "samplesPerChain": 512,
+  "distinctLevels": [
+   723,
+   30
+  ],
+  "examples": [
+   "-1,1,-8",
+   "0,1,0",
+   "0,1,0",
+   "0,1,-8",
+   "0,1,-8",
+   "0,1,-5",
+   "0,1,-6",
+   "0,1,-6",
+   "0,1,-6",
+   "0,1,-6",
+   "0,1,-6",
+   "-11,1,60",
+   "48,1,-294",
+   "0,1,-6"
+  ],
+  "split": [
+   0,
+   0.168,
+   0.2867,
+   3.6297,
+   4.9194,
+   5.8412,
+   7.2038,
+   7.2724,
+   7.2938,
+   7.2938,
+   7.4887,
+   8.1153,
+   null,
+   null
+  ],
+  "direct": [
+   0,
+   0.168,
+   0.2743,
+   3.5845,
+   4.8666,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    1186,
+    112,
+    399,
+    63,
+    16,
+    11,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    7
+   ],
+   [
+    99,
+    576,
+    174,
+    97,
+    32,
+    43,
+    2,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    8
+   ],
+   [
+    431,
+    219,
+    11213,
+    234,
+    33,
+    38,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    11
+   ],
+   [
+    44,
+    73,
+    229,
+    375,
+    34,
+    21,
+    4,
+    2,
+    0,
+    1,
+    0,
+    0,
+    0,
+    13
+   ],
+   [
+    16,
+    49,
+    51,
+    36,
+    103,
+    14,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    5
+   ],
+   [
+    17,
+    76,
+    56,
+    42,
+    30,
+    147,
+    1,
+    1,
+    0,
+    1,
+    1,
+    0,
+    0,
+    16
+   ],
+   [
+    80,
+    121,
+    88,
+    77,
+    90,
+    66,
+    190,
+    3,
+    0,
+    10,
+    5,
+    4,
+    2,
+    0
+   ],
+   [
+    89,
+    107,
+    72,
+    75,
+    77,
+    85,
+    28,
+    182,
+    0,
+    0,
+    12,
+    9,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    758,
+    768,
+    754,
+    579,
+    384,
+    245,
+    48,
+    2,
+    0,
+    1061,
+    2,
+    0,
+    0,
+    15
+   ],
+   [
+    937,
+    1027,
+    557,
+    689,
+    761,
+    468,
+    138,
+    68,
+    0,
+    18,
+    1366,
+    1,
+    0,
+    2
+   ],
+   [
+    833,
+    1811,
+    645,
+    987,
+    1399,
+    1251,
+    436,
+    192,
+    0,
+    4,
+    21,
+    2938,
+    1,
+    2
+   ],
+   [
+    255,
+    2778,
+    633,
+    904,
+    1499,
+    2110,
+    1685,
+    1211,
+    0,
+    0,
+    10,
+    19,
+    6596,
+    0
+   ],
+   [
+    13,
+    45,
+    47,
+    35,
+    13,
+    20,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    143
+   ]
+  ]
+ },
+ "contentHash": "f2dfd4e8c701a38d"
+}

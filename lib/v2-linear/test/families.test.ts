@@ -1,14 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, evaluateObject, evaluateSite, layerLadders, levelOf, objectLadder, refKey, rng, ruleLadder, ruleLayers, walkStep, Qn, type Evaluation, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
-import { crossingCheck, families, lineType, lineQ, lineZ, lineZ4, mMeetsC, primeGradient, squareArea, triangleArea, wholeIntercept, type LineState } from "../src/index.ts";
+import { crossingCheck, families, ownerFamilies, lineType, lineQ, lineZ, lineZ4, mMeetsC, primeGradient, squareArea, triangleArea, wholeIntercept, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const score = (e: Evaluation) => (e.score === null ? "WORST" : e.score.map(x => (x === null ? "_" : Qn.toWire(x))).join(","));
 const ev = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ, tb?: TieBreaker) => evaluateSite(lineType, f, p, s, v, 0, tb);
 
-test("every family: a textbook main layer and at least two alternative tie-breakers, all graded", () => {
-  for (const f of families) {
+test("every owner family: a textbook main layer and at least two alternative tie-breakers, all graded", () => {
+  for (const f of ownerFamilies) {
     assert.ok(f.tieBreakers.length >= 2, f.id);
     assert.ok(f.depends.includes(f.main.rep), f.id);
     const p = f.dealable(lineQ)[0]!;

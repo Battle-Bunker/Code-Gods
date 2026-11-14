@@ -1,0 +1,546 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=first-prime",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "prime-staircase",
+ "params": {},
+ "tieBreaker": "first-prime",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "too-coarse",
+ "reasons": [
+  "not within 2% after 26701633 steps (budget 32000000)",
+  "layer 1 (first-prime) takes 4 distinct values where it counts, fewer than 6: too coarse to extend the ladder"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "1"
+   ],
+   "label": "a run of primes at least 1",
+   "layer": 0,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "2"
+   ],
+   "label": "a run of primes at least 2",
+   "layer": 0,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "3"
+   ],
+   "label": "a run of primes at least 3",
+   "layer": 0,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "4"
+   ],
+   "label": "a run of primes at least 4",
+   "layer": 0,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "5"
+   ],
+   "label": "a run of primes at least 5",
+   "layer": 0,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "6"
+   ],
+   "label": "a run of primes at least 6",
+   "layer": 0,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "3"
+   ],
+   "label": "y(0) at least 3",
+   "layer": 1,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "5"
+   ],
+   "label": "y(0) at least 5",
+   "layer": 1,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "7"
+   ],
+   "label": "y(0) at least 7",
+   "layer": 1,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "6",
+    "11"
+   ],
+   "label": "y(0) at least 11",
+   "layer": 1,
+   "bits": null,
+   "error": null
+  },
+  {
+   "score": [
+    "6",
+    "17"
+   ],
+   "label": "y(0) at least 17",
+   "layer": 1,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "29"
+   ],
+   "label": "y(0) at least 29",
+   "layer": 1,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "47"
+   ],
+   "label": "y(0) at least 47",
+   "layer": 1,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "71"
+   ],
+   "label": "y(0) at least 71",
+   "layer": 1,
+   "bits": null,
+   "error": null,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "101"
+   ],
+   "label": "y(0) at least 101",
+   "layer": 1,
+   "bits": null,
+   "error": null
+  }
+ ],
+ "primarySense": "max",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0,
+  "mixingSteps": 35,
+  "steps": 26701633,
+  "samplesPerChain": 4096,
+  "distinctLevels": [
+   7,
+   4
+  ],
+  "examples": [
+   "-5,1,0",
+   "1,1,-2",
+   "-2,1,-5",
+   "-40,1,-3",
+   "-6,1,-5",
+   "-12,1,-5",
+   "-30,1,-7",
+   "-30,1,-7",
+   "-30,1,-7",
+   "-60,1,-11",
+   "-30,1,-107",
+   "-30,1,-107",
+   "-30,1,-107",
+   "-30,1,-107",
+   "-30,1,-107",
+   "-30,1,-107"
+  ],
+  "split": [
+   0,
+   3.7866,
+   6.834,
+   8.8939,
+   11.5787,
+   12.2045,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "direct": [
+   0,
+   3.7866,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    116733,
+    4233,
+    460,
+    127,
+    1,
+    10,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    4254,
+    3872,
+    174,
+    50,
+    1,
+    4,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    482,
+    188,
+    206,
+    14,
+    0,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1858,
+    719,
+    163,
+    664,
+    0,
+    16,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    825,
+    270,
+    70,
+    25,
+    343,
+    19,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    120011,
+    45107,
+    10079,
+    4570,
+    1185,
+    43903,
+    0,
+    0,
+    0,
+    25,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    252349,
+    90913,
+    15790,
+    5291,
+    519,
+    1315,
+    0,
+    0,
+    0,
+    114664,
+    7,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    27603,
+    5849,
+    1665,
+    1053,
+    202,
+    5,
+    0,
+    0,
+    0,
+    28,
+    15611,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    93551,
+    11337,
+    5053,
+    592,
+    256,
+    29,
+    0,
+    0,
+    0,
+    4,
+    0,
+    0,
+    0,
+    0,
+    0,
+    20250
+   ]
+  ]
+ },
+ "contentHash": "ceb2a298904efadc"
+}

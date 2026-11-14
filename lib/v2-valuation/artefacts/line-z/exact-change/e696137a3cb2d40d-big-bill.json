@@ -1,0 +1,450 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/exact-change/{\"ways\":6}/tb=big-bill",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "exact-change",
+ "params": {
+  "ways": 6
+ },
+ "tieBreaker": "big-bill",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "unconverged",
+ "reasons": [
+  "not within 2% after 23378369 steps (budget 32000000)"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "the ways to the target within 5",
+   "layer": 0,
+   "bits": 2.5874,
+   "error": 0.0215
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the ways to the target within 4",
+   "layer": 0,
+   "bits": 5.4125,
+   "error": 0.0685
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "the ways to the target within 3",
+   "layer": 0,
+   "bits": 6.2516,
+   "error": 0.0521
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the ways to the target within 2",
+   "layer": 0,
+   "bits": 6.951,
+   "error": 0.0484
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the ways to the target within 1",
+   "layer": 0,
+   "bits": 7.7863,
+   "error": 0.082
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the ways to the target exactly",
+   "layer": 0,
+   "bits": 9.601,
+   "error": 0.1302
+  },
+  {
+   "score": [
+    "0",
+    "10"
+   ],
+   "label": "the bill at least 10",
+   "layer": 1,
+   "bits": 10.6667,
+   "error": 0.1705
+  },
+  {
+   "score": [
+    "0",
+    "15"
+   ],
+   "label": "the bill at least 15",
+   "layer": 1,
+   "bits": 11.0612,
+   "error": 0.2381
+  },
+  {
+   "score": [
+    "0",
+    "20"
+   ],
+   "label": "the bill at least 20",
+   "layer": 1,
+   "bits": 11.5667,
+   "error": 0.2659
+  },
+  {
+   "score": [
+    "0",
+    "30"
+   ],
+   "label": "the bill at least 30",
+   "layer": 1,
+   "bits": 12.1567,
+   "error": 0.4682
+  },
+  {
+   "score": [
+    "0",
+    "45"
+   ],
+   "label": "the bill at least 45",
+   "layer": 1,
+   "bits": 12.7708,
+   "error": 0.5924
+  },
+  {
+   "score": [
+    "0",
+    "60"
+   ],
+   "label": "the bill at least 60",
+   "layer": 1,
+   "bits": 13.7122,
+   "error": 0.8189
+  },
+  {
+   "score": [
+    "0",
+    "90"
+   ],
+   "label": "the bill at least 90",
+   "layer": 1,
+   "bits": 14.3368,
+   "error": 0.7635
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0083,
+  "mixingSteps": 35.9288,
+  "steps": 23378369,
+  "samplesPerChain": 4096,
+  "distinctLevels": [
+   58,
+   404
+  ],
+  "examples": [
+   "1,1,-9",
+   "1,1,0",
+   "4,1,-10",
+   "4,1,-8",
+   "1,1,-5",
+   "2,1,-8",
+   "1,1,-5",
+   "2,1,-10",
+   "28,1,-140",
+   "4,1,-20",
+   "18,1,-100",
+   "56,1,-300",
+   "18,1,-105",
+   "30,1,-156"
+  ],
+  "split": [
+   0,
+   2.6081,
+   5.3037,
+   6.1266,
+   6.8547,
+   7.6887,
+   9.5444,
+   10.8975,
+   11.5774,
+   12.3438,
+   13.2551,
+   14.1728,
+   14.9865,
+   16.0696
+  ],
+  "direct": [
+   0,
+   2.6081,
+   5.3982,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    101804,
+    6265,
+    631,
+    329,
+    210,
+    222,
+    54,
+    12,
+    8,
+    6,
+    4,
+    3,
+    2,
+    2
+   ],
+   [
+    6129,
+    12014,
+    150,
+    43,
+    25,
+    13,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    639,
+    153,
+    453,
+    52,
+    34,
+    14,
+    3,
+    0,
+    1,
+    2,
+    0,
+    1,
+    0,
+    0
+   ],
+   [
+    366,
+    38,
+    73,
+    195,
+    33,
+    28,
+    3,
+    2,
+    1,
+    0,
+    0,
+    1,
+    0,
+    0
+   ],
+   [
+    215,
+    25,
+    29,
+    23,
+    116,
+    31,
+    2,
+    0,
+    0,
+    1,
+    1,
+    1,
+    0,
+    0
+   ],
+   [
+    192,
+    15,
+    16,
+    28,
+    33,
+    99,
+    6,
+    2,
+    4,
+    2,
+    2,
+    0,
+    0,
+    1
+   ],
+   [
+    5962,
+    515,
+    590,
+    591,
+    519,
+    642,
+    2248,
+    24,
+    5,
+    2,
+    2,
+    0,
+    0,
+    0
+   ],
+   [
+    3183,
+    335,
+    359,
+    367,
+    460,
+    472,
+    61,
+    986,
+    24,
+    7,
+    2,
+    0,
+    0,
+    0
+   ],
+   [
+    2178,
+    95,
+    140,
+    268,
+    407,
+    384,
+    6,
+    23,
+    925,
+    15,
+    0,
+    3,
+    0,
+    0
+   ],
+   [
+    1650,
+    105,
+    152,
+    215,
+    320,
+    497,
+    2,
+    15,
+    13,
+    821,
+    13,
+    1,
+    2,
+    2
+   ],
+   [
+    1476,
+    103,
+    82,
+    169,
+    287,
+    442,
+    4,
+    5,
+    16,
+    26,
+    939,
+    19,
+    3,
+    1
+   ],
+   [
+    1606,
+    74,
+    116,
+    151,
+    335,
+    634,
+    0,
+    0,
+    9,
+    17,
+    41,
+    1445,
+    7,
+    9
+   ],
+   [
+    1032,
+    50,
+    60,
+    98,
+    215,
+    391,
+    0,
+    0,
+    5,
+    5,
+    17,
+    10,
+    1245,
+    16
+   ],
+   [
+    119,
+    3,
+    6,
+    6,
+    15,
+    38,
+    0,
+    1,
+    0,
+    0,
+    0,
+    3,
+    3,
+    202
+   ]
+  ]
+ },
+ "contentHash": "b359cdb8228bcd2b"
+}

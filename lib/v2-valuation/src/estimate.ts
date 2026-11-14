@@ -189,6 +189,12 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   // slowly forgotten bias, and their spread would understate the error): burn in freely, then climb without ever
   // lowering the level.
   let steps = 0;
+  // Enumerated small states (when the type offers them), grouped by level: a thin rung is seeded from here.
+  const byLevel: S[][] = Array.from({ length: n + 1 }, () => []);
+  if (type.enumerate) {
+    for (const s of type.enumerate(variant)) byLevel[level(s)]!.push(s);
+    steps += byLevel.reduce((a, b) => a + b.length, 0);
+  }
   const seedsFor = (rep: number): (S | null)[] => {
     const seeds: (S | null)[] = new Array(n + 1).fill(null);
     const r = rng(seed, key, "seeds", rep);
@@ -196,7 +202,13 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     for (let t = 0; t < cfg.burnIn * cfg.proposalSteps; t++) s = walkStep(type, variant, s, r);
     steps += cfg.burnIn * cfg.proposalSteps;
     seeds[0] = s;
+    // An enumerated state for each rung it reaches, drawn per replicate (replicates should not share a start).
+    const enumerated = (i: number): S | null => {
+      for (let l = i; l <= n; l++) if (byLevel[l]!.length) return byLevel[l]![r.below(byLevel[l]!.length)]!;
+      return null;
+    };
     for (let i = 1; i <= n; i++) {
+      if (level(s) < i) { const e = enumerated(i); if (e !== null) s = e; }
       let tries = 0;
       while (level(s) < i && tries < 20 * cfg.burnIn) {
         const here = level(s);

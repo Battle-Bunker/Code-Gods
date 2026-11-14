@@ -1,0 +1,260 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/ruler/{}/tb=square-area",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "ruler",
+ "params": {},
+ "tieBreaker": "square-area",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "too-coarse",
+ "reasons": [
+  "ladder truncated at rung 8: no state found at rung 9 (distance² to a square exactly) within 40000 climbing proposals",
+  "rung 6: splitting estimate 6.254 against 6.001",
+  "rung 7: splitting estimate 7.440 against 7.035",
+  "rung 8: splitting estimate 8.263 against 7.813",
+  "layer 1 (square-area) takes 0 distinct values where it counts, fewer than 6: too coarse to extend the ladder"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "distance² to a square within 8",
+   "layer": 0,
+   "bits": 1.1901,
+   "error": 0.0142
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "distance² to a square within 4",
+   "layer": 0,
+   "bits": 1.2209,
+   "error": 0.0151
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "distance² to a square within 2",
+   "layer": 0,
+   "bits": 1.287,
+   "error": 0.0173
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "distance² to a square within 1",
+   "layer": 0,
+   "bits": 1.3343,
+   "error": 0.017
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "distance² to a square within 1/2",
+   "layer": 0,
+   "bits": 4.4072,
+   "error": 0.0257
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "distance² to a square within 1/4",
+   "layer": 0,
+   "bits": 6.0006,
+   "error": 0.0546
+  },
+  {
+   "score": [
+    "-1/8"
+   ],
+   "label": "distance² to a square within 1/8",
+   "layer": 0,
+   "bits": 7.0354,
+   "error": 0.1103
+  },
+  {
+   "score": [
+    "-1/16"
+   ],
+   "label": "distance² to a square within 1/16",
+   "layer": 0,
+   "bits": 7.8125,
+   "error": 0.1397
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0376,
+  "mixingSteps": 68.989,
+  "steps": 8164865,
+  "samplesPerChain": 2048,
+  "distinctLevels": [
+   2833,
+   0
+  ],
+  "examples": [
+   "0,1,0",
+   "50,1,0",
+   "8,1,0",
+   "-10,1,0",
+   "-1,1,0",
+   "5,1,-4",
+   "9,1,27",
+   "27,1,27",
+   "-6,1,6"
+  ],
+  "split": [
+   0,
+   1.206,
+   1.2379,
+   1.3012,
+   1.3437,
+   4.4641,
+   6.2535,
+   7.4399,
+   8.2632
+  ],
+  "direct": [
+   0,
+   1.206,
+   1.2302,
+   1.2876,
+   1.3337,
+   4.3467,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    34640,
+    105,
+    165,
+    101,
+    1768,
+    256,
+    52,
+    17,
+    12
+   ],
+   [
+    91,
+    221,
+    60,
+    19,
+    49,
+    20,
+    7,
+    3,
+    2
+   ],
+   [
+    166,
+    63,
+    518,
+    83,
+    163,
+    61,
+    18,
+    6,
+    10
+   ],
+   [
+    84,
+    40,
+    78,
+    309,
+    204,
+    82,
+    18,
+    10,
+    19
+   ],
+   [
+    1721,
+    71,
+    210,
+    185,
+    19661,
+    610,
+    181,
+    73,
+    80
+   ],
+   [
+    278,
+    24,
+    70,
+    84,
+    713,
+    1018,
+    62,
+    29,
+    42
+   ],
+   [
+    55,
+    7,
+    36,
+    30,
+    149,
+    43,
+    156,
+    7,
+    17
+   ],
+   [
+    46,
+    6,
+    28,
+    34,
+    189,
+    73,
+    26,
+    158,
+    28
+   ],
+   [
+    9,
+    2,
+    16,
+    22,
+    67,
+    37,
+    13,
+    7,
+    91
+   ]
+  ]
+ },
+ "contentHash": "330e04c7707b2dc3"
+}

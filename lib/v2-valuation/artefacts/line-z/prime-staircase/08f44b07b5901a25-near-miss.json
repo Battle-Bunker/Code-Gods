@@ -1,0 +1,262 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=near-miss",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "prime-staircase",
+ "params": {},
+ "tieBreaker": "near-miss",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "too-coarse",
+ "reasons": [
+  "ladder truncated at rung 8: no state found at rung 9 (the first miss to a prime within 2) within 40000 climbing proposals",
+  "not within 2% after 29875545 steps (budget 32000000)",
+  "layer 1 (near-miss) takes 2 distinct values where it counts, fewer than 6: too coarse to extend the ladder"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "1"
+   ],
+   "label": "a run of primes at least 1",
+   "layer": 0,
+   "bits": 3.8182,
+   "error": 0.0076
+  },
+  {
+   "score": [
+    "2"
+   ],
+   "label": "a run of primes at least 2",
+   "layer": 0,
+   "bits": 6.8961,
+   "error": 0.0677
+  },
+  {
+   "score": [
+    "3"
+   ],
+   "label": "a run of primes at least 3",
+   "layer": 0,
+   "bits": 9.1262,
+   "error": 0.0775
+  },
+  {
+   "score": [
+    "4"
+   ],
+   "label": "a run of primes at least 4",
+   "layer": 0,
+   "bits": 12.1183,
+   "error": 0.1763
+  },
+  {
+   "score": [
+    "5"
+   ],
+   "label": "a run of primes at least 5",
+   "layer": 0,
+   "bits": 12.6691,
+   "error": 0.2895
+  },
+  {
+   "score": [
+    "6"
+   ],
+   "label": "a run of primes at least 6",
+   "layer": 0,
+   "bits": 17.5394,
+   "error": 5.4256,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "-8"
+   ],
+   "label": "the first miss to a prime within 8",
+   "layer": 1,
+   "bits": 17.5394,
+   "error": 5.4256,
+   "empty": true
+  },
+  {
+   "score": [
+    "6",
+    "-4"
+   ],
+   "label": "the first miss to a prime within 4",
+   "layer": 1,
+   "bits": 17.5394,
+   "error": 5.4256
+  }
+ ],
+ "primarySense": "max",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0022,
+  "mixingSteps": 35,
+  "steps": 29875545,
+  "samplesPerChain": 8192,
+  "distinctLevels": [
+   7,
+   2
+  ],
+  "examples": [
+   "0,1,-12",
+   "0,1,-3",
+   "-150,1,-7",
+   "-2,1,-3",
+   "-18,1,-5",
+   "-12,1,-5",
+   "-30,1,-7",
+   "-30,1,-7",
+   "-90,1,-13"
+  ],
+  "split": [
+   0,
+   3.821,
+   6.8789,
+   8.9303,
+   11.6736,
+   12.268,
+   null,
+   null,
+   null
+  ],
+  "direct": [
+   0,
+   3.821,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    234137,
+    8254,
+    940,
+    206,
+    9,
+    21,
+    0,
+    0,
+    1
+   ],
+   [
+    8242,
+    7675,
+    349,
+    98,
+    3,
+    9,
+    0,
+    0,
+    0
+   ],
+   [
+    923,
+    345,
+    416,
+    22,
+    2,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    3721,
+    1542,
+    311,
+    1415,
+    9,
+    14,
+    0,
+    0,
+    0
+   ],
+   [
+    1717,
+    562,
+    156,
+    48,
+    674,
+    38,
+    0,
+    0,
+    1
+   ],
+   [
+    102114,
+    38390,
+    8463,
+    3677,
+    1024,
+    38737,
+    0,
+    0,
+    43
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    204,
+    72,
+    9,
+    2,
+    1,
+    1,
+    0,
+    0,
+    103
+   ]
+  ]
+ },
+ "contentHash": "1c42144980f40ac0"
+}

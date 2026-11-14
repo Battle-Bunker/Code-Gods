@@ -1,0 +1,583 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=root-factors",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-q",
+ "variantHash": "27ee6970d0d6e90d",
+ "family": "square-area",
+ "params": {},
+ "tieBreaker": "root-factors",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "unconverged",
+ "reasons": [
+  "not within 2% after 28383679 steps (budget 32000000)"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the area to a square within 8",
+   "layer": 0,
+   "bits": 2.8291,
+   "error": 0.0401
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the area to a square within 4",
+   "layer": 0,
+   "bits": 2.8688,
+   "error": 0.0409
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the area to a square within 2",
+   "layer": 0,
+   "bits": 2.9508,
+   "error": 0.0439
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the area to a square within 1",
+   "layer": 0,
+   "bits": 3.0729,
+   "error": 0.045
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "the area to a square within 1/2",
+   "layer": 0,
+   "bits": 3.2317,
+   "error": 0.0461
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "the area to a square within 1/4",
+   "layer": 0,
+   "bits": 3.6245,
+   "error": 0.0513
+  },
+  {
+   "score": [
+    "-1/8"
+   ],
+   "label": "the area to a square within 1/8",
+   "layer": 0,
+   "bits": 4.0463,
+   "error": 0.0478
+  },
+  {
+   "score": [
+    "-1/16"
+   ],
+   "label": "the area to a square within 1/16",
+   "layer": 0,
+   "bits": 4.4945,
+   "error": 0.0462
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the area to a square exactly",
+   "layer": 0,
+   "bits": 7.1359,
+   "error": 0.0805
+  },
+  {
+   "score": [
+    "0",
+    "1"
+   ],
+   "label": "prime factors of the root at least 1",
+   "layer": 1,
+   "bits": 7.787,
+   "error": 0.1039
+  },
+  {
+   "score": [
+    "0",
+    "2"
+   ],
+   "label": "prime factors of the root at least 2",
+   "layer": 1,
+   "bits": 9.1342,
+   "error": 0.1357
+  },
+  {
+   "score": [
+    "0",
+    "3"
+   ],
+   "label": "prime factors of the root at least 3",
+   "layer": 1,
+   "bits": 10.7544,
+   "error": 0.1496
+  },
+  {
+   "score": [
+    "0",
+    "4"
+   ],
+   "label": "prime factors of the root at least 4",
+   "layer": 1,
+   "bits": 12.5222,
+   "error": 0.4957
+  },
+  {
+   "score": [
+    "0",
+    "5"
+   ],
+   "label": "prime factors of the root at least 5",
+   "layer": 1,
+   "bits": 14.9908,
+   "error": 1.79
+  },
+  {
+   "score": [
+    "0",
+    "6"
+   ],
+   "label": "prime factors of the root at least 6",
+   "layer": 1,
+   "bits": 19.4603,
+   "error": 2.9924
+  },
+  {
+   "score": [
+    "0",
+    "7"
+   ],
+   "label": "prime factors of the root at least 7",
+   "layer": 1,
+   "bits": 24.41,
+   "error": 2.2773
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0846,
+  "mixingSteps": 116.7462,
+  "steps": 28383679,
+  "samplesPerChain": 4096,
+  "distinctLevels": [
+   5320,
+   14
+  ],
+  "examples": [
+   "1,0,0",
+   "2,25,1",
+   "-1,2,1",
+   "2,1,-8",
+   "-18,1,1",
+   "252,1,12",
+   "8,1,-1",
+   "28,7,-5",
+   "10,1,1",
+   "2,1,-16",
+   "2,1,-12",
+   "2,1,8",
+   "-2,1,16",
+   "1,2,64",
+   "-2,1,-160",
+   "-18,1,-2400",
+   "-1,2,576"
+  ],
+  "split": [
+   0,
+   2.8697,
+   2.9195,
+   3.0087,
+   3.1278,
+   3.2767,
+   3.6725,
+   4.0369,
+   4.4534,
+   7.0585,
+   7.6806,
+   8.8356,
+   10.4355,
+   12.4188,
+   14.5862,
+   16.7746,
+   19.0172
+  ],
+  "direct": [
+   0,
+   2.8697,
+   2.9092,
+   2.9921,
+   3.1317,
+   3.2863,
+   3.7194,
+   4.1543,
+   4.6636,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    111924,
+    44,
+    56,
+    69,
+    140,
+    251,
+    214,
+    162,
+    137,
+    41,
+    37,
+    8,
+    4,
+    4,
+    1,
+    0,
+    0
+   ],
+   [
+    54,
+    304,
+    40,
+    28,
+    17,
+    8,
+    3,
+    1,
+    3,
+    1,
+    7,
+    16,
+    5,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    62,
+    42,
+    597,
+    84,
+    84,
+    37,
+    19,
+    11,
+    4,
+    4,
+    16,
+    8,
+    4,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    82,
+    27,
+    101,
+    885,
+    117,
+    123,
+    71,
+    36,
+    27,
+    10,
+    33,
+    8,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    107,
+    29,
+    65,
+    103,
+    888,
+    148,
+    64,
+    41,
+    15,
+    27,
+    23,
+    8,
+    2,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    274,
+    15,
+    42,
+    106,
+    149,
+    2292,
+    262,
+    162,
+    136,
+    40,
+    20,
+    5,
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    168,
+    6,
+    25,
+    71,
+    48,
+    244,
+    1665,
+    170,
+    160,
+    29,
+    12,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    124,
+    0,
+    11,
+    32,
+    48,
+    148,
+    172,
+    1368,
+    267,
+    6,
+    12,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1816,
+    17,
+    69,
+    223,
+    237,
+    954,
+    1197,
+    1651,
+    34543,
+    38,
+    18,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    233,
+    6,
+    26,
+    76,
+    156,
+    357,
+    233,
+    89,
+    38,
+    1253,
+    66,
+    14,
+    1,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    197,
+    60,
+    148,
+    204,
+    211,
+    177,
+    68,
+    26,
+    16,
+    61,
+    1285,
+    62,
+    13,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    114,
+    90,
+    99,
+    75,
+    69,
+    14,
+    11,
+    6,
+    3,
+    8,
+    61,
+    735,
+    22,
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    131,
+    62,
+    64,
+    24,
+    22,
+    6,
+    2,
+    0,
+    1,
+    3,
+    20,
+    56,
+    606,
+    18,
+    1,
+    0,
+    0
+   ],
+   [
+    212,
+    40,
+    23,
+    14,
+    14,
+    2,
+    2,
+    0,
+    0,
+    0,
+    0,
+    22,
+    30,
+    656,
+    15,
+    2,
+    0
+   ],
+   [
+    1189,
+    96,
+    94,
+    21,
+    16,
+    5,
+    1,
+    1,
+    0,
+    0,
+    0,
+    39,
+    92,
+    118,
+    3265,
+    30,
+    1
+   ],
+   [
+    2054,
+    77,
+    91,
+    3,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    19,
+    122,
+    59,
+    162,
+    5256,
+    43
+   ],
+   [
+    177,
+    19,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    7,
+    2,
+    2,
+    10,
+    522
+   ]
+  ]
+ },
+ "contentHash": "5f154c047d8fe194"
+}

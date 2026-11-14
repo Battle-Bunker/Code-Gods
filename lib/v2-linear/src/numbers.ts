@@ -77,3 +77,20 @@ export function primeFactorCount(n: bigint): number {
   for (let d = 2n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { m /= d; k++; }
   return m > 1n ? k + 1 : k;
 }
+
+/** Distance from x to the nearest prime (primes are positive, so anything at or below 2 is measured to 2). */
+export function distanceToPrime(x: Q): Q {
+  return Qn.abs(Qn.sub(x, q(nearbyPrimes(x)[0]!)));
+}
+
+/** The gap from the prime p to the nearest other prime. */
+export function primeGap(p: bigint): bigint {
+  let lo = p - 1n;
+  while (lo >= 2n && !isPrime(lo)) lo--;
+  let hi = p + 1n;
+  while (!isPrime(hi)) hi++;
+  return lo >= 2n && p - lo < hi - p ? p - lo : hi - p;
+}
+
+/** Distance from x to the nearest whole number. */
+export const distanceToWhole = (x: Q): Q => Qn.abs(Qn.sub(x, q(nearestInteger(x))));

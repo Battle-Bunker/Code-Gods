@@ -73,6 +73,9 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     absolute value of the amount added"; multiplicative moves by digits, about the code length of the factor; so large
     composites are cheap, large primes are dear, and a number's energy is roughly its shortest arithmetic description.)
 
+18. On the bid phase: "I want that still in the rebuilt app." (Integration plan §5.9 ports bidding onto v2 rule
+    families in M3: a bid names a family; the dealer draws the winner's parameters and tie-breaker.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** Mutator price lists are NOT required to satisfy detailed balance; value is
