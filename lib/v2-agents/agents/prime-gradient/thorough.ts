@@ -2,6 +2,9 @@
 // Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime).
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
+// Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
+// back again and again) scores nothing for either of you: it walks away from one and leaves you a note so you can
+// talk to that player. It never spends more than a quarter of its energy on one move.
 // Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
@@ -16,8 +19,12 @@ function score(m, c, p, tie) {
 
 const FAR = 5;      // how far one change may go
 const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
+const SPEND = 0.25;    // never spend more than a quarter of your energy on one move
 
 function agent(offer) {
+  // A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on
+  // both sides: leave the line, with a note telling your owner to talk to that player.
+  if (contested(offer, 3)) return null;
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
@@ -38,5 +45,8 @@ function agent(offer) {
     if (better(s, top)) { top = s; plans = [plan]; }               // a new best
     else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
   }
-  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip
+  if (!plans.length) return null;
+  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
+  if (!plan || price(offer, plan) > energy(offer) * SPEND) return null;   // too dear: keep the energy for more turns
+  return plan;
 }

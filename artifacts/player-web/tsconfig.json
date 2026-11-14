@@ -36,6 +36,9 @@
   "references": [
     {
       "path": "../../lib/v2-views"
+    },
+    {
+      "path": "../../lib/v2-valuation"
     }
   ]
 }

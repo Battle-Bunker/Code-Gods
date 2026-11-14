@@ -16,7 +16,7 @@ import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
 
-export type AgentKind = "example" | "simple" | "thorough" | "bold";
+export type AgentKind = "example" | "simple" | "thorough" | "bold" | "naive";
 export type ShippedLanguage = Extract<Language, "typescript" | "python">;
 
 export interface ShippedAgent {
@@ -45,6 +45,29 @@ const KINDS: Record<Exclude<AgentKind, "example">, { title: string; summary: str
     title: "Bold", summary: "Tries two changes at once and big jumps, so it gets there in fewer, dearer moves.",
     tryThis: "change FAR = 6 to 3: smaller jumps, cheaper moves.", far: 6, quotes: 20,
   },
+  naive: {
+    title: "Naive (for learning)",
+    summary: "Chases your rule on every line it is offered, whatever the price, and keeps fighting over lines another player keeps pulling back. Compare it with Simple.",
+    tryThis: "summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.", far: 3, quotes: 8,
+  },
+};
+
+/** The lines every points-aware agent ends with, in plain words (TypeScript, then Python). */
+const POINTS = {
+  ts: [
+    "  if (!plans.length) return null;",
+    "  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
+    "  if (!plan || price(offer, plan) > energy(offer) * SPEND) return null;   // too dear: keep the energy for more turns",
+    "  return plan;",
+  ],
+  py: [
+    "    if not plans:",
+    "        return None",
+    "    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
+    "    if plan is None or price(offer, plan) > energy(offer) * SPEND:   # too dear: keep the energy for more turns",
+    "        return None",
+    "    return plan",
+  ],
 };
 
 const familyOf = (id: string) => {
@@ -61,11 +84,20 @@ const entryOf = (id: string): FamilyEntry => {
 const HOW = [
   "What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs",
   "no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.",
+  "Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line",
+  "back again and again) scores nothing for either of you: it walks away from one and leaves you a note so you can",
+  "talk to that player. It never spends more than a quarter of its energy on one move.",
+];
+const HOW_NAIVE = [
+  "What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your",
+  "rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps",
+  "fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.",
+  "It is here to learn from; the other starters fix this.",
 ];
 
 function lensesFor(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null): LensId[] {
   if (kind === "example") return [...e.tieBreakers[tieBreaker!]!.lenses];
-  if (kind === "simple") return [...(e.simple ?? ["shift", "tilt"])];
+  if (kind === "simple" || kind === "naive") return [...(e.simple ?? ["shift", "tilt"])];
   if (kind === "bold") return ["shift", "tilt"];
   return (Object.keys(LENSES) as LensId[]).filter(id => { const l: Lens = LENSES[id]; return !l.only || l.only.includes(e.family); });
 }
@@ -100,8 +132,16 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   const out = [
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
+    ...(kind === "naive" ? [] : [
+      "const SPEND = 0.25;    // never spend more than a quarter of your energy on one move",
+    ]),
     "",
     "function agent(offer) {",
+    ...(kind === "naive" ? [] : [
+      "  // A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on",
+      "  // both sides: leave the line, with a note telling your owner to talk to that player.",
+      "  if (contested(offer, 3)) return null;",
+    ]),
     "  const v = look(offer, \"si\");      // the line as y = mx + c",
     "  const rule = goal(offer);         // your rule (free)",
     `  const m = v.m, c = v.c, p = rule.params${kind === "example" ? "" : ", tie = rule.tieBreaker"};`,
@@ -133,7 +173,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "    if (better(s, top)) { top = s; plans = [plan]; }               // a new best",
     "    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides",
     "  }",
-    "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
+    ...(kind === "naive" ? ["  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip"] : POINTS.ts),
     "}",
   );
   return out;
@@ -167,9 +207,18 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   const out = [
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
+    ...(kind === "naive" ? [] : [
+      "SPEND = 0.25    # never spend more than a quarter of your energy on one move",
+    ]),
     "",
     "",
     "def agent(offer):",
+    ...(kind === "naive" ? [] : [
+      "    # A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on",
+      "    # both sides: leave the line, with a note telling your owner to talk to that player.",
+      "    if contested(offer, 3):",
+      "        return None",
+    ]),
     "    v = look(offer, \"si\")      # the line as y = mx + c",
     "    rule = goal(offer)         # your rule (free)",
     kind === "example" ? "    m, c, p = v.m, v.c, rule.params" : "    m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker",
@@ -203,7 +252,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     "            top, plans = s, [plan]         # a new best",
     "        elif plans and not better(top, s):",
     "            plans.append(plan)             # as good as the best: the price decides",
-    "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
+    ...(kind === "naive" ? ["    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip"] : POINTS.py),
   );
   return out;
 }
@@ -218,7 +267,7 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
     ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the tie-breaker (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: e.tieBreakers[tieBreaker!]!.steps, quotes: 8 }
     : KINDS[kind];
   const rule = tb ? `Main part: ${f.main.title}. Tie-breaker: ${tb.title}.` : `Main part: ${f.main.title}. Tie-breaker: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
-  const header = [`${f.title} · ${meta.title}`, rule, ...HOW, `Try this: ${meta.tryThis}`];
+  const header = [`${f.title} · ${meta.title}`, rule, ...(kind === "naive" ? HOW_NAIVE : HOW), `Try this: ${meta.tryThis}`];
   const ts = language === "typescript";
   const c = ts ? "//" : "#";
   const lines = [
@@ -239,12 +288,12 @@ export function exampleFor(family: string, tieBreaker: string, language: Shipped
   return e?.tieBreakers[tieBreaker] ? render("example", family, tieBreaker, language) : null;
 }
 
-/** The Simple, Thorough and Bold starters for a family, in one language. */
+/** The Simple, Thorough and Bold starters for a family, then Naive (a teaching example, never a default), in one language. */
 export function startersFor(family: string, language: ShippedLanguage): ShippedAgent[] {
-  return (["simple", "thorough", "bold"] as const).map(k => render(k, family, null, language));
+  return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
 }
 
-/** Every shipped agent: per family, each tie-breaker's example and the three starters, in both languages. */
+/** Every shipped agent: per family, each tie-breaker's example and the four starters, in both languages. */
 export function shippedAgents(): ShippedAgent[] {
   // Only what v2-linear still deals: a catalogue entry for a family or tie-breaker it dropped is skipped (stale()).
   return CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family)).flatMap(e => LANGUAGES.flatMap(language => [

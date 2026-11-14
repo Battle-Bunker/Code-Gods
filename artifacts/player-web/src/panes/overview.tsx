@@ -5,7 +5,7 @@
 import { summonFirst } from "@/panes/first-summon";
 import { useAgentCount, useGame, useGameScope, useLeaderboard, useMe } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
-import { isTied, ordinal, pointsText, powerText, SCORE_SENTENCE, TIE_NOTE, totalNote, TOTAL_NOTE } from "@/core/words";
+import { isTied, ordinal, pointsText, powerText, SCORE_SENTENCE, TIE_NOTE, totalNote, TOTAL_NOTE, countedNote } from "@/core/words";
 import { BitsHelp, LineByLine, TiedMark } from "@/core/score-help";
 
 export function OverviewPane() {
@@ -35,6 +35,7 @@ export function OverviewPane() {
           <dd data-testid="text-overview-points">
             {pointsText(mine?.net ?? 0)}{mine && standings ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
             {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-overview-tied" /> <span className="text-xs text-muted-foreground">{TIE_NOTE}</span></>}
+            {standings && countedNote(standings.worldSeconds) && <span className="block text-xs text-muted-foreground" data-testid="text-overview-counted">{countedNote(standings.worldSeconds)}</span>}
           </dd>
           {me && <><dt className="text-muted-foreground">Your power</dt><dd>{powerText(me.power)}</dd></>}
         </dl>

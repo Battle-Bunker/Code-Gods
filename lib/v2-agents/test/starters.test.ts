@@ -35,14 +35,14 @@ test("families and tie-breakers without shipped agents yet (a catalogue entry ea
   if (gone.length) t.todo(`catalogue entries v2-linear no longer has: ${gone.join(", ")}`);
 });
 
-test("every described family has an example per described tie-breaker and the three starters, in both languages", () => {
+test("every described family has an example per described tie-breaker and the four starters (one of them naive), in both languages", () => {
   for (const e of LIVE) {
     const f = familyOf(e.family);
     for (const language of ["typescript", "python"] as const) {
       for (const tb of Object.keys(e.tieBreakers).filter(tb => f.tieBreakers.some(t => t.id === tb))) {
         assert.ok(exampleFor(f.id, tb, language), `${f.id}: no ${language} example for ${tb}`);
       }
-      assert.deepEqual(all.filter(a => a.family === f.id && a.language === language && a.kind !== "example").map(a => a.title), ["Simple", "Thorough", "Bold"]);
+      assert.deepEqual(all.filter(a => a.family === f.id && a.language === language && a.kind !== "example").map(a => a.title), ["Simple", "Thorough", "Bold", "Naive (for learning)"]);
     }
   }
   for (const a of all) {

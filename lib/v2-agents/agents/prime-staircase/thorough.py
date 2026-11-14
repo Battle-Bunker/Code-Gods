@@ -2,6 +2,9 @@
 # Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
+# Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
+# back again and again) scores nothing for either of you: it walks away from one and leaves you a note so you can
+# talk to that player. It never spends more than a quarter of its energy on one move.
 # Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
 
 
@@ -26,9 +29,14 @@ def score(m, c, p, tie):
 
 FAR = 5      # how far one change may go
 QUOTES = 20  # at most this many plans are priced (each price is a host call)
+SPEND = 0.25    # never spend more than a quarter of your energy on one move
 
 
 def agent(offer):
+    # A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on
+    # both sides: leave the line, with a note telling your owner to talk to that player.
+    if contested(offer, 3):
+        return None
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
@@ -51,4 +59,9 @@ def agent(offer):
             top, plans = s, [plan]         # a new best
         elif plans and not better(top, s):
             plans.append(plan)             # as good as the best: the price decides
-    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip
+    if not plans:
+        return None
+    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best
+    if plan is None or price(offer, plan) > energy(offer) * SPEND:   # too dear: keep the energy for more turns
+        return None
+    return plan

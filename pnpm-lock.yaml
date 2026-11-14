@@ -228,6 +228,9 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
+      '@workspace/v2-valuation':
+        specifier: workspace:*
+        version: link:../../lib/v2-valuation
       '@workspace/v2-views':
         specifier: workspace:*
         version: link:../../lib/v2-views
@@ -459,6 +462,12 @@ importers:
 
   lib/v2-agents:
     dependencies:
+      '@workspace/v2-affordances':
+        specifier: workspace:*
+        version: link:../v2-affordances
+      '@workspace/v2-ai':
+        specifier: workspace:*
+        version: link:../v2-ai
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../v2-core

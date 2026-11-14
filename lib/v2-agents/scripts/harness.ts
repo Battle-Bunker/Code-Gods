@@ -63,6 +63,7 @@ async function pool(): Promise<string> {
   ];
   for (const f of lineType.families.filter(x => CATALOGUE.some(e => e.family === x.id))) for (const tb of f.tieBreakers) for (const kind of ["example", "simple", "thorough", "bold"] as const) {
     const spec = `${f.id}/${tb.id}`;
+    if (!exampleFor(f.id, tb.id, "typescript")) continue;   // no agents written for this tie-breaker yet (starters.ts undescribed())
     const r = await runHarness(boxes, { type: lineType, variant, players: [player(spec, kind)], budget, lines, seed: values.seed! });
     const x = r.rules[0]!, s = r.spend[0]!;
     const status = r.artefacts[x.rule] && r.artefacts[x.rule] !== "converged" ? ` (${r.artefacts[x.rule]})` : "";

@@ -37,11 +37,11 @@ function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap
 }
 
 /** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
-function TugRow({ tug, names, top, variant }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; top: number | null; variant: string }) {
+function TugRow({ tug, names, top, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; top: number | null; variant: string; kinds: ReadonlyMap<string, string> }) {
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
       <p className="text-xs text-muted-foreground tabular-nums">{clock(tug.to)} · contested line</p>
-      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug)}</p>
+      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds)}</p>
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
         <ol className="divide-y">{tug.moves.map(m => <MoveRow key={m.seq} move={m} names={names} top={top} variant={variant} />)}</ol>
@@ -58,6 +58,8 @@ export function FeedPane() {
   const moves = useMoves();
   const names = useMemo(() => new Map((agents ?? []).map(a => [a.agentId as string, a.name])), [agents]);
   const items = useMemo(() => foldTugs(moves.results), [moves.results]);
+  // Who each seat is (a person, a practice partner, an AI player): practice partners read no chat.
+  const kinds = useMemo(() => new Map((header?.roster ?? []).map(r => [r.memberId as string, r.kind as string])), [header?.roster]);
   if (!header) return null;
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="feed-spectator">Each player sees the moves that changed their own points here. You're watching, so there are none to show.</p>;
   const top = rule ? Math.max(0, ...rule.row.ladder.map(r => r.level)) : null;
@@ -75,7 +77,7 @@ export function FeedPane() {
     <div data-testid="feed">
       <ol className="divide-y">
         {items.map(i => i.kind === "tug"
-          ? <TugRow key={`tug-${i.moves[0]!.seq}`} tug={i} names={names} top={top} variant={header.variant} />
+          ? <TugRow key={`tug-${i.moves[0]!.seq}`} tug={i} names={names} top={top} variant={header.variant} kinds={kinds} />
           : <MoveRow key={i.move.seq} move={i.move} names={names} top={top} variant={header.variant} />)}
       </ol>
       {moves.status === "CanLoadMore" && (
