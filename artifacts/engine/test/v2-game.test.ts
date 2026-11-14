@@ -10,6 +10,7 @@
  */
 import { UNIQUENESS, VALUE_RECORDS } from "../convex/v2/values.gen.ts";
 import { valueObjects } from "../convex/v2/world.ts";
+import { noiseAt } from "../convex/v2/disclose.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
@@ -107,7 +108,10 @@ test("no two objects ever hold the same state (decision 24)", () => {
       // Refused like an invalid call: the line stays, and the agent pays its reads only, not the change.
       assert.equal(e.data.outcome, "failed");
       assert.equal(e.data.after, e.data.before);
-      assert.ok(e.data.charged < e.data.charge, `act ${e.data.n} paid ${e.data.charged} of ${e.data.charge}`);
+      // Refused at commit: charged its reads, not the change. Refused by the agent's host (it knew the state was held):
+      // the record's own charge, the reads only (W2's runAct guard).
+      if (e.data.charged !== undefined) assert.ok(e.data.charged < e.data.charge, `act ${e.data.n} paid ${e.data.charged} of ${e.data.charge}`);
+      else assert.equal(e.data.changeBits, 0, `act ${e.data.n} refused in the host pays no change`);
     }
   }
   console.log(`# moves refused as duplicates: ${refused}`);
@@ -161,8 +165,22 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
     const h = e.data.input.history;
     assert.ok(h.length <= 8 && h.every((m: any) => typeof m.mine === "boolean" && Number.isFinite(m.pointsBefore) && Number.isFinite(m.pointsAfter)), JSON.stringify(h));
   }
+  // What the tick told each act (decision 24 and the disclosure noise), rebuilt from the record: who held each state
+  // when the act ran (the births and committed acts before it, as the tick saw them) and the game's noise.
+  const game = await admin.query("v2/testing:noiseOf", { gameId });
+  const disclosed = (s: string) => noiseAt({ noiseKey: game.noiseKey ?? undefined, settings: game.settings }, s);
+  const holderAt = new Map<number, Map<string, string>>(), holder = new Map<string, string>(), stateOf = new Map<string, string>();
+  for (const e of events) {
+    if (e.kind === "act") holderAt.set(e.data.n, new Map(holder));
+    const move = e.kind === "objectBorn" ? e.data.state : e.kind === "act" && e.data.outcome === "committed" ? e.data.after : null;
+    if (move === null) continue;
+    const was = stateOf.get(e.data.objectId);
+    if (was !== undefined && holder.get(was) === e.data.objectId) holder.delete(was);
+    holder.set(move, e.data.objectId); stateOf.set(e.data.objectId, move);
+  }
   for (const e of acts) {
     const d = e.data, key = `${d.agentId}:${d.program.version}`;
+    const held = holderAt.get(d.n)!;
     if (!sources.has(key)) sources.set(key, (await admin.query("v2/testing:program", { agentId: d.agentId, version: d.program.version })).source);
     const language = d.program.language as Language;
     if (!sandboxes.has(language)) sandboxes.set(language, createSandbox({ language, execution: "inline" }));
@@ -175,6 +193,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       ...(d.input ?? {}), values: valueFn(rule.ruleKey, events[0].data),
       // The other seats' rules and value functions (their othersAfter), in seat order, from the bundle.
       others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey, events[0].data) })),
+      occupied: (s: string) => { const h = held.get(s); return h !== undefined && h !== d.objectId; }, disclosed,
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);

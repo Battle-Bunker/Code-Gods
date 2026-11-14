@@ -15,12 +15,14 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
 import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
+import { noiseAt } from "./disclose";
 import { valueFnIn } from "./values";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
   worldSeconds: number; lastTickAt: number;
-  settings: { worldSeconds: number; startingObjects: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  held: { objectId: string; state: string }[]; noiseKey: string | null;
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseBits?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
 };
@@ -51,6 +53,12 @@ export const tick = internalAction({
       const nBorn = opportunities(econ.birthsPerSecond, dt, r);
       // Each birth's first draws: the commit places the first that no object holds (decision 24).
       const born = Array.from({ length: nBorn }, (_, i) => birthDraws(snap.variant, `${snap.seed}:${snap.objects + i + 1}`));
+      // Decision 24: who holds each state as this tick sees it, for the agents' `occupied`: the objects, this tick's
+      // births (the commit places the same draw: the first no object holds), then each act that commits here.
+      const holder = new Map(snap.held.map(h => [h.state, h.objectId]));
+      born.forEach((draws, i) => { const w = draws.find(d => !holder.has(d)); if (w !== undefined) holder.set(w, `born:${i}`); });
+      // Disclosure noise on the others' sums (disclose.ts): the host's othersAfter reports what a player is shown.
+      const disclosed = (e: string) => noiseAt({ noiseKey: snap.noiseKey ?? undefined, settings: snap.settings }, e);
       const nOffers = snap.objects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
       const picks = Array.from({ length: nOffers }, () => 1 + r.below(snap.objects));
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));
@@ -98,6 +106,7 @@ export const tick = internalAction({
           rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
           ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
+          occupied: e => { const h = holder.get(e); return h !== undefined && h !== s.objectId; }, disclosed,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.
@@ -106,7 +115,12 @@ export const tick = internalAction({
         const verdict = !changed ? (record.outcome === "committed" ? "skipped" : record.outcome)
           : affordable(energy, record.charge, actCredit(capacity)) ? "committed" : "unaffordable";
         balance.set(agent.agentId, energy - (verdict === "unaffordable" ? readCharge(record.readBits) : record.charge));
-        if (verdict === "committed") local.set(number, record.after);
+        if (verdict === "committed") {
+          const was = local.get(number) ?? s.state;
+          if (holder.get(was) === s.objectId) holder.delete(was);
+          holder.set(record.after, s.objectId);
+          local.set(number, record.after);
+        }
         acts.push({
           n: snap.acts + i, verdict, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
           seed, energy, liveObjects: snap.objects, programVersion: agent.version, record, input,

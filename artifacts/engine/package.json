@@ -20,6 +20,7 @@
     "@convex-dev/migrations": "0.3.7",
     "@convex-dev/static-hosting": "0.2.1",
     "@modelcontextprotocol/server": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "@workspace/v2-affordances": "workspace:*",
     "@workspace/v2-agents": "workspace:*",
     "@workspace/v2-ai": "workspace:*",

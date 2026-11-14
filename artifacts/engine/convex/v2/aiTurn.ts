@@ -4,6 +4,7 @@
  * assistant tools for the seat's context, performed through the same `<verb>As` functions an assistant or MCP client
  * calls, as the AI's principal (`member:<id>`). Spending is held to the seat's allowance per game (v2/ai.ts).
  */
+import { disclosed } from "./disclose";
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
 import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, runAssistant, type ChatRow, type MoveRow } from "@workspace/v2-ai";
@@ -65,7 +66,8 @@ export const deals = internalQuery({
     const moves: MoveRow[] = [];
     for (const r of game.roster) {
       const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", gameId).eq("memberId", r.memberId)).order("desc").take(MOVE_ROWS);
-      for (const m of rows) if (m.by && m.by !== r.memberId && m.after.points < m.before.points)
+      // On the points as disclosed (disclose.ts): the noisy others' sums while live, as the players saw them.
+      for (const m of rows) if (m.by && m.by !== r.memberId && disclosed(game, m.after).points < disclosed(game, m.before).points)
         moves.push({ by: names.get(m.by) ?? "", line: m.number, at: m.worldSeconds, lowered: [r.name] });
     }
     const agents = await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).collect();

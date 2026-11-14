@@ -50,7 +50,7 @@ export const header = internalQuery({
       const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", s.memberId)).unique();
       if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, contentHash: r.contentHash, value: valueFnOf(r.ruleKey, scopeOf(game)), handicap: r.handicap ?? null });
     }
-    const { _id, _creationTime, replayFile: _, ...rest } = game;
+    const { _id, _creationTime, replayFile: _, noiseKey: _key, ...rest } = game;
     return { game: { gameId: _id, ...rest }, rules };
   },
 });

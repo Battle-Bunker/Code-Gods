@@ -19,6 +19,7 @@ import { mintPlayerJwt } from "../auth/jwt";
 import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
+import { noiseAt, shownAt } from "./disclose";
 
 const fixtures = () => {
   if (!fixturesOn(process.env)) throw new ConvexError({ code: "FORBIDDEN", message: "v2 fixtures need TEST_FIXTURES=1" });
@@ -272,6 +273,16 @@ export const valueOf = internalQuery({
   },
 });
 
+/** A game's exact running totals (the engine's, never shown while live) and the totals as disclosed. */
+export const totalsOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const e = (await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", gameId)).unique())!;
+    return { exact: e.totals, shown: e.shownTotals ?? null };
+  },
+});
+
 /** Every agent of a game with its share and energy (the credit rule's test: no agent owes more than its capacity). */
 export const agentsOf = internalQuery({
   args: { gameId: v.id("v2Games") },
@@ -378,11 +389,45 @@ export const movesAndTugs = internalQuery({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => {
     fixtures();
-    const moves = (await movesOfGame(ctx, gameId)).map(m => ({ memberId: m.memberId, seq: m.seq, objectId: m.objectId, mine: m.mine, by: m.by, charge: m.charge ?? 0, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, points: m.after.points }));
+    const moves = (await movesOfGame(ctx, gameId)).map(m => ({ memberId: m.memberId, seq: m.seq, objectId: m.objectId, mine: m.mine, by: m.by, charge: m.charge ?? 0, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, points: m.after.shownPoints ?? m.after.points }));   // as disclosed (tugs show what the player was shown)
     const game = (await ctx.db.get(gameId))!, tugs = [];
     for (const r of game.roster) tugs.push(...await ctx.db.query("v2Tugs").withIndex("by_game_member_flips", q => q.eq("gameId", gameId).eq("memberId", r.memberId)).collect());
     return { moves, tugs };
   },
+});
+
+/** A game's disclosure-noise state: whether it has a key, and its value rows with and without disclosed fields. */
+export const noiseState = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!;
+    const rows = await ctx.db.query("v2ObjectValues").withIndex("by_game_member_points", q => q.eq("gameId", gameId)).collect();
+    let consistent = 0;
+    for (const r of rows) {
+      const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", r.objectId)).unique())!;
+      const want = shownAt(r, noiseAt(game, st.state));
+      if (r.shownWant !== undefined && Math.abs(r.shownWant - want.shownWant) < 1e-9 && Math.abs(r.shownPoints! - want.shownPoints) < 1e-9) consistent++;
+    }
+    return { key: !!game.noiseKey, rows: rows.length, shown: rows.filter(r => r.shownWant !== undefined).length, consistent, points: rows.map(r => r.points) };
+  },
+});
+
+/** An ended game's noise key and σ (re-execution passes the noise the tick passed; private while live). */
+export const noiseOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const g = (await ctx.db.get(gameId))!;
+    if (g.phase !== "ended") throw new Error("the noise key is private while the game runs");
+    return { noiseKey: g.noiseKey ?? null, settings: g.settings };
+  },
+});
+
+/** Ends a seeded game as the loop would leave it (phase only). */
+export const markEnded = internalMutation({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => { fixtures(); await ctx.db.patch(gameId, { phase: "ended", endedAt: Date.now() }); },
 });
 
 /** Rows of a game as they were stored before decision 23 (#488): a level on values and moves, a ladder on rules. */
