@@ -7,8 +7,7 @@
  */
 import { useMemo, useState } from "react";
 import { ObjectChip } from "@workspace/v2-views";
-import { lineType, type LineState } from "@workspace/v2-linear";
-import { decodeState, useGameScope, useMyObject, useMyRule, type LineRule, type MyRule } from "@/sdk";
+import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, energyText, pointsText } from "@/core/words";
 import { argError, mutatorChoices, standing, whatIf, wireNumber, type MutatorChoice } from "./what-if-model";
@@ -28,7 +27,7 @@ function Delta({ label, from, to, fmt, testId }: { label: string; from: number |
   );
 }
 
-function Tryout({ rule, my, state, want, sites }: { rule: LineRule; my: MyRule; state: LineState; want: number | null; sites: number }) {
+function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; state: unknown; want: number | null; sites: number }) {
   const choices = useMemo(() => mutatorChoices(rule.variant), [rule.variant]);
   const [id, setId] = useState(choices[0]!.id);
   const choice = choices.find(c => c.id === id) ?? choices[0]!;
@@ -83,13 +82,13 @@ function Tryout({ rule, my, state, want, sites }: { rule: LineRule; my: MyRule; 
         : out && !out.ok ? <p className="text-sm text-destructive" data-testid="text-what-if-error">This change is not allowed: {out.reason}.</p>
         : out && out.ok ? (
           <div className="space-y-2 border-t pt-3 text-sm" data-testid="what-if-result">
-            <p data-testid="text-what-if-after">It would {out.what}: <ObjectChip type={lineType} state={out.after} sites={sites} /></p>
+            <p data-testid="text-what-if-after">It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
             <dl className="space-y-1">
               <Delta label="Your rule" from={out.from.level} to={out.to.level} fmt={l => `step ${l} of ${out.to.top}`} testId="text-what-if-step" />
               <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={bitsText} testId="text-what-if-rarity" />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId="text-what-if-points" />
             </dl>
-            {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this line stay as they are now ({bitsText(want)}): their rules are secret, so nobody can tell how much they would want it after.</p>}
+            {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(want)}): their rules are secret, so nobody can tell how much they would want it after.</p>}
             <p className="text-xs text-muted-foreground" data-testid="text-what-if-charge">An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
           </div>
         ) : null}
@@ -100,15 +99,17 @@ function Tryout({ rule, my, state, want, sites }: { rule: LineRule; my: MyRule; 
 function FocusedTryout({ objectId }: { objectId: string }) {
   const o = useMyObject(objectId);
   const my = useMyRule();
-  const state = useMemo(() => (o ? decodeState(o.state) : null), [o?.state]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!o || !state || !my) return <p className="p-4 text-sm text-muted-foreground">Loading this line…</p>;
+  const variant = useGame()?.variant;
+  const word = objectWord(variant);
+  const state = useMemo(() => (o ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!o || !state || !my) return <p className="p-4 text-sm text-muted-foreground">Loading this {word.one}…</p>;
   if (!my.rule) return <p className="p-4 text-sm text-muted-foreground">This version of the app cannot work out your rule yet: reload the page to update it.</p>;
-  const sites = lineType.sites(state, my.rule.variant);
+  const sites = my.rule.type.sites(state, my.rule.variant);
   return (
     <div className="space-y-3 p-3" data-testid="what-if" data-line={o.number}>
       <div className="space-y-1 text-sm">
-        <p><span className="font-semibold">Line {o.number}</span>: <ObjectChip type={lineType} state={state} sites={sites} /></p>
-        <p className="text-xs text-muted-foreground">Try a change to see what it would do. Nothing happens to the line: only agents change lines.</p>
+        <p><span className="font-semibold">{word.One} {o.number}</span>: <ObjectChip type={my.rule.type} state={state} sites={sites} /></p>
+        <p className="text-xs text-muted-foreground">Try a change to see what it would do. Nothing happens to the {word.one}: only agents change {word.many}.</p>
       </div>
       <Tryout key={objectId} rule={my.rule} my={my} state={state} want={o.value?.want ?? null} sites={sites} />
     </div>
@@ -118,7 +119,8 @@ function FocusedTryout({ objectId }: { objectId: string }) {
 export function WhatIfPane() {
   const { seated } = useGameScope();
   const focus = useView().focus;
+  const word = objectWord(useGame()?.variant);
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="what-if-none">You hold no rule in this game, so there is no score to try changes on.</p>;
-  if (!focus) return <p className="p-4 text-sm text-muted-foreground" data-testid="what-if-empty">Pick a line in Lines, then try a change on it here.</p>;
+  if (!focus) return <p className="p-4 text-sm text-muted-foreground" data-testid="what-if-empty">Pick a {word.one} in {word.Many}, then try a change on it here.</p>;
   return <FocusedTryout key={focus.objectId} objectId={focus.objectId} />;
 }

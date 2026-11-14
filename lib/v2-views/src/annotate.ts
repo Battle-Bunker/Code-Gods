@@ -6,12 +6,13 @@
  * Never disagreeing: every number here is a recorded term or an element the rule read. Nothing is recomputed.
  */
 import {
-  elementDecl, elementValue, evaluateObject, layerLadders, levelOf, objectLadder, type ElementRef, type Evaluation, type Mark,
+  elementDecl, elementValue, evaluateObject, refKey, representation, layerLadders, levelOf, objectLadder, type ElementRef, type Evaluation, type Mark,
   type ObjectEvaluation, type ObjectType, type Q, type RuleFamily, type Rung, type Score, type Term, type TieBreaker, type Undef,
   type Variant,
 } from "@workspace/v2-core";
 import { fmtQ, fmtTermValue, fmtValue, isUndef } from "./format.ts";
-import { markTerm } from "./refs.ts";
+import { markTerm, nounOf } from "./refs.ts";
+import { rendererFor } from "./scene.ts";
 
 export interface RuleRef<S, P> {
   readonly type: ObjectType<S>;
@@ -53,6 +54,8 @@ export interface SiteAnnotation {
 }
 
 export interface Annotation {
+  /** The game's noun for the object ("line", "grid"): every sentence about it uses this word. */
+  readonly noun: string;
   readonly score: Score;
   /** The object's level on the rule's (object) ladder, and the top level. */
   readonly level: number;
@@ -104,15 +107,38 @@ function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, st
     return { name: partName(i), term: c.term.id, label: c.term.label, value, sense: c.sense, rung, rungs, rungLabel, nextLabel, sentence, marks };
   });
   const working: string[] = [];
+  // A rule that reads most of a representation's coordinates (every cell of a board) gets that representation in one
+  // line ("the board: 3 1 1 3 / …"), not one line per coordinate.
+  const coords = new Map<string, Set<string>>();
+  for (const r of e.reads) {
+    let role;
+    try { role = elementDecl(rule.type, r).role; } catch { continue; }
+    if (role === "coordinate") coords.set(r.rep, (coords.get(r.rep) ?? new Set()).add(refKey(r)));
+  }
+  const whole = new Set([...coords].filter(([, ks]) => ks.size >= WHOLE_REP).map(([rep]) => rep));
+  for (const rep of whole) working.push(`${representation(rule.type, rep).title}: ${sceneText(rule.type, state, rep, site)}`);
   for (const r of e.reads) {
     let decl;
     try { decl = elementDecl(rule.type, r); } catch { continue; }
     if (decl.role === "dynamic" && decl.kind !== "number") continue; // drawn, not computed with
+    if (decl.role === "coordinate" && whole.has(r.rep)) continue;
     const v = fmtValue(elementValue(rule.type, state, r, site));
     working.push(`${decl.label}${argText(r)} = ${v}`);
   }
   for (const t of e.terms) working.push(`${t.label} = ${fmtTermValue(t.value)}`);
   return { site, evaluation: e, parts, working };
+}
+
+/** Coordinates read from one representation at or past which the working writes the representation whole. */
+const WHOLE_REP = 9;
+
+/** A representation's plain text by its scene's renderer (registered by render/register.ts), or its values in a row. */
+function sceneText<S>(type: ObjectType<S>, state: S, rep: string, site: number): string {
+  const r = representation(type, rep);
+  const values = (x: ElementRef) => elementValue(type, state, x, site);
+  const renderer = rendererFor(r.scene);
+  if (renderer) return renderer.text(r.layout(state, site), values, rep);
+  return r.elements.filter(d => d.role === "coordinate").map(d => fmtValue(values({ rep, name: d.name }))).join(" ");
 }
 
 const argText = (r: ElementRef) => (r.args && Object.keys(r.args).length ? ` (${Object.entries(r.args).map(([k, v]) => `${k} = ${v.replace("-", "−")}`).join(", ")})` : "");
@@ -140,7 +166,7 @@ export function annotateEvaluation<S, P>(rule: RuleRef<S, P>, state: S, ev: Obje
   }
   const r = opts.rarities;
   return {
-    score: ev.score, level, top, ladder,
+    noun: nounOf(rule.type), score: ev.score, level, top, ladder,
     rarity: r?.[level] ?? null, nextRarity: level < top ? r?.[level + 1] ?? null : null,
     worst, sites,
   };

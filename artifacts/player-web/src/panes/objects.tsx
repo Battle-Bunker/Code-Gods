@@ -12,8 +12,7 @@ import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v2-views";
-import { lineType } from "@workspace/v2-linear";
-import { decodeState, DEFAULT_REP, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type LineRule } from "@/sdk";
+import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { usePaneOps } from "@/dock/open-pane";
@@ -78,30 +77,31 @@ function SortControl() {
   );
 }
 
-function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpen }: {
-  objectId: string; number: number; rule: LineRule | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void;
+function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpen, variant }: {
+  objectId: string; number: number; rule: GameRule | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void; variant: string;
 }) {
   const o = useMyObject(objectId);
-  const state = useMemo(() => (o ? decodeState(o.state) : null), [o?.state]); // eslint-disable-line react-hooks/exhaustive-deps
+  const word = objectWord(variant);
+  const state = useMemo(() => (o ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
   const a: Annotation | null = useMemo(() => (rule && state ? annotate(rule, state) : null), [rule, state]);
   const open = () => onOpen(objectId);
   const shell = (body: ReactNode) => (
     <div role="button" tabIndex={0} onClick={open} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
-      data-testid={`row-line-${number}`} aria-label={`Open line ${number}`} aria-current={focused || undefined}
+      data-testid={`row-line-${number}`} aria-label={`Open ${word.one} ${number}`} aria-current={focused || undefined}
       className={`flex h-full min-w-0 cursor-pointer items-start gap-3 overflow-hidden border-t border-[hsl(var(--card-border))] px-3 py-2 hover:bg-muted/50 ${focused ? "bg-primary/10" : ""}`}>
       {body}
     </div>
   );
-  if (!o || !state) return shell(<span className="text-xs text-muted-foreground">Line {number} …</span>);
+  if (!o || !state || !variant) return shell(<span className="text-xs text-muted-foreground">{word.One} {number} …</span>);
   const v = o.value;
   const main = a?.sites[0]?.parts[0];
   return shell(<>
     <div className="shrink-0" data-testid={`marks-line-${number}`} data-rep={rep}>
-      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} /> : <ObjectChip type={lineType} state={state} />}
+      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
     </div>
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">
-        <span className="font-semibold">Line {number}</span>
+        <span className="font-semibold">{word.One} {number}</span>
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
@@ -130,7 +130,7 @@ function SeatedLines() {
   const panes = usePaneOps(useReplaySource() ? "replay" : header?.phase ?? "live");
   const scale = useMemo(() => digestScale(digest?.packed), [digest?.packed]);
   const rule = my?.rule ?? null;
-  const rep = rule ? pinnedRep(view, rule.family.id, my!.row.primary) : DEFAULT_REP;
+  const rep = rule ? pinnedRep(view, rule.family.id, my!.row.primary) : defaultRepOf(header?.variant);
   const onOpen = useCallback(async (objectId: string) => {
     // The pane first (the arrangement on screen kept, at most five), then the line in it.
     if (!await panes.open("object")) return;
@@ -156,18 +156,19 @@ function SeatedLines() {
         <PointsKey />
       </div>
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
-        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} />} />
+        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
     </div>
   );
 }
 
-function SpectatorRow({ objectId, number }: { objectId: string; number: number }) {
+function SpectatorRow({ objectId, number, variant }: { objectId: string; number: number; variant: string }) {
   const o = useMyObject(objectId);
-  const state = useMemo(() => (o ? decodeState(o.state) : null), [o?.state]); // eslint-disable-line react-hooks/exhaustive-deps
+  const word = objectWord(variant);
+  const state = useMemo(() => (o ? decodeState(o.state, variant) : null), [o?.state, variant]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex h-full items-center gap-3 border-t border-[hsl(var(--card-border))] px-3 text-sm" data-testid={`row-line-${number}`}>
-      <span className="w-16 shrink-0 text-xs text-muted-foreground">Line {number}</span>
-      {state ? <ObjectChip type={lineType} state={state} /> : <span className="text-xs text-muted-foreground">…</span>}
+      <span className="w-16 shrink-0 text-xs text-muted-foreground">{word.One} {number}</span>
+      {state && variant ? <ObjectChip type={objectTypeOf(variant)} state={state} /> : <span className="text-xs text-muted-foreground">…</span>}
     </div>
   );
 }
@@ -175,15 +176,17 @@ function SpectatorRow({ objectId, number }: { objectId: string; number: number }
 function SpectatorLines() {
   const wide = useWide();
   const { results, status, loadMore } = useSpectatorObjectIds();
+  const variant = useGame()?.variant ?? "";
+  const word = objectWord(variant);
   const onNearEnd = useCallback(() => { if (status === "CanLoadMore") loadMore(30); }, [status, loadMore]);
-  if (status === "LoadingFirstPage") return <p className="p-4 text-sm text-muted-foreground">Loading the lines…</p>;
-  if (!results.length) return <p className="p-4 text-sm text-muted-foreground" data-testid="lines-empty">When the world starts, its lines appear here.</p>;
+  if (status === "LoadingFirstPage") return <p className="p-4 text-sm text-muted-foreground">Loading the {word.many}…</p>;
+  if (!results.length) return <p className="p-4 text-sm text-muted-foreground" data-testid="lines-empty">When the world starts, its {word.many} appear here.</p>;
   const maxHeight = listMaxHeight({ phone: !wide, viewportHeight: typeof window === "undefined" ? 0 : window.innerHeight });
   return (
     <div className="space-y-2 pt-2" data-testid="lines">
-      <p className="px-3 text-xs text-muted-foreground">You're watching: every line in the world, by number. The players' points on them are theirs alone.</p>
+      <p className="px-3 text-xs text-muted-foreground">You're watching: every {word.one} in the world, by number. The players' points on them are theirs alone.</p>
       <VirtualRows rows={results} rowHeight={SPECTATOR_ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
-        render={r => <SpectatorRow objectId={r.objectId} number={r.number} />} />
+        render={r => <SpectatorRow objectId={r.objectId} number={r.number} variant={variant} />} />
     </div>
   );
 }

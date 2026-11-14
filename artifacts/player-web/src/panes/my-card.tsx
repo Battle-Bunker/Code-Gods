@@ -5,11 +5,11 @@
  */
 import { useMemo } from "react";
 import { GoalCard } from "@workspace/v2-views";
-import { useGameScope, useMyRule, type LineRule } from "@/sdk";
+import { useGameScope, useMyRule, type GameRule } from "@/sdk";
 import { partsNote } from "./lines";
 import { workedExample } from "./worked-example";
 
-function Card({ rule, rarities, parts }: { rule: LineRule; rarities: number[]; parts: number }) {
+function Card({ rule, rarities, parts }: { rule: GameRule; rarities: number[]; parts: number }) {
   const example = useMemo(() => workedExample(rule), [rule]);
   const note = partsNote(parts);
   return (

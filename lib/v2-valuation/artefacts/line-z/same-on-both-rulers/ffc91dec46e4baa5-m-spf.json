@@ -420,8 +420,8 @@
    "label": "the unchanged number to T exactly",
    "layer": 0,
    "main": 8,
-   "bits": 7.3114,
-   "error": 0.0082,
+   "bits": 7.3196,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -432,8 +432,8 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 2",
    "layer": 1,
    "main": 8,
-   "bits": 10.2281,
-   "error": 0.0619,
+   "bits": 10.2898,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -444,8 +444,8 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 3",
    "layer": 1,
    "main": 8,
-   "bits": 11.7906,
-   "error": 0.1824,
+   "bits": 11.9727,
+   "error": 0.0001,
    "source": "exact"
   },
   {
@@ -456,9 +456,9 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 5",
    "layer": 1,
    "main": 8,
-   "bits": 12.9581,
-   "error": 0.8539,
-   "source": "simulated"
+   "bits": 13.8732,
+   "error": 0.0002,
+   "source": "exact"
   },
   {
    "score": [
@@ -468,9 +468,9 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 7",
    "layer": 1,
    "main": 8,
-   "bits": 14.882,
-   "error": 1.6064,
-   "source": "simulated"
+   "bits": 15.6227,
+   "error": 0.0007,
+   "source": "exact"
   },
   {
    "score": [
@@ -480,9 +480,9 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 11",
    "layer": 1,
    "main": 8,
-   "bits": 18.3136,
-   "error": 1.0152,
-   "source": "simulated"
+   "bits": 18.0996,
+   "error": 0.0039,
+   "source": "exact"
   },
   {
    "score": [
@@ -492,9 +492,9 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 13",
    "layer": 1,
    "main": 8,
-   "bits": 18.3664,
-   "error": 1.0841,
-   "source": "simulated"
+   "bits": 19.6647,
+   "error": 0.0117,
+   "source": "exact"
   },
   {
    "score": [
@@ -504,9 +504,9 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 17",
    "layer": 1,
    "main": 8,
-   "bits": 19.1041,
-   "error": 13.0054,
-   "source": "simulated"
+   "bits": 21.5746,
+   "error": 0.0439,
+   "source": "exact"
   },
   {
    "score": [
@@ -516,13 +516,13 @@
    "label": "the unchanged number to T exactly; the gradient's smallest prime factor at least 19",
    "layer": 1,
    "main": 8,
-   "bits": 29.623,
-   "error": null,
-   "source": "simulated"
+   "bits": 23.0918,
+   "error": 0.1254,
+   "source": "exact"
   }
  ],
- "cap": 34,
- "convergedCap": 34,
+ "cap": 40,
+ "convergedCap": 40,
  "tail": null,
  "dealable": true,
  "primarySense": "min",
@@ -605,15 +605,15 @@
     7.2921,
     7.3028,
     7.3032,
-    7.3032,
-    10.1662,
-    11.6082,
-    12.8211,
-    13.4177,
-    13.7003,
-    13.7463,
-    13.7639,
-    13.768
+    7.3196,
+    10.2898,
+    11.9726,
+    13.873,
+    15.622,
+    18.0957,
+    19.6531,
+    21.5308,
+    22.9664
    ],
    "hi": [
     0,
@@ -649,13 +649,13 @@
     7.3192,
     7.3196,
     7.3196,
-    10.29,
-    11.9731,
-    13.874,
-    15.6239,
-    18.1052,
-    19.6769,
-    21.6186,
+    10.2898,
+    11.9727,
+    13.8734,
+    15.6235,
+    18.1036,
+    19.6764,
+    21.6185,
     23.2173
    ]
   },
@@ -2728,5 +2728,5 @@
    ]
   }
  },
- "contentHash": "5a4db146ae95676c"
+ "contentHash": "1ad1d6294db72de8"
 }

@@ -7,7 +7,7 @@
  *
  * - `separable`: the layer's term depends on m alone or on c alone. When every dealt layer is separable the law of
  *   the score is a product of two 1D laws: exact to the top.
- * - `band`: every line whose main layer is at level `fromMain` or above (1 = the main layer's first threshold) has its
+ * - `bands`: for each band, every line whose main layer is at level `fromMain` or above (1 = the main layer's first threshold) has its
  *   c in the ranges given for its m. This is a contract: the valuation trusts it and test/sums.test.ts checks it
  *   against brute force for every family that declares one. The ranges may be wide (the valuation intersects them
  *   with the integers it enumerates) and may cover lines below fromMain (they are counted at their own level).
@@ -17,13 +17,22 @@ import { isqrt } from "./numbers.ts";
 /** c from lo to hi inclusive, or only its multiples of `step` when given. */
 export interface CRange { readonly lo: bigint; readonly hi: bigint; readonly step?: bigint }
 
+/**
+ * A band (see the header). `points`: its ranges are single points, evaluated whatever their size, so only the lines with
+ * m beyond the budget are left outside. "same": the same points for every m (Prime Staircase's primes), bounded by
+ * T(m) times their mass. "one-per-m": one point for each m (c fixed by m, as where the main layer is exact), bounded by
+ * T(m) times the dearest point's largest possible mass.
+ */
+export interface Band<P> {
+  fromMain(p: P): number;
+  ranges(m: bigint, p: P): readonly CRange[];
+  readonly points?: "same" | "one-per-m";
+}
+
 export interface LineSums<P> {
   readonly separable?: Readonly<Record<string, "m" | "c">>;
-  /**
-   * `fixed`: the ranges do not depend on m and are single points (Prime Staircase's primes). They are then evaluated
-   * whatever their size, and the lines with m beyond the budget are bounded by T(m) times their mass, not by T(m).
-   */
-  readonly band?: { fromMain(p: P): number; ranges(m: bigint, p: P): readonly CRange[]; readonly fixed?: boolean };
+  /** One or more bands; each rung takes the tightest interval any of them gives. */
+  readonly bands?: readonly Band<P>[];
 }
 
 const abs = (x: bigint) => (x < 0n ? -x : x);
@@ -48,25 +57,40 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   "prime-landing": { separable: { landing: "c", "big-prime": "c", "m-spf": "m", "m-gpf": "m" } },
   // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
   "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },
-  "m-meets-c": { band: { fromMain: () => 6, ranges: m => [{ lo: m - 1n, hi: m + 1n }] } },          // |m − c| ≤ 1
-  "treasure": { band: { fromMain: () => 4, ranges: (m, p: { k: number; T: number }) => {       // |c + km − T| ≤ 4
-    const c0 = BigInt(p.T) - BigInt(p.k) * m;
-    return [{ lo: c0 - 4n, hi: c0 + 4n }];
-  } } },
-  "triangle-area": { band: { fromMain: () => 5, ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) } },   // within 2
-  "same-on-both-rulers": { band: { fromMain: () => 4, ranges: (m, p: { T: number }) => {      // |c/(1 − m) − T| ≤ 2
-    if (m === 1n) return [];
-    const k = 1n - m, a = BigInt(p.T - 2) * k, b = BigInt(p.T + 2) * k;
-    return [{ lo: a < b ? a : b, hi: a < b ? b : a }];
-  } } },
-  "square-area": { band: { fromMain: (_p: object) => 9, ranges: m => {                        // the area exactly a square
+  "m-meets-c": { bands: [{ fromMain: () => 6, ranges: m => [{ lo: m - 1n, hi: m + 1n }] }] },          // |m − c| ≤ 1
+  "treasure": { bands: [
+    { fromMain: () => 4, ranges: (m, p: { k: number; T: number }) => {                         // |c + km − T| ≤ 4
+      const c0 = BigInt(p.T) - BigInt(p.k) * m;
+      return [{ lo: c0 - 4n, hi: c0 + 4n }];
+    } },
+    // y(k) = T exactly (the main layer's last threshold): c = T − km, one c for each m, summed at any size.
+    { fromMain: () => 7, points: "one-per-m", ranges: (m, p: { k: number; T: number }) => {
+      const c0 = BigInt(p.T) - BigInt(p.k) * m;
+      return [{ lo: c0, hi: c0 }];
+    } },
+  ] },
+  "triangle-area": { bands: [{ fromMain: () => 5, ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) }] },   // within 2
+  "same-on-both-rulers": { bands: [
+    { fromMain: () => 4, ranges: (m, p: { T: number }) => {                                    // |c/(1 − m) − T| ≤ 2
+      if (m === 1n) return [];
+      const k = 1n - m, a = BigInt(p.T - 2) * k, b = BigInt(p.T + 2) * k;
+      return [{ lo: a < b ? a : b, hi: a < b ? b : a }];
+    } },
+    // The unchanged number exactly T (the main layer's last threshold): c = T(1 − m), one c for each m.
+    { fromMain: () => 8, points: "one-per-m", ranges: (m, p: { T: number }) => {
+      if (m === 1n) return [];
+      const c0 = BigInt(p.T) * (1n - m);
+      return [{ lo: c0, hi: c0 }];
+    } },
+  ] },
+  "square-area": { bands: [{ fromMain: (_p: object) => 9, ranges: m => {                        // the area exactly a square
     // c²/(2|m|) = r² needs 2|m| = t² and c a multiple of t.
     if (m === 0n) return [];
     const t = isqrt(2n * abs(m));
     return t * t === 2n * abs(m) ? [{ lo: -BIG, hi: BIG, step: t }] : [];
-  } } },
+  } }] },
   // The x-axis crossing −c/m is whole exactly when m divides c.
-  "whole-crossing": { band: { fromMain: () => 7, ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) } },
+  "whole-crossing": { bands: [{ fromMain: () => 7, ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) }] },
   // A run of one or more different primes from y(0) needs c prime: every rung above the first is a sum over the primes.
-  "prime-staircase": { band: { fromMain: () => 1, fixed: true, ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) } },
+  "prime-staircase": { bands: [{ fromMain: () => 1, points: "same", ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) }] },
 };
