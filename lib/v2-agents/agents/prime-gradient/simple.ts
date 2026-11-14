@@ -1,5 +1,5 @@
 // Prime Gradient · Simple
-// Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime; the y-intercept close to a prime too).
+// Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime).
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Try this: add the seq.step line from the Thorough starter: a third way to change the line.
@@ -11,11 +11,6 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(m, nearest)));
   // main: how far the gradient is from the nearest prime (closer is better)
   if (tie === "prime") return [main, nearest];   // a bigger prime is better
-  if (tie === "cPrime") {   // the y-intercept close to a prime too
-    const cp = near(c, prime);
-    if (cp === null) return null;
-    return [main, Q.neg(Q.abs(Q.sub(c, cp)))];
-  }
   return [main];
 }
 

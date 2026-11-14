@@ -1,5 +1,5 @@
 // Same on Both Rulers · Thorough
-// Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1; |c| close to a prime; different whole numbers among y(−5) … y(5); the lamp's height close to whole).
+// Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1).
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
@@ -11,18 +11,6 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(fixed, p.T)));
   // main: how far the number the machine leaves unchanged is from T (closer is better)
   if (tie === "steep") return [main, Q.abs(Q.sub(m, 1))];   // a gradient far from 1 is better
-  if (tie === "prime-start") {   // |c| close to a prime is better
-    const start = Q.abs(c);
-    return [main, Q.neg(Q.abs(Q.sub(start, near(start, prime))))];
-  }
-  if (tie === "whole-values") {   // more different whole numbers among y(-5) ... y(5) is better
-    const values = new Set([...Array(11).keys()].map(i => Q.add(Q.mul(m, i - 5), c)).filter(Q.isInteger).map(Q.toString));   // y(-5) ... y(5)
-    return [main, values.size];
-  }
-  if (tie === "whole-lamp") {   // a lamp at a whole height is better
-    const lamp = Q.div(m, Q.sub(m, 1));             // the lamp's height m/(m - 1)
-    return [main, Q.neg(Q.abs(Q.sub(lamp, whole(lamp))))];
-  }
   return [main];
 }
 

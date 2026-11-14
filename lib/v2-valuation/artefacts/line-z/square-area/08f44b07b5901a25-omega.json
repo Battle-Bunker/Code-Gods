@@ -1,0 +1,694 @@
+{
+ "schema": 5,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/square-area/{}/tb=omega",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "square-area",
+ "params": {},
+ "tieBreaker": "omega",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "2"
+   ],
+   "label": "anything; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.0438,
+   "error": 0.0042,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "4"
+   ],
+   "label": "anything; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.1482,
+   "error": 0.0045,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "6"
+   ],
+   "label": "anything; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.1739,
+   "error": 0.0046,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the area to a square within 8",
+   "layer": 0,
+   "main": 1,
+   "bits": 2.1777,
+   "error": 0.0046,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "2"
+   ],
+   "label": "the area to a square within 8; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 1,
+   "bits": 2.2124,
+   "error": 0.0047,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "4"
+   ],
+   "label": "the area to a square within 8; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 1,
+   "bits": 2.2725,
+   "error": 0.0049,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "6"
+   ],
+   "label": "the area to a square within 8; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 1,
+   "bits": 2.2747,
+   "error": 0.0049,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the area to a square within 4",
+   "layer": 0,
+   "main": 2,
+   "bits": 2.2747,
+   "error": 0.0049,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "2"
+   ],
+   "label": "the area to a square within 4; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.3502,
+   "error": 0.0052,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "4"
+   ],
+   "label": "the area to a square within 4; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.4138,
+   "error": 0.0054,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "6"
+   ],
+   "label": "the area to a square within 4; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.4156,
+   "error": 0.0054,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the area to a square within 2",
+   "layer": 0,
+   "main": 3,
+   "bits": 2.4156,
+   "error": 0.0054,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "2"
+   ],
+   "label": "the area to a square within 2; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 3,
+   "bits": 2.5251,
+   "error": 0.0059,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "4"
+   ],
+   "label": "the area to a square within 2; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 3,
+   "bits": 2.5732,
+   "error": 0.0061,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "6"
+   ],
+   "label": "the area to a square within 2; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 3,
+   "bits": 2.574,
+   "error": 0.0061,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the area to a square within 1",
+   "layer": 0,
+   "main": 4,
+   "bits": 2.574,
+   "error": 0.0061,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "2"
+   ],
+   "label": "the area to a square within 1; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 4,
+   "bits": 2.7907,
+   "error": 0.0071,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "4"
+   ],
+   "label": "the area to a square within 1; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 4,
+   "bits": 2.8038,
+   "error": 0.0071,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "6"
+   ],
+   "label": "the area to a square within 1; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 4,
+   "bits": 2.8041,
+   "error": 0.0071,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/2"
+   ],
+   "label": "the area to a square within 1/2",
+   "layer": 0,
+   "main": 5,
+   "bits": 2.8041,
+   "error": 0.0071,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/2",
+    "2"
+   ],
+   "label": "the area to a square within 1/2; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 5,
+   "bits": 3.3439,
+   "error": 0.0103,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/2",
+    "4"
+   ],
+   "label": "the area to a square within 1/2; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 5,
+   "bits": 3.3515,
+   "error": 0.0104,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/2",
+    "6"
+   ],
+   "label": "the area to a square within 1/2; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 5,
+   "bits": 3.3516,
+   "error": 0.0104,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/4"
+   ],
+   "label": "the area to a square within 1/4",
+   "layer": 0,
+   "main": 6,
+   "bits": 3.3516,
+   "error": 0.0104,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/4",
+    "2"
+   ],
+   "label": "the area to a square within 1/4; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 6,
+   "bits": 3.7797,
+   "error": 0.014,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/4",
+    "4"
+   ],
+   "label": "the area to a square within 1/4; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 6,
+   "bits": 3.7839,
+   "error": 0.014,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/4",
+    "6"
+   ],
+   "label": "the area to a square within 1/4; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 6,
+   "bits": 3.7839,
+   "error": 0.014,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/8"
+   ],
+   "label": "the area to a square within 1/8",
+   "layer": 0,
+   "main": 7,
+   "bits": 3.7839,
+   "error": 0.014,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/8",
+    "2"
+   ],
+   "label": "the area to a square within 1/8; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 7,
+   "bits": 4.2242,
+   "error": 0.019,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/8",
+    "4"
+   ],
+   "label": "the area to a square within 1/8; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 7,
+   "bits": 4.2279,
+   "error": 0.0191,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/8",
+    "6"
+   ],
+   "label": "the area to a square within 1/8; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 7,
+   "bits": 4.2279,
+   "error": 0.0191,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/16"
+   ],
+   "label": "the area to a square within 1/16",
+   "layer": 0,
+   "main": 8,
+   "bits": 4.2279,
+   "error": 0.0191,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/16",
+    "2"
+   ],
+   "label": "the area to a square within 1/16; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 8,
+   "bits": 5.7766,
+   "error": 0.0559,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/16",
+    "4"
+   ],
+   "label": "the area to a square within 1/16; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 8,
+   "bits": 5.7789,
+   "error": 0.0559,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1/16",
+    "6"
+   ],
+   "label": "the area to a square within 1/16; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 8,
+   "bits": 5.7789,
+   "error": 0.0559,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the area to a square exactly",
+   "layer": 0,
+   "main": 9,
+   "bits": 5.8315,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "1"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 1",
+   "layer": 1,
+   "main": 9,
+   "bits": 6.2152,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "2"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 2",
+   "layer": 1,
+   "main": 9,
+   "bits": 6.8418,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "3"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 3",
+   "layer": 1,
+   "main": 9,
+   "bits": 7.6081,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "4"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 4",
+   "layer": 1,
+   "main": 9,
+   "bits": 8.4571,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "5"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 5",
+   "layer": 1,
+   "main": 9,
+   "bits": 9.3571,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "6"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 6",
+   "layer": 1,
+   "main": 9,
+   "bits": 10.2896,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "7"
+   ],
+   "label": "the area to a square exactly; prime factors of the root at least 7",
+   "layer": 1,
+   "main": 9,
+   "bits": 11.2435,
+   "error": 0.0001,
+   "source": "exact"
+  }
+ ],
+ "cap": 43,
+ "convergedCap": 43,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "enumeration",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band",
+    "band"
+   ],
+   "lo": [
+    0,
+    2.0396,
+    2.1437,
+    2.1693,
+    2.1731,
+    2.2077,
+    2.2675,
+    2.2697,
+    2.2698,
+    2.345,
+    2.4084,
+    2.4102,
+    2.4102,
+    2.5192,
+    2.5672,
+    2.568,
+    2.568,
+    2.7837,
+    2.7967,
+    2.797,
+    2.797,
+    3.3336,
+    3.3411,
+    3.3412,
+    3.3412,
+    3.7658,
+    3.7698,
+    3.7698,
+    3.7698,
+    4.2052,
+    4.2088,
+    4.2088,
+    4.2088,
+    5.7208,
+    5.7229,
+    5.7229,
+    5.8315,
+    6.2152,
+    6.8418,
+    7.6081,
+    8.4571,
+    9.357,
+    10.2896,
+    11.2434
+   ],
+   "hi": [
+    0,
+    2.048,
+    2.1527,
+    2.1785,
+    2.1824,
+    2.2172,
+    2.2774,
+    2.2796,
+    2.2796,
+    2.3554,
+    2.4193,
+    2.4211,
+    2.4211,
+    2.531,
+    2.5793,
+    2.5801,
+    2.5801,
+    2.7978,
+    2.8109,
+    2.8112,
+    2.8112,
+    3.3543,
+    3.3619,
+    3.362,
+    3.362,
+    3.7937,
+    3.7979,
+    3.7979,
+    3.7979,
+    4.2433,
+    4.247,
+    4.247,
+    4.247,
+    5.8325,
+    5.8348,
+    5.8348,
+    5.8315,
+    6.2152,
+    6.8419,
+    7.6081,
+    8.4571,
+    9.3571,
+    10.2897,
+    11.2436
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "459c70e7b3c73b1e"
+}

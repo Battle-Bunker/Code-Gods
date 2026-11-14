@@ -1,5 +1,5 @@
 # Prime Landing · Thorough
-# Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to a prime too; y(1) close to a prime too).
+# Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
@@ -12,11 +12,6 @@ def score(m, c, p, tie):
     # main: how far the y-intercept is from the nearest prime (closer is better)
     if tie == "big-prime":   # a bigger prime is better
         return [main, landing]
-    if tie == "prime-gradient":   # a gradient close to a prime too is better
-        return [main, -abs(m - near(m, prime))]
-    if tie == "next-prime":   # y(1) close to a prime too is better
-        y1 = abs(m + c)                                 # y(1) = m + c, ignoring its sign
-        return [main, -abs(y1 - near(y1, prime))]
     return [main]
 
 

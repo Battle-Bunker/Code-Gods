@@ -15,7 +15,7 @@ const player = (name: string, family: string, tieBreaker: string) => {
 test("two players on shared lines spend their budget, by view, and both rules are measured", async () => {
   const r = await runHarness(boxes, {
     type: lineType, variant: lineZ, lines: 3, seed: "t", budget: 60,
-    players: [player("A", "m-meets-c", "meetPrime"), player("B", "prime-gradient", "cPrime")],
+    players: [player("A", "m-meets-c", "meetPrime"), player("B", "prime-gradient", "prime")],
   });
   assert.equal(r.rules.length, 2);
   for (const s of r.spend) {

@@ -2,8 +2,8 @@
 
 The owner asked for the upper ladder to be calibrated analytically, chained rung by rung onto the simulated part. This is
 the study the coordinator set (five questions); prices and artefacts are unchanged. Code: `lib/v2-valuation/src/cycles.ts`
-(cycle diagnostic), `src/exact.ts` (exact sums, dominant states), `study/` (the runs; `study/run.sh` reproduces them in
-about ten minutes on four cores, results in `study/results/`), tests in `test/analytic.test.ts`.
+(cycle diagnostic), `src/exact.ts` (exact sums, dominant states), `study/` (the runs and their results, deleted once the pool changed (§10.5); they are in git at 83b3ae80, where `study/run.sh` reproduces them in
+about ten minutes on four cores), tests in `test/analytic.test.ts`.
 
 ## Summary
 

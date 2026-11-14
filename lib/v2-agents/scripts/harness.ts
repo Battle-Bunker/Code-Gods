@@ -76,7 +76,7 @@ async function pool(): Promise<string> {
     "rule's bits can fall when another player's agent pulls the lines elsewhere.", "");
   const tables = [
     ["m-meets-c/size", "prime-gradient/prime", "triangle-area/legs"],
-    ["whole-intercept/spf", "m-meets-c/meetPrime", "prime-gradient/cPrime"],
+    ["whole-intercept/spf", "m-meets-c/meetPrime", "treasure/prime-terms"],
     ["square-area/omega", "triangle-area/even", "crossing-check/whole"],
   ];
   for (const specs of tables) {
