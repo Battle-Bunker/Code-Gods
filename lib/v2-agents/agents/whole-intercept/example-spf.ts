@@ -11,10 +11,13 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
-  const n = whole(c);                             // the whole number nearest the y-intercept
+  const up = whole(c);                            // the whole number nearest the y-intercept (a half rounds up)
+  const spf = k => (Q.isZero(k) ? 2 : (factors(k)[0] ?? 1));   // smallest prime factor: 2 for 0, 1 for 1 and -1
+  const half = Q.eq(Q.sub(up, c), Q.of(1, 2));   // exactly halfway between two whole numbers?
+  const n = half && spf(Q.sub(up, 1)) > spf(up) ? Q.sub(up, 1) : up;   // halfway: the one with the bigger smallest prime factor
   const main = Q.neg(Q.abs(Q.sub(c, n)));
   const f = factors(n);                           // its prime factors, smallest first
-  return [main, f.length ? f[0] : 1];   // main: how far the y-intercept is from a whole number (closer is better); tie-breaker: a bigger smallest prime factor is better (a big prime is best)
+  return [main, spf(n)];   // main: how far the y-intercept is from a whole number (closer is better); tie-breaker: a bigger smallest prime factor is better (a big prime is best)
 }
 
 const FAR = 3;      // how far one change may go

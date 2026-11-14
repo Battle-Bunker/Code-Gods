@@ -62,6 +62,12 @@ to change the game's logic.
   for several players; cooperation is about how each agent climbs, never about a destination. A far move in one act
   costs at least the cheapest path of smaller acts.
 - **Objects are unique** within a game (decision 24): no two objects hold the same state.
+- **Tie-breakers tie to the primary** (decision 29): a secondary relates the primary's anchor to another aspect of the
+  object, never an independent wish. **No maxima** (decision 26): no coefficient cap; value curves extend without bound;
+  a purely empirical top must be really high and documented. **Unbounded hills are wanted** (decision 30): "bigger is
+  better" tie-breakers stay; what prevents collapse is adversaries and diversity of goals, so one basic strategy rarely
+  benefits several rules at once (14 Nov: y = −2x + 734 paid 102k points because Square Area/spf and Whole Crossing/k-spf
+  both rewarded 367 upward with no rule in tension at the table). Value tails are clamped to the law's bound.
 - **Shortcuts through representations are wanted** (decision 25). The far-move rule covers the size of an additive
   change (an amount added costs in proportion to its size, more in one act than as a path). Swap, rotate, reverse,
   spin, mirror and stretch by a factor are intended shortcuts, priced as choices or by digits, never by the unit path:

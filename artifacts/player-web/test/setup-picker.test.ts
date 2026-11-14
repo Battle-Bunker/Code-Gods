@@ -36,7 +36,7 @@ test("a room already on a Lab preset still shows it to a player, so the picker n
 
 test("each setup says in words what it plays", () => {
   assert.match(setupBlurb(beginner), /fraction/i);
-  assert.match(setupBlurb(presetOf("lines-whole")), /whole-number lines/i);
+  assert.ok(!PRESETS.some(p => p.variant === "line-z"), "whole-number lines are not offered");
   assert.match(setupBlurb(presetOf("lines-beginner-bidding")), /bid/i);
 });
 

@@ -5,8 +5,9 @@
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
-import { largestPrimeFactor, nearbyPrimes, nearestInteger, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
-import { beginnerFamilies } from "./beginner.ts";
+import { largestPrimeFactor, nearbyPrimes, smallestPrimeFactor } from "./numbers.ts";
+import { beginnerFamilies, factorLabel } from "./beginner.ts";
+import { rationalFamilies } from "./rational.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -15,7 +16,6 @@ const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ?
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
 const gap = (a: Q, b: Q): Q => Qn.abs(Qn.sub(a, b));
 const primeGap = (x: Q): { p: bigint; d: Q } => { const p = nearbyPrimes(x)[0]!; return { p, d: gap(x, q(p)) }; };
-const intGap = (x: Q): { n: bigint; d: Q } => { const n = nearestInteger(x); return { n, d: gap(x, q(n)) }; };
 
 /** Record the main layer and every tie-breaker as undefined (the main layer's input does not exist) and say why. */
 function allUndefined<P>(ctx: Ctx, f: { main: L<P>; tieBreakers: readonly L<P>[] }, why: ElementValue, from: ElementRef): void {
@@ -63,8 +63,8 @@ export const primeGradient: RuleFamily<LineState, object> = {
     ctx.term("near", "distance from the gradient to the nearest prime", near.d, [mRef]);
     ctx.term("prime", "that prime", q(near.p), [mRef]);
     ctx.term("cPrime", `distance from the y-intercept to ${primeGap(c).p}`, primeGap(c).d, [cRef]);
-    ctx.term("c-spf", "the y-intercept's smallest prime factor", q(whole ? smallestPrimeFactor(c.n) : 1n), [cRef]);
-    ctx.term("c-gpf", "the y-intercept's largest prime factor", q(whole ? largestPrimeFactor(c.n) : 1n), [cRef]);
+    ctx.term("c-spf", factorLabel("smallest", "the y-intercept", c), q(whole ? smallestPrimeFactor(c.n) : 1n), [cRef]);
+    ctx.term("c-gpf", factorLabel("largest", "the y-intercept", c), q(whole ? largestPrimeFactor(c.n) : 1n), [cRef]);
     ctx.mark({ kind: "focus", ref: mRef });
     ctx.mark({ kind: "note", ref: mRef, text: `nearest prime ${near.p}` });
   },
@@ -168,37 +168,7 @@ export const crossingCheck: RuleFamily<LineState, KQ> = {
   },
 };
 
-// ---------------------------------------------------------------- 5. Whole Intercept (owner decision 12, first example)
-
-const wi = {
-  main: { id: "frac", title: "y-intercept close to a whole number", sentence: () => "Make the y-intercept as close as possible to a whole number.",
-    rep: "si", sense: "min" } as L<object>,
-  tieBreakers: [
-    { id: "spf", title: "smallest prime factor of that whole number", sentence: () => "Tie-breaker: the bigger the smallest prime factor of that whole number, the better.",
-      rep: "si", sense: "max" },
-    { id: "omega", title: "prime factors of that whole number", sentence: () => "Tie-breaker: the more prime factors that whole number has (counting repeats), the better.",
-      rep: "si", sense: "max" },
-  ] as L<object>[],
-};
-export const wholeIntercept: RuleFamily<LineState, object> = {
-  id: "whole-intercept", title: "Whole Intercept", card: (p, tb) => card(wi, p, tb),
-  params: [], dealable: () => [{}], depends: ["si", "cart"], ...wi,
-  evaluate(ctx) {
-    const cRef = ref("si", "c");
-    const cv = ctx.read(cRef);
-    const c = num(cv);
-    if (c === null) return allUndefined(ctx, wi, cv, cRef);
-    const { n, d } = intGap(c);
-    const mark = ref("cart", "yAxisMark", { y: n });
-    ctx.read(mark);
-    ctx.term("frac", `distance from c to ${n}`, d, [cRef]);
-    ctx.term("spf", `smallest prime factor of ${n}`, q(smallestPrimeFactor(n)), [cRef]);
-    ctx.term("omega", `prime factors of ${n}`, q(primeFactorCount(n)), [cRef]);
-    ctx.mark({ kind: "focus", ref: cRef });
-    ctx.mark({ kind: "candidate", ref: mark, term: "frac" });
-  },
-};
-
-/** The owner's first examples and Whole Intercept: a second tier beside the beginner pool (beginner.ts). */
-export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck, wholeIntercept] as const;
-export const families = [...ownerFamilies, ...beginnerFamilies] as const;
+/** The owner's first examples: a second tier beside the beginner pool (beginner.ts). Whole Intercept is in rational.ts. */
+export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck] as const;
+/** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies] as const;

@@ -50,6 +50,16 @@ query needs an entry in the query-cost gate (R8).
   that operate in another representation (swap, rotate, reverse, spin, mirror, stretch by a factor) are intended
   shortcuts, priced as choices (or by digits), never by the unit path: "That makes the state space more interestingly
   shaped in terms of cost function topology and more like real life exploration of problem spaces."
+- **Tie-breakers tie to the primary (owner decision 29).** A secondary is a relation between the primary's anchor and
+  another aspect of the object (e.g. the gcd of c's nearest whole number with ⌊m⌋), never an independent wish (e.g. "m
+  close to a large prime" beside a c-primary). Rules may be entangled to different degrees (decision 27); no maxima
+  (decision 26): coefficients are uncapped and value curves extend without bound.
+- **Unbounded hills, with adversaries (owner decision 30).** "Bigger is better" hills are wanted. What prevents
+  collapse is adversaries to the climb and diversity of goals: rules in deliberate tension (small values against big,
+  smooth numbers against large primes, opposite signs and directions on shared anchors), so that one basic strategy
+  rarely raises several seated rules' bits at once. The bug found 14 Nov (a stretch to y = −2x + 734 paid 102k points)
+  was two seated rules rewarding the same number in the same direction with no adversary; it is fixed in the pool and the
+  deal, not by removing hills. A value tail never grows faster than the φ of the cheapest state that reaches it.
 - **The old game is the spec; only its implementation is disposable.** "The old code acts as a precious spec of what I
   want and a demonstration of what I'm trying to accomplish, even though the specific implementation of that logic is
   not precious." The owner (later the same day): "keep the rules we already designed prior to this engine upgrade, but

@@ -12,7 +12,10 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    n = whole(c)                                    # the whole number nearest the y-intercept
+    up = whole(c)                                   # the whole number nearest the y-intercept (a half rounds up)
+    spf = lambda k: 2 if k == 0 else (factors(k) or [1])[0]   # smallest prime factor: 2 for 0, 1 for 1 and -1
+    half = up - c == Fraction(1, 2)                 # exactly halfway between two whole numbers?
+    n = up - 1 if half and spf(up - 1) > spf(up) else up   # halfway: the one with the bigger smallest prime factor
     main = -abs(c - n)
     f = factors(n)                                  # its prime factors, smallest first
     return [main, len(f)]   # main: how far the y-intercept is from a whole number (closer is better); tie-breaker: more prime factors are better

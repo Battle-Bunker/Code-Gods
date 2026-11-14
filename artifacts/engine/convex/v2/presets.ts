@@ -72,8 +72,10 @@ const GRIDS = fromPool("grids-beginner", { startingEnergy: GRIDS_BEGINNER_ECONOM
 export const PRESETS: readonly Preset[] = [
   BEGINNER,
   { ...BEGINNER, id: "lines-beginner-bidding", title: "Lines · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
-  fromPool("lines-whole"),
-  fromPool("lines-four"),
+  // Whole-number lines are no longer offered (the owner: "there's no advantage to restricting the number type to integers in one
+  // representation when the kids have to deal with rationals in another representation anyway"); line-z stays a variant in code
+  // and in the collapse check (docs/engine-v2/landscape-analysis.md §4, first run). Several lines per object stays
+  // provisional and undealt (coordinator's call 5), so "lines-four" is not offered either.
   GRIDS,
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
 ];

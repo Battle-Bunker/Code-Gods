@@ -126,6 +126,48 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     reverse, spin, mirror, stretch by a factor) are intended shortcuts, priced as choices or by digits, never by the
     unit path. It cancels the coordinator's trial of path-priced grid choice moves.)
 
+26. On maxima (relayed by the coordinator, 14 November): "I don't want a cap on coefficient size: just a cost function
+    that makes larger numbers harder to reach. Ideally we want to fit curves to map utility to energy so that the
+    possible energy of an object can be unbounded. I don't want Maxima anywhere ideally, but if we have to accept some
+    really high maximum possible scores for some rules because they must have their utility-to-energy relation calculated
+    fully empirically then I will accept this for the sake of allowing more diversity of rule types."
+
+27. On entanglement (relayed by the coordinator, 14 November): "I want rules to be highly entangled with one another
+    but it's also ok for some rule pairs to be less entangled than others. That's what creates interesting political
+    structure. If a rule's primary score is based on y-intercept, though, then it might be valuable that its secondary
+    adds entanglement with another aspect of the line so that it has partial entanglement with the larger body of rules.
+    Note that no parameter of a line is really fully isolated though, because changes to the line via different
+    mutators will have different impacts on other variables than an agent directly cares about, causing collateral
+    damage to gods it is not taking care to cooperate with. For example, it might be cheaper for an agent that cares
+    about gradient and a particular point on the line to rotate the line about that point (this should be an available
+    mutator) rather than just changing the m argument, thereby disrupting potentially fragile structure that other gods
+    cared about in the y intercept."
+
+28. On lenses and multi-line systems (relayed by the coordinator, 14 November): "Think more creatively about other
+    lenses to use for defining a line that will give us a wider variety of mutators operating through different lenses
+    for changing lines and let the same project inspire new interesting rule families as well. Consider operations in a
+    different basis or flips around other lines (but where it's expensive to introduce a line with lots of information
+    in it from scratch in order to do so). Start up some new parallel work to design rules and mutators for two and
+    three line systems, which are also within reach for bright 12yos I think."
+
+29. On tie-breakers (relayed by the coordinator, 14 November): "Secondary rules should tie to the primary in some way
+    even if they invoke an extra dimension of the object. For example, a primary that seeks proximity to integers in the
+    y intercept could have a secondary that seeks to maximise the largest common factor of that closest integer with the
+    floor of the gradient. That's better than a secondary that just independently wants the gradient to be close to a
+    large prime." (A secondary is a relation between the primary's anchor and another aspect of the object, not an
+    independent wish. Applied to every dealt tie-breaker after the rule-design session's audit.)
+
+30. On hills and adversaries (relayed by the coordinator, 14 November): "I absolutely want bigger is better mechanics so
+    there are unbounded hills to climb. We just need to make sure there are adversaries to ongoing expensive climb of
+    those hills and we should create diversity of goals so that it's rare for optimising just one thing, like finding a
+    large prime in the x-intercept, to straightforwardly benefit multiple rules at once. Introduce more variety of the set
+    of rules so that it's harder to improve multiple rules at once with a basic strategy. Also deliberately introduce
+    rules that are in tension with one another. We want rules that prefer small values and lots of prime factors instead
+    of large primes and more interesting interactions like wanting high gradient and y intercept so the X intercept that
+    another player wants big will be small and negative etc." (It overrules the coordinator's trial of retiring the
+    magnitude tie-breakers: they stay dealt, tied to the primary per decision 29. The fix for aligned hills is in the
+    pool and the deal: rules in tension, diversity of goals.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
@@ -195,6 +237,9 @@ back) or TRIAL (a declared experiment, measured and reported).
     families on line-q, undealt first; those that pass the collapse tests are dealt. Whole Crossing and Divisibility
     Ladder (picked because a band sum existed) stay only if they pass too. Order: after the tie-breaker restoration and
     after defence goals.
+11. Hold rarity is not restored: `hold-measurement.md` shows hold is already mostly a function of bits under the walk's
+    kernel (and weak), energy adds nothing beyond bits, and real opponents differ from kernel noise; the product payoff
+    already prices other players' moves.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
