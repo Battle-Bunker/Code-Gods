@@ -1,5 +1,13 @@
 # Rule compatibility on whole-number lines (diagnosis, 2026-11-15)
 
+> **Superseded: these results describe a collapse, not a success (owner, 2026-11-14; CLAUDE.md "The game is a
+> metastable ecosystem").** Everything below was measured with duplicate objects allowed, cheap far moves and exact
+> sums. Settling every object at one agreed state (3–18× naive) and the shared grid board were the game collapsing to a
+> fixed point: a bug, not a strategy. Objects are now unique (decision 24) and agents climb step by step; TARGET/SETTLE
+> is deleted. Under uniqueness the best 24 distinct lines total only 46–54% of 24 copies of the best one, and that best
+> was only the best in a small whole-number window (m −10..10, c −60..60), not a global optimum. Current measurements:
+> `ai-table-results.md`, "Climbers under unique objects".
+
 **The finding, in plain words.**
 - **Naive play is a coordination failure.** Points on a line are your rarity times the others' rarity, added up, so a
   line that is good for everyone pays everyone.
