@@ -14,7 +14,7 @@ import { valueOf as valueAt } from "./world";
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalAction, internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { mintPlayerJwt } from "../auth/jwt";
 import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
@@ -322,5 +322,39 @@ export const aiUsage = internalQuery({
   handler: async (ctx, { gameId, memberId }) => {
     fixtures();
     return await ctx.db.query("v2AiUsage").withIndex("by_member_game", q => q.eq("memberId", memberId).eq("gameId", gameId)).unique();
+  },
+});
+
+async function movesOfGame(ctx: QueryCtx, gameId: Id<"v2Games">) {
+  const game = (await ctx.db.get(gameId))!;
+  const out = [];
+  for (const r of game.roster) out.push(...await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", gameId).eq("memberId", r.memberId)).collect());
+  return out;
+}
+
+/** Rows of a game as they were stored before decision 23 (#488): a level on values and moves, a ladder on rules. */
+export const legacyLevels = internalMutation({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    const ladder = [{ level: 0, label: "start", rarityBits: 0 }, { level: 1, label: "next", rarityBits: 1.5, layer: "main" }];
+    for (const r of await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(r._id, { ladder });
+    for (const r of await ctx.db.query("v2ObjectValues").withIndex("by_game_member_points", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(r._id, { level: 2 });
+    for (const m of await movesOfGame(ctx, gameId)) await ctx.db.patch(m._id, { before: { ...m.before, level: 1 }, after: { ...m.after, level: 3 } });
+  },
+});
+
+/** How many of a game's rows still carry a level or a ladder, by table, and how many rows each table has. */
+export const legacyCounts = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    const rules = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId)).collect();
+    const values = await ctx.db.query("v2ObjectValues").withIndex("by_game_member_points", q => q.eq("gameId", gameId)).collect();
+    const moves = await movesOfGame(ctx, gameId);
+    return {
+      rules: [rules.filter(r => r.ladder !== undefined).length, rules.length],
+      values: [values.filter(r => r.level !== undefined).length, values.length],
+      moves: [moves.filter(m => m.before.level !== undefined || m.after.level !== undefined).length, moves.length],
+      points: values.map(r => r.points).concat(moves.map(m => m.after.points)),
+    };
   },
 });

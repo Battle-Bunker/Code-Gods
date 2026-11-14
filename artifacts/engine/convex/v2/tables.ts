@@ -30,6 +30,13 @@ export const overridesV = v.object({
 /** A player's view of an object at one moment (a move's before and after). */
 /** A player's value of a state: the utility (as its wire), its worth in bits, the others' worth and the points. */
 export const valueSnapV = v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number() });
+/**
+ * Widened while migrations:stripLevels runs (CLAUDE.md "Schema migrations"): rows written before decision 23 (#488)
+ * still carry a level, a rule its ladder. Narrowed in a later PR once dev and production report the migration done.
+ */
+const legacyLevel = v.optional(v.number());
+const storedValueSnapV = v.object({ score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number() });
+const legacyLadder = v.optional(v.array(v.object({ level: v.number(), label: v.string(), rarityBits: v.number(), layer: v.optional(v.string()) })));
 export const bidV = v.object({ family: v.string(), percent: v.number() });
 /** A family on offer in the bid phase, as a player judges it: its card and the most ✨ bits its rules reach. */
 export const offerV = v.object({ family: v.string(), title: v.string(), card: v.string(), top: v.number() });
@@ -126,7 +133,7 @@ export const v2Tables = {
     layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), ruleKey: v.string(), contentHash: v.string(),
     title: v.string(), card: v.string(), depends: v.array(v.string()),
     /** The main layer's representation (the compact face's view). */
-    primary: v.string(),
+    primary: v.string(), ladder: legacyLadder,
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
   }).index("by_game_member", ["gameId", "memberId"]),
@@ -152,7 +159,7 @@ export const v2Tables = {
    */
   v2ObjectValues: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), memberId: v.id("v2Members"), number: v.number(),
-    score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
+    score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(),
     version: v.number(), changedAt: v.number(),
     /** The last moves on it that concerned this player (at most HISTORY, oldest first): their agents' `history`. */
     recent: v.optional(v.array(v.object({ mine: v.boolean(), pointsBefore: v.number(), pointsAfter: v.number() }))),
@@ -200,7 +207,7 @@ export const v2Tables = {
     /** The player whose agent made the move (on every row: whose line-pulling it was). */
     by: v.optional(v.id("v2Members")),
     calls: v.array(callV), rep: v.string(), stateBefore: v.string(), stateAfter: v.string(),
-    before: valueSnapV, after: valueSnapV, charge: v.optional(v.number()),
+    before: storedValueSnapV, after: storedValueSnapV, charge: v.optional(v.number()),
     /** The mover's notes to its owner (lib/v2-agents `note`), on the mover's own row. */
     notes: v.optional(v.array(v.string())),
   }).index("by_game_member_seq", ["gameId", "memberId", "seq"])
