@@ -17,6 +17,11 @@ Measurements: `node docs/engine-v2/scripts/layered-ladders.mjs` (about five minu
 few seconds for 20 and 50). Its full output, every rung of every family, is
 [scripts/layered-ladders-results.md](scripts/layered-ladders-results.md). §3 says what it measures and what it does not.
 
+> **Read §7 first.** After this document first merged, the owner required graded rungs only, two-rung beginner rules
+> with school-level primaries, and cards that state a graded quantity. §7 applies those rules to all five brainstorm
+> documents, measures them with one method, and gives the current pools and spec changes. §0–§6 are the first pass and
+> are superseded wherever they differ.
+
 ---
 
 ## 0. The answer in one page
@@ -863,3 +868,342 @@ A concrete list against [spec.md](spec.md) §4 and §12.5, in the order to apply
 - **The far tops.** Rungs above the settled top (marked * in the results file) are over-estimates. Heights beyond 200
   were not enumerated.
 - **Playtesting.** Whether twelve-year-olds read the cards as intended is untested.
+
+---
+
+## 7. The curated catalogue across all five brainstorms (graded rungs only)
+
+Status: this part supersedes §2–§5 wherever they differ. After §1–§6 merged, the owner set four rules, relayed by the
+coordinator, and this part applies them to every family from all five documents:
+
+- **Graded rungs only.** "Binary decisions are worthless for extending the ladder. Require all rules to be
+  continuous." Every primary and secondary is a distance, a count or a size with a direction, never a yes/no.
+- **Accessible primaries.** Beginner primaries must be readable by a twelve-year-old who is learning linear equations
+  at school, with some latitude for a dedicated learner (area, Pythagoras on a grid, primes and factors, square numbers,
+  simplest-form fractions, grid points, simple sequences). Each is marked **core** (the school course) or **stretch**
+  (what the child would look up).
+- **Two rungs in the beginner pool.** The beginner pool is primary plus exactly one secondary. Three-rung ladders are
+  kept for the second pool.
+- **Card wording.** Cards state the graded quantity and its direction ("as close as possible to a whole number"),
+  never a target as a fact. No rung should have fewer than about six attainable levels.
+
+The other documents are [rule-brainstorm/b-story-lenses.md](rule-brainstorm/b-story-lenses.md) (B),
+[rule-brainstorm/c-negotiation.md](rule-brainstorm/c-negotiation.md) (C) and
+[rule-brainstorm/e-unusual-lenses.md](rule-brainstorm/e-unusual-lenses.md) (E). K marks the coordinator's eight
+families plus the perpendicular foot. A is this document. Brainstorm D (number-theoretic ladders with proved reach) had
+not reported by the cut-off; §7.7 says what is left for it.
+
+### 7.1 One method, and what "levels" means
+
+Every family in this part is re-implemented as **graded parts** in one library,
+[scripts/line-families.mjs](scripts/line-families.mjs). A part is a quantity with ascending thresholds, and the parts
+are gated as in §1.1. Two consumers measure the same definitions:
+
+- **The reference law,** [scripts/layered-graded.mjs](scripts/layered-graded.mjs): exact enumeration of the 3.4 million
+  primitive lines of height ≤ 100 weighted 2^−φ, as in §3. It gives bits per rung and **levels per rung** for all 78
+  ladders (all 31 A families, the nine K families with each of their secondaries, and the strongest families of B, C and
+  E). It also gives the pair table used for §7.5.
+- **The v2 estimator,** [scripts/layered-v2-valuation.ts](scripts/layered-v2-valuation.ts): each family is wrapped as a v2
+  `RuleFamily` whose score is its level, and `lib/v2-valuation`'s `calibrate` values it on the `line-q` variant's
+  priced walk (spec §7.2). This is the one method used for the strongest thirty (§7.4). Where the stationary value did
+  not converge, the estimator's own multilevel **splitting** estimate is quoted. The splitting estimate is the spec's §7.2 step-6
+  diagnostic, and it agrees with the reference law within about half a bit wherever both exist. Each ladder is capped
+  at its declared top, the last rung at or under 24 bits by the reference law. The estimator finds rungs by climbing
+  and has no exemplar seeding yet, so rungs far beyond the cap are unreachable for it, not merely expensive.
+
+Levels are reported two ways per part:
+
+- **Attained:** thresholds that some line of height ≤ 100 meets. This is the coordinator's "levels on the test set".
+- **Effective:** thresholds that add at least ¼ bit over the rung below. A rung that is attained but adds no bits
+  extends nothing, which is the owner's actual concern.
+
+**The main finding about levels.** A primary of the form "distance to the nearest whole number" (or to a fraction's
+simplest form) has many **attained** levels on the rationals, but only one to three **effective** ones. The finer tail
+to 1/64 proposed by brainstorm B adds attained levels and almost no bits. The reason is the one found in §3.3: on the
+rationals an exact hit is cheaper than a near miss, because only fractions with big bottoms land near a whole number
+without being one. The finer tail is adopted anyway, because it costs nothing and gives agents a gradient to follow.
+But such a primary is a doorway, not a ladder: its family's reach must come from the secondary. The owner's first
+example has exactly this shape, and the beginner pool below is chosen so that the secondary carries the reach.
+
+### 7.2 Every family, deduplicated
+
+Each row is one family after merging duplicates. Primaries and secondaries are given in their graded form ("→ min"
+means smaller is better, "→ max" bigger). "Pool" gives this part's verdict: **1** first pool, **2** second pool, **r**
+reserve, **–** not recommended (the reason is in §2, §7.3 or the source document).
+
+| Family (merged names) | Lens | Primary (graded) | Secondaries (graded) | Sources | Pool |
+|---|---|---|---|---|---|
+| Prime-Factor Line / Whole Landing / Whole Intercept | slope-intercept | distance of c (and m) from whole numbers → min | smallest prime factor of that whole number → max; x-intercept's distance from whole → min; distance to a triangular number → min | A1, C WL, K3 | **1** (m and c form) |
+| Square Area, Rich Root / Square Corner / Square Triangle | intercept triangle | distance of the area from a square number → min | prime factors of the root (Ω) → max; legs' distance from whole → min; distance of h² from a square → min | A2, C SC, K2 | **1** |
+| Prime Gradient, Prime Pegs | slope, pegboard | distance of m from a prime → min | prime pegs on the line → max; then m's size | A3 | 2 |
+| Pythagorean Area / Ladder Against the Wall | intercept triangle | distance of the area from A → min (B: legs' distance from whole → min) | distance of h² from a square → min; legs' distance from whole → min; Ω of the length → max | A4, B §1.5 | r |
+| m Meets c, on the Unit Circle | slope-intercept, circle | \|m − c\| → min | distance of u² + v² from a square → min; size of the triple → max | A5 | **2** |
+| Crossing Check | function machine | \|y(k) − x(q)\| → min | dials' distance from whole → min; meeting number's distance from a prime → min | A6 | – (graded secondary is flat) |
+| Twin Coefficients | slope-intercept | distances of m, c from primes → min | \| \|m − c\| − 2 \| → min; smaller twin → max | A7 | r |
+| Pell Gradient | slope as a fraction | \|m² − 2\| → min | (the convergents are the ladder) | A8 | **2** |
+| Crowded Intercept / Taxi Meter | slope-intercept, fares | distance of c (or y(K)) from whole → min | divisors → max | A9, B §2.2 | – (low top) |
+| Euclid's Long Way | Euclid's algorithm | steps on m = p/q → max | largest quotient → min | A10 | **2** |
+| Farey Neighbours / Matched Pair | fractions | \| \|ps − qr\| − 1 \| → min (C: \| \|num m\| − den c \| → min) | smaller bottom → max (C: spf of the shared number → max) | A11, C MA | r |
+| Egyptian Line | fractions | unit fractions among m, c, m + c → max | largest bottom → max | A12 | – |
+| Perfect Line | slope-intercept | distance of m, c from whole → min | imperfection \|σ(n) − 2n\| → min | A13 | – |
+| Hailstone Intercept | slope-intercept | distance of c from whole → min | Collatz steps → max | A14 | – |
+| Prime Run / Prime Staircase / Prime Table | growth pattern | different primes among y(1..6) (K: run of primes from y(0)) → max | first prime → max; distance of m from a prime → min; gap from the last prime to the next → min | A15, K1, C PT | **1** (K form) |
+| Square Terms / Squares in Step / Square Term | growth pattern, table | different squares among the first terms → max (C: distance of a term from a square → min) | biggest square → max; spread of root gaps → min; roots' distance from primes → min; \|m\| → min | A16, K8, C ST | **2** |
+| Treasure Prime Run | table | \|y(2) − 37\| → min | different primes among y(1..8) → max | A17 | r |
+| Divisibility Treasure | table | distance of y(5) from whole → min | how many of 2–9 divide it → max | A18 | r |
+| Digit Treasure | table | distance of y(10) from whole → min | digit sum → max | A19 | r |
+| Cunningham Machine | iterated machine | run of new primes from a seed → max | – | A20 | r |
+| Two-Square Area | intercept triangle | distance of the area from whole → min | ways as a sum of two squares → max | A21 | – |
+| Square Triangle Area | intercept triangle | distance of the area from a triangular number → min | that number's distance from a square → min | A22 | r |
+| Prime Hypotenuse | intercept triangle | distance of h² from whole → min | distance of h² from a prime → min; the prime → max | A23 | r |
+| Vieta Intercepts | intercept form | \|p + q − S\| → min | \|p·q − P\| → min | A24 | r |
+| Whole Numbers Everywhere | five elements | how many are whole → max | – | A25 | – (ceiling theorem) |
+| Twin Sum / Prime Equation / Prime Coefficients | general form | \|a + b + c\| → min (K, C: distances of \|a\|, \|b\|, \|c\| from primes → min) | distances from primes → min; \|a + b − c\| → min; largest → max | A26, K7, C PC | **2** |
+| Stepping Coefficients | general form | \|a − 2b + c\| → min | distances from primes → min; largest → max | A27, K7 (in step) | r (Twin Sum's sibling) |
+| Tangent Circle / Kiss the Circle | distance to a circle | \|dist² − R²\| → min | the tilt's triple → max (E: the foot's distance from a rim peg → min) | A28, E §14 | **2** |
+| Peg Ruler / Peg Line / Pythagorean Normal / Orchard Walk | pegboard | pegs on the line → max (B: nearest approach to a tree → min; C: distance of a² + b² from a square → min) | distance of a² + b² from a square → min; pegs with a prime coordinate sum → max | A29, K4, C PN, B §2.13 | – (pegs are cheap: cheap lines pass many) |
+| Pick's Pegs | pegboard, triangle | intercepts' distance from whole → min | \|inside pegs − N\| → min | A30 | **2** |
+| Parabola Kiss | a curve on the plane | \|m² + 4c\| → min | touch point's distance from whole → min; \|touch x\| → max | A31 | r |
+| Fixed Point / Same Reading / Same on Both Rulers | function machine, thermometers, nomogram | distance of c/(1 − m) from whole (E: from T) → min | Ω (or divisors) of it → max; doubling point's distance from whole → min; distance from a square → min; whole values of y(−5..5) → max | K5, B §1.4, C FP, E §11 | **1** (B form) |
+| Prime Slope | rise over run | distances of rise and run from primes → min | \| \|rise − run\| − 2 \| → min; rise + run's distance from a square → min; \|den c − run\| → min | K6 | – (low top) |
+| Perpendicular Foot / Plumb Line | the plane | squared distance of the foot from a peg → min | distance of dist² from a square → min; from a prime squared → min; intercepts' distance from whole → min | K9, E §16 | – (cheap lines put the foot on a peg) |
+| Ruler | distance from (0, 0) | distance of D² from a square → min | the whole distance → max | C RU | **1** |
+| Whole Crossing / Empty Tank | x-intercept | distance of the x-intercept (time to empty) from whole → min | divisors (spf) of it → max | C WC, B §1.7 | r |
+| Half-Way House | value at x = ½ | distance of y(½) from whole → min | spf of it → max | C HW | **1** |
+| Long Division | gradient as a decimal | \|period − 6\| → min | \|top of m\| → min | C LD | – (low top) |
+| Gatekeeper | a gate point | \|y(gx) − gy\| → min | pegs → max | C GK | – (uneven by parameter) |
+| Long Shot | pegboard | squared span of the first and last pegs → max | pegs → max | C LS | – |
+| Steady Gradient | slope | distance of m from whole → min | divisors of it → max | C SG | – (low top) |
+| Midpoint Peg | intercepts | distances of p/2, c/2 from whole → min | \|p/2\| + \|c/2\| → max | C MP | – |
+| Matchstick Chains | growth pattern | \|c − 1\| → min | distance of the sides m + 1 from a prime → min | B §1.1 | r (low top: 8 bits) |
+| Steady vs Doubling | table against 2ⁿ | min gap \|y(n) − 2ⁿ\| → min | second-smallest gap → min | B §1.2 | – (low top) |
+| Shopping Baskets / Exact Change | general form as prices or coins | least change (E: \|ways − W\|) → min | prices' distance from primes → min (E: smallest pile → max) | B §1.3, E §13 | **1** (E form) |
+| Savings Goal | growth pattern | distance of the goal week from whole → min | starting amount's distance from a coin → min | B §1.6 | – (low top) |
+| Price per Minute | average rate | distance of y(10)/10 from whole → min | fee per minute's distance from whole → min | B §1.8 | – (low top) |
+| Catch-Up, Fence Painters, Plant Diary, Speeding Up, Wheelchair Ramp, Mental Shortcut | stories | see B §2 | see B §2 | B §2 | not measured here (B's census tops 4–16 bits) |
+| Sheep Fence | dots above a line | \|above − N\| → min | clearance to the nearest sheep → max | E §4 | r (low top: 9 bits) |
+| Tresillo | drum beats from ⌊y(n)⌋ | beats matching the pattern → max | beats it keeps repeating → max | E §6 | **2** |
+| Firefly Jar | iterating from 0 | \|escape hop − K\| → min | \|hop at escape\| → min | E §17 | r (low top) |
+| Haga's Fold | paper crease (reflection) | landing's distance from the top edge → min | \|landing x − 4\| → min | E §2 | r |
+| Cipher Wheel | the line mod 26 | letters right → max | \|m\| + \|c\| → min | E §18 | – (low top) |
+| Fair Cut | area under the line | \|area below − 32\| → min | dark minus light squares cut → max | E §3 | – (low top) |
+| Constellation Mirror, Palindrome Path, Trick Shot, One Thread, Homecoming Gear, Crate Ramp, Prime Threads, Tangent Kite, Sweet Chord | mirror, word, billiards, ring, gear, crates, threads, pole, music | see E §1–§19 | see E | E | not measured here (E's second pool) |
+
+### 7.3 The coordinator's nine, corrected and measured with every secondary
+
+Bits under the reference law at height 100. "Levels" gives attained / effective per part (P then S). Each secondary is
+measured separately behind the same primary.
+
+| Family / secondary | Levels P; S | Bits per rung (P \| S) | Top | Verdict |
+|---|---|---|--:|---|
+| **Prime Staircase** / first prime bigger | 5/5; 7/5 | 4.7 7.5 10.2 14.1 14.7 \| 14.7 14.7 17.9 18.7 19.1 19.1 19.1 23.1 28.6 | 28.6 | **first pool** |
+| Prime Staircase / gradient near a prime | 5/5; 1/0 | … \| 14.7 14.7 14.7 | 14.7 | dead secondary (see correction 1) |
+| Prime Staircase / last prime near another prime | 5/5; 3/1 | … \| 14.7 … 15.1 | 15.1 | nearly dead |
+| **Square Triangle** / prime factors of the root | 7/5; 5/5 | 2.4 2.5 2.6 3.2 3.8 4.5 7.2 \| 8.2 10.0 12.1 14.6 17.2 | 17.2 | **first pool** (= Square Area, Rich Root) |
+| Square Triangle / legs whole | 7/5; 4/0 | … \| 7.2 (flat) | 7.2 | dead: an exactly square area comes with cheap whole legs |
+| Square Triangle / hypotenuse whole | 7/5; 8/5 | … \| 7.3 7.4 8.1 8.1 13.5 13.8 15.9 18.7 | 18.7 | lives, but never reaches 0 (correction 2) |
+| **Whole Intercept** / spf | 6/1; 16/15 | 0.7 … 0.9 \| 1.3 4.2 5.5 6.2 7.2 … 15.2 | 15.2 | first pool as the m-and-c form |
+| Whole Intercept / x-intercept whole | 6/1; 6/1 | … \| 1.8 1.9 (flat) | 1.9 | dead: cheap lines have whole x-intercepts |
+| Whole Intercept / near a triangular number | 6/1; 5/0 | … \| 0.9 … 1.1 | 1.1 | dead: 0, 1 and 3 are triangular and cheap |
+| **Peg Line** / pegs a whole distance apart | 13/1; 2/0 | 0.4 … 1.1 \| 1.1 … 1.3 | 1.3 | dead family: cheap lines (axes, diagonals) pass the most pegs |
+| Peg Line / pegs with prime coordinate sum | 13/1; 5/2 | … \| 1.2 1.3 1.5 3.4 7.2 | 7.2 | weak |
+| Peg Line / no peg on an axis | 13/1; 1/1 | … \| 2.1 | 2.1 | dropped: at most two pegs can lie on axes, so 3 levels (correction 3) |
+| **Fixed Point** / divisors | 6/1; 8/8 | 0.9 … 1.3 \| 3.8 5.6 6.1 8.1 9.7 11.7 12.2 13.0 | 13.0 | reserve; Ω (Same Reading) reaches further |
+| Fixed Point / doubling point whole | 6/1; 6/1 | … \| 1.7 (flat) | 1.7 | dead |
+| Fixed Point / near a square | 6/1; 5/0 | … \| 1.3 … 1.5 | 1.5 | dead |
+| **Prime Slope** / twins | 6/4; 6/1 | 0.5 0.5 0.5 1.4 2.3 4.7 \| 4.8 … 7.8 | 7.8 | low top |
+| Prime Slope / rise + run a square | 6/4; 5/2 | … \| 4.7 … 7.6 | 7.6 | low top |
+| Prime Slope / c's bottom matches the run | 6/4; 6/2 | … \| 4.8 … 6.0 | 6.0 | low top |
+| **Prime Equation** / a + b = c | 6/5; 7/5 | 0.0 0.4 1.0 2.4 4.2 7.0 \| 7.1 … 12.3 | 12.3 | second pool as Twin Sum (three rungs) |
+| Prime Equation / equal steps | 6/5; 7/5 | … \| 7.1 … 13.5 | 13.5 | as Stepping Coefficients |
+| Prime Equation / through a prime peg | 6/5; 6/3 | … \| 7.9 … 9.2 | 9.2 | weak |
+| **Squares in Step** / roots in equal steps | 4/4; 5/1 | 2.7 3.6 4.9 11.1 \| 11.1 … 16.8 | 16.8 | weak secondary (correction 4) |
+| Squares in Step / roots near primes | 4/4; 5/2 | … \| 11.1 … 15.2 | 15.2 | weak |
+| Squares in Step / smallest step | 4/4; 6/0 | … \| 11.1 (flat) | 11.2 | dead: the cheapest four-square lines already have the smallest steps |
+| **Perpendicular Foot** / distance whole | 6/4; 5/0 | 0.9 1.2 1.5 1.6 1.8 2.1 \| 2.1 … 2.2 | 2.2 | dead family (the foot lands on a peg for every cheap line) |
+| Perpendicular Foot / distance prime | 6/4; 5/1 | … \| 2.3 … 3.7 | 3.7 | dead |
+
+**Corrections to the mathematics.**
+
+1. *Prime Staircase, "the gradient itself prime".* The step between two odd primes is even. So a run of three or more
+   odd primes has an even step, a prime step means m = 2, and with m = 2 one of any three consecutive terms is a
+   multiple of 3: the run is at most 3 (3, 5, 7). A run of five from y(0) needs a step divisible by 6 (5, 11, 17, 23, 29),
+   and a run of six a step divisible by 30. The secondary's graded form (distance from m to a prime) is 1 on every long
+   run: dead.
+2. *Square Triangle, "hypotenuse whole".* No right triangle with rational sides has a square area (Fermat; area 1 is
+   not a congruent number). On the primary's top the secondary can never reach 0. Graded, it still climbs to 18.7 bits,
+   and that impossibility is a good thing to discover. Brainstorm C found the same theorem between Square Corner and
+   Ruler.
+3. *Peg Line, "no peg on an axis".* A line meets each axis at most once, so at most two pegs lie on axes, and the graded
+   form has three levels. It is dropped.
+4. *Squares in Step, "roots in arithmetic progression".* If the squares sit at equally spaced terms and their roots are
+   also equally spaced, the squares are constant. So the spread can shrink only when the squares sit at unequal
+   spacings. Fermat's theorem (no four squares in arithmetic progression) still caps runs of consecutive squares at
+   three.
+5. *Prime Equation, "a + b = c" with three primes.* Two odd primes add to an even number, so one of the three is 2 and
+   the others are twin primes. This secondary is Twin Sum's ladder (§2, family 26), which is why the two merge.
+
+### 7.4 The strongest thirty, one method
+
+Ranked by top and effective levels, one per merged family. The method is the reference law at height 100, applied to
+all thirty alike. The v2 estimator (origin-seeded, `line-q` priced walk) is a cross-check on the seven it could reach.
+
+| # | Family | Source | Parts | Levels (attained / effective) | Top bits (reference law) | v2 estimator: top of capped ladder |
+|--:|---|---|---|---|--:|---|
+| 1 | Square Terms | A16, K8, C ST | 2 | P 5/5, S 2/1 | 31.2 | unreachable from the origin |
+| 2 | Twin Sum | A26, K7, C PC | 3 | 5/5, 6/3, 7/7 | 30.6 | unreachable |
+| 3 | Twin Coefficients | A7 | 3 | 7/3, 5/1, 7/7 | 30.2 | unreachable |
+| 4 | m Meets c, on the Unit Circle | A5 | 3 | 7/4, 6/2, 8/7 | 30.1 | unreachable |
+| 5 | Prime-Factor Line | A1, C WL, K3 | 2 | 7/2, 16/16 | 29.2 | splitting 20.5 at spf ≥ 59 (reference 21.4) |
+| 6 | Tangent Circle | A28, E §14 | 2 | 7/3, 7/7 | 28.9 | unreachable |
+| 7 | Prime Staircase (first prime) | K1, A15, C PT | 2 | 5/5, 7/5 | 28.6 | unreachable |
+| 8 | Vieta Intercepts (4, 2) | A24 | 2 | 7/5, 3/3 | 28.2 | unreachable |
+| 9 | Stepping Coefficients | A27, K7 | 3 | 5/5, 6/4, 7/6 | 27.5 | unreachable |
+| 10 | Pell Gradient | A8 | 1 | 6/6 | 27.2 | unreachable |
+| 11 | Prime Run | A15 | 2 | 6/6, 5/2 | 27.2 | unreachable |
+| 12 | Parabola Kiss | A31 | 3 | 7/3, 3/0, 7/7 | 26.2 | unreachable |
+| 13 | Euclid's Long Way | A10 | 1 | 9/9 | 25.2 | stationary 27.2, splitting 21.8 at 9 steps (reference 21.3) |
+| 14 | Farey Neighbours | A11, C MA | 2 | 5/2, 5/5 | 24.9 | unreachable |
+| 15 | Exact Change / Shopping Baskets | E §13, B §1.3 | 2 | 5/4, 4/3 | 23.2 | unreachable |
+| 16 | Cunningham Machine (seed 3) | A20 | 1 | 6/6 | 23.1 | unreachable |
+| 17 | Square Term (distance form) | C ST | 2 | 8/2, 5/4 | 22.8 | unreachable |
+| 18 | Prime Hypotenuse | A23 | 3 | 6/4, 5/1, 8/7 | 22.0 | unreachable |
+| 19 | Pick's Pegs (30) | A30 | 2 | 5/3, 6/6 | 21.9 | unreachable |
+| 20 | Square Triangle (hypotenuse) | K2 | 2 | 7/5, 8/5 | 18.7 | unreachable |
+| 21 | Ruler | C RU | 2 | 9/6, 9/8 | 18.6 | unreachable |
+| 22 | Treasure Prime Run (2, 37) | A17 | 2 | 8/6, 6/5 | 18.5 | unreachable |
+| 23 | Matched Pair | C MA | 2 | 5/3, 4/4 | 18.2 | unreachable |
+| 24 | Same Reading (fixed point, Ω) | B §1.4, K5, C FP, E §11 | 2 | 6/1, 6/6 | 17.7 | stationary 26.2, splitting 19.9 |
+| 25 | Square Area, Rich Root | A2, C SC, K2 | 2 | 7/5, 5/5 | 17.2 | splitting 18.9 |
+| 26 | Pythagorean Area (6) | A4, B §1.5 | 3 | 8/6, 7/2, 1/0 | 16.2 | unreachable |
+| 27 | Divisibility Treasure | A18 | 2 | 6/1, 7/7 | 16.1 | splitting 17.3 |
+| 28 | Half-Way House | C HW | 2 | 6/2, 16/16 | 15.7 | splitting 13.8 at spf ≥ 59 |
+| 29 | Prime-Factor Intercept (c only) | A1 | 2 | 6/1, 16/15 | 15.2 | splitting 12.3 (reference 11.8 at height 200) |
+| 30 | Tresillo | E §6 | 2 | 8/5, 6/2 | 15.6 | unreachable |
+
+What the cross-check says: where the estimator reaches a ladder, its splitting estimate sits within about 2 bits of the
+reference law. Its stationary estimate runs higher at the top (Euclid 27.2 against 21.3, Same Reading 26.2 against
+17.7), which is the price-list effect of decision 10 plus the estimator's unconverged top rows; neither is settled here.
+Twenty-three of the thirty are **unreachable** for the estimator as it stands: its seeded climb starts from y = 0 and
+cannot find thin upper sets in 40,000 steps. Exemplar seeding (spec §7.2 step 1) is the fix (§7.6, item 5).
+
+### 7.5 The pools
+
+#### The first pool: eight families, two rungs each
+
+Ranked first by how accessible the primary is, then by the reach of the secondary. Levels are attained / effective, at
+height 100. Bits are the reference law's, per rung, up to the dealt top.
+
+| # | Family | Primary practises | Primary card | Secondary card | Levels P; S | Bits P \| S (to the dealt top) |
+|--:|---|---|---|---|---|---|
+| 1 | **Prime-Factor Line** (owner's example 1) | core: gradient and y-intercept | "The gradient and the y-intercept should each be as close as possible to a whole number (distances added; units: 1/64 steps)." | "The smaller of their two smallest prime factors should be as big as possible (a prime)." | 7/2; 16/16 | 0.6 1.0 1.1 1.2 1.2 1.2 1.2 \| 2.0 7.3 9.9 11.2 13.3 14.2 15.5 15.9 16.4 17.1 18.9 20.1 (top: spf ≥ 47) |
+| 2 | **Prime Staircase** (coordinator) | core: sequences (nth term), primes under 50 | "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible (up to five)." | "The first prime y(0) should be as big as possible." | 5/5; 7/5 | 4.7 7.5 10.2 14.1 14.7 \| 14.7 14.7 17.9 18.7 19.1 19.1 19.1 23.1 (top: y(0) ≥ 47) |
+| 3 | **Treasure Prime Run** | core: substituting x, table of values | "When x is 2, y should be as close as possible to 37." | "As many as possible of y(1) … y(8) should be different primes." | 8/6; 6/5 | 7.8 9.1 10.0 10.7 12.3 12.6 \| 13.0 13.2 14.3 14.7 18.5 |
+| 4 | **Half-Way House** (C) | core: substituting a fraction for x | "At x = ½ the line should be as close as possible to a whole number." | "That whole number's smallest prime factor should be as big as possible." | 6/2; 16/16 | 1.2 1.5 1.7 1.8 1.8 1.8 \| 2.3 4.6 5.9 6.5 7.5 8.0 8.6 8.9 9.1 9.5 10.5 11.2 12.0 13.2 14.2 15.7 |
+| 5 | **Same Reading** (B; the fixed point) | core: solving x = mx + c | "The temperature where both thermometers show the same number should be as close as possible to a whole number." | "That whole number should have as many prime factors as possible (counting repeats)." | 6/1; 6/6 | 3.1 3.3 3.4 3.4 3.4 3.4 \| 6.4 8.2 10.2 12.4 14.9 17.7 |
+| 6 | **Square Area, Rich Root** (owner's example 2) | stretch: area of a triangle from its intercepts; square numbers | "The triangle the line cuts off the axes should have an area as close as possible to a square number." | "That square's root should have as many prime factors as possible (12 = 2·2·3 has three)." | 7/5; 5/5 | 2.4 2.5 2.6 3.2 3.8 4.5 7.2 \| 8.2 10.0 12.1 14.6 17.2 |
+| 7 | **Exact Change** (E) | stretch: whole-number solutions of ax + by = N | "Reading the line as a·x + b·y = N (coins worth a and b paying N), the number of ways to pay should be as close as possible to 3." | "In every way to pay, the smaller pile should be as big as possible." | 5/4; 4/3 | 2.3 2.3 2.9 5.9 8.4 \| 15.7 18.9 23.2 |
+| 8 | **Ruler** (C) | stretch: distance from a point to a line, by Pythagoras | "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number." | "That whole distance should be as big as possible." | 9/6; 9/8 | 1.3 1.3 1.4 1.4 4.2 6.5 7.4 9.6 13.3 \| 14.5 15.0 15.9 16.2 16.6 17.4 17.9 18.6 |
+
+Tops of the eight: 15.7 to 23.2 bits. On the coordinator's six-levels rule: every rung attains at least four levels and
+most attain six or more. But four primaries of the "distance to the nearest whole number" kind (1, 4, 5, and partly 6)
+have only one or two **effective** levels (§7.1). Their families get their reach from the secondary, which has 6 to 16
+effective levels. That is the owner's own first example's shape, and it is the honest reading of "levels" on the
+rationals.
+
+**How each pair collides** (graded rules, height 60; the number is the best smaller share of the two tops that one line
+achieves):
+
+| Pair | Share | What the players negotiate about |
+|---|--:|---|
+| 1 × 2 | 0.32 | A five-prime staircase needs a step divisible by 6, whose smallest factor is 2: Prime-Factor Line's secondary dies on it. |
+| 1 × 3 | 0.68 | y = 37x − 37 gives 1 its spf 37 and hits the treasure exactly (y(2) = 37), but only one prime term. |
+| 1 × 4 | 0.08 | Direct conflict: with whole m and c, y(½) is whole only if m is even, so m's smallest factor is 2. |
+| 1 × 5 | 0.22 | A whole fixed point −c/(m − 1) needs m − 1 to divide c; with m an odd prime, c is even (spf 2). |
+| 1 × 6 | 0.30 | With whole m and c, a square area c²/(2m) needs m twice a square (spf 2). y = 37x + 43 keeps 1 high with the area 25.0. |
+| 1 × 7 | 0.42 | Allies on falling whole lines: y = −29x + 59 keeps spf 29 and pays 59 in exactly three ways (29x + y = 59). |
+| 1 × 8 | 0.47 | y = 59x + 59 tops 1 and leaves Ruler's distance just under 1. |
+| 2 × 3 | 0.49 | Both want a run of primes; the treasure pins y(2) = 37, the staircase wants the run from y(0). y = 18x + 5 (5, 23, 41, 59) is the compromise. |
+| 2 × 4 | **1.00** | Allies: y = 60x + 53 has the five primes 53, 113, 173, 233, 293, and y(½) = 83, a prime. |
+| 2 × 5 | 0.41 | y = 2x + 3 (3, 5, 7) agrees at −3; long runs need steps of 6, whose fixed points are seldom rich in factors. |
+| 2 × 6 | 0.30 | A five-prime run (step 30: y = 60x + 11) leaves the area 121/120, next to 1. |
+| 2 × 7 | 0.42 | Exact Change needs a falling line, so the staircase runs downhill: 11, 7, 3 on y = −4x + 11 (three ways to pay 11). |
+| 2 × 8 | 0.44 | y = 36x + 37 starts the staircase at 37 (37, 73, 109); its distance from (0, 0) is just over 1. |
+| 3 × 4 | 0.54 | y = −6x + 50: y(2) = 38, one from the treasure; y(½) = 47, a prime. |
+| 3 × 5 | 0.65 | y = 9x/2 + 28 hits the treasure exactly (y(2) = 37) and the thermometers agree at −8 (Ω 3); it has only one prime term. |
+| 3 × 6 | 0.58 | y = 2x + 32 has area 256 = 16² (Ω 4) and y(2) = 36, one from the treasure. |
+| 3 × 7 | 0.30 | A falling line through (2, 37) runs out of positive values fast, so it gets few prime terms. |
+| 3 × 8 | 0.47 | y = 38x − 39 trades a whole distance for treasure and primes. |
+| 4 × 5 | 0.60 | y = 2x + 60: y(½) = 61, a prime; the two thermometers agree at −60 (Ω 4). |
+| 4 × 6 | 0.60 | The same line: area 900 = 30² (Ω 3). |
+| 4 × 7 | 0.42 | y = −20x + 57 pays 57 three ways; y(½) = 47. |
+| 4 × 8 | 0.47 | y = 60x + 59 tops 4 (y(½) = 89) and leaves the distance near 1. |
+| 5 × 6 | **1.00** | Allies: y = 2x + 48 has area 576 = 24² (Ω 4) and agrees at −48 (Ω 5). |
+| 5 × 7 | **0.00** | No line counts for both: Same Reading needs a rising line, Exact Change a falling one. The only negotiation is whose rule a line serves. |
+| 5 × 8 | 0.80 | Allies: 4x − 3y + 60 = 0 is exactly 12 from the origin and agrees at −60. |
+| 6 × 7 | 0.42 | 18x + y = 48 has area 64 = 8² and three ways to pay. |
+| 6 × 8 | 0.47 | Fermat: an exactly square area and an exactly whole distance never meet. The compromise is y = 32x + 32. |
+| 7 × 8 | 0.81 | Allies: 4x + 3y = 35 is exactly 7 from the origin and pays 35 in three ways, (2, 9), (5, 5) and (8, 1). |
+
+Three pairs share a top (2 × 4, 5 × 6, and nearly 7 × 8), three can never share one (1 × 4, 5 × 7, 6 × 8), and the rest
+sit between. That spread is what a pool for negotiation needs.
+
+#### The second pool: eight harder families, up to three rungs
+
+| Family | Parts | Levels | Top | Why it is here |
+|---|---|---|--:|---|
+| Twin Sum (A26, with K7 and C PC) | \|a + b + c\| → min; distances of \|a\|, \|b\|, \|c\| from primes → min; largest → max | 5/5, 6/3, 7/7 | 30.6 | the general form; a twin-prime ladder in disguise |
+| m Meets c, on the Unit Circle (A5) | \|m − c\| → min; u² + v²'s distance from a square → min; triple size → max | 7/4, 6/2, 8/7 | 30.1 | Pythagorean triples as rational points on the circle |
+| Tangent Circle (A28, E §14) | \|dist² − 1\| → min; the triple behind the tilt → max | 7/3, 7/7 | 28.9 | distance to a line; an 11-bit wall at the first triple |
+| Pell Gradient (A8) | \|m² − 2\| → min | 6/6 | 27.2 | never exact: continued fractions do the climbing |
+| Euclid's Long Way (A10) | Euclid's steps on m → max | 9/9 | 25.2 | the smoothest ladder: 2 to 4 bits a rung, Fibonacci at the top |
+| Square Terms (A16, K8, C ST) | different squares among y(1..10) → max; the biggest square → max | 5/5, 2/1 | 31.2 | Fermat's four-squares theorem, met by playing |
+| Pick's Pegs (A30) | intercepts' distance from whole → min; \|inside pegs − 30\| → min | 5/3, 6/6 | 21.9 | Pick's theorem, the gcd on the slanted side |
+| Tresillo (E §6) | beats matching x..x..x. → max; beats the pattern keeps repeating → max | 8/5, 6/2 | 15.6 | the most different look at a line: rhythm from ⌊y(n)⌋ |
+
+Reserves: Vieta Intercepts (4, 2) (28.2), Stepping Coefficients (27.5, Twin Sum's sibling), Farey Neighbours (24.9),
+Cunningham Machine (23.1), Prime Hypotenuse (22.0), Matched Pair (18.2), Divisibility Treasure (16.1), and Haga's Fold
+and Firefly Jar from E for variety.
+
+### 7.6 What the spec should change (supersedes §5)
+
+1. **Graded parts only (§4).** A family declares its parts, each a quantity of kind `distance` (minimised), `count` or
+   `size` (maximised), with ascending thresholds and a `top`. There are no boolean terms. Parts after the first are
+   gated, and the ladder is the concatenated thresholds. The card states each part's quantity and direction ("as close
+   as possible to a whole number"), never a target as a fact.
+2. **Levels in the calibration report (§7.2, §7.6).** For every part, report the levels attained on the calibration's
+   samples and the **effective** levels (rungs adding ≥ ¼ bit). Flag a secondary with fewer than six attained or three
+   effective levels. A distance-to-whole primary is allowed to have one or two effective levels when its secondary
+   carries the reach (§7.1).
+3. **The Q distance ladder.** For distance-to-whole parts use ¼, ⅛, 1/16, 1/32, 1/64, 0 (B's finer tail). It is
+   cheap and gives agents a gradient, though it adds little value.
+4. **Pools (§8).** The beginner pool has two parts per family; the second pool may have three. Replace the twelve
+   §12.5 families with the first pool of §7.5 (Prime-Factor Line, Prime Staircase, Treasure Prime Run, Half-Way House,
+   Same Reading, Square Area Rich Root, Exact Change, Ruler) and the second pool after it.
+5. **Exemplar seeding in `lib/v2-valuation` (§7.2 step 1).** The spec allows `exemplars(params, variant)`; the
+   package does not implement it. 23 of the 30 strongest families are "unreachable" from y = 0 in 40,000 climbing steps.
+   Seeds must start the climb at the exemplar itself, not after a free burn-in, which walks off a thin set at once (tried
+   here: a 4-step burn-in already loses it). Without this, the strongest rules cannot be calibrated at all.
+6. **A `num` lens and two scene kinds (§3, §11),** as in §5 item 2–3: nearest integer, prime, square and triangular
+   number; factor tree; continued fraction; the triple of a rational. Brainstorm E's lenses (fold, cut, beats, coins,
+   cipher) need scene kinds of their own, which E sent to the spec session as gaps G1–G10.
+7. **Dealing (§8).** Use the pair table as a constraint: some pairs share no line at all (Same Reading × Exact Change), and
+   a room of three rules that are pairwise below 0.1 has nothing to negotiate.
+8. **A cross-check test.** On a price list with symmetric base prices, the estimator should match the reference law. On
+   the real price list, the seven families the estimator reaches today (§7.4) should be pinned as a regression set.
+
+### 7.7 What is not settled
+
+- **Brainstorm D** (number-theoretic ladders with proved reach) had not reported by the cut-off (90 minutes after the
+  curator brief). Its families are not in the table; they should be added through `line-families.mjs` and the same two
+  scripts.
+- **Values under the real price list** for 23 of the thirty: the estimator cannot reach them until it can seed from an
+  exemplar (§7.6 item 5). Their bits are the reference law's.
+- **B's and E's second pools** (Catch-Up, Fence Painters, Plant Diary, Speeding Up, Wheelchair Ramp, Mental Shortcut,
+  Constellation Mirror, Palindrome Path, Trick Shot, One Thread, Homecoming Gear, Crate Ramp, Prime Threads, Tangent
+  Kite, Sweet Chord) are listed but not re-implemented here. Their own documents measure them.
+- **Agent difficulty and playtesting,** as in §6.
+
+The full per-rung output is [scripts/layered-graded-results.md](scripts/layered-graded-results.md) (all 78 ladders,
+reference law) and [scripts/layered-v2-valuation-results.json](scripts/layered-v2-valuation-results.json) (the
+estimator's thirty runs).

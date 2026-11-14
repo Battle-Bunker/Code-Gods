@@ -1,0 +1,1121 @@
+{
+ "prime-factor-intercept": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 9865719 steps (budget 16000000)"
+  ],
+  "steps": 9865719,
+  "rungs": [
+   {
+    "label": "P ≤ 1/4",
+    "bits": null,
+    "error": null,
+    "split": 0.7832701031036571,
+    "splitError": 0.011467803796978792,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/8",
+    "bits": null,
+    "error": null,
+    "split": 0.8285383763068166,
+    "splitError": 0.012309176808925154,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/16",
+    "bits": null,
+    "error": null,
+    "split": 0.8359567681314473,
+    "splitError": 0.01183151752224099,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/32",
+    "bits": null,
+    "error": null,
+    "split": 0.8378973434156265,
+    "splitError": 0.011890355227416327,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/64",
+    "bits": null,
+    "error": null,
+    "split": 0.8380735396974605,
+    "splitError": 0.011894756322480497,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 0",
+    "bits": null,
+    "error": null,
+    "split": 0.8386023008620916,
+    "splitError": 0.011864379163159876,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 2",
+    "bits": null,
+    "error": null,
+    "split": 1.2576086878252828,
+    "splitError": 0.015760082251334184,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 3",
+    "bits": null,
+    "error": null,
+    "split": 4.296122809084377,
+    "splitError": 0.04755512725759277,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 5",
+    "bits": null,
+    "error": null,
+    "split": 5.6425804103514565,
+    "splitError": 0.08049502420844329,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 7",
+    "bits": null,
+    "error": null,
+    "split": 6.263990960039717,
+    "splitError": 0.09064399044815073,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 11",
+    "bits": null,
+    "error": null,
+    "split": 7.406608086113496,
+    "splitError": 0.09684630442875343,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 13",
+    "bits": null,
+    "error": null,
+    "split": 7.937537844871004,
+    "splitError": 0.10657130402959535,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 17",
+    "bits": null,
+    "error": null,
+    "split": 8.664738812726004,
+    "splitError": 0.14563178535027085,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 19",
+    "bits": null,
+    "error": null,
+    "split": 8.908480715076031,
+    "splitError": 0.1524058067004173,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 23",
+    "bits": null,
+    "error": null,
+    "split": 9.177931633401613,
+    "splitError": 0.1607888993337019,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 29",
+    "bits": null,
+    "error": null,
+    "split": 9.492581980751863,
+    "splitError": 0.17309351783605373,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 37",
+    "bits": null,
+    "error": null,
+    "split": 10.391269022907906,
+    "splitError": 0.14869985316365966,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 47",
+    "bits": null,
+    "error": null,
+    "split": 10.81744660491092,
+    "splitError": 0.16744452939456514,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 59",
+    "bits": null,
+    "error": null,
+    "split": 11.24092161018236,
+    "splitError": 0.1573518013390123,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 71",
+    "bits": null,
+    "error": null,
+    "split": 11.86962422532584,
+    "splitError": 0.19778378615575837,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 83",
+    "bits": null,
+    "error": null,
+    "split": 12.078452780647925,
+    "splitError": 0.1939757685099808,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 97",
+    "bits": null,
+    "error": null,
+    "split": 12.275471194081403,
+    "splitError": 0.22919308154657844,
+    "empty": false
+   }
+  ]
+ },
+ "prime-factor-line": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 9030345 steps (budget 16000000)"
+  ],
+  "steps": 9030345,
+  "rungs": [
+   {
+    "label": "P ≤ 1/2",
+    "bits": null,
+    "error": null,
+    "split": 0.728409353795324,
+    "splitError": 0.0233441254524448,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/4",
+    "bits": null,
+    "error": null,
+    "split": 0.9497016954584425,
+    "splitError": 0.030443965919058378,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/8",
+    "bits": null,
+    "error": null,
+    "split": 1.0124186439016962,
+    "splitError": 0.03348158809875881,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/16",
+    "bits": null,
+    "error": null,
+    "split": 1.0312707706113449,
+    "splitError": 0.036297787400519525,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/32",
+    "bits": null,
+    "error": null,
+    "split": 1.035329845387146,
+    "splitError": 0.036366475523114464,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/64",
+    "bits": null,
+    "error": null,
+    "split": 1.0355060416689799,
+    "splitError": 0.036397647599462325,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 0",
+    "bits": null,
+    "error": null,
+    "split": 1.0362118620616227,
+    "splitError": 0.03653077412957524,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 2",
+    "bits": null,
+    "error": null,
+    "split": 1.9360249183130978,
+    "splitError": 0.03252743150097264,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 3",
+    "bits": null,
+    "error": null,
+    "split": 7.890664500311019,
+    "splitError": 0.2563771718173132,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 5",
+    "bits": null,
+    "error": null,
+    "split": 10.553669915382622,
+    "splitError": 0.3316250263094677,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 7",
+    "bits": null,
+    "error": null,
+    "split": 11.869059326015188,
+    "splitError": 0.33618307697202415,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 11",
+    "bits": null,
+    "error": null,
+    "split": 13.930062473766188,
+    "splitError": 0.33593514250081613,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 13",
+    "bits": null,
+    "error": null,
+    "split": 14.809584056444837,
+    "splitError": 0.3431521670593549,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 17",
+    "bits": null,
+    "error": null,
+    "split": 16.03227718232532,
+    "splitError": 0.3956950848640617,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 19",
+    "bits": null,
+    "error": null,
+    "split": 16.439482330703225,
+    "splitError": 0.40046383711137123,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 23",
+    "bits": null,
+    "error": null,
+    "split": 16.975857886213362,
+    "splitError": 0.36725668568029785,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 29",
+    "bits": null,
+    "error": null,
+    "split": 17.55959183250371,
+    "splitError": 0.42284489458995306,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 37",
+    "bits": null,
+    "error": null,
+    "split": 19.183434807586885,
+    "splitError": 0.585601269819568,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 47",
+    "bits": null,
+    "error": null,
+    "split": 19.814932091278017,
+    "splitError": 0.6031532444822614,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 59",
+    "bits": null,
+    "error": null,
+    "split": 20.541735533517596,
+    "splitError": 0.5759450286180021,
+    "empty": false
+   }
+  ]
+ },
+ "square-area-roots": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 10325798 steps (budget 16000000)"
+  ],
+  "steps": 10325798,
+  "rungs": [
+   {
+    "label": "P ≤ 2",
+    "bits": null,
+    "error": null,
+    "split": 2.7967902660313873,
+    "splitError": 0.017560439513890837,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1",
+    "bits": null,
+    "error": null,
+    "split": 2.8790650135661116,
+    "splitError": 0.016918391844968187,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/2",
+    "bits": null,
+    "error": null,
+    "split": 3.008846331005537,
+    "splitError": 0.019885022828746577,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/4",
+    "bits": null,
+    "error": null,
+    "split": 3.682287093765239,
+    "splitError": 0.023140298260105822,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/8",
+    "bits": null,
+    "error": null,
+    "split": 4.3832914469481805,
+    "splitError": 0.031235405451628208,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/16",
+    "bits": null,
+    "error": null,
+    "split": 5.129508333936206,
+    "splitError": 0.042694588666039306,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 0",
+    "bits": null,
+    "error": null,
+    "split": 7.40129130429573,
+    "splitError": 0.13721221877088038,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 1",
+    "bits": null,
+    "error": null,
+    "split": 8.614591119410287,
+    "splitError": 0.15697403337288673,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 2",
+    "bits": null,
+    "error": null,
+    "split": 10.615196171666238,
+    "splitError": 0.1571000656922693,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 3",
+    "bits": null,
+    "error": null,
+    "split": 12.87638188304274,
+    "splitError": 0.2371224889062572,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 4",
+    "bits": null,
+    "error": null,
+    "split": 15.653463775599942,
+    "splitError": 0.2334719407991115,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 5",
+    "bits": null,
+    "error": null,
+    "split": 18.858311263323806,
+    "splitError": 0.26446478027215664,
+    "empty": false
+   }
+  ]
+ },
+ "pythagorean-area-6": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 11 (S ≤ 2) within 40000 climbing steps"
+  ],
+  "steps": 391822,
+  "rungs": []
+ },
+ "m-meets-c": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 15 (T ≥ 13) within 40000 climbing steps"
+  ],
+  "steps": 524340,
+  "rungs": []
+ },
+ "twin-coefficients": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 14 (T ≥ 11) within 40000 climbing steps"
+  ],
+  "steps": 402128,
+  "rungs": []
+ },
+ "pell-gradient": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 4 (P ≤ 1/64) within 40000 climbing steps"
+  ],
+  "steps": 477894,
+  "rungs": []
+ },
+ "euclid-steps": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 13633919 steps (budget 16000000)"
+  ],
+  "steps": 13633919,
+  "rungs": [
+   {
+    "label": "P ≥ 2",
+    "bits": 3.272517748277557,
+    "error": null,
+    "split": 3.297131268189831,
+    "splitError": 0.02815609658016848,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 3",
+    "bits": 5.942069897134337,
+    "error": null,
+    "split": 5.843676785286288,
+    "splitError": 0.04174173482130263,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 4",
+    "bits": 8.422903254114011,
+    "error": null,
+    "split": 8.095349899948385,
+    "splitError": 0.04052248964313038,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 5",
+    "bits": 11.06518370166888,
+    "error": null,
+    "split": 11.066673710514282,
+    "splitError": 0.03913431903147199,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 6",
+    "bits": 13.586839845764105,
+    "error": null,
+    "split": 13.776904471550441,
+    "splitError": 0.044424888814858565,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 7",
+    "bits": 17.91979728774766,
+    "error": null,
+    "split": 16.29094102219671,
+    "splitError": 0.08449155484884122,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 8",
+    "bits": 23.48532088814337,
+    "error": null,
+    "split": 18.96529174891895,
+    "splitError": 0.10789290189867277,
+    "empty": false
+   },
+   {
+    "label": "P ≥ 9",
+    "bits": 27.159829177914215,
+    "error": null,
+    "split": 21.811581529463453,
+    "splitError": 0.10522366666420253,
+    "empty": false
+   }
+  ]
+ },
+ "farey-neighbours": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 6 (S ≥ 2) within 40000 climbing steps"
+  ],
+  "steps": 309018,
+  "rungs": []
+ },
+ "prime-run": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 6 (P ≥ 6) within 40000 climbing steps"
+  ],
+  "steps": 385933,
+  "rungs": []
+ },
+ "square-terms": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 5 (P ≥ 5) within 40000 climbing steps"
+  ],
+  "steps": 438189,
+  "rungs": []
+ },
+ "treasure-prime-run": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 15 (S ≥ 6) within 40000 climbing steps"
+  ],
+  "steps": 463890,
+  "rungs": []
+ },
+ "divisibility-treasure": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 11138324 steps (budget 16000000)"
+  ],
+  "steps": 11138324,
+  "rungs": [
+   {
+    "label": "P ≤ 1/4",
+    "bits": null,
+    "error": null,
+    "split": 0.8347955003564858,
+    "splitError": 0.011661221359158173,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/8",
+    "bits": null,
+    "error": null,
+    "split": 0.906935819507398,
+    "splitError": 0.013106221793115281,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/16",
+    "bits": null,
+    "error": null,
+    "split": 0.9157704882515006,
+    "splitError": 0.013119813589515155,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/32",
+    "bits": null,
+    "error": null,
+    "split": 0.9166518144253556,
+    "splitError": 0.013437667597530392,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/64",
+    "bits": null,
+    "error": null,
+    "split": 0.9169160873292632,
+    "splitError": 0.013358276890697152,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 0",
+    "bits": null,
+    "error": null,
+    "split": 0.9170041639513369,
+    "splitError": 0.013352639672720197,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 1",
+    "bits": null,
+    "error": null,
+    "split": 1.7982610408177935,
+    "splitError": 0.02329584050290737,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 2",
+    "bits": null,
+    "error": null,
+    "split": 2.9203008176310012,
+    "splitError": 0.024220110896118044,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 3",
+    "bits": null,
+    "error": null,
+    "split": 4.198739854884343,
+    "splitError": 0.033458173043101704,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 4",
+    "bits": null,
+    "error": null,
+    "split": 6.081928407169397,
+    "splitError": 0.0650757176261096,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 5",
+    "bits": null,
+    "error": null,
+    "split": 8.171451047280204,
+    "splitError": 0.07986663588331526,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 6",
+    "bits": null,
+    "error": null,
+    "split": 11.641244367619706,
+    "splitError": 0.1369194172617938,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 7",
+    "bits": null,
+    "error": null,
+    "split": 17.332287403650568,
+    "splitError": 0.3584556356731542,
+    "empty": false
+   }
+  ]
+ },
+ "cunningham-3": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 5 (P ≥ 5) within 40000 climbing steps"
+  ],
+  "steps": 406208,
+  "rungs": []
+ },
+ "prime-hypotenuse": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 18 (T ≥ 401) within 40000 climbing steps"
+  ],
+  "steps": 330721,
+  "rungs": []
+ },
+ "vieta-intercepts": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 9 (S ≤ 1/4) within 40000 climbing steps"
+  ],
+  "steps": 480741,
+  "rungs": []
+ },
+ "twin-sum": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 14 (T ≥ 19) within 40000 climbing steps"
+  ],
+  "steps": 297699,
+  "rungs": []
+ },
+ "stepping-coefficients": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 8 (S ≤ 3) within 40000 climbing steps"
+  ],
+  "steps": 353410,
+  "rungs": []
+ },
+ "tangent-circle": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 8 (S ≥ 5) within 40000 climbing steps"
+  ],
+  "steps": 384443,
+  "rungs": []
+ },
+ "pick-pegs": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 10 (S ≤ 1) within 40000 climbing steps"
+  ],
+  "steps": 428694,
+  "rungs": []
+ },
+ "parabola-kiss": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 14 (T ≥ 1) within 40000 climbing steps"
+  ],
+  "steps": 397844,
+  "rungs": []
+ },
+ "coord-prime-staircase/first-prime": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 8 (S ≥ 7) within 40000 climbing steps"
+  ],
+  "steps": 490352,
+  "rungs": []
+ },
+ "coord-square-triangle/whole-hypotenuse": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 12 (S ≤ 1/2) within 40000 climbing steps"
+  ],
+  "steps": 448659,
+  "rungs": []
+ },
+ "b-same-reading": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 10299427 steps (budget 16000000)"
+  ],
+  "steps": 10299427,
+  "rungs": [
+   {
+    "label": "P ≤ 1/4",
+    "bits": 3.7399174843807206,
+    "error": null,
+    "split": 3.7835077588133332,
+    "splitError": 0.05145098920804055,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/8",
+    "bits": 3.920307564710477,
+    "error": null,
+    "split": 3.9269686587747787,
+    "splitError": 0.05067756882260081,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/16",
+    "bits": 3.9922365726451976,
+    "error": null,
+    "split": 3.9761022354006825,
+    "splitError": 0.05463250117156298,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/32",
+    "bits": 4.0251770505910995,
+    "error": null,
+    "split": 3.9937441618331233,
+    "splitError": 0.054682711047216774,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/64",
+    "bits": 4.0289639605261325,
+    "error": null,
+    "split": 3.9997493528131,
+    "splitError": 0.055183479326152494,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 0",
+    "bits": 4.02908530592966,
+    "error": null,
+    "split": 4.001247990988667,
+    "splitError": 0.055066907837807676,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 1",
+    "bits": 7.050258490892874,
+    "error": null,
+    "split": 6.862872597406565,
+    "splitError": 0.10213425408245053,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 2",
+    "bits": 9.227845865415272,
+    "error": null,
+    "split": 8.731791739239002,
+    "splitError": 0.09738815679400985,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 3",
+    "bits": 11.474692141142372,
+    "error": null,
+    "split": 10.93712243469181,
+    "splitError": 0.09766219337153852,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 4",
+    "bits": 15.232744124462023,
+    "error": null,
+    "split": 13.572609954982664,
+    "splitError": 0.12671397985105814,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 5",
+    "bits": 19.772161460072546,
+    "error": null,
+    "split": 16.659965024163192,
+    "splitError": 0.20504735258514845,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 6",
+    "bits": 26.241646757838357,
+    "error": null,
+    "split": 19.936707904673096,
+    "splitError": 0.2511298561491288,
+    "empty": false
+   }
+  ]
+ },
+ "c-ruler": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 11 (S ≥ 2) within 40000 climbing steps"
+  ],
+  "steps": 377399,
+  "rungs": []
+ },
+ "c-matched-pair": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 6 (S ≥ 2) within 40000 climbing steps"
+  ],
+  "steps": 535267,
+  "rungs": []
+ },
+ "c-half-way-house": {
+  "status": "unconverged",
+  "reasons": [
+   "not within 2% after 9899981 steps (budget 16000000)"
+  ],
+  "steps": 9899981,
+  "rungs": [
+   {
+    "label": "P ≤ 1/4",
+    "bits": null,
+    "error": null,
+    "split": 1.2378569647315147,
+    "splitError": 0.0099272790961759,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/8",
+    "bits": null,
+    "error": null,
+    "split": 1.4710117411864791,
+    "splitError": 0.005859963162670775,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/16",
+    "bits": null,
+    "error": null,
+    "split": 1.5215893057765897,
+    "splitError": 0.00429421753144095,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/32",
+    "bits": null,
+    "error": null,
+    "split": 1.5422108459845074,
+    "splitError": 0.005664905417841077,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 1/64",
+    "bits": null,
+    "error": null,
+    "split": 1.548934403237828,
+    "splitError": 0.0063377010306675035,
+    "empty": false
+   },
+   {
+    "label": "P ≤ 0",
+    "bits": null,
+    "error": null,
+    "split": 1.5524664539367514,
+    "splitError": 0.0070326455277161986,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 2",
+    "bits": null,
+    "error": null,
+    "split": 2.0365030878647286,
+    "splitError": 0.017971808362084764,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 3",
+    "bits": null,
+    "error": null,
+    "split": 4.641137671225963,
+    "splitError": 0.05399941571368225,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 5",
+    "bits": null,
+    "error": null,
+    "split": 6.137075561599134,
+    "splitError": 0.09399391041830074,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 7",
+    "bits": null,
+    "error": null,
+    "split": 6.8549960744547835,
+    "splitError": 0.090009522237716,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 11",
+    "bits": null,
+    "error": null,
+    "split": 8.076768582901254,
+    "splitError": 0.1026953627518444,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 13",
+    "bits": null,
+    "error": null,
+    "split": 8.593002874270462,
+    "splitError": 0.1037008969593234,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 17",
+    "bits": null,
+    "error": null,
+    "split": 9.28658604214772,
+    "splitError": 0.1453845329823363,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 19",
+    "bits": null,
+    "error": null,
+    "split": 9.593946718681153,
+    "splitError": 0.15103822601286754,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 23",
+    "bits": null,
+    "error": null,
+    "split": 9.868927283124936,
+    "splitError": 0.1351906922236915,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 29",
+    "bits": null,
+    "error": null,
+    "split": 10.227198027557911,
+    "splitError": 0.13957381283462383,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 37",
+    "bits": null,
+    "error": null,
+    "split": 11.26069454194174,
+    "splitError": 0.16554145385880825,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 47",
+    "bits": null,
+    "error": null,
+    "split": 11.932581640645536,
+    "splitError": 0.18128597609592562,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 59",
+    "bits": null,
+    "error": null,
+    "split": 12.434438059273734,
+    "splitError": 0.21319453594955456,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 71",
+    "bits": null,
+    "error": null,
+    "split": 13.29239280896353,
+    "splitError": 0.26504397951177205,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 83",
+    "bits": null,
+    "error": null,
+    "split": 13.54342104885254,
+    "splitError": 0.2682712010988074,
+    "empty": false
+   },
+   {
+    "label": "S ≥ 97",
+    "bits": null,
+    "error": null,
+    "split": 13.816946079323788,
+    "splitError": 0.28972374948238006,
+    "empty": false
+   }
+  ]
+ },
+ "c-square-term": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 13 (S ≥ 5) within 40000 climbing steps"
+  ],
+  "steps": 376177,
+  "rungs": []
+ },
+ "e-tresillo": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 9 (S ≥ 1) within 40000 climbing steps"
+  ],
+  "steps": 396453,
+  "rungs": []
+ },
+ "e-exact-change": {
+  "status": "unreachable",
+  "reasons": [
+   "no state found at rung 7 (S ≥ 1) within 40000 climbing steps"
+  ],
+  "steps": 336463,
+  "rungs": []
+ }
+}
