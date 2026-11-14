@@ -80,6 +80,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   const kept = await me(ada!);
   assert.ok(Math.abs(kept.ownPerSecond - kept.power * 0.2) < 1e-6, `the store keeps the 20% no agent holds: ${JSON.stringify(kept)}`);
   // Pulling power back to pay for something: the store's share (and so its income and capacity) grows.
+  const energyOf = async (id: string) => await ada!.query("v2/play:agentEnergy", { agentId: id });
   await perform(ada!, "power.allocate", { shares: { [agentId]: 0.1 } }, scope());
   assert.ok(Math.abs((await me(ada!)).ownPerSecond - kept.power * 0.7) < 1e-6, "lowering an agent's share returns that power to the store");
   const over = await perform(ada!, "power.allocate", { shares: { [agentId]: 0.9 } }, scope()).catch((e: any) => e.data);
@@ -87,6 +88,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0 } }, scope())).error.code, "invalid_args", "a zero share is a destroy, not an allocation");
   assert.equal((await perform(ada!, "agent.destroy", { agentId: second.result.agentId }, scope())).ok, true);
   assert.equal((await ada!.query("v2/play:agents", { gameId })).length, 1);
+
   assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).error.code, "refused", "another player's agent");
 });
 
@@ -136,10 +138,43 @@ test("pause once, resume by the owner, end by the owner", async () => {
   const [late] = await humans("Play Late");
   await perform(late!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code });
   assert.equal((await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late").spectator, true, "joining mid-game: watching");
+  // Ada's agent stops moving lines for a while, so it saves up energy (for the pay-now summon below, while paused).
+  const saver = (await ada!.query("v2/play:agents", { gameId }))[0].agentId;
+  assert.equal((await perform(ada!, "agent.replace", { agentId: saver, language: "typescript", source: "function agent(offer) {\n  return null;\n}\n" }, scope(), "action")).ok, true);
+  assert.equal((await perform(ada!, "power.allocate", { shares: { [saver]: 0.9 } }, scope())).ok, true);
+  await new Promise(r => setTimeout(r, 4000));
   assert.equal((await perform(bo!, "game.pause", {}, scope())).ok, true);
   const paused = await ada!.query("v2/games:header", { gameId });
   assert.deepEqual([paused.phase, paused.endsAt], ["paused", null], "no countdown while paused");
   assert.equal((await perform(bo!, "game.resume", {}, scope())).error.code, "refused", "only the owner resumes");
+  const agentId = saver;
+  const energyOf = async (id: string) => await ada!.query("v2/play:agentEnergy", { agentId: id });
+  const small = "function agent(offer) {\n  return null;\n}\n";
+  // While paused (nothing accrues or acts): a summon the store cannot pay: the refusal carries the numbers and the split that pays now; that split does.
+  const store = (await me(ada!)).energy, held = await energyOf(agentId);
+  assert.ok(held.energy > 0, "the agent holds energy");
+  const share = (await ada!.query("v2/play:agents", { gameId }))[0].share, whole = held.capacity / share, release = held.energy - 0.001 * whole;
+  const priceOf = async (k: number) => (await perform(ada!, "agent.check", { language: "typescript", source: small + Array.from({ length: k }, (_, i) => `const pad${i} = ${i};\n`).join("") }, scope(), "action")).result.price;
+  let lo = 0, hi = 256;   // the fewest padding lines whose price is above the store
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (await priceOf(mid) > store + 1) hi = mid; else lo = mid + 1; }
+  const big = small + Array.from({ length: lo }, (_, i) => `const pad${i} = ${i};\n`).join(""), price = await priceOf(lo);
+  assert.ok(price > store && price < store + release, `a price the agent's energy can cover: ${price} vs ${store} + ${release}`);
+  const refused = await perform(ada!, "agent.summon", { language: "typescript", source: big, name: "Big" }, scope(), "action").catch((e: any) => e.data);
+  const d = refused.error.data;
+  assert.ok(Math.abs(d.price - price) < 1e-6 && Math.abs(d.store - store) < 1e-6 && d.perSecond > 0 && d.capacity > 0, JSON.stringify(d));
+  assert.ok(d.secondsToPay === null || Math.abs(d.secondsToPay - (price - store) / d.perSecond) < 1e-6, "seconds at the current split");
+  assert.deepEqual(Object.keys(d.payNow.shares), [agentId], "one agent covers it");
+  assert.ok(d.payNow.shares[agentId] < share, "by lowering its share");
+  assert.equal((await perform(ada!, "power.allocate", { shares: d.payNow.shares }, scope())).ok, true);
+  // The energy the agent held above its new capacity moved into the store (movePower), none made or lost (planning:
+  // nothing accrues), within the store's new capacity, and now covers the price.
+  const [storeNow, heldNow] = [await me(ada!), await energyOf(agentId)];
+  assert.ok(Math.abs(heldNow.energy - heldNow.capacity) < 1e-6, `it keeps what its new capacity holds: ${heldNow.energy} / ${heldNow.capacity}`);
+  assert.ok(Math.abs(storeNow.energy + heldNow.energy - store - held.energy) < 1e-6, `the rest lands in the store: ${store}+${held.energy} → ${storeNow.energy}+${heldNow.energy}`);
+  assert.ok(storeNow.energy >= price && storeNow.energy <= storeNow.capacity + 1e-6, `${storeNow.energy} pays ${price}, within ${storeNow.capacity}`);
+  const paid = await perform(ada!, "agent.summon", { language: "typescript", source: big, name: "Big", share: 0.05 }, scope(), "action");
+  assert.equal(paid.ok, true, `the split pays: ${JSON.stringify(paid)}`);
+  assert.equal((await perform(ada!, "agent.destroy", { agentId: paid.result.agentId }, scope())).ok, true);
   await perform(ada!, "game.resume", {}, scope());
   const resumed = await ada!.query("v2/games:header", { gameId });
   assert.ok(resumed.phase === "live" && resumed.endsAt > Date.now(), "the end is set again on resume");

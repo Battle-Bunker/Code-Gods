@@ -10,7 +10,7 @@ import { startersFor } from "@workspace/v2-agents/pure";
 import { editPriceOf, priceOf } from "./pricing";
 export { editPriceOf, priceOf };
 import {
-  agentIncome, defaultShare, energyCapacity, firstAgentShare, floorShare, movePower, roundShare, settle, settleOwn, spend, type Account,
+  agentIncome, defaultShare, energyCapacity, firstAgentShare, floorShare, movePower, ownIncome, roundShare, settle, settleOwn, spend, type Account,
 } from "@workspace/v2-economy";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -32,12 +32,52 @@ function settledAgent(game: Doc<"v2Games">, agent: Doc<"v2Agents">, e: Doc<"v2Ag
 }
 
 /** Pays `price` from the player's own store settled to now, or refuses (a store never goes below zero for a summon). */
-function pay(game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, price: number): Account {
-  const own = settleOwn(ownOf(player), Math.max(world, player.settledAt), powerTerms(game, player));
-  if (own.balance < price) {
-    throw new OpFailure(`That program costs ${Math.round(price * 10) / 10} ⚡; you have ${Math.round(own.balance * 10) / 10}.`, "Energy accrues while the game runs; a shorter program costs less.");
+/** The least share a "pay now" split leaves an agent (it keeps running, on very little power). */
+const PAY_NOW_MIN_SHARE = 0.001;
+
+/**
+ * Pays `price` from the player's own store settled to now, or refuses (a store never goes below zero for a summon).
+ * The refusal carries its numbers (`data`) so a surface can offer the fix: the price, the store now, its income and
+ * capacity, the seconds until it can pay at the current split (null when it never can: the price is above the store's
+ * capacity, or it earns nothing), and `payNow`, the agents' shares that would pay at once (power.allocate moves the
+ * energy an agent holds above its new capacity into the store), or null when no split would.
+ */
+async function pay(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, price: number): Promise<Account> {
+  const terms = powerTerms(game, player);
+  const own = settleOwn(ownOf(player), Math.max(world, player.settledAt), terms);
+  if (own.balance >= price) return spend(own, price);
+  const perSecond = ownIncome(terms.powerPerSecond, terms.allocated), capacity = energyCapacity(perSecond, terms.fullChargeSeconds);
+  const secondsToPay = perSecond > 0 && capacity >= price ? (price - own.balance) / perSecond : null;
+  const payNow = await payNowShares(ctx, game, player, world, price - own.balance);
+  const r1 = (x: number) => Math.round(x * 10) / 10;
+  throw new OpFailure(`That program costs ${r1(price)} ⚡; you have ${r1(own.balance)}.`,
+    payNow ? "Pull power back from your agents to pay now (power.allocate with the shares in data.payNow), or wait while energy accrues; a shorter program costs less."
+      : "Energy accrues while the game runs; a shorter program costs less.",
+    { price, store: own.balance, perSecond, capacity, secondsToPay, payNow: payNow ? { shares: payNow } : null });
+}
+
+/**
+ * The fewest agents' shares to lower so that the energy they hold above their new capacities covers `need`: the agent
+ * holding most first, each lowered only as far as needed (never below PAY_NOW_MIN_SHARE); null when even that falls short.
+ */
+async function payNowShares(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, need: number): Promise<Record<string, number> | null> {
+  const whole = player.power * game.settings.economy.fullChargeSeconds;
+  if (!(whole > 0)) return null;
+  const agents = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", player.memberId)).take(MAX_AGENTS))
+    .filter(a => a.destroyedAt === undefined);
+  const held = await Promise.all(agents.map(async a => ({ a, balance: settledAgent(game, a, await energyRow(ctx, a._id), world).balance })));
+  held.sort((x, y) => y.balance - x.balance);
+  const shares: Record<string, number> = {};
+  for (const { a, balance } of held) {
+    if (need <= 0) break;
+    const most = balance - PAY_NOW_MIN_SHARE * whole;   // what this agent can release at the least share
+    if (most <= 0 || a.share <= PAY_NOW_MIN_SHARE) continue;
+    const to = need >= most ? PAY_NOW_MIN_SHARE : Math.max(PAY_NOW_MIN_SHARE, floorShare((balance - need) / whole));
+    if (to >= a.share) continue;
+    shares[a._id] = to;
+    need -= balance - to * whole;
   }
-  return spend(own, price);
+  return need <= 1e-9 ? shares : null;
 }
 
 export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">,
@@ -47,7 +87,7 @@ export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player
   const world = (await clockOf(ctx, game._id)).worldSeconds, price = priceOf(a.language, a.source);
   const share = roundShare(a.share ?? defaultShare(player.allocated));
   if (share <= 0 || player.allocated + share > 1 + 1e-9) throw new OpFailure(`You have ${roundShare(1 - player.allocated)} of your power left to give.`, "power.allocate");
-  const own = pay(game, player, world, price);
+  const own = await pay(ctx, game, player, world, price);
   const whole = player.power * game.settings.economy.fullChargeSeconds;
   const moved = movePower({ balance: 0, settledWorldSeconds: world }, own, 0, share, 1 - player.allocated, whole);
   const sourceHash = hashHex(a.source), now = Date.now();
@@ -75,7 +115,7 @@ export async function ownAgent(ctx: MutationCtx, player: Doc<"v2Players">, agent
 export async function reprogram(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, agent: Doc<"v2Agents">,
   a: { language: Language; source: string; kind: "replace" | "putBack"; from?: number }): Promise<{ version: number; price: number }> {
   const world = (await clockOf(ctx, game._id)).worldSeconds, price = editPriceOf(agent, a.language, a.source);
-  const own = pay(game, player, world, price);
+  const own = await pay(ctx, game, player, world, price);
   const version = agent.version + 1, sourceHash = hashHex(a.source);
   await ctx.db.patch(agent._id, { language: a.language, source: a.source, sourceHash, version });
   await ctx.db.insert("v2AgentPrograms", { agentId: agent._id, version, language: a.language, source: a.source, sourceHash, price, summonedAt: Date.now(), acts: 0, pointsGained: 0 });

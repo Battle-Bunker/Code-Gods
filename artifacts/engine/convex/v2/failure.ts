@@ -5,17 +5,18 @@
  * modules (stored panels' queries) can use it.
  */
 import { OpFailure } from "@workspace/v2-affordances";
-import { ConvexError } from "convex/values";
+import { ConvexError, type Value } from "convex/values";
 
 export async function outcome<T>(f: () => Promise<T>): Promise<T> {
   try { return await f(); } catch (e) {
-    if (e instanceof OpFailure) throw new ConvexError({ message: e.message, ...(e.fix ? { fix: e.fix } : {}) });
+    if (e instanceof OpFailure) throw new ConvexError({ message: e.message, ...(e.fix ? { fix: e.fix } : {}), ...(e.data ? { data: e.data as Record<string, Value> } : {}) });
     throw e;
   }
 }
 
 /** The OpFailure a transactional half reported, or the error itself. */
 export function failureOf(e: unknown): unknown {
-  const d = e instanceof ConvexError ? e.data as { message?: unknown; fix?: unknown } : null;
-  return d && typeof d.message === "string" ? new OpFailure(d.message, typeof d.fix === "string" ? d.fix : undefined) : e;
+  const d = e instanceof ConvexError ? e.data as { message?: unknown; fix?: unknown; data?: unknown } : null;
+  return d && typeof d.message === "string"
+    ? new OpFailure(d.message, typeof d.fix === "string" ? d.fix : undefined, d.data && typeof d.data === "object" ? d.data as Record<string, unknown> : undefined) : e;
 }
