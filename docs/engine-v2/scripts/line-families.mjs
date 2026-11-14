@@ -1035,3 +1035,145 @@ export function levels(f, L) {
 }
 /** Rung labels in ladder order: "P ≤ 1/4", …, "S ≥ 3", … */
 export const rungLabels = (f) => f.parts.flatMap((pt) => pt.labels.map((l) => `${pt.key} ${l}`));
+
+// --------------------------------------------------------------------------------------------------------------
+// The beginner families, ungated (doc §8): one primary and several candidate secondaries. A dealt rule is the primary
+// plus ONE secondary, scored as the plain lexicographic tuple (P, S): S orders lines at every level of P.
+// --------------------------------------------------------------------------------------------------------------
+const nearPrimeInt = (n) => distPrime([n, 1]);
+const firstNonRun = (L) => {
+  const n = staircase(L);
+  return yAt(L, n);
+};
+const runCount = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
+export const BEGINNER = [
+  {
+    id: "prime-staircase", name: "Prime Staircase", source: "K1 (A15, C PT)", topic: "core: sequences (the nth term); primes under 50",
+    card: "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.",
+    P: part("P", "run of different primes from y(0)", "primes", staircase, runCount(6)),
+    S: [
+      ["first-prime", "The first prime should be as big as possible.", "growth pattern", part("S", "y(0)", "size", (L) => val(L.c), sizes([3, 5, 7, 11, 17, 29, 47, 71, 101]))],
+      ["near-miss", "The first term that is not prime should be as close as possible to a prime.", "growth pattern, number line", part("S", "distance of the first non-prime term from a prime", "units", (L) => -distPrime(rat(Math.abs(firstNonRun(L)[0]), firstNonRun(L)[1])), dist("8", "4", "2", "1", "1/2", "1/4", "1/8"))],
+      ["step-30", "The step should be as close as possible to a multiple of 30.", "slope-intercept (m)", part("S", "distance of m from a multiple of 30", "units", (L) => -Math.abs(val(L.m) - 30 * Math.round(val(L.m) / 30)), dist("12", "8", "6", "4", "2", "1", 0))],
+      ["twin-end", "The last prime of the run should be as close as possible to another prime.", "number line", part("S", "gap from the last prime to the nearest prime", "units", (L) => -(staircase(L) ? primeGap(lastOfRun(L)) : 99), dist("14", "10", "8", "6", "4", "2"))],
+      ["last-prime", "The last prime of the run should be as big as possible.", "growth pattern", part("S", "the last prime", "size", (L) => (staircase(L) ? lastOfRun(L) : 0), sizes([5, 11, 17, 29, 47, 71, 101, 151, 251]))],
+      ["step-back", "The term before the start, y(−1), should be as close as possible to a prime.", "growth pattern (backwards)", part("S", "distance of y(−1) from a prime", "units", (L) => -distPrime(rat(Math.abs(yAt(L, -1)[0]), yAt(L, -1)[1])), dist("4", "2", "1", "1/2", "1/4", 0))],
+    ],
+  },
+  {
+    id: "square-area", name: "Square Area", source: "A2 (owner's example 2), C SC, K2", topic: "stretch: area of a triangle from its intercepts; square numbers",
+    card: "The triangle the line cuts off the axes should have an area as close as possible to a square number.",
+    P: part("P", "distance from the area to the nearest square", "area units", (L) => (L.tri ? -nearSquare(L.area).dist : null), dist("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", 0)),
+    S: [
+      ["root-factors", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "factor tree", part("S", "Ω(root)", "factors", (L) => bigOmega(nearSquare(L.area).k), runCount(7))],
+      ["big-root", "That square's root should be as big as possible.", "intercept triangle", part("S", "the root", "size", (L) => nearSquare(L.area).k, sizes([2, 3, 4, 6, 8, 12, 16, 24, 32]))],
+      ["slanted-square", "The slanted side, squared, should be as close as possible to a square number (Pythagoras).", "intercept triangle", part("S", "distance from h² to a square", "units²", (L) => -nearSquare(L.hyp2).dist, dist("16", "8", "4", "2", "1", "1/2", 0))],
+      ["prime-root", "That square's root should be as close as possible to a prime.", "number line", part("S", "distance of the root from a prime", "units", (L) => -nearPrimeInt(Math.max(0, nearSquare(L.area).k)), dist("4", "2", "1", 0))],
+    ],
+  },
+  {
+    id: "treasure", name: "Treasure (2, 37)", source: "A17 (A6 treasure)", topic: "core: substituting x; table of values",
+    card: "When x is 2, y should be as close as possible to 37.",
+    P: part("P", "|y(2) − 37|", "units", (L) => (L.nv ? -absd(yAt(L, 2), 37) : null), dist("32", "16", "8", "4", "2", "1", "1/2", "1/4", 0)),
+    S: [
+      ["prime-terms", "As many as possible of y(1) … y(8) should be different primes.", "table", part("S", "different primes among y(1)…y(8)", "primes", (L) => {
+        const s = new Set();
+        for (let x = 1; x <= 8; x++) {
+          const [a, b] = yAt(L, x);
+          if (b === 1 && isPrime(a)) s.add(a);
+        }
+        return s.size;
+      }, runCount(8))],
+      ["prime-gradient", "The gradient should be as close as possible to a prime.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
+      ["square-start", "The y-intercept should be as close as possible to a square number.", "slope-intercept", part("S", "distance of c from a square", "units", (L) => -(val(L.c) < 0 ? -val(L.c) : nearSquare(L.c).dist), dist("8", "4", "2", "1", "1/2", 0))],
+      ["whole-crossing", "The x-intercept should be as close as possible to a whole number.", "plane", part("S", "distance of the x-intercept from whole", "units", (L) => (L.A === 0 ? -1 : -nearInt(rat(-L.C, L.A)).dist), dist("1/2", "1/4", "1/8", "1/16", 0))],
+    ],
+  },
+  {
+    id: "ruler", name: "Ruler", source: "C RU (A28, E §14, K9)", topic: "stretch: distance from a point to a line, by Pythagoras",
+    card: "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.",
+    P: part("P", "|D² − k²|", "units²", (L) => {
+      if (!L.nv || L.A === 0) return null;
+      const d2 = rat(L.C * L.C, L.A * L.A + L.B * L.B);
+      const k = Math.max(1, Math.round(Math.sqrt(val(d2))));
+      return -Math.min(absd(d2, k * k), k > 1 ? absd(d2, (k - 1) ** 2) : Infinity, absd(d2, (k + 1) ** 2));
+    }, dist("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", 0)),
+    S: [
+      ["far", "That distance should be as big as possible.", "plane", part("S", "the nearest whole distance k", "size", (L) => Math.max(1, Math.round(Math.sqrt((L.C * L.C) / (L.A * L.A + L.B * L.B)))), sizes([2, 3, 4, 5, 6, 8, 10, 12]))],
+      ["foot-peg", "The foot of the perpendicular should be as close as possible to a peg.", "pegboard", part("S", "squared distance from the foot to a peg", "units²", (L) => -footD2(L), dist("1/4", "1/8", "1/16", "1/32", "1/64", 0))],
+      ["prime-distance", "That whole distance should be as close as possible to a prime.", "number line", part("S", "distance of k from a prime", "units", (L) => -nearPrimeInt(Math.max(1, Math.round(Math.sqrt((L.C * L.C) / (L.A * L.A + L.B * L.B))))), dist("6", "4", "3", "2", "1", 0))],
+      ["prime-gradient", "The gradient should be as close as possible to a prime.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
+      ["square-area", "The triangle cut off the axes should have an area as close as possible to a square number.", "intercept triangle", part("S", "distance of the area from a square", "area units", (L) => (L.tri ? -nearSquare(L.area).dist : -99), dist("8", "4", "2", "1", "1/2", "1/4", 0))],
+      ["whole-gradient", "The gradient should be as close as possible to a whole number.", "slope-intercept", part("S", "distance of m from whole", "units", (L) => -nearInt(L.m).dist, dist("1/4", "1/8", "1/16", 0))],
+    ],
+  },
+  {
+    id: "exact-change", name: "Exact Change (6 ways)", source: "E §13 (B §1.3)", topic: "stretch: whole-number solutions of ax + by = N",
+    card: "Reading the line as a·x + b·y = N (coins worth a and b paying N), the number of ways to pay should be as close as possible to 6.",
+    P: part("P", "|ways − 6|", "ways", (L) => {
+      const w = ways(L);
+      return w ? -Math.abs(w.length - 6) : null;
+    }, dist("5", "4", "3", "2", "1", 0)),
+    S: [
+      ["big-piles", "In every way to pay, the smaller pile should be as big as possible.", "pegboard", part("S", "smallest pile", "coins", (L) => {
+        const w = ways(L);
+        return w.length ? Math.min(...w.map(([x, y]) => Math.min(x, y))) : -1;
+      }, sizes([0, 1, 2, 3, 4, 5]))],
+      ["prime-coins", "Both coin values should be as close as possible to primes (distances added).", "general form", part("S", "distance of a and b from primes", "units", (L) => -(nearPrimeInt(L.A) + nearPrimeInt(L.B)), dist("4", "3", "2", "1", 0))],
+      ["big-bill", "The bill N should be as big as possible.", "general form", part("S", "N", "size", (L) => -L.C, sizes([10, 15, 20, 30, 45, 60, 90]))],
+      ["even-split", "Some way to pay should use as close as possible to equal numbers of each coin.", "pegboard", part("S", "min |x − y| over the ways", "coins", (L) => {
+        const w = ways(L);
+        return w.length ? -Math.min(...w.map(([x, y]) => Math.abs(x - y))) : -99;
+      }, dist("8", "4", "2", "1", 0))],
+    ],
+  },
+  {
+    id: "prime-landing", name: "Prime Landing (owner's example 1, regraded)", source: "A1 (owner's example 1), C WL, K3", topic: "core: y-intercept; primes under 50",
+    card: "The y-intercept should be as close as possible to a prime number.",
+    P: part("P", "distance of c from the nearest prime", "units", (L) => (L.nv ? -distPrime(L.c) : null), dist("4", "2", "1", "1/2", "1/4", "1/8", 0)),
+    S: [
+      ["big-prime", "That prime should be as big as possible.", "number line", part("S", "the nearest integer's smallest prime factor", "prime", (L) => Math.max(...nearInt(L.c).near.map(spfOf)), sizes([2, 3, 5, 7, 11, 17, 29, 47, 71, 97]))],
+      ["prime-gradient", "The gradient should be as close as possible to a prime too.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
+      ["whole-crossing", "The x-intercept should be as close as possible to a whole number.", "plane", part("S", "distance of the x-intercept from whole", "units", (L) => (L.A === 0 ? -1 : -nearInt(rat(-L.C, L.A)).dist), dist("1/2", "1/4", "1/8", "1/16", 0))],
+      ["twin", "The prime should be as close as possible to another prime (twins are two apart).", "number line", part("S", "gap to the next nearest prime", "units", (L) => -primeGap(Math.max(2, Math.round(val(L.c)))), dist("10", "6", "4", "2"))],
+      ["next-prime", "y(1) = m + c should be as close as possible to a prime too.", "table", part("S", "distance of y(1) from a prime", "units", (L) => -distPrime(rat(Math.abs(yAt(L, 1)[0]), yAt(L, 1)[1])), dist("4", "2", "1", "1/2", "1/4", 0))],
+    ],
+  },
+  {
+    id: "same-on-both-rulers", name: "Same on Both Rulers (T = 6)", source: "E §11 (B §1.4, C FP, K5)", topic: "core: solving x = mx + c",
+    card: "The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to 6.",
+    P: part("P", "|c/(1 − m) − 6|", "units", (L) => (fixedPt(L) ? -absd(fixedPt(L), 6) : null), dist("16", "8", "4", "2", "1", "1/2", "1/4", 0)),
+    S: [
+      ["whole-values", "As many of y(−5) … y(5) as possible should be different whole numbers.", "table", part("S", "different whole values among y(−5)…y(5)", "values", (L) => {
+        const s = new Set();
+        for (let x = -5; x <= 5; x++) {
+          const y = yAt(L, x);
+          if (y[1] === 1) s.add(y[0]);
+        }
+        return s.size;
+      }, runCount(11))],
+      ["steep", "The gradient should be as far from 1 as possible.", "slope-intercept", part("S", "|m − 1|", "size", (L) => Math.abs(val(L.m) - 1), sizes([1 / 4, 1 / 2, 1, 2, 3, 5, 8]))],
+      ["prime-start", "The y-intercept should be as close as possible to a prime (ignoring sign).", "slope-intercept", part("S", "distance of |c| from a prime", "units", (L) => -distPrime(rat(Math.abs(L.c[0]), L.c[1])), dist("4", "2", "1", "1/2", 0))],
+      ["whole-lamp", "The lamp's height m/(m − 1) should be as close as possible to a whole number.", "nomogram", part("S", "distance of m/(m − 1) from whole", "units", (L) => -nearInt(div(L.m, sub(L.m, [1, 1]))).dist, dist("1/2", "1/4", "1/8", "1/16", 0))],
+    ],
+  },
+  {
+    id: "pythagorean-area", name: "Pythagorean Area (A = 6)", source: "A4 (owner's rule 2), B §1.5", topic: "stretch: area of a triangle from its intercepts",
+    card: "The triangle the line cuts off the axes should have an area as close as possible to 6.",
+    P: part("P", "|area − 6|", "area units", (L) => (L.tri ? -absd(L.area, 6) : null), dist("16", "8", "4", "2", "1", "1/2", "1/4", 0)),
+    S: [
+      ["slanted-square", "The slanted side, squared, should be as close as possible to a square number.", "intercept triangle", part("S", "distance from h² to a square", "units²", (L) => -nearSquare(L.hyp2).dist, dist("16", "8", "4", "2", "1", "1/2", 0))],
+      ["whole-legs", "Both legs should be as close as possible to whole numbers (distances added).", "intercept triangle", part("S", "distance of the legs from whole", "units", (L) => -(nearInt(L.legX).dist + nearInt(L.legY).dist), dist("1/2", "1/4", "1/8", "1/16", 0))],
+      ["prime-height", "The y-intercept should be as close as possible to a prime (ignoring sign).", "slope-intercept", part("S", "distance of |c| from a prime", "units", (L) => -distPrime(rat(Math.abs(L.c[0]), L.c[1])), dist("4", "2", "1", "1/2", 0))],
+      ["simple-slope", "The gradient's fraction should have a bottom number as small as possible.", "rise over run", part("S", "bottom of m", "size", (L) => -L.m[1], atLeast([-12, -8, -6, -4, -3, -2, -1], undefined))],
+    ],
+  },
+];
+/** Ungated (P, S) levels: the threshold counts of each part. null when P is undefined. */
+export function pairLevels(P, S, L) {
+  const p = P.value(L);
+  if (p === null || p === undefined || Number.isNaN(p)) return null;
+  const s = S.value(L);
+  const k = (pt, v) => (v === null || v === undefined || Number.isNaN(v) ? 0 : pt.rungs.filter((t) => v >= t - EPS).length);
+  return [k(P, p), k(S, s)];
+}

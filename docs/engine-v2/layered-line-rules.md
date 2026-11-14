@@ -17,7 +17,7 @@ Measurements: `node docs/engine-v2/scripts/layered-ladders.mjs` (about five minu
 few seconds for 20 and 50). Its full output, every rung of every family, is
 [scripts/layered-ladders-results.md](scripts/layered-ladders-results.md). §3 says what it measures and what it does not.
 
-> **Read §7 first.** After this document first merged, the owner required graded rungs only, two-rung beginner rules
+> **Read §8 and §7 first.** §8 (ungated rules, several secondaries per family, finer primaries) supersedes §7.5's first pool. After this document first merged, the owner required graded rungs only, two-rung beginner rules
 > with school-level primaries, and cards that state a graded quantity. §7 applies those rules to all five brainstorm
 > documents, measures them with one method, and gives the current pools and spec changes. §0–§6 are the first pass and
 > are superseded wherever they differ.
@@ -1207,3 +1207,157 @@ and Firefly Jar from E for variety.
 The full per-rung output is [scripts/layered-graded-results.md](scripts/layered-graded-results.md) (all 78 ladders,
 reference law) and [scripts/layered-v2-valuation-results.json](scripts/layered-v2-valuation-results.json) (the
 estimator's thirty runs).
+
+---
+
+## 8. The beginner pool, ungated, with several secondaries per family
+
+Status: supersedes §7.5's first pool. The coordinator relayed three more corrections after §7 was written:
+
+- **No gating** (a provisional call; the owner may overrule). A rule's score is the plain lexicographic tuple (P, S).
+  The secondary orders lines at every level of the primary, so both rungs can be seen and improved from the first
+  move.
+- **Fine-grained primaries.** Every primary needs about six attainable levels spread over several bits. The
+  distance-to-whole primaries of §7.5 (one or two effective levels) are replaced. A primary now measures distance to a
+  target that is not cheap, or is a count or a size.
+- **Several secondaries per family,** in the owner's words: "I said I don't want tertiary preferences but I will want
+  several secondary rule candidates within each family." A **family** is one primary plus three to five candidate
+  secondaries. A **dealt rule** is the primary plus one of them, two rungs deep and never three.
+
+**Which law.** Everything in §3, §7 and §8 is measured under the **old reference law**, 2^−φ with φ the digit-length
+read length of §2.3. The owner has since made **mixed costing** the v2 default ("Use mixed costing now. I like
+that."): additive moves are priced by steps and multiplicative ones by digits, so large primes become dear and large
+composites cheap. The spec session is fixing the exact price list; when it lands, these pools are to be re-measured
+with `lib/v2-valuation`. Expect families that climb through primes (Prime Staircase, Prime Landing, Treasure's prime
+terms) to gain reach, and those that climb through highly composite numbers (Square Area's root factors) to lose some.
+
+**How it is measured.** [scripts/layered-beginner.mjs](scripts/layered-beginner.mjs) uses the `BEGINNER` list in
+[scripts/line-families.mjs](scripts/line-families.mjs) and the reference law at height 100. For each primary it gives
+bits per level. For each secondary it gives three things:
+
+- its bits per level over all lines (ungated, it orders every line);
+- its bits per level among the lines at the primary's top (the dealt rule's upper rungs);
+- the joint top, where P and S are both at their top rungs.
+
+"Effective" counts levels that add at least ¼ bit. "Joint levels" counts the distinct (P, S) level pairs attained,
+which is the dealt rule's actual resolution. The full output is in
+[scripts/layered-beginner-results.md](scripts/layered-beginner-results.md).
+
+A secondary is **dealable** when it has at least three effective levels. The others are listed so the owner can see why
+they are not dealt.
+
+### 8.1 The eight families
+
+**1. Prime Staircase** (coordinator; core: sequences, the nth term, primes under 50)
+Primary card: "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible." Six
+levels, all six effective: 4.7, 7.5, 10.2, 14.1, 14.7, 19.1 bits (a run of 1 to 6).
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| The first prime should be as big as possible. | growth pattern | 8 / 9 | 4.4 5.2 5.8 6.5 7.4 8.4 9.5 11.3 | 27.2 | 50 | pushes the run outwards; rivals any rule wanting a small y-intercept |
+| The last prime of the run should be as big as possible. | growth pattern | 9 / 9 | 6.5 8.1 9.1 9.9 11.4 13.2 16.4 17.6 21.3 | 22.8 | 42 | rewards a steep step; rivals rules wanting a gentle gradient |
+| The first term that is not prime should be as close as possible to a prime. | number line | 4 / 7 | 0.5 0.5 0.5 2.0 3.6 4.0 4.1 | 23.2 | 35 | a near miss for the next run; negotiable with rules on y(n) |
+| The term before the start, y(−1), should be as close as possible to a prime. | growth pattern, backwards | 4 / 6 | 0.5 0.5 1.5 2.6 2.9 3.0 | 19.2 | 31 | extends the run backwards; pulls c down by m |
+| *not dealt:* the step as close as possible to a multiple of 30 | slope | 2 / 7 | flat until exact | 19.1 | 38 | a hint, not a ladder |
+| *not dealt:* the last prime as close as possible to another prime | number line | 1 / 6 | flat | 22.9 | 20 | prime gaps are too coarse a scale |
+
+**2. Square Area** (owner's example 2; stretch: area of a triangle from its intercepts, square numbers)
+Primary card: "The triangle the line cuts off the axes should have an area as close as possible to a square number."
+Nine levels, five effective: 2.3 2.3 2.4 2.5 2.6 3.2 3.8 4.5 7.2.
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| That square's root should have as many prime factors as possible (12 = 2·2·3 has three). | factor tree | 6 / 7 | 4.5 6.2 8.1 10.5 13.8 16.2 | 17.2 | 48 | composite roots; rivals Prime Landing's big primes |
+| That square's root should be as big as possible. | intercept triangle | 9 / 9 | 4.5 5.1 5.6 6.3 6.7 7.6 8.1 9.2 10.0 | 13.9 | 85 | bigger triangles; rivals any rule near the origin |
+| The slanted side, squared, should be as close as possible to a square number. | intercept triangle | 3 / 7 | 2.3 2.3 2.4 2.5 2.7 3.2 15.6 | 13.5 | 78 | Fermat: never exact together with the primary, which is something to discover |
+| That square's root should be as close as possible to a prime. | number line | 3 / 4 | 2.3 2.3 3.7 5.0 | 8.7 | 35 | low reach; kept as a gentle option |
+
+**3. Treasure (2, 37)** (core: substituting x, table of values)
+Primary card: "When x is 2, y should be as close as possible to 37." Nine levels, eight effective: 3.9 6.4 7.8 9.1 10.0
+10.7 12.3 12.6 12.6.
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| As many as possible of y(1) … y(8) should be different primes. | table | 7 / 8 | 2.6 3.4 3.8 4.2 6.8 8.0 11.1 | 18.5 | 63 | a step of 30 through (2, 37); allies with Prime Staircase |
+| The gradient should be as close as possible to a prime. | slope-intercept | 5 / 6 | 0.6 1.0 3.0 4.3 4.6 4.7 | 14.3 | 68 | odd prime steps; conflicts with long prime runs (even steps) |
+| The y-intercept should be as close as possible to a square number. | slope-intercept | 3 / 6 | 0.5 0.6 0.6 0.7 1.0 1.5 | 14.7 | 70 | picks the pivot's other end; negotiable with intercept rules |
+| *not dealt:* the x-intercept as close as possible to a whole number | plane | 1 / 5 | flat | 15.5 | 59 | cheap lines already have one |
+
+**4. Ruler** (brainstorm C; stretch: distance from a point to a line, by Pythagoras)
+Primary card: "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square
+number." Nine levels, six effective: 1.3 1.3 1.4 1.4 4.2 6.5 7.4 9.6 13.3.
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| That distance should be as big as possible. | plane | 8 / 8 | 4.6 5.3 5.7 6.1 6.5 6.9 7.4 7.8 | 18.6 | 80 | far lines; rivals rules near the origin |
+| The gradient should be as close as possible to a prime. | slope-intercept | 5 / 6 | 1.5 2.3 3.0 4.3 4.6 4.7 | 25.5 | 69 | an exact whole distance needs a Pythagorean gradient (3/4, 5/12), never a prime: a real conflict inside one rule |
+| The triangle cut off the axes should have an area as close as possible to a square number. | intercept triangle | 3 / 7 | 2.3 2.3 2.4 2.5 2.6 3.2 7.2 | 13.9 | 79 | Fermat again: never both exact (brainstorm C's finding) |
+| *not dealt:* the foot of the perpendicular near a peg; the whole distance near a prime; the gradient near a whole number | pegboard, number line, slope | 1–2 / 4–6 | flat | 15–28 | — | flat on most lines |
+
+**5. Exact Change (6 ways)** (brainstorm E; stretch: whole-number solutions of ax + by = N)
+Primary card: "Reading the line as a·x + b·y = N (coins worth a and b paying N), the number of ways to pay should be as
+close as possible to 6." Six levels, all six effective: 2.9 5.7 6.9 7.6 8.9 10.5. (E's target of 3 ways gave only four
+effective levels; 6 spreads them.)
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| In every way to pay, the smaller pile should be as big as possible. | pegboard | 6 / 6 | 2.9 11.3 14.7 17.8 19.9 23.2 | 21.9 | 28 | big bills with small coins; rivals rules wanting small coefficients |
+| The bill N should be as big as possible. | general form | 7 / 7 | 7.6 8.4 8.8 9.7 10.5 11.6 13.8 | 20.3 | 56 | pushes c out; rivals intercept rules near the origin |
+| Both coin values should be as close as possible to primes. | general form | 3 / 5 | 2.3 2.3 2.4 3.2 5.6 | 16.5 | 36 | allies with Twin Sum-like rules on the coefficients |
+| *not dealt:* some way to pay with equal numbers of each coin | pegboard | 2 / 5 | flat | 15.3 | 41 | — |
+
+**6. Prime Landing** (owner's example 1, regraded; core: y-intercept, primes under 50)
+Primary card: "The y-intercept should be as close as possible to a prime number." Seven levels, five effective: 0.6
+1.0 3.0 4.3 4.6 4.7 4.7. The owner's "distance to the nearest integer" became "distance to the nearest prime" so that
+the primary is graded. The owner's secondary, the prime's size, is now the first candidate.
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| That prime should be as big as possible. | number line | 10 / 10 | 0.8 3.9 5.3 5.9 7.0 8.1 9.0 10.6 12.6 15.2 | 16.2 | 51 | the owner's example; big y-intercepts; should gain most under mixed costing |
+| The gradient should be as close as possible to a prime too. | slope-intercept | 5 / 6 | 0.6 1.0 3.0 4.3 4.6 4.7 | 8.3 | 56 | twin-coefficient play; allies with Treasure's prime gradient |
+| y(1) = m + c should be as close as possible to a prime too. | table | 4 / 6 | 0.5 0.5 1.5 2.6 2.9 3.0 | 5.3 | 52 | the first step of a prime run; allies with Prime Staircase |
+| *not dealt:* the x-intercept near a whole number; the prime near another prime | plane, number line | 1 / 4–5 | flat | 5–6 | — | — |
+
+Under the old law this family's reach is the lowest of the eight (16 bits, with its first secondary). It is kept
+because it is the owner's own example, and because mixed costing makes big primes dear, which is exactly the direction
+that raises it.
+
+**7. Same on Both Rulers (T = 6)** (brainstorm E, with B's Same Reading, C's Fixed Point and the coordinator's Fixed
+Point; core: solving x = mx + c)
+Primary card: "The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to
+6." Eight levels, six effective: 0.7 0.7 4.7 6.4 7.0 8.3 8.7 8.8. (The target 6 replaces "a whole number", whose
+primary had one effective level.)
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| The gradient should be as far from 1 as possible. | slope-intercept | 5 / 7 | 0.6 0.7 0.8 2.5 3.4 4.2 5.0 | 19.7 | 72 | steep lines through (6, 6); rivals gentle-gradient rules |
+| The y-intercept should be as close as possible to a prime (ignoring sign). | slope-intercept | 4 / 5 | 0.6 0.6 2.2 3.5 3.9 | 12.5 | 45 | allies with Prime Landing on one line through (6, 6) |
+| As many of y(−5) … y(5) as possible should be different whole numbers. | table | 3 / 11 | 0.9 1.9 1.9 2.2 2.3 2.5 2.6 … | 11.9 | 70 | whole gradients; allies with whole-number rules |
+| The lamp's height m/(m − 1) should be as close as possible to a whole number. | nomogram | 3 / 5 | 0.6 1.0 1.3 1.4 1.6 | 9.0 | 44 | the nomogram's own view; low reach |
+
+**8. Pythagorean Area (A = 6)** (owner's rule 2; stretch: area of a triangle from its intercepts)
+Primary card: "The triangle the line cuts off the axes should have an area as close as possible to 6." Eight levels,
+six effective: 2.4 2.4 4.9 6.1 8.4 8.7 8.8 10.1.
+
+| Secondary (card) | Lens | Effective / levels | Bits per level, all lines | Joint top | Joint levels | What it changes |
+|---|---|---|---|--:|--:|---|
+| The slanted side, squared, should be as close as possible to a square number. | intercept triangle | 3 / 7 | 2.3 2.3 2.4 2.5 2.7 3.2 15.6 | 16.2 | 66 | the 3-4-5 triangle; allies with Ruler's whole distances |
+| The y-intercept should be as close as possible to a prime (ignoring sign). | slope-intercept | 4 / 5 | 2.3 2.3 3.0 4.3 4.6 | 11.2 | 44 | legs 3 and 4 are prime and near-prime; allies with Prime Landing |
+| Both legs should be as close as possible to whole numbers. | intercept triangle | 3 / 5 | 2.5 3.2 3.6 3.7 3.9 | 10.1 | 51 | whole intercepts; allies with many rules |
+| *not dealt:* the gradient's fraction as simple as possible | rise over run | 1 / 7 | flat | 11.2 | 69 | — |
+
+### 8.2 What changed from §7.5, and why
+
+- **Out:** Prime-Factor Line, Half-Way House and Same Reading in their whole-number forms. Their primaries had one or
+  two effective levels, failing the six-levels rule.
+- **In:** Prime Landing (the owner's example with a prime target), Same on Both Rulers (a target of 6, not "whole"), and
+  Pythagorean Area (the owner's rule 2).
+- **Exact Change** moves from 3 ways to 6 to spread its primary.
+- Tops are lower as two-rung, ungated rules than with gating and a third rung. The joint tops of the dealable pairings
+  run from 5 to 27 bits. The dealer should pair each primary with a secondary whose joint top falls in the room's band.
+  The strongest are Staircase × first prime (27.2), Ruler × prime gradient (25.5), Staircase × near miss (23.2),
+  Exact Change × big piles (21.9) and Same on Both Rulers × steep (19.7).
+- **Joint levels:** a dealt rule has 28 to 85 distinct (P, S) levels on the test set. That is the resolution the owner
+  asked for, and it comes from not gating.
+- The pair table of §7.5 was computed for the gated rules. For the ungated pools it should be recomputed per dealt
+  pairing, which is left for the run under mixed costing.
