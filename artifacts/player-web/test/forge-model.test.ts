@@ -27,7 +27,9 @@ test("Replace comes first for a changed draft of a running agent (ux 3.2)", () =
 
 test("messages say what happened in plain words (ux 1.9, 3.3, 3.6, 3.7, 3.5)", () => {
   assert.match(summonedText({ name: "Simple", share: FIRST_SHARE, power: 2 }), /70% of it now goes to this agent.*you keep 0\.60 ⚡ a second/);
-  assert.match(replacedText("Simple"), /keeps its stored ⚡ and its share of your power; the price came from your own energy/);
+  assert.match(replacedText("Simple", 12.5), /keeps its stored ⚡ and its share of your power; the price came from your own energy/);
+  // Catches: round 3, the edit's price was never shown after Replace (a full store hides it in the header).
+  assert.match(replacedText("Simple", 12.5), /^Simple now runs your new code for 12\.50 ⚡ \(only what you changed is charged\)/);
   assert.equal(affordLine({ price: 50, energy: 10, justRan: true }), null, "no stale price after a summon");
   assert.equal(affordLine({ price: 50, energy: 10, justRan: false, ownPerSecond: 4, capacity: 120 }),
     "Summoning costs 50.00 ⚡, and you have 10.00 ⚡: at the way your power is shared now, your own store reaches it in about 10 seconds.");

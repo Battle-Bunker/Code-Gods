@@ -65,9 +65,9 @@ export function summonedText(o: { name: string; share: number; power: number }):
     `which spends it on moves; you keep ${powerText(keep)}, saved up for replacing it or adding another.`;
 }
 
-/** What a replace did (ux-lessons 3.3). */
-export const replacedText = (name: string) =>
-  `${name} now runs your new code. It keeps its stored ⚡ and its share of your power; the price came from your own energy.`;
+/** What a replace did (ux-lessons 3.3), with what the edit cost (owner decision 21: only what changed). */
+export const replacedText = (name: string, price: number) =>
+  `${name} now runs your new code for ${energyText(price)} (only what you changed is charged). It keeps its stored ⚡ and its share of your power; the price came from your own energy.`;
 
 /**
  * The frozen comparison after a change (ux-lessons 3.5): points a move before and since, from the two versions'

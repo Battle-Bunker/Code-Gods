@@ -38,15 +38,15 @@ export const clock = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String
 /** How a score is made, in the game's own noun ("line", "grid"; ux-lessons 2.8). */
 export const scoreSentence = (one = "line", many = `${one}s`) => `You score on a ${one} when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the ${many}.`;
 export const SCORE_SENTENCE = scoreSentence();
-/** Under a total: what it is made of. */
-export const TOTAL_NOTE = "Your total is the sum of your points on every line.";
+/** Under a total: what it is made of, in the game's noun ("line", "grid"). */
+export const totalSumNote = (one = "line") => `Your total is the sum of your points on every ${one}.`;
 /** Beside the formula's "others' bits". */
-export const OTHERS_NOTE = "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.";
+export const othersNote = (one = "line") => `Others' bits: every other player's rarity on this ${one}, added together. A ${one} scores when it is rare for you and for them.`;
 /** When the standings were counted (world seconds): a move's points join a total only at the next count. */
 export const countedNote = (worldSeconds: number | null | undefined): string | null =>
   worldSeconds == null ? null : `Totals are counted every few seconds; this one at ${clock(worldSeconds)}, so a move's points join the total at the next count.`;
 /** Under the standings: the same for every player. */
-export const TOTALS_NOTE = "Each total is the sum of that player's points on every line.";
+export const totalsSumNote = (one = "line") => `Each total is the sum of that player's points on every ${one}.`;
 /** After either note, when a won bid's handicap (the "−N%" beside a total) came off it. */
 export const HANDICAP_NOTE = "A won bid's share (the −% beside a total) comes off that sum.";
 /** A total's note, with the handicap's when it applies. */
@@ -65,10 +65,10 @@ export function scoreFormula(yours: number, others: number): string {
   return `your ${bitsText(yours)} × others' ${bitsText(others)} ${sign} ${pointsText(product)}`;
 }
 
-/** Why a line you find rare scores nothing: nobody else does (others' bits show 0.00). Null otherwise. */
-export function onlyYouNote(yours: number, others: number): string | null {
+/** Why an object you find rare scores nothing: nobody else does (others' bits show 0.00). Null otherwise. */
+export function onlyYouNote(yours: number, others: number, one = "line"): string | null {
   return shown(yours) > 0 && shown(others) === 0
-    ? "Only you care about this line, so it scores nothing yet: it needs someone else to find it rare too."
+    ? `Only you care about this ${one}, so it scores nothing yet: it needs someone else to find it rare too.`
     : null;
 }
 

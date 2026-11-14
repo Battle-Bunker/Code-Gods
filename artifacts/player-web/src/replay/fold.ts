@@ -30,7 +30,7 @@ interface Timeline { objectId: string; number: number; bornAt: number; born: num
 interface Tick { at: number; standings: Standings; point: StandingsPoint }
 interface Command { at: number; kind: string; agentId: string; language?: string; version?: number; share?: number; shares?: Record<string, number>; worldSeconds: number }
 type RawEvent = { seq: number; kind: string; data: Record<string, unknown> };
-type RawRule = { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; card: string; layers: string[]; contentHash: string; handicap?: number | null };
+type RawRule = { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; card: string; layers: string[]; contentHash: string; value?: MyRuleRow["value"] | null; handicap?: number | null };
 
 export interface ReplayIndex {
   gameId: string;
@@ -78,7 +78,7 @@ function ruleRow(r: RawRule, variant: string | undefined): MyRuleRow {
   const f = familyOf(r.family);
   return {
     family: r.family, title: f?.title ?? r.family, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card,
-    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, value: { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
+    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, value: r.value ?? { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
   };
 }
 
