@@ -47,6 +47,9 @@
     },
     {
       "path": "./lib/v2-client"
+    },
+    {
+      "path": "./lib/v2-economy"
     }
   ]
 }

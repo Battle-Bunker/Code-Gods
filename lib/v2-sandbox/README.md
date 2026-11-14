@@ -45,7 +45,7 @@ requests the same way (key order, rationals as "p/q"), so the same agent in eith
 
 Then `guest/helpers.js` and `guest/helpers.py` (same names, same behaviour; the parity test is in `lib/v2-agents`)
 add the plain-words helpers agents are written with: `look`, `peek`, `goal`, `progress`, `move`, `price`, `cheapest`,
-`energy`, `prime`, `square`, `near`. They are listed in `docs/engine-v2/agents.md`.
+`energy`, `prime`, `square`, `near`, `whole`, `root`, `factors`, `better`. They are listed in `docs/engine-v2/agents.md`.
 
 ## Limits
 

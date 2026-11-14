@@ -82,8 +82,8 @@ export const seedGame = internalMutation({
     }
     const gameId = await ctx.db.insert("v2Games", {
       roomId, number: 1, code: `G${roomId.slice(-6).toUpperCase()}`, phase, preset: preset.id, variant: lineZ.id, seed,
-      settings: { planningSeconds: preset.planningSeconds, worldSeconds: preset.worldSeconds, startingEnergy: preset.startingEnergy, startingObjects: preset.startingObjects, minPlayers: preset.minPlayers },
-      roster, createdAt: now, startedAt: now, rotates: true, artefacts: [],
+      settings: { planningSeconds: preset.planningSeconds, worldSeconds: preset.worldSeconds, startingEnergy: preset.startingEnergy, startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy },
+      roster, createdAt: now, startedAt: now, rotates: true, dealKey: "fixture", artefacts: [],
       ...(phase === "planning" ? { planningEndsAt: now + preset.planningSeconds * 1000 } : { endsAt: now + preset.worldSeconds * 1000 }),
       ...(phase === "ended" ? { endedAt: now, summary: { winner: members[0]!, objects: a.objects ?? 12, acts: 0 } } : {}),
     });

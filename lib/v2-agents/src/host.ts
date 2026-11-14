@@ -19,6 +19,7 @@ import {
   applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, layerLadders, levelOf, objectLadder, Qn, ratBits,
   representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
+import { BETA, KAPPA } from "@workspace/v2-economy";
 import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest } from "@workspace/v2-sandbox";
 
 /** A rule as dealt: a family of the object type, its parameters and its tie-breaker. */
@@ -30,14 +31,14 @@ export interface RuleRef {
 }
 
 /**
- * The economy's constants (spec §6.1: reads are κ times cheaper than changes; radical acts cost β·W² more). They
- * belong to v2-economy; until it lands the spec's values are the default and a caller may pass its own.
+ * The act's price constants (spec §6.1: reads are κ times cheaper than changes; radical acts cost β·W² more): v2-economy's,
+ * unless a caller (an experiment) passes its own.
  */
 export interface Economy {
   readonly kappa: number;
   readonly beta: number;
 }
-export const SPEC_ECONOMY: Economy = { kappa: 32, beta: 0.05 };
+export const SPEC_ECONOMY: Economy = { kappa: KAPPA, beta: BETA };
 
 export interface HostInput<S> {
   readonly type: ObjectType<S>;
