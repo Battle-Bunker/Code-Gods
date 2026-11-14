@@ -270,6 +270,60 @@ Lenses add transition probability between the same pairs of states.
   (Metropolis on the read length); error bars as in §1.4, about 0.1 bits at 27 bits for 360,000 samples.
 - Clients and replays still only look up a table (§7.1).
 
+### 1.8 The 325-line board three ways: plain rarity, a confining list, the budgeted law
+
+Exact. Mutators: the five even-priced families (shift, tilt, step, slide, mirror). "Confining" adds the read-length
+surcharge of §1.5 to every move, read length = len(m) + len(c). "Budgeted" is §4's law from y = x.
+
+| Reference law | Prime Gradient top | m Meets c top | Energy of y = 0, y = x, y = 6x + 12 |
+|---|---|---|---|
+| plain rarity (= the resting law of the even-priced list) | 2.12 | 4.64 | 8.34, 8.34, 8.34 |
+| resting law, confining prices, slider code | 3.71 | 1.68 | 2.00, 3.58, 30.53 |
+| resting law, confining prices, doubling code | 3.33 | 1.90 | 2.12, 4.12, 15.13 |
+| budgeted from y = x, B = 8 | 3.11 | 3.36 | 4.91, 1.05, 17.85 |
+| budgeted, B = 32 | 2.39 | 3.32 | 5.16, 2.55, 12.00 |
+| budgeted, B = 128 | 2.19 | 3.87 | 6.21, 4.28, 9.48 |
+| budgeted, B = 2,048 | 2.12 | 4.56 | 8.00, 7.31, 8.42 |
+
+- **The resting law is the B → ∞ limit of the budgeted law** (last row against the first): the budget and the origin
+  fade together. On an infinite type that limit exists only with confining prices, and then the price list replaces
+  both.
+- With the confining list the computed energy equals the read length to 10^−6 bits, as §1.5 says.
+- **Confinement changes which rule is worth more.** Under plain rarity "m Meets c" is the rarer top (4.64 against
+  2.12); once small numbers are common it is the commoner one (1.7 to 1.9 against 3.3 to 3.7), because its perfect
+  lines include y = 0, y = x + 1, y = −x − 1. This is the real content of choosing a confining code, and on a
+  *finite* board nothing forces it: there the even-priced list rests at plain rarity. Recommended: no surcharge on
+  finite boards; the surcharge only where the type is unbounded and needs it.
+
+### 1.9 How many bits the object holds
+
+A rule's top cannot exceed what the object holds, and in practice it is about one "unit" of the rule.
+
+| Object | Bits held (entropy of the reference law) |
+|---|---|
+| integer line, doubling code | 7.0 |
+| 325-line board | 8.3 |
+| rational line (m and c fractions in lowest terms), doubling code | 12.3 |
+| pegboard of PR #346 (6,460 lines) | 12.7 |
+| 4×4 grid of digits | 53.2 |
+
+The grid's rule tops are 15 to 27 bits not because a grid holds 53 bits but because each rule counts 4 to 16
+independent units worth 2 to 4 bits each (8 pairs at 3.32 bits). A line is one unit. So richer coefficients do not
+reach the grid's range (a rational line holds 12 bits, and a rule top on it stays a single unit of perhaps 3 to 6).
+What reaches it is **several units per object**, each scored and annotated like today's units:
+
+| k lines on the 325-line board, rule = "as many of my lines as possible satisfy it" | object holds | Prime Gradient, all k | m Meets c, all k |
+|---|---|---|---|
+| 1 | 8.3 | 2.1 | 4.6 |
+| 2 | 16.7 | 4.2 | 9.3 |
+| 4 | 33.4 | 8.5 | 18.6 |
+| 6 | 50.1 | 12.7 | 27.9 |
+| 8 | 66.8 | 16.9 | 37.2 |
+
+Four to eight lines per object land in the grid's 15 to 27 bits. Equivalent ways to hold several units: a line with
+four to six marked points each scored by the rule, a table of values whose rows are the units, or a small system of
+lines whose pairwise crossings are the units (k lines give k(k − 1)/2 crossings, so four lines give six units).
+
 ## 2. What today's value is, and what the game relies on
 
 ### 2.1 The definition
@@ -992,7 +1046,8 @@ separate players (§1.3, §1.5, §8.1: tops of 2 to 5 bits against the grid's 15
 2. **Must every price list pass the cycle test** ("a move's price minus its undo's price is the energy it climbs")?
    Recommended: yes, as a unit-tested invariant; then value never depends on the lens set and no eigenvector is
    needed. The alternative is to allow lopsided prices on purpose and take π from the eigenvector.
-3. **On the finite line boards of PR #346: uniform rarity, or the resting law of the proposed price list?** They differ
+3. **On the finite line boards of PR #346: uniform rarity, or the resting law of the proposed price list?** (A confining
+   surcharge there is a third option and reorders the rules, §1.8; not recommended on a finite board.) They differ
    by at most a quarter of a bit on the 325-line board. Recommended: make the list pass the test (then the two
    coincide), or keep uniform and accept that pivot and stretch are lopsided moves.
 4. **On unbounded lines: the code for a number** (slider code or doubling code, §1.5). It sets read prices and value
@@ -1005,4 +1060,5 @@ separate players (§1.3, §1.5, §8.1: tops of 2 to 5 bits against the grid's 15
 7. **Whether prices should weigh more on the existing grid.** The principled lever is hold rarity's horizon.
    Recommended: leave as is.
 8. **The line object needs more bits** before any scoring can rank players on it: richer coefficients, a compound
-   object, or longer tie-break ladders. A decision for §3A and §3B, flagged here because it bounds what scoring can do.
+   object, or longer tie-break ladders. §1.9: what reaches the grid's 15 to 27 bits is several units per object (four
+   to eight lines, or marked points, or crossings), not richer coefficients. A decision for §3A and §3B.

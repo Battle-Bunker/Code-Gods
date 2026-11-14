@@ -698,6 +698,31 @@ def w_board_kernel(families, which_bits=math.log2(7)):
     return P
 
 
+def w_board_tilted(families, s):
+    """The budgeted sub-kernel on the 325-line board: a move of price W weighs 2^-((1+s)W); a failed move keeps the line."""
+    which = math.log2(len(families))
+    n = len(W_BOARD)
+    M = np.zeros((n, n))
+
+    def add(i, target, w):
+        M[i, W_INDEX.get(target, i)] += 2.0 ** -((1 + s) * w)
+
+    for i, (m, c) in enumerate(W_BOARD):
+        for k in range(1, 40):
+            for sg in (1, -1):
+                kk, w = sg * k, which + LAM * k
+                add(i, (m, c + kk), w)
+                add(i, (m + kk, c), w)
+                add(i, (m + kk, c - kk), w)
+        for u in range(-14, 15):
+            for v in range(-30, 31):
+                if (u, v) != (0, 0):
+                    add(i, (m, c + v - m * u), which + SLIDE2 * (abs(u) + abs(v)))
+        for target in ((-m, -c), (-m, c), (m, -c)):
+            add(i, target, which + LAM)
+    return M
+
+
 def part_stationary():
     print("\n" + "=" * 100)
     print("PART 3. The stationary law pi of priced random play: energy E = -log2 pi, value = -log2 pi{score >= level}.")
@@ -847,6 +872,54 @@ def part_stationary():
         print(f"       'm close to c': |m - c| = 0: {close[0]:.2f}; <= 1: {close[1]:.2f}; <= 3: {close[2]:.2f}; <= 5: {close[3]:.2f}")
         print(f"       'gradient near a prime': distance 0: {prime[0]:.2f}; <= 1: {prime[1]:.2f}; <= 2: {prime[2]:.2f}")
         print("       energy of single lines: " + ", ".join(f"y = {m}x + {c}: {E(m, c):.2f}" for m, c in [(0, 0), (1, 0), (1, 1), (5, 5), (7, -21), (23, 23)]))
+
+    # ---- 3.6 the 325-line board: plain rarity, a confining list, and the budgeted law ------------------
+    print("\n3.6  The 325-line board three ways. Even families shift, tilt, step, slide, mirror (log2 5 bits to say which).")
+    five = ("shift", "tilt", "step", "slide", "mirror")
+    base = w_board_kernel(five, which_bits=math.log2(5))
+    off = base - np.diag(np.diag(base))
+    print("     law | Prime Gradient top | m Meets c top | energy of y = 0, y = x, y = 6x + 12 | check")
+    print(f"     plain rarity | {bits(float((scores['Prime Gradient'] >= 0).mean())):.2f} | {bits(float((scores['m Meets c'] >= 0).mean())):.2f} | 8.34, 8.34, 8.34 |")
+    for label, ln in codes.items():
+        phi = np.array([ln(m) + ln(c) for m, c in W_BOARD])
+        P = off * 2.0 ** -np.maximum(0.0, phi[None, :] - phi[:, None])          # each move also pays the growth in read length
+        P[np.arange(len(phi)), np.arange(len(phi))] = 1 - P.sum(1)
+        pi = stationary(P)
+        target = 2.0 ** -phi / np.sum(2.0 ** -phi)
+        E = -np.log2(pi)
+        print(f"     resting law, confining prices, {label} | {bits(float(pi[scores['Prime Gradient'] >= 0].sum())):.2f} |"
+              f" {bits(float(pi[scores['m Meets c'] >= 0].sum())):.2f} | {E[W_INDEX[(0, 0)]]:.2f}, {E[W_INDEX[(1, 0)]]:.2f}, {E[W_INDEX[(6, 12)]]:.2f} |"
+              f" largest |E - read length - const| = {np.abs(np.log2(pi / target)).max():.1e} bits")
+    for B in (8, 32, 128, 2048):
+        s = 1 / (B * math.log(2))
+        tilted = w_board_tilted(five, s)
+        rho = tilted.sum(1)
+        mu = np.linalg.solve((np.eye(len(W_BOARD)) - tilted).T, np.eye(len(W_BOARD))[W_INDEX[(1, 0)]]) * (1 - rho)
+        E = -np.log2(mu)
+        print(f"     budgeted law from y = x, B = {B} | {bits(float(mu[scores['Prime Gradient'] >= 0].sum())):.2f} |"
+              f" {bits(float(mu[scores['m Meets c'] >= 0].sum())):.2f} | {E[W_INDEX[(0, 0)]]:.2f}, {E[W_INDEX[(1, 0)]]:.2f}, {E[W_INDEX[(6, 12)]]:.2f} | total {mu.sum():.6f}")
+
+    # ---- 3.7 how many bits an object holds --------------------------------------------------------------
+    print("\n3.7  Bits an object holds (entropy of the reference law) and what a rule's top is worth.")
+    Q = 400
+    w_int = np.array([(abs(x) + 1.0) ** -2 for x in range(-Q, Q + 1)])
+    w_int /= w_int.sum()
+    h_int = -float(np.sum(w_int * np.log2(w_int)))
+    tot, acc = 0.0, 0.0
+    ws = []
+    for q in range(1, Q + 1):
+        for pnum in range(-Q, Q + 1):
+            if math.gcd(abs(pnum), q) == 1:
+                ws.append((abs(pnum) + 1.0) ** -2 * (q + 1.0) ** -2)
+    ws = np.array(ws) / np.sum(ws)
+    h_rat = -float(np.sum(ws * np.log2(ws)))
+    print(f"     doubling code, truncated at {Q}: one integer {h_int:.2f} bits; one fraction p/q in lowest terms {h_rat:.2f} bits")
+    print(f"     integer line {2 * h_int:.1f}; rational line (m and c fractions) {2 * h_rat:.1f}; 325-line board {math.log2(325):.2f};"
+          f" pegboard (6,460 lines) {math.log2(6460):.2f}; 4x4 digit grid {16 * math.log2(10):.1f}")
+    print("     k independent lines on the 325-line board, rule = 'as many lines as possible satisfy it' (top = k x one line's top):")
+    for k in (1, 2, 4, 6, 8):
+        print(f"       k = {k}: object {k * math.log2(325):5.1f} bits; all k perfect: Prime Gradient {k * math.log2(325 / 75):5.1f},"
+              f" m Meets c {k * math.log2(325 / 13):5.1f}")
 
 
 if __name__ == "__main__":
