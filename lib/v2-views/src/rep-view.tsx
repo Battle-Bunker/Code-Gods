@@ -42,6 +42,8 @@ export interface RepViewProps<S> {
   readonly terms?: readonly Term[];
   /** A previous state: changed elements are emphasised. */
   readonly before?: S;
+  /** The state after the nearest improvement, drawn as a hint where the scene can (a dashed line on the plane). */
+  readonly next?: S;
   readonly highlight?: string | null;
   readonly onHover?: (meaning: string | null, ref: ElementRef | null) => void;
   /** Accessible name of the drawing. */
@@ -66,6 +68,7 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
         marks: marksForRep(repId, props.marks ?? []),
         terms: new Map((props.terms ?? []).map(t => [t.id, t])),
         before: props.before === undefined ? undefined : valuesOf(type, props.before, site),
+        next: props.next === undefined ? undefined : valuesOf(type, props.next, site),
         highlight: props.highlight ?? null,
         meaningOf,
         onHover: props.onHover ? r => props.onHover!(r ? meaningOf(r) : null, r) : undefined,
