@@ -1,17 +1,19 @@
 /**
  * pnpm --filter @workspace/v2-valuation grid-value-validate -- [--family id] [--draws n] [--json out.json]
  *
- * Calibrates the sampled survival intervals (value.ts sampledOracle, fed by grid-draws.ts) against the exact grid sums:
+ * Calibrates the sampled survival intervals (value.ts sampledOracle, fed by plain draws from π) against the exact grid sums:
  * every grid rule with declared units is also valued from draws alone, and at every score the exact law reaches, the
  * sampled survival's error is measured in its own standard deviations (z), where the sampled oracle would certify a knot
  * (support ≥ minSupport). Prints z's spread per pairing and overall; a calibrated sampler has |z| > 2 about 4.6% of
- * the time.
+ * the time. Scores of one pairing share one sample, so their z values move together; with --replicates R the check
+ * instead draws R independent samples and reads z at five fixed scores per pairing (survival near 2^−2, 2^−5, 2^−8,
+ * 2^−11, 2^−14), which are independent across replicates: that is the calibration test.
  */
 import { writeFileSync } from "node:fs";
-import { compareScores, evaluateObject, scoreOf, tieBreakersOn, type Score } from "@workspace/v2-core";
+import { evaluateObject, rng, scoreOf, tieBreakersOn, type Score } from "@workspace/v2-core";
 import { gridSums, gridType, grid4 } from "@workspace/v2-grid";
 import { gridJointLaw } from "./exact-grid.ts";
-import { DRAW_CONFIG, GridMixture } from "./grid-draws.ts";
+import { drawFromPi } from "./value-grid.ts";
 import { massOracle, sampledOracle, VALUE_CONFIG } from "./value.ts";
 
 const args = process.argv.slice(2);
@@ -20,6 +22,7 @@ const DRAWS = Number(opt("draws") ?? 400_000);
 /** Scores need at least this many draws at or above them to be checked (and certified). */
 const SUPPORT = Number(opt("min-support") ?? VALUE_CONFIG.minSupport);
 const all: number[] = [];
+const REPLICATES = Number(opt("replicates") ?? 0);
 const rows: Record<string, unknown>[] = [];
 console.log("| Pairing | Scores checked | \\|z\\| > 2 | \\|z\\| > 3 | Worst \\|z\\| | RMS z |");
 console.log("|---|--:|--:|--:|--:|--:|");
@@ -30,15 +33,28 @@ for (const f of gridType.families) {
     const { entries } = gridJointLaw(gridType, f, p, grid4, tb.id);
     const exact = massOracle("exact", entries.map(e => ({ u: scoreOf(f, p, grid4, tb.id, id => e.terms[id === f.main.id ? 0 : 1]!).utility, w: e.w })), 0);
     const utility = (cells: number[]): Score => { const e = evaluateObject(gridType, f, p, { cells }, grid4, tb.id); return e.utility === undefined ? e.score : e.utility; };
-    const mixture = new GridMixture(grid4, f.id, ["grid-value-validate", f.id, tb.id]);
-    mixture.adapt(utility, compareScores, DRAW_CONFIG);
-    const draws = Array.from({ length: DRAWS }, () => { const d = mixture.draw(); return { u: utility(d.cells), w: d.w }; });
-    const sampled = sampledOracle("draws", draws);
     const zs: number[] = [];
-    for (const u of exact.candidates(VALUE_CONFIG.delta / 4)) {
+    if (REPLICATES > 0) {
+      // Five fixed scores: the first exact candidates (best first) whose survival reaches each target.
+      const cands = exact.candidates(VALUE_CONFIG.delta / 4);   // best first: the first reaching a target is nearest it
+      const fixed = [2, 5, 8, 11, 14].map(b => cands.find(u => exact.survival(u).lo >= 2 ** -b)).filter((u): u is Score => u !== undefined);
+      for (let k = 0; k < REPLICATES; k++) {
+        const draw = drawFromPi(grid4, rng("grid-value-validate", f.id, tb.id, k));
+        const sampled = sampledOracle("draws", Array.from({ length: DRAWS }, () => ({ u: utility(draw()), w: 1 })));
+        for (const u of fixed) {
+          const s = sampled.survival(u), e = exact.survival(u);
+          if (s.support < SUPPORT) continue;
+          zs.push((s.estimate - e.lo) / Math.sqrt(e.lo * (1 - e.lo) / DRAWS));
+        }
+      }
+    }
+    const draw = drawFromPi(grid4, rng("grid-value-validate", f.id, tb.id));
+    const draws = REPLICATES > 0 ? [] : Array.from({ length: DRAWS }, () => ({ u: utility(draw()), w: 1 }));
+    const sampled = sampledOracle("draws", draws);
+    for (const u of REPLICATES > 0 ? [] : exact.candidates(VALUE_CONFIG.delta / 4)) {
       const s = sampled.survival(u), e = exact.survival(u);
       if (s.support < SUPPORT) continue;
-      const sd = (s.hi - s.lo) / 4;   // the interval is ±2σ (clipped to [0, 1]: then σ is under-read and z conservative)
+      const sd = Math.sqrt(s.estimate * (1 - s.estimate) / DRAWS);   // the binomial σ (the oracle's ±2σ interval is clipped to [0, 1])
       if (!(sd > 0)) continue;
       zs.push((s.estimate - e.lo) / sd);
     }
