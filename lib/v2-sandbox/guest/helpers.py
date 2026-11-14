@@ -39,7 +39,8 @@
 #                                (True when the game does not say). Costs a small read each time.
 #   hurt(offer)                  True when another player's recent move on this line lowered your points.
 #   pays(offer, plan, s)         True when the plan leaves your points on this line at least where they are: your rarity
-#                                at score s times the others' total after it (True when the game does not say).
+#                                at score s times the others' total after it (True when the game does not say; False
+#                                for a plan the game does not allow).
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
