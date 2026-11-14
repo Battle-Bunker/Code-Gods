@@ -62,6 +62,9 @@ export interface TableInput<S> {
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
+  /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
+   *  (the act pays its reads only). */
+  readonly unique?: boolean;
   readonly model?: TableModel;
   /** Called after each model turn (for logs). */
   readonly onTurn?: (seat: string, at: number, run: RunResult) => void;
@@ -79,6 +82,10 @@ export interface SeatReport {
   /** Energy spent on acts, on summons and on edits. */
   readonly spent: { readonly acts: number; readonly summons: number; readonly edits: number };
   readonly acts: number;
+  /** Of the seat's acts in the last 60 world seconds, the share that changed nothing (stalled: no move worth making). */
+  readonly lateIdleShare: number;
+  /** Moves refused because another object already held the result (input.unique). */
+  readonly refused: number;
   readonly messages: number;
   readonly proposals: number;
   readonly summoned: number;
@@ -107,6 +114,9 @@ export const TABLE_TOOLS = [
 
 interface Agent { id: string; seat: number; name: string; share: number; acc: Account; program: Program; programs: Program[]; acts: number }
 
+/** Two object states are the same when their canonical JSON is (bigints written as text). */
+const sameState = (a: unknown, b: unknown) => JSON.stringify(a, (_k, v) => (typeof v === "bigint" ? `${v}n` : v)) === JSON.stringify(b, (_k, v) => (typeof v === "bigint" ? `${v}n` : v));
+
 export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promise<TableReport> {
   const { type, variant, seats } = input;
   const econ = input.economy ?? LINES_BEGINNER_ECONOMY;
@@ -129,7 +139,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const gains = new Map<number, Map<number, { charge: number; pointsAfter: number }>>();
   const reversal = seats.map(() => 0);
   const chat: { from: string; by: number; text: string; at: number }[] = [];
-  const stats = seats.map(() => ({ messages: 0, summoned: 0, replaced: 0, allocations: 0, toolCalls: 0, failedToolCalls: 0, acts: 0, spentActs: 0, spentSummons: 0, spentEdits: 0 }));
+  const stats = seats.map(() => ({ messages: 0, summoned: 0, replaced: 0, allocations: 0, toolCalls: 0, failedToolCalls: 0, acts: 0, spentActs: 0, spentSummons: 0, spentEdits: 0, lateActs: 0, lateIdle: 0, refused: 0 }));
   const players = seats.map(() => ({ own: newAccount(0, econ.startingEnergy), allocated: 0 }));
   const agents: Agent[] = [];
   let usd = 0, world = 0, actN = 0;
@@ -202,8 +212,11 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
     const changed = record.outcome === "committed" && record.after !== record.before;
-    const verdict = !changed ? "other" : affordable(energy, record.charge, actCredit(capacity)) ? "committed" : "unaffordable";
-    const charge = verdict === "unaffordable" ? readCharge(record.readBits) : record.charge;
+    const taken = changed && input.unique === true && lines.some((l, j) => j !== object && sameState(l, state));
+    if (taken) stats[i]!.refused++;
+    const verdict = !changed ? "other" : taken ? "refused" : affordable(energy, record.charge, actCredit(capacity)) ? "committed" : "unaffordable";
+    const charge = verdict === "unaffordable" || verdict === "refused" ? readCharge(record.readBits) : record.charge;
+    if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
     if (verdict !== "committed") return;
@@ -396,6 +409,8 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     seats: seats.map((s, i) => ({
       seat: s.name, kind: s.kind, rule: `${s.rule.family}/${s.rule.tieBreaker}`,
       start: startTotals[i]!, end: totalOf(i), gained: totalOf(i) - startTotals[i]!,
+      lateIdleShare: stats[i]!.lateActs ? stats[i]!.lateIdle / stats[i]!.lateActs : 0,
+      refused: stats[i]!.refused,
       reversalEnergy: reversal[i]!, spent: { acts: stats[i]!.spentActs, summons: stats[i]!.spentSummons, edits: stats[i]!.spentEdits },
       acts: stats[i]!.acts, messages: stats[i]!.messages, proposals: proposed.filter(by => by === i).length,
       summoned: stats[i]!.summoned, replaced: stats[i]!.replaced, allocations: stats[i]!.allocations,

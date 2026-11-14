@@ -104,3 +104,13 @@ test("deals: \"lines 2, 7 and 9\" names three lines; a counter-offer ending \"De
   assert.deepEqual(found.proposals, [0, 1]);
   assert.deepEqual(found.deals.map(d => [d.by, d.with, d.lines, d.kept]), [[0, 2, [2, 7, 9], false]]);
 });
+
+test("unique objects: a move onto a state another line already holds is refused, and only then", async () => {
+  // One agent drives every line to y = x + 1 (shift and tilt): with uniqueness, only the first line may end there.
+  const rule = { family: "prime-landing", params: beginner.find(r => r.family === "prime-landing")!.params as Record<string, unknown>, tieBreaker: "big-prime" };
+  const seat: TableSeat = { name: "P0", kind: "starter", rule, program: { language: "typescript", source: "function agent(offer) { return settle(offer, { m: 1, c: 1 }); }" } };
+  const run = (unique: boolean) => runTable(boxes, { type: lineType, variant: lineZ, lines: 4, seed: "u", seconds: 20, seats: [seat], birthsPerSecond: 0, unique });
+  const [free, unique] = [await run(false), await run(true)];
+  assert.equal(free.seats[0]!.refused, 0);
+  assert.ok(unique.seats[0]!.refused > 0, "the second line onto y = x + 1 is refused");
+});
