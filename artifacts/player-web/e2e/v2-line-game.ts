@@ -120,7 +120,7 @@ try {
       // The plane is drawn when the rule reads it; otherwise compare with it (a view affordance, like a player would).
       if (!await line.locator('[data-ref="cart.yInt"]').count()) await line.locator("select", { has: page.locator("option", { hasText: /^nothing$/ }) }).first().selectOption({ label: "line on the plane" });
       await line.locator('[data-ref="cart.yInt"]').first().waitFor({ state: "attached", timeout: 5000 });
-      const c = line.locator('[data-ref="si.c"]').first();
+      const c = line.locator('[data-ref="si.c"]:visible').first();
       if (await c.count()) {
         await c.hover({ force: true });   // the line moves under live play: never "stable" for long
         await line.locator('[data-ref="cart.yInt"][data-lit]').first().waitFor({ state: "attached", timeout: 3000 });
