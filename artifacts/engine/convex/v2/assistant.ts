@@ -20,6 +20,7 @@ import { query, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { aiOffIn, quotasOf, usageIn } from "./spend";
 import { memberOf, requireUser } from "./access";
 import { grantV, modeV, turnStatusV } from "./assistantTables";
+import { pageOpts } from "./pages";
 
 export type Mode = "autopilot" | "onRequest" | "readOnly";
 export type Grant = "read" | "act" | "owner";
@@ -111,7 +112,7 @@ export const transcript = query({
     const user = await requireUser(ctx), thread = await ctx.db.get(threadId);
     if (!thread || thread.userId !== user.userId) return { page: [], isDone: true, continueCursor: "" };
     const page = await ctx.db.query("v2AssistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", threadId)).order("desc")
-      .paginate({ ...paginationOpts, numItems: Math.min(paginationOpts.numItems, 30) });
+      .paginate(pageOpts(paginationOpts, 30));
     return {
       page: page.page.flatMap(r => r.role === "tool" || (r.role === "assistant" && !r.text) ? [] : [{ seq: r.seq, role: r.role as "user" | "assistant", text: r.text, autopilot: r.autopilot ?? false, turnId: r.turnId }]),
       isDone: page.isDone, continueCursor: page.continueCursor,

@@ -26,6 +26,9 @@ Code: `artifacts/engine/convex/v2/`.
 
 ## Live queries
 
+A page query answers at most 50 rows, whatever `numItems` asks (`convex/v2/pages.ts`; the transcript 30): read on from
+`continueCursor` (Convex's paginated hook does, on `loadMore`). The query-cost gate measures every page asked for 1,000.
+
 | Query | Args | Who |
 |---|---|---|
 | `v2/rooms:list` | `paginationOpts` | signed in: the caller's memberships (skeleton; rows subscribe to `get`) |

@@ -8,13 +8,14 @@ import { query } from "../_generated/server";
 import { requireGameMember } from "./access";
 import { objectAndState } from "./play";
 import { spectateObjectV } from "./validators";
+import { pageOpts } from "./pages";
 
 export const objectIds = query({
   args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
   returns: paginationResultValidator(v.object({ objectId: v.id("v2Objects"), number: v.number() })),
   handler: async (ctx, { gameId, paginationOpts }) => {
     const { game } = await requireGameMember(ctx, gameId);
-    const page = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id)).paginate(paginationOpts);
+    const page = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id)).paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(o => ({ objectId: o._id, number: o.number })) };
   },
 });

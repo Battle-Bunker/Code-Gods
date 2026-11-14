@@ -5,7 +5,7 @@
  * request: never a storage URL, since sign-in is required everywhere (owner decision 2026-11-02).
  */
 import { valueRecord } from "./values";
-import { PAGE } from "./replayFormat";
+import { PAGE, PAGE_BYTES } from "./replayFormat";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, query } from "../_generated/server";
@@ -54,10 +54,19 @@ export const header = internalQuery({
   },
 });
 
+/** The events after `after`: at most PAGE of them and about `maxBytes` (PAGE_BYTES) of data; `done` at the end. */
 export const events = internalQuery({
-  args: { gameId: v.id("v2Games"), after: v.number() },
-  handler: async (ctx, { gameId, after }) =>
-    (await ctx.db.query("v2Events").withIndex("by_game_seq", q => q.eq("gameId", gameId).gt("seq", after)).take(PAGE)).map(e => ({ seq: e.seq, kind: e.kind, data: e.data })),
+  args: { gameId: v.id("v2Games"), after: v.number(), maxBytes: v.optional(v.number()) },
+  handler: async (ctx, { gameId, after, maxBytes }) => {
+    const budget = maxBytes ?? PAGE_BYTES, events: { seq: number; kind: string; data: unknown }[] = [];
+    let bytes = 0;
+    for await (const e of ctx.db.query("v2Events").withIndex("by_game_seq", q => q.eq("gameId", gameId).gt("seq", after))) {
+      events.push({ seq: e.seq, kind: e.kind, data: e.data });
+      bytes += JSON.stringify(e.data).length;
+      if (events.length >= PAGE || bytes >= budget) return { events, done: false };
+    }
+    return { events, done: true };
+  },
 });
 
 
