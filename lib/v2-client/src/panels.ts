@@ -18,7 +18,7 @@ const WORLD: readonly GamePhase[] = ["live", "paused", "ended", "replay"];
 export const REPLAY_PANE = "replay";
 const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "what-if", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -38,6 +38,7 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   "my-card": def({ id: "my-card", title: "Your secret goal", blurb: "Your rule in plain words, a worked example and the steps to the top.", phases: ALL, keywords: ["rule", "goal", "card", "ladder"] }),
   objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: WORLD, keywords: ["objects", "lines", "points", "rarity"] }),
   object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: WORLD, keywords: ["expanded", "representations", "compare"] }),
+  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change on a line and see its new step, ✨ rarity and points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"] }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"] }),
   agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"] }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"] }),

@@ -1,7 +1,7 @@
 /**
  * The room page (palette-and-pages.md §3.3): the room's code and owner, one status sentence and one filled button
  * (site/lib/next-step.ts), then Members, Public chat, Next game (the preset) and Past games. Every button is an
- * affordance (`useAffordance`); the palette offers the same operations.
+ * affordance (`useAffordance`); the palette offers the same operations. Next game is site/components/next-game.tsx.
  *
  * The URL carries the room's code: `v2/rooms:byCode` finds it (and whether the viewer is a member); a member's page
  * subscribes to `v2/rooms:get`. When the room's game starts, everyone on the page is taken to it (never on first load).
@@ -11,7 +11,7 @@ import { Link, useLocation, useParams } from "wouter";
 import { Bot, Copy, Crown, User } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { api } from "@workspace/engine/convex/_generated/api";
-import { PRESETS, presetOf } from "@workspace/engine/convex/v2/presets.ts";
+import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
 import { useLive, useLivePages } from "@/site/lib/convex";
 import { useAuth } from "@/site/hooks/use-auth";
 import { Page } from "@/site/components/layout";
@@ -19,6 +19,7 @@ import { AffordanceButton, Tip, failureText } from "@/site/components/action";
 import { EmptyState, ErrorLine, KeyValueStrip, NextStepBar, Section } from "@/site/components/page-parts";
 import { RoomChat } from "@/site/components/chat";
 import { Bidding } from "@/site/components/bidding";
+import { NextGame } from "@/site/components/next-game";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { nextStep, type Step } from "@/site/lib/next-step";
@@ -103,37 +104,6 @@ function Members({ room }: { room: Room }) {
       {owner && !room.game && open > 0 && (
         <p className="border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-practice-partners">Practice partners can fill the empty seats, or invite people.</p>
       )}
-    </Section>
-  );
-}
-
-function NextGame({ room }: { room: Room }) {
-  const preset = presetOf(room.preset);
-  const settings = useAffordance("room.settings");
-  const [busy, setBusy] = useState(false);
-  const owner = room.members.find(m => m.me)?.owner;
-  const choose = async (id: string) => {
-    setBusy(true);
-    try { await settings.run({ preset: id }); toast({ title: `Next game: ${presetOf(id).title}` }); } catch (e) { toast({ title: "The setting did not change", description: failureText(e), variant: "destructive" }); } finally { setBusy(false); }
-  };
-  const o = room.overrides;
-  return (
-    <Section title="Next game" testId="section-next-game">
-      <div className="p-4 space-y-3 text-sm">
-        {owner && !settings.hidden ? (
-          <label className="flex flex-wrap items-center gap-2">
-            <span>Setup</span>
-            <select value={room.preset} disabled={busy || !!room.game} onChange={e => void choose(e.target.value)} className="h-9 border bg-background px-2" data-testid="select-preset">
-              {PRESETS.filter(p => !p.id.includes("lab") || false).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-            {!settings.available && <span className="text-xs text-muted-foreground">{settings.reason}</span>}
-          </label>
-        ) : <p>This room plays: <span className="font-medium" data-testid="text-setup">{preset.title}</span></p>}
-        <p className="text-muted-foreground" data-testid="text-next-game-summary">
-          Lines · {preset.minPlayers}+ players · {o.planningSeconds ?? preset.planningSeconds} s planning · {Math.round((o.worldSeconds ?? preset.worldSeconds) / 60)} min game · {o.startingEnergy ?? preset.startingEnergy} ⚡ to start{preset.bid ? ` · ${preset.bid.seconds} s bidding first` : ""}.
-        </p>
-        {room.game && <p className="text-xs text-muted-foreground" data-testid="text-settings-frozen">Changes apply after game {room.game.number} ends.</p>}
-      </div>
     </Section>
   );
 }

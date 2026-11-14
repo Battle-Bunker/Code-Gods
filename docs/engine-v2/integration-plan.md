@@ -84,8 +84,9 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [x] **R** Command palette (ui-kit) and site commands: generated from the affordance directory (§2.5) instead of the
   per-function catalogue and the two hand-written bind tables (M2, completed M3).
 - [ ] **=** Admin rights by verified e-mail; AI player library `/admin/agents` (shared `aiTemplates` table) (M3).
-- [ ] **R** Rule gallery `/rule-gallery[/:family]`: pages generated from the v2 object-type registry: card sentence, the
-  goal card's worked example, the ladder, the dealable parameters; no server (M3).
+- [x] **R** Rule gallery `/rule-gallery[/:family]`: pages generated from the v2 object-type registry: card sentence, the
+  goal card's worked example, the ladder, the dealable parameters; no server (M3). Built: `site/pages/rule-gallery.tsx`,
+  `site/lib/rule-gallery.ts`; no ✨ rarity per step (the artefacts are server-only).
 - [x] **D** Home: your rooms, create, join (v2 rooms only once D2 lands) (M2).
 
 ### 1.2 Rooms, seats and setups
@@ -99,14 +100,16 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [ ] **D** Model-backed AI seats, admin only, with quotas (M3).
 - [ ] **D** Public chat (M2) and chat history (M3).
 - [x] **D** Owner controls: start, "Start the world now" with its visible answer (ux 1.7), end the game, resume (M2).
-- [ ] **R** Setups and settings. Today: `configure.tsx` (698) + `settings-form.ts` (371) edit a large `GameSettings`,
+- [x] **R** Setups and settings. Today: `configure.tsx` (698) + `settings-form.ts` (371) edit a large `GameSettings`,
   users save setups (`gameSetups`), Lab setups for admins. v2: a room picks a **preset** (deployed code, decision 7):
   `Lines · beginner` (line-z, the beginner family pool, 60 s planning, 5 min, 600 starting energy), `Lines · rational`
   (line-q), `Lines · four lines` (line-z4) and later `Grids · beginner`; the owner may change the few room settings
   (length, planning, seats, starting energy, power). Lab presets (admin only) are variants and price lists under trial.
   The configure page keeps its layout and loses most of its fields (M3). User-saved setups: **×** deferred; presets are
-  enough while the engine is moving (guess: nobody but the owner saved setups).
-- [ ] **D** Setup picker with the Lab group for admins (M3).
+  enough while the engine is moving (guess: nobody but the owner saved setups). Built in the room's Next game, not a
+  configure page; `room.settings` sets planning, length and starting energy (not seats or power).
+- [x] **D** Setup picker with the Lab group for admins (M3): the room's Next game (`site/components/next-game.tsx`); no
+  Lab preset is deployed yet, and `room.settings` does not yet refuse one to a non-admin.
 - [x] **R** Bid phase before the deal: handicap-percent bids on rule families, highest bid wins the family exclusively,
   sealed, disclosure by preset; on v2 rule families, through the affordance directory (decision 18, §5.9) (M3).
 - [x] **D** Past games list and the replay link (M3): "Watch the replay" in the past games and the results.
@@ -167,7 +170,7 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
   with "point at a part to see why", the ladder as "steps to the top" with ✨ rarity per rung, the parts named "(main
   part, tie-breaker)" (ux 2.6) (M2).
 - [x] **D** "Your points now" explained before the first agent exists (ux 2.4) (M2).
-- [ ] **R** What-if pane (`what-if.tsx` 73): pick a mutator and an argument, see the resulting line, its rule score and
+- [x] **R** What-if pane (`what-if.tsx` 73): pick a mutator and an argument, see the resulting line, its rule score and
   rarity, and the call's price, all computed in the browser with v2-linear; no server (M3).
 - [x] **D** Others-care scatter (`others-care.tsx` 75): from a per-player digest written by the tick (M3).
 - [x] **D** Bits over time, renamed "Your points over time" (`bits-over-time.tsx` 41): from the standings history (M3).

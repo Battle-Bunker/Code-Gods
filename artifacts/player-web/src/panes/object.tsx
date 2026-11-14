@@ -11,8 +11,9 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { ExpandedFace, ObjectChip, shortTitle } from "@workspace/v2-views";
 import { lineType } from "@workspace/v2-linear";
 import { representation } from "@workspace/v2-core";
-import { decodeState, useGameScope, useMyObject, useMyRule } from "@/sdk";
-import { useView } from "@/core/affordance-runtime";
+import { decodeState, useGame, useGameScope, useMyObject, useMyRule } from "@/sdk";
+import { useReplaying, useView } from "@/core/affordance-runtime";
+import { useOpenPane } from "@/dock/open-pane";
 import { pointsText, rarityText } from "@/core/words";
 import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
@@ -27,6 +28,9 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const show = useAffordance("view.showRepresentation");
   const compare = useAffordance("view.compareRepresentations");
   const pin = useAffordance("view.pinRepresentation");
+  const header = useGame();
+  const replaying = useReplaying();
+  const openPane = useOpenPane(replaying ? "replay" : header?.phase ?? "live");
   const state = useMemo(() => (o ? decodeState(o.state) : null), [o?.state]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!o || !state) return <p className="p-4 text-sm text-muted-foreground">Loading this line…</p>;
   const rule = my?.rule ?? null;
@@ -54,6 +58,9 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       </div>
       <ExpandedFace rule={rule} state={state} rarities={my!.rarities} active={active} compare={compared}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
+      <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
+        Try a change on this line
+      </button>
       {pinned !== active && pin.available && (
         <button type="button" className="text-xs underline underline-offset-4" data-testid="button-pin-representation"
           onClick={() => void pin.run({ rep: active, family: rule.family.id }).catch(failed("Lines did not change"))}>
