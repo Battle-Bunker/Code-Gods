@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { BUDGETS, identifierOf } from "../query-budgets.ts";
+import { V2_BUDGETS } from "../v2-query-budgets.ts";
 
 const REPO = join(import.meta.dirname, "../../../..");
 const ROOTS = ["artifacts/player-web/src", "lib/player-client/src"];
@@ -45,7 +46,7 @@ test("the scan finds each subscription form", () => {
 });
 
 test("every query a page subscribes to has a row in the query-cost budget table", () => {
-  const budgeted = new Set(BUDGETS.map(b => b.query));
+  const budgeted = new Set([...BUDGETS, ...V2_BUDGETS].map(b => b.query));
   const missing: string[] = [];
   for (const root of ROOTS) for (const file of sources(join(REPO, root))) {
     for (const ref of subscribedQueries(readFileSync(file, "utf8"))) {
@@ -53,5 +54,5 @@ test("every query a page subscribes to has a row in the query-cost budget table"
     }
   }
   assert.deepEqual(missing, [], "add these to test/query-budgets.ts (and make them fit R8)");
-  assert.equal(budgeted.size, BUDGETS.length, "one row per query");
+  assert.equal(budgeted.size, BUDGETS.length + V2_BUDGETS.length, "one row per query");
 });

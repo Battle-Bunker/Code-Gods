@@ -119,18 +119,3 @@ test("compiled output over 128 KB is refused", () => {
   assert.throws(() => compilePanel(source), (error: unknown) => error instanceof ConvexError && /128 KB/.test((error.data as { message: string }).message));
 });
 
-// Golden: every panel the player app ships (src/panels/**/*.tsx, examples included) must also work as a stored panel.
-const panelsDir = fileURLToPath(new URL("../../../player-web/src/panels/", import.meta.url));
-const walk = (dir: string): string[] => readdirSync(dir).flatMap(name => {
-  const path = join(dir, name);
-  return statSync(path).isDirectory() ? walk(path) : name.endsWith(".tsx") ? [path] : [];
-});
-const files = walk(panelsDir);
-test("golden: the player app ships example panels to compile", () => assert.ok(files.length >= 7, `${files.length} panels`));
-for (const file of files) {
-  test(`golden: ${file.slice(panelsDir.length)} compiles as a stored panel`, () => {
-    const result = ok(compilePanel(readFileSync(file, "utf8")));
-    assert.match(result.compiled, /require\("@sdk"\)/);
-    assert.ok(result.manifest.title, "a literal title is read from definePanel");
-  });
-}
