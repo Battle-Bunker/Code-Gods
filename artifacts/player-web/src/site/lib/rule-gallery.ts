@@ -1,12 +1,14 @@
 /**
- * The rule gallery's pure part (integration plan §1.1; unit-tested): pages generated from the v2 rule families of the
- * line type (lib/v2-linear) and the deployed presets, with no server. The gallery lists the families a board deals,
+ * The rule gallery's pure part (integration plan §1.1; unit-tested): pages generated from the v2 rule families of each
+ * object type the app draws (lines: lib/v2-linear; grids: lib/v2-grid) and the deployed presets, with no server. The gallery lists the families a board deals,
  * the beginner pool first; a family's page offers its dealable parameters and tie-breakers, and its card, worked
  * example and ladder follow the choice. The choice lives in the URL (`?board=&params=&tb=`), so a link opens the same
  * rule again; anything unknown in it falls back to the first choice.
  */
-import { representation, tieBreakersOn, type RuleFamily, type Variant } from "@workspace/v2-core";
-import { beginnerFamilies, lineType, type LineState } from "@workspace/v2-linear";
+import { representation, tieBreakersOn, type ObjectType, type RuleFamily, type Variant } from "@workspace/v2-core";
+import { beginnerFamilies } from "@workspace/v2-linear";
+import { beginnerGridFamilies, grid4 } from "@workspace/v2-grid";
+import { objectTypeOf, variantOf as variantById } from "../../sdk/object-types.ts";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
 import type { GameRule } from "../../sdk/rule.ts";
 
@@ -14,12 +16,15 @@ export const BOARDS: readonly { id: string; title: string; blurb: string }[] = [
   { id: "line-z", title: "Whole-number lines", blurb: "One line per object, y = mx + c with whole numbers." },
   { id: "line-q", title: "Fraction lines", blurb: "One line per object; numbers may be fractions." },
   { id: "line-z4", title: "Four lines", blurb: "Four whole-number lines per object, each scored." },
+  { id: grid4.id, title: "Grids", blurb: "A 4 × 4 grid of digits per object." },
 ];
 const DEFAULT_BOARD = BOARDS[0]!.id;
 
-type Family = RuleFamily<LineState, unknown>;
-const variantOf = (id: string): Variant => lineType.variants.find(v => v.id === id)!;
-const BEGINNER = new Set<string>(beginnerFamilies.map(f => f.id));
+type Family = RuleFamily<any, unknown>;
+const variantOf = (id: string): Variant => variantById(id);
+const typeOf = (v: Variant): ObjectType<any> => objectTypeOf(v.id);
+/** The curators' beginner pools, of every type. */
+const BEGINNER = new Set<string>([...beginnerFamilies, ...beginnerGridFamilies(4)].map(f => f.id));
 
 export interface GalleryEntry {
   id: string;
@@ -44,7 +49,7 @@ function entry(f: Family, v: Variant): GalleryEntry {
 /** The families the board deals: the curator's beginner pool, then the rest. */
 export function galleryFamilies(boardId: string): { beginner: GalleryEntry[]; more: GalleryEntry[] } {
   const v = variantOf(BOARDS.some(b => b.id === boardId) ? boardId : DEFAULT_BOARD);
-  const dealt = (lineType.families as readonly Family[]).filter(f => f.dealable(v).length > 0);
+  const dealt = (typeOf(v).families as readonly Family[]).filter(f => f.dealable(v).length > 0);
   return {
     beginner: dealt.filter(f => BEGINNER.has(f.id)).map(f => entry(f, v)),
     more: dealt.filter(f => !BEGINNER.has(f.id)).map(f => entry(f, v)),
@@ -96,8 +101,8 @@ export interface FamilyPage {
 
 /** One family's page on the setup's board, or null when the board deals no such family. */
 export function familyPage(familyId: string, setup: GallerySetup): FamilyPage | null {
-  const f = (lineType.families as readonly Family[]).find(x => x.id === familyId);
-  const v = variantOf(setup.board);
+  const v = variantOf(setup.board), type = typeOf(v);
+  const f = (type.families as readonly Family[]).find(x => x.id === familyId);
   const dealable = f?.dealable(v) ?? [];
   if (!f || !dealable.length) return null;
   const index = setup.params < dealable.length ? setup.params : 0;
@@ -110,9 +115,9 @@ export function familyPage(familyId: string, setup: GallerySetup): FamilyPage | 
     params: dealable.map((p, i) => ({ index: i, label: paramLabel(p) })),
     tieBreakers: tbs.map(t => ({ id: t.id, title: t.title, sentence: t.sentence(params).replace(/^Tie-breaker: /, "") })),
     main: { title: f.main.title, sentence: f.main.sentence(params) },
-    rule: { type: lineType, family: f, params, variant: v, tieBreaker: tb },
+    rule: { type, family: f, params, variant: v, tieBreaker: tb },
     card: f.card(params, tb),
-    reads: f.depends.map(r => representation(lineType, r).title.split(":")[0]!.trim()),
+    reads: f.depends.map(r => representation(type, r).title.split(":")[0]!.trim()),
     presets: entry(f, v).presets,
   };
 }
