@@ -15,7 +15,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { useLive, useLivePages } from "@/site/lib/convex";
 import { errMsg } from "@/site/lib/errors";
 import { affordanceContext } from "@/core/affordance-context";
-import { roomPath } from "@/site/lib/routes";
+import { roomPath, ruleGalleryPath } from "@/site/lib/routes";
 
 const phaseWords = { planning: "planning", live: "running", paused: "paused", ended: "ended" } as const;
 
@@ -82,6 +82,7 @@ function Rooms() {
         )}
         {rooms.status === "CanLoadMore" && <button type="button" className="w-full border-t py-3 text-sm underline underline-offset-4" onClick={() => rooms.loadMore(20)} data-testid="button-more-rooms">Show more rooms</button>}
       </section>
+      <p className="mt-6 text-sm text-muted-foreground">Curious which secret rules a game can deal? <Link href={ruleGalleryPath()} className="underline underline-offset-4" data-testid="link-rule-gallery">Open the rule gallery</Link>.</p>
     </div>
   );
 }

@@ -27,6 +27,7 @@ import Game from "@/site/pages/game";
 import Device from "@/site/pages/device";
 import Connect from "@/site/pages/connect";
 import AdminAgents from "@/site/pages/admin-agents";
+import { RuleFamily, RuleGallery } from "@/site/pages/rule-gallery";
 import SignIn from "@/site/pages/sign-in";
 import { connection, convexClient, engineSite, fetchAppAccessToken, type Connection } from "./connection";
 import { Screen } from "./screen";
@@ -110,6 +111,8 @@ function Routes({ mode }: { mode: Connection["mode"] }) {
         <Route path={ROUTE_PATTERNS.connect} component={offSite ? siteOnly("Approve a connection") : Connect} />
         <Route path={ROUTE_PATTERNS.admin} component={offSite ? siteOnly("AI players") : AdminAgents} />
         <Route path={ROUTE_PATTERNS.adminAgent} component={offSite ? siteOnly("AI players") : AdminAgents} />
+        <Route path={ROUTE_PATTERNS.ruleGallery} component={RuleGallery} />
+        <Route path={ROUTE_PATTERNS.ruleFamily} component={RuleFamily} />
         <Route component={NotFound} />
       </Switch>
       </SignInGate>
