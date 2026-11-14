@@ -83,7 +83,7 @@ test("table: a line through (0, 0) has no run to count, and its table draws no y
 
 test("the expanded faces of both families draw their lenses", () => {
   const face = (family: RuleFamily<LineState, any>, s: LineState) =>
-    renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family, params: {}, variant: lineQ }} state={s} ladderOpen={false} />);
+    renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family, params: {}, variant: lineQ }} state={s} />);
   assert.match(face(wholeCrossing, mc(3, -7)), /data-rep="crossing"/);
   assert.match(face(divisibilityLadder, mc(6, 6)), /data-rep="table"[\s\S]*y ÷ x/);
 });

@@ -23,14 +23,14 @@ def score(m, c, p, tie):
     fm = factors(m) or []                           # the gradient's prime factors ([] for 0, 1, -1)
     # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)
     if tie == "m-spf":   # the gradient's smallest prime factor big is better
-        return [min(main, 11), fm[0] if fm else 1]
+        return [main, fm[0] if fm else 1]
     if tie == "m-gpf":   # the gradient's largest prime factor big is better
-        return [min(main, 11), fm[-1] if fm else 1]
+        return [main, fm[-1] if fm else 1]
     if tie == "steep":   # a steeper gradient is better
-        return [min(main, 11), abs(m)]
+        return [main, abs(m)]
     if tie == "m-prime":   # a gradient close to a prime is better
         mp = near(m, prime)
-        return [min(main, 11), -abs(m - mp)]
+        return [main, -abs(m - mp)]
     return [main]
 
 

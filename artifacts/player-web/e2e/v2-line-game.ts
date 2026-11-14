@@ -132,17 +132,13 @@ try {
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
-    // The goal card: the ladder, each step's chance and the next step (before one line's pane takes the oldest pane's place).
+    // The goal card (owner decision 23: no steps): the parts on their rulers and a worked example (before one line's
+    // pane takes the oldest pane's place).
     const goal = page.getByTestId("pane-my-card");
-    await goal.getByText(/Steps to the top/).first().waitFor();
-    await goal.getByText(/^1 in [\d.,]+( [a-z]+)? by chance$/).first().waitFor({ timeout: 10_000 });
-    await goal.getByText(/Next step:/).first().waitFor({ timeout: 5000 }).catch(() => {});   // absent only at the top of the ladder
-    if (label === "phone") {
-      await goal.screenshot({ path: path.join(shots, "score-words-phone-goal-card.png") });
-      const ladder = goal.locator(".v2v-ladder").first();
-      await ladder.scrollIntoViewIfNeeded();
-      await ladder.screenshot({ path: path.join(shots, "score-words-phone-goal-ladder.png") });
-    }
+    await goal.getByText(/A worked example/).first().waitFor();
+    await goal.locator(".v2v-part").first().waitFor();
+    assert.equal(await goal.getByText(/Steps to the top|step \d+ of \d+/).count(), 0, "no steps on the goal card");
+    if (label === "phone") await goal.screenshot({ path: path.join(shots, "score-words-phone-goal-card.png") });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
     await shot(page, `game-${label}-live`);
 
@@ -164,7 +160,7 @@ try {
 
     await page.locator("[data-testid^=row-line-]").first().click();
     const line = page.getByTestId("pane-object");
-    await line.getByText("slope-intercept").first().waitFor({ timeout: 20_000 });
+    await line.getByText("your rule's main view").first().waitFor({ timeout: 20_000 });   // the rule's own views first
     assert.match(await line.getByTestId("text-line-formula").innerText(), FORMULA, "One line says yours × others' = points");
     // What a bit is, on tap (a phone has no hover).
     await line.getByTestId("button-bits-help-line").click();

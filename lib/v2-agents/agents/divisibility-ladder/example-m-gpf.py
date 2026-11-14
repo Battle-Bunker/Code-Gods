@@ -21,7 +21,7 @@ def score(m, c, p):
             break
         main += 1
     fm = factors(m) or []                           # the gradient's prime factors ([] for 0, 1, -1)
-    return [min(main, 11), fm[-1] if fm else 1]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: the gradient's largest prime factor big is better
+    return [main, fm[-1] if fm else 1]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: the gradient's largest prime factor big is better
 
 
 FAR = 6      # how far one change may go

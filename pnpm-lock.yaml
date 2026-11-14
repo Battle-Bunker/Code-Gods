@@ -489,6 +489,9 @@ importers:
       '@workspace/v2-sandbox':
         specifier: workspace:*
         version: link:../v2-sandbox
+      '@workspace/v2-valuation':
+        specifier: workspace:*
+        version: link:../v2-valuation
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -605,6 +608,9 @@ importers:
       '@workspace/v2-grid':
         specifier: workspace:*
         version: link:../v2-grid
+      '@workspace/v2-valuation':
+        specifier: workspace:*
+        version: link:../v2-valuation
       react:
         specifier: 'catalog:'
         version: 19.1.0

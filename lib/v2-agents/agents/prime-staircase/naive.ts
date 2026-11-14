@@ -17,7 +17,7 @@ function score(m, c, p, tie) {
   }
   const main = run.length;
   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better)
-  if (tie === "first-prime") return [Math.min(main, 6), run.length ? run[0] : 0];   // a bigger first prime is better
+  if (tie === "first-prime") return [main, run.length ? run[0] : 0];   // a bigger first prime is better
   return [main];
 }
 

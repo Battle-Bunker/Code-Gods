@@ -53,9 +53,12 @@ try {
       await face.locator('[data-rep="si"] [data-ref="si.c"]').hover();
       const lit = await face.locator("[data-lit]").evaluateAll(es => es.map(e => e.getAttribute("data-ref")));
       assert.ok(lit.includes("si.c") && lit.includes("cart.yInt"), `cross-highlight lit ${lit}`);
-      // Pointing at the tie-breaker leaves only its marks: no gap bracket.
-      await face.locator(".v2v-part").nth(1).hover();
+      // Tapping the tie-breaker leaves only its marks (no gap bracket), says so in a chip, and ✕ clears it.
+      await face.locator(".v2v-part").nth(1).click();
       assert.equal(await face.locator('[data-mark="measure"]').count(), 0, "the tie-breaker's marks only");
+      assert.equal(await face.locator(".v2v-selchip").count(), 1, "the selection is said");
+      await face.locator(".v2v-selchip button").click();
+      assert.ok(await face.locator('[data-mark="measure"]').count() > 0, "cleared: every mark again");
       await page.mouse.move(0, 0);
 
       // The lenses of Whole Crossing and Divisibility Ladder, on their first curated lines (y = 3x − 7, y = 6x + 6).

@@ -40,6 +40,9 @@
     },
     {
       "path": "../v2-affordances"
+    },
+    {
+      "path": "../v2-valuation"
     }
   ]
 }

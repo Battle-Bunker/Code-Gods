@@ -10,7 +10,7 @@
 import type { ReactNode } from "react";
 import { applyCall, evaluateObject, isInvalid, levelOf, objectLadder, rng, walkStep, type RuleFamily } from "@workspace/v2-core";
 import { grid4, gridType, type GridState } from "@workspace/v2-grid";
-import { annotate, CompactFace, defaultRep, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, RepView, type RuleRef } from "@workspace/v2-views";
+import { annotate, bitsLine, CompactFace, defaultRep, ExpandedFace, GoalCard, MoveLine, ObjectChip, RepView, type RuleRef } from "@workspace/v2-views";
 
 type Family = RuleFamily<GridState, unknown>;
 const ruleOf = (family: Family): RuleRef<GridState, unknown> => ({ type: gridType, family, params: family.dealable(grid4)[0], variant: grid4 });
@@ -38,8 +38,6 @@ function exampleBoards(family: Family): GridState[] {
   return boards.length ? boards : [SHOWN];
 }
 
-/** Made-up rarities (bits) per step, so the storyboard's ladder and move lines show them (real ones come from calibration). */
-const rarities = (rule: RuleRef<GridState, unknown>) => Array.from({ length: annotate(rule, SHOWN).top + 1 }, (_, i) => Math.round(i * 4.5) / 10);
 
 /** The board after a call, by a grid mutator (an invalid call leaves it as it was). */
 function after(s: GridState, mutator: string, args: Record<string, string>): { state: GridState; what: string } {
@@ -69,19 +67,18 @@ function BoardViews() {
 
 function Storyboard() {
   const rule = ruleOf(gridType.families[0] as Family);
-  const rs = rarities(rule);
   const m1 = after(SHOWN, "cells.add", { cell: "r0c0", k: "4" });
   const m2 = after(m1.state, "tally.add", { line: "row2", k: "1" });
   const m3 = after(m2.state, "cells.swap", { a: "r1c1", b: "r3c0" });
   return (
     <>
       <h3>On the goal card</h3>
-      <GoalCard rule={rule} example={SHOWN} rarities={rs} />
+      <GoalCard rule={rule} example={SHOWN} />
       <h3>In the act log</h3>
       <div className="g-log">
-        <MoveLine rule={rule} before={SHOWN} after={m1.state} who="Your agent Tally-1" what={m1.what} rarities={rs} points={{ before: 3.1, after: 6.4, want: 1.2 }} />
-        <MoveLine rule={rule} before={m1.state} after={m2.state} who="Ada's agent" what={m2.what} rarities={rs} points={{ before: 6.4, after: 5.2, want: 1.2 }} />
-        <MoveLine rule={rule} before={m2.state} after={m3.state} who="Your agent Tally-1" what={m3.what} rarities={rs} points={{ before: 5.2, after: 4.8, want: 1.0, wantBefore: 1.2 }} />
+        <MoveLine rule={rule} before={SHOWN} after={m1.state} who="Your agent Tally-1" what={m1.what} points={{ before: 3.1, after: 6.4, want: 1.2 }} />
+        <MoveLine rule={rule} before={m1.state} after={m2.state} who="Ada's agent" what={m2.what} points={{ before: 6.4, after: 5.2, want: 1.2 }} />
+        <MoveLine rule={rule} before={m2.state} after={m3.state} who="Your agent Tally-1" what={m3.what} points={{ before: 5.2, after: 4.8, want: 1.0, wantBefore: 1.2 }} />
       </div>
     </>
   );
@@ -98,10 +95,10 @@ function FamilySection({ f }: { f: Family }) {
         return (
           <div key={gridType.encode(s)} className="g-row" data-grid={gridType.encode(s)}>
             <div className="g-small">
-              <Cell title="chip"><ObjectChip type={gridType} state={s} extra={levelText(a)} /></Cell>
+              <Cell title="chip"><ObjectChip type={gridType} state={s} extra={bitsLine(a)} /></Cell>
               <Cell title="compact"><CompactFace rule={rule} state={s} annotation={a} next /></Cell>
             </div>
-            <Cell title="expanded" wide><ExpandedFace rule={rule} state={s} ladderOpen={false} /></Cell>
+            <Cell title="expanded" wide><ExpandedFace rule={rule} state={s} /></Cell>
           </div>
         );
       })}
