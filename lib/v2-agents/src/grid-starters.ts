@@ -5,12 +5,12 @@
  *  - an EXAMPLE for every family and each of its tie-breakers: reads the board, tries the moves that can raise that
  *    tie-breaker in its own head, and pays for the cheapest change to the best board it found;
  *  - SIMPLE, THOROUGH and BOLD starters per family, for whichever tie-breaker is dealt, that play for the owner's
- *    POINTS: a board scores the owner's rarity there times the other players' rarity there added up (spec §8). Each
- *    finds the cheapest change to the best board it can reach; once its energy is below RESERVE it pays only when the
- *    change is worth at least a point per ⚡ ((the bits it gains + 1) × (the others' bits + 1), from `worth` and
- *    `rarity`), keeping its energy for boards where points count. Above RESERVE it climbs (energy left idle is lost
- *    to the store's cap, and a game where every agent waits for the others never starts). When the game does not say
- *    what boards are worth, it climbs its rule;
+ *    POINTS (a board scores the owner's rarity there times the other players' rarity there added up, spec §8), with
+ *    the line starters' policy (lib/v2-agents starters.ts): each climbs to the best board it can reach and pays for the
+ *    cheapest change there, except that on a contested board (another player's recent move lowered the owner's points
+ *    there: `hurt`) it only makes changes that keep the owner's points (`pays`), and on PROTECT boards only changes
+ *    that keep the others as well off (`fair`). Measured on lines: as good as greedy on compatible tables, a third
+ *    better on conflicted ones (docs/engine-v2/rule-compatibility.md);
  *  - NAIVE (for learning): the example's search on the starters' moves, with none of the care.
  *
  * Every program has exactly one "Try this:" comment (ux-lessons §3.1).
@@ -39,15 +39,15 @@ export const isGridTypeFamily = (id: string): boolean => gridType.families.some(
 type StarterKind = Exclude<AgentKind, "example">;
 const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: string; far: number; quotes: number }> = {
   simple: {
-    title: "Simple", summary: "Nudges the numbers a little at a time towards your rule. When its energy runs low, it saves it for grids the other players want too (that is where points are).",
+    title: "Simple", summary: "Nudges the numbers a little at a time towards your rule. Where another player keeps undoing it, it only makes changes that keep your points.",
     tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 2, quotes: 4,
   },
   thorough: {
-    title: "Thorough", summary: "Like Simple, but it also moves an amount from one number to another and compares more prices before it pays. It saves its energy the same way when low.",
+    title: "Thorough", summary: "Like Simple, but it also moves an amount from one number to another and compares more prices before it pays.",
     tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.", far: 2, quotes: 6,
   },
   bold: {
-    title: "Bold", summary: "Makes bigger changes, 2 or more at a time, so it gets there in fewer but dearer moves. It saves its energy the same way when low.",
+    title: "Bold", summary: "Makes bigger changes, 2 or more at a time, so it gets there in fewer but dearer moves.",
     tryThis: "change FAR = 3 to 2: jumps of 2 only, cheaper moves.", far: 3, quotes: 6,
   },
   naive: {
@@ -61,14 +61,15 @@ const HOW_EXAMPLE = [
   "What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only",
   "time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war",
   "(another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you",
-  "a note, so you can make a deal with that player. It never spends more than a quarter of its energy on one move.",
+  "a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes",
+  "changes that keep them.",
 ];
 const HOW_POINTS = [
   "What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only",
-  "time) and finds the cheapest change to the best board for your rule. Your points on a board are your rarity there",
-  "times the other players' rarity there added up, so once its energy is below RESERVE it only pays for a change worth",
-  "a point per ⚡ (the bits it gains you times the others' bits), keeping the rest for boards where points count. It",
-  "notes a tug-of-war for you (so you can make a deal) and never spends more than a quarter of its energy on one move.",
+  "time) and pays for the cheapest change to the best board for your rule. Your points on a board are your rarity",
+  "there times the other players' rarity there added up, so where another player's move lowered your points it only",
+  "makes changes that keep them (a tug-of-war burns energy on both sides). It notes a tug-of-war for you, so you can",
+  "make a deal: LEAVE, PROTECT and TARGET below are how you keep one.",
 ];
 const HOW_NAIVE = [
   "What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every",
@@ -150,7 +151,7 @@ function tablesTs(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
   return out;
 }
 
-type Ending = "naive" | "climb" | "points";
+type Ending = "naive" | "points";
 const CLIMB_TS = (args: string, end: Ending) => [
   `  let top = score(b, ${args}), plans = [];`,
   "  for (const [plan, b2] of tries) {",
@@ -161,28 +162,18 @@ const CLIMB_TS = (args: string, end: Ending) => [
   ...(end === "naive" ? ["  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip"] : [
     "  // A promise: on these boards, only moves that leave the other players at least as well off.",
     "  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));",
-    "  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
-    "  if (!plan) return null;           // nothing better (or nothing allowed): skip",
-    "  const cost = price(offer, plan), e = energy(offer);",
-    "  if (cost > e / 4) return null;   // too dear (more than a quarter of its energy on one move): keep the energy for more turns",
-    ...(end === "points" ? [
-      "  // Your points on a board are your rarity there times the other players' rarity there, added up. So what this",
-      "  // change is worth is the bits it gains you (+1: a small gain still counts for something) times the",
-      "  // others' bits (+1: a board nobody else wants yet is worth a little). Below RESERVE ⚡ it only pays for a change",
-      "  // worth at least 1 point per ⚡ (when the game does not say what boards are worth, worth is null: it pays).",
-      "  const w = worth(offer);",
-      "  if (w && e < RESERVE && (rarity(offer, top) - w.mine + 1) * (w.others + 1) < cost) return null;",
-    ] : []),
-    "  return plan;",
+    "  // Contested (another player's move lowered your points here): only moves that keep your own points.",
+    "  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));",
+    "  if (!plans.length) return null;   // nothing better (or nothing that keeps your points): skip",
+    "  return cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
   ]),
 ];
 
 function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null, far: number, quotes: number): string[] {
-  const lenses = lensesFor(kind, e, tieBreaker), points = kind === "simple" || kind === "thorough" || kind === "bold";
+  const lenses = lensesFor(kind, e, tieBreaker);
   const out = [
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
-    ...(points ? ["const RESERVE = 300;  // below this much ⚡, only pay for changes that add points (see the end)"] : []),
     ...(kind === "naive" ? [] : [
       "const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
       "const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
@@ -211,7 +202,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
   for (const id of lenses.filter(id => GRID_LENSES[id].k)) out.push(`    ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
   out.push("  }");
   for (const id of lenses.filter(id => !GRID_LENSES[id].k)) out.push(`  ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
-  out.push(...CLIMB_TS(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : points ? "points" : "climb"), "}");
+  out.push(...CLIMB_TS(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points"), "}");
   return out;
 }
 
@@ -273,31 +264,20 @@ const CLIMB_PY = (args: string, end: Ending) => [
     "    # A promise: on these boards, only moves that leave the other players at least as well off.",
     "    if offer.object in PROTECT:",
     "        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]",
-    "    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
-    "    if plan is None:           # nothing better (or nothing allowed): skip",
+    "    # Contested (another player's move lowered your points here): only moves that keep your own points.",
+    "    if hurt(offer):",
+    "        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]",
+    "    if not plans:   # nothing better (or nothing that keeps your points): skip",
     "        return None",
-    "    cost, e = price(offer, plan), energy(offer)",
-    "    if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns",
-    "        return None",
-    ...(end === "points" ? [
-      "    # Your points on a board are your rarity there times the other players' rarity there, added up. So what this",
-      "    # change is worth is the bits it gains you (+1: a small gain still counts for something) times the",
-      "    # others' bits (+1: a board nobody else wants yet is worth a little). Below RESERVE ⚡ it only pays for a change",
-      "    # worth at least 1 point per ⚡ (when the game does not say what boards are worth, worth is None: it pays).",
-      "    w = worth(offer)",
-      "    if w and e < RESERVE and (rarity(offer, top) - w.mine + 1) * (w.others + 1) < cost:",
-      "        return None",
-    ] : []),
-    "    return plan",
+    "    return cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
   ]),
 ];
 
 function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null, far: number, quotes: number): string[] {
-  const lenses = lensesFor(kind, e, tieBreaker), points = kind === "simple" || kind === "thorough" || kind === "bold";
+  const lenses = lensesFor(kind, e, tieBreaker);
   const out = [
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
-    ...(points ? ["RESERVE = 300  # below this much ⚡, only pay for changes that add points (see the end)"] : []),
     ...(kind === "naive" ? [] : [
       "LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
       "PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
@@ -330,7 +310,7 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
   const k = lenses.filter(id => GRID_LENSES[id].k), flat = lenses.filter(id => !GRID_LENSES[id].k);
   for (const id of k) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`        ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `        ${x}`)); }
   for (const id of flat) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`    ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `    ${x}`)); }
-  out.push(...CLIMB_PY(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : points ? "points" : "climb"));
+  out.push(...CLIMB_PY(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : "points"));
   return out;
 }
 
