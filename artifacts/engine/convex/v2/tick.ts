@@ -29,8 +29,8 @@ const STATES = makeFunctionReference<"query", { gameId: Id<"v2Games">; numbers: 
 const COMMIT = makeFunctionReference<"mutation">("v2/loop:commit");
 type ActInput = { value?: { mine: number; others: number; points: number }; history: { mine: boolean; pointsBefore: number; pointsAfter: number }[] };
 const ACT_INPUTS = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberIds: Id<"v2Members">[]; objectIds: Id<"v2Objects">[] }, (ActInput & { memberId: string; objectId: string })[]>("v2/loop:actInputs");
-/** Players × lines per actInputs batch (each pair reads at most 9 documents). */
-const PAIRS_PER_BATCH = 150;
+/** Players × lines per actInputs batch (each pair reads one document). */
+const PAIRS_PER_BATCH = 600;
 const FAILED = makeFunctionReference<"mutation">("v2/loop:tickFailed");
 
 export const tick = internalAction({

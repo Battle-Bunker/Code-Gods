@@ -67,6 +67,9 @@ export const objectIds = query({
   },
 });
 
+/** A move's value snapshot without a level stored before decision 23 (migrations:stripLevels). */
+const snap = ({ score, rarityBits, want, points }: { score: (string | null)[] | null; rarityBits: number; want: number; points: number }) => ({ score, rarityBits, want, points });
+
 /** An object and its state; sign-in first, so a signed-out caller learns nothing, not even whether it exists. */
 export async function objectAndState(ctx: QueryCtx, objectId: string) {
   await requireUser(ctx);
@@ -154,7 +157,7 @@ export const moves = query({
       ...page,
       page: page.page.map(m => ({
         seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: m.agentId ?? null, mine: m.mine,
-        calls: m.calls, rep: m.rep, stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: m.before, after: m.after, charge: m.charge ?? null,
+        calls: m.calls, rep: m.rep, stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snap(m.before), after: snap(m.after), charge: m.charge ?? null,
         by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
         notes: m.notes ?? [],
       })),

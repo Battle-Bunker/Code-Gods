@@ -105,6 +105,13 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
   const acts = events.filter(e => e.kind === "act" && e.data.charged === undefined);
   assert.ok(acts.length > 10, `enough acts to mean something (${acts.length})`);
   assert.ok(acts.some(e => e.data.input?.value && Array.isArray(e.data.input.history)), "agents are told their owner's stake in the object, and it is recorded");
+  // The moves that concerned their owner on the line (the value row's `recent`), oldest first, at most 8.
+  const told = acts.filter(e => e.data.input?.history?.length);
+  assert.ok(told.length > 0, "agents are told the moves on a line that concerned their owner");
+  for (const e of told) {
+    const h = e.data.input.history;
+    assert.ok(h.length <= 8 && h.every((m: any) => typeof m.mine === "boolean" && Number.isFinite(m.pointsBefore) && Number.isFinite(m.pointsAfter)), JSON.stringify(h));
+  }
   for (const e of acts) {
     const d = e.data, key = `${d.agentId}:${d.program.version}`;
     if (!sources.has(key)) sources.set(key, (await admin.query("v2/testing:program", { agentId: d.agentId, version: d.program.version })).source);

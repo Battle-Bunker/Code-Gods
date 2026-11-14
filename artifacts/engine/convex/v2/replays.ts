@@ -20,7 +20,13 @@ const valueFnOf = (ruleKey: string) => {
 };
 
 export const STORED_REPLAY_VERSION = 1;
-const PAGE = 500;
+const PAGE = 200;
+/**
+ * A pause between the build's pages: the build runs once a game ends, often while other games tick, and a build that
+ * reads the whole record back to back starved their commits (8 builds at once held commits for 8–17 s on the local
+ * backend, one timing out with "too many system operations").
+ */
+const PAGE_PAUSE_MS = 100;
 
 /** Whether the file is stored (for any member of the game's room). */
 export const stored = query({
@@ -79,6 +85,7 @@ export const build = internalAction({
       events.push(...page);
       if (page.length < PAGE) break;
       after = page.at(-1)!.seq;
+      await new Promise(r => setTimeout(r, PAGE_PAUSE_MS));
     }
     const file = await ctx.storage.store(new Blob([JSON.stringify({ version: STORED_REPLAY_VERSION, ...(head as object), events })], { type: "application/json" }));
     const kept = await ctx.runMutation(ATTACH, { gameId, file });
