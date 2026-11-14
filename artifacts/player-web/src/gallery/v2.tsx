@@ -3,11 +3,11 @@
  * in v2-linear, plus the storyboard's two-part Empty Tank, on a few example lines each: the chip, the compact face and
  * every representation the rule depends on, expanded. `?scheme=dark` shows the dark scheme; `?family=<id>` one family.
  */
-import { StrictMode, useState, type ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { q, type ElementRef, type Q, type RuleFamily } from "@workspace/v2-core";
+import { q, type Q, type RuleFamily } from "@workspace/v2-core";
 import { crossingCheck, fromMC, lineQ, lineType, mMeetsC, normalise, primeGradient, triangleArea, type Line, type LineState } from "@workspace/v2-linear";
-import { annotate, ObjectChip, RepView, type RuleRef } from "@workspace/v2-views";
+import { annotate, CompactFace, ExpandedFace, levelText, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 
@@ -42,29 +42,26 @@ function Rule({ ex }: { ex: Example }) {
   );
 }
 
+/** Made-up ✨ rarities per step for the storyboard rule (real ones come from the rule's calibration artefact). */
+const DEMO_RARITIES: Readonly<Record<string, readonly number[]>> = { "empty-tank-demo": [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8] };
+
 function LineRow({ rule, state }: { rule: RuleRef<LineState, unknown>; state: LineState }) {
-  const a = annotate(rule, state);
-  const e = a.sites[0]!.evaluation;
-  const [hl, setHl] = useState<string | null>(null);
-  const onHover = (m: string | null, _r: ElementRef | null) => setHl(m);
-  const level = a.score === null ? "not scoring" : `${a.level}/${a.top}`;
+  const rarities = DEMO_RARITIES[rule.family.id];
+  const a = annotate(rule, state, { rarities });
+  const level = levelText(a, true);
   return (
     <div className="g-row" data-line={lineType.encode(state)}>
-      <Cell title="chip"><ObjectChip type={lineType} state={state} extra={level} /></Cell>
-      <Cell title="compact">
-        <RepView type={lineType} state={state} rep={rule.family.primary} size="compact" marks={e.marks} terms={e.terms} highlight={hl} onHover={onHover} />
-      </Cell>
-      {rule.family.depends.map(rep => (
-        <Cell key={rep} title={`expanded · ${rep}`}>
-          <RepView type={lineType} state={state} rep={rep} size="expanded" marks={e.marks} terms={e.terms} highlight={hl} onHover={onHover} />
-        </Cell>
-      ))}
+      <div className="g-small">
+        <Cell title="chip"><ObjectChip type={lineType} state={state} extra={level} /></Cell>
+        <Cell title="compact"><CompactFace rule={rule} state={state} annotation={a} /></Cell>
+      </div>
+      <Cell title="expanded" wide><ExpandedFace rule={rule} state={state} rarities={rarities} /></Cell>
     </div>
   );
 }
 
-function Cell({ title, children }: { title: string; children: ReactNode }) {
-  return <figure className="g-cell"><figcaption>{title}</figcaption>{children}</figure>;
+function Cell({ title, children, wide }: { title: string; children: ReactNode; wide?: boolean }) {
+  return <figure className="g-cell" data-wide={wide ? "" : undefined}><figcaption>{title}</figcaption>{children}</figure>;
 }
 
 const CSS = `
@@ -77,7 +74,9 @@ const CSS = `
   .g-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--v2v-rule); }
   .g-cell { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
   .g-cell figcaption { font-size: 10px; color: var(--v2v-faint); text-transform: uppercase; letter-spacing: 0.06em; }
-  .g-cell .v2v-rep[data-size="expanded"] { width: 320px; max-width: calc(100vw - 32px); }
+  .g-small { display: flex; flex-direction: column; gap: 10px; width: 180px; }
+  .g-cell[data-wide] { flex: 1 1 600px; }
+  @media (max-width: 700px) { .g-small { flex-direction: row; flex-wrap: wrap; width: auto; } .g-cell[data-wide] { flex-basis: 100%; } }
 `;
 
 function Gallery() {
@@ -86,7 +85,7 @@ function Gallery() {
       <style>{CSS}</style>
       <main className="v2v g-page">
         <h1>Engine v2 views</h1>
-        <p className="g-card">Every rule on example lines: chip, compact face, and each representation the rule depends on, expanded. Point at a number to light the same quantity everywhere.</p>
+        <p className="g-card">Every rule on example lines: the chip, the compact face and the expanded face. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
         {EXAMPLES.filter(ex => !only || ex.family.id === only).map(ex => <Rule key={ex.family.id} ex={ex} />)}
       </main>
     </div>
