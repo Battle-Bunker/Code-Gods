@@ -114,16 +114,14 @@ export type ViewOp = { id: "view.openPane" | "view.closePane" | "view.movePane" 
 
 /**
  * The view operations that make the stored panes what the human sees now (the defaults, or an arrangement merged with
- * the world's defaults), so a change keeps what is on screen: the shown panes not stored are opened, and stored panes
- * not shown here are closed. Panes already stored are left alone, so their place in the dock stays. None when they agree.
+ * the world's defaults), so a change keeps what is on screen: the shown panes not stored are opened. Stored panes are
+ * left alone, so their place in every dock stays, and one this phase has nothing for (the agent code after the end)
+ * is still open in the next game. None when they agree.
  */
 export function keepShown(view: Pick<ViewState, "panes">, phase: GamePhase): ViewOp[] {
-  const shown = shownPanes(view, phase);
   const stored = view.panes.filter(docked);
-  return [
-    ...stored.filter(p => !shown.some(s => s.pane === p.pane)).map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
-    ...shown.filter(s => !stored.some(p => p.pane === s.pane)).map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
-  ];
+  return shownPanes(view, phase).filter(s => !stored.some(p => p.pane === s.pane))
+    .map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } }));
 }
 
 /** Where a pane joins when opened without a place. */

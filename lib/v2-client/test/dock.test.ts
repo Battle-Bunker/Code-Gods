@@ -69,3 +69,13 @@ test("opening a pane already shown behind a tab brings it to the front", () => {
   const planning = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "planning", "forge"), "planning");
   assert.ok(visible(run(planning, openPlan(planning, "live", "forge"), "live"), "live").includes("forge"));
 });
+
+test("a whole game of changes leaves the next planning screen as it was, the agent code in front", () => {
+  // Catches: round 1's "the row layout carries into the next game's planning (code box squeezed)".
+  let v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "planning", "forge"), "planning");
+  v = run(v, [{ id: "view.arrangeDock", args: { dock: "row(overview 20, my-card 30, forge 50)" } }], "planning");
+  v = run(v, openPlan(v, "live", "public-chat"), "live");
+  v = run(v, openPlan(v, "ended", "points-over-time"), "ended");
+  // Panes opened during the game that planning can show join behind the tabs in front.
+  assert.equal(formatDock(dockFor(v, "planning")!), "row(overview 20, my-card 30, forge|agents|public-chat 50)");
+});
