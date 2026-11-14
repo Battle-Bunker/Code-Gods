@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
-import { exampleFor, sandboxes, startersFor, type AgentKind, type ShippedLanguage } from "../src/index.ts";
+import { CATALOGUE, exampleFor, sandboxes, startersFor, type AgentKind, type ShippedLanguage } from "../src/index.ts";
 import { byView, formatReport, runHarness, type HarnessPlayer } from "../src/harness.ts";
 
 const { values } = parseArgs({
@@ -61,7 +61,7 @@ async function pool(): Promise<string> {
     "| Rule | Agent | Acts made / skipped | ⚡ spent | Main part (start → end / top) | Tie-breaker | Lines at main top | Bits gained | Bits per 100 ⚡ | ⚡ on reads | ⚡ on changes |",
     "|---|---|---|--:|---|---|---|--:|--:|---|---|",
   ];
-  for (const f of lineType.families) for (const tb of f.tieBreakers) for (const kind of ["example", "simple", "thorough", "bold"] as const) {
+  for (const f of lineType.families.filter(x => CATALOGUE.some(e => e.family === x.id))) for (const tb of f.tieBreakers) for (const kind of ["example", "simple", "thorough", "bold"] as const) {
     const spec = `${f.id}/${tb.id}`;
     const r = await runHarness(boxes, { type: lineType, variant, players: [player(spec, kind)], budget, lines, seed: values.seed! });
     const x = r.rules[0]!, s = r.spend[0]!;
@@ -77,7 +77,7 @@ async function pool(): Promise<string> {
   const tables = [
     ["m-meets-c/size", "prime-gradient/prime", "triangle-area/legs"],
     ["whole-intercept/spf", "m-meets-c/meetPrime", "prime-gradient/cPrime"],
-    ["square-area/factors", "triangle-area/even", "crossing-check/whole"],
+    ["square-area/omega", "triangle-area/even", "crossing-check/whole"],
   ];
   for (const specs of tables) {
     const r = await runHarness(boxes, { type: lineType, variant, players: specs.map((s, i) => player(s, "example", `P${i + 1}`)), budget, lines, seed: values.seed! });

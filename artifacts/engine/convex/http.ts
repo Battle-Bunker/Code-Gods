@@ -2,7 +2,8 @@
  * Every HTTP URL of the deployment (https://<dep>.convex.site):
  *
  *   /api/auth/*   Better Auth: Google sign-in, session cookie, sign-out, Convex JWTs (convex/auth/betterAuth.ts)
- *   /mcp          the MCP server (convex/agent/mcp.ts; only `whoami` until engine v2's tools arrive); /.well-known/oauth-*,
+ *   /api/v2/replay/<gameId>  an engine v2 game's stored replay, for a member of its room (convex/v2Http.ts)
+ *   /mcp          the MCP server (convex/agent/mcp.ts; its tools come from the affordance directory); /.well-known/oauth-*,
  *                 /oauth/authorize[/complete] and /api/oauth/{register,token,revoke}: its OAuth authorization server
  *                 (convex/agent/oauth.ts)
  *   /api/preview-auth/*  preview deployments only: the passphrase sign-in (convex/auth/previewRoutes.ts); a 404 elsewhere
@@ -21,6 +22,7 @@ import { mcp, mcpMethodNotAllowed } from "./agent/mcp";
 import { registerOAuthRoutes } from "./agent/oauth";
 import { registerAuthRoutes } from "./auth/routes";
 import { registerPreviewAuthRoutes } from "./auth/previewRoutes";
+import { v2ReplayDownload, v2ReplayPreflight } from "./v2Http";
 import { authComponent, createAuth } from "./auth/betterAuth";
 
 const http = httpRouter();
@@ -59,6 +61,9 @@ http.route({
 authComponent.registerRoutes(http, createAuth);
 // MCP (convex/agent/mcp.ts) and its OAuth authorization server (convex/agent/oauth.ts).
 http.route({ path: "/mcp", method: "POST", handler: mcp });
+// Engine v2: an ended game's stored replay, for a member of its room (convex/v2/replays.ts): the JWT in Authorization.
+http.route({ pathPrefix: "/api/v2/replay/", method: "GET", handler: v2ReplayDownload });
+http.route({ pathPrefix: "/api/v2/replay/", method: "OPTIONS", handler: v2ReplayPreflight });
 for (const method of ["GET", "DELETE"] as const) http.route({ path: "/mcp", method, handler: mcpMethodNotAllowed });
 registerOAuthRoutes(http);
 registerPreviewAuthRoutes(http);   // preview deployments only (a JSON 404 everywhere else): auth/preview.ts

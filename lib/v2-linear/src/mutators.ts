@@ -1,6 +1,6 @@
 /** The line's nine mutators (spec §12.4). Prices are the call's code length; v2-core adds "which", "where" and the surcharge. */
 import {
-  choiceBits, nonzeroRatBits, Qn, q, sampleNonzeroRat, sampleStepsInt, sampleStepsNonzero, sampleStepsNonzeroRat, sampleStepsRat,
+  choiceBits, gcd, nonzeroRatBits, Qn, q, sampleNonzeroRat, sampleStepsInt, sampleStepsNonzero, sampleStepsNonzeroRat, sampleStepsRat,
   stepsIntBits, stepsNonzeroBits, stepsNonzeroRatBits, stepsRatBits,
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
@@ -11,6 +11,8 @@ export type Args = Readonly<Record<string, Q | string>>;
 // ---------------------------------------------------------------- argument codes
 
 interface Field {
+  /** Every value priced at most maxBits (any order). */
+  values(maxBits: number): (Q | string)[];
   bits(v: Q | string): number;
   sample(rng: Rng): Q | string | null;
   decode(w: unknown): Q | string;
@@ -26,26 +28,48 @@ function inArgDomain(x: Q, d: Domain): Q {
   return x;
 }
 
+/** Nonzero rationals p/q in lowest terms (or integers when d is "Z") whose price under `bits` is at most maxBits. */
+function rationalsUpTo(d: Domain, bits: (x: Q) => number, maxBits: number): Q[] {
+  const out: Q[] = [];
+  for (let qq = 1n; qq <= (d === "Z" ? 1n : 64n); qq++) {
+    let grew = false;
+    for (let p = 1n; p <= 4096n; p++) {
+      if (gcd(p, qq) !== 1n) continue;
+      const x = q(p, qq);
+      if (bits(x) > maxBits) break;
+      grew = true;
+      out.push(x, Qn.neg(x));
+    }
+    if (!grew && qq > 1n) break;
+  }
+  return out;
+}
+
 /** An amount added (owner decision 17: priced by steps, in proportion to its size): Z → steps on n, Q → on p and q. */
+const nzBits = (d: Domain) => (v: Q): number => (d === "Z" ? stepsNonzeroBits(v.n) : stepsNonzeroRatBits(v));
 const nz = (d: Domain): Field => ({
-  bits: v => (d === "Z" ? stepsNonzeroBits((v as Q).n) : stepsNonzeroRatBits(v as Q)),
+  values: max => rationalsUpTo(d, nzBits(d), max),
+  bits: v => nzBits(d)(v as Q),
   sample: rng => (d === "Z" ? q(sampleStepsNonzero(rng)) : sampleStepsNonzeroRat(rng)),
   decode: w => { const x = inArgDomain(toQ(w), d); if (x.n === 0n) throw new RangeError("must not be 0"); return x; },
 });
 /** A position or displacement, possibly 0 (an anchor x0, a slide), priced by steps like an amount added. */
 const anyNum = (d: Domain): Field => ({
+  values: max => (max >= 1 ? [q(0), ...rationalsUpTo(d, x => 1 + nzBits(d)(x), max)] : []),
   bits: v => (d === "Z" ? stepsIntBits((v as Q).n) : stepsRatBits(v as Q)),
   sample: rng => (d === "Z" ? q(sampleStepsInt(rng)) : sampleStepsRat(rng)),
   decode: w => inArgDomain(toQ(w), d),
 });
 /** One of a few named choices. */
 const oneOf = (values: readonly string[]): Field => ({
+  values: max => (choiceBits(values.length) <= max ? [...values] : []),
   bits: () => choiceBits(values.length),
   sample: rng => values[rng.below(values.length)]!,
   decode: w => { if (typeof w !== "string" || !values.includes(w)) throw new RangeError(`must be one of ${values.join(", ")}`); return w; },
 });
 /** A multiplicative factor (priced by digits: its gamma code), any nonzero rational other than ±1. */
 const factor = (_d: Domain): Field => ({
+  values: max => rationalsUpTo("Q", nonzeroRatBits, max).filter(x => !(x.d === 1n && (x.n === 1n || x.n === -1n))),
   bits: v => nonzeroRatBits(v as Q),
   // ±1 are not factors: their code mass is left over (the walk stays put), not offered as a call.
   sample: rng => { const x = sampleNonzeroRat(rng); return x === null || (x.d === 1n && (x.n === 1n || x.n === -1n)) ? null : x; },
@@ -55,6 +79,18 @@ const factor = (_d: Domain): Field => ({
 function fields(spec: Readonly<Record<string, Field>>): ArgCode<Args> {
   const names = Object.keys(spec);
   return {
+    enumerate: maxBits => {
+      // Every combination of field values whose prices add up to at most maxBits, cheapest first.
+      let partial: { a: Record<string, Q | string>; bits: number }[] = [{ a: {}, bits: 0 }];
+      for (const k of names) {
+        const f = spec[k]!;
+        const vals = f.values(maxBits).map(v => ({ v, bits: f.bits(v) }));
+        const next: typeof partial = [];
+        for (const p of partial) for (const { v, bits } of vals) if (p.bits + bits <= maxBits + 1e-9) next.push({ a: { ...p.a, [k]: v }, bits: p.bits + bits });
+        partial = next;
+      }
+      return partial.sort((x, y) => x.bits - y.bits).map(x => x.a);
+    },
     bits: a => names.reduce((t, k) => t + spec[k]!.bits(a[k]!), 0),
     sample: rng => {
       const out: Record<string, Q | string> = {};

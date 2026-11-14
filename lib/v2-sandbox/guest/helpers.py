@@ -173,8 +173,20 @@ def better(a, b):
     return len(a) > len(b)
 
 
+_PRIME, _SQUARE = prime, square     # the helpers themselves, even if an agent reuses the names
+
+
 def near(x, test):
     v = Fraction(x)
+    # Exact for any size where the answer is known in closed form: below 2 the nearest prime is 2; squares by root.
+    if test is _PRIME and v <= 2:
+        return 2
+    if test is _SQUARE:
+        if v <= 0:
+            return 0
+        r = _isqrt(v.numerator // v.denominator)
+        lo, hi = r * r, (r + 1) * (r + 1)
+        return hi if hi - v < v - lo else lo
     floor = v.numerator // v.denominator
     ceil = floor if floor == v else floor + 1
     low_first = v - floor <= ceil - v      # the nearer side is the same at every distance

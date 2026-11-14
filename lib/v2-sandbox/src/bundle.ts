@@ -1,5 +1,5 @@
 /**
- * The pinned CPython runtime bundle (built by this package's `setup:python` and `build:python`, python-runtime/):
+ * The pinned CPython runtime bundle (built by this package's `setup:python` and `build:python` from python-runtime/, unchanged):
  *
  *   "CGPYRT1\n" | u32 LE manifest length | manifest JSON {files: [[path, size], ...]} | file bytes...
  *
@@ -13,15 +13,15 @@ import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const MAGIC = new TextEncoder().encode("CGPYRT1\n");
-/** SHA-256 of the uncompressed bundle (python-runtime/build.mjs checks it; `--pin` rewrites it). */
+/** SHA-256 of the uncompressed bundle (unchanged since the bundle moved here from game-runtime). */
 export const PYTHON_BUNDLE_SHA256 = "5aacc3bef36d8c7039ef3a1cd04eb0c4948d73efaf67e3e3e492d647a4421cfa";
-/** Where the build puts it in this workspace. */
-export const DEFAULT_BUNDLE_PATH = fileURLToPath(new URL("../dist/python-runtime.bin.gz", import.meta.url));
+/** Where the build puts it in this workspace (a bundled copy of this package passes the bytes instead). */
+export const defaultBundlePath = () => fileURLToPath(new URL("../dist/python-runtime.bin.gz", import.meta.url));
 
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 /** Bundle bytes (gzip or raw) or a path → its files, after checking the pin. */
-export function loadBundle(source: string | Uint8Array = DEFAULT_BUNDLE_PATH): Map<string, Uint8Array> {
+export function loadBundle(source: string | Uint8Array = defaultBundlePath()): Map<string, Uint8Array> {
   let data = typeof source === "string" ? new Uint8Array(readFileSync(source)) : source;
   if (data[0] === 0x1f && data[1] === 0x8b) data = new Uint8Array(gunzipSync(data, { maxOutputLength: 256 * 1024 * 1024 }));
   const digest = sha256(data);

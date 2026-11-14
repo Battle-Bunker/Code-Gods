@@ -43,6 +43,21 @@ export const lineType: ObjectType<LineState> = {
   },
   sites: s => s.lines.length,
   origin: v => ({ lines: Array.from({ length: lineParams(v).linesPerObject }, () => ({ a: 0n, b: 1n, c: 0n })) }), // y = 0
+  *enumerate(v) {
+    const p = lineParams(v);
+    if (p.linesPerObject !== 1) return;
+    if (p.domain === "Z") {
+      // y = mx + c with |m| ≤ 40 and |c| ≤ 120.
+      for (let m = -40n; m <= 40n; m++) for (let c = -120n; c <= 120n; c++) yield { lines: [{ a: -m, b: 1n, c: -c }] };
+      return;
+    }
+    // Primitive triples with |a|, |b| ≤ 12 and |c| ≤ 60, each once.
+    for (let a = -12n; a <= 12n; a++) for (let b = 0n; b <= 12n; b++) for (let c = -60n; c <= 60n; c++) {
+      const n = normalise(a, b, c);
+      if ("invalid" in n || n.a !== a || n.b !== b || n.c !== c) continue;
+      yield { lines: [n] };
+    }
+  },
   representations,
   mutators,
   families: [...families],

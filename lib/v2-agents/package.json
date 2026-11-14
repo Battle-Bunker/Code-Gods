@@ -6,8 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./harness": "./src/harness.ts",
-    "./starters": "./src/starters.ts",
-    "./summon": "./src/summon.ts"
+    "./pure": "./src/pure.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",

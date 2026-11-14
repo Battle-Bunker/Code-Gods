@@ -19,7 +19,7 @@ import { intBits } from "@workspace/v2-core";
 import type { Language } from "@workspace/v2-sandbox";
 
 /** Energy per bit of program (an economy constant; v2-economy may own it). */
-export const SUMMON_ENERGY_PER_BIT = 1 / 4;
+export const SUMMON_ENERGY_PER_BIT = 1 / 6;
 
 const HELPERS = ["look", "peek", "goal", "progress", "move", "price", "cheapest", "energy", "prime", "square", "near", "whole", "root", "factors", "better", "call", "agent", "offer"];
 const OFFER = ["view", "element", "myRule", "my_rule", "myScore", "my_score", "quote", "budget", "params", "tieBreaker", "tie_breaker", "card", "layers", "level", "top", "main", "tiebreak", "score", "terms", "valid", "charge", "total", "reason", "m", "c"];

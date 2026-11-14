@@ -3,12 +3,8 @@
  * QuickJS runs them. Transpile only, no type check: an agent's types are its own business, and the guest library's
  * names (Offer, Call, Q, call, HostError) need no declarations to run. Syntax errors are compile errors.
  */
-import { createRequire } from "node:module";
 import { SandboxError } from "./limits.ts";
-
-type TS = typeof import("typescript");
-let ts: TS | null = null;
-const load = () => (ts ??= createRequire(import.meta.url)("typescript") as TS);
+import { typescriptModule as load } from "./modules.ts";
 
 const cache = new Map<string, string>();
 

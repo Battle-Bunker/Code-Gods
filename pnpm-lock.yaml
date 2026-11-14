@@ -164,6 +164,9 @@ importers:
       '@workspace/v2-affordances':
         specifier: workspace:*
         version: link:../../lib/v2-affordances
+      '@workspace/v2-agents':
+        specifier: workspace:*
+        version: link:../../lib/v2-agents
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core
@@ -173,6 +176,9 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
+      '@workspace/v2-sandbox':
+        specifier: workspace:*
+        version: link:../../lib/v2-sandbox
       '@workspace/v2-valuation':
         specifier: workspace:*
         version: link:../../lib/v2-valuation
@@ -185,6 +191,9 @@ importers:
       jose:
         specifier: 6.2.13
         version: 6.2.13
+      quickjs-emscripten:
+        specifier: 0.31.0
+        version: 0.31.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3

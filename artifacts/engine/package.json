@@ -12,7 +12,8 @@
     "fake-oidc": "node scripts/fake-oidc.mjs",
     "test:unit": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts",
     "test:v2": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/v2-*.test.ts",
-    "test:version": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/version.test.ts"
+    "test:version": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/version.test.ts",
+    "upload-runtime": "node scripts/upload-runtime.mjs"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.6",
@@ -20,14 +21,17 @@
     "@convex-dev/static-hosting": "0.2.1",
     "@modelcontextprotocol/server": "2.4.0",
     "@workspace/v2-affordances": "workspace:*",
+    "@workspace/v2-agents": "workspace:*",
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-economy": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
+    "@workspace/v2-sandbox": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",
     "better-auth": "1.6.33",
     "convex": "1.48.0",
     "jose": "6.2.13",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "quickjs-emscripten": "0.31.0"
   },
   "devDependencies": {
     "@types/node": "catalog:"

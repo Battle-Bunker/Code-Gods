@@ -9,13 +9,19 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
+import { noteSummoned, useAgentCount, useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
 import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
 import { energyText } from "@/core/words";
 import {
   affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
 } from "./forge-model";
+
+/** An agent's name from its program's title: "Example: legs nearly whole" → "Legs nearly whole". */
+const agentName = (title?: string) => {
+  const t = (title ?? "").replace(/^Example:\s*/i, "").trim();
+  return t ? (t[0]!.toUpperCase() + t.slice(1)).slice(0, 40) : undefined;
+};
 
 type Status = { tone: "ok" | "error" | "info"; text: string; action?: "agents" } | null;
 
@@ -44,7 +50,7 @@ export function ForgePane() {
   const [ran, setRan] = useState<string | null>(null);             // the source just summoned or replaced (no stale price: ux 3.6)
   const [report, setReport] = useState<string | null>(null);
   // An accepted summon counts at once, before the agent list catches up (ux-lessons 1.8).
-  const count = Math.max(agents?.length ?? 0, me?.agents ?? 0);
+  const count = useAgentCount() ?? 0;
   // The agent in the editor: the one chosen, else the first; a destroyed one gives way to the next.
   useEffect(() => {
     if (agents?.length && !agents.some(a => a.agentId === selected)) { setSelected(agents[0]!.agentId); setDraft(null); }
@@ -74,7 +80,8 @@ export function ForgePane() {
       const r = await runner.run("summon", () => summon.run({ language, source: src, ...(name ? { name } : {}), ...(first ? { share: FIRST_SHARE } : {}) }));
       if (!r) return;
       setRan(src); setDraft(null); setSelected(r.agentId);
-      setStatus({ tone: "ok", text: first ? summonedText({ name: name ?? opening?.title ?? "Your agent", share: FIRST_SHARE, power: me?.power ?? 0 }) : `Summoned for ${energyText(r.price)}.`, action: "agents" });
+      if (header?.gameId) noteSummoned(header.gameId);
+      setStatus({ tone: "ok", text: first ? summonedText({ name: name ?? "Your agent", share: FIRST_SHARE, power: me?.power ?? 0 }) : `Summoned for ${energyText(r.price)}.`, action: "agents" });
     } catch (e) { fail(e); }
   };
   const doReplace = async (src: string) => {
@@ -117,7 +124,7 @@ export function ForgePane() {
         className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {primary === "summonFirst" && (
-          <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => summon.available && !runner.busy && void doSummon(source, true, opening?.title)}
+          <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => summon.available && !runner.busy && void doSummon(source, true, agentName(opening?.title))}
             className={`bg-primary text-primary-foreground px-3 py-2 font-medium ${!summon.available || runner.busy ? "opacity-50" : ""}`} title={summon.reason} data-testid="button-summon-first-forge">
             {runner.busy === "summon" ? "Summoning…" : "Summon my first agent"}
           </button>

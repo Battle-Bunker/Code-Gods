@@ -10,7 +10,7 @@ import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-bound
 import { Page } from "@/site/components/layout";
 import { useAuth } from "@/site/hooks/use-auth";
 import { roomPath } from "@/site/lib/routes";
-import { GameScopeProvider, useLeaderboard, useMe, useMyAgents } from "@/sdk";
+import { GameScopeProvider, useAgentCount, useLeaderboard, useMe } from "@/sdk";
 import { useLive } from "@/site/lib/convex";
 import type { Header, Room } from "@/sdk/types";
 import { Dock } from "@/dock/dock";
@@ -44,11 +44,9 @@ function GameBar({ header }: { header: Header }) {
 /** Planning's one line: the countdown, "Summon my first agent", and the owner's "Start the world now" (ux-lessons 1.7, 1.8). */
 function PlanningBar({ header, owner }: { header: Header; owner: boolean }) {
   const now = useNow();
-  const agents = useMyAgents();
-  const me = useMe();
   const openPane = useOpenPane(header.phase);
-  // An accepted summon counts at once (the account's agent count), even while the agent list lags (ux-lessons 1.8).
-  const count = me ? Math.max(me.agents, agents?.length ?? 0) : agents?.length;
+  // An accepted summon counts at once, even while the subscriptions lag it (ux-lessons 1.8).
+  const count = useAgentCount();
   const line = planningLine({ phase: header.phase, seated: header.me !== null, owner, planningEndsAt: header.planningEndsAt, nowMs: now, agents: count });
   if (!line) return null;
   return (

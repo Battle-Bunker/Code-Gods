@@ -12,7 +12,9 @@ import { families, fromMC, lineType, lineZ, type LineState } from "@workspace/v2
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { mintPlayerJwt } from "../auth/jwt";
+import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
 
@@ -106,7 +108,8 @@ export const seedGame = internalMutation({
       const m = (await ctx.db.get(memberId))!;
       await ctx.db.insert("v2Players", {
         gameId, memberId, ...(m.userId ? { userId: m.userId } : {}), kind: m.kind,
-        energy: preset.startingEnergy, power: 1, ready: false, pauseUsed: false, agents: 1,
+        energy: preset.startingEnergy, power: preset.economy.powerPerSecond, ready: false, pauseUsed: false, agents: 1,
+        settledAt: 0, allocated: 0.5,
       });
     }
 
@@ -133,10 +136,10 @@ export const seedGame = internalMutation({
     }
 
     // Agents, programs, moves.
-    const source = "export function agent(offer) {\n  // Try this: tilt towards your target.\n  return [call(\"si.tilt\", { k: 1 })];\n}\n";
+    const source = "function agent(offer) {\n  // Try this: tilt towards your target.\n  return [call(\"si.tilt\", { k: 1 })];\n}\n";
     for (const [k, { memberId }] of rules.entries()) {
-      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 1, createdAt: now });
-      await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2 });
+      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now, source });
+      await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2, settledAt: 0 });
       await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 12, summonedAt: now, acts: 3, pointsGained: 2 });
       for (let s = 0; s < Math.min(3, n); s++) {
         const objectId = objects[(k + s) % n]!, value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique())!;
@@ -201,11 +204,92 @@ export const setBidding = internalMutation({
     fixtures();
     const room = (await ctx.db.get(roomId))!;
     const offers = presetOf(room.preset).families.flatMap(id => {
-      const f = families.find(x => x.id === id) as RuleFamily<LineState, unknown> | undefined;
+      const f = lineType.families.find(x => x.id === id) as RuleFamily<LineState, unknown> | undefined;
       if (!f) return [];
       const params = f.dealable(lineZ)[0]!;
       return [{ family: f.id, title: f.title, card: f.card(params, null), top: (objectLadder(lineType, f, params, lineZ).length - 1) * RARITY_PER_LEVEL }];
     });
     await ctx.db.patch(roomId, open ? { bidding: { deadline: Date.now() + (seconds ?? 45) * 1000, pricing: presetOf(room.preset).bid?.pricing ?? "first", families: offers } } : { bidding: undefined });
+  },
+});
+
+/** A page of a game's record (spec §9.1), in order from `after` (exclusive). */
+export const events = internalQuery({
+  args: { gameId: v.id("v2Games"), after: v.number() },
+  handler: async (ctx, { gameId, after }) => {
+    fixtures();
+    return await ctx.db.query("v2Events").withIndex("by_game_seq", q => q.eq("gameId", gameId).gt("seq", after)).take(200);
+  },
+});
+
+/** One program version of an agent (re-execution reads the source an act ran). */
+export const program = internalQuery({
+  args: { agentId: v.id("v2Agents"), version: v.number() },
+  handler: async (ctx, { agentId, version }) => {
+    fixtures();
+    return await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agentId).eq("version", version)).unique();
+  },
+});
+
+/** A player's own value row of an object, as `v2/play:object` projects it (the disclosure test's reference). */
+export const valueOf = internalQuery({
+  args: { objectId: v.id("v2Objects"), userId: v.string() },
+  handler: async (ctx, { objectId, userId }) => {
+    fixtures();
+    const object = (await ctx.db.get(objectId))!, game = (await ctx.db.get(object.gameId))!;
+    const member = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!;
+    const v = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", member._id)).unique())!;
+    return { score: v.score, level: v.level, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version };
+  },
+});
+
+/** Every agent of a game with its share and energy (the credit rule's test: no agent owes more than its capacity). */
+export const agentsOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!;
+    const out = [];
+    for (const a of await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(320)) {
+      const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
+      out.push({ agentId: a._id, share: a.share, energy: e.energy, capacity: a.share * game.settings.economy.powerPerSecond * game.settings.economy.fullChargeSeconds });
+    }
+    return out;
+  },
+});
+
+/** A game's header as stored (tests read fields no query returns, such as `rotates`). */
+export const header = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => { fixtures(); return await ctx.db.get(gameId); },
+});
+
+/** An account-scope credential: the human everywhere, as an OAuth account grant is. */
+export const seedAccountCredential = internalMutation({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    fixtures();
+    const now = Date.now();
+    return await ctx.db.insert("credentials", { tokenHash: crypto.randomUUID(), subject: userId, permission: "account", label: "v2 test", kind: "oauth", createdAt: now, expiresAt: now + 3600_000 });
+  },
+});
+
+/** A real Convex JWT for an account grant: how a test calls an HTTP route that checks `Authorization: Bearer`. */
+export const accountJwt = internalAction({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }): Promise<string> => {
+    fixtures();
+    const credentialId: string = await ctx.runMutation(SEED_ACCOUNT, { userId });
+    return (await mintPlayerJwt({ subject: userId, credentialId, permission: "account" })).token;
+  },
+});
+const SEED_ACCOUNT = makeFunctionReference<"mutation", { userId: string }, string>("v2/testing:seedAccountCredential");
+
+/** A game's clock (the cold check waits for tick commits). */
+export const clock = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    return await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
   },
 });

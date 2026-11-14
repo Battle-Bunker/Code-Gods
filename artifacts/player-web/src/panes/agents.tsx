@@ -4,7 +4,7 @@
  * (dropped when the row unmounts): name, language, share of power, energy ("about 0 ⚡" with the exact figure in the
  * tooltip), what it did, and Destroy, whose confirmation says what comes back. Operations only through affordances.
  */
-import { useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
+import { useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
 import { WORKING_TEXT, destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "./agents-words";
@@ -47,7 +47,8 @@ export function AgentsPane() {
   if (!header) return null;
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="agents-spectator">Each player's agents are private to them. You're watching, so there are none to show.</p>;
   // A summon already accepted counts even while the list lags it (ux 1.8): never offer the first summon again.
-  const none = agents !== undefined && agents.length === 0 && (me?.agents ?? 0) === 0;
+  const count = useAgentCount();
+  const none = agents !== undefined && agents.length === 0 && count === 0;
   return (
     <div className="text-sm" data-testid="agents">
       {me && (

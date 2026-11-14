@@ -117,6 +117,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
+      # The pinned Python runtime bundle for engine v2's agents (preview-setup.mjs uploads it).
+      - uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/v2-sandbox/python-runtime/setup.py') }}
+      - if: steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/v2-sandbox setup:python
+      - run: pnpm --filter @workspace/v2-sandbox build:python
+
       # ---- the preview (the only two steps that see the preview deploy key) ----
       # --preview-name creates the preview, or reuses the existing one and its data. --cmd runs once the preview
       # exists and BEFORE the functions are pushed: it gives a new preview its secrets (preview-setup.mjs --env-only).

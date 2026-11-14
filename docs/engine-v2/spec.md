@@ -309,12 +309,17 @@ type TieBreaker = string | null;                         // a dealt rule's choic
   layer plus that tie-breaker, never a third layer. Each (family, params, tie-breaker, variant) has its own artefact, and
   `ruleKey` = object type and version + variant and its hash + family + canonical params + `tb=<id>` identifies it (§7.6).
   The deal picks the tie-breaker as it picks parameters (W3-3 decides the distribution; uniform over converged ones).
+- **Won by bid** (owner decision 18): a bid names a family only; the dealer draws the winner's parameters and tie-breaker
+  from that family's converged rules in the room's pool, records `wonByBid` and the `handicap` on `v2Rules`, and the
+  standings carry the handicap and the net total (integration plan §5.9).
 - **Continuity is checked, not trusted.** Calibration counts the distinct values each dealt layer takes among the samples
-  where it counts (the main layer everywhere, the tie-breaker where the main layer is at its top); a layer with fewer
+  among all samples (on the joint ladder the tie-breaker grades every main level, so it counts everywhere); a layer with fewer
   than `minLevels` (default 6) makes the rule **too coarse**, and it goes on the backlog (§7.5) whatever its values.
-- **Ordering and value.** Scores compare as plain lexicographic tuples (coordinator's call (f): no gating), so the
-  tie-breaker orders lines at every main level. The ladder that values a rule puts the tie-breaker's rungs at the main
-  layer's top, so bits from the tie-breaker are earned once the main layer is met.
+- **Ordering and value: value follows the order.** Scores compare as plain lexicographic tuples (coordinator's call (f):
+  no gating), so the tie-breaker orders lines at every main level, and value follows that order (the coordinator,
+  14 November): the ladder that values a rule is the **joint ladder** of (main level, tie-breaker level) pairs in
+  lexicographic order (§4.4), so improving the tie-breaker at any main level raises bits, and a line never holds fewer
+  bits than one it beats.
 
 ### 4.2 Evaluation: score and annotation from the same terms
 
@@ -372,8 +377,15 @@ Example: Prime Gradient on `y = 4x − 3` reads `si.m` (4), makes dynamic elemen
 
 ### 4.4 The ladder
 
-A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). The main layer's rungs come from its
-thresholds; the tie-breaker's rungs are its thresholds prefixed with the main layer's top. `layerLadders` gives each
+A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). For a one-layer rule the rungs are
+the main layer's thresholds. For a dealt rule (main layer plus tie-breaker) `ruleLadder` builds the **joint ladder**: for
+each main level i from 0 (anything) to the main top, the main rung i (`layer: 0`, `main: i`) followed by tie-breaker rungs
+(`layer: 1`, `main: i`, score `[main threshold i, tie threshold]`). Below the main top the tie-breaker is coarsened to
+`COARSE_TIE_RUNGS = 3` evenly spaced thresholds (never one: the tie-breaker still grades every main level); at the main
+top all of its thresholds stand. A state's joint level is the last rung (main level, tie level) it meets in that
+lexicographic order (`jointLevelOf`): its main level, then its tie-breaker among the rungs at that main level. The
+coarsening keeps the ladder calibratable: each main level adds at most four rungs whose samples come from that level's
+own chain, while the top, where the tie-breaker carries the rule's rare bits, keeps every step. `layerLadders` gives each
 layer's own single-component ladder, which the card shows as "main part: step 5 of 8, tie-breaker: step 2 of 3". A state's **level**
 is the index of the highest rung whose score it meets or beats (`ruleLadder`, `levelOf`). Ladders are what make
 infinite score sets calibratable: a distance layer on rational lines declares thresholds such as `8, 4, 2, 1, 1/2,
@@ -631,15 +643,18 @@ interface ValuationConfig {
 }
 ```
 
-1. **Seeds, per replicate.** Each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs,
+1. **Seeds, per replicate.** When the object type offers `enumerate(variant)` (small states near the centre: on `line-z`
+   every y = mx + c with |m| ≤ 40, |c| ≤ 120), every enumerated state is levelled once, and each replicate starts the
+   climb to a rung at a random enumerated state already on it: thin rungs (a run of six primes, an exact area) are found
+   by enumeration, not by a random climb. Otherwise each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs,
    alternating a single walk step filtered to keep the level and a kernel proposal (1 … K walk steps, uniformly) kept
    only if the level did not drop, until each U_i is reached or 20 × burnIn proposals pass. The ladder is calibrated up to
    the last rung every replicate reached; the rungs above are dropped and the artefact says so (a rule with no reachable
    rung is `unreachable`). Replicates do not share seeds: replicates that shared a start would share its slowly
    forgotten bias, and their spread would understate the error.
- Replicates do not share seeds: replicates that shared a start would share its slowly
-   forgotten bias, and their spread would understate the error.
-2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i moves by 1 … K free
+2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i starts at its seed,
+   makes `burnIn` moves that are not sampled (so a seed from enumeration, typically far out, is forgotten before
+   sampling: step 6's equilibration check tests that it was), and then moves by 1 … K free
    walk steps at a time (uniformly) and keeps the end only if it is still in U_i (U_0's chain keeps every end: it is the free walk).
    P^K has the walk's stationary law, and K-step moves connect thin upper sets that single moves cannot (with shift and
    tilt alone, no single move stays on m = c). Under detailed balance the chain's law is exactly π restricted to U_i;
@@ -667,6 +682,12 @@ interface ValuationConfig {
      step 4 under detailed balance; a gap larger than three combined errors flags the run;
    - **direct check:** for rungs with π(U_i) > 1/64, the free chain's fraction of samples in U_i; it is exact whatever the
      price list, and a gap larger than three combined errors flags the run;
+   - **equilibration:** for each chain U_i below the top, its rate into U_{i+1} in the second half of its samples (the
+     latest doubling) minus that in the first half, per replicate; the mean over replicates and that mean over its
+     standard error across them (`drift` in the artefact). Replicates are independent, so the error bar carries each
+     chain's autocorrelation. A drift of more than 4 standard errors and more than 2 points of rate flags the run: the
+     chain had not forgotten its seed. It is tested on a negative control (Prime Gradient with no burn-in drifts on its
+     upper rungs and is flagged) and on the reversible price list (no drift);
    - **reversibility:** the share of level flow that circulates, Σ_{i<j} |w_i T_ij − w_j T_ji| / Σ_{i<j} (w_i T_ij + w_j T_ji)
      (0 under detailed balance up to noise; #347's cycle test, on levels);
    - **mixing:** the integrated autocorrelation time of the free chain's level, in walk steps (feeds `birthMixSteps`, §2.4);
@@ -737,8 +758,9 @@ time. Values are stored per (object, player) (§10).
 ### 7.8 Resolution: enough bits on a line
 
 #347 measured rule tops of 2 to 5 bits on one integer line. The owner (decision 12): that means the rules are not
-creative enough, not that the object is too small. The answer is the ladder of layers (§4.1): a secondary layer counts
-only at the primary's top, so its rungs stack above it, and a layer about size or factor structure climbs into the
+creative enough, not that the object is too small. The answer is the ladder of layers (§4.1): the joint ladder (§4.4)
+grades the secondary at every primary level and in full at the primary's top, so its rungs stack above it, and a layer
+about size or factor structure climbs into the
 rare states the confining code makes rare (§2.5). The other levers remain, all configuration:
 
 1. **Tie-breakers.** Every family has a main layer and alternative tie-breakers; a dealt rule uses the main layer and one
@@ -909,8 +931,11 @@ Elements are per line. "—" means undefined for that line, with the sentence in
 | `tri` intercept triangle | plane | — | `legX` = \|x-intercept\|, `legY` = \|y-intercept\|, `area` = legX·legY/2, `hyp2` = legX² + legY² | — | through the origin, parallel to an axis |
 | `seq` growth pattern | sequence | `first` = y(1), `step` = m | `zeroth` = c | `term(n)` = y(n) | vertical lines |
 | `table` table of values | table | — | `y0` … `y5` = y(0) … y(5) | `y(q)` | vertical lines |
-| `mach` function machine (×m, then +c) | machine | `times` = m, `plus` = c | — | `out(q)` = y(q), `reverse(q)` = x(q) = (q − c)/m, `twice(q)` = y(y(q)) | vertical lines; `reverse` for horizontal lines |
-| `peg` pegboard | pegboard | — | `pegs` (count of lattice points of [−6, 6]² on the line), `firstPeg`, `lastPeg` | `nearestPeg(px, py)` | — |
+| `mach` function machine (×m, then +c) | machine | `times` = m, `plus` = c | `fixed` = c/(1 − m), `lamp` = m/(m − 1) (the nomogram) | `in(q)`, `out(q)` = y(q), `reverse(q)` = x(q) = (q − c)/m, `twice(q)` = y(y(q)) | vertical lines; `reverse` for horizontal lines; `fixed`, `lamp` for m = 1 |
+| `peg` pegboard | pegboard | — | `pegs` (count of lattice points of [−6, 6]² on the line), `firstPeg`, `lastPeg` | `nearestPeg(px, py)` | — (not built yet) |
+| `table` table of values | table | — | — | `y(x)` (x whole) | vertical lines |
+| `norm` the line seen from the origin | plane | — | `dist2` = c²/(a² + b²), `foot` (the perpendicular's foot) | — | — |
+| `coins` exact change: a·x + b·y = N | pegboard | — | `bill` N = −c, `ways` (whole x, y ≥ 0), `smallestPile` | — | unless a > 0 and b > 0 |
 
 Shared meanings: `yIntercept` (si.c, cart.yInt's y, int.q, seq.zeroth, table.y0, mach.out(0), mach.plus), `gradient`
 (si.m, seq.step, mach.times, cart.slope), `xIntercept` (cart.xInt's x, int.p, mach.reverse(0)), `valueAt(q)` (si.y(q),
@@ -941,36 +966,25 @@ line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 
 ### 12.5 Rule families
 
 Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
-them. Distance layers use the domain's thresholds: on Z `13, 8, 5, 3, 2, 1, 0`, on Q `8, 4, 2, 1, 1/2, 1/4, 1/8, 0`. **Built** (PR 3 and
-its amendment): families 1–6. **To build in PR 5**: families 7–12, written here as two-layer ladders; a separate
-session's catalogue of layered families (`docs/engine-v2/layered-line-rules.md`) will propose changes to this list, to be
-folded in when it lands.
+them. **The beginner pool** is the curator's (`docs/engine-v2/layered-line-rules.md` §8, definitions in
+`docs/engine-v2/scripts/line-families.mjs`), built in `lib/v2-linear/src/beginner.ts` and dealt by the presets of
+`presets.ts` (`lines-beginner` on `line-z`, `lines-rational` on `line-q`, `lines-four` on `line-z4`). A tie-breaker about a
+prime's size has one rung per prime (the curator, #385): primes up to 31, the last prime of a staircase run up to 47.
+A family's first tie-breaker is its default:
 
-| # | Family | Main layer (rep) | Tie-breakers, alternatives (rep) | Params (dealable grid) |
-|---|---|---|---|---|
-| 1 | `prime-gradient` (owner) | gradient close to a prime: min dist(m, nearest prime) (si) | `prime`: the size of that prime, max; `cPrime`: the y-intercept close to a prime too, min (si) | — |
-| 2 | `triangle-area` (owner) | triangle area close to A: min \|area − A\| (tri) | `legs`: legs nearly whole, min den(legX) + den(legY) − 2; `even`: legs nearly equal, min \|legX − legY\| (tri) | A ∈ {4, 6, 8, 12, 18} |
-| 3 | `m-meets-c` (owner) | gradient close to the y-intercept: min \|m − c\| (si) | `size`: they meet at a big number, max \|c\|; `meetPrime`: they meet at a prime, min dist(c, prime) (si) | — |
-| 4 | `crossing-check` (owner) | y(k) close to x(q): min \|out(k) − reverse(q)\| (mach) | `size`: they cross at a big number, max \|x(q)\|; `whole`: x(q) nearly whole, min den(x(q)) − 1 (mach) | k ∈ {1, 2, 3}, q ∈ {2, 4, 6} |
-| 5 | `whole-intercept` (owner decision 12) | y-intercept close to a whole number: min dist(c, nearest integer) (si) | `spf`: that number's smallest prime factor, max; `omega`: its prime factors with repeats, max (si) | — |
-| 6 | `square-area` (owner decision 12) | triangle area close to a square number: min dist(area, nearest square) (tri) | `factors`: prime factors of the square's root with repeats, max; `rootSpf`: the root's smallest prime factor, max (tri) | — |
-| 7 | `y-intercept-prime` | y-intercept close to a prime: min dist(yInt, nearest prime) (cart) | the size of that prime; the gradient whole | — |
-| 8 | `treasure` | when x is k, y close to T: min \|y(k) − T\| (table) | the gradient's bottom number small; the gradient prime | (k, T) ∈ {(2, 7), (3, 11), (4, 5), (−2, 9)} |
-| 9 | `sequence-contains` | a pattern term close to T: min over n ≤ 10 of \|term(n) − T\| (seq) | T reached early (min n); the step prime | T ∈ {12, 20, 30, 50} |
-| 10 | `prime-run` | different primes among the first ten terms: max count (seq) | the largest of them; the first of them early | — |
-| 11 | `zero-sum` | a + b + c close to 0: min \|gen.sum\| (gen) | the numbers big: max \|a\| + \|b\|; prime coefficients: max count (gen) | — |
-| 12 | `intercept-sum` | x-intercept + y-intercept close to S: min \|p + q − S\| (int) | the intercepts' bottom numbers small; their product close to P | S ∈ {4, 7, 10} |
+| Family | Main layer (rep) | Tie-breakers (alternatives) | Params |
+|---|---|---|---|
+| `prime-staircase` | the run of different primes from y(0): max (seq) | `first-prime`, `last-prime` (sizes), `near-miss`, `step-back` (distances to a prime) | — |
+| `square-area` | the triangle's area close to a square: min (tri) | `spf` (the root's smallest prime factor, default), `lpf` (its largest), `omega` (Ω of the root) | — |
+| `treasure` | y(k) close to T: min (table) | `prime-terms` (different primes among y(1)…y(8)), `prime-gradient`, `square-start` | (k, T) = (2, 37) |
+| `ruler` | distance² from (0, 0) close to a square: min (norm) | `far` (that distance), `prime-gradient`, `square-area` | — |
+| `exact-change` | ways to pay N with coins a and b close to 6: min (coins) | `big-piles`, `big-bill`, `prime-coins` | ways = 6 |
+| `prime-landing` | the y-intercept close to a prime: min (si) | `big-prime` (that prime), `prime-gradient`, `next-prime` (y(1)) | — |
+| `same-on-both-rulers` | the number the machine leaves unchanged close to T: min (mach) | `steep` (\|m − 1\|), `prime-start`, `whole-values`, `whole-lamp` | T = 6 |
+| `pythagorean-area` | the triangle's area close to A: min (tri) | `slanted-square`, `prime-height`, `whole-legs` | A = 6 |
 
-Families 7–12 follow the curator's revised change list (`docs/engine-v2/layered-line-rules.md`, #358, and its revision)
-when it lands; the rows above are placeholders in the contract's shape.
-
-Annotations: each layer marks the elements its term reads (the primes either side as `cart.ghost` candidates for
-family 1, the nearby primes as `cart.yAxisMark` ticks with their distances for family 7, the point at x = −1 for
-family 3, the nearest whole number on the y axis for family 5).
-
-**Measured** (`calibrate --variant line-z` and `--variant line-q`, artefacts committed, statuses in the backlog file):
-whole-intercept's primary takes one value on the Z domain (every intercept there is whole), so it is too coarse on
-`line-z` and dealable only on `line-q`. That is the continuity check doing its job.
+The owner's first examples remain as a second tier (`families.ts`): `prime-gradient`, `triangle-area`, `m-meets-c`,
+`crossing-check` and `whole-intercept`, each with two tie-breakers.
 
 ### 12.6 Variants and multi-line scoring
 

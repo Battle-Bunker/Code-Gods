@@ -166,6 +166,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # ---- the pinned runtime bundle (Python), for engine v2's agents ----
+      - uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/v2-sandbox/python-runtime/setup.py') }}
+      - if: steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/v2-sandbox setup:python
+      - run: pnpm --filter @workspace/v2-sandbox build:python
+
       # ---- production: nothing below this line ships until the gate has passed (the steps above ran beside it) ----
       - name: Wait for the gate
         if: github.ref_name == 'main'
@@ -237,6 +247,11 @@ jobs:
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: node scripts/run-migrations.mjs
+
+      - name: Upload the runtime bundle (Python)
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: pnpm --filter @workspace/engine upload-runtime
 
       - name: Build and upload the static sites
         env:

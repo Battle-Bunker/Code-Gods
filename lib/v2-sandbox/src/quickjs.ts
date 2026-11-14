@@ -4,7 +4,8 @@
  * deterministic step budget (interrupt ticks) and the time cap. The only host capability is `__host`, a host
  * function taking one request's JSON text and returning the reply's (spec §6.5).
  */
-import { getQuickJS, type QuickJSContext, type QuickJSHandle, type QuickJSWASMModule } from "quickjs-emscripten";
+import type { QuickJSContext, QuickJSHandle, QuickJSWASMModule } from "quickjs-emscripten";
+import { quickjsModule } from "./modules.ts";
 import { LIMITS, fail, stepLimit, timeLimit } from "./limits.ts";
 import { OVERSIZE_REPLY, messageBytes } from "./channel.ts";
 import { SplitMix64 } from "./wasi.ts";
@@ -39,7 +40,7 @@ export class QuickJSEngine implements Engine {
   private constructor(QuickJS: QuickJSWASMModule) { this.QuickJS = QuickJS; }
 
   static async create(): Promise<QuickJSEngine> {
-    const engine = new QuickJSEngine(await getQuickJS());
+    const engine = new QuickJSEngine(await (await quickjsModule())());
     // Trusted warm-up: V8 compiles QuickJS's Wasm lazily, which must not be charged to a player's first act.
     const prelude = "var __decode = t => t, __encode_calls = c => JSON.stringify(c);";
     for (let i = 0; i < 3; i++) {

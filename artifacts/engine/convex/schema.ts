@@ -14,7 +14,7 @@ const versionTables = {
 
 /**
  * Infrastructure shared by both engines (integration plan §4.1), with the validator it had: the AI template library
- * (aiTemplates.ts).
+ * (aiTemplates.ts) and the agent runtime's assets (runtime/assets.ts).
  */
 const sharedTables = {
   aiTemplates: defineTable({
@@ -23,6 +23,10 @@ const sharedTables = {
     /** Deleted templates stay as tombstones so seeding never recreates them. */
     deleted: v.boolean(),
   }).index("by_template", ["templateId"]).index("by_deleted", ["deleted"]),
+  /** The agent runtime's assets in file storage (the Python bundle; convex/runtime/assets.ts, scripts/upload-runtime.mjs). */
+  runtimeAssets: defineTable({
+    name: v.string(), sha256: v.string(), storedSha256: v.string(), storageId: v.id("_storage"), size: v.number(), uploadedAt: v.number(),
+  }).index("by_name", ["name"]),
 };
 
 /**
@@ -31,7 +35,7 @@ const sharedTables = {
  * Nothing on this branch reads or writes them.
  */
 const V1_TABLES = [
-  "aiUsage", "activity", "runtimeAssets", "runtimeReadiness", "compiledPrograms", "manifests",
+  "aiUsage", "activity", "runtimeReadiness", "compiledPrograms", "manifests",
   "holdTables", "examinationRuns", "workSlots", "rooms", "roomBids", "gameAuctions", "members", "games", "gameClocks", "gameEngine",
   "standings", "standingsHistory", "agentSamples", "deities", "objects", "objectViews", "knowledgeLog", "godTotals", "agents",
   "futileActs", "tickBatches", "objectEvents", "catalogs", "chat", "examinations", "receipts", "gameSetups",

@@ -32,6 +32,11 @@ export interface ObjectType<S> {
   readLength(state: S, variant: Variant): number;
   sites(state: S, variant: Variant): number;
   origin(variant: Variant): S;
+  /**
+   * Small states, for seeding calibration (spec §7.2 step 1): a bounded enumeration near the centre, in a fixed order.
+   * Thin upper sets (a run of six primes, an exact area) are found here rather than by a random climb.
+   */
+  enumerate?(variant: Variant): Iterable<S>;
   readonly representations: readonly Representation<S>[];
   readonly mutators: readonly Mutator<S, any>[];
   readonly families: readonly RuleFamily<S, any>[];
@@ -160,6 +165,11 @@ export interface Rung {
   readonly label: string;
   /** The layer this rung belongs to (−1 for the bottom rung, "anything"). */
   readonly layer: number;
+  /**
+   * On a joint ladder (main layer and tie-breaker, spec §4.4): the main level this rung sits at (0 = below the main
+   * layer's first threshold). Absent on a one-layer ladder.
+   */
+  readonly main?: number;
 }
 
 /**
@@ -218,6 +228,8 @@ export interface ArgCode<A> {
   encode(a: A): Readonly<Record<string, string>>;
   /** From the wire; throws on anything outside the code's domain. */
   decode(w: unknown): A;
+  /** Every argument whose price is at most maxBits, cheapest first (the views' nearest improvement). */
+  enumerate?(maxBits: number): Iterable<A>;
 }
 
 export type Inverse<A> =

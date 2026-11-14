@@ -2,8 +2,7 @@
  * The forge's plain logic (ux-lessons §1.3–1.9, §3): what the editor opens with, what the primary button does, what a
  * summon or a replace message says, and the frozen before/after comparison of a put-back. Pure, unit-tested.
  */
-import { exampleFor, startersFor, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/starters";
-import { summonBits } from "@workspace/v2-agents/summon";
+import { exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
 import { energyText, powerText } from "../core/words.ts";
 
 /** The first agent's share of power (ux-lessons 3.7: close to 75%, leaving room to replace it with any starter). */

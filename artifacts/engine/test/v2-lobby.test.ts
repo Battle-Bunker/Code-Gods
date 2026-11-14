@@ -80,12 +80,3 @@ test("the start deals every seated member a converged rule and opens their accou
   assert.equal(explained.result.wonByBid, null);
   assert.equal((await perform(ada, "game.start", {}, { roomId })).error.code, "refused", "one game at a time");
 });
-
-test("a preset with a bid phase is refused until the bid phase is built", async () => {
-  const created = await perform(ada, "room.create", { name: "Bid room", preset: "lines-beginner-bidding" });
-  const bidRoom = created.result.roomId;
-  await perform(ada, "seats.fillPracticePartners", {}, { roomId: bidRoom });
-  try { await perform(ada, "game.start", {}, { roomId: bidRoom }); assert.fail("refused"); } catch (e) {
-    assert.match((e as any).data?.error?.message, /bid phase/);
-  }
-});

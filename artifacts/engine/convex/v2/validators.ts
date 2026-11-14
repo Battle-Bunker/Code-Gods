@@ -26,6 +26,11 @@ export const roomV = v.object({
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
+/** `v2/rooms:round`: the current rotation round's games and each seat's running net total. */
+export const roundV = v.union(v.object({
+  round: v.number(), of: v.number(), games: v.array(v.object({ gameId: v.id("v2Games"), number: v.number() })),
+  totals: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), net: v.number() })),
+}), v.null());
 export const historyPageV = paginationResultValidator(v.object({
   gameId: v.id("v2Games"), number: v.number(), endedAt: v.union(v.number(), v.null()), winner: v.union(v.id("v2Members"), v.null()),
 }));
@@ -87,8 +92,8 @@ export const digestV = v.object({ version: v.number(), packed: v.array(v.number(
 /** Spectators: every object's shared state, no values. */
 export const spectateObjectV = v.object({ objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(), state: v.string(), version: v.number(), changedAt: v.number() });
 
-export const layoutV = v.union(v.object({ layout: v.any(), revision: v.number() }), v.null());
-export const replayV = v.object({ stored: v.boolean(), url: v.union(v.string(), v.null()) });
+export const layoutV = v.union(v.object({ layout: v.any(), view: v.union(v.any(), v.null()), revision: v.number() }), v.null());
+export const replayV = v.object({ stored: v.boolean() });
 
 /** `v2/bids:state`: the open bid phase as the caller may see it (their own bids only). */
 export const bidStateV = v.object({

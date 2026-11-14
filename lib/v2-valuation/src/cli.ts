@@ -36,7 +36,7 @@ const describe = (wire: string): string => {
 const num = (x: number | null | undefined, d = 3) => (x === null || x === undefined || !Number.isFinite(x) ? "—" : x.toFixed(d));
 
 function report(a: Artefact, e: Estimate, seconds: number): void {
-  console.log(`\n${a.family} ${canonicalJson(a.params)} + ${a.tieBreaker} on ${a.variant}: ${a.status} — ${e.steps.toLocaleString("en")} steps, ${seconds.toFixed(1)} s, ${e.samplesPerChain} samples per chain`);
+  console.log(`\n${a.family} ${canonicalJson(a.params)} + ${a.tieBreaker} on ${a.variant}: ${a.status} — ${e.steps.toLocaleString("en")} steps, ${seconds.toFixed(1)} s, ${e.samplesPerChain} samples per chain, converged through rung ${e.convergedThrough} of ${e.rungs.length - 1}`);
   if (!e.rungs.length) { console.log(`  ${a.reasons.join("; ")}`); return; }
   console.log(`  ${pad("layer", 6)} ${pad("rung", 38)} ${pad("bits", 8)} ${pad("±", 7)} ${pad("split", 7)} ${pad("direct", 7)} a line there`);
   e.rungs.forEach((r, i) => {
