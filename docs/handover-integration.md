@@ -12,7 +12,7 @@ numbers; where they conflict with this one, this one is current.
   the results say whose rule comes next and add up the rotation. Scoring unchanged; options for the owner in
   docs/rule-difficulty.md §9.
 - **Practice opponents: done.** Practice games seat the built-in Practice partner (no model), which summons its
-  rule's example agent (docs/beginner-pool.md §7). Since #337 practice partners are open to every signed-in owner; model-backed AI seats stay admin-only.
+  rule's example agent (docs/beginner-pool.md §7). Since #338 practice partners are open to every signed-in owner; model-backed AI seats stay admin-only.
 - **Saturation: none** (docs/beginner-pool.md §8). No parameter changed.
 - **Spoiling:** unchanged by the rotation; the smallest principled change is #295 at ×3, which suits the default
   setup's exact sums (docs/coordination-incentives.md §9). Not shipped (a scoring decision).
