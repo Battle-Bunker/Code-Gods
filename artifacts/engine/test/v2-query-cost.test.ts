@@ -1,6 +1,6 @@
 /**
  * The v2 query-cost gate (docs/convex-read-architecture.md R8, integration plan §5.2): in a 1,000-object game every
- * live v2 query a page subscribes to (test/v2-query-budgets.ts) reads at most 100 documents and 64 KiB, runs in at
+ * live v2 query a page subscribes to (test/v2-query-budgets.ts), asked for a page of 1,000, reads at most 100 documents and 64 KiB, runs in at
  * most 50 ms of user code (median of 10 uncached runs, measured by the backend's execution log), and refuses a
  * signed-out caller. A query over its time is measured once more and fails only if it is over again. In a live game, a
  * `cold` query asked twice with 5 tick commits between is answered from the cache the second time (a commit that wrote a
@@ -20,7 +20,7 @@ let player: Human, fixture: V2Fixture;
 before(async () => {
   const [ada, bo, cy] = await humans("Gate Ada", "Gate Bo", "Gate Cy");
   player = ada!;
-  const seeded = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId, cy!.userId], objects: 1000 });
+  const seeded = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId, cy!.userId], objects: 1000, moves: 300 });
   const agentId = (await ada!.query("v2/play:agents", { gameId: seeded.gameId }))[0].agentId;
   const assistant = await admin.mutation("v2/testing:seedAssistant", { roomId: seeded.roomId, userId: ada!.userId, turns: 40 });
   fixture = { roomId: seeded.roomId, gameId: seeded.gameId, objectId: seeded.objects[500], agentId, ...assistant };

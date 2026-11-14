@@ -9,11 +9,11 @@ import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
-import { PAGE, STORED_REPLAY_VERSION } from "./replayFormat";
+import { pageAfter, STORED_REPLAY_VERSION } from "./replayFormat";
 
 const PAGE_PAUSE_MS = 100;
 const HEADER = makeFunctionReference<"query", { gameId: Id<"v2Games"> }, Record<string, unknown> | null>("v2/replays:header");
-const EVENTS = makeFunctionReference<"query", { gameId: Id<"v2Games">; after: number }, { seq: number }[]>("v2/replays:events");
+const EVENTS = makeFunctionReference<"query", { gameId: Id<"v2Games">; after: number; maxBytes?: number }, { events: { seq: number }[]; done: boolean }>("v2/replays:events");
 const ATTACH = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; file: Id<"_storage"> }, boolean>("v2/replays:attach");
 
 export const build = internalAction({
@@ -25,10 +25,10 @@ export const build = internalAction({
     const parts = [JSON.stringify({ version: STORED_REPLAY_VERSION, ...head }).slice(0, -1), ',"events":['];
     let first = true;
     for (let after = -1; ;) {
-      const page = await ctx.runQuery(EVENTS, { gameId, after });
-      for (const e of page) { parts.push(first ? JSON.stringify(e) : `,${JSON.stringify(e)}`); first = false; }
-      if (page.length < PAGE) break;
-      after = page.at(-1)!.seq;
+      const page = await pageAfter(maxBytes => ctx.runQuery(EVENTS, { gameId, after, maxBytes }));
+      for (const e of page.events) { parts.push(first ? JSON.stringify(e) : `,${JSON.stringify(e)}`); first = false; }
+      if (page.done || !page.events.length) break;
+      after = page.events.at(-1)!.seq;
       await new Promise(r => setTimeout(r, PAGE_PAUSE_MS));
     }
     parts.push("]}");

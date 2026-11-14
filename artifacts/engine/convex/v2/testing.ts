@@ -75,6 +75,8 @@ export const seedGame = internalMutation({
     ...roomArgs, objects: v.optional(v.number()), phase: v.optional(v.union(v.literal("planning"), v.literal("live"), v.literal("paused"), v.literal("ended"))), seed: v.optional(v.string()),
     /** A line the owner's agent and the next seat's pulled back and forth (a tug-of-war in the owner's act log), by number. */
     contested: v.optional(v.number()),
+    /** Moves in each member's act log (default 3). */
+    moves: v.optional(v.number()),
   },
   handler: async (ctx, a) => {
     fixtures();
@@ -137,7 +139,7 @@ export const seedGame = internalMutation({
       const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now, source });
       await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2, settledAt: 0 });
       await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 12, summonedAt: now, acts: 3, pointsGained: 2 });
-      for (let s = 0; s < Math.min(3, n); s++) {
+      for (let s = 0; s < (a.moves ?? Math.min(3, n)); s++) {
         const objectId = objects[(k + s) % n]!, value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique())!;
         const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
         const snap = { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points };

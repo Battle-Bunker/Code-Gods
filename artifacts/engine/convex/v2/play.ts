@@ -13,6 +13,7 @@ import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireU
 import {
   agentEnergyV, agentProgramsV, agentRowV, digestV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
+import { pageOpts } from "./pages";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -62,7 +63,7 @@ export const objectIds = query({
   handler: async (ctx, { gameId, sort, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
     const page = await ctx.db.query("v2ObjectValues").withIndex(SORT_INDEX[sort], q => q.eq("gameId", game._id).eq("memberId", member._id))
-      .order("desc").paginate(paginationOpts);
+      .order("desc").paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(r => ({ objectId: r.objectId, number: r.number })) };
   },
 });
@@ -152,7 +153,7 @@ export const moves = query({
   returns: movesPageV,
   handler: async (ctx, { gameId, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    const page = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(paginationOpts);
+    const page = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOpts(paginationOpts));
     return {
       ...page,
       page: page.page.map(m => ({

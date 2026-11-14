@@ -9,7 +9,8 @@ export const LIMITS = { docs: 100, bytes: 64 * 1024, ms: 50 } as const;
 
 /** What the measured game provides for the queries' arguments. */
 export interface V2Fixture { roomId: string; gameId: string; objectId: string; agentId: string; threadId: string; turnId: string }
-const page = { paginationOpts: { numItems: 50, cursor: null } };
+// A client may ask for any page size (the results pane asked for 200 moves): the server's page is what is measured.
+const page = { paginationOpts: { numItems: 1000, cursor: null } };
 
 export interface V2Budget {
   /** "<module path>:<export>", e.g. "v2/play:object". */

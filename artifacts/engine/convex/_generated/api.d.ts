@@ -83,6 +83,7 @@ import type * as v2_ops_room from "../v2/ops/room.js";
 import type * as v2_ops_rule from "../v2/ops/rule.js";
 import type * as v2_ops_seats from "../v2/ops/seats.js";
 import type * as v2_ops_view from "../v2/ops/view.js";
+import type * as v2_pages from "../v2/pages.js";
 import type * as v2_panelCompile from "../v2/panelCompile.js";
 import type * as v2_panelShapes from "../v2/panelShapes.js";
 import type * as v2_panelStore from "../v2/panelStore.js";
@@ -193,6 +194,7 @@ declare const fullApi: ApiFromModules<{
   "v2/ops/rule": typeof v2_ops_rule;
   "v2/ops/seats": typeof v2_ops_seats;
   "v2/ops/view": typeof v2_ops_view;
+  "v2/pages": typeof v2_pages;
   "v2/panelCompile": typeof v2_panelCompile;
   "v2/panelShapes": typeof v2_panelShapes;
   "v2/panelStore": typeof v2_panelStore;

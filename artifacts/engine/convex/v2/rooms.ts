@@ -9,6 +9,7 @@ import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, memberOf, normaliseCode, requireMember, requireUser } from "./access";
 import { chatPageV, historyPageV, roomListV, roomV, roundV } from "./validators";
+import { pageOpts } from "./pages";
 
 /** The caller's rooms, newest joined first: a skeleton page; each row's component subscribes to `get`. */
 export const list = query({
@@ -16,7 +17,7 @@ export const list = query({
   returns: roomListV,
   handler: async (ctx, { paginationOpts }) => {
     const user = await requireUser(ctx);
-    const page = await ctx.db.query("v2Members").withIndex("by_user", q => q.eq("userId", user.userId)).order("desc").paginate(paginationOpts);
+    const page = await ctx.db.query("v2Members").withIndex("by_user", q => q.eq("userId", user.userId)).order("desc").paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(m => ({ roomId: m.roomId, memberId: m._id, joinedAt: m.joinedAt })) };
   },
 });
@@ -70,7 +71,7 @@ export const chat = query({
   returns: chatPageV,
   handler: async (ctx, { roomId, paginationOpts }) => {
     const { room } = await requireMember(ctx, roomId);
-    const page = await ctx.db.query("v2Chat").withIndex("by_room", q => q.eq("roomId", room._id)).order("desc").paginate(paginationOpts);
+    const page = await ctx.db.query("v2Chat").withIndex("by_room", q => q.eq("roomId", room._id)).order("desc").paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(c => ({ id: c._id, from: c.from, memberId: c.memberId ?? null, text: c.text, at: c.at })) };
   },
 });
@@ -81,7 +82,7 @@ export const history = query({
   returns: historyPageV,
   handler: async (ctx, { roomId, paginationOpts }) => {
     const { room } = await requireMember(ctx, roomId);
-    const page = await ctx.db.query("v2Games").withIndex("by_room_phase", q => q.eq("roomId", room._id).eq("phase", "ended")).order("desc").paginate(paginationOpts);
+    const page = await ctx.db.query("v2Games").withIndex("by_room_phase", q => q.eq("roomId", room._id).eq("phase", "ended")).order("desc").paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(g => ({ gameId: g._id, number: g.number, endedAt: g.endedAt ?? null, winner: g.summary?.winner ?? null })) };
   },
 });
