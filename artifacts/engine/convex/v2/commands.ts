@@ -21,7 +21,7 @@ async function seat(ctx: MutationCtx, userId: string, scope: Scope) {
  * A domain failure crosses back to the action as a ConvexError carrying its words (the writes roll back); the action
  * turns it into the operation's failed outcome (`failureOf`).
  */
-async function outcome<T>(f: () => Promise<T>): Promise<T> {
+export async function outcome<T>(f: () => Promise<T>): Promise<T> {
   try { return await f(); } catch (e) {
     if (e instanceof OpFailure) throw new ConvexError({ message: e.message, ...(e.fix ? { fix: e.fix } : {}) });
     throw e;

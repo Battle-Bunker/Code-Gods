@@ -11,6 +11,8 @@
  */
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { assistantTables } from "./assistantTables";
+import { authorV, diagnosticV, manifestV, placementV, sizeV } from "./panelShapes";
 
 // ---------------------------------------------------------------- shared shapes
 
@@ -41,6 +43,7 @@ export const eventKindV = v.union(
 // ---------------------------------------------------------------- the tables
 
 export const v2Tables = {
+  ...assistantTables,
   /** A room: codes, owner, preset and overrides, the current game, and the bid phase while it is open. */
   v2Rooms: defineTable({
     code: v.string(), name: v.string(), ownerId: v.string(), revision: v.number(), createdAt: v.number(),
@@ -220,8 +223,9 @@ export const v2Tables = {
    * AI spending per (game, member): a human's assistant and pitch drafts, or an AI player's turns, each held to the
    * game's allowance (convex/v2/ai.ts). Tokens are the provider's input plus output tokens; usd at catalogue prices.
    */
-  v2AiUsage: defineTable({ gameId: v.id("v2Games"), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() })
-    .index("by_game_member", ["gameId", "memberId"]),
+  /** Model spend per member per game (absent: the room's lobby, before its first game). */
+  v2AiUsage: defineTable({ gameId: v.optional(v.id("v2Games")), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() })
+    .index("by_member_game", ["memberId", "gameId"]),
   /** A game's auction: every bid, the order of wins and each winner's handicap (disclosed per preset). */
   v2Auctions: defineTable({
     gameId: v.id("v2Games"), pricing: v.union(v.literal("first"), v.literal("second")),
@@ -229,4 +233,26 @@ export const v2Tables = {
     bids: v.array(v.object({ memberId: v.id("v2Members"), family: v.string(), percent: v.number() })),
     wins: v.array(v.object({ memberId: v.id("v2Members"), family: v.string(), percent: v.number(), handicap: v.number() })),
   }).index("by_game", ["gameId"]),
+
+  /**
+   * Stored panels (convex/v2/panels.ts): TSX a human or their delegates write, compiled on save and rendered by every
+   * client of that human in a sandboxed frame with `@sdk` version 2. Scoped to the human (`userId`), across rooms.
+   */
+  v2Panels: defineTable({
+    userId: v.string(), slug: v.string(), title: v.string(), placement: placementV, size: sizeV,
+    currentVersion: v.number(), enabled: v.boolean(), updatedAt: v.number(), sdk: v.literal(2),
+    /** The current version's author (denormalised for list). */
+    author: authorV,
+    /** The latest version a delegate wrote (0: none): a client's "let it act" grant older than this is void. */
+    lastForeignVersion: v.number(),
+  }).index("by_user_slug", ["userId", "slug"]),
+  /** Immutable versions; the last LIMITS.versionsKept per panel are kept. */
+  v2PanelVersions: defineTable({
+    panelId: v.id("v2Panels"), version: v.number(), source: v.string(), compiled: v.string(), diagnostics: v.array(diagnosticV),
+    compilerVersion: v.string(), sourceHash: v.string(), author: authorV, manifest: manifestV, createdAt: v.number(),
+    /** Code a delegate wrote (also when a browser rollback restored such code). */
+    foreign: v.boolean(),
+  }).index("by_panel_version", ["panelId", "version"]),
+  /** Recent save times per human (rolling-minute rate limit; at most LIMITS.savesPerMinute entries). */
+  v2PanelQuotas: defineTable({ userId: v.string(), saves: v.array(v.number()) }).index("by_user", ["userId"]),
 };

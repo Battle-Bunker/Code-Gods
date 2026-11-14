@@ -212,4 +212,16 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `account.revokeConnection` | Disconnect an assistant | connectionId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
 | `account.signIn` | Sign in | — | client · none | anyone | signedOut | write; not on assistant/mcp/cli (consent) |
 | `account.approveConnection` | Approve a connection | request, grant, room, completion, ownerConsent, accountConsent | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm modal; not on assistant/mcp/cli (consent) |
+| `assistant.send` | Ask the assistant | text, threadId, newThread, grant, ownerConsent | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |
+| `assistant.cancel` | Stop the assistant | — | server · room | member | room, planning, live, paused, ended, replay | write |
+| `assistant.setMode` | Set the assistant's mode | mode, grant, ownerConsent | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |
+| `assistant.editQueued` | Edit a waiting message | queueId, text | server · room | member | room, planning, live, paused, ended, replay | write |
+| `assistant.removeQueued` | Remove a waiting message | queueId | server · room | member | room, planning, live, paused, ended, replay | write |
+| `assistant.sendQueued` | Send the held messages | — | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |
+| `panel.list` | List my panels | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `panel.code` | Read a panel's code | slug, version | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
+| `panel.save` | Save a panel | slug, source, title, placement, size | server (action) · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm summary |
+| `panel.rollback` | Roll a panel back | slug, version | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm inline |
+| `panel.setEnabled` | Show or hide a panel | slug, enabled | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write |
+| `panel.remove` | Delete a panel | slug | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
 <!-- directory:end -->

@@ -31,6 +31,12 @@ function distance<P>(id: string, title: string, sentence: string, rep: string, t
 function whole<P>(l: L<P>): L<P> {
   return { ...l, thresholds: (p, v) => { const ts = l.thresholds(p, v); return lineParams(v).domain === "Z" ? ts.filter(t => t.d === 1n) : ts; } };
 }
+/**
+ * Not dealt on whole-number lines, where it cannot decide anything: Ruler's main layer is never exact there (c²/(m²+1)
+ * is a square only for m = 0, which it refuses), so "far" never orders lines at its top; and b is always 1, so the
+ * smaller pile in every way to pay is always 0 (W2's finding).
+ */
+const notOnWhole = <P,>(l: L<P>): L<P> => ({ ...l, dealtOn: v => lineParams(v).domain !== "Z" });
 /** A count or size layer: bigger is better. */
 function more<P>(id: string, title: string, sentence: string, rep: string, thresholds: Q[], what: string, measure: "count" | "size" = "size"): L<P> {
   return { id, title, sentence: () => sentence, rep, sense: "max", measure, thresholds: () => thresholds, rungLabel: atLeast(what) };
@@ -157,7 +163,7 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], trea
 const rulerShape: Shape<object> = {
   main: distance("ruler", "distance² from (0, 0) close to a square", "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.", "norm", ds("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", "0"), "distance² to a square"),
   tieBreakers: [
-    more("far", "that whole distance", "That distance should be as big as possible.", "norm", ns(2, 3, 4, 5, 6, 8, 10, 12), "the distance"),
+    notOnWhole(more("far", "that whole distance", "That distance should be as big as possible.", "norm", ns(2, 3, 4, 5, 6, 8, 10, 12), "the distance")),
     whole(distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
     distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri", ds("8", "4", "2", "1", "1/2", "1/4", "0"), "the area to a square"),
   ],
@@ -188,7 +194,7 @@ const changeShape: Shape<W> = {
   main: { ...distance<W>("change", "ways to pay close to the target", "", "coins", ds("5", "4", "3", "2", "1", "0"), "the ways to the target"),
     sentence: p => `Reading the line as a·x + b·y = N (coins worth a and b paying N), the number of ways to pay should be as close as possible to ${p.ways}.` },
   tieBreakers: [
-    more("big-piles", "the smaller pile in every way", "In every way to pay, the smaller pile should be as big as possible.", "coins", ns(0, 1, 2, 3, 4, 5), "the smaller pile"),
+    notOnWhole(more("big-piles", "the smaller pile in every way", "In every way to pay, the smaller pile should be as big as possible.", "coins", ns(0, 1, 2, 3, 4, 5), "the smaller pile")),
     more("big-bill", "the bill", "The bill N should be as big as possible.", "gen", ns(10, 15, 20, 30, 45, 60, 90), "the bill"),
     distance("prime-coins", "both coins close to primes", "Both coin values should be as close as possible to primes (distances added).", "gen", ds("4", "3", "2", "1", "0"), "the coins to primes"),
   ],

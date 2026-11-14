@@ -7,7 +7,7 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { one } from "@/core/words";
+import { one, productSign } from "@/core/words";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -32,7 +32,7 @@ const ROW_H = 214, SPECTATOR_ROW_H = 36;
 
 function PointsRectangle({ number, rarity, want, points, scale }: { number: number; rarity: number; want: number; points: number; scale: PayoffScale }) {
   const g = payoffRect({ rarity, want }, scale, SIDE);
-  const title = `your ✨ rarity ${one(rarity)} × how much the others want it ${one(want)} = your points ${one(points)}`;
+  const title = `your ✨ rarity ${one(rarity)} × how much the others want it ${one(want)} ${productSign(rarity, want, points)} your points ${one(points)}`;
   const top = SIDE - g.height;
   const wText = one(rarity), hText = one(want);
   return (

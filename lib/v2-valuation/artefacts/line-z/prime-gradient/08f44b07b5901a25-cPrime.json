@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-gradient/{}/tb=cPrime",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2051,5 +2051,7 @@
    null
   ]
  },
- "contentHash": "9c911594d3af698e"
+ "cap": 35,
+ "dealable": true,
+ "contentHash": "906cd2d2b00a9773"
 }

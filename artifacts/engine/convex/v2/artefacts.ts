@@ -13,11 +13,15 @@ export interface ArtefactRecord {
   params: unknown;
   tieBreaker: string;
   status: "converged" | "unconverged" | "unreachable" | "flagged" | "too-coarse" | string;
+  /** The dealt ladder's top rung: lines above it score as it (call (g)). */
+  cap: number;
+  dealable: boolean;
   primarySense: "min" | "max";
   curve: Artefact["curve"];
   contentHash: string;
   /** Bits are null on a rung an unconverged estimate never measured (never dealt). */
-  rungs: { score: (string | null)[] | null; label: string; layer: number; bits: number | null }[];
+  /** `main`: on a joint ladder, the main level the rung sits at (levelOf needs it). */
+  rungs: { score: (string | null)[] | null; label: string; layer: number; main?: number; bits: number | null }[];
 }
 
 const BY_KEY = new Map(ARTEFACT_RECORDS.map(a => [a.ruleKey, a]));
@@ -25,8 +29,11 @@ const BY_KEY = new Map(ARTEFACT_RECORDS.map(a => [a.ruleKey, a]));
 export function artefactFor(ruleKey: string): ArtefactRecord | null {
   return BY_KEY.get(ruleKey) ?? null;
 }
-/** Dealable: a converged artefact (spec §7.5–§7.6: unconverged, flagged and too-coarse rules are never dealt). */
-export const dealable = (a: ArtefactRecord | null): a is ArtefactRecord => a?.status === "converged";
+/**
+ * Dealable: the artefact says so (coordinator's call (g)): not too coarse or unreachable, with at least six rungs
+ * converged; its ladder is capped at the last converged rung, and rarityOf scores lines above the cap as the cap.
+ */
+export const dealable = (a: ArtefactRecord | null): a is ArtefactRecord => a?.dealable === true;
 
 /** A score's ✨ rarity in bits under a rule's artefact. */
 export function rarityOf(a: ArtefactRecord, score: Score): number {

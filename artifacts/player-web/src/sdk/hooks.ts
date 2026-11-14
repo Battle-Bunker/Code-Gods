@@ -16,6 +16,7 @@ import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
 import { ruleRefOf, rungRarities, type LineRule } from "./rule";
 import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint } from "./types";
+import { sharedRanks } from "@/core/words";
 
 /** The room in view: members (≤ 16), owner, preset, current and last game, an open bid phase. */
 export function useRoomInfo() {
@@ -128,7 +129,9 @@ export function useLeaderboard() {
   const { gameId } = useGameScope();
   const replay = useReplaySource();
   const live = useLiveValue(api.v2.games.standings, gameId && !replay ? { gameId } : "skip");
-  return replay ? replay.frame.standings : live;
+  const standings = replay ? replay.frame.standings : live;
+  // Equal shown totals share a rank (the server ranks every row apart).
+  return useMemo(() => (standings ? { ...standings, rows: sharedRanks(standings.rows) } : standings), [standings]);
 }
 
 /**

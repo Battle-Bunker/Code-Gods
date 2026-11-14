@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-landing/{}/tb=big-prime",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1391,5 +1391,7 @@
    null
   ]
  },
- "contentHash": "697116dfda1fe5d2"
+ "cap": 20,
+ "dealable": true,
+ "contentHash": "6122c1765c4984af"
 }
