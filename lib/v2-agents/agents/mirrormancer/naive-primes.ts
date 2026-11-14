@@ -10,7 +10,7 @@
 function score(b, p) {
   let main = 0;
   for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap
-  return [Math.min(main, -1), b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+  return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 }
 
 const FAR = 2;      // how far one change may go

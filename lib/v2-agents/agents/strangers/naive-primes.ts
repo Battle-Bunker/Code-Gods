@@ -15,7 +15,7 @@ function score(b, p) {
     if (u > 1 && w > 1 && gcd(u, w) === 1 && Math.abs(u - w) >= 2) main++;   // strangers: like 2 and 5
     if ((u === 1 && w > 1) || (w === 1 && u > 1)) ones++;                    // a 1 touching a bigger number
   }
-  return [Math.min(main, 9), b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+  return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 }
 
 const FAR = 2;      // how far one change may go

@@ -58,8 +58,12 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
 }
 
 const BEGINNER = fromPool("lines-beginner");
-/** The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits, six families, every pairing exact. */
-const GRIDS = fromPool("grids-beginner");
+/**
+ * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
+ * so they are longer and dearer to summon (grid starters cost about 400 to 590 ⚡, line starters 300 to 500): grids
+ * start with 900 ⚡ so that a starter takes about the share of the starting energy a line starter takes of 600.
+ */
+const GRIDS = fromPool("grids-beginner", { startingEnergy: 900 });
 
 export const PRESETS: readonly Preset[] = [
   BEGINNER,

@@ -15,9 +15,8 @@ function score(b, p) {
 
 const FAR = 2;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const LINE = [], LINES = [];   // rows then columns: their names, and their cells
-for (let i = 0; i < 4; i++) { LINE.push("row" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3]); }
-for (let i = 0; i < 4; i++) { LINE.push("col" + i); LINES.push([i, i + 4, i + 8, i + 12]); }
+const LINE = [], LINES = [];   // the rows and columns: their names, and their cells
+for (let i = 0; i < 4; i++) { LINE.push("row" + i, "col" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]); }
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
 // (such a move is not allowed, and an unchanged board is never better).

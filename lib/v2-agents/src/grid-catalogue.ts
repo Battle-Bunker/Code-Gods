@@ -21,8 +21,8 @@ export interface GridLens {
   readonly ts: string;
   readonly py: readonly string[];
   /**
-   * The tables and helpers the snippet needs (LINE and LINES: rows then columns; BOXES: the four corner boxes; add:
-   * `add(i, k)`, the move that adds k to cell i).
+   * The tables and helpers the snippet needs (LINE and LINES: the rows and columns, row i then column i; BOXES: the
+   * four corner boxes; add: `add(i, k)`, the move that adds k to cell i).
    */
   readonly needs?: readonly ("lines" | "boxes" | "add")[];
 }
@@ -172,16 +172,16 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
     main: {
       ts: [
         "let main = 0;",
-        "for (const x of BOXES) {                        // each box: the best way to pair its four numbers",
-        "  const [w, y, z, u] = x.map(i => b[i]);",
-        "  main -= Math.min(Math.abs(w - y) + Math.abs(z - u), Math.abs(w - z) + Math.abs(y - u), Math.abs(w - u) + Math.abs(y - z)) + (w === y && y === z && z === u ? 2 : 0);   // four of a kind: two cells must move by 1 to make two different pairs",
+        "for (const x of BOXES) {",
+        "  const [w, y, z, u] = x.map(i => b[i]).sort((s, t) => s - t);   // the box's four numbers, smallest first",
+        "  main -= y - w + u - z + (w === u ? 2 : 0);   // pair the two smallest and the two biggest; four of a kind: two cells must move by 1",
         "}",
       ],
       py: [
         "main = 0",
-        "for x in BOXES:   # each box: the best way to pair its four numbers",
-        "    w, y, z, u = (b[i] for i in x)",
-        "    main -= min(abs(w - y) + abs(z - u), abs(w - z) + abs(y - u), abs(w - u) + abs(y - z)) + (2 if w == y == z == u else 0)   # four of a kind: two cells must move by 1 to make two different pairs",
+        "for x in BOXES:",
+        "    w, y, z, u = sorted(b[i] for i in x)   # the box's four numbers, smallest first",
+        "    main -= y - w + u - z + (2 if w == u else 0)   # pair the two smallest and the two biggest; four of a kind: two cells must move by 1",
       ],
     },
     tieBreakers: {

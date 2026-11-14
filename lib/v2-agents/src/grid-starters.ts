@@ -15,7 +15,7 @@
  *
  * Every program has exactly one "Try this:" comment (ux-lessons §3.1).
  */
-import { grid4, gridType } from "@workspace/v2-grid";
+import { gridType } from "@workspace/v2-grid";
 import type { RuleFamily } from "@workspace/v2-core";
 import { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridLensId } from "./grid-catalogue.ts";
 import type { AgentKind, ShippedAgent, ShippedLanguage } from "./starters.ts";
@@ -85,21 +85,10 @@ function lensesFor(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | nul
   return [...new Set(ids)];
 }
 
-/** The main part as the score's first part: saturated at its top when a tie-breaker follows (v2-core scoreOf). */
-function saturated(f: RuleFamily<unknown, unknown>, language: ShippedLanguage): string {
-  // The top is written into the agent, so it must be the same for every dealable set of the rule's numbers.
-  const tops = new Set(f.dealable(grid4).map(p => { const ts = f.main.thresholds(p, grid4); return Number(ts[ts.length - 1]!.n); }));
-  if (tops.size !== 1) throw new Error(`${f.id}: the main part's top depends on the rule's numbers; the agents need it as a parameter`);
-  const [top] = [...tops] as [number];
-  // Past its top the main part counts as its top (v2-core scoreOf): a distance within the last threshold counts as on it.
-  if (f.main.sense === "min") return top === 0 ? "main" : language === "typescript" ? `Math.min(main, -${top})` : `min(main, -${top})`;
-  return language === "typescript" ? `Math.min(main, ${top})` : `min(main, ${top})`;
-}
-
 // ---------------------------------------------------------------- TypeScript
 
 function scoreTs(e: GridFamilyEntry, tieBreaker: string | null): string[] {
-  const f = familyOf(e.family), main = saturated(f, "typescript");
+  const f = familyOf(e.family), main = "main";
   const out = [
     "// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.",
     `function score(b, p${tieBreaker === null ? ", tie" : ""}) {`,
@@ -144,9 +133,8 @@ function tablesTs(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
   const needs = needsOf(e, lenses);
   const out: string[] = [];
   if (needs.has("lines")) out.push(
-    "const LINE = [], LINES = [];   // rows then columns: their names, and their cells",
-    "for (let i = 0; i < 4; i++) { LINE.push(\"row\" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3]); }",
-    "for (let i = 0; i < 4; i++) { LINE.push(\"col\" + i); LINES.push([i, i + 4, i + 8, i + 12]); }",
+    "const LINE = [], LINES = [];   // the rows and columns: their names, and their cells",
+    "for (let i = 0; i < 4; i++) { LINE.push(\"row\" + i, \"col\" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]); }",
   );
   if (needs.has("boxes")) out.push("const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right");
   if (edit) out.push(
@@ -177,7 +165,7 @@ const CLIMB_TS = (args: string, end: Ending) => [
     "  if (cost > e / 4) return null;   // too dear (more than a quarter of its energy on one move): keep the energy for more turns",
     ...(end === "points" ? [
       "  // Your points on a board are your rarity there times the other players' rarity there, added up. So what this",
-      "  // change is worth is the bits it gains you (+1: a better board is a step towards the next rung) times the",
+      "  // change is worth is the bits it gains you (+1: a small gain still counts for something) times the",
       "  // others' bits (+1: a board nobody else wants yet is worth a little). Below RESERVE ⚡ it only pays for a change",
       "  // worth at least 1 point per ⚡ (when the game does not say what boards are worth, worth is null: it pays).",
       "  const w = worth(offer);",
@@ -193,10 +181,12 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(points ? ["const RESERVE = 300;  // below this much ⚡, only pay for changes that add points (see the end)"] : []),
+    ...(kind === "naive" ? [] : ["const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them"]),
     ...tablesTs(e, lenses),
     "",
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
+      "  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this board alone",
       "  // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both",
       "  // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)",
       "  contested(offer, 3);",
@@ -220,7 +210,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
 // ---------------------------------------------------------------- Python
 
 function scorePy(e: GridFamilyEntry, tieBreaker: string | null): string[] {
-  const f = familyOf(e.family), main = saturated(f, "python");
+  const f = familyOf(e.family), main = "main";
   const out = [
     `def score(b, p${tieBreaker === null ? ", tie" : ""}):`,
     "    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.",
@@ -244,8 +234,10 @@ function tablesPy(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
   const needs = needsOf(e, lenses);
   const out: string[] = [];
   if (needs.has("lines")) out.push(
-    "LINE = [\"row\" + str(i) for i in range(4)] + [\"col\" + str(i) for i in range(4)]   # rows then columns: their names",
-    "LINES = [[4 * i + j for j in range(4)] for i in range(4)] + [[i + 4 * j for j in range(4)] for i in range(4)]   # and their cells",
+    "LINE, LINES = [], []   # the rows and columns: their names, and their cells",
+    "for i in range(4):",
+    "    LINE += [\"row\" + str(i), \"col\" + str(i)]",
+    "    LINES += [[4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]]",
   );
   if (needs.has("boxes")) out.push("BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right");
   if (edit) out.push(
@@ -278,7 +270,7 @@ const CLIMB_PY = (args: string, end: Ending) => [
     "        return None",
     ...(end === "points" ? [
       "    # Your points on a board are your rarity there times the other players' rarity there, added up. So what this",
-      "    # change is worth is the bits it gains you (+1: a better board is a step towards the next rung) times the",
+      "    # change is worth is the bits it gains you (+1: a small gain still counts for something) times the",
       "    # others' bits (+1: a board nobody else wants yet is worth a little). Below RESERVE ⚡ it only pays for a change",
       "    # worth at least 1 point per ⚡ (when the game does not say what boards are worth, worth is None: it pays).",
       "    w = worth(offer)",
@@ -295,11 +287,14 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(points ? ["RESERVE = 300  # below this much ⚡, only pay for changes that add points (see the end)"] : []),
+    ...(kind === "naive" ? [] : ["LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them"]),
     ...tablesPy(e, lenses),
     "",
     "",
     "def agent(offer):",
     ...(kind === "naive" ? [] : [
+      "    if offer.object in LEAVE:   # a deal: leave this board alone",
+      "        return None",
       "    # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both",
       "    # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)",
       "    contested(offer, 3)",
