@@ -17,6 +17,7 @@ import { Action, Tip } from "@/site/components/action";
 import { StepAction } from "@/site/components/step-action";
 import { EmptyState, ErrorLine, KeyValueStrip, NextStepBar, Section } from "@/site/components/page-parts";
 import { PastGameRow } from "@/site/components/sheets";
+import { RotationNote } from "@/site/components/rotation-note";
 import { Chat, SettingsList, UtilityFamilies, settingsSummary } from "@/site/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -229,6 +230,8 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
         <Chat messages={room.chat} canPost={isMember} pending={act.pending} placeholder={isMember ? "Say something to everyone…" : "Join the room to chat"}
           onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
       </div>
+      {/* Between games: where the last game stands in its rotation (whose rule you get next, the running totals). */}
+      {!room.activeGame && <RotationNote game={games?.[0]} history={games} me={user?.id} />}
       <NextGame room={room} isOwner={isOwner} />
       <Section title="Past games" count={games?.length ?? 0} collapsible defaultOpen testId="section-past-games"
         summary={games?.[0] ? `last: ${games[0].shortCode}` : undefined}>

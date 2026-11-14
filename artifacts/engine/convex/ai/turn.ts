@@ -13,7 +13,8 @@ import { bindRuntime } from "../engine/runtime";
 import { v } from "convex/values";
 import { AIController, AITurnError, createDirectAnthropicProvider, createDirectOpenAIProvider, type AIFailureReason, type ModelProvider } from "@workspace/ai-player";
 import type { Language } from "@workspace/game-core";
-import type { Observation } from "@workspace/player-client";
+import { PlayerClient, type Observation } from "@workspace/player-client";
+import { builtinCommand } from "../lib/builtinPlayer";
 import { internal } from "../_generated/api";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
@@ -122,7 +123,7 @@ export const run = internalAction({
       await ctx.runMutation(internal.ai.seats.queued, { gameId, godId, chain });
       return { queued: true };
     }
-    let outcome: { ok: boolean; status: string };
+    let outcome: { ok: boolean; status: string; waitUntil?: number };
     try {
       await ctx.runMutation(internal.ai.seats.queued, { gameId, godId, chain, playing: true });
       outcome = await playTurn(ctx, { gameId, godId, roomId, agent });
@@ -133,9 +134,39 @@ export const run = internalAction({
   },
 });
 
+/**
+ * A built-in player's turn (lib/builtinPlayer.ts): no model, no budget. It observes as any seat does and sends at most
+ * one command through the same envelope path as humans.
+ */
+/** How long a built-in seat whose agent is summoned waits before looking again (it has nothing more to do). */
+const BUILTIN_IDLE_MS = 60_000;
+async function builtinTurn(ctx: ActionCtx, { roomId, godId, model }: { roomId: TurnContext["roomId"]; godId: string; model: string }): Promise<{ ok: boolean; status: string; waitUntil?: number }> {
+  try {
+    const transport = {
+      observe: async () => {
+        const observation = await ctx.runQuery(internal.game.queries.observationAs, { roomId, godId, at: Date.now() });
+        if (!observation) throw new Error("AI seat left the room");
+        return observation;
+      },
+      send: (envelope: Parameters<typeof runEnvelope>[2]) => runEnvelope(ctx, roomId, envelope, godId),
+    };
+    const observation = await transport.observe() as Observation;
+    const command = builtinCommand(model, observation);
+    if (!command) return observation.agents.length ? { ok: true, status: "Watching its agent", waitUntil: Date.now() + BUILTIN_IDLE_MS } : { ok: true, status: "Waiting" };
+    const client = new PlayerClient(transport as ConstructorParameters<typeof PlayerClient>[0]);
+    const receipt = await client.execute(client.prepare(command, observation));
+    // A refused summon is a failed turn: the seat backs off (seats.ts), and stops after MAX_FAILURES.
+    return receipt.accepted ? { ok: true, status: "Summoned the example agent" } : { ok: false, status: failureStatus("turn_failed") };
+  } catch (error) {
+    console.warn(`Built-in AI turn failed for ${godId}: ${messageOf(error)}`);
+    return { ok: false, status: failureStatus("turn_failed") };
+  }
+}
+
 type TurnContext = Extract<FunctionReturnType<typeof internal.ai.seats.turnContext>, { roomId: unknown }>;
 /** One turn of the seat: the provider call and the commands it sends. Never throws: a failure is its status. */
-async function playTurn(ctx: ActionCtx, { gameId, godId, roomId, agent }: { gameId: Id<"games">; godId: string; roomId: TurnContext["roomId"]; agent: TurnContext["agent"] }): Promise<{ ok: boolean; status: string }> {
+async function playTurn(ctx: ActionCtx, { gameId, godId, roomId, agent }: { gameId: Id<"games">; godId: string; roomId: TurnContext["roomId"]; agent: TurnContext["agent"] }): Promise<{ ok: boolean; status: string; waitUntil?: number }> {
+    if (agent.provider === "builtin") return builtinTurn(ctx, { roomId, godId, model: agent.model });
     let status = "Thinking";
     let ok = true;
     let failure: SeatFailure | undefined;

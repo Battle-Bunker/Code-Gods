@@ -11,6 +11,7 @@ import { actsAsHuman, requireViewer, type Viewer } from "./auth/access";
 import { endGame, nextDeadline, resumeGame, scheduleTick } from "./engine/loop";
 import { liveGame, withEngine } from "./game/state";
 import { AI_MODEL_CATALOG, AI_QUOTA_MAX, ASSISTANT_QUOTA_MAX, DEFAULT_AGENT_MODEL, DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
+import { PRACTICE_TEMPLATE_ID } from "./aiTemplates";
 import { aiEnabledFor, aiQuotaOf, assistantQuotaOf, requireAiEnabled } from "./lib/aiAccess";
 import { fail } from "./lib/errors";
 import { aiSeatName } from "./lib/aiNames";
@@ -321,9 +322,11 @@ async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }
     const members = await membersOf(ctx, room._id);
     if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);
     if (playersOf(members).length >= MAX_GODS) fail("CONFLICT", "The next game already has eight players");
-    // No template named: the oldest one still in the library (one indexed row).
-    const template = templateId !== undefined
-      ? await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique()
+    // No template named: the oldest one still in the library (one indexed row). The practice partner (a practice game's
+    // seat) falls back to that one too when an administrator removed it.
+    const named = templateId !== undefined ? await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique() : null;
+    const template = templateId !== undefined && (templateId !== PRACTICE_TEMPLATE_ID || (named && !named.deleted))
+      ? named
       : await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).first();
     if (!template || template.deleted) return fail("NOT_FOUND", templateId !== undefined ? "AI agent not found" : "The AI library is empty; an administrator adds AI players");
     const godId = `ai:${crypto.randomUUID()}`;

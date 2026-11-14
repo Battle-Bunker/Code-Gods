@@ -195,7 +195,9 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     endGame: () => end({ roomId: need(roomId) }),
     // One click, one seat: a double click on "+ Add AI player" adds one (lib/room-seats.ts).
     addAi: templateId => { need(roomId); return aiSeatsOf.addOnce(templateId); },
-    // A practice game: the engine's default AI player in each seat the game still needs, then the start. What is missing
+    // A practice game: the engine's practice partner (engine aiTemplates.ts PRACTICE_TEMPLATE_ID: it summons the example
+    // agent a new player starts with, and calls no model; the default AI player if it was removed) in each seat the game
+    // still needs, then the start. What is missing
     // is counted from the room as it is now plus the seats this page has just added (not from the room as it was when
     // the button was drawn), one seat at a time. If a step fails the seats already added stay, and the room's next step
     // is then Start (or what is still missing).
@@ -204,7 +206,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       practising.current = true;
       try {
         need(roomId);
-        await aiSeatsOf.fill(manifest?.minimumPlayers ?? 3, () => roomNow.current?.members ?? []);
+        await aiSeatsOf.fill(manifest?.minimumPlayers ?? 3, () => roomNow.current?.members ?? [], "practice-example");
         await doStart();
       } finally { practising.current = false; }
     },

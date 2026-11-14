@@ -19,10 +19,13 @@ test("playing again with the same three players: two passed-on games, then a fre
     const deities = [...g.deities].sort((a: any, b: any) => a.index - b.index);
     await owner.c.mutation(api.rooms.endActiveGame, { roomId });
     await waitFor(async () => (await raw(gameId)).game.phase === "ended" || undefined, "the game ends");
-    return { godIds: deities.map((d: any) => d.godId as string), utilities: deities.map((d: any) => JSON.stringify(d.utility)), cards: deities.map((d: any) => d.card), names: g.game.roster.map((r: any) => r.name as string) };
+    return { gameId, rotation: g.game.rotation, godIds: deities.map((d: any) => d.godId as string), utilities: deities.map((d: any) => JSON.stringify(d.utility)), cards: deities.map((d: any) => d.card), names: g.game.roster.map((r: any) => r.name as string) };
   };
   const first = await play();
   assert.ok(first.cards.every((c: any) => c.rotation === undefined), "the first game is an ordinary deal");
+  assert.deepEqual([first.rotation?.round, first.rotation?.of, first.rotation?.order, first.rotation?.gameIds], [1, 3, first.godIds, []], "and begins a rotation");
+  const held = new Map(first.godIds.map((g, k) => [g, [first.utilities[k]]]));
+  const games = [first.gameId];
   // A game ended before its world ran was never played: it neither counts nor breaks the round.
   const unplayed = await (async () => {
     const { gameId } = await startGame(owner, roomId);
@@ -38,9 +41,21 @@ test("playing again with the same three players: two passed-on games, then a fre
       const before = last.godIds.indexOf(g), from = (before - 1 + 3) % 3;
       assert.equal(next.utilities[k], last.utilities[from], `round ${round}: ${g} holds the rule of the player before them`);
       assert.deepEqual(next.cards[k].rotation, { round, of: 3, from: last.names[from] });
+      held.get(g)!.push(next.utilities[k]);
     });
+    assert.deepEqual([next.rotation?.round, next.rotation?.gameIds], [round, games], "the game records the round's earlier games");
+    games.push(next.gameId);
     last = next;
   }
+  for (const [g, rules] of held) assert.equal(new Set(rules).size, 3, `${g} held each of the three rules exactly once`);
   const fresh = await play();
   assert.ok(fresh.cards.every((c: any) => c.rotation === undefined), "after everyone has held each rule, a fresh deal");
+  assert.deepEqual([fresh.rotation?.round, fresh.rotation?.of, fresh.rotation?.gameIds], [1, 3, []], "which starts the next rotation");
+  // A setting that decides the deal changes: the next game is dealt afresh, though the players are the same.
+  const room = await owner.c.query(api.rooms.get, { room: roomId });
+  const excluded = [...room.settings.excludedFamilies, JSON.parse(fresh.utilities[0]).familyId === "leapfrog" ? "two_pair" : "leapfrog"];
+  await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { excludedFamilies: excluded } });
+  const changed = await play();
+  assert.ok(changed.cards.every((c: any) => c.rotation === undefined), "a changed dealing setting deals afresh");
+  assert.equal(changed.rotation?.round, 1);
 });

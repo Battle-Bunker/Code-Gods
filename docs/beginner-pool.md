@@ -204,3 +204,42 @@ games), tests `test/unit/deal-rotation.test.ts`, `test/game-deal-rotation.test.t
 **Style, not rule.** Mixed tables, single games, rules and seats rotated (150 games, `tables3-mixed.txt`): one `deny`
 among two cooperators wins 95%, among two `considerate` 100%; one `considerate` among two greedy 0%; one `payoff`
 among two greedy 10%. Rotation does not touch this: it is the coordination problem of docs/coordination-incentives.md.
+
+## 7. Practice opponents (2026-11-14)
+
+Before: a practice game seated the library's default AI player (a language model; locally the mock, which summons an
+agent that slides one row and climbs nothing), and every persona walker finished 1st of 3 with the example agent alone.
+
+Now: a practice game seats the **Practice partner** (`aiTemplates.ts` `PRACTICE_TEMPLATE_ID`, `lib/builtinPlayer.ts`):
+a built-in AI player that calls no model and costs nothing. It summons its own rule's example agent, the one the forge
+pre-fills for a new player, once, and leaves it alone. A player who only summons the example therefore plays against
+equals and finishes in the middle on average by construction; any improvement shows. If an administrator removes the
+template, practice falls back to the default AI player. AI seats remain admin-only (`aiEnabledFor`), as before.
+
+Real engine games, default setup, 300 s, seat 0 the player under test against two Practice partners
+(`artifacts/engine/scripts/coordination-games.ts --table fill --plans tee,gee`):
+
+| Seat 0 runs | games | mean rank (of 3) | wins |
+|---|---|---|---|
+| the example agent (all three alike) | – | 2.0 by construction | – |
+| its rule's "Thorough" starter | 6 | 2.17 | 1 |
+| a one-cell search over its own rule card (the harness's greedy program) | 6 | 1.33 | 4 |
+
+The Thorough starter is not stronger than the example in these games; writing a search over your own rule is.
+Few games: the ranks are good to about ±0.4.
+
+## 8. Saturation (2026-11-14)
+
+Model, default setup, 120 games per cell (`coordination rules --saturation`): mean share of its rule's top that a
+player holds per object, share of objects at a player's top, and how often the leader at that second wins.
+
+| world s | 3p greedy: held / at top / leader wins | 3p considerate | 4p greedy | 4p considerate |
+|---|---|---|---|---|
+| 30 | 39% / 4% / 67% | 42% / 6% / 77% | 29% / 2% / 53% | 30% / 2% / 79% |
+| 120 | 53% / 18% / 73% | 44% / 8% / 88% | 33% / 3% / 63% | 32% / 3% / 91% |
+| 240 | 56% / 24% / 78% | 44% / 9% / 95% | 33% / 4% / 61% | 32% / 3% / 98% |
+
+No grid saturates: at most a quarter of objects reach a player's top, and new objects keep arriving (0.1 Hz). Greedy
+tables keep moving to the end (the leader at 240 s wins 78% at 3 players, 61% at 4). Considerate tables freeze from
+about 60 s: not because boards are full but because every remaining move would lower somebody else's bits. No
+parameter change made: length, grids and spawn rate are left as they are.

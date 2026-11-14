@@ -19,6 +19,8 @@ export interface PastDeal {
   readonly dealKey: string;
   /** Whether the deal was made with winning bids. */
   readonly bid: boolean;
+  /** The game's id (stored history only). */
+  readonly id?: string;
 }
 
 /** The settings that decide what can be dealt: a change to any of them starts a fresh deal. */
@@ -52,7 +54,7 @@ function passedOn(game: PastDeal, base: PastDeal, shift: number): boolean {
  * that first one passed one more seat along (by the first game's seat order). `round` is this game's place in it (2
  * for the first passed-on game), `of` the number of players, and `from[k]` the player who held seat k's rule last game.
  */
-export function rotatedDeal(godIds: readonly string[], dealKey: string, history: readonly PastDeal[]): { utilities: UtilityDescriptor[]; round: number; of: number; from: string[] } | null {
+export function rotatedDeal(godIds: readonly string[], dealKey: string, history: readonly PastDeal[]): { utilities: UtilityDescriptor[]; round: number; of: number; from: string[]; order: string[]; earlier: PastDeal[] } | null {
   const last = history[0];
   if (!last || last.bid || last.dealKey !== dealKey || !sameSet(godIds, last.godIds)) return null;
   const P = godIds.length;
@@ -64,5 +66,6 @@ export function rotatedDeal(godIds: readonly string[], dealKey: string, history:
   const base = history[played - 1];
   // Seat k's rule was held last game by the player before them in the round's first seat order.
   const from = godIds.map(g => base.godIds[(base.godIds.indexOf(g) - 1 + P) % P]);
-  return { utilities: godIds.map(g => heldAfter(base, g, played)), round: played + 1, of: P, from };
+  // `order`: the round's first seat order (the rules pass along it); `earlier`: the round's games so far, oldest first.
+  return { utilities: godIds.map(g => heldAfter(base, g, played)), round: played + 1, of: P, from, order: [...base.godIds], earlier: history.slice(0, played).reverse() };
 }

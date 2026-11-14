@@ -80,7 +80,7 @@ export const settings = action({
 
 /** AI seats can play only with a configured provider key, or the mock provider in development. */
 export function aiProviderAvailable(provider: string) {
-  if (process.env.AI_MOCK === "1") return true;
+  if (process.env.AI_MOCK === "1" || provider === "builtin") return true;
   return !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();
 }
 
@@ -94,6 +94,8 @@ type StartResult = Started | Preparing | Bidding;
 /** `rotation`: a passed-on deal's line for the card (lib/dealRotation.ts): this game's round, of how many, and who held the rule last game. */
 type Rotation = { round: number; of: number; from: string };
 type Deal = { godId: string; utility: UtilityDescriptor; bid?: BidOutcome; rotation?: Rotation };
+/** The rotation a game belongs to (games.rotation): its round of `of`, the round's first seat order and its earlier games. */
+type GameRotation = { round: number; of: number; order: string[]; gameIds: Id<"games">[] };
 
 function biddingResult(b: RoomBidding): Bidding {
   const view = biddingView(b);
@@ -108,20 +110,25 @@ export const MAX_PREPARING_MS = 30 * 60_000;
  * the last game's rules passed one seat along when the room plays again with the same players and dealing settings.
  * Null (a fresh deal) otherwise, and when a passed-on rule can no longer be dealt here (a deploy withdrew it).
  */
-async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSettings, godIds: readonly string[]): Promise<{ utility: UtilityDescriptor; rotation: Rotation }[] | null> {
-  if ((settings.bidSeconds ?? 0) > 0) return null;
+async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSettings, godIds: readonly string[]): Promise<{ deals: { utility: UtilityDescriptor; rotation: Rotation }[] | null; game: GameRotation | null }> {
+  // A game dealt with a bid phase is no part of a rotation; any other starts one (round 1) or continues it.
+  if ((settings.bidSeconds ?? 0) > 0) return { deals: null, game: null };
+  const fresh = { deals: null, game: { round: 1, of: godIds.length, order: [...godIds], gameIds: [] } };
   const history = await ctx.runQuery(internal.game.lobby.pastDeals, { roomId });
   const r = rotatedDeal(godIds, dealKeyOf(settings as unknown as Record<string, unknown>), history as PastDeal[]);
-  if (!r) return null;
+  if (!r) return fresh;
   const dealable = new Set(catalogFor(settings).filter(f => f.role !== "penalty" && !f.excluded).map(f => f.id));
-  if (r.utilities.some(u => !dealable.has(u.familyId))) return null;
+  if (r.utilities.some(u => !dealable.has(u.familyId))) return fresh;
   const nameOf = (godId: string) => (history[0]!.names[history[0]!.godIds.indexOf(godId)] ?? godId).slice(0, 128);
-  return r.utilities.map((utility, k) => ({ utility, rotation: { round: r.round, of: r.of, from: nameOf(r.from[k]!) } }));
+  return {
+    deals: r.utilities.map((utility, k) => ({ utility, rotation: { round: r.round, of: r.of, from: nameOf(r.from[k]!) } })),
+    game: { round: r.round, of: r.of, order: r.order, gameIds: r.earlier.map(g => g.id as Id<"games">) },
+  };
 }
 
 /** Spawn and score the starting objects, then commit the game (the start's last step, both halves). */
 async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly Deal[], tables: InstanceTables,
-  commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string; auction?: unknown }): Promise<Started | null> {
+  commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string; auction?: unknown; rotation?: GameRotation }): Promise<Started | null> {
   const occupied = new Set<ObjectValue>();
   const objects = [], noiseKey = newNoiseKey();
   for (let i = 0; i < settings.startingObjectCount; i++) {
@@ -212,7 +219,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     }));
   }
   // Playing again with the same players: the last game's rules pass one seat along (lib/dealRotation.ts).
-  const rotated = await rotationFor(ctx, room._id, settings, members.map(m => m.godId));
+  const { deals: rotated, game: rotation } = await rotationFor(ctx, room._id, settings, members.map(m => m.godId));
   const dealt = rotated?.map(r => r.utility) ?? deal(settings, members.length);
   const deals: Deal[] = members.map((m, i) => ({ godId: m.godId, utility: dealt[i], ...(rotated ? { rotation: rotated[i]!.rotation } : {}) }));
   let resolved;
@@ -221,7 +228,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     if (error instanceof ConvexError && (error.data as { code?: string })?.code === "RATE_LIMITED") throw error;
     return fail("UNAVAILABLE", `The rule tables for this game could not be prepared: ${(error as Error).message}`);
   }
-  const commit = { roomId: room._id, revision: room.revision, memberIds: members.map(m => m.godId), requestId: args.requestId, principal: args.principal };
+  const commit = { roomId: room._id, revision: room.revision, memberIds: members.map(m => m.godId), requestId: args.requestId, principal: args.principal, ...(rotation ? { rotation } : {}) };
   if (!resolved.pending.length) return (await launch(ctx, settings, deals, resolved.tables, commit))!;
   const keys = [...new Set(resolved.pending.map(p => p.key))];
   const total = new Set([...resolved.ready.map(r => r.key), ...keys]).size;
@@ -312,7 +319,7 @@ export const completeStart = internalAction({
     await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
     try {
       await launch(ctx, settings, p.deals as Deal[], resolved.tables, { roomId, revision: p.revision, memberIds: p.memberIds, requestId, prepared: requestId,
-        ...(p.auction !== undefined ? { auction: p.auction } : {}) });
+        ...(p.auction !== undefined ? { auction: p.auction } : {}), ...(p.rotation ? { rotation: p.rotation } : {}) });
     } catch (error) {
       await failWith(`The game could not start: ${(error as Error).message}`);
     }

@@ -97,6 +97,7 @@ import type * as lib_aiAccess from "../lib/aiAccess.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_aiNames from "../lib/aiNames.js";
 import type * as lib_background from "../lib/background.js";
+import type * as lib_builtinPlayer from "../lib/builtinPlayer.js";
 import type * as lib_deadline from "../lib/deadline.js";
 import type * as lib_dealRotation from "../lib/dealRotation.js";
 import type * as lib_dryRun from "../lib/dryRun.js";
@@ -246,6 +247,7 @@ declare const fullApi: ApiFromModules<{
   "lib/aiModels": typeof lib_aiModels;
   "lib/aiNames": typeof lib_aiNames;
   "lib/background": typeof lib_background;
+  "lib/builtinPlayer": typeof lib_builtinPlayer;
   "lib/deadline": typeof lib_deadline;
   "lib/dealRotation": typeof lib_dealRotation;
   "lib/dryRun": typeof lib_dryRun;

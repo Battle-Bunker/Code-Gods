@@ -7,13 +7,19 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireViewer } from "./auth/access";
-import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, PROMPT_MAX, findModel, mockEnabled, providerConfigured } from "./lib/aiModels";
+import { AI_MODEL_CATALOG, BUILTIN_AI_MODELS, DEFAULT_AGENT_MODEL, PROMPT_MAX, findModel, isBuiltinModel, mockEnabled, providerConfigured } from "./lib/aiModels";
+/** The template a practice game seats (no model: lib/aiModels.ts BUILTIN_AI_MODELS). */
+export const PRACTICE_TEMPLATE_ID = "practice-example";
 import { fail } from "./lib/errors";
 import { principalV, viewerOf } from "./lib/rooms";
 
 const SEEDS = [{
   templateId: "sonnet-strategist", name: "Sonnet Strategist", provider: "anthropic" as const, model: DEFAULT_AGENT_MODEL,
   prompt: "Play strategically. Understand your private utility function, negotiate constructively, and build efficient agents while respecting your energy budget.",
+}, {
+  // A practice game's seats (player-web practiceGame): no model, no cost; it summons the example agent a new player starts with.
+  templateId: PRACTICE_TEMPLATE_ID, name: "Practice partner", provider: "builtin" as const, model: "example-agent",
+  prompt: "Summons its rule's example agent once, the same one a new player starts with, and leaves it alone.",
 }];
 
 export async function seed(ctx: MutationCtx) {
@@ -35,8 +41,8 @@ function validate(input: { name: string; provider: string; model: string; prompt
   const name = input.name.trim();
   if (!name || name.length > 100) fail("BAD_REQUEST", "Name must be 1–100 characters");
   if (input.prompt.length > PROMPT_MAX) fail("BAD_REQUEST", `Prompts are at most ${PROMPT_MAX} characters`);
-  if (!findModel(input.provider, input.model)) fail("BAD_REQUEST", "Select an available model for the chosen provider");
-  return { ...input, name, provider: input.provider as "anthropic" | "openai" };
+  if (!findModel(input.provider, input.model) && !isBuiltinModel(input.provider, input.model)) fail("BAD_REQUEST", "Select an available model for the chosen provider");
+  return { ...input, name, provider: input.provider as "anthropic" | "openai" | "builtin" };
 }
 const view = (t: { templateId: string; name: string; provider: string; model: string; prompt: string; revision: number; createdAt: number; updatedAt: number }) => ({
   id: t.templateId, name: t.name, provider: t.provider, model: t.model, prompt: t.prompt, revision: t.revision,
@@ -58,7 +64,8 @@ export const adminList = query({
     const rows = await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).take(500);
     return {
       agents: rows.sort((a, b) => a.createdAt - b.createdAt).map(view),
-      models: AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })),
+      // The built-in players (no model, always available) beside the priced models, so their templates read as offered.
+      models: [...AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })), ...BUILTIN_AI_MODELS.map(m => ({ ...m, configured: true }))],
     };
   },
 });
