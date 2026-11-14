@@ -1,5 +1,46 @@
 # Rule compatibility on whole-number lines (diagnosis, 2026-11-15)
 
+**The finding, in plain words.**
+- **Naive play is a coordination failure.** Points on a line are your rarity times the others' rarity, added up, so a
+  line that is good for everyone pays everyone.
+- **Settling and holding pays about 18× on a mixed table.** When every player brings the lines to one agreed state and
+  holds them there, everyone scores far more than when each climbs their own rule.
+- **Keeping off each other's lines does not pay.** On these tables, staying off lines lost to naive play.
+
+All runs below: 3-player mixed table (Prime Landing/big-prime, Treasure/prime-terms, Whole Crossing/k-spf), server
+economy, 300 s, 2 games. Table total points at the end:
+
+| How the three seats play | Table total | Lowest seat | Against naive |
+|---|--:|--:|--:|
+| Naive starters | 8,695 | 2,399 | 1× |
+| Keep off each other's lines (protect every line) | ≈ 7,600 | – | 0.9× |
+| My points must not fall (rarity × others' total) | ≈ 11,400 | – | 1.3× |
+| Model seats that deal in chat (cheapest model) | ≈ 10,600 | – | 1.2× |
+| One seat settles every line at y = −x + 59 and holds | 52,183 | 6,001 | 6× |
+| **All seats settle every line at y = −x + 59 and hold** | **157,701** | **14,677** | **18×** |
+
+Rows marked ≈ were measured as points gained and converted to totals at the end by adding the table's starting
+points (about 440).
+
+The coordinated optimum, the state that maximises the table's total points on one line, against naive play per line
+at the end (`scripts/anarchy.ts`):
+
+| Table | Optimum / naive per line | Energy to move every line there, of the players' energy |
+|---|--:|---|
+| 2 players, compatible | 2.7× | 20k of 79k ⚡ |
+| 2 players, conflict | 3.4× | 19k of 79k ⚡ |
+| 3 players, compatible | 0.9× (naive already gets there) | 8k of 119k ⚡ |
+| 3 players, mixed | 17× | 18k of 119k ⚡ |
+| 4 players, mixed | 5× | 18k of 158k ⚡ |
+
+**How a player can do it.**
+1. Say in chat what your own rule wants, and ask the others the same. A player may always describe their own rule; no
+   tool reads hidden rules.
+2. Agree a state, e.g. "settle lines 3 and 7 at y = −x + 59 and hold them".
+3. Set the starter's TARGET and SETTLE to that state and those lines. The agent then moves the lines there, holds them,
+   and tells its owner "Holding line 7 at y = −x + 59 as agreed."
+
+
 The question (coordinator): do pairs of the beginner pool's rules have lines that are good for both, and how much are
 they worth? If most pairs are compatible and cooperating seats still lose, the agents' edits are the problem; if most
 pairs conflict, the pool is.
