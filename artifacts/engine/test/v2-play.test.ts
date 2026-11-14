@@ -107,6 +107,8 @@ test("leave alone: a deal honoured by setting only the code's leave-alone list, 
   assert.deepEqual(readLeave(versions[0].source), [3, 19]);
   assert.equal(versions[0].source.split("\n").length, simple!.source.split("\n").length, "nothing else changed");
   // Settle and hold: TARGET and SETTLE only, priced as that edit; null stops it.
+  // In planning (round 8b: a deal agreed before the world runs holds from its first second).
+  assert.equal((await bo!.query("v2/games:header", { gameId })).phase, "planning");
   const held = await perform(bo!, "agent.hold", { agentId, numbers: [5, 2], target: { m: -1, c: 59 } }, scope(), "action");
   assert.equal(held.ok, true, JSON.stringify(held));
   assert.ok(held.result.price > 0 && held.result.price < summoned.result.price / 4, `holding costs a little: ${held.result.price}`);
