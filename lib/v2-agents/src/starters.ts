@@ -67,8 +67,7 @@ function lensesFor(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null): 
   if (kind === "example") return [...e.tieBreakers[tieBreaker!]!.lenses];
   if (kind === "simple") return [...(e.simple ?? ["shift", "tilt"])];
   if (kind === "bold") return ["shift", "tilt"];
-  const params = new Set(familyOf(e.family).params.map(p => p.name));
-  return (Object.keys(LENSES) as LensId[]).filter(id => { const l: Lens = LENSES[id]; return !l.needs || params.has(l.needs); });
+  return (Object.keys(LENSES) as LensId[]).filter(id => { const l: Lens = LENSES[id]; return !l.only || l.only.includes(e.family); });
 }
 
 // ---------------------------------------------------------------- TypeScript
@@ -82,13 +81,13 @@ function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
   ];
   if (tieBreaker !== null) {
     const tb = e.tieBreakers[tieBreaker]!;
-    out.push(...(tb.pre?.ts ?? []).map(l => `  ${l}`), `  return [main, ${tb.ts}];   // main: ${e.mainSays}; tie-breaker: ${tb.says}`);
+    out.push(...(tb.pre?.ts ?? []).map(l => `  ${l}`), `  return [${e.mainWithTie?.ts ?? "main"}, ${tb.ts}];   // main: ${e.mainSays}; tie-breaker: ${tb.says}`);
   } else {
     out.push(`  // main: ${e.mainSays}`);
     for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {   // a tie-breaker not yet described scores the main part alone
       const tb = e.tieBreakers[l.id]!;
-      if (tb.pre) out.push(`  if (tie === ${JSON.stringify(l.id)}) {   // ${tb.says}`, ...tb.pre.ts.map(x => `    ${x}`), `    return [main, ${tb.ts}];`, "  }");
-      else out.push(`  if (tie === ${JSON.stringify(l.id)}) return [main, ${tb.ts}];   // ${tb.says}`);
+      if (tb.pre) out.push(`  if (tie === ${JSON.stringify(l.id)}) {   // ${tb.says}`, ...tb.pre.ts.map(x => `    ${x}`), `    return [${e.mainWithTie?.ts ?? "main"}, ${tb.ts}];`, "  }");
+      else out.push(`  if (tie === ${JSON.stringify(l.id)}) return [${e.mainWithTie?.ts ?? "main"}, ${tb.ts}];   // ${tb.says}`);
     }
     out.push("  return [main];");
   }
@@ -151,12 +150,12 @@ function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
   ];
   if (tieBreaker !== null) {
     const tb = e.tieBreakers[tieBreaker]!;
-    out.push(...(tb.pre?.py ?? []).map(l => `    ${l}`), `    return [main, ${tb.py}]   # main: ${e.mainSays}; tie-breaker: ${tb.says}`);
+    out.push(...(tb.pre?.py ?? []).map(l => `    ${l}`), `    return [${e.mainWithTie?.py ?? "main"}, ${tb.py}]   # main: ${e.mainSays}; tie-breaker: ${tb.says}`);
   } else {
     out.push(`    # main: ${e.mainSays}`);
     for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
       const tb = e.tieBreakers[l.id]!;
-      out.push(`    if tie == ${JSON.stringify(l.id)}:   # ${tb.says}`, ...(tb.pre?.py ?? []).map(x => `        ${x}`), `        return [main, ${tb.py}]`);
+      out.push(`    if tie == ${JSON.stringify(l.id)}:   # ${tb.says}`, ...(tb.pre?.py ?? []).map(x => `        ${x}`), `        return [${e.mainWithTie?.py ?? "main"}, ${tb.py}]`);
     }
     out.push("    return [main]");
   }

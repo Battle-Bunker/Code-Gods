@@ -16,6 +16,7 @@ def agent(offer):
         str(near(Fraction(-7, 2), prime)), str(near(Fraction(10), square)),
         str(prime(2 ** 61 - 1)).lower(), str(prime(2 ** 61 + 1)).lower(), str(prime("7")).lower(), str(prime(True)).lower(),
         str(near(3.5, prime)), str(near(10, lambda n: n % 2 == 1)),
+        str(near(-20000, prime)), str(near(200000000, square)), str(near(Fraction(-3, 2), square)),
     ]
     plan = cheapest(offer, [[move("si.shift", k=2), move("si.shift", k=-1)], move("si.shift", k=1), move("nope")])
     return (plan or []) + [move("probe", r="|".join(str(s) for s in seen))]
