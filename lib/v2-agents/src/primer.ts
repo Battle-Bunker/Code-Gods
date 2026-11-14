@@ -24,6 +24,12 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "whole", ts: "whole(x)", py: "whole(x)", says: "the nearest whole number (a half rounds up)" },
   { name: "root", ts: "root(n)", py: "root(n)", says: "the whole square root, rounded down" },
   { name: "factors", ts: "factors(n)", py: "factors(n)", says: "the prime factors, smallest first, with repeats ([2, 2, 3] for 12)" },
+  { name: "worth", ts: "worth(offer)", py: "worth(offer)", says: "what this line is worth to you now: .mine (your rarity), .others (the other players' rarity added up), .points (mine × others); null / None when the game does not say" },
+  { name: "rarity", ts: "rarity(offer, score)", py: "rarity(offer, score)", says: "the rarity your rule gives a score your own score function computed (so: what a move would be worth to you). Free" },
+  { name: "pushback", ts: "pushback(offer)", py: "pushback(offer)", says: "how many times lately another player's move took back points your agent had just won on this line" },
+  { name: "recent", ts: "recent(offer)", py: "recent(offer)", says: "the latest moves on this line you may see, newest last: mine, points before and after" },
+  { name: "contested", ts: "contested(offer, 3)", py: "contested(offer, 3)", says: "true / True once pushback(offer) reaches the number; it then leaves the owner a note that the agent is leaving the line" },
+  { name: "note", ts: "note(offer, text)", py: "note(offer, text)", says: "leave your owner a short note in the act log (at most 3 a turn), e.g. why the agent stopped" },
 ];
 
 function views<S>(type: ObjectType<S>): string {
@@ -64,7 +70,8 @@ function argNames(code: { decode(w: unknown): unknown }): string {
 
 /** The primer for a type (default: the line). */
 export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as ObjectType<S>): string {
-  const ex = exampleFor("m-meets-c", "meetPrime", "python")!.source;
+  // The example without its header (the primer says what the header would): its code and its comments only.
+  const ex = exampleFor("m-meets-c", "meetPrime", "python")!.source.replace(/^(#[^\n]*\n)+\n*/, "");
   return `WRITING AGENTS (engine v2: lines)
 
 THE GAME. The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines, made of a main part and a tie-breaker (for example "make the gradient close to a prime; tie-breaker: the bigger that prime, the better"). A line's score on a rule is its rarity: lines that random play rarely makes that good are worth more points. The player's job is to understand their rule, negotiate with the others, and tell you what their agent should do; your job is to write that agent and explain it in plain words.
@@ -89,7 +96,9 @@ HELPERS (the same names in both languages):
 ${HELPERS.map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
 Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rationals: Q.add, Q.sub, Q.mul, Q.div, Q.abs, Q.cmp, Q.eq) and Python's Fraction.
 
-STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold); each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample lines and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
+PLAYING FOR POINTS. A player's points on a line are their rarity there times the other players' rarity there, added up. So a line only they like scores nothing, and a move that spoils a line for the others lowers their own points too; a tug-of-war (moving a line back and forth with another player) burns ⚡ on both sides and scores nothing. A good agent only makes changes that make the line better for its rule, keeps each move's price well under its energy, and leaves a line when another player keeps taking its gains back (contested(offer, 3) does this and leaves its owner a note); the shipped starters do these three things, and "Naive" is a teaching example that does none of them. worth(offer) and rarity(offer, score) let an agent go further: skip a line where the others' rarity is 0 (it scores nothing yet), or a change that does not lift its rarity to a new level. Deals made in chat ("I leave line 4's y-intercept alone if you keep its gradient prime") are honoured by changing the agent: skip that line (offer.object is its number) or only make the moves agreed.
+
+STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample lines and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
 
 EXAMPLE (Python; the TypeScript is the same shape with Q for arithmetic):
 ${ex}

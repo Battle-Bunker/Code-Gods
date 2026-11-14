@@ -137,6 +137,8 @@ export class FakeHost implements AgentHost {
   readonly energy: number;
   /** Requests that reached this host. */
   calls = 0;
+  /** Notes left this act (the engine host keeps 3, so this one does too). */
+  notes: string[] = [];
   /** Read bits charged this act. */
   readBits = 0;
   private repCharged = new Map<string, number>();
@@ -166,6 +168,16 @@ export class FakeHost implements AgentHost {
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
       case "budget": return ok({ energy: this.energy, readPrice: 1 / KAPPA, beta: BETA, hostCallsLeft: context.hostCallsLeft }, 0);
+      case "worth": return err("the toy game does not say what lines are worth");
+      case "rarity": return err("the toy game does not say what scores are worth");
+      case "recent": return ok({ moves: [] }, 0);
+      case "note": {
+        const text = typeof request.text === "string" ? request.text.trim() : "";
+        if (!text) return err("a note needs some text");
+        if (this.notes.length >= 3) return ok({ kept: false }, 0);
+        this.notes.push(text);
+        return ok({ kept: true }, 0);
+      }
     }
   }
 
