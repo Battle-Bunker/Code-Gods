@@ -55,6 +55,11 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const run = (op: SwitchOp) => (op.id === "view.showRepresentation" ? show.run(op.args) : compare.run(op.args)).catch(failed("The view did not change"));
   const pinned = pinnedRep(view, rule.family.id, primary);
   const v = o.value;
+  // "Hold it here" sets the agent up with this line's hold, filled in, as the button under the face does.
+  const holdTarget = targetOf(state, rule.type.id);
+  const holdAction = (agents?.length ?? 0) > 0 && !replaying && header?.phase !== "ended" && holdTarget !== null
+    ? () => void requestForge({ kind: "hold", numbers: [o.number], target: holdTarget }, openPane)
+    : undefined;
   return (
     <div className="space-y-3 p-3" data-testid="line-expanded" data-line={o.number}>
       <div className="space-y-1 text-sm">
@@ -65,7 +70,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         </p>
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {})}</p>}
       </div>
-      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared} hold={contested ? { number: o.number, language: agents?.[0]?.language === "python" ? "python" : "typescript" } : undefined}
+      {/* "Hold it here" on a contested line sets the agent up, as the button below does. */}
+      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared} hold={contested ? { number: o.number, language: agents?.[0]?.language === "python" ? "python" : "typescript", ...(holdAction ? { onHold: holdAction } : {}) } : undefined}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}

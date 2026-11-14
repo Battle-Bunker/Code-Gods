@@ -253,7 +253,7 @@ export interface ExpandedFaceProps<S, P> {
   readonly onActive?: (rep: string) => void;
   readonly onCompare?: (rep: string | null) => void;
   /** The line is contested (a tug-of-war): "Hold it here" comes first, with the settings that hold it (its number). */
-  readonly hold?: { readonly number: number; readonly language?: "typescript" | "python" };
+  readonly hold?: { readonly number: number; readonly language?: "typescript" | "python"; /** Sets it up: the app opens the agent's hold control, filled in. */ readonly onHold?: () => void };
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -339,7 +339,9 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
                 <div className="v2v-hold" data-testid="hold-it-here">
                   <h4 className="v2v-moves-title">Hold it here</h4>
                   <p>{hold.why}</p>
-                  <p className="v2v-hold-code">In your agent's code: <code>{hold.code}</code></p>
+                  {props.hold!.onHold
+                    ? <button type="button" className="v2v-hold-go" data-testid="button-hold-it-here" onClick={props.hold!.onHold}>Hold it here: set up my agent</button>
+                    : <p className="v2v-hold-code">In your agent's code: <code>{hold.code}</code></p>}
                 </div>
                 {moves}
               </div>

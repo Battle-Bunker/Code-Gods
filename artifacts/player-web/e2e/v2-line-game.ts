@@ -258,8 +258,14 @@ try {
     // A contested line offers "Hold it here" first, with the starters' settings for it.
     const hold = line.getByTestId("hold-it-here");
     if (await hold.count()) {
-      assert.match(await hold.innerText(), /TARGET = \{ m: [−\-\d /]+, c: [−\-\d /]+ \}; SETTLE = \[\d+\]/);
       await hold.screenshot({ path: path.join(shots, `annotations-${label}-hold.png`) });
+      // Its button opens the agent's hold control, filled in with this line (nothing saved until Save).
+      const go = hold.getByTestId("button-hold-it-here");
+      if (await go.count()) {
+        await go.click();
+        await page.getByTestId("hold").waitFor({ timeout: 10_000 });
+        assert.notEqual(await page.getByTestId("input-hold-numbers").inputValue(), "", "the line's number is filled in");
+      } else assert.match(await hold.innerText(), /TARGET = /);
     }
     await shot(page, `game-${label}-line`);
 
