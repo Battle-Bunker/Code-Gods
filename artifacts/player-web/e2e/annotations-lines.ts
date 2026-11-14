@@ -26,13 +26,12 @@ await new Promise<void>((resolve, reject) => {
 /** [file, query, width, scheme] */
 const SHOTS: [string, string, number, "light" | "dark"][] = [
   ["prime-landing-1440-light", "rule=prime-landing&frame=line", 1440, "light"],
-  ["prime-landing-select-390-dark", "rule=prime-landing&frame=select", 390, "dark"],
+  ["prime-landing-390-dark", "rule=prime-landing&frame=line", 390, "dark"],
   ["square-area-1440-light", "rule=square-area&frame=line", 1440, "light"],
   ["square-area-390-light", "rule=square-area&frame=line", 390, "light"],
   ["whole-crossing-1440-light", "rule=whole-crossing&frame=line", 1440, "light"],
   ["whole-crossing-compare-1440-dark", "rule=whole-crossing&frame=compare", 1440, "dark"],
   ["treasure-1440-light", "rule=treasure&frame=line", 1440, "light"],
-  ["treasure-others-1440-light", "rule=treasure&frame=others", 1440, "light"],
   ["treasure-390-dark", "rule=treasure&frame=line", 390, "dark"],
   ["divisibility-ladder-1440-light", "rule=divisibility-ladder&frame=line", 1440, "light"],
   ["scale-1440-light", "rule=scale", 1440, "light"],
@@ -100,27 +99,24 @@ try {
     page.on("pageerror", e => errors.push(e.message));
     page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
     await page.goto(`${BASE}/annotations-lines.html?${query}&scheme=${scheme}`);
-    await page.locator(".la-oneline, .la-compact, .la-goal").first().waitFor();
+    await page.locator(".v2v-expanded, .la-compact, .v2v-goal").first().waitFor();
     await page.evaluate(() => document.fonts.ready);
     assert.deepEqual(errors, [], `${file}: page errors`);
     const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(sideways <= 0, `${file}: the page scrolls sideways by ${sideways}px`);
 
-    if (file === "prime-landing-1440-light") {
-      // A tap (click) on the main contributor selects it; the chip says so; ✕ clears it.
-      const card = page.locator(".la-card[data-role=main]").first();
-      await card.click();
-      assert.equal(await page.locator(".la-selchip").count(), 1, "a tap selects the contributor");
-      await page.locator(".la-selchip button").click();
-      assert.equal(await page.locator(".la-selchip").count(), 0, "✕ clears the selection");
-    }
-    if (file === "prime-landing-select-390-dark") {
-      const panels = await page.locator(".la-panel").count();
-      assert.ok(panels >= 2, "a phone selection shows a second, stacked view so the lit twin is visible");
-      assert.equal(await page.locator(".la-view-row[data-stacked]").count(), 1, "views stack on a phone");
+    if (file === "prime-landing-1440-light" || file === "prime-landing-390-dark") {
+      // A tap on a part selects it (a chip says so, only its marks are drawn); ✕ clears it.
+      await page.locator(".v2v-part[data-role=main]").first().click();
+      assert.equal(await page.locator(".v2v-selchip").count(), 1, "a tap selects the part");
+      await page.locator(".v2v-selchip button").click();
+      assert.equal(await page.locator(".v2v-selchip").count(), 0, "✕ clears the selection");
+      // No steps or thresholds anywhere (owner decision 23).
+      const text = await page.locator(".la-page").innerText();
+      assert.doesNotMatch(text, /\bstep \d|\bwithin \d|≥ ?\d|Steps to the top/, "no steps or thresholds");
     }
     if (file === "whole-crossing-compare-1440-dark") {
-      const titles = await page.locator(".la-panel h4").allTextContents();
+      const titles = await page.locator(".v2v-panel h4").allTextContents();
       assert.ok(titles.some(t => t.includes("your rule's main view")), "compare keeps the rule's main view");
     }
 

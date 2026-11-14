@@ -5,10 +5,9 @@
  * open the same rule again, a bad URL crashing the page instead of falling back.
  */
 import { test } from "node:test";
-import { objectLadder } from "@workspace/v2-core";
 import assert from "node:assert/strict";
 import { beginnerFamilies, lineType, lineZ } from "@workspace/v2-linear";
-import { BOARDS, familyPage, galleryFamilies, gallerySearch, galleryRarities, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
+import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
 
 test("the gallery lists every family the board deals, the beginner pool first, and nothing it does not deal", () => {
   const g = galleryFamilies("line-z");
@@ -61,19 +60,4 @@ test("the URL of a choice opens the same rule again", () => {
   assert.equal(gallerySearch(s), "?board=line-q&params=3&tb=even");
   assert.deepEqual(setupFromSearch(gallerySearch(s)), s);
   assert.equal(gallerySearch({ board: "line-z", params: 0, tb: null }), "");
-});
-
-test("a family page asks the server for a preset that deals it and prices its own rule's rungs from that rule's value points", () => {
-  const page = familyPage(beginnerFamilies[0]!.id, setupFromSearch(""))!;
-  const want = galleryRarities(page, undefined);
-  assert.ok(want.query, "a beginner family on the default board is dealt by some preset");
-  assert.equal(want.rarities, null, "nothing until the rows arrive");
-  // Two points: the worst (0 bits) and a main score of 1 (4 bits). Rungs below it sit between the two (their mean, 2);
-  // rungs at or above it read 4 (beyond the best point, a gallery row has no tail to climb).
-  const mine = { ruleKey: want.key, points: [{ score: null, bits: 0 }, { score: ["1"], bits: 4 }] };
-  const other = { ruleKey: "something/else", points: [{ score: null, bits: 9 }] };
-  const got = galleryRarities(page, [other, mine]).rarities!;
-  const rungs = objectLadder(page.rule.type, page.rule.family, page.rule.params, page.rule.variant, page.rule.tieBreaker ?? undefined);
-  assert.deepEqual(got, rungs.map(r => r.score === null ? 0 : r.score[0] === null ? 2 : 4));
-  assert.equal(galleryRarities(page, [other]).rarities, null, "a rule the preset does not deal shows no rarities");
 });

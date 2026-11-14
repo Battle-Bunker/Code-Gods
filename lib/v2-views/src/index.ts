@@ -7,3 +7,5 @@ export * from "./rep-view.tsx";
 export * from "./render/register.ts";
 export * from "./faces.tsx";
 export * from "./story.tsx";
+export * from "./contributors.ts";
+export * from "./moves.ts";
