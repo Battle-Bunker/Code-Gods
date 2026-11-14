@@ -24,8 +24,8 @@ export interface PaletteHost {
   navigate(to: string): void;
   /** The room page's path, when a room is in view. */
   roomPath?: string;
-  /** Whether the dock is on screen (pane rows open panes there). */
-  dock: boolean;
+  /** The dock's pane operations when it is on screen (pane rows open panes there, keeping the panes shown). */
+  panes?: { open(pane: string): Promise<void>; close(pane: string): Promise<void> };
 }
 
 const run = async (host: PaletteHost, id: AffordanceId, args: unknown) => {
@@ -40,7 +40,8 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
   const required = Object.entries(shape).filter(([k, s]) => k !== "requestId" && !s.safeParse(undefined).success);
   if (required.length !== 1) return null;
   const [name, schema] = required[0]!;
-  if (schema.safeParse("x").success) return { name, kind: "string" };
+  // A typical value, long enough for a code's minimum length.
+  if (schema.safeParse("ABCDEF").success) return { name, kind: "string" };
   if (schema.safeParse(1).success) return { name, kind: "number" };
   return null;
 }
@@ -50,12 +51,13 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   if (id === "room.get" && host.roomPath) return { kind: "navigate", to: host.roomPath };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   const pane = READ_PANES[id];
-  if (pane && host.dock) return { kind: "submit", run: () => run(host, "view.openPane", { pane }) };
+  const panes = host.panes;
+  if (pane && panes) return { kind: "submit", run: () => panes.open(pane) };
   if (id === "view.openPane" || id === "view.closePane") {
     const page: PaletteFormPage = {
       kind: "pick", title: e.title,
       options: () => PANE_IDS.map(p => ({ id: p, label: PANES[p].title, detail: PANES[p].blurb, keywords: PANES[p].keywords })),
-      onPick: p => run(host, id, { pane: p }),
+      onPick: p => (panes ? (id === "view.openPane" ? panes.open(p) : panes.close(p)) : run(host, id, { pane: p })),
     };
     return { kind: "form", page };
   }

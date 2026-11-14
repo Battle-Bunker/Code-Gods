@@ -6,11 +6,12 @@
 import { useMemo } from "react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { AffordanceButton } from "@/site/components/action";
+import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
 import { Page } from "@/site/components/layout";
 import { useAuth } from "@/site/hooks/use-auth";
 import { roomPath } from "@/site/lib/routes";
-import { GameScopeProvider, useGame, useLeaderboard, useMe, useMyAgents } from "@/sdk";
-import { useLiveValue } from "@/sdk/live";
+import { GameScopeProvider, useLeaderboard, useMe, useMyAgents } from "@/sdk";
+import { useLive } from "@/site/lib/convex";
 import type { Header, Room } from "@/sdk/types";
 import { Dock } from "@/dock/dock";
 import { useOpenPane } from "@/dock/open-pane";
@@ -59,22 +60,28 @@ function PlanningBar({ header, owner }: { header: Header; owner: boolean }) {
   );
 }
 
+function BarError({ error }: ErrorFallbackProps) {
+  return <p className="border-b px-3 py-1.5 text-xs text-destructive" role="alert">Your totals could not load: {error instanceof Error ? error.message : String(error)}</p>;
+}
+
 function Screen({ header }: { header: Header }) {
   const { user, isAuthenticated } = useAuth();
-  const room = useLiveValue(api.v2.rooms.get, { roomId: header.roomId }) as Room | undefined;
-  const me = useMe();
-  const live = useGame() ?? header;
+  // Page-level reads keep their errors as values (ux-lessons 4.2): a failed room or account query never tears the screen
+  // down; the panes that show them say so in their own frames.
+  const room = useLive(api.v2.rooms.get, { roomId: header.roomId }).data as Room | undefined;
+  const me = useLive(api.v2.play.me, header.me ? { gameId: header.gameId } : "skip").data;
+  const live = useLive(api.v2.games.header, { gameId: header.gameId }).data ?? header;
   const context = useMemo(() => affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, header: live, me: me ?? null }),
     [isAuthenticated, user?.isAdmin, room, live, me?.energy, me?.pauseUsed, me?.agents]); // eslint-disable-line react-hooks/exhaustive-deps
   const code = room?.code ?? "";
   const owner = !!room?.members.find(m => m.me)?.owner;
   return (
-    <Page context={context} scope={{ roomId: header.roomId, gameId: header.gameId }} fill dock roomPath={code ? roomPath(code) : undefined}
+    <Page context={context} scope={{ roomId: header.roomId, gameId: header.gameId }} fill dockPhase={live.phase} roomPath={code ? roomPath(code) : undefined}
       crumbs={[{ label: code || "Room", href: code ? roomPath(code) : undefined }, { label: `Game ${header.number}` }]} chip={`Game ${header.number}`}
       placeholder="Search or do anything in this game">
-      <GameBar header={live} />
+      <ErrorBoundary FallbackComponent={BarError}><GameBar header={live} /></ErrorBoundary>
       <GameTimer header={live} />
-      <PlanningBar header={live} owner={owner} />
+      <ErrorBoundary FallbackComponent={BarError}><PlanningBar header={live} owner={owner} /></ErrorBoundary>
       <div className="min-h-0 flex-1" data-testid="dock"><Dock phase={live.phase} panes={PANE_COMPONENTS} /></div>
     </Page>
   );

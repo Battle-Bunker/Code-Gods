@@ -19,7 +19,7 @@ import { AFFORDANCES, EMPTY_VIEW, applyView, isViewOp, opKind, type AffordanceCo
 import { AffordanceProvider, type AffordanceRuntime } from "@workspace/v2-affordances/react";
 import { VIEW_OP_PATH, opPath, outcomeOf } from "@workspace/v2-affordances/convex";
 import { api } from "@workspace/engine/convex/_generated/api";
-import { useLiveValue } from "@/sdk/live";
+import { useLive } from "@/site/lib/convex";
 
 export interface RuntimeScope { roomId?: string; gameId?: string; replay?: boolean }
 
@@ -38,9 +38,12 @@ export function useView(): ViewState {
   return useContext(ViewContext);
 }
 
-/** The stored view state of the room (or the empty one before a room), with this tab's changes not yet confirmed. */
+/**
+ * The stored view state of the room (or the empty one before a room). A failed read shows the empty view (the phase's
+ * defaults) rather than tearing the screen down (ux-lessons 4.2); the next value the subscription delivers replaces it.
+ */
 function useStoredView(roomId: string | undefined): ViewState {
-  const row = useLiveValue(api.v2.layout.current, roomId ? { roomId } : "skip");
+  const row = useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data;
   return ((row?.layout as { view?: ViewState } | null | undefined)?.view) ?? EMPTY_VIEW;
 }
 
@@ -49,8 +52,10 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
 }) {
   const convex = useConvex();
   const stored = useStoredView(scope.roomId);
-  // A local change shows until the stored view reaches its version (or a newer one from another client).
-  const [local, setLocal] = useState<ViewState | null>(null);
+  // A local change shows until the stored view reaches its version (or a newer one from another client); it belongs to
+  // one room, and goes when the server refuses or fails it.
+  const [localState, setLocalState] = useState<{ roomId?: string; view: ViewState } | null>(null);
+  const local = localState && localState.roomId === scope.roomId ? localState.view : null;
   const view = local && local.version > stored.version ? local : stored;
   const viewNow = useRef(view);
   viewNow.current = view;
@@ -66,11 +71,15 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
       if (!isViewOp(id)) return { ok: false, error: { code: "unknown", message: `${id} cannot run in the app.` } };
       const applied = applyView(viewNow.current, id, args, contextNow.current);
       if (!applied.outcome.ok || !applied.changed) return applied.outcome;
+      const before = viewNow.current;
       viewNow.current = applied.view;
-      setLocal(applied.view);
+      setLocalState({ roomId: scope.roomId, view: applied.view });
+      const undo = () => { viewNow.current = before; setLocalState(null); };
       try {
-        return await convex.mutation(makeFunctionReference<"mutation">(VIEW_OP_PATH.public), { id, args: args ?? {}, ...where }) as OpOutcome;
-      } catch (e) { return failed(e); }
+        const out = await convex.mutation(makeFunctionReference<"mutation">(VIEW_OP_PATH.public), { id, args: args ?? {}, ...where }) as OpOutcome;
+        if (!out.ok) undo();
+        return out;
+      } catch (e) { undo(); return failed(e); }
     }
     const ref = opPath(id).public;
     try {

@@ -58,30 +58,53 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
   }
 }
 
+const inPhase = (id: string, phase: GamePhase) => isPaneId(id) && PANES[id].phases.includes(phase);
+/** A pane that needs the world (not offered in planning). */
+const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("planning");
+
 /**
  * The panes to show now: the human's own arrangement once they have one (an empty view follows the phase's default),
- * and, after the end, the results at the front when they are not open (shown, not stored). Unknown pane ids are
- * dropped (a pane removed since the view was saved).
+ * without panes this phase has nothing for (the forge after the end). An arrangement made before the world started
+ * (no pane that needs the world) meets the world's defaults when it starts, so a change made in planning never hides
+ * the lines and the act log for the whole game. After the end the results come first even when not open (shown, not
+ * stored). Unknown pane ids are dropped (a pane removed since the view was saved).
  */
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
-  const own = view.panes.filter(p => isPaneId(p.pane));
-  const panes = own.length ? own : defaultPanes(phase);
+  const own = view.panes.filter(p => inPhase(p.pane, phase));
+  let panes = own.length ? own : defaultPanes(phase);
+  if (own.length && phase !== "planning" && !view.panes.some(p => needsWorld(p.pane))) {
+    const defaults = defaultPanes(phase);
+    panes = [...own, ...defaults.filter(d => !own.some(p => p.pane === d.pane))].slice(0, MAX_PANES);
+  }
   if (phase === "ended" && !panes.some(p => p.pane === "results")) return [{ pane: "results", place: "main" }, ...panes];
   return panes;
 }
 
+export type ViewOp = { id: "view.openPane" | "view.closePane" | "view.movePane"; args: Record<string, unknown> };
+
 /**
- * What opening `pane` does to the shown arrangement: nothing when it is open; else it joins at `place`, and when
- * MAX_PANES are already open the oldest other pane goes (`replaced`). `before` is the arrangement the view must hold
- * first (the defaults, when the human had none of their own yet), as view operations to apply in order.
+ * The view operations that make the stored arrangement what the human sees now (the defaults, or an arrangement
+ * merged with the world's defaults), so a change keeps what is on screen; none when they already agree.
  */
-export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string, place?: Place):
-  { ops: { id: "view.openPane" | "view.closePane"; args: Record<string, unknown> }[]; replaced: string | null } {
+export function keepShown(view: Pick<ViewState, "panes">, phase: GamePhase): ViewOp[] {
   const shown = shownPanes(view, phase);
-  const ops: { id: "view.openPane" | "view.closePane"; args: Record<string, unknown> }[] = [];
-  // Materialise the defaults the human sees before changing them, so the change keeps them.
-  if (!view.panes.length) for (const p of shown) ops.push({ id: "view.openPane", args: { pane: p.pane, place: p.place } });
-  if (shown.some(p => p.pane === pane)) return { ops: place ? [...ops, { id: "view.openPane", args: { pane, place } }] : ops, replaced: null };
+  const same = view.panes.length === shown.length && view.panes.every((p, i) => p.pane === shown[i]!.pane && p.place === shown[i]!.place);
+  if (same) return [];
+  return [
+    ...view.panes.map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
+    ...shown.map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
+  ];
+}
+
+/**
+ * What opening `pane` does to the shown arrangement: nothing when it is open (a move, with `place`); else it joins at
+ * `place`, and when MAX_PANES are already open the oldest other pane goes (`replaced`). The ops start with
+ * `keepShown`, so the panes on screen stay.
+ */
+export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string, place?: Place): { ops: ViewOp[]; replaced: string | null } {
+  const shown = shownPanes(view, phase);
+  const ops = keepShown(view, phase);
+  if (shown.some(p => p.pane === pane)) return { ops: place ? [...ops, { id: "view.movePane", args: { pane, place } }] : ops, replaced: null };
   let replaced: string | null = null;
   if (shown.length >= MAX_PANES) {
     replaced = shown[0]!.pane === "object" && shown.length > 1 ? shown[1]!.pane : shown[0]!.pane;
@@ -89,6 +112,11 @@ export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane:
   }
   ops.push({ id: "view.openPane", args: { pane, ...(place ? { place } : {}) } });
   return { ops, replaced };
+}
+
+/** Closing a shown pane: the shown arrangement kept, then the pane closed. */
+export function closePlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane: string): ViewOp[] {
+  return [...keepShown(view, phase), { id: "view.closePane", args: { pane } }];
 }
 
 /** The desktop arrangement: columns left, main, right, then a bottom row; an empty column takes no room. */

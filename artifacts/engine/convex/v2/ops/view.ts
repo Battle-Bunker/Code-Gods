@@ -6,12 +6,18 @@
  */
 import { defineViewOps, type Caller } from "@workspace/v2-affordances/convex";
 import { EMPTY_VIEW, OpFailure, type ViewState } from "@workspace/v2-affordances";
-import type { DataModel } from "../../_generated/dataModel";
+import type { DataModel, Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { OP_HOST, type V2Caller } from "./define";
 
-/** The caller's layout row in the room their context was resolved in. */
-async function where(ctx: MutationCtx, caller: Caller) {
+/** The caller's layout row in the room their context was resolved in, read once per mutation. */
+const rows = new WeakMap<object, Promise<{ userId: string; roomId: Id<"v2Rooms">; row: Doc<"v2Layouts"> | null }>>();
+function where(ctx: MutationCtx, caller: Caller) {
+  let hit = rows.get(ctx);
+  if (!hit) { hit = find(ctx, caller); rows.set(ctx, hit); }
+  return hit;
+}
+async function find(ctx: MutationCtx, caller: Caller) {
   const { records, userId } = caller as V2Caller;
   if (!userId) throw new OpFailure("Sign in first.");
   if (!records?.room) throw new OpFailure("No room in view.");

@@ -22,6 +22,8 @@ import { ConnectedAppsSheet } from "@/site/components/sheets";
 import { AffordanceRuntimeProvider, useRuntime, type RuntimeScope } from "@/core/affordance-runtime";
 import { paletteCommands } from "@/core/palette-commands";
 import { affordanceContext } from "@/core/affordance-context";
+import { usePaneOps } from "@/dock/open-pane";
+import type { GamePhase } from "@workspace/v2-client";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export function Sigil({ size = 28, animate = true }: { size?: number; animate?: boolean }) {
@@ -55,14 +57,16 @@ function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 
 /** The palette as the page frame shows it, from the runtime its page provides. */
-function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomPath, dock }: {
-  open: boolean; init?: PaletteOpenInit; onOpenChange(o: boolean): void; placeholder: string; suggested: readonly string[]; chip?: string; roomPath?: string; dock: boolean;
+function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomPath, dockPhase }: {
+  open: boolean; init?: PaletteOpenInit; onOpenChange(o: boolean): void; placeholder: string; suggested: readonly string[]; chip?: string; roomPath?: string; dockPhase?: GamePhase;
 }) {
   const rt = useRuntime();
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, dock }), [rt, navigate, roomPath, dock]);
+  const paneOps = usePaneOps(dockPhase ?? "planning");
+  const panes = dockPhase ? paneOps : undefined;
+  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, ...(panes ? { panes } : {}) }), [rt, navigate, roomPath, panes]);
   const p = rt.context.principal;
   const ctx: PaletteContext = { role: p.owner ? "owner" : p.seated ? "seated" : p.member ? "member" : p.signedIn ? "signed-in" : "visitor", admin: p.admin, assistantOn: false };
   return (
@@ -76,7 +80,7 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
 let openPaletteNow: (init?: PaletteOpenInit) => void = () => {};
 export const openPalette = (init?: PaletteOpenInit) => openPaletteNow(init);
 
-export function Page({ children, context, scope = {}, crumbs = [], placeholder = "Search or do anything…", suggested = [], conn, chip, dock = false, bare = false, roomPath, fill = false }: {
+export function Page({ children, context, scope = {}, crumbs = [], placeholder = "Search or do anything…", suggested = [], conn, chip, dockPhase, bare = false, roomPath, fill = false }: {
   children: ReactNode;
   /** The viewer's affordance context on this page (default: signed in or not, no room). */
   context?: AffordanceContext;
@@ -88,8 +92,8 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
   suggested?: readonly string[];
   conn?: { ok: boolean; label?: string } | null;
   chip?: string;
-  /** The dock is on screen: pane rows of the palette open panes. */
-  dock?: boolean;
+  /** The dock is on screen, in this phase: pane rows of the palette open panes there. */
+  dockPhase?: GamePhase;
   /** No site header (the game screen has its own). */
   bare?: boolean;
   /** The room page's path, when a room is in view. */
@@ -148,7 +152,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
         {bare ? children : <main className={fill ? "flex min-h-0 flex-1 flex-col" : "flex-1"}><ErrorBoundary FallbackComponent={PageError} resetKey={path}>{children}</ErrorBoundary></main>}
       </div>
       <Palette open={palette.open} init={palette.init} onOpenChange={o => setPalette(p => ({ open: o, init: o ? p.init : undefined }))}
-        placeholder={placeholder} suggested={suggested} chip={chip} roomPath={roomPath} dock={dock} />
+        placeholder={placeholder} suggested={suggested} chip={chip} roomPath={roomPath} dockPhase={dockPhase} />
       <ConnectedAppsSheet open={sheet} onOpenChange={setSheet} />
     </AffordanceRuntimeProvider>
   );
