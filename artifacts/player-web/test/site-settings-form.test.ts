@@ -24,7 +24,7 @@ const types = [
 
 test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
   assert.deepEqual(SECTIONS.map(s => s.id), ["world", "goals", "agents", "energy", "population", "time", "players", "review"]);
-  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "bidSeconds", "excludedFamilies", "ruleTiers", "penaltyWeight", "priorId", "bidPricing", "bidVisibility", "bidDisclosure"], "asked, then more");
+  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "bidSeconds", "excludedFamilies", "penaltyWeight", "priorId", "bidPricing", "bidVisibility", "bidDisclosure"], "asked, then more");
   assert.deepEqual(fieldsOf("world"), ["objectType", "typeArgs", "languages"], "the grammar and summon price follow each agent's language");
   assert.deepEqual(fieldsOf("population"), ["startingObjectCount", "spawnRateHz", "spawnFunctionId", "objectSelection"]);
 });
@@ -185,22 +185,6 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(paceWord(25), "slow");
   assert.equal(paceWord(100), "normal");
   assert.equal(paceWord(300), "fast");
-});
-
-test("tiered rules: the control's choices are none, one tier or two; none removes the setting; an experiment's composition is only shown", async () => {
-  const { RULE_TIER_CHOICES, ruleTiersId, ruleTiersPatch, formatValue } = await import("../src/site/lib/settings-form.ts");
-  assert.deepEqual(RULE_TIER_CHOICES.map(c => [c.id, c.value]), [["none", null], ["1", { depth: 1 }], ["2", { depth: 2 }]]);
-  assert.deepEqual([undefined, { depth: 1 }, { depth: 2 }, { depth: 1, compose: "plain" }].map(t => ruleTiersId(t as never)), ["none", "1", "2", "1:plain"]);
-  // The draft refuses tiered rules on a world that offers none, instead of failing only when the owner saves.
-  const { settingsDomain } = await import("../src/site/lib/settings-form.ts");
-  const domain = settingsDomain([]);
-  assert.deepEqual(domain.tiered!("Grid", { size: 4, symbols: "base10", colours: "mono" }, { depth: 1 }).sort(), ["crosswise_threes", "kings_and_subjects", "mirrormancer", "opposite_nines", "two_pair"]);
-  assert.deepEqual(domain.tiered!("Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, { depth: 1 }), [], "no family offers tiers on a 6×6 of hex digits");
-  assert.deepEqual(domain.tiered!("Grid", { size: 4, symbols: "base10", colours: "mono" }, { depth: 2 }).sort(), ["kings_and_subjects", "mirrormancer", "opposite_nines"], "the families that deal a pair");
-  assert.deepEqual(domain.tiered!("Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, { depth: 2 }), [], "two tiers need a world that offers them too");
-  assert.deepEqual(ruleTiersPatch("1"), { ruleTiers: { depth: 1 } });
-  assert.deepEqual(ruleTiersPatch("none"), { ruleTiers: null }, "null switches them off in the settings model");
-  assert.deepEqual([undefined, { depth: 1 }, { depth: 2, compose: "unlock" }].map(t => formatValue("ruleTiers", t)), ["none", "one ★ tier", "two ★ tiers (unlock)"]);
 });
 
 test("the bid phase on the form: bidding time in whole seconds up to 10 minutes, zero reads as no bidding; the price rule hides without a bid phase", () => {

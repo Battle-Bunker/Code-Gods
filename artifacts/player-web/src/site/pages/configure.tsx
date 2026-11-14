@@ -38,8 +38,8 @@ import { SettingsList, settingsSummary } from "@/site/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt, notFoundMsg } from "@/site/lib/errors";
 import {
-  QUOTA_LIMITS, LABELS, RULE_TIER_CHOICES, SECTIONS, argChoices, choiceLabel, costModelChoices, defenceBlocker, draftErrors, fieldsOf, formatValue, shownUnit, isHidden, lengthLine, limitError, paceWord,
-  dealerNote, firstUseNote, ruleTiersId, ruleTiersPatch, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
+  QUOTA_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, costModelChoices, defenceBlocker, draftErrors, fieldsOf, formatValue, shownUnit, isHidden, lengthLine, limitError, paceWord,
+  dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
 } from "@/site/lib/settings-form";
 import { freeName, ownerLabel } from "@/site/lib/setup-words";
 
@@ -449,19 +449,6 @@ function Field({ k, draft, editable, change, error, manifest, type }: FieldProps
         </Question>
       );
     case "select": {
-      if (k === "ruleTiers") {
-        // The one optional setting: "none" removes it; an experiment's composition shows as the current value only.
-        const current = ruleTiersId(draft.ruleTiers);
-        return (
-          <Question k={k} error={error}>
-            <select value={current} disabled={!editable} onChange={e => change(ruleTiersPatch(e.target.value))} data-testid={`select-${k}`} aria-label={LABELS[k]}
-              className="max-w-full border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary disabled:opacity-80">
-              {!RULE_TIER_CHOICES.some(c => c.id === current) && <option value={current} disabled>{formatValue(k, draft.ruleTiers)}</option>}
-              {RULE_TIER_CHOICES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-          </Question>
-        );
-      }
       const options = selectOptions(k, draft, manifest);
       return (
         <Question k={k} error={error}>

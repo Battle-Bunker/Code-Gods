@@ -12,16 +12,13 @@
  * K 3.0, against DIFF 16.8 for "2 points for a court, 1 for one away" (greedy traps on 17% of starts).
  *
  * `squares: "corners"` is the dealt base: the boxes that tile the board (four corner boxes on 4×4), disjoint units with
- * an exact law, so it carries tiers (./court-tiers.ts). `squares: "all"` is the expert variant on every overlapping 2×2
- * square (DIFF 20.7 on 4×4: not a beginner base, §1): it is in the params' domain for a setup that asks for it, never
- * in `support`, and it carries no tiers (no disjoint units).
+ * an exact law. `squares: "all"` is the expert variant on every overlapping 2×2 square (DIFF 20.7 on 4×4: not a
+ * beginner base, §1): it is in the params' domain for a setup that asks for it, never in `support`.
  */
 import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { choiceParam } from "../../../params.ts";
 import { tierPoints } from "../../../tuples.ts";
-import type { GridTiers, TierValue } from "../tiers.ts";
-import { COURT_INTERACTIONS } from "./court-tiers.ts";
 
 export type CourtSquares = "corners" | "all";
 export type CourtP = { squares: CourtSquares };
@@ -65,58 +62,11 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
   };
 };
 
-/**
- * Tiers on the corner base (measured on 4×4 digits: archive/engine-v1:docs/layered-rules-measurements/royal-court.md, reproduced by
- * scripts/royal-court-sweep.ts; test/royal-court.test.ts re-runs the liveness check of every dealt value).
- *
- * - Gate: the base's greedy ten-move level of its first component. One-cell greedy holds 3.99 courts of 4 after ten
- *   moves (396 of 400 random boards at 4), so the gate is every box a court.
- * - `pairs` (x): pairs of kings joined by a path with x in between. Dealt for x = 1..5: the count runs 0..6 one pair at
- *   a time and adds 12.2 to 13.3 bits. The owner's plain count of paths (`paths`) adds 22 to 53 bits for all but two
- *   values of x (its best boards hold 13 to 20 paths), above the cap of 20; so does the two-component `pathPairs`
- *   for all but five.
- * - `sameRoads` (y): roads of subjects showing one number, of exactly y cells. Dealt for y = 4 (12.4 bits); y = 2 and 3 are too rare at the top to calibrate (see COURT_LAB).
- *   The owner's "longest road" is maxed by 91% of the boards with four courts; roads of exactly y subjects depend only
- *   on where the kings sit (dead, or under 5 bits); the longest same-number road is topped by 1111/1331/1331/1111.
- * - Lab: alive, but above the cap.
- *
- * Kings and Subjects has no complement symmetry, so no value folds onto another.
- */
-const COURT_DEALT: readonly TierValue[] = [
-  ...[1, 2, 3, 4, 5].map(x => ({ id: "pairs", x })),
-  { id: "sameRoads", y: 4 },
-];
-// Same-number roads of 2 and 3 are not dealt at all, Lab included: their best tier is so rare (about 21 and 24 to 26 bits
-// over the base) that the hybrid law misses it by up to 5 bits at the shipped budget
-// (archive/engine-v1:docs/layered-rules-measurements/kings-and-subjects.md).
-const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 }];
-/**
- * Expert (two tiers: pairs of kings, then same-number roads among boards equal on pairs), on 4×4 digits against a band
- * of 6 to 26 bits for the two together (archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md). With every pair of kings
- * scoring, one road of four equal subjects is the most that fits.
- */
-const COURT_PAIRS: readonly (readonly [TierValue, TierValue])[] = [2, 3].map(x => [{ id: "pairs", x }, { id: "sameRoads", y: 4 }] as const);
-
-export const courtTiers: GridTiers<CourtP> = {
-  interactions: COURT_INTERACTIONS,
-  gate: g => (g.N / 2) ** 2,
-  gateText: gate => `${gate} courts`,
-  dealt: g => (g.N === 4 && g.base === 10 ? COURT_DEALT : []),
-  lab: g => (g.N === 4 && g.base === 10 ? COURT_LAB : []),
-  dealtPairs: g => (g.N === 4 && g.base === 10 ? COURT_PAIRS : []),
-  base: (p, g) => (p.squares !== "corners" ? null : {
-    id: "kings-and-subjects-boxes@1", symbols: g.S, cells: g.N * g.N, arity: 2,
-    units: courtSquares(g.N, "corners").map(({ r, c }) => [r * g.N + c, r * g.N + c + 1, (r + 1) * g.N + c, (r + 1) * g.N + c + 1]),
-    score: symbols => courtScore(symbols.map(s => g.value[s]), noKingPenalty(g)).score,
-  }),
-};
-
 const skipTs = (p: CourtP) => (p.squares === "corners" ? "if (cell.row % 2 === 1 || cell.col % 2 === 1) continue;" : "if (!cell.right || !cell.down) continue;");
 const skipPy = (p: CourtP) => (p.squares === "corners" ? "if cell.row % 2 == 1 or cell.col % 2 == 1:" : "if cell.right is None or cell.down is None:");
 const vocab = (p: CourtP) => p.squares === "corners";
 
 export const kingsAndSubjects = gridFamily<CourtP>({
-  tiers: courtTiers,
   id: "kings_and_subjects", name: "Kings and Subjects", emoji: "🫅", theme: "A king who equals his three subjects added up",
   // Numbers, not cards; boxes tile the board only on even sizes; up to 6×6 keeps the calibrated shapes modest.
   requires: { classes: ["Numeral"], parity: "even", maxSize: 4 }, shape: tuple(2), tags: ["layered"],

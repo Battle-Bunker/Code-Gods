@@ -7,7 +7,6 @@ import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { tierPoints } from "../../../tuples.ts";
 import { halfTurnPairs, pairTop } from "./_pairs.ts";
-import { foldTotal, linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
 
 type NinesP = Record<string, never>;
 
@@ -28,61 +27,7 @@ const ninesText = (g: GridSpec): CardText => {
   };
 };
 
-/**
- * Tiers (archive/engine-v1:docs/layered-rules-design.md §5.3): "lines add up to x" and "2×2 squares add up to x". Half-turn partners add
- * up to the target T at the base's top, so a line and its image add up to N·T together and x folds with N·T − x; at
- * x = N·T/2 (18 on 4×4 digits) both long diagonals are free and the tier is Magic Eighteen's own goal.
- */
-export const ninesTiers: GridTiers<NinesP> = {
-  interactions: [
-    { ...linesSum, canonical: foldTotal("lines", g => g.N * ninesTarget(g)) },
-    { ...windowsSum, canonical: foldTotal("squares", g => 4 * ninesTarget(g)) },
-  ],
-  // The base's greedy ten-move level on 4×4 (archive/engine-v1:docs/layered-rules-design.md §3): three quarters of the pairs.
-  gate: g => (3 * g.N * g.N) / 8,
-  gateText: (gate, g) => `${gate} opposite pairs that add up to ${g.say.tile(ninesTarget(g))}`,
-  dealt: g => (g.N === 4 && g.base === 10 ? NINES_DEALT : []),
-  lab: g => (g.N === 4 && g.base === 10 ? NINES_LAB : []),
-  dealtPairs: g => (g.N === 4 && g.base === 10 ? NINES_PAIRS : []),
-  base: (_p, g) => ({
-    id: "opposite-nines-pairs@1", symbols: g.S, cells: g.N * g.N, arity: 2,
-    units: halfTurnPairs(g.N).map(([a, b]) => [a.r * g.N + a.c, b.r * g.N + b.c]),
-    score: ([a, b]) => { const total = g.value[a] + g.value[b]; return [total === ninesTarget(g) ? 1 : 0, -Math.abs(total - ninesTarget(g))]; },
-  }),
-};
-/**
- * The values dealt on 4×4 digits (measured, archive/engine-v1:docs/layered-rules-measurements/opposite-nines.md): each is alive at the
- * base's top, adds 11 to 15 bits over it (the band is 6 to 20), and the tops of one interaction's values stay within
- * 15% of each other (equal opportunity between peers, test/equal-opportunity.test.ts).
- */
-const NINES_DEALT: readonly TierValue[] = [
-  ...[11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].map(x => ({ id: "lines", x })),
-  ...[12, 14, 16, 20, 22, 24].map(x => ({ id: "squares", x })),
-];
-/**
- * Lab ("uncapped"): alive, but reaching further than their peers. Lines and squares of 10 top 43 bits against 37.5 to 41.6
- * for the dealt values; exactly (10^8 top boards counted), lines of 9 add 19.3 bits and squares of 9 add 20.3.
- * Squares of 18 and of 8 are refused outright: a two-digit board maxes them.
- */
-const NINES_LAB: readonly TierValue[] = [
-  ...[9, 10, 26, 27].map(x => ({ id: "lines", x })), ...[9, 10, 26, 27].map(x => ({ id: "squares", x })),
-];
-
-/**
- * Expert (two tiers: lines, then squares among boards equal on lines), measured on 4×4 digits against a band of 6 to 26
- * bits for the two together (archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md). Both totals are at most 18, so each
- * pair is its own canonical form: the two values fold separately (x ~ 36 − x), which is one symmetry of the pair only
- * when both fold together.
- */
-const NINES_PAIRS: readonly (readonly [TierValue, TierValue])[] = [
-  [{ id: "lines", x: 18 }, { id: "squares", x: 16 }],
-  [{ id: "lines", x: 16 }, { id: "squares", x: 16 }],
-  [{ id: "lines", x: 14 }, { id: "squares", x: 16 }],
-  [{ id: "lines", x: 16 }, { id: "squares", x: 14 }],
-];
-
 export const oppositeNines = gridFamily<NinesP>({
-  tiers: ninesTiers,
   id: "opposite_nines", name: "Opposite Nines", emoji: "🙃", theme: "Opposite cells that add up to the biggest number",
   requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
   params: () => ({}),

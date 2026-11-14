@@ -220,17 +220,6 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
       {caption && <p className="mb-2 text-xs leading-snug text-muted-foreground" data-testid="goal-board-caption">{caption}</p>}
       <div className="mb-2 text-xs leading-snug">
         {total && <p data-testid="goal-board-total">{total}</p>}
-        {/*
-          A tiered rule below its gate: how many more primary points open the ★ tier (its units then join the list).
-          Open but scoring nothing: the tier's own words and the unit that comes nearest, which is the only foothold on
-          a tier that takes a plan rather than one more cell. Open and scoring: the units in the list say it.
-        */}
-        {rich && explanation?.tiers?.filter(t => !t.open || t.scored === 0).map(t => (
-          <p key={t.index} className="text-muted-foreground" data-testid="goal-tier-note">
-            {ruleScoreWording(t.note)}
-            {t.nearest && <> <span data-testid="goal-tier-nearest">Nearest: {ruleScoreWording(t.nearest)}</span></>}
-          </p>
-        ))}
         {explanation && !explanation.verified && <p className="text-muted-foreground">Can't explain this board yet.</p>}
         {rich && units.length === 0 && <p className="text-muted-foreground" data-testid="goal-no-units">Nothing on this board counts towards this goal yet.</p>}
       </div>

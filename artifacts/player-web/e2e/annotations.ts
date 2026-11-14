@@ -53,22 +53,6 @@ try {
     if (f === "number_bonds") await how.screenshot({ path: process.env.HOW_SHOT ?? "/tmp/how-number-bonds.png" });
   }
 
-  // A tiered draw (docs/tiered-rules.md): above the gate the ★ tier says what it wants and, while it scores nothing,
-  // which unit comes nearest. Once it scores, the units in the list say it and the line goes.
-  for (const f of ["two_pair", "crosswise_threes"]) {
-    const empty = page.locator(`[data-testid=tiered-empty-${f}]`);
-    const note = empty.locator("[data-testid=goal-tier-note]");
-    assert.equal(await note.count(), 1, `${f}: one ★ line on a board that opens the tier`);
-    const text = await note.innerText();
-    assert.match(text, /^★ Open: /, `${f}: the ★ line names what the tier wants (${text})`);
-    assert.match(text, /Nearest: \S.*\.$/s, `${f}: and the unit that comes nearest (${text})`);
-    assert.ok(!/\bpoints?\b/.test(text.replace(/rule-score points?/g, "")), `${f}: never the reserved word (${text})`);
-    assert.ok((await empty.locator("[data-testid=goal-unit]").count()) > 0, `${f}: its units are listed`);
-    const scoring = page.locator(`[data-testid=tiered-scoring-${f}]`);
-    assert.equal(await scoring.locator("[data-testid=goal-tier-note]").count(), 0, `${f}: a scoring ★ tier says nothing extra`);
-    assert.match(await scoring.locator("[data-testid=goal-board-total]").innerText(), /^This board's rule score: \(/, f);
-  }
-
   // A family without a lens: the board and its score, no breakdown, no crash.
   const plain = page.locator("[data-testid=example-plain]");
   assert.equal(await plain.getAttribute("data-rich"), null);

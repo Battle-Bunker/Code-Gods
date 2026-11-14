@@ -9,7 +9,7 @@ Status: design, with measurements. It answers the finding that one-condition rul
 > prime factors in the root of that nearest perfect square."
 
 It builds on the grid's layered rules ([../layered-rules-design.md](../layered-rules-design.md),
-[../tiered-rules.md](../tiered-rules.md)), on the spec's line, representations, codes and valuation
+`archive/engine-v1:docs/tiered-rules.md`), on the spec's line, representations, codes and valuation
 ([spec.md](spec.md) §2.3, §4, §7, §12), and on the owner's principle on prices: moving to larger or more complex numbers
 costs more than coming back, which makes "gravitational centres that are expensive to depart from".
 
@@ -62,7 +62,7 @@ A layered rule's score is a tuple **(primary, secondary, tertiary)**, compared l
 
 - **Gating.** A component after the first is 0 unless every component before it is at its own top (a distance of 0, a
   condition met). Below the gate the rule is its primary alone, exactly as the grid's gated tiers
-  ([../tiered-rules.md](../tiered-rules.md)). "One primary point beats any number of secondary points" is the one
+  (`archive/engine-v1:docs/tiered-rules.md`). "One primary point beats any number of secondary points" is the one
   sentence that explains the order on the card.
 - **Rungs.** The ladder (spec §4.4) lists thresholds on the tuple: dyadic distances for the primary (≤ 2, 1, ½, ¼, 0),
   then thresholds on the secondary, then on the tertiary. Rung thresholds are what the calibration values and what the

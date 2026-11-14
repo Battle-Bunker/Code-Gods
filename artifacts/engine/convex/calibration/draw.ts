@@ -10,7 +10,7 @@
  * analytic (built in memory) or computed earlier; a draw without one is a 404 and never schedules a computation.
  */
 import { defaultSettingsFor } from "@workspace/game-core";
-import { TIER_COMPOSITIONS, applicable, context, dealableParams, family, instantiateKey, isPlayableInstantiation, paramsKey } from "@workspace/game-utilities";
+import { applicable, context, family, instantiateKey, isPlayableInstantiation, paramsKey } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
 import { httpAction, internalQuery } from "../_generated/server";
 import { requireViewer } from "../auth/access";
@@ -33,11 +33,9 @@ export function drawOf(url: URL): { settings: ReturnType<typeof defaultSettingsF
   try { f = family(familyId); } catch { return { error: `Unknown rule family ${familyId}` }; }
   try { params = JSON.parse(raw); } catch { return { error: "params must be a JSON object" }; }
   if (!params || typeof params !== "object" || Array.isArray(params)) return { error: "params must be a JSON object" };
-  // Only a draw a game could deal here: params in the family's finite support, or one of its tiered draws (a tiered
-  // game, settings.ruleTiers), never made-up params.
-  const wanted = paramsKey(params), ctx = context(inst);
-  const dealt = (draws: readonly unknown[]) => draws.some(p => paramsKey(p) === wanted);
-  if (!dealt(f.support(ctx)) && !TIER_COMPOSITIONS.some(compose => [1, 2].some(depth => dealt(dealableParams(f, ctx, { depth, compose }))))) return { error: `Those params are not a ${familyId} draw on ${inst.key}` };
+  // Only a draw a game could deal here: params in the family's finite support, never made-up params.
+  const wanted = paramsKey(params);
+  if (!f.support(context(inst)).some(p => paramsKey(p) === wanted)) return { error: `Those params are not a ${familyId} draw on ${inst.key}` };
   let ok;
   try { ok = applicable(f, inst, params as Record<string, never>); } catch { return { error: `${familyId} cannot be dealt on ${inst.key}` }; }
   if (!ok.ok) return { error: `${familyId} cannot be dealt on ${inst.key}: ${ok.reason}` };

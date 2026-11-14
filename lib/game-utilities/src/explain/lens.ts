@@ -6,7 +6,7 @@
  */
 import type { Params } from "../types.ts";
 import type { Board } from "./board.ts";
-import type { Breakdown, BreakdownItem, Part, TierStatus } from "./model.ts";
+import type { Breakdown, BreakdownItem, Part } from "./model.ts";
 import type { HoverGeometry } from "./units.ts";
 
 export interface Lens<P extends Params = Params> {
@@ -25,8 +25,6 @@ export interface Lens<P extends Params = Params> {
    * offers one mode per kind, which the renderer shows as an auxiliary toggle.
    */
   hover?(p: P, b: Board): HoverGeometry;
-  /** A tiered draw's ★ tiers on this board (tier-lenses.ts `tieredLens`); a family's own lens never gives it. */
-  tiers?(p: P, b: Board): readonly TierStatus[] | undefined;
   /** Boards worth trying as goal examples (wire values of the room's shape), besides the generic search. */
   seeds?(p: P, b: Board): string[];
 }

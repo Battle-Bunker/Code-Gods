@@ -24,7 +24,7 @@ export type ParamType =
 export type ParamKind = ParamType["kind"];
 
 /** One declared param: its type and a plain label ("Your colour", "Magic number"). */
-export type ParamDecl = ParamType & { readonly label: string; /** May be absent from the params (a tiered draw's `tiers`). */ readonly optional?: boolean };
+export type ParamDecl = ParamType & { readonly label: string };
 /** A family's declaration: every param by name (the keys of its params, exactly). */
 export type ParamDecls<P extends Params> = { readonly [K in keyof P]: ParamDecl };
 
@@ -43,8 +43,6 @@ export interface ParamField {
   readonly key: string;
   readonly label: string;
   readonly kind: ParamKind;
-  /** The param may be absent (base draws carry no `tiers`). */
-  readonly optional?: boolean;
   /** Sets only: how many distinct elements a value holds. */
   readonly size?: number;
   readonly options: readonly ParamOption[];
@@ -62,8 +60,8 @@ export const valuesParam = <T extends ParamJson>(label: string, values: readonly
   choiceParam(label, values.map(v => [v, labelOf(v)] as const));
 /**
  * Values compare by content, whatever order an object's keys are written in (lists included). Key order matters here:
- * Convex sorts an object's keys when it encodes a value, so a param that holds an object (a tiered draw's `tiers`,
- * docs/tiered-rules.md) comes back from the engine with its keys in another order than the family wrote them.
+ * Convex sorts an object's keys when it encodes a value, so a param that holds an object comes back from the engine
+ * with its keys in another order than the family wrote them.
  */
 const same = (a: unknown, b: unknown) => stableJson(a) === stableJson(b);
 const stableJson = (v: unknown): string =>
@@ -102,14 +100,14 @@ export function paramOptions(decl: ParamDecl, inst: Instantiation): ParamOption[
 /** A family's declaration resolved against an instantiation, in declaration order. */
 export function resolveParams(decls: { readonly [key: string]: ParamDecl }, inst: Instantiation): ParamField[] {
   return Object.entries(decls).map(([key, d]) => ({
-    key, label: d.label, kind: d.kind, options: paramOptions(d, inst), ...(d.kind === "set" ? { size: d.size } : {}), ...(d.optional ? { optional: true } : {}),
+    key, label: d.label, kind: d.kind, options: paramOptions(d, inst), ...(d.kind === "set" ? { size: d.size } : {}),
   }));
 }
 
 /** Whether every declared param of `params` holds a value of its domain (and nothing undeclared is present). */
 export function paramsInDomain(fields: readonly ParamField[], params: Params): boolean {
   const keys = Object.keys(params);
-  if (!keys.every(k => fields.some(f => f.key === k)) || !fields.every(f => f.optional || keys.includes(f.key))) return false;
+  if (!keys.every(k => fields.some(f => f.key === k)) || !fields.every(f => keys.includes(f.key))) return false;
   return fields.filter(f => keys.includes(f.key)).every(f => (f.kind === "set" ? setInDomain(f, params[f.key]) : f.options.some(o => same(o.value, params[f.key]))));
 }
 

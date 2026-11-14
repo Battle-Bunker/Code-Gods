@@ -42,8 +42,7 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
   const [wide] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(min-width: 640px)").matches);
   return (
     <div className="space-y-5" data-testid="goal-card">
-      {/* A tiered rule's ★ block opens once the example object reaches its gate (or already holds a tier point). */}
-      <UtilityCardView card={card} grid={ctx.grid} goal={goal} ordinal={score} sourceOpen={sourceOpen} />
+      <UtilityCardView card={card} grid={ctx.grid} goal={goal} sourceOpen={sourceOpen} />
       <section className="space-y-2" data-testid="goal-card-example-object">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="label !text-[hsl(var(--foreground))]">Try a {noun}</h3>
