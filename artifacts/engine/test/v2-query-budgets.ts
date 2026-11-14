@@ -28,6 +28,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/rooms:list", args: () => page, reads: "v2Members by_user page", cold: true, pending: true },
   { query: "v2/rooms:get", args: f => ({ roomId: f.roomId }), reads: "room + ≤ 16 members + current and last game header", cold: true, pending: true },
   { query: "v2/rooms:chat", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Chat by_room page", cold: true, pending: true },
+  { query: "v2/rooms:round", args: f => ({ roomId: f.roomId }), reads: "≤ 16 ended game headers + their v2Standings", cold: true, pending: true },
   { query: "v2/rooms:history", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Games by_room_phase page", cold: true, pending: true },
   { query: "v2/games:header", args: f => ({ gameId: f.gameId }), reads: "1 v2Games + the caller's member and player rows", cold: true, pending: true },
   { query: "v2/games:standings", args: f => ({ gameId: f.gameId }), reads: "1 v2Standings", cold: false, pending: true },

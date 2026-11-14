@@ -189,6 +189,7 @@ import type * as v2_testing from "../v2/testing.js";
 import type * as v2_tick from "../v2/tick.js";
 import type * as v2_validators from "../v2/validators.js";
 import type * as v2_world from "../v2/world.js";
+import type * as v2Http from "../v2Http.js";
 import type * as version from "../version.js";
 
 import type {
@@ -379,6 +380,7 @@ declare const fullApi: ApiFromModules<{
   "v2/tick": typeof v2_tick;
   "v2/validators": typeof v2_validators;
   "v2/world": typeof v2_world;
+  v2Http: typeof v2Http;
   version: typeof version;
 }>;
 

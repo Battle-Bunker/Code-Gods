@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
 import { lineType, lineZ } from "@workspace/v2-linear";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
-import { admin, humans, perform, type Human } from "./v2-helpers.ts";
+import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers.ts";
 
 let host: Human, roomId: string, gameId: string;
 const events: any[] = [];
@@ -103,4 +103,19 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);
   }
+});
+
+test("the stored replay: built once at the end, served only to a member with a JWT, and it is the record", { timeout: 60_000 }, async () => {
+  for (let i = 0; !(await host!.query("v2/replays:stored", { gameId })).stored; i++) {
+    assert.ok(i < 100, "the replay file is built");
+    await new Promise(r => setTimeout(r, 300));
+  }
+  const url = `${SITE_}/api/v2/replay/${gameId}`;
+  assert.equal((await fetch(url)).status, 401, "sign-in is required");
+  const [outsider] = await humans("M1 Outsider");
+  assert.equal((await fetch(url, { headers: { authorization: `Bearer ${await httpJwt(outsider!.userId)}` } })).status, 403);
+  const file = await (await fetch(url, { headers: { authorization: `Bearer ${await httpJwt(host!.userId)}` } })).json();
+  assert.equal(file.version, 1);
+  assert.deepEqual(file.events.map((e: any) => e.seq), events.map(e => e.seq), "every event, in order");
+  assert.equal(file.rules.length, 3, "after the end every player's rule is open");
 });

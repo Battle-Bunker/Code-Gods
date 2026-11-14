@@ -117,3 +117,8 @@ export async function executionLog() {
     async stop() { stopped = true; await loop; },
   };
 }
+
+/** A real Convex JWT for `userId` over HTTP (an account grant's player JWT, minted by a fixture). */
+export async function httpJwt(userId: string): Promise<string> {
+  return await admin.action("v2/testing:accountJwt", { userId });
+}

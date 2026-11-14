@@ -69,7 +69,7 @@ test("every live query answers a seated player within its validator", async () =
   assert.equal((await ada.query("v2/spectate:objectIds", { gameId, paginationOpts: page })).page.length, 12);
   assert.equal((await ada.query("v2/spectate:object", { objectId: objects[0] })).number, 1);
   assert.equal(await ada.query("v2/layout:current", { roomId }), null);
-  assert.deepEqual(await ada.query("v2/replays:stored", { gameId }), { stored: false, url: null });
+  assert.deepEqual(await ada.query("v2/replays:stored", { gameId }), { stored: false });
   assert.equal((await ada.query("v2/bids:state", { roomId })).open, false);
   await admin.mutation("v2/testing:setBidding", { roomId, open: true });
   const bids = await ada.query("v2/bids:state", { roomId });

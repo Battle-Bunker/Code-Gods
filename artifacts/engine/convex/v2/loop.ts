@@ -29,6 +29,7 @@ const MAX_FAILURES = 20;
 /** A move concerns a player whose points on the object changed by more than this (plan §2.3). */
 const CONCERN = 0.05;
 
+const BUILD_REPLAY = makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replays:build");
 const TICK = makeFunctionReference<"action", { gameId: Id<"v2Games">; leaseId: string }>("v2/tick:tick");
 
 // ---------------------------------------------------------------- reading the game
@@ -177,6 +178,7 @@ export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const acts = engine.acts;
   await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts } });
   await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
+  await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
   // Who joined while it ran watched it; the next game seats them.

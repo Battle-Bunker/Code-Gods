@@ -12,7 +12,9 @@ import { families, fromMC, lineType, lineZ, type LineState } from "@workspace/v2
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
+import { mintPlayerJwt } from "../auth/jwt";
+import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
 
@@ -261,3 +263,24 @@ export const header = internalQuery({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => { fixtures(); return await ctx.db.get(gameId); },
 });
+
+/** An account-scope credential: the human everywhere, as an OAuth account grant is. */
+export const seedAccountCredential = internalMutation({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    fixtures();
+    const now = Date.now();
+    return await ctx.db.insert("credentials", { tokenHash: crypto.randomUUID(), subject: userId, permission: "account", label: "v2 test", kind: "oauth", createdAt: now, expiresAt: now + 3600_000 });
+  },
+});
+
+/** A real Convex JWT for an account grant: how a test calls an HTTP route that checks `Authorization: Bearer`. */
+export const accountJwt = internalAction({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }): Promise<string> => {
+    fixtures();
+    const credentialId: string = await ctx.runMutation(SEED_ACCOUNT, { userId });
+    return (await mintPlayerJwt({ subject: userId, credentialId, permission: "account" })).token;
+  },
+});
+const SEED_ACCOUNT = makeFunctionReference<"mutation", { userId: string }, string>("v2/testing:seedAccountCredential");
