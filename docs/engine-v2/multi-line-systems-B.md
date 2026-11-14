@@ -473,6 +473,19 @@ Three lines next: the same contracts plus `rail.move` and `pair.quarter`, famili
   lib/v2-linear's in small ways (the factor code's rate, the Q amount code).
 - `pair.turn` and `sys.straighten` are designed but not measured.
 - Whether the dealer's aspect-coverage check is enough to pass test 3 is a prediction, not a measurement.
+- **Checks from the single-line study** (`line-rules-v3-proposals.md`, relayed 14 November), not yet run on systems:
+  - *Degenerate cheap solutions.* The law is cheap near 0 and ±1, so exact coincidences have degenerate answers. The
+    top states in §4.6 bear this out: y = x, y = −x, the axes, lines through (0, 0). Test 3's plateaus are partly
+    these. Every pool should be checked for tops made of parallel lines, slopes 0 or ±1, or intercepts 0.
+  - *Hidden ramps in near-misses.* A "nearly whole" distance on a quantity whose near-misses improve with size (a
+    square root, a fraction with denominator q) is a ramp. Whole Distance grades x² + y² against squares, whose gaps
+    widen with size, so it should not have one; the scale-free primaries (Isosceles' relative side difference, the
+    |dot/D| of the right-angle rules) might. Neither is measured.
+  - *Solvable by a rule-knowing climber.* On one line, a 10⁵-evaluation steepest ascent reached 68–100% of the best
+    found even with unenumerable reach. Test 2 here (cheap/strong 0.19–1.00) is the same kind of result: reach is not
+    a defence on its own.
+  - The single-line harness (`lib/v2-agents/scripts/line-rules-v3.ts`) has the five collapse tests and a per-mutator
+    fight/coexist matrix. Generalising its state, `moves` and birth to k lines would let both studies share one gate.
 
 ## 8. Revision B2: tied secondaries, unbounded hills and deliberate tensions
 
