@@ -153,7 +153,8 @@ export const seedGame = internalMutation({
     for (const { memberId } of rules) await ctx.db.insert("v2Digests", { gameId, memberId, packed: packed.get(memberId) ?? [], version: 1 });
     await ctx.db.insert("v2Events", { gameId, seq: 0, kind: "gameStarted", data: { fixture: true, variant: lineZ.id, seed } });
     await ctx.db.insert("v2Clocks", { gameId, tick: 0, worldSeconds: 20, lastTickAt: now, objects: n, agents: members.length, commits: 0, events: 1 });
-    return { roomId, gameId, members, objects };
+    // Each member's dealt family, so a test can check a player is shown their own rule.
+    return { roomId, gameId, members, objects, families: rules.map(r => r.dealt.family) };
   },
 });
 

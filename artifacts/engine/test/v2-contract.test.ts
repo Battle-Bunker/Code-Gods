@@ -13,12 +13,12 @@ import { randomUUID } from "node:crypto";
 import { admin, anonymous, errorCode, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, cy: Human, sy: Human;
-let roomId: string, gameId: string, objects: string[];
+let roomId: string, gameId: string, objects: string[], families: string[];
 const page = { numItems: 50, cursor: null };
 
 before(async () => {
   [ada, bo, cy, sy] = await humans("Contract Ada", "Contract Bo", "Contract Cy", "Contract Sy");
-  ({ roomId, gameId, objects } = await admin.mutation("v2/testing:seedGame", {
+  ({ roomId, gameId, objects, families } = await admin.mutation("v2/testing:seedGame", {
     owner: ada.userId, humans: [bo.userId, cy.userId], spectators: [sy.userId], objects: 12,
   }));
 });
@@ -44,7 +44,7 @@ test("every live query answers a seated player within its validator", async () =
   assert.equal((await ada.query("v2/games:standingsHistory", { gameId, after: 1 })).length, 1);
 
   const rule = await ada.query("v2/play:myRule", { gameId });
-  assert.equal(rule.family, "prime-gradient");
+  assert.equal(rule.family, families[0], "each player is shown the rule dealt to them");
   assert.ok(rule.value.knots.length > 2 && rule.card.length > 0);
   const me = await ada.query("v2/play:me", { gameId });
   assert.equal(me.memberId, header.me);
@@ -162,7 +162,7 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   const whoami = await perform(ada, "account.whoami", {}, {}, "query");
   assert.deepEqual(whoami.result, { userId: ada.userId, name: ada.name, roomId: null, grant: null });
   const rule = await perform(cy, "rule.explain", {}, { gameId }, "query");
-  assert.equal(rule.result.family, "m-meets-c");
+  assert.equal(rule.result.family, families[2], "each player is told the rule dealt to them");
   const listed = await perform(cy, "objects.list", { sort: "points", limit: 5 }, { gameId }, "query");
   assert.equal(listed.result.page.length, 5);
   assert.ok(listed.result.nextCursor);
