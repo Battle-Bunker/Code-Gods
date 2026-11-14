@@ -188,9 +188,9 @@ Thresholds and rungs are gone. A state is worth bits(s) = −log2 π{states whos
 least as good}, at its actual score (spec §7.0). The artefacts are value functions (`lib/v2-valuation/values/`,
 `pnpm --filter @workspace/v2-valuation values`): knots with certified intervals, bracketed between knots and
 extrapolated beyond them. On `line-z` the exact sums certify knots to 25–30 bits (on the height-capped law the game
-plays). On `line-q`, direct draws (a mixture of tilted laws) are certified to 12–20 bits; the same sampler, checked
-against the exact sums on line-z (`sampler-check`), stays calibrated through 25 bits (|z| ≤ 2.4 above 8 bits), so every
-line-q knot is within its checked range, and anything rarer is marked extrapolated. The owner's examples, at scores that
+plays). On `line-q`, direct draws (a mixture of tilted laws) are certified to 18 bits. That is how far the same sampler
+stayed calibrated in independent replicates against the exact sums on line-z (`sampler-check --replicates`, spec §7.0).
+Anything rarer is marked extrapolated. The owner's examples, at scores that
 were never thresholds:
 
 | Rule | Score | Bits | Certified | Where | Chance |

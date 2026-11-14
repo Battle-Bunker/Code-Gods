@@ -626,12 +626,15 @@ between knots is within delta/2 of the truth.
   exactly coordinate by coordinate (per-prime geometric exponents; `sampleMixedInt`); a fraction line is a drawn triple
   kept when canonical. The rare tail comes from a mixture of tilted laws q_t(n) = 2^(−t·bits(n))/Z_t (t = 1, 0.75, 0.55,
   0.4, 0.3), each draw weighted p/q_mix and the estimate self-normalised; its ±2σ interval (delta method) is certified
-  within max(5% · bits, 0.2 bits) with at least 30 draws at or above the knot, and never past `sampledMaxBits` (25).
+  within max(5% · bits, 0.2 bits) with at least 30 draws at or above the knot, and never past `sampledMaxBits` (18).
   π itself is one component of the mixture, so every weight is at most K = 5 (no draw can dominate). That limit is
-  the rarity to which the same sampler was checked against the exact sums (`pnpm --filter @workspace/v2-valuation
-  sampler-check`): 654 exact knots on 9 line-z pairings. With 30 or more draws above the knot, |z| ≤ 2.4 everywhere above 8 bits. Below 8 bits a few
-  |z| exceed 3, but their error is at most 0.04 bits, the exact knots' own width. The bits error is at most 0.08 below
-  12 bits and 0.53 at 12–25 bits, inside the stated intervals. A score rarer than the last certified knot is
+  the rarity to which the same sampler stayed calibrated in **independent replicates** against the exact sums
+  (`pnpm --filter @workspace/v2-valuation sampler-check -- <family> <tie-breaker> --replicates 16`; 16 seeds, 6 line-z
+  pairings, z at fixed scores near 2, 5, …, 23 bits). |z| > 2 in 4.2% of checks at 6–12 bits and 2.8% at 12–18 bits.
+  Above 18 bits there were too few checks: 17, one at 3.97σ. Below 6 bits the excess is the exact references' own width:
+  plain draws from π, which are unbiased, show more of it. (A single sample read at many scores overstates misses,
+  because its estimates move together; the grids session found the same, grids.md §5.2b.) A score rarer than the last
+  certified knot is
   extrapolated (marked `beyond`, floor = that knot's lo).
 
 **The board's box is part of the law, not a truncation of it.** Every line variant has a `heightCap` (10^6): a line
