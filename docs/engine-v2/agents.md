@@ -75,7 +75,7 @@ Every act's prelude defines these, with the same names and behaviour in both lan
 | `rarity(offer, score)` | the rarity your rule gives a score your own score function computed; 0 when the game does not say | 1, free |
 | `recent(offer)` | the latest moves on this line you may see, newest last: `mine`, `pointsBefore`, `pointsAfter` (Python `points_before`, `points_after`) | 1, a small read per move |
 | `pushback(offer)` | how many times lately another player's move took back points your agent had just won here (a tug-of-war) | as `recent` |
-| `contested(offer, times)` | true once `pushback` reaches `times`; it then leaves the owner a note that the agent is leaving the line | as `recent` |
+| `contested(offer, times)` | true once `pushback` reaches `times`; it then leaves the owner a note naming the tug-of-war | as `recent` |
 | `note(offer, text)` | leave your owner a short note in the act log (at most 3 an act, 200 characters) | 1, free |
 
 An agent is `agent(offer)` returning a plan (a list of moves) or null/None to skip. The lower-level guest API
@@ -96,9 +96,10 @@ startersFor(family, "typescript")          // [Simple, Thorough, Bold, Naive]: "
   moves that can raise each tie-breaker); the rendered copies are in `lib/v2-agents/agents/<family>/` (regenerate with
   `pnpm --filter @workspace/v2-agents render`; a test fails when they are stale).
 - **Playing for points.** Points on a line are the owner's rarity times the others' rarity, so the example and the
-  three starters walk away from a tug-of-war (`contested(offer, 3)`: another player took back their gains three times
-  lately), leaving the owner a note to talk to that player, and never spend more than a quarter of their energy on one
-  move. They only take changes that make the line better for their rule, so they never lower their owner's rarity.
+  three starters note a tug-of-war to their owner (`contested(offer, 3)`: another player took back their gains three
+  times lately), so the owner can make a deal, and never spend more than a quarter of their energy on one move. They
+  keep playing the line: on the server's economy, walking away from contested lines gave them up (2,015–2,346 points a
+  seat against 2,728 for staying, over six 300 s seats; docs/engine-v2/ai-table-results.md). They only take changes that make the line better for their rule, so they never lower their owner's rarity.
   **Naive (for learning)** is the same search without any of this, labelled as a teaching example: show it beside
   Simple so a player can see why. On 18 harness seats (three 3-player beginner tables, two seeds, 1,500 ⚡ each, 24
   lines) Simple scored 19,236 points against Naive's 18,285; neither went negative.
@@ -116,8 +117,21 @@ startersFor(family, "typescript")          // [Simple, Thorough, Bold, Naive]: "
 its tokens, the same code for both languages. Comments and layout are free, so plain-words comments cost nothing; a
 vocabulary word (keywords, operators, the helpers) costs log2 of the vocabulary; a name of the agent's own costs its
 spelling once and little after; `Q.add(a, b)` costs what `a + b` does. Energy = bits × `SUMMON_ENERGY_PER_BIT`
-(⅙, chosen so the dearest shipped agent, 544 ⚡, fits the beginner preset's 600 ⚡ and leaves the first agent its ≈70% share; v2-economy may own the constant). Python and
+(⅙, chosen so the dearest shipped agent, 588 ⚡ after the points-aware lines, fits the beginner preset's 600 ⚡ and leaves the first agent its ≈70% share; v2-economy may own the constant). Python and
 TypeScript prices of the same agent are within 15% (test). This replaces game-runtime's AST bits.
+
+**Edit price** (owner decision 21; `editBits(language, oldSource, newSource)` → `{ bits, energy, tokens }`): replacing
+an agent's program costs only the change, at the same ⚡ per bit. The change is the shortest token-level edit script
+from the old program's priced tokens to the new one's (a longest common subsequence over the tokens the summon price
+counts, so comments and layout stay free). The script is coded as its number of hunks, then per hunk where it starts
+in the old program (log2 of the old length + 1 bits), how many tokens it deletes and how many it inserts (integer
+codes, spec §2.3), and the inserted tokens at their summon bits, with the old program's names already spelled. An
+identical program costs 0, and an edit never costs more than the new program's full summon price (sending it whole is
+always possible). A change of language is a full summon. Example: adding `if ([2, 9].includes(offer.object)) return null;`
+to Treasure's Simple starter costs about 18 ⚡; the whole program costs 404 ⚡. A new agent still pays the full summon
+price. **Not on the server yet:** `reprogram` (agent.replace, agent.putBack) still charges the full summon price, and
+`power.allocate` still normalises its shares; W3 is moving both to this page's semantics (edit price; absolute shares).
+Until then the seat prompt's edit price and power manoeuvre hold only in tables.
 
 Prices of the shipped agents when this page was written:
 
@@ -280,13 +294,23 @@ the same as a function. The pool run is in [agent-harness-results.md](agent-harn
 ## Tables: comparing players, model-backed seats included
 
 ```
-pnpm --filter @workspace/v2-agents table -- --games 2 --rounds 10 --usd 2 --out docs/engine-v2/ai-table-results.md
+pnpm --filter @workspace/v2-agents table -- --games 2 --seconds 300 --usd 1 --out docs/engine-v2/ai-table-results.md
 ```
 
-`runTable` (`@workspace/v2-agents/table`) plays a whole game in memory: each seat has one agent on shared lines and a store
-that refills each round. A model-backed seat also takes a turn every few rounds with the server AI seat's system prompt
-(`aiSeatSystemPrompt`, `STRATEGY` included) and the affordance directory's assistant tools (`TABLE_TOOLS`: the game,
-standings, rule, objects, moves, chat, agents list, check and replace), answered from the table's state; every result is
+`runTable` (`@workspace/v2-agents/table`) plays a whole game in memory on the server's economy, with the same
+v2-economy functions as the tick:
+- every 1.5 s tick's act opportunities (25 a second) go to agents drawn by energy (`pickByEnergy`);
+- agents and players accrue at their power share up to their capacity;
+- a change commits only on credit;
+- every seat summons its starter at the first-agent share from its 600 ⚡;
+- summons pay the full price, edits pay the edit price;
+- `movePower` moves energy with power.
+
+`power.allocate` takes absolute shares there (each a fraction of the player's power; the rest stays in the player's own
+store), the semantics proposed to W3 for the power manoeuvre. A model-backed seat takes a turn every 20 s with the
+server AI seat's system prompt (`aiSeatSystemPrompt`, `STRATEGY` included) and the affordance directory's assistant
+tools (`TABLE_TOOLS`: the game, standings, rule, objects, moves, chat, agents, programs, check, summon, replace and
+power), answered from the table's state; every result is
 checked against the tool's declared result schema. Chat is public and rules stay secret. It reports per seat the points
 gained, the energy its gains cost that another seat took back, messages, proposals, replaced programs and tool calls,
 and per table the deals read from the chat (`deals`: a proposal names a line and offers something, another seat accepts,

@@ -3,8 +3,10 @@
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
-# back again and again) scores nothing for either of you: it walks away from one and leaves you a note so you can
-# talk to that player. It never spends more than a quarter of its energy on one move.
+# back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
+# with that player and change the agent to keep it. It never spends more than a quarter of its energy on one move.
+# Changing it later costs only what you change. To summon another agent, first move power from your agents to your
+# own store (energy moves with it), pay, then share the power out again.
 # Try this: change FAR = 6 to 3: smaller jumps, cheaper moves.
 
 
@@ -33,10 +35,9 @@ SPEND = 0.25    # never spend more than a quarter of your energy on one move
 
 
 def agent(offer):
-    # A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on
-    # both sides: leave the line, with a note telling your owner to talk to that player.
-    if contested(offer, 3):
-        return None
+    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
+    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
+    contested(offer, 3)
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
