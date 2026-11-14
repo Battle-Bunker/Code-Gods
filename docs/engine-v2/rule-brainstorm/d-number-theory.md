@@ -5,6 +5,12 @@ of engine v2 ([spec](../spec.md) §12), each a lexicographic ladder: a primary a
 secondaries that ask for rarer structure. The slant of this document is reach and proof: where each rung's optimum
 lives, how many lines reach it, and how many bits it is worth.
 
+**Read §6 first if you are choosing rules to deal.** After §1 to §5 were written the owner ruled: every rung graded
+(no yes/no), a dealt rule is one primary plus one secondary (never a third), and beginner primaries must be within reach
+of a twelve-year-old who is learning linear equations. §2's ladders stack three or four secondaries and some of their
+components are yes/no flags; they stand as the analysis of where depth comes from and as the second pool. §6 recasts
+ten of the families in the owner's form and measures every primary and secondary pairing.
+
 Every number below is printed by [`scripts/d_number_theory_ladders.py`](scripts/d_number_theory_ladders.py) (standard
 library only, deterministic, about three minutes); its full output is committed beside it as
 [`scripts/d_number_theory_ladders.out.txt`](scripts/d_number_theory_ladders.out.txt).
@@ -665,6 +671,140 @@ own makes every tie-break worthless; a continuous component must come last; spor
 congruent primes, abc hits) reach far but in cliffs of 10 to 25 bits; and structures bounded by a theorem (squares in
 progression) make beautiful rules with ceilings near 15 bits.
 
+## 6. The owner's form: graded primaries, alternative graded secondaries, two rungs
+
+The owner's rules (14 November, relayed by the coordinator): "binary decisions are worthless for extending the ladder.
+Require all rules to be continuous"; "optimise for the primary rules being maximally accessible to 12yos currently
+learning a standard linear equations curriculum", with latitude for area, primes, factors, square numbers and the like;
+"I don't want tertiary preferences but I will want several secondary rule candidates within each family". So here a
+**family is one graded primary and four alternative graded secondaries; a dealt rule is the primary and one of them.**
+Every component is a count, a size, a length or a distance; none is a predicate. A yes/no of §2 became a distance
+("is prime" → distance to the nearest prime, "is whole" → distance to the nearest whole number, "a + b = c" →
+|a + b − c|) or a count (a palindrome → the number of positions that match their mirror).
+
+Measured by [`scripts/d_graded_two_rung.py`](scripts/d_graded_two_rung.py) (output committed beside it) on every line of
+height ≤ 64 and every whole line to height 600. Columns: **levels** = distinct attainable scores among lines of height
+≤ 16 / 32 / 64 (how the number of levels grows with the height bound); **top** = V of the best level in that
+enumeration, so a lower bound on the rule's reach (§2 gives the reach under the cap 10^6 where the same quantity is
+measured there); **median / largest step** = bits between adjacent levels.
+
+### 6.1 What the measurements say about graded rules
+
+1. **A count primary has few levels and steps of 2 to 7 bits; a graded secondary is what makes it smooth.** Prime Parade
+   alone: 6 levels at height 64, median step 3.9 bits. With "last prime of the run (size)": 115 levels, median step
+   below 0.01, the same top. The secondary fills the gaps between primary levels as well as extending the top.
+2. **A distance primary has as many levels as there are lines (they grow like H³: 725, 6935, 59933) and no reach of its
+   own.** Whole Corner alone tops at 3.9 bits, Pythagoras' Corner at 15.7. All of their reach is the secondary's. They
+   are the gentlest primaries for a beginner (every move changes the score) and they need a secondary that is a size or
+   a count.
+3. **The secondary that adds the most is a size or a count that the primary's optimum leaves free** (Fact 2 of §1.3
+   again): Divisibility Ladder + prime quotients (+13 bits), Square Steps + largest square (+18), Whole Corner + factor
+   count (+17), Root Hunter + digits of the y-intercept (+13), Amicable Line + size (+24), ABC Line + c over its
+   radical (+35). A distance secondary that the cheapest optimum already meets adds nothing at the top (it still
+   smooths the lower levels).
+4. **Levels against the height bound H**: count primaries grow like log H or slower (Fermat and Rudin bound Square
+   Steps at 6 for ever); size secondaries like H; distance components like H² to H³.
+
+### 6.2 The beginner pool: ten families
+
+"Core" = taught in a first course on linear equations. "Stretch" = what the child would look up (named).
+
+| # | Family | Primary card (graded) | Curriculum | Levels at H = 16 / 32 / 64 | Top alone | Median / largest step |
+|---|---|---|---|---|---|---|
+| 1 | Divisibility Ladder | "Go along the table from x = 1. For as many values of x in a row as possible, y should be a multiple of x." | core: table of values, substituting x; multiples | 4 / 4 / 5 | 19.2 (41.2 at the cap) | 2.3 / 6.5 |
+| 2 | Whole Corner | "Make the two intercepts' distances from the origin as close as possible to whole numbers (add the two misses)." | core: x- and y-intercepts | 725 / 6935 / 59933 | 3.9 | 0.0 / 0.4 |
+| 3 | Prime Parade | "Read the pattern from term 0. As many primes in a row as possible." | core: nth term of a sequence; stretch: primes | 5 / 6 / 6 | 35.2 (61.2) | 3.9 / 9.7 |
+| 4 | Square Steps | "As many square numbers as possible among the first thirteen terms." | core: nth term; stretch: square numbers | 5 / 6 / 6 | 15.2 (the maximum) | 1.5 / 8.2 |
+| 5 | Pythagoras' Corner | "The line and the axes make a right-angled triangle. Square the two legs and add: make the answer as close as possible to a square number." | core: intercepts; stretch: Pythagoras, square numbers | 1379 / 11876 / 99054 | 15.7 | 0.0 / 0.5 |
+| 6 | Euclid's Staircase | "Draw the rise-by-run rectangle of the gradient and keep cutting off the biggest square. As many different square sizes as possible." | core: gradient as rise over run, simplifying fractions; stretch: Euclid's method | 5 / 6 / 8 | 22.2 (about 66) | 2.7 / 5.0 |
+| 7 | Root Hunter | "Write the gradient as a decimal. As many digits as possible, from the left, should agree with √2 = 1.41421356…" | core: gradient, fractions to decimals; stretch: √2 | 2 / 3 / 4 | 24.2 (about 78) | 6.5 / 7.7 |
+| 8 | Cyclic Decimal | "Write the gradient as a decimal. Make the block of digits that repeats as long as possible." | core: gradient as a fraction; stretch: recurring decimals | 3 / 9 / 16 | 12.2 (about 20) | 0.4 / 2.1 |
+| 9 | ABC Line | "Write the line as ax + by = c with positive whole numbers. Make a + b as close as possible to c." | core: substituting the point (1, 1), general form | 32 / 64 / 128 | 8.3 | 0.0 / 2.3 |
+| 10 | Amicable Line | "Add the factors of the gradient (not itself) and compare with the y-intercept; do the same the other way round. Make the two misses add up to as little as possible." | stretch: factors, factor sums | 27 / 65 / 144 | 15.2 | 0.0 / 4.2 |
+
+### 6.3 Their alternative secondaries
+
+Each line is one dealt rule: the family's primary, then this secondary. "Adds" is the top with the secondary less the
+top alone, inside the enumeration (0 means the cheapest best line already holds the secondary's best value; the
+secondary then only orders and smooths the levels below). The card of a dealt rule is the primary's sentence, then
+"If two lines tie, the better one has …".
+
+| Family | Secondary (graded): "… the better one has" | Levels at H = 16 / 32 / 64 | Top | Adds | Median / largest step |
+|---|---|---|---|---|---|
+| Divisibility Ladder | as many primes as possible among the quotients y(x)/x | 13 / 14 / 21 | 32.5 | +13.3 | 0.6 / 6.0 |
+| | its x-intercept as close as possible to a whole number | 125 / 468 / 1830 | 20.3 | +1.1 | 0.0 / 5.4 |
+| | a y-intercept with as many factors as possible | 10 / 14 / 20 | 19.2 | 0 | 0.1 / 1.8 |
+| | a gradient as close as possible to a prime | 12 / 16 / 20 | 21.7 | +2.5 | 0.0 / 4.1 |
+| Whole Corner | as many factors as possible in (nearest whole leg × nearest whole leg) | 1063 / 9322 / 76841 | 21.2 (72.6 at the cap, §2.3) | +17.3 | 0.0 / 1.7 |
+| | nearest whole legs with as small a common factor as possible | 797 / 7432 / 63561 | 4.8 | +0.9 | 0.0 / 0.3 |
+| | a triangle area as close as possible to a square number | 1556 / 12945 / 105145 | 7.2 | +3.3 | 0.0 / 2.8 |
+| | (leg² + leg²) as close as possible to a square number | 1457 / 12367 / 102054 | 15.7 | +11.8 | 0.0 / 11.2 |
+| Prime Parade | as many primes as possible going backwards from term −1 (ignore minus signs) | 16 / 25 / 34 | 35.2 | 0 | 0.03 / 6.0 |
+| | as many of its primes as possible with a twin (2 away from another prime) | 9 / 13 / 20 | 35.2 | 0 | 0.06 / 8.7 |
+| | as large a last prime as possible | 26 / 57 / 115 | 35.2 | 0 | 0.00 / 5.8 |
+| | the sum of its primes as close as possible to a prime | 9 / 12 / 14 | 35.2 | 0 | 0.00 / 9.4 |
+| Square Steps | as long a run as possible of squares in neighbouring columns | 8 / 10 / 11 | 15.2 | 0 | 0.2 / 8.2 |
+| | as many squares as possible whose root is prime | 15 / 19 / 20 | 15.2 | 0 | 0.1 / 5.8 |
+| | as large a square as possible in the table | 51 / 74 / 113 | 33.2 | +18.0 | 0.0 / 7.9 |
+| | squares with as small a common factor as possible | 33 / 46 / 69 | 15.2 | 0 | 0.0 / 8.1 |
+| Pythagoras' Corner | its two legs as close as possible to whole numbers | 1457 / 12367 / 102054 | 15.7 | 0 | 0.0 / 0.5 |
+| | as large a (nearest whole) hypotenuse as possible | 1752 / 13863 / 109160 | 20.2 | +4.5 | 0.0 / 1.7 |
+| | a (nearest whole) hypotenuse as close as possible to a prime | 1559 / 12757 / 103498 | 16.2 | +0.5 | 0.0 / 0.4 |
+| | an area as close as possible to a whole number | 1675 / 13630 / 108751 | 15.7 | 0 | 0.0 / 0.4 |
+| Euclid's Staircase | as many cut sizes as possible that match their mirror position in the list | 9 / 13 / 19 | 22.2 | 0 | 0.8 / 2.7 |
+| | the larger of rise and run as close as possible to a prime | 13 / 23 / 29 | 22.2 | 0 | 0.3 / 2.6 |
+| | as many squares cut in total as possible | 40 / 91 / 196 | 22.2 | 0 | 0.0 / 3.0 |
+| | gradient M/D and y-intercept r/s with \|M·s − D·r\| as close as possible to 1 | 704 / 3448 / 15399 | 35.2 | +13.0 | 0.0 / 8.8 |
+| Root Hunter | (top² − 2 × bottom²) of the gradient as close as possible to 0 | 29 / 103 / 378 | 24.2 | 0 | 0.0 / 7.6 |
+| | as small a denominator as possible | 19 / 45 / 105 | 24.2 | 0 | 0.0 / 7.5 |
+| | as many digits as possible of the y-intercept also agreeing with √2 | 6 / 12 / 18 | 37.2 | +13.0 | 0.9 / 8.5 |
+| | gradient and y-intercept with \|M·s − D·r\| as close as possible to 1 | 284 / 1248 / 5215 | 37.2 | +13.0 | 0.0 / 10.0 |
+| Cyclic Decimal | as small a denominator as possible | 9 / 22 / 51 | 12.2 | 0 | 0.04 / 1.6 |
+| | as long a repeating block as possible in the y-intercept too | 6 / 22 / 44 | 13.2 | +1.0 | 0.1 / 1.4 |
+| | y(1) as close as possible to a whole number | 36 / 171 / 788 | 16.0 | +3.8 | 0.0 / 2.4 |
+| | as small a numerator as possible | 42 / 261 / 971 | 13.2 | +1.0 | 0.0 / 1.5 |
+| ABC Line | c as large as possible compared with the product of the different primes in a, b and c | 1067 / 7829 / 57243 | 43.2 (about 76 at the cap) | +34.9 | 0.0 / 9.8 |
+| | a, b and c as close as possible to perfect powers (add the three misses) | 226 / 584 / 2114 | 18.2 | +9.9 | 0.0 / 9.2 |
+| | c as large as possible | 380 / 1535 / 6130 | 43.2 (2 bits per doubling, no ceiling) | +34.9 | 0.0 / 1.4 |
+| | as few different primes as possible in a, b and c | 117 / 275 / 611 | 9.2 | +0.9 | 0.0 / 1.7 |
+| Amicable Line | as large a smaller number as possible | 100 / 403 / 1468 | 39.2 (82 at the cap) | +24.0 | 0.0 / 12.8 |
+| | the two numbers as far apart as possible | 92 / 381 / 1490 | 36.2 | +21.0 | 0.0 / 21.0 |
+| | as few factors as possible in the two numbers together | 82 / 271 / 748 | 15.2 | 0 | 0.0 / 4.1 |
+| | the two numbers as close as possible to primes (add the two misses) | 78 / 217 / 575 | 15.2 | 0 | 0.0 / 4.1 |
+
+Notes.
+
+- "ABC Line + c as large as possible" is a pure size ladder (x + y = c scaled up): smooth and endless but with no
+  mathematics in it; listed to show the baseline that a real secondary must beat for interest, not for bits.
+- Prime Parade's four secondaries add nothing at the top because its best lines are alone (gap 0.4 bits, §2.1); they
+  are there to grade the many lines that share R = 2, 3, 4 (levels rise from 6 to between 14 and 115).
+- The tops are lower bounds: the enumeration stops at height 64 (whole lines 600), where §2 went to 10^6.
+
+### 6.4 Recommended beginner deals, and the second pool
+
+One deal per family, chosen for an accessible primary, a secondary that adds reach or smoothness, and proof behind it:
+
+1. **Divisibility Ladder + prime quotients** (core; 32.5 bits inside height 600, steps 0.6 median).
+2. **Whole Corner + factor count** (core; 21 bits at height 64 and 72.6 under the cap; the smoothest: largest step 1.7).
+3. **Prime Parade + last prime** (core with primes; 35 bits at height 600, 61 under the cap; 115 levels at height 64).
+4. **Pythagoras' Corner + larger hypotenuse** (stretch; 20 bits at height 64, six bits per doubling beyond, §2.6).
+5. **Square Steps + largest square** (stretch; 33 bits; the primary is capped at 6 by a theorem, so the secondary is
+   the whole upper ladder).
+6. **Euclid's Staircase + mirror matches** for smoothness (median step 0.8), or **+ cross-difference** for reach (35).
+7. **Root Hunter + digits of the y-intercept** (stretch; 37 bits at height 64: two fractions near √2 on one line).
+8. **Cyclic Decimal + y(1) near a whole number** (stretch; the gentlest ladder: largest step 2.4 bits).
+
+**Second pool** (deeper, or a primary beyond the beginner brief), each already graded or with its graded form:
+
+| Family (§2) | Why second pool | Graded form of its yes/no parts |
+|---|---|---|
+| Coin Line | the primary "no first-quadrant peg" is a count that should be 0, but the idea is in "c is the largest unpayable amount" | primary: the number of first-quadrant pegs (fewest); secondary: F − C (smallest), or F (largest); "prime coins" → total distance of a and b to primes |
+| Parabola Chord | needs the parabola y = x² | primary: total distance of the two crossing x-values to whole numbers (through the discriminant's distance to a square); secondary: total distance of the crossings to primes, or the larger crossing |
+| Circle Kiss | perpendicular distance from the origin | primary: distance of d² to the nearest square number; secondary: pegs on the circle of the nearest whole radius (count) |
+| Congruent Corner | rational Pythagoras | primary: as §6.2 family 5 with fractional legs allowed; secondary: distance of the area to the nearest whole number, then (as an alternative) to the nearest prime |
+| ABC Line, Amicable Line | in §6.2 with stretch primaries; their deep secondaries (c over its radical; size) are graded already | none needed |
+| Pharaoh's Gradient, Prime Feedback | short ladders, hard to check by hand at the top | already counts and sizes |
+
 ## Appendix: the script
 
 ```
@@ -673,6 +813,8 @@ python3 docs/engine-v2/rule-brainstorm/scripts/d_number_theory_ladders.py 32    
 python3 docs/engine-v2/rule-brainstorm/scripts/d_number_theory_ladders.py 64 coin    # one family
 ```
 
-It needs no engine code. Each family is a score function on the primitive triple, a list of rung thresholds, and the
+`scripts/d_graded_two_rung.py` (about five minutes) produces §6's tables: `python3 d_graded_two_rung.py [family]`.
+
+Neither needs engine code. Each family is a score function on the primitive triple, a list of rung thresholds, and the
 enumerations that reach its upper rungs (their docstrings say what each one is complete for). The last section of the
 output evaluates the example line of every family above.
