@@ -97,7 +97,7 @@ const program = (a: ShippedAgent) => ({ language: a.language, source: a.source }
 
 test("both languages make the same moves, and no shipped agent fails on newborn lines", async () => {
   const states = births(lineType, lineZ, "parity", 3);
-  for (const ts of all.filter(a => a.language === "typescript")) {
+  for (const ts of all.filter(a => a.language === "typescript" && LIVE.some(e => e.family === a.family))) {   // lines; grids: grid.test.ts
     const py = all.find(a => a.language === "python" && a.family === ts.family && a.kind === ts.kind && a.tieBreaker === ts.tieBreaker)!;
     const live = Object.keys(CATALOGUE.find(e => e.family === ts.family)!.tieBreakers).filter(tb => familyOf(ts.family).tieBreakers.some(t => t.id === tb));
     const tieBreaker = ts.tieBreaker ?? live[1] ?? live[0]!;   // starters: the second the family still has, not the default
