@@ -94,6 +94,14 @@ export const roomOps = [
     contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server",
   }),
   affordance({
+    id: "room.aiQuotas", title: "Set the room's AI quotas", group: "owner", scope: "room",
+    description: "Sets the room's per-game token quotas: `ai` for all its AI players together, `assistant` for each player's assistant (0 turns it off). Default 300,000 each. Takes effect at once, also during a game; with neither given, answers the current quotas. AI runs only in rooms whose owner is an administrator.",
+    tooltip: "How many tokens AI may use per game here.", keywords: ["quota", "ai budget", "tokens", "assistant quota", "limit ai"],
+    params: obj({ ai: z.number().int().min(0).max(10_000_000).optional(), assistant: z.number().int().min(0).max(10_000_000).optional(), requestId: requestId.optional() }),
+    result: z.object({ ai: z.number(), assistant: z.number() }),
+    contexts: IN_ROOM, caller: "owner", effect: "write", confirm: "inline", runs: "server",
+  }),
+  affordance({
     id: "seats.fillPracticePartners", title: "Fill empty seats with practice partners", group: "owner", scope: "room",
     description: "Seats built-in practice partners until the preset's minimum is met. Each summons its rule's Simple starter once. Free.",
     tooltip: "Add practice partners so the game can start.", keywords: ["bots", "practice", "fill seats", "add players"],

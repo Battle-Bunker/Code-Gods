@@ -5,15 +5,16 @@
  */
 import { makeFunctionReference } from "convex/server";
 import { OpFailure } from "@workspace/v2-affordances";
-import { failureOf } from "../commands";
+import { failureOf } from "../failure";
 import type { CompileResult } from "../panelCompile";
-import { addVersion, authorOf, codeOf, listPanels, panelOwner, quota, requirePanel, requireVersion } from "../panels";
+import { codeOf, listPanels } from "../panels";
+import { addVersion, authorOf, panelOwner, quota, requirePanel, requireVersion } from "../panelStore";
 import { bytes, kb, LIMITS } from "../panelShapes";
 import { callerOf, defineOp, type V2Caller } from "./define";
 
-const PRECHECK = makeFunctionReference<"query", { userId: string; slug: string }, null>("v2/panels:precheck");
+const PRECHECK = makeFunctionReference<"query", { userId: string; slug: string }, null>("v2/panelStore:precheck");
 const COMPILE = makeFunctionReference<"action", { source: string }, CompileResult>("v2/panelCompile:compile");
-const COMMIT = makeFunctionReference<"mutation", Record<string, unknown>, { version: number }>("v2/panels:commit");
+const COMMIT = makeFunctionReference<"mutation", Record<string, unknown>, { version: number }>("v2/panelStore:commit");
 
 /** Who writes: null for the human at the app, else the surface acting for them (the assistant, MCP, the CLI). */
 const delegateOf = (c: V2Caller): string | null =>

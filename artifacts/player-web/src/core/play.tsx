@@ -22,7 +22,7 @@ import { useLive } from "@/site/lib/convex";
 import type { Header, Room } from "@/sdk/types";
 import { Dock } from "@/dock/dock";
 import { useOpenPane } from "@/dock/open-pane";
-import { PANE_COMPONENTS } from "@/panes";
+import { PANE_COMPONENTS, StoredPanelPane } from "@/panes";
 import { ReplayBar } from "@/replay/bar";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
 import { toast } from "@/hooks/use-toast";
@@ -119,7 +119,7 @@ function GameBody({ header, owner }: { header: Header; owner: boolean }) {
 function GameDock({ phase }: { phase: GamePhase }): ReactNode {
   const waiting = useReplayControls()?.index === null;
   if (waiting) return null;
-  return <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} /></div>;
+  return <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} stored={StoredPanelPane} /></div>;
 }
 
 function Screen({ header }: { header: Header }) {

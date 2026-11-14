@@ -6,12 +6,13 @@
  */
 import { assistantTools, affordanceForTool, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
-import { assistantSystemPrompt, runAssistant, textOf, type ChatMessage, type RunResult } from "@workspace/v2-ai";
+import { assistantSystemPrompt, mergeTurns, runAssistant, textOf, type ChatMessage, type RunResult } from "@workspace/v2-ai";
 import { startersFor } from "@workspace/v2-agents/pure";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
-import { internalAction } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalAction, internalQuery } from "../_generated/server";
+import { memberOf, ruleOf } from "./access";
 import { providerFor, spendWithin } from "./ai";
 import { LIMITS, type Grant, type Mode } from "./assistant";
 import { performAs } from "./perform";
@@ -20,10 +21,10 @@ type Input = {
   roomId: string; userId: string; gameId: Id<"v2Games"> | null; memberId: Id<"v2Members">; name: string; grant: Grant; mode: Mode;
   trigger: "autopilot" | null; history: ChatMessage[]; rule: { card: string; family: string } | null;
 } | null;
-const INPUT = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, Input>("v2/assistant:turnInput");
-const STATUS = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, string | null>("v2/assistant:turnStatus");
-const CALL = makeFunctionReference<"mutation", { turnId: Id<"v2AssistantTurns">; index: number; tool: string; argsJson: string; ok: boolean; summary: string }>("v2/assistant:recordCall");
-const FINISH = makeFunctionReference<"mutation", Record<string, unknown>>("v2/assistant:finish");
+const INPUT = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, Input>("v2/assistantRun:turnInput");
+const STATUS = makeFunctionReference<"query", { turnId: Id<"v2AssistantTurns"> }, string | null>("v2/assistantCore:turnStatus");
+const CALL = makeFunctionReference<"mutation", { turnId: Id<"v2AssistantTurns">; index: number; tool: string; argsJson: string; ok: boolean; summary: string }>("v2/assistantCore:recordCall");
+const FINISH = makeFunctionReference<"mutation", Record<string, unknown>>("v2/assistantCore:finish");
 const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
 
 /** A tool result kept in the thread at most this long (the model saw it whole). */
@@ -45,6 +46,35 @@ function stored(messages: readonly ChatMessage[]) {
       : m.content.map(b => b.type === "tool_result" && b.content.length > RESULT_CHARS ? { ...b, content: `${b.content.slice(0, RESULT_CHARS)}… (cut)` } : b)) });
 }
 
+/** The history a turn replays, oldest first: whole exchanges, from a human message on. */
+function historyOf(rows: Doc<"v2AssistantMessages">[]): ChatMessage[] {
+  const first = rows.findIndex(r => r.role === "user");
+  const out: ChatMessage[] = [];
+  for (const r of first < 0 ? [] : rows.slice(first)) {
+    if (r.role === "user") out.push({ role: "user", content: r.text });
+    else if (r.contentJson) out.push({ role: r.role === "assistant" ? "assistant" : "user", content: JSON.parse(r.contentJson) } as ChatMessage);
+  }
+  // A turn that failed left a message unanswered: two of the human's in a row are one.
+  return mergeTurns(out);
+}
+
+export const turnInput = internalQuery({
+  args: { turnId: v.id("v2AssistantTurns") },
+  handler: async (ctx, { turnId }) => {
+    const turn = await ctx.db.get(turnId);
+    if (!turn || turn.status !== "running") return null;
+    const room = await ctx.db.get(turn.roomId), member = room ? await memberOf(ctx, room._id, turn.userId) : null;
+    if (!room || !member) return null;
+    const rows = (await ctx.db.query("v2AssistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId)).order("desc").take(LIMITS.historyMessages)).reverse();
+    const rule = turn.gameId ? await ruleOf(ctx, turn.gameId, member._id) : null;
+    return {
+      roomId: turn.roomId as string, userId: turn.userId, gameId: turn.gameId ?? null, memberId: member._id, name: member.name,
+      grant: turn.grant, mode: turn.mode, trigger: turn.trigger ?? null, history: historyOf(rows),
+      rule: rule ? { card: rule.card, family: rule.family } : null,
+    };
+  },
+});
+
 export const run = internalAction({
   args: { turnId: v.id("v2AssistantTurns") },
   handler: async (ctx, { turnId }) => {
@@ -61,7 +91,7 @@ export const run = internalAction({
       const starters = input.rule ? startersFor(input.rule.family, "typescript").slice(0, 1).map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
       const system = assistantSystemPrompt({ context: caller.ctx.context, playerName: input.name, ...(input.rule ? { rule: input.rule.card } : {}), affordances: tools, starters }) +
         (input.mode === "readOnly" ? "\n\nMODE. Read-only: answer and explain; you cannot change anything." : "");
-      result = await spendWithin(ctx, input.gameId ?? undefined, input.memberId, budget => runAssistant({
+      result = await spendWithin(ctx, { roomId: input.roomId as Id<"v2Rooms">, ...(input.gameId ? { gameId: input.gameId } : {}), memberId: input.memberId, pool: "assistant" }, budget => runAssistant({
         provider: providerFor(), system, messages: input.history, tools, budget, signal: abort.signal,
         maxSteps: input.trigger === "autopilot" ? LIMITS.autopilotSteps : LIMITS.maxSteps,
         perform: async (name, args) => {

@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/triangle-area/{\"A\":4}/tb=even",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1887,5 +1887,7 @@
  },
  "cap": 0,
  "dealable": false,
- "contentHash": "453ada3b95cd8a9c"
+ "convergedCap": 0,
+ "tail": null,
+ "contentHash": "d1bac560638e8c09"
 }

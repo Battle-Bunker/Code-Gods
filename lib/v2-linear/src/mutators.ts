@@ -212,9 +212,15 @@ export const nudge: M = {
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     const d = k(a).n, which = S(a, "which");
-    return replace(state, site, normalise(l.a + (which === "a" ? d : 0n), l.b + (which === "b" ? d : 0n), l.c + (which === "c" ? d : 0n)), v);
+    const na = l.a + (which === "a" ? d : 0n), nb = l.b + (which === "b" ? d : 0n), nc = l.c + (which === "c" ? d : 0n);
+    // A result with a common factor would be divided through: a one-way division with no inverse nudge, which breaks
+    // the exact potential (owner decision 19; analytic-calibration.md §2). Such a nudge is refused.
+    if (gcd(gcd(na < 0n ? -na : na, nb < 0n ? -nb : nb), nc < 0n ? -nc : nc) !== 1n) return { invalid: `adding ${d} leaves ${na}, ${nb}, ${nc} with a common factor` };
+    // Likewise a result whose sign would be flipped (b < 0, or b = 0 and a < 0): its undoing nudge would not be −k.
+    if (nb < 0n || (nb === 0n && na < 0n)) return { invalid: `adding ${d} would turn the line's equation over` };
+    return replace(state, site, normalise(na, nb, nc), v);
   },
-  inverse: { kind: "none", note: "the result is divided by its new common factor, so the old scale is lost" },
+  inverse: { kind: "partial", id: "gen.nudge", args: a => ({ ...a, k: Qn.neg(k(a)) }), note: "refused where the result would leave the domain" },
 };
 
 export const move: M = {

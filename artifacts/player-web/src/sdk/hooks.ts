@@ -24,6 +24,11 @@ export function useRoomInfo() {
   return useLiveValue(api.v2.rooms.get, { roomId: useGameScope().roomId });
 }
 
+/** The room's rotation round: its ended games and each seat's running total (null outside a rotation). */
+export function useRotationRound() {
+  return useLiveValue(api.v2.rooms.round, { roomId: useGameScope().roomId });
+}
+
 /**
  * The game in view's header: phase, clocks, roster, the viewer's seat. Cold (changes with the phase). In a replay its
  * seat (`me`) is the player the replay is watched as.
@@ -186,6 +191,17 @@ export function useAssistantTranscript(threadId: string | null | undefined, page
 /** One turn: its status and its tool calls (the activity chips), live while it runs. */
 export function useAssistantTurn(turnId: string | null | undefined) {
   return useLiveValue(api.v2.assistant.turn, turnId ? { turnId: turnId as Id<"v2AssistantTurns"> } : "skip");
+}
+
+// ------------------------------------------------------------------ the viewer's stored panels (across rooms; not in the panel SDK)
+
+/** The viewer's stored panels (metadata, no code): one index page, shared by the dock's titles and "Your panels". */
+export function useMyPanels() {
+  return useLiveValue(api.v2.panels.list, {});
+}
+/** One version of one of the viewer's panels (immutable per version); null when there is no such panel or version. */
+export function usePanelCode(slug: string | null | undefined, version?: number) {
+  return useLiveValue(api.v2.panels.code, slug ? { slug, ...(version !== undefined ? { version } : {}) } : "skip");
 }
 
 // ------------------------------------------------------------------ an accepted summon counts at once (ux-lessons 1.8)

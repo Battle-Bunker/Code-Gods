@@ -56,7 +56,7 @@ const SCRIPT = `/mock ${JSON.stringify([
 const browser = await chromium.launch();
 try {
   for (const [label, viewport] of [["desktop", { width: 1440, height: 900 }], ["phone", { width: 390, height: 844 }]] as const) {
-    const { context, page, errors } = await signIn(browser, label === "desktop" ? "alice" : "bob", viewport);
+    const { context, page, errors } = await signIn(browser, "admin", viewport);   // AI spends only in rooms an administrator owns
     await page.getByTestId("button-create-room").first().click();
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     await page.getByTestId("button-practice-game").click();

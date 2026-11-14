@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=lpf",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -3307,5 +3307,7 @@
  },
  "cap": 0,
  "dealable": false,
- "contentHash": "c8fb9b146f1df19d"
+ "convergedCap": 0,
+ "tail": null,
+ "contentHash": "a2ef34e72dc10c46"
 }

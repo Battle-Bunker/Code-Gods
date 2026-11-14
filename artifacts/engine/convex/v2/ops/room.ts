@@ -1,5 +1,6 @@
 /** `room.*`: the caller's rooms, creating and joining one, the room in view, leaving it, watching (plan §2.2, §4.3). */
 import { OpFailure } from "@workspace/v2-affordances";
+import { quotasOf, setQuotas } from "../spend";
 import { roomView } from "../rooms";
 import { DEFAULT_PRESET, isPreset } from "../presets";
 import { callerOf, defineOp, inRoom } from "./define";
@@ -60,4 +61,10 @@ export const { op: settings, as: settingsAs } = defineOp("room.settings", "mutat
   const { room } = inRoom(env);
   await changeSettings(env.ctx, room, a);
   return { ok: true as const };
+});
+
+/** The owner's per-game token quotas (v2/ai.ts): set at once, also during a game; with neither given, read them. */
+export const { op: aiQuotas, as: aiQuotasAs } = defineOp("room.aiQuotas", "mutation", async (env, a) => {
+  const { room } = inRoom(env);
+  return a.ai === undefined && a.assistant === undefined ? await quotasOf(env.ctx, room._id) : await setQuotas(env.ctx, room._id, a);
 });

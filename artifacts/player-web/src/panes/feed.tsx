@@ -9,6 +9,7 @@ import { chipRep, repText } from "@workspace/v2-views";
 import { decodeState, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
 import { clock } from "@/core/words";
 import { callWords, moveSentence, moveWho, one } from "./move-line";
+import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 
 /** The line's written form in the representation the move changed (an equation that expresses it, else the first that does). */
 function lineText(state: LineState, rep: string, site: number): string {
@@ -35,6 +36,20 @@ function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap
   );
 }
 
+/** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
+function TugRow({ tug, names, top, variant }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; top: number | null; variant: string }) {
+  return (
+    <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
+      <p className="text-xs text-muted-foreground tabular-nums">{clock(tug.to)} · contested line</p>
+      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug)}</p>
+      <details>
+        <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
+        <ol className="divide-y">{tug.moves.map(m => <MoveRow key={m.seq} move={m} names={names} top={top} variant={variant} />)}</ol>
+      </details>
+    </li>
+  );
+}
+
 export function FeedPane() {
   const header = useGame();
   const { seated } = useGameScope();
@@ -42,6 +57,7 @@ export function FeedPane() {
   const agents = useMyAgents();
   const moves = useMoves();
   const names = useMemo(() => new Map((agents ?? []).map(a => [a.agentId as string, a.name])), [agents]);
+  const items = useMemo(() => foldTugs(moves.results), [moves.results]);
   if (!header) return null;
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="feed-spectator">Each player sees the moves that changed their own points here. You're watching, so there are none to show.</p>;
   const top = rule ? Math.max(0, ...rule.row.ladder.map(r => r.level)) : null;
@@ -58,7 +74,9 @@ export function FeedPane() {
   return (
     <div data-testid="feed">
       <ol className="divide-y">
-        {moves.results.map(m => <MoveRow key={m.seq} move={m} names={names} top={top} variant={header.variant} />)}
+        {items.map(i => i.kind === "tug"
+          ? <TugRow key={`tug-${i.moves[0]!.seq}`} tug={i} names={names} top={top} variant={header.variant} />
+          : <MoveRow key={i.move.seq} move={i.move} names={names} top={top} variant={header.variant} />)}
       </ol>
       {moves.status === "CanLoadMore" && (
         <button type="button" className="w-full border-t py-2 text-xs underline underline-offset-4 text-muted-foreground" onClick={() => moves.loadMore(30)} data-testid="button-feed-earlier">Earlier moves</button>

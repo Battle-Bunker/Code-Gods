@@ -264,7 +264,7 @@ Order: 0 → (1, 2, 3 in parallel worktrees) → merge 1, 2, 3 → every suite �
 - "player" replaces "god/deity" in functional copy; flavour copy keeps the pantheon.
 - Deferred: coaching messages beyond the empty states, a presentation mode for the game page.
 - Calibration never constrains the board controls (on-demand calibration B2): every playable size × symbols × colours
-  combination, and any valid Int range or string length, can be chosen. The first game on a shape with no shipped
+  combination can be chosen. The first game on a shape with no shipped
   tables prepares them: the room page shows "The game is preparing its rule tables, 12 of 18 ready" with a progress
   bar, the dock's overview and results panels and the assistant's briefing say the same, and the game opens
   by itself when they are ready. Shipping tables (`calibrate` + `upload-calibration`) only warms the cache.

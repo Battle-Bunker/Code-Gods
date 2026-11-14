@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/triangle-area/{\"A\":4}/tb=legs",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2150,5 +2150,7 @@
  },
  "cap": 36,
  "dealable": true,
- "contentHash": "45b457204acb6805"
+ "convergedCap": 36,
+ "tail": null,
+ "contentHash": "c1fd9eeb2e0f4b6d"
 }

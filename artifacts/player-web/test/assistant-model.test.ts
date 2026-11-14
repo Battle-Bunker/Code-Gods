@@ -12,17 +12,16 @@ test("a chip names the operation in the directory's own words, not the model's t
   assert.equal(chipView({ tool: "old_thing_gone", ok: true, summary: "done" }).label, "old thing gone");
 });
 
-test("the allowance reads as a share used, the larger of tokens and money, and says when it is gone", () => {
-  // Catches: a percentage over 100, a NaN on a zero limit, a tiny use shown as 0%, money ignored.
-  const a = (usedTokens: number, usedUsd = 0) => allowanceWords({ tokens: 300_000, usd: 2, usedTokens, usedUsd });
+test("the allowance reads as the share of the token quota used, and says when it is gone", () => {
+  // Catches: a percentage over 100, a NaN on a zero quota, a tiny use shown as 0%.
+  const a = (usedTokens: number) => allowanceWords({ tokens: 300_000, usedTokens, usedUsd: 0.4 });
   assert.deepEqual(a(0), { used: 0, text: "None of this game's assistant allowance used yet.", low: false, out: false });
   assert.equal(a(300).text, "Less than 1% of this game's assistant allowance used.");
   assert.equal(a(30_000).text, "10% of this game's assistant allowance used.");
-  assert.equal(a(30_000, 1).used, 0.5, "money counts when it is the larger share");
   assert.equal(a(250_000).low, true);
   assert.equal(a(299_000).text, "99% of this game's assistant allowance used.", "never 100% while some is left");
   assert.deepEqual(a(400_000), { used: 1, text: "This game's assistant allowance is used up. You can still do everything yourself.", low: true, out: true });
-  assert.equal(allowanceWords({ tokens: 0, usd: 0, usedTokens: 0, usedUsd: 0 }).out, true);
+  assert.equal(allowanceWords({ tokens: 0, usedTokens: 0, usedUsd: 0 }).out, true);
 });
 
 test("a turn's status reads as a short sentence; a finished turn says nothing", () => {

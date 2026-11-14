@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/crossing-check/{\"k\":1,\"q\":2}/tb=whole",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2160,6 +2160,8 @@
   ]
  },
  "cap": 27,
- "dealable": true,
- "contentHash": "8226c31643253d12"
+ "dealable": false,
+ "convergedCap": 27,
+ "tail": null,
+ "contentHash": "ce9c55e9de0b5ecd"
 }
