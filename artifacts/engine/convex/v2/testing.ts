@@ -284,3 +284,12 @@ export const accountJwt = internalAction({
   },
 });
 const SEED_ACCOUNT = makeFunctionReference<"mutation", { userId: string }, string>("v2/testing:seedAccountCredential");
+
+/** A game's clock (the cold check waits for tick commits). */
+export const clock = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    return await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
+  },
+});
