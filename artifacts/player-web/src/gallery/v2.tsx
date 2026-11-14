@@ -6,8 +6,9 @@
  * 2. Every rule family of the line (v2-linear's registry, read at run time, so new families appear here) on example
  *    lines: the chip, the compact face and the expanded face.
  * 3. Every dealable rule (family × parameters) as a compact face.
+ * 4. Grids (v2-grids.tsx): a board in every representation, a storyboard, and every grid family on example boards.
  *
- * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt` for one section.
+ * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids` for one section.
  * e2e/v2-views.ts takes the screenshots in docs/screenshots/v2-views/.
  */
 import { StrictMode, type ReactNode } from "react";
@@ -17,6 +18,7 @@ import { divisibilityLadder, fromMC, lineQ, lineType, lineZ, normalise, primeGra
 import { annotate, fmtBits as bitsText, CompactFace, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
+import { GridsSection } from "./v2-grids";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
   ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
@@ -246,9 +248,9 @@ function Gallery() {
       <style>{CSS}</style>
       <main className="v2v g-page">
         <h1>Engine v2 views</h1>
-        <p className="g-note">The chip, the compact face and the expanded face for every rule of the line. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
+        <p className="g-note">The chip, the compact face and the expanded face for every rule of the line and of the grid. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
         <nav className="g-nav">
-          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a>
+          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a>
           <a href={link({ scheme: other })}>{other} scheme</a>
         </nav>
         {show("story") && !only && <Storyboards />}
@@ -259,6 +261,7 @@ function Gallery() {
           </section>
         )}
         {show("dealt") && <Dealt />}
+        {show("grids") && <GridsSection only={only} />}
         {section === "plot" && <Hard />}
       </main>
     </div>

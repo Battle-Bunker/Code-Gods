@@ -1,6 +1,9 @@
 /** Element refs as the views use them: which marks belong to a representation, and what an element means. */
 import { elementDecl, refKey, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 
+/** The game's own noun for an object of this type ("line", "grid"), never "object" (ux-lessons 2.5). */
+export const nounOf = <S>(type: ObjectType<S>): string => type.id;
+
 /** Every element ref a mark cites. */
 export function markRefs(m: Mark): readonly ElementRef[] {
   return m.kind === "measure" ? [m.from, m.to] : [m.ref];

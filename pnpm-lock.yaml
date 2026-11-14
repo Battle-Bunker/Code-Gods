@@ -225,6 +225,9 @@ importers:
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core
+      '@workspace/v2-grid':
+        specifier: workspace:*
+        version: link:../../lib/v2-grid
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
@@ -593,6 +596,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      '@workspace/v2-grid':
+        specifier: workspace:*
+        version: link:../v2-grid
       react:
         specifier: 'catalog:'
         version: 19.1.0

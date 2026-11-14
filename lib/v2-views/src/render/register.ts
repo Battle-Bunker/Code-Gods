@@ -1,6 +1,7 @@
 /** The built-in renderers. An object type with another scene kind calls registerRenderer for it. */
 import { registerRenderer } from "../scene.ts";
 import { equationRenderer } from "./equation.tsx";
+import { gridRenderer } from "./grid.tsx";
 import { machineRenderer } from "./machine.tsx";
 import { planeRenderer } from "./plane.tsx";
 import { sequenceRenderer } from "./sequence.tsx";
@@ -11,5 +12,6 @@ registerRenderer(planeRenderer);
 registerRenderer(sequenceRenderer);
 registerRenderer(machineRenderer);
 registerRenderer(tableRenderer);
+registerRenderer(gridRenderer);
 
-export { equationRenderer, machineRenderer, planeRenderer, sequenceRenderer, tableRenderer };
+export { equationRenderer, gridRenderer, machineRenderer, planeRenderer, sequenceRenderer, tableRenderer };
