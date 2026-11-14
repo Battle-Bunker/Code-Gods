@@ -3,7 +3,8 @@
  * starts a turn whose tool calls run through the directory as the human's delegate, a server operation and a view
  * operation alike, and the spend counts against the human's allowance; read-only mode offers read tools only; a
  * message sent while a turn runs waits and starts the next turn; a Stop holds what waits; autopilot plays while the
- * game runs; a conversation is its human's only; the assistant cannot drive its own conversation. The spending rules
+ * game runs; a conversation is its human's only; the assistant reaches its own operations like any surface (it can
+ * switch its mode when asked), and read-only mode is the read grant (the same tools a read-only connection gets). The spending rules
  * (v2/ai.ts): AI only in an administrator's room, the owner's per-game quotas (0 turns it off), set also mid-game.
  *
  * What would break: a tool call that bypasses the directory or the human's rights, an unrecorded spend, a write in
@@ -11,6 +12,7 @@
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
+import { assistantTools, mcpTools } from "@workspace/v2-affordances";
 import { admin, admins, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, roomId: string, gameId: string, adaMember: string;
@@ -66,14 +68,15 @@ test("a turn: a server operation and a view operation as the human, its words ke
   await settled(ada!, again.result.turnId);
 });
 
-test("another human cannot read the conversation; the assistant cannot drive its own", async () => {
+test("another human cannot read the conversation; the assistant can switch its own mode when asked", { timeout: 60_000 }, async () => {
   const [thread] = await ada!.query("v2/assistant:threads", { roomId });
   assert.deepEqual((await messages(bo!, thread.threadId)), []);
   assert.equal(await bo!.query("v2/assistant:turn", { turnId: (await ada!.query("v2/assistant:status", { roomId })).turn.turnId }), null);
-  const delegate = { userId: ada!.userId, roomId, grant: "act", via: "assistant" };
-  try { await admin.mutation("v2/ops/assistant:sendAs", { args: { text: "loop" }, roomId, delegate }); assert.fail("refused"); } catch (e) {
-    assert.match((e as any).data?.error?.message ?? "", /cannot run its own conversation/);
-  }
+  const sent = await perform(ada!, "assistant.send", { text: mock([{ tools: [{ name: "assistant_setMode", input: { mode: "readOnly" } }] }, { text: "Read-only from now on." }]) }, { roomId });
+  const turn = await settled(ada!, sent.result.turnId);
+  assert.deepEqual(turn.calls.map((c: any) => [c.tool, c.ok]), [["assistant_setMode", true]], JSON.stringify(turn));
+  assert.equal((await ada!.query("v2/assistant:status", { roomId })).mode, "readOnly");
+  await perform(ada!, "assistant.setMode", { mode: "onRequest" }, { roomId });
 });
 
 test("a connection passing a message on cannot lend the assistant more rights than its own", { timeout: 60_000 }, async () => {
@@ -104,6 +107,10 @@ test("read-only mode offers read tools only; owner rights need consent", { timeo
   const turn = await settled(ada!, sent.result.turnId);
   assert.equal(turn.status, "done");
   assert.deepEqual(turn.calls.map((c: any) => c.tool), ["rule_explain"], "a write tool is not offered in read-only mode");
+  // Read-only mode is the read grant: the turn is offered exactly what a read-only connection is.
+  const asReadOnly = await admin.query("v2/ops/define:resolveCaller", { who: { delegate: { userId: ada!.userId, roomId, grant: "read", via: "assistant" } }, scope: { gameId } });
+  const asMcp = await admin.query("v2/ops/define:resolveCaller", { who: { delegate: { userId: ada!.userId, roomId, grant: "read", via: "mcp" } }, scope: { gameId } });
+  assert.deepEqual(assistantTools(asReadOnly.ctx).map(t => t.name), mcpTools(asMcp.ctx).map(t => t.name));
   await perform(ada!, "assistant.setMode", { mode: "onRequest" }, { roomId });
 });
 
