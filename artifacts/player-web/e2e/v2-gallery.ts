@@ -11,6 +11,7 @@
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
+import { assertNoSteps } from "./no-steps.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -89,9 +90,11 @@ try {
     await page.getByTestId("radio-tie-breaker-even").check();
     await card.getByText(/legs as close to equal/).waitFor();
     await page.getByTestId("goal-card").getByText(/A worked example/).first().waitFor();
+    await assertNoSteps(page, `${label}: a rule's gallery page`);
     // A rule a setup deals: its goal card's parts on their rulers and the moves that would make the example rarer.
     await page.goto(`${SITE}/rule-gallery/prime-landing`);
     await page.getByTestId("goal-card").getByText(/What would make it rarer|No single move/).first().waitFor({ timeout: 15_000 });
+    await assertNoSteps(page, `${label}: a dealt rule's gallery page`);
     await page.goBack();
     await page.getByTestId("text-family-card").getByText(/legs as close to equal/).waitFor();
     await noSideways(page, `${label} rule page`);
@@ -149,6 +152,7 @@ try {
     await page.getByTestId("button-open-what-if").click();
     const whatIf = page.getByTestId("pane-what-if");
     await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 });
+    await assertNoSteps(page, `${label}: the game with What if`);
     // Owner decision 23: no steps; the rarity says its chance.
     assert.doesNotMatch(await whatIf.getByTestId("what-if-result").innerText(), /\bstep\b/i);
     if (await whatIf.getByTestId("text-what-if-rarity").count()) {

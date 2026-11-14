@@ -16,6 +16,7 @@
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
+import { assertNoSteps } from "./no-steps.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -155,6 +156,7 @@ try {
       await ladder.screenshot({ path: path.join(shots, "grid-phone-goal-ladder.png") });
     }
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
+    await assertNoSteps(page, `${label}: the live game`);
     await shot(page, `grid-${label}-live`);
 
     if (label === "phone") {
@@ -197,6 +199,7 @@ try {
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
+    await assertNoSteps(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.
     const note = await results.getByTestId("text-results-note").innerText();
     assert.match(note, /points on every grid\./, `${label}: the results note says grid`);
