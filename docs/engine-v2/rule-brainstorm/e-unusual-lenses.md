@@ -11,6 +11,12 @@ Every worked example below was computed exactly by
 the text says a line is the top of its ladder, the script's brute-force search over small coefficients supports it; a
 claim that is proved rather than searched says so.
 
+**Revised the same day** for three owner rules relayed by the coordinator. (1) "binary decisions are worthless for
+extending the ladder. Require all rules to be continuous": every rung is now a graded quantity (a distance, a count, a
+size), never a yes/no; the five rungs that were predicates or two-or-three-level counts were converted (§2.1). (2) and
+(3): a **beginner set** of eight families with a primary a twelve-year-old doing school linear equations can check,
+exactly one secondary and no third rung (§5). Everything else is the **second pool** (§2), kept with its full ladders.
+
 ## 0. Conventions
 
 - The line is y = mx + c over the rationals, m = p/q in lowest terms (q > 0); its primitive general form is
@@ -19,6 +25,8 @@ claim that is proved rather than searched says so.
   first, then its **secondaries** in order. "min q" means the component is −q.
 - Distances are **squared** wherever a square root would leave the rationals (`reach2`, `clear2`, `kite2`). The card
   says "distance"; the ladder's thresholds are on the square.
+- **Graded rungs only.** Every component is a quantity with many attainable levels and a direction. Undefined
+  (WORST) is not a rung: it is where a rule has nothing to measure.
 - "Peg" means a point with whole-number coordinates. "Whole" means an integer. dist(q, ℤ) is the distance from q to the
   nearest whole number.
 - **Isomorphic** means the lens's coordinates determine the line and the line determines them (on a stated domain).
@@ -46,19 +54,56 @@ Element names are what a rule or a drawing points at.
 | 9 | `gear` | a gear train with a pointer and a turn counter | a dial | `driver` = \|p\| teeth, `driven` = q teeth, `step` = m mod 1 (how far the pointer moves per turn of the handle), dynamic `pointer(n)` = y(n) mod 1, `counter(n)` = ⌊y(n)⌋. Derived `home` (the first whole n ≥ 1 with y(n) whole: the pointer is straight up), `period` = q | **Yes** with the counter; the pointer alone is a view |
 | 10 | `ramp` | a ramp with crates stacked under it | the floor y = 0, the wall x = 6, six columns n = 0 … 5 | dynamic `stack(n)` = max(0, ⌊min(y(n), y(n + 1))⌋). Derived `crates` = Σ stack, `air` (area under the ramp and above the floor for 0 ≤ x ≤ 6, minus `crates`), `touch` (whole x in 0 … 6 with y(x) whole and ≥ 0), `stairs` (number of different stack heights) | **View** |
 | 11 | `lamp` | a lamp casting one ruler's shadow on another (a nomogram) | two parallel rulers of the same scale: x on the top one (height 1), y on the bottom one (height 0); a thread joins x to y(x) | coordinate `eye` (point): all threads pass through (c/(1 − m), m/(m − 1)). Derived `same` = c/(1 − m) (the reading that is the same on both rulers: the thread that hangs straight down), `lampHeight` = m/(m − 1). Dynamic `thread(x)` (segment), `lands(x)` = y(x) | **Yes** for m ≠ 1 (m = 1: the threads are parallel, the lamp is infinitely far away). Above the top ruler for m > 1, between the rulers for m < 0, below the bottom ruler for 0 < m < 1 |
-| 12 | `coin` | a way-to-pay puzzle: "x coins worth a and y coins worth b make N" | the first quadrant's pegs | `coinX` = a, `coinY` = b, `bill` = N = −c₀, `ways` (pegs on the line with x, y ≥ 0), `single` (ways using one kind of coin), `evenWay` (1 when some way uses equally many of each), `fewest` (smallest x + y over the ways). Dynamic `way(k)` (point) | **Yes** where defined: it is `gen` read as a puzzle. Defined when a > 0 and b > 0 (a falling line) |
+| 12 | `coin` | a way-to-pay puzzle: "x coins worth a and y coins worth b make N" | the first quadrant's pegs | `coinX` = a, `coinY` = b, `bill` = N = −c₀, `ways` (pegs on the line with x, y ≥ 0), `single` (ways using one kind of coin), `lopsided` (the smallest \|x − y\| over the ways), `smallestPile` (the smallest of all x and y over the ways), `fewest` (smallest x + y over the ways). Dynamic `way(k)` (point) | **Yes** where defined: it is `gen` read as a puzzle. Defined when a > 0 and b > 0 (a falling line) |
 | 13 | `circ` | a chord or tangent of a circle | the circle x² + y² = 25 with its twelve rim pegs (±5, 0), (0, ±5), (±3, ±4), (±4, ±3) | `reach2` (squared distance from the centre to the line), `mid` (the chord's midpoint), `chord2` = 4(25 − reach2), `rimPegs` (0, 1 or 2 of the twelve on the line), coordinate `pole` (point: where the tangents at the chord's two ends cross, (−25a/c₀, −25b/c₀)), `kite2` = \|pole\|² − 25 (squared length of each tangent) | **Yes** through `pole` for lines not through the centre (pole and polar); `reach2`, `chord2` are views |
 | 14 | `drop` | a wall with a plumb line dropped to it from a hook at the origin | — | coordinate `foot` (point where the perpendicular from the origin meets the line; same meaning as `circ.mid` and half of `mir.twin`), `drop2` = \|foot\|² (same meaning as `circ.reach2`), `plumb` (segment). Undefined through the origin ("the hook is on the wall") | **Yes** for lines not through the origin |
 | 15 | `orbit` | a firefly: feed 0 into the machine, feed the answer back in, again and again | the diagonal y = x (for the cobweb), a jar \|x\| ≤ J | dynamic `hop(k)` = the k-th answer (hop(0) = 0), `web(k)` (the cobweb's k-th step, a segment), `escape(J)` (the first k with \|hop(k)\| > J; undefined after 64 hops). Coordinates `home` (the fixed point, = `lamp.same`), `pull` = m | **Yes** for m ≠ 1 through (`home`, `pull`): y = home + pull·(x − home) |
 | 16 | `cipher` | a code wheel on the alphabet | 26 letters round a wheel, A = 0 … Z = 25 | dynamic `encode(k)` = y(k) mod 26 (undefined between letters), `write(word)` (symbol). Derived `letters` (different letters produced), `selfUndo` (letters k with encode(encode(k)) = k), `stay` (letters encoded as themselves) | **View**: the line modulo 26 |
-| 17 | `music` | a chord grown from one note | a fundamental note of frequency 1 | dynamic `note(k)` = `orbit`'s k-th hop started from 1 instead of 0 (note(0) = 1), `interval(k)` = note(k + 1)/note(k). Derived `chord3`, `chord4` (the first three or four notes as the smallest whole-number ratio, symbol), `rough3`, `rough4` (the sum of that ratio's numbers: smaller is sweeter), `climbs` (how many of note(2) > note(1), note(3) > note(2) hold) | **Yes**: note(1) and note(2) give the line when note(1) ≠ 1 |
+| 17 | `music` | a chord grown from one note | a fundamental note of frequency 1 | dynamic `note(k)` = `orbit`'s k-th hop started from 1 instead of 0 (note(0) = 1), `interval(k)` = note(k + 1)/note(k). Derived `chord3`, `chord4` (the first three or four notes as the smallest whole-number ratio, symbol), `rough3`, `rough4` (the sum of that ratio's numbers: smaller is sweeter) | **Yes**: note(1) and note(2) give the line when note(1) ≠ 1 |
 
 Three of these are the same hidden coordinate in different clothes: `mir.twin`, `drop.foot` and `circ.pole` all lie on
 one ray from the origin (twin = 2·foot; pole = 25·foot/\|foot\|²). And `lamp.same` = `orbit.home`. A table of shared
 `meaning` ids (spec §3) would say so, and the views would cross-highlight them: the same point is "my reflection", "the
 foot of my plumb line" and "the midpoint of my chord".
 
-## 2. The families
+## 2. The families (the second pool, with full ladders)
+
+The eight families that also appear in the beginner set (§5) are marked **[beginner]**; there they keep their primary
+and one secondary only.
+
+### 2.1 Levels per rung, and the predicates that were converted
+
+"Levels" is roughly how many distinct values the rung takes on lines a game would see; "cont." means a rational
+distance with unboundedly many values, for which the ladder declares about eight thresholds (spec §12.5).
+
+| # | Family | Primary (levels) | Secondary 1 | Secondary 2 | Secondary 3 |
+|---|---|---|---|---|---|
+| 1 | Constellation Mirror | stars with a twin (0, 2, 4, 6: 4) | stars on the mirror (0–2: 3) | pegs on the mirror (0–13) | squared distance to the origin (cont.) |
+| 2 | Haga's Fold | landing's distance from the top edge (cont.) | landing's distance from a whole tick (cont.) | whole sides of the corner triangle (0–3: 4) | crease end's distance from a whole tick (cont.) |
+| 3 | Fair Cut | area off 32 (cont., 0–32) | dark minus light spoiled (−8 … 8: about 12) | squares spoiled (0–15: 16) | ends' distance from pegs (cont.) |
+| 4 | Sheep Fence | sheep off N (0 to about 40) | sheep on the fence (0–7: 8) | street width squared (cont.) | sheep on the kerb (1 to about 14) |
+| 5 | Palindrome Path | mismatched letters (0–5: 6) | word length (0–10: 11) | corners (0–5: 6) | \|p\| + q (many) |
+| 6 | Tresillo | beats agreeing (0–8: 9) | further beats agreeing (0–24: 25) | clean hits (0–3: 4) | \|⌊y(0)⌋\| (many) |
+| 7 | Trick Shot | landing off the pocket (cont., 0–4) | cushions off B (0, 1, 2, … many) | bounces at whole x (0–B) | start height (cont., 0–4) |
+| 8 | One Thread | pegs toured (1–N: up to 12) | pegs reached (1–N) | different thread lengths (1 to N/2) | \|m\| + \|c\| (many) |
+| 9 | Homecoming Gear | turns off T (0–59) | period minus home (many) | step off ½ (cont.) | counter at home (many) |
+| 10 | Crate Ramp | crates off N (many) | air (cont.) | corners touching (0–7: 8) | different stacks (1–6: 6) |
+| 11 | Lamp and Rulers | fixed point off T (cont.) | lamp height off whole (cont.) | whole landings (0–11: 12) | \|y(0)\| (cont.) |
+| 12 | Prime Threads | different prime landings (0–6: 7) | largest landing (many) | primes among y(1) … y(13) (0–13) | \|c\| (many) |
+| 13 | Exact Change | ways off W (many) | single-coin ways (0–2: 3) | lopsidedness of the most even way (many) | bill (many) |
+| 14 | Kiss the Circle | reach² off 25 (cont.) | touch point's squared distance from a rim peg (cont.) | triangle area (cont.) | intercept sum (cont.) |
+| 15 | Tangent Kite | pole's squared distance from a peg (cont.) | kite² (cont.) | triangle area (cont.) | — |
+| 16 | Plumb Line | foot's squared distance from a peg (cont.) | intercepts off whole (cont.) | plumb² off a square (many) | triangle area (cont.) |
+| 17 | Firefly Jar | escape hop off K (0–59) | whole hops (0–K) | zigzags (0 to K − 1) | size of the last hop (cont.) |
+| 18 | Cipher Wheel | letters right (0 to word length) | letters used (1, 2, 13, 26: 4) | self-undoing letters (0, 1, 2, 13, 26: 5) | \|m\| + \|c\| (many) |
+| 19 | Sweet Chord | second note off I (cont.) | third note off the octave (cont.) | rough3 (many) | rough4 (many) |
+
+Converted from predicates or near-predicates in this revision: Fair Cut's "ends on pegs" (was a count 0–2, now a
+distance); Exact Change's "an even way exists" (now the lopsidedness of the most even way); Tangent Kite's "rim pegs"
+(0–2: dropped, the chord's ends being irrational leaves nothing graded to measure); Plumb Line's "whole intercepts"
+(now a distance); Sweet Chord's "climbs" (now the third note's distance from the octave). The weakest rungs left are the
+three- and four-level counts (1.1, 2.2, 13.1, 18.1, 18.2): honest counts, but short; a curator should prefer the
+families whose rungs read "cont." or "many".
 
 ### 1. Constellation Mirror (`mir`)
 
@@ -80,7 +125,7 @@ foot of my plumb line" and "the midpoint of my chord".
 - **Status: A.** Stars are rule parameters; `image(px, py)` is a dynamic point element with rational arguments;
   the links are `measure` marks. (The stars as scenery before any mark is drawn: G1.)
 
-### 2. Haga's Fold (`fold`)
+### 2. Haga's Fold (`fold`) **[beginner]**
 
 - **Card.** "The line is a crease. Fold the paper along it: the bottom-left corner should land exactly on the top edge."
 - **Primary.** min \|landing.y − 8\| + max(0, −landing.x, landing.x − 8) (how far the corner lands from the top edge).
@@ -99,15 +144,18 @@ foot of my plumb line" and "the midpoint of my chord".
   flat triangle: primary 0, secondary (2) 0. Bounded: no runaway.
 - **Status: B.** Elements are points and numbers. The drawing needs the paper (G1) and the flap as a region (G2).
 
-### 3. Fair Cut (`cut`)
+### 3. Fair Cut (`cut`) **[beginner]**
 
 - **Card.** "The line saws the chessboard in two. The two pieces should have the same area."
 - **Primary.** min \|`cut.below` − 32\|.
 - **Secondaries.** (1) max `darkThrough` − `lightThrough`: the saw should spoil dark squares, not light ones.
-  (2) min `through`: spoil as few squares as possible. (3) max the number of `enter`, `exit` that are pegs.
+  (2) min `through`: spoil as few squares as possible. (3) min the total distance, along
+  the board's edge, from `enter` and from `exit` to the nearest peg.
 - **Example.** y = x: below = 32; the cut runs through the eight squares of the long diagonal, all dark, and ends on
-  two corners. Score (0, 8, −8, 2). y = x/2 + 2 is fair too, but spoils four of each colour: (0, 0, −8, 2). y = 4 is
-  fair and spoils nothing: (0, 0, 0, 2). y = x + 1 spoils seven light squares and is not fair: (−15/2, −7, −7, 1).
+  two corners. Score (0, 8, −8, 0). y = x/2 + 2 is fair too, but spoils four of each colour: (0, 0, −8, 0). y = 4 is
+  fair and spoils nothing: (0, 0, 0, 0). y = x + 1 spoils seven light squares and is not fair: (−15/2, −7, −7, 0).
+  y = x/3 + 8/3 is fair, spoils six dark and two light, and leaves the board a third of the way between pegs at each
+  end: (0, 4, −8, −⅔).
 - **Compact drawing.** The board, the two pieces tinted, the spoiled squares hatched, two area labels.
 - **Teaches.** Every line through the centre halves the square (the family of fair cuts is a pencil of lines, not one
   line); the squares a line crosses and their colours; a point symmetry pairs spoiled squares of the same colour, so
@@ -116,7 +164,7 @@ foot of my plumb line" and "the midpoint of my chord".
   diagonal is the unique best.
 - **Status: B.** Scores from numbers. Drawing needs the board (G1) and the two pieces as regions (G2).
 
-### 4. Sheep Fence (`dots`)
+### 4. Sheep Fence (`dots`) **[beginner]**
 
 - **Card.** "The line is a fence across a field of 49 sheep. Exactly N sheep should be above the fence."
 - **Parameters.** N ∈ {6, 10, 15} (triangular numbers, which only a diagonal fence can cut off cleanly); N = 14 or 21 for a
@@ -155,7 +203,7 @@ foot of my plumb line" and "the midpoint of my chord".
 - **Status: A** for the score (numeric derived elements); the word is a `symbol`. Drawing letters on crossings needs
   an indexed element with a state-dependent count (G6) and the box (G1).
 
-### 6. Tresillo (`beat`)
+### 6. Tresillo (`beat`) **[beginner]**
 
 - **Card.** "Each time the line climbs past a whole number, the drum sounds. The first bar of eight beats should play
   x . . x . . x ."
@@ -258,7 +306,7 @@ foot of my plumb line" and "the midpoint of my chord".
 - **Degenerate, runaway.** A descending ramp is the mirror image (y = −x + 5 ties). Bounded by N.
 - **Status: B.** `stack(n)` is a dynamic number. Crates and air are regions (G2).
 
-### 11. Lamp and Rulers (`lamp`)
+### 11. Lamp and Rulers (`lamp`) **[beginner]**
 
 - **Card.** "Join each number x on the top ruler to y on the bottom ruler with a thread. One thread hangs straight
   down: it should be the one at T."
@@ -297,21 +345,21 @@ foot of my plumb line" and "the midpoint of my chord".
   offer endless near-tops. This is the one family here that is number theory, kept because the brief names it.
 - **Status: A** today, with `mach.out(q)` or `table.y(q)`.
 
-### 13. Exact Change (`coin`)
+### 13. Exact Change (`coin`) **[beginner]**
 
 - **Card.** "Read the line as a shop puzzle: x coins worth a and y coins worth b pay a bill of N. There should be
   exactly W ways to pay."
 - **Parameters.** W ∈ {2, 3, 4}.
 - **Primary.** min \|`coin.ways` − W\| (WORST for a rising or flat line: one coin would have to be owed back).
-- **Secondaries.** (1) min `single`: every way needs both kinds of coin. (2) max `evenWay`: one way uses the same
-  number of each. (3) min `bill`: the cheapest such bill.
-- **Example (W = 3).** 3x + 4y = 35, that is y = −¾x + 35/4: the ways are (1, 8), (5, 5), (9, 2). Score (0, 0, 1, −35),
-  the best with coins up to 12 and bills up to 120 (4x + 3y = 35 ties). 2x + 3y = 17 has three mixed ways and no even
-  one: (0, 0, 0, −17).
+- **Secondaries.** (1) min `single`: every way needs both kinds of coin. (2) min `lopsided` = the smallest \|x − y\| over the
+  ways: some way uses as nearly equal numbers of the two coins as possible. (3) min `bill`: the cheapest such bill.
+- **Example (W = 3).** 3x + 4y = 35, that is y = −¾x + 35/4: the ways are (1, 8), (5, 5), (9, 2). Score (0, 0, 0, −35),
+  the best with coins up to 12 and bills up to 120 (4x + 3y = 35 ties). 2x + 3y = 17 has three mixed ways, the most
+  even being (4, 3): (0, 0, −1, −17).
 - **Compact drawing.** The first quadrant's pegs, the line, the ways as filled pegs each with a small pile of the two
   coins, the diagonal y = x dotted.
 - **Teaches.** Whole-number solutions step by (b, −a) along the line; coins that share a factor cannot pay most bills;
-  a bill divisible by a coin has a single-coin way; an even way means N is a multiple of a + b.
+  a bill divisible by a coin has a single-coin way; a perfectly even way means N is a multiple of a + b.
 - **Degenerate, runaway.** Coins of 1 make every bill payable with one kind (secondary (1) punishes it). Without
   secondary (3) the bill runs away.
 - **Status: A.** Elements are numbers and points on the `plane` or `pegboard` scene.
@@ -341,16 +389,17 @@ foot of my plumb line" and "the midpoint of my chord".
 - **Card.** "The line cuts the circle at two points. Draw the two tangents there: they should cross exactly on a peg."
 - **Primary.** min the squared distance from `circ.pole` to the nearest peg (WORST when the line misses the circle or
   passes through its centre).
-- **Secondaries.** (1) max `rimPegs`: the chord runs from rim peg to rim peg. (2) min `kite2`: the kite made by the
-  centre, the two ends and the pole is as small as possible. (3) `tri`: min `tri.area`.
-- **Example.** x + y = 5, that is y = −x + 5: the chord joins (5, 0) and (0, 5), the tangents cross at (5, 5), and the
-  kite is a square of side 5. Score (0, 2, −25, −25/2). 7x + y = 25 joins (3, 4) and (4, −3) with pole (7, 1), a tilted
-  square: (0, 2, −25, −625/14). x + 2y = 5 joins (5, 0) and (−3, 4) with pole (5, 10) and a long kite: (0, 2, −100, −25/4).
-  There are 32 non-vertical peg-to-peg chords whose pole is a peg.
+- **Secondaries.** (1) min `kite2`: the kite made by the centre, the chord's two ends and the pole is as small as
+  possible. (2) `tri`: min `tri.area`. (Two secondaries: the third was a 0–2 count and was dropped.)
+- **Example.** 5x + y = 25, that is y = −5x + 25: the tangents cross at the peg (5, 1), just outside the circle, and
+  each is 1 long (kite2 = 1, the least a peg pole allows, since \|pole\|² must be a whole number above 25). Score
+  (0, −1, −125/2). x + y = 5 joins the rim pegs (5, 0) and (0, 5), its tangents cross at (5, 5) and its kite is a square
+  of side 5: (0, −25, −25/2). 7x + y = 25 has pole (7, 1), a tilted square: (0, −25, −625/14). x + 2y = 5 has pole
+  (5, 10) and a long kite: (0, −100, −25/4).
 - **Compact drawing.** The circle, the chord, two tangents meeting at the pole, the kite tinted, right-angle marks at
   the two ends.
 - **Teaches.** Every line has a point that stands for it (pole and polar): a far line has a near pole and a near line a
-  far one; the kite is a square exactly when the two radii are perpendicular.
+  far one; the kite is a square exactly when the two radii are perpendicular; the nearer the pole to the circle, the shorter the chord.
 - **Degenerate, runaway.** Lines close to the centre throw the pole far away onto pegs (x + y = 1 has pole (25, 25)):
   secondary (2) and the pole's distance keep them low. For most lines the two ends are irrational.
 - **Status: B.** The score uses rational elements only. The tangents' feet are generally irrational, so the drawing
@@ -360,12 +409,13 @@ foot of my plumb line" and "the midpoint of my chord".
 
 - **Card.** "Drop a plumb line from the origin straight onto the line. Its foot should land exactly on a peg."
 - **Primary.** min the squared distance from `drop.foot` to the nearest peg (WORST through the origin).
-- **Secondaries.** (1) `int`: max the number of whole intercepts (0 … 2). (2) min the distance from `drop2` to the
+- **Secondaries.** (1) `int`: min dist(p, ℤ) + dist(q, ℤ), how far the two intercepts are from
+  whole numbers (a missing intercept counts ½). (2) min the distance from `drop2` to the
   nearest square number: the plumb line has a whole length. (3) `tri`: min `tri.area`.
 - **Example.** x + y = 2, that is y = −x + 2: foot (1, 1), intercepts 2 and 2, drop2 = 2 (one away from a square), area
-  2. Score (0, 2, −1, −2). 2x + y = 5: foot (2, 1), one whole intercept: (0, 1, −1, −25/4). 3x + 4y = 25: foot (3, 4),
-  a plumb line of length exactly 5, no whole intercept: (0, 0, 0, −625/24). All three secondaries are first met
-  together at 4x + 3y = 300 (foot (48, 36), length 60): (0, 2, 0, −3750).
+  2. Score (0, 0, −1, −2). 2x + y = 5: foot (2, 1), intercepts 5/2 and 5: (0, −½, −1, −25/4). 3x + 4y = 25: foot (3, 4),
+  a plumb line of length exactly 5, intercepts 25/3 and 25/4: (0, −7/12, 0, −625/24). All three secondaries are first
+  met together at 4x + 3y = 300 (foot (48, 36), length 60): (0, 0, 0, −3750).
 - **Compact drawing.** The line, the plumb segment from the origin with a right-angle mark, the foot ringed on its
   peg, the two intercepts ticked.
 - **Teaches.** The shortest path to a line is perpendicular; for a·x + b·y = N the foot is N·(a, b)/(a² + b²), so a peg
@@ -375,7 +425,7 @@ foot of my plumb line" and "the midpoint of my chord".
   Z domain a flat line y = k has a peg foot and a whole plumb line but no intercept triangle (G5 again).
 - **Status: A** except for the undefined area on flat lines (G5), which reordering the secondaries avoids.
 
-### 17. Firefly Jar (`orbit`)
+### 17. Firefly Jar (`orbit`) **[beginner]**
 
 - **Card.** "Feed 0 into the machine, then feed each answer back in. The firefly should stay inside the jar (between
   −10 and 10) for four hops and escape on exactly the fifth."
@@ -395,7 +445,7 @@ foot of my plumb line" and "the midpoint of my chord".
   WORST, as does c = 0. Bounded.
 - **Status: A.** `hop(k)` and `web(k)` are dynamic elements on the `plane` scene (count K is a rule parameter).
 
-### 18. Cipher Wheel (`cipher`)
+### 18. Cipher Wheel (`cipher`) **[beginner]**
 
 - **Card.** "The line is a secret code: letter number k becomes letter number y(k), counting round the alphabet. It
   should turn GIRL into TRIO."
@@ -422,17 +472,18 @@ foot of my plumb line" and "the midpoint of my chord".
   fifth above the first (3/2)."
 - **Parameters.** The interval I ∈ {3/2 (fifth), 5/4 (major third), 4/3 (fourth)}.
 - **Primary.** min \|`music.note(1)` − I\|.
-- **Secondaries.** (1) max `climbs`: the third and fourth notes keep rising. (2) min `rough3`: the first three notes,
+- **Secondaries.** (1) min \|note(2) − 2\|: the third note is as close as possible to the octave. (2) min `rough3`: the first three notes,
   as whole numbers, are as small as possible. (3) min `rough4`.
-- **Example (fifth).** y = x + ½ plays 1, 3/2, 2, 5/2, the chord 2 : 3 : 4 : 5. Score (0, 2, −9, −14), the best with
-  denominators up to 12. y = (3/2)x stacks fifths, 4 : 6 : 9: (0, 2, −19, −65). y = 2x − ½ plays 2 : 3 : 5: (0, 2, −10, −19).
-  For the major third the top is y = x + ¼, the major chord 4 : 5 : 6 (then 7).
+- **Example (fifth).** y = x + ½ plays 1, 3/2, 2, 5/2, the chord 2 : 3 : 4 : 5. Score (0, 0, −9, −14). y = (3/2)x stacks
+  fifths, 4 : 6 : 9, and its third note is ¼ over the octave: (0, −¼, −19, −65). y = 2x − ½ plays 2 : 3 : 5:
+  (0, −½, −10, −19). The major chord 4 : 5 : 6 (then 7) is y = x + ¼, whose third note is a fifth, not an octave: for
+  I = 5/4 deal the target 3/2 for the third note instead.
 - **Compact drawing.** Four bars whose heights are the notes, the whole-number ratio underneath, a faint cobweb beside
   it; a play button if G10 is taken up.
 - **Teaches.** The sweetest chords are equal steps in frequency, a gradient of exactly 1 (the overtone series is the
   line y = x + c), while equal musical intervals are a gradient with c = 0; chords are ratios of small whole numbers.
-- **Degenerate, runaway.** m = 0 repeats one note and m < 0 can go below zero: `climbs` puts them last. Bounded below
-  by the proof that 2 : 3 : c needs c ≥ 4.
+- **Degenerate, runaway.** m = 0 repeats one note and m < 0 can go below zero: both leave the third note far from
+  the octave. Bounded: 2 : 3 : 4 is the smallest rising chord that starts with a fifth.
 - **Status: A** for score and a bar drawing on `sequence`; sound is G10.
 
 ## 3. What the representation contract lacks
@@ -488,19 +539,42 @@ Lines that sit high on two ladders at once, found while checking examples. These
 - Lines through a box's centre serve Fair Cut (centre (4, 4)) or Palindrome Path (centre (3, 3)), never both, unless
   they pass through both centres: only y = x.
 
-## 5. Top eight
+## 5. The beginner set: eight families, two rungs each
 
-Chosen for delight and for how differently each makes a child look at the same line.
+Chosen for delight, for how differently each makes a child look at the same line, and (the owner's rule) for a primary
+that a twelve-year-old learning linear equations at school can check: stated in textbook words, marked **core** (a first
+course teaches it: gradient, intercepts, substituting x, tables of values, plotting, solving simple equations) or
+**stretch** (within reach of a keen child, with what she would look up). Exactly one secondary each, which may be more
+advanced; no third rung. Both rungs are graded. Two of the first version's top eight, Tangent Kite and
+Trick Shot, move to the second pool (a pole and a folded billiard table are not textbook); Fair Cut and Exact Change
+replace them.
 
-| # | Family | Lens | Primary | Why this one |
-|---|---|---|---|---|
-| 1 | **Haga's Fold** | `fold`: the line is a crease | fold the bottom-left corner onto the top edge | you can do it with a real square of paper, and a 3-4-5 triangle appears |
-| 2 | **Tresillo** | `beat`: the line is a drum pattern | the first bar plays x . . x . . x . | the only family you can hear; gradient becomes tempo, intercept becomes rotation |
-| 3 | **Firefly Jar** | `orbit`: the line is fed its own answers | stay in the jar four hops, escape on the fifth | iteration and the cobweb; the top, 1, −1, 3, −5, 11, is a small marvel |
-| 4 | **Lamp and Rulers** | `lamp`: the line is a projection between two rulers | the thread at T hangs straight down | the whole line collapses to one point, the lamp; −40° is its real-world anchor |
-| 5 | **Tangent Kite** | `circ`: the line is a chord with a pole | the tangents at the chord's ends cross on a peg | a line turns into a point; the top is a square hiding in a circle |
-| 6 | **Cipher Wheel** | `cipher`: the line is a secret code | turn GIRL into TRIO | a falling gradient reverses the alphabet; WIZARD spelt backwards |
-| 7 | **Sheep Fence** | `dots`: the line is a fence | exactly ten sheep above | counting first, then the widest street: a child meets the margin idea |
-| 8 | **Trick Shot** | `bil`: the line is a billiard shot | finish in the bottom-right pocket | bouncing is a straight line through mirrored rooms; the top is y = 2x drawn as a W |
+| # | Family (lens) | Primary, in textbook words | Practises | Levels | The one secondary | Levels | Top example, score |
+|---|---|---|---|---|---|---|---|
+| 1 | **Sheep Fence** (`dots`: the line is a fence) | Plot the 49 grid points with x and y from 0 to 6. Count the points above the line (y is greater than mx + c). The count should be as close as possible to N. min \|above − N\| | **core**: plotting; substituting x and comparing y | about 40 | The fence should leave the widest street: max `clear2`, the squared distance to the nearest grid point not on the line | cont. | N = 10: y = x + 5/2, (0, ⅛) |
+| 2 | **Tresillo** (`beat`: the line is a drum pattern) | Make a table of y for x = 0 to 8 and round each y down to a whole number. The drum sounds on each step where the rounded value goes up. The eight steps should match x . . x . . x . on as many beats as possible | **core**: table of values; gradient as rise per step | 9 | The pattern keeps going: max the further beats (9 to 32) that match before the first wrong one | 25 | y = ⅜x + ⅝, (8, 24) |
+| 3 | **Firefly Jar** (`orbit`: the answer is fed back in) | Substitute x = 0, then substitute each answer back in as the next x. The answers should stay between −10 and 10 four times and go outside on exactly the fifth. min \|escape − 5\| | **core**: substituting, negative numbers | about 60 | It only just gets out: min the size of the fifth answer | cont. (11, then fractions above 10) | y = −2x + 1 (1, −1, 3, −5, 11), (0, −11); y = x + 11/5 ties |
+| 4 | **Same on Both Rulers** (`lamp`: Lamp and Rulers) | Solve mx + c = x: the number the line leaves unchanged (where it crosses y = x). It should be as close as possible to T. min \|c/(1 − m) − T\| | **core**: solving a linear equation; where two lines cross | cont. | Whole numbers go to whole numbers: max the different whole values among y(−5) … y(5) | 12 | T = 6: y = 2x − 6, (0, 11); y = −x + 12 ties |
+| 5 | **Fair Cut** (`cut`: the line saws a chessboard) | The line cuts the square with corners (0, 0) and (8, 8) into two pieces. The area of the piece below the line should be as close as possible to 32, half the square. min \|below − 32\| | **stretch**: area of a triangle and a trapezium, from the points where the line meets the square's sides | cont. (0–32) | Spoil dark squares, not light: max dark minus light among the unit squares the line passes through | about 12 | y = x, (0, 8) |
+| 6 | **Exact Change** (`coin`: the line is a shop puzzle) | Write the line as ax + by = N. Count the grid points on it with x and y not negative (the ways to pay N with coins worth a and b). The count should be as close as possible to 3. min \|ways − 3\| | **stretch**: rearranging to ax + by = N; counting grid points on a line | many | Every way uses plenty of both coins: max `smallestPile`, the smallest x or y in any way | 0 to about 5 | 3x + 4y = 35, (0, 1); 5x + 6y = 93, (0, 3) |
+| 7 | **Haga's Fold** (`fold`: the line is a crease) | Reflect the point (0, 0) in the line. Its image should be as close as possible to the top edge of the square, the line y = 8 between x = 0 and x = 8 | **stretch**: reflection in a line (the perpendicular through the point, the same distance the other side) | cont. | It lands in the middle of the edge: min \|landing.x − 4\| | cont. | y = −x/2 + 5, (0, 0): the 3-4-5 triangle |
+| 8 | **Cipher Wheel** (`cipher`: the line is a secret code) | Number the letters A = 0 to Z = 25. Substitute each letter's number for x and take the remainder of y on dividing by 26. GIRL should come out as TRIO in as many letters as possible | **stretch**: substituting; remainders (clock arithmetic) | 5 (word length + 1) | The plainest key: min \|m\| + \|c\| | many | y = −x − 1, (4, −2) |
 
-Next four, had there been room: Constellation Mirror, Palindrome Path, Exact Change, One Thread.
+Notes on the two-rung ladders.
+
+- With one secondary several tops are ties (Firefly Jar, Same on Both Rulers): that is collisions of interest, not a
+  defect, and the fuller ladders in §2 are there when a room wants them broken.
+- Exact Change's secondary has no top: a smallest pile of 5 first appears at 6x + 7y = 149. The read-length surcharge is
+  what stops the climb, as the pricing principle intends; its ladder should declare rungs 0, 1, 2, 3.
+- Sheep Fence, Tresillo, Firefly Jar and Same on Both Rulers need nothing beyond a first course. The four stretch
+  families each need one idea looked up: area of a trapezium, grid points on ax + by = N, reflection in a sloping line,
+  remainders.
+- Status against the contract (§3): Sheep Fence, Tresillo, Firefly Jar, Same on Both Rulers and Exact Change score and
+  draw as written (A); Fair Cut, Haga's Fold and Cipher Wheel score as written and need scenery, regions or a dial to
+  draw (B).
+
+### 5.1 Second pool, in the order I would add them
+
+Constellation Mirror (reflection, a count of matched stars: the most accessible of the rest), Crate Ramp, Palindrome
+Path, Trick Shot, Tangent Kite, Plumb Line, Kiss the Circle, Homecoming Gear, One Thread, Sweet Chord, Prime Threads;
+and the three-secondary ladders of the eight beginner families.

@@ -355,3 +355,20 @@ print("   y = 3x/2:", chord(F(3, 2), F(0)), "  y = 2x - 1/2:", chord(F(2), F(-1,
       "  minor y = 3x/2 - 3/10:", chord(F(3, 2), F(-3, 10), F(6, 5)))
 sc = sorted(((chord(F(p, q), F(3, 2) - F(p, q))[2:], str(F(p, q))) for p in range(-24, 49) for q in range(1, 13)), reverse=True)[:3]
 print("   best lines with note 1 a fifth (m = p/q, q <= 12):", [(tuple(map(str, s[0])), "m=" + s[1]) for s in sc])
+
+# ---------------------------------------------------------------- graded replacements and the beginner set (revision)
+def pile(a, b, N, W=3):
+    ways = change(a, b, N, W)[4]
+    return (-abs(len(ways) - W), min((min(x, y) for x, y in ways), default=-1), ways)
+print("\n== Revision: graded rungs")
+print("   Exact Change, beginner ladder (|ways-3|, smallest pile):", pile(3, 4, 35), pile(1, 1, 2), pile(5, 6, 93))
+bp = sorted(((pile(a, b, N)[:2], a, b, N) for a in range(1, 8) for b in range(1, 8) if gcd(a, b) == 1 for N in range(1, 200)), reverse=True)[:3]
+print("   best smallest pile with coins <= 7:", bp)
+lop = lambda a, b, N: min(abs(x - y) for x, y in change(a, b, N)[4])
+print("   lopsidedness: 3x+4y=35 ->", lop(3, 4, 35), " 2x+3y=17 ->", lop(2, 3, 17))
+ends = lambda m, c: sum(near_int(v) for v in ((-c / m, c) if m else (F(1, 2), c)))
+for mm, cc in ((F(-1), F(2)), (F(-2), F(5)), (F(-3, 4), F(25, 4)), (F(-4, 3), F(100))):
+    print("   Plumb Line intercepts off whole, y = %sx + %s: %s" % (mm, cc, ends(mm, cc)))
+print("   Tangent Kite 5x + y = 25:", [str(v) for v in kite(F(-5), F(25))])
+fall = lambda m, c: (lambda n: max(0, n[1] - n[2]) + max(0, n[2] - n[3]))([F(1), m + c, m * (m + c) + c, m * (m * (m + c) + c) + c])
+print("   Sweet Chord fall-back: y = x + 1/2 ->", fall(F(1), F(1, 2)), " y = -x + 5/2 ->", fall(F(-1), F(5, 2)), " y = 3/2 ->", fall(F(0), F(3, 2)))
