@@ -256,11 +256,14 @@ try {
     await parts.first().waitFor({ timeout: 10_000 });
     const main = await parts.first().innerText();
     assert.match(main, /^● Main part: /m, `the main part is named with its glyph: ${main}`);
-    assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
+    // A line that does not score (a vertical line for a rule that reads its y-intercept: about 30% of newborn lines on
+    // line-q) has no element for the main part to read; one that scores shows it, badged.
+    const scoring = !/not scoring/.test(await line.innerText());
+    if (scoring) assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
     assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
     // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |undefined|cannot/i, `the main part says where the number is: ${main}`);
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
