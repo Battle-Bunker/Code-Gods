@@ -191,14 +191,14 @@ test("other gods' scores move only when the scoreboard is published; the own sco
   const [host, ada, bo] = await gods("Cadence Host", "Cadence Ada", "Cadence Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
-    languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1,
+    languages: ["typescript"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 1,
     interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 60,
   });
   const game = await startGame(host, roomId);
   const start = (await raw(game.gameId)).game.scoreboard;
   assert.equal(start.world, 0, "the first scoreboard is published at the start");
   for (const god of [ada, bo]) {
-    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(3)]; }" }, game.gameId) });
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: "function agent(grid) { return [slide(row(0), 3)]; }" }, game.gameId) });
     assert.equal(r.accepted, true, r.message);
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });

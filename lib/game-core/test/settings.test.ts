@@ -36,9 +36,9 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.objectSelection, "uniform");
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, objectSelection: "salient" as never }), /objectSelection/);
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, commitClause: "yes" as never }), /commitClause/);
-  assert.deepEqual(defaultSettingsFor("Int", ["typescript"]).languages, ["typescript"]);
-  assert.equal(DEFAULT_SETTINGS.objectType, "Int");
-  assert.deepEqual(DEFAULT_SETTINGS.typeArgs, { min: -2147483648, max: 2147483647 });
+  assert.deepEqual(defaultSettingsFor("Grid", ["typescript"]).languages, ["typescript"]);
+  assert.equal(DEFAULT_SETTINGS.objectType, "Grid");
+  assert.deepEqual(DEFAULT_SETTINGS.typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
   for (const legacy of ["intMin", "intMax", "stringMaxLength"]) assert.ok(!(legacy in DEFAULT_SETTINGS));
 });
 
@@ -85,41 +85,31 @@ test("interaction compute budget is an integer from 1 to 1000 ms; interaction ca
 });
 
 test("typeArgs are validated by the object type's instantiate", () => {
-  validateSettings(settings({ objectType: "Int", typeArgs: { min: 0, max: 9 } }));
-  validateSettings(settings({ objectType: "string", typeArgs: { maxLength: 128 } }));
   validateSettings(settings({ objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" } }));
   for (const [objectType, typeArgs] of [
-    ["Int", { min: 10, max: 1 }],
-    ["Int", { min: 0.5, max: 2 }],
-    ["string", { maxLength: -1 }],
     ["Grid", { size: 5, symbols: "base10", colours: "plaid" }],
+    ["Grid", { size: 8, symbols: "base10", colours: "rgb" }],
     ["Unicorn", {}],
+    ["Int", { min: 0, max: 9 }],
+    ["string", { maxLength: 128 }],
   ] as const) {
     assert.throws(() => validateSettings(settings({ objectType, typeArgs })), `${objectType} ${JSON.stringify(typeArgs)}`);
   }
   assert.throws(() => validateSettings(settings({ typeArgs: null as never })), /typeArgs/);
-  assert.equal(instantiationOf(settings({ objectType: "Int", typeArgs: { min: 0, max: 9 } })).objectType, "Int");
   const grid = instantiationOf(settings({ objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" } }));
   assert.equal(grid.key, "Grid(5,base10,rgby)");
 });
 
 test("object values are checked by the type's codec, never coerced", () => {
-  for (const x of [-2147483648, 0, 2147483647]) assertObjectValue(x, DEFAULT_SETTINGS);
-  for (const x of [true, 0.5, "1", Infinity, -2147483649]) assert.throws(() => assertObjectValue(x, DEFAULT_SETTINGS));
-  const small = settings({ typeArgs: { min: 0, max: 9 } });
-  assertObjectValue(9, small);
-  assert.throws(() => assertObjectValue(10, small));
-  const strings = settings({ objectType: "string", typeArgs: { maxLength: 128 } });
-  for (const x of ["", "a".repeat(128)]) assertObjectValue(x, strings);
-  for (const x of ["é", "a".repeat(129), 1]) assert.throws(() => assertObjectValue(x, strings));
   const grids = settings({ objectType: "Grid", typeArgs: { size: 3, symbols: "base10", colours: "rgb" } });
   assertObjectValue("7R,3G,0B/1R,2R,9B/4G,4G,8R", grids);
   assert.throws(() => assertObjectValue("7R,3G,0B/1R,2R,9B", grids));
+  for (const x of [true, 0.5, 7, Infinity, "7r,3G,0B/1R,2R,9B/4G,4G,8R"]) assert.throws(() => assertObjectValue(x, grids));
   assert.equal(codecOf(grids), codecOf({ ...grids, typeArgs: { colours: "rgb", size: 3, symbols: "base10" } })); // cached
 });
 
 test("every authored option is accepted with its compatible type", () => {
-  for (const objectType of ["Int", "string", "Grid"]) {
+  for (const objectType of ["Grid"]) {
     const base = defaultSettingsFor(objectType);
     for (const key of ["utilitySelectorId", "spawnFunctionId"] as const) {
       const options = settingsOptionsFor(key, objectType);
@@ -175,12 +165,11 @@ test("upgradeLegacyLanguage turns a single language into the set and drops the d
 
 test("defaultSettingsFor gives valid settings for every type and language", () => {
   for (const language of ["python", "typescript"] as const)
-    for (const objectType of ["Int", "string", "Grid"]) validateSettings(defaultSettingsFor(objectType, [language]));
+    validateSettings(defaultSettingsFor("Grid", [language]));
   assert.throws(() => defaultSettingsFor("Unicorn"));
   const grid = defaultSettingsFor("Grid");
   assert.equal(grid.spawnRateHz, 0.5); // tuned Grid defaults (grid-lab experiments)
   assert.equal(grid.startingObjectCount, 80);
-  assert.equal(defaultSettingsFor("Int").spawnRateHz, DEFAULT_SETTINGS.spawnRateHz);
   assert.deepEqual(grid.typeArgs, { size: 4, symbols: "base10", colours: "rgb" }); // beginner board
   assert.ok(grid.excludedFamilies.includes("sudoku_scholar") && grid.excludedFamilies.includes("fair_weaver"));
   const classic = defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "base10", colours: "rgby" });
@@ -189,7 +178,6 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
     assert.ok(!classic.excludedFamilies.includes(attractor));
   assert.equal(grid.powerPerSecond, 64); // two agents at the measured Grid income (grid-lab PR #14 §4.9)
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
-  assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
   assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-annotated-bidding", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
@@ -316,14 +304,11 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
       else assert.throws(() => validateSettings({ ...g, costModel: model }), /is not offered for Grid\(/, model);
     }
   }
-  for (const type of ["Int", "string"]) assert.deepEqual(supportedCostModels(defaultSettingsFor(type)), ["set-v1"], type);
   for (const ok of [grid, { ...grid, costModel: "set-v1" }, { ...grid, costModel: "distance-v1" }, { ...DEFAULT_SETTINGS, costModel: "set-v1" }] as GameSettings[]) {
     assert.doesNotThrow(() => validateSettings(ok), JSON.stringify(ok.costModel));
   }
   assert.throws(() => validateSettings({ ...grid, costModel: "free" as never }), /costModel must be one of set-v1, distance-v1/);
   assert.throws(() => validateSettings({ ...grid, costModel: null as never }), /costModel must be one of/);
-  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }), /costModel distance-v1 is not offered for Int\(/);
-  assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "distance-v1" }), /not offered for string\(/);
 });
 
 test("the setups built on Annotated basics price changes by distance; every other ordinary seed keeps the default model unspelled", () => {
@@ -493,9 +478,8 @@ test("a beginner's first agent: as close to three quarters as still leaves a sto
   assert.equal(at(0, 1200), undefined, "not above the default half: the engine default");
   assert.equal(at(0.5), undefined, "power already given out: half of the rest is the default");
   assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: 64, fullChargeSeconds: undefined, need: 572 }), undefined, "no capacity: the default");
-  // Int and string worlds (P = 8, T = 60, store 480) cannot keep 572: they keep the default too.
-  const int = defaultSettingsFor("Int");
-  assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: int.powerPerSecond, fullChargeSeconds: int.fullChargeSeconds, need: BEGINNER_AGENT_BUDGET_BITS }), undefined);
+  // A world on the general defaults (P = 8, T = 30, store 240) cannot keep 572: it keeps the default too.
+  assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: DEFAULT_SETTINGS.powerPerSecond, fullChargeSeconds: DEFAULT_SETTINGS.fullChargeSeconds, need: BEGINNER_AGENT_BUDGET_BITS }), undefined);
   // Only a beginner rule on the beginner board counts.
   assert.equal(isBeginnerGoal({ boardKey: BEGINNER_BOARD_KEY, familyId: BEGINNER_POOL[0] }), true);
   assert.equal(isBeginnerGoal({ boardKey: "Grid(5,base10,rgby)", familyId: BEGINNER_POOL[0] }), false);
@@ -505,7 +489,7 @@ test("a beginner's first agent: as close to three quarters as still leaves a sto
 
 test("every world's defaults keep the starting energy: the store holds it in planning and after the first default summons", async () => {
   const { settleDeityEnergy, chargeDeityAccount, defaultShare } = await import("../src/energy.ts");
-  for (const type of ["Int", "string", "Grid"]) {
+  for (const type of ["Grid"]) {
     const s = defaultSettingsFor(type);
     const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
     let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0)), allocated = 0;
@@ -515,11 +499,11 @@ test("every world's defaults keep the starting energy: the store holds it in pla
       own = chargeDeityAccount(own, 60, 0, terms(allocated));
       allocated += defaultShare(allocated);
       own = settleDeityEnergy(own, 0, terms(allocated));
-      // Grid (600 bits, P = 64): 540 then 480 = its quarter-power store exactly. Int and string (200 bits, P = 8, T = 60): 140, 80.
+      // Grid (600 bits, P = 64): 540 then 480 = its quarter-power store exactly.
       assert.equal(own.balance, left, `${type}: nothing is lost to the capacity with ${100 * allocated}% allocated`);
     }
   }
-  assert.deepEqual([defaultSettingsFor("Int").fullChargeSeconds, defaultSettingsFor("string").fullChargeSeconds, defaultSettingsFor("Grid").fullChargeSeconds], [60, 60, 30]);
+  assert.equal(defaultSettingsFor("Grid").fullChargeSeconds, 30);
 });
 
 test("the summon price is language-fair: TypeScript's structure bits are weighted to Python's scale (docs/energy-model.md §5.1)", async () => {

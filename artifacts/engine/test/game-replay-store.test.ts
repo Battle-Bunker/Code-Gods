@@ -16,8 +16,8 @@ import type { ReplayPage } from "@workspace/player-client/replay";
 import { SITE_, URL_, api, envelope, gods, httpJwt as jwtFor, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, interactionRateHz: 20, planningSeconds: 3600,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, interactionRateHz: 20, planningSeconds: 3600,
   halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 
@@ -40,7 +40,7 @@ test("an ended game's replay is stored once and served only to whoever may watch
   const { roomId, shortCode } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);
   const ok = async (p: Promise<any>) => { const r = await p; assert.equal(r.accepted, true, r.message); };
-  await ok(ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Ada adds", language: "typescript", source: TS.Int }, game.gameId) }));
+  await ok(ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Ada adds", language: "typescript", source: TS.Grid }, game.gameId) }));
   await ok(bo.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "chat", text: "stored-chat" }, game.gameId) }));
   const adaJwt = await jwtFor(ada, roomId);
 

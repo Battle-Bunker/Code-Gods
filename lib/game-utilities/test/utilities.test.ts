@@ -8,18 +8,17 @@ import {
 import { packTetrominoes } from "../src/families/grid/geometry.ts";
 import type { Ordinal } from "../src/types.ts";
 import { shardOf } from "./shard.ts";   // CG_SHARD="k/n": the two instantiation loops below are split across CI jobs
-import { allGrids, coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
+import { allGrids, coveringGrids, familiesOf, sampleObjects, seededRng } from "./support.ts";
 
-const ALL: Instantiation[] = [...allGrids(), ...intInsts(), ...stringInsts()];
+const ALL: Instantiation[] = allGrids();
 const MAX_CANONICAL = 24;
 const MAX_LINES = 60, MAX_WIDTH = 110;
 
-test("catalog: unique ids, 33 shortlisted grid families, 8 penalties, Int and string families", () => {
+test("catalog: unique ids, 33 shortlisted grid families, 8 penalties", () => {
   assert.equal(new Set(FAMILIES.map(f => f.id)).size, FAMILIES.length);
   const grid = familiesFor("Grid");
   assert.equal(grid.filter(f => f.tags.includes("shortlist")).length, 33);
   assert.equal(familiesFor("Grid", "penalty").length, 8);
-  assert.ok(familiesFor("Int").length >= 14 && familiesFor("string").length >= 14);
   assert.equal(Object.values(GRID_LENSES).flat().length, grid.length);
   for (const f of FAMILIES) {
     assert.ok(f.name && f.emoji && f.theme, f.id);
@@ -87,7 +86,7 @@ test("every family × every instantiation: support, sample ∈ support, canonica
 });
 
 test("exemplars are legal and reach the top of every sampled ordinal", () => {
-  for (const inst of shardOf([...coveringGrids(), ...intInsts(), ...stringInsts()])) {
+  for (const inst of shardOf(coveringGrids())) {
     const ctx = context(inst), rng = seededRng(`exemplar:${inst.key}`), codec = objectType(inst.objectType).codec(inst);
     const objs = sampleObjects(inst, rng, 60);
     for (const f of familiesOf(inst)) {
@@ -166,7 +165,6 @@ test("availability and the public catalog follow the constraints", () => {
   const castle = entries.find(e => e.id === "castle_keeper")!;
   assert.equal(castle.available, true);
   assert.equal(available(family("castle_keeper"), instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })).ok, false);
-  assert.equal(available(family("digit-devotee"), plain).ok, false);
 });
 
 test("cards: summary, both sources, shape, and the defence goal", () => {
@@ -187,7 +185,7 @@ test("cards: summary, both sources, shape, and the defence goal", () => {
 
 test("Divine Lottery: available rewards only, distinct, deterministic, defence goals and table filter", () => {
   assert.equal(selector("divine-lottery"), divineLottery);
-  for (const inst of [instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), instantiate("Int", {}), instantiate("string", { maxLength: 16 })]) {
+  for (const inst of [instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" })]) {
     const deal = divineLottery.select(inst, 12, seededRng(1));
     assert.deepEqual(divineLottery.select(inst, 12, seededRng(1)), deal);
     assert.equal(new Set(deal.map(paramsKey)).size, 12);

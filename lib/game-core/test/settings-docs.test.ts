@@ -19,7 +19,7 @@ const paramDocs = OBJECT_TYPES.flatMap(t => t.params.map((p): [string, Pick<Fiel
 const docs = [...Object.entries({ ...SETTINGS_DOCS, ...ROOM_QUOTA_DOCS }), ...paramDocs] as [string, FieldDoc][];
 
 test("every settings field, type argument and room quota has a question, a meaning and a consequence", () => {
-  assert.ok(paramDocs.length >= 6, "Grid size/symbols/colours, Int min/max and string maxLength are documented");
+  assert.ok(paramDocs.length >= 3, "Grid size/symbols/colours are documented");
   assert.deepEqual(Object.keys(SETTINGS_DOCS).sort(), [...Object.keys(DEFAULT_SETTINGS), ...OPTIONAL_SETTINGS_FIELDS].sort(), "one doc per GameSettings field (the optional ones too), no stale keys");
   assert.deepEqual(Object.keys(ROOM_QUOTA_DOCS).sort(), ["aiQuota", "assistantModel", "assistantQuota"]);
   for (const [key, doc] of docs) {

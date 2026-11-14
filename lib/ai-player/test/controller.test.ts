@@ -57,12 +57,12 @@ test("autonomous summon is runtime-validated and within fresh energy",async()=>{
   const transport:PlayerTransport={observe:async()=>observation,send:async env=>{
     sent.push(env);return {commandId:env.commandId,accepted:true,message:"ok",...(env.command.type==="validate"?{validation:{valid:true,cost:10,expectedActCost:5,diagnostics:[]}}:{})};
   }};
-  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",name:"Bot",language:"python",source:"def agent(x):\n    return [add(1)]"},{type:"chat",text:"I propose cooperation."}]),budget:budget(),transport,onEvent:event=>events.push(event)}).step();
+  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",name:"Bot",language:"python",source:"def agent(grid):\n    return [slide(row(0), 1)]"},{type:"chat",text:"I propose cooperation."}]),budget:budget(),transport,onEvent:event=>events.push(event)}).step();
   assert.deepEqual(sent.map(e=>e.command.type),["validate","summon","chat"]);
   assert.equal(events.filter(e=>e.type==="usage").length,1);
   sent.length=0;
   transport.send=async env=>{sent.push(env);return{commandId:env.commandId,accepted:true,message:"costly",validation:{valid:true,cost:1000,expectedActCost:5,diagnostics:[]}};};
-  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",name:"Bot",language:"python",source:"def agent(x):\n    return [add(1)]"}]),budget:budget(),transport,onEvent:()=>{}}).step();
+  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",name:"Bot",language:"python",source:"def agent(grid):\n    return [slide(row(0), 1)]"}]),budget:budget(),transport,onEvent:()=>{}}).step();
   assert.deepEqual(sent.map(e=>e.command.type),["validate"]);
 });
 test("an AI seat writes each agent in any language the game allows, and only those",async()=>{
@@ -70,7 +70,7 @@ test("an AI seat writes each agent in any language the game allows, and only tho
   const transport:PlayerTransport={observe:async()=>({...observation,languages:["python","typescript"]}),send:async env=>{
     sent.push(env);return {commandId:env.commandId,accepted:true,message:"ok",...(env.command.type==="validate"?{validation:{valid:true,cost:10,expectedActCost:5,diagnostics:[]}}:{})};
   }};
-  const ts={type:"summon",name:"Bot",language:"typescript",source:"function agent(x) { return [add(1)]; }"};
+  const ts={type:"summon",name:"Bot",language:"typescript",source:"function agent(grid) { return [slide(row(0), 1)]; }"};
   await new AIController({roomId:"room",godId:"ai",provider:provider([ts]),budget:budget(),transport,onEvent:()=>{}}).step();
   assert.deepEqual(sent.map(e=>[e.command.type,"language" in e.command?e.command.language:null]),[["validate","typescript"],["summon","typescript"]],
     "the second allowed language, though python is the default");

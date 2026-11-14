@@ -482,9 +482,8 @@ test("a family without a lens still gets an example board that scores, and no br
   assert.match(ex.caption, /^This board scores/);
 });
 
-test("explain refuses what it cannot read: another shape's board, a non-Grid game", () => {
+test("explain refuses what it cannot read: another shape's board, a value that is no board", () => {
   const goal = explainer({ familyId: "set_spotter", params: {} }, FIRST_STEPS)!;
   assert.equal(goal.explain("1R,1R,1R/1R,1R,1R/1R,1R,1R"), null);
   assert.equal(goal.explain(42), null);
-  assert.equal(explainer({ familyId: "digit-devotee", params: { digit: 0 } }, instantiate("Int", {})), null);
 });

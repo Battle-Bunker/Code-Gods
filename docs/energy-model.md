@@ -78,7 +78,6 @@ are priced at a fraction of it:
 | Classic, Low income | 5×5, base10, rgby | 133.1 | 14.3 (a colour) | > 9.3 | 4.16 |
 | Big board | 6×6, base16, rainbow6 | 237.1 | 17.8 (a colour) | > 13.3 | 7.41 |
 | Master | 7×7, cards, rainbow6 | 406.0 | 18.7 (a colour) | > 21.7 | 12.69 |
-| (Int, 32-bit; not a seed) | | 32 | 2.2 (×−1) | > 14.5 | 1 |
 
 - The meter, the observation's read helpers and the runtime still count bits of information; only the charge is scaled.
   The observation reports κ as `economy.changeReadRatio`, and the rules, primer, skills and My agents panel say "looking
@@ -147,21 +146,7 @@ Worked examples (4×4, base10, rgb):
 | Scans every symbol and colour | 32 values | 78.5 |
 | Never looks (always `paint(cell(0,0), "red")`) | — | 0 (plus the offer's bits, as every row: §7.1) |
 
-### 3.2 Int and string
-
-The agent receives a metered view of the value, not the raw value.
-
-- **Int:** `n.value` reads the whole number: log2 W bits, where W = max − min + 1 (32 bits for a 32-bit range).
-  `n.digit(p)` reads one decimal place: log2 10 bits. `n.negative` reads the sign: 1 bit (free when the range has one sign). The total for one act is
-  capped at log2 W.
-  - In Python the view also behaves as a number (`n + 1`, `n % 2`, `n > 5`, `range(n)`, `str(n)`); any such use reads
-    the whole number.
-  - In TypeScript, use `n.value` (a `number`) or `n.digit(p)`.
-- **string:** `s.length` costs log2(maxLength + 1). `s.char(i)` costs log2 A = 7 bits (ASCII). `s.text`
-  reads all of it: length + length · log2 A, capped as above.
-  - In Python, `len(s)`, `s[i]`, iteration, `in` and `str(s)` work and are charged the same way.
-
-### 3.3 Keeping the meter honest
+### 3.2 Keeping the meter honest
 
 The meter is guest code, so the guest must not be able to read the board or reset the meter past it.
 
@@ -193,7 +178,7 @@ The meter is guest code, so the guest must not be able to read the board or rese
 ## 4. Change cost
 
 One rule holds in every room: **a move costs the changes it makes, cell by cell.** An act's W is the sum, over its
-calls, of the work of each site (a cell's number, a cell's colour, an Int's digit place, a string's character) the
+calls, of the work of each site (a cell's number, a cell's colour) the
 call's net effect changed, whatever mutator did it, and the act pays C = W + β·W² (§4.3).
 
 What one changed site costs is the room's **cost model**: the optional room setting `settings.costModel`, shown to
@@ -203,7 +188,7 @@ before.
 - **"set-v1"** (§4.1, §4.2, §4.4): a value is overwritten. Every changed cell costs the same, however far its value
   moved. Every object type supports it.
 - **"distance-v1"** (§4.5): a number is moved. It pays for how far it went; a colour or a card's suit pays a flat
-  price for having changed. Grid supports it; Int and string rooms stay on set-v1.
+  price for having changed.
 
 A cost model changes what a change costs, never what a call does. `applyCalls(typeDef, inst, value, wire, model)`
 prices an act under a model, `objectType(t).costTable?.(inst, model)` lists a type's one-cell moves with their W,
@@ -214,7 +199,7 @@ players and AIs take their numbers from these (`lib/game-core/src/change-cost.ts
 
 w is the surprisal of the call's parameters under the maximum-entropy prior on them, plus, for an overwrite, the bits
 it erases (pointwise: log2 of the preimage size). There is one op-choice bit per call (log2 of the number of elementary
-ops for the type, which is 2 for each type below).
+ops for the type, which is 2 for a Grid with colours).
 
 A **mono** Grid (one colour, numbers only, 11 Nov 2026) has no colour to set, so its only elementary op is "set a
 symbol" and naming it costs log2 1 = 0 bits: w_symbol = log2 N² + 2 log2 S, which on 4×4 base10 is 4 + 6.64 = 10.64 bits
@@ -226,14 +211,6 @@ mines) are not offered.
 |---|---|---|
 | Grid | set one cell's colour | 1 + log2 N² + log2 C (new) + log2 C (erased) |
 | Grid | set one cell's symbol | 1 + log2 N² + log2 S + log2 S |
-| Int | add d·10ᵖ (one digit place, d ∈ ±1…±9) | 1 + log2 P + log2 18 |
-| Int | multiply by m (\|m\| ≥ 2, out of range fails) | 1 + 1 (sign) + Σ over m's prime factors p (with multiplicity) of (log2 p + 1) |
-| string | set one character | log2 3 + log2(L + 1) + 2 log2 A |
-| string | insert / delete one character | log2 3 + log2(L + 1) + log2 A |
-
-Int's digit adds wrap, so they are bijections, and multiplying either fails or is injective, so neither erases.
-Multiplying by a prime is the elementary step, so w(×ab) = w(×a) + w(×b) − 2 (the op and sign bits are paid once).
-There is no "set the number" mutator. Setting a number means a sequence of digit adds.
 
 ### 4.2 Composite mutators
 
@@ -242,15 +219,6 @@ Every existing mutator stays, priced by the decomposition of its *net effect on 
 - **Grid (set-v1):** W(call) = Σ over cells whose colour changed of w_colour + Σ over cells whose symbol changed of w_symbol.
   This is exact: a cell that changed needs at least one set, and one set suffices. `paint(cell, c)` and
   `write(cell, s)` are the elementary mutators. `paint(row(2), "red")` on a row with no red is 4 sets.
-- **Int:** W(call) = the cheaper of:
-  - the minimal signed-digit (base 10) decomposition of Δ = after − before, taken over Δ and Δ ± W because adds
-    wrap;
-  - the prime decomposition of m, when after = before · m.
-
-  `add(k)` is now composite: `add(1000)` is one digit add, and `add(999)` is two (+1000, −1).
-- **string:** W(call) = the cost of the edit script that keeps the common prefix and suffix and edits the middle with
-  sets, then inserts or deletes for the length difference. This is an upper bound on the cheapest decomposition;
-  documented as such.
 
 A call that changes nothing has W = 0. W of the act is the sum over its calls in order, so a change undone later in
 the act still paid for both steps.
@@ -276,17 +244,7 @@ colour changes on a 4×4 board.
 | 4×4×rgb | a row's colour (all 4 change) | 32.7 | 86.1 | 7.5 |
 | 4×4×rgb | the whole grid's colour | 130.7 | 985 | 86 |
 | 4×4×rgb | one cell's symbol | 11.6 | 18.4 | — |
-| Int 32-bit | ×7 | 5.81 | 7.5 | — |
-| Int 32-bit | ×7⁴ (= ×2401) | 17.2 | 32.0 | 4.3 × (×7) |
-| Int 32-bit | +100 (digit 3 up by one) | 8.49 | 12.1 | — |
-| Int 32-bit | +10101 (digits 1, 3 and 5) | 25.5 | 58.0 | 4.8 × (digit 3) |
-
-The owner's checks hold:
-
-- ×7 is cheap, however many digits change;
-- ×7⁴ costs more than 4 × (×7);
-- digit 3 costs less than ⅓ of digits 1, 3 and 5;
-- a row costs more than 4 × a cell.
+The owner's check holds: a row costs more than 4 × a cell.
 
 They are unit tests (`lib/game-types/test/mutators.test.ts`).
 
@@ -550,9 +508,9 @@ irrelevant.
     agents' power. At 120 s and more it is not.
   - Agents can still store a mid-sized change: the smallest default agent (an eighth of the power) holds 240 bits, 2.8
     row repaints on 4×4; a half-share agent 960. At 5 s the eighth holds 40 bits, less than one row.
-  - Low power needs longer: with P = 8 (Int and string worlds) a 30-second store holds 240 bits, and after the first
-    default summon 120, less than what is left of the 200 starting bits. Those worlds default to 60 s (`TYPE_DEFAULTS`,
-    13 Nov 2026); a test checks that every world's defaults keep the starting energy through two default summons.
+  - Low power needs longer: with P = 8 a 30-second store holds 240 bits, and after the first default summon 120, less
+    than what is left of 200 starting bits; a test checks that the Grid defaults keep the starting energy through two
+    default summons.
 - **Starting energy on the Grid setups is 600** (13 Nov 2026; it was 200). A new player's first agent must be payable in
   planning, when nothing accrues: the dearest shipped Python example agent for a beginner rule costs 572.2 bits
   (`BEGINNER_AGENT_BUDGET_BITS`, 573). 600 is under the planning store (1,920), and after a first summon at the default half

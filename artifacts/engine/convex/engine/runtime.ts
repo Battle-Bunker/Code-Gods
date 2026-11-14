@@ -224,7 +224,7 @@ export function probeLanguage(ctx: ActionCtx, language: Language): Promise<{ ok:
   if (!p) {
     p = (async () => {
       try {
-        const settings = defaultSettingsFor("Int", [language]);
+        const settings = defaultSettingsFor("Grid", [language]);
         const inst = instantiationOf(settings), T = objectType(inst.objectType);
         const { seededRng } = await import("@workspace/game-types");
         const value = T.codec(inst).encode(T.spawn(inst, seededRng(`code-gods:probe:${inst.key}`)));

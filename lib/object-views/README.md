@@ -12,8 +12,6 @@ the viewer's choice for that type, else the type's default.
 
 | `objectType` | renderers (default first) | shows |
 |--------------|---------------------------|-------|
-| `Int`        | `text` (`IntObject`)      | the number |
-| `string`     | `text` (`StringObject`)   | the JSON-quoted string |
 | `Grid`       | `digits`, `tiles` (`GridObject`) | `digits`: one monospace line per row, each glyph (a digit, or card rank and suit) in its colour's text shade, no tiles; `tiles`: a compact board of coloured cells, with an optional letter cue. Both open the same detail view on hover or click (larger tile board, cell names, canonical string, Display and colour-cue toggles) |
 
 The viewer's choice per type is remembered in `localStorage` under `code-gods.object-views.renderer.<type>`
@@ -31,7 +29,7 @@ The payoff's two dimensions and its strength have fixed colours (`src/dimensions
 others; `dimensionVar`, `--cg-yours` / `--cg-others`) and `SCORE_RAMP` (`rampVar`, `rampHex`, `relativeStrength`;
 `--cg-ramp-low` / `--cg-ramp-high`), validated like the digit shades (`test/palette-metrics.test.ts`).
 `TransformationView` shows before → after; on grids the changed cells are outlined. When the type is
-unknown, numbers render as Int, strings that parse as a grid of at least 2×2 as Grid, others as string.
+unknown, strings that parse as a grid of at least 2×2 render as Grid, anything else as its text.
 
 To add an object type, write one component taking `ObjectViewProps` and register it:
 

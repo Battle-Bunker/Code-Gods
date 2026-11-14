@@ -22,14 +22,13 @@
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
  * room's setup (put on First steps through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
- * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
- * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
+ * dealing, prior, act targeting, then TypeScript ticked and Python unticked in the languages multi-select, 1 s
+ * planning), saves it for
  * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player and changes the AI quotas in the
  * AI quotas sheet; bob chats; the palette explains connecting a player
  * app and shows owner commands dimmed to members; alice starts the game (at phone width on a setup with a two-minute
  * bid phase: bob and carol get the bidding screen, bob bids and takes it back, both pass and it ends; at desktop width
- * the walk passes through a bid phase only if the setup has one), the room shows its rule tables being
- * prepared (the computed cache of that range is forgotten first), and every viewer is then taken to the game page,
+ * the walk passes through a bid phase only if the setup has one), and every viewer is taken to the game page,
  * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup combobox puts
  * the room on First steps at once, with Undo (then alice deletes her copy, so runs leave no setups behind). Then the device page approves an `act` request made through POST
  * /api/device/request (the credential appears under Connected apps and is revoked), and an owner request needs the
@@ -44,7 +43,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
 import { ConvexHttpClient } from "convex/browser";
 import { instantiate, objectType } from "@workspace/game-types";
-import { LENSES, applicable, canonicalSupport, context, familiesFor, family as familyOf, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
+import { LENSES, applicable, family as familyOf } from "@workspace/game-utilities";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -87,25 +86,6 @@ if (!process.env.SKIP_DEPLOY) {
 // Helpers
 // ---------------------------------------------------------------------------------------------
 type Page = any;
-/** Run an internal engine function on the local deployment (test fixtures: calibration.cache, compute.run). */
-function convexRun(fn: string, args: unknown) {
-  const r = spawnSync("npx", ["convex", "run", fn, JSON.stringify(args)], { cwd: path.join(root, "artifacts/engine"), encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`${fn} failed: ${r.stderr}`);
-}
-/**
- * Forget the on-demand tables of an instantiation and claim every table the given reward families can need there, so
- * a start waits on them; returns the compute.run jobs that land them.
- */
-function claimDealable(instance: string, families: string[]) {
-  convexRun("calibration/cache:forget", { instance });
-  const inst = instantiateKey(instance), ctx = context(inst);
-  return families.flatMap(id => canonicalSupport(familiesFor(inst.objectType, "reward").find(f => f.id === id)!, ctx).map(p => {
-    const key = tableKey(id, p, inst);
-    convexRun("calibration/cache:claim", { key, instance, family: id, paramsKey: paramsKey(p), prior: "uniform" });
-    return { key, instance, familyId: id, params: p };
-  }));
-}
-
 /**
  * Change some of the room's next-game settings as its owner (the engine's owner.settings, with the page's own Convex
  * JWT): for settings a check needs without walking the configuration form again.
@@ -383,23 +363,7 @@ try {
       assert.equal(await a.getByTestId("select-spawnFunctionId").isDisabled(), false);
       await expand(a, "more-agents");
       await a.getByTestId("switch-commitClause").click();
-      // Int / TypeScript: Int's own arguments; the languages are a multi-select that never empties.
-      await a.getByTestId("choice-objectType-Int").click();
-      await a.getByTestId("arg-min").waitFor();
-      await a.getByTestId("arg-max").waitFor();
-      // A range with no shipped tables (it used to be disabled): playable, with the first game's preparation noted.
-      await a.getByTestId("choice-arg-min-0").click();
-      assert.equal(await a.getByTestId("choice-arg-max-2147483647").getAttribute("aria-checked"), "true");
-      await a.getByTestId("note-first-use").filter({ hasText: /first game on this shape on this server prepares up to \d+ rule tables \(about 35 s\)/ }).waitFor();
-      // Only rules with sampled tables may be dealt, so the first game here must prepare (an all-analytic deal starts at once).
-      for (const id of ["digit-devotee", "tailwright", "firstborn", "power-hoarder", "palindromist", "stairwalker", "residue-oracle", "bit-sigil", "zebra", "numerologist", "refrain"]) {
-        await a.getByTestId(`toggle-family-${id}`).uncheck();
-      }
-      // Int has no defence goals: nothing switches them off behind alice's back; the field says so, and she does.
-      await a.getByTestId("error-defenceGoals").filter({ hasText: /no defence goals to deal/ }).waitFor();
-      await a.getByTestId("switch-defenceGoals").click();
-      await a.getByTestId("reason-defenceGoals").waitFor();
-      assert.equal(await a.getByTestId("switch-defenceGoals").isDisabled(), true);
+      // TypeScript: the languages are a multi-select that never empties.
       assert.equal(await a.getByTestId("choice-languages-python").isDisabled(), true, "the only allowed language cannot be unticked");
       await a.getByTestId("choice-languages-typescript").click();
       await a.getByTestId("text-summary-languages").filter({ hasText: "Python, TypeScript" }).waitFor();
@@ -419,7 +383,7 @@ try {
       await expand(b, "details-next-game");
       const listed = b.getByTestId("list-settings");
       await listed.filter({ hasText: "typescript" }).waitFor();
-      assert.match(await listed.innerText(), /Whole numbers/);
+      assert.match(await listed.innerText(), /Grid 5×5/);
       await b.getByTestId("text-setup").filter({ hasText: copyName }).waitFor();
       // Anyone else reads the same page, every control disabled, with "Duplicate and edit" as the one action.
       await b.goto(`${SITE}/rooms/${code}/configure`);
@@ -491,14 +455,10 @@ try {
     let gameCode = "";
     // The phone run starts with a bid phase (docs/bid-phase.md), the desktop run with the setup as it is: both ways into a game.
     const withBidding = name === "phone";
-    let pending: ReturnType<typeof claimDealable> = [];
     await check(`${name}: alice starts the game; the Start button reads "Starting…" in the same frame`, async () => {
       if (withBidding) {
         await ownerSettings(a, code, { bidSeconds: 120 });
       }
-      // So this run's first game on the range prepares again, and deterministically: every table its deal can need is
-      // claimed first (as if computing elsewhere), so the room waits until this script runs the compute actions.
-      pending = claimDealable("Int(0,2147483647)", ["many-faced", "smooth-operator", "truncation-saint"]);
       // The click registers in the same frame: by the next animation frame the button reads "Starting…" and refuses a
       // second click, before the start action (a Node action) has answered.
       await a.evaluate(() => document.querySelector('[data-testid="button-start"]')!.addEventListener("click", () => requestAnimationFrame(() => {
@@ -547,12 +507,7 @@ try {
     // A start without the check above still passes through a bid phase its setup may have (nobody bids).
     else await passIfBidding(a, [b, c]);
 
-    await check(`${name}: the room prepares its rule tables, then every viewer is taken to the game page, which updates live`, async () => {
-      // A shape with no shipped tables: everyone in the room sees the progress until the last table lands.
-      await b.getByTestId("text-preparing").filter({ hasText: /The game is preparing its rule tables, \d+ of \d+ ready/ }).waitFor({ timeout: 30_000 });
-      await a.getByTestId("panel-preparing").waitFor();
-      await shot(a, `room-preparing-${name}`);
-      for (const job of pending) convexRun("calibration/compute:run", job);   // the real per-table action; finished() launches the game
+    await check(`${name}: every viewer is taken to the game page, which updates live`, async () => {
       // Games are nested in their room's URL; one page, calibrated to the viewer: alice watches, bob plays (his dock).
       await a.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 480_000 });
       await b.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 30_000 });

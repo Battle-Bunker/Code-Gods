@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 import { admin, adminGods, api, gods, internal, raw, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600,
 };
 
 async function aiRoom(aiQuota: number) {
@@ -33,7 +33,7 @@ test("a mock AI seat validates, summons a valid agent and chats, within its budg
   assert.ok(said && said.isAI, "the AI seat chats publicly, visibly labelled");
   const secret = await raw(game.gameId);
   const agent = secret.agents.find((a: any) => a.ownerId === godId);
-  assert.equal(agent.source, "function agent(x) { return [add(1)]; }");
+  assert.equal(agent.source, "function agent(grid) { return [slide(row(0), 1)]; }");
   assert.ok(secret.deities.find((d: any) => d.godId === godId).spent > 0, "the seat paid its summon from god energy");
   const { room, members } = await admin.query(internal.testing.rawRoom, { roomId });
   assert.ok(room.aiUsed > 0 && room.aiUsed <= room.aiQuota, `tokens within the AI players' quota: ${room.aiUsed}/${room.aiQuota}`);
@@ -43,7 +43,7 @@ test("a mock AI seat validates, summons a valid agent and chats, within its budg
   assert.ok(seat.aiChain >= 1 && (seat.aiFailures ?? 0) === 0, `the seat's chain is healthy: ${seat.status}`);
   // The AI sees exactly its own projection: receipts are stored under its own god id.
   const receipts = await admin.query(internal.testing.rawGame, { gameId: game.gameId });
-  assert.ok(receipts.agents.every((a: any) => a.ownerId !== godId || a.source.includes("add(1)")));
+  assert.ok(receipts.agents.every((a: any) => a.ownerId !== godId || a.source.includes("slide(row(0), 1)")));
 });
 
 test("an AI seat without budget for a call never reaches the provider", { timeout: 240000 }, async () => {

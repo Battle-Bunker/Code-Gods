@@ -8,15 +8,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, playerClient, rejects, roomWith, startGame, touch, TS } from "./game-helpers.ts";
 
-const INT_TS = { languages: ["typescript"], language: "typescript", objectType: "Int", spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 3600 };
+const BOARD_TS = { languages: ["typescript"], language: "typescript", objectType: "Grid", spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 3600 };
 const LIMIT = 30;
 
 test("validate and summon examinations are capped per human per room per minute, across credentials; older ones stop counting", { timeout: 180_000 }, async () => {
   const [host, ada, bo] = await gods("Limit Host", "Limit Ada", "Limit Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], INT_TS);
+  const { roomId } = await roomWith([host, ada, bo], BOARD_TS);
   const game = await startGame(host, roomId);
-  const validate = () => envelope({ type: "validate", language: "typescript", source: TS.Int }, game.gameId);
+  const validate = () => envelope({ type: "validate", language: "typescript", source: TS.Grid }, game.gameId);
 
   // Ada has used her minute: through her browser and through a player app alike, the next examination is refused.
   await admin.mutation(internal.testing.seedExaminations, { roomId, godId: ada.subject, count: LIMIT, ageMs: 1000 });
@@ -25,7 +25,7 @@ test("validate and summon examinations are capped per human per room per minute,
   const refused = validate();
   assert.match(await rejects(app.action(api.commands.submit, { roomId, envelope: refused })), /At most 30/);
   assert.equal(await ada.c.query(api.receipts.get, { roomId, commandId: refused.commandId }), null, "no receipt: the same envelope may be retried");
-  assert.match(await rejects(ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId) })), /At most 30/,
+  assert.match(await rejects(ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Grid }, game.gameId) })), /At most 30/,
     "summon counts too");
 
   // Other humans are not affected; cheap commands are not limited by it.
@@ -42,6 +42,6 @@ test("validate and summon examinations are capped per human per room per minute,
 
 test("a start's requestId is bounded (it is stored on the room and in scheduled calls)", { timeout: 60000 }, async () => {
   const trio = await gods("Req Host", "Req Ada", "Req Bo");
-  const { roomId } = await roomWith(trio, INT_TS);
+  const { roomId } = await roomWith(trio, BOARD_TS);
   assert.match(await rejects(trio[0].c.action(api.owner.start, { roomId, requestId: "x".repeat(129) })), /longer than 128/);
 });

@@ -5,7 +5,7 @@
  * device flow (request → approve in the "browser" → poll).
  *
  *   node --experimental-transform-types scripts/seed-players.ts [--players alice,bob,carol]
- *        [--permission act] [--out DIR] [--settings '{"objectType":"Int"}']
+ *        [--permission act] [--out DIR] [--settings '{"startingObjectCount":20}']
  *
  * Prints JSON {roomId, shortCode, players: [{identity, session (a browser cookie header), envFile}]}. Each env file holds
  * CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL (mode 0600), standing in for that app's secret store.

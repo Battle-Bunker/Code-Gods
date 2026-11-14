@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { GRID, INT, STRING, seededRng, type GridValue, type Instantiation, type ObjectTypeDef } from "../src/index.ts";
+import { GRID, seededRng, type GridValue, type Instantiation, type ObjectTypeDef } from "../src/index.ts";
 import { chiCritical, chiSquare, distribution } from "./helpers.ts";
 
 test("seeded rng is deterministic and in range", () => {
@@ -23,20 +23,6 @@ test("grid spawn is uniform per cell and independent of position (χ²)", () => 
   assert.ok(chiSquare(byCell) < chiCritical(26), `per-cell χ² ${chiSquare(byCell)}`);
 });
 
-test("Int and string spawn are uniform (χ²)", () => {
-  const rng = seededRng("spawn2");
-  const ints = new Array(13).fill(0), small = INT.instantiate({ min: -3, max: 9 });
-  for (let k = 0; k < 13000; k++) ints[INT.spawn(small, rng) + 3]++;
-  assert.ok(chiSquare(ints) < chiCritical(12));
-  const strs = new Map<string, number>(), one = STRING.instantiate({ maxLength: 1 });
-  for (let k = 0; k < 129 * 60; k++) { const s = STRING.spawn(one, rng); strs.set(s, (strs.get(s) ?? 0) + 1); }
-  assert.equal(strs.size, 129);
-  assert.ok(chiSquare([...strs.values()]) < chiCritical(128));
-  const lengths = [0, 0, 0], two = STRING.instantiate({ maxLength: 2 });
-  for (let k = 0; k < 20000; k++) lengths[STRING.spawn(two, rng).length]++;
-  assert.ok(lengths[2] > 19700, "almost every string has the full length");
-});
-
 /** q(x→y) == q(y→x) for every y the proposal can reach from x (exact enumeration). */
 function assertSymmetric<V>(type: ObjectTypeDef<V>, inst: Instantiation, x: V, key: (v: V) => string, back: (k: string) => V,
   targets?: readonly string[]) {
@@ -54,24 +40,6 @@ function assertSymmetric<V>(type: ObjectTypeDef<V>, inst: Instantiation, x: V, k
   assert.ok(Math.abs(total - 1) < 1e-9);
 }
 
-test("Int proposals are symmetric", () => {
-  for (const [min, max] of [[0, 9], [-3, 12], [0, 0], [5, 6], [0, 1000]] as const) {
-    const inst = INT.instantiate({ min, max });
-    const xs = max - min < 40 ? Array.from({ length: max - min + 1 }, (_, i) => min + i) : [min, 7, 500, 999, max];
-    for (const x of xs) assertSymmetric(INT, inst, x, String, Number);
-  }
-});
-
-test("string proposals are symmetric", () => {
-  const one = STRING.instantiate({ maxLength: 1 });
-  for (const x of ["", "a", "\u0000", "\u007f"]) assertSymmetric(STRING, one, x, s => s, s => s);
-  // Interior lengths, where insert and delete balance (and "aa" → "a" has two deletions): spot targets,
-  // since each exact distribution enumerates all 16513 independence draws.
-  const two = STRING.instantiate({ maxLength: 2 });
-  assertSymmetric(STRING, two, "a", s => s, s => s, ["", "aa", "ba", "b", "xy"]);
-  assertSymmetric(STRING, two, "aa", s => s, s => s, ["a", "ab", "zz"]);
-});
-
 test("grid proposals are symmetric", () => {
   const inst = GRID.instantiate({ size: 3, symbols: "base10", colours: "rgb" }), codec = GRID.codec(inst);
   const key = (g: GridValue) => codec.encode(g) as string, back = (k: string) => codec.decode(k);
@@ -80,7 +48,7 @@ test("grid proposals are symmetric", () => {
 });
 
 test("random walks stay legal and never mutate their input", () => {
-  for (const type of [GRID, INT, STRING] as ObjectTypeDef<unknown>[]) {
+  for (const type of [GRID] as ObjectTypeDef<unknown>[]) {
     for (const args of type.representatives().slice(0, 12)) {
       const inst = type.instantiate(args), codec = type.codec(inst), rng = seededRng(`walk:${inst.key}`);
       let v = type.spawn(inst, rng);
@@ -101,7 +69,4 @@ test("random walks stay legal and never mutate their input", () => {
 test("layerBits: the whole object's information (the read bound)", () => {
   const inst = GRID.instantiate({ size: 3, symbols: "cards", colours: "rgby" });
   assert.deepEqual(GRID.layerBits(inst), { symbol: 9 * Math.log2(52), colour: 18 });
-  assert.deepEqual(INT.layerBits(INT.instantiate({ min: 0, max: 9999 })), { value: 14 });
-  assert.ok(Math.abs(STRING.layerBits(STRING.instantiate({ maxLength: 0 })).text) < 1e-9);
-  assert.ok(Math.abs(STRING.layerBits(STRING.instantiate({ maxLength: 1 })).text - Math.log2(129)) < 1e-9);
 });

@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { randomInt } from "node:crypto";
 import { admin, api, envelope, gods, internal, roomWith, startGame, touch } from "./game-helpers.ts";
 
-const settings = { languages: ["typescript", "python"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600 };
+const settings = { languages: ["typescript", "python"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600 };
 const latest = () => admin.query(internal.testing.latestExaminationRuns, {});
 
 async function game(label: string) {
@@ -24,7 +24,7 @@ for (const language of ["typescript", "python"] as const) {
   test(`${language}: a summon after its validate runs nothing; another game runs only its own objects; the estimate never changes`, { timeout: 240000 }, async () => {
     // A program nobody examined before (the constant is in its text, so in its key).
     const k = randomInt(2, 1_000_000);
-    const source = language === "typescript" ? `function agent(x) { return [add(${k})]; }` : `def agent(x):\n    return [add(${k})]`;
+    const source = language === "typescript" ? `function agent(grid) { const k = ${k}; return [slide(row(0), 1)]; }` : `def agent(grid):\n    k = ${k}\n    return [slide(row(0), 1)]`;
     const first = await game(`Cache ${language} 1`);
     const [ada, bo] = first.trio;
 
@@ -68,9 +68,11 @@ for (const language of ["typescript", "python"] as const) {
 }
 
 test("an examination cut off at its deadline keeps the runs it finished, so sending it again carries on and ends with the same answer", { timeout: 240000 }, async () => {
-  const { defaultSettingsFor } = await import("@workspace/game-core");
-  const settings = defaultSettingsFor("Int", ["python"]), live = [3, 1415, -92, 6535];
-  const program = () => `def agent(x):\n    return [add(${randomInt(2, 1_000_000)})]`;
+  const { defaultSettingsFor, instantiationOf } = await import("@workspace/game-core");
+  const { objectType, seededRng } = await import("@workspace/game-types");
+  const settings = defaultSettingsFor("Grid", ["python"]), inst = instantiationOf(settings), T = objectType("Grid"), rng = seededRng("cut-off");
+  const live = Array.from({ length: 4 }, () => T.codec(inst).encode(T.spawn(inst, rng)));
+  const program = () => `def agent(grid):\n    k = ${randomInt(2, 1_000_000)}\n    return [slide(row(0), 1)]`;
   const examine = (source: string, deadlineMs: number) => admin.action(internal.testingNode.examineWithin, { settings, language: "python", source, live, deadlineMs });
   // The whole examination takes over a second here; 300 ms cannot finish it.
   const source = program();

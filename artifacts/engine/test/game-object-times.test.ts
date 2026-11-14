@@ -12,8 +12,8 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, raw, roomWith, startGame, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0.5, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 0.5, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 type Row = { id: string; mutations: number; createdAt: number; lastMutatedAt: number | null };
 
@@ -43,7 +43,7 @@ test("the tick keeps count, creation and last mutation time; the four sorts orde
   const { roomId } = await roomWith([host, ann, bob], settings);
   const game = await startGame(host, roomId);
   for (const god of [ann, bob]) {
-    const result = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId) });
+    const result = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Grid }, game.gameId) });
     assert.equal(result.accepted, true, JSON.stringify(result));
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });

@@ -13,10 +13,8 @@ import { paramLabel } from "./params.ts";
 import { setHostEval } from "./families/define.ts";
 import { cardProgram } from "./families/card.ts";
 import { GRID_FAMILIES } from "./families/grid/index.ts";
-import { INT_FAMILIES } from "./families/int.ts";
-import { STRING_FAMILIES } from "./families/string.ts";
 
-export const FAMILIES: readonly UtilityFamily<any>[] = [...INT_FAMILIES, ...STRING_FAMILIES, ...GRID_FAMILIES];
+export const FAMILIES: readonly UtilityFamily<any>[] = [...GRID_FAMILIES];
 const byId = new Map(FAMILIES.map(f => [f.id, f]));
 if (byId.size !== FAMILIES.length) throw new Error("duplicate utility family id");
 

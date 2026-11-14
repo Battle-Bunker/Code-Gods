@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { rankTotals } from "@workspace/game-core";
 import { admin, api, envelope, internal, raw, roomWith, gods, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
-const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
+const BOARD_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 
 async function runAll(reset: boolean) {
   // The runner starts the migrations one after another: until this run reaches one, it still reports the last run's
@@ -25,8 +25,8 @@ async function runAll(reset: boolean) {
 test("Haskell retired: stored settings drop it (TypeScript when nothing is left); a second run changes nothing", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("Hs Mig Host", "Hs Mig Ada", "Hs Mig Bo");
   await touch(host);
-  const both = await roomWith([host, ada, bo], INT_TS);
-  const only = await roomWith([host, ada, bo], INT_TS);
+  const both = await roomWith([host, ada, bo], BOARD_TS);
+  const only = await roomWith([host, ada, bo], BOARD_TS);
   // Settings stored while Haskell was a language.
   await admin.mutation(internal.testing.patchRoom, { roomId: both.roomId, settings: { languages: ["haskell", "python"] } });
   await admin.mutation(internal.testing.patchRoom, { roomId: only.roomId, settings: { languages: ["haskell"] } });
@@ -43,7 +43,7 @@ test("backfillReplays: ended games stored before stored replays get one; a secon
   await touch(host);
   const games: { roomId: string; gameId: string }[] = [];
   for (let i = 0; i < 2; i++) {
-    const { roomId } = await roomWith([host, ada, bo], INT_TS);
+    const { roomId } = await roomWith([host, ada, bo], BOARD_TS);
     const { gameId } = await startGame(host, roomId);
     await host.c.mutation(api.rooms.endActiveGame, { roomId });
     games.push({ roomId, gameId });
@@ -69,7 +69,7 @@ test("backfillStandings: games stored before the standings read model get it; a 
   const [host, ada, bo] = await gods("ReadModel Mig Host", "ReadModel Mig Ada", "ReadModel Mig Bo");
   await touch(host);
   // Planning holds the live game (no tick publishes).
-  const quiet = { ...INT_TS, startingObjectCount: 6, planningSeconds: 3600 };
+  const quiet = { ...BOARD_TS, startingObjectCount: 6, planningSeconds: 3600 };
   const { roomId: endedRoom } = await roomWith([host, ada, bo], quiet);
   const ended = await startGame(host, endedRoom);
   await host.c.mutation(api.rooms.endActiveGame, { roomId: endedRoom });
@@ -103,7 +103,7 @@ test("backfillStandings: games stored before the standings read model get it; a 
 test("backfillObjectViews: a game stored before the per-god read model gets every god's rows and totals; a second run changes nothing", { timeout: 300_000 }, async () => {
   const [host, ada, bo] = await gods("Views Mig Host", "Views Mig Ada", "Views Mig Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, startingObjectCount: 5 });
+  const { roomId } = await roomWith([host, ada, bo], { ...BOARD_TS, startingObjectCount: 5 });
   const game = await startGame(host, roomId);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const views = (godId: string) => admin.query(internal.testing.rawObjectViews, { gameId: game.gameId, godId });
@@ -130,9 +130,9 @@ test("backfillObjectViews: a game stored before the per-god read model gets ever
 test("the per-agent rate cap's field leaves stored agents; a second run changes nothing", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("Cap Mig Host", "Cap Mig Ada", "Cap Mig Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { objectType: "Int", languages: ["typescript"], spawnRateHz: 0, startingObjectCount: 3, planningSeconds: 3600 });
+  const { roomId } = await roomWith([host, ada, bo], { objectType: "Grid", languages: ["typescript"], spawnRateHz: 0, startingObjectCount: 3, planningSeconds: 3600 });
   const game = await startGame(host, roomId);
-  const summoned = await ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Old", language: "typescript", source: "function agent(n) { return [add(1)]; }" }, game.gameId) });
+  const summoned = await ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Old", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }" }, game.gameId) });
   assert.equal(summoned.accepted, true, summoned.message);
   const agentOf = async () => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === ada.subject);
   const before = await agentOf();

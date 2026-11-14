@@ -132,7 +132,7 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     const o = rec(data.observation);
     const allowed = allowedLanguages(o).length ? allowedLanguages(o) : ["python"];
     const utility = rec(rec(o.self).utility);
-    parts.push(WRITING_AGENTS, PRIMER_AGENTS, `Allowed languages: ${allowed.join(", ")} (pass the agent's language to validate_agent and summon_agent; default ${allowed[0]}). agent(obj) receives the object's value itself (a number for Int, a string for string, a grid for Grid), never a wrapper with fields.`);
+    parts.push(WRITING_AGENTS, PRIMER_AGENTS, `Allowed languages: ${allowed.join(", ")} (pass the agent's language to validate_agent and summon_agent; default ${allowed[0]}). agent(obj) receives the object's value itself (a grid), never a wrapper with fields.`);
     // A first agent to start from (first-agent.ts), before the long helper lists so the body's limit never cuts it.
     const helpers = Array.isArray(rec(o.instance).helpers) ? (rec(o.instance).helpers as unknown[]).map(rec) : [];
     const mutators = helpers.filter(h => h.group === "mutator").flatMap(h => str(rec(h.name)[allowed[0]!]) ?? []);

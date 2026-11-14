@@ -1,6 +1,6 @@
 /**
  * The object-type registry: one entry per object type, mapping the type's id (the room setting
- * `objectType`, e.g. "Int", "string", "Grid") to the renderers that draw its values. A type may have
+ * `objectType`, e.g. "Grid") to the renderers that draw its values. A type may have
  * several named renderers (a Grid as coloured digits or as tiles); each viewer's choice per type is
  * remembered in localStorage, and the type's default applies until they choose.
  *

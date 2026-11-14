@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
 import { admin, api, gods, internal, raw, rejects, roomWith, sleep, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600,
 };
 
 test("idle parking freezes running games; a human touch resumes them; safety stops wait for the owner", { timeout: 180000 }, async () => {

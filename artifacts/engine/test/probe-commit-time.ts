@@ -16,8 +16,8 @@ import { ADMIN_KEY, URL_, admin, api, envelope, gods, internal, roomWith, startG
 
 const seconds = Number(process.argv[2] ?? 60), perGod = Number(process.argv[3] ?? 8);
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 1000, spawnRateHz: 0, interactionRateHz: 100, planningSeconds: 0,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 1000, spawnRateHz: 0, interactionRateHz: 100, planningSeconds: 0,
   halfLifeSeconds: 1e9, powerPerSecond: 2000, startingEnergy: 100000,
 };
 
@@ -34,7 +34,7 @@ await touch(ada);
 const { roomId } = await roomWith([ada, bo, cy], settings);
 const { gameId } = await startGame(ada, roomId);
 for (const god of [ada, bo, cy]) for (let i = 0; i < perGod; i++) {
-  const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: `Probe agent ${i}`, language: "typescript", source: TS.Int }, gameId) });
+  const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: `Probe agent ${i}`, language: "typescript", source: TS.Grid }, gameId) });
   assert.equal(r.accepted, true, r.message);
 }
 await waitFor(async () => {

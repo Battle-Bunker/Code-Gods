@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, raw, roomWith, startGame, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const RECENT_BATCHES = 16;
 
@@ -33,7 +33,7 @@ test("the observation's transformations are each god's own, from the latest 16 b
   const { roomId } = await roomWith([host, ...players], settings);
   const game = await startGame(host, roomId);
   for (const god of players) {
-    const result = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId) });
+    const result = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Grid }, game.gameId) });
     assert.equal(result.accepted, true, JSON.stringify(result));
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });

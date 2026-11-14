@@ -8,13 +8,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
-const INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 4,
+const BOARD = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 4,
   powerPerSecond: 2000, interactionRateHz: 40, halfLifeSeconds: 1e9 };
 
 test("each agent is written in one of the game's languages, priced and run in its own", { timeout: 180_000 }, async () => {
   const [host, ada, bo] = await gods("Lang Host", "Lang Ada", "Lang Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript", "python"] });
+  const { roomId } = await roomWith([host, ada, bo], { ...BOARD, languages: ["typescript", "python"] });
   const game = await startGame(host, roomId);
   const send = (god: typeof host, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
 
@@ -22,10 +22,10 @@ test("each agent is written in one of the game's languages, priced and run in it
   assert.deepEqual([obs.languages, obs.language], [["typescript", "python"], "typescript"], "the allowed set, and its first as the default");
 
   // The second allowed language is priced by its own summon-price function (Python's ast-bits-v1).
-  const validated = await send(ada, { type: "validate", language: "python", source: PY.Int });
+  const validated = await send(ada, { type: "validate", language: "python", source: PY.Grid });
   assert.equal(validated.accepted, true, validated.message);
   assert.match(validated.validation.diagnostics[0], /\(ast-bits-v1:/);
-  const tsValidated = await send(bo, { type: "validate", language: "typescript", source: TS.Int });
+  const tsValidated = await send(bo, { type: "validate", language: "typescript", source: TS.Grid });
   assert.match(tsValidated.validation.diagnostics[0], /\(ts-ast-bits-v1-uniform:/);
   // The parts the first line names add up to the price it names (TypeScript's structure bits are shown weighted, as
   // charged: the line once showed them unweighted, about twice the price beside them).
@@ -35,15 +35,15 @@ test("each agent is written in one of the game's languages, priced and run in it
   }
   // Language-fair (docs/energy-model.md §5.1): the same one-move agent costs about the same in either language. Before
   // TypeScript's structure bits were weighted it cost about 1.5 times Python's.
-  const same = { python: "def agent(n):\n    return [add(1)]", typescript: "function agent(n) { return [add(1)]; }" };
+  const same = { python: "def agent(grid):\n    return [slide(row(0), 1)]", typescript: "function agent(grid) { return [slide(row(0), 1)]; }" };
   const pyPrice = (await send(ada, { type: "validate", language: "python", source: same.python })).validation.cost;
   const tsPrice = (await send(bo, { type: "validate", language: "typescript", source: same.typescript })).validation.cost;
   assert.ok(tsPrice / pyPrice > 0.6 && tsPrice / pyPrice < 1.2, `TypeScript ${tsPrice} against Python ${pyPrice}`);
   // Python source sent as TypeScript does not compile: the language decides the sandbox.
-  assert.equal((await send(ada, { type: "validate", language: "typescript", source: PY.Int })).validation.valid, false);
+  assert.equal((await send(ada, { type: "validate", language: "typescript", source: PY.Grid })).validation.valid, false);
 
-  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "python", source: PY.Int })).accepted, true);
-  assert.equal((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "python", source: PY.Grid })).accepted, true);
+  assert.equal((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: TS.Grid })).accepted, true);
   const mine = await ada.c.query(api.player.observation, { roomId });
   assert.deepEqual(mine.agents.map((a: any) => a.language), ["python"], "an agent carries its own language");
 
@@ -62,11 +62,11 @@ test("each agent is written in one of the game's languages, priced and run in it
 test("a TypeScript agent is compiled by another action; its program and its compile failure are stored for every action", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("Ts Host", "Ts Ada", "Ts Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
+  const { roomId } = await roomWith([host, ada, bo], { ...BOARD, languages: ["typescript"] });
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   // Sources new to this run (a comment), so this run compiles them and stores the newest rows.
-  const run = Date.now(), source = `${TS.Int}\n// run ${run}\n`, broken = `function agent(x) { return [add(x +]; }\n// run ${run}\n`;
+  const run = Date.now(), source = `${TS.Grid}\n// run ${run}\n`, broken = `function agent(grid) { return [slide(row(0), grid +]; }\n// run ${run}\n`;
   const validated = await send({ type: "validate", language: "typescript", source });
   assert.equal(validated.validation.valid, true, JSON.stringify(validated));
   const failed = await send({ type: "validate", language: "typescript", source: broken });
@@ -83,11 +83,11 @@ test("a TypeScript agent is compiled by another action; its program and its comp
 test("a language the game does not allow is refused at validate and summon", { timeout: 120_000 }, async () => {
   const [host, ada, bo] = await gods("Only Host", "Only Ada", "Only Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
+  const { roomId } = await roomWith([host, ada, bo], { ...BOARD, languages: ["typescript"] });
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   for (const type of ["validate", "summon"]) {
-    const refused = await send({ type, ...(type === "summon" ? { name: "N" } : {}), language: "python", source: PY.Int });
+    const refused = await send({ type, ...(type === "summon" ? { name: "N" } : {}), language: "python", source: PY.Grid });
     assert.equal(refused.accepted, false, type);
     assert.match(refused.message, /does not allow python agents \(allowed: typescript\)/, type);
   }
@@ -98,10 +98,10 @@ test("a language the game does not allow is refused at validate and summon", { t
 test("Haskell is retired: a game's Haskell agent sits out and still observes", { timeout: 180_000 }, async () => {
   const [host, ada, bo] = await gods("Old Host", "Old Ada", "Old Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT, languages: ["typescript"] });
+  const { roomId } = await roomWith([host, ada, bo], { ...BOARD, languages: ["typescript"] });
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  assert.equal((await send({ type: "summon", name: "Old agent", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send({ type: "summon", name: "Old agent", language: "typescript", source: TS.Grid })).accepted, true);
   const [agent] = (await raw(game.gameId)).agents;
   // As if summoned in Haskell before it was retired (its stored language is history).
   await admin.mutation(internal.testing.patchAgentLanguage, { agentId: agent._id, language: "haskell" });

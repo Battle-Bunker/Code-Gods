@@ -16,16 +16,14 @@ export {
 } from "./bidding.ts";
 export { cardProgram } from "./families/card.ts";
 export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
-export { INT_FAMILIES } from "./families/int.ts";
-export { STRING_FAMILIES } from "./families/string.ts";
 export {
   ANALYTIC_MAX_ERROR_BITS, assertAnalytic, assertAnalyticHeader, lazySurvival, addMass, binomial, cmpOrdinals, combine, distOf, exactSurvival, iidSum, lineChainCount,
   logFactorial, mapDist, maxOfEqualMultinomial, multinomial, pairOrdinal, pointMass, poissonTail, rowTransferCount, sumOrdinals,
   survivalLevels, totalMass, type AnalyticLevels, type AnalyticSurvival, type Dist,
 } from "./analytic.ts";
 export {
-  compareWithEnumeration, compareWithSpawns, compareWithTable, assertAnalyticAgainstSpawns, comparisonMarkdown, bandSummaryMarkdown,
-  nominalSe, DEPTH_BANDS, type TableComparison, type SpawnComparison, type EnumerationComparison,
+  compareWithSpawns, compareWithTable, assertAnalyticAgainstSpawns, comparisonMarkdown, bandSummaryMarkdown,
+  nominalSe, DEPTH_BANDS, type TableComparison, type SpawnComparison,
 } from "./analytic-verify.ts";
 export {
   tableFor, hasTable, instanceTables, analyticFor, tableKey, tableKeyParts, keyFromParts, manifestEntry, manifestOf, coverage, instantiateKey, surprisal, penaltyMeanBits,

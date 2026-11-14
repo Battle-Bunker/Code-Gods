@@ -1,14 +1,12 @@
 /**
  * Verification of analytic survival functions against the empirical evidence (docs/analytic-calibration/architecture.md
- * §verification). Three independent checks, all pure functions a test or a script can call:
+ * §verification). Two independent checks, all pure functions a test or a script can call:
  *
  *  1. `compareWithTable`: level by level against a Monte Carlo + splitting table of the same draw (the archived
  *     reference tables in data/analytic-reference/, or any table). Reports the maximum |Δ bits|, the maximum z against
  *     the table's nominal standard error, every table level the analytic calls unattainable, and the error by depth band.
  *  2. `compareWithSpawns`: against fresh spawns: every sampled ordinal must be a level, and at every level with mass
  *     ≥ 2^-9 the sample frequency must agree within 5 standard deviations.
- *  3. `compareWithEnumeration`: for Int domains small enough to enumerate (scripts/estimator.ts EXACT_DOMAIN), the exact
- *     survival at every attainable ordinal must match to 1e-9.
  *
  * Nominal standard error. Shipped tables carry no per-level se, so it is reconstructed from the budget: an MC level with
  * survival G has var(bits) = (1 − G)/(G·nMc)/ln²2; a splitting level adds (1 − p0)/(p0·particles)/ln²2 per stage (one
@@ -148,36 +146,6 @@ export function compareWithSpawns(a: AnalyticSurvival, draw: Draw, inst: Instant
     if (Math.abs(hits - n * G) > 5 * sd) disagreements.push({ ordinal: l, G, frequency: hits / n });
   }
   return { spawns: n, unlisted: [...unlisted.values()], disagreements, levelsChecked };
-}
-
-/** Domains with at most this many values are enumerated for the exact check (the estimator's EXACT_DOMAIN). */
-export const ENUMERABLE_DOMAIN = 1 << 20;
-
-export interface EnumerationComparison { readonly values: number; readonly maxAbsDelta: number; readonly mismatchedOrdinals: readonly Ordinal[] }
-
-/** Exact enumeration of a small Int domain against the analytic; null when the domain is not enumerable. */
-export function compareWithEnumeration(a: AnalyticSurvival, draw: Draw, inst: Instantiation): EnumerationComparison | null {
-  if (inst.objectType !== "Int") return null;
-  const min = Number(inst.args.min), max = Number(inst.args.max);
-  if (max - min + 1 > ENUMERABLE_DOMAIN) return null;
-  const ev = evaluator(draw, inst), counts = new Map<string, { o: Ordinal; c: number }>();
-  for (let x = min; x <= max; x++) {
-    const o = ev(x), k = keyOfOrdinal(o), e = counts.get(k);
-    if (e) e.c++; else counts.set(k, { o, c: 1 });
-  }
-  const total = max - min + 1, sorted = [...counts.values()].sort((x, y) => cmpOrdinals(x.o, y.o));
-  const exact = new Map<string, number>();
-  let G = 0;
-  for (let i = sorted.length - 1; i >= 0; i--) { G += sorted[i].c; exact.set(keyOfOrdinal(sorted[i].o), Math.log2(G / total)); }
-  const analytic = new Map(a.levels.map(([o, l]) => [keyOfOrdinal(o), l]));
-  const mismatched: Ordinal[] = [];
-  let maxAbsDelta = 0;
-  for (const { o } of sorted) {
-    const l = analytic.get(keyOfOrdinal(o)), e = exact.get(keyOfOrdinal(o))!;
-    if (l === undefined) { mismatched.push(o); continue; }
-    maxAbsDelta = Math.max(maxAbsDelta, Math.abs(l - e));
-  }
-  return { values: total, maxAbsDelta, mismatchedOrdinals: mismatched };
 }
 
 /** Structural validity plus the two cheap checks, as one call for tests. Throws with a precise message on failure. */

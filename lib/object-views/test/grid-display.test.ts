@@ -74,19 +74,19 @@ test("inference: grids of 2×2 or more only", () => {
 
 test("registry: known type wins, otherwise latest matching infer", () => {
   const r = createObjectTypeRegistry<string>();
-  r.register({ type: "string", component: "S", infer: v => typeof v === "string" });
-  r.register({ type: "Int", component: "I", infer: v => typeof v === "number" });
+  r.register({ type: "Label", component: "S", infer: v => typeof v === "string" });
+  r.register({ type: "Count", component: "I", infer: v => typeof v === "number" });
   r.register({ type: "Grid", component: "G", infer: looksLikeGrid });
   const grid = "7R,3G/1B,2R";
   assert.equal(r.resolve(grid)?.component, "G");
-  assert.equal(r.resolve(grid, { objectType: "string" })?.component, "S", "string games stay strings");
+  assert.equal(r.resolve(grid, { objectType: "Label" })?.component, "S", "a type named in the context wins over inference");
   assert.equal(r.resolve("hi")?.component, "S");
   assert.equal(r.resolve(5)?.component, "I");
   assert.equal(r.resolve("hi", { objectType: "Grid" })?.component, "G", "Grid component handles its own fallback");
   assert.equal(r.resolve(5, { objectType: "Unknown" })?.component, "I");
   r.register({ type: "Tree", component: "T", infer: v => v === "tree" });
   assert.equal(r.resolve("tree")?.component, "T");
-  assert.deepEqual(r.types(), ["string", "Int", "Grid", "Tree"]);
+  assert.deepEqual(r.types(), ["Label", "Count", "Grid", "Tree"]);
 });
 
 test("colour cue: defaults to colour only, survives missing or throwing storage", () => {
@@ -177,7 +177,7 @@ test("objectRowHeight: a Grid row holds every line of its digits and tiles, what
   }
   assert.ok(objectRowHeight({ objectType: "Grid", grid: { size: 7 } }) > objectRowHeight({ objectType: "Grid", grid: { size: 4 } }));
   assert.ok(objectRowHeight({ objectType: "Grid", grid: {} }) >= objectRowHeight({ objectType: "Grid", grid: { size: 7 } }), "unknown size assumes the largest");
-  assert.equal(objectRowHeight({ objectType: "Int" }), OBJECT_ROW_LINE_PX);
+  assert.equal(objectRowHeight({ objectType: "Tree" }), OBJECT_ROW_LINE_PX);
   assert.equal(objectRowHeight(undefined), OBJECT_ROW_LINE_PX);
 });
 

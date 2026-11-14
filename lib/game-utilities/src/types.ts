@@ -28,8 +28,8 @@ export interface FamilyContext {
  * The TypeScript card is the host evaluator and the calibration target; the Python card must induce
  * exactly the same ordinals (test/parity.py). Cards are complete kid-readable programs: a header
  * comment (emoji, name, plain sentences), the dealt params as UPPER_CASE constants, and
- * `def utility(grid):` / `function utility(grid)` written against the room's generated prelude
- * (`x` for Int and string). Penalty cards define `def penalty(grid):` / `function penalty(grid)` instead
+ * `def utility(grid):` / `function utility(grid)` written against the room's generated prelude.
+ * Penalty cards define `def penalty(grid):` / `function penalty(grid)` instead
  * (archive/engine-v1:lib/grid-lab/docs/defence-goals.md §6). TypeScript cards are plain JavaScript (no annotations), so the
  * host compiles them as they are.
  */

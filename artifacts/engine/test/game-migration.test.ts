@@ -88,8 +88,8 @@ test("assistant-per-game: legacy threads and stored objects join the game they b
   const [ann, bob, cyd] = await gods("Legacy Ann", "Legacy Bob", "Legacy Cyd");
   await touch(ann);
   const { roomId } = await roomWith([ann, bob, cyd], {
-    languages: ["typescript"], objectType: "Int",
-    typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+    languages: ["typescript"], objectType: "Grid",
+    typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
   });
   await makeAdmin(ann);
   await ann.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
