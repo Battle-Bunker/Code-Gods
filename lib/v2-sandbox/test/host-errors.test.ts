@@ -48,7 +48,7 @@ for (const language of ["python", "typescript"] as const) {
 }
 
 test("both languages: a score with an undefined layer reads as null in that component", async () => {
-  const layered = { calls: 0, handle: () => ({ ok: true as const, result: { score: ["-2", null], level: 1, top: 7, terms: [] }, bits: 0 }) };
+  const layered = { calls: 0, handle: () => ({ ok: true as const, result: { score: ["-2", null], bits: null, terms: [] }, bits: 0 }) };
   const sources = {
     python: "def agent(offer):\n    s = offer.my_score()\n    return [call('probe', r=str(s.score[0]) + ',' + str(s.score[1]))]\n",
     typescript: "function agent(offer: Offer) { const s = offer.myScore(); return [call('probe', { r: Q.toString(s.score![0]!) + ',' + String(s.score![1]) })]; }\n",

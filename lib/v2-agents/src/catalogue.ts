@@ -73,11 +73,6 @@ export interface FamilyEntry {
   readonly tieBreakers: Readonly<Record<string, TieBreakerEntry>>;
   /** The Simple starter's moves (default: shift and tilt). */
   readonly simple?: readonly LensId[];
-  /**
-   * The main part as a tie-breaker's partner when it is not `main` itself: a main layer whose top is not its best
-   * value saturates there once a tie-breaker follows (v2-core evaluateSite), e.g. a run of primes counts up to 6.
-   */
-  readonly mainWithTie?: { readonly ts: string; readonly py: string };
   /** The score is written for whole-number lines only (line-z: y = mx + c with whole m and c). */
   readonly wholeLines?: boolean;
 }
@@ -251,7 +246,6 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "prime-staircase",
     mainSays: "how many different primes the pattern y(0), y(1), ... starts with (more is better)",
-    mainWithTie: { ts: "Math.min(main, 6)", py: "min(main, 6)" },   // a run of 6 is the top; longer counts the same
     main: {
       ts: [
         "const run = [];                                 // the different primes it starts with",
@@ -401,7 +395,6 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "divisibility-ladder",
     mainSays: "how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)",
-    mainWithTie: { ts: "Math.min(main, 11)", py: "min(main, 11)" },   // a run of 11 is the top; 12 counts the same
     main: {
       ts: [
         "if (Q.isZero(c)) return null;                   // through (0, 0): the rule wants a line that is not",

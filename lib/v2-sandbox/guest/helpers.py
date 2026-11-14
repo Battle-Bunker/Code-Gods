@@ -5,9 +5,9 @@
 #                                read, once per act: looking again at the same view is free.
 #   peek(offer, rep, name, args) one number of a view, e.g. peek(offer, "seq", "term", {"n": 3}).
 #   goal(offer)                  your rule: its family, its numbers and the sentence on its card. Free.
-#   progress(offer)              how well the line does on your rule now: level and top of the whole ladder; main
-#                                and tiebreak (the score's parts, bigger is better); layers: each part's own
-#                                level and top. Costs what reading your rule's views costs.
+#   progress(offer)              how well the line does on your rule now: main and tiebreak (the score's parts,
+#                                bigger is better), and bits (what that score is worth, its rarity; None when the
+#                                game does not say). Costs what reading your rule's views costs.
 #   move(mutator, **args)        one change, e.g. move("si.tilt", k=1). A plan is a list of moves.
 #   price(offer, plan)           the energy the plan would cost, or None when it is not allowed. Nothing changes.
 #   cheapest(offer, plans)       of several plans (often the same change through different views), the cheapest
@@ -75,7 +75,7 @@ def progress(offer):
     def part(i):
         return None if score is None or i >= len(score) else score[i]
 
-    return Record({"level": s.level, "top": s.top, "main": part(0), "tiebreak": part(1), "layers": s.layers,
+    return Record({"main": part(0), "tiebreak": part(1), "bits": s.bits, "layers": s.layers,
                    "score": score, "terms": s.terms})
 
 

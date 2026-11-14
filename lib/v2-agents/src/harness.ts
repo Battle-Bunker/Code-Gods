@@ -15,6 +15,7 @@ import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { SPEC_ECONOMY, type RuleRef } from "./host.ts";
+import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import type { Sandboxes } from "./sandboxes.ts";
 
 export interface HarnessPlayer {
@@ -105,6 +106,20 @@ export function findArtefact(variant: string, rule: HarnessPlayer["rule"]): Arte
   return null;
 }
 
+const VALUES = join(import.meta.dirname, "..", "..", "v2-valuation", "values");
+type ValueFile = { family: string; params: unknown; tieBreaker: string } & Pick<ValueFunction, "knots" | "tail">;
+
+/** The committed value function for a dealt rule (owner decision 23), or null. */
+export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueFile | null {
+  const dir = join(VALUES, variant, rule.family);
+  if (!existsSync(dir)) return null;
+  for (const f of readdirSync(dir)) {
+    const v = JSON.parse(readFileSync(join(dir, f), "utf8")) as ValueFile;
+    if (v.tieBreaker === rule.tieBreaker && canonical(v.params) === canonical(rule.params)) return v;
+  }
+  return null;
+}
+
 /** A score's bits on the artefact's rungs (the highest rung met; no curve between rungs). */
 function bitsOf(a: ArtefactFile, score: Score): number {
   const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
@@ -128,11 +143,27 @@ export function valuedArtefact<S>(type: ObjectType<S>, variant: Variant, rule: H
 }
 
 /**
- * A player's value of a line: `bits(s)` is n_i, their rarity on their committed artefact (0 without values); `level(s)`
- * the rung their rule's score reaches; `rungs` the ladder with each rung's rarity, as `runAct`'s `rungs` takes it.
+ * A player's value of a line: `bits(s)` is n_i, their rarity (0 without values). With a value function (decision 23),
+ * bits are looked up at the line's utility and `values` is what `runAct` takes; `level(s)` is then the whole bits, a
+ * stand-in for the directory's levels until they go. Object types without value functions yet (grids) use the
+ * committed artefact's rungs: `level(s)` is the rung reached and `rungs` what `runAct` takes.
  */
 export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], standIn = false) {
   const family = type.families.find(f => f.id === rule.family)!;
+  const vf = findValues(variant.id, rule);
+  if (vf) {
+    const look = valueLookup(vf);
+    const scoreOf = (s: S) => { const e = evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker); return e.utility ?? e.score; };
+    return {
+      scoreOf,
+      bits: (s: S) => look(scoreOf(s)).bits,
+      level: (s: S) => Math.floor(look(scoreOf(s)).bits),
+      top: Math.floor(Math.max(...vf.knots.map(k => k.bits))),
+      labels: vf.knots.map(k => (k.u === null ? "worst" : k.u.map(x => x ?? "–").join(", "))),
+      rungs: vf.knots.map(k => ({ score: k.u, bits: k.bits })),
+      values: { knots: vf.knots, tail: vf.tail } as Pick<ValueFunction, "knots" | "tail"> | undefined,
+    };
+  }
   const a = valuedArtefact(type, variant, rule, standIn);
   const scoreOf = (s: S) => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
   const ladder = a ? a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) })) : [];
@@ -140,8 +171,10 @@ export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPl
     scoreOf,
     bits: (s: S) => (ladder.length ? a!.rungs[levelOf(scoreOf(s), ladder)]!.bits ?? 0 : 0),
     level: (s: S) => (ladder.length ? levelOf(scoreOf(s), ladder) : 0),
+    top: a ? a.rungs.length - 1 : 0,
     labels: a ? a.rungs.map(g => g.label) : [],
     rungs: a ? a.rungs.map(g => ({ score: g.score, bits: g.bits ?? 0, layer: g.layer, ...(g.main !== undefined ? { main: g.main } : {}) })) : [],
+    values: undefined as Pick<ValueFunction, "knots" | "tail"> | undefined,
   };
 }
 
@@ -180,7 +213,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     const { record, state } = await runAct(sandboxOf.get(p.program.language)!, {
       type, variant, state: lines[object]!, rule: p.rule, program: p.program, seed: BigInt(`0x${hashHex(`${input.seed}:${turn}`).slice(0, 15)}`),
       energy: energy[i]!, object, liveObjects: lines.length,
-      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, rungs: valuers[i]!.rungs,
+      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(valuers[i]!.values ? { values: valuers[i]!.values } : { rungs: valuers[i]!.rungs }),
     });
     reversal[i]!.noteCount += record.notes.length;
     for (const t of record.notes) if (reversal[i]!.notes.length < 3 && !reversal[i]!.notes.includes(t)) reversal[i]!.notes.push(t);

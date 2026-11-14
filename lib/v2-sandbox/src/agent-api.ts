@@ -62,10 +62,10 @@ export interface RuleReply {
 export interface ScoreReply {
   /** null: WORST. A null component: that layer is undefined for this state (v2-core's layered ladders). */
   score: (QWire | null)[] | null;
-  level: number;
-  top: number;
-  /** Each dealt layer on its own ladder: "main part: step 5 of 7". */
-  layers: { id: string; level: number; top: number }[];
+  /** What the score is worth, in bits (owner decision 23: a continuous function of the utilities); null when the game does not say. */
+  bits: number | null;
+  /** The dealt layers, main part first. */
+  layers: { id: string }[];
   terms: { id: string; value: QWire | null }[];
 }
 /** §6.3: `bits` here are the calls' prices, in order; `charge` what committing them would cost in energy. */

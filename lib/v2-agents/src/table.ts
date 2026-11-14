@@ -195,7 +195,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length,
-      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, rungs: vals[i]!.rungs,
+      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : { rungs: vals[i]!.rungs }),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
     const changed = record.outcome === "committed" && record.after !== record.before;
@@ -289,7 +289,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "object.score": {
           const j = objectArg(args), s = lines[j]!;
           const score = v.scoreOf(s);
-          return { score: score === null ? null : scoreToWire(score), number: j, level: v.level(s), top: Math.max(0, v.rungs.length - 1), terms: [], rarityBits: v.bits(s), points: points[j]![i]! };
+          return { score: score === null ? null : scoreToWire(score), number: j, level: v.level(s), top: v.top, terms: [], rarityBits: v.bits(s), points: points[j]![i]! };
         }
         case "moves.list": {
           const rows = log.filter(m => m.by === i || m.before[i] !== m.after[i]).reverse().map(m => ({

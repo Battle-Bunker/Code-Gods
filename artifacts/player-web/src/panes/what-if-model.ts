@@ -7,7 +7,7 @@
  * move is unknowable. Both sides of a move use the same rarities in bits (the dealt ladder), so before and after compare.
  */
 import { EngineHost } from "@workspace/v2-agents/pure";
-import { Qn, representation, variantMutators, type Q, type Variant } from "@workspace/v2-core";
+import { evaluateObject, levelOf, objectLadder, Qn, representation, variantMutators, type Q, type Variant } from "@workspace/v2-core";
 import { objectTypeOf } from "../sdk/object-types.ts";
 import type { GameRule } from "../sdk/rule.ts";
 
@@ -93,9 +93,10 @@ const hostOn = (rule: GameRule, state: unknown) =>
 
 /** The rule's verdict on a line: its step, rarity in bits and points (the "before" of every move tried on it). */
 export function standing(rule: GameRule, state: unknown, rarities: readonly number[], want: number | null): Standing {
-  const r = hostOn(rule, state).handle({ op: "myScore" } as never, CONTEXT);
-  if (!r.ok) throw new Error(r.error);
-  const { level, top } = r.result as { level: number; top: number };
+  // The agents' myScore no longer reports steps (owner decision 23); until this pane shows bits, read the step here.
+  const tb = rule.tieBreaker ?? undefined;
+  const ladder = objectLadder(rule.type, rule.family, rule.params, rule.variant, tb);
+  const level = levelOf(evaluateObject(rule.type, rule.family, rule.params, state, rule.variant, tb).score, ladder), top = ladder.length - 1;
   const rarity = rarities.length ? rarities[Math.min(level, rarities.length - 1)]! : null;
   return { level, top, rarity, points: rarity !== null && want !== null ? rarity * want : null };
 }
