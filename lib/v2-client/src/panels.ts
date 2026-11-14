@@ -6,9 +6,17 @@
  */
 import type { Place, ViewState } from "@workspace/v2-affordances";
 
-export type GamePhase = "planning" | "live" | "paused" | "ended";
-const ALL: readonly GamePhase[] = ["planning", "live", "paused", "ended"];
-const WORLD: readonly GamePhase[] = ["live", "paused", "ended"];
+/** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
+export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
+const PLAY: readonly GamePhase[] = ["planning", "live", "paused", "ended"];
+const ALL: readonly GamePhase[] = [...PLAY, "replay"];
+const WORLD: readonly GamePhase[] = ["live", "paused", "ended", "replay"];
+/**
+ * The entry `replay.open` adds to the open panes. It marks the replay as open and is drawn as the game screen's replay
+ * bar, never in the dock; closing it (`view.closePane`) ends the replay, so no arrangement of the dock ever closes it.
+ */
+export const REPLAY_PANE = "replay";
+const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
 export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
@@ -26,12 +34,12 @@ export interface PaneDefinition {
 
 const def = (d: PaneDefinition) => d;
 export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
-  overview: def({ id: "overview", title: "Where am I", blurb: "What's happening, how you're doing, and the one thing to do next.", phases: ALL, keywords: ["next step", "status", "help"] }),
+  overview: def({ id: "overview", title: "Where am I", blurb: "What's happening, how you're doing, and the one thing to do next.", phases: PLAY, keywords: ["next step", "status", "help"] }),
   "my-card": def({ id: "my-card", title: "Your secret goal", blurb: "Your rule in plain words, a worked example and the steps to the top.", phases: ALL, keywords: ["rule", "goal", "card", "ladder"] }),
   objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: WORLD, keywords: ["objects", "lines", "points", "rarity"] }),
   object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: WORLD, keywords: ["expanded", "representations", "compare"] }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"] }),
-  agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: ALL, keywords: ["energy", "power", "share"] }),
+  agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"] }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"] }),
   race: def({ id: "race", title: "Leaderboard", blurb: "Who's winning, and is anyone catching up.", phases: WORLD, keywords: ["standings", "scores", "race"] }),
   "public-chat": def({ id: "public-chat", title: "Public chat", blurb: "Everything said to everyone.", phases: ALL, keywords: ["talk", "message", "pitch"] }),
@@ -55,6 +63,7 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
   switch (phase) {
     case "planning": return [{ pane: "my-card", place: "main" }, { pane: "forge", place: "right" }, { pane: "overview", place: "left" }];
     case "ended": return [{ pane: "results", place: "main" }, { pane: "my-card", place: "left" }, { pane: "race", place: "right" }];
+    case "replay": return [{ pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" }, { pane: "race", place: "right" }];
     default: return [
       { pane: "objects", place: "main" }, { pane: "my-card", place: "left" }, { pane: "feed", place: "right" },
       { pane: "agents", place: "bottom" }, { pane: "race", place: "bottom" },
@@ -77,11 +86,11 @@ const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("p
  * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved).
  */
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
-  const own = view.panes.filter(p => inPhase(p.pane, phase)).slice(-MAX_PANES);
+  const own = view.panes.filter(p => docked(p) && inPhase(p.pane, phase)).slice(-MAX_PANES);
   const defaults = defaultPanes(phase);
   let panes = own.length ? own : defaults;
   // Before the world (arranged in planning) or after the end (the last game's results): the phase's defaults join.
-  const fromOtherPhase = phase === "planning" ? view.panes.some(p => p.pane === "results") : !view.panes.some(p => needsWorld(p.pane));
+  const fromOtherPhase = phase === "planning" ? view.panes.some(p => p.pane === "results") : !view.panes.some(p => docked(p) && needsWorld(p.pane));
   const lacksDefaults = !own.some(p => defaults.some(d => d.pane === p.pane));
   if (own.length && (fromOtherPhase || lacksDefaults)) {
     panes = [...defaults.filter(d => !own.some(p => p.pane === d.pane)).slice(0, Math.max(0, MAX_PANES - own.length)), ...own];
@@ -98,10 +107,11 @@ export type ViewOp = { id: "view.openPane" | "view.closePane" | "view.movePane";
  */
 export function keepShown(view: Pick<ViewState, "panes">, phase: GamePhase): ViewOp[] {
   const shown = shownPanes(view, phase);
-  const same = view.panes.length === shown.length && view.panes.every((p, i) => p.pane === shown[i]!.pane && p.place === shown[i]!.place);
+  const stored = view.panes.filter(docked);
+  const same = stored.length === shown.length && stored.every((p, i) => p.pane === shown[i]!.pane && p.place === shown[i]!.place);
   if (same) return [];
   return [
-    ...view.panes.map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
+    ...stored.map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
     ...shown.map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
   ];
 }

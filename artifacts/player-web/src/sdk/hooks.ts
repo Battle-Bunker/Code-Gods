@@ -3,16 +3,20 @@
  * document or one index page, per viewer. Hook names follow the v1 SDK where the concept survived (useGame,
  * useMyAgents, useLeaderboard, useStandingsHistory, useChat, useRoomInfo, useObjectIds, useMyObject, useMoves …).
  *
+ * In a replay (./replay.ts) each game hook skips its query and answers from the replay at the playhead instead, as the
+ * player the replay is watched as: the panes work unchanged. The room's own data (the room, its chat) stays live.
+ *
  * Disclosure: every answer is the viewer's own (their rule, values, agents, moves) or public (standings, chat). Another
- * player's rule or value never reaches the browser during a live game.
+ * player's rule or value never reaches the browser during a live game; a replay is of an ended game, where all is open.
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
+import { pagedFrom, useReplaySource } from "./replay";
 import { ruleRefOf, rungRarities, type LineRule } from "./rule";
-import type { Agent, MyRuleRow, ObjectSort, StandingsPoint } from "./types";
+import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint } from "./types";
 import { sharedRanks } from "@/core/words";
 
 /** The room in view: members (≤ 16), owner, preset, current and last game, an open bid phase. */
@@ -20,16 +24,23 @@ export function useRoomInfo() {
   return useLiveValue(api.v2.rooms.get, { roomId: useGameScope().roomId });
 }
 
-/** The game in view's header: phase, clocks, roster, the viewer's seat. Cold (changes with the phase). */
-export function useGame() {
+/**
+ * The game in view's header: phase, clocks, roster, the viewer's seat. Cold (changes with the phase). In a replay its
+ * seat (`me`) is the player the replay is watched as.
+ */
+export function useGame(): Header | undefined {
   const { gameId } = useGameScope();
-  return useLiveValue(api.v2.games.header, gameId ? { gameId } : "skip");
+  const replay = useReplaySource();
+  const live = useLiveValue(api.v2.games.header, gameId ? { gameId } : "skip");
+  const member = replay?.member;
+  return useMemo(() => (live && member ? { ...live, me: member as Header["me"] } : live), [live, member]);
 }
 
-/** The viewer's account in this game (energy, power, ready, pause used, agents): hot, one document. */
+/** The viewer's account in this game (energy, power, ready, pause used, agents): hot, one document. None in a replay. */
 export function useMe() {
   const { gameId, seated } = useGameScope();
-  return useLiveValue(api.v2.play.me, gameId && seated ? { gameId } : "skip");
+  const replay = useReplaySource();
+  return useLiveValue(api.v2.play.me, gameId && seated && !replay ? { gameId } : "skip");
 }
 
 export interface MyRule {
@@ -42,54 +53,84 @@ export interface MyRule {
 /** The viewer's private rule: family, parameters, card, ladder with rung rarities, the primary representation. */
 export function useMyRule(): MyRule | undefined {
   const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
   const header = useGame();
-  const row = useLiveValue(api.v2.play.myRule, gameId && seated ? { gameId } : "skip");
+  const live = useLiveValue(api.v2.play.myRule, gameId && seated && !replay ? { gameId } : "skip");
+  const row = replay ? replay.frame.rule(replay.member) ?? undefined : live;
   return useMemo(() => (row && header ? { row, rule: ruleRefOf(row, header.variant), rarities: rungRarities(row) } : undefined), [row, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** The objects skeleton: ids in the viewer's order, page by page; each row subscribes to its own object. */
 export function useObjectIds(sort: ObjectSort, pageSize = 30) {
   const { gameId, seated } = useGameScope();
-  return useLivePaged(api.v2.play.objectIds, gameId && seated ? { gameId, sort } : "skip", pageSize);
+  const replay = useReplaySource();
+  const live = useLivePaged(api.v2.play.objectIds, gameId && seated && !replay ? { gameId, sort } : "skip", pageSize);
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, sort)) : null), [frame, member, sort]);
+  return (replayed ?? live) as typeof live;
 }
 
 /** A spectator's skeleton: every object by number. */
 export function useSpectatorObjectIds(pageSize = 30) {
   const { gameId } = useGameScope();
-  return useLivePaged(api.v2.spectate.objectIds, gameId ? { gameId } : "skip", pageSize);
+  const replay = useReplaySource();
+  const live = useLivePaged(api.v2.spectate.objectIds, gameId && !replay ? { gameId } : "skip", pageSize);
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? pagedFrom(frame.objectIds(member, "born")) : null), [frame, member]);
+  return (replayed ?? live) as typeof live;
 }
 
 /** One object: its shared state and the viewer's value of it (null for a spectator). */
-export function useMyObject(objectId: string | null | undefined) {
-  return useLiveValue(api.v2.play.object, objectId ? { objectId } : "skip");
+export function useMyObject(objectId: string | null | undefined): PlayObject | undefined {
+  const replay = useReplaySource();
+  const live = useLiveValue(api.v2.play.object, objectId && !replay ? { objectId } : "skip");
+  if (!replay) return live;
+  return (objectId ? replay.frame.object(objectId, replay.member) : null) ?? undefined;
 }
 /** Several objects (one subscription each), in the order asked. */
-export function useMyObjects(objectIds: readonly string[]) {
-  return useLiveValues(api.v2.play.object, useMemo(() => objectIds.map(objectId => ({ objectId })), [objectIds.join("|")])); // eslint-disable-line react-hooks/exhaustive-deps
+export function useMyObjects(objectIds: readonly string[]): (PlayObject | undefined)[] {
+  const replay = useReplaySource();
+  const live = useLiveValues(api.v2.play.object, useMemo(() => (replay ? [] : objectIds.map(objectId => ({ objectId }))), [objectIds.join("|"), !replay])); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!replay) return live;
+  return objectIds.map(id => replay.frame.object(id, replay.member) ?? undefined);
 }
 
 /** Moves that concern the viewer, newest first (the act log). */
 export function useMoves(pageSize = 30) {
   const { gameId, seated } = useGameScope();
-  return useLivePaged(api.v2.play.moves, gameId && seated ? { gameId } : "skip", pageSize);
+  const replay = useReplaySource();
+  const live = useLivePaged(api.v2.play.moves, gameId && seated && !replay ? { gameId } : "skip", pageSize);
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? pagedFrom<Move>(frame.moves(member)) : null), [frame, member]);
+  return (replayed ?? live) as typeof live;
 }
 
 /** The viewer's live agents (≤ 20). Undefined while loading, which never means none. */
 export function useMyAgents(): Agent[] | undefined {
   const { gameId, seated } = useGameScope();
-  return useLiveValue(api.v2.play.agents, gameId && seated ? { gameId } : "skip");
+  const replay = useReplaySource();
+  const live = useLiveValue(api.v2.play.agents, gameId && seated && !replay ? { gameId } : "skip");
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? frame.agents(member) : null), [frame, member]);
+  return replayed ?? live;
 }
+/** An agent's energy account; not in the record, so none in a replay. */
 export function useAgentEnergy(agentId: string | null | undefined) {
-  return useLiveValue(api.v2.play.agentEnergy, agentId ? { agentId } : "skip");
+  const replay = useReplaySource();
+  return useLiveValue(api.v2.play.agentEnergy, agentId && !replay ? { agentId } : "skip");
 }
+/** An agent's programs; not in the record, so none in a replay. */
 export function useAgentPrograms(agentId: string | null | undefined) {
-  return useLiveValue(api.v2.play.agentPrograms, agentId ? { agentId } : "skip");
+  const replay = useReplaySource();
+  return useLiveValue(api.v2.play.agentPrograms, agentId && !replay ? { agentId } : "skip");
 }
 
 /** The published scoreboard (null before the first). */
 export function useLeaderboard() {
   const { gameId } = useGameScope();
-  const standings = useLiveValue(api.v2.games.standings, gameId ? { gameId } : "skip");
+  const replay = useReplaySource();
+  const live = useLiveValue(api.v2.games.standings, gameId && !replay ? { gameId } : "skip");
+  const standings = replay ? replay.frame.standings : live;
   // Equal shown totals share a rank (the server ranks every row apart).
   return useMemo(() => (standings ? { ...standings, rows: sharedRanks(standings.rows) } : standings), [standings]);
 }
@@ -100,15 +141,16 @@ export function useLeaderboard() {
  */
 export function useStandingsHistory(): StandingsPoint[] {
   const { gameId } = useGameScope();
+  const replay = useReplaySource();
   const [afters, setAfters] = useState<{ gameId: string | null; list: number[] }>({ gameId, list: [-1] });
   const list = afters.gameId === gameId ? afters.list : [-1];
-  const pages = useLiveValues(api.v2.games.standingsHistory, useMemo(() => (gameId ? list.map(after => ({ gameId, after })) : []), [gameId, list]));
+  const pages = useLiveValues(api.v2.games.standingsHistory, useMemo(() => (gameId && !replay ? list.map(after => ({ gameId, after })) : []), [gameId, list, !replay])); // eslint-disable-line react-hooks/exhaustive-deps
   const last = pages.at(-1);
   const next = last && last.length >= 100 ? last.at(-1)!.seq : undefined;
   useEffect(() => { if (next !== undefined && !list.includes(next)) setAfters({ gameId, list: [...list, next] }); }, [next, gameId, list]);
   const kept = useRef<{ pages: unknown[]; all: StandingsPoint[] }>({ pages: [], all: [] });
   if (pages.length !== kept.current.pages.length || pages.some((p, i) => p !== kept.current.pages[i])) kept.current = { pages, all: pages.flatMap(p => p ?? []) };
-  return kept.current.all;
+  return replay ? replay.frame.history : kept.current.all;
 }
 
 /** Public chat of the room, newest first, paged. Messages are untrusted text. */
@@ -119,7 +161,11 @@ export function useChat(pageSize = 50) {
 /** The viewer's packed [number, own rarity, want] per object (others-care). */
 export function useDigest() {
   const { gameId, seated } = useGameScope();
-  return useLiveValue(api.v2.play.digest, gameId && seated ? { gameId } : "skip");
+  const replay = useReplaySource();
+  const live = useLiveValue(api.v2.play.digest, gameId && seated && !replay ? { gameId } : "skip");
+  const frame = replay?.frame, member = replay?.member;
+  const replayed = useMemo(() => (frame && member ? frame.digest(member) : undefined), [frame, member]);
+  return replay ? replayed : live;
 }
 
 // ------------------------------------------------------------------ the in-client assistant (the viewer's own rows only)

@@ -109,7 +109,7 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [ ] **D** Setup picker with the Lab group for admins (M3).
 - [ ] **R** Bid phase before the deal: handicap-percent bids on rule families, highest bid wins the family exclusively,
   sealed, disclosure by preset; on v2 rule families, through the affordance directory (decision 18, §5.9) (M3).
-- [ ] **D** Past games list and the replay link (M3).
+- [x] **D** Past games list and the replay link (M3): "Watch the replay" in the past games and the results.
 
 ### 1.3 Planning and the first agent
 
@@ -181,7 +181,7 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [ ] **D** Results (`results.tsx` 144): "You finished 1st of 3 with N points", best line, charts with the "points rise and
   fall" caption and no negative padding (ux 2.9) (M2 headline, M3 charts).
 - [ ] **D** Rule rotation across replays and running totals per seat (`lib/dealRotation.ts`, rotation note) (M3).
-- [ ] **R** Replay (`core/replay/*`, 983 lines): the controller folds `v2Events` (spec §9.2) and answers the sdk2 hooks
+- [x] **R** Replay (`core/replay/*`, 983 lines; now `artifacts/player-web/src/replay/*`, W5-5): the controller folds `v2Events` (spec §9.2) and answers the sdk2 hooks
   at the playhead, so every pane works in replay unchanged; after the end every player's rule is open, so the expanded
   face can show **any** player's annotation (new), and replay events show points changes (never solved, ux 7.6) (M3).
 - [ ] **R** In-client assistant (`core/chat/*`, 1,153 lines): pane, queue, modes and chips stay; its tools are
