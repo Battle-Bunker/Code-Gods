@@ -46,7 +46,11 @@ function JoinByCode({ onCancel }: { onCancel: () => void }) {
   const [code, setCode] = useState("");
   const [, navigate] = useLocation();
   return (
-    <form className="flex flex-wrap items-center gap-2" onSubmit={e => e.preventDefault()}>
+    <form className="flex flex-wrap items-center gap-2" onSubmit={e => {
+      // Enter in the code box joins, as the button does (playtest round 5).
+      e.preventDefault();
+      e.currentTarget.querySelector<HTMLButtonElement>("[data-testid=button-join-submit]")?.click();
+    }}>
       <input autoFocus value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Room code" aria-label="Room code"
         className="h-9 w-36 border px-2 font-mono uppercase" data-testid="input-join-code" />
       <AffordanceButton id="room.join" args={() => ({ code })} label="Join" tone="primary" testId="button-join-submit"

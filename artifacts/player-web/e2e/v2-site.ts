@@ -84,6 +84,13 @@ try {
     await check(`${label}: Create room seats you and offers a practice game`, async () => {
       await page.getByTestId("button-create-room").first().click();
       await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+      // Enter in "Room code" joins, as the button does (playtest round 5): back home, type the code, press Enter.
+      const roomCode = page.url().split("/").at(-1)!;
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-join-by-code").click();
+      await page.getByTestId("input-join-code").fill(roomCode);
+      await page.getByTestId("input-join-code").press("Enter");
+      await page.waitForURL(new RegExp(`/rooms/${roomCode}$`), { timeout: 15_000 });
       const status = page.getByTestId("text-viewer-seat");
       await status.waitFor();
       assert.match(await status.innerText(), /A game needs three players\. Play a practice game against practice partners, or invite friends\./);

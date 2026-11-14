@@ -106,7 +106,7 @@ export function PaneHeader({ pane, className = "" }: { pane: string; className?:
 export function PaneBody({ pane }: { pane: string }) {
   const { body } = useDockScope();
   return (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div className="min-h-0 flex-1 overflow-auto" data-pane-body>
       <ErrorBoundary FallbackComponent={PaneError} resetKey={pane}>{body(pane)}</ErrorBoundary>
     </div>
   );

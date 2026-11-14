@@ -85,7 +85,10 @@ export function ownEnergy(m: { energy: number; capacity: number; ownPerSecond: n
   const title = full
     ? `Your store is full: it holds ${seconds} seconds of your income (${powerText(m.ownPerSecond)}), so it stops rising. Spend it on a summon or a replacement, or give more of your power to your agents.`
     : `Your own energy: ${exactEnergy(m.energy)}. It rises by ${powerText(m.ownPerSecond)}, up to ${exactEnergy(m.capacity)}. Summons and replacements are paid from it.`;
-  return { text: `${energyText(m.energy)}${full ? " (full)" : ""}`, full, title };
+  // Above the cap (a game can start there): say what it refills to once spent.
+  const above = m.capacity > 0 && m.energy > m.capacity + 0.01;
+  const note = above ? ` (more than your store holds: ${energyText(m.capacity)}; it won't refill above that)` : full ? " (full)" : "";
+  return { text: `${energyText(m.energy)}${note}`, full, title };
 }
 
 /** During a game: the rule this player won by bid, and the handicap that comes off their total (null when none). */
