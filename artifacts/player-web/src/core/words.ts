@@ -6,7 +6,8 @@
  * the panes round the same way). A line's score is written once, by `scoreFormula`: the product shown is the product of
  * the full values, and "≈" stands in for "=" when the shown figures do not multiply to it.
  */
-import { BITS_HELP, fmtBits, fmtNum } from "@workspace/v2-views/format";
+import { BITS_HELP, chanceText, fmtBits, fmtNum } from "@workspace/v2-views/format";
+export { chanceText };
 
 /** 2 decimal places, en-US grouping, a true minus sign, never "−0.00": every measure a player reads. */
 export const num = fmtNum;
@@ -34,7 +35,9 @@ export const clock = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String
 // ------------------------------------------------------------------ how a score is made
 
 /** The one-sentence explanation, where a beginner first meets a score (and the assistant's primer says the same). */
-export const SCORE_SENTENCE = "You score on a line when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the lines.";
+/** How a score is made, in the game's own noun ("line", "grid"; ux-lessons 2.8). */
+export const scoreSentence = (one = "line", many = `${one}s`) => `You score on a ${one} when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the ${many}.`;
+export const SCORE_SENTENCE = scoreSentence();
 /** Under a total: what it is made of. */
 export const TOTAL_NOTE = "Your total is the sum of your points on every line.";
 /** Beside the formula's "others' bits". */

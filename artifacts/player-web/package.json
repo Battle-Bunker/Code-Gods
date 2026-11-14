@@ -19,7 +19,8 @@
     "e2e:gallery": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-gallery.ts",
     "e2e:annotations-lines": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-lines.ts ../../docs/screenshots/annotations-lines",
     "e2e:panels": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-panels.ts",
-    "e2e:dock": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-dock.ts"
+    "e2e:dock": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-dock.ts",
+    "e2e:grid-game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-grid-game.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",

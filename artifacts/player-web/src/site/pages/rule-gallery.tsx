@@ -107,7 +107,7 @@ export function RuleFamily() {
                     </select>
                   </label>
                   <fieldset className="space-y-1">
-                    <legend className="text-xs text-muted-foreground">Tie-breaker: it decides between lines on the same step of the main part</legend>
+                    <legend className="text-xs text-muted-foreground">Tie-breaker: it decides between lines the main part scores the same</legend>
                     {page.tieBreakers.map(t => (
                       <label key={t.id} className="flex items-start gap-2 py-1">
                         <input type="radio" name="tie-breaker" className="mt-1" checked={page.rule.tieBreaker === t.id} onChange={() => go({ tb: t.id })} data-testid={`radio-tie-breaker-${t.id}`} />
@@ -126,7 +126,7 @@ export function RuleFamily() {
             </div>
             <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
               <GoalCard rule={page.rule} example={example} {...(rarities ? { rarities } : {})} />
-              {!rarities && <p className="mt-2 text-xs text-muted-foreground">In a game, each step also shows its rarity in bits (each bit = twice as rare) and its chance: how rarely a random line scores that well.</p>}
+              {!rarities && <p className="mt-2 text-xs text-muted-foreground">In a game, a line also shows its rarity in bits (each bit = twice as rare) and its chance: how rarely a random line scores that well.</p>}
             </div>
           </div>
         </>)}
