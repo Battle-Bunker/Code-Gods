@@ -43,3 +43,46 @@ test("expanded face: a line the rule cannot score says why and offers what bring
   assert.match(t, /not scoring/);
   assert.match(t, /Next step: /);
 });
+
+test("move line: the change, the step before → after, the rarity with its reason, points with the want", async () => {
+  const { MoveLine } = await import("../src/index.ts");
+  const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
+    rarities={RARITIES} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
+  assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\. Up: step 5 → 8 of 8 ?\./);
+  assert.match(t, /✨ rarity 3\.4 → 6\.8 \(fewer random lines score this well\)\./);
+  assert.match(t, /Points on this line 8\.2 → 16\.3 \(the others want it 2\.4\)\./);
+  const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" rarities={RARITIES}
+    points={{ before: 8.2, after: 7.9, want: 1.1, wantBefore: 2.4 }} />));
+  assert.match(t2, /the others want it 1\.1, was 2\.4\): because the others want this line less now/);
+});
+
+test("compact face: says 'step n of N', each part's step, the reason when not scoring, and the next move", () => {
+  const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />));
+  assert.match(t, /step 5 of 8/);
+  assert.match(t, /main 5\/8/);
+  assert.match(t, /tie-break 4\/4/);
+  assert.match(t, /next: .* → step 8/);
+  const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />);
+  assert.match(html, /data-next=""/, "the next line drawn on the plane");
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} />)), /not scoring this tank is not draining/);
+});
+
+test("plane: two cited points at the same place get one label", async () => {
+  const { crossingCheck } = await import("@workspace/v2-linear");
+  const { RepView, annotate } = await import("../src/index.ts");
+  const rule = { type: lineType, family: crossingCheck, params: { k: 1, q: 4 }, variant: lineQ };
+  const s = mc(-1, 5); // y(1) = 4 and x(4) = 1: both at (1, 4)
+  const e = annotate(rule, s).sites[0]!.evaluation;
+  const html = renderToStaticMarkup(<RepView type={lineType} state={s} rep="cart" size="expanded" marks={e.marks} terms={e.terms} />);
+  assert.equal((html.match(/\(1, 4\)/g) ?? []).length - (html.match(/<title>[^<]*\(1, 4\)/g) ?? []).length, 1);
+});
+
+test("compact face: the main part's quantity, target and distance; a cited implicit coefficient is shown", async () => {
+  const { mMeetsC } = await import("@workspace/v2-linear");
+  const tri = { type: lineType, family: triangleArea, params: { A: 8 }, variant: lineQ };
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tri} state={mc(2, -6)} />)), /area 9, target 8 · off by 1/);
+  const mmc = { type: lineType, family: mMeetsC, params: {}, variant: lineQ };
+  const html = renderToStaticMarkup(<CompactFace rule={mmc} state={mc(1, 5)} />);
+  assert.match(text(html), /gradient 1, y-intercept 5 · off by 4/);
+  assert.match(html, /data-ref="si\.m"[^>]*>(<span[^>]*>)?<span class="v2v-implied">1<\/span>/);
+});

@@ -24,6 +24,8 @@ export interface RenderProps<D extends SceneData = SceneData> {
   readonly size: DrawSize;
   /** A previous state's values: changed elements are emphasised. */
   readonly before?: (ref: ElementRef) => ElementValue;
+  /** The state after the nearest improvement: a renderer may draw it as a dashed "next" (the plane does). */
+  readonly next?: (ref: ElementRef) => ElementValue;
   /** Cross-highlight (spec §11.3): elements whose meaning key equals this are lit. */
   readonly highlight: string | null;
   /** The meaning key of an element, for cross-highlighting. */

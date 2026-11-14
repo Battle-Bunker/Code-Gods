@@ -7,12 +7,12 @@
  * Player words only: points, ✨ rarity, ⚡ energy, "main part", "tie-breaker", "step n of N", the noun "line".
  */
 import { useMemo, useState, type ReactElement } from "react";
-import { representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
+import { elementValue, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
-import { fmtRarity } from "./format.ts";
+import { fmtQ, fmtRarity, fmtValue, isUndef } from "./format.ts";
 import { nearestImprovement, type Improvement } from "./improve.ts";
 import { markRefs } from "./refs.ts";
-import { ObjectChip, RepView } from "./rep-view.tsx";
+import { labelOf, ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
 
 /** "step 5 of 8" (or "5/8" short), or "not scoring". */
@@ -32,6 +32,11 @@ export interface CompactFaceProps<S, P> {
   readonly rep?: string;
   readonly site?: number;
   readonly before?: S;
+  /**
+   * The nearest improvement, drawn as a hint (a dashed "next" line on a plane, and a line of words): true computes it
+   * here (only for the viewer's own rule), or pass one already computed.
+   */
+  readonly next?: boolean | Improvement | null;
 }
 
 /** The rule's primary representation at 160 × 100 with its marks, and "✨ 3.4 · step 5 of 8" beneath. */
@@ -39,16 +44,56 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const a = props.annotation ?? annotate(props.rule, props.state);
   const site = props.site ?? 0;
   const e = a.sites[site]!.evaluation;
+  const parts = a.sites[site]!.parts;
   const rep = props.rep ?? props.rule.family.primary;
+  const imp = useMemo(
+    () => (props.next === true ? (a.level === a.top ? null : nearestImprovement(props.rule, props.state)) : props.next || null),
+    [props.next, props.rule, props.state, a.level, a.top],
+  );
+  const ladderHelp = "Your rule's ladder: each step up is rarer among random lines and worth more to you.";
   return (
     <div className="v2v v2v-compact-face" data-level={a.level}>
-      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms} before={props.before} />
+      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms}
+        before={props.before} next={imp ? (imp.result as S) : undefined} />
       <div className="v2v-face-foot">
         {a.rarity !== null && <span className="v2v-rarity">{fmtRarity(a.rarity)}</span>}
-        <span className="v2v-step" data-worst={a.score === null ? "" : undefined} title={a.worst ?? undefined}>{levelText(a, true)}</span>
+        <span className="v2v-step" data-worst={a.score === null ? "" : undefined} title={a.worst ?? ladderHelp}>{levelText(a)}</span>
       </div>
+      {a.worst ? <div className="v2v-face-why">{a.worst}</div> : <div className="v2v-face-why" title={parts[0]?.sentence}>{mainLine(props.rule, props.state, a, site)}</div>}
+      {!a.worst && parts.length > 1 && (
+        <div className="v2v-face-parts">
+          {parts.map(p => p.rung !== null && (
+            <div key={p.term} className="v2v-face-part" title={`${p.name}: step ${p.rung} of ${p.rungs}${p.rungLabel ? ` (${p.rungLabel})` : ""}`}>
+              <span className="v2v-face-part-name">{p.name === "main part" ? "main" : "tie-break"}</span>
+              <Pips n={p.rungs!} at={p.rung} />
+              <span className="v2v-face-part-n">{p.rung}/{p.rungs}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {imp && <div className="v2v-face-next" title={imp.sentence}>next: {imp.describe} → step {imp.levelAfter}</div>}
     </div>
   );
+}
+
+/** A dynamic or derived element's short name: its label without the parenthesis, or "out(1)" for a parametrised one. */
+function shortLabel<S>(type: ObjectType<S>, r: ElementRef): string {
+  if (r.args && Object.keys(r.args).length) return `${r.name}(${Object.values(r.args).map(v => v.replace("-", "−")).join(", ")})`;
+  return labelOf(type, r).replace(/\s*\(.*\)/, "");
+}
+
+/**
+ * The compact card's one line about the main part: the quantity and the target in the rule's own words (its short
+ * note, or the elements the part was computed from), then the distance: "area 9, target 8 · off by 1".
+ */
+export function mainLine<S, P>(rule: RuleRef<S, P>, state: S, a: Annotation, site = 0): string {
+  const part = a.sites[site]?.parts[0];
+  if (!part || isUndef(part.value)) return "";
+  const note = part.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.text.length <= 28);
+  const term = a.sites[site]!.evaluation.terms.find(t => t.id === part.term)!;
+  const what = note?.text ?? term.from.map(r => `${shortLabel(rule.type, r)} ${fmtValue(elementValue(rule.type, state, r, site))}`).join(", ");
+  const amount = fmtQ(part.value);
+  return part.sense === "min" ? `${what} · off by ${amount}` : `${what} · ${amount}`;
 }
 
 // ------------------------------------------------------------------ parts list
@@ -97,16 +142,18 @@ function Pips({ n, at }: { n: number; at: number }) {
 
 export interface LadderViewProps {
   readonly annotation: Annotation;
+  /** Folded under its title (the expanded face on a phone is long); open when undefined. */
+  readonly open?: boolean;
   /** ✨ rarity per rung (index = level), when the rule's artefact is known. */
   readonly rarities?: readonly number[];
 }
 
 /** "Steps to the top": every rung of the rule's ladder, the one reached marked, with ✨ rarity per step when known. */
-export function LadderView({ annotation: a, rarities }: LadderViewProps): ReactElement {
+export function LadderView({ annotation: a, rarities, open }: LadderViewProps): ReactElement {
   const rungs = a.ladder.slice(1).map((r, i) => ({ level: i + 1, label: r.label })).reverse();
   return (
-    <div className="v2v-ladder">
-      <div className="v2v-ladder-title">Steps to the top</div>
+    <details className="v2v-ladder" open={open ?? true}>
+      <summary className="v2v-ladder-title">Steps to the top <span className="v2v-ladder-at">({levelText(a)})</span></summary>
       <ol>
         {rungs.map(r => (
           <li key={r.level} data-reached={r.level <= a.level ? "" : undefined} data-here={r.level === a.level ? "" : undefined}>
@@ -118,7 +165,7 @@ export function LadderView({ annotation: a, rarities }: LadderViewProps): ReactE
         ))}
       </ol>
       {rarities && <p className="v2v-ladder-note">Each step up is rarer among random lines; rarer is worth more to you.</p>}
-    </div>
+    </details>
   );
 }
 
@@ -174,6 +221,8 @@ export interface ExpandedFaceProps<S, P> {
   readonly improvement?: boolean;
   /** The representation open first on a narrow card (default: the rule's primary). */
   readonly initialRep?: string;
+  /** Whether the ladder starts unfolded (default true; a popover on a phone may fold it). */
+  readonly ladderOpen?: boolean;
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -248,7 +297,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
           </p>
         )}
         {a.level === a.top && <p className="v2v-next" data-kind="top">This line is at the top of your ladder.</p>}
-        <LadderView annotation={a} rarities={props.rarities} />
+        <LadderView annotation={a} rarities={props.rarities} open={props.ladderOpen} />
       </div>
     </div>
   );
