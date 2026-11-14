@@ -15,7 +15,8 @@
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
-    "@workspace/v2-sandbox": "workspace:*"
+    "@workspace/v2-sandbox": "workspace:*",
+    "@workspace/v2-economy": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:"

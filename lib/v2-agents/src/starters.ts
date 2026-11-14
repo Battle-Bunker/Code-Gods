@@ -11,6 +11,7 @@
  * as y = mx + c, try changes in the agent's own head (thinking costs no energy, only time), keep the plans that make
  * the line best for the rule, and pay for the cheapest of them.
  */
+import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
@@ -84,7 +85,7 @@ function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
     out.push(...(tb.pre?.ts ?? []).map(l => `  ${l}`), `  return [main, ${tb.ts}];   // main: ${e.mainSays}; tie-breaker: ${tb.says}`);
   } else {
     out.push(`  // main: ${e.mainSays}`);
-    for (const l of f.tieBreakers) {
+    for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {   // a tie-breaker not yet described scores the main part alone
       const tb = e.tieBreakers[l.id]!;
       if (tb.pre) out.push(`  if (tie === ${JSON.stringify(l.id)}) {   // ${tb.says}`, ...tb.pre.ts.map(x => `    ${x}`), `    return [main, ${tb.ts}];`, "  }");
       else out.push(`  if (tie === ${JSON.stringify(l.id)}) return [main, ${tb.ts}];   // ${tb.says}`);
@@ -153,7 +154,7 @@ function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
     out.push(...(tb.pre?.py ?? []).map(l => `    ${l}`), `    return [main, ${tb.py}]   # main: ${e.mainSays}; tie-breaker: ${tb.says}`);
   } else {
     out.push(`    # main: ${e.mainSays}`);
-    for (const l of f.tieBreakers) {
+    for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
       const tb = e.tieBreakers[l.id]!;
       out.push(`    if tie == ${JSON.stringify(l.id)}:   # ${tb.says}`, ...(tb.pre?.py ?? []).map(x => `        ${x}`), `        return [main, ${tb.py}]`);
     }
@@ -217,7 +218,7 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   const meta = kind === "example"
     ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the tie-breaker (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: e.tieBreakers[tieBreaker!]!.steps, quotes: 8 }
     : KINDS[kind];
-  const rule = tb ? `Main part: ${f.main.title}. Tie-breaker: ${tb.title}.` : `Main part: ${f.main.title}. Tie-breaker: whichever you were dealt (${f.tieBreakers.map(t => t.title).join("; ")}).`;
+  const rule = tb ? `Main part: ${f.main.title}. Tie-breaker: ${tb.title}.` : `Main part: ${f.main.title}. Tie-breaker: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
   const header = [`${f.title} · ${meta.title}`, rule, ...HOW, `Try this: ${meta.tryThis}`];
   const ts = language === "typescript";
   const c = ts ? "//" : "#";
@@ -246,8 +247,9 @@ export function startersFor(family: string, language: ShippedLanguage): ShippedA
 
 /** Every shipped agent: per family, each tie-breaker's example and the three starters, in both languages. */
 export function shippedAgents(): ShippedAgent[] {
-  return CATALOGUE.flatMap(e => LANGUAGES.flatMap(language => [
-    ...Object.keys(e.tieBreakers).map(tb => render("example", e.family, tb, language)),
+  // Only what v2-linear still deals: a catalogue entry for a family or tie-breaker it dropped is skipped (stale()).
+  return CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family)).flatMap(e => LANGUAGES.flatMap(language => [
+    ...Object.keys(e.tieBreakers).filter(tb => familyOf(e.family).tieBreakers.some(t => t.id === tb)).map(tb => render("example", e.family, tb, language)),
     ...startersFor(e.family, language),
   ]));
 }
@@ -267,5 +269,21 @@ export function scoreSource(family: string, tieBreaker: string | null, language:
   return (language === "typescript" ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)).join("\n") + "\n";
 }
 
-/** Starting energy of the beginner preset (integration plan §1.2: Lines · beginner, 600); every shipped agent fits. */
-export const BEGINNER_STARTING_ENERGY = 600;
+/** Starting energy of the beginner economy (v2-economy's Lines · beginner); every shipped agent fits. */
+export const BEGINNER_STARTING_ENERGY = LINES_BEGINNER_ECONOMY.startingEnergy;
+
+/** Families and tie-breakers of the line type that have no shipped agents yet (each needs a catalogue entry). */
+export function undescribed(): string[] {
+  return lineType.families.flatMap(f => {
+    const e = CATALOGUE.find(x => x.family === f.id);
+    return e ? f.tieBreakers.filter(t => !e.tieBreakers[t.id]).map(t => `${f.id}/${t.id}`) : [f.id];
+  });
+}
+
+/** Catalogue entries v2-linear no longer has (a family or tie-breaker it dropped or renamed). */
+export function stale(): string[] {
+  return CATALOGUE.flatMap(e => {
+    const f = lineType.families.find(x => x.id === e.family);
+    return f ? Object.keys(e.tieBreakers).filter(tb => !f.tieBreakers.some(t => t.id === tb)).map(tb => `${e.family}/${tb}`) : [e.family];
+  });
+}
