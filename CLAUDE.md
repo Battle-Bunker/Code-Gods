@@ -32,6 +32,23 @@ behind them and the redesign plan are in `docs/convex-read-architecture.md`; the
 `.agents/memory/convex-reads.md`; Convex's own audit workflow is `.claude/skills/convex-performance-audit`. A new page
 query needs an entry in the query-cost gate (R8).
 
+## Engine v2 (the owner's standing instruction, 2026-11-14)
+
+The engine is being rebuilt from a fresh slate, for linear equations first, in new `lib/v2-*` packages, new `v2*` Convex
+tables and a `/v2` route tree (`docs/engine-v2/spec.md`; the decisions behind it: `docs/engine-v2/owner-decisions.md`).
+The owner, verbatim: "I don't care about throwing away prior work. It will still be available in git. You have a
+burdensome bias towards attachment to keeping prior work and backwards compatibility that tends to accumulate mess and
+technical debt. Try to adjust against that bias for this project. We are in rapid exploration mode which is cheaper and
+faster than ever with AI coding ... Being encumbered by backwards compatibility baggage and attachment to prior work is
+one of the biggest hazards to our rapid exploration priority." So, in v2 work:
+
+- No compatibility with stored games, old calibration tables, old settings or the old event log; v2 lives beside the
+  old engine until it replaces it.
+- Nothing in v2 imports from the old rule/object/annotation/calibration libraries (`game-types`, `game-utilities`,
+  `game-core`, `object-views`, `grid-lab`, `player-client`, `ai-player`, `game-runtime`); copy and clean what is good.
+  `lib/v2-core/test/import-boundary.test.ts` enforces it.
+- v2 tables are new, so the schema-migration steps below do not apply to them until v2 holds data worth keeping.
+
 ## Orientation
 
 - Product rules and history: `.agents/memory/*.md`.
