@@ -5,6 +5,7 @@
  *   /mcp          the MCP server (convex/agent/mcp.ts); /.well-known/oauth-*, /oauth/authorize[/complete] and
  *                 /api/oauth/{register,token,revoke}: its OAuth authorization server (convex/agent/oauth.ts)
  *   /api/replay/<roomId>/<gameId>  an ended game's stored replay, for a signed-in caller its replay admits (convex/replays.ts)
+ *   /api/v2/replay/<gameId>  an engine v2 game's stored replay, for a member of its room (convex/v2Http.ts)
  *   /api/calibration/<roomId>/<gameId>/<godId>  a seat's calibration tables, for that player or a replay viewer (convex/calibration/mine.ts)
  *   /api/rule-tables?instance=&family=&params=  one draw's table by instantiation, for any signed-in caller (convex/calibration/draw.ts)
  *   /api/preview-auth/*  preview deployments only: the passphrase sign-in (convex/auth/previewRoutes.ts); a 404 elsewhere
@@ -24,6 +25,7 @@ import { registerOAuthRoutes } from "./agent/oauth";
 import { registerAuthRoutes } from "./auth/routes";
 import { registerPreviewAuthRoutes } from "./auth/previewRoutes";
 import { download as replayDownload, downloadPreflight as replayPreflight } from "./replays";
+import { v2ReplayDownload } from "./v2Http";
 import { download as tablesDownload, preflight as tablesPreflight } from "./calibration/mine";
 import { download as ruleTablesDownload, preflight as ruleTablesPreflight } from "./calibration/draw";
 import { authComponent, createAuth } from "./auth/betterAuth";
@@ -68,6 +70,9 @@ for (const method of ["GET", "DELETE"] as const) http.route({ path: "/mcp", meth
 registerOAuthRoutes(http);
 // An ended game's stored replay, for a caller its replay admits (convex/replays.ts): the JWT in Authorization.
 http.route({ pathPrefix: "/api/replay/", method: "GET", handler: replayDownload });
+// Engine v2: an ended game's stored replay, for a member of its room (convex/v2/replays.ts): the JWT in Authorization.
+http.route({ pathPrefix: "/api/v2/replay/", method: "GET", handler: v2ReplayDownload });
+http.route({ pathPrefix: "/api/v2/replay/", method: "OPTIONS", handler: replayPreflight });
 http.route({ pathPrefix: "/api/replay/", method: "OPTIONS", handler: replayPreflight });
 // A player's own calibration tables (convex/calibration/mine.ts): the JWT in Authorization.
 http.route({ pathPrefix: "/api/calibration/", method: "GET", handler: tablesDownload });

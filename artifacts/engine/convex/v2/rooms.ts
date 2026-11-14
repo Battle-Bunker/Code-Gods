@@ -7,7 +7,7 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, requireMember, requireUser } from "./access";
-import { chatPageV, historyPageV, roomListV, roomV } from "./validators";
+import { chatPageV, historyPageV, roomListV, roomV, roundV } from "./validators";
 
 /** The caller's rooms, newest joined first: a skeleton page; each row's component subscribes to `get`. */
 export const list = query({
@@ -66,5 +66,40 @@ export const history = query({
     const { room } = await requireMember(ctx, roomId);
     const page = await ctx.db.query("v2Games").withIndex("by_room_phase", q => q.eq("roomId", room._id).eq("phase", "ended")).order("desc").paginate(paginationOpts);
     return { ...page, page: page.page.map(g => ({ gameId: g._id, number: g.number, endedAt: g.endedAt ?? null, winner: g.summary?.winner ?? null })) };
+  },
+});
+
+/**
+ * The room's current rotation round (integration plan §1, M3: "rotation across replays and running totals per seat"):
+ * its ended games so far, newest first, and each seat's net total summed over them. Null when the last game was not
+ * dealt in a rotation (a deal with a won bid). Reads at most a room's worth of game headers and their scoreboards.
+ */
+export const round = query({
+  args: { roomId: v.string() },
+  returns: roundV,
+  handler: async (ctx, { roomId }) => {
+    const { room } = await requireMember(ctx, roomId);
+    const games = await ctx.db.query("v2Games").withIndex("by_room_phase", q => q.eq("roomId", room._id).eq("phase", "ended")).order("desc").take(MAX_MEMBERS);
+    const inRound: Doc<"v2Games">[] = [];
+    for (const g of games) {
+      if (!g.rotates) break;
+      inRound.push(g);
+      if (!g.rotation) break;   // the round's first game: a fresh deal
+    }
+    if (inRound.length === 0) return null;
+    const totals = new Map<string, { memberId: Doc<"v2Members">["_id"]; name: string; net: number }>();
+    for (const g of inRound) {
+      const s = await ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", g._id)).unique();
+      for (const r of s?.rows ?? []) {
+        const t = totals.get(r.memberId) ?? { memberId: r.memberId, name: r.name, net: 0 };
+        t.net += r.net;
+        totals.set(r.memberId, t);
+      }
+    }
+    return {
+      round: inRound.length, of: inRound[0]!.roster.length,
+      games: inRound.map(g => ({ gameId: g._id, number: g.number })),
+      totals: [...totals.values()].sort((a, b) => b.net - a.net),
+    };
   },
 });
