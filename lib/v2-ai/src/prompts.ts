@@ -104,7 +104,7 @@ THE GAME. Players hold secret rules about lines and earn points for lines their 
 
 ${VOCABULARY}
 
-WRITING. Plain sentences and "- " lists; no Markdown headings, tables or bold. Short answers: one line when one line is asked. Call things by what the human sees.
+WRITING. Plain sentences; no Markdown headings, tables or bold. Short answers: answer the question in the first sentence, and stop at two or three sentences unless the human asks for more. When the human asks for it short, or asks one question, reply in one or two sentences with no list. Use a "- " list only for steps or several items the human asked for. Call things by what the human sees.
 ${NEXT[context] ? `\nNOW. ${NEXT[context]}\n` : ""}${rule ? `\nTHEIR RULE. ${rule}\n` : ""}
 ${AGENTS}
 
