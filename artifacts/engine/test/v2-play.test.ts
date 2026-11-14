@@ -30,7 +30,8 @@ const me = (h: Human) => h.query("v2/play:me", { gameId });
 test("planning: check, summon, replace, put back, split power, destroy", async () => {
   const rule = await ada!.query("v2/play:myRule", { gameId });
   const [simple] = startersFor(rule.family, "typescript");
-  const tiny = "function agent(offer) {\n  return [call(\"si.shift\", { k: 1 })];\n}\n";
+  // It tells its owner what the line was worth to it (myScore's bits, from the value function the tick passes).
+  const tiny = "function agent(offer) {\n  offer.note(\"bits \" + offer.myScore().bits);\n  return [call(\"si.shift\", { k: 1 })];\n}\n";
   const checked = await perform(ada!, "agent.check", { language: "typescript", source: simple!.source }, scope(), "action");
   assert.equal(checked.ok, true, JSON.stringify(checked));
   assert.ok(["works", "warns"].includes(checked.result.verdict), checked.result.summary);
@@ -71,7 +72,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
 
   const second = await perform(ada!, "agent.summon", { language: "typescript", source: tiny, name: "Second" }, scope(), "action");
   assert.equal(second.ok, true, JSON.stringify(second));
-  // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds her own store.
+  // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds Ada's own store.
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0.6, [second.result.agentId]: 0.2 } }, scope())).ok, true);
   const agents = await ada!.query("v2/play:agents", { gameId });
   assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.2, 0.6]);
@@ -150,6 +151,10 @@ test("pause once, resume by the owner, end by the owner", async () => {
     assert.ok(m.by && (m.mine ? m.by.name === "Play Ada" : m.by.name !== "Play Ada"), `every move names its mover: ${JSON.stringify(m.by)}`);
     if (!m.mine) assert.equal(m.charge, null, "another player's spend is theirs");
     assert.ok(Array.isArray(m.notes) && (m.mine || m.notes.length === 0), "notes are the caller's own agent's");
+    if (m.mine) {   // Ada's one agent, which notes its bits on every move
+      const bits = Number(/^bits (\S+)$/.exec(m.notes[0] ?? "")?.[1]);
+      assert.ok(Math.abs(bits - m.before.rarityBits) < 1e-6, `the agent's worth agrees with the server's (decision 23): ${m.notes[0]} vs ${m.before.rarityBits}`);
+    }
   }
   assert.ok(energy.settledAt >= (energy.lastActAt ?? 0) && energy.perSecond > 0, `an agent's energy is settled to the world clock: ${JSON.stringify(energy)}`);
   assert.equal((await perform(ada!, "game.end", {}, scope())).ok, true);

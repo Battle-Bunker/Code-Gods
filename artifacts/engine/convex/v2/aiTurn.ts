@@ -6,7 +6,7 @@
  */
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
-import { aiSeatSystemPrompt, runAssistant } from "@workspace/v2-ai";
+import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, runAssistant, type ChatRow, type MoveRow } from "@workspace/v2-ai";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
@@ -39,6 +39,40 @@ export const info = internalQuery({
   },
 });
 
+/** Rows read for the deals ledger: the room's latest chat, and each player's latest moves. */
+const CHAT_ROWS = 120, MOVE_ROWS = 120;
+const DEALS = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: Id<"v2Members"> }, Deals | null>("v2/aiTurn:deals");
+type Deals = { me: string; chat: ChatRow[]; moves: MoveRow[]; programs: string[] };
+
+/**
+ * What the seat's deals ledger reads (lib/v2-ai commitments): the game's chat, with its wall times turned into world
+ * seconds; the moves that lowered a player's points, by mover and line; and the seat's live agents' programs.
+ */
+export const deals = internalQuery({
+  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
+  handler: async (ctx, { gameId, memberId }): Promise<Deals | null> => {
+    const game = await ctx.db.get(gameId);
+    const me = game?.roster.find(r => r.memberId === memberId);
+    if (!game || !me) return null;
+    const names = new Map(game.roster.map(r => [r.memberId as string, r.name]));
+    const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
+    // World time runs to endsAt (tick.ts); while paused it stands still at the clock's.
+    const worldAt = (at: number) => game.endsAt !== undefined ? game.settings.worldSeconds - (game.endsAt - at) / 1000 : Math.min(clock?.worldSeconds ?? 0, (clock?.worldSeconds ?? 0) - (Date.now() - at) / 1000);
+    const since = game.createdAt;   // deals struck while planning count too
+    const chat = (await ctx.db.query("v2Chat").withIndex("by_room", q => q.eq("roomId", game.roomId).gte("at", since)).order("desc").take(CHAT_ROWS))
+      .reverse().map(m => ({ from: m.from, text: m.text, at: worldAt(m.at) }));
+    // A row is the move as one player saw it: it lowered them when their points fell and someone else moved.
+    const moves: MoveRow[] = [];
+    for (const r of game.roster) {
+      const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", gameId).eq("memberId", r.memberId)).order("desc").take(MOVE_ROWS);
+      for (const m of rows) if (m.by && m.by !== r.memberId && m.after.points < m.before.points)
+        moves.push({ by: names.get(m.by) ?? "", line: m.number, at: m.worldSeconds, lowered: [r.name] });
+    }
+    const agents = await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).collect();
+    return { me: me.name, chat, moves, programs: agents.filter(a => a.destroyedAt === undefined).map(a => a.source) };
+  },
+});
+
 export const turn = internalAction({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members"), n: v.number() },
   handler: async (ctx, { gameId, memberId, n }) => {
@@ -53,8 +87,10 @@ export const turn = internalAction({
     // Its rule's Simple starter to begin from (and edit to honour deals: agent.programs → check → replace). Simple only,
     // since every turn pays for the prompt.
     const starters = seat.family ? startersFor(seat.family, "typescript", seat.tieBreaker).filter(s => s.kind === "simple").map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
+    const ledger = await ctx.runQuery(DEALS, { gameId, memberId });
     const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
-      `You have ${Math.round(seat.energy)} ⚡ in your own store and ${seat.agents} agent(s). Act, then stop.`;
+      `You have ${Math.round(seat.energy)} ⚡ in your own store and ${seat.agents} agent(s). Act, then stop.`
+      + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / 1000))}` : "");
     try {
       await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({
         provider: providerFor(), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools, starters }),

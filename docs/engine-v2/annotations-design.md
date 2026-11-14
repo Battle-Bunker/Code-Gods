@@ -392,9 +392,10 @@ session holds those files.
 ### 11.2 Order of pull requests
 
 Done: the design (#458, #468); the fitted plane and labels (#462, #471); the line element without a window (#465); the
-nearest square (#483); contributors, rulers, moves on the value function and the faces without steps (this list's items
-2 and part of 3 and 5). Still to do: identity badges projected into the equation, table and machine views; the app's
-value record wired into One line, Lines and the goal card (W3's myRule `value`); the persona walk.
+nearest square (#483); contributors, rulers, moves on the value function and the faces without steps (#489, this list's
+items 2 and part of 3 and 5); identity badges (● main part, ◆ tie-breaker) on the elements each part reads, projected by
+meaning into every view, with the part named in the element's title. Still to do: the app's value record wired into One
+line, Lines and the goal card (W5, from myRule `value`); the persona walk.
 
 1. This document and the storyboard gallery.
 2. v2-views: contributors model and wording (tests first: the four storyboard lines, the wording rules as assertions),

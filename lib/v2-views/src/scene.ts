@@ -34,6 +34,8 @@ export interface RenderProps<D extends SceneData = SceneData> {
   readonly onHover?: (ref: ElementRef | null) => void;
   /** The elements of these representations that mean what `ref` means (projection by meaning, refs.ts). */
   readonly project?: (ref: ElementRef, reps: readonly string[]) => readonly ElementRef[];
+  /** Which part of the viewer's rule reads an element (its identity badge: ● main part, ◆ tie-breaker), if any. */
+  readonly roleOf?: (ref: ElementRef) => "main" | "tb" | null;
   /** Words for an element ("gradient"), for titles and screen readers. */
   readonly labelOf: (ref: ElementRef) => string;
 }

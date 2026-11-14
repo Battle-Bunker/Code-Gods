@@ -7,6 +7,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { commitmentBriefing, commitmentsOf } from "@workspace/v2-ai";
 import { admin, admins, humans, perform } from "./v2-helpers.ts";
 
 test("an admin seats an AI player; its turns run through the directory and are counted", { timeout: 120_000 }, async () => {
@@ -35,5 +36,14 @@ test("an admin seats an AI player; its turns run through the directory and are c
   const rule = await admin.query("v2/ops/rule:explainAs", { args: {}, gameId, delegate });
   assert.equal(rule.ok, true);
   assert.equal((await admin.mutation("v2/ops/game:endAs", { args: {}, gameId, delegate })).error.code, "refused", "an AI player is no owner");
+  // A deal struck in chat reaches its turn as a commitment (lib/v2-ai commitments), pending until its agents skip the lines.
+  await perform(boss!, "chat.send", { text: "Let's both keep off lines 3 and 5." }, { roomId });
+  assert.equal((await admin.mutation("v2/ops/chat:sendAs", { args: { text: "Deal, agreed." }, roomId, delegate })).ok, true);
+  const ledger = await admin.query("v2/aiTurn:deals", { gameId, memberId: added.result.memberId });
+  const [deal] = commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs);
+  assert.deepEqual([deal?.partner, deal?.lines, deal?.status], ["AI Admin", [3, 5], "pending"], JSON.stringify(ledger.chat));
+  // World seconds, not wall time (a deal struck while planning is before 0).
+  assert.ok(Math.abs(deal!.at) <= 600, `the deal's time is in world seconds: ${deal!.at}`);
+  assert.match(commitmentBriefing([deal!]), /PENDING/);
   await perform(boss!, "game.end", {}, { gameId });
 });

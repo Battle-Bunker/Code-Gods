@@ -206,7 +206,7 @@ def note(offer, text):
 def contested(offer, times):
     if pushback(offer) < times:
         return False
-    note(offer, f"Tug-of-war on line {offer.object}: another player keeps pulling it back. Make a deal with them?")
+    note(offer, f"Tug-of-war on line {offer.object}: another player keeps pulling it back. Make a deal with them, then add {offer.object} to LEAVE in your agent.")
     return True
 
 

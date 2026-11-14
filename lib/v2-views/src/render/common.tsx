@@ -51,7 +51,15 @@ export function elAttrs(p: RenderProps, r: ElementRef, extra: { changedFrom?: bo
     "data-cand": st.cand ? "" : undefined,
     "data-lit": lit ? "" : undefined,
     "data-changed": changed ? "" : undefined,
+    "data-role": p.roleOf?.(r) ?? undefined,
   };
+}
+
+const ROLE_WORDS = { main: "main part", tb: "tie-breaker" } as const;
+/** An element's title with the part of the rule that reads it: "y-intercept (main part)". */
+export function withRole(p: RenderProps, r: ElementRef, title: string): string {
+  const role = p.roleOf?.(r);
+  return role ? `${title} (${ROLE_WORDS[role]})` : title;
 }
 
 /** Pointer handlers that report the element (for cross-highlighting). */
@@ -64,7 +72,7 @@ export function hover(p: RenderProps, r: ElementRef) {
 export function El(props: { p: RenderProps; r: ElementRef; children: ReactNode; className?: string; title?: string }) {
   const { p, r } = props;
   return (
-    <span className={`v2v-el ${props.className ?? ""}`} {...elAttrs(p, r)} {...hover(p, r)} title={props.title ?? p.labelOf(r)}>
+    <span className={`v2v-el ${props.className ?? ""}`} {...elAttrs(p, r)} {...hover(p, r)} title={withRole(p, r, props.title ?? p.labelOf(r))}>
       {props.children}
     </span>
   );

@@ -15,7 +15,7 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
 import { decode, encode, typeOf, variantOf } from "./world";
-import { rungsOf } from "./artefacts";
+import { valueRecord } from "./values";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
@@ -60,7 +60,6 @@ export const tick = internalAction({
         return [a.agentId, settle({ balance: a.energy, settledWorldSeconds: a.settledAt }, world, income, energyCapacity(income, econ.fullChargeSeconds)).balance];
       }));
       const local = new Map<number, string>();   // states changed earlier in this tick
-      const ladders = new Map<string, ReturnType<typeof rungsOf>>();
       // Every offered line, for every player with an agent: fetched up front in parallel batches (the act loop is serial).
       const memberIds = [...new Set(snap.agents.map(a => a.memberId))] as Id<"v2Members">[];
       const objectIds = [...new Set([...states.values()].map(s => s.objectId))] as Id<"v2Objects">[];
@@ -83,12 +82,13 @@ export const tick = internalAction({
         // `offer.object` is the line's number, the one every read and the app show ("leave line 4 alone").
         // What the agent may know of its owner's stake in the line (W2's worth/recent/contested), as of the last commit.
         const input = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
-        if (!ladders.has(seat.rule.ruleKey)) ladders.set(seat.rule.ruleKey, rungsOf(seat.rule.ruleKey));
+        // The seat's value function (decision 23), as the deal recorded it by ruleKey: replay re-derives it from the bundle.
+        const vf = valueRecord(seat.rule.ruleKey);
         const { record } = await runAct(sandbox, {
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: { family: seat.rule.family, params: seat.rule.params as Record<string, unknown>, tieBreaker: seat.rule.tieBreaker },
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
-          ...input, rungs: ladders.get(seat.rule.ruleKey)!,
+          ...input, ...(vf ? { values: { knots: vf.knots, tail: vf.tail } } : {}),
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.
