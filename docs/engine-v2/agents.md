@@ -120,6 +120,24 @@ spelling once and little after; `Q.add(a, b)` costs what `a + b` does. Energy = 
 (⅙, chosen so the dearest shipped agent, 588 ⚡ after the points-aware lines, fits the beginner preset's 600 ⚡ and leaves the first agent its ≈70% share; v2-economy may own the constant). Python and
 TypeScript prices of the same agent are within 15% (test). This replaces game-runtime's AST bits.
 
+**Price range** (⅙ ⚡ a bit kept, owner 2026-11-14; in seconds of full power at 64 power):
+
+| Program | ⚡ | Seconds of full power |
+|---|--:|--:|
+| A 3-line agent (one shift a turn) | 18 | 0.3 |
+| A Simple starter (min, median, max) | 300, 347, 555 | 4.7, 5.4, 8.7 |
+| A Thorough starter (median, max) | 431, 574 | 6.7, 9.0 |
+| 16 KiB of starter code (names reused) | 1,216 | 19 |
+| 16 KiB of distinct logic (154 functions) | 5,729 | 90 |
+
+**The store's ceiling** (not changed; the owner is deciding between a larger store, instalments, or keeping the
+ceiling). A player's own store holds at most `fullChargeSeconds` × its income, so at full power (no agents) it never
+holds more than P·T: 64 × 30 = 1,920 ⚡ on the beginner settings. Pulling power back from agents moves their energy,
+but never past that cap, and a summon is paid at once (`pay` in convex/v2/agents.ts). So **a program priced above
+1,920 ⚡ can never be summoned**. Today the engine refuses it with "That program costs X ⚡; you have Y.". Its hint,
+"Energy accrues while the game runs; a shorter program costs less.", is half wrong for such a program: waiting never
+helps. `lib/v2-economy/test/ceiling.test.ts` pins this. Edits are not affected: they pay only the change.
+
 **Edit price** (owner decision 21; `editBits(language, oldSource, newSource)` → `{ bits, energy, tokens }`): replacing
 an agent's program costs only the change, at the same ⚡ per bit. The change is the shortest token-level edit script
 from the old program's priced tokens to the new one's (a longest common subsequence over the tokens the summon price

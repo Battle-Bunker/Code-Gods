@@ -67,7 +67,7 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   // An ended game shown in replay has the replay's arrangement.
   const paneOps = usePaneOps(dockPhase === "ended" && rt.context.context === "replay" ? "replay" : dockPhase ?? "planning");
   const panes = dockPhase ? paneOps : undefined;
-  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, ...(panes ? { panes } : {}) }), [rt, navigate, roomPath, panes]);
+  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, notify: title => toast({ title }), ...(panes ? { panes } : {}) }), [rt, navigate, roomPath, panes]);
   const p = rt.context.principal;
   const ctx: PaletteContext = { role: p.owner ? "owner" : p.seated ? "seated" : p.member ? "member" : p.signedIn ? "signed-in" : "visitor", admin: p.admin, assistantOn: false };
   return (

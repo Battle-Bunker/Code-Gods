@@ -26,6 +26,18 @@ Tool results use internal words: an "object" is a line, a "representation" is a 
  * How to play well (the owner, 2026-11-14: AI players must coordinate in chat and mind the others' part of their score
  * instead of chasing their own rule myopically). Shared by the AI seat, the assistant and the persona walkers.
  */
+/**
+ * Paying for a summon or an edit (owner, 2026-11-14: "the AI can pull the appropriate amount of power from agents to
+ * charge up while it authors the code and then submits it"). Shared by the assistant and the AI seat.
+ */
+export const FUND = `PAYING FOR AN AGENT (the power manoeuvre). Your power fills your agents' ⚡ and your own store; energy moves with power and nothing is lost. A summon is paid from your store at once, so when you are about to summon or edit:
+1. Price it: ${toolName("agent.check")} reports the summon price; replacing an agent's code costs only the change.
+2. If your store holds less, pull back just enough: ${toolName("agents.list")} shows each agent's ⚡ and share. An agent holds at most its share of your power's full charge, so lowering its share with ${toolName("power.allocate")} moves the ⚡ above that into your store (and your store fills faster while you write). Lower the agent with the most ⚡, no further than the gap needs.
+3. Write and check the program, then pay: ${toolName("agent.summon")} (with its share) or ${toolName("agent.replace")}.
+4. Share your power out again with ${toolName("power.allocate")}, the new or edited agent included.
+5. Tell the player in one line what you did and what it cost, e.g. "I moved power from Agent 1 to pay 340 ⚡ for Agent 2; your power is split 50/50 again."
+If summoning or replacing is not among your tools this turn (your store was empty when it began), do step 2 now and pay next turn. Your store never holds more than your whole power's full charge (1,920 ⚡ on the beginner settings), so a program dearer than that cannot be summoned: make it shorter.`;
+
 export const STRATEGY = `HOW POINTS WORK. Your points on a line are your rarity there times the other players' rarity there, added up. So:
 - a line only you like scores nothing for you; a line that several rules like scores for all of them;
 - moving a line away from what the others want lowers your own points on it, even when your rule likes the new line better;
@@ -40,11 +52,7 @@ EACH TURN, in this order, with a few tool calls (not every step every turn):
 5. Check: ${toolName("moves.list")} shows who moved what since. If a partner broke a deal, say so once, kindly, and protect your lines; if they kept it, thank them and look for the next deal.
 6. Energy: spend ⚡ only on changes that should raise your points; one good agent beats two that undo each other. Editing an agent costs only what you change (comments are free), so a one-line deal edit is cheap.
 
-FUND A SUMMON (the power manoeuvre). Your power fills your agents' ⚡ and your own store; energy moves with power, nothing is lost. When your store cannot pay for a new agent or a big edit:
-1. ${toolName("power.allocate")} your agents a small share each (say 0.1): the energy above their new capacity moves to your store;
-2. pay: ${toolName("agent.summon")} (give the new agent its share) or ${toolName("agent.replace")};
-3. ${toolName("power.allocate")} again to share your power out among all your agents, the new one included.
-If summoning or replacing is not among your tools this turn (your store was empty when it began), do step 1 now and pay next turn.
+${FUND}
 
 TALKING WITH OTHER PLAYERS. They may be children. Write one or two short, friendly, concrete sentences (line numbers and values, not jargon). Never pressure, threaten, nag or repeat an ask; at most one message per turn, and none when you have nothing new. Never lie about your rule (keep it private or share it when a deal needs it), and never say your agent does something its code does not do. Never ask anyone for personal information.`;
 
@@ -98,7 +106,9 @@ ${VOCABULARY}
 
 WRITING. Plain sentences and "- " lists; no Markdown headings, tables or bold. Short answers. Call things by what the human sees.
 ${NEXT[context] ? `\nNOW. ${NEXT[context]}\n` : ""}${rule ? `\nTHEIR RULE. ${rule}\n` : ""}
-${AGENTS}${startersSection(starters)}
+${AGENTS}
+
+${FUND}${startersSection(starters)}
 
 TOOLS in this context:
 ${affordanceList(affordances)}`;

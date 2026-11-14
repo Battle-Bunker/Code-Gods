@@ -50,6 +50,23 @@ export interface PlaneLayout {
   readonly offAxes: readonly string[];
   /** The marks drawn here: the rule's marks on this plane, projected ones moved onto their plane element (compact: filtered). */
   readonly marks: readonly Mark[];
+  /** The axes' numbers that are drawn (none under a label or a point). */
+  readonly ticks: readonly TickLabel[];
+}
+
+export interface TickLabel { readonly text: string; readonly x: number; readonly y: number; readonly anchor: "middle" | "end"; readonly box: Rect }
+
+/** The axes' numbers: along the axes (or the edges, when an axis is off the window), every other one when crowded. */
+export function tickLabels(v: Viewport): TickLabel[] {
+  const out: TickLabel[] = [];
+  const yAt = Math.min(v.box.h - 3, Math.max(10, (v.y0 <= 0 && v.y1 >= 0 ? v.sy(0) : v.box.h - 4) + 11));
+  const xAt = Math.min(v.box.w - 3, Math.max(28, (v.x0 <= 0 && v.x1 >= 0 ? v.sx(0) : 30) - 4));
+  const wOf = (t: string) => t.length * 5.5;
+  const ex = Math.max(1, Math.ceil(Math.max(...v.xTicks.map(t => wOf(tickText(t)) + 8)) / Math.abs(v.sx(v.xStep) - v.sx(0))));
+  const ey = Math.max(1, Math.ceil(14 / Math.abs(v.sy(0) - v.sy(v.yStep))));
+  v.xTicks.forEach((x, i) => { if (x !== 0 && i % ex === 0) { const t = tickText(x), w = wOf(t); out.push({ text: t, x: v.sx(x), y: yAt, anchor: "middle", box: { x: v.sx(x) - w / 2, y: yAt - 9, w, h: 11 } }); } });
+  v.yTicks.forEach((y, i) => { if (y !== 0 && i % ey === 0) { const t = tickText(y), w = wOf(t); out.push({ text: t, x: xAt, y: v.sy(y) + 3, anchor: "end", box: { x: xAt - w, y: v.sy(y) - 6, w, h: 11 } }); } });
+  return out;
 }
 
 /**
@@ -90,6 +107,8 @@ function nearestCandidate(p: P, marks: readonly Mark[], which: "point" | "any"):
   }
   return best;
 }
+
+function overlaps(a: Rect, b: Rect): boolean { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
 
 /** Where a too-thin region's schematic is drawn: the top-right corner. */
 export function insetBox(box: { w: number; h: number }, compact: boolean): Rect {
@@ -198,6 +217,17 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
     regionLabel = { text, priority: cites.length ? 1 : 2 };
   }
 
+  // An area rule's triangle: its legs are what the area is made of, so the two intercepts are labelled as legs.
+  if (world && regionItem && regionLabel?.priority === 1) {
+    const legs: [string, string, XY][] = [["legX", "xInt", world[1]!], ["legY", "yInt", world[2]!]];
+    for (const [leg, at, pt] of legs) {
+      let v: ElementValue;
+      try { v = p.values({ rep: p.rep, name: leg }); } catch { continue; }
+      if (v.kind !== "number") continue;
+      add({ id: key({ rep: "cart", name: at }), ref: { rep: "cart", name: at }, priority: 1, ...pt, kind: "item", label: `leg ${readable(v.q)}` });
+    }
+  }
+
   // ------------------------------------------------ the window
   const important = [...raw.values()].filter(r => r.priority <= 2);
   const core: XY[] = [...important, ...(world ?? [])];
@@ -266,14 +296,18 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
   const offAxes: string[] = [];
   if (view.y0 > 0) offAxes.push("x-axis ↓ (y = 0)"); else if (view.y1 < 0) offAxes.push("x-axis ↑ (y = 0)");
   if (view.x0 > 0) offAxes.push("y-axis ← (x = 0)"); else if (view.x1 < 0) offAxes.push("y-axis → (x = 0)");
-  // Kept clear: the not-to-scale inset and the off-axis notes (drawn at fixed places).
+  // Kept clear: the not-to-scale inset, the off-axis notes and the axes' numbers (labels go around them; a number a
+  // label still covers, or that sits under a point, is left out below).
   const blocked: Rect[] = offAxes.map((t, i) => ({ x: 4, y: view.box.h - 14 - i * 12, w: textWidth(t), h: 12 }));
   if (region?.thin) blocked.push(insetBox(view.box, compact));
-  const placed = placeLabels(reqs, segs, view.box, blocked);
+  const allTicks = compact ? [] : tickLabels(view);
+  const placed = placeLabels(reqs, segs, view.box, [...blocked, ...allTicks.map(t => t.box)]);
   const labels: PlaneLabel[] = placed.map((l, i) => ({ ...l, text: texts.get(l.id)!, ax: reqs[i]!.x, ay: reqs[i]!.y }));
 
 
-  return { view, line, lineRef: L.ref, points, labels, region, offAxes, marks };
+  const covers = [...labels.filter(l => l.shown).map(l => l.box), ...blocked, ...points.map(pt => ({ x: pt.px - 5, y: pt.py - 5, w: 10, h: 10 }))];
+  const ticks = allTicks.filter(t => !covers.some(c => overlaps(c, t.box)));
+  return { view, line, lineRef: L.ref, points, labels, region, offAxes, marks, ticks };
 }
 
 // ------------------------------------------------------------------ drawing
@@ -283,25 +317,15 @@ const tickText = (t: number) => {
   return t < 0 ? `−${r.replace("-", "")}` : r;
 };
 
-const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /** The grid, the axes and their numbers; a tick number under a placed label is left out (the label matters more). */
-function Grid({ v, size, keep }: { v: Viewport; size: "compact" | "expanded"; keep: readonly Rect[] }) {
+function Grid({ v, ticks }: { v: Viewport; ticks: readonly TickLabel[] }) {
   const out: ReactElement[] = [];
   for (const x of v.xTicks) if (x !== 0) out.push(<line key={`gx${x}`} className="grid" x1={v.sx(x)} x2={v.sx(x)} y1={0} y2={v.box.h} />);
   for (const y of v.yTicks) if (y !== 0) out.push(<line key={`gy${y}`} className="grid" y1={v.sy(y)} y2={v.sy(y)} x1={0} x2={v.box.w} />);
   if (v.y0 <= 0 && v.y1 >= 0) out.push(<line key="ax" className="axis" x1={0} x2={v.box.w} y1={v.sy(0)} y2={v.sy(0)} />);
   if (v.x0 <= 0 && v.x1 >= 0) out.push(<line key="ay" className="axis" y1={0} y2={v.box.h} x1={v.sx(0)} x2={v.sx(0)} />);
-  if (size === "expanded") {
-    // Tick labels along the axes (or the edges, when an axis is off the window), every other tick when crowded.
-    const yAt = Math.min(v.box.h - 3, Math.max(10, (v.y0 <= 0 && v.y1 >= 0 ? v.sy(0) : v.box.h - 4) + 11));
-    const xAt = Math.min(v.box.w - 3, Math.max(28, (v.x0 <= 0 && v.x1 >= 0 ? v.sx(0) : 30) - 4));
-    const every = (ts: readonly number[], room: number) => { const w = Math.max(...ts.map(t => tickText(t).length * 6 + 8)); return Math.max(1, Math.ceil(w / room)); };
-    const ex = every(v.xTicks, v.sx(v.xStep) - v.sx(0)), ey = Math.max(1, Math.ceil(14 / Math.abs(v.sy(0) - v.sy(v.yStep))));
-    const free = (r: Rect) => !keep.some(k => overlaps(k, r));
-    v.xTicks.forEach((x, i) => { const t = tickText(x), w = t.length * 5.5; if (x !== 0 && i % ex === 0 && free({ x: v.sx(x) - w / 2, y: yAt - 9, w, h: 11 })) out.push(<text key={`lx${x}`} className="tick-label" x={v.sx(x)} y={yAt} textAnchor="middle">{tickText(x)}</text>); });
-    v.yTicks.forEach((y, i) => { const t = tickText(y), w = t.length * 5.5; if (y !== 0 && i % ey === 0 && free({ x: xAt - w, y: v.sy(y) - 6, w, h: 11 })) out.push(<text key={`ly${y}`} className="tick-label" x={xAt} y={v.sy(y) + 3} textAnchor="end">{tickText(y)}</text>); });
-  }
+  for (const t of ticks) out.push(<text key={`t${t.anchor}${t.text}`} className="tick-label" x={t.x} y={t.y} textAnchor={t.anchor}>{t.text}</text>);
   return <g aria-hidden="true">{out}</g>;
 }
 
@@ -327,6 +351,9 @@ function Scene({ p }: { p: P }) {
     const val = fmtValue(p.values(L.region.ref));
     if (!L.region.thin) {
       back.push(<polygon key="region" className="region" points={L.region.pts.map(x => `${x.x},${x.y}`).join(" ")} {...elAttrs(q, L.region.ref)} {...hover(q, L.region.ref)}><title>{`${p.labelOf(L.region.ref)}: ${val}`}</title></polygon>);
+      // The legs the area is made of, along the axes.
+      const [o, xi, yi] = L.region.pts;
+      back.push(<line key="legx" className="leg" x1={o!.x} y1={o!.y} x2={xi!.x} y2={xi!.y} />, <line key="legy" className="leg" x1={o!.x} y1={o!.y} x2={yi!.x} y2={yi!.y} />);
     } else {
       // Too thin to see at this scale: a schematic in the corner, each side stretched, said to be not to scale.
       const ib = insetBox(v.box, p.size === "compact"), IW = ib.w, IH = ib.h, X = ib.x, Y = ib.y, m = 6;
@@ -456,7 +483,7 @@ function Scene({ p }: { p: P }) {
     <>
       <svg className="v2v-plane" width={v.box.w} height={v.box.h} viewBox={`0 0 ${v.box.w} ${v.box.h}`} role="img" aria-label={planeText(p.scene, p.values)}
         data-scales={v.equal ? "equal" : "independent"}>
-        <Grid v={v} size={p.size} keep={[...L.labels.filter(l => l.shown).map(l => l.box), ...L.offAxes.map((t, i) => ({ x: 4, y: v.box.h - 14 - i * 12, w: t.length * 5.6, h: 12 }))]} />
+        <Grid v={v} ticks={L.ticks} />
         {back}
         {front}
         {p.size === "expanded" && L.offAxes.map((t, i) => <text key={t} className="note label-halo" x={4} y={v.box.h - 4 - i * 12}>{t}</text>)}
