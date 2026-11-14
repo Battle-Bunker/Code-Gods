@@ -459,6 +459,12 @@ importers:
 
   lib/v2-agents:
     dependencies:
+      '@workspace/v2-affordances':
+        specifier: workspace:*
+        version: link:../v2-affordances
+      '@workspace/v2-ai':
+        specifier: workspace:*
+        version: link:../v2-ai
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../v2-core
