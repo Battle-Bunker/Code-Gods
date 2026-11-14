@@ -99,6 +99,8 @@ try {
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
       const box = page.getByTestId("input-forge-code");
       await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");
+      // The price line follows the edit once the forge has re-rendered (reading it at once raced the render).
+      await page.getByTestId("text-forge-price").getByText(/changes only:/).waitFor({ timeout: 10_000 });
       const priced = await page.getByTestId("text-forge-price").innerText();
       const m = /changes only: ([\d,.]+) ⚡ \(the whole program would be ([\d,.]+) ⚡\)/.exec(priced);
       assert.ok(m, `the edit is priced by its change: ${priced}`);
@@ -119,7 +121,8 @@ try {
 
     const feed = page.getByTestId("pane-feed");
     // The first scoring move (a move can also leave your rarity and the points where they were).
-    const mine = feed.getByText(/^Your agent .* changed a line.*Your rarity/).first();
+    // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
+    const mine = feed.locator("[data-testid=feed] > ol > li > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();
     assert.match(sentence, /Your rarity [\d.,]+ → [\d.,]+ bits?/, `the move says your rarity in bits: ${sentence}`);

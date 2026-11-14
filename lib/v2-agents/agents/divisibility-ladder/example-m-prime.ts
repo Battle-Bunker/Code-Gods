@@ -20,7 +20,7 @@ function score(m, c, p) {
   }
   const fm = factors(m) ?? [];                    // the gradient's prime factors ([] for 0, 1, -1)
   const mp = near(m, prime);
-  return [Math.min(main, 11), Q.neg(Q.abs(Q.sub(m, mp)))];   // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: a gradient close to a prime is better
+  return [main, Q.neg(Q.abs(Q.sub(m, mp)))];   // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: a gradient close to a prime is better
 }
 
 const FAR = 4;      // how far one change may go

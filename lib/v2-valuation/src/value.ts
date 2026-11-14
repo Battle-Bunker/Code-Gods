@@ -293,7 +293,7 @@ export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "de
 }
 
 /** The tail rule: straight lines through the last knots, along the secondary utility and along the primary. */
-function tailOf(knots: readonly ValueKnot[]): ValueTail {
+export function tailOf(knots: readonly ValueKnot[]): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
   const best = parsed[parsed.length - 1];
   if (!best) return { secondary: 0, primary: 0 };

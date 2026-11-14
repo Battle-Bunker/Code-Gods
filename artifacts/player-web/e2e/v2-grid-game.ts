@@ -132,7 +132,8 @@ try {
 
     const feed = page.getByTestId("pane-feed");
     // The first scoring move (a move can also leave the step and the points where they were).
-    const mine = feed.getByText(/^Your agent .* changed a grid.*Your rarity/).first();
+    // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
+    const mine = feed.locator("[data-testid=feed] > ol > li > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
     await mine.waitFor({ timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
     const sentence = await mine.innerText();
     assert.match(sentence, /Your rarity [\d.,]+ → [\d.,]+ bits?/, `the move says your rarity in bits: ${sentence}`);

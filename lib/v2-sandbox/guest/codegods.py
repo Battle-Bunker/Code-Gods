@@ -196,7 +196,7 @@ class Offer:
         s = _ask({"op": "myScore"})
         return Record({
             "score": None if s["score"] is None else [None if x is None else _q(x) for x in s["score"]],
-            "level": s["level"], "top": s["top"],
+            "bits": s.get("bits"),
             "layers": [Record(dict(l)) for l in s.get("layers", [])],
             "terms": [Record({"id": t["id"], "value": None if t["value"] is None else _q(t["value"])}) for t in s["terms"]],
         })

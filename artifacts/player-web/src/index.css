@@ -424,8 +424,8 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 
 /*
  * The dock (dockview-react) themed onto the app's tokens: one --card surface per pane, hairline gutters that turn
- * --primary on hover or drag, a header per group that IS the pane header (no tab icons, no close buttons: the pane
- * header draws its own; panes have no tabs, so a group only holds a second view for the instant of a centre drop), radius 0, the drop target in --primary at 12 %.
+ * --primary on hover or drag, each tab IS the pane's header (its name and menu; no tab icons or close buttons: the
+ * header draws its own), a group of one pane shows its header full width, radius 0, the drop target in --primary at 12 %.
  */
 .dockview-theme-cg {
   color-scheme: light;

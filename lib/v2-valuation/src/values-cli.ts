@@ -1,22 +1,21 @@
 /**
  * pnpm --filter @workspace/v2-valuation values -- [--variant line-z] [--family id] [--tie-breaker id|none] [--draws n] [--write]
  *
- * Builds value functions (owner decision 23; value.ts) for the rules on a line variant: each family's first dealable
+ * Builds value functions (owner decision 23; value.ts, value-grid.ts) for the rules on a line or grid variant: each family's first dealable
  * parameters, once per tie-breaker dealt there. --draws sets the direct draws per tilt (default: VALUE_CONFIG's). Prints each one's knots in brief; --write stores it under
  * values/<variant>/<family>/<params hash>-<tie-breaker>.json.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { canonicalJson, hashHex, tieBreakersOn, type RuleFamily } from "@workspace/v2-core";
-import type { LineState } from "@workspace/v2-linear";
 import { findVariant } from "./registry.ts";
 import { lineValueFunction } from "./value.ts";
+import { gridValueFunction } from "./value-grid.ts";
 
 const args = process.argv.slice(2);
 const opt = (name: string): string | undefined => { const i = args.indexOf(`--${name}`); return i === -1 ? undefined : args[i + 1]; };
 const { type, variant } = findVariant(opt("variant") ?? "line-z");
-if (type.id !== "line") throw new Error("value functions are built for lines here; grids bring their own law");
-const families = (type.families as RuleFamily<LineState, unknown>[]).filter(f => !opt("family") || f.id === opt("family"));
+const families = (type.families as RuleFamily<any, unknown>[]).filter(f => !opt("family") || f.id === opt("family"));
 if (!families.length) throw new Error(`No family ${opt("family")}`);
 const tbOpt = opt("tie-breaker");
 const ROOT = join(import.meta.dirname, "..");
@@ -27,7 +26,9 @@ for (const family of families) {
   const choices: (string | null)[] = tbOpt ? [tbOpt === "none" ? null : tbOpt] : tieBreakersOn(family, variant).length ? tieBreakersOn(family, variant).map(t => t.id) : [null];
   for (const tieBreaker of choices) {
     const t = Date.now();
-    const vf = lineValueFunction(family, params, variant, { tieBreaker, config: opt("draws") ? { drawsPerTilt: Number(opt("draws")) } : {} });
+    const vf = type.id === "grid"
+      ? gridValueFunction(type as never, family, params, variant, { tieBreaker, ...(opt("draws") ? { draws: Number(opt("draws")) } : {}) })
+      : lineValueFunction(family, params, variant, { tieBreaker, config: opt("draws") ? { drawsPerTilt: Number(opt("draws")) } : {} });
     const best = vf.knots[vf.knots.length - 1]!;
     console.log(`${family.id} ${canonicalJson(params)} + ${vf.tieBreaker} on ${variant.id}: ${vf.knots.length} knots in ${((Date.now() - t) / 1000).toFixed(1)} s; ` +
       `best ${JSON.stringify(best.u)} = ${best.bits} bits [${best.lo}, ${best.hi}] (${best.source}); exact: ${vf.diagnostics.exact.map(e => e.name).join(", ") || "none"}; ` +

@@ -8,6 +8,7 @@ import { z } from "zod/v4";
 import { AFFORDANCES, refusal, type AffordanceOf, type ClientAffordanceId, type Via } from "./directory.ts";
 import { OpFailure, type OpOutcome } from "./server.ts";
 import type { AffordanceContext } from "./types.ts";
+import { DockSyntaxError, defaultDock, dockActivate, dockInsert, dockKindOf, dockPanes, dockWithout, parseDock, type DockKind, type DockNode } from "./dock.ts";
 
 export type Place = "main" | "left" | "right" | "bottom";
 export interface ViewState {
@@ -15,6 +16,13 @@ export interface ViewState {
   version: number;
   /** Open panes in order, each at a place. */
   panes: { pane: string; place: Place }[];
+  /**
+   * The desktop dock's arrangement per game screen (`view.arrangeDock`; dock.ts), absent where the human has not
+   * arranged it (the screen's default). It holds geometry only: which panes show is `panes`; a shown pane it lacks joins
+   * at its place, and a pane it has that is not shown is left out. Moving or closing a pane takes it out of every
+   * arrangement, so a moved pane joins at its new place. Rows stored before the dock lacked it: read as `{}`.
+   */
+  dock: Partial<Record<DockKind, DockNode>>;
   /** The representation compact faces use, per rule family, "*" for every object. Replaces per-device pins. */
   pins: Record<string, string>;
   objects: { sort: "points" | "rarity" | "recent"; filter: { mine?: boolean; minBits?: number } };
@@ -36,7 +44,7 @@ export interface ViewState {
 export type ReplayCursor = { seq: number } | { worldSeconds: number; plus: number };
 
 export const EMPTY_VIEW: ViewState = {
-  version: 0, panes: [], pins: {}, objects: { sort: "points", filter: {} }, focus: null, glossary: null, replay: null,
+  version: 0, panes: [], dock: {}, pins: {}, objects: { sort: "points", filter: {} }, focus: null, glossary: null, replay: null,
 };
 
 /** The representation a compact face of this family shows: the family's pin, else the global pin, else the default. */
@@ -48,33 +56,91 @@ export function pinnedRep(view: ViewState, family: string, fallback: string): st
 /** View operations the layout performs; signing in is the auth client's, not the layout's. */
 export type ViewOpId = Exclude<ClientAffordanceId, "account.signIn">;
 type Args<Id extends ViewOpId> = z.output<AffordanceOf<Id>["params"]>;
-type Reducer<Id extends ViewOpId> = (v: ViewState, args: Args<Id>) => Omit<ViewState, "version">;
+type Reducer<Id extends ViewOpId> = (v: ViewState, args: Args<Id>, ctx: AffordanceContext) => Omit<ViewState, "version">;
 
 /** Opens a pane, or moves it when a place is given; an open pane keeps its position in the order. */
 const openPane = (v: ViewState, pane: string, place?: Place) =>
   v.panes.some(p => p.pane === pane)
     ? v.panes.map(p => p.pane === pane && place ? { ...p, place } : p)
     : [...v.panes, { pane, place: place ?? "main" }];
+
+/** Every arrangement changed by `f`; one left empty goes (that screen shows its default again). */
+function eachDock(v: ViewState, f: (n: DockNode) => DockNode | null): ViewState["dock"] {
+  const out: ViewState["dock"] = {};
+  for (const [kind, n] of Object.entries(v.dock) as [DockKind, DockNode][]) { const next = f(n); if (next) out[kind] = next; }
+  return out;
+}
+/** Takes a pane out of every arrangement (it joins again at its place while shown). */
+const undock = (v: ViewState, pane: string) => eachDock(v, n => dockWithout(n, p => p === pane));
+/**
+ * `dock` with `pane` placed and shown in the arrangement of the screen in view (that screen's default when the human
+ * has none yet); outside a game screen nothing changes (the pane joins at its place when a game shows it).
+ */
+function placed(dock: ViewState["dock"], pane: string, place: Place, ctx: AffordanceContext, show = true): ViewState["dock"] {
+  const kind = dockKindOf(ctx.context);
+  if (!kind) return dock;
+  const tree = dock[kind] ?? defaultDock(kind);
+  // A pane the arrangement already places (a default the panes list did not hold yet) stays where it is, behind or in front.
+  if (dockPanes(tree).includes(pane)) return dock;
+  return { ...dock, [kind]: dockInsert(tree, pane, place, show) };
+}
+/**
+ * Opening `pane`: it joins the open panes and, unless the screen in view already places it, is shown there at its place,
+ * nothing taken away to make room; an open one given a place moves there (out of every arrangement, then placed), and an
+ * open one without a place comes to the front of its tab group.
+ */
+function opened(v: ViewState, pane: string, place: Place | undefined, ctx: AffordanceContext): Omit<ViewState, "version"> {
+  const open = v.panes.some(p => p.pane === pane);
+  const panes = openPane(v, pane, place);
+  const at = panes.find(p => p.pane === pane)!.place;
+  if (open && !place) {
+    // In front wherever it is arranged; on the screen in view, placed first if that arrangement lacks it.
+    const dock = eachDock(v, n => dockActivate(n, pane)), kind = dockKindOf(ctx.context);
+    return { ...v, panes, dock: kind && !dockPanes(dock[kind] ?? defaultDock(kind)).includes(pane) ? placed(dock, pane, at, ctx) : dock };
+  }
+  // A pane opened at a place joins that place behind the tab shown there (the panes on screen, stored before a change,
+  // keep their tabs); without a place, or moved, it comes to the front.
+  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx, open || !place) };
+}
+/**
+ * The arrangements after closing `pane`: out of the screen in view's (other screens keep its place there for when it is
+ * shown again; while closed it is left out); out of every one outside a game screen.
+ */
+function closed(v: ViewState, pane: string, ctx: AffordanceContext): ViewState["dock"] {
+  const kind = dockKindOf(ctx.context);
+  if (!kind) return undock(v, pane);
+  const { [kind]: tree, ...rest } = v.dock;
+  const left = tree && dockWithout(tree, p => p === pane);
+  return left ? { ...rest, [kind]: left } : rest;
+}
 const replayOf = (v: ViewState) => {
   if (!v.replay) throw new OpFailure("Open a replay first.", "replay.open");
   return v.replay;
 };
 
 export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
-  "view.openPane": (v, a) => ({ ...v, panes: openPane(v, a.pane, a.place) }),
+  "view.openPane": (v, a, ctx) => opened(v, a.pane, a.place, ctx),
   // Closing the object or replay pane closes what it showed, so nothing acts on a pane the human cannot see.
-  "view.closePane": (v, a) => ({
-    ...v, panes: v.panes.filter(p => p.pane !== a.pane),
+  "view.closePane": (v, a, ctx) => ({
+    ...v, panes: v.panes.filter(p => p.pane !== a.pane), dock: closed(v, a.pane, ctx),
     ...(a.pane === "object" ? { focus: null } : {}), ...(a.pane === "replay" ? { replay: null } : {}),
   }),
-  "view.movePane": (v, a) => {
+  "view.movePane": (v, a, ctx) => {
     if (!v.panes.some(p => p.pane === a.pane)) throw new OpFailure(`The ${a.pane} pane is not open.`, "view.openPane");
-    return { ...v, panes: v.panes.map(p => p.pane === a.pane ? { ...p, place: a.place } : p) };
+    return opened(v, a.pane, a.place, ctx);
+  },
+  "view.arrangeDock": (v, a, ctx) => {
+    const kind = a.phase ?? dockKindOf(ctx.context);
+    if (!kind) throw new OpFailure("Say which screen's dock to arrange: planning, live, ended or replay.");
+    const { [kind]: _old, ...rest } = v.dock;
+    if (!a.dock.trim()) return { ...v, dock: rest };
+    try { return { ...v, dock: { ...rest, [kind]: parseDock(a.dock) } }; }
+    catch (e) { if (e instanceof DockSyntaxError) throw new OpFailure(e.message); throw e; }
   },
   "view.pinRepresentation": (v, a) => ({ ...v, pins: { ...v.pins, [a.family ?? "*"]: a.rep } }),
-  "view.showRepresentation": (v, a) => ({ ...v, focus: { objectId: a.objectId, reps: [a.rep] }, panes: openPane(v, "object") }),
-  "view.compareRepresentations": (v, a) => ({ ...v, focus: { objectId: a.objectId, reps: [...new Set(a.reps)] }, panes: openPane(v, "object") }),
-  "view.openObject": (v, a) => ({ ...v, focus: { objectId: a.objectId, reps: v.focus?.objectId === a.objectId ? v.focus.reps : [] }, panes: openPane(v, "object") }),
+  "view.showRepresentation": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [a.rep] } }),
+  "view.compareRepresentations": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: [...new Set(a.reps)] } }),
+  "view.openObject": (v, a, ctx) => ({ ...opened(v, "object", undefined, ctx), focus: { objectId: a.objectId, reps: v.focus?.objectId === a.objectId ? v.focus.reps : [] } }),
   "view.sortObjects": (v, a) => ({ ...v, objects: { ...v.objects, sort: a.sort } }),
   "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}) } } }),
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
@@ -94,6 +160,9 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "replay.watchAs": (v, a) => ({ ...v, replay: { ...replayOf(v), as: a.memberId } }),
 };
 
+/** A stored view as the reducers read it (rows stored before the dock have none). */
+export const withDock = (view: ViewState): ViewState => (view.dock ? view : { ...view, dock: {} });
+
 export function isViewOp(id: string): id is ViewOpId {
   return Object.hasOwn(VIEW_REDUCERS, id);
 }
@@ -112,8 +181,8 @@ export function applyView(view: ViewState, id: string, raw: unknown, ctx: Afford
   const no = refusal(a, ctx, parsed.data as Record<string, unknown>, via);
   if (no) return fail({ ok: false, error: { code: "refused", message: no.reason, ...(no.fix ? { fix: no.fix } : {}) } });
   try {
-    const { version: _, ...reduced } = { ...(VIEW_REDUCERS[id] as Reducer<ViewOpId>)(view, parsed.data as never), version: 0 };
-    const { version: __, ...before } = view;
+    const { version: _, ...reduced } = { ...(VIEW_REDUCERS[id] as Reducer<ViewOpId>)(withDock(view), parsed.data as never, ctx), version: 0 };
+    const { version: __, ...before } = withDock(view);
     if (JSON.stringify(reduced) === JSON.stringify(before)) return { outcome: { ok: true, result: { ok: true, layoutVersion: view.version } }, view, changed: false };
     const next = { ...reduced, version: view.version + 1 };
     return { outcome: { ok: true, result: { ok: true, layoutVersion: next.version } }, view: next, changed: true };

@@ -13,7 +13,7 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "look", ts: `look(offer, "si")`, py: `look(offer, "si")`, says: "the line in one view; its numbers by name (.m, .c). Costs a small read, once per view per turn" },
   { name: "peek", ts: `peek(offer, "seq", "term", { n: 3 })`, py: `peek(offer, "seq", "term", {"n": 3})`, says: "one number of a view, some with an input" },
   { name: "goal", ts: "goal(offer)", py: "goal(offer)", says: "your rule: .family, .params, .tieBreaker (Python .tie_breaker), .card, .layers. Free" },
-  { name: "progress", ts: "progress(offer)", py: "progress(offer)", says: "the rule's score on this line now: .main, .tiebreak (bigger is better), .layers[i].level / .top. Costs reading the rule's views" },
+  { name: "progress", ts: "progress(offer)", py: "progress(offer)", says: "the score on this line now: .main, .tiebreak (bigger is better), .bits (its worth; null / None if unknown). Costs reading the rule's views" },
   { name: "move", ts: `move("si.tilt", { k: 1 })`, py: `move("si.tilt", k=1)`, says: "one change; a plan is a list of moves" },
   { name: "price", ts: "price(offer, plan)", py: "price(offer, plan)", says: "the ⚡ a plan would cost, or null / None if it is not allowed. Changes nothing" },
   { name: "cheapest", ts: "cheapest(offer, plans)", py: "cheapest(offer, plans)", says: "the cheapest allowed plan of several (often one change through different views), as a list; null / None if none" },

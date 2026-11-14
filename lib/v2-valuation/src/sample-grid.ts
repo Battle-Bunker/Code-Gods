@@ -27,7 +27,8 @@
  */
 import { CONTINUITY_BITS } from "./exact-grid.ts";
 import { evaluateObject, levelOf, objectLadder, rng, type ObjectType, type Score, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { cellProbability, gridParams, gridSums, type GridState } from "@workspace/v2-grid";
+import type { GridState } from "@workspace/v2-grid";
+import { DRAW_CONFIG, GridMixture } from "./grid-draws.ts";
 
 export interface SampleConfig {
   /** Boards per adaptation round. */
@@ -83,12 +84,8 @@ export interface SampledLadder {
 export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFamily<GridState, P>, params: P, variant: Variant,
   tieBreaker: TieBreaker, seed = "v2", config: Partial<SampleConfig> = {}): SampledLadder {
   const cfg = { ...SAMPLE_CONFIG, ...config };
-  const { size, cap } = gridParams(variant);
-  const cells = size * size, S = cap + 1;
   const ladder = objectLadder(type, family, params, variant, tieBreaker);
   const top = ladder.length - 1;
-  const logP = Array.from({ length: S }, (_, v) => Math.log(cellProbability(v, variant)));
-  const r = rng("grid-sample", seed, family.id, JSON.stringify(params), String(tieBreaker), variant.id);
   let evaluations = 0;
   let lastScore: ReturnType<typeof evaluateObject>["score"] = null;
   const levelOfBoard = (x: number[]): number => {
@@ -99,74 +96,13 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
   // Per dealt layer: each value's summed importance weight in the estimation sample.
   const mass: Map<string, number>[] = [];
 
-  // Blocks: disjoint groups of at most four cells covering the board.
-  // Blocks of more than two cells are split into cells: a table of 10^4 joint values cannot be fitted from a few hundred
-  // elite boards (measured: the weights degenerate), while a pair's 100 can.
-  const declared = (gridSums[family.id]?.units(variant) ?? []).filter(b => b.length <= 2);
-  const covered = new Set(declared.flat());
-  const blocks: number[][] = [...declared.map(b => [...b]), ...Array.from({ length: cells }, (_, i) => i).filter(i => !covered.has(i)).map(i => [i])];
-  const sizes = blocks.map(b => S ** b.length);
-  const codeOf = (x: readonly number[], b: readonly number[]) => b.reduce((t, i, j) => t + x[i]! * S ** j, 0);
-  // A proposal: per block, a categorical law over its joint values (probabilities, logs, cumulative sums).
-  type Proposal = { p: number[][]; logp: number[][]; cdf: number[][] };
-  const make = (p: number[][]): Proposal => ({
-    p, logp: p.map(row => row.map(Math.log)),
-    cdf: p.map(row => { let a = 0; return row.map(x => (a += x)); }),
-  });
-  const draw = (q: Proposal): number[] => {
-    const x = new Array<number>(cells).fill(0);
-    blocks.forEach((b, k) => {
-      const c = q.cdf[k]!, u = r.unit() * c[c.length - 1]!;
-      let lo = 0, hi = c.length - 1;
-      while (lo < hi) { const mid = (lo + hi) >> 1; if (u < c[mid]!) hi = mid; else lo = mid + 1; }
-      let code = lo;
-      for (const i of b) { x[i] = code % S; code = Math.floor(code / S); }
-    });
-    return x;
-  };
-  const logPi = (x: readonly number[]) => x.reduce((t, v) => t + logP[v]!, 0);
-  const logQ = (q: Proposal, x: readonly number[]) => blocks.reduce((t, b, k) => t + q.logp[k]![codeOf(x, b)]!, 0);
-  const piBlock = (b: readonly number[]) => Array.from({ length: S ** b.length }, (_, code) => {
-    let lp = 0;
-    for (let j = 0; j < b.length; j++) { lp += logP[code % S]!; code = Math.floor(code / S); }
-    return Math.exp(lp);
-  });
-
-  const pi = make(blocks.map(piBlock));
-  const proposals: Proposal[] = [pi];
-
-  // 1. Cross-entropy adaptation towards the top rung.
-  let q = pi, best = -1, stale = 0;
-  for (let round = 0; round < cfg.maxRounds && evaluations < cfg.budget / 4; round++) {
-    const xs = Array.from({ length: cfg.roundSamples }, () => draw(q));
-    const ls = xs.map(levelOfBoard);
-    const sorted = [...ls].sort((a, b) => b - a);
-    const gamma = Math.min(top, sorted[Math.max(0, Math.floor(cfg.rho * ls.length) - 1)]!);
-    const counts = sizes.map(n => new Array<number>(n).fill(0));
-    let total = 0;
-    xs.forEach((x, k) => {
-      if (ls[k]! < gamma) return;
-      const w = Math.exp(logPi(x) - logQ(q, x));
-      total += w;
-      blocks.forEach((b, j) => { counts[j]![codeOf(x, b)]! += w; });
-    });
-    if (total === 0) break;
-    const next = q.p.map((row, j) => row.map((old, code) => {
-      const fit = counts[j]![code]! / total;
-      return (1 - cfg.floor) * (cfg.alpha * fit + (1 - cfg.alpha) * old) + cfg.floor / sizes[j]!;
-    }));
-    q = make(next);
-    proposals.push(q);
-    if (gamma >= top) break;
-    if (gamma > best) { best = gamma; stale = 0; } else if (++stale >= 5) break;
-  }
+  // 1. Cross-entropy adaptation towards the top rung (grid-draws.ts).
+  const mixture = new GridMixture(variant, family.id, ["grid-sample", seed, family.id, JSON.stringify(params), String(tieBreaker), variant.id]);
+  mixture.adapt(levelOfBoard, (a, b) => a - b, { ...DRAW_CONFIG, roundSamples: cfg.roundSamples, rho: cfg.rho, alpha: cfg.alpha, floor: cfg.floor,
+    maxRounds: Math.min(cfg.maxRounds, Math.ceil(cfg.budget / 4 / cfg.roundSamples)) }, top);
 
   // 2. Estimation from the defensive mixture of every proposal.
-  const K = proposals.length;
-  // Mixture weights: half on the last proposal, half evenly over every proposal (π included, so no rung is starved).
-  const mix = proposals.map((_, k) => 0.5 / K + (k === K - 1 ? 0.5 : 0));
-  const mixCdf = (() => { let a = 0; return mix.map(x => (a += x)); })();
-  const logMix = mix.map(Math.log);
+  const K = mixture.proposals.length;
   const sumW = new Array<number>(top + 1).fill(0), sumW2 = new Array<number>(top + 1).fill(0), hits = new Array<number>(top + 1).fill(0);
   let n = 0;
   const target = (bits: number) => Math.max(cfg.targetRelError * bits, cfg.absFloorBits);
@@ -186,16 +122,7 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
   let rungs: SampledRung[] = [];
   for (;;) {
     for (let i = 0; i < pass && evaluations < cfg.budget; i++) {
-      const u = r.unit();
-      let c = 0;
-      while (c < K - 1 && u >= mixCdf[c]!) c++;
-      const x = draw(proposals[c]!);
-      const lp = logPi(x);
-      // log of the mixture density: log Σ_k mix_k q_k(x), computed stably.
-      const lq = proposals.map((pr, k) => logMix[k]! + logQ(pr, x));
-      const m = Math.max(...lq);
-      const lmix = m + Math.log(lq.reduce((t, l) => t + Math.exp(l - m), 0));
-      const w = Math.exp(lp - lmix);
+      const { cells: x, w } = mixture.draw();
       const L = levelOfBoard(x);
       sumW[L]! += w; sumW2[L]! += w * w; hits[L]!++;
       (lastScore as Score)?.forEach((c, j) => { const m = (mass[j] ??= new Map()), k = c === null ? "null" : `${c.n}/${c.d}`; m.set(k, (m.get(k) ?? 0) + w); });

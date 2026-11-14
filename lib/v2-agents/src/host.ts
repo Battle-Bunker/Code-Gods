@@ -16,10 +16,11 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
-  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, layerLadders, levelOf, objectLadder, Qn, ratBits,
+  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, levelOf, Qn, ratBits,
   representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
+import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest } from "@workspace/v2-sandbox";
 
 /** A rule as dealt: a family of the object type, its parameters and its tie-breaker. */
@@ -53,8 +54,13 @@ export interface HostInput<S> {
   /** The latest moves on the offered line the player may see, newest last (theirs, and others' that changed their points). */
   readonly history?: readonly { readonly mine: boolean; readonly pointsBefore: number; readonly pointsAfter: number }[];
   /**
-   * The player's rule's ladder with each rung's rarity (their own calibration: the artefact's rungs, with `layer` and
-   * `main` for a joint ladder), rung 0 first. Prices `rarity(score)`; `worth()` is only answered with it.
+   * The player's rule's value function (owner decision 23: the server's value record, knots and tail): what a score is
+   * worth in bits. Prices `rarity(score)` and gives `myScore()` its bits; `worth()` is only answered with it (or rungs).
+   */
+  readonly values?: Pick<ValueFunction, "knots" | "tail">;
+  /**
+   * Object types whose rules have no value function yet (grids): the committed artefact's rungs with their rarity, rung
+   * 0 first. Goes when they do (decision 23 PR 2).
    */
   readonly rungs?: readonly { readonly score: readonly (string | null)[] | null; readonly bits: number; readonly layer?: number; readonly main?: number }[];
 }
@@ -115,6 +121,8 @@ export class EngineHost<S> implements AgentHost {
   private readonly repCharged = new Map<string, number>();
   private readonly asked = new Set<string>();
   private quoted = false;
+  /** The value function's lookup, when the game gives one. */
+  private readonly lookup: ReturnType<typeof valueLookup> | undefined;
 
   constructor(input: HostInput<S>) {
     this.type = input.type; this.variant = input.variant; this.state = input.state;
@@ -127,6 +135,7 @@ export class EngineHost<S> implements AgentHost {
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.input = input;
+    this.lookup = input.values ? valueLookup(input.values) : undefined;
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
   }
@@ -150,17 +159,18 @@ export class EngineHost<S> implements AgentHost {
       case "quote": return this.quote(request.calls);
       case "budget": return ok({ energy: this.energy, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
       case "worth": {
-        const v = this.input.rungs?.length ? this.input.value : undefined;   // worth comes with rarity, or not at all
+        const v = this.input.values || this.input.rungs?.length ? this.input.value : undefined;   // worth comes with rarity, or not at all
         return v ? ok({ mine: v.mine, others: v.others, points: v.points }, this.charged("worth", WORTH_BITS)) : err("this game does not say what lines are worth to agents");
       }
       case "rarity": {
         const rungs = this.input.rungs;
-        if (!rungs?.length) return err("this game does not say what scores are worth");
+        if (!this.lookup && !rungs?.length) return err("this game does not say what scores are worth");
         const s = request.score;
         if (s !== null && (!Array.isArray(s) || s.length > 4 || s.some(x => x !== null && typeof x !== "string"))) return err("a score is a list of parts, or null");
         const score = s === null ? null : s.map(x => (x === null ? null : Qn.parse(x)));
-        const ladder = rungs.map(g => ({ score: g.score === null ? null : g.score.map(x => (x === null ? null : Qn.parse(x))), label: "", layer: g.layer ?? 0, ...(g.main !== undefined ? { main: g.main } : {}) }));
-        return ok({ bits: rungs[levelOf(score, ladder)]!.bits }, 0);
+        if (this.lookup) return ok({ bits: this.lookup(score).bits }, 0);
+        const ladder = rungs!.map(g => ({ score: g.score === null ? null : g.score.map(x => (x === null ? null : Qn.parse(x))), label: "", layer: g.layer ?? 0, ...(g.main !== undefined ? { main: g.main } : {}) }));
+        return ok({ bits: rungs![levelOf(score, ladder)]!.bits }, 0);
       }
       case "recent": {
         const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter }));
@@ -249,21 +259,18 @@ export class EngineHost<S> implements AgentHost {
     let bits = 0;
     for (const rep of this.family.depends) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
     const e = evaluateObject(this.type, this.family, this.params, this.state, this.variant, this.tieBreaker);
-    const ladder = objectLadder(this.type, this.family, this.params, this.variant, this.tieBreaker);
-    // Each layer on its own ladder ("main part: step 5 of 7"), summed over the lines.
-    const layers = layerLadders(this.family, this.params, this.variant, this.tieBreaker).map((rungs, j) => ({
-      id: ruleLayers(this.family, this.tieBreaker)[j]!.id,
-      level: e.sites.reduce((t, ev) => t + levelOf(ev.score === null ? null : [ev.score[j] ?? null], rungs), 0),
-      top: (rungs.length - 1) * e.sites.length,
-    }));
+    // The utilities (owner decision 23: plain lexicographic, bigger better, nothing saturates), and what they are worth.
+    const u = e.utility ?? e.score;
     const multi = e.sites.length > 1;
     const terms = e.sites.flatMap((ev, i) => ev.terms.map(t => ({
       id: multi ? `L${i + 1}:${t.id}` : t.id,
       value: "undefined" in t.value ? null : Qn.toWire(t.value),
     })));
     return ok({
-      score: e.score === null ? null : e.score.map(x => (x === null ? null : Qn.toWire(x))),
-      level: levelOf(e.score, ladder), top: ladder.length - 1, layers, terms,
+      score: u === null ? null : u.map(x => (x === null ? null : Qn.toWire(x))),
+      bits: this.lookup ? this.lookup(u).bits : null,
+      layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id })),
+      terms,
     }, bits);
   }
 

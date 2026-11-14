@@ -6,13 +6,14 @@
  *  - an agent's own idea of the score is the engine's, on whole-number and fraction lines (a whole-lines agent gives
  *    fraction lines no score);
  *  - both languages make the same moves, and no agent fails on newborn lines;
- *  - each example climbs both rungs of its rule (ux: a beginner's first agent visibly works);
+ *  - each example gains value on some newborn line, its main part never falling (ux: a beginner's first agent visibly works);
  *  - every one is payable from the beginner preset's starting energy, at about the same price in both languages.
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { evaluateSite, layerLadders, levelOf, scoreToWire, type Variant } from "@workspace/v2-core";
+import { evaluateSite, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
+import { valueLookup } from "@workspace/v2-valuation";
 import { firstAgentShare, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
@@ -20,6 +21,7 @@ import {
   BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
   summonBits, type ShippedAgent,
 } from "../src/index.ts";
+import { findValues } from "../src/harness.ts";
 
 const boxes = sandboxes();
 after(() => boxes.close());
@@ -76,7 +78,7 @@ test("an agent's own score is the engine's, for every family, its dealable numbe
       const lines = e.wholeLines ? sample.filter(s => s.lines[0]!.b === 1n) : sample;
       for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
         const engine = lines.map(s => {
-          const score = scoreToWire(evaluateSite(lineType, f, params, s, lineZ, 0, tb.id).score);
+          const ev = evaluateSite(lineType, f, params, s, lineZ, 0, tb.id), score = scoreToWire(ev.utility ?? ev.score);   // the utilities (decision 23)
           return score === null ? "worst" : score.map(x => x ?? "null").join(",");
         });
         const what = `${e.family} ${JSON.stringify(params)}/${tb.id}`;
@@ -116,43 +118,33 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
   }
 });
 
-/** Rules whose tie-breaker cannot move on whole-number lines, and why (reported to the spec session). None today. */
-const STUCK_TIE: Record<string, string> = {};
-/** Rules whose main part's top is out of reach in 25 turns of small moves from newborn lines: there it only has to rise. */
-const STUCK_MAIN: Record<string, string> = {
-  "prime-staircase/first-prime": "six different primes in a row (y = 30x + 7) is far from small lines",
-  "divisibility-ladder/m-spf": "a run of 11 needs c a multiple of 27720, far from small lines",
-  "divisibility-ladder/m-gpf": "as above", "divisibility-ladder/steep": "as above", "divisibility-ladder/m-prime": "as above",
-};
-
-test("each example climbs both rungs: some line reaches the main part's top, some line's tie-breaker rises", async () => {
+test("each example gains value: on some newborn line its bits rise and the main part never falls (owner decision 23)", async () => {
   for (const e of LIVE) {
     const f = familyOf(e.family), params = paramsOf(e.family);
     for (const tb of Object.keys(e.tieBreakers).filter(tb => f.tieBreakers.some(t => t.id === tb))) {
-      const ladders = layerLadders(f, params, lineZ, tb);
-      const levels = (s: LineState) => {
-        const sc = evaluateSite(lineType, f, params, s, lineZ, 0, tb).score;
-        return ladders.map((r, j) => levelOf(sc === null ? null : [sc[j] ?? null], r));
-      };
+      const rule = { family: e.family, params, tieBreaker: tb };
+      const vf = findValues("line-z", rule);
+      if (!vf) continue;   // not valued yet: the score test above still checks it
+      const look = valueLookup(vf);
+      const utility = (s: LineState) => { const ev = evaluateSite(lineType, f, params, s, lineZ, 0, tb); return ev.utility ?? ev.score; };
       const a = exampleFor(e.family, tb, "typescript")!;
-      let mainTop = false, tieUp = false;
+      let rose = false;
       for (const start of births(lineType, lineZ, `climb-${e.family}`, 4)) {
         let s = start;
         for (let t = 0; t < 25; t++) {
           const { record, state } = await runAct(await boxes.get("typescript"), {
-            type: lineType, variant: lineZ, state: s, rule: { family: e.family, params, tieBreaker: tb }, program: program(a), seed: String(t), energy: 1000,
+            type: lineType, variant: lineZ, state: s, rule, program: program(a), seed: String(t), energy: 1000,
           });
           assert.notEqual(record.outcome, "failed", record.reason);
           if (record.outcome === "skipped") break;
           s = state;
         }
-        const [m0, t0] = levels(start), [m1, t1] = levels(s);
-        assert.ok(m1! >= m0!, `${e.family}/${tb}: the main part fell on ${lineType.encode(start)}`);
-        if (m1 === ladders[0]!.length - 1 || (STUCK_MAIN[`${e.family}/${tb}`] && m1! > m0!)) mainTop = true;
-        if (t1! > t0!) tieUp = true;
+        const u0 = utility(start), u1 = utility(s);
+        assert.ok(u1 !== null || u0 === null, `${e.family}/${tb}: a scored line lost its score on ${lineType.encode(start)}`);
+        if (u0 !== null && u1 !== null) assert.ok(Qn.cmp(u1[0]!, u0[0]!) >= 0, `${e.family}/${tb}: the main part fell on ${lineType.encode(start)}`);
+        if (look(u1).bits > look(u0).bits) rose = true;
       }
-      assert.ok(mainTop, `${e.family}/${tb}: no line reached the main part's top`);
-      if (!STUCK_TIE[`${e.family}/${tb}`]) assert.ok(tieUp, `${e.family}/${tb}: no line's tie-breaker rose`);
+      assert.ok(rose, `${e.family}/${tb}: no line's bits rose`);
     }
   }
 });

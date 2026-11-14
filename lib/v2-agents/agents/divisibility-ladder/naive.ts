@@ -17,12 +17,12 @@ function score(m, c, p, tie) {
   }
   const fm = factors(m) ?? [];                    // the gradient's prime factors ([] for 0, 1, -1)
   // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)
-  if (tie === "m-spf") return [Math.min(main, 11), fm[0] ?? 1];   // the gradient's smallest prime factor big is better
-  if (tie === "m-gpf") return [Math.min(main, 11), fm.at(-1) ?? 1];   // the gradient's largest prime factor big is better
-  if (tie === "steep") return [Math.min(main, 11), Q.abs(m)];   // a steeper gradient is better
+  if (tie === "m-spf") return [main, fm[0] ?? 1];   // the gradient's smallest prime factor big is better
+  if (tie === "m-gpf") return [main, fm.at(-1) ?? 1];   // the gradient's largest prime factor big is better
+  if (tie === "steep") return [main, Q.abs(m)];   // a steeper gradient is better
   if (tie === "m-prime") {   // a gradient close to a prime is better
     const mp = near(m, prime);
-    return [Math.min(main, 11), Q.neg(Q.abs(Q.sub(m, mp)))];
+    return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
   }
   return [main];
 }

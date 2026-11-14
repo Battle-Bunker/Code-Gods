@@ -19,7 +19,7 @@ function score(m, c, p) {
     if (!isPrime && miss === null) miss = t;
   }
   const main = run.length;
-  return [Math.min(main, 6), run.length ? run[0] : 0];   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better
+  return [main, run.length ? run[0] : 0];   // main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better
 }
 
 const FAR = 6;      // how far one change may go

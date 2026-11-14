@@ -6,7 +6,7 @@ function agent(offer: Offer) {
   const t3 = peek(offer, "seq", "term", { n: 3 });
   const area = peek(offer, "tri", "area");
   const seen = [
-    g.family, g.card, before.level, before.top, Q.toString(before.main), before.tiebreak === null ? "none" : "some",
+    g.family, g.card, before.bits === null ? "no bits" : "bits", String(before.layers.length), Q.toString(before.main), before.tiebreak === null ? "none" : "some",
     Q.toString(t3), area.undefined ? "no triangle" : Q.toString(area),
     String(energy(offer)), String(price(offer, move("si.shift", { k: 0 })) === null),
     String(prime(7)), String(prime(Q.of(9, 1))), String(prime(Q.of(1, 2))), String(square(49)), String(square(50)),
