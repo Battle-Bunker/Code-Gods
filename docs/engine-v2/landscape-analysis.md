@@ -213,6 +213,24 @@ whole game on one line reaches y = −x + 269 (13.5×).
 - So: rugged for a climber that cannot read the card, trivial for one that can. The seats could read the cards, because
   the cards were said in chat.
 
+### In play: frozen at small radius, not at large (W2's freeze data, 14 November)
+
+`lib/v2-agents/scripts/freeze.ts` runs a table with unique objects at the new prices (2 games each). For each final
+object it then asks whether any single move within ±3 or ±10 would raise some seat's points or own bits.
+
+| Table | Frozen at ±3 | Frozen at ±10 |
+|---|--:|--:|
+| Points climbers, line-z, births 0.1/s | ≈ 80% | 5–11% |
+| Points climbers, line-z, births 1/s | ≈ 51% | – |
+| Points climbers, line-q | 85% | 47% |
+| Naive | 21% | – |
+
+This is the same picture as above, seen in play. The landscape has dense, shallow local optima at small radius: needles
+a unit move cannot leave. Improvements sit a few steps further out, along the same ramp. With path-consistent prices, a
+small-step climber now stalls on those needles. That gives the dynamics the owner wants (objects keep moving), but only
+because climbers are short-sighted, not because the landscape is deep. A seat that knows the rules still plans straight
+along the ramp (H2, H3). The collapse check's test 4 should report freeze fractions at both radii.
+
 ## 2b. Contrasts: grids and fraction lines
 
 | | line-z (2 integers) | line-q (3 integers, rationals) | grid 4×4 digits (16 cells) |
