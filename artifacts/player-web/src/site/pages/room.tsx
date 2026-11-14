@@ -18,6 +18,7 @@ import { Page } from "@/site/components/layout";
 import { AffordanceButton, Tip, failureText } from "@/site/components/action";
 import { EmptyState, ErrorLine, KeyValueStrip, NextStepBar, Section } from "@/site/components/page-parts";
 import { RoomChat } from "@/site/components/chat";
+import { Bidding } from "@/site/components/bidding";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { nextStep, type Step } from "@/site/lib/next-step";
@@ -173,6 +174,7 @@ function RoomBody({ room }: { room: Room }) {
         <NextStepBar status={step.status} primary={step.primary && <StepButton step={step.primary} room={room} primary />}
           secondary={step.secondary.map(s => <StepButton key={s} step={s} room={room} />)} />
       </header>
+      {room.bidding && !room.game && <Bidding roomId={room.roomId} />}
       <div className="grid gap-6 lg:grid-cols-2 items-start">
         <Members room={room} />
         <Section title="Public chat"><RoomChat roomId={room.roomId} /></Section>

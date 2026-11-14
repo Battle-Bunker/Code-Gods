@@ -58,3 +58,8 @@ test("moving an open pane is one move", () => {
   const view = { panes: defaultPanes("live") };
   assert.deepEqual(openPlan(view, "live", "feed", "left").ops, [{ id: "view.movePane", args: { pane: "feed", place: "left" } }]);
 });
+
+test("opening one line from a full screen keeps the list it was opened from", () => {
+  const plan = openPlan({ panes: defaultPanes("live") }, "live", "object");
+  assert.equal(plan.replaced, "my-card");
+});
