@@ -1,91 +1,91 @@
 # Design explorations: what to try, and where
 
-**What to try first.** Open a new room on the dev deployment: it starts on the setup **Annotated basics**, a 4×4
-board of numbers with no colour that deals the eight beginner rules (#278). Energy has a capacity: every agent, and
-each player's own energy, fills in 30 seconds and then income is lost (#282). New today on dev: an agent's turns
-follow its energy alone, with no limit per agent, and every offer is charged as a small read (#285). Paid
-observation is merged too (#284): players see each object as they last saw it and pay energy to look. Then preview
-#277 (`claude/distance-cost`) to feel
-mutation priced by distance, #286 (`claude/layered-rules`) for rules with a ★ tier, and #287 (`claude/bid-phase`) to
-bid for the rule you want. #281 (`claude/first-five-minutes`) pre-fills a working first agent. #295
-(`claude/coordination-break-cost`) adds a room setting where breaking costs extra.
+Every setup and variant the owner can try, with where to find it. Every line was checked against the code on `develop`
+(`lib/game-core/src/settings.ts`) or against the merged pull request named. The decisions taken without waiting for the
+owner, with their reasons and alternatives, are logged in [`docs/judgment-calls.md`](judgment-calls.md) (#337).
 
-Previews work once the owner has added the two secrets in `docs/preview-deployments.md` (merged in #280). A branch
-with a pull request: add the label `preview` to it. A branch without: Actions → Preview → Run workflow → the branch
-name. On a preview, sign in with the passphrase and pick a test player.
+**What to try first.** Open a new room on the dev deployment. It starts on **Annotated basics**. Press "Play a
+practice game" to fill the empty seats with Practice partners, then "Summon my first agent".
 
-**Lab setups.** An alternative that is only a different setup can ship on `develop` as a **Lab setup**: an experimental setup that only administrators see. To find them on dev (or on a preview, as "Ada Admin"): open a room, open the **Setup** picker, and scroll to the **Lab** group at the end, or type `lab` in its search box. Picking one applies it to your room; your players then play it like any setup, but they cannot find it in their own picker.
+**How to reach each kind.**
+- **Ordinary setups:** the room's **Setup** picker.
+- **Lab setups** (administrators only): the same picker, in the **Lab** group at the end (or type `lab`).
+- **Open drafts:** add the label `preview` to the pull request. This gives it its own Convex preview
+  (`docs/preview-deployments.md`); sign in with the passphrase and pick a test player ("Ada Admin" sees the Lab).
 
-Lab setups found in `lib/game-core/src/settings.ts` (no list named `LAB_SETUPS` exists on any branch; these are the
-seeded setups whose names start with "Lab:"):
+## What is now default on Annotated basics
 
-- On `develop` (pricing, #277): **Lab · flat price**, **Lab · dial numbers**, **Lab · gentle distance**,
-  **Lab · multiply and divide**.
-- On `claude/layered-rules` (#286): **Lab: tiers without a gate**, **Lab: unlocking tiers**,
-  **Lab: tiers with unequal reach**, and the administrator-only **Expert tiered rules** (no game can be dealt from it yet).
-- On `claude/bid-phase`, `claude/first-five-minutes` and the `variant/*` branches: none found. On
-  `claude/coordination-break-cost` (#295) and `claude/tick-livelock` (#289): not checked.
+A 4×4 board of numbers, no colour, the eight beginner rules (`docs/beginner-pool.md`), 60 s of planning.
 
-| Exploration | What is on develop now | Alternatives | What it changes, and when you might prefer it | How to try it | Not yet verified |
-|---|---|---|---|---|---|
-| **ECONOMY** | | | | | |
-| Energy capacity | Merged (#282, #285). Setting "How long does an empty energy store take to fill?" (default 30 s). Every agent, and each player's own energy, holds at most its power × that time. Income past a full store is lost. Lowering an agent's power share loses the excess at once. **My agents** shows energy against capacity and "full in N s". | None. Change the number per room (suggested: 10, 30, 60, 120, 300 s). | Short times force players to spend or re-allocate; long times let energy pile up as before. A player with all power given to agents holds nothing and cannot summon. | Dev: any setup; the setting is in the energy section of the room's configuration page. A game started before the deploy keeps no capacity. | #285 adds simulations (`docs/energy-capacity-evidence.md`) and keeps the default at 30 s. No check on dev or with people is stated. |
-| Turns and the price of an offer | Merged (#285). An agent's turns follow its energy alone: the limit of four offers per second per agent is gone, so splitting the same power over more agents gives no advantage. Every offer is charged as a small read (about 1.1 to 1.7% of the cheapest change), whatever the agent then does. | Draft #290, `variant/capacity-keep-rate-cap` (not for merge): keep the limit of 4 turns per second per agent (more agents then get more offers). Draft #291, `variant/exposure-free` (not for merge): a turn costs nothing unless the agent reads or changes. Draft #293, `variant/no-credit` (not for merge): no credit, a change happens only if the agent can pay for all of it. Draft #292, `variant/debt-within-capacity` (recommended, not yet verified on the engine): an agent may owe at most what it can hold, and keeps its power until it has repaid. | Prefer the rate cap if the new selection misbehaves. Prefer free offers if idle agents should cost nothing. No credit means nothing is owed, but its own note says agents that look before acting make no changes in the fastest rooms. When to prefer debt within capacity: not stated in its title, beyond "recommended". | Label #290, #291, #292 or #293 `preview`. | #292 says "not yet verified on the engine". Test results for #290, #291 and #293: not stated. Checks of #285 on dev or with people: not stated. |
-| Paid observation | Merged (#284). Players see each object as they last saw it and pay energy to look. Setting `observation`: free, boards, paid or agents. Agents pay to read: 1/32 of the price of changing (#270). On `develop` the beginner setup **Annotated basics** is free (first-game walks, 2026-11-13: paying to look sped nobody up and cost attention) and the ordinary setup **Basics with paid looks** is paid. | Design only, in #275: looking costs nothing. No branch. Change the setting per room (free, boards, paid, agents). | Gives a player's own energy a use besides summoning, and makes watching the others closely dear. Prefer free if the game should be easy to follow. What "boards" and "agents" each charge for: not stated in the title. | Dev: set `observation` in the room's setup, then start a room. | Offline tests passed at 11:22 UTC, before the merge. The test set in #284: not read in full. A seated player can still watch for free through a second account (`docs/energy-model.md` §11.5). No check on dev or with people is stated. |
-| Mutation priced by distance | Merged (#277). On Annotated basics a change costs by how far each number moved: 7.1 energy for +1, 19.0 for +5, 34.9 for +9 (every change cost 16.3 before). New move `add(where, amount)` that fails out of range. Other setups keep the flat price. Room setting "How is a change priced?" (Energy › More): Flat, Distance, Dial, Gentle, Multiply. | Four Lab setups on `develop`: flat price (the old rule), dial numbers (9 next to 0), gentle distance (a far move costs little more), multiply and divide (a number pays its cheaper route by adds or multiplies). Draft #299 `variant/cost-proportional`: strictly proportional, no charge for choosing the cell (+1 6.3, +5 57.0). | Dial if the board should feel like a combination lock; gentle if far moves feel too punished; multiply to see what cheap erasing moves do to play (43 of 90 digit changes get cheaper than their distance); proportional only if "price is distance and nothing else" matters more than balance (it is the slowest and least even). | On the dev deployment as "Ada Admin": a room on **Annotated basics**, or pick a Lab setup. #299 needs the `preview` label. | Int and string rooms still have only the flat price (#300 is an untested sketch). |
-| Summon price | Summoning an agent costs energy (unchanged). A summon larger than the player's store is refused with the reason (#282). | Design only, in #275: no summon price, at most 4 agents per player on beginner setups. No branch. | Prefer it if players should try agents freely. | Cannot be tried yet. | Not built. |
-| **RULES** | | | | | |
-| Bidding for rules | Built (#287, `docs/bid-phase.md`). Off on **Annotated basics**. On in the ordinary setup **Basics with bidding**: before the deal, each player has 45 s to bid a percentage of their own score for the rule they want, or pass with one click. The highest bid wins that rule for that player alone; everyone else is dealt at random from the rest. The bid comes off the winner's score. | Lab setups (administrators only): **Lab · bidding, second price**, **Lab · bidding, open bids**, **Lab · bidding, handicaps shown**, **Lab · bidding, auction shown**. Or change the four bid settings under Goals on any room's configuration page. | A way to level strong and weak rules, and a first decision before planning. Second price is easier to explain but makes an uncontested strong rule nearly free. Open bids make it a live auction. Showing handicaps or the auction tells the table who paid for what. | Dev: start a room, pick **Basics with bidding**. | Simulated play only: the pool gets more even when everyone bids well, less so with four players, and one player who bids 1% on the best rule among players who pass wins about half the games. Not tried with people. |
-| Beginner set | Merged (#278). **Annotated basics** deals eight rules: Mirrormancer, Magic Eighteen, Opposite Nines, Two Pair, Spread of Three, Strangers, Leapfrog, Crosswise Threes. The coloured set is kept as the setup **Annotated colours**. Reasons and measurements: `docs/beginner-pool.md`. | **Annotated colours** and **First steps** on dev. | Rules chosen to be equally easy to understand and to write an agent for. | Dev: a new room starts on **Annotated basics**. | Tested with a real game with AI players on a local machine. The set still fails some of its own balance thresholds; Strangers wins 17% of simulated greedy games, Opposite Nines 47%. Two goal-card badges read oddly (#278). Not checked with people. |
-| Numbers-only board | Default since #272. Rules that need colour are locked on it. | **Annotated colours** (same small board, three colours, #278) and **First steps** on dev. | Prefer colour if the numbers-only board feels bare. | Dev: **Annotated basics** against **Annotated colours**. | Colour-blind readability of coloured boards is unverified (backlog). |
-| Layered rules | Design document and measuring scripts only (#276, `docs/layered-rules-design.md`). No rule in the game changed. | Draft #286, `claude/layered-rules`. Tiered rules: an easy base plus a "★ To score even higher" part that opens once the base reaches a gate. Tiers for Opposite Nines, Mirrormancer and a new rule, Kings and Subjects. New setup **Tiered rules** (4×4, numbers only) and three Lab setups (tiers without a gate, unlocking tiers, unequal reach) plus the administrator-only **Expert tiered rules**. | An easy base goal, plus a part that rewards planning. No existing setup changes: a setup asks for tiers with the new setting `ruleTiers`. Prefer a Lab setup to compare how the ★ part is shown and scored. | Label #286 `preview`, start a room on **Tiered rules**, or pick a Lab setup as "Ada Admin". | #286 lists guarantees checked by tests; a check in a real game or with people is not stated. Conflicts with `develop`. |
-| Bidding for a rule | Rules are dealt by the dealer; every player gets the same odds of each rule (#261). | Draft #287, `claude/bid-phase`. When a setup has `bidSeconds` above 0, players bid before the deal: a handicap (1 to 100%, taken off their own score) for the rule family they want, or pass. The highest bid wins the family. Settings for first or second price, sealed or open bids, and what is disclosed. | Lets a player choose their rule at a price. With no bids, or `bidSeconds` 0 (the default), nothing changes. | Label #287 `preview`. Which setup turns bidding on: not stated. | #287 says "work in progress": the screen, the tools and the test set are not in yet. Engine and library tests for the bidding itself pass (#287). |
-| Rule difficulty measure | A command that scores how hard a rule is to understand, to write an agent for, and to combine with others (#273, #274, `docs/rule-difficulty.md`). | None. | A tool for the sessions, not a change to play. It chose the beginner set above. | Nothing to play. | Compared with simulated games, not with people. |
-| **FIRST FIVE MINUTES** | | | | | |
-| Getting to a first move | A "Write my first agent" button in planning (#264). The room page stays on "Starting…" while a game starts (#263, #266). The five-pane layout is the default (#269). Results show a headline and a next step (#245, #250). | Draft #281, `claude/first-five-minutes`. The editor pre-fills a short, commented example agent for the player's own rule, in both languages, and confirms a summon. Later commits on the branch (from their titles): tiny first agents a player can pay for in planning, Summon above the code, Start beside the members, a 60-second planning step on the default setup. The pull request text still lists owner seated, pacing, readable score and assistant chips as to come. | A new player can summon a working agent without writing code. | Label #281 `preview`, create a room, open the editor in planning. | #281 says "work in progress"; the test set is not stated. Offline tests failed at 11:22 UTC in its new example-agent tests in a fresh checkout (may only need the Python runtime built). The backlog says four of five simulated first-time players could not make a move. No check with people is stated. Conflicts with `develop`. |
-| **COORDINATION INCENTIVES** | | | | | |
-| Does careful, cooperative play pay? | Cheap reads for agents (#270) are meant to make coordinating strategies pay. Every player gets the same odds of each rule (#261). The beginner rules can all be satisfied together, pair by pair (#278). The number of agents no longer gives an advantage (#285). Paid observation (#284) changes what players know about each other. Merged as analysis (#294, #296): a validated game model, the policy zoo, equilibria and the write-up; #296 makes the model follow develop's new selection rules and fixes its broken import. | Draft #295, `claude/coordination-break-cost` (do not merge): "breaking costs extra", a room setting `breakCost`. Bidding (#287) changes who gets which rule. | The backlog (section 2) says blocking the other players may be the strongest strategy: 62% of simulated wins on the **First steps** board. On the beginner set, blocking beats building for Strangers, Spread of Three and Crosswise Threes in simulation (#278). | Label #295 `preview`; which setup turns `breakCost` on: not stated. Dev: play a three-player game on **Annotated basics** and watch whether blocking beats building. | Simulated only. What the model in #294 concludes: not stated in its title. Test results for #295: not stated. Whether capacity, paid observation or bidding changes this: not stated. |
-| **ENGINE ROBUSTNESS** | | | | | |
-| Many games at once | AI players survive idle checks (#241). Stuck starts recover (#254, #262). Validate and Summon no longer hang: after 25 seconds the editor says "The sandbox is busy… Try again" and the same command can be sent again without paying twice (#279). | Draft #289, `claude/tick-livelock`: keep games ticking under load (lease heartbeat, bounded waves, background caps, load harness). | Still open and marked most urgent: with 20 games at once, games stall for minutes and starts take 80 to 218 seconds (backlog section 1). The abandoned check's remaining work still runs through the queue (#279). | Label #289 `preview`. On dev, start several rooms at once. | Test results for #289: not stated. #279 did not run the engine integration suites or a browser test for this. The stall was measured on a local machine only. |
-| **ANYTHING ELSE** | | | | | |
-| Preview deployments | Merged (#280). A branch can get its own copy of the app with empty data and six test players (Ada Admin, Alice, Bob, Carol, Dan, Erin). | None. | Lets the owner try a branch without touching dev. No AI players or assistant on a preview unless two optional secrets are added. | Add the two secrets, then label a pull request `preview`. | Creating a real preview is untested: it needs the preview deploy key (#280). #283 checked that the workflow does nothing while the key is absent; the result is not stated. |
-| This index | Merged (#283, refreshed in #288): `docs/design-explorations.md`. Lab setups, experimental setups only administrators see, are merged too (#288). | None. | Docs only. | Read it. | Not applicable. |
-| Replay | My agents in a replay shows spending and energy as in a live game (#271). A game started before #282 replays with no capacity. A replay of a game from before #285 still reports the old limit per agent. | None. | Display only. | Dev: open a finished game's replay. | Not stated. |
-| Clean-up from the readiness push | #242 to #266: clearer errors, truer rule text (ten goal cards), accessibility fixes, join by code. Released to production in #268. | None. | No design choice to make. One visible change: the brand red is slightly darker (#257). | Dev or production. | See the "Unverified" items in the backlog. |
+| What | Since | One line |
+|---|---|---|
+| Distance pricing | #277 | A change costs by how far each number moves (`costModel: "distance-v1"`); other setups keep the flat price. |
+| Free looking | #310 | `observation: "free"`: every object is shown as it changes. Paid looks are their own setup (below). |
+| 600 starting energy | #307 | Every Grid setup starts each player with 600, so a first agent is payable during planning. |
+| Energy and debt move with power | #305, #320 | Debt is capped at a full store. What an account holds or owes beyond its power goes where the power goes: a re-allocation loses nothing. |
+| Atomic replace | #318, #321 | Replacing an agent's program is one command, for the new program's summon price; the agent's account is kept. |
+| First-agent share about 70% | #321, #340 | "Summon my first agent" gives it about 70% of the power (aiming for 75%, capped so the dearest starter stays payable). Practice partners summon on the same terms. |
+| Score noise off | `peerNoiseBits: 0` | Live totals no longer read high and then drop at the end. |
+| Rule rotation across replays | #326, #335 | When the same players play again with the same settings, each rule passes one seat along. Each player holds each rule once, with a running total. Off when there is a bid phase. |
+| Practice partners for everyone | #335, #338 | A built-in seat with no language model and no cost. It summons its rule's example agent once. Any signed-in player can seat one; model-backed AI seats stay admin-only. |
 
-## Energy above a lowered capacity (13 Nov 2026)
+## Ordinary setups (everyone's Setup picker)
 
-- **On `develop` (favoured):** energy moves with power, as debt does. What an account holds above a lowered capacity
-  goes to the account that gained the power; a re-allocation, a summon or a destroy loses nothing
-  (`docs/energy-model.md` §6.1).
-- **Variant, "drop the excess":** what an account holds above a lowered capacity is lost at once. This is `develop` at
-  commit `916c715a` (the merge of #318), the last commit before the change; there is no setting for it. To try it, put
-  that commit on a preview deployment (`docs/preview-deployments.md`).
+| Setup | One line |
+|---|---|
+| **Annotated basics** | The default, above. |
+| **Basics with bidding** (#287) | As Annotated basics. First each player has 45 s to bid part of their score for the rule they want, or pass. |
+| **Basics with paid looks** (#284, #312) | As Annotated basics, but you see each board as you last saw it; a fresh look costs energy. |
+| **Tiered rules** (#286, #314) | Annotated basics' board and economy. Each rule has an easy base and a ★ bonus that opens at a gate. Dealt families: Opposite Nines, Mirrormancer, Kings and Subjects, Two Pair, Crosswise Threes (`docs/tiered-rules.md`). |
+| **Annotated colours** | Every rule, with explanations, on a small coloured board. |
+| **First steps**, **Classic**, **Low income**, **Big board**, **Master** | The older boards: 4×4 coloured, 5×5 standard, 5×5 at half power, 6×6 hex, 7×7 cards. |
 
-## Stale or unfinished
+## Lab setups (administrators only)
 
-- #281 (`claude/first-five-minutes`): open draft, 13 commits ahead, now conflicts with `develop`. Offline tests failed
-  at 11:22 UTC in its new example-agent tests in a fresh checkout (may only need the Python runtime built).
-- #286 (`claude/layered-rules`): open draft, 29 commits ahead, conflicts with `develop`.
-- #287 (`claude/bid-phase`): open draft, 2 commits ahead, 7 behind `develop`, no conflicts reported. The screen, the
-  tools and the simulation are in progress.
-- #290 (`variant/capacity-keep-rate-cap`), #291 (`variant/exposure-free`), #292 (`variant/debt-within-capacity`) and
-  #293 (`variant/no-credit`): open drafts. Three are marked "not for merge"; #292 is marked "recommended, not yet
-  verified on the engine". Commits ahead and conflicts: not stated.
-- #289 (`claude/tick-livelock`): open draft. Commits ahead and conflicts: not stated.
-- #295 (`claude/coordination-break-cost`): open draft, marked "do not merge". Commits ahead and conflicts: not stated.
-- #284 changed the **Annotated basics** setup and is now on `develop`; #277 changes it too and needs a look before it
-  merges. #277, #286 and the others each add setups to the same file. Whichever merges second needs a look.
-- #285 migrates a stored field away (`dropLastOpportunityWorld`); a later pull request drops the field. Not done yet.
-- Free observation and free summoning (#275): documents only. Nothing to play.
-- Old branches without an open pull request, all last changed on or before 5 November: `claude/jolly-hamilton-iuxff1`
-  (623 behind `develop`), `claude/remove-haskell`, `claude/wip-haskell-room-cache` and `claude/ryb-colour-set` (all
-  three conflict with `develop`), `claude/gallant-archimedes-ym5ssz`, `claude/grid-integration`,
-  `claude/gridlab-agent-dsl`, `claude/gridlab-defence-goals`, `claude/gridlab-kid-cards`,
-  `claude/room-lobby-lifecycle`, and 19 `claude/calib/*` branches holding generated tables. Not part of this week's
-  explorations.
-- `claude/game-production-readiness-qkh63d`: already merged (#267). Safe to ignore.
-- Merged since the last refresh: `claude/paid-observation` (#284), `claude/preview-deployments` (#288, Lab setups and
-  this index) and `claude/coordination-incentives` (#294, #296).
+| Lab setup | One line |
+|---|---|
+| Lab · flat price | Annotated basics with the old flat price: every changed number costs the same. |
+| Lab · dial numbers | 9 and 0 are one step apart, and a step either way costs the same. |
+| Lab · gentle distance | A far move costs only a little more than a middling one. |
+| Lab · multiply and divide | Adds, plus multiply and divide by the last digit; a move costs the cheaper route. |
+| Lab · everything always visible | Equals today's default (kept so that no stored setup disappears). |
+| Lab · boards always visible | Every board is live; only the others' interest in it is as you last saw it. |
+| Lab · only agents can look | You cannot pay to look: only your agents' changes and complete reads show the world. |
+| Lab · bidding, second price | Basics with bidding, but a winner pays the highest bid they beat. |
+| Lab · bidding, open bids | Every player sees every bid as it is placed. |
+| Lab · bidding, handicaps shown | Everyone sees each player's handicap during the game. |
+| Lab · bidding, auction shown | Everyone sees every bid and who won which rule. |
+| Lab · tiers without a gate | The ★ bonus counts from the first move. |
+| Lab · unlocking tiers | Once unlocked, the ★ bonus outranks the rest of the base. |
+| Lab · two ★ tiers | Each rule has two ★ bonuses; the second breaks ties on the first. |
+| Lab · tiers with unequal reach | ★ bonuses outside the balance band added: some rules reach much further. |
 
-Last refreshed: 2026-11-11 14:45 UTC (PRs up to #296)
+## Open variant drafts
+
+| PR, branch | What it is | Status |
+|---|---|---|
+| #290 `variant/capacity-keep-rate-cap` | Keep the limit of 4 turns per second per agent. | Draft, "not for merge"; based on develop of 11 Nov. |
+| #291 `variant/exposure-free` | A turn costs nothing unless the agent reads or changes. | Draft, "not for merge"; based on develop of 11 Nov. |
+| #292 `variant/debt-within-capacity`, #293 `variant/no-credit` | Debt capped at what an agent can hold; or no credit at all. | Superseded by #305, which merged the debt cap. Still open as drafts, kept for reference. |
+| #295 `claude/coordination-break-cost` | "Breaking costs extra": a change pays for the bits of the object's value it destroys (room setting `breakCost`). | Draft, "do not merge". In simulation, at 3 bits of work per bit destroyed, spoiling is never a best response (`docs/coordination-incentives.md` §4). |
+| #299 `variant/cost-proportional` | A change's cost strictly proportional to distance, no charge for choosing the cell. | Draft variant; slowest and least even of the pricings measured. |
+| #300 `variant/cost-int-string-unverified` | Distance pricing for Int and string rooms. | Draft, "unverified, unfinished". |
+| #324 `claude/tier-check-mid` | Checks tiered tables between the gate and the top. 6 of 75 checks exceed the 1-bit bound (worst 2.16 bits, Opposite Nines). | Draft, "not reviewed, not to be merged as it stands"; handover in `docs/handover-tiered-rules.md` on its branch. |
+| "Drop the excess" at commit `916c715a` | Energy above a lowered capacity is lost at once: the rule before #320. | No branch or setting. Put that commit (the merge of #318) on a preview to try it. |
+
+## Decisions waiting for the owner
+
+1. **Single-game fairness.** Among equally skilled players the dealt rule decides a single game. Shipped: rotation
+   across replays, which is fair over as many games as there are players. The alternative is a scoring change, for
+   example score relative to the same deal's reference outcome, or conflict-matched deals (untried).
+   `docs/rule-difficulty.md` §9; judgment call 37.
+2. **Spoiling beats careful play.** One spoiler among two cooperators wins 88–100% of simulated games. The one rule
+   found that helps is #295 at ×3 ("breaking costs extra"); it is not merged. `docs/coordination-incentives.md`.
+3. **Two Pair's ★ tier is hard to reach.** A one-cell climber reaches 0.00–0.06 of it, because it needs two cells
+   moved together. It is still dealt on Tiered rules. Judgment call 36.
+4. **#324.** The tiered tables' 1-bit bound fails at some levels below the top. Accept, fix the law, or widen the
+   bound.
+5. **A real browser sign-in on dev after #328.** JWKS is now inlined. Cloud sign-in has not been verified by anyone.
+   Judgment call 38.
+
+Last refreshed: 2026-11-14 (PRs up to #340).
