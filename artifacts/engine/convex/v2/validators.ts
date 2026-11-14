@@ -49,6 +49,13 @@ export const headerV = v.object({
   summary: v.union(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() }), v.null()),
   /** σ, in bits, of the noise on every others' sum shown while live (disclose.ts); 0: exact. */
   peerNoiseBits: v.number(),
+  /**
+   * How the game ends (duration.ts): "fixed" at `worldSeconds` (and `endsAt`); "halfLife" at a hidden random moment, half
+   * of games within `worldSeconds`, so `endsAt` is null while live (show the 90% interval, about 0.074 to 4.32 × it).
+   */
+  durationMode: v.union(v.literal("fixed"), v.literal("halfLife")),
+  /** World seconds between published standings. */
+  scoreIntervalSeconds: v.number(),
 });
 export const standingsV = v.object({
   seq: v.number(), worldSeconds: v.number(),

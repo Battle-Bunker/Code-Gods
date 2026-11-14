@@ -85,6 +85,12 @@ while live (`moves`, `objectMoves`, `moves.list`), a tug names nobody on the oth
 knows only its own agents' moves; an ended game names them all. A move onto any held state, the object's own included,
 fails (v1): the tick's `occupied` counts the acting object's state.
 
+v1's game settings as room settings (`room.settings` overrides): `durationMode` ("fixed": the world ends at
+`worldSeconds`, public; "halfLife": at a hidden moment drawn at the start, an exponential lifetime with half-life
+`worldSeconds`, private `v2Games.endAtWorld`, so the header's `endsAt` is null while live), `scoreIntervalSeconds`
+(default 10) and `peerNoiseBits` (0, 2, 4, 8, 16; default 8). Presets are fixed, as v1's beginner setups were
+(`duration.ts`). The header carries `durationMode` and `scoreIntervalSeconds`.
+
 `v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 

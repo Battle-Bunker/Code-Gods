@@ -57,6 +57,7 @@ import type * as v2_commands from "../v2/commands.js";
 import type * as v2_connect from "../v2/connect.js";
 import type * as v2_deal from "../v2/deal.js";
 import type * as v2_disclose from "../v2/disclose.js";
+import type * as v2_duration from "../v2/duration.js";
 import type * as v2_failure from "../v2/failure.js";
 import type * as v2_gallery from "../v2/gallery.js";
 import type * as v2_games from "../v2/games.js";
@@ -169,6 +170,7 @@ declare const fullApi: ApiFromModules<{
   "v2/connect": typeof v2_connect;
   "v2/deal": typeof v2_deal;
   "v2/disclose": typeof v2_disclose;
+  "v2/duration": typeof v2_duration;
   "v2/failure": typeof v2_failure;
   "v2/gallery": typeof v2_gallery;
   "v2/games": typeof v2_games;

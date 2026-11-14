@@ -24,8 +24,10 @@ export const scoreWireV = v.union(v.array(v.union(v.string(), v.null())), v.null
 /** One mutator call (spec §5): rationals and choices as strings. */
 export const callV = v.object({ mutator: v.string(), site: v.number(), args: v.record(v.string(), v.string()) });
 /** The room's overrides of its preset (affordance `room.settings`). */
+export const durationModeV = v.union(v.literal("fixed"), v.literal("halfLife"));
 export const overridesV = v.object({
   planningSeconds: v.optional(v.number()), worldSeconds: v.optional(v.number()), startingEnergy: v.optional(v.number()),
+  durationMode: v.optional(durationModeV), scoreIntervalSeconds: v.optional(v.number()), peerNoiseBits: v.optional(v.number()),
 });
 /** A player's view of an object at one moment (a move's before and after). */
 /** A player's value of a state: the utility (as its wire), its worth in bits, the others' worth and the points. */
@@ -94,7 +96,16 @@ export const v2Tables = {
       bid: v.optional(v.object({ pricing: v.union(v.literal("first"), v.literal("second")), disclosure: v.union(v.literal("none"), v.literal("handicaps"), v.literal("all")) })),
       /** σ of the disclosure noise on the others' sums while live (disclose.ts; absent: the default, 8). */
       peerNoiseBits: v.optional(v.number()),
+      /**
+       * v1's duration modes: "fixed" ends the world exactly `worldSeconds` after it starts (public); "halfLife" ends it
+       * at a hidden random moment, half of games within `worldSeconds` (absent: fixed, as games stored before).
+       */
+      durationMode: v.optional(durationModeV),
+      /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
+      scoreIntervalSeconds: v.optional(v.number()),
     }),
+    /** PRIVATE: the world second the game ends at (drawn at the start in halfLife mode); absent: settings.worldSeconds. */
+    endAtWorld: v.optional(v.number()),
     /** PRIVATE: the key of the game's disclosure noise (disclose.ts). Never returned while live. */
     noiseKey: v.optional(v.string()),
     roster: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), kind: memberKindV })),

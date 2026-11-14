@@ -429,6 +429,12 @@ export const noiseOf = internalQuery({
   },
 });
 
+/** Sets a game's drawn end before its world starts (a halfLife game's end is random; a test needs a known one). */
+export const setEnd = internalMutation({
+  args: { gameId: v.id("v2Games"), endAtWorld: v.number() },
+  handler: async (ctx, { gameId, endAtWorld }) => { fixtures(); await ctx.db.patch(gameId, { endAtWorld }); },
+});
+
 /** Ends a seeded game as the loop would leave it (phase only). */
 export const markEnded = internalMutation({
   args: { gameId: v.id("v2Games") },
