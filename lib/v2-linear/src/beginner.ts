@@ -1,8 +1,8 @@
 /**
- * The beginner pool (docs/engine-v2/layered-line-rules.md §8, the curator's list): eight families, each a main layer a
- * 12-year-old on a standard linear-equations course can read, and the curator's dealable tie-breakers. Definitions
- * follow docs/engine-v2/scripts/line-families.mjs (BEGINNER); every layer is graded (owner decision 13). A dealt rule
- * is the main layer plus one tie-breaker (decision 14 and its clarification).
+ * The beginner families (docs/engine-v2/layered-line-rules.md §10.5, the curator's exact-only pool; Prime Gradient is
+ * in families.ts): each a main layer a 12-year-old on a standard linear-equations course can read, and the curator's
+ * dealable tie-breakers, every one valued by an exact sum (sums.ts). Every layer is graded (owner decision 13). A dealt
+ * rule is the main layer plus one tie-breaker (decision 14 and its clarification).
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import { lineParams, type LineState } from "./line.ts";
@@ -31,16 +31,19 @@ function distance<P>(id: string, title: string, sentence: string, rep: string, t
 function whole<P>(l: L<P>): L<P> {
   return { ...l, thresholds: (p, v) => { const ts = l.thresholds(p, v); return lineParams(v).domain === "Z" ? ts.filter(t => t.d === 1n) : ts; } };
 }
-/**
- * Not dealt on whole-number lines, where it cannot decide anything: Ruler's main layer is never exact there (c²/(m²+1)
- * is a square only for m = 0, which it refuses), so "far" never orders lines at its top; and b is always 1, so the
- * smaller pile in every way to pay is always 0 (W2's finding).
- */
-const notOnWhole = <P,>(l: L<P>): L<P> => ({ ...l, dealtOn: v => lineParams(v).domain !== "Z" });
 /** A count or size layer: bigger is better. */
 function more<P>(id: string, title: string, sentence: string, rep: string, thresholds: Q[], what: string, measure: "count" | "size" = "size"): L<P> {
   return { id, title, sentence: () => sentence, rep, sense: "max", measure, thresholds: () => thresholds, rungLabel: atLeast(what) };
 }
+
+/** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
+const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
+const gpfQ = (x: Q): Q => q(x.d === 1n ? largestPrimeFactor(x.n) : 1n);
+/** Tie-breakers on the prime factors of a coefficient (the curator's §10.5: graded, an exact Euler-type sum). */
+const factorTies = <P,>(of: "m" | "c", what: string, top = 31): L<P>[] => [
+  more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si", primes(2, top), `${what}'s smallest prime factor`),
+  more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si", primes(2, top), `${what}'s largest prime factor`),
+];
 
 const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ? v.reason : "not a number" });
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
@@ -65,11 +68,10 @@ function family<P extends object>(id: string, title: string, depends: string[], 
 
 const staircase: Shape<object> = {
   main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq", upTo(6), "a run of primes", "count"),
+  // One secondary (the curator's §10.5): a run of six fixes the step at a multiple of 30, so the others order almost
+  // nothing at the top.
   tieBreakers: [
     more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq", primes(3, 31), "y(0)"),
-    more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq", primes(5, 47), "the last prime"),
-    whole(distance("near-miss", "the first non-prime term close to a prime", "The first term that is not prime should be as close as possible to a prime.", "seq", ds("8", "4", "2", "1", "1/2", "1/4", "1/8"), "the first miss to a prime")),
-    whole(distance("step-back", "y(−1) close to a prime", "The term before the start, y(−1), should be as close as possible to a prime.", "seq", ds("4", "2", "1", "1/2", "1/4", "0"), "y(−1) to a prime")),
   ],
 };
 export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq", "si"], staircase, [{}], ctx => {
@@ -78,27 +80,16 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
   if (num(v0) === null) return allUndefined(ctx, staircase, v0, first);
   const seen = new Set<bigint>();
   let run = 0;
-  // The run stops at the first term that is not a new prime (a repeated prime stops it too); the near miss is the first
-  // term that is not prime at all, which may come later or not within twelve terms (y = 7 repeats a prime forever).
+  // The run stops at the first term that is not a new prime (a repeated prime stops it too).
   let stop: ElementRef | null = null;
-  let miss: { ref: ElementRef; v: Q } | null = null;
-  for (let n = 0; n < 12 && (stop === null || miss === null); n++) {
+  for (let n = 0; n < 12 && stop === null; n++) {
     const r = ref("seq", "term", { n });
     const v = num(ctx.read(r))!;
-    const prime = v.d === 1n && isPrime(v.n);
-    if (stop === null) {
-      if (prime && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
-    }
-    if (!prime && miss === null) miss = { ref: r, v };
+    if (v.d === 1n && isPrime(v.n) && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
   }
-  const back = ref("seq", "term", { n: -1 });
-  const vb = num(ctx.read(back))!;
   const terms = Array.from({ length: run }, (_, n) => ref("seq", "term", { n }));
   ctx.term("run", "different primes from y(0)", q(run), terms.length ? terms : [first]);
   ctx.term("first-prime", "the first prime", run ? num(v0)! : Qn.ZERO, [first]);
-  ctx.term("last-prime", "the last prime of the run", run ? q([...seen][run - 1]!) : Qn.ZERO, terms.length ? [terms[run - 1]!] : [first]);
-  ctx.term("near-miss", "distance from the first non-prime term to a prime", miss ? distanceToPrime(Qn.abs(miss.v)) : { undefined: "the first twelve terms are all prime" }, miss ? [miss.ref] : [first]);
-  ctx.term("step-back", "distance from y(−1) to a prime", distanceToPrime(Qn.abs(vb)), [back]);
   if (stop) ctx.mark({ kind: "note", ref: stop, text: "the run stops here" });
 });
 
@@ -132,9 +123,8 @@ const treasureShape: Shape<KT> = {
   main: { ...whole(distance<KT>("treasure", "y(k) close to T", "", "table", ds("32", "16", "8", "4", "2", "1", "1/2", "1/4", "0"), "y(k) to T")),
     sentence: p => `When x is ${p.k}, y should be as close as possible to ${p.T}.` },
   tieBreakers: [
+    ...factorTies<KT>("m", "the gradient"),
     more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table", upTo(8), "different primes", "count"),
-    whole(distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
-    whole(distance("square-start", "the y-intercept close to a square", "The y-intercept should be as close as possible to a square number.", "si", ds("8", "4", "2", "1", "1/2", "0"), "c to a square")),
   ],
 };
 export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
@@ -142,7 +132,7 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], trea
   const v = ctx.read(at);
   const y = num(v);
   if (y === null) return allUndefined(ctx, treasureShape, v, at);
-  const m = num(ctx.read(ref("si", "m")))!, c = num(ctx.read(ref("si", "c")))!;
+  const m = num(ctx.read(ref("si", "m")))!;
   const primes = new Set<bigint>();
   const cols: ElementRef[] = [];
   for (let x = 1; x <= 8; x++) {
@@ -153,65 +143,9 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], trea
   }
   ctx.term("treasure", `distance from y(${p.k}) to ${p.T}`, gap(y, q(p.T)), [at]);
   ctx.term("prime-terms", "different primes among y(1) … y(8)", q(primes.size), cols);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [ref("si", "m")]);
-  ctx.term("square-start", "distance from the y-intercept to a square", squareGap(c).d, [ref("si", "c")]);
+  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [ref("si", "m")]);
+  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [ref("si", "m")]);
   ctx.mark({ kind: "focus", ref: at });
-});
-
-// ---------------------------------------------------------------- 4. Ruler
-
-const rulerShape: Shape<object> = {
-  main: distance("ruler", "distance² from (0, 0) close to a square", "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.", "norm", ds("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", "0"), "distance² to a square"),
-  tieBreakers: [
-    notOnWhole(more("far", "that whole distance", "That distance should be as big as possible.", "norm", ns(2, 3, 4, 5, 6, 8, 10, 12), "the distance")),
-    whole(distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
-    distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri", ds("8", "4", "2", "1", "1/2", "1/4", "0"), "the area to a square"),
-  ],
-};
-export const ruler = family("ruler", "Ruler", ["norm", "si", "tri"], rulerShape, [{}], ctx => {
-  const mRef = ref("si", "m"), d2Ref = ref("norm", "dist2"), area = ref("tri", "area");
-  const mv = ctx.read(mRef);
-  const m = num(mv);
-  if (m === null || Qn.isZero(m)) return allUndefined(ctx, rulerShape, m === null ? mv : { kind: "undefined", reason: "a flat line's distance is its height: the rule wants a sloping line" }, mRef);
-  const d2 = num(ctx.read(d2Ref))!;
-  ctx.read(ref("norm", "foot"));
-  // The nearest square k² with k ≥ 1.
-  let k = nearestSquareRoot(d2);
-  if (k === 0n) k = 1n;
-  const av = ctx.read(area);
-  ctx.term("ruler", `distance from distance² to ${k * k}`, gap(d2, q(k * k)), [d2Ref]);
-  ctx.term("far", "the whole distance nearest", q(k), [d2Ref]);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
-  ctx.term("square-area", "distance from the area to a square", num(av) === null ? undef(av) : squareGap(num(av)!).d, [area]);
-  ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
-  ctx.mark({ kind: "note", ref: d2Ref, text: `distance² ${Qn.toWire(d2)}, nearest square ${k * k}` });
-});
-
-// ---------------------------------------------------------------- 5. Exact Change
-
-type W = { ways: number };
-const changeShape: Shape<W> = {
-  main: { ...distance<W>("change", "ways to pay close to the target", "", "coins", ds("5", "4", "3", "2", "1", "0"), "the ways to the target"),
-    sentence: p => `Reading the line as a·x + b·y = N (coins worth a and b paying N), the number of ways to pay should be as close as possible to ${p.ways}.` },
-  tieBreakers: [
-    notOnWhole(more("big-piles", "the smaller pile in every way", "In every way to pay, the smaller pile should be as big as possible.", "coins", ns(0, 1, 2, 3, 4, 5), "the smaller pile")),
-    more("big-bill", "the bill", "The bill N should be as big as possible.", "gen", ns(10, 15, 20, 30, 45, 60, 90), "the bill"),
-    distance("prime-coins", "both coins close to primes", "Both coin values should be as close as possible to primes (distances added).", "gen", ds("4", "3", "2", "1", "0"), "the coins to primes"),
-  ],
-};
-export const exactChange = family<W>("exact-change", "Exact Change", ["coins", "gen"], changeShape, [{ ways: 6 }], (ctx, p) => {
-  const ways = ref("coins", "ways"), bill = ref("coins", "bill"), pile = ref("coins", "smallestPile");
-  const wv = ctx.read(ways);
-  const w = num(wv);
-  if (w === null) return allUndefined(ctx, changeShape, wv, ways);
-  const N = num(ctx.read(bill))!, pv = ctx.read(pile);
-  const a = num(ctx.read(ref("gen", "a")))!, b = num(ctx.read(ref("gen", "b")))!;
-  ctx.term("change", `distance from the ways to pay to ${p.ways}`, gap(w, q(p.ways)), [ways]);
-  ctx.term("big-piles", "the smaller pile, at its smallest", num(pv) ?? undef(pv), [pile]);
-  ctx.term("big-bill", "the bill", N, [bill]);
-  ctx.term("prime-coins", "distance of the coins from primes", Qn.add(distanceToPrime(a), distanceToPrime(b)), [ref("gen", "a"), ref("gen", "b")]);
-  ctx.mark({ kind: "focus", ref: ways });
-  ctx.mark({ kind: "note", ref: bill, text: `pay ${Qn.toWire(N)} with coins of ${Qn.toWire(a)} and ${Qn.toWire(b)}: ${Qn.toWire(w)} ways` });
 });
 
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
@@ -220,23 +154,22 @@ const landingShape: Shape<object> = {
   main: whole(distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si", ds("4", "2", "1", "1/2", "1/4", "1/8", "0"), "c to a prime")),
   tieBreakers: [
     more("big-prime", "that prime", "That prime should be as big as possible.", "si", primes(2, 31), "the prime"),
-    whole(distance("prime-gradient", "the gradient close to a prime too", "The gradient should be as close as possible to a prime too.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
-    whole(distance("next-prime", "y(1) close to a prime too", "y(1) = m + c should be as close as possible to a prime too.", "table", ds("4", "2", "1", "1/2", "1/4", "0"), "y(1) to a prime")),
+    ...factorTies<object>("m", "the gradient"),
   ],
 };
-export const primeLanding = family("prime-landing", "Prime Landing", ["si", "cart", "table"], landingShape, [{}], ctx => {
-  const cRef = ref("si", "c"), mRef = ref("si", "m"), y1 = ref("table", "y", { x: 1 });
+export const primeLanding = family("prime-landing", "Prime Landing", ["si", "cart"], landingShape, [{}], ctx => {
+  const cRef = ref("si", "c"), mRef = ref("si", "m");
   const cv = ctx.read(cRef);
   const c = num(cv);
   if (c === null) return allUndefined(ctx, landingShape, cv, cRef);
-  const m = num(ctx.read(mRef))!, v1 = num(ctx.read(y1))!;
+  const m = num(ctx.read(mRef))!;
   const p = nearbyPrimes(c)[0]!;
   const mark = ref("cart", "yAxisMark", { y: p });
   ctx.read(mark);
   ctx.term("landing", `distance from the y-intercept to ${p}`, gap(c, q(p)), [cRef]);
   ctx.term("big-prime", "that prime", q(p), [cRef]);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
-  ctx.term("next-prime", "distance from y(1) to a prime", distanceToPrime(Qn.abs(v1)), [y1]);
+  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
+  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: cRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });
 });
@@ -248,61 +181,81 @@ const rulersShape: Shape<T> = {
   main: { ...distance<T>("fixed", "the unchanged number close to T", "", "mach", ds("16", "8", "4", "2", "1", "1/2", "1/4", "0"), "the unchanged number to T"),
     sentence: p => `The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to ${p.T}.` },
   tieBreakers: [
+    ...factorTies<T>("m", "the gradient"),
     more("steep", "the gradient far from 1", "The gradient should be as far from 1 as possible.", "si", fracs([1, 4], [1, 2], [1, 1], [2, 1], [3, 1], [5, 1], [8, 1]), "|m − 1|"),
-    whole(distance("prime-start", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si", ds("4", "2", "1", "1/2", "0"), "|c| to a prime")),
-    more("whole-values", "different whole numbers among y(−5) … y(5)", "As many of y(−5) … y(5) as possible should be different whole numbers.", "table", upTo(11), "different whole values", "count"),
-    distance("whole-lamp", "the lamp's height close to whole", "The lamp's height m/(m − 1) should be as close as possible to a whole number.", "mach", ds("1/2", "1/4", "1/8", "1/16", "0"), "the lamp to whole"),
   ],
 };
-export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "table"], rulersShape, [{ T: 6 }], (ctx, p) => {
+export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si"], rulersShape, [{ T: 6 }], (ctx, p) => {
   const fRef = ref("mach", "fixed");
   const fv = ctx.read(fRef);
   const f = num(fv);
   if (f === null) return allUndefined(ctx, rulersShape, fv, fRef);
-  const m = num(ctx.read(ref("si", "m")))!, c = num(ctx.read(ref("si", "c")))!;
-  const lamp = ref("mach", "lamp");
-  const lv = num(ctx.read(lamp))!;
-  const whole = new Set<bigint>();
-  const cols: ElementRef[] = [];
-  for (let x = -5; x <= 5; x++) {
-    const r = ref("table", "y", { x });
-    const t = num(ctx.read(r))!;
-    cols.push(r);
-    if (t.d === 1n) whole.add(t.n);
-  }
+  const mRef = ref("si", "m");
+  const m = num(ctx.read(mRef))!;
   ctx.term("fixed", `distance from the unchanged number to ${p.T}`, gap(f, q(p.T)), [fRef]);
-  ctx.term("steep", "|m − 1|", gap(m, Qn.ONE), [ref("si", "m")]);
-  ctx.term("prime-start", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [ref("si", "c")]);
-  ctx.term("whole-values", "different whole values among y(−5) … y(5)", q(whole.size), cols);
-  ctx.term("whole-lamp", "distance from the lamp's height to whole", distanceToWhole(lv), [lamp]);
+  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
+  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [mRef]);
+  ctx.term("steep", "|m − 1|", gap(m, Qn.ONE), [mRef]);
   ctx.mark({ kind: "focus", ref: fRef });
 });
 
-// ---------------------------------------------------------------- 8. Pythagorean Area (the owner's rule 2)
+// ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
-type A = { A: number };
-const pythShape: Shape<A> = {
-  main: { ...distance<A>("area", "the area close to A", "", "tri", ds("16", "8", "4", "2", "1", "1/2", "1/4", "0"), "the area to A"),
-    sentence: p => `The triangle the line cuts off the axes should have an area as close as possible to ${p.A}.` },
+const crossingShape: Shape<object> = {
+  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "cart", ds("1/3", "1/4", "1/6", "1/8", "1/12", "1/16", "0"), "the crossing to a whole number"),
   tieBreakers: [
-    distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri", ds("16", "8", "4", "2", "1", "1/2", "0"), "side² to a square"),
-    whole(distance("prime-height", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si", ds("4", "2", "1", "1/2", "0"), "|c| to a prime")),
-    distance("whole-legs", "both legs close to whole numbers", "Both legs should be as close as possible to whole numbers (distances added).", "tri", ds("1/2", "1/4", "1/8", "1/16", "0"), "the legs to whole"),
+    more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "cart", primes(2, 31), "its smallest prime factor"),
+    more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "cart", primes(2, 37), "its largest prime factor"),
+    factorTies<object>("m", "the gradient")[0]!,
   ],
 };
-export const pythagoreanArea = family<A>("pythagorean-area", "Pythagorean Area", ["tri", "si"], pythShape, [{ A: 6 }], (ctx, p) => {
-  const area = ref("tri", "area");
-  const av = ctx.read(area);
-  const a = num(av);
-  if (a === null) return allUndefined(ctx, pythShape, av, area);
-  const hyp = ref("tri", "hyp2"), lx = ref("tri", "legX"), ly = ref("tri", "legY"), cRef = ref("si", "c");
-  const h = num(ctx.read(hyp))!, x = num(ctx.read(lx))!, y = num(ctx.read(ly))!, c = num(ctx.read(cRef))!;
-  ctx.term("area", `distance from the area to ${p.A}`, gap(a, q(p.A)), [area]);
-  ctx.term("slanted-square", "distance from side² to a square", squareGap(h).d, [hyp]);
-  ctx.term("prime-height", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [cRef]);
-  ctx.term("whole-legs", "distance of the legs from whole numbers", Qn.add(distanceToWhole(x), distanceToWhole(y)), [lx, ly]);
-  ctx.mark({ kind: "focus", ref: lx });
-  ctx.mark({ kind: "focus", ref: ly });
+export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["si", "cart"], crossingShape, [{}], ctx => {
+  const mRef = ref("si", "m"), cRef = ref("si", "c"), xRef = ref("cart", "xInt");
+  const mv = ctx.read(mRef);
+  const m = num(mv);
+  if (m === null || Qn.isZero(m)) return allUndefined(ctx, crossingShape, m === null ? mv : { kind: "undefined", reason: "a flat line never crosses the x-axis (or lies along it)" }, mRef);
+  const c = num(ctx.read(cRef))!;
+  ctx.read(xRef);
+  const x = Qn.neg(Qn.div(c, m));
+  const k = Qn.floor(Qn.add(x, q(1, 2)));   // the nearest whole number
+  ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${k}`, gap(x, q(k)), [xRef]);
+  ctx.term("k-spf", `smallest prime factor of ${k}`, spfQ(q(k)), [xRef]);
+  ctx.term("k-gpf", `largest prime factor of ${k}`, gpfQ(q(k)), [xRef]);
+  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
+  ctx.mark({ kind: "focus", ref: xRef });
 });
 
-export const beginnerFamilies = [primeStaircase, squareArea, treasure, ruler, exactChange, primeLanding, sameOnBothRulers, pythagoreanArea] as const;
+// ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
+
+const ladderShape: Shape<object> = {
+  main: more("ladder", "a run of n dividing y(n)", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table", upTo(11), "the run", "count"),
+  tieBreakers: [
+    ...factorTies<object>("m", "the gradient"),
+    more("steep", "the gradient steep", "The gradient should be as steep as possible.", "si", ns(1, 2, 3, 4, 5, 6, 8, 10, 12, 16), "|m|"),
+    whole(distance("m-prime", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "0"), "m to a prime")),
+  ],
+};
+export const divisibilityLadder = family("divisibility-ladder", "Divisibility Ladder", ["table", "si"], ladderShape, [{}], ctx => {
+  const mRef = ref("si", "m"), cRef = ref("si", "c");
+  const c = num(ctx.read(cRef));
+  const m = num(ctx.read(mRef))!;
+  if (c === null || Qn.isZero(c)) return allUndefined(ctx, ladderShape, { kind: "undefined", reason: "the line goes through (0, 0), where every n divides y(n): the rule wants a line that does not" }, cRef);
+  let run = 0;
+  const cols: ElementRef[] = [];
+  for (let n = 1; n <= 12; n++) {
+    const r = ref("table", "y", { x: n });
+    const y = num(ctx.read(r))!;
+    if (y.d !== 1n || y.n % BigInt(n) !== 0n) { ctx.mark({ kind: "note", ref: r, text: `${n} does not divide y(${n}): the run stops here` }); break; }
+    run++;
+    cols.push(r);
+    ctx.mark({ kind: "focus", ref: r });
+  }
+  ctx.term("ladder", "the run of n dividing y(n)", q(run), cols.length ? cols : [cRef]);
+  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
+  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [mRef]);
+  ctx.term("steep", "|m|", Qn.abs(m), [mRef]);
+  ctx.term("m-prime", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
+});
+
+/** The beginner families of this file; the dealt pool (presets.ts) adds Prime Gradient from families.ts. */
+export const beginnerFamilies = [primeStaircase, squareArea, wholeCrossing, divisibilityLadder, treasure, primeLanding, sameOnBothRulers] as const;

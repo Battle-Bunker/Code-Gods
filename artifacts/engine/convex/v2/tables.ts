@@ -200,7 +200,10 @@ export const v2Tables = {
     by: v.optional(v.id("v2Members")),
     calls: v.array(callV), rep: v.string(), stateBefore: v.string(), stateAfter: v.string(),
     before: valueSnapV, after: valueSnapV, charge: v.optional(v.number()),
-  }).index("by_game_member_seq", ["gameId", "memberId", "seq"]),
+    /** The mover's notes to its owner (lib/v2-agents `note`), on the mover's own row. */
+    notes: v.optional(v.array(v.string())),
+  }).index("by_game_member_seq", ["gameId", "memberId", "seq"])
+    .index("by_game_member_object", ["gameId", "memberId", "objectId", "seq"]),
 
   /** Per player: every object's own rarity and want, packed [number, rarityBits, want, …] (the others-care scatter). */
   v2Digests: defineTable({ gameId: v.id("v2Games"), memberId: v.id("v2Members"), packed: v.array(v.number()), version: v.number() })

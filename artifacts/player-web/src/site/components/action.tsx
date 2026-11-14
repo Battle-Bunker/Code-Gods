@@ -107,7 +107,7 @@ export function AffordanceButton<Id extends AffordanceId>({
   };
   const blocked = !!reason || busy;
   const cls = `${TONES[tone]} ${blocked ? "opacity-50 cursor-not-allowed" : ""} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`;
-  const text = busy ? busyLabel ?? label ?? a.title : armed ? `Again to ${String(label ?? a.title).toLowerCase()}` : label ?? a.title;
+  const text = busy ? busyLabel ?? label ?? a.title : armed ? `Press again to ${String(label ?? a.title).toLowerCase()}` : label ?? a.title;
   const button = (
     <button type="button" aria-disabled={blocked || undefined} className={cls} data-testid={testId} data-affordance={id} onClick={click}>{icon}{text}</button>
   );

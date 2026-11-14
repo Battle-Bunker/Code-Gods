@@ -1,5 +1,5 @@
 # Same on Both Rulers · Bold
-# Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1; |c| close to a prime; different whole numbers among y(−5) … y(5); the lamp's height close to whole).
+# Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
@@ -17,15 +17,6 @@ def score(m, c, p, tie):
     # main: how far the number the machine leaves unchanged is from T (closer is better)
     if tie == "steep":   # a gradient far from 1 is better
         return [main, abs(m - 1)]
-    if tie == "prime-start":   # |c| close to a prime is better
-        start = abs(c)
-        return [main, -abs(start - near(start, prime))]
-    if tie == "whole-values":   # more different whole numbers among y(-5) ... y(5) is better
-        values = {m * x + c for x in range(-5, 6) if (m * x + c).denominator == 1}   # y(-5) ... y(5)
-        return [main, len(values)]
-    if tie == "whole-lamp":   # a lamp at a whole height is better
-        lamp = m / (m - 1)                              # the lamp's height m/(m - 1)
-        return [main, -abs(lamp - whole(lamp))]
     return [main]
 
 

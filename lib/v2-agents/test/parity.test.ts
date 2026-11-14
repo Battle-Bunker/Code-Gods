@@ -123,3 +123,15 @@ test("without the game's values an agent still runs (worth is null, rarity 0, re
   assert.equal(record.outcome, "skipped", record.reason);
   assert.deepEqual(record.notes, ["|0|0|false"]);
 });
+
+test("price() of the plan cheapest() just returned is answered without a second quote, in both languages", async () => {
+  const ts = `function agent(offer) { const plans = [[move("si.shift", { k: 1 })], [move("si.tilt", { k: 1 })]]; const p = cheapest(offer, plans); return price(offer, p) === null ? null : p; }`;
+  const py = `def agent(offer):\n    plans = [[move("si.shift", k=1)], [move("si.tilt", k=1)]]\n    p = cheapest(offer, plans)\n    return None if price(offer, p) is None else p\n`;
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const { record } = await runAct(await boxes.get(language), {
+      type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, program: { language, source: src }, seed: "1", energy: 10,
+    });
+    assert.equal(record.outcome, "committed", record.reason);
+    assert.equal(record.transcript.filter(e => e.request.op === "quote").length, 2, `${language}: two plans, two quotes`);
+  }
+});

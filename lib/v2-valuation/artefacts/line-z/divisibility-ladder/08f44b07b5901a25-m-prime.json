@@ -1,0 +1,767 @@
+{
+ "schema": 5,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/divisibility-ladder/{}/tb=m-prime",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "divisibility-ladder",
+ "params": {},
+ "tieBreaker": "m-prime",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "-2"
+   ],
+   "label": "anything; m to a prime within 2",
+   "layer": 1,
+   "main": 0,
+   "bits": 1,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "-1"
+   ],
+   "label": "anything; m to a prime within 1",
+   "layer": 1,
+   "main": 0,
+   "bits": 1,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "0"
+   ],
+   "label": "anything; m to a prime exactly",
+   "layer": 1,
+   "main": 0,
+   "bits": 1,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "1"
+   ],
+   "label": "the run at least 1",
+   "layer": 0,
+   "main": 1,
+   "bits": 1,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "1",
+    "-2"
+   ],
+   "label": "the run at least 1; m to a prime within 2",
+   "layer": 1,
+   "main": 1,
+   "bits": 1.1998,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "1",
+    "-1"
+   ],
+   "label": "the run at least 1; m to a prime within 1",
+   "layer": 1,
+   "main": 1,
+   "bits": 1.7204,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "1",
+    "0"
+   ],
+   "label": "the run at least 1; m to a prime exactly",
+   "layer": 1,
+   "main": 1,
+   "bits": 1.9057,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2"
+   ],
+   "label": "the run at least 2",
+   "layer": 0,
+   "main": 2,
+   "bits": 2,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2",
+    "-2"
+   ],
+   "label": "the run at least 2; m to a prime within 2",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.264,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2",
+    "-1"
+   ],
+   "label": "the run at least 2; m to a prime within 1",
+   "layer": 1,
+   "main": 2,
+   "bits": 3.0238,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2",
+    "0"
+   ],
+   "label": "the run at least 2; m to a prime exactly",
+   "layer": 1,
+   "main": 2,
+   "bits": 3.3321,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "3"
+   ],
+   "label": "the run at least 3",
+   "layer": 0,
+   "main": 3,
+   "bits": 3.5,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "3",
+    "-2"
+   ],
+   "label": "the run at least 3; m to a prime within 2",
+   "layer": 1,
+   "main": 3,
+   "bits": 3.6998,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "3",
+    "-1"
+   ],
+   "label": "the run at least 3; m to a prime within 1",
+   "layer": 1,
+   "main": 3,
+   "bits": 4.2204,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "3",
+    "0"
+   ],
+   "label": "the run at least 3; m to a prime exactly",
+   "layer": 1,
+   "main": 3,
+   "bits": 4.4057,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4"
+   ],
+   "label": "the run at least 4",
+   "layer": 0,
+   "main": 4,
+   "bits": 4.5,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4",
+    "-2"
+   ],
+   "label": "the run at least 4; m to a prime within 2",
+   "layer": 1,
+   "main": 4,
+   "bits": 4.8455,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4",
+    "-1"
+   ],
+   "label": "the run at least 4; m to a prime within 1",
+   "layer": 1,
+   "main": 4,
+   "bits": 6.0029,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4",
+    "0"
+   ],
+   "label": "the run at least 4; m to a prime exactly",
+   "layer": 1,
+   "main": 4,
+   "bits": 6.6056,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5"
+   ],
+   "label": "the run at least 5",
+   "layer": 0,
+   "main": 5,
+   "bits": 7,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5",
+    "-2"
+   ],
+   "label": "the run at least 5; m to a prime within 2",
+   "layer": 1,
+   "main": 5,
+   "bits": 7,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5",
+    "-1"
+   ],
+   "label": "the run at least 5; m to a prime within 1",
+   "layer": 1,
+   "main": 5,
+   "bits": 7,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5",
+    "0"
+   ],
+   "label": "the run at least 5; m to a prime exactly",
+   "layer": 1,
+   "main": 5,
+   "bits": 7,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6"
+   ],
+   "label": "the run at least 6",
+   "layer": 0,
+   "main": 6,
+   "bits": 7,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6",
+    "-2"
+   ],
+   "label": "the run at least 6; m to a prime within 2",
+   "layer": 1,
+   "main": 6,
+   "bits": 7.388,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6",
+    "-1"
+   ],
+   "label": "the run at least 6; m to a prime within 1",
+   "layer": 1,
+   "main": 6,
+   "bits": 8.8194,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6",
+    "0"
+   ],
+   "label": "the run at least 6; m to a prime exactly",
+   "layer": 1,
+   "main": 6,
+   "bits": 9.7376,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7"
+   ],
+   "label": "the run at least 7",
+   "layer": 0,
+   "main": 7,
+   "bits": 10.5,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7",
+    "-2"
+   ],
+   "label": "the run at least 7; m to a prime within 2",
+   "layer": 1,
+   "main": 7,
+   "bits": 10.6998,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7",
+    "-1"
+   ],
+   "label": "the run at least 7; m to a prime within 1",
+   "layer": 1,
+   "main": 7,
+   "bits": 11.2204,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7",
+    "0"
+   ],
+   "label": "the run at least 7; m to a prime exactly",
+   "layer": 1,
+   "main": 7,
+   "bits": 11.4057,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8"
+   ],
+   "label": "the run at least 8",
+   "layer": 0,
+   "main": 8,
+   "bits": 11.5,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8",
+    "-2"
+   ],
+   "label": "the run at least 8; m to a prime within 2",
+   "layer": 1,
+   "main": 8,
+   "bits": 11.764,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8",
+    "-1"
+   ],
+   "label": "the run at least 8; m to a prime within 1",
+   "layer": 1,
+   "main": 8,
+   "bits": 12.5238,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8",
+    "0"
+   ],
+   "label": "the run at least 8; m to a prime exactly",
+   "layer": 1,
+   "main": 8,
+   "bits": 12.832,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9"
+   ],
+   "label": "the run at least 9",
+   "layer": 0,
+   "main": 9,
+   "bits": 13,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "-2"
+   ],
+   "label": "the run at least 9; m to a prime within 2",
+   "layer": 1,
+   "main": 9,
+   "bits": 13,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "-1"
+   ],
+   "label": "the run at least 9; m to a prime within 1",
+   "layer": 1,
+   "main": 9,
+   "bits": 13,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "0"
+   ],
+   "label": "the run at least 9; m to a prime exactly",
+   "layer": 1,
+   "main": 9,
+   "bits": 13,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "10"
+   ],
+   "label": "the run at least 10",
+   "layer": 0,
+   "main": 10,
+   "bits": 13,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "10",
+    "-2"
+   ],
+   "label": "the run at least 10; m to a prime within 2",
+   "layer": 1,
+   "main": 10,
+   "bits": 13.4207,
+   "error": 0.0001,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "10",
+    "-1"
+   ],
+   "label": "the run at least 10; m to a prime within 1",
+   "layer": 1,
+   "main": 10,
+   "bits": 15.1124,
+   "error": 0.0002,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "10",
+    "0"
+   ],
+   "label": "the run at least 10; m to a prime exactly",
+   "layer": 1,
+   "main": 10,
+   "bits": 16.5039,
+   "error": 0.0006,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "11"
+   ],
+   "label": "the run at least 11",
+   "layer": 0,
+   "main": 11,
+   "bits": 18.4978,
+   "error": 0.0024,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "11",
+    "-4"
+   ],
+   "label": "the run at least 11; m to a prime within 4",
+   "layer": 1,
+   "main": 11,
+   "bits": 18.759,
+   "error": 0.0028,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "11",
+    "-2"
+   ],
+   "label": "the run at least 11; m to a prime within 2",
+   "layer": 1,
+   "main": 11,
+   "bits": 18.9287,
+   "error": 0.0032,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "11",
+    "-1"
+   ],
+   "label": "the run at least 11; m to a prime within 1",
+   "layer": 1,
+   "main": 11,
+   "bits": 20.7144,
+   "error": 0.011,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "11",
+    "0"
+   ],
+   "label": "the run at least 11; m to a prime exactly",
+   "layer": 1,
+   "main": 11,
+   "bits": 22.3545,
+   "error": 0.0343,
+   "source": "exact"
+  }
+ ],
+ "cap": 48,
+ "convergedCap": 48,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "max",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable",
+    "separable"
+   ],
+   "lo": [
+    0,
+    1,
+    1,
+    1,
+    1,
+    1.1998,
+    1.7204,
+    1.9057,
+    2,
+    2.264,
+    3.0238,
+    3.3321,
+    3.5,
+    3.6998,
+    4.2204,
+    4.4057,
+    4.5,
+    4.8455,
+    6.0029,
+    6.6056,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7.388,
+    8.8193,
+    9.7376,
+    10.5,
+    10.6998,
+    11.2204,
+    11.4057,
+    11.5,
+    11.7639,
+    12.5238,
+    12.832,
+    12.9999,
+    12.9999,
+    12.9999,
+    12.9999,
+    12.9999,
+    13.4206,
+    15.1121,
+    16.5033,
+    18.4954,
+    18.7562,
+    18.9256,
+    20.7033,
+    22.3202
+   ],
+   "hi": [
+    0,
+    1,
+    1,
+    1,
+    1,
+    1.1998,
+    1.7204,
+    1.9057,
+    2,
+    2.264,
+    3.0238,
+    3.3321,
+    3.5,
+    3.6998,
+    4.2204,
+    4.4057,
+    4.5,
+    4.8455,
+    6.0029,
+    6.6056,
+    7,
+    7,
+    7,
+    7,
+    7,
+    7.388,
+    8.8194,
+    9.7376,
+    10.5,
+    10.6998,
+    11.2204,
+    11.4058,
+    11.5,
+    11.764,
+    12.5239,
+    12.8321,
+    13,
+    13,
+    13,
+    13,
+    13,
+    13.4207,
+    15.1126,
+    16.5045,
+    18.5001,
+    18.7619,
+    18.9319,
+    20.7254,
+    22.3889
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "9b712685c0840d3f"
+}

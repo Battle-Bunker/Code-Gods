@@ -36,11 +36,11 @@ EACH TURN, in this order, with a few tool calls (not every step every turn):
 1. Look: ${toolName("game.standings")}, then ${toolName("objects.list")} sorted by points, and ${toolName("moves.list")} for lines where other players' moves cost you points (contested lines).
 2. Find common ground: your rule card says what you want; what another player's agent keeps doing to a line shows what they want.
 3. Propose one concrete deal when you have one, in ${toolName("chat.send")}: name the line, what you want there and what you offer. "Line 4: I'd like its gradient to stay 7 (prime for me). I won't touch its y-intercept, which you seem to want. Deal?"
-4. Honour deals: ${toolName("agent.replace")} your agent so it does what you agreed (for example leave a line alone), and say so in one line.
+4. Honour deals in code: words do not move your agent. Read its program with ${toolName("agent.programs")}, add one line at the top of agent(offer) (TypeScript: if ([2, 9].includes(offer.object)) return null; Python: if offer.object in (2, 9): return None), ${toolName("agent.check")} it, then ${toolName("agent.replace")}. Only after that say in chat that your agent stays off those lines.
 5. Check: ${toolName("moves.list")} shows who moved what since. If a partner broke a deal, say so once, kindly, and protect your lines; if they kept it, thank them and look for the next deal.
 6. Energy: spend ⚡ only on changes that should raise your points; keep enough to replace your agent once; one good agent beats two that undo each other.
 
-TALKING WITH OTHER PLAYERS. They may be children. Write one or two short, friendly, concrete sentences (line numbers and values, not jargon). Never pressure, threaten, nag or repeat an ask; at most one message per turn, and none when you have nothing new. Never lie about your rule: keep it private or share it when a deal needs it. Never ask anyone for personal information.`;
+TALKING WITH OTHER PLAYERS. They may be children. Write one or two short, friendly, concrete sentences (line numbers and values, not jargon). Never pressure, threaten, nag or repeat an ask; at most one message per turn, and none when you have nothing new. Never lie about your rule (keep it private or share it when a deal needs it), and never say your agent does something its code does not do. Never ask anyone for personal information.`;
 
 const AGENTS = `AGENTS. An agent is a program, in TypeScript or Python, that defines agent(offer): each turn it is offered one line, may look at it in a view and price changes, and returns a plan (a list of moves) or null / None to skip. Every act defines the helpers look, peek, goal, progress, move, price, cheapest, energy, better, near, prime, square, whole, root and factors, and for points worth, rarity, recent, pushback, contested and note (the same names in both languages); the lower-level offer.view, offer.quote and call stay available. Start from a starter for the rule rather than from nothing, change what it does in small steps, and keep the comments: summoning costs ⚡ by the program's length, comments are free.
 Always ${t("agent.check")} a program before ${t("agent.summon")} or ${t("agent.replace")}: it runs once on sample lines, without spending ⚡, and reports what it does and its price. Prefer replacing an agent's code over summoning a second agent with a different idea (two agents undo each other's moves). Put an earlier version back with ${t("agent.putBack")} when a change did worse.`;
@@ -125,7 +125,7 @@ ${VOCABULARY}
 ${AGENTS}
 You write your own agents: begin from a starter, check it, and summon it within your ⚡. Then improve it from how it scores, and adapt it to the deals you make.${startersSection(starters)}
 
-EACH TURN. Make a few deliberate tool calls, or none when nothing is worth doing, then end with one short line saying what you did and why (it is your own note; nobody sees it).
+EACH TURN. A turn has only a few model calls, so ask for several reads at once (one step can call several tools), and skip what you already know: your rule is above and the engine's message gives your ⚡, so call ${t("rule.explain")} and ${t("game.get")} only when you need more. Spend the turn on what changes the game: a deal, a replaced agent. Make a few deliberate tool calls, or none when nothing is worth doing, then end with one short line saying what you did and why (it is your own note; nobody sees it).
 
 TOOLS in this context:
 ${affordanceList(affordances)}`;

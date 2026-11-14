@@ -244,6 +244,24 @@ the same as a function. The pool run is in [agent-harness-results.md](agent-harn
 - On shared lines rules interfere: with Prime Gradient/prime tilting the same lines, m Meets c's main part fell from
   2.6 to 1.8 while its tie-breaker rose. The table is the material for negotiation.
 
+## Tables: comparing players, model-backed seats included
+
+```
+pnpm --filter @workspace/v2-agents table -- --games 2 --rounds 10 --usd 2 --out docs/engine-v2/ai-table-results.md
+```
+
+`runTable` (`@workspace/v2-agents/table`) plays a whole game in memory: each seat has one agent on shared lines and a store
+that refills each round. A model-backed seat also takes a turn every few rounds with the server AI seat's system prompt
+(`aiSeatSystemPrompt`, `STRATEGY` included) and the affordance directory's assistant tools (`TABLE_TOOLS`: the game,
+standings, rule, objects, moves, chat, agents list, check and replace), answered from the table's state; every result is
+checked against the tool's declared result schema. Chat is public and rules stay secret. It reports per seat the points
+gained, the energy its gains cost that another seat took back, messages, proposals, replaced programs and tool calls,
+and per table the deals read from the chat (`deals`: a proposal names a line and offers something, another seat accepts,
+and it is kept when neither side then lowers the other's points on a named line). The script compares naive starters,
+the new starters, model-backed seats and a mix (each rule playing each kind once), with the cheapest Anthropic model in
+v2-ai's list when a key is set, within `--usd` dollars (default 1), and the mock provider otherwise. Results:
+[ai-table-results.md](ai-table-results.md).
+
 ## The primer for the AI assistant
 
 `AGENT_PRIMER` (or `agentPrimer(type)`) from `@workspace/v2-agents` (`src/primer.ts`) is the text the embedded and

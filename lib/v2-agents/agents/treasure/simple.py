@@ -1,5 +1,5 @@
 # Treasure · Simple
-# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8); the gradient close to a prime; the y-intercept close to a square).
+# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8)).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
@@ -15,10 +15,6 @@ def score(m, c, p, tie):
     if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better
         primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)
         return [main, len(primes)]
-    if tie == "prime-gradient":   # a gradient close to a prime is better
-        return [main, -abs(m - near(m, prime))]
-    if tie == "square-start":   # a y-intercept close to a square number is better
-        return [main, -abs(c - near(c, square))]
     return [main]
 
 
