@@ -35,6 +35,9 @@
     },
     {
       "path": "./lib/v2-sandbox"
+    },
+    {
+      "path": "./lib/v2-affordances"
     }
   ]
 }

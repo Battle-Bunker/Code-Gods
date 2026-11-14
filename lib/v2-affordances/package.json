@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/v2-affordances",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
+    "gen:doc": "UPDATE_DOC=1 node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/doc.test.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}
