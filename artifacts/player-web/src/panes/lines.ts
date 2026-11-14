@@ -4,7 +4,7 @@
  * view state (`focus.reps`) and back to view operations. Player words only (ux-lessons 2.1, 2.8): points, ✨ rarity,
  * "how much the others want it", the noun "line".
  */
-import { one } from "../core/words.ts";
+import { one, productSign } from "../core/words.ts";
 import type { ViewState } from "@workspace/v2-affordances";
 
 // ------------------------------------------------------------------ sort
@@ -72,7 +72,7 @@ export function payoffRect(row: { rarity: number; want: number }, scale: PayoffS
  * (or why the line does not score). "your ✨ rarity 3.4 × how much the others want it 2.0 = your points 6.8".
  */
 export function whyLine(v: { rarity: number; want: number; points: number }, main: { sentence?: string; worst?: string | null }): string {
-  const formula = `your ✨ rarity ${one(v.rarity)} × how much the others want it ${one(v.want)} = your points ${one(v.points)}`;
+  const formula = `your ✨ rarity ${one(v.rarity)} × how much the others want it ${one(v.want)} ${productSign(v.rarity, v.want, v.points)} your points ${one(v.points)}`;
   if (main.worst) return `${formula}. This line does not score for your rule: ${main.worst}.`;
   return main.sentence ? `${formula}. Main part: ${main.sentence.replace(/\.$/, "")}.` : `${formula}.`;
 }

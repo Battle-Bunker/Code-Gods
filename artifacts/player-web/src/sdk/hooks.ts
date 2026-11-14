@@ -12,6 +12,7 @@ import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { ruleRefOf, rungRarities, type LineRule } from "./rule";
 import type { Agent, MyRuleRow, ObjectSort, StandingsPoint } from "./types";
+import { sharedRanks } from "@/core/words";
 
 /** The room in view: members (≤ 16), owner, preset, current and last game, an open bid phase. */
 export function useRoomInfo() {
@@ -87,7 +88,9 @@ export function useAgentPrograms(agentId: string | null | undefined) {
 /** The published scoreboard (null before the first). */
 export function useLeaderboard() {
   const { gameId } = useGameScope();
-  return useLiveValue(api.v2.games.standings, gameId ? { gameId } : "skip");
+  const standings = useLiveValue(api.v2.games.standings, gameId ? { gameId } : "skip");
+  // Equal shown totals share a rank (the server ranks every row apart).
+  return useMemo(() => (standings ? { ...standings, rows: sharedRanks(standings.rows) } : standings), [standings]);
 }
 
 /**

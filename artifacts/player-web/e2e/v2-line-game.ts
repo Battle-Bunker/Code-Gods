@@ -92,7 +92,8 @@ try {
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
 
     const feed = page.getByTestId("pane-feed");
-    const mine = feed.getByText(/^Your agent .* changed a line/).first();
+    // The first scoring move (a move can also leave the step and the points where they were).
+    const mine = feed.getByText(/^Your agent .* changed a line.*✨ rarity/).first();
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();
     assert.match(sentence, /✨ rarity [\d.]+ → [\d.]+|✨ rarity [\d.]+/, `the move says the ✨ rarity: ${sentence}`);
@@ -106,6 +107,11 @@ try {
     await goal.getByText(/Next step:/).first().waitFor({ timeout: 5000 }).catch(() => {});   // absent only at the top of the ladder
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
     await shot(page, `game-${label}-live`);
+    if (label === "phone") {
+      // A long act log never traps the phone's scroll: the row of pane names jumps to Lines.
+      await page.getByTestId("button-jump-objects").click();
+      await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible" });
+    }
     await page.locator("[data-testid^=row-line-]").first().click();
     const line = page.getByTestId("pane-object");
     await line.getByText("slope-intercept").first().waitFor({ timeout: 20_000 });
@@ -125,7 +131,7 @@ try {
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     const results = page.getByTestId("pane-results");
-    await results.getByText(/You finished \S+ of 3 with/).waitFor({ timeout: 20_000 });
+    await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     console.log(`${label}: natural end at ${clock(t0)}: ${(await results.getByText(/You finished/).first().innerText()).slice(0, 120)}`);
     await shot(page, `game-${label}-end`);
     assert.deepEqual(errors, [], `${label}: no page errors`);

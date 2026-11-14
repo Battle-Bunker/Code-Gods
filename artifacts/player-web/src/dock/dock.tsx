@@ -88,7 +88,17 @@ export function Dock({ phase, panes: components }: { phase: GamePhase; panes: Pa
   if (!wide) {
     return (
       <div ref={scroller} className="h-full overflow-y-auto overflow-x-hidden" data-testid="dock-stacked">
-        <div className="space-y-2 p-2">{readingOrder(open).map(p => <div key={p} className="max-h-[85dvh] min-h-[200px] flex">{frame(p, true)}</div>)}</div>
+        {/* A phone stacks the panes; a long pane (the act log) must never trap the scroll, so each pane is shorter than
+            the screen and a row of the panes' names jumps to any of them. */}
+        <nav className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b bg-background/95 px-2 py-1.5" aria-label="Jump to a pane" data-testid="dock-jump">
+          {readingOrder(open).map(p => (
+            <button key={p} type="button" className="shrink-0 border px-2 py-0.5 text-xs" data-testid={`button-jump-${p}`}
+              onClick={() => scroller.current?.querySelector<HTMLElement>(`section[data-pane="${p}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" })}>
+              {paneTitle(p)}
+            </button>
+          ))}
+        </nav>
+        <div className="space-y-2 p-2">{readingOrder(open).map(p => <div key={p} className="max-h-[60dvh] min-h-[200px] flex scroll-mt-10">{frame(p, true)}</div>)}</div>
       </div>
     );
   }

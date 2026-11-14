@@ -25,3 +25,16 @@ export const powerText = (x: number) => `${one(x)} ⚡ a second`;
 export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
 /** "m:ss". */
 export const clock = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;
+
+const tenths = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 10);
+/**
+ * Ranks as a player reads them: totals that show the same share a rank and the next rank skips ("1st, 2nd, 2nd, 4th").
+ * The server ranks every row apart; two players holding the same lines would read "2nd" and "3rd" with one total.
+ */
+export function sharedRanks<R extends { net: number; rank: number }>(rows: readonly R[]): R[] {
+  return rows.map(r => ({ ...r, rank: 1 + rows.filter(o => tenths(o.net) > tenths(r.net)).length }));
+}
+/** "=" when the shown numbers multiply to the shown result, else "≈" (a student checks "4.2 × 12.0 = 51.0"). */
+export function productSign(a: number, b: number, product: number): "=" | "≈" {
+  return Math.round(tenths(a) * tenths(b) / 10) === tenths(product) ? "=" : "≈";
+}

@@ -4,7 +4,7 @@
  * (ux-lessons 2.1): points, ✨ rarity, "how much the others want it", the noun "line". An axis never reaches below zero
  * unless a value does, and then only as far as that value (ux-lessons 2.9).
  */
-import { clock, one, pointsText } from "../core/words.ts";
+import { clock, one, pointsText, productSign } from "../core/words.ts";
 
 // ------------------------------------------------------------------ scales
 
@@ -170,6 +170,6 @@ export const CARE_KINDS: readonly { kind: CareKind; slot: number | null; label: 
 
 /** A dot's hover text. */
 export function careTitle(p: CarePoint): string {
-  return `Line ${p.number}: your ✨ rarity ${one(p.rarity)} × how much the others want it ${one(p.want)} = ${pointsText(p.points)}`;
+  return `Line ${p.number}: your ✨ rarity ${one(p.rarity)} × how much the others want it ${one(p.want)} ${productSign(p.rarity, p.want, p.points)} ${pointsText(p.points)}`;
 }
 

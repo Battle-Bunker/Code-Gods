@@ -38,7 +38,8 @@ export function OverviewPane() {
       {seated && (
         <p className="text-muted-foreground" data-testid="text-points-explained">
           Every line already gives everyone some points: on each line, yours are your ✨ rarity (how rarely a random line scores as well on your
-          rule) times how much the others want it. Your agent's job is to raise yours.
+          rule) times how much the others want it. Your points now are those added up over every line, not only the lines
+          your agent moved. Your agent's job is to raise them.
         </p>
       )}
     </div>
