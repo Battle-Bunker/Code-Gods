@@ -6,10 +6,9 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import { EngineHost } from "@workspace/v2-agents/pure";
 import { rng } from "@workspace/v2-core";
-import { lineType } from "@workspace/v2-linear";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { decode, variantOf } from "./world.ts";
+import { decode, typeOf, variantOf } from "./world.ts";
 
 export async function objectIn(ctx: QueryCtx, game: Doc<"v2Games">, objectId: string) {
   const id = ctx.db.normalizeId("v2Objects", objectId);
@@ -24,7 +23,7 @@ export async function hostFor(ctx: QueryCtx, game: Doc<"v2Games">, member: Doc<"
   const own = member && await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", member._id)).unique();
   const rule = own ?? await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id)).first();
   if (!rule) throw new OpFailure("No rule has been dealt in this game yet.");
-  return new EngineHost({ type: lineType, variant: variantOf(game.variant), state: decode(wire), rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, energy });
+  return new EngineHost({ type: typeOf(game.variant), variant: variantOf(game.variant), state: decode(wire, game.variant), rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, energy });
 }
 
 /** Asks the host, as an agent would, and returns its answer (a host refusal is the caller's mistake). */
@@ -36,14 +35,16 @@ export function ask(host: EngineHost<unknown>, request: Record<string, unknown>)
 
 /** A representation's mutators: id, the views it belongs to, its arguments' names and code, its base "which" bits. */
 export function mutatorsOf(rep: string, variantId: string) {
-  const variant = variantOf(variantId);
-  if (!lineType.representations.some(r => r.id === rep)) throw new OpFailure(`No representation ${rep}.`, `One of: ${lineType.representations.map(r => r.id).join(", ")}.`);
+  const variant = variantOf(variantId), type = typeOf(variantId);
+  if (!type.representations.some(r => r.id === rep)) throw new OpFailure(`No representation ${rep}.`, `One of: ${type.representations.map(r => r.id).join(", ")}.`);
   const which = Math.log2(variant.mutators.length);
-  return lineType.mutators.filter(m => m.reps.includes(rep) && variant.mutators.includes(m.id)).map(m => {
+  return type.mutators.filter(m => m.reps.includes(rep) && variant.mutators.includes(m.id)).map(m => {
     const code = m.args(variant), r = rng("arg-names", m.id);
-    let names: string[] = [];
-    for (let i = 0; i < 256 && names.length === 0; i++) { const a = code.sample(r); if (a !== null) names = Object.keys(code.encode(a)); }
+    let sample: Record<string, string> = {};
+    for (let i = 0; i < 256 && Object.keys(sample).length === 0; i++) { const a = code.sample(r); if (a !== null) sample = { ...code.encode(a) }; }
     const domain = (variant.params as { argDomain?: string }).argDomain === "Q" ? "rational" : "integer";
-    return { id: m.id, reps: [...m.reps], args: names.map(name => ({ name, code: domain })), baseBits: which, effect: m.title };
+    // A named argument (a cell, a line, a box, an axis) is a choice; a number is the variant's number domain.
+    const codeOf = (w: string) => (/^-?\d+(\/\d+)?$/.test(w) ? domain : "choice");
+    return { id: m.id, reps: [...m.reps], args: Object.entries(sample).map(([name, w]) => ({ name, code: codeOf(w) })), baseBits: which, effect: m.title };
   });
 }
