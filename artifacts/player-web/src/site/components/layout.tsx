@@ -6,7 +6,8 @@
  * frame provides the affordance runtime (core/affordance-runtime.tsx), so every button below is a `useAffordance`
  * and every palette row is generated from the same directory (core/palette-commands.ts).
  */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { Link, useLocation } from "wouter";
 import { useConvexConnectionState } from "convex/react";
 import { CommandPalette, PaletteTrigger, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
@@ -20,6 +21,7 @@ import { ErrorLine } from "@/site/components/page-parts";
 import { Tip } from "@/site/components/action";
 import { ConnectedAppsSheet } from "@/site/components/sheets";
 import { AffordanceRuntimeProvider, useRuntime, type RuntimeScope } from "@/core/affordance-runtime";
+import { touchGate } from "@/core/activity";
 import { paletteCommands } from "@/core/palette-commands";
 import { affordanceContext } from "@/core/affordance-context";
 import { usePaneOps } from "@/dock/open-pane";
@@ -115,6 +117,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
 
   return (
     <AffordanceRuntimeProvider context={ctx} scope={scope} onSignIn={login}>
+      {isAuthenticated && <ActivityTouch />}
       <div className={bare ? "contents" : fill ? "h-[100dvh] flex flex-col overflow-hidden" : "min-h-[100dvh] flex flex-col"}>
         {!bare && <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
           <div className="mx-auto max-w-[1440px] px-4 md:px-6 h-14 flex items-center gap-3">
@@ -163,4 +166,23 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
 /** What a page shows when it threw: the error, and a retry that renders it afresh. The header stays. */
 function PageError({ error, resetError }: ErrorFallbackProps) {
   return <div className="mx-auto max-w-3xl p-6" data-testid="page-error"><ErrorLine message={`This page hit an error: ${errMsg(error)}`} onRetry={resetError} /></div>;
+}
+
+/** One gate for the whole tab: a page change does not report again within the minute. */
+const touchNow = touchGate();
+
+/** Says a human is here (account.touch, W3 #629) on a real press or key, at most once a minute: a parked game resumes. */
+function ActivityTouch() {
+  const touch = useAffordance("account.touch");
+  const run = useRef(touch.run);
+  run.current = touch.run;
+  const ok = !touch.hidden && touch.available;
+  useEffect(() => {
+    if (!ok) return;
+    const on = (e: Event) => { if (e.isTrusted && touchNow(Date.now())) void run.current({}).catch(() => {}); };
+    window.addEventListener("pointerdown", on, { capture: true, passive: true });
+    window.addEventListener("keydown", on, { capture: true, passive: true });
+    return () => { window.removeEventListener("pointerdown", on, { capture: true }); window.removeEventListener("keydown", on, { capture: true }); };
+  }, [ok]);
+  return null;
 }

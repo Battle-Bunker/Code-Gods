@@ -1,6 +1,7 @@
 /** The game clock's words (game-timer.tsx), pure so it is unit tested. */
 import type { Header } from "../sdk/types.ts";
 import { clock } from "./words.ts";
+import { PARKED_NOTE } from "./activity.ts";
 
 /** How long after its end a running game says the server is late. */
 export const OVERDUE_MS = 15_000;
@@ -36,7 +37,9 @@ export function timerText(h: Header, now: number): { label: string; value: strin
       return { label: "Game ends in", value: clock(Math.ceil(left)), note: "", tip: "A fixed-length game: it ends after exactly this much more world time." };
     }
     // World time stands still while paused: no countdown (the end moves out by the pause's length).
-    case "paused": return { label: "Game", value: "paused", note: "", tip: "World time stands still while the game is paused." };
+    case "paused": return h.parked
+      ? { label: "Game", value: "paused", note: PARKED_NOTE, tip: "Nobody acted in this game for 30 minutes, so it was paused to save the engine. Any press or key resumes it; world time stood still meanwhile." }
+      : { label: "Game", value: "paused", note: "", tip: "World time stands still while the game is paused." };
     case "ended": return { label: "Game over", value: "0:00", note: "", tip: "This game has ended. Nothing changes any more." };
   }
 }

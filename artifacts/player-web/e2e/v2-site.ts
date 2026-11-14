@@ -137,6 +137,26 @@ try {
       await shot(page, `v2-line-${label}`);
     });
 
+    await check(`${label}: a game parked for idleness says so, and a press resumes it (account.touch, W3 #629)`, async () => {
+      // A real game (the engine's loop parks it at its next commit; a seeded game has no loop).
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-create-room").first().click();
+      await page.getByTestId("button-practice-game").click();
+      await page.waitForURL(/\/games\//, { timeout: 30_000 });
+      await page.getByTestId("button-start-world").click({ timeout: 30_000 });
+      await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 60_000 });
+      convexRun("v2/testing:setActivity", { at: 0 });   // nobody acted for 30 minutes
+      const timer = page.getByTestId("game-timer");
+      await timer.getByText("nobody was here for 30 minutes: it resumes when you act").waitFor({ timeout: 30_000 });
+      // The presses above were reported within the minute; a fresh page has reported nothing yet.
+      await page.reload();
+      await page.getByTestId("text-my-total").waitFor();
+      assert.ok(await timer.getByText(/nobody was here/).count() > 0, "still parked: loading the page is not activity");
+      await page.getByTestId("text-my-total").click();   // a real press
+      await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 15_000 });
+      assert.equal(await timer.getByText(/nobody was here/).count(), 0, "resumed");
+    });
+
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, phase: "planning" });
