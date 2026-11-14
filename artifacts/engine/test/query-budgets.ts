@@ -23,7 +23,6 @@ export const BUDGETS: Budget[] = [
   { query: "aiTemplates:adminList", subscribedBy: "site/hooks/use-agents.ts (admin)", cold: true },
   { query: "auth/credentials:list", subscribedBy: "site/components/sheets.tsx", cold: true },
   { query: "auth/device:pending", subscribedBy: "site/pages/device.tsx", cold: true },
-  { query: "agent/connect:pending", subscribedBy: "site/pages/connect.tsx", cold: true },
 ];
 
 /** "api.auth.credentials.list" (a client reference) → "auth/credentials:list" (the log's identifier). */

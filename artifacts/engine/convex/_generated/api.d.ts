@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as agent_connect from "../agent/connect.js";
 import type * as agent_mcp from "../agent/mcp.js";
 import type * as agent_mcpV2 from "../agent/mcpV2.js";
 import type * as agent_oauth from "../agent/oauth.js";
@@ -54,6 +53,7 @@ import type * as v2_bids from "../v2/bids.js";
 import type * as v2_checkData from "../v2/checkData.js";
 import type * as v2_checkNode from "../v2/checkNode.js";
 import type * as v2_commands from "../v2/commands.js";
+import type * as v2_connect from "../v2/connect.js";
 import type * as v2_deal from "../v2/deal.js";
 import type * as v2_failure from "../v2/failure.js";
 import type * as v2_gallery from "../v2/gallery.js";
@@ -61,6 +61,7 @@ import type * as v2_games from "../v2/games.js";
 import type * as v2_layout from "../v2/layout.js";
 import type * as v2_lobby from "../v2/lobby.js";
 import type * as v2_loop from "../v2/loop.js";
+import type * as v2_oauth from "../v2/oauth.js";
 import type * as v2_ops_account from "../v2/ops/account.js";
 import type * as v2_ops_agent from "../v2/ops/agent.js";
 import type * as v2_ops_agents from "../v2/ops/agents.js";
@@ -111,7 +112,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  "agent/connect": typeof agent_connect;
   "agent/mcp": typeof agent_mcp;
   "agent/mcpV2": typeof agent_mcpV2;
   "agent/oauth": typeof agent_oauth;
@@ -157,6 +157,7 @@ declare const fullApi: ApiFromModules<{
   "v2/checkData": typeof v2_checkData;
   "v2/checkNode": typeof v2_checkNode;
   "v2/commands": typeof v2_commands;
+  "v2/connect": typeof v2_connect;
   "v2/deal": typeof v2_deal;
   "v2/failure": typeof v2_failure;
   "v2/gallery": typeof v2_gallery;
@@ -164,6 +165,7 @@ declare const fullApi: ApiFromModules<{
   "v2/layout": typeof v2_layout;
   "v2/lobby": typeof v2_lobby;
   "v2/loop": typeof v2_loop;
+  "v2/oauth": typeof v2_oauth;
   "v2/ops/account": typeof v2_ops_account;
   "v2/ops/agent": typeof v2_ops_agent;
   "v2/ops/agents": typeof v2_ops_agents;

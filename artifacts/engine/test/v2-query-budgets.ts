@@ -47,6 +47,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/panels:list", args: () => ({}), reads: "v2Panels by_user_slug, ≤ 40", cold: true },
   { query: "v2/panels:code", args: () => ({ slug: "gate-panel" }), reads: "1 v2Panels + 1 v2PanelVersions", cold: true },
   { query: "v2/replays:stored", args: f => ({ gameId: f.gameId }), reads: "1 v2Games", cold: true },
+  { query: "v2/connect:pending", args: () => ({ request: "gate-request-key-that-is-not-real" }), reads: "1 oauthRequests + the caller's v2Members (≤ 32) + their rooms", cold: true },
   { query: "v2/setups:presets", args: () => ({}), reads: "none (the deployed presets) + the caller's user row", cold: true },
   { query: "v2/gallery:family", args: () => ({ preset: "lines-beginner", family: "prime-landing" }), reads: "none (the bundled artefacts) + the caller's user row", cold: true },
   { query: "v2/rooms:aiQuotas", args: f => ({ roomId: f.roomId }), reads: "member + 1 v2RoomQuotas", cold: true },

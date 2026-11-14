@@ -352,7 +352,7 @@ export const commit = internalMutation({
         if (!mine && Math.abs(val.points - was.points) <= CONCERN) continue;
         await ctx.db.insert("v2Moves", {
           gameId: game._id, memberId: val.memberId as Id<"v2Members">, seq, worldSeconds: world, objectId: act.objectId, number: act.number,
-          ...(mine ? { agentId: act.agentId, charge } : {}), mine,
+          ...(mine ? { agentId: act.agentId, charge } : {}), mine, by: act.memberId as Id<"v2Members">,
           calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: record.calls[0]?.rep ?? "",
           stateBefore: record.before, stateAfter: record.after,
           before: { score: was.score, level: was.level, rarityBits: was.rarityBits, want: was.want, points: was.points },
