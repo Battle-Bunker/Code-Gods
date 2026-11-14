@@ -47,6 +47,9 @@
     },
     {
       "path": "./lib/v2-economy"
+    },
+    {
+      "path": "./lib/v2-ai"
     }
   ]
 }
