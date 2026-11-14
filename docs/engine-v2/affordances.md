@@ -156,6 +156,11 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write; confirm inline |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
 | `game.end` | End the game | — | server · game | owner | planning, live, paused | destructive; confirm modal |
+| `bid.state` | Show the bid phase | — | server · room | seated | room | read |
+| `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
+| `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |
+| `bid.done` | Finish bidding | — | server · room | seated | room | write |
+| `game.auction` | Show the auction's result | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.get` | Show the game | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.standings` | Show the standings | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.ready` | Mark me ready | ready | server · game | seated | planning | write |

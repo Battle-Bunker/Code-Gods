@@ -117,12 +117,14 @@ export const roomOps = [
   }),
   affordance({
     id: "game.start", title: "Start the game", group: "owner", scope: "room",
-    description: "Deals every seated player a rule from the preset's pool and starts the planning phase. Needs the preset's minimum number of players.",
+    description: "Deals every seated player a rule from the preset's pool and starts the planning phase. With a bidding preset it opens the bid phase first and deals when it closes (gameId is null until then). Needs the preset's minimum number of players.",
     tooltip: "Deal rules and start planning.", keywords: ["start", "begin", "deal", "go"],
-    params: obj({ requestId: requestId.optional() }), result: z.object({ gameId: id }),
+    params: obj({ requestId: requestId.optional() }),
+    result: z.object({ gameId: id.nullable().describe("null while the bid phase runs before the deal"), bidPhase: z.boolean() }),
     contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server",
     available: ctx => {
       const r = ctx.room;
+      if (r?.bidOpen) return { ok: false, reason: "The bid phase is open; the deal follows when it closes." };
       if (r && r.players < r.minPlayers)
         return { ok: false, reason: `Needs ${r.minPlayers} players; ${r.players} seated.`, fix: "seats.fillPracticePartners" };
       return { ok: true };

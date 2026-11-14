@@ -37,6 +37,10 @@ export type Grant = "read" | "act" | "owner";
 export interface Principal {
   signedIn: boolean;
   member: boolean;
+  /**
+   * Holds a player's seat: in the game in view, or, in the room before a game (the bid phase), a player's (not a
+   * spectator's) seat for the next game. AI seats and practice partners are never principals.
+   */
   seated: boolean;
   owner: boolean;
   admin: boolean;
@@ -58,6 +62,8 @@ export interface RoomFacts {
   /** Players seated (humans, practice partners and AI players) and the preset's minimum. */
   players: number;
   minPlayers: number;
+  /** Whether the room's bid phase is open (a preset with bidding, after the owner starts and before the deal). */
+  bidOpen?: boolean;
 }
 
 /** Everything availability depends on. Built by the app from its subscriptions, by the server from the game header. */
