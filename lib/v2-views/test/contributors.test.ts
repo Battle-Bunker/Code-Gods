@@ -126,4 +126,8 @@ test("hold it here: a contested line names its own TARGET and SETTLE (the starte
   assert.equal(h.code, "TARGET = { m: 2, c: 7 }; SETTLE = [24]");
   assert.match(h.why, /tug-of-war/);
   assert.equal(holdHere(lineType, mc(q(1, 2), -3), 5)!.code, "TARGET = { m: 1 / 2, c: -3 }; SETTLE = [5]");
+  const { gridType } = await import("@workspace/v2-grid");
+  const g = holdHere(gridType, { cells: [9, 7, 7, 9, 8, 5, 5, 8, 7, 9, 9, 7, 9, 7, 7, 9] }, 3)!;
+  assert.equal(g.code, 'TARGET = "9779855879979779"; SETTLE = [3]');
+  assert.match(g.why, /This grid is contested/);
 });

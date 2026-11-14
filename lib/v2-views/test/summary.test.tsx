@@ -84,13 +84,13 @@ test("the component: three short sections, no steps, the noun of the object type
   // A held board is drawn in the advice, not written as sixteen digits.
   const board = { cells: [5, 3, 2, 9, 3, 7, 3, 5, 5, 2, 4, 7, 9, 5, 1, 2] };
   const hold = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
-  assert.equal(hold.next.text, "Next game, hold grid 22 like this: it was worth 783.27 points to you there.");
+  assert.match(hold.next.text, /^Next game, hold grid 22 like this: it was worth 783\.27 points to you there\./);
   const hh = renderToStaticMarkup(<GameSummary summary={hold} rule={g} />);
   assert.match(hh, /data-testid="text-summary-next"[\s\S]*class="v2v-grid"/, "the board drawn in the advice");
   assert.doesNotMatch(text(hh), /5 3 2 9 \//);
-  // A board cannot be held by the starters yet: its advice names no TARGET.
-  const gr = summarise({ rule: g, objects: [], rotates: true, tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
-  assert.doesNotMatch(gr.next.text, /TARGET|SETTLE/, gr.next.text);
+  // A board is held the same way (#538): its TARGET is its sixteen digits, row by row.
+  const gr = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
+  assert.match(gr.next.text, /In your agent's code: TARGET = "5329373552479512"; SETTLE = \[22\]\.$/, gr.next.text);
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
