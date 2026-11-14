@@ -14,7 +14,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "52f9f53436f79ec5",
+  "contentHash": "1343d0460be7c375",
   "rungs": [
    {
     "score": null,
@@ -24,11 +24,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 1.9002
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 1.921
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 1.9946
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "y(k) to x(q) within 8",
     "layer": 0,
-    "bits": 2.3014
+    "bits": 2.2648
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 8; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 2.43
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 8; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 2.5122
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 8; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 2.6935
    },
    {
     "score": [
@@ -36,7 +90,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 4",
     "layer": 0,
-    "bits": 2.7189
+    "bits": 2.6964
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 4; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 3.0215
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 4; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 3.326
+   },
+   {
+    "score": [
+     "-4",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 4; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 3.3318
    },
    {
     "score": [
@@ -44,7 +125,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 2",
     "layer": 0,
-    "bits": 3.3576
+    "bits": 3.3319
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 2; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 3.5449
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 2; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 3.5708
+   },
+   {
+    "score": [
+     "-2",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 2; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 3.5712
    },
    {
     "score": [
@@ -52,7 +160,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1",
     "layer": 0,
-    "bits": 3.6074
+    "bits": 3.5712
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 1; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 5.5412
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 1; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 5.8554
+   },
+   {
+    "score": [
+     "-1",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 1; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 6.0352
    },
    {
     "score": [
@@ -60,7 +195,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1/2",
     "layer": 0,
-    "bits": 6.2146
+    "bits": 6.1133
+   },
+   {
+    "score": [
+     "-1/2",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 1/2; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 6.996
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 1/2; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 7.0425
+   },
+   {
+    "score": [
+     "-1/2",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 1/2; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 7.0625
    },
    {
     "score": [
@@ -68,7 +230,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1/4",
     "layer": 0,
-    "bits": 7.0856
+    "bits": 7.0625
+   },
+   {
+    "score": [
+     "-1/4",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 1/4; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 8.7315
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 1/4; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 8.7469
+   },
+   {
+    "score": [
+     "-1/4",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 1/4; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 8.7477
    },
    {
     "score": [
@@ -76,7 +265,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1/8",
     "layer": 0,
-    "bits": 8.8708
+    "bits": 8.7477
+   },
+   {
+    "score": [
+     "-1/8",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 1/8; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 9.8563
+   },
+   {
+    "score": [
+     "-1/8",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 1/8; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 9.8629
+   },
+   {
+    "score": [
+     "-1/8",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 1/8; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 9.8636
    },
    {
     "score": [
@@ -84,25 +300,52 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) exactly",
     "layer": 0,
-    "bits": 9.7861
+    "bits": 9.8636
    },
    {
     "score": [
      "0",
      "1"
     ],
-    "label": "|x(q)| at least 1",
+    "label": "y(k) to x(q) exactly; |x(q)| at least 1",
     "layer": 1,
-    "bits": 10.4238
+    "bits": 10.348
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "|x(q)| at least 2",
+    "label": "y(k) to x(q) exactly; |x(q)| at least 2",
     "layer": 1,
-    "bits": 13.175
+    "bits": 12.3311
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "y(k) to x(q) exactly; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 13.2148
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "y(k) to x(q) exactly; |x(q)| at least 4",
+    "layer": 1,
+    "bits": 16.4063
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "y(k) to x(q) exactly; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 34.2074
    }
   ]
  },
@@ -118,7 +361,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "f3ae25abb86ffe52",
+  "contentHash": "a173f6495718965a",
   "rungs": [
    {
     "score": null,
@@ -128,11 +371,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-6"
+    ],
+    "label": "anything; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 1.9473
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 1.9825
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.0109
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "y(k) to x(q) within 8",
     "layer": 0,
-    "bits": null
+    "bits": 2.3179
+   },
+   {
+    "score": [
+     "-8",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 8; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 2.3571
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 8; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 2.4096
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 8; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.4854
    },
    {
     "score": [
@@ -140,7 +437,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 4",
     "layer": 0,
-    "bits": null
+    "bits": 2.7308
+   },
+   {
+    "score": [
+     "-4",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 4; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 2.7692
+   },
+   {
+    "score": [
+     "-4",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 4; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 2.8042
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 4; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.9392
    },
    {
     "score": [
@@ -148,7 +472,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 2",
     "layer": 0,
-    "bits": null
+    "bits": 3.3662
+   },
+   {
+    "score": [
+     "-2",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 2; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 3.4072
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 2; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 3.4598
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 2; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 3.5137
    },
    {
     "score": [
@@ -156,7 +507,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1",
     "layer": 0,
-    "bits": null
+    "bits": 3.6092
+   },
+   {
+    "score": [
+     "-1",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 1; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 3.6305
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 1; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 3.6464
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 1; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 3.686
    },
    {
     "score": [
@@ -164,7 +542,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1/2",
     "layer": 0,
-    "bits": null
+    "bits": 6.155
+   },
+   {
+    "score": [
+     "-1/2",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 1/2; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 6.1999
+   },
+   {
+    "score": [
+     "-1/2",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 1/2; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 6.4159
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 1/2; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 6.6496
    },
    {
     "score": [
@@ -172,7 +577,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1/4",
     "layer": 0,
-    "bits": null
+    "bits": 7.0503
+   },
+   {
+    "score": [
+     "-1/4",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 1/4; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 7.0923
+   },
+   {
+    "score": [
+     "-1/4",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 1/4; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 7.1465
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 1/4; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 8.0733
    },
    {
     "score": [
@@ -180,7 +612,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1/8",
     "layer": 0,
-    "bits": null
+    "bits": 9.024
+   },
+   {
+    "score": [
+     "-1/8",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 1/8; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 9.3079
+   },
+   {
+    "score": [
+     "-1/8",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 1/8; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 9.6774
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 1/8; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 9.8685
    },
    {
     "score": [
@@ -188,79 +647,934 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) exactly",
     "layer": 0,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-12"
     ],
-    "label": "x(q)'s bottom number − 1 at most 12",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 12",
     "layer": 1,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "x(q)'s bottom number − 1 at most 8",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 8",
     "layer": 1,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-6"
     ],
-    "label": "x(q)'s bottom number − 1 at most 6",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 6",
     "layer": 1,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "x(q)'s bottom number − 1 at most 4",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 4",
     "layer": 1,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "x(q)'s bottom number − 1 at most 3",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 3",
     "layer": 1,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "x(q)'s bottom number − 1 at most 2",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 2",
     "layer": 1,
-    "bits": null
+    "bits": 10.1112
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "x(q)'s bottom number − 1 at most 1",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 1",
     "layer": 1,
-    "bits": null
+    "bits": 10.1189
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "x(q)'s bottom number − 1 0",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 0",
     "layer": 1,
-    "bits": null
+    "bits": 10.6048
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/exact-change/{\"ways\":6}/tb=big-bill",
+  "variant": "line-q",
+  "family": "exact-change",
+  "params": {
+   "ways": 6
+  },
+  "tieBreaker": "big-bill",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "4e5f0cad0ce9ba86",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "15"
+    ],
+    "label": "anything; the bill at least 15",
+    "layer": 1,
+    "bits": 3.252
+   },
+   {
+    "score": [
+     null,
+     "30"
+    ],
+    "label": "anything; the bill at least 30",
+    "layer": 1,
+    "bits": 3.2626
+   },
+   {
+    "score": [
+     null,
+     "60"
+    ],
+    "label": "anything; the bill at least 60",
+    "layer": 1,
+    "bits": 3.2676
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the ways to the target within 5",
+    "layer": 0,
+    "bits": 3.2727
+   },
+   {
+    "score": [
+     "-5",
+     "15"
+    ],
+    "label": "the ways to the target within 5; the bill at least 15",
+    "layer": 1,
+    "bits": 6.5625
+   },
+   {
+    "score": [
+     "-5",
+     "30"
+    ],
+    "label": "the ways to the target within 5; the bill at least 30",
+    "layer": 1,
+    "bits": 6.6172
+   },
+   {
+    "score": [
+     "-5",
+     "60"
+    ],
+    "label": "the ways to the target within 5; the bill at least 60",
+    "layer": 1,
+    "bits": 6.6296
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the ways to the target within 4",
+    "layer": 0,
+    "bits": 6.6315
+   },
+   {
+    "score": [
+     "-4",
+     "15"
+    ],
+    "label": "the ways to the target within 4; the bill at least 15",
+    "layer": 1,
+    "bits": 7.498
+   },
+   {
+    "score": [
+     "-4",
+     "30"
+    ],
+    "label": "the ways to the target within 4; the bill at least 30",
+    "layer": 1,
+    "bits": 7.5711
+   },
+   {
+    "score": [
+     "-4",
+     "60"
+    ],
+    "label": "the ways to the target within 4; the bill at least 60",
+    "layer": 1,
+    "bits": 7.6023
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the ways to the target within 3",
+    "layer": 0,
+    "bits": 7.6134
+   },
+   {
+    "score": [
+     "-3",
+     "15"
+    ],
+    "label": "the ways to the target within 3; the bill at least 15",
+    "layer": 1,
+    "bits": 8.2758
+   },
+   {
+    "score": [
+     "-3",
+     "30"
+    ],
+    "label": "the ways to the target within 3; the bill at least 30",
+    "layer": 1,
+    "bits": 8.3774
+   },
+   {
+    "score": [
+     "-3",
+     "60"
+    ],
+    "label": "the ways to the target within 3; the bill at least 60",
+    "layer": 1,
+    "bits": 8.3996
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the ways to the target within 2",
+    "layer": 0,
+    "bits": 8.4193
+   },
+   {
+    "score": [
+     "-2",
+     "15"
+    ],
+    "label": "the ways to the target within 2; the bill at least 15",
+    "layer": 1,
+    "bits": 9.1463
+   },
+   {
+    "score": [
+     "-2",
+     "30"
+    ],
+    "label": "the ways to the target within 2; the bill at least 30",
+    "layer": 1,
+    "bits": 9.2876
+   },
+   {
+    "score": [
+     "-2",
+     "60"
+    ],
+    "label": "the ways to the target within 2; the bill at least 60",
+    "layer": 1,
+    "bits": 9.3105
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the ways to the target within 1",
+    "layer": 0,
+    "bits": 9.3148
+   },
+   {
+    "score": [
+     "-1",
+     "15"
+    ],
+    "label": "the ways to the target within 1; the bill at least 15",
+    "layer": 1,
+    "bits": 10.7302
+   },
+   {
+    "score": [
+     "-1",
+     "30"
+    ],
+    "label": "the ways to the target within 1; the bill at least 30",
+    "layer": 1,
+    "bits": 11.0551
+   },
+   {
+    "score": [
+     "-1",
+     "60"
+    ],
+    "label": "the ways to the target within 1; the bill at least 60",
+    "layer": 1,
+    "bits": 11.0966
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the ways to the target exactly",
+    "layer": 0,
+    "bits": 11.1285
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the ways to the target exactly; the bill at least 10",
+    "layer": 1,
+    "bits": 12.2598
+   },
+   {
+    "score": [
+     "0",
+     "15"
+    ],
+    "label": "the ways to the target exactly; the bill at least 15",
+    "layer": 1,
+    "bits": 13.6581
+   },
+   {
+    "score": [
+     "0",
+     "20"
+    ],
+    "label": "the ways to the target exactly; the bill at least 20",
+    "layer": 1,
+    "bits": 15.2665
+   },
+   {
+    "score": [
+     "0",
+     "30"
+    ],
+    "label": "the ways to the target exactly; the bill at least 30",
+    "layer": 1,
+    "bits": 16.0084
+   },
+   {
+    "score": [
+     "0",
+     "45"
+    ],
+    "label": "the ways to the target exactly; the bill at least 45",
+    "layer": 1,
+    "bits": 16.5308
+   },
+   {
+    "score": [
+     "0",
+     "60"
+    ],
+    "label": "the ways to the target exactly; the bill at least 60",
+    "layer": 1,
+    "bits": 17.2783
+   },
+   {
+    "score": [
+     "0",
+     "90"
+    ],
+    "label": "the ways to the target exactly; the bill at least 90",
+    "layer": 1,
+    "bits": 19.9327
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/exact-change/{\"ways\":6}/tb=big-piles",
+  "variant": "line-q",
+  "family": "exact-change",
+  "params": {
+   "ways": 6
+  },
+  "tieBreaker": "big-piles",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "eba7b111a3f8a70f",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "1"
+    ],
+    "label": "anything; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 3.2587
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 3.2587
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 3.2587
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the ways to the target within 5",
+    "layer": 0,
+    "bits": 3.2587
+   },
+   {
+    "score": [
+     "-5",
+     "1"
+    ],
+    "label": "the ways to the target within 5; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 6.3782
+   },
+   {
+    "score": [
+     "-5",
+     "3"
+    ],
+    "label": "the ways to the target within 5; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 6.4338
+   },
+   {
+    "score": [
+     "-5",
+     "4"
+    ],
+    "label": "the ways to the target within 5; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 6.4357
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the ways to the target within 4",
+    "layer": 0,
+    "bits": 6.4366
+   },
+   {
+    "score": [
+     "-4",
+     "1"
+    ],
+    "label": "the ways to the target within 4; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 7.4531
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "the ways to the target within 4; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 7.4626
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "the ways to the target within 4; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 7.4627
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the ways to the target within 3",
+    "layer": 0,
+    "bits": 7.4628
+   },
+   {
+    "score": [
+     "-3",
+     "1"
+    ],
+    "label": "the ways to the target within 3; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 8.2229
+   },
+   {
+    "score": [
+     "-3",
+     "3"
+    ],
+    "label": "the ways to the target within 3; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 8.2445
+   },
+   {
+    "score": [
+     "-3",
+     "4"
+    ],
+    "label": "the ways to the target within 3; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 8.2445
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the ways to the target within 2",
+    "layer": 0,
+    "bits": 8.2445
+   },
+   {
+    "score": [
+     "-2",
+     "1"
+    ],
+    "label": "the ways to the target within 2; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 8.9733
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "the ways to the target within 2; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 8.9773
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "the ways to the target within 2; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 8.9773
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the ways to the target within 1",
+    "layer": 0,
+    "bits": 8.9773
+   },
+   {
+    "score": [
+     "-1",
+     "1"
+    ],
+    "label": "the ways to the target within 1; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 10.8471
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "the ways to the target within 1; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 10.856
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "the ways to the target within 1; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 10.8561
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the ways to the target exactly",
+    "layer": 0,
+    "bits": 10.8638
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 0",
+    "layer": 1,
+    "bits": 10.8638
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 17.59
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 2",
+    "layer": 1,
+    "bits": 18.8285
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 24.8243
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 27.893
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 5",
+    "layer": 1,
+    "bits": 29.8712
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/exact-change/{\"ways\":6}/tb=prime-coins",
+  "variant": "line-q",
+  "family": "exact-change",
+  "params": {
+   "ways": 6
+  },
+  "tieBreaker": "prime-coins",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "12fac2afa4d69a60",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; the coins to primes within 3",
+    "layer": 1,
+    "bits": 2.8433
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; the coins to primes within 2",
+    "layer": 1,
+    "bits": 2.8768
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the coins to primes within 1",
+    "layer": 1,
+    "bits": 3.0411
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the ways to the target within 5",
+    "layer": 0,
+    "bits": 3.3457
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "the ways to the target within 5; the coins to primes within 3",
+    "layer": 1,
+    "bits": 3.354
+   },
+   {
+    "score": [
+     "-5",
+     "-2"
+    ],
+    "label": "the ways to the target within 5; the coins to primes within 2",
+    "layer": 1,
+    "bits": 3.4417
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "the ways to the target within 5; the coins to primes within 1",
+    "layer": 1,
+    "bits": 4.2546
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the ways to the target within 4",
+    "layer": 0,
+    "bits": 6.6492
+   },
+   {
+    "score": [
+     "-4",
+     "-3"
+    ],
+    "label": "the ways to the target within 4; the coins to primes within 3",
+    "layer": 1,
+    "bits": 6.6492
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the ways to the target within 4; the coins to primes within 2",
+    "layer": 1,
+    "bits": 6.6678
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the ways to the target within 4; the coins to primes within 1",
+    "layer": 1,
+    "bits": 7.1142
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the ways to the target within 3",
+    "layer": 0,
+    "bits": 7.6526
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "the ways to the target within 3; the coins to primes within 3",
+    "layer": 1,
+    "bits": 7.6526
+   },
+   {
+    "score": [
+     "-3",
+     "-2"
+    ],
+    "label": "the ways to the target within 3; the coins to primes within 2",
+    "layer": 1,
+    "bits": 7.6616
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "the ways to the target within 3; the coins to primes within 1",
+    "layer": 1,
+    "bits": 8.0132
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the ways to the target within 2",
+    "layer": 0,
+    "bits": 8.4634
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "the ways to the target within 2; the coins to primes within 3",
+    "layer": 1,
+    "bits": 8.4652
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the ways to the target within 2; the coins to primes within 2",
+    "layer": 1,
+    "bits": 8.4733
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the ways to the target within 2; the coins to primes within 1",
+    "layer": 1,
+    "bits": 8.897
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the ways to the target within 1",
+    "layer": 0,
+    "bits": 9.3581
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "the ways to the target within 1; the coins to primes within 3",
+    "layer": 1,
+    "bits": 9.3581
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the ways to the target within 1; the coins to primes within 2",
+    "layer": 1,
+    "bits": 9.3954
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the ways to the target within 1; the coins to primes within 1",
+    "layer": 1,
+    "bits": 10.2339
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the ways to the target exactly",
+    "layer": 0,
+    "bits": 11.1736
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 4",
+    "layer": 1,
+    "bits": 11.1736
+   },
+   {
+    "score": [
+     "0",
+     "-3"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 3",
+    "layer": 1,
+    "bits": 11.1743
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 2",
+    "layer": 1,
+    "bits": 11.1771
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 1",
+    "layer": 1,
+    "bits": 12.8943
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the ways to the target exactly; the coins to primes exactly",
+    "layer": 1,
+    "bits": 17.044
    }
   ]
  },
@@ -273,7 +1587,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "f5d9aa41b10f46f9",
+  "contentHash": "9059a8523c4fbbc5",
   "rungs": [
    {
     "score": null,
@@ -283,11 +1597,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; c to a prime within 2",
+    "layer": 1,
+    "bits": 0.6805
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.7415
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 0.745
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "m and c within 8",
     "layer": 0,
-    "bits": null
+    "bits": 0.7493
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "m and c within 8; c to a prime within 2",
+    "layer": 1,
+    "bits": 0.7848
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "m and c within 8; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.8425
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "m and c within 8; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 0.8469
    },
    {
     "score": [
@@ -295,7 +1663,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 4",
     "layer": 0,
-    "bits": null
+    "bits": 0.8597
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "m and c within 4; c to a prime within 2",
+    "layer": 1,
+    "bits": 0.915
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "m and c within 4; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.9989
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "m and c within 4; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 1.0088
    },
    {
     "score": [
@@ -303,7 +1698,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 2",
     "layer": 0,
-    "bits": null
+    "bits": 1.0318
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "m and c within 2; c to a prime within 2",
+    "layer": 1,
+    "bits": 1.0966
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "m and c within 2; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.1949
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "m and c within 2; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 1.2063
    },
    {
     "score": [
@@ -311,7 +1733,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1",
     "layer": 0,
-    "bits": null
+    "bits": 1.2404
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "m and c within 1; c to a prime within 2",
+    "layer": 1,
+    "bits": 1.3501
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "m and c within 1; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.6416
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "m and c within 1; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 1.6424
    },
    {
     "score": [
@@ -319,7 +1768,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1/2",
     "layer": 0,
-    "bits": null
+    "bits": 1.6482
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "m and c within 1/2; c to a prime within 2",
+    "layer": 1,
+    "bits": 1.7261
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "m and c within 1/2; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.9424
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "m and c within 1/2; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 1.9435
    },
    {
     "score": [
@@ -327,7 +1803,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1/4",
     "layer": 0,
-    "bits": null
+    "bits": 1.9438
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "m and c within 1/4; c to a prime within 2",
+    "layer": 1,
+    "bits": 1.9917
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "m and c within 1/4; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 2.1405
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "m and c within 1/4; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 2.1405
    },
    {
     "score": [
@@ -335,7 +1838,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1/8",
     "layer": 0,
-    "bits": null
+    "bits": 2.1405
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "m and c within 1/8; c to a prime within 2",
+    "layer": 1,
+    "bits": 2.1925
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/2"
+    ],
+    "label": "m and c within 1/8; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 2.3407
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/8"
+    ],
+    "label": "m and c within 1/8; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 2.3407
    },
    {
     "score": [
@@ -343,79 +1873,79 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c exactly",
     "layer": 0,
-    "bits": null
+    "bits": 2.3407
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "c to a prime within 8",
+    "label": "m and c exactly; c to a prime within 8",
     "layer": 1,
-    "bits": null
+    "bits": 2.3408
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "c to a prime within 4",
+    "label": "m and c exactly; c to a prime within 4",
     "layer": 1,
-    "bits": null
+    "bits": 2.3419
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "c to a prime within 2",
+    "label": "m and c exactly; c to a prime within 2",
     "layer": 1,
-    "bits": null
+    "bits": 2.3791
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "c to a prime within 1",
+    "label": "m and c exactly; c to a prime within 1",
     "layer": 1,
-    "bits": null
+    "bits": 8.61
    },
    {
     "score": [
      "0",
      "-1/2"
     ],
-    "label": "c to a prime within 1/2",
+    "label": "m and c exactly; c to a prime within 1/2",
     "layer": 1,
-    "bits": null
+    "bits": 10.694
    },
    {
     "score": [
      "0",
      "-1/4"
     ],
-    "label": "c to a prime within 1/4",
+    "label": "m and c exactly; c to a prime within 1/4",
     "layer": 1,
-    "bits": null
+    "bits": 10.9202
    },
    {
     "score": [
      "0",
      "-1/8"
     ],
-    "label": "c to a prime within 1/8",
+    "label": "m and c exactly; c to a prime within 1/8",
     "layer": 1,
-    "bits": null
+    "bits": 10.9229
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "c to a prime exactly",
+    "label": "m and c exactly; c to a prime exactly",
     "layer": 1,
-    "bits": null
+    "bits": 10.9229
    }
   ]
  },
@@ -428,7 +1958,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "41bf1c06257fe53a",
+  "contentHash": "52344d5bbc0936f2",
   "rungs": [
    {
     "score": null,
@@ -438,11 +1968,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; |c| at least 3",
+    "layer": 1,
+    "bits": 0.6679
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; |c| at least 6",
+    "layer": 1,
+    "bits": 0.6748
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; |c| at least 12",
+    "layer": 1,
+    "bits": 0.6968
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "m and c within 8",
     "layer": 0,
-    "bits": 0.7521
+    "bits": 0.7335
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "m and c within 8; |c| at least 3",
+    "layer": 1,
+    "bits": 0.7818
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "m and c within 8; |c| at least 6",
+    "layer": 1,
+    "bits": 0.8122
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "m and c within 8; |c| at least 12",
+    "layer": 1,
+    "bits": 0.8415
    },
    {
     "score": [
@@ -450,7 +2034,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 4",
     "layer": 0,
-    "bits": 0.8684
+    "bits": 0.8427
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "m and c within 4; |c| at least 3",
+    "layer": 1,
+    "bits": 0.9377
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "m and c within 4; |c| at least 6",
+    "layer": 1,
+    "bits": 1.0071
+   },
+   {
+    "score": [
+     "-4",
+     "12"
+    ],
+    "label": "m and c within 4; |c| at least 12",
+    "layer": 1,
+    "bits": 1.0099
    },
    {
     "score": [
@@ -458,7 +2069,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 2",
     "layer": 0,
-    "bits": 1.0369
+    "bits": 1.0101
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "m and c within 2; |c| at least 3",
+    "layer": 1,
+    "bits": 1.2027
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "m and c within 2; |c| at least 6",
+    "layer": 1,
+    "bits": 1.2087
+   },
+   {
+    "score": [
+     "-2",
+     "12"
+    ],
+    "label": "m and c within 2; |c| at least 12",
+    "layer": 1,
+    "bits": 1.2102
    },
    {
     "score": [
@@ -466,7 +2104,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1",
     "layer": 0,
-    "bits": 1.236
+    "bits": 1.2103
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "m and c within 1; |c| at least 3",
+    "layer": 1,
+    "bits": 1.6317
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "m and c within 1; |c| at least 6",
+    "layer": 1,
+    "bits": 1.6377
+   },
+   {
+    "score": [
+     "-1",
+     "12"
+    ],
+    "label": "m and c within 1; |c| at least 12",
+    "layer": 1,
+    "bits": 1.6388
    },
    {
     "score": [
@@ -474,7 +2139,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1/2",
     "layer": 0,
-    "bits": 1.649
+    "bits": 1.6391
+   },
+   {
+    "score": [
+     "-1/2",
+     "3"
+    ],
+    "label": "m and c within 1/2; |c| at least 3",
+    "layer": 1,
+    "bits": 1.962
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "m and c within 1/2; |c| at least 6",
+    "layer": 1,
+    "bits": 1.9631
+   },
+   {
+    "score": [
+     "-1/2",
+     "12"
+    ],
+    "label": "m and c within 1/2; |c| at least 12",
+    "layer": 1,
+    "bits": 1.9631
    },
    {
     "score": [
@@ -482,7 +2174,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1/4",
     "layer": 0,
-    "bits": 1.9605
+    "bits": 1.9631
+   },
+   {
+    "score": [
+     "-1/4",
+     "3"
+    ],
+    "label": "m and c within 1/4; |c| at least 3",
+    "layer": 1,
+    "bits": 2.1475
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "m and c within 1/4; |c| at least 6",
+    "layer": 1,
+    "bits": 2.1479
+   },
+   {
+    "score": [
+     "-1/4",
+     "12"
+    ],
+    "label": "m and c within 1/4; |c| at least 12",
+    "layer": 1,
+    "bits": 2.1479
    },
    {
     "score": [
@@ -490,7 +2209,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1/8",
     "layer": 0,
-    "bits": 2.1516
+    "bits": 2.1479
+   },
+   {
+    "score": [
+     "-1/8",
+     "3"
+    ],
+    "label": "m and c within 1/8; |c| at least 3",
+    "layer": 1,
+    "bits": 2.3369
+   },
+   {
+    "score": [
+     "-1/8",
+     "6"
+    ],
+    "label": "m and c within 1/8; |c| at least 6",
+    "layer": 1,
+    "bits": 2.3374
+   },
+   {
+    "score": [
+     "-1/8",
+     "12"
+    ],
+    "label": "m and c within 1/8; |c| at least 12",
+    "layer": 1,
+    "bits": 2.3374
    },
    {
     "score": [
@@ -498,88 +2244,88 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c exactly",
     "layer": 0,
-    "bits": 2.3306
+    "bits": 2.3374
    },
    {
     "score": [
      "0",
      "1"
     ],
-    "label": "|c| at least 1",
+    "label": "m and c exactly; |c| at least 1",
     "layer": 1,
-    "bits": 7.6149
+    "bits": 7.6063
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "|c| at least 2",
+    "label": "m and c exactly; |c| at least 2",
     "layer": 1,
-    "bits": 9.513
+    "bits": 9.1799
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "|c| at least 3",
+    "label": "m and c exactly; |c| at least 3",
     "layer": 1,
-    "bits": 10.6402
+    "bits": 10.1744
    },
    {
     "score": [
      "0",
      "4"
     ],
-    "label": "|c| at least 4",
+    "label": "m and c exactly; |c| at least 4",
     "layer": 1,
-    "bits": 11.6857
+    "bits": 11.2422
    },
    {
     "score": [
      "0",
      "6"
     ],
-    "label": "|c| at least 6",
+    "label": "m and c exactly; |c| at least 6",
     "layer": 1,
-    "bits": 13.3016
+    "bits": 13.0706
    },
    {
     "score": [
      "0",
      "8"
     ],
-    "label": "|c| at least 8",
+    "label": "m and c exactly; |c| at least 8",
     "layer": 1,
-    "bits": 14.548
+    "bits": 13.4602
    },
    {
     "score": [
      "0",
      "12"
     ],
-    "label": "|c| at least 12",
+    "label": "m and c exactly; |c| at least 12",
     "layer": 1,
-    "bits": 16.1054
+    "bits": 17.3343
    },
    {
     "score": [
      "0",
      "16"
     ],
-    "label": "|c| at least 16",
+    "label": "m and c exactly; |c| at least 16",
     "layer": 1,
-    "bits": 19.8798
+    "bits": 17.6237
    },
    {
     "score": [
      "0",
      "24"
     ],
-    "label": "|c| at least 24",
+    "label": "m and c exactly; |c| at least 24",
     "layer": 1,
-    "bits": 20.8876
+    "bits": 19.9783
    }
   ]
  },
@@ -592,7 +2338,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "356712209e9f615d",
+  "contentHash": "12cf814f8778164d",
   "rungs": [
    {
     "score": null,
@@ -602,11 +2348,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; c to a prime within 2",
+    "layer": 1,
+    "bits": 0.6387
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.6613
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 0.6623
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "gradient to a prime within 8",
     "layer": 0,
-    "bits": null
+    "bits": 0.6643
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "gradient to a prime within 8; c to a prime within 2",
+    "layer": 1,
+    "bits": 0.6749
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 8; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.7126
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 8; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 0.7142
    },
    {
     "score": [
@@ -614,7 +2414,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 4",
     "layer": 0,
-    "bits": null
+    "bits": 0.7179
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "gradient to a prime within 4; c to a prime within 2",
+    "layer": 1,
+    "bits": 0.7694
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 4; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.9703
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 4; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 0.9765
    },
    {
     "score": [
@@ -622,7 +2449,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 2",
     "layer": 0,
-    "bits": null
+    "bits": 0.9851
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "gradient to a prime within 2; c to a prime within 2",
+    "layer": 1,
+    "bits": 1.3168
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 2; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 3.151
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 2; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 3.2693
    },
    {
     "score": [
@@ -630,7 +2484,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1",
     "layer": 0,
-    "bits": null
+    "bits": 3.5641
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "gradient to a prime within 1; c to a prime within 2",
+    "layer": 1,
+    "bits": 3.7466
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 1; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 4.6642
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 1; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 4.6854
    },
    {
     "score": [
@@ -638,7 +2519,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1/2",
     "layer": 0,
-    "bits": null
+    "bits": 4.7582
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "gradient to a prime within 1/2; c to a prime within 2",
+    "layer": 1,
+    "bits": 4.8562
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 1/2; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.1933
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 1/2; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 5.221
    },
    {
     "score": [
@@ -646,7 +2554,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1/4",
     "layer": 0,
-    "bits": null
+    "bits": 5.2349
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "gradient to a prime within 1/4; c to a prime within 2",
+    "layer": 1,
+    "bits": 5.2533
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 1/4; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.3449
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 1/4; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 5.3498
    },
    {
     "score": [
@@ -654,7 +2589,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1/8",
     "layer": 0,
-    "bits": null
+    "bits": 5.3504
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "gradient to a prime within 1/8; c to a prime within 2",
+    "layer": 1,
+    "bits": 5.3545
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/2"
+    ],
+    "label": "gradient to a prime within 1/8; c to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.3613
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/8"
+    ],
+    "label": "gradient to a prime within 1/8; c to a prime within 1/8",
+    "layer": 1,
+    "bits": 5.3613
    },
    {
     "score": [
@@ -662,79 +2624,79 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime exactly",
     "layer": 0,
-    "bits": null
+    "bits": 5.3613
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "c to a prime within 8",
+    "label": "gradient to a prime exactly; c to a prime within 8",
     "layer": 1,
-    "bits": null
+    "bits": 5.42
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "c to a prime within 4",
+    "label": "gradient to a prime exactly; c to a prime within 4",
     "layer": 1,
-    "bits": null
+    "bits": 5.5219
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "c to a prime within 2",
+    "label": "gradient to a prime exactly; c to a prime within 2",
     "layer": 1,
-    "bits": null
+    "bits": 5.676
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "c to a prime within 1",
+    "label": "gradient to a prime exactly; c to a prime within 1",
     "layer": 1,
-    "bits": null
+    "bits": 7.7887
    },
    {
     "score": [
      "0",
      "-1/2"
     ],
-    "label": "c to a prime within 1/2",
+    "label": "gradient to a prime exactly; c to a prime within 1/2",
     "layer": 1,
-    "bits": null
+    "bits": 9.019
    },
    {
     "score": [
      "0",
      "-1/4"
     ],
-    "label": "c to a prime within 1/4",
+    "label": "gradient to a prime exactly; c to a prime within 1/4",
     "layer": 1,
-    "bits": null
+    "bits": 9.1168
    },
    {
     "score": [
      "0",
      "-1/8"
     ],
-    "label": "c to a prime within 1/8",
+    "label": "gradient to a prime exactly; c to a prime within 1/8",
     "layer": 1,
-    "bits": null
+    "bits": 9.1312
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "c to a prime exactly",
+    "label": "gradient to a prime exactly; c to a prime exactly",
     "layer": 1,
-    "bits": null
+    "bits": 9.1312
    }
   ]
  },
@@ -747,7 +2709,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "d20d2bf444bdc38f",
+  "contentHash": "7c371e4ad3eaf22b",
   "rungs": [
    {
     "score": null,
@@ -757,11 +2719,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; the prime at least 7",
+    "layer": 1,
+    "bits": 0.6785
+   },
+   {
+    "score": [
+     null,
+     "17"
+    ],
+    "label": "anything; the prime at least 17",
+    "layer": 1,
+    "bits": 0.6785
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the prime at least 23",
+    "layer": 1,
+    "bits": 0.6785
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "gradient to a prime within 8",
     "layer": 0,
-    "bits": 0.6857
+    "bits": 0.6785
+   },
+   {
+    "score": [
+     "-8",
+     "7"
+    ],
+    "label": "gradient to a prime within 8; the prime at least 7",
+    "layer": 1,
+    "bits": 0.7405
+   },
+   {
+    "score": [
+     "-8",
+     "17"
+    ],
+    "label": "gradient to a prime within 8; the prime at least 17",
+    "layer": 1,
+    "bits": 0.7405
+   },
+   {
+    "score": [
+     "-8",
+     "23"
+    ],
+    "label": "gradient to a prime within 8; the prime at least 23",
+    "layer": 1,
+    "bits": 0.7405
    },
    {
     "score": [
@@ -769,7 +2785,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 4",
     "layer": 0,
-    "bits": 0.7439
+    "bits": 0.7406
+   },
+   {
+    "score": [
+     "-4",
+     "7"
+    ],
+    "label": "gradient to a prime within 4; the prime at least 7",
+    "layer": 1,
+    "bits": 1.0235
+   },
+   {
+    "score": [
+     "-4",
+     "17"
+    ],
+    "label": "gradient to a prime within 4; the prime at least 17",
+    "layer": 1,
+    "bits": 1.0235
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "gradient to a prime within 4; the prime at least 23",
+    "layer": 1,
+    "bits": 1.0235
    },
    {
     "score": [
@@ -777,7 +2820,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 2",
     "layer": 0,
-    "bits": 1.0274
+    "bits": 1.0237
+   },
+   {
+    "score": [
+     "-2",
+     "7"
+    ],
+    "label": "gradient to a prime within 2; the prime at least 7",
+    "layer": 1,
+    "bits": 3.4968
+   },
+   {
+    "score": [
+     "-2",
+     "17"
+    ],
+    "label": "gradient to a prime within 2; the prime at least 17",
+    "layer": 1,
+    "bits": 3.5371
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "gradient to a prime within 2; the prime at least 23",
+    "layer": 1,
+    "bits": 3.5422
    },
    {
     "score": [
@@ -785,7 +2855,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1",
     "layer": 0,
-    "bits": 3.5906
+    "bits": 3.5639
+   },
+   {
+    "score": [
+     "-1",
+     "7"
+    ],
+    "label": "gradient to a prime within 1; the prime at least 7",
+    "layer": 1,
+    "bits": 4.4386
+   },
+   {
+    "score": [
+     "-1",
+     "17"
+    ],
+    "label": "gradient to a prime within 1; the prime at least 17",
+    "layer": 1,
+    "bits": 4.5646
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "gradient to a prime within 1; the prime at least 23",
+    "layer": 1,
+    "bits": 4.6154
    },
    {
     "score": [
@@ -793,7 +2890,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1/2",
     "layer": 0,
-    "bits": 4.8162
+    "bits": 4.6898
+   },
+   {
+    "score": [
+     "-1/2",
+     "7"
+    ],
+    "label": "gradient to a prime within 1/2; the prime at least 7",
+    "layer": 1,
+    "bits": 5.1202
+   },
+   {
+    "score": [
+     "-1/2",
+     "17"
+    ],
+    "label": "gradient to a prime within 1/2; the prime at least 17",
+    "layer": 1,
+    "bits": 5.1597
+   },
+   {
+    "score": [
+     "-1/2",
+     "23"
+    ],
+    "label": "gradient to a prime within 1/2; the prime at least 23",
+    "layer": 1,
+    "bits": 5.1694
    },
    {
     "score": [
@@ -801,7 +2925,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1/4",
     "layer": 0,
-    "bits": 5.2856
+    "bits": 5.1807
+   },
+   {
+    "score": [
+     "-1/4",
+     "7"
+    ],
+    "label": "gradient to a prime within 1/4; the prime at least 7",
+    "layer": 1,
+    "bits": 5.2933
+   },
+   {
+    "score": [
+     "-1/4",
+     "17"
+    ],
+    "label": "gradient to a prime within 1/4; the prime at least 17",
+    "layer": 1,
+    "bits": 5.2999
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "gradient to a prime within 1/4; the prime at least 23",
+    "layer": 1,
+    "bits": 5.3002
    },
    {
     "score": [
@@ -809,7 +2960,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1/8",
     "layer": 0,
-    "bits": 5.3905
+    "bits": 5.3005
+   },
+   {
+    "score": [
+     "-1/8",
+     "7"
+    ],
+    "label": "gradient to a prime within 1/8; the prime at least 7",
+    "layer": 1,
+    "bits": 5.3168
+   },
+   {
+    "score": [
+     "-1/8",
+     "17"
+    ],
+    "label": "gradient to a prime within 1/8; the prime at least 17",
+    "layer": 1,
+    "bits": 5.3169
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "gradient to a prime within 1/8; the prime at least 23",
+    "layer": 1,
+    "bits": 5.3169
    },
    {
     "score": [
@@ -817,23 +2995,23 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime exactly",
     "layer": 0,
-    "bits": 5.4074
+    "bits": 5.3169
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "the prime at least 3",
+    "label": "gradient to a prime exactly; the prime at least 3",
     "layer": 1,
-    "bits": 6.3577
+    "bits": 6.2288
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "the prime at least 5",
+    "label": "gradient to a prime exactly; the prime at least 5",
     "layer": 1,
     "bits": 7.6587
    },
@@ -842,67 +3020,85 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
      "0",
      "7"
     ],
-    "label": "the prime at least 7",
+    "label": "gradient to a prime exactly; the prime at least 7",
     "layer": 1,
-    "bits": 9.0421
+    "bits": 8.7852
    },
    {
     "score": [
      "0",
      "11"
     ],
-    "label": "the prime at least 11",
+    "label": "gradient to a prime exactly; the prime at least 11",
     "layer": 1,
-    "bits": 10.9756
+    "bits": 11.3251
    },
    {
     "score": [
      "0",
      "13"
     ],
-    "label": "the prime at least 13",
+    "label": "gradient to a prime exactly; the prime at least 13",
     "layer": 1,
-    "bits": 12.7211
+    "bits": 12.6095
    },
    {
     "score": [
      "0",
      "17"
     ],
-    "label": "the prime at least 17",
+    "label": "gradient to a prime exactly; the prime at least 17",
     "layer": 1,
-    "bits": 14.4106
+    "bits": 16.4915
    },
    {
     "score": [
      "0",
      "19"
     ],
-    "label": "the prime at least 19",
+    "label": "gradient to a prime exactly; the prime at least 19",
     "layer": 1,
-    "bits": 15.674
+    "bits": 17.0482
    },
    {
     "score": [
      "0",
      "23"
     ],
-    "label": "the prime at least 23",
+    "label": "gradient to a prime exactly; the prime at least 23",
     "layer": 1,
-    "bits": 23.9415
+    "bits": 22.2828
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "gradient to a prime exactly; the prime at least 29",
+    "layer": 1,
+    "bits": 32.1888
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "gradient to a prime exactly; the prime at least 31",
+    "layer": 1,
+    "bits": 34.4
    }
   ]
  },
  {
-  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=factors",
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-landing/{}/tb=big-prime",
   "variant": "line-q",
-  "family": "square-area",
+  "family": "prime-landing",
   "params": {},
-  "tieBreaker": "factors",
+  "tieBreaker": "big-prime",
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "4635d5cf8cb10fb1",
+  "contentHash": "63277ad837095e0e",
   "rungs": [
    {
     "score": null,
@@ -912,267 +3108,7979 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
-     "-8"
+     null,
+     "5"
     ],
-    "label": "the area to a square within 8",
-    "layer": 0,
-    "bits": 2.8826
+    "label": "anything; the prime at least 5",
+    "layer": 1,
+    "bits": 0.7242
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the prime at least 13",
+    "layer": 1,
+    "bits": 0.7242
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the prime at least 23",
+    "layer": 1,
+    "bits": 0.7242
    },
    {
     "score": [
      "-4"
     ],
-    "label": "the area to a square within 4",
+    "label": "c to a prime within 4",
     "layer": 0,
-    "bits": 2.9302
+    "bits": 0.7242
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "c to a prime within 4; the prime at least 5",
+    "layer": 1,
+    "bits": 1.0037
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "c to a prime within 4; the prime at least 13",
+    "layer": 1,
+    "bits": 1.0037
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "c to a prime within 4; the prime at least 23",
+    "layer": 1,
+    "bits": 1.0037
    },
    {
     "score": [
      "-2"
     ],
-    "label": "the area to a square within 2",
+    "label": "c to a prime within 2",
     "layer": 0,
-    "bits": 3.0315
+    "bits": 1.0043
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "c to a prime within 2; the prime at least 5",
+    "layer": 1,
+    "bits": 3.3368
+   },
+   {
+    "score": [
+     "-2",
+     "13"
+    ],
+    "label": "c to a prime within 2; the prime at least 13",
+    "layer": 1,
+    "bits": 3.3681
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "c to a prime within 2; the prime at least 23",
+    "layer": 1,
+    "bits": 3.3797
    },
    {
     "score": [
      "-1"
     ],
-    "label": "the area to a square within 1",
+    "label": "c to a prime within 1",
     "layer": 0,
-    "bits": 3.1751
+    "bits": 3.3984
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "c to a prime within 1; the prime at least 5",
+    "layer": 1,
+    "bits": 4.2608
+   },
+   {
+    "score": [
+     "-1",
+     "13"
+    ],
+    "label": "c to a prime within 1; the prime at least 13",
+    "layer": 1,
+    "bits": 4.5446
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "c to a prime within 1; the prime at least 23",
+    "layer": 1,
+    "bits": 4.6217
    },
    {
     "score": [
      "-1/2"
     ],
-    "label": "the area to a square within 1/2",
+    "label": "c to a prime within 1/2",
     "layer": 0,
-    "bits": 3.345
+    "bits": 4.7001
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "c to a prime within 1/2; the prime at least 5",
+    "layer": 1,
+    "bits": 4.9981
+   },
+   {
+    "score": [
+     "-1/2",
+     "13"
+    ],
+    "label": "c to a prime within 1/2; the prime at least 13",
+    "layer": 1,
+    "bits": 5.1244
+   },
+   {
+    "score": [
+     "-1/2",
+     "23"
+    ],
+    "label": "c to a prime within 1/2; the prime at least 23",
+    "layer": 1,
+    "bits": 5.145
    },
    {
     "score": [
      "-1/4"
     ],
-    "label": "the area to a square within 1/4",
+    "label": "c to a prime within 1/4",
     "layer": 0,
-    "bits": 3.7772
+    "bits": 5.154
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "c to a prime within 1/4; the prime at least 5",
+    "layer": 1,
+    "bits": 5.2259
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "c to a prime within 1/4; the prime at least 13",
+    "layer": 1,
+    "bits": 5.2315
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "c to a prime within 1/4; the prime at least 23",
+    "layer": 1,
+    "bits": 5.2318
    },
    {
     "score": [
      "-1/8"
     ],
-    "label": "the area to a square within 1/8",
+    "label": "c to a prime within 1/8",
     "layer": 0,
-    "bits": 4.2147
+    "bits": 5.2318
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "c to a prime within 1/8; the prime at least 5",
+    "layer": 1,
+    "bits": 5.2432
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "c to a prime within 1/8; the prime at least 13",
+    "layer": 1,
+    "bits": 5.2433
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "c to a prime within 1/8; the prime at least 23",
+    "layer": 1,
+    "bits": 5.2433
    },
    {
     "score": [
      "0"
     ],
-    "label": "the area to a square exactly",
+    "label": "c to a prime exactly",
     "layer": 0,
-    "bits": 7.1057
-   },
-   {
-    "score": [
-     "0",
-     "1"
-    ],
-    "label": "prime factors of the root at least 1",
-    "layer": 1,
-    "bits": 7.7272
+    "bits": 5.2433
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "prime factors of the root at least 2",
+    "label": "c to a prime exactly; the prime at least 2",
     "layer": 1,
-    "bits": 9.0128
+    "bits": 5.2433
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "prime factors of the root at least 3",
+    "label": "c to a prime exactly; the prime at least 3",
     "layer": 1,
-    "bits": 10.6004
-   },
-   {
-    "score": [
-     "0",
-     "4"
-    ],
-    "label": "prime factors of the root at least 4",
-    "layer": 1,
-    "bits": 12.3554
+    "bits": 6.1131
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "prime factors of the root at least 5",
+    "label": "c to a prime exactly; the prime at least 5",
     "layer": 1,
-    "bits": 14.2842
-   },
-   {
-    "score": [
-     "0",
-     "6"
-    ],
-    "label": "prime factors of the root at least 6",
-    "layer": 1,
-    "bits": 19.0079
-   }
-  ]
- },
- {
-  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=rootSpf",
-  "variant": "line-q",
-  "family": "square-area",
-  "params": {},
-  "tieBreaker": "rootSpf",
-  "status": "unconverged",
-  "primarySense": "min",
-  "curve": null,
-  "contentHash": "64f950d9742734c5",
-  "rungs": [
-   {
-    "score": null,
-    "label": "anything",
-    "layer": -1,
-    "bits": 0
-   },
-   {
-    "score": [
-     "-8"
-    ],
-    "label": "the area to a square within 8",
-    "layer": 0,
-    "bits": 2.8847
-   },
-   {
-    "score": [
-     "-4"
-    ],
-    "label": "the area to a square within 4",
-    "layer": 0,
-    "bits": 2.9249
-   },
-   {
-    "score": [
-     "-2"
-    ],
-    "label": "the area to a square within 2",
-    "layer": 0,
-    "bits": 3.0273
-   },
-   {
-    "score": [
-     "-1"
-    ],
-    "label": "the area to a square within 1",
-    "layer": 0,
-    "bits": 3.1521
-   },
-   {
-    "score": [
-     "-1/2"
-    ],
-    "label": "the area to a square within 1/2",
-    "layer": 0,
-    "bits": 3.3126
-   },
-   {
-    "score": [
-     "-1/4"
-    ],
-    "label": "the area to a square within 1/4",
-    "layer": 0,
-    "bits": 3.751
-   },
-   {
-    "score": [
-     "-1/8"
-    ],
-    "label": "the area to a square within 1/8",
-    "layer": 0,
-    "bits": 4.206
-   },
-   {
-    "score": [
-     "0"
-    ],
-    "label": "the area to a square exactly",
-    "layer": 0,
-    "bits": 7.2175
-   },
-   {
-    "score": [
-     "0",
-     "2"
-    ],
-    "label": "the root's smallest prime factor at least 2",
-    "layer": 1,
-    "bits": 7.9251
-   },
-   {
-    "score": [
-     "0",
-     "3"
-    ],
-    "label": "the root's smallest prime factor at least 3",
-    "layer": 1,
-    "bits": 9.3301
-   },
-   {
-    "score": [
-     "0",
-     "5"
-    ],
-    "label": "the root's smallest prime factor at least 5",
-    "layer": 1,
-    "bits": 10.8449
+    "bits": 7.2363
    },
    {
     "score": [
      "0",
      "7"
     ],
-    "label": "the root's smallest prime factor at least 7",
+    "label": "c to a prime exactly; the prime at least 7",
     "layer": 1,
-    "bits": 12.5994
+    "bits": 8.859
    },
    {
     "score": [
      "0",
      "11"
     ],
-    "label": "the root's smallest prime factor at least 11",
+    "label": "c to a prime exactly; the prime at least 11",
     "layer": 1,
-    "bits": 14.691
+    "bits": 10.9402
    },
    {
     "score": [
      "0",
      "13"
     ],
-    "label": "the root's smallest prime factor at least 13",
+    "label": "c to a prime exactly; the prime at least 13",
     "layer": 1,
-    "bits": 14.9934
+    "bits": 12.3265
    },
    {
     "score": [
      "0",
      "17"
     ],
-    "label": "the root's smallest prime factor at least 17",
+    "label": "c to a prime exactly; the prime at least 17",
     "layer": 1,
-    "bits": 19.1073
+    "bits": 14.8273
+   },
+   {
+    "score": [
+     "0",
+     "19"
+    ],
+    "label": "c to a prime exactly; the prime at least 19",
+    "layer": 1,
+    "bits": 15.9458
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "c to a prime exactly; the prime at least 23",
+    "layer": 1,
+    "bits": 21.8246
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "c to a prime exactly; the prime at least 29",
+    "layer": 1,
+    "bits": 22.1739
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "c to a prime exactly; the prime at least 31",
+    "layer": 1,
+    "bits": 22.2117
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-landing/{}/tb=next-prime",
+  "variant": "line-q",
+  "family": "prime-landing",
+  "params": {},
+  "tieBreaker": "next-prime",
+  "status": "converged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "54ba5a8f71eef37e",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.6382
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.6907
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 0.7052
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "c to a prime within 4",
+    "layer": 0,
+    "bits": 0.7435
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "c to a prime within 4; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.7449
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "c to a prime within 4; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.9518
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "c to a prime within 4; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 0.9732
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "c to a prime within 2",
+    "layer": 0,
+    "bits": 1.021
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "c to a prime within 2; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 1.0227
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "c to a prime within 2; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 2.9149
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "c to a prime within 2; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 3.0462
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "c to a prime within 1",
+    "layer": 0,
+    "bits": 3.4797
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "c to a prime within 1; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 3.4842
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 4.3813
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 4.4356
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/2",
+    "layer": 0,
+    "bits": 4.6952
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "c to a prime within 1/2; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 4.6956
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/2; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 4.7722
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/2; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.0645
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/4",
+    "layer": 0,
+    "bits": 5.1455
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "c to a prime within 1/4; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 5.1456
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/4; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.1552
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/4; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.1705
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "c to a prime within 1/8",
+    "layer": 0,
+    "bits": 5.2362
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "c to a prime within 1/8; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 5.2362
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/8; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.237
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/8; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.2382
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "c to a prime exactly",
+    "layer": 0,
+    "bits": 5.2476
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 4",
+    "layer": 1,
+    "bits": 5.2476
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 5.2514
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 1",
+    "layer": 1,
+    "bits": 5.321
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.5552
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.6341
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime exactly",
+    "layer": 1,
+    "bits": 5.6609
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-landing/{}/tb=prime-gradient",
+  "variant": "line-q",
+  "family": "prime-landing",
+  "params": {},
+  "tieBreaker": "prime-gradient",
+  "status": "flagged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "9126f4fb9f339420",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; m to a prime within 2",
+    "layer": 1,
+    "bits": 0.6252
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.6938
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 0.6953
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "c to a prime within 4",
+    "layer": 0,
+    "bits": 0.7009
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "c to a prime within 4; m to a prime within 2",
+    "layer": 1,
+    "bits": 0.7627
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "c to a prime within 4; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.9731
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "c to a prime within 4; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 0.9782
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "c to a prime within 2",
+    "layer": 0,
+    "bits": 0.9883
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "c to a prime within 2; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.2969
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "c to a prime within 2; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 3.1981
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "c to a prime within 2; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 3.2913
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "c to a prime within 1",
+    "layer": 0,
+    "bits": 3.514
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "c to a prime within 1; m to a prime within 2",
+    "layer": 1,
+    "bits": 3.6947
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 4.5821
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 4.595
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/2",
+    "layer": 0,
+    "bits": 4.6974
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "c to a prime within 1/2; m to a prime within 2",
+    "layer": 1,
+    "bits": 4.7952
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/2; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.0963
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/2; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.1181
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/4",
+    "layer": 0,
+    "bits": 5.1309
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "c to a prime within 1/4; m to a prime within 2",
+    "layer": 1,
+    "bits": 5.1572
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/4; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.2287
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/4; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.2335
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "c to a prime within 1/8",
+    "layer": 0,
+    "bits": 5.2349
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "c to a prime within 1/8; m to a prime within 2",
+    "layer": 1,
+    "bits": 5.2363
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/2"
+    ],
+    "label": "c to a prime within 1/8; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.2432
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/4"
+    ],
+    "label": "c to a prime within 1/8; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.2435
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "c to a prime exactly",
+    "layer": 0,
+    "bits": 5.2437
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "c to a prime exactly; m to a prime within 4",
+    "layer": 1,
+    "bits": 5.3743
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "c to a prime exactly; m to a prime within 2",
+    "layer": 1,
+    "bits": 5.6046
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "c to a prime exactly; m to a prime within 1",
+    "layer": 1,
+    "bits": 7.8224
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "c to a prime exactly; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 9.2463
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "c to a prime exactly; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 9.4548
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "c to a prime exactly; m to a prime exactly",
+    "layer": 1,
+    "bits": 9.4551
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-staircase/{}/tb=first-prime",
+  "variant": "line-q",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "first-prime",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "8f717b2b4f843bcd",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; y(0) at least 7",
+    "layer": 1,
+    "bits": 5.3516
+   },
+   {
+    "score": [
+     null,
+     "17"
+    ],
+    "label": "anything; y(0) at least 17",
+    "layer": 1,
+    "bits": 5.3516
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; y(0) at least 23",
+    "layer": 1,
+    "bits": 5.3516
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 5.3516
+   },
+   {
+    "score": [
+     "1",
+     "7"
+    ],
+    "label": "a run of primes at least 1; y(0) at least 7",
+    "layer": 1,
+    "bits": 7.7698
+   },
+   {
+    "score": [
+     "1",
+     "17"
+    ],
+    "label": "a run of primes at least 1; y(0) at least 17",
+    "layer": 1,
+    "bits": 8.6006
+   },
+   {
+    "score": [
+     "1",
+     "23"
+    ],
+    "label": "a run of primes at least 1; y(0) at least 23",
+    "layer": 1,
+    "bits": 8.6013
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 8.6016
+   },
+   {
+    "score": [
+     "2",
+     "7"
+    ],
+    "label": "a run of primes at least 2; y(0) at least 7",
+    "layer": 1,
+    "bits": 10.5154
+   },
+   {
+    "score": [
+     "2",
+     "17"
+    ],
+    "label": "a run of primes at least 2; y(0) at least 17",
+    "layer": 1,
+    "bits": 10.6637
+   },
+   {
+    "score": [
+     "2",
+     "23"
+    ],
+    "label": "a run of primes at least 2; y(0) at least 23",
+    "layer": 1,
+    "bits": 10.6638
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 10.6638
+   },
+   {
+    "score": [
+     "3",
+     "7"
+    ],
+    "label": "a run of primes at least 3; y(0) at least 7",
+    "layer": 1,
+    "bits": 12.7856
+   },
+   {
+    "score": [
+     "3",
+     "17"
+    ],
+    "label": "a run of primes at least 3; y(0) at least 17",
+    "layer": 1,
+    "bits": 14.1824
+   },
+   {
+    "score": [
+     "3",
+     "23"
+    ],
+    "label": "a run of primes at least 3; y(0) at least 23",
+    "layer": 1,
+    "bits": 14.1826
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 14.1826
+   },
+   {
+    "score": [
+     "4",
+     "7"
+    ],
+    "label": "a run of primes at least 4; y(0) at least 7",
+    "layer": 1,
+    "bits": 14.1895
+   },
+   {
+    "score": [
+     "4",
+     "17"
+    ],
+    "label": "a run of primes at least 4; y(0) at least 17",
+    "layer": 1,
+    "bits": 14.2885
+   },
+   {
+    "score": [
+     "4",
+     "23"
+    ],
+    "label": "a run of primes at least 4; y(0) at least 23",
+    "layer": 1,
+    "bits": 14.2885
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 14.2886
+   },
+   {
+    "score": [
+     "5",
+     "7"
+    ],
+    "label": "a run of primes at least 5; y(0) at least 7",
+    "layer": 1,
+    "bits": 20.9146
+   },
+   {
+    "score": [
+     "5",
+     "17"
+    ],
+    "label": "a run of primes at least 5; y(0) at least 17",
+    "layer": 1,
+    "bits": 39.6789
+   },
+   {
+    "score": [
+     "5",
+     "23"
+    ],
+    "label": "a run of primes at least 5; y(0) at least 23",
+    "layer": 1,
+    "bits": 39.6789
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-staircase/{}/tb=last-prime",
+  "variant": "line-q",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "last-prime",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "27276b2f5f5be60c",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the last prime at least 13",
+    "layer": 1,
+    "bits": 5.2286
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the last prime at least 23",
+    "layer": 1,
+    "bits": 5.2286
+   },
+   {
+    "score": [
+     null,
+     "37"
+    ],
+    "label": "anything; the last prime at least 37",
+    "layer": 1,
+    "bits": 5.2286
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 5.2286
+   },
+   {
+    "score": [
+     "1",
+     "13"
+    ],
+    "label": "a run of primes at least 1; the last prime at least 13",
+    "layer": 1,
+    "bits": 8.5948
+   },
+   {
+    "score": [
+     "1",
+     "23"
+    ],
+    "label": "a run of primes at least 1; the last prime at least 23",
+    "layer": 1,
+    "bits": 8.6782
+   },
+   {
+    "score": [
+     "1",
+     "37"
+    ],
+    "label": "a run of primes at least 1; the last prime at least 37",
+    "layer": 1,
+    "bits": 8.6782
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 8.6782
+   },
+   {
+    "score": [
+     "2",
+     "13"
+    ],
+    "label": "a run of primes at least 2; the last prime at least 13",
+    "layer": 1,
+    "bits": 10.7337
+   },
+   {
+    "score": [
+     "2",
+     "23"
+    ],
+    "label": "a run of primes at least 2; the last prime at least 23",
+    "layer": 1,
+    "bits": 10.8072
+   },
+   {
+    "score": [
+     "2",
+     "37"
+    ],
+    "label": "a run of primes at least 2; the last prime at least 37",
+    "layer": 1,
+    "bits": 10.8082
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 10.8092
+   },
+   {
+    "score": [
+     "3",
+     "13"
+    ],
+    "label": "a run of primes at least 3; the last prime at least 13",
+    "layer": 1,
+    "bits": 12.4486
+   },
+   {
+    "score": [
+     "3",
+     "23"
+    ],
+    "label": "a run of primes at least 3; the last prime at least 23",
+    "layer": 1,
+    "bits": 12.9125
+   },
+   {
+    "score": [
+     "3",
+     "37"
+    ],
+    "label": "a run of primes at least 3; the last prime at least 37",
+    "layer": 1,
+    "bits": 13.6785
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 14.2728
+   },
+   {
+    "score": [
+     "4",
+     "13"
+    ],
+    "label": "a run of primes at least 4; the last prime at least 13",
+    "layer": 1,
+    "bits": 14.2728
+   },
+   {
+    "score": [
+     "4",
+     "23"
+    ],
+    "label": "a run of primes at least 4; the last prime at least 23",
+    "layer": 1,
+    "bits": 14.2728
+   },
+   {
+    "score": [
+     "4",
+     "37"
+    ],
+    "label": "a run of primes at least 4; the last prime at least 37",
+    "layer": 1,
+    "bits": 14.2765
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 14.2956
+   },
+   {
+    "score": [
+     "5",
+     "13"
+    ],
+    "label": "a run of primes at least 5; the last prime at least 13",
+    "layer": 1,
+    "bits": 14.2956
+   },
+   {
+    "score": [
+     "5",
+     "23"
+    ],
+    "label": "a run of primes at least 5; the last prime at least 23",
+    "layer": 1,
+    "bits": 14.2956
+   },
+   {
+    "score": [
+     "5",
+     "37"
+    ],
+    "label": "a run of primes at least 5; the last prime at least 37",
+    "layer": 1,
+    "bits": 20.9266
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-staircase/{}/tb=near-miss",
+  "variant": "line-q",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "near-miss",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "3ce4dbe5ef803005",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-4"
+    ],
+    "label": "anything; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 0.6284
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 2.3648
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the first miss to a prime within 1/4",
+    "layer": 1,
+    "bits": 4.052
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 5.1551
+   },
+   {
+    "score": [
+     "1",
+     "-4"
+    ],
+    "label": "a run of primes at least 1; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 6.3731
+   },
+   {
+    "score": [
+     "1",
+     "-1"
+    ],
+    "label": "a run of primes at least 1; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 6.5714
+   },
+   {
+    "score": [
+     "1",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 1; the first miss to a prime within 1/4",
+    "layer": 1,
+    "bits": 7.9522
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 8.4447
+   },
+   {
+    "score": [
+     "2",
+     "-4"
+    ],
+    "label": "a run of primes at least 2; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 8.4479
+   },
+   {
+    "score": [
+     "2",
+     "-1"
+    ],
+    "label": "a run of primes at least 2; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 8.6282
+   },
+   {
+    "score": [
+     "2",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 2; the first miss to a prime within 1/4",
+    "layer": 1,
+    "bits": 10.5716
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 10.6927
+   },
+   {
+    "score": [
+     "3",
+     "-4"
+    ],
+    "label": "a run of primes at least 3; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 10.6927
+   },
+   {
+    "score": [
+     "3",
+     "-1"
+    ],
+    "label": "a run of primes at least 3; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 12.8785
+   },
+   {
+    "score": [
+     "3",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 3; the first miss to a prime within 1/4",
+    "layer": 1,
+    "bits": 13.9972
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 13.9973
+   },
+   {
+    "score": [
+     "4",
+     "-4"
+    ],
+    "label": "a run of primes at least 4; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 13.9973
+   },
+   {
+    "score": [
+     "4",
+     "-1"
+    ],
+    "label": "a run of primes at least 4; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 15.7969
+   },
+   {
+    "score": [
+     "4",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 4; the first miss to a prime within 1/4",
+    "layer": 1,
+    "bits": 15.7972
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 15.7972
+   },
+   {
+    "score": [
+     "5",
+     "-4"
+    ],
+    "label": "a run of primes at least 5; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 15.7972
+   },
+   {
+    "score": [
+     "5",
+     "-1"
+    ],
+    "label": "a run of primes at least 5; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 38.2049
+   },
+   {
+    "score": [
+     "5",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 5; the first miss to a prime within 1/4",
+    "layer": 1,
+    "bits": null
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-staircase/{}/tb=step-back",
+  "variant": "line-q",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "step-back",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "dfe16c2bcfe3cb9d",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.6233
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; y(−1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 2.8324
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; y(−1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 3.249
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 5.2778
+   },
+   {
+    "score": [
+     "1",
+     "-2"
+    ],
+    "label": "a run of primes at least 1; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 5.2856
+   },
+   {
+    "score": [
+     "1",
+     "-1/2"
+    ],
+    "label": "a run of primes at least 1; y(−1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.5467
+   },
+   {
+    "score": [
+     "1",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 1; y(−1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.6329
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 8.5631
+   },
+   {
+    "score": [
+     "2",
+     "-2"
+    ],
+    "label": "a run of primes at least 2; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 8.5633
+   },
+   {
+    "score": [
+     "2",
+     "-1/2"
+    ],
+    "label": "a run of primes at least 2; y(−1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 9.9245
+   },
+   {
+    "score": [
+     "2",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 2; y(−1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 9.9245
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 10.7903
+   },
+   {
+    "score": [
+     "3",
+     "-2"
+    ],
+    "label": "a run of primes at least 3; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 10.7903
+   },
+   {
+    "score": [
+     "3",
+     "-1/2"
+    ],
+    "label": "a run of primes at least 3; y(−1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 12.5613
+   },
+   {
+    "score": [
+     "3",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 3; y(−1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 12.5613
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 14.991
+   },
+   {
+    "score": [
+     "4",
+     "-2"
+    ],
+    "label": "a run of primes at least 4; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 14.991
+   },
+   {
+    "score": [
+     "4",
+     "-1/2"
+    ],
+    "label": "a run of primes at least 4; y(−1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 14.991
+   },
+   {
+    "score": [
+     "4",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 4; y(−1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 14.991
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 15.0883
+   },
+   {
+    "score": [
+     "5",
+     "-2"
+    ],
+    "label": "a run of primes at least 5; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 15.0883
+   },
+   {
+    "score": [
+     "5",
+     "-1/2"
+    ],
+    "label": "a run of primes at least 5; y(−1) to a prime within 1/2",
+    "layer": 1,
+    "bits": 15.1688
+   },
+   {
+    "score": [
+     "5",
+     "-1/4"
+    ],
+    "label": "a run of primes at least 5; y(−1) to a prime within 1/4",
+    "layer": 1,
+    "bits": 15.1688
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/pythagorean-area/{\"A\":6}/tb=prime-height",
+  "variant": "line-q",
+  "family": "pythagorean-area",
+  "params": {
+   "A": 6
+  },
+  "tieBreaker": "prime-height",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "ed12a308e874a136",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 2.8135
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 2.8378
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 2.8994
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the area to A within 16",
+    "layer": 0,
+    "bits": 2.9293
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "the area to A within 16; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 2.9293
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "the area to A within 16; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 2.9322
+   },
+   {
+    "score": [
+     "-16",
+     "-1/2"
+    ],
+    "label": "the area to A within 16; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 2.9546
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to A within 8",
+    "layer": 0,
+    "bits": 2.9689
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the area to A within 8; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 2.9689
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the area to A within 8; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 3.858
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "the area to A within 8; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 4.6611
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to A within 4",
+    "layer": 0,
+    "bits": 5.4665
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the area to A within 4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 5.4665
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the area to A within 4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 5.5686
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "the area to A within 4; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.8186
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to A within 2",
+    "layer": 0,
+    "bits": 6.6302
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the area to A within 2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 6.6316
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the area to A within 2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 6.6965
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "the area to A within 2; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 7.1246
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to A within 1",
+    "layer": 0,
+    "bits": 8.1332
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the area to A within 1; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 8.1332
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the area to A within 1; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 8.2679
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "the area to A within 1; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 8.5509
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2",
+    "layer": 0,
+    "bits": 8.9068
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the area to A within 1/2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 8.9068
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "the area to A within 1/2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 8.9423
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 9.029
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4",
+    "layer": 0,
+    "bits": 9.1361
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the area to A within 1/4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 9.1361
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "the area to A within 1/4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 9.1764
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "the area to A within 1/4; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 9.2268
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to A exactly",
+    "layer": 0,
+    "bits": 11.0517
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 4",
+    "layer": 1,
+    "bits": 11.0517
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 11.0517
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 11.0693
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 13.0532
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the area to A exactly; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 13.0532
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/pythagorean-area/{\"A\":6}/tb=slanted-square",
+  "variant": "line-q",
+  "family": "pythagorean-area",
+  "params": {
+   "A": 6
+  },
+  "tieBreaker": "slanted-square",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "dc7a60fe8be99667",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-8"
+    ],
+    "label": "anything; side² to a square within 8",
+    "layer": 1,
+    "bits": 2.9913
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; side² to a square within 2",
+    "layer": 1,
+    "bits": 3.0479
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 3.0594
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the area to A within 16",
+    "layer": 0,
+    "bits": 3.0604
+   },
+   {
+    "score": [
+     "-16",
+     "-8"
+    ],
+    "label": "the area to A within 16; side² to a square within 8",
+    "layer": 1,
+    "bits": 3.0673
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "the area to A within 16; side² to a square within 2",
+    "layer": 1,
+    "bits": 3.0982
+   },
+   {
+    "score": [
+     "-16",
+     "-1/2"
+    ],
+    "label": "the area to A within 16; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 3.1119
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to A within 8",
+    "layer": 0,
+    "bits": 3.1131
+   },
+   {
+    "score": [
+     "-8",
+     "-8"
+    ],
+    "label": "the area to A within 8; side² to a square within 8",
+    "layer": 1,
+    "bits": 3.1183
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the area to A within 8; side² to a square within 2",
+    "layer": 1,
+    "bits": 3.1675
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "the area to A within 8; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 3.4682
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to A within 4",
+    "layer": 0,
+    "bits": 5.453
+   },
+   {
+    "score": [
+     "-4",
+     "-8"
+    ],
+    "label": "the area to A within 4; side² to a square within 8",
+    "layer": 1,
+    "bits": 5.4554
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the area to A within 4; side² to a square within 2",
+    "layer": 1,
+    "bits": 5.7216
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "the area to A within 4; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 6.4387
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to A within 2",
+    "layer": 0,
+    "bits": 6.6514
+   },
+   {
+    "score": [
+     "-2",
+     "-8"
+    ],
+    "label": "the area to A within 2; side² to a square within 8",
+    "layer": 1,
+    "bits": 6.6526
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the area to A within 2; side² to a square within 2",
+    "layer": 1,
+    "bits": 7.3309
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "the area to A within 2; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 8.1915
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to A within 1",
+    "layer": 0,
+    "bits": 8.2751
+   },
+   {
+    "score": [
+     "-1",
+     "-8"
+    ],
+    "label": "the area to A within 1; side² to a square within 8",
+    "layer": 1,
+    "bits": 8.2797
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the area to A within 1; side² to a square within 2",
+    "layer": 1,
+    "bits": 8.5635
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "the area to A within 1; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 8.7528
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2",
+    "layer": 0,
+    "bits": 8.8215
+   },
+   {
+    "score": [
+     "-1/2",
+     "-8"
+    ],
+    "label": "the area to A within 1/2; side² to a square within 8",
+    "layer": 1,
+    "bits": 8.8249
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the area to A within 1/2; side² to a square within 2",
+    "layer": 1,
+    "bits": 8.989
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 9.1005
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4",
+    "layer": 0,
+    "bits": 9.1342
+   },
+   {
+    "score": [
+     "-1/4",
+     "-8"
+    ],
+    "label": "the area to A within 1/4; side² to a square within 8",
+    "layer": 1,
+    "bits": 9.1369
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the area to A within 1/4; side² to a square within 2",
+    "layer": 1,
+    "bits": 10.3803
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "the area to A within 1/4; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 10.714
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to A exactly",
+    "layer": 0,
+    "bits": 10.8885
+   },
+   {
+    "score": [
+     "0",
+     "-16"
+    ],
+    "label": "the area to A exactly; side² to a square within 16",
+    "layer": 1,
+    "bits": 10.8885
+   },
+   {
+    "score": [
+     "0",
+     "-8"
+    ],
+    "label": "the area to A exactly; side² to a square within 8",
+    "layer": 1,
+    "bits": 10.8885
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the area to A exactly; side² to a square within 4",
+    "layer": 1,
+    "bits": 10.8885
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the area to A exactly; side² to a square within 2",
+    "layer": 1,
+    "bits": 14.2667
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the area to A exactly; side² to a square within 1",
+    "layer": 1,
+    "bits": 14.363
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the area to A exactly; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 15.1199
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the area to A exactly; side² to a square exactly",
+    "layer": 1,
+    "bits": 15.1477
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/pythagorean-area/{\"A\":6}/tb=whole-legs",
+  "variant": "line-q",
+  "family": "pythagorean-area",
+  "params": {
+   "A": 6
+  },
+  "tieBreaker": "whole-legs",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "b1b1cebcb71199c8",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 2.9528
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 2.9687
+   },
+   {
+    "score": [
+     null,
+     "-1/16"
+    ],
+    "label": "anything; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 2.9714
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the area to A within 16",
+    "layer": 0,
+    "bits": 3.0715
+   },
+   {
+    "score": [
+     "-16",
+     "-1/4"
+    ],
+    "label": "the area to A within 16; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 3.0959
+   },
+   {
+    "score": [
+     "-16",
+     "-1/8"
+    ],
+    "label": "the area to A within 16; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 3.1015
+   },
+   {
+    "score": [
+     "-16",
+     "-1/16"
+    ],
+    "label": "the area to A within 16; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 3.103
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to A within 8",
+    "layer": 0,
+    "bits": 3.1298
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "the area to A within 8; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 3.9607
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "the area to A within 8; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 4.3817
+   },
+   {
+    "score": [
+     "-8",
+     "-1/16"
+    ],
+    "label": "the area to A within 8; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 4.5889
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to A within 4",
+    "layer": 0,
+    "bits": 5.3947
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "the area to A within 4; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 5.8061
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "the area to A within 4; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 5.9566
+   },
+   {
+    "score": [
+     "-4",
+     "-1/16"
+    ],
+    "label": "the area to A within 4; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 5.9838
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to A within 2",
+    "layer": 0,
+    "bits": 6.4697
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "the area to A within 2; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 6.7279
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "the area to A within 2; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 6.8513
+   },
+   {
+    "score": [
+     "-2",
+     "-1/16"
+    ],
+    "label": "the area to A within 2; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 6.8746
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to A within 1",
+    "layer": 0,
+    "bits": 8.1178
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "the area to A within 1; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 8.4057
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "the area to A within 1; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 8.4284
+   },
+   {
+    "score": [
+     "-1",
+     "-1/16"
+    ],
+    "label": "the area to A within 1; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 8.5651
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2",
+    "layer": 0,
+    "bits": 8.6349
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "the area to A within 1/2; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 8.7865
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "the area to A within 1/2; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 8.8687
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/16"
+    ],
+    "label": "the area to A within 1/2; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 8.9411
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4",
+    "layer": 0,
+    "bits": 8.9414
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 10.0719
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "the area to A within 1/4; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 10.4789
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/16"
+    ],
+    "label": "the area to A within 1/4; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 10.4971
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to A exactly",
+    "layer": 0,
+    "bits": 10.4974
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/2",
+    "layer": 1,
+    "bits": 10.4974
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 10.7039
+   },
+   {
+    "score": [
+     "0",
+     "-1/8"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 10.7039
+   },
+   {
+    "score": [
+     "0",
+     "-1/16"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 10.7039
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the area to A exactly; the legs to whole exactly",
+    "layer": 1,
+    "bits": 10.7039
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/ruler/{}/tb=far",
+  "variant": "line-q",
+  "family": "ruler",
+  "params": {},
+  "tieBreaker": "far",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "9fc438485163c6cb",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; the distance at least 4",
+    "layer": 1,
+    "bits": 1.7817
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; the distance at least 6",
+    "layer": 1,
+    "bits": 1.7817
+   },
+   {
+    "score": [
+     null,
+     "10"
+    ],
+    "label": "anything; the distance at least 10",
+    "layer": 1,
+    "bits": 1.7822
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "distance² to a square within 8",
+    "layer": 0,
+    "bits": 1.8002
+   },
+   {
+    "score": [
+     "-8",
+     "4"
+    ],
+    "label": "distance² to a square within 8; the distance at least 4",
+    "layer": 1,
+    "bits": 1.8002
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "distance² to a square within 8; the distance at least 6",
+    "layer": 1,
+    "bits": 1.8011
+   },
+   {
+    "score": [
+     "-8",
+     "10"
+    ],
+    "label": "distance² to a square within 8; the distance at least 10",
+    "layer": 1,
+    "bits": 1.8106
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "distance² to a square within 4",
+    "layer": 0,
+    "bits": 1.8169
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "distance² to a square within 4; the distance at least 4",
+    "layer": 1,
+    "bits": 1.8284
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "distance² to a square within 4; the distance at least 6",
+    "layer": 1,
+    "bits": 1.8387
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "distance² to a square within 4; the distance at least 10",
+    "layer": 1,
+    "bits": 1.8502
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "distance² to a square within 2",
+    "layer": 0,
+    "bits": 1.8557
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "distance² to a square within 2; the distance at least 4",
+    "layer": 1,
+    "bits": 1.8846
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "distance² to a square within 2; the distance at least 6",
+    "layer": 1,
+    "bits": 1.8909
+   },
+   {
+    "score": [
+     "-2",
+     "10"
+    ],
+    "label": "distance² to a square within 2; the distance at least 10",
+    "layer": 1,
+    "bits": 1.8922
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "distance² to a square within 1",
+    "layer": 0,
+    "bits": 1.8938
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "distance² to a square within 1; the distance at least 4",
+    "layer": 1,
+    "bits": 5.2378
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "distance² to a square within 1; the distance at least 6",
+    "layer": 1,
+    "bits": 5.2677
+   },
+   {
+    "score": [
+     "-1",
+     "10"
+    ],
+    "label": "distance² to a square within 1; the distance at least 10",
+    "layer": 1,
+    "bits": 5.3312
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2",
+    "layer": 0,
+    "bits": 5.3479
+   },
+   {
+    "score": [
+     "-1/2",
+     "4"
+    ],
+    "label": "distance² to a square within 1/2; the distance at least 4",
+    "layer": 1,
+    "bits": 6.5663
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "distance² to a square within 1/2; the distance at least 6",
+    "layer": 1,
+    "bits": 6.6438
+   },
+   {
+    "score": [
+     "-1/2",
+     "10"
+    ],
+    "label": "distance² to a square within 1/2; the distance at least 10",
+    "layer": 1,
+    "bits": 6.6637
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4",
+    "layer": 0,
+    "bits": 6.6684
+   },
+   {
+    "score": [
+     "-1/4",
+     "4"
+    ],
+    "label": "distance² to a square within 1/4; the distance at least 4",
+    "layer": 1,
+    "bits": 7.6493
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "distance² to a square within 1/4; the distance at least 6",
+    "layer": 1,
+    "bits": 7.8606
+   },
+   {
+    "score": [
+     "-1/4",
+     "10"
+    ],
+    "label": "distance² to a square within 1/4; the distance at least 10",
+    "layer": 1,
+    "bits": 7.8683
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "distance² to a square within 1/8",
+    "layer": 0,
+    "bits": 7.8722
+   },
+   {
+    "score": [
+     "-1/8",
+     "4"
+    ],
+    "label": "distance² to a square within 1/8; the distance at least 4",
+    "layer": 1,
+    "bits": 8.8603
+   },
+   {
+    "score": [
+     "-1/8",
+     "6"
+    ],
+    "label": "distance² to a square within 1/8; the distance at least 6",
+    "layer": 1,
+    "bits": 8.8971
+   },
+   {
+    "score": [
+     "-1/8",
+     "10"
+    ],
+    "label": "distance² to a square within 1/8; the distance at least 10",
+    "layer": 1,
+    "bits": 8.9054
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "distance² to a square within 1/16",
+    "layer": 0,
+    "bits": 8.9068
+   },
+   {
+    "score": [
+     "-1/16",
+     "4"
+    ],
+    "label": "distance² to a square within 1/16; the distance at least 4",
+    "layer": 1,
+    "bits": 11.7799
+   },
+   {
+    "score": [
+     "-1/16",
+     "6"
+    ],
+    "label": "distance² to a square within 1/16; the distance at least 6",
+    "layer": 1,
+    "bits": 11.8839
+   },
+   {
+    "score": [
+     "-1/16",
+     "10"
+    ],
+    "label": "distance² to a square within 1/16; the distance at least 10",
+    "layer": 1,
+    "bits": 11.9979
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "distance² to a square exactly",
+    "layer": 0,
+    "bits": 12.0034
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "distance² to a square exactly; the distance at least 2",
+    "layer": 1,
+    "bits": 12.8077
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "distance² to a square exactly; the distance at least 3",
+    "layer": 1,
+    "bits": 12.9902
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "distance² to a square exactly; the distance at least 4",
+    "layer": 1,
+    "bits": 13.0081
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "distance² to a square exactly; the distance at least 5",
+    "layer": 1,
+    "bits": 13.0879
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "distance² to a square exactly; the distance at least 6",
+    "layer": 1,
+    "bits": 14.9771
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "distance² to a square exactly; the distance at least 8",
+    "layer": 1,
+    "bits": 15.3605
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "distance² to a square exactly; the distance at least 10",
+    "layer": 1,
+    "bits": 18.0801
+   },
+   {
+    "score": [
+     "0",
+     "12"
+    ],
+    "label": "distance² to a square exactly; the distance at least 12",
+    "layer": 1,
+    "bits": 18.1752
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/ruler/{}/tb=prime-gradient",
+  "variant": "line-q",
+  "family": "ruler",
+  "params": {},
+  "tieBreaker": "prime-gradient",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "a21dc45f17ed005b",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.6804
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.687
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 1.6873
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "distance² to a square within 8",
+    "layer": 0,
+    "bits": 1.6899
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "distance² to a square within 8; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.6979
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 8; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.7031
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 8; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 1.7033
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "distance² to a square within 4",
+    "layer": 0,
+    "bits": 1.7045
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "distance² to a square within 4; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.7238
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 4; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.7377
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 4; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 1.7385
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "distance² to a square within 2",
+    "layer": 0,
+    "bits": 1.7424
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "distance² to a square within 2; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.76
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 2; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 1.7743
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 2; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 1.7754
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "distance² to a square within 1",
+    "layer": 0,
+    "bits": 1.779
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "distance² to a square within 1; m to a prime within 2",
+    "layer": 1,
+    "bits": 2.6508
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 3.9958
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 4.251
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2",
+    "layer": 0,
+    "bits": 5.066
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/2; m to a prime within 2",
+    "layer": 1,
+    "bits": 5.6151
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 6.3951
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/2; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 6.4505
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4",
+    "layer": 0,
+    "bits": 6.5316
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/4; m to a prime within 2",
+    "layer": 1,
+    "bits": 6.9033
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/4; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 7.227
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 7.3006
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "distance² to a square within 1/8",
+    "layer": 0,
+    "bits": 7.5128
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/8; m to a prime within 2",
+    "layer": 1,
+    "bits": 8.0112
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/8; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 8.3253
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/8; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 8.3383
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "distance² to a square within 1/16",
+    "layer": 0,
+    "bits": 8.6107
+   },
+   {
+    "score": [
+     "-1/16",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/16; m to a prime within 2",
+    "layer": 1,
+    "bits": 9.421
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/16; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 10.7109
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/16; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 10.8235
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "distance² to a square exactly",
+    "layer": 0,
+    "bits": 11.5071
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "distance² to a square exactly; m to a prime within 4",
+    "layer": 1,
+    "bits": 11.5085
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "distance² to a square exactly; m to a prime within 2",
+    "layer": 1,
+    "bits": 12.0867
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "distance² to a square exactly; m to a prime within 1",
+    "layer": 1,
+    "bits": 13.2322
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "distance² to a square exactly; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 18.378
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/ruler/{}/tb=square-area",
+  "variant": "line-q",
+  "family": "ruler",
+  "params": {},
+  "tieBreaker": "square-area",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "1eb71fc5d5ac0f8e",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-4"
+    ],
+    "label": "anything; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.8501
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.8515
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.8519
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "distance² to a square within 8",
+    "layer": 0,
+    "bits": 1.8542
+   },
+   {
+    "score": [
+     "-8",
+     "-4"
+    ],
+    "label": "distance² to a square within 8; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.8631
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "distance² to a square within 8; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.8644
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 8; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.8651
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "distance² to a square within 4",
+    "layer": 0,
+    "bits": 1.8653
+   },
+   {
+    "score": [
+     "-4",
+     "-4"
+    ],
+    "label": "distance² to a square within 4; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.8738
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "distance² to a square within 4; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.8933
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 4; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.8945
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "distance² to a square within 2",
+    "layer": 0,
+    "bits": 1.902
+   },
+   {
+    "score": [
+     "-2",
+     "-4"
+    ],
+    "label": "distance² to a square within 2; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.9053
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "distance² to a square within 2; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.9241
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 2; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.9329
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "distance² to a square within 1",
+    "layer": 0,
+    "bits": 1.9417
+   },
+   {
+    "score": [
+     "-1",
+     "-4"
+    ],
+    "label": "distance² to a square within 1; the area to a square within 4",
+    "layer": 1,
+    "bits": 3.01
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "distance² to a square within 1; the area to a square within 1",
+    "layer": 1,
+    "bits": 3.0832
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 3.3867
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2",
+    "layer": 0,
+    "bits": 5.3396
+   },
+   {
+    "score": [
+     "-1/2",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/2; the area to a square within 4",
+    "layer": 1,
+    "bits": 5.3465
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/2; the area to a square within 1",
+    "layer": 1,
+    "bits": 5.4531
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/2; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 6.5616
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4",
+    "layer": 0,
+    "bits": 6.795
+   },
+   {
+    "score": [
+     "-1/4",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/4; the area to a square within 4",
+    "layer": 1,
+    "bits": 6.8618
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/4; the area to a square within 1",
+    "layer": 1,
+    "bits": 6.9813
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 7.1998
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "distance² to a square within 1/8",
+    "layer": 0,
+    "bits": 7.8234
+   },
+   {
+    "score": [
+     "-1/8",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/8; the area to a square within 4",
+    "layer": 1,
+    "bits": 7.8648
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/8; the area to a square within 1",
+    "layer": 1,
+    "bits": 7.9567
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/8; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 8.5377
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "distance² to a square within 1/16",
+    "layer": 0,
+    "bits": 8.7955
+   },
+   {
+    "score": [
+     "-1/16",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/16; the area to a square within 4",
+    "layer": 1,
+    "bits": 8.808
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/16; the area to a square within 1",
+    "layer": 1,
+    "bits": 9.147
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/16; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 10.4456
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "distance² to a square exactly",
+    "layer": 0,
+    "bits": 11.9532
+   },
+   {
+    "score": [
+     "0",
+     "-8"
+    ],
+    "label": "distance² to a square exactly; the area to a square within 8",
+    "layer": 1,
+    "bits": 12.047
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "distance² to a square exactly; the area to a square within 4",
+    "layer": 1,
+    "bits": 12.1242
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "distance² to a square exactly; the area to a square within 2",
+    "layer": 1,
+    "bits": 12.13
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "distance² to a square exactly; the area to a square within 1",
+    "layer": 1,
+    "bits": 12.3144
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "distance² to a square exactly; the area to a square within 1/2",
+    "layer": 1,
+    "bits": 12.3153
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "distance² to a square exactly; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 12.4065
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=prime-start",
+  "variant": "line-q",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "prime-start",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "248fbf92ac4d5771",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 0.7394
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 0.7462
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.7596
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.7622
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 16; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 0.7623
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 16; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 0.7686
+   },
+   {
+    "score": [
+     "-16",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 16; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 0.7967
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.8341
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 8; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 0.8341
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 8; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 2.8813
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 8; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 3.8597
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 4.7237
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 4.7257
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 4.787
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 4; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 4.9888
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 6.1217
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 6.1292
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 6.167
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 2; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 6.923
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 7.1603
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 1; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 7.1609
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 7.183
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 7.2695
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 8.6071
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 1/2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 8.6102
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1/2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 8.6114
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 8.6794
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 8.7771
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 1/4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 8.7811
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1/4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 8.7825
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/4; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 8.8154
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 8.8236
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 4",
+    "layer": 1,
+    "bits": 8.8236
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 8.8236
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 8.8292
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 1/2",
+    "layer": 1,
+    "bits": 12.2392
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 12.6527
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=steep",
+  "variant": "line-q",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "steep",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "43bfa8743be377b4",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "1/2"
+    ],
+    "label": "anything; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 0.7031
+   },
+   {
+    "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 0.7214
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 0.723
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.7232
+   },
+   {
+    "score": [
+     "-16",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 16; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 0.7256
+   },
+   {
+    "score": [
+     "-16",
+     "2"
+    ],
+    "label": "the unchanged number to T within 16; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 0.7878
+   },
+   {
+    "score": [
+     "-16",
+     "5"
+    ],
+    "label": "the unchanged number to T within 16; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 0.7944
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.7962
+   },
+   {
+    "score": [
+     "-8",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 8; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 0.8178
+   },
+   {
+    "score": [
+     "-8",
+     "2"
+    ],
+    "label": "the unchanged number to T within 8; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 2.623
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the unchanged number to T within 8; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 3.5052
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 4.6666
+   },
+   {
+    "score": [
+     "-4",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 4; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 4.6924
+   },
+   {
+    "score": [
+     "-4",
+     "2"
+    ],
+    "label": "the unchanged number to T within 4; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 5.8588
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the unchanged number to T within 4; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 6.0264
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 6.0755
+   },
+   {
+    "score": [
+     "-2",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 2; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 6.1008
+   },
+   {
+    "score": [
+     "-2",
+     "2"
+    ],
+    "label": "the unchanged number to T within 2; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 6.9422
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the unchanged number to T within 2; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 7.0634
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 7.0874
+   },
+   {
+    "score": [
+     "-1",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 1; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 7.1309
+   },
+   {
+    "score": [
+     "-1",
+     "2"
+    ],
+    "label": "the unchanged number to T within 1; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 8.1895
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the unchanged number to T within 1; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 8.314
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 8.3323
+   },
+   {
+    "score": [
+     "-1/2",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 1/2; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 8.3328
+   },
+   {
+    "score": [
+     "-1/2",
+     "2"
+    ],
+    "label": "the unchanged number to T within 1/2; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 8.4677
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "the unchanged number to T within 1/2; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 8.5036
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 8.5133
+   },
+   {
+    "score": [
+     "-1/4",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 1/4; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 8.5133
+   },
+   {
+    "score": [
+     "-1/4",
+     "2"
+    ],
+    "label": "the unchanged number to T within 1/4; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 8.5272
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "the unchanged number to T within 1/4; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 8.537
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 8.5401
+   },
+   {
+    "score": [
+     "0",
+     "1/4"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 1/4",
+    "layer": 1,
+    "bits": 8.5433
+   },
+   {
+    "score": [
+     "0",
+     "1/2"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 8.5974
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 1",
+    "layer": 1,
+    "bits": 8.6891
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 13.1596
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 3",
+    "layer": 1,
+    "bits": 13.7232
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 17.2845
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 8",
+    "layer": 1,
+    "bits": 19.1111
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=whole-lamp",
+  "variant": "line-q",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "whole-lamp",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "dec8e2c9e16d8e0a",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 0.7115
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 0.7122
+   },
+   {
+    "score": [
+     null,
+     "-1/16"
+    ],
+    "label": "anything; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 0.7133
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.7335
+   },
+   {
+    "score": [
+     "-16",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 16; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 0.7462
+   },
+   {
+    "score": [
+     "-16",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 16; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 0.7519
+   },
+   {
+    "score": [
+     "-16",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 16; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 0.7536
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.8031
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 8; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 1.0782
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 8; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 1.2742
+   },
+   {
+    "score": [
+     "-8",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 8; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 1.3893
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 4.789
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 4; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 4.938
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 4; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 5.0013
+   },
+   {
+    "score": [
+     "-4",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 4; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 5.0137
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 6.3308
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 2; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 6.4591
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 2; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 6.4925
+   },
+   {
+    "score": [
+     "-2",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 2; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 6.511
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 7.3101
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 7.4687
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 1; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 7.5154
+   },
+   {
+    "score": [
+     "-1",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 1; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 7.5383
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 8.7456
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/2; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 8.7807
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 1/2; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 8.8239
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 1/2; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 8.8445
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 8.9995
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 9.0031
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 1/4; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 9.0213
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 1/4; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 9.0256
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 9.0295
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/2",
+    "layer": 1,
+    "bits": 9.0295
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 9.2531
+   },
+   {
+    "score": [
+     "0",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 9.3066
+   },
+   {
+    "score": [
+     "0",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 9.3125
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole exactly",
+    "layer": 1,
+    "bits": 9.3131
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=whole-values",
+  "variant": "line-q",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "whole-values",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "f061e4248672ed8c",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; different whole values at least 3",
+    "layer": 1,
+    "bits": 0.7503
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; different whole values at least 6",
+    "layer": 1,
+    "bits": 0.7518
+   },
+   {
+    "score": [
+     null,
+     "9"
+    ],
+    "label": "anything; different whole values at least 9",
+    "layer": 1,
+    "bits": 0.7519
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.7538
+   },
+   {
+    "score": [
+     "-16",
+     "3"
+    ],
+    "label": "the unchanged number to T within 16; different whole values at least 3",
+    "layer": 1,
+    "bits": 0.8109
+   },
+   {
+    "score": [
+     "-16",
+     "6"
+    ],
+    "label": "the unchanged number to T within 16; different whole values at least 6",
+    "layer": 1,
+    "bits": 0.8162
+   },
+   {
+    "score": [
+     "-16",
+     "9"
+    ],
+    "label": "the unchanged number to T within 16; different whole values at least 9",
+    "layer": 1,
+    "bits": 0.8189
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.8276
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "the unchanged number to T within 8; different whole values at least 3",
+    "layer": 1,
+    "bits": 2.3376
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "the unchanged number to T within 8; different whole values at least 6",
+    "layer": 1,
+    "bits": 2.8692
+   },
+   {
+    "score": [
+     "-8",
+     "9"
+    ],
+    "label": "the unchanged number to T within 8; different whole values at least 9",
+    "layer": 1,
+    "bits": 2.9368
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 4.5813
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "the unchanged number to T within 4; different whole values at least 3",
+    "layer": 1,
+    "bits": 5.6103
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the unchanged number to T within 4; different whole values at least 6",
+    "layer": 1,
+    "bits": 5.7352
+   },
+   {
+    "score": [
+     "-4",
+     "9"
+    ],
+    "label": "the unchanged number to T within 4; different whole values at least 9",
+    "layer": 1,
+    "bits": 5.7746
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 5.9726
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "the unchanged number to T within 2; different whole values at least 3",
+    "layer": 1,
+    "bits": 6.6675
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "the unchanged number to T within 2; different whole values at least 6",
+    "layer": 1,
+    "bits": 6.8278
+   },
+   {
+    "score": [
+     "-2",
+     "9"
+    ],
+    "label": "the unchanged number to T within 2; different whole values at least 9",
+    "layer": 1,
+    "bits": 6.8284
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 7.0382
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "the unchanged number to T within 1; different whole values at least 3",
+    "layer": 1,
+    "bits": 8.0403
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "the unchanged number to T within 1; different whole values at least 6",
+    "layer": 1,
+    "bits": 8.1837
+   },
+   {
+    "score": [
+     "-1",
+     "9"
+    ],
+    "label": "the unchanged number to T within 1; different whole values at least 9",
+    "layer": 1,
+    "bits": 8.2756
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 8.5338
+   },
+   {
+    "score": [
+     "-1/2",
+     "3"
+    ],
+    "label": "the unchanged number to T within 1/2; different whole values at least 3",
+    "layer": 1,
+    "bits": 8.6244
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "the unchanged number to T within 1/2; different whole values at least 6",
+    "layer": 1,
+    "bits": 8.6512
+   },
+   {
+    "score": [
+     "-1/2",
+     "9"
+    ],
+    "label": "the unchanged number to T within 1/2; different whole values at least 9",
+    "layer": 1,
+    "bits": 8.6528
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 8.6916
+   },
+   {
+    "score": [
+     "-1/4",
+     "3"
+    ],
+    "label": "the unchanged number to T within 1/4; different whole values at least 3",
+    "layer": 1,
+    "bits": 8.6963
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "the unchanged number to T within 1/4; different whole values at least 6",
+    "layer": 1,
+    "bits": 8.7068
+   },
+   {
+    "score": [
+     "-1/4",
+     "9"
+    ],
+    "label": "the unchanged number to T within 1/4; different whole values at least 9",
+    "layer": 1,
+    "bits": 8.7068
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 8.7457
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 1",
+    "layer": 1,
+    "bits": 8.7457
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 2",
+    "layer": 1,
+    "bits": 10.9156
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 3",
+    "layer": 1,
+    "bits": 11.009
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 4",
+    "layer": 1,
+    "bits": 11.5051
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 5",
+    "layer": 1,
+    "bits": 11.5051
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 6",
+    "layer": 1,
+    "bits": 11.9919
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 7",
+    "layer": 1,
+    "bits": 11.9919
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 8",
+    "layer": 1,
+    "bits": 11.9919
+   },
+   {
+    "score": [
+     "0",
+     "9"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 9",
+    "layer": 1,
+    "bits": 11.9919
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 10",
+    "layer": 1,
+    "bits": 11.9919
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 11",
+    "layer": 1,
+    "bits": 11.9919
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=lpf",
+  "variant": "line-q",
+  "family": "square-area",
+  "params": {},
+  "tieBreaker": "lpf",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "dd65e1bf247c58f9",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.9103
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.925
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.9339
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to a square within 8",
+    "layer": 0,
+    "bits": 2.9379
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the area to a square within 8; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.965
+   },
+   {
+    "score": [
+     "-8",
+     "13"
+    ],
+    "label": "the area to a square within 8; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.9879
+   },
+   {
+    "score": [
+     "-8",
+     "23"
+    ],
+    "label": "the area to a square within 8; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.9931
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to a square within 4",
+    "layer": 0,
+    "bits": 2.9935
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the area to a square within 4; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.0678
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "the area to a square within 4; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.0859
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "the area to a square within 4; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.0889
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to a square within 2",
+    "layer": 0,
+    "bits": 3.0892
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the area to a square within 2; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.2142
+   },
+   {
+    "score": [
+     "-2",
+     "13"
+    ],
+    "label": "the area to a square within 2; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.2199
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "the area to a square within 2; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.2206
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to a square within 1",
+    "layer": 0,
+    "bits": 3.2207
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the area to a square within 1; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.3765
+   },
+   {
+    "score": [
+     "-1",
+     "13"
+    ],
+    "label": "the area to a square within 1; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.3863
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "the area to a square within 1; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.3902
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to a square within 1/2",
+    "layer": 0,
+    "bits": 3.3903
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "the area to a square within 1/2; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.7787
+   },
+   {
+    "score": [
+     "-1/2",
+     "13"
+    ],
+    "label": "the area to a square within 1/2; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.7918
+   },
+   {
+    "score": [
+     "-1/2",
+     "23"
+    ],
+    "label": "the area to a square within 1/2; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.7918
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to a square within 1/4",
+    "layer": 0,
+    "bits": 3.7918
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "the area to a square within 1/4; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.2209
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "the area to a square within 1/4; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.221
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "the area to a square within 1/4; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.2219
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "the area to a square within 1/8",
+    "layer": 0,
+    "bits": 4.2219
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "the area to a square within 1/8; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.7043
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "the area to a square within 1/8; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.7043
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "the area to a square within 1/8; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.7043
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "the area to a square within 1/16",
+    "layer": 0,
+    "bits": 4.7043
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "the area to a square within 1/16; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 6.9291
+   },
+   {
+    "score": [
+     "-1/16",
+     "13"
+    ],
+    "label": "the area to a square within 1/16; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 6.9327
+   },
+   {
+    "score": [
+     "-1/16",
+     "23"
+    ],
+    "label": "the area to a square within 1/16; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 6.9327
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to a square exactly",
+    "layer": 0,
+    "bits": 6.9327
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 2",
+    "layer": 1,
+    "bits": 7.447
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 3",
+    "layer": 1,
+    "bits": 8.2308
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 10.1283
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 7",
+    "layer": 1,
+    "bits": 11.7599
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 11",
+    "layer": 1,
+    "bits": 14.5473
+   },
+   {
+    "score": [
+     "0",
+     "13"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 17.352
+   },
+   {
+    "score": [
+     "0",
+     "17"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 17",
+    "layer": 1,
+    "bits": 18.9358
+   },
+   {
+    "score": [
+     "0",
+     "19"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 19",
+    "layer": 1,
+    "bits": 19.0149
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 27.7192
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 29",
+    "layer": 1,
+    "bits": 30.1862
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 31",
+    "layer": 1,
+    "bits": 31.6903
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=omega",
+  "variant": "line-q",
+  "family": "square-area",
+  "params": {},
+  "tieBreaker": "omega",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "f5660e4eb82c5723",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.889
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.9063
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.9101
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to a square within 8",
+    "layer": 0,
+    "bits": 2.9103
+   },
+   {
+    "score": [
+     "-8",
+     "2"
+    ],
+    "label": "the area to a square within 8; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.924
+   },
+   {
+    "score": [
+     "-8",
+     "4"
+    ],
+    "label": "the area to a square within 8; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.9512
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "the area to a square within 8; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.9516
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to a square within 4",
+    "layer": 0,
+    "bits": 2.9516
+   },
+   {
+    "score": [
+     "-4",
+     "2"
+    ],
+    "label": "the area to a square within 4; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 3.0002
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "the area to a square within 4; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 3.0284
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the area to a square within 4; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 3.0304
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to a square within 2",
+    "layer": 0,
+    "bits": 3.0304
+   },
+   {
+    "score": [
+     "-2",
+     "2"
+    ],
+    "label": "the area to a square within 2; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 3.1501
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "the area to a square within 2; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 3.1749
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "the area to a square within 2; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 3.1752
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to a square within 1",
+    "layer": 0,
+    "bits": 3.1752
+   },
+   {
+    "score": [
+     "-1",
+     "2"
+    ],
+    "label": "the area to a square within 1; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 3.352
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "the area to a square within 1; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 3.3589
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "the area to a square within 1; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 3.3589
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to a square within 1/2",
+    "layer": 0,
+    "bits": 3.3589
+   },
+   {
+    "score": [
+     "-1/2",
+     "2"
+    ],
+    "label": "the area to a square within 1/2; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 3.8486
+   },
+   {
+    "score": [
+     "-1/2",
+     "4"
+    ],
+    "label": "the area to a square within 1/2; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 3.8509
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "the area to a square within 1/2; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 3.8509
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to a square within 1/4",
+    "layer": 0,
+    "bits": 3.8509
+   },
+   {
+    "score": [
+     "-1/4",
+     "2"
+    ],
+    "label": "the area to a square within 1/4; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 4.2803
+   },
+   {
+    "score": [
+     "-1/4",
+     "4"
+    ],
+    "label": "the area to a square within 1/4; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 4.2813
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "the area to a square within 1/4; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 4.2813
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "the area to a square within 1/8",
+    "layer": 0,
+    "bits": 4.2813
+   },
+   {
+    "score": [
+     "-1/8",
+     "2"
+    ],
+    "label": "the area to a square within 1/8; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 4.7399
+   },
+   {
+    "score": [
+     "-1/8",
+     "4"
+    ],
+    "label": "the area to a square within 1/8; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 4.7408
+   },
+   {
+    "score": [
+     "-1/8",
+     "6"
+    ],
+    "label": "the area to a square within 1/8; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 4.7408
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "the area to a square within 1/16",
+    "layer": 0,
+    "bits": 4.7408
+   },
+   {
+    "score": [
+     "-1/16",
+     "2"
+    ],
+    "label": "the area to a square within 1/16; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 7.2473
+   },
+   {
+    "score": [
+     "-1/16",
+     "4"
+    ],
+    "label": "the area to a square within 1/16; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 7.2491
+   },
+   {
+    "score": [
+     "-1/16",
+     "6"
+    ],
+    "label": "the area to a square within 1/16; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 7.2491
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to a square exactly",
+    "layer": 0,
+    "bits": 7.2491
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 1",
+    "layer": 1,
+    "bits": 7.8038
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 9.2984
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 3",
+    "layer": 1,
+    "bits": 10.5242
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 12.9006
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 5",
+    "layer": 1,
+    "bits": 14.3947
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 17.074
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 7",
+    "layer": 1,
+    "bits": 23.1351
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=spf",
+  "variant": "line-q",
+  "family": "square-area",
+  "params": {},
+  "tieBreaker": "spf",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "74b11810e9105568",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.8795
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.8858
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.8878
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to a square within 8",
+    "layer": 0,
+    "bits": 2.8903
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the area to a square within 8; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.913
+   },
+   {
+    "score": [
+     "-8",
+     "13"
+    ],
+    "label": "the area to a square within 8; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.9271
+   },
+   {
+    "score": [
+     "-8",
+     "23"
+    ],
+    "label": "the area to a square within 8; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.9305
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to a square within 4",
+    "layer": 0,
+    "bits": 2.9314
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the area to a square within 4; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.9989
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "the area to a square within 4; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.0118
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "the area to a square within 4; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.0126
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to a square within 2",
+    "layer": 0,
+    "bits": 3.0128
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the area to a square within 2; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.1287
+   },
+   {
+    "score": [
+     "-2",
+     "13"
+    ],
+    "label": "the area to a square within 2; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.1338
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "the area to a square within 2; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.1341
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to a square within 1",
+    "layer": 0,
+    "bits": 3.1341
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the area to a square within 1; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.2718
+   },
+   {
+    "score": [
+     "-1",
+     "13"
+    ],
+    "label": "the area to a square within 1; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.28
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "the area to a square within 1; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.2809
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to a square within 1/2",
+    "layer": 0,
+    "bits": 3.281
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "the area to a square within 1/2; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.6765
+   },
+   {
+    "score": [
+     "-1/2",
+     "13"
+    ],
+    "label": "the area to a square within 1/2; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.687
+   },
+   {
+    "score": [
+     "-1/2",
+     "23"
+    ],
+    "label": "the area to a square within 1/2; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.687
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to a square within 1/4",
+    "layer": 0,
+    "bits": 3.687
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "the area to a square within 1/4; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.065
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "the area to a square within 1/4; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.0652
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "the area to a square within 1/4; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.0654
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "the area to a square within 1/8",
+    "layer": 0,
+    "bits": 4.0654
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "the area to a square within 1/8; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.5391
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "the area to a square within 1/8; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.5391
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "the area to a square within 1/8; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.5391
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "the area to a square within 1/16",
+    "layer": 0,
+    "bits": 4.5391
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "the area to a square within 1/16; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 7.2216
+   },
+   {
+    "score": [
+     "-1/16",
+     "13"
+    ],
+    "label": "the area to a square within 1/16; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 7.2216
+   },
+   {
+    "score": [
+     "-1/16",
+     "23"
+    ],
+    "label": "the area to a square within 1/16; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 7.2216
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to a square exactly",
+    "layer": 0,
+    "bits": 7.2216
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 2",
+    "layer": 1,
+    "bits": 7.9068
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 3",
+    "layer": 1,
+    "bits": 9.2651
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 11.3411
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 7",
+    "layer": 1,
+    "bits": 13.1398
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 11",
+    "layer": 1,
+    "bits": 14.9037
+   },
+   {
+    "score": [
+     "0",
+     "13"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 15.6685
+   },
+   {
+    "score": [
+     "0",
+     "17"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 17",
+    "layer": 1,
+    "bits": 16.5121
+   },
+   {
+    "score": [
+     "0",
+     "19"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 19",
+    "layer": 1,
+    "bits": 16.526
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 16.7938
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 29",
+    "layer": 1,
+    "bits": 28.3321
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 31",
+    "layer": 1,
+    "bits": 30.0244
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/treasure/{\"T\":37,\"k\":2}/tb=prime-gradient",
+  "variant": "line-q",
+  "family": "treasure",
+  "params": {
+   "k": 2,
+   "T": 37
+  },
+  "tieBreaker": "prime-gradient",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "75dce4d8da83acd6",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.034
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 3.8051
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 3.9269
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "y(k) to T within 32",
+    "layer": 0,
+    "bits": 4.2342
+   },
+   {
+    "score": [
+     "-32",
+     "-2"
+    ],
+    "label": "y(k) to T within 32; m to a prime within 2",
+    "layer": 1,
+    "bits": 4.2954
+   },
+   {
+    "score": [
+     "-32",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 32; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 5.2568
+   },
+   {
+    "score": [
+     "-32",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 32; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 5.5548
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "y(k) to T within 16",
+    "layer": 0,
+    "bits": 6.8626
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "y(k) to T within 16; m to a prime within 2",
+    "layer": 1,
+    "bits": 6.8888
+   },
+   {
+    "score": [
+     "-16",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 16; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 7.6342
+   },
+   {
+    "score": [
+     "-16",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 16; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 7.8098
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "y(k) to T within 8",
+    "layer": 0,
+    "bits": 8.1908
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "y(k) to T within 8; m to a prime within 2",
+    "layer": 1,
+    "bits": 8.2718
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 8; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 9.3784
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 8; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 9.4008
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "y(k) to T within 4",
+    "layer": 0,
+    "bits": 9.4258
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "y(k) to T within 4; m to a prime within 2",
+    "layer": 1,
+    "bits": 9.5095
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 4; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 9.8451
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 4; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 9.9716
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "y(k) to T within 2",
+    "layer": 0,
+    "bits": 10.0544
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "y(k) to T within 2; m to a prime within 2",
+    "layer": 1,
+    "bits": 10.0592
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 2; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 10.436
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 2; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 10.4968
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "y(k) to T within 1",
+    "layer": 0,
+    "bits": 10.6149
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "y(k) to T within 1; m to a prime within 2",
+    "layer": 1,
+    "bits": 10.6558
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 12.4226
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 1; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 12.4609
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/2",
+    "layer": 0,
+    "bits": 13.1105
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "y(k) to T within 1/2; m to a prime within 2",
+    "layer": 1,
+    "bits": 13.1423
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/2; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 14.4232
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 1/2; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 14.5304
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "y(k) to T within 1/4",
+    "layer": 0,
+    "bits": 14.5741
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "y(k) to T within 1/4; m to a prime within 2",
+    "layer": 1,
+    "bits": 14.5743
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/4; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 14.5783
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "y(k) to T within 1/4; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 14.5874
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "y(k) to T exactly",
+    "layer": 0,
+    "bits": 14.5986
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 4",
+    "layer": 1,
+    "bits": 14.6228
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 2",
+    "layer": 1,
+    "bits": 14.6638
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 1",
+    "layer": 1,
+    "bits": 14.7214
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 1/2",
+    "layer": 1,
+    "bits": 17.6174
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 1/4",
+    "layer": 1,
+    "bits": 17.8089
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "y(k) to T exactly; m to a prime exactly",
+    "layer": 1,
+    "bits": 17.8713
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/treasure/{\"T\":37,\"k\":2}/tb=prime-terms",
+  "variant": "line-q",
+  "family": "treasure",
+  "params": {
+   "k": 2,
+   "T": 37
+  },
+  "tieBreaker": "prime-terms",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "0d93a8f160e773ed",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; different primes at least 3",
+    "layer": 1,
+    "bits": 3.6324
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; different primes at least 5",
+    "layer": 1,
+    "bits": 4.2019
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; different primes at least 7",
+    "layer": 1,
+    "bits": 4.2344
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "y(k) to T within 32",
+    "layer": 0,
+    "bits": 4.2344
+   },
+   {
+    "score": [
+     "-32",
+     "3"
+    ],
+    "label": "y(k) to T within 32; different primes at least 3",
+    "layer": 1,
+    "bits": 5.915
+   },
+   {
+    "score": [
+     "-32",
+     "5"
+    ],
+    "label": "y(k) to T within 32; different primes at least 5",
+    "layer": 1,
+    "bits": 6.4138
+   },
+   {
+    "score": [
+     "-32",
+     "7"
+    ],
+    "label": "y(k) to T within 32; different primes at least 7",
+    "layer": 1,
+    "bits": 6.758
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "y(k) to T within 16",
+    "layer": 0,
+    "bits": 6.7799
+   },
+   {
+    "score": [
+     "-16",
+     "3"
+    ],
+    "label": "y(k) to T within 16; different primes at least 3",
+    "layer": 1,
+    "bits": 7.787
+   },
+   {
+    "score": [
+     "-16",
+     "5"
+    ],
+    "label": "y(k) to T within 16; different primes at least 5",
+    "layer": 1,
+    "bits": 7.8711
+   },
+   {
+    "score": [
+     "-16",
+     "7"
+    ],
+    "label": "y(k) to T within 16; different primes at least 7",
+    "layer": 1,
+    "bits": 7.9831
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "y(k) to T within 8",
+    "layer": 0,
+    "bits": 7.9834
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "y(k) to T within 8; different primes at least 3",
+    "layer": 1,
+    "bits": 8.8503
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "y(k) to T within 8; different primes at least 5",
+    "layer": 1,
+    "bits": 9.107
+   },
+   {
+    "score": [
+     "-8",
+     "7"
+    ],
+    "label": "y(k) to T within 8; different primes at least 7",
+    "layer": 1,
+    "bits": 9.172
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "y(k) to T within 4",
+    "layer": 0,
+    "bits": 9.172
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "y(k) to T within 4; different primes at least 3",
+    "layer": 1,
+    "bits": 9.781
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "y(k) to T within 4; different primes at least 5",
+    "layer": 1,
+    "bits": 10.0166
+   },
+   {
+    "score": [
+     "-4",
+     "7"
+    ],
+    "label": "y(k) to T within 4; different primes at least 7",
+    "layer": 1,
+    "bits": 10.0349
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "y(k) to T within 2",
+    "layer": 0,
+    "bits": 10.0349
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "y(k) to T within 2; different primes at least 3",
+    "layer": 1,
+    "bits": 10.3413
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "y(k) to T within 2; different primes at least 5",
+    "layer": 1,
+    "bits": 10.4838
+   },
+   {
+    "score": [
+     "-2",
+     "7"
+    ],
+    "label": "y(k) to T within 2; different primes at least 7",
+    "layer": 1,
+    "bits": 10.6165
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "y(k) to T within 1",
+    "layer": 0,
+    "bits": 10.6165
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "y(k) to T within 1; different primes at least 3",
+    "layer": 1,
+    "bits": 11.7172
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "y(k) to T within 1; different primes at least 5",
+    "layer": 1,
+    "bits": 12.1313
+   },
+   {
+    "score": [
+     "-1",
+     "7"
+    ],
+    "label": "y(k) to T within 1; different primes at least 7",
+    "layer": 1,
+    "bits": 12.1313
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/2",
+    "layer": 0,
+    "bits": 12.1313
+   },
+   {
+    "score": [
+     "-1/2",
+     "3"
+    ],
+    "label": "y(k) to T within 1/2; different primes at least 3",
+    "layer": 1,
+    "bits": 12.715
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "y(k) to T within 1/2; different primes at least 5",
+    "layer": 1,
+    "bits": 12.715
+   },
+   {
+    "score": [
+     "-1/2",
+     "7"
+    ],
+    "label": "y(k) to T within 1/2; different primes at least 7",
+    "layer": 1,
+    "bits": 12.715
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "y(k) to T within 1/4",
+    "layer": 0,
+    "bits": 12.715
+   },
+   {
+    "score": [
+     "-1/4",
+     "3"
+    ],
+    "label": "y(k) to T within 1/4; different primes at least 3",
+    "layer": 1,
+    "bits": 12.7221
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "y(k) to T within 1/4; different primes at least 5",
+    "layer": 1,
+    "bits": 12.7221
+   },
+   {
+    "score": [
+     "-1/4",
+     "7"
+    ],
+    "label": "y(k) to T within 1/4; different primes at least 7",
+    "layer": 1,
+    "bits": 12.7221
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "y(k) to T exactly",
+    "layer": 0,
+    "bits": 12.7221
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "y(k) to T exactly; different primes at least 1",
+    "layer": 1,
+    "bits": 12.7221
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "y(k) to T exactly; different primes at least 2",
+    "layer": 1,
+    "bits": 12.735
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "y(k) to T exactly; different primes at least 3",
+    "layer": 1,
+    "bits": 12.7516
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "y(k) to T exactly; different primes at least 4",
+    "layer": 1,
+    "bits": 13.6777
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "y(k) to T exactly; different primes at least 5",
+    "layer": 1,
+    "bits": 13.7782
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "y(k) to T exactly; different primes at least 6",
+    "layer": 1,
+    "bits": 19.017
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/treasure/{\"T\":37,\"k\":2}/tb=square-start",
+  "variant": "line-q",
+  "family": "treasure",
+  "params": {
+   "k": 2,
+   "T": 37
+  },
+  "tieBreaker": "square-start",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "66ddde1e6de80c8a",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-4"
+    ],
+    "label": "anything; c to a square within 4",
+    "layer": 1,
+    "bits": 0.7253
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; c to a square within 1",
+    "layer": 1,
+    "bits": 0.8244
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; c to a square within 1/2",
+    "layer": 1,
+    "bits": 0.9814
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "y(k) to T within 32",
+    "layer": 0,
+    "bits": 4.1667
+   },
+   {
+    "score": [
+     "-32",
+     "-4"
+    ],
+    "label": "y(k) to T within 32; c to a square within 4",
+    "layer": 1,
+    "bits": 4.1933
+   },
+   {
+    "score": [
+     "-32",
+     "-1"
+    ],
+    "label": "y(k) to T within 32; c to a square within 1",
+    "layer": 1,
+    "bits": 4.4814
+   },
+   {
+    "score": [
+     "-32",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 32; c to a square within 1/2",
+    "layer": 1,
+    "bits": 4.8245
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "y(k) to T within 16",
+    "layer": 0,
+    "bits": 6.586
+   },
+   {
+    "score": [
+     "-16",
+     "-4"
+    ],
+    "label": "y(k) to T within 16; c to a square within 4",
+    "layer": 1,
+    "bits": 6.6254
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "y(k) to T within 16; c to a square within 1",
+    "layer": 1,
+    "bits": 6.8596
+   },
+   {
+    "score": [
+     "-16",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 16; c to a square within 1/2",
+    "layer": 1,
+    "bits": 7.0276
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "y(k) to T within 8",
+    "layer": 0,
+    "bits": 7.715
+   },
+   {
+    "score": [
+     "-8",
+     "-4"
+    ],
+    "label": "y(k) to T within 8; c to a square within 4",
+    "layer": 1,
+    "bits": 7.8977
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "y(k) to T within 8; c to a square within 1",
+    "layer": 1,
+    "bits": 8.1501
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 8; c to a square within 1/2",
+    "layer": 1,
+    "bits": 8.3183
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "y(k) to T within 4",
+    "layer": 0,
+    "bits": 9.0016
+   },
+   {
+    "score": [
+     "-4",
+     "-4"
+    ],
+    "label": "y(k) to T within 4; c to a square within 4",
+    "layer": 1,
+    "bits": 9.0227
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "y(k) to T within 4; c to a square within 1",
+    "layer": 1,
+    "bits": 9.1429
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 4; c to a square within 1/2",
+    "layer": 1,
+    "bits": 9.2439
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "y(k) to T within 2",
+    "layer": 0,
+    "bits": 9.653
+   },
+   {
+    "score": [
+     "-2",
+     "-4"
+    ],
+    "label": "y(k) to T within 2; c to a square within 4",
+    "layer": 1,
+    "bits": 9.7257
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "y(k) to T within 2; c to a square within 1",
+    "layer": 1,
+    "bits": 9.8886
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 2; c to a square within 1/2",
+    "layer": 1,
+    "bits": 10.0756
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "y(k) to T within 1",
+    "layer": 0,
+    "bits": 10.1232
+   },
+   {
+    "score": [
+     "-1",
+     "-4"
+    ],
+    "label": "y(k) to T within 1; c to a square within 4",
+    "layer": 1,
+    "bits": 10.1762
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "y(k) to T within 1; c to a square within 1",
+    "layer": 1,
+    "bits": 10.3248
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1; c to a square within 1/2",
+    "layer": 1,
+    "bits": 10.3814
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/2",
+    "layer": 0,
+    "bits": 11.7533
+   },
+   {
+    "score": [
+     "-1/2",
+     "-4"
+    ],
+    "label": "y(k) to T within 1/2; c to a square within 4",
+    "layer": 1,
+    "bits": 11.7582
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "y(k) to T within 1/2; c to a square within 1",
+    "layer": 1,
+    "bits": 11.7867
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/2; c to a square within 1/2",
+    "layer": 1,
+    "bits": 11.7951
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "y(k) to T within 1/4",
+    "layer": 0,
+    "bits": 11.8443
+   },
+   {
+    "score": [
+     "-1/4",
+     "-4"
+    ],
+    "label": "y(k) to T within 1/4; c to a square within 4",
+    "layer": 1,
+    "bits": 11.8443
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "y(k) to T within 1/4; c to a square within 1",
+    "layer": 1,
+    "bits": 11.8445
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "y(k) to T within 1/4; c to a square within 1/2",
+    "layer": 1,
+    "bits": 11.8456
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "y(k) to T exactly",
+    "layer": 0,
+    "bits": 12.1711
+   },
+   {
+    "score": [
+     "0",
+     "-8"
+    ],
+    "label": "y(k) to T exactly; c to a square within 8",
+    "layer": 1,
+    "bits": 12.1717
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "y(k) to T exactly; c to a square within 4",
+    "layer": 1,
+    "bits": 12.1777
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "y(k) to T exactly; c to a square within 2",
+    "layer": 1,
+    "bits": 12.205
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "y(k) to T exactly; c to a square within 1",
+    "layer": 1,
+    "bits": 12.2139
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "y(k) to T exactly; c to a square within 1/2",
+    "layer": 1,
+    "bits": 12.7765
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "y(k) to T exactly; c to a square exactly",
+    "layer": 1,
+    "bits": 12.7798
    }
   ]
  },
@@ -1187,7 +11095,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "4125618a75e2bd2b",
+  "contentHash": "66847b13ad77566c",
   "rungs": [
    {
     "score": null,
@@ -1197,11 +11105,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; the legs to each other within 2",
+    "layer": 1,
+    "bits": 3.171
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 3.1717
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 3.1717
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "the area within 8",
     "layer": 0,
-    "bits": null
+    "bits": 3.2487
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the area within 8; the legs to each other within 2",
+    "layer": 1,
+    "bits": 3.2781
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "the area within 8; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 3.2822
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "the area within 8; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 3.2823
    },
    {
     "score": [
@@ -1209,7 +11171,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 4",
     "layer": 0,
-    "bits": null
+    "bits": 3.2838
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the area within 4; the legs to each other within 2",
+    "layer": 1,
+    "bits": 3.4767
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "the area within 4; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 4.1554
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "the area within 4; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 4.9584
    },
    {
     "score": [
@@ -1217,7 +11206,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 2",
     "layer": 0,
-    "bits": null
+    "bits": 6.0539
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the area within 2; the legs to each other within 2",
+    "layer": 1,
+    "bits": 6.4168
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "the area within 2; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 6.6386
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "the area within 2; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 6.666
    },
    {
     "score": [
@@ -1225,7 +11241,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1",
     "layer": 0,
-    "bits": null
+    "bits": 7.2391
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the area within 1; the legs to each other within 2",
+    "layer": 1,
+    "bits": 7.5692
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "the area within 1; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 7.6655
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "the area within 1; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 7.6681
    },
    {
     "score": [
@@ -1233,7 +11276,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1/2",
     "layer": 0,
-    "bits": null
+    "bits": 7.6917
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the area within 1/2; the legs to each other within 2",
+    "layer": 1,
+    "bits": 7.8369
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "the area within 1/2; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 7.8463
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "the area within 1/2; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 7.8468
    },
    {
     "score": [
@@ -1241,7 +11311,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1/4",
     "layer": 0,
-    "bits": null
+    "bits": 9.0264
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the area within 1/4; the legs to each other within 2",
+    "layer": 1,
+    "bits": 9.4413
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "the area within 1/4; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 9.451
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "the area within 1/4; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 9.4551
    },
    {
     "score": [
@@ -1249,7 +11346,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1/8",
     "layer": 0,
-    "bits": null
+    "bits": 9.4552
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "the area within 1/8; the legs to each other within 2",
+    "layer": 1,
+    "bits": 9.6004
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/2"
+    ],
+    "label": "the area within 1/8; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 9.8209
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/8"
+    ],
+    "label": "the area within 1/8; the legs to each other within 1/8",
+    "layer": 1,
+    "bits": 9.821
    },
    {
     "score": [
@@ -1257,34 +11381,52 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area exactly",
     "layer": 0,
-    "bits": null
+    "bits": 9.8213
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "the legs to each other within 8",
+    "label": "the area exactly; the legs to each other within 8",
     "layer": 1,
-    "bits": null
+    "bits": 9.8356
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "the legs to each other within 4",
+    "label": "the area exactly; the legs to each other within 4",
     "layer": 1,
-    "bits": null
+    "bits": 9.8841
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "the legs to each other within 2",
+    "label": "the area exactly; the legs to each other within 2",
     "layer": 1,
-    "bits": null
+    "bits": 9.8841
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the area exactly; the legs to each other within 1",
+    "layer": 1,
+    "bits": 23.38
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the area exactly; the legs to each other within 1/2",
+    "layer": 1,
+    "bits": 23.38
    }
   ]
  },
@@ -1299,7 +11441,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "45316e3406b3966b",
+  "contentHash": "6848825dc9137d96",
   "rungs": [
    {
     "score": null,
@@ -1309,11 +11451,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-6"
+    ],
+    "label": "anything; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 2.8158
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 2.8314
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 2.8545
+   },
+   {
+    "score": [
      "-8"
     ],
     "label": "the area within 8",
     "layer": 0,
-    "bits": null
+    "bits": 2.9989
+   },
+   {
+    "score": [
+     "-8",
+     "-6"
+    ],
+    "label": "the area within 8; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 3.0008
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "the area within 8; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 3.0026
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the area within 8; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 3.0127
    },
    {
     "score": [
@@ -1321,7 +11517,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 4",
     "layer": 0,
-    "bits": null
+    "bits": 3.0241
+   },
+   {
+    "score": [
+     "-4",
+     "-6"
+    ],
+    "label": "the area within 4; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 3.682
+   },
+   {
+    "score": [
+     "-4",
+     "-3"
+    ],
+    "label": "the area within 4; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 4.0833
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the area within 4; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 4.5934
    },
    {
     "score": [
@@ -1329,7 +11552,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 2",
     "layer": 0,
-    "bits": null
+    "bits": 5.7866
+   },
+   {
+    "score": [
+     "-2",
+     "-6"
+    ],
+    "label": "the area within 2; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 5.8947
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "the area within 2; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 5.9965
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the area within 2; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 6.1588
    },
    {
     "score": [
@@ -1337,7 +11587,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1",
     "layer": 0,
-    "bits": null
+    "bits": 7.0276
+   },
+   {
+    "score": [
+     "-1",
+     "-6"
+    ],
+    "label": "the area within 1; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 7.1134
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "the area within 1; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 7.2425
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the area within 1; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 7.3627
    },
    {
     "score": [
@@ -1345,7 +11622,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1/2",
     "layer": 0,
-    "bits": null
+    "bits": 7.4498
+   },
+   {
+    "score": [
+     "-1/2",
+     "-6"
+    ],
+    "label": "the area within 1/2; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 7.5241
+   },
+   {
+    "score": [
+     "-1/2",
+     "-3"
+    ],
+    "label": "the area within 1/2; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 7.6168
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "the area within 1/2; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 7.6169
    },
    {
     "score": [
@@ -1353,7 +11657,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1/4",
     "layer": 0,
-    "bits": null
+    "bits": 8.8168
+   },
+   {
+    "score": [
+     "-1/4",
+     "-6"
+    ],
+    "label": "the area within 1/4; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 8.8431
+   },
+   {
+    "score": [
+     "-1/4",
+     "-3"
+    ],
+    "label": "the area within 1/4; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 8.8994
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "the area within 1/4; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 9.412
    },
    {
     "score": [
@@ -1361,7 +11692,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1/8",
     "layer": 0,
-    "bits": null
+    "bits": 9.4137
+   },
+   {
+    "score": [
+     "-1/8",
+     "-6"
+    ],
+    "label": "the area within 1/8; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 9.5316
+   },
+   {
+    "score": [
+     "-1/8",
+     "-3"
+    ],
+    "label": "the area within 1/8; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 9.723
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1"
+    ],
+    "label": "the area within 1/8; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 9.7584
    },
    {
     "score": [
@@ -1369,79 +11727,79 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area exactly",
     "layer": 0,
-    "bits": null
+    "bits": 9.7584
    },
    {
     "score": [
      "0",
      "-12"
     ],
-    "label": "the legs' bottom numbers − 2 at most 12",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 12",
     "layer": 1,
-    "bits": null
+    "bits": 9.7584
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "the legs' bottom numbers − 2 at most 8",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 8",
     "layer": 1,
-    "bits": null
+    "bits": 9.7584
    },
    {
     "score": [
      "0",
      "-6"
     ],
-    "label": "the legs' bottom numbers − 2 at most 6",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 6",
     "layer": 1,
-    "bits": null
+    "bits": 9.759
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "the legs' bottom numbers − 2 at most 4",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 4",
     "layer": 1,
-    "bits": null
+    "bits": 9.7641
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "the legs' bottom numbers − 2 at most 3",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 3",
     "layer": 1,
-    "bits": null
+    "bits": 9.7642
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "the legs' bottom numbers − 2 at most 2",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 2",
     "layer": 1,
-    "bits": null
+    "bits": 9.7642
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "the legs' bottom numbers − 2 at most 1",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 1",
     "layer": 1,
-    "bits": null
+    "bits": 9.7777
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "the legs' bottom numbers − 2 0",
+    "label": "the area exactly; the legs' bottom numbers − 2 0",
     "layer": 1,
-    "bits": null
+    "bits": 9.7789
    }
   ]
  },
@@ -1454,7 +11812,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "6047e59b3f418960",
+  "contentHash": "ad1d775076dd5cf8",
   "rungs": [
    {
     "score": null,
@@ -1464,11 +11822,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; its prime factors at least 2",
+    "layer": 1,
+    "bits": 0.7659
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; its prime factors at least 4",
+    "layer": 1,
+    "bits": 0.7749
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; its prime factors at least 5",
+    "layer": 1,
+    "bits": 0.775
+   },
+   {
+    "score": [
      "-1/3"
     ],
     "label": "c to a whole number within 1/3",
     "layer": 0,
-    "bits": 0.7639
+    "bits": 0.7751
+   },
+   {
+    "score": [
+     "-1/3",
+     "2"
+    ],
+    "label": "c to a whole number within 1/3; its prime factors at least 2",
+    "layer": 1,
+    "bits": 0.8558
+   },
+   {
+    "score": [
+     "-1/3",
+     "4"
+    ],
+    "label": "c to a whole number within 1/3; its prime factors at least 4",
+    "layer": 1,
+    "bits": 0.8586
+   },
+   {
+    "score": [
+     "-1/3",
+     "5"
+    ],
+    "label": "c to a whole number within 1/3; its prime factors at least 5",
+    "layer": 1,
+    "bits": 0.8587
    },
    {
     "score": [
@@ -1476,7 +11888,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/4",
     "layer": 0,
-    "bits": 0.8484
+    "bits": 0.8587
+   },
+   {
+    "score": [
+     "-1/4",
+     "2"
+    ],
+    "label": "c to a whole number within 1/4; its prime factors at least 2",
+    "layer": 1,
+    "bits": 0.9197
+   },
+   {
+    "score": [
+     "-1/4",
+     "4"
+    ],
+    "label": "c to a whole number within 1/4; its prime factors at least 4",
+    "layer": 1,
+    "bits": 0.9221
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "c to a whole number within 1/4; its prime factors at least 5",
+    "layer": 1,
+    "bits": 0.9223
    },
    {
     "score": [
@@ -1484,7 +11923,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/6",
     "layer": 0,
-    "bits": 0.913
+    "bits": 0.9223
+   },
+   {
+    "score": [
+     "-1/6",
+     "2"
+    ],
+    "label": "c to a whole number within 1/6; its prime factors at least 2",
+    "layer": 1,
+    "bits": 0.9519
+   },
+   {
+    "score": [
+     "-1/6",
+     "4"
+    ],
+    "label": "c to a whole number within 1/6; its prime factors at least 4",
+    "layer": 1,
+    "bits": 0.9524
+   },
+   {
+    "score": [
+     "-1/6",
+     "5"
+    ],
+    "label": "c to a whole number within 1/6; its prime factors at least 5",
+    "layer": 1,
+    "bits": 0.9524
    },
    {
     "score": [
@@ -1492,7 +11958,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/8",
     "layer": 0,
-    "bits": 0.9424
+    "bits": 0.9524
+   },
+   {
+    "score": [
+     "-1/8",
+     "2"
+    ],
+    "label": "c to a whole number within 1/8; its prime factors at least 2",
+    "layer": 1,
+    "bits": 0.9831
+   },
+   {
+    "score": [
+     "-1/8",
+     "4"
+    ],
+    "label": "c to a whole number within 1/8; its prime factors at least 4",
+    "layer": 1,
+    "bits": 0.9834
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "c to a whole number within 1/8; its prime factors at least 5",
+    "layer": 1,
+    "bits": 0.9834
    },
    {
     "score": [
@@ -1500,7 +11993,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/12",
     "layer": 0,
-    "bits": 0.973
+    "bits": 0.9834
+   },
+   {
+    "score": [
+     "-1/12",
+     "2"
+    ],
+    "label": "c to a whole number within 1/12; its prime factors at least 2",
+    "layer": 1,
+    "bits": 0.9956
+   },
+   {
+    "score": [
+     "-1/12",
+     "4"
+    ],
+    "label": "c to a whole number within 1/12; its prime factors at least 4",
+    "layer": 1,
+    "bits": 0.9956
+   },
+   {
+    "score": [
+     "-1/12",
+     "5"
+    ],
+    "label": "c to a whole number within 1/12; its prime factors at least 5",
+    "layer": 1,
+    "bits": 0.9956
    },
    {
     "score": [
@@ -1508,7 +12028,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/16",
     "layer": 0,
-    "bits": 0.9854
+    "bits": 0.9956
+   },
+   {
+    "score": [
+     "-1/16",
+     "2"
+    ],
+    "label": "c to a whole number within 1/16; its prime factors at least 2",
+    "layer": 1,
+    "bits": 1.0246
+   },
+   {
+    "score": [
+     "-1/16",
+     "4"
+    ],
+    "label": "c to a whole number within 1/16; its prime factors at least 4",
+    "layer": 1,
+    "bits": 1.0247
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "c to a whole number within 1/16; its prime factors at least 5",
+    "layer": 1,
+    "bits": 1.0247
    },
    {
     "score": [
@@ -1516,61 +12063,61 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number exactly",
     "layer": 0,
-    "bits": 1.0133
+    "bits": 1.0247
    },
    {
     "score": [
      "0",
      "1"
     ],
-    "label": "its prime factors at least 1",
+    "label": "c to a whole number exactly; its prime factors at least 1",
     "layer": 1,
-    "bits": 3.4285
+    "bits": 3.4414
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "its prime factors at least 2",
+    "label": "c to a whole number exactly; its prime factors at least 2",
     "layer": 1,
-    "bits": 4.5743
+    "bits": 4.5897
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "its prime factors at least 3",
+    "label": "c to a whole number exactly; its prime factors at least 3",
     "layer": 1,
-    "bits": 6.1081
+    "bits": 6.0481
    },
    {
     "score": [
      "0",
      "4"
     ],
-    "label": "its prime factors at least 4",
+    "label": "c to a whole number exactly; its prime factors at least 4",
     "layer": 1,
-    "bits": 7.7423
+    "bits": 7.8667
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "its prime factors at least 5",
+    "label": "c to a whole number exactly; its prime factors at least 5",
     "layer": 1,
-    "bits": 9.1667
+    "bits": 9.6819
    },
    {
     "score": [
      "0",
      "6"
     ],
-    "label": "its prime factors at least 6",
+    "label": "c to a whole number exactly; its prime factors at least 6",
     "layer": 1,
-    "bits": 10.5085
+    "bits": 11.7589
    }
   ]
  },
@@ -1583,7 +12130,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "93a56302e9faa94d",
+  "contentHash": "ba16dec1fb54d109",
   "rungs": [
    {
     "score": null,
@@ -1593,11 +12140,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 0.7634
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 0.7672
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 0.768
+   },
+   {
+    "score": [
      "-1/3"
     ],
     "label": "c to a whole number within 1/3",
     "layer": 0,
-    "bits": 0.7673
+    "bits": 0.7683
+   },
+   {
+    "score": [
+     "-1/3",
+     "5"
+    ],
+    "label": "c to a whole number within 1/3; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 0.851
+   },
+   {
+    "score": [
+     "-1/3",
+     "13"
+    ],
+    "label": "c to a whole number within 1/3; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 0.8537
+   },
+   {
+    "score": [
+     "-1/3",
+     "23"
+    ],
+    "label": "c to a whole number within 1/3; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 0.8541
    },
    {
     "score": [
@@ -1605,7 +12206,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/4",
     "layer": 0,
-    "bits": 0.8509
+    "bits": 0.8544
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "c to a whole number within 1/4; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 0.9283
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "c to a whole number within 1/4; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 0.9293
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "c to a whole number within 1/4; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 0.9293
    },
    {
     "score": [
@@ -1613,7 +12241,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/6",
     "layer": 0,
-    "bits": 0.9235
+    "bits": 0.9293
+   },
+   {
+    "score": [
+     "-1/6",
+     "5"
+    ],
+    "label": "c to a whole number within 1/6; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 0.9564
+   },
+   {
+    "score": [
+     "-1/6",
+     "13"
+    ],
+    "label": "c to a whole number within 1/6; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 0.9566
+   },
+   {
+    "score": [
+     "-1/6",
+     "23"
+    ],
+    "label": "c to a whole number within 1/6; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 0.9566
    },
    {
     "score": [
@@ -1621,7 +12276,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/8",
     "layer": 0,
-    "bits": 0.9524
+    "bits": 0.9566
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "c to a whole number within 1/8; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 0.9884
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "c to a whole number within 1/8; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 0.9884
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "c to a whole number within 1/8; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 0.9884
    },
    {
     "score": [
@@ -1629,7 +12311,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/12",
     "layer": 0,
-    "bits": 0.9814
+    "bits": 0.9884
+   },
+   {
+    "score": [
+     "-1/12",
+     "5"
+    ],
+    "label": "c to a whole number within 1/12; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 0.9996
+   },
+   {
+    "score": [
+     "-1/12",
+     "13"
+    ],
+    "label": "c to a whole number within 1/12; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 0.9996
+   },
+   {
+    "score": [
+     "-1/12",
+     "23"
+    ],
+    "label": "c to a whole number within 1/12; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 0.9996
    },
    {
     "score": [
@@ -1637,7 +12346,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/16",
     "layer": 0,
-    "bits": 0.9941
+    "bits": 0.9996
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "c to a whole number within 1/16; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 1.0307
+   },
+   {
+    "score": [
+     "-1/16",
+     "13"
+    ],
+    "label": "c to a whole number within 1/16; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 1.0307
+   },
+   {
+    "score": [
+     "-1/16",
+     "23"
+    ],
+    "label": "c to a whole number within 1/16; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 1.0307
    },
    {
     "score": [
@@ -1645,79 +12381,106 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number exactly",
     "layer": 0,
-    "bits": 1.0256
+    "bits": 1.0307
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "its smallest prime factor at least 2",
+    "label": "c to a whole number exactly; its smallest prime factor at least 2",
     "layer": 1,
-    "bits": 3.3335
+    "bits": 3.4603
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "its smallest prime factor at least 3",
+    "label": "c to a whole number exactly; its smallest prime factor at least 3",
     "layer": 1,
-    "bits": 4.674
+    "bits": 4.7345
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "its smallest prime factor at least 5",
+    "label": "c to a whole number exactly; its smallest prime factor at least 5",
     "layer": 1,
-    "bits": 6.1726
+    "bits": 6.284
    },
    {
     "score": [
      "0",
      "7"
     ],
-    "label": "its smallest prime factor at least 7",
+    "label": "c to a whole number exactly; its smallest prime factor at least 7",
     "layer": 1,
-    "bits": 7.6169
+    "bits": 7.7001
    },
    {
     "score": [
      "0",
      "11"
     ],
-    "label": "its smallest prime factor at least 11",
+    "label": "c to a whole number exactly; its smallest prime factor at least 11",
     "layer": 1,
-    "bits": 10.0426
+    "bits": 10.2523
    },
    {
     "score": [
      "0",
      "13"
     ],
-    "label": "its smallest prime factor at least 13",
+    "label": "c to a whole number exactly; its smallest prime factor at least 13",
     "layer": 1,
-    "bits": 11.2829
+    "bits": 11.7681
    },
    {
     "score": [
      "0",
      "17"
     ],
-    "label": "its smallest prime factor at least 17",
+    "label": "c to a whole number exactly; its smallest prime factor at least 17",
     "layer": 1,
-    "bits": 14.0594
+    "bits": 13.4823
    },
    {
     "score": [
      "0",
      "19"
     ],
-    "label": "its smallest prime factor at least 19",
+    "label": "c to a whole number exactly; its smallest prime factor at least 19",
     "layer": 1,
-    "bits": 15.6052
+    "bits": 13.6788
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "c to a whole number exactly; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 21.3174
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "c to a whole number exactly; its smallest prime factor at least 29",
+    "layer": 1,
+    "bits": 26.3724
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "c to a whole number exactly; its smallest prime factor at least 31",
+    "layer": 1,
+    "bits": 31.4428
    }
   ]
  },
@@ -1730,10 +12493,10 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "q": 2
   },
   "tieBreaker": "size",
-  "status": "too-coarse",
+  "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "42cc33b2535effe9",
+  "contentHash": "d9a23b464124fcab",
   "rungs": [
    {
     "score": null,
@@ -1743,11 +12506,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 1.4301
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 1.4548
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 1.4833
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "y(k) to x(q) within 13",
     "layer": 0,
-    "bits": 1.5179
+    "bits": 1.5253
+   },
+   {
+    "score": [
+     "-13",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 13; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 1.6831
+   },
+   {
+    "score": [
+     "-13",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 13; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 1.7038
+   },
+   {
+    "score": [
+     "-13",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 13; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 1.7176
    },
    {
     "score": [
@@ -1755,7 +12572,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 8",
     "layer": 0,
-    "bits": 1.7152
+    "bits": 1.7187
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 8; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 1.9281
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 8; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 1.9466
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 8; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 1.9513
    },
    {
     "score": [
@@ -1763,7 +12607,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 5",
     "layer": 0,
-    "bits": 1.9484
+    "bits": 1.9513
+   },
+   {
+    "score": [
+     "-5",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 5; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 2.217
+   },
+   {
+    "score": [
+     "-5",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 5; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 2.2436
+   },
+   {
+    "score": [
+     "-5",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 5; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 2.2436
    },
    {
     "score": [
@@ -1771,7 +12642,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 3",
     "layer": 0,
-    "bits": 2.246
+    "bits": 2.2436
+   },
+   {
+    "score": [
+     "-3",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 3; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 2.5219
+   },
+   {
+    "score": [
+     "-3",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 3; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 2.5617
+   },
+   {
+    "score": [
+     "-3",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 3; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 2.5617
    },
    {
     "score": [
@@ -1779,7 +12677,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 2",
     "layer": 0,
-    "bits": 2.5605
+    "bits": 2.5617
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 2; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 2.645
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 2; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 2.645
+   },
+   {
+    "score": [
+     "-2",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 2; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 2.645
    },
    {
     "score": [
@@ -1787,7 +12712,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1",
     "layer": 0,
-    "bits": 2.6461
+    "bits": 2.645
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "y(k) to x(q) within 1; |x(q)| at least 3",
+    "layer": 1,
+    "bits": 5.4984
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "y(k) to x(q) within 1; |x(q)| at least 6",
+    "layer": 1,
+    "bits": 6.2428
+   },
+   {
+    "score": [
+     "-1",
+     "12"
+    ],
+    "label": "y(k) to x(q) within 1; |x(q)| at least 12",
+    "layer": 1,
+    "bits": 7.0533
    },
    {
     "score": [
@@ -1795,7 +12747,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) exactly",
     "layer": 0,
-    "bits": 9.7607
+    "bits": 10.0363
    }
   ]
  },
@@ -1808,10 +12760,10 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "q": 2
   },
   "tieBreaker": "whole",
-  "status": "too-coarse",
+  "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "77eb8c036f755e4d",
+  "contentHash": "b0fe13a129d478d8",
   "rungs": [
    {
     "score": null,
@@ -1821,11 +12773,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-6"
+    ],
+    "label": "anything; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 1.4133
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 1.4519
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 1.4826
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "y(k) to x(q) within 13",
     "layer": 0,
-    "bits": 1.5473
+    "bits": 1.5707
+   },
+   {
+    "score": [
+     "-13",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 13; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 1.6337
+   },
+   {
+    "score": [
+     "-13",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 13; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 1.6833
+   },
+   {
+    "score": [
+     "-13",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 13; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 1.7027
    },
    {
     "score": [
@@ -1833,7 +12839,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 8",
     "layer": 0,
-    "bits": 1.7357
+    "bits": 1.7539
+   },
+   {
+    "score": [
+     "-8",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 8; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 1.7678
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 8; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 1.8138
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 8; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 1.9303
    },
    {
     "score": [
@@ -1841,7 +12874,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 5",
     "layer": 0,
-    "bits": 1.9692
+    "bits": 1.9822
+   },
+   {
+    "score": [
+     "-5",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 5; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 1.9879
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 5; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 2.0769
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 5; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.1129
    },
    {
     "score": [
@@ -1849,7 +12909,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 3",
     "layer": 0,
-    "bits": 2.282
+    "bits": 2.2944
+   },
+   {
+    "score": [
+     "-3",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 3; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 2.2983
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 3; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 2.3064
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 3; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.5067
    },
    {
     "score": [
@@ -1857,7 +12944,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 2",
     "layer": 0,
-    "bits": 2.5921
+    "bits": 2.6023
+   },
+   {
+    "score": [
+     "-2",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 2; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 2.6067
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 2; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 2.6106
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 2; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.6346
    },
    {
     "score": [
@@ -1865,7 +12979,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) within 1",
     "layer": 0,
-    "bits": 2.6725
+    "bits": 2.681
+   },
+   {
+    "score": [
+     "-1",
+     "-6"
+    ],
+    "label": "y(k) to x(q) within 1; x(q)'s bottom number − 1 at most 6",
+    "layer": 1,
+    "bits": 2.6844
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "y(k) to x(q) within 1; x(q)'s bottom number − 1 at most 3",
+    "layer": 1,
+    "bits": 2.6887
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "y(k) to x(q) within 1; x(q)'s bottom number − 1 at most 1",
+    "layer": 1,
+    "bits": 2.7076
    },
    {
     "score": [
@@ -1873,79 +13014,880 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "y(k) to x(q) exactly",
     "layer": 0,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-12"
     ],
-    "label": "x(q)'s bottom number − 1 at most 12",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 12",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "x(q)'s bottom number − 1 at most 8",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 8",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-6"
     ],
-    "label": "x(q)'s bottom number − 1 at most 6",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 6",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "x(q)'s bottom number − 1 at most 4",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 4",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "x(q)'s bottom number − 1 at most 3",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 3",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "x(q)'s bottom number − 1 at most 2",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 2",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "x(q)'s bottom number − 1 at most 1",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 at most 1",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "x(q)'s bottom number − 1 0",
+    "label": "y(k) to x(q) exactly; x(q)'s bottom number − 1 0",
     "layer": 1,
-    "bits": 9.8915
+    "bits": 9.9077
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/exact-change/{\"ways\":6}/tb=big-bill",
+  "variant": "line-z",
+  "family": "exact-change",
+  "params": {
+   "ways": 6
+  },
+  "tieBreaker": "big-bill",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "0fc7ebbad30f0b22",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "15"
+    ],
+    "label": "anything; the bill at least 15",
+    "layer": 1,
+    "bits": 2.5913
+   },
+   {
+    "score": [
+     null,
+     "30"
+    ],
+    "label": "anything; the bill at least 30",
+    "layer": 1,
+    "bits": 2.6015
+   },
+   {
+    "score": [
+     null,
+     "60"
+    ],
+    "label": "anything; the bill at least 60",
+    "layer": 1,
+    "bits": 2.6104
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the ways to the target within 5",
+    "layer": 0,
+    "bits": 2.6214
+   },
+   {
+    "score": [
+     "-5",
+     "15"
+    ],
+    "label": "the ways to the target within 5; the bill at least 15",
+    "layer": 1,
+    "bits": 5.3531
+   },
+   {
+    "score": [
+     "-5",
+     "30"
+    ],
+    "label": "the ways to the target within 5; the bill at least 30",
+    "layer": 1,
+    "bits": 5.3938
+   },
+   {
+    "score": [
+     "-5",
+     "60"
+    ],
+    "label": "the ways to the target within 5; the bill at least 60",
+    "layer": 1,
+    "bits": 5.4049
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the ways to the target within 4",
+    "layer": 0,
+    "bits": 5.4091
+   },
+   {
+    "score": [
+     "-4",
+     "15"
+    ],
+    "label": "the ways to the target within 4; the bill at least 15",
+    "layer": 1,
+    "bits": 6.1326
+   },
+   {
+    "score": [
+     "-4",
+     "30"
+    ],
+    "label": "the ways to the target within 4; the bill at least 30",
+    "layer": 1,
+    "bits": 6.2016
+   },
+   {
+    "score": [
+     "-4",
+     "60"
+    ],
+    "label": "the ways to the target within 4; the bill at least 60",
+    "layer": 1,
+    "bits": 6.2238
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the ways to the target within 3",
+    "layer": 0,
+    "bits": 6.2347
+   },
+   {
+    "score": [
+     "-3",
+     "15"
+    ],
+    "label": "the ways to the target within 3; the bill at least 15",
+    "layer": 1,
+    "bits": 6.7971
+   },
+   {
+    "score": [
+     "-3",
+     "30"
+    ],
+    "label": "the ways to the target within 3; the bill at least 30",
+    "layer": 1,
+    "bits": 6.8862
+   },
+   {
+    "score": [
+     "-3",
+     "60"
+    ],
+    "label": "the ways to the target within 3; the bill at least 60",
+    "layer": 1,
+    "bits": 6.9206
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the ways to the target within 2",
+    "layer": 0,
+    "bits": 6.9315
+   },
+   {
+    "score": [
+     "-2",
+     "15"
+    ],
+    "label": "the ways to the target within 2; the bill at least 15",
+    "layer": 1,
+    "bits": 7.5096
+   },
+   {
+    "score": [
+     "-2",
+     "30"
+    ],
+    "label": "the ways to the target within 2; the bill at least 30",
+    "layer": 1,
+    "bits": 7.6607
+   },
+   {
+    "score": [
+     "-2",
+     "60"
+    ],
+    "label": "the ways to the target within 2; the bill at least 60",
+    "layer": 1,
+    "bits": 7.7256
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the ways to the target within 1",
+    "layer": 0,
+    "bits": 7.7745
+   },
+   {
+    "score": [
+     "-1",
+     "15"
+    ],
+    "label": "the ways to the target within 1; the bill at least 15",
+    "layer": 1,
+    "bits": 8.9425
+   },
+   {
+    "score": [
+     "-1",
+     "30"
+    ],
+    "label": "the ways to the target within 1; the bill at least 30",
+    "layer": 1,
+    "bits": 9.3016
+   },
+   {
+    "score": [
+     "-1",
+     "60"
+    ],
+    "label": "the ways to the target within 1; the bill at least 60",
+    "layer": 1,
+    "bits": 9.5028
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the ways to the target exactly",
+    "layer": 0,
+    "bits": 9.6361
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the ways to the target exactly; the bill at least 10",
+    "layer": 1,
+    "bits": 10.8577
+   },
+   {
+    "score": [
+     "0",
+     "15"
+    ],
+    "label": "the ways to the target exactly; the bill at least 15",
+    "layer": 1,
+    "bits": 11.3214
+   },
+   {
+    "score": [
+     "0",
+     "20"
+    ],
+    "label": "the ways to the target exactly; the bill at least 20",
+    "layer": 1,
+    "bits": 12.0313
+   },
+   {
+    "score": [
+     "0",
+     "30"
+    ],
+    "label": "the ways to the target exactly; the bill at least 30",
+    "layer": 1,
+    "bits": 12.5063
+   },
+   {
+    "score": [
+     "0",
+     "45"
+    ],
+    "label": "the ways to the target exactly; the bill at least 45",
+    "layer": 1,
+    "bits": 13.3374
+   },
+   {
+    "score": [
+     "0",
+     "60"
+    ],
+    "label": "the ways to the target exactly; the bill at least 60",
+    "layer": 1,
+    "bits": 15.0746
+   },
+   {
+    "score": [
+     "0",
+     "90"
+    ],
+    "label": "the ways to the target exactly; the bill at least 90",
+    "layer": 1,
+    "bits": 16.2215
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/exact-change/{\"ways\":6}/tb=big-piles",
+  "variant": "line-z",
+  "family": "exact-change",
+  "params": {
+   "ways": 6
+  },
+  "tieBreaker": "big-piles",
+  "status": "too-coarse",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "f7a3c066365f23e0",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "1"
+    ],
+    "label": "anything; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 2.6084
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 2.6084
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 2.6084
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the ways to the target within 5",
+    "layer": 0,
+    "bits": 2.6084
+   },
+   {
+    "score": [
+     "-5",
+     "1"
+    ],
+    "label": "the ways to the target within 5; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 5.3479
+   },
+   {
+    "score": [
+     "-5",
+     "3"
+    ],
+    "label": "the ways to the target within 5; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 5.3479
+   },
+   {
+    "score": [
+     "-5",
+     "4"
+    ],
+    "label": "the ways to the target within 5; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 5.3479
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the ways to the target within 4",
+    "layer": 0,
+    "bits": 5.3479
+   },
+   {
+    "score": [
+     "-4",
+     "1"
+    ],
+    "label": "the ways to the target within 4; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 6.1564
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "the ways to the target within 4; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 6.1564
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "the ways to the target within 4; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 6.1564
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the ways to the target within 3",
+    "layer": 0,
+    "bits": 6.1564
+   },
+   {
+    "score": [
+     "-3",
+     "1"
+    ],
+    "label": "the ways to the target within 3; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 6.8836
+   },
+   {
+    "score": [
+     "-3",
+     "3"
+    ],
+    "label": "the ways to the target within 3; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 6.8836
+   },
+   {
+    "score": [
+     "-3",
+     "4"
+    ],
+    "label": "the ways to the target within 3; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 6.8836
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the ways to the target within 2",
+    "layer": 0,
+    "bits": 6.8836
+   },
+   {
+    "score": [
+     "-2",
+     "1"
+    ],
+    "label": "the ways to the target within 2; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 7.6352
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "the ways to the target within 2; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 7.6352
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "the ways to the target within 2; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 7.6352
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the ways to the target within 1",
+    "layer": 0,
+    "bits": 7.6352
+   },
+   {
+    "score": [
+     "-1",
+     "1"
+    ],
+    "label": "the ways to the target within 1; the smaller pile at least 1",
+    "layer": 1,
+    "bits": 9.4199
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "the ways to the target within 1; the smaller pile at least 3",
+    "layer": 1,
+    "bits": 9.4199
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "the ways to the target within 1; the smaller pile at least 4",
+    "layer": 1,
+    "bits": 9.4199
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the ways to the target exactly",
+    "layer": 0,
+    "bits": 9.4199
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the ways to the target exactly; the smaller pile at least 0",
+    "layer": 1,
+    "bits": 9.4199
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/exact-change/{\"ways\":6}/tb=prime-coins",
+  "variant": "line-z",
+  "family": "exact-change",
+  "params": {
+   "ways": 6
+  },
+  "tieBreaker": "prime-coins",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "d2f753cb7bfb6885",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; the coins to primes within 3",
+    "layer": 1,
+    "bits": 2.1709
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; the coins to primes within 2",
+    "layer": 1,
+    "bits": 2.1973
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the coins to primes within 1",
+    "layer": 1,
+    "bits": 2.4309
+   },
+   {
+    "score": [
+     "-5"
+    ],
+    "label": "the ways to the target within 5",
+    "layer": 0,
+    "bits": 2.5835
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "the ways to the target within 5; the coins to primes within 3",
+    "layer": 1,
+    "bits": 2.5982
+   },
+   {
+    "score": [
+     "-5",
+     "-2"
+    ],
+    "label": "the ways to the target within 5; the coins to primes within 2",
+    "layer": 1,
+    "bits": 2.7155
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "the ways to the target within 5; the coins to primes within 1",
+    "layer": 1,
+    "bits": 3.7811
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the ways to the target within 4",
+    "layer": 0,
+    "bits": 5.3858
+   },
+   {
+    "score": [
+     "-4",
+     "-3"
+    ],
+    "label": "the ways to the target within 4; the coins to primes within 3",
+    "layer": 1,
+    "bits": 5.3877
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the ways to the target within 4; the coins to primes within 2",
+    "layer": 1,
+    "bits": 5.4094
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the ways to the target within 4; the coins to primes within 1",
+    "layer": 1,
+    "bits": 5.9035
+   },
+   {
+    "score": [
+     "-3"
+    ],
+    "label": "the ways to the target within 3",
+    "layer": 0,
+    "bits": 6.2467
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "the ways to the target within 3; the coins to primes within 3",
+    "layer": 1,
+    "bits": 6.2468
+   },
+   {
+    "score": [
+     "-3",
+     "-2"
+    ],
+    "label": "the ways to the target within 3; the coins to primes within 2",
+    "layer": 1,
+    "bits": 6.2649
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "the ways to the target within 3; the coins to primes within 1",
+    "layer": 1,
+    "bits": 6.6404
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the ways to the target within 2",
+    "layer": 0,
+    "bits": 6.9096
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "the ways to the target within 2; the coins to primes within 3",
+    "layer": 1,
+    "bits": 6.9096
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the ways to the target within 2; the coins to primes within 2",
+    "layer": 1,
+    "bits": 6.9193
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the ways to the target within 2; the coins to primes within 1",
+    "layer": 1,
+    "bits": 7.3691
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the ways to the target within 1",
+    "layer": 0,
+    "bits": 7.7016
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "the ways to the target within 1; the coins to primes within 3",
+    "layer": 1,
+    "bits": 7.702
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the ways to the target within 1; the coins to primes within 2",
+    "layer": 1,
+    "bits": 7.7386
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the ways to the target within 1; the coins to primes within 1",
+    "layer": 1,
+    "bits": 8.5947
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the ways to the target exactly",
+    "layer": 0,
+    "bits": 9.6209
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 4",
+    "layer": 1,
+    "bits": 9.6209
+   },
+   {
+    "score": [
+     "0",
+     "-3"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 3",
+    "layer": 1,
+    "bits": 9.6281
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 2",
+    "layer": 1,
+    "bits": 9.7091
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the ways to the target exactly; the coins to primes within 1",
+    "layer": 1,
+    "bits": 11.8273
    }
   ]
  },
@@ -1959,12 +13901,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "primarySense": "min",
   "curve": {
    "model": "log-distance",
-   "alpha": 1.1015625,
+   "alpha": 1.09375,
    "beta": 0.25,
    "delta": 0.25,
    "snapped": true
   },
-  "contentHash": "f6b8451bbbd61bba",
+  "contentHash": "851c5df9be33e60f",
   "rungs": [
    {
     "score": null,
@@ -1974,11 +13916,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-8"
+    ],
+    "label": "anything; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.0604
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.0728
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.1544
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "m and c within 13",
     "layer": 0,
-    "bits": 0.2167
+    "bits": 0.2179
+   },
+   {
+    "score": [
+     "-13",
+     "-8"
+    ],
+    "label": "m and c within 13; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.2465
+   },
+   {
+    "score": [
+     "-13",
+     "-3"
+    ],
+    "label": "m and c within 13; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.2534
+   },
+   {
+    "score": [
+     "-13",
+     "-1"
+    ],
+    "label": "m and c within 13; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.299
    },
    {
     "score": [
@@ -1986,7 +13982,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 8",
     "layer": 0,
-    "bits": 0.3299
+    "bits": 0.3316
+   },
+   {
+    "score": [
+     "-8",
+     "-8"
+    ],
+    "label": "m and c within 8; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.3502
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "m and c within 8; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.3722
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "m and c within 8; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.4205
    },
    {
     "score": [
@@ -1994,7 +14017,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 5",
     "layer": 0,
-    "bits": 0.4678
+    "bits": 0.4685
+   },
+   {
+    "score": [
+     "-5",
+     "-8"
+    ],
+    "label": "m and c within 5; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.4713
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "m and c within 5; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.516
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "m and c within 5; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.5806
    },
    {
     "score": [
@@ -2002,7 +14052,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 3",
     "layer": 0,
-    "bits": 0.6383
+    "bits": 0.6388
+   },
+   {
+    "score": [
+     "-3",
+     "-8"
+    ],
+    "label": "m and c within 3; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.6397
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "m and c within 3; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.6783
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "m and c within 3; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.7422
    },
    {
     "score": [
@@ -2010,7 +14087,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 2",
     "layer": 0,
-    "bits": 0.7919
+    "bits": 0.7905
+   },
+   {
+    "score": [
+     "-2",
+     "-8"
+    ],
+    "label": "m and c within 2; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.7917
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "m and c within 2; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.8462
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "m and c within 2; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.9544
    },
    {
     "score": [
@@ -2018,7 +14122,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1",
     "layer": 0,
-    "bits": 1.0381
+    "bits": 1.0338
+   },
+   {
+    "score": [
+     "-1",
+     "-8"
+    ],
+    "label": "m and c within 1; c to a prime within 8",
+    "layer": 1,
+    "bits": 1.0354
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "m and c within 1; c to a prime within 3",
+    "layer": 1,
+    "bits": 1.0486
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "m and c within 1; c to a prime within 1",
+    "layer": 1,
+    "bits": 1.417
    },
    {
     "score": [
@@ -2026,70 +14157,70 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c exactly",
     "layer": 0,
-    "bits": 1.621
+    "bits": 1.6047
    },
    {
     "score": [
      "0",
      "-13"
     ],
-    "label": "c to a prime within 13",
+    "label": "m and c exactly; c to a prime within 13",
     "layer": 1,
-    "bits": 1.6217
+    "bits": 1.6053
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "c to a prime within 8",
+    "label": "m and c exactly; c to a prime within 8",
     "layer": 1,
-    "bits": 1.622
+    "bits": 1.6057
    },
    {
     "score": [
      "0",
      "-5"
     ],
-    "label": "c to a prime within 5",
+    "label": "m and c exactly; c to a prime within 5",
     "layer": 1,
-    "bits": 1.6241
+    "bits": 1.6077
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "c to a prime within 3",
+    "label": "m and c exactly; c to a prime within 3",
     "layer": 1,
-    "bits": 1.6315
+    "bits": 1.6151
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "c to a prime within 2",
+    "label": "m and c exactly; c to a prime within 2",
     "layer": 1,
-    "bits": 1.652
+    "bits": 1.6354
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "c to a prime within 1",
+    "label": "m and c exactly; c to a prime within 1",
     "layer": 1,
-    "bits": 7.4279
+    "bits": 7.4267
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "c to a prime exactly",
+    "label": "m and c exactly; c to a prime exactly",
     "layer": 1,
-    "bits": 9.3929
+    "bits": 9.4062
    }
   ]
  },
@@ -2102,7 +14233,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "a2dc608a5c3564cc",
+  "contentHash": "0f9870ab82f7817f",
   "rungs": [
    {
     "score": null,
@@ -2112,11 +14243,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; |c| at least 3",
+    "layer": 1,
+    "bits": 0.0624
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; |c| at least 6",
+    "layer": 1,
+    "bits": 0.0723
+   },
+   {
+    "score": [
+     null,
+     "12"
+    ],
+    "label": "anything; |c| at least 12",
+    "layer": 1,
+    "bits": 0.0826
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "m and c within 13",
     "layer": 0,
-    "bits": 0.219
+    "bits": 0.2021
+   },
+   {
+    "score": [
+     "-13",
+     "3"
+    ],
+    "label": "m and c within 13; |c| at least 3",
+    "layer": 1,
+    "bits": 0.2446
+   },
+   {
+    "score": [
+     "-13",
+     "6"
+    ],
+    "label": "m and c within 13; |c| at least 6",
+    "layer": 1,
+    "bits": 0.2538
+   },
+   {
+    "score": [
+     "-13",
+     "12"
+    ],
+    "label": "m and c within 13; |c| at least 12",
+    "layer": 1,
+    "bits": 0.2959
    },
    {
     "score": [
@@ -2124,7 +14309,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 8",
     "layer": 0,
-    "bits": 0.3309
+    "bits": 0.312
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "m and c within 8; |c| at least 3",
+    "layer": 1,
+    "bits": 0.3737
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "m and c within 8; |c| at least 6",
+    "layer": 1,
+    "bits": 0.3909
+   },
+   {
+    "score": [
+     "-8",
+     "12"
+    ],
+    "label": "m and c within 8; |c| at least 12",
+    "layer": 1,
+    "bits": 0.4595
    },
    {
     "score": [
@@ -2132,7 +14344,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 5",
     "layer": 0,
-    "bits": 0.4767
+    "bits": 0.462
+   },
+   {
+    "score": [
+     "-5",
+     "3"
+    ],
+    "label": "m and c within 5; |c| at least 3",
+    "layer": 1,
+    "bits": 0.5445
+   },
+   {
+    "score": [
+     "-5",
+     "6"
+    ],
+    "label": "m and c within 5; |c| at least 6",
+    "layer": 1,
+    "bits": 0.6282
+   },
+   {
+    "score": [
+     "-5",
+     "12"
+    ],
+    "label": "m and c within 5; |c| at least 12",
+    "layer": 1,
+    "bits": 0.6376
    },
    {
     "score": [
@@ -2140,7 +14379,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 3",
     "layer": 0,
-    "bits": 0.6491
+    "bits": 0.6393
+   },
+   {
+    "score": [
+     "-3",
+     "3"
+    ],
+    "label": "m and c within 3; |c| at least 3",
+    "layer": 1,
+    "bits": 0.7269
+   },
+   {
+    "score": [
+     "-3",
+     "6"
+    ],
+    "label": "m and c within 3; |c| at least 6",
+    "layer": 1,
+    "bits": 0.7967
+   },
+   {
+    "score": [
+     "-3",
+     "12"
+    ],
+    "label": "m and c within 3; |c| at least 12",
+    "layer": 1,
+    "bits": 0.8002
    },
    {
     "score": [
@@ -2148,7 +14414,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 2",
     "layer": 0,
-    "bits": 0.8121
+    "bits": 0.8007
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "m and c within 2; |c| at least 3",
+    "layer": 1,
+    "bits": 1.0143
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "m and c within 2; |c| at least 6",
+    "layer": 1,
+    "bits": 1.0282
+   },
+   {
+    "score": [
+     "-2",
+     "12"
+    ],
+    "label": "m and c within 2; |c| at least 12",
+    "layer": 1,
+    "bits": 1.0315
    },
    {
     "score": [
@@ -2156,7 +14449,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c within 1",
     "layer": 0,
-    "bits": 1.0578
+    "bits": 1.0326
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "m and c within 1; |c| at least 3",
+    "layer": 1,
+    "bits": 1.5978
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "m and c within 1; |c| at least 6",
+    "layer": 1,
+    "bits": 1.6171
+   },
+   {
+    "score": [
+     "-1",
+     "12"
+    ],
+    "label": "m and c within 1; |c| at least 12",
+    "layer": 1,
+    "bits": 1.6217
    },
    {
     "score": [
@@ -2164,88 +14484,88 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "m and c exactly",
     "layer": 0,
-    "bits": 1.6705
+    "bits": 1.6223
    },
    {
     "score": [
      "0",
      "1"
     ],
-    "label": "|c| at least 1",
+    "label": "m and c exactly; |c| at least 1",
     "layer": 1,
-    "bits": 6.2987
+    "bits": 6.2241
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "|c| at least 2",
+    "label": "m and c exactly; |c| at least 2",
     "layer": 1,
-    "bits": 7.8548
+    "bits": 7.7087
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "|c| at least 3",
+    "label": "m and c exactly; |c| at least 3",
     "layer": 1,
-    "bits": 8.8031
+    "bits": 8.7846
    },
    {
     "score": [
      "0",
      "4"
     ],
-    "label": "|c| at least 4",
+    "label": "m and c exactly; |c| at least 4",
     "layer": 1,
-    "bits": 9.416
+    "bits": 9.4758
    },
    {
     "score": [
      "0",
      "6"
     ],
-    "label": "|c| at least 6",
+    "label": "m and c exactly; |c| at least 6",
     "layer": 1,
-    "bits": 10.5661
+    "bits": 10.6564
    },
    {
     "score": [
      "0",
      "8"
     ],
-    "label": "|c| at least 8",
+    "label": "m and c exactly; |c| at least 8",
     "layer": 1,
-    "bits": 11.2237
+    "bits": 11.491
    },
    {
     "score": [
      "0",
      "12"
     ],
-    "label": "|c| at least 12",
+    "label": "m and c exactly; |c| at least 12",
     "layer": 1,
-    "bits": 12.4815
+    "bits": 13.0299
    },
    {
     "score": [
      "0",
      "16"
     ],
-    "label": "|c| at least 16",
+    "label": "m and c exactly; |c| at least 16",
     "layer": 1,
-    "bits": 12.9042
+    "bits": 13.4824
    },
    {
     "score": [
      "0",
      "24"
     ],
-    "label": "|c| at least 24",
+    "label": "m and c exactly; |c| at least 24",
     "layer": 1,
-    "bits": 13.842
+    "bits": 15.0984
    }
   ]
  },
@@ -2258,7 +14578,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "converged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1290372c7e99cf7c",
+  "contentHash": "9c911594d3af698e",
   "rungs": [
    {
     "score": null,
@@ -2268,11 +14588,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-8"
+    ],
+    "label": "anything; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.0054
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.0131
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.0505
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "gradient to a prime within 13",
     "layer": 0,
-    "bits": 0.0657
+    "bits": 0.0651
+   },
+   {
+    "score": [
+     "-13",
+     "-8"
+    ],
+    "label": "gradient to a prime within 13; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.0677
+   },
+   {
+    "score": [
+     "-13",
+     "-3"
+    ],
+    "label": "gradient to a prime within 13; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.071
+   },
+   {
+    "score": [
+     "-13",
+     "-1"
+    ],
+    "label": "gradient to a prime within 13; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.0914
    },
    {
     "score": [
@@ -2280,7 +14654,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 8",
     "layer": 0,
-    "bits": 0.0996
+    "bits": 0.0997
+   },
+   {
+    "score": [
+     "-8",
+     "-8"
+    ],
+    "label": "gradient to a prime within 8; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.1033
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "gradient to a prime within 8; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.1081
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "gradient to a prime within 8; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.1435
    },
    {
     "score": [
@@ -2288,7 +14689,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 5",
     "layer": 0,
-    "bits": 0.1568
+    "bits": 0.1557
+   },
+   {
+    "score": [
+     "-5",
+     "-8"
+    ],
+    "label": "gradient to a prime within 5; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.1628
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "gradient to a prime within 5; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.1702
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "gradient to a prime within 5; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.2273
    },
    {
     "score": [
@@ -2296,7 +14724,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 3",
     "layer": 0,
-    "bits": 0.2475
+    "bits": 0.2455
+   },
+   {
+    "score": [
+     "-3",
+     "-8"
+    ],
+    "label": "gradient to a prime within 3; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.2539
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "gradient to a prime within 3; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.2619
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "gradient to a prime within 3; c to a prime within 1",
+    "layer": 1,
+    "bits": 0.3406
    },
    {
     "score": [
@@ -2304,7 +14759,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 2",
     "layer": 0,
-    "bits": 0.3699
+    "bits": 0.3668
+   },
+   {
+    "score": [
+     "-2",
+     "-8"
+    ],
+    "label": "gradient to a prime within 2; c to a prime within 8",
+    "layer": 1,
+    "bits": 0.4243
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "gradient to a prime within 2; c to a prime within 3",
+    "layer": 1,
+    "bits": 0.5274
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "gradient to a prime within 2; c to a prime within 1",
+    "layer": 1,
+    "bits": 1.7055
    },
    {
     "score": [
@@ -2312,7 +14794,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1",
     "layer": 0,
-    "bits": 2.3308
+    "bits": 2.3295
+   },
+   {
+    "score": [
+     "-1",
+     "-8"
+    ],
+    "label": "gradient to a prime within 1; c to a prime within 8",
+    "layer": 1,
+    "bits": 2.4026
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "gradient to a prime within 1; c to a prime within 3",
+    "layer": 1,
+    "bits": 2.4949
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "gradient to a prime within 1; c to a prime within 1",
+    "layer": 1,
+    "bits": 3.3463
    },
    {
     "score": [
@@ -2320,70 +14829,70 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime exactly",
     "layer": 0,
-    "bits": 3.8231
+    "bits": 3.8292
    },
    {
     "score": [
      "0",
      "-13"
     ],
-    "label": "c to a prime within 13",
+    "label": "gradient to a prime exactly; c to a prime within 13",
     "layer": 1,
-    "bits": 3.8936
+    "bits": 3.908
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "c to a prime within 8",
+    "label": "gradient to a prime exactly; c to a prime within 8",
     "layer": 1,
-    "bits": 3.9358
+    "bits": 3.9464
    },
    {
     "score": [
      "0",
      "-5"
     ],
-    "label": "c to a prime within 5",
+    "label": "gradient to a prime exactly; c to a prime within 5",
     "layer": 1,
-    "bits": 3.9857
+    "bits": 3.9968
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "c to a prime within 3",
+    "label": "gradient to a prime exactly; c to a prime within 3",
     "layer": 1,
-    "bits": 4.0704
+    "bits": 4.0762
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "c to a prime within 2",
+    "label": "gradient to a prime exactly; c to a prime within 2",
     "layer": 1,
-    "bits": 4.1753
+    "bits": 4.1821
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "c to a prime within 1",
+    "label": "gradient to a prime exactly; c to a prime within 1",
     "layer": 1,
-    "bits": 6.1306
+    "bits": 6.1359
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "c to a prime exactly",
+    "label": "gradient to a prime exactly; c to a prime exactly",
     "layer": 1,
-    "bits": 7.575
+    "bits": 7.5586
    }
   ]
  },
@@ -2396,13 +14905,40 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "17f1254032198714",
+  "contentHash": "9dbd3e207ad5dd5d",
   "rungs": [
    {
     "score": null,
     "label": "anything",
     "layer": -1,
     "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; the prime at least 7",
+    "layer": 1,
+    "bits": 0.0498
+   },
+   {
+    "score": [
+     null,
+     "17"
+    ],
+    "label": "anything; the prime at least 17",
+    "layer": 1,
+    "bits": 0.0498
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the prime at least 23",
+    "layer": 1,
+    "bits": 0.0498
    },
    {
     "score": [
@@ -2410,7 +14946,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 13",
     "layer": 0,
-    "bits": 0.0637
+    "bits": 0.0498
+   },
+   {
+    "score": [
+     "-13",
+     "7"
+    ],
+    "label": "gradient to a prime within 13; the prime at least 7",
+    "layer": 1,
+    "bits": 0.085
+   },
+   {
+    "score": [
+     "-13",
+     "17"
+    ],
+    "label": "gradient to a prime within 13; the prime at least 17",
+    "layer": 1,
+    "bits": 0.085
+   },
+   {
+    "score": [
+     "-13",
+     "23"
+    ],
+    "label": "gradient to a prime within 13; the prime at least 23",
+    "layer": 1,
+    "bits": 0.085
    },
    {
     "score": [
@@ -2418,7 +14981,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 8",
     "layer": 0,
-    "bits": 0.101
+    "bits": 0.085
+   },
+   {
+    "score": [
+     "-8",
+     "7"
+    ],
+    "label": "gradient to a prime within 8; the prime at least 7",
+    "layer": 1,
+    "bits": 0.1387
+   },
+   {
+    "score": [
+     "-8",
+     "17"
+    ],
+    "label": "gradient to a prime within 8; the prime at least 17",
+    "layer": 1,
+    "bits": 0.1387
+   },
+   {
+    "score": [
+     "-8",
+     "23"
+    ],
+    "label": "gradient to a prime within 8; the prime at least 23",
+    "layer": 1,
+    "bits": 0.1387
    },
    {
     "score": [
@@ -2426,7 +15016,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 5",
     "layer": 0,
-    "bits": 0.1576
+    "bits": 0.1391
+   },
+   {
+    "score": [
+     "-5",
+     "7"
+    ],
+    "label": "gradient to a prime within 5; the prime at least 7",
+    "layer": 1,
+    "bits": 0.2368
+   },
+   {
+    "score": [
+     "-5",
+     "17"
+    ],
+    "label": "gradient to a prime within 5; the prime at least 17",
+    "layer": 1,
+    "bits": 0.2368
+   },
+   {
+    "score": [
+     "-5",
+     "23"
+    ],
+    "label": "gradient to a prime within 5; the prime at least 23",
+    "layer": 1,
+    "bits": 0.2368
    },
    {
     "score": [
@@ -2434,7 +15051,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 3",
     "layer": 0,
-    "bits": 0.249
+    "bits": 0.2373
+   },
+   {
+    "score": [
+     "-3",
+     "7"
+    ],
+    "label": "gradient to a prime within 3; the prime at least 7",
+    "layer": 1,
+    "bits": 0.36
+   },
+   {
+    "score": [
+     "-3",
+     "17"
+    ],
+    "label": "gradient to a prime within 3; the prime at least 17",
+    "layer": 1,
+    "bits": 0.36
+   },
+   {
+    "score": [
+     "-3",
+     "23"
+    ],
+    "label": "gradient to a prime within 3; the prime at least 23",
+    "layer": 1,
+    "bits": 0.36
    },
    {
     "score": [
@@ -2442,7 +15086,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 2",
     "layer": 0,
-    "bits": 0.3677
+    "bits": 0.3617
+   },
+   {
+    "score": [
+     "-2",
+     "7"
+    ],
+    "label": "gradient to a prime within 2; the prime at least 7",
+    "layer": 1,
+    "bits": 2.2551
+   },
+   {
+    "score": [
+     "-2",
+     "17"
+    ],
+    "label": "gradient to a prime within 2; the prime at least 17",
+    "layer": 1,
+    "bits": 2.3191
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "gradient to a prime within 2; the prime at least 23",
+    "layer": 1,
+    "bits": 2.3257
    },
    {
     "score": [
@@ -2450,7 +15121,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime within 1",
     "layer": 0,
-    "bits": 2.3151
+    "bits": 2.3649
+   },
+   {
+    "score": [
+     "-1",
+     "7"
+    ],
+    "label": "gradient to a prime within 1; the prime at least 7",
+    "layer": 1,
+    "bits": 3.2928
+   },
+   {
+    "score": [
+     "-1",
+     "17"
+    ],
+    "label": "gradient to a prime within 1; the prime at least 17",
+    "layer": 1,
+    "bits": 3.5523
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "gradient to a prime within 1; the prime at least 23",
+    "layer": 1,
+    "bits": 3.641
    },
    {
     "score": [
@@ -2458,92 +15156,110 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "gradient to a prime exactly",
     "layer": 0,
-    "bits": 3.8398
+    "bits": 3.8404
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "the prime at least 3",
+    "label": "gradient to a prime exactly; the prime at least 3",
     "layer": 1,
-    "bits": 4.6799
+    "bits": 4.6808
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "the prime at least 5",
+    "label": "gradient to a prime exactly; the prime at least 5",
     "layer": 1,
-    "bits": 5.8482
+    "bits": 5.8844
    },
    {
     "score": [
      "0",
      "7"
     ],
-    "label": "the prime at least 7",
+    "label": "gradient to a prime exactly; the prime at least 7",
     "layer": 1,
-    "bits": 7.1999
+    "bits": 7.3004
    },
    {
     "score": [
      "0",
      "11"
     ],
-    "label": "the prime at least 11",
+    "label": "gradient to a prime exactly; the prime at least 11",
     "layer": 1,
-    "bits": 9.0148
+    "bits": 8.995
    },
    {
     "score": [
      "0",
      "13"
     ],
-    "label": "the prime at least 13",
+    "label": "gradient to a prime exactly; the prime at least 13",
     "layer": 1,
-    "bits": 10.4037
+    "bits": 10.3092
    },
    {
     "score": [
      "0",
      "17"
     ],
-    "label": "the prime at least 17",
+    "label": "gradient to a prime exactly; the prime at least 17",
     "layer": 1,
-    "bits": 12.5723
+    "bits": 12.8547
    },
    {
     "score": [
      "0",
      "19"
     ],
-    "label": "the prime at least 19",
+    "label": "gradient to a prime exactly; the prime at least 19",
     "layer": 1,
-    "bits": 14.1235
+    "bits": 15.6732
    },
    {
     "score": [
      "0",
      "23"
     ],
-    "label": "the prime at least 23",
+    "label": "gradient to a prime exactly; the prime at least 23",
     "layer": 1,
-    "bits": 16.5111
+    "bits": 17.5393
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "gradient to a prime exactly; the prime at least 29",
+    "layer": 1,
+    "bits": 26.3698
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "gradient to a prime exactly; the prime at least 31",
+    "layer": 1,
+    "bits": 27.384
    }
   ]
  },
  {
-  "ruleKey": "line@1/line-z#7c3aa34b892803e6/square-area/{}/tb=factors",
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-landing/{}/tb=big-prime",
   "variant": "line-z",
-  "family": "square-area",
+  "family": "prime-landing",
   "params": {},
-  "tieBreaker": "factors",
+  "tieBreaker": "big-prime",
   "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "5663ee689da33471",
+  "contentHash": "697116dfda1fe5d2",
   "rungs": [
    {
     "score": null,
@@ -2553,251 +15269,7453 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
-     "-13"
+     null,
+     "5"
     ],
-    "label": "the area to a square within 13",
-    "layer": 0,
-    "bits": 2.3517
+    "label": "anything; the prime at least 5",
+    "layer": 1,
+    "bits": 0.1916
    },
    {
     "score": [
-     "-8"
+     null,
+     "13"
     ],
-    "label": "the area to a square within 8",
-    "layer": 0,
-    "bits": 2.3881
+    "label": "anything; the prime at least 13",
+    "layer": 1,
+    "bits": 0.1916
    },
    {
     "score": [
-     "-5"
+     null,
+     "23"
     ],
-    "label": "the area to a square within 5",
-    "layer": 0,
-    "bits": 2.4395
+    "label": "anything; the prime at least 23",
+    "layer": 1,
+    "bits": 0.1916
    },
    {
     "score": [
-     "-3"
+     "-4"
     ],
-    "label": "the area to a square within 3",
+    "label": "c to a prime within 4",
     "layer": 0,
-    "bits": 2.5695
+    "bits": 0.192
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "c to a prime within 4; the prime at least 5",
+    "layer": 1,
+    "bits": 0.357
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "c to a prime within 4; the prime at least 13",
+    "layer": 1,
+    "bits": 0.357
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "c to a prime within 4; the prime at least 23",
+    "layer": 1,
+    "bits": 0.357
    },
    {
     "score": [
      "-2"
     ],
-    "label": "the area to a square within 2",
+    "label": "c to a prime within 2",
     "layer": 0,
-    "bits": 2.6179
+    "bits": 0.36
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "c to a prime within 2; the prime at least 5",
+    "layer": 1,
+    "bits": 2.1682
+   },
+   {
+    "score": [
+     "-2",
+     "13"
+    ],
+    "label": "c to a prime within 2; the prime at least 13",
+    "layer": 1,
+    "bits": 2.2177
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "c to a prime within 2; the prime at least 23",
+    "layer": 1,
+    "bits": 2.2482
    },
    {
     "score": [
      "-1"
     ],
-    "label": "the area to a square within 1",
+    "label": "c to a prime within 1",
     "layer": 0,
-    "bits": 2.7817
+    "bits": 2.2965
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "c to a prime within 1; the prime at least 5",
+    "layer": 1,
+    "bits": 3.0488
+   },
+   {
+    "score": [
+     "-1",
+     "13"
+    ],
+    "label": "c to a prime within 1; the prime at least 13",
+    "layer": 1,
+    "bits": 3.398
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "c to a prime within 1; the prime at least 23",
+    "layer": 1,
+    "bits": 3.5466
    },
    {
     "score": [
      "0"
     ],
-    "label": "the area to a square exactly",
+    "label": "c to a prime exactly",
     "layer": 0,
-    "bits": 6.0554
-   },
-   {
-    "score": [
-     "0",
-     "1"
-    ],
-    "label": "prime factors of the root at least 1",
-    "layer": 1,
-    "bits": 6.5205
+    "bits": 3.7896
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "prime factors of the root at least 2",
+    "label": "c to a prime exactly; the prime at least 2",
     "layer": 1,
-    "bits": 7.4895
+    "bits": 3.7896
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "prime factors of the root at least 3",
+    "label": "c to a prime exactly; the prime at least 3",
     "layer": 1,
-    "bits": 8.5906
-   },
-   {
-    "score": [
-     "0",
-     "4"
-    ],
-    "label": "prime factors of the root at least 4",
-    "layer": 1,
-    "bits": 10.0646
+    "bits": 4.6124
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "prime factors of the root at least 5",
+    "label": "c to a prime exactly; the prime at least 5",
     "layer": 1,
-    "bits": 11.376
-   },
-   {
-    "score": [
-     "0",
-     "6"
-    ],
-    "label": "prime factors of the root at least 6",
-    "layer": 1,
-    "bits": 13.4947
-   }
-  ]
- },
- {
-  "ruleKey": "line@1/line-z#7c3aa34b892803e6/square-area/{}/tb=rootSpf",
-  "variant": "line-z",
-  "family": "square-area",
-  "params": {},
-  "tieBreaker": "rootSpf",
-  "status": "unconverged",
-  "primarySense": "min",
-  "curve": null,
-  "contentHash": "c77dd0adb7998230",
-  "rungs": [
-   {
-    "score": null,
-    "label": "anything",
-    "layer": -1,
-    "bits": 0
-   },
-   {
-    "score": [
-     "-13"
-    ],
-    "label": "the area to a square within 13",
-    "layer": 0,
-    "bits": 2.3143
-   },
-   {
-    "score": [
-     "-8"
-    ],
-    "label": "the area to a square within 8",
-    "layer": 0,
-    "bits": 2.3471
-   },
-   {
-    "score": [
-     "-5"
-    ],
-    "label": "the area to a square within 5",
-    "layer": 0,
-    "bits": 2.3986
-   },
-   {
-    "score": [
-     "-3"
-    ],
-    "label": "the area to a square within 3",
-    "layer": 0,
-    "bits": 2.5228
-   },
-   {
-    "score": [
-     "-2"
-    ],
-    "label": "the area to a square within 2",
-    "layer": 0,
-    "bits": 2.5736
-   },
-   {
-    "score": [
-     "-1"
-    ],
-    "label": "the area to a square within 1",
-    "layer": 0,
-    "bits": 2.74
-   },
-   {
-    "score": [
-     "0"
-    ],
-    "label": "the area to a square exactly",
-    "layer": 0,
-    "bits": 6.1749
-   },
-   {
-    "score": [
-     "0",
-     "2"
-    ],
-    "label": "the root's smallest prime factor at least 2",
-    "layer": 1,
-    "bits": 6.7143
-   },
-   {
-    "score": [
-     "0",
-     "3"
-    ],
-    "label": "the root's smallest prime factor at least 3",
-    "layer": 1,
-    "bits": 8.0876
-   },
-   {
-    "score": [
-     "0",
-     "5"
-    ],
-    "label": "the root's smallest prime factor at least 5",
-    "layer": 1,
-    "bits": 9.6512
+    "bits": 5.7758
    },
    {
     "score": [
      "0",
      "7"
     ],
-    "label": "the root's smallest prime factor at least 7",
+    "label": "c to a prime exactly; the prime at least 7",
     "layer": 1,
-    "bits": 11.0473
+    "bits": 7.0546
    },
    {
     "score": [
      "0",
      "11"
     ],
-    "label": "the root's smallest prime factor at least 11",
+    "label": "c to a prime exactly; the prime at least 11",
     "layer": 1,
-    "bits": 12.6522
+    "bits": 8.9612
    },
    {
     "score": [
      "0",
      "13"
     ],
-    "label": "the root's smallest prime factor at least 13",
+    "label": "c to a prime exactly; the prime at least 13",
     "layer": 1,
-    "bits": 14.5244
+    "bits": 10.3891
    },
    {
     "score": [
      "0",
      "17"
     ],
-    "label": "the root's smallest prime factor at least 17",
+    "label": "c to a prime exactly; the prime at least 17",
     "layer": 1,
-    "bits": 15.6116
+    "bits": 12.4428
+   },
+   {
+    "score": [
+     "0",
+     "19"
+    ],
+    "label": "c to a prime exactly; the prime at least 19",
+    "layer": 1,
+    "bits": 13.5257
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "c to a prime exactly; the prime at least 23",
+    "layer": 1,
+    "bits": 14.6824
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "c to a prime exactly; the prime at least 29",
+    "layer": 1,
+    "bits": 23.4942
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "c to a prime exactly; the prime at least 31",
+    "layer": 1,
+    "bits": 25.6331
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-landing/{}/tb=next-prime",
+  "variant": "line-z",
+  "family": "prime-landing",
+  "params": {},
+  "tieBreaker": "next-prime",
+  "status": "converged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "e928b2575bda6316",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.0064
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; y(1) to a prime within 1",
+    "layer": 1,
+    "bits": 0.0348
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; y(1) to a prime exactly",
+    "layer": 1,
+    "bits": 0.1252
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "c to a prime within 4",
+    "layer": 0,
+    "bits": 0.1931
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "c to a prime within 4; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.1964
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "c to a prime within 4; y(1) to a prime within 1",
+    "layer": 1,
+    "bits": 0.2081
+   },
+   {
+    "score": [
+     "-4",
+     "0"
+    ],
+    "label": "c to a prime within 4; y(1) to a prime exactly",
+    "layer": 1,
+    "bits": 0.2964
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "c to a prime within 2",
+    "layer": 0,
+    "bits": 0.3634
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "c to a prime within 2; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.3669
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "c to a prime within 2; y(1) to a prime within 1",
+    "layer": 1,
+    "bits": 1.2226
+   },
+   {
+    "score": [
+     "-2",
+     "0"
+    ],
+    "label": "c to a prime within 2; y(1) to a prime exactly",
+    "layer": 1,
+    "bits": 1.8028
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "c to a prime within 1",
+    "layer": 0,
+    "bits": 2.2953
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "c to a prime within 1; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 2.308
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "c to a prime within 1; y(1) to a prime within 1",
+    "layer": 1,
+    "bits": 2.3888
+   },
+   {
+    "score": [
+     "-1",
+     "0"
+    ],
+    "label": "c to a prime within 1; y(1) to a prime exactly",
+    "layer": 1,
+    "bits": 3.3443
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "c to a prime exactly",
+    "layer": 0,
+    "bits": 3.777
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 4",
+    "layer": 1,
+    "bits": 3.7786
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 2",
+    "layer": 1,
+    "bits": 3.7878
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime within 1",
+    "layer": 1,
+    "bits": 3.8793
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "c to a prime exactly; y(1) to a prime exactly",
+    "layer": 1,
+    "bits": 4.2385
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-landing/{}/tb=prime-gradient",
+  "variant": "line-z",
+  "family": "prime-landing",
+  "params": {},
+  "tieBreaker": "prime-gradient",
+  "status": "converged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "03f2acef80623c54",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; m to a prime within 2",
+    "layer": 1,
+    "bits": 0.0491
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; m to a prime within 1",
+    "layer": 1,
+    "bits": 0.162
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; m to a prime exactly",
+    "layer": 1,
+    "bits": 0.1922
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "c to a prime within 4",
+    "layer": 0,
+    "bits": 0.2088
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "c to a prime within 4; m to a prime within 2",
+    "layer": 1,
+    "bits": 0.2448
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "c to a prime within 4; m to a prime within 1",
+    "layer": 1,
+    "bits": 0.3491
+   },
+   {
+    "score": [
+     "-4",
+     "0"
+    ],
+    "label": "c to a prime within 4; m to a prime exactly",
+    "layer": 1,
+    "bits": 0.3721
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "c to a prime within 2",
+    "layer": 0,
+    "bits": 0.3858
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "c to a prime within 2; m to a prime within 2",
+    "layer": 1,
+    "bits": 0.6318
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "c to a prime within 2; m to a prime within 1",
+    "layer": 1,
+    "bits": 1.6173
+   },
+   {
+    "score": [
+     "-2",
+     "0"
+    ],
+    "label": "c to a prime within 2; m to a prime exactly",
+    "layer": 1,
+    "bits": 2.0008
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "c to a prime within 1",
+    "layer": 0,
+    "bits": 2.2534
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "c to a prime within 1; m to a prime within 2",
+    "layer": 1,
+    "bits": 2.4831
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "c to a prime within 1; m to a prime within 1",
+    "layer": 1,
+    "bits": 3.3362
+   },
+   {
+    "score": [
+     "-1",
+     "0"
+    ],
+    "label": "c to a prime within 1; m to a prime exactly",
+    "layer": 1,
+    "bits": 3.6176
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "c to a prime exactly",
+    "layer": 0,
+    "bits": 3.8032
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "c to a prime exactly; m to a prime within 4",
+    "layer": 1,
+    "bits": 4.0074
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "c to a prime exactly; m to a prime within 2",
+    "layer": 1,
+    "bits": 4.1652
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "c to a prime exactly; m to a prime within 1",
+    "layer": 1,
+    "bits": 6.2393
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "c to a prime exactly; m to a prime exactly",
+    "layer": 1,
+    "bits": 7.8051
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=first-prime",
+  "variant": "line-z",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "first-prime",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "e083563331dc4aae",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; y(0) at least 7",
+    "layer": 1,
+    "bits": 3.7542
+   },
+   {
+    "score": [
+     null,
+     "17"
+    ],
+    "label": "anything; y(0) at least 17",
+    "layer": 1,
+    "bits": 3.7542
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; y(0) at least 23",
+    "layer": 1,
+    "bits": 3.7542
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 3.7542
+   },
+   {
+    "score": [
+     "1",
+     "7"
+    ],
+    "label": "a run of primes at least 1; y(0) at least 7",
+    "layer": 1,
+    "bits": 6.0365
+   },
+   {
+    "score": [
+     "1",
+     "17"
+    ],
+    "label": "a run of primes at least 1; y(0) at least 17",
+    "layer": 1,
+    "bits": 6.8082
+   },
+   {
+    "score": [
+     "1",
+     "23"
+    ],
+    "label": "a run of primes at least 1; y(0) at least 23",
+    "layer": 1,
+    "bits": 6.8509
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 6.8611
+   },
+   {
+    "score": [
+     "2",
+     "7"
+    ],
+    "label": "a run of primes at least 2; y(0) at least 7",
+    "layer": 1,
+    "bits": 8.7596
+   },
+   {
+    "score": [
+     "2",
+     "17"
+    ],
+    "label": "a run of primes at least 2; y(0) at least 17",
+    "layer": 1,
+    "bits": 9.0816
+   },
+   {
+    "score": [
+     "2",
+     "23"
+    ],
+    "label": "a run of primes at least 2; y(0) at least 23",
+    "layer": 1,
+    "bits": 9.0833
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 9.0834
+   },
+   {
+    "score": [
+     "3",
+     "7"
+    ],
+    "label": "a run of primes at least 3; y(0) at least 7",
+    "layer": 1,
+    "bits": 11.1953
+   },
+   {
+    "score": [
+     "3",
+     "17"
+    ],
+    "label": "a run of primes at least 3; y(0) at least 17",
+    "layer": 1,
+    "bits": 12.1116
+   },
+   {
+    "score": [
+     "3",
+     "23"
+    ],
+    "label": "a run of primes at least 3; y(0) at least 23",
+    "layer": 1,
+    "bits": 12.118
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 12.118
+   },
+   {
+    "score": [
+     "4",
+     "7"
+    ],
+    "label": "a run of primes at least 4; y(0) at least 7",
+    "layer": 1,
+    "bits": 12.1433
+   },
+   {
+    "score": [
+     "4",
+     "17"
+    ],
+    "label": "a run of primes at least 4; y(0) at least 17",
+    "layer": 1,
+    "bits": 12.3244
+   },
+   {
+    "score": [
+     "4",
+     "23"
+    ],
+    "label": "a run of primes at least 4; y(0) at least 23",
+    "layer": 1,
+    "bits": 12.3274
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 12.3274
+   },
+   {
+    "score": [
+     "5",
+     "7"
+    ],
+    "label": "a run of primes at least 5; y(0) at least 7",
+    "layer": 1,
+    "bits": 18.4702
+   },
+   {
+    "score": [
+     "5",
+     "17"
+    ],
+    "label": "a run of primes at least 5; y(0) at least 17",
+    "layer": 1,
+    "bits": 18.4887
+   },
+   {
+    "score": [
+     "5",
+     "23"
+    ],
+    "label": "a run of primes at least 5; y(0) at least 23",
+    "layer": 1,
+    "bits": 18.4887
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "a run of primes at least 6",
+    "layer": 0,
+    "bits": 18.4887
+   },
+   {
+    "score": [
+     "6",
+     "3"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 3",
+    "layer": 1,
+    "bits": 18.4887
+   },
+   {
+    "score": [
+     "6",
+     "5"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 5",
+    "layer": 1,
+    "bits": 18.4887
+   },
+   {
+    "score": [
+     "6",
+     "7"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 7",
+    "layer": 1,
+    "bits": 18.4887
+   },
+   {
+    "score": [
+     "6",
+     "11"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 11",
+    "layer": 1,
+    "bits": 19.4092
+   },
+   {
+    "score": [
+     "6",
+     "13"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 13",
+    "layer": 1,
+    "bits": 19.4092
+   },
+   {
+    "score": [
+     "6",
+     "17"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 17",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "6",
+     "19"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 19",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "6",
+     "23"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 23",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "6",
+     "29"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 29",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "6",
+     "31"
+    ],
+    "label": "a run of primes at least 6; y(0) at least 31",
+    "layer": 1,
+    "bits": null
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=last-prime",
+  "variant": "line-z",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "last-prime",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "59442d51b7c3114d",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the last prime at least 13",
+    "layer": 1,
+    "bits": 3.7466
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the last prime at least 23",
+    "layer": 1,
+    "bits": 3.7466
+   },
+   {
+    "score": [
+     null,
+     "37"
+    ],
+    "label": "anything; the last prime at least 37",
+    "layer": 1,
+    "bits": 3.7466
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 3.7466
+   },
+   {
+    "score": [
+     "1",
+     "13"
+    ],
+    "label": "a run of primes at least 1; the last prime at least 13",
+    "layer": 1,
+    "bits": 6.6715
+   },
+   {
+    "score": [
+     "1",
+     "23"
+    ],
+    "label": "a run of primes at least 1; the last prime at least 23",
+    "layer": 1,
+    "bits": 6.7621
+   },
+   {
+    "score": [
+     "1",
+     "37"
+    ],
+    "label": "a run of primes at least 1; the last prime at least 37",
+    "layer": 1,
+    "bits": 6.7681
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 6.7681
+   },
+   {
+    "score": [
+     "2",
+     "13"
+    ],
+    "label": "a run of primes at least 2; the last prime at least 13",
+    "layer": 1,
+    "bits": 8.4675
+   },
+   {
+    "score": [
+     "2",
+     "23"
+    ],
+    "label": "a run of primes at least 2; the last prime at least 23",
+    "layer": 1,
+    "bits": 8.7851
+   },
+   {
+    "score": [
+     "2",
+     "37"
+    ],
+    "label": "a run of primes at least 2; the last prime at least 37",
+    "layer": 1,
+    "bits": 8.9289
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 9.0007
+   },
+   {
+    "score": [
+     "3",
+     "13"
+    ],
+    "label": "a run of primes at least 3; the last prime at least 13",
+    "layer": 1,
+    "bits": 10.2413
+   },
+   {
+    "score": [
+     "3",
+     "23"
+    ],
+    "label": "a run of primes at least 3; the last prime at least 23",
+    "layer": 1,
+    "bits": 10.5822
+   },
+   {
+    "score": [
+     "3",
+     "37"
+    ],
+    "label": "a run of primes at least 3; the last prime at least 37",
+    "layer": 1,
+    "bits": 10.7118
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 11.1012
+   },
+   {
+    "score": [
+     "4",
+     "13"
+    ],
+    "label": "a run of primes at least 4; the last prime at least 13",
+    "layer": 1,
+    "bits": 11.1012
+   },
+   {
+    "score": [
+     "4",
+     "23"
+    ],
+    "label": "a run of primes at least 4; the last prime at least 23",
+    "layer": 1,
+    "bits": 11.1012
+   },
+   {
+    "score": [
+     "4",
+     "37"
+    ],
+    "label": "a run of primes at least 4; the last prime at least 37",
+    "layer": 1,
+    "bits": 11.1028
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 11.4209
+   },
+   {
+    "score": [
+     "5",
+     "13"
+    ],
+    "label": "a run of primes at least 5; the last prime at least 13",
+    "layer": 1,
+    "bits": 11.4209
+   },
+   {
+    "score": [
+     "5",
+     "23"
+    ],
+    "label": "a run of primes at least 5; the last prime at least 23",
+    "layer": 1,
+    "bits": 11.4209
+   },
+   {
+    "score": [
+     "5",
+     "37"
+    ],
+    "label": "a run of primes at least 5; the last prime at least 37",
+    "layer": 1,
+    "bits": 11.9653
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "a run of primes at least 6",
+    "layer": 0,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "5"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 5",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "7"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 7",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "11"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 11",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "13"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 13",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "17"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 17",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "19"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 19",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "23"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 23",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "29"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 29",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "31"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 31",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "37"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 37",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "41"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 41",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "43"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 43",
+    "layer": 1,
+    "bits": 20.3901
+   },
+   {
+    "score": [
+     "6",
+     "47"
+    ],
+    "label": "a run of primes at least 6; the last prime at least 47",
+    "layer": 1,
+    "bits": 20.3901
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=near-miss",
+  "variant": "line-z",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "near-miss",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "f32891e1f48f0278",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-4"
+    ],
+    "label": "anything; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 0.0011
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; the first miss to a prime within 2",
+    "layer": 1,
+    "bits": 0.0066
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 1.2973
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 3.8628
+   },
+   {
+    "score": [
+     "1",
+     "-4"
+    ],
+    "label": "a run of primes at least 1; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 5.0315
+   },
+   {
+    "score": [
+     "1",
+     "-2"
+    ],
+    "label": "a run of primes at least 1; the first miss to a prime within 2",
+    "layer": 1,
+    "bits": 5.047
+   },
+   {
+    "score": [
+     "1",
+     "-1"
+    ],
+    "label": "a run of primes at least 1; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 5.2488
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 6.9888
+   },
+   {
+    "score": [
+     "2",
+     "-4"
+    ],
+    "label": "a run of primes at least 2; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 6.9934
+   },
+   {
+    "score": [
+     "2",
+     "-2"
+    ],
+    "label": "a run of primes at least 2; the first miss to a prime within 2",
+    "layer": 1,
+    "bits": 7.0067
+   },
+   {
+    "score": [
+     "2",
+     "-1"
+    ],
+    "label": "a run of primes at least 2; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 7.2096
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 9.1395
+   },
+   {
+    "score": [
+     "3",
+     "-4"
+    ],
+    "label": "a run of primes at least 3; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 9.1399
+   },
+   {
+    "score": [
+     "3",
+     "-2"
+    ],
+    "label": "a run of primes at least 3; the first miss to a prime within 2",
+    "layer": 1,
+    "bits": 9.1595
+   },
+   {
+    "score": [
+     "3",
+     "-1"
+    ],
+    "label": "a run of primes at least 3; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 11.1765
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 12.1238
+   },
+   {
+    "score": [
+     "4",
+     "-4"
+    ],
+    "label": "a run of primes at least 4; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 12.1239
+   },
+   {
+    "score": [
+     "4",
+     "-2"
+    ],
+    "label": "a run of primes at least 4; the first miss to a prime within 2",
+    "layer": 1,
+    "bits": 12.1239
+   },
+   {
+    "score": [
+     "4",
+     "-1"
+    ],
+    "label": "a run of primes at least 4; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 12.2808
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 12.2809
+   },
+   {
+    "score": [
+     "5",
+     "-4"
+    ],
+    "label": "a run of primes at least 5; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 12.6157
+   },
+   {
+    "score": [
+     "5",
+     "-2"
+    ],
+    "label": "a run of primes at least 5; the first miss to a prime within 2",
+    "layer": 1,
+    "bits": 12.6239
+   },
+   {
+    "score": [
+     "5",
+     "-1"
+    ],
+    "label": "a run of primes at least 5; the first miss to a prime within 1",
+    "layer": 1,
+    "bits": 15.5462
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "a run of primes at least 6",
+    "layer": 0,
+    "bits": 15.5477
+   },
+   {
+    "score": [
+     "6",
+     "-8"
+    ],
+    "label": "a run of primes at least 6; the first miss to a prime within 8",
+    "layer": 1,
+    "bits": 15.5477
+   },
+   {
+    "score": [
+     "6",
+     "-4"
+    ],
+    "label": "a run of primes at least 6; the first miss to a prime within 4",
+    "layer": 1,
+    "bits": 15.5477
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=step-back",
+  "variant": "line-z",
+  "family": "prime-staircase",
+  "params": {},
+  "tieBreaker": "step-back",
+  "status": "unconverged",
+  "primarySense": "max",
+  "curve": null,
+  "contentHash": "fec1eb1a6a02a212",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 0.0152
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 0.7231
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 1.9802
+   },
+   {
+    "score": [
+     "1"
+    ],
+    "label": "a run of primes at least 1",
+    "layer": 0,
+    "bits": 3.868
+   },
+   {
+    "score": [
+     "1",
+     "-2"
+    ],
+    "label": "a run of primes at least 1; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 3.8766
+   },
+   {
+    "score": [
+     "1",
+     "-1"
+    ],
+    "label": "a run of primes at least 1; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 3.9496
+   },
+   {
+    "score": [
+     "1",
+     "0"
+    ],
+    "label": "a run of primes at least 1; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 4.1942
+   },
+   {
+    "score": [
+     "2"
+    ],
+    "label": "a run of primes at least 2",
+    "layer": 0,
+    "bits": 7.0606
+   },
+   {
+    "score": [
+     "2",
+     "-2"
+    ],
+    "label": "a run of primes at least 2; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 7.0608
+   },
+   {
+    "score": [
+     "2",
+     "-1"
+    ],
+    "label": "a run of primes at least 2; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 7.1153
+   },
+   {
+    "score": [
+     "2",
+     "0"
+    ],
+    "label": "a run of primes at least 2; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 8.428
+   },
+   {
+    "score": [
+     "3"
+    ],
+    "label": "a run of primes at least 3",
+    "layer": 0,
+    "bits": 9.3965
+   },
+   {
+    "score": [
+     "3",
+     "-2"
+    ],
+    "label": "a run of primes at least 3; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 9.3974
+   },
+   {
+    "score": [
+     "3",
+     "-1"
+    ],
+    "label": "a run of primes at least 3; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 9.5705
+   },
+   {
+    "score": [
+     "3",
+     "0"
+    ],
+    "label": "a run of primes at least 3; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 11.0355
+   },
+   {
+    "score": [
+     "4"
+    ],
+    "label": "a run of primes at least 4",
+    "layer": 0,
+    "bits": 12.2122
+   },
+   {
+    "score": [
+     "4",
+     "-2"
+    ],
+    "label": "a run of primes at least 4; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 12.2122
+   },
+   {
+    "score": [
+     "4",
+     "-1"
+    ],
+    "label": "a run of primes at least 4; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 12.2246
+   },
+   {
+    "score": [
+     "4",
+     "0"
+    ],
+    "label": "a run of primes at least 4; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 12.2246
+   },
+   {
+    "score": [
+     "5"
+    ],
+    "label": "a run of primes at least 5",
+    "layer": 0,
+    "bits": 12.7235
+   },
+   {
+    "score": [
+     "5",
+     "-2"
+    ],
+    "label": "a run of primes at least 5; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 12.7235
+   },
+   {
+    "score": [
+     "5",
+     "-1"
+    ],
+    "label": "a run of primes at least 5; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 12.7242
+   },
+   {
+    "score": [
+     "5",
+     "0"
+    ],
+    "label": "a run of primes at least 5; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 14.6761
+   },
+   {
+    "score": [
+     "6"
+    ],
+    "label": "a run of primes at least 6",
+    "layer": 0,
+    "bits": 15.6967
+   },
+   {
+    "score": [
+     "6",
+     "-4"
+    ],
+    "label": "a run of primes at least 6; y(−1) to a prime within 4",
+    "layer": 1,
+    "bits": 15.6967
+   },
+   {
+    "score": [
+     "6",
+     "-2"
+    ],
+    "label": "a run of primes at least 6; y(−1) to a prime within 2",
+    "layer": 1,
+    "bits": 15.6967
+   },
+   {
+    "score": [
+     "6",
+     "-1"
+    ],
+    "label": "a run of primes at least 6; y(−1) to a prime within 1",
+    "layer": 1,
+    "bits": 15.6967
+   },
+   {
+    "score": [
+     "6",
+     "0"
+    ],
+    "label": "a run of primes at least 6; y(−1) to a prime exactly",
+    "layer": 1,
+    "bits": 15.6967
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/pythagorean-area/{\"A\":6}/tb=prime-height",
+  "variant": "line-z",
+  "family": "pythagorean-area",
+  "params": {
+   "A": 6
+  },
+  "tieBreaker": "prime-height",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "98a7a4cd70edd7f3",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 2.2187
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 2.2939
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 2.5062
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the area to A within 16",
+    "layer": 0,
+    "bits": 2.5249
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "the area to A within 16; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 2.5254
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "the area to A within 16; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 2.5388
+   },
+   {
+    "score": [
+     "-16",
+     "0"
+    ],
+    "label": "the area to A within 16; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 2.6028
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to A within 8",
+    "layer": 0,
+    "bits": 2.6057
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the area to A within 8; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 2.6063
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the area to A within 8; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 2.6377
+   },
+   {
+    "score": [
+     "-8",
+     "0"
+    ],
+    "label": "the area to A within 8; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 3.5235
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to A within 4",
+    "layer": 0,
+    "bits": 4.3802
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the area to A within 4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 4.3828
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the area to A within 4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 4.4131
+   },
+   {
+    "score": [
+     "-4",
+     "0"
+    ],
+    "label": "the area to A within 4; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 4.7511
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to A within 2",
+    "layer": 0,
+    "bits": 5.4628
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the area to A within 2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 5.464
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the area to A within 2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 5.5114
+   },
+   {
+    "score": [
+     "-2",
+     "0"
+    ],
+    "label": "the area to A within 2; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 6.2539
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to A within 1",
+    "layer": 0,
+    "bits": 7.4283
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the area to A within 1; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 7.4284
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the area to A within 1; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 7.598
+   },
+   {
+    "score": [
+     "-1",
+     "0"
+    ],
+    "label": "the area to A within 1; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 7.8953
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2",
+    "layer": 0,
+    "bits": 7.9409
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the area to A within 1/2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 7.941
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "the area to A within 1/2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 7.9738
+   },
+   {
+    "score": [
+     "-1/2",
+     "0"
+    ],
+    "label": "the area to A within 1/2; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 8.1923
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4",
+    "layer": 0,
+    "bits": 8.1934
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the area to A within 1/4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 8.1943
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "the area to A within 1/4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 8.2821
+   },
+   {
+    "score": [
+     "-1/4",
+     "0"
+    ],
+    "label": "the area to A within 1/4; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 8.4969
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to A exactly",
+    "layer": 0,
+    "bits": 10.2565
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 4",
+    "layer": 1,
+    "bits": 10.2565
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 10.2565
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the area to A exactly; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 10.2565
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/pythagorean-area/{\"A\":6}/tb=slanted-square",
+  "variant": "line-z",
+  "family": "pythagorean-area",
+  "params": {
+   "A": 6
+  },
+  "tieBreaker": "slanted-square",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "091ba76ef11d27e8",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-8"
+    ],
+    "label": "anything; side² to a square within 8",
+    "layer": 1,
+    "bits": 2.4821
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; side² to a square within 2",
+    "layer": 1,
+    "bits": 2.592
+   },
+   {
+    "score": [
+     null,
+     "-1/2"
+    ],
+    "label": "anything; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 2.631
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the area to A within 16",
+    "layer": 0,
+    "bits": 2.6312
+   },
+   {
+    "score": [
+     "-16",
+     "-8"
+    ],
+    "label": "the area to A within 16; side² to a square within 8",
+    "layer": 1,
+    "bits": 2.6394
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "the area to A within 16; side² to a square within 2",
+    "layer": 1,
+    "bits": 2.6806
+   },
+   {
+    "score": [
+     "-16",
+     "-1/2"
+    ],
+    "label": "the area to A within 16; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 2.706
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to A within 8",
+    "layer": 0,
+    "bits": 2.7087
+   },
+   {
+    "score": [
+     "-8",
+     "-8"
+    ],
+    "label": "the area to A within 8; side² to a square within 8",
+    "layer": 1,
+    "bits": 2.7125
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the area to A within 8; side² to a square within 2",
+    "layer": 1,
+    "bits": 2.7428
+   },
+   {
+    "score": [
+     "-8",
+     "-1/2"
+    ],
+    "label": "the area to A within 8; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 3.0589
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to A within 4",
+    "layer": 0,
+    "bits": 4.5038
+   },
+   {
+    "score": [
+     "-4",
+     "-8"
+    ],
+    "label": "the area to A within 4; side² to a square within 8",
+    "layer": 1,
+    "bits": 4.5038
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the area to A within 4; side² to a square within 2",
+    "layer": 1,
+    "bits": 4.6773
+   },
+   {
+    "score": [
+     "-4",
+     "-1/2"
+    ],
+    "label": "the area to A within 4; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 5.3683
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to A within 2",
+    "layer": 0,
+    "bits": 5.5371
+   },
+   {
+    "score": [
+     "-2",
+     "-8"
+    ],
+    "label": "the area to A within 2; side² to a square within 8",
+    "layer": 1,
+    "bits": 5.5371
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the area to A within 2; side² to a square within 2",
+    "layer": 1,
+    "bits": 6.2145
+   },
+   {
+    "score": [
+     "-2",
+     "-1/2"
+    ],
+    "label": "the area to A within 2; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 7.4017
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to A within 1",
+    "layer": 0,
+    "bits": 7.5213
+   },
+   {
+    "score": [
+     "-1",
+     "-8"
+    ],
+    "label": "the area to A within 1; side² to a square within 8",
+    "layer": 1,
+    "bits": 7.5213
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the area to A within 1; side² to a square within 2",
+    "layer": 1,
+    "bits": 7.6126
+   },
+   {
+    "score": [
+     "-1",
+     "-1/2"
+    ],
+    "label": "the area to A within 1; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 7.8787
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2",
+    "layer": 0,
+    "bits": 7.9694
+   },
+   {
+    "score": [
+     "-1/2",
+     "-8"
+    ],
+    "label": "the area to A within 1/2; side² to a square within 8",
+    "layer": 1,
+    "bits": 7.9694
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the area to A within 1/2; side² to a square within 2",
+    "layer": 1,
+    "bits": 8.1044
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 8.2487
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4",
+    "layer": 0,
+    "bits": 8.2819
+   },
+   {
+    "score": [
+     "-1/4",
+     "-8"
+    ],
+    "label": "the area to A within 1/4; side² to a square within 8",
+    "layer": 1,
+    "bits": 8.2819
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the area to A within 1/4; side² to a square within 2",
+    "layer": 1,
+    "bits": 9.3373
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/2"
+    ],
+    "label": "the area to A within 1/4; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 9.8769
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to A exactly",
+    "layer": 0,
+    "bits": 9.972
+   },
+   {
+    "score": [
+     "0",
+     "-16"
+    ],
+    "label": "the area to A exactly; side² to a square within 16",
+    "layer": 1,
+    "bits": 9.972
+   },
+   {
+    "score": [
+     "0",
+     "-8"
+    ],
+    "label": "the area to A exactly; side² to a square within 8",
+    "layer": 1,
+    "bits": 9.972
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the area to A exactly; side² to a square within 4",
+    "layer": 1,
+    "bits": 9.972
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the area to A exactly; side² to a square within 2",
+    "layer": 1,
+    "bits": 13.9983
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the area to A exactly; side² to a square within 1",
+    "layer": 1,
+    "bits": 13.9983
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the area to A exactly; side² to a square within 1/2",
+    "layer": 1,
+    "bits": 14.8942
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/pythagorean-area/{\"A\":6}/tb=whole-legs",
+  "variant": "line-z",
+  "family": "pythagorean-area",
+  "params": {
+   "A": 6
+  },
+  "tieBreaker": "whole-legs",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "d7fac59564ce57a9",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 2.3109
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 2.3286
+   },
+   {
+    "score": [
+     null,
+     "-1/16"
+    ],
+    "label": "anything; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 2.3318
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the area to A within 16",
+    "layer": 0,
+    "bits": 2.5499
+   },
+   {
+    "score": [
+     "-16",
+     "-1/4"
+    ],
+    "label": "the area to A within 16; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 2.5764
+   },
+   {
+    "score": [
+     "-16",
+     "-1/8"
+    ],
+    "label": "the area to A within 16; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 2.5828
+   },
+   {
+    "score": [
+     "-16",
+     "-1/16"
+    ],
+    "label": "the area to A within 16; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 2.585
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to A within 8",
+    "layer": 0,
+    "bits": 2.6229
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "the area to A within 8; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 2.9885
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "the area to A within 8; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 3.2833
+   },
+   {
+    "score": [
+     "-8",
+     "-1/16"
+    ],
+    "label": "the area to A within 8; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 3.5131
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to A within 4",
+    "layer": 0,
+    "bits": 4.4985
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "the area to A within 4; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 4.7799
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "the area to A within 4; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 4.9235
+   },
+   {
+    "score": [
+     "-4",
+     "-1/16"
+    ],
+    "label": "the area to A within 4; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 4.9409
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to A within 2",
+    "layer": 0,
+    "bits": 5.5734
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "the area to A within 2; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 5.7543
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "the area to A within 2; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 5.828
+   },
+   {
+    "score": [
+     "-2",
+     "-1/16"
+    ],
+    "label": "the area to A within 2; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 5.8505
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to A within 1",
+    "layer": 0,
+    "bits": 7.6003
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "the area to A within 1; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 7.8553
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "the area to A within 1; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 7.8951
+   },
+   {
+    "score": [
+     "-1",
+     "-1/16"
+    ],
+    "label": "the area to A within 1; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 8.0139
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to A within 1/2",
+    "layer": 0,
+    "bits": 8.0701
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "the area to A within 1/2; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 8.2247
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "the area to A within 1/2; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 8.2566
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/16"
+    ],
+    "label": "the area to A within 1/2; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 8.3053
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4",
+    "layer": 0,
+    "bits": 8.3108
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "the area to A within 1/4; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 9.1941
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "the area to A within 1/4; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 9.6664
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/16"
+    ],
+    "label": "the area to A within 1/4; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 9.743
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to A exactly",
+    "layer": 0,
+    "bits": 9.743
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/2",
+    "layer": 1,
+    "bits": 9.743
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/4",
+    "layer": 1,
+    "bits": 9.7925
+   },
+   {
+    "score": [
+     "0",
+     "-1/8"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/8",
+    "layer": 1,
+    "bits": 9.7925
+   },
+   {
+    "score": [
+     "0",
+     "-1/16"
+    ],
+    "label": "the area to A exactly; the legs to whole within 1/16",
+    "layer": 1,
+    "bits": 9.7925
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the area to A exactly; the legs to whole exactly",
+    "layer": 1,
+    "bits": 9.7925
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/ruler/{}/tb=far",
+  "variant": "line-z",
+  "family": "ruler",
+  "params": {},
+  "tieBreaker": "far",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "24ba9c146394e3cb",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; the distance at least 4",
+    "layer": 1,
+    "bits": 1.1552
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; the distance at least 6",
+    "layer": 1,
+    "bits": 1.1552
+   },
+   {
+    "score": [
+     null,
+     "10"
+    ],
+    "label": "anything; the distance at least 10",
+    "layer": 1,
+    "bits": 1.1562
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "distance² to a square within 8",
+    "layer": 0,
+    "bits": 1.1894
+   },
+   {
+    "score": [
+     "-8",
+     "4"
+    ],
+    "label": "distance² to a square within 8; the distance at least 4",
+    "layer": 1,
+    "bits": 1.1894
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "distance² to a square within 8; the distance at least 6",
+    "layer": 1,
+    "bits": 1.1903
+   },
+   {
+    "score": [
+     "-8",
+     "10"
+    ],
+    "label": "distance² to a square within 8; the distance at least 10",
+    "layer": 1,
+    "bits": 1.2085
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "distance² to a square within 4",
+    "layer": 0,
+    "bits": 1.2222
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "distance² to a square within 4; the distance at least 4",
+    "layer": 1,
+    "bits": 1.2371
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "distance² to a square within 4; the distance at least 6",
+    "layer": 1,
+    "bits": 1.2528
+   },
+   {
+    "score": [
+     "-4",
+     "10"
+    ],
+    "label": "distance² to a square within 4; the distance at least 10",
+    "layer": 1,
+    "bits": 1.2704
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "distance² to a square within 2",
+    "layer": 0,
+    "bits": 1.281
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "distance² to a square within 2; the distance at least 4",
+    "layer": 1,
+    "bits": 1.3086
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "distance² to a square within 2; the distance at least 6",
+    "layer": 1,
+    "bits": 1.323
+   },
+   {
+    "score": [
+     "-2",
+     "10"
+    ],
+    "label": "distance² to a square within 2; the distance at least 10",
+    "layer": 1,
+    "bits": 1.3247
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "distance² to a square within 1",
+    "layer": 0,
+    "bits": 1.3291
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "distance² to a square within 1; the distance at least 4",
+    "layer": 1,
+    "bits": 4.3607
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "distance² to a square within 1; the distance at least 6",
+    "layer": 1,
+    "bits": 4.4066
+   },
+   {
+    "score": [
+     "-1",
+     "10"
+    ],
+    "label": "distance² to a square within 1; the distance at least 10",
+    "layer": 1,
+    "bits": 4.4871
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2",
+    "layer": 0,
+    "bits": 4.5136
+   },
+   {
+    "score": [
+     "-1/2",
+     "4"
+    ],
+    "label": "distance² to a square within 1/2; the distance at least 4",
+    "layer": 1,
+    "bits": 6.0203
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "distance² to a square within 1/2; the distance at least 6",
+    "layer": 1,
+    "bits": 6.1934
+   },
+   {
+    "score": [
+     "-1/2",
+     "10"
+    ],
+    "label": "distance² to a square within 1/2; the distance at least 10",
+    "layer": 1,
+    "bits": 6.2042
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4",
+    "layer": 0,
+    "bits": 6.2147
+   },
+   {
+    "score": [
+     "-1/4",
+     "4"
+    ],
+    "label": "distance² to a square within 1/4; the distance at least 4",
+    "layer": 1,
+    "bits": 7.1111
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "distance² to a square within 1/4; the distance at least 6",
+    "layer": 1,
+    "bits": 7.3512
+   },
+   {
+    "score": [
+     "-1/4",
+     "10"
+    ],
+    "label": "distance² to a square within 1/4; the distance at least 10",
+    "layer": 1,
+    "bits": 7.3613
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "distance² to a square within 1/8",
+    "layer": 0,
+    "bits": 7.3748
+   },
+   {
+    "score": [
+     "-1/8",
+     "4"
+    ],
+    "label": "distance² to a square within 1/8; the distance at least 4",
+    "layer": 1,
+    "bits": 8.2191
+   },
+   {
+    "score": [
+     "-1/8",
+     "6"
+    ],
+    "label": "distance² to a square within 1/8; the distance at least 6",
+    "layer": 1,
+    "bits": 8.2577
+   },
+   {
+    "score": [
+     "-1/8",
+     "10"
+    ],
+    "label": "distance² to a square within 1/8; the distance at least 10",
+    "layer": 1,
+    "bits": 8.2699
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "distance² to a square within 1/16",
+    "layer": 0,
+    "bits": 8.2745
+   },
+   {
+    "score": [
+     "-1/16",
+     "4"
+    ],
+    "label": "distance² to a square within 1/16; the distance at least 4",
+    "layer": 1,
+    "bits": 13.1385
+   },
+   {
+    "score": [
+     "-1/16",
+     "6"
+    ],
+    "label": "distance² to a square within 1/16; the distance at least 6",
+    "layer": 1,
+    "bits": 14.2916
+   },
+   {
+    "score": [
+     "-1/16",
+     "10"
+    ],
+    "label": "distance² to a square within 1/16; the distance at least 10",
+    "layer": 1,
+    "bits": 20.2322
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/ruler/{}/tb=prime-gradient",
+  "variant": "line-z",
+  "family": "ruler",
+  "params": {},
+  "tieBreaker": "prime-gradient",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "7ddb843d393096ff",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.1394
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; m to a prime within 1",
+    "layer": 1,
+    "bits": 1.1396
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; m to a prime exactly",
+    "layer": 1,
+    "bits": 1.1516
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "distance² to a square within 8",
+    "layer": 0,
+    "bits": 1.1569
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "distance² to a square within 8; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.1696
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "distance² to a square within 8; m to a prime within 1",
+    "layer": 1,
+    "bits": 1.1699
+   },
+   {
+    "score": [
+     "-8",
+     "0"
+    ],
+    "label": "distance² to a square within 8; m to a prime exactly",
+    "layer": 1,
+    "bits": 1.1809
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "distance² to a square within 4",
+    "layer": 0,
+    "bits": 1.1838
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "distance² to a square within 4; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.2111
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "distance² to a square within 4; m to a prime within 1",
+    "layer": 1,
+    "bits": 1.2116
+   },
+   {
+    "score": [
+     "-4",
+     "0"
+    ],
+    "label": "distance² to a square within 4; m to a prime exactly",
+    "layer": 1,
+    "bits": 1.2265
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "distance² to a square within 2",
+    "layer": 0,
+    "bits": 1.2375
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "distance² to a square within 2; m to a prime within 2",
+    "layer": 1,
+    "bits": 1.2577
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "distance² to a square within 2; m to a prime within 1",
+    "layer": 1,
+    "bits": 1.2591
+   },
+   {
+    "score": [
+     "-2",
+     "0"
+    ],
+    "label": "distance² to a square within 2; m to a prime exactly",
+    "layer": 1,
+    "bits": 1.2706
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "distance² to a square within 1",
+    "layer": 0,
+    "bits": 1.2778
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "distance² to a square within 1; m to a prime within 2",
+    "layer": 1,
+    "bits": 2.1228
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "distance² to a square within 1; m to a prime within 1",
+    "layer": 1,
+    "bits": 2.2377
+   },
+   {
+    "score": [
+     "-1",
+     "0"
+    ],
+    "label": "distance² to a square within 1; m to a prime exactly",
+    "layer": 1,
+    "bits": 3.2274
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2",
+    "layer": 0,
+    "bits": 4.4738
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/2; m to a prime within 2",
+    "layer": 1,
+    "bits": 5.1121
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/2; m to a prime within 1",
+    "layer": 1,
+    "bits": 5.1317
+   },
+   {
+    "score": [
+     "-1/2",
+     "0"
+    ],
+    "label": "distance² to a square within 1/2; m to a prime exactly",
+    "layer": 1,
+    "bits": 6.0355
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4",
+    "layer": 0,
+    "bits": 6.2137
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/4; m to a prime within 2",
+    "layer": 1,
+    "bits": 6.6494
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/4; m to a prime within 1",
+    "layer": 1,
+    "bits": 6.6921
+   },
+   {
+    "score": [
+     "-1/4",
+     "0"
+    ],
+    "label": "distance² to a square within 1/4; m to a prime exactly",
+    "layer": 1,
+    "bits": 6.7983
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "distance² to a square within 1/8",
+    "layer": 0,
+    "bits": 7.3386
+   },
+   {
+    "score": [
+     "-1/8",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/8; m to a prime within 2",
+    "layer": 1,
+    "bits": 7.6671
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/8; m to a prime within 1",
+    "layer": 1,
+    "bits": 7.6913
+   },
+   {
+    "score": [
+     "-1/8",
+     "0"
+    ],
+    "label": "distance² to a square within 1/8; m to a prime exactly",
+    "layer": 1,
+    "bits": 7.7478
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "distance² to a square within 1/16",
+    "layer": 0,
+    "bits": 8.1212
+   },
+   {
+    "score": [
+     "-1/16",
+     "-2"
+    ],
+    "label": "distance² to a square within 1/16; m to a prime within 2",
+    "layer": 1,
+    "bits": 9.0373
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/16; m to a prime within 1",
+    "layer": 1,
+    "bits": 9.2745
+   },
+   {
+    "score": [
+     "-1/16",
+     "0"
+    ],
+    "label": "distance² to a square within 1/16; m to a prime exactly",
+    "layer": 1,
+    "bits": 11.5162
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/ruler/{}/tb=square-area",
+  "variant": "line-z",
+  "family": "ruler",
+  "params": {},
+  "tieBreaker": "square-area",
+  "status": "flagged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "4f5e0c486ff4c20d",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-4"
+    ],
+    "label": "anything; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.1849
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.1853
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.186
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "distance² to a square within 8",
+    "layer": 0,
+    "bits": 1.1939
+   },
+   {
+    "score": [
+     "-8",
+     "-4"
+    ],
+    "label": "distance² to a square within 8; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.2213
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "distance² to a square within 8; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.2228
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 8; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.223
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "distance² to a square within 4",
+    "layer": 0,
+    "bits": 1.2249
+   },
+   {
+    "score": [
+     "-4",
+     "-4"
+    ],
+    "label": "distance² to a square within 4; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.238
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "distance² to a square within 4; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.2772
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 4; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.2784
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "distance² to a square within 2",
+    "layer": 0,
+    "bits": 1.2903
+   },
+   {
+    "score": [
+     "-2",
+     "-4"
+    ],
+    "label": "distance² to a square within 2; the area to a square within 4",
+    "layer": 1,
+    "bits": 1.2961
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "distance² to a square within 2; the area to a square within 1",
+    "layer": 1,
+    "bits": 1.319
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 2; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 1.3261
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "distance² to a square within 1",
+    "layer": 0,
+    "bits": 1.3362
+   },
+   {
+    "score": [
+     "-1",
+     "-4"
+    ],
+    "label": "distance² to a square within 1; the area to a square within 4",
+    "layer": 1,
+    "bits": 2.6878
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "distance² to a square within 1; the area to a square within 1",
+    "layer": 1,
+    "bits": 2.81
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 3.209
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "distance² to a square within 1/2",
+    "layer": 0,
+    "bits": 4.4391
+   },
+   {
+    "score": [
+     "-1/2",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/2; the area to a square within 4",
+    "layer": 1,
+    "bits": 4.4529
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/2; the area to a square within 1",
+    "layer": 1,
+    "bits": 4.5618
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/2; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 5.9297
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4",
+    "layer": 0,
+    "bits": 6.0867
+   },
+   {
+    "score": [
+     "-1/4",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/4; the area to a square within 4",
+    "layer": 1,
+    "bits": 6.1832
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/4; the area to a square within 1",
+    "layer": 1,
+    "bits": 6.2829
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/4; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 6.452
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "distance² to a square within 1/8",
+    "layer": 0,
+    "bits": 7.168
+   },
+   {
+    "score": [
+     "-1/8",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/8; the area to a square within 4",
+    "layer": 1,
+    "bits": 7.192
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/8; the area to a square within 1",
+    "layer": 1,
+    "bits": 7.3152
+   },
+   {
+    "score": [
+     "-1/8",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/8; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 8.0007
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "distance² to a square within 1/16",
+    "layer": 0,
+    "bits": 8.0292
+   },
+   {
+    "score": [
+     "-1/16",
+     "-4"
+    ],
+    "label": "distance² to a square within 1/16; the area to a square within 4",
+    "layer": 1,
+    "bits": 8.099
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1"
+    ],
+    "label": "distance² to a square within 1/16; the area to a square within 1",
+    "layer": 1,
+    "bits": 8.6811
+   },
+   {
+    "score": [
+     "-1/16",
+     "-1/4"
+    ],
+    "label": "distance² to a square within 1/16; the area to a square within 1/4",
+    "layer": 1,
+    "bits": 11.1841
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/same-on-both-rulers/{\"T\":6}/tb=prime-start",
+  "variant": "line-z",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "prime-start",
+  "status": "flagged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "0747e022413ecf5c",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 0.1024
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 0.1255
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 0.1713
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.1734
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 16; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 0.1744
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 16; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 0.1929
+   },
+   {
+    "score": [
+     "-16",
+     "0"
+    ],
+    "label": "the unchanged number to T within 16; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 0.2562
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.2966
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 8; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 0.2974
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 8; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 1.6809
+   },
+   {
+    "score": [
+     "-8",
+     "0"
+    ],
+    "label": "the unchanged number to T within 8; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 2.6998
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 3.5719
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 3.5752
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 3.6809
+   },
+   {
+    "score": [
+     "-4",
+     "0"
+    ],
+    "label": "the unchanged number to T within 4; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 3.8768
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 4.803
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 4.8076
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 4.8521
+   },
+   {
+    "score": [
+     "-2",
+     "0"
+    ],
+    "label": "the unchanged number to T within 2; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 5.707
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 5.7072
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 1; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 5.709
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 5.745
+   },
+   {
+    "score": [
+     "-1",
+     "0"
+    ],
+    "label": "the unchanged number to T within 1; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 5.8441
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 6.8981
+   },
+   {
+    "score": [
+     "-1/2",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 1/2; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 6.902
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1/2; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 6.9218
+   },
+   {
+    "score": [
+     "-1/2",
+     "0"
+    ],
+    "label": "the unchanged number to T within 1/2; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 6.938
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 6.9669
+   },
+   {
+    "score": [
+     "-1/4",
+     "-2"
+    ],
+    "label": "the unchanged number to T within 1/4; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 6.9694
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1/4; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 7.0174
+   },
+   {
+    "score": [
+     "-1/4",
+     "0"
+    ],
+    "label": "the unchanged number to T within 1/4; |c| to a prime exactly",
+    "layer": 1,
+    "bits": 7.0276
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 7.0276
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 4",
+    "layer": 1,
+    "bits": 7.0276
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 2",
+    "layer": 1,
+    "bits": 7.0276
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "the unchanged number to T exactly; |c| to a prime within 1",
+    "layer": 1,
+    "bits": 7.0276
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/same-on-both-rulers/{\"T\":6}/tb=steep",
+  "variant": "line-z",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "steep",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "214bc5c66ab3c259",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "1/2"
+    ],
+    "label": "anything; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 0.1002
+   },
+   {
+    "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 0.1548
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 0.1645
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.1675
+   },
+   {
+    "score": [
+     "-16",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 16; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 0.1675
+   },
+   {
+    "score": [
+     "-16",
+     "2"
+    ],
+    "label": "the unchanged number to T within 16; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 0.2553
+   },
+   {
+    "score": [
+     "-16",
+     "5"
+    ],
+    "label": "the unchanged number to T within 16; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 0.2737
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.2846
+   },
+   {
+    "score": [
+     "-8",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 8; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 0.2846
+   },
+   {
+    "score": [
+     "-8",
+     "2"
+    ],
+    "label": "the unchanged number to T within 8; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 1.3462
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the unchanged number to T within 8; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 1.9796
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 3.6097
+   },
+   {
+    "score": [
+     "-4",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 4; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 3.6097
+   },
+   {
+    "score": [
+     "-4",
+     "2"
+    ],
+    "label": "the unchanged number to T within 4; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 4.4317
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the unchanged number to T within 4; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 4.67
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 4.8026
+   },
+   {
+    "score": [
+     "-2",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 2; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 4.8026
+   },
+   {
+    "score": [
+     "-2",
+     "2"
+    ],
+    "label": "the unchanged number to T within 2; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 5.4301
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the unchanged number to T within 2; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 5.5812
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 5.6559
+   },
+   {
+    "score": [
+     "-1",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 1; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 5.6559
+   },
+   {
+    "score": [
+     "-1",
+     "2"
+    ],
+    "label": "the unchanged number to T within 1; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 6.7847
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the unchanged number to T within 1; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 7.0477
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 7.1847
+   },
+   {
+    "score": [
+     "-1/2",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 1/2; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 7.1847
+   },
+   {
+    "score": [
+     "-1/2",
+     "2"
+    ],
+    "label": "the unchanged number to T within 1/2; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 7.1847
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "the unchanged number to T within 1/2; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 7.2024
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 7.2229
+   },
+   {
+    "score": [
+     "-1/4",
+     "1/2"
+    ],
+    "label": "the unchanged number to T within 1/4; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 7.2229
+   },
+   {
+    "score": [
+     "-1/4",
+     "2"
+    ],
+    "label": "the unchanged number to T within 1/4; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 7.2229
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "the unchanged number to T within 1/4; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 7.2389
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 7.2461
+   },
+   {
+    "score": [
+     "0",
+     "1/4"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 1/4",
+    "layer": 1,
+    "bits": 7.2461
+   },
+   {
+    "score": [
+     "0",
+     "1/2"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 1/2",
+    "layer": 1,
+    "bits": 7.2461
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 1",
+    "layer": 1,
+    "bits": 7.2461
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 2",
+    "layer": 1,
+    "bits": 10.3273
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 3",
+    "layer": 1,
+    "bits": 11.9122
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 5",
+    "layer": 1,
+    "bits": 13.5202
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the unchanged number to T exactly; |m − 1| at least 8",
+    "layer": 1,
+    "bits": 15.0403
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/same-on-both-rulers/{\"T\":6}/tb=whole-lamp",
+  "variant": "line-z",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "whole-lamp",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "7184543b442389f7",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-1/4"
+    ],
+    "label": "anything; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 0.1057
+   },
+   {
+    "score": [
+     null,
+     "-1/8"
+    ],
+    "label": "anything; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 0.1079
+   },
+   {
+    "score": [
+     null,
+     "-1/16"
+    ],
+    "label": "anything; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 0.1087
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.1671
+   },
+   {
+    "score": [
+     "-16",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 16; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 0.1824
+   },
+   {
+    "score": [
+     "-16",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 16; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 0.1898
+   },
+   {
+    "score": [
+     "-16",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 16; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 0.1932
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.2805
+   },
+   {
+    "score": [
+     "-8",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 8; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 0.4892
+   },
+   {
+    "score": [
+     "-8",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 8; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 0.6614
+   },
+   {
+    "score": [
+     "-8",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 8; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 0.7914
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 3.514
+   },
+   {
+    "score": [
+     "-4",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 4; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 3.6207
+   },
+   {
+    "score": [
+     "-4",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 4; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 3.6649
+   },
+   {
+    "score": [
+     "-4",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 4; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 3.693
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 4.8523
+   },
+   {
+    "score": [
+     "-2",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 2; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 4.9328
+   },
+   {
+    "score": [
+     "-2",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 2; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 4.9631
+   },
+   {
+    "score": [
+     "-2",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 2; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 4.9785
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 5.6621
+   },
+   {
+    "score": [
+     "-1",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 5.7393
+   },
+   {
+    "score": [
+     "-1",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 1; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 5.7843
+   },
+   {
+    "score": [
+     "-1",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 1; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 5.805
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 7.1696
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/2; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 7.1969
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 1/2; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 7.231
+   },
+   {
+    "score": [
+     "-1/2",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 1/2; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 7.2449
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 7.2458
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 7.2458
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T within 1/4; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 7.2515
+   },
+   {
+    "score": [
+     "-1/4",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T within 1/4; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 7.2682
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 7.2747
+   },
+   {
+    "score": [
+     "0",
+     "-1/2"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/2",
+    "layer": 1,
+    "bits": 7.2747
+   },
+   {
+    "score": [
+     "0",
+     "-1/4"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/4",
+    "layer": 1,
+    "bits": 7.4265
+   },
+   {
+    "score": [
+     "0",
+     "-1/8"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/8",
+    "layer": 1,
+    "bits": 7.4465
+   },
+   {
+    "score": [
+     "0",
+     "-1/16"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole within 1/16",
+    "layer": 1,
+    "bits": 7.4503
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "the unchanged number to T exactly; the lamp to whole exactly",
+    "layer": 1,
+    "bits": 7.4504
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/same-on-both-rulers/{\"T\":6}/tb=whole-values",
+  "variant": "line-z",
+  "family": "same-on-both-rulers",
+  "params": {
+   "T": 6
+  },
+  "tieBreaker": "whole-values",
+  "status": "too-coarse",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "fa0e1df8d93c504f",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; different whole values at least 3",
+    "layer": 1,
+    "bits": 0.1471
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; different whole values at least 6",
+    "layer": 1,
+    "bits": 0.1471
+   },
+   {
+    "score": [
+     null,
+     "9"
+    ],
+    "label": "anything; different whole values at least 9",
+    "layer": 1,
+    "bits": 0.1471
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "the unchanged number to T within 16",
+    "layer": 0,
+    "bits": 0.1596
+   },
+   {
+    "score": [
+     "-16",
+     "3"
+    ],
+    "label": "the unchanged number to T within 16; different whole values at least 3",
+    "layer": 1,
+    "bits": 0.2482
+   },
+   {
+    "score": [
+     "-16",
+     "6"
+    ],
+    "label": "the unchanged number to T within 16; different whole values at least 6",
+    "layer": 1,
+    "bits": 0.2482
+   },
+   {
+    "score": [
+     "-16",
+     "9"
+    ],
+    "label": "the unchanged number to T within 16; different whole values at least 9",
+    "layer": 1,
+    "bits": 0.2482
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the unchanged number to T within 8",
+    "layer": 0,
+    "bits": 0.2827
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "the unchanged number to T within 8; different whole values at least 3",
+    "layer": 1,
+    "bits": 1.2681
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "the unchanged number to T within 8; different whole values at least 6",
+    "layer": 1,
+    "bits": 1.2681
+   },
+   {
+    "score": [
+     "-8",
+     "9"
+    ],
+    "label": "the unchanged number to T within 8; different whole values at least 9",
+    "layer": 1,
+    "bits": 1.2681
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the unchanged number to T within 4",
+    "layer": 0,
+    "bits": 3.5227
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "the unchanged number to T within 4; different whole values at least 3",
+    "layer": 1,
+    "bits": 4.3627
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the unchanged number to T within 4; different whole values at least 6",
+    "layer": 1,
+    "bits": 4.3627
+   },
+   {
+    "score": [
+     "-4",
+     "9"
+    ],
+    "label": "the unchanged number to T within 4; different whole values at least 9",
+    "layer": 1,
+    "bits": 4.3627
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the unchanged number to T within 2",
+    "layer": 0,
+    "bits": 4.7865
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "the unchanged number to T within 2; different whole values at least 3",
+    "layer": 1,
+    "bits": 5.4729
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "the unchanged number to T within 2; different whole values at least 6",
+    "layer": 1,
+    "bits": 5.4729
+   },
+   {
+    "score": [
+     "-2",
+     "9"
+    ],
+    "label": "the unchanged number to T within 2; different whole values at least 9",
+    "layer": 1,
+    "bits": 5.4729
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the unchanged number to T within 1",
+    "layer": 0,
+    "bits": 5.7642
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "the unchanged number to T within 1; different whole values at least 3",
+    "layer": 1,
+    "bits": 6.6672
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "the unchanged number to T within 1; different whole values at least 6",
+    "layer": 1,
+    "bits": 6.6672
+   },
+   {
+    "score": [
+     "-1",
+     "9"
+    ],
+    "label": "the unchanged number to T within 1; different whole values at least 9",
+    "layer": 1,
+    "bits": 6.6672
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the unchanged number to T within 1/2",
+    "layer": 0,
+    "bits": 7.0388
+   },
+   {
+    "score": [
+     "-1/2",
+     "3"
+    ],
+    "label": "the unchanged number to T within 1/2; different whole values at least 3",
+    "layer": 1,
+    "bits": 7.0388
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "the unchanged number to T within 1/2; different whole values at least 6",
+    "layer": 1,
+    "bits": 7.0388
+   },
+   {
+    "score": [
+     "-1/2",
+     "9"
+    ],
+    "label": "the unchanged number to T within 1/2; different whole values at least 9",
+    "layer": 1,
+    "bits": 7.0388
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the unchanged number to T within 1/4",
+    "layer": 0,
+    "bits": 7.1084
+   },
+   {
+    "score": [
+     "-1/4",
+     "3"
+    ],
+    "label": "the unchanged number to T within 1/4; different whole values at least 3",
+    "layer": 1,
+    "bits": 7.1084
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "the unchanged number to T within 1/4; different whole values at least 6",
+    "layer": 1,
+    "bits": 7.1084
+   },
+   {
+    "score": [
+     "-1/4",
+     "9"
+    ],
+    "label": "the unchanged number to T within 1/4; different whole values at least 9",
+    "layer": 1,
+    "bits": 7.1084
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the unchanged number to T exactly",
+    "layer": 0,
+    "bits": 7.1335
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 1",
+    "layer": 1,
+    "bits": 7.1335
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 2",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 3",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 4",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 5",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 6",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 7",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "8"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 8",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "9"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 9",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "10"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 10",
+    "layer": 1,
+    "bits": 9.5429
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the unchanged number to T exactly; different whole values at least 11",
+    "layer": 1,
+    "bits": 9.5429
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/square-area/{}/tb=lpf",
+  "variant": "line-z",
+  "family": "square-area",
+  "params": {},
+  "tieBreaker": "lpf",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "b716ba8851ccdf37",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.2199
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.2522
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.2648
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to a square within 8",
+    "layer": 0,
+    "bits": 2.2795
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the area to a square within 8; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.3225
+   },
+   {
+    "score": [
+     "-8",
+     "13"
+    ],
+    "label": "the area to a square within 8; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.3555
+   },
+   {
+    "score": [
+     "-8",
+     "23"
+    ],
+    "label": "the area to a square within 8; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.3651
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to a square within 4",
+    "layer": 0,
+    "bits": 2.3663
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the area to a square within 4; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.4821
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "the area to a square within 4; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.5052
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "the area to a square within 4; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.5144
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to a square within 2",
+    "layer": 0,
+    "bits": 2.5153
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the area to a square within 2; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.6863
+   },
+   {
+    "score": [
+     "-2",
+     "13"
+    ],
+    "label": "the area to a square within 2; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.6979
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "the area to a square within 2; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.6985
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to a square within 1",
+    "layer": 0,
+    "bits": 2.6985
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the area to a square within 1; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.9453
+   },
+   {
+    "score": [
+     "-1",
+     "13"
+    ],
+    "label": "the area to a square within 1; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.9721
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "the area to a square within 1; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.9778
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to a square within 1/2",
+    "layer": 0,
+    "bits": 2.9779
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "the area to a square within 1/2; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.623
+   },
+   {
+    "score": [
+     "-1/2",
+     "13"
+    ],
+    "label": "the area to a square within 1/2; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.6563
+   },
+   {
+    "score": [
+     "-1/2",
+     "23"
+    ],
+    "label": "the area to a square within 1/2; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.6563
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to a square within 1/4",
+    "layer": 0,
+    "bits": 3.6563
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "the area to a square within 1/4; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.2157
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "the area to a square within 1/4; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.2168
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "the area to a square within 1/4; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.2174
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "the area to a square within 1/8",
+    "layer": 0,
+    "bits": 4.2176
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "the area to a square within 1/8; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.8136
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "the area to a square within 1/8; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.8136
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "the area to a square within 1/8; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.8136
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "the area to a square within 1/16",
+    "layer": 0,
+    "bits": 4.8138
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "the area to a square within 1/16; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 6.1287
+   },
+   {
+    "score": [
+     "-1/16",
+     "13"
+    ],
+    "label": "the area to a square within 1/16; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 6.1287
+   },
+   {
+    "score": [
+     "-1/16",
+     "23"
+    ],
+    "label": "the area to a square within 1/16; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 6.1287
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to a square exactly",
+    "layer": 0,
+    "bits": 6.1287
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 2",
+    "layer": 1,
+    "bits": 6.682
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 3",
+    "layer": 1,
+    "bits": 7.5134
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 5",
+    "layer": 1,
+    "bits": 8.9427
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 7",
+    "layer": 1,
+    "bits": 10.2796
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 11",
+    "layer": 1,
+    "bits": 12.6878
+   },
+   {
+    "score": [
+     "0",
+     "13"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 13",
+    "layer": 1,
+    "bits": 14.1731
+   },
+   {
+    "score": [
+     "0",
+     "17"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 17",
+    "layer": 1,
+    "bits": 15.5506
+   },
+   {
+    "score": [
+     "0",
+     "19"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 19",
+    "layer": 1,
+    "bits": 16.9535
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 23",
+    "layer": 1,
+    "bits": 22.3651
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 29",
+    "layer": 1,
+    "bits": 26.8828
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "the area to a square exactly; the root's largest prime factor at least 31",
+    "layer": 1,
+    "bits": 30.2707
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/square-area/{}/tb=omega",
+  "variant": "line-z",
+  "family": "square-area",
+  "params": {},
+  "tieBreaker": "omega",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "8f6b0e01752742e8",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.2469
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.2991
+   },
+   {
+    "score": [
+     null,
+     "6"
+    ],
+    "label": "anything; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.3092
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to a square within 8",
+    "layer": 0,
+    "bits": 2.3101
+   },
+   {
+    "score": [
+     "-8",
+     "2"
+    ],
+    "label": "the area to a square within 8; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.3388
+   },
+   {
+    "score": [
+     "-8",
+     "4"
+    ],
+    "label": "the area to a square within 8; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.3978
+   },
+   {
+    "score": [
+     "-8",
+     "6"
+    ],
+    "label": "the area to a square within 8; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.3986
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to a square within 4",
+    "layer": 0,
+    "bits": 2.3986
+   },
+   {
+    "score": [
+     "-4",
+     "2"
+    ],
+    "label": "the area to a square within 4; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.476
+   },
+   {
+    "score": [
+     "-4",
+     "4"
+    ],
+    "label": "the area to a square within 4; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.5331
+   },
+   {
+    "score": [
+     "-4",
+     "6"
+    ],
+    "label": "the area to a square within 4; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.5345
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to a square within 2",
+    "layer": 0,
+    "bits": 2.5345
+   },
+   {
+    "score": [
+     "-2",
+     "2"
+    ],
+    "label": "the area to a square within 2; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.638
+   },
+   {
+    "score": [
+     "-2",
+     "4"
+    ],
+    "label": "the area to a square within 2; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.6822
+   },
+   {
+    "score": [
+     "-2",
+     "6"
+    ],
+    "label": "the area to a square within 2; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.6825
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to a square within 1",
+    "layer": 0,
+    "bits": 2.6825
+   },
+   {
+    "score": [
+     "-1",
+     "2"
+    ],
+    "label": "the area to a square within 1; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 2.9376
+   },
+   {
+    "score": [
+     "-1",
+     "4"
+    ],
+    "label": "the area to a square within 1; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 2.9485
+   },
+   {
+    "score": [
+     "-1",
+     "6"
+    ],
+    "label": "the area to a square within 1; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 2.9485
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to a square within 1/2",
+    "layer": 0,
+    "bits": 2.9485
+   },
+   {
+    "score": [
+     "-1/2",
+     "2"
+    ],
+    "label": "the area to a square within 1/2; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 3.6168
+   },
+   {
+    "score": [
+     "-1/2",
+     "4"
+    ],
+    "label": "the area to a square within 1/2; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 3.6248
+   },
+   {
+    "score": [
+     "-1/2",
+     "6"
+    ],
+    "label": "the area to a square within 1/2; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 3.6248
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to a square within 1/4",
+    "layer": 0,
+    "bits": 3.6248
+   },
+   {
+    "score": [
+     "-1/4",
+     "2"
+    ],
+    "label": "the area to a square within 1/4; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 4.1959
+   },
+   {
+    "score": [
+     "-1/4",
+     "4"
+    ],
+    "label": "the area to a square within 1/4; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 4.2011
+   },
+   {
+    "score": [
+     "-1/4",
+     "6"
+    ],
+    "label": "the area to a square within 1/4; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 4.2011
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "the area to a square within 1/8",
+    "layer": 0,
+    "bits": 4.2011
+   },
+   {
+    "score": [
+     "-1/8",
+     "2"
+    ],
+    "label": "the area to a square within 1/8; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 4.8374
+   },
+   {
+    "score": [
+     "-1/8",
+     "4"
+    ],
+    "label": "the area to a square within 1/8; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 4.8419
+   },
+   {
+    "score": [
+     "-1/8",
+     "6"
+    ],
+    "label": "the area to a square within 1/8; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 4.8419
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "the area to a square within 1/16",
+    "layer": 0,
+    "bits": 4.8419
+   },
+   {
+    "score": [
+     "-1/16",
+     "2"
+    ],
+    "label": "the area to a square within 1/16; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 6.0274
+   },
+   {
+    "score": [
+     "-1/16",
+     "4"
+    ],
+    "label": "the area to a square within 1/16; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 6.0281
+   },
+   {
+    "score": [
+     "-1/16",
+     "6"
+    ],
+    "label": "the area to a square within 1/16; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 6.0281
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to a square exactly",
+    "layer": 0,
+    "bits": 6.0281
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 1",
+    "layer": 1,
+    "bits": 6.5902
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 2",
+    "layer": 1,
+    "bits": 7.6743
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 3",
+    "layer": 1,
+    "bits": 8.8678
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 4",
+    "layer": 1,
+    "bits": 10.2854
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 5",
+    "layer": 1,
+    "bits": 11.6657
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 6",
+    "layer": 1,
+    "bits": 13.5716
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the area to a square exactly; prime factors of the root at least 7",
+    "layer": 1,
+    "bits": 21.0535
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/square-area/{}/tb=spf",
+  "variant": "line-z",
+  "family": "square-area",
+  "params": {},
+  "tieBreaker": "spf",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "1f2073e45560be8a",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.3797
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.3979
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.4026
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "the area to a square within 8",
+    "layer": 0,
+    "bits": 2.4104
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "the area to a square within 8; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.4639
+   },
+   {
+    "score": [
+     "-8",
+     "13"
+    ],
+    "label": "the area to a square within 8; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.4854
+   },
+   {
+    "score": [
+     "-8",
+     "23"
+    ],
+    "label": "the area to a square within 8; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.4923
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "the area to a square within 4",
+    "layer": 0,
+    "bits": 2.493
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "the area to a square within 4; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.6176
+   },
+   {
+    "score": [
+     "-4",
+     "13"
+    ],
+    "label": "the area to a square within 4; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.6322
+   },
+   {
+    "score": [
+     "-4",
+     "23"
+    ],
+    "label": "the area to a square within 4; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.6384
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "the area to a square within 2",
+    "layer": 0,
+    "bits": 2.6389
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "the area to a square within 2; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 2.8087
+   },
+   {
+    "score": [
+     "-2",
+     "13"
+    ],
+    "label": "the area to a square within 2; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 2.812
+   },
+   {
+    "score": [
+     "-2",
+     "23"
+    ],
+    "label": "the area to a square within 2; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 2.8138
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "the area to a square within 1",
+    "layer": 0,
+    "bits": 2.8139
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "the area to a square within 1; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.0329
+   },
+   {
+    "score": [
+     "-1",
+     "13"
+    ],
+    "label": "the area to a square within 1; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.0586
+   },
+   {
+    "score": [
+     "-1",
+     "23"
+    ],
+    "label": "the area to a square within 1; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.0658
+   },
+   {
+    "score": [
+     "-1/2"
+    ],
+    "label": "the area to a square within 1/2",
+    "layer": 0,
+    "bits": 3.0658
+   },
+   {
+    "score": [
+     "-1/2",
+     "5"
+    ],
+    "label": "the area to a square within 1/2; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 3.6825
+   },
+   {
+    "score": [
+     "-1/2",
+     "13"
+    ],
+    "label": "the area to a square within 1/2; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 3.7189
+   },
+   {
+    "score": [
+     "-1/2",
+     "23"
+    ],
+    "label": "the area to a square within 1/2; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 3.7191
+   },
+   {
+    "score": [
+     "-1/4"
+    ],
+    "label": "the area to a square within 1/4",
+    "layer": 0,
+    "bits": 3.7191
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "the area to a square within 1/4; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.2615
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "the area to a square within 1/4; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.2615
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "the area to a square within 1/4; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.2621
+   },
+   {
+    "score": [
+     "-1/8"
+    ],
+    "label": "the area to a square within 1/8",
+    "layer": 0,
+    "bits": 4.2623
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "the area to a square within 1/8; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 4.8707
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "the area to a square within 1/8; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 4.8707
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "the area to a square within 1/8; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 4.8707
+   },
+   {
+    "score": [
+     "-1/16"
+    ],
+    "label": "the area to a square within 1/16",
+    "layer": 0,
+    "bits": 4.8708
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "the area to a square within 1/16; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 6.1757
+   },
+   {
+    "score": [
+     "-1/16",
+     "13"
+    ],
+    "label": "the area to a square within 1/16; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 6.1757
+   },
+   {
+    "score": [
+     "-1/16",
+     "23"
+    ],
+    "label": "the area to a square within 1/16; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 6.1757
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "the area to a square exactly",
+    "layer": 0,
+    "bits": 6.1757
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 2",
+    "layer": 1,
+    "bits": 6.6716
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 3",
+    "layer": 1,
+    "bits": 8.1903
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 5",
+    "layer": 1,
+    "bits": 9.8845
+   },
+   {
+    "score": [
+     "0",
+     "7"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 7",
+    "layer": 1,
+    "bits": 11.1647
+   },
+   {
+    "score": [
+     "0",
+     "11"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 11",
+    "layer": 1,
+    "bits": 13.1257
+   },
+   {
+    "score": [
+     "0",
+     "13"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 13",
+    "layer": 1,
+    "bits": 15.7596
+   },
+   {
+    "score": [
+     "0",
+     "17"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 17",
+    "layer": 1,
+    "bits": 17.371
+   },
+   {
+    "score": [
+     "0",
+     "19"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 19",
+    "layer": 1,
+    "bits": 24.1907
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 23",
+    "layer": 1,
+    "bits": 28.5049
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 29",
+    "layer": 1,
+    "bits": 40.0547
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "the area to a square exactly; the root's smallest prime factor at least 31",
+    "layer": 1,
+    "bits": 40.6483
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/treasure/{\"T\":37,\"k\":2}/tb=prime-gradient",
+  "variant": "line-z",
+  "family": "treasure",
+  "params": {
+   "k": 2,
+   "T": 37
+  },
+  "tieBreaker": "prime-gradient",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "d66eacd2f28e8b1f",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; m to a prime within 2",
+    "layer": 1,
+    "bits": 0.3464
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; m to a prime within 1",
+    "layer": 1,
+    "bits": 1.9145
+   },
+   {
+    "score": [
+     null,
+     "0"
+    ],
+    "label": "anything; m to a prime exactly",
+    "layer": 1,
+    "bits": 2.3474
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "y(k) to T within 32",
+    "layer": 0,
+    "bits": 2.566
+   },
+   {
+    "score": [
+     "-32",
+     "-2"
+    ],
+    "label": "y(k) to T within 32; m to a prime within 2",
+    "layer": 1,
+    "bits": 2.6241
+   },
+   {
+    "score": [
+     "-32",
+     "-1"
+    ],
+    "label": "y(k) to T within 32; m to a prime within 1",
+    "layer": 1,
+    "bits": 3.0852
+   },
+   {
+    "score": [
+     "-32",
+     "0"
+    ],
+    "label": "y(k) to T within 32; m to a prime exactly",
+    "layer": 1,
+    "bits": 3.7074
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "y(k) to T within 16",
+    "layer": 0,
+    "bits": 4.6694
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "y(k) to T within 16; m to a prime within 2",
+    "layer": 1,
+    "bits": 4.7327
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "y(k) to T within 16; m to a prime within 1",
+    "layer": 1,
+    "bits": 5.0338
+   },
+   {
+    "score": [
+     "-16",
+     "0"
+    ],
+    "label": "y(k) to T within 16; m to a prime exactly",
+    "layer": 1,
+    "bits": 5.6168
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "y(k) to T within 8",
+    "layer": 0,
+    "bits": 5.8288
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "y(k) to T within 8; m to a prime within 2",
+    "layer": 1,
+    "bits": 5.8649
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "y(k) to T within 8; m to a prime within 1",
+    "layer": 1,
+    "bits": 6.3681
+   },
+   {
+    "score": [
+     "-8",
+     "0"
+    ],
+    "label": "y(k) to T within 8; m to a prime exactly",
+    "layer": 1,
+    "bits": 6.8561
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "y(k) to T within 4",
+    "layer": 0,
+    "bits": 6.9505
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "y(k) to T within 4; m to a prime within 2",
+    "layer": 1,
+    "bits": 6.9876
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "y(k) to T within 4; m to a prime within 1",
+    "layer": 1,
+    "bits": 7.1486
+   },
+   {
+    "score": [
+     "-4",
+     "0"
+    ],
+    "label": "y(k) to T within 4; m to a prime exactly",
+    "layer": 1,
+    "bits": 7.5761
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "y(k) to T within 2",
+    "layer": 0,
+    "bits": 7.6653
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "y(k) to T within 2; m to a prime within 2",
+    "layer": 1,
+    "bits": 7.6727
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "y(k) to T within 2; m to a prime within 1",
+    "layer": 1,
+    "bits": 7.8044
+   },
+   {
+    "score": [
+     "-2",
+     "0"
+    ],
+    "label": "y(k) to T within 2; m to a prime exactly",
+    "layer": 1,
+    "bits": 8.0793
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "y(k) to T within 1",
+    "layer": 0,
+    "bits": 8.109
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "y(k) to T within 1; m to a prime within 2",
+    "layer": 1,
+    "bits": 8.1616
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "y(k) to T within 1; m to a prime within 1",
+    "layer": 1,
+    "bits": 8.5497
+   },
+   {
+    "score": [
+     "-1",
+     "0"
+    ],
+    "label": "y(k) to T within 1; m to a prime exactly",
+    "layer": 1,
+    "bits": 10.829
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "y(k) to T exactly",
+    "layer": 0,
+    "bits": 11.2907
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 4",
+    "layer": 1,
+    "bits": 11.3221
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 2",
+    "layer": 1,
+    "bits": 11.3421
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "y(k) to T exactly; m to a prime within 1",
+    "layer": 1,
+    "bits": 11.4015
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "y(k) to T exactly; m to a prime exactly",
+    "layer": 1,
+    "bits": 13.8617
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/treasure/{\"T\":37,\"k\":2}/tb=prime-terms",
+  "variant": "line-z",
+  "family": "treasure",
+  "params": {
+   "k": 2,
+   "T": 37
+  },
+  "tieBreaker": "prime-terms",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "a0054d73df363921",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "3"
+    ],
+    "label": "anything; different primes at least 3",
+    "layer": 1,
+    "bits": 2.1519
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; different primes at least 5",
+    "layer": 1,
+    "bits": 2.5821
+   },
+   {
+    "score": [
+     null,
+     "7"
+    ],
+    "label": "anything; different primes at least 7",
+    "layer": 1,
+    "bits": 2.6136
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "y(k) to T within 32",
+    "layer": 0,
+    "bits": 2.6136
+   },
+   {
+    "score": [
+     "-32",
+     "3"
+    ],
+    "label": "y(k) to T within 32; different primes at least 3",
+    "layer": 1,
+    "bits": 3.9175
+   },
+   {
+    "score": [
+     "-32",
+     "5"
+    ],
+    "label": "y(k) to T within 32; different primes at least 5",
+    "layer": 1,
+    "bits": 4.3765
+   },
+   {
+    "score": [
+     "-32",
+     "7"
+    ],
+    "label": "y(k) to T within 32; different primes at least 7",
+    "layer": 1,
+    "bits": 4.6451
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "y(k) to T within 16",
+    "layer": 0,
+    "bits": 4.6744
+   },
+   {
+    "score": [
+     "-16",
+     "3"
+    ],
+    "label": "y(k) to T within 16; different primes at least 3",
+    "layer": 1,
+    "bits": 5.4719
+   },
+   {
+    "score": [
+     "-16",
+     "5"
+    ],
+    "label": "y(k) to T within 16; different primes at least 5",
+    "layer": 1,
+    "bits": 5.6111
+   },
+   {
+    "score": [
+     "-16",
+     "7"
+    ],
+    "label": "y(k) to T within 16; different primes at least 7",
+    "layer": 1,
+    "bits": 5.7162
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "y(k) to T within 8",
+    "layer": 0,
+    "bits": 5.7166
+   },
+   {
+    "score": [
+     "-8",
+     "3"
+    ],
+    "label": "y(k) to T within 8; different primes at least 3",
+    "layer": 1,
+    "bits": 6.5472
+   },
+   {
+    "score": [
+     "-8",
+     "5"
+    ],
+    "label": "y(k) to T within 8; different primes at least 5",
+    "layer": 1,
+    "bits": 6.7315
+   },
+   {
+    "score": [
+     "-8",
+     "7"
+    ],
+    "label": "y(k) to T within 8; different primes at least 7",
+    "layer": 1,
+    "bits": 6.8362
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "y(k) to T within 4",
+    "layer": 0,
+    "bits": 6.8362
+   },
+   {
+    "score": [
+     "-4",
+     "3"
+    ],
+    "label": "y(k) to T within 4; different primes at least 3",
+    "layer": 1,
+    "bits": 7.43
+   },
+   {
+    "score": [
+     "-4",
+     "5"
+    ],
+    "label": "y(k) to T within 4; different primes at least 5",
+    "layer": 1,
+    "bits": 7.5816
+   },
+   {
+    "score": [
+     "-4",
+     "7"
+    ],
+    "label": "y(k) to T within 4; different primes at least 7",
+    "layer": 1,
+    "bits": 7.591
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "y(k) to T within 2",
+    "layer": 0,
+    "bits": 7.591
+   },
+   {
+    "score": [
+     "-2",
+     "3"
+    ],
+    "label": "y(k) to T within 2; different primes at least 3",
+    "layer": 1,
+    "bits": 7.8225
+   },
+   {
+    "score": [
+     "-2",
+     "5"
+    ],
+    "label": "y(k) to T within 2; different primes at least 5",
+    "layer": 1,
+    "bits": 7.9124
+   },
+   {
+    "score": [
+     "-2",
+     "7"
+    ],
+    "label": "y(k) to T within 2; different primes at least 7",
+    "layer": 1,
+    "bits": 7.9934
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "y(k) to T within 1",
+    "layer": 0,
+    "bits": 7.9934
+   },
+   {
+    "score": [
+     "-1",
+     "3"
+    ],
+    "label": "y(k) to T within 1; different primes at least 3",
+    "layer": 1,
+    "bits": 10.0543
+   },
+   {
+    "score": [
+     "-1",
+     "5"
+    ],
+    "label": "y(k) to T within 1; different primes at least 5",
+    "layer": 1,
+    "bits": 10.4936
+   },
+   {
+    "score": [
+     "-1",
+     "7"
+    ],
+    "label": "y(k) to T within 1; different primes at least 7",
+    "layer": 1,
+    "bits": 10.4936
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "y(k) to T exactly",
+    "layer": 0,
+    "bits": 10.4936
+   },
+   {
+    "score": [
+     "0",
+     "1"
+    ],
+    "label": "y(k) to T exactly; different primes at least 1",
+    "layer": 1,
+    "bits": 10.4936
+   },
+   {
+    "score": [
+     "0",
+     "2"
+    ],
+    "label": "y(k) to T exactly; different primes at least 2",
+    "layer": 1,
+    "bits": 10.4936
+   },
+   {
+    "score": [
+     "0",
+     "3"
+    ],
+    "label": "y(k) to T exactly; different primes at least 3",
+    "layer": 1,
+    "bits": 10.5473
+   },
+   {
+    "score": [
+     "0",
+     "4"
+    ],
+    "label": "y(k) to T exactly; different primes at least 4",
+    "layer": 1,
+    "bits": 10.8552
+   },
+   {
+    "score": [
+     "0",
+     "5"
+    ],
+    "label": "y(k) to T exactly; different primes at least 5",
+    "layer": 1,
+    "bits": 11.0861
+   },
+   {
+    "score": [
+     "0",
+     "6"
+    ],
+    "label": "y(k) to T exactly; different primes at least 6",
+    "layer": 1,
+    "bits": 14.3727
+   }
+  ]
+ },
+ {
+  "ruleKey": "line@1/line-z#7c3aa34b892803e6/treasure/{\"T\":37,\"k\":2}/tb=square-start",
+  "variant": "line-z",
+  "family": "treasure",
+  "params": {
+   "k": 2,
+   "T": 37
+  },
+  "tieBreaker": "square-start",
+  "status": "unconverged",
+  "primarySense": "min",
+  "curve": null,
+  "contentHash": "20b1d02007ffa2fe",
+  "rungs": [
+   {
+    "score": null,
+    "label": "anything",
+    "layer": -1,
+    "bits": 0
+   },
+   {
+    "score": [
+     null,
+     "-4"
+    ],
+    "label": "anything; c to a square within 4",
+    "layer": 1,
+    "bits": 0.134
+   },
+   {
+    "score": [
+     null,
+     "-2"
+    ],
+    "label": "anything; c to a square within 2",
+    "layer": 1,
+    "bits": 0.1958
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; c to a square within 1",
+    "layer": 1,
+    "bits": 0.2529
+   },
+   {
+    "score": [
+     "-32"
+    ],
+    "label": "y(k) to T within 32",
+    "layer": 0,
+    "bits": 2.5764
+   },
+   {
+    "score": [
+     "-32",
+     "-4"
+    ],
+    "label": "y(k) to T within 32; c to a square within 4",
+    "layer": 1,
+    "bits": 2.6144
+   },
+   {
+    "score": [
+     "-32",
+     "-2"
+    ],
+    "label": "y(k) to T within 32; c to a square within 2",
+    "layer": 1,
+    "bits": 2.6906
+   },
+   {
+    "score": [
+     "-32",
+     "-1"
+    ],
+    "label": "y(k) to T within 32; c to a square within 1",
+    "layer": 1,
+    "bits": 2.8732
+   },
+   {
+    "score": [
+     "-16"
+    ],
+    "label": "y(k) to T within 16",
+    "layer": 0,
+    "bits": 4.7249
+   },
+   {
+    "score": [
+     "-16",
+     "-4"
+    ],
+    "label": "y(k) to T within 16; c to a square within 4",
+    "layer": 1,
+    "bits": 4.7817
+   },
+   {
+    "score": [
+     "-16",
+     "-2"
+    ],
+    "label": "y(k) to T within 16; c to a square within 2",
+    "layer": 1,
+    "bits": 4.8964
+   },
+   {
+    "score": [
+     "-16",
+     "-1"
+    ],
+    "label": "y(k) to T within 16; c to a square within 1",
+    "layer": 1,
+    "bits": 5.017
+   },
+   {
+    "score": [
+     "-8"
+    ],
+    "label": "y(k) to T within 8",
+    "layer": 0,
+    "bits": 5.8085
+   },
+   {
+    "score": [
+     "-8",
+     "-4"
+    ],
+    "label": "y(k) to T within 8; c to a square within 4",
+    "layer": 1,
+    "bits": 5.9523
+   },
+   {
+    "score": [
+     "-8",
+     "-2"
+    ],
+    "label": "y(k) to T within 8; c to a square within 2",
+    "layer": 1,
+    "bits": 6.1021
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "y(k) to T within 8; c to a square within 1",
+    "layer": 1,
+    "bits": 6.1757
+   },
+   {
+    "score": [
+     "-4"
+    ],
+    "label": "y(k) to T within 4",
+    "layer": 0,
+    "bits": 7.0894
+   },
+   {
+    "score": [
+     "-4",
+     "-4"
+    ],
+    "label": "y(k) to T within 4; c to a square within 4",
+    "layer": 1,
+    "bits": 7.1728
+   },
+   {
+    "score": [
+     "-4",
+     "-2"
+    ],
+    "label": "y(k) to T within 4; c to a square within 2",
+    "layer": 1,
+    "bits": 7.3377
+   },
+   {
+    "score": [
+     "-4",
+     "-1"
+    ],
+    "label": "y(k) to T within 4; c to a square within 1",
+    "layer": 1,
+    "bits": 7.3886
+   },
+   {
+    "score": [
+     "-2"
+    ],
+    "label": "y(k) to T within 2",
+    "layer": 0,
+    "bits": 7.9474
+   },
+   {
+    "score": [
+     "-2",
+     "-4"
+    ],
+    "label": "y(k) to T within 2; c to a square within 4",
+    "layer": 1,
+    "bits": 7.9667
+   },
+   {
+    "score": [
+     "-2",
+     "-2"
+    ],
+    "label": "y(k) to T within 2; c to a square within 2",
+    "layer": 1,
+    "bits": 8.062
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "y(k) to T within 2; c to a square within 1",
+    "layer": 1,
+    "bits": 8.0758
+   },
+   {
+    "score": [
+     "-1"
+    ],
+    "label": "y(k) to T within 1",
+    "layer": 0,
+    "bits": 8.4106
+   },
+   {
+    "score": [
+     "-1",
+     "-4"
+    ],
+    "label": "y(k) to T within 1; c to a square within 4",
+    "layer": 1,
+    "bits": 8.49
+   },
+   {
+    "score": [
+     "-1",
+     "-2"
+    ],
+    "label": "y(k) to T within 1; c to a square within 2",
+    "layer": 1,
+    "bits": 8.6229
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "y(k) to T within 1; c to a square within 1",
+    "layer": 1,
+    "bits": 8.7345
+   },
+   {
+    "score": [
+     "0"
+    ],
+    "label": "y(k) to T exactly",
+    "layer": 0,
+    "bits": 11.2799
+   },
+   {
+    "score": [
+     "0",
+     "-8"
+    ],
+    "label": "y(k) to T exactly; c to a square within 8",
+    "layer": 1,
+    "bits": 11.2895
+   },
+   {
+    "score": [
+     "0",
+     "-4"
+    ],
+    "label": "y(k) to T exactly; c to a square within 4",
+    "layer": 1,
+    "bits": 11.3729
+   },
+   {
+    "score": [
+     "0",
+     "-2"
+    ],
+    "label": "y(k) to T exactly; c to a square within 2",
+    "layer": 1,
+    "bits": 11.6901
+   },
+   {
+    "score": [
+     "0",
+     "-1"
+    ],
+    "label": "y(k) to T exactly; c to a square within 1",
+    "layer": 1,
+    "bits": 11.8574
+   },
+   {
+    "score": [
+     "0",
+     "0"
+    ],
+    "label": "y(k) to T exactly; c to a square exactly",
+    "layer": 1,
+    "bits": 12.1172
    }
   ]
  },
@@ -2809,10 +22727,10 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "A": 4
   },
   "tieBreaker": "even",
-  "status": "flagged",
+  "status": "unconverged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1aee765b97de88f0",
+  "contentHash": "d2161c09e2d335e4",
   "rungs": [
    {
     "score": null,
@@ -2822,11 +22740,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-8"
+    ],
+    "label": "anything; the legs to each other within 8",
+    "layer": 1,
+    "bits": 2.457
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; the legs to each other within 3",
+    "layer": 1,
+    "bits": 2.4937
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the legs to each other within 1",
+    "layer": 1,
+    "bits": 2.4937
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "the area within 13",
     "layer": 0,
-    "bits": 2.655
+    "bits": 2.6502
+   },
+   {
+    "score": [
+     "-13",
+     "-8"
+    ],
+    "label": "the area within 13; the legs to each other within 8",
+    "layer": 1,
+    "bits": 2.6677
+   },
+   {
+    "score": [
+     "-13",
+     "-3"
+    ],
+    "label": "the area within 13; the legs to each other within 3",
+    "layer": 1,
+    "bits": 2.6947
+   },
+   {
+    "score": [
+     "-13",
+     "-1"
+    ],
+    "label": "the area within 13; the legs to each other within 1",
+    "layer": 1,
+    "bits": 2.6947
    },
    {
     "score": [
@@ -2834,7 +22806,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 8",
     "layer": 0,
-    "bits": 2.7264
+    "bits": 2.719
+   },
+   {
+    "score": [
+     "-8",
+     "-8"
+    ],
+    "label": "the area within 8; the legs to each other within 8",
+    "layer": 1,
+    "bits": 2.7326
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "the area within 8; the legs to each other within 3",
+    "layer": 1,
+    "bits": 2.7446
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the area within 8; the legs to each other within 1",
+    "layer": 1,
+    "bits": 2.7446
    },
    {
     "score": [
@@ -2842,7 +22841,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 5",
     "layer": 0,
-    "bits": 2.7475
+    "bits": 2.7446
+   },
+   {
+    "score": [
+     "-5",
+     "-8"
+    ],
+    "label": "the area within 5; the legs to each other within 8",
+    "layer": 1,
+    "bits": 2.774
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "the area within 5; the legs to each other within 3",
+    "layer": 1,
+    "bits": 2.8622
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "the area within 5; the legs to each other within 1",
+    "layer": 1,
+    "bits": 3.1568
    },
    {
     "score": [
@@ -2850,7 +22876,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 3",
     "layer": 0,
-    "bits": 4.3658
+    "bits": 4.2892
+   },
+   {
+    "score": [
+     "-3",
+     "-8"
+    ],
+    "label": "the area within 3; the legs to each other within 8",
+    "layer": 1,
+    "bits": 4.3488
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "the area within 3; the legs to each other within 3",
+    "layer": 1,
+    "bits": 4.5321
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "the area within 3; the legs to each other within 1",
+    "layer": 1,
+    "bits": 4.6866
    },
    {
     "score": [
@@ -2858,7 +22911,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 2",
     "layer": 0,
-    "bits": 4.9343
+    "bits": 4.8492
+   },
+   {
+    "score": [
+     "-2",
+     "-8"
+    ],
+    "label": "the area within 2; the legs to each other within 8",
+    "layer": 1,
+    "bits": 4.942
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "the area within 2; the legs to each other within 3",
+    "layer": 1,
+    "bits": 5.1442
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the area within 2; the legs to each other within 1",
+    "layer": 1,
+    "bits": 5.4315
    },
    {
     "score": [
@@ -2866,7 +22946,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1",
     "layer": 0,
-    "bits": 6.1689
+    "bits": 6.0506
+   },
+   {
+    "score": [
+     "-1",
+     "-8"
+    ],
+    "label": "the area within 1; the legs to each other within 8",
+    "layer": 1,
+    "bits": 6.2585
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "the area within 1; the legs to each other within 3",
+    "layer": 1,
+    "bits": 6.8925
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the area within 1; the legs to each other within 1",
+    "layer": 1,
+    "bits": 6.8925
    },
    {
     "score": [
@@ -2874,52 +22981,52 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area exactly",
     "layer": 0,
-    "bits": 8.917
+    "bits": 8.7335
    },
    {
     "score": [
      "0",
      "-13"
     ],
-    "label": "the legs to each other within 13",
+    "label": "the area exactly; the legs to each other within 13",
     "layer": 1,
-    "bits": 8.9216
+    "bits": 8.7485
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "the legs to each other within 8",
+    "label": "the area exactly; the legs to each other within 8",
     "layer": 1,
-    "bits": 8.9614
+    "bits": 8.7666
    },
    {
     "score": [
      "0",
      "-5"
     ],
-    "label": "the legs to each other within 5",
+    "label": "the area exactly; the legs to each other within 5",
     "layer": 1,
-    "bits": 9.1976
+    "bits": 8.9131
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "the legs to each other within 3",
+    "label": "the area exactly; the legs to each other within 3",
     "layer": 1,
-    "bits": 9.1976
+    "bits": 8.9131
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "the legs to each other within 2",
+    "label": "the area exactly; the legs to each other within 2",
     "layer": 1,
-    "bits": 9.1976
+    "bits": 8.9131
    }
   ]
  },
@@ -2931,10 +23038,10 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "A": 4
   },
   "tieBreaker": "legs",
-  "status": "unconverged",
+  "status": "converged",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "b1bc392e6e701ed8",
+  "contentHash": "c3990e7b2434fe05",
   "rungs": [
    {
     "score": null,
@@ -2944,11 +23051,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "-6"
+    ],
+    "label": "anything; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 2.253
+   },
+   {
+    "score": [
+     null,
+     "-3"
+    ],
+    "label": "anything; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 2.2735
+   },
+   {
+    "score": [
+     null,
+     "-1"
+    ],
+    "label": "anything; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 2.3047
+   },
+   {
+    "score": [
      "-13"
     ],
     "label": "the area within 13",
     "layer": 0,
-    "bits": null
+    "bits": 2.5939
+   },
+   {
+    "score": [
+     "-13",
+     "-6"
+    ],
+    "label": "the area within 13; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 2.5976
+   },
+   {
+    "score": [
+     "-13",
+     "-3"
+    ],
+    "label": "the area within 13; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 2.6036
+   },
+   {
+    "score": [
+     "-13",
+     "-1"
+    ],
+    "label": "the area within 13; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 2.6125
    },
    {
     "score": [
@@ -2956,7 +23117,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 8",
     "layer": 0,
-    "bits": null
+    "bits": 2.6617
+   },
+   {
+    "score": [
+     "-8",
+     "-6"
+    ],
+    "label": "the area within 8; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 2.6657
+   },
+   {
+    "score": [
+     "-8",
+     "-3"
+    ],
+    "label": "the area within 8; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 2.6687
+   },
+   {
+    "score": [
+     "-8",
+     "-1"
+    ],
+    "label": "the area within 8; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 2.6801
    },
    {
     "score": [
@@ -2964,7 +23152,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 5",
     "layer": 0,
-    "bits": null
+    "bits": 2.685
+   },
+   {
+    "score": [
+     "-5",
+     "-6"
+    ],
+    "label": "the area within 5; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 3.0408
+   },
+   {
+    "score": [
+     "-5",
+     "-3"
+    ],
+    "label": "the area within 5; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 3.223
+   },
+   {
+    "score": [
+     "-5",
+     "-1"
+    ],
+    "label": "the area within 5; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 3.4963
    },
    {
     "score": [
@@ -2972,7 +23187,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 3",
     "layer": 0,
-    "bits": null
+    "bits": 4.2909
+   },
+   {
+    "score": [
+     "-3",
+     "-6"
+    ],
+    "label": "the area within 3; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 4.3798
+   },
+   {
+    "score": [
+     "-3",
+     "-3"
+    ],
+    "label": "the area within 3; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 4.4442
+   },
+   {
+    "score": [
+     "-3",
+     "-1"
+    ],
+    "label": "the area within 3; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 4.5509
    },
    {
     "score": [
@@ -2980,7 +23222,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 2",
     "layer": 0,
-    "bits": null
+    "bits": 4.8791
+   },
+   {
+    "score": [
+     "-2",
+     "-6"
+    ],
+    "label": "the area within 2; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 4.9769
+   },
+   {
+    "score": [
+     "-2",
+     "-3"
+    ],
+    "label": "the area within 2; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 5.028
+   },
+   {
+    "score": [
+     "-2",
+     "-1"
+    ],
+    "label": "the area within 2; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 5.1489
    },
    {
     "score": [
@@ -2988,7 +23257,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area within 1",
     "layer": 0,
-    "bits": null
+    "bits": 6.1439
+   },
+   {
+    "score": [
+     "-1",
+     "-6"
+    ],
+    "label": "the area within 1; the legs' bottom numbers − 2 at most 6",
+    "layer": 1,
+    "bits": 6.2715
+   },
+   {
+    "score": [
+     "-1",
+     "-3"
+    ],
+    "label": "the area within 1; the legs' bottom numbers − 2 at most 3",
+    "layer": 1,
+    "bits": 6.4715
+   },
+   {
+    "score": [
+     "-1",
+     "-1"
+    ],
+    "label": "the area within 1; the legs' bottom numbers − 2 at most 1",
+    "layer": 1,
+    "bits": 6.7162
    },
    {
     "score": [
@@ -2996,79 +23292,79 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "the area exactly",
     "layer": 0,
-    "bits": null
+    "bits": 8.7836
    },
    {
     "score": [
      "0",
      "-12"
     ],
-    "label": "the legs' bottom numbers − 2 at most 12",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 12",
     "layer": 1,
-    "bits": null
+    "bits": 8.7836
    },
    {
     "score": [
      "0",
      "-8"
     ],
-    "label": "the legs' bottom numbers − 2 at most 8",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 8",
     "layer": 1,
-    "bits": null
+    "bits": 8.7836
    },
    {
     "score": [
      "0",
      "-6"
     ],
-    "label": "the legs' bottom numbers − 2 at most 6",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 6",
     "layer": 1,
-    "bits": null
+    "bits": 8.7836
    },
    {
     "score": [
      "0",
      "-4"
     ],
-    "label": "the legs' bottom numbers − 2 at most 4",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 4",
     "layer": 1,
-    "bits": null
+    "bits": 8.7836
    },
    {
     "score": [
      "0",
      "-3"
     ],
-    "label": "the legs' bottom numbers − 2 at most 3",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 3",
     "layer": 1,
-    "bits": null
+    "bits": 8.786
    },
    {
     "score": [
      "0",
      "-2"
     ],
-    "label": "the legs' bottom numbers − 2 at most 2",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 2",
     "layer": 1,
-    "bits": null
+    "bits": 8.7891
    },
    {
     "score": [
      "0",
      "-1"
     ],
-    "label": "the legs' bottom numbers − 2 at most 1",
+    "label": "the area exactly; the legs' bottom numbers − 2 at most 1",
     "layer": 1,
-    "bits": null
+    "bits": 8.8357
    },
    {
     "score": [
      "0",
      "0"
     ],
-    "label": "the legs' bottom numbers − 2 0",
+    "label": "the area exactly; the legs' bottom numbers − 2 0",
     "layer": 1,
-    "bits": null
+    "bits": 8.8432
    }
   ]
  },
@@ -3081,7 +23377,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "too-coarse",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1a25d7f3eb4e30a1",
+  "contentHash": "fc7076646dd16501",
   "rungs": [
    {
     "score": null,
@@ -3091,11 +23387,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "2"
+    ],
+    "label": "anything; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     null,
+     "4"
+    ],
+    "label": "anything; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
      "-1/3"
     ],
     "label": "c to a whole number within 1/3",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/3",
+     "2"
+    ],
+    "label": "c to a whole number within 1/3; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/3",
+     "4"
+    ],
+    "label": "c to a whole number within 1/3; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/3",
+     "5"
+    ],
+    "label": "c to a whole number within 1/3; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3103,7 +23453,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/4",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/4",
+     "2"
+    ],
+    "label": "c to a whole number within 1/4; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/4",
+     "4"
+    ],
+    "label": "c to a whole number within 1/4; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "c to a whole number within 1/4; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3111,7 +23488,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/6",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/6",
+     "2"
+    ],
+    "label": "c to a whole number within 1/6; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/6",
+     "4"
+    ],
+    "label": "c to a whole number within 1/6; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/6",
+     "5"
+    ],
+    "label": "c to a whole number within 1/6; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3119,7 +23523,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/8",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/8",
+     "2"
+    ],
+    "label": "c to a whole number within 1/8; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/8",
+     "4"
+    ],
+    "label": "c to a whole number within 1/8; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "c to a whole number within 1/8; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3127,7 +23558,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/12",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/12",
+     "2"
+    ],
+    "label": "c to a whole number within 1/12; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/12",
+     "4"
+    ],
+    "label": "c to a whole number within 1/12; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/12",
+     "5"
+    ],
+    "label": "c to a whole number within 1/12; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3135,7 +23593,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/16",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/16",
+     "2"
+    ],
+    "label": "c to a whole number within 1/16; its prime factors at least 2",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/16",
+     "4"
+    ],
+    "label": "c to a whole number within 1/16; its prime factors at least 4",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "c to a whole number within 1/16; its prime factors at least 5",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3143,61 +23628,61 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number exactly",
     "layer": 0,
-    "bits": 0
+    "bits": null
    },
    {
     "score": [
      "0",
      "1"
     ],
-    "label": "its prime factors at least 1",
+    "label": "c to a whole number exactly; its prime factors at least 1",
     "layer": 1,
-    "bits": 1.6938
+    "bits": null
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "its prime factors at least 2",
+    "label": "c to a whole number exactly; its prime factors at least 2",
     "layer": 1,
-    "bits": 2.5792
+    "bits": null
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "its prime factors at least 3",
+    "label": "c to a whole number exactly; its prime factors at least 3",
     "layer": 1,
-    "bits": 3.7267
+    "bits": null
    },
    {
     "score": [
      "0",
      "4"
     ],
-    "label": "its prime factors at least 4",
+    "label": "c to a whole number exactly; its prime factors at least 4",
     "layer": 1,
-    "bits": 5.0712
+    "bits": null
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "its prime factors at least 5",
+    "label": "c to a whole number exactly; its prime factors at least 5",
     "layer": 1,
-    "bits": 6.4695
+    "bits": null
    },
    {
     "score": [
      "0",
      "6"
     ],
-    "label": "its prime factors at least 6",
+    "label": "c to a whole number exactly; its prime factors at least 6",
     "layer": 1,
-    "bits": 7.8524
+    "bits": null
    }
   ]
  },
@@ -3210,7 +23695,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "status": "too-coarse",
   "primarySense": "min",
   "curve": null,
-  "contentHash": "499802c636bffc73",
+  "contentHash": "2e2187b0a2f3b6e1",
   "rungs": [
    {
     "score": null,
@@ -3220,11 +23705,65 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    },
    {
     "score": [
+     null,
+     "5"
+    ],
+    "label": "anything; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     null,
+     "13"
+    ],
+    "label": "anything; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     null,
+     "23"
+    ],
+    "label": "anything; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
      "-1/3"
     ],
     "label": "c to a whole number within 1/3",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/3",
+     "5"
+    ],
+    "label": "c to a whole number within 1/3; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/3",
+     "13"
+    ],
+    "label": "c to a whole number within 1/3; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/3",
+     "23"
+    ],
+    "label": "c to a whole number within 1/3; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3232,7 +23771,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/4",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/4",
+     "5"
+    ],
+    "label": "c to a whole number within 1/4; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/4",
+     "13"
+    ],
+    "label": "c to a whole number within 1/4; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/4",
+     "23"
+    ],
+    "label": "c to a whole number within 1/4; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3240,7 +23806,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/6",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/6",
+     "5"
+    ],
+    "label": "c to a whole number within 1/6; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/6",
+     "13"
+    ],
+    "label": "c to a whole number within 1/6; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/6",
+     "23"
+    ],
+    "label": "c to a whole number within 1/6; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3248,7 +23841,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/8",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/8",
+     "5"
+    ],
+    "label": "c to a whole number within 1/8; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/8",
+     "13"
+    ],
+    "label": "c to a whole number within 1/8; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/8",
+     "23"
+    ],
+    "label": "c to a whole number within 1/8; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3256,7 +23876,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/12",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/12",
+     "5"
+    ],
+    "label": "c to a whole number within 1/12; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/12",
+     "13"
+    ],
+    "label": "c to a whole number within 1/12; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/12",
+     "23"
+    ],
+    "label": "c to a whole number within 1/12; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3264,7 +23911,34 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number within 1/16",
     "layer": 0,
-    "bits": 0
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/16",
+     "5"
+    ],
+    "label": "c to a whole number within 1/16; its smallest prime factor at least 5",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/16",
+     "13"
+    ],
+    "label": "c to a whole number within 1/16; its smallest prime factor at least 13",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "-1/16",
+     "23"
+    ],
+    "label": "c to a whole number within 1/16; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
    },
    {
     "score": [
@@ -3272,79 +23946,106 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     ],
     "label": "c to a whole number exactly",
     "layer": 0,
-    "bits": 0
+    "bits": null
    },
    {
     "score": [
      "0",
      "2"
     ],
-    "label": "its smallest prime factor at least 2",
+    "label": "c to a whole number exactly; its smallest prime factor at least 2",
     "layer": 1,
-    "bits": 1.6453
+    "bits": null
    },
    {
     "score": [
      "0",
      "3"
     ],
-    "label": "its smallest prime factor at least 3",
+    "label": "c to a whole number exactly; its smallest prime factor at least 3",
     "layer": 1,
-    "bits": 3.0794
+    "bits": null
    },
    {
     "score": [
      "0",
      "5"
     ],
-    "label": "its smallest prime factor at least 5",
+    "label": "c to a whole number exactly; its smallest prime factor at least 5",
     "layer": 1,
-    "bits": 4.5762
+    "bits": null
    },
    {
     "score": [
      "0",
      "7"
     ],
-    "label": "its smallest prime factor at least 7",
+    "label": "c to a whole number exactly; its smallest prime factor at least 7",
     "layer": 1,
-    "bits": 6.0215
+    "bits": null
    },
    {
     "score": [
      "0",
      "11"
     ],
-    "label": "its smallest prime factor at least 11",
+    "label": "c to a whole number exactly; its smallest prime factor at least 11",
     "layer": 1,
-    "bits": 7.7919
+    "bits": null
    },
    {
     "score": [
      "0",
      "13"
     ],
-    "label": "its smallest prime factor at least 13",
+    "label": "c to a whole number exactly; its smallest prime factor at least 13",
     "layer": 1,
-    "bits": 9.1999
+    "bits": null
    },
    {
     "score": [
      "0",
      "17"
     ],
-    "label": "its smallest prime factor at least 17",
+    "label": "c to a whole number exactly; its smallest prime factor at least 17",
     "layer": 1,
-    "bits": 11.1651
+    "bits": null
    },
    {
     "score": [
      "0",
      "19"
     ],
-    "label": "its smallest prime factor at least 19",
+    "label": "c to a whole number exactly; its smallest prime factor at least 19",
     "layer": 1,
-    "bits": 12.2367
+    "bits": null
+   },
+   {
+    "score": [
+     "0",
+     "23"
+    ],
+    "label": "c to a whole number exactly; its smallest prime factor at least 23",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "0",
+     "29"
+    ],
+    "label": "c to a whole number exactly; its smallest prime factor at least 29",
+    "layer": 1,
+    "bits": null
+   },
+   {
+    "score": [
+     "0",
+     "31"
+    ],
+    "label": "c to a whole number exactly; its smallest prime factor at least 31",
+    "layer": 1,
+    "bits": null
    }
   ]
  }

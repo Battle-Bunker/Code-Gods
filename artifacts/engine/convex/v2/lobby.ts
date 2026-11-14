@@ -5,6 +5,10 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, userById } from "./access";
 import { dealablePool, dealKeyOf, freshDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
 import { isPreset, presetOf } from "./presets.ts";
+import { summonPracticePartners } from "./agents.ts";
+import { makeFunctionReference } from "convex/server";
+
+const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** A short join code nobody else holds (6 characters of an unambiguous alphabet: 2^30). */
@@ -38,7 +42,7 @@ export async function joinRoom(ctx: MutationCtx, userId: string, rawCode: string
   const members = await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", room._id)).take(MAX_MEMBERS);
   if (members.length >= MAX_MEMBERS) throw new OpFailure(`This room is full (${MAX_MEMBERS} members).`);
   // Joining a game in progress makes a spectator; the next game seats them.
-  await ctx.db.insert("v2Members", { roomId: room._id, kind: "human", name: await nameOf(ctx, userId), spectator: !!room.gameId, joinedAt: Date.now(), userId });
+  await ctx.db.insert("v2Members", { roomId: room._id, kind: "human", name: await nameOf(ctx, userId), spectator: !!room.gameId, joinedAt: Date.now(), userId, ...(room.gameId ? { seatNext: true } : {}) });
   // A room whose owner left with no human to hand it to belongs to the next human who joins.
   const ownerless = !members.some(m => m.userId === room.ownerId);
   await ctx.db.patch(room._id, { revision: room.revision + 1, ...(ownerless ? { ownerId: userId } : {}) });
@@ -172,10 +176,12 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">): Promise
     });
     await ctx.db.insert("v2Players", {
       gameId, memberId: m._id, ...(m.userId ? { userId: m.userId } : {}), kind: m.kind,
-      energy: settings.startingEnergy, power: preset.economy.powerPerSecond, ready: false, pauseUsed: false, agents: 0,
+      energy: settings.startingEnergy, power: preset.economy.powerPerSecond, ready: m.kind !== "human", pauseUsed: false, agents: 0,
+      settledAt: 0, allocated: 0,
     });
   }
   await ctx.db.insert("v2Clocks", { gameId, tick: 0, worldSeconds: 0, lastTickAt: now, objects: 0, agents: 0, commits: 0, events: 1 });
+  await ctx.db.insert("v2Engine", { gameId, leaseId: "", tick: 0, objects: 0, acts: 0, moves: 0, events: 1, scoreboards: 0, scoreboardAt: 0, failures: 0, totals: {} });
   await ctx.db.insert("v2Events", {
     gameId, seq: 0, kind: "gameStarted",
     data: {
@@ -184,5 +190,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">): Promise
     },
   });
   await ctx.db.patch(room._id, { gameId, lastGameId: gameId, games: number, revision: room.revision + 1 });
+  const game = (await ctx.db.get(gameId))!;
+  await summonPracticePartners(ctx, game);
+  await ctx.scheduler.runAt(game.planningEndsAt!, PLANNING_ENDS, { gameId });
   return gameId;
 }

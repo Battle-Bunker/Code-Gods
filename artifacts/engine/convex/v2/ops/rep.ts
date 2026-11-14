@@ -1,4 +1,5 @@
-/** `rep.mutators`: a representation's price list, from v2-linear. W3-4. */
-import { defineOp, notYet } from "./define";
+/** `rep.mutators`: a representation's price list, from v2-linear (reads.ts). */
+import { defineOp, inGame } from "./define";
+import { mutatorsOf } from "../reads.ts";
 
-export const { op: mutators, as: mutatorsAs } = defineOp("rep.mutators", "query", () => notYet("W3-4"));
+export const { op: mutators, as: mutatorsAs } = defineOp("rep.mutators", "query", async (env, a) => ({ mutators: mutatorsOf(a.rep, inGame(env).game.variant) }));

@@ -137,9 +137,9 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   try { await perform(ada, "seats.removeAi", { memberId: "x" }, { roomId: opsRoom }); assert.fail("a stub fails"); } catch (e) {
     assert.equal((e as { data?: { error?: { code?: string } } }).data?.error?.code, "failed");
   }
-  // An action resolves its caller through a query and returns its failure as a value.
-  const check = await perform(ada, "agent.check", { language: "typescript", source: "export function agent() { return null; }" }, { gameId }, "action");
-  assert.equal(check.error.code, "failed");
+  // An action resolves its caller through a query and returns its failure as a value (pitch.draft is built in M3).
+  const pitch = await perform(ada, "pitch.draft", {}, { gameId }, "action");
+  assert.equal(pitch.error.code, "failed");
 
   // The internal twin acts for a human, narrowed by the credential's grant and bound room.
   const asAda = await admin.query("v2/ops/room:getAs", { args: {}, roomId: opsRoom, delegate: { userId: ada.userId, roomId: opsRoom, grant: "read", via: "mcp" } });

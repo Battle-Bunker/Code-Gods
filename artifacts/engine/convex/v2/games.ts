@@ -2,7 +2,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
-import { playerOf, requireGameMember } from "./access";
+import { requireGameMember, ruleOf } from "./access";
 import { headerV, standingsHistoryV, standingsV } from "./validators";
 
 export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | null) {
@@ -21,7 +21,7 @@ export const header = query({
   returns: headerV,
   handler: async (ctx, { gameId }) => {
     const { game, member } = await requireGameMember(ctx, gameId);
-    const seat = await playerOf(ctx, game._id, member._id);
+    const seat = await ruleOf(ctx, game._id, member._id);
     return headerView(game, seat ? member._id : null);
   },
 });

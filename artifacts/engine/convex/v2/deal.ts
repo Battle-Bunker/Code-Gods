@@ -10,7 +10,8 @@
  * rotates and never continues a rotation.
  */
 import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type RuleFamily, type Rung } from "@workspace/v2-core";
-import { families as lineFamilies } from "@workspace/v2-linear";
+import { lineType } from "@workspace/v2-linear";
+import { CATALOGUE } from "@workspace/v2-agents/pure";
 import { findVariant, ruleKey } from "@workspace/v2-valuation";
 import { artefactFor, dealable } from "./artefacts.ts";
 import type { Preset } from "./presets.ts";
@@ -18,26 +19,32 @@ import type { Preset } from "./presets.ts";
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its artefact. */
 export interface DealtRule { family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string }
 
-const FAMILIES = new Map<string, RuleFamily<unknown, unknown>>(lineFamilies.map(f => [f.id, f as unknown as RuleFamily<unknown, unknown>]));
+const FAMILIES = new Map<string, RuleFamily<unknown, unknown>>(lineType.families.map(f => [f.id, f as unknown as RuleFamily<unknown, unknown>]));
 export function familyOf(id: string): RuleFamily<unknown, unknown> {
   const f = FAMILIES.get(id);
   if (!f) throw new Error(`Unknown rule family ${id}`);
   return f;
 }
 
-/** Every rule the preset may deal: its families × dealable parameters × tie-breakers, converged artefacts only. */
+const pools = new Map<string, DealtRule[]>();
+/**
+ * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a converged artefact (spec §7.5)
+ * and shipped starters (a player, or a practice partner, must be able to summon one: integration plan §5.2).
+ */
 export function dealablePool(preset: Preset): DealtRule[] {
+  let pool = pools.get(preset.id);
+  if (!pool) pools.set(preset.id, pool = buildPool(preset));
+  return pool;
+}
+function buildPool(preset: Preset): DealtRule[] {
   const { type, variant } = findVariant(preset.variant);
   const out: DealtRule[] = [];
-  for (const id of preset.families) {
-    const f = FAMILIES.get(id);
-    if (!f) continue;
-    for (const params of f.dealable(variant)) {
-      for (const tb of f.tieBreakers.map(t => t.id)) {
-        const key = ruleKey(type, variant, f.id, params, tb);
-        const a = artefactFor(key);
-        if (dealable(a)) out.push({ family: f.id, params, tieBreaker: tb, ruleKey: key, contentHash: a.contentHash });
-      }
+  for (const r of preset.pool) {
+    if (!FAMILIES.has(r.family) || !CATALOGUE.some(e => e.family === r.family)) continue;
+    for (const tb of r.tieBreakers) {
+      const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
+      const a = artefactFor(key);
+      if (dealable(a)) out.push({ family: r.family, params: r.params, tieBreaker: tb, ruleKey: key, contentHash: a.contentHash });
     }
   }
   return out;
