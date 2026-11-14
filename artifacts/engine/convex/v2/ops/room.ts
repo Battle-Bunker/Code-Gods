@@ -2,7 +2,8 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import { quotasOf, setQuotas } from "../spend";
 import { roomView } from "../rooms";
-import { DEFAULT_PRESET, isPreset } from "../presets";
+import { DEFAULT_PRESET, isPreset, presetOf } from "../presets";
+import { playable } from "../deal";
 import { callerOf, defineOp, inRoom } from "./define";
 import { pageOf } from "./paging";
 import { changeSettings, createRoom, joinRoom, leaveRoom, setSpectator as setSpectatorIn } from "../lobby";
@@ -25,6 +26,7 @@ export const { op: list, as: listAs } = defineOp("room.list", "query", async (en
 /** A deployed preset (v2/setups:presets lists them). */
 function checkPreset(preset: string | undefined) {
   if (preset !== undefined && !isPreset(preset)) throw new OpFailure(`No preset ${preset}.`, "Pick one of the deployed presets (v2/setups:presets).");
+  if (preset !== undefined && !playable(presetOf(preset))) throw new OpFailure(`${presetOf(preset).title} is not playable yet: its rules have no value functions on this deployment.`, "Pick one of the deployed presets (v2/setups:presets).");
 }
 
 export const { op: create, as: createAs } = defineOp("room.create", "mutation", async (env, a) => {

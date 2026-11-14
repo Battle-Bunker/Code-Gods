@@ -51,6 +51,13 @@ function buildPool(preset: Preset): DealtRule[] {
   return out;
 }
 
+/**
+ * Whether a preset can be played now: at least one of its rules has a value function (decision 23). A preset whose
+ * value functions have not landed yet (a new object type) is withheld: not listed, and refused by room.create and
+ * room.settings.
+ */
+export const playable = (preset: Preset): boolean => dealablePool(preset).length > 0;
+
 /** What starts a fresh deal when it changes: the preset's variant and its pool. */
 export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
   return hashHex(canonicalJson({ variant: preset.variant, pool: pool.map(r => r.ruleKey) }));
