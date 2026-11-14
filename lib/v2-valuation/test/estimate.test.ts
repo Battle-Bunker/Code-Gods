@@ -45,6 +45,9 @@ test("on a reversible price list the estimate matches the exact values within th
     assert.ok(Math.abs(r.bits - exact[i]!) <= 3 * r.error + 0.01, `rung ${i + 1}: ${r.bits.toFixed(3)} ± ${r.error.toFixed(3)} against ${exact[i]!.toFixed(3)}`);
   });
   assert.ok(e.reversibility < 0.03, `reversibility ${e.reversibility}`);
+  // Equilibrated: no chain's rate into the next upper set moved between the halves of its samples.
+  assert.ok(e.drift.some(d => d !== null));
+  assert.ok(!e.reasons.some(r => /not equilibrated/.test(r)), e.reasons.join("; "));
 });
 
 test("the same seed gives the same artefact; values are non-decreasing up the ladder; lookup follows the ladder", () => {
@@ -59,9 +62,14 @@ test("the same seed gives the same artefact; values are non-decreasing up the la
   const rungOf = (label: string) => a.rungs.find(r => r.label === label)!.bits;
   assert.equal(at(-40, 0), a.rungs[0]!.bits);                             // 42 from the nearest prime: below every rung
   assert.equal(at(4, 0), rungOf("gradient to a prime within 1"));
-  assert.equal(at(5, 0), rungOf("the prime at least 5"));                  // prime: the secondary ladder
-  assert.equal(at(23, 0), a.rungs[a.rungs.length - 1]!.bits);             // the top of the whole ladder
-  assert.deepEqual(a.rungs.map(r => r.layer), [-1, ...Array(7).fill(0), ...Array(8).fill(1)]);
+  assert.equal(at(5, 0), rungOf("gradient to a prime exactly; the prime at least 5"));   // prime: the tie-breaker at the top
+  assert.equal(at(31, 0), a.rungs[a.rungs.length - 1]!.bits);             // the top of the whole ladder
+  // The joint ladder: three tie-breaker rungs (primes 7, 17, 23) at each main level below the top, all ten (3 … 31) at it.
+  assert.deepEqual(a.rungs.map(r => r.layer), [-1, 1, 1, 1, ...Array.from({ length: 6 }, () => [0, 1, 1, 1]).flat(), 0, ...Array(10).fill(1)]);
+  assert.equal(at(4, 3), rungOf("gradient to a prime within 1"));        // a prime gradient's neighbour, no tie-breaker rung
+  // Value follows the order: a better tie-breaker at the same main level is a higher rung, so never fewer bits.
+  assert.equal(at(18, 0), rungOf("gradient to a prime within 1; the prime at least 17"));
+  assert.ok(at(18, 0) >= at(4, 0));
 });
 
 test("a layer with too few distinct values where it counts makes the rule too coarse (owner decision 13)", () => {
@@ -69,4 +77,13 @@ test("a layer with too few distinct values where it counts makes the rule too co
   const e = estimate({ type: lineType, variant: lineZ, family: wholeIntercept, params: {}, config: { computeBudget: 300_000, replicates: 2, burnIn: 100 } });
   assert.equal(e.status, "too-coarse");
   assert.equal(e.distinctLevels[0], 1);
+});
+
+test("equilibration: seeded chains with no burn-in drift away from their seeds, and the check says so", () => {
+  // Enumerated seeds sit far out (|c| up to 120) where the stationary law has little mass; with no burn-in the chains on
+  // the upper rungs are still walking in from there during the first half of their samples.
+  const cfg = { computeBudget: 3_000_000, burnIn: 0, initialSamples: 16, thin: 2 };
+  const e = estimate({ type: lineType, variant: lineZ, family: primeGradient, params: {}, config: cfg });
+  assert.ok(e.reasons.some(r => /chain not equilibrated/.test(r)), e.reasons.join("; "));
+  assert.notEqual(e.status, "converged");
 });

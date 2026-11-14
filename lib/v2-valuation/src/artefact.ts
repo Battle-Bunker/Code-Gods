@@ -8,6 +8,8 @@ export interface ArtefactRung {
   readonly label: string;
   /** The layer the rung belongs to (−1: the bottom rung). */
   readonly layer: number;
+  /** On a joint ladder: the main level the rung sits at. */
+  readonly main?: number;
   readonly bits: number;
   readonly error: number;
   readonly empty?: true;
@@ -45,6 +47,8 @@ export interface Artefact {
     readonly split: readonly number[];
     readonly direct: readonly (number | null)[];
     readonly levelMatrix: readonly (readonly number[])[];
+    /** Per rung: [drift of the chain's rate into the next rung between the halves of its samples, in standard errors]. */
+    readonly drift: readonly (readonly [number, number] | null)[];
   };
   readonly contentHash: string;
 }
@@ -64,7 +68,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
   const est = estimate({ type, variant, family, params, seed, config, tieBreaker: tb });
   const ladder = objectLadder(type, family, params, variant, tb).slice(0, Math.max(est.rungs.length, 1));
   const rungs: ArtefactRung[] = est.rungs.map((r, i) => ({
-    score: scoreToWire(ladder[i]!.score), label: r.label, layer: ladder[i]!.layer, bits: r4(r.bits), error: r4(r.error), ...(r.empty ? { empty: true as const } : {}),
+    score: scoreToWire(ladder[i]!.score), label: r.label, layer: ladder[i]!.layer, ...(ladder[i]!.main !== undefined ? { main: ladder[i]!.main } : {}), bits: r4(r.bits), error: r4(r.error), ...(r.empty ? { empty: true as const } : {}),
   }));
   let curve: Artefact["curve"] = null;
   // Curves are fitted to the primary layer's rungs (§7.4), on single-line objects.
@@ -88,6 +92,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
       distinctLevels: est.distinctLevels, examples: est.examples,
       split: est.rungs.map(r => r4(r.split)), direct: est.rungs.map(r => (r.direct === null ? null : r4(r.direct))),
       levelMatrix: est.levelMatrix,
+      drift: est.drift.map(d => (d === null ? null : [r4(d[0]), Number.isFinite(d[1]) ? r4(d[1]) : null] as const)) as never,
     },
   };
   return { artefact: { ...body, contentHash: contentHash(body) }, estimate: est };
@@ -96,7 +101,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
 /** A score's bits (spec §7.7): the rung's value, or the snapped curve between this rung and the next. */
 export function bitsFor(a: Artefact, score: Score): number {
   if (a.rungs.length === 0) return 0;   // an unreachable rule: never dealt (§7.5), worth nothing if asked
-  const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer }));
+  const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
   const level = levelOf(score, ladder);
   const base = a.rungs[level]!.bits;
   // The curve interpolates between primary rungs only.

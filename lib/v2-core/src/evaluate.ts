@@ -113,8 +113,28 @@ export function meets(score: Score, threshold: Score): boolean {
 /** The index of the highest rung met. Rung 0 must be WORST (everything). */
 export function levelOf(score: Score, rungs: readonly Rung[]): number {
   if (rungs.length === 0 || rungs[0]!.score !== null) throw new Error("A ladder starts with the WORST rung");
+  if (rungs.some(r => r.main !== undefined)) return jointLevelOf(score, rungs);
   let level = 0;
   for (let i = 1; i < rungs.length; i++) if (meets(score, rungs[i]!.score)) level = i;
+  return level;
+}
+
+/**
+ * The level on a joint ladder: the pair (main level, tie-breaker level) in lexicographic order. The main level is the
+ * number of main thresholds met; at that main level the tie-breaker's rungs count; every rung of a lower main level is
+ * met. Rungs are listed in that order, so the level is the last rung met.
+ */
+function jointLevelOf(score: Score, rungs: readonly Rung[]): number {
+  if (score === null) return 0;
+  let main = 0;
+  for (const r of rungs) if (r.layer === 0 && r.score && cmpComponent(score[0] ?? null, r.score[0]!) >= 0) main = Math.max(main, r.main!);
+  let level = 0;
+  for (let i = 1; i < rungs.length; i++) {
+    const r = rungs[i]!;
+    const ok = r.layer === 0 ? r.main! <= main
+      : r.main! < main || (r.main === main && score.length > 1 && cmpComponent(score[1] ?? null, r.score![1]!) >= 0);
+    if (ok) level = i;
+  }
   return level;
 }
 
@@ -154,18 +174,35 @@ const topOf = <P,>(layer: Layer<P>, params: P, variant: Variant): Q => {
   return layer.sense === "max" ? t : neg(t);
 };
 
+/** How many of the tie-breaker's rungs a main level below the top keeps: evenly spaced, to keep calibration tractable. */
+export const COARSE_TIE_RUNGS = 3;
+
 /**
- * The ladder of one line (spec §4.4): rung 0 is everything; then the main layer's thresholds; then the tie-breaker's,
- * each prefixed with the main layer's top (the tie-breaker climbs only once the main layer is at its top).
+ * The ladder of one line (spec §4.4). One layer: rung 0 is everything, then the main layer's thresholds. With a
+ * tie-breaker the ladder is joint: the pairs (main level, tie-breaker level) in lexicographic order, so a better
+ * tie-breaker raises a line's level at every main level, by a little low on the ladder and by more near the top. At the
+ * main layer's top the tie-breaker has all its rungs; below the top, COARSE_TIE_RUNGS of them, evenly spaced.
  */
 export function ruleLadder<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly Rung[] {
   const layers = ruleLayers(family, tieBreaker);
-  const rungs: Rung[] = [{ score: null, label: "anything", layer: -1 }];
-  const prefix: Q[] = [];
-  layers.forEach((layer, j) => {
-    rungs.push(...layerRungs(layer, params, variant, prefix, j));
-    prefix.push(topOf(layer, params, variant));
-  });
+  const main = layers[0]!;
+  const mainRungs = layerRungs(main, params, variant, [], 0);
+  if (layers.length === 1) return [{ score: null, label: "anything", layer: -1 }, ...mainRungs];
+  const tie = layers[1]!;
+  const tieTs = tie.thresholds(params, variant);
+  const coarse = tieTs.length <= COARSE_TIE_RUNGS ? tieTs
+    : Array.from({ length: COARSE_TIE_RUNGS }, (_, k) => tieTs[Math.floor(((k + 1) * tieTs.length) / (COARSE_TIE_RUNGS + 1))]!);
+  const tieScore = (t: Q) => (tie.sense === "max" ? t : neg(t));
+  const rungs: Rung[] = [{ score: null, label: "anything", layer: -1, main: 0 }];
+  const n = mainRungs.length;
+  for (let i = 0; i <= n; i++) {
+    if (i > 0) rungs.push({ ...mainRungs[i - 1]!, main: i });
+    const mainScore = i > 0 ? mainRungs[i - 1]!.score![0]! : null;
+    const mainLabel = i > 0 ? mainRungs[i - 1]!.label : "anything";
+    for (const t of i === n ? tieTs : coarse) {
+      rungs.push({ score: [mainScore, tieScore(t)], label: `${mainLabel}; ${tie.rungLabel(t, params)}`, layer: 1, main: i });
+    }
+  }
   return rungs;
 }
 

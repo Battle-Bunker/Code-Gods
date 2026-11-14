@@ -315,9 +315,11 @@ type TieBreaker = string | null;                         // a dealt rule's choic
 - **Continuity is checked, not trusted.** Calibration counts the distinct values each dealt layer takes among the samples
   where it counts (the main layer everywhere, the tie-breaker where the main layer is at its top); a layer with fewer
   than `minLevels` (default 6) makes the rule **too coarse**, and it goes on the backlog (§7.5) whatever its values.
-- **Ordering and value.** Scores compare as plain lexicographic tuples (coordinator's call (f): no gating), so the
-  tie-breaker orders lines at every main level. The ladder that values a rule puts the tie-breaker's rungs at the main
-  layer's top, so bits from the tie-breaker are earned once the main layer is met.
+- **Ordering and value: value follows the order.** Scores compare as plain lexicographic tuples (coordinator's call (f):
+  no gating), so the tie-breaker orders lines at every main level, and value follows that order (the coordinator,
+  14 November): the ladder that values a rule is the **joint ladder** of (main level, tie-breaker level) pairs in
+  lexicographic order (§4.4), so improving the tie-breaker at any main level raises bits, and a line never holds fewer
+  bits than one it beats.
 
 ### 4.2 Evaluation: score and annotation from the same terms
 
@@ -375,8 +377,15 @@ Example: Prime Gradient on `y = 4x − 3` reads `si.m` (4), makes dynamic elemen
 
 ### 4.4 The ladder
 
-A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). The main layer's rungs come from its
-thresholds; the tie-breaker's rungs are its thresholds prefixed with the main layer's top. `layerLadders` gives each
+A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). For a one-layer rule the rungs are
+the main layer's thresholds. For a dealt rule (main layer plus tie-breaker) `ruleLadder` builds the **joint ladder**: for
+each main level i from 0 (anything) to the main top, the main rung i (`layer: 0`, `main: i`) followed by tie-breaker rungs
+(`layer: 1`, `main: i`, score `[main threshold i, tie threshold]`). Below the main top the tie-breaker is coarsened to
+`COARSE_TIE_RUNGS = 3` evenly spaced thresholds (never one: the tie-breaker still grades every main level); at the main
+top all of its thresholds stand. A state's joint level is the last rung (main level, tie level) it meets in that
+lexicographic order (`jointLevelOf`): its main level, then its tie-breaker among the rungs at that main level. The
+coarsening keeps the ladder calibratable: each main level adds at most four rungs whose samples come from that level's
+own chain, while the top, where the tie-breaker carries the rule's rare bits, keeps every step. `layerLadders` gives each
 layer's own single-component ladder, which the card shows as "main part: step 5 of 8, tie-breaker: step 2 of 3". A state's **level**
 is the index of the highest rung whose score it meets or beats (`ruleLadder`, `levelOf`). Ladders are what make
 infinite score sets calibratable: a distance layer on rational lines declares thresholds such as `8, 4, 2, 1, 1/2,
@@ -643,9 +652,9 @@ interface ValuationConfig {
    the last rung every replicate reached; the rungs above are dropped and the artefact says so (a rule with no reachable
    rung is `unreachable`). Replicates do not share seeds: replicates that shared a start would share its slowly
    forgotten bias, and their spread would understate the error.
- Replicates do not share seeds: replicates that shared a start would share its slowly
-   forgotten bias, and their spread would understate the error.
-2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i moves by 1 … K free
+2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i starts at its seed,
+   makes `burnIn` moves that are not sampled (so a seed from enumeration, typically far out, is forgotten before
+   sampling: step 6's equilibration check tests that it was), and then moves by 1 … K free
    walk steps at a time (uniformly) and keeps the end only if it is still in U_i (U_0's chain keeps every end: it is the free walk).
    P^K has the walk's stationary law, and K-step moves connect thin upper sets that single moves cannot (with shift and
    tilt alone, no single move stays on m = c). Under detailed balance the chain's law is exactly π restricted to U_i;
@@ -673,6 +682,12 @@ interface ValuationConfig {
      step 4 under detailed balance; a gap larger than three combined errors flags the run;
    - **direct check:** for rungs with π(U_i) > 1/64, the free chain's fraction of samples in U_i; it is exact whatever the
      price list, and a gap larger than three combined errors flags the run;
+   - **equilibration:** for each chain U_i below the top, its rate into U_{i+1} in the second half of its samples (the
+     latest doubling) minus that in the first half, per replicate; the mean over replicates and that mean over its
+     standard error across them (`drift` in the artefact). Replicates are independent, so the error bar carries each
+     chain's autocorrelation. A drift of more than 4 standard errors and more than 2 points of rate flags the run: the
+     chain had not forgotten its seed. It is tested on a negative control (Prime Gradient with no burn-in drifts on its
+     upper rungs and is flagged) and on the reversible price list (no drift);
    - **reversibility:** the share of level flow that circulates, Σ_{i<j} |w_i T_ij − w_j T_ji| / Σ_{i<j} (w_i T_ij + w_j T_ji)
      (0 under detailed balance up to noise; #347's cycle test, on levels);
    - **mixing:** the integrated autocorrelation time of the free chain's level, in walk steps (feeds `birthMixSteps`, §2.4);
@@ -743,8 +758,9 @@ time. Values are stored per (object, player) (§10).
 ### 7.8 Resolution: enough bits on a line
 
 #347 measured rule tops of 2 to 5 bits on one integer line. The owner (decision 12): that means the rules are not
-creative enough, not that the object is too small. The answer is the ladder of layers (§4.1): a secondary layer counts
-only at the primary's top, so its rungs stack above it, and a layer about size or factor structure climbs into the
+creative enough, not that the object is too small. The answer is the ladder of layers (§4.1): the joint ladder (§4.4)
+grades the secondary at every primary level and in full at the primary's top, so its rungs stack above it, and a layer
+about size or factor structure climbs into the
 rare states the confining code makes rare (§2.5). The other levers remain, all configuration:
 
 1. **Tie-breakers.** Every family has a main layer and alternative tie-breakers; a dealt rule uses the main layer and one
@@ -952,12 +968,14 @@ line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 
 Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
 them. **The beginner pool** is the curator's (`docs/engine-v2/layered-line-rules.md` §8, definitions in
 `docs/engine-v2/scripts/line-families.mjs`), built in `lib/v2-linear/src/beginner.ts` and dealt by the presets of
-`presets.ts` (`lines-beginner` on `line-z`, `lines-rational` on `line-q`, `lines-four` on `line-z4`):
+`presets.ts` (`lines-beginner` on `line-z`, `lines-rational` on `line-q`, `lines-four` on `line-z4`). A tie-breaker about a
+prime's size has one rung per prime (the curator, #385): primes up to 31, the last prime of a staircase run up to 47.
+A family's first tie-breaker is its default:
 
 | Family | Main layer (rep) | Tie-breakers (alternatives) | Params |
 |---|---|---|---|
 | `prime-staircase` | the run of different primes from y(0): max (seq) | `first-prime`, `last-prime` (sizes), `near-miss`, `step-back` (distances to a prime) | — |
-| `square-area` | the triangle's area close to a square: min (tri) | `root-factors` (Ω of the root), `big-root`, `slanted-square`, `prime-root` | — |
+| `square-area` | the triangle's area close to a square: min (tri) | `root-spf` (the root's smallest prime factor, default), `root-lpf` (its largest), `root-factors` (Ω of the root), `slanted-square` | — |
 | `treasure` | y(k) close to T: min (table) | `prime-terms` (different primes among y(1)…y(8)), `prime-gradient`, `square-start` | (k, T) = (2, 37) |
 | `ruler` | distance² from (0, 0) close to a square: min (norm) | `far` (that distance), `prime-gradient`, `square-area` | — |
 | `exact-change` | ways to pay N with coins a and b close to 6: min (coins) | `big-piles`, `big-bill`, `prime-coins` | ways = 6 |

@@ -6,7 +6,7 @@
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
-import { distanceToPrime, distanceToWhole, isPrime, nearbyPrimes, nearestSquareRoot, primeFactorCount } from "./numbers.ts";
+import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, primesBetween, smallestPrimeFactor } from "./numbers.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -14,6 +14,8 @@ type L<P> = Layer<P>;
 const ds = (...xs: string[]): Q[] => xs.map(x => Qn.parse(x));
 const ns = (...xs: number[]): Q[] => xs.map(x => q(x));
 const fracs = (...xs: [number, number][]): Q[] => xs.map(([n, d]) => q(n, d));
+/** One rung per prime from lo to hi (curator, #385). */
+const primes = (lo: number, hi: number): Q[] => primesBetween(lo, hi).map(p => q(p));
 const upTo = (k: number): Q[] => Array.from({ length: k }, (_, i) => q(i + 1));
 const within = (what: string) => (t: Q) => (Qn.isZero(t) ? `${what} exactly` : `${what} within ${Qn.toWire(t)}`);
 const atLeast = (what: string) => (t: Q) => `${what} at least ${Qn.toWire(t)}`;
@@ -51,8 +53,8 @@ function family<P extends object>(id: string, title: string, depends: string[], 
 const staircase: Shape<object> = {
   main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq", upTo(6), "a run of primes", "count"),
   tieBreakers: [
-    more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq", ns(3, 5, 7, 11, 17, 29, 47, 71, 101), "y(0)"),
-    more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq", ns(5, 11, 17, 29, 47, 71, 101, 151, 251), "the last prime"),
+    more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq", primes(3, 31), "y(0)"),
+    more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq", primes(5, 47), "the last prime"),
     distance("near-miss", "the first non-prime term close to a prime", "The first term that is not prime should be as close as possible to a prime.", "seq", ds("8", "4", "2", "1", "1/2", "1/4", "1/8"), "the first miss to a prime"),
     distance("step-back", "y(−1) close to a prime", "The term before the start, y(−1), should be as close as possible to a prime.", "seq", ds("4", "2", "1", "1/2", "1/4", "0"), "y(−1) to a prime"),
   ],
@@ -88,10 +90,10 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
 const squareShape: Shape<object> = {
   main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri", ds("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", "0"), "the area to a square"),
   tieBreakers: [
+    more("root-spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's smallest prime factor"),
+    more("root-lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's largest prime factor"),
     more("root-factors", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri", upTo(7), "prime factors of the root", "count"),
-    more("big-root", "that square's root", "That square's root should be as big as possible.", "tri", ns(2, 3, 4, 6, 8, 12, 16, 24, 32), "the root"),
     distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri", ds("16", "8", "4", "2", "1", "1/2", "0"), "side² to a square"),
-    distance("prime-root", "that square's root close to a prime", "That square's root should be as close as possible to a prime.", "tri", ds("4", "2", "1", "0"), "the root to a prime"),
   ],
 };
 export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {
@@ -102,10 +104,10 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
   const h = num(ctx.read(hyp))!;
   const sq = squareGap(a), hs = squareGap(h);
   ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
+  ctx.term("root-spf", `smallest prime factor of ${sq.root}`, q(smallestPrimeFactor(sq.root)), [area]);
+  ctx.term("root-lpf", `largest prime factor of ${sq.root}`, q(largestPrimeFactor(sq.root)), [area]);
   ctx.term("root-factors", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
-  ctx.term("big-root", "the square's root", q(sq.root), [area]);
   ctx.term("slanted-square", `distance from side² to ${hs.root * hs.root}`, hs.d, [hyp]);
-  ctx.term("prime-root", `distance from ${sq.root} to a prime`, distanceToPrime(q(sq.root)), [area]);
   ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
 });
 
@@ -203,7 +205,7 @@ export const exactChange = family<W>("exact-change", "Exact Change", ["coins", "
 const landingShape: Shape<object> = {
   main: distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si", ds("4", "2", "1", "1/2", "1/4", "1/8", "0"), "c to a prime"),
   tieBreakers: [
-    more("big-prime", "that prime", "That prime should be as big as possible.", "si", ns(2, 3, 5, 7, 11, 17, 29, 47, 71, 97), "the prime"),
+    more("big-prime", "that prime", "That prime should be as big as possible.", "si", primes(2, 31), "the prime"),
     distance("prime-gradient", "the gradient close to a prime too", "The gradient should be as close as possible to a prime too.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime"),
     distance("next-prime", "y(1) close to a prime too", "y(1) = m + c should be as close as possible to a prime too.", "table", ds("4", "2", "1", "1/2", "1/4", "0"), "y(1) to a prime"),
   ],

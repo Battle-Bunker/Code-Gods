@@ -165,6 +165,11 @@ export interface Rung {
   readonly label: string;
   /** The layer this rung belongs to (−1 for the bottom rung, "anything"). */
   readonly layer: number;
+  /**
+   * On a joint ladder (main layer and tie-breaker, spec §4.4): the main level this rung sits at (0 = below the main
+   * layer's first threshold). Absent on a one-layer ladder.
+   */
+  readonly main?: number;
 }
 
 /**

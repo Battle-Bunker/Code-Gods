@@ -71,6 +71,12 @@ export interface Estimate {
   readonly distinctLevels: readonly (number | null)[];
   /** The pooled level-matrix counts the values come from: row l, column j. */
   readonly levelMatrix: readonly (readonly number[])[];
+  /**
+   * Equilibration (spec §7.2 step 6): per rung i below the top, chain U_i's rate into U_{i+1} in the second half of its
+   * samples minus that in the first half, averaged over replicates, and that mean over its standard error across them.
+   * A seeded chain still drifting away from its start shows a nonzero drift; null where it cannot be measured.
+   */
+  readonly drift: readonly (readonly [number, number] | null)[];
 }
 
 export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown, tieBreaker: string): string {
@@ -142,10 +148,9 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   let rungs: readonly Rung[] = fullLadder;
   const singleSite = type.sites(type.origin(variant), variant) === 1;
   // Where each layer starts counting: the prefix (every earlier layer at its top) of its first rung.
-  const layerPrefix: Score[] = Array.from({ length: layers }, (_, j) => {
-    const first = fullLadder.find(r => r.layer === j);
-    return first && first.score ? first.score.slice(0, j) : null;
-  });
+  // Where each layer counts for the continuity check: the main layer everywhere, the tie-breaker at the main layer's top.
+  const mainTop = [...fullLadder].reverse().find(r => r.layer === 0);
+  const layerPrefix: Score[] = Array.from({ length: layers }, (_, j) => (j === 0 || !mainTop?.score ? null : mainTop.score.slice(0, 1)));
   const distinct: Set<string>[] = Array.from({ length: layers }, () => new Set());
   let n = rungs.length - 1;
 
@@ -233,7 +238,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     if (reached === 0) {
       return {
         status: "unreachable", reasons: truncation,
-        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [], examples: [],
+        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [], examples: [], drift: [],
       };
     }
     rungs = rungs.slice(0, reached + 1);
@@ -243,7 +248,9 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   // 2–3. One persistent chain per (replicate, upper set). Each pass extends every chain until it holds `target`
   // samples, so a doubling reuses the burn-in and every earlier sample.
   const K = (cfg.proposalSteps + 1) / 2;   // mean proposal length, for step accounting
-  interface Chain { state: S; readonly r: ReturnType<typeof rng>; readonly i: number; samples: number }
+  // `early` holds the samples and hits into the next upper set from every pass but the latest, `late` the latest pass's:
+  // after a doubling, the first and the second half of the chain's samples.
+  interface Chain { state: S; readonly r: ReturnType<typeof rng>; readonly i: number; samples: number; early: [number, number]; late: [number, number] }
   interface Replicate {
     readonly chains: Chain[];
     readonly C: number[][][];        // level matrix counts per chain: C[k][l][j], chain U_k, from level l to level j
@@ -257,7 +264,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   };
   const reps: Replicate[] = Array.from({ length: cfg.replicates }, (_, rep) => ({
     chains: rungs.map((_, i) => {
-      const c: Chain = { state: allSeeds[rep]![i]!, r: rng(seed, key, "chain", rep, i), i, samples: 0 };
+      const c: Chain = { state: allSeeds[rep]![i]!, r: rng(seed, key, "chain", rep, i), i, samples: 0, early: [0, 0], late: [0, 0] };
       for (let t = 0; t < cfg.burnIn; t++) move(c);
       steps += cfg.burnIn * K;
       return c;
@@ -267,6 +274,8 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   }));
   const extend = (target: number): void => {
     for (const rep of reps) for (const c of rep.chains) {
+      c.early = [c.early[0] + c.late[0], c.early[1] + c.late[1]];
+      c.late = [0, 0];
       while (c.samples < target) {
         for (let t = 0; t < cfg.thin; t++) move(c);
         steps += cfg.thin * K;
@@ -274,7 +283,8 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
         noteLayers(c.state);
         c.samples++;
         rep.total[c.i]!++;
-        if (l >= c.i + 1) rep.inNext[c.i]!++;
+        if (l >= c.i + 1) { rep.inNext[c.i]!++; c.late[1]++; }
+        c.late[0]++;
         if (c.i === 0) rep.freeLevels.push(l);
         // Every chain samples within the stationary law, so a sample at level l is a draw from π restricted to L_l,
         // whichever upper set's chain produced it: perturb it and count it in row l (kept per chain, see rowsOf).
@@ -369,6 +379,15 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     const f = r.freeLevels.filter(l => l >= i).length / r.freeLevels.length;
     return f > 1 / 64 ? -Math.log2(f) : null;
   }));
+  // Equilibration: paired over replicates, so the error bar carries the chains' autocorrelation. Only measured once the
+  // chains have doubled at least once (the halves are the earlier passes and the latest one).
+  const drift = rungs.map((_, i): readonly [number, number] | null => {
+    if (i === n) return null;
+    const ds = reps.map(r => { const c = r.chains[i]!; return c.early[0] && c.late[0] ? c.late[1] / c.late[0] - c.early[1] / c.early[0] : NaN; });
+    if (ds.some(d => !Number.isFinite(d))) return null;
+    const m = mean(ds), se = stderr(ds);
+    return [m, se > 0 ? m / se : m === 0 ? 0 : Infinity];
+  });
   const result = { split, direct, pooled: st.pooled, empty: st.empty, mixing: mean(reps.map(r => iat(r.freeLevels) * cfg.thin * K)) };
 
   const rungsOut: RungEstimate[] = rungs.map((r, i) => {
@@ -402,6 +421,11 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
       reasons.push(`rung ${i}: direct estimate ${r.direct.toFixed(3)} against ${r.bits.toFixed(3)}`);
     }
   }
+  for (const [i, d] of drift.entries()) {
+    // A drift is a fault when it is both significant (4 standard errors over the replicates) and material (2 points of
+    // rate): a seeded chain that has not forgotten its start biases that rung's row of the level matrix.
+    if (d && Math.abs(d[1]) > 4 && Math.abs(d[0]) > 0.02) reasons.push(`rung ${i}: chain not equilibrated (rate into rung ${i + 1} moved ${(d[0] * 100).toFixed(1)} points between the halves of its samples, ${d[1].toFixed(1)} standard errors)`);
+  }
   if (status === "converged" && reasons.length) status = "flagged";
   const distinctLevels = Array.from({ length: layers }, (_, j) => (singleSite ? distinct[j]!.size : null));
   distinctLevels.forEach((d, j) => {
@@ -410,6 +434,6 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
       status = "too-coarse";   // a design fault, whatever the budget did
     }
   });
-  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled,
+  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled, drift,
     examples: reps[0]!.chains.map(c => type.encode(c.state)) };
 }

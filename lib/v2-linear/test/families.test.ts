@@ -41,9 +41,9 @@ test("the owner's other three, and the two layered examples of decision 12", () 
   assert.equal(score(ev(wholeIntercept, {}, mc(1, Qn.q(29, 2)), lineQ)), "-1/2,3");  // 14.5 → 15, smallest prime factor 3
   assert.equal(score(ev(wholeIntercept, {}, mc(1, 49), lineQ)), "0,7");
   assert.equal(score(ev(wholeIntercept, {}, mc(1, 48), lineQ, "omega")), "0,5");
-  assert.equal(score(ev(squareArea, {}, mc(-1, 6))), "-2,2");                // legs 6, 6: area 18, nearest square 16 = 4², Ω(4) = 2
-  assert.equal(score(ev(squareArea, {}, mc(-2, 12))), "0,2");                // legs 6, 12: area 36 = 6², Ω(6) = 2
-  assert.equal(score(ev(squareArea, {}, mc(-1, 12))), "-8,3");               // legs 12, 12: area 72, nearest square 64 = 8², Ω(8) = 3
+  assert.equal(score(ev(squareArea, {}, mc(-1, 6))), "-2,2");                // legs 6, 6: area 18, nearest square 16 = 4², spf(4) = 2
+  assert.equal(score(ev(squareArea, {}, mc(-2, 12))), "0,2");                // legs 6, 12: area 36 = 6², spf(6) = 2
+  assert.equal(score(ev(squareArea, {}, mc(-1, 12))), "-8,2");               // legs 12, 12: area 72, nearest square 64 = 8², spf(8) = 2
 });
 
 /** A test family: primary |m| (bigger is better, top 3), secondary: c, undefined when c is 0. */
@@ -66,16 +66,19 @@ test("an undefined secondary ranks last in its own component; an undefined prima
   assert.equal(score(noSecondary), "3,_");
   assert.equal(compareScores(noSecondary.score, weak.score), -1);
   assert.equal(compareScores(noSecondary.score, ev(toy, {}, mc(2, 5)).score), 1);   // the primary decides first
+  // Joint ladder: [anything, (0, c≥1), (0, c≥5), main 1, (1, c≥1), (1, c≥5), main 2, …, main 3, (3, c≥1), (3, c≥5)].
   const ladder = ruleLadder(toy, {}, lineZ);
-  assert.equal(levelOf(noSecondary.score, ladder), 3);                               // primary top, no secondary rung
-  assert.equal(levelOf(strong.score, ladder), 5);
+  assert.equal(ladder.length, 12);
+  assert.equal(levelOf(noSecondary.score, ladder), 9);                               // main top, no tie-breaker rung
+  assert.equal(levelOf(strong.score, ladder), 11);
+  assert.equal(levelOf(ev(toy, {}, mc(2, 5)).score, ladder), 8);                     // a tie-breaker counts below the top too
 });
 
 test("an earlier layer saturates at its top: overshooting it does not meet later rungs", () => {
   const ladder = ruleLadder(toy, {}, lineZ);
   const over = ev(toy, {}, mc(7, -9));                                               // |m| = 7 > top 3, c bad
   assert.equal(score(over), "3,-9");
-  assert.equal(levelOf(over.score, ladder), 3);
+  assert.equal(levelOf(over.score, ladder), 9);
   assert.equal(compareScores(over.score, ev(toy, {}, mc(3, 1)).score), -1);
 });
 
@@ -109,18 +112,24 @@ test("the evaluation context refuses reads outside depends and marks of unread e
   assert.throws(() => ev(lazy, {}, mc(1, 1)), /did not record layer size/);
 });
 
-test("the ladder: primary rungs, then the secondary's rungs at the primary's top", () => {
+test("the joint ladder: (main level, tie-breaker level) in lexicographic order; value follows the order", () => {
+  // Z distances 13, 8, 5, 3, 2, 1, 0 (seven main levels); |c| ≥ 1, 2, 3, 4, 6, 8, 12, 16, 24 at the top, and three of
+  // them (3, 6, 12) below it.
   const ladder = ruleLadder(mMeetsC, {}, lineZ);
-  assert.equal(ladder.length, 1 + 7 + 9);
-  assert.deepEqual(ladder.map(r => r.layer), [-1, ...Array(7).fill(0), ...Array(9).fill(1)]);
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(1, 5)).score, ladder), 3);            // gap 4: within 5
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(3, 3)).score, ladder), 7 + 3);        // gap 0, |c| = 3
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(24, 24)).score, ladder), 7 + 9);      // the top
+  assert.equal(ladder.length, 1 + 3 + 6 * 4 + 1 + 9);
+  assert.equal(levelOf(ev(mMeetsC, {}, mc(1, 5)).score, ladder), 13);           // gap 4: main level 3; |c| = 5 meets 3
+  assert.equal(levelOf(ev(mMeetsC, {}, mc(5, 1)).score, ladder), 12);           // the same main level (gap 4), |c| = 1
+  assert.equal(levelOf(ev(mMeetsC, {}, mc(3, 3)).score, ladder), 31);           // gap 0, |c| = 3
+  assert.equal(levelOf(ev(mMeetsC, {}, mc(24, 24)).score, ladder), ladder.length - 1);
   assert.equal(levelOf(null, ladder), 0);
+  // Lexicographically better scores never sit lower on the ladder.
+  const r = rng("joint-order");
+  let s = mc(1, 1);
+  const seen: { score: ReturnType<typeof ev>["score"]; level: number }[] = [];
+  for (let i = 0; i < 400; i++) { s = walkStep(lineType, lineZ, s, r); const e = ev(mMeetsC, {}, s); seen.push({ score: e.score, level: levelOf(e.score, ladder) }); }
+  for (const a of seen) for (const b of seen) if (compareScores(a.score, b.score) > 0 && a.score && b.score && a.score[0]!.n === b.score[0]!.n && a.score[0]!.d === b.score[0]!.d) assert.ok(a.level >= b.level);
   assert.equal(ruleLadder(mMeetsC, {}, lineZ, null).length, 8);
-  assert.equal(ruleLadder(mMeetsC, {}, lineZ, "meetPrime").length, 1 + 7 + 7);
-  const parts = layerLadders(mMeetsC, {}, lineZ);
-  assert.deepEqual(parts.map(l => l.length), [8, 10]);
+  assert.deepEqual(layerLadders(mMeetsC, {}, lineZ).map(l => l.length), [8, 10]);
 });
 
 test("a k-line object is calibrated on the totals of its lines' levels", () => {
