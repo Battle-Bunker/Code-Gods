@@ -84,6 +84,30 @@ test("no agent owes more than its capacity (the credit rule)", async () => {
   for (const a of await admin.query("v2/testing:agentsOf", { gameId })) assert.ok(a.energy >= -a.capacity - 1e-6, `${a.agentId}: ${a.energy} < -${a.capacity}`);
 });
 
+test("no two objects ever hold the same state (decision 24)", () => {
+  const held = new Map<string, string>();   // objectId → state
+  const clash = (objectId: string, state: string) => [...held].find(([id, s]) => id !== objectId && s === state)?.[0];
+  let refused = 0;
+  for (const e of events) {
+    if (e.kind === "objectBorn") {
+      assert.equal(clash(e.data.objectId, e.data.state), undefined, `object ${e.data.number} was born a duplicate`);
+      held.set(e.data.objectId, e.data.state);
+    }
+    if (e.kind === "act" && e.data.outcome === "committed") {
+      assert.equal(clash(e.data.objectId, e.data.after), undefined, `act ${e.data.n} moved line ${e.data.number} onto another's state`);
+      held.set(e.data.objectId, e.data.after);
+    }
+    if (e.kind === "act" && /already in that state/.test(e.data.reason ?? "")) {
+      refused++;
+      // Refused like an invalid call: the line stays, and the agent pays its reads only, not the change.
+      assert.equal(e.data.outcome, "failed");
+      assert.equal(e.data.after, e.data.before);
+      assert.ok(e.data.charged < e.data.charge, `act ${e.data.n} paid ${e.data.charged} of ${e.data.charge}`);
+    }
+  }
+  console.log(`# moves refused as duplicates: ${refused}`);
+});
+
 test("the tugs-of-war the tick folded are the act log's", async () => {
   const { moves, tugs } = await admin.query("v2/testing:movesAndTugs", { gameId });
   const want = new Map<string, any>();

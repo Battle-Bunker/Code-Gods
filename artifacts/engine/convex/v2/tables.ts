@@ -152,7 +152,9 @@ export const v2Tables = {
   /** An object's hot part, shared by every viewer: the state on the wire. */
   v2ObjectStates: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), state: v.string(), version: v.number(), changedAt: v.number(),
-  }).index("by_object", ["objectId"]),
+  }).index("by_object", ["objectId"])
+    /** Who holds a state (decision 24: no two objects of a game hold the same one; one document per check). */
+    .index("by_game_state", ["gameId", "state"]),
   /**
    * One player's value of one object (spec §7.7, §8; decision 23): utility, own worth n_i (bits), the others' sum
    * Σ_{j≠i} n_j (`want`) and points π_i = n_i · want. Private to that player during a live game.
