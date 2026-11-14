@@ -1,6 +1,8 @@
 # Lenses and mutators on a line (14 November 2026)
 
-Status: design and measurement. **Nothing here changes the engine's dealt rules, mutators or prices.** Every proposal is
+Status: design and measurement. **The first five of §5 are built** (15 November) as a trial: variant `line-q-lenses`,
+preset `lines-lenses`, not dealt by default (spec §12.4; the balance and collapse runs are in §7 below). Nothing else
+here changes the engine's dealt rules, mutators or prices. Every proposal is
 for the coordinator and the owner to choose from. The script is `lib/v2-agents/scripts/lenses.ts`
 (`node --experimental-strip-types scripts/lenses.ts [--H 16] [--sources 30]` from `lib/v2-agents`, about two
 minutes); its full output is [scripts/lenses-results.md](scripts/lenses-results.md).
@@ -518,5 +520,6 @@ menu, and refuse a menu under which one rule's keepers leave another rule's bits
 - **Two lines per object, grids.** Not touched. On grids the same three kinds of move exist (add to a cell; symmetries
   of the board; recolourings), and decision 25 already covers them.
 - **The families of §4** are unmeasured proposals; the rule-design session owns them.
-- **Nothing here is built.** Adding a mutator to a variant is a deploy (decision 7), with the potential test
-  (`lib/v2-linear/test/potential.test.ts`) and an affordance entry (decision 16).
+- **Built so far:** the five of §5, on the trial variant `line-q-lenses` only (§7). The rest is unbuilt. Adding a mutator
+  to a variant is a deploy (decision 7), with the potential test (`lib/v2-linear/test/potential.test.ts`) and an
+  affordance entry (decision 16).

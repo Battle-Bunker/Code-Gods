@@ -963,6 +963,22 @@ Results outside the variant's domain are invalid (a Z-domain line with a fractio
 line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one
 `seq.step(2)` (steps on 2) against `si.shift(−4)` and `si.tilt(2)` (steps on 4 and on 2).
 
+**The lens mutators (a trial: variant `line-q-lenses`, preset `lines-lenses`).** The first five of
+[lenses-and-mutators.md](lenses-and-mutators.md) §5 (owner decisions 25, 27 and 28), offered beside the nine by
+`line-q-lenses` only (N = 14, "which" = log2 14 = 3.81 bits, uniform until the spec lead settles a weighted code).
+`line-q` keeps its nine, its prices and its values. `line-q-lenses` has line-q's params, so the same law π ∝ 2^−φ, and
+reads line-q's value functions (`Variant.valuesOf`). Representation moves (turn, swap, fold) are priced as choices and
+digits; the lean adds an amount (priced by size); the zoom is a factor (digits). Each is undone by itself or by the same
+mutator at the same fee (exact potential; `lib/v2-linear/test/lens-mutators.test.ts`).
+
+| Id | Representations | Arguments (bits) | Effect | Inverse |
+|---|---|---|---|---|
+| `rot.turn` | cart, norm | centre: `origin` (1) or the pin at x = x0 (1 + steps(x0)); turn: `left` / `right`, a quarter turn (2), or tan θ = t ≠ 0 (1 + `nonzeroRat`) | about a pin: m′ = (m + t)/(1 − m·t) through (x0, y(x0)), refused for vertical lines and vertical results; about the origin: (a, b, c) ↦ (a·q − b·p, a·p + b·q, c·r) for t = p/q with p² + q² = r² (a Pythagorean angle; others refused), quarter turns (−b, a, c) and (b, −a, c) | the same centre, −t (left ↔ right) |
+| `coef.swap` | si, gen | pair: `m-c` or `b-c` (1) | (a, b, c) ↦ (c, b, a): y = mx + c becomes y = cx + m (they cross at x = 1); or (a, c, b) | self |
+| `basis.lean` | crossing, cart | k: nz | (a, b, c) ↦ (a, b + a·k, c): the run per unit rise −b/a goes down by k, the x-intercept stays; refused for level lines | `basis.lean(−k)` |
+| `basis.zoom` | tri, norm | factor f: digits, f ≠ ±1 | (a, b, c) ↦ (a, b, c·f): both intercepts × f, the gradient stays; refused through the origin | `basis.zoom(1/f)` |
+| `fold` | cart | either x0 (steps) and s (`rat`) for the crease of gradient s through the pin at x = x0, or mirror: a line a,b,c paid from scratch, φ(M) = Σ mixedInt; 1 bit for which | the reflection; a crease fold of a vertical line, or one whose result is vertical, is refused (no pin to fold back about) | self |
+
 ### 12.5 Rule families
 
 Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
