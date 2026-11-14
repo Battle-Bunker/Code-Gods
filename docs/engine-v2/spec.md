@@ -723,9 +723,11 @@ step values; single-line objects only):
 
 A rule (family, parameters, tie-breaker, variant) is dealt with its ladder **capped** (coordinator's call (g),
 provisional): the artefact's `cap` is the last rung through which every non-empty rung met the error target, and a line
-above the cap scores as the cap. It is **not dealable** (`dealable: false`) when it is **unreachable** at its first
-rung, **too coarse** (a dealt layer takes fewer than `minLevels` distinct values, §4.1), or fewer than six rungs converge
-below the cap. A rule that misses only its rarest rungs is therefore dealt, capped; the splitting, direct and
+above the cap scores as the cap. Above the converged cap (`convergedCap`), a tail of tie-breaker rungs at the main top may be valued by a curve
+through the converged ones there (`tail`, at least four points within twice their errors, one more span of thresholds at
+most, never decreasing); `cap` is then the last fitted rung. It is **not dealable** (`dealable: false`) when it is
+**unreachable** at its first rung, **too coarse** (a dealt layer takes fewer than `minLevels` distinct values, §4.1),
+fewer than six rungs converge below the cap, or its dealt top is worth under 4 bits. A rule that misses only its rarest rungs is therefore dealt, capped; the splitting, direct and
 equilibration flags stay in the artefact as diagnostics. `calibrate --write` regenerates the rows of the rules it
 calibrated in `docs/engine-v2/too-hard-backlog.md`, with the reasons, and `recap` recomputes every artefact's cap and the
 whole file from the committed figures; a person or a later session decides whether to

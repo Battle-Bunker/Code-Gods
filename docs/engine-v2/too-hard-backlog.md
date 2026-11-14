@@ -7,6 +7,7 @@ Rules that are not dealt: too coarse, unreachable, or with fewer than 6 rungs co
 | crossing-check | `{"k":1,"q":2}` | size | line-q | unconverged | ladder truncated at rung 37: no state found at rung 38 (y(k) to x(q) exactly; |x(q)| at least 8) within 40000 climbing proposals; not within 2% after 17828384 steps (budget 32000000) |
 | crossing-check | `{"k":1,"q":2}` | whole | line-q | unconverged | not within 2% after 18880608 steps (budget 32000000) |
 | exact-change | `{"ways":6}` | big-piles | line-q | unconverged | not within 2% after 26811005 steps (budget 32000000) |
+| m-meets-c | `{}` | size | line-q | unconverged | not within 2% after 19340321 steps (budget 32000000); rung 29: splitting estimate 2.062 against 2.337; rung 32: splitting estimate 2.062 against 2.337 |
 | prime-gradient | `{}` | cPrime | line-q | unconverged | not within 2% after 18880608 steps (budget 32000000) |
 | prime-landing | `{}` | big-prime | line-q | unconverged | not within 2% after 18423200 steps (budget 32000000) |
 | prime-staircase | `{}` | first-prime | line-q | unconverged | ladder truncated at rung 23: no state found at rung 24 (a run of primes at least 6) within 40000 climbing proposals; not within 2% after 21058464 steps (budget 32000000) |
@@ -18,6 +19,10 @@ Rules that are not dealt: too coarse, unreachable, or with fewer than 6 rungs co
 | ruler | `{}` | far | line-q | unconverged | not within 2% after 20710240 steps (budget 32000000) |
 | ruler | `{}` | prime-gradient | line-q | unconverged | ladder truncated at rung 40: no state found at rung 41 (distance² to a square exactly; m to a prime within 1/4) within 40000 climbing proposals; not within 2% after 19200608 steps (budget 32000000) |
 | ruler | `{}` | square-area | line-q | unconverged | ladder truncated at rung 42: no state found at rung 43 (distance² to a square exactly; the area to a square exactly) within 40000 climbing proposals; not within 2% after 20115424 steps (budget 32000000) |
+| same-on-both-rulers | `{"T":6}` | prime-start | line-q | unconverged | not within 2% after 17508384 steps (budget 32000000) |
+| same-on-both-rulers | `{"T":6}` | steep | line-q | unconverged | not within 2% after 18423200 steps (budget 32000000) |
+| same-on-both-rulers | `{"T":6}` | whole-lamp | line-q | unconverged | not within 2% after 17508384 steps (budget 32000000); rung 28: splitting estimate 8.291 against 9.000; rung 29: splitting estimate 8.296 against 9.003; rung 30: splitting estimate 8.316 against 9.021 |
+| same-on-both-rulers | `{"T":6}` | whole-values | line-q | unconverged | not within 2% after 20252832 steps (budget 32000000); rung 12: splitting estimate 4.844 against 4.581 |
 | square-area | `{}` | lpf | line-q | unconverged | not within 2% after 22085069 steps (budget 32000000); rung 42: splitting estimate 15.122 against 17.352; rung 45: splitting estimate 21.024 against 27.719; rung 46: splitting estimate 23.100 against 30.186; rung 47: splitting estimate 24.584 against 31.690 |
 | square-area | `{}` | omega | line-q | unconverged | not within 2% after 20260724 steps (budget 32000000) |
 | square-area | `{}` | spf | line-q | unconverged | not within 2% after 22084832 steps (budget 32000000) |
@@ -25,10 +30,12 @@ Rules that are not dealt: too coarse, unreachable, or with fewer than 6 rungs co
 | treasure | `{"T":37,"k":2}` | prime-terms | line-q | unconverged | ladder truncated at rung 42: no state found at rung 43 (y(k) to T exactly; different primes at least 7) within 40000 climbing proposals; not within 2% after 20115424 steps (budget 32000000); rung 2: splitting estimate 4.008 against 4.202; rung 4: splitting estimate 4.034 against 4.234 |
 | triangle-area | `{"A":4}` | even | line-q | unconverged | ladder truncated at rung 37: no state found at rung 38 (the area exactly; the legs to each other within 1/4) within 40000 climbing proposals; not within 2% after 17828384 steps (budget 32000000) |
 | triangle-area | `{"A":4}` | legs | line-q | unconverged | not within 2% after 18880608 steps (budget 32000000) |
-| pythagorean-area | `{"A":6}` | slanted-square | line-z | unconverged | ladder truncated at rung 38: no state found at rung 39 (the area to A exactly; side² to a square exactly) within 40000 climbing proposals; not within 2% after 18274433 steps (budget 32000000) |
-| pythagorean-area | `{"A":6}` | whole-legs | line-z | unconverged | not within 2% after 17497025 steps (budget 32000000); rung 19: chain not equilibrated (rate into rung 20 moved 5.6 points between the halves of its samples, 4.5 standard errors) |
-| same-on-both-rulers | `{"T":6}` | whole-values | line-z | too-coarse | not within 2% after 20241473 steps (budget 32000000); layer 1 (whole-values) takes 2 distinct values, fewer than 6: too coarse to extend the ladder |
-| square-area | `{}` | lpf | line-z | unconverged | not within 2% after 22071105 steps (budget 32000000) |
+| whole-intercept | `{}` | omega | line-q | unconverged | not within 2% after 30186107 steps (budget 32000000); rung 29: splitting estimate 3.073 against 3.441; rung 30: splitting estimate 4.141 against 4.590; rung 31: splitting estimate 5.497 against 6.048 |
+| whole-intercept | `{}` | spf | line-q | unconverged | not within 2% after 18423200 steps (budget 32000000); rung 39: splitting estimate 19.481 against 31.443 |
+| crossing-check | `{"k":1,"q":2}` | whole | line-z | unconverged | not within 2% after 31891713 steps (budget 32000000); rung 1: splitting estimate 1.337 against 1.413; rung 1: direct estimate 1.337 against 1.413 |
+| m-meets-c | `{}` | size | line-z | unconverged | not within 2% after 17497025 steps (budget 32000000) |
+| prime-gradient | `{}` | prime | line-z | unconverged | not within 2% after 17954433 steps (budget 32000000); rung 35: splitting estimate 13.487 against 15.673; rung 37: splitting estimate 18.008 against 26.370; rung 38: splitting estimate 19.536 against 27.384 |
+| same-on-both-rulers | `{"T":6}` | whole-values | line-z | too-coarse | layer 1 (whole-values) takes 2 distinct values, fewer than 6: too coarse to extend the ladder |
 | triangle-area | `{"A":4}` | even | line-z | unconverged | ladder truncated at rung 33: no state found at rung 34 (the area exactly; the legs to each other within 1) within 40000 climbing proposals; not within 2% after 29635265 steps (budget 32000000); rung 25: splitting estimate 6.522 against 6.258; rung 27: splitting estimate 7.228 against 6.893 |
 | whole-intercept | `{}` | omega | line-z | too-coarse | not within 2% after 30174081 steps (budget 32000000); layer 0 (frac) takes 1 distinct values, fewer than 6: too coarse to extend the ladder |
 | whole-intercept | `{}` | spf | line-z | too-coarse | not within 2% after 18411841 steps (budget 32000000); layer 0 (frac) takes 1 distinct values, fewer than 6: too coarse to extend the ladder |

@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/treasure/{\"T\":37,\"k\":2}/tb=prime-gradient",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2749,5 +2749,7 @@
  },
  "cap": 1,
  "dealable": false,
- "contentHash": "630391f217a4df87"
+ "convergedCap": 1,
+ "tail": null,
+ "contentHash": "1d12802eaa01bab7"
 }

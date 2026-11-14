@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/same-on-both-rulers/{\"T\":6}/tb=prime-start",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -12,7 +12,7 @@
  "tieBreaker": "prime-start",
  "seed": "v2",
  "config": {
-  "computeBudget": 32000000,
+  "computeBudget": 256000000,
   "targetRelError": 0.02,
   "absFloorBits": 0.03,
   "replicates": 8,
@@ -431,6 +431,8 @@
    "error": 0.1285
   }
  ],
+ "cap": 35,
+ "dealable": true,
  "primarySense": "min",
  "curve": null,
  "diagnostics": {
@@ -2071,7 +2073,7 @@
    null
   ]
  },
- "cap": 35,
- "dealable": true,
- "contentHash": "50cf42cd0d9b1bcb"
+ "convergedCap": 35,
+ "tail": null,
+ "contentHash": "c6b45b8684a32d60"
 }

@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=whole-values",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2862,6 +2862,8 @@
   ]
  },
  "cap": 8,
- "dealable": true,
- "contentHash": "344149344b0aea61"
+ "dealable": false,
+ "convergedCap": 8,
+ "tail": null,
+ "contentHash": "883801fa3e04bb59"
 }
