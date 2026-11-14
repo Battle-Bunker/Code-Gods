@@ -231,6 +231,19 @@ export const v2Tables = {
    * changed hands between their agent and others' (`flips`), what their agents spent on it, who pulled, and the best
    * state it passed through for them. The end summary's tugs-of-war read the most-flipped of these (`v2/play:tugs`).
    */
+  /**
+   * The public log (v1's, docs/public-log-design.md §1–§2): one row per birth and per committed move, read by every
+   * seated player. `bits` is every roster seat's exact bits after it (roster order, server-private: a viewer gets its own
+   * and the others' sum), `noise` the disclosure noise at the state (disclose.ts); `by`, `agentId`, `calls` and `charge`
+   * reach only the mover while live. `seq` is the record's event seq of the birth or the act.
+   */
+  v2Log: defineTable({
+    gameId: v.id("v2Games"), seq: v.number(), worldSeconds: v.number(), kind: v.union(v.literal("born"), v.literal("move")),
+    objectId: v.id("v2Objects"), number: v.number(), version: v.number(), stateBefore: v.optional(v.string()), state: v.string(),
+    bits: v.array(v.number()), bitsBefore: v.optional(v.array(v.number())), noise: v.number(), noiseBefore: v.optional(v.number()),
+    by: v.optional(v.id("v2Members")), agentId: v.optional(v.id("v2Agents")), calls: v.optional(v.array(callV)), charge: v.optional(v.number()),
+  }).index("by_game_seq", ["gameId", "seq"]),
+
   v2Tugs: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
     moves: v.number(), flips: v.number(), lastMine: v.boolean(), mySpend: v.number(), others: v.array(v.id("v2Members")),

@@ -123,6 +123,19 @@ export const tugsV = v.array(v.object({
   /** The state it passed through that was worth most to the caller, and those points. */
   best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
 }));
+/** `v2/play:log`: the public log, newest first, as the caller reads it (bits null for a member not seated). */
+export const logPageV = paginationResultValidator(v.object({
+  seq: v.number(), worldSeconds: v.number(), kind: v.union(v.literal("born"), v.literal("move")), objectId: v.id("v2Objects"), number: v.number(),
+  version: v.number(), stateBefore: v.union(v.string(), v.null()), state: v.string(),
+  /** The caller's own move (theirs while live; any move after the end is attributed). */
+  mine: v.boolean(),
+  /** The caller's bits, the others' summed bits (with the disclosure noise while live) and the caller's points, after and before. */
+  own: v.union(v.number(), v.null()), others: v.union(v.number(), v.null()), points: v.union(v.number(), v.null()),
+  ownBefore: v.union(v.number(), v.null()), othersBefore: v.union(v.number(), v.null()), pointsBefore: v.union(v.number(), v.null()),
+  /** Who moved it, their agent, calls and cost: the caller's own moves while live, every move after the end. */
+  by: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()), agentId: v.union(v.id("v2Agents"), v.null()),
+  calls: v.union(v.array(callV), v.null()), charge: v.union(v.number(), v.null()),
+}));
 export const digestV = v.object({ version: v.number(), packed: v.array(v.number()) });
 
 /** Spectators: every object's shared state, no values. */

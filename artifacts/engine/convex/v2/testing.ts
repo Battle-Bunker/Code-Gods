@@ -132,6 +132,8 @@ export const seedGame = internalMutation({
       await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version: 1, changedAt: i });
       const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt, valueObjects({ startingObjects: preset.startingObjects, worldSeconds: preset.worldSeconds, economy: preset.economy })));
       const total = evals.reduce((s, e) => s + e.rarityBits, 0);
+      // The object's birth in the public log (v1's), every seat's bits in roster order.
+      await ctx.db.insert("v2Log", { gameId, seq: i, worldSeconds: i, kind: "born", objectId, number: i + 1, version: 1, state: lineType.encode(state), bits: evals.map(e => e.rarityBits), noise: 0 });
       for (const [k, { memberId }] of rules.entries()) {
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;
         pts.set(memberId, (pts.get(memberId) ?? 0) + points);

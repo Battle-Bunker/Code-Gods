@@ -15,7 +15,7 @@ import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
-  agentEnergyV, agentProgramsV, agentRowV, digestV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
+  agentEnergyV, agentProgramsV, agentRowV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
 import { attributed, disclosed, disclosesNoise, noiseAt } from "./disclose";
@@ -176,6 +176,40 @@ export const moves = query({
           charge: open ? m.charge ?? null : null,
           by: open && m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
           notes: m.notes ?? [],
+        };
+      }),
+    };
+  },
+});
+
+/**
+ * The public log (v1's, docs/public-log-design.md §1–§2): every birth and move of the game, newest first, one index page.
+ * A seated player reads their own bits, the others' summed bits (with the disclosure noise while live) and their points,
+ * after and before; a member not seated reads the rows without bits. While live another player's move says nothing of
+ * who made it; an ended game attributes every move and shows exact sums.
+ */
+export const log = query({
+  args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
+  returns: logPageV,
+  handler: async (ctx, { gameId, paginationOpts }) => {
+    const { game, member } = await requireGameMember(ctx, gameId);
+    const i = game.roster.findIndex(r => r.memberId === member._id), live = disclosesNoise(game);
+    const page = await ctx.db.query("v2Log").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").paginate(pageOpts(paginationOpts));
+    const view = (bits: readonly number[] | undefined, noise: number | undefined) => {
+      if (i < 0 || !bits) return { own: null, others: null, points: null };
+      const own = bits[i] ?? 0, others = bits.reduce((t, b) => t + b, 0) - own + (live ? noise ?? 0 : 0);
+      return { own, others, points: own * Math.max(0, others) };
+    };
+    return {
+      ...page,
+      page: page.page.map(r => {
+        const mine = !!r.by && r.by === member._id, open = r.kind === "move" && attributed(game, mine);
+        const now = view(r.bits, r.noise), was = view(r.bitsBefore, r.noiseBefore);
+        return {
+          seq: r.seq, worldSeconds: r.worldSeconds, kind: r.kind, objectId: r.objectId, number: r.number, version: r.version,
+          stateBefore: r.stateBefore ?? null, state: r.state, mine, ...now, ownBefore: was.own, othersBefore: was.others, pointsBefore: was.points,
+          by: open && r.by ? { memberId: r.by, name: game.roster.find(x => x.memberId === r.by)?.name ?? "A player" } : null,
+          agentId: open ? r.agentId ?? null : null, calls: open ? r.calls ?? null : null, charge: open ? r.charge ?? null : null,
         };
       }),
     };
