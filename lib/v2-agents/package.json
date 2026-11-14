@@ -14,6 +14,7 @@
     "render": "node --experimental-strip-types scripts/render.ts",
     "harness": "node --experimental-strip-types scripts/harness.ts",
     "table": "node --experimental-strip-types scripts/table.ts",
+    "collapse-check": "node --experimental-strip-types scripts/collapse-check.ts",
     "gen-compat": "node --experimental-strip-types scripts/gen-compat.ts"
   },
   "dependencies": {

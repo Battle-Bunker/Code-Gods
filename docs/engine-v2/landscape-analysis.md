@@ -345,3 +345,56 @@ job (`pnpm --filter @workspace/v2-agents collapse-check`). The thresholds are st
 Checks 1–3 and 5 are pure computation (minutes, no sandboxes). Check 4 needs `runTable` and, for model seats, a small
 spend (about $0.20 a night at today's prices), so it could run weekly. A failing check files an issue rather than
 blocking merges: the owner asked for collapse to be treated as a bug.
+
+**Implemented** as `pnpm --filter @workspace/v2-agents collapse-check` (`lib/v2-agents/scripts/collapse-check.ts`,
+thresholds in `src/collapse.ts`, shared tools in `scripts/landscape-lib.ts`) and the nightly, non-blocking workflow
+`.github/workflows/collapse-check.yml`. It always exits 0. How each test is measured:
+
+- **Prices.** The real ones: each one-coordinate move's fee and surcharge are read from v2-core's `applyPriced` (line-z:
+  si.tilt and si.shift; line-q: gen.nudge on a, b or c; grids: cells.add), one call per act charged W + β·W², jumps
+  of up to 64 (grids 9). Moving one coordinate at a time gives a cheapest cost per state; other mutators could only make
+  a state cheaper, so W is a subset of what is truly reachable. W is a line's share of a 3-seat game (2,475 ⚡; grids
+  2,513), counted at 24 objects.
+- **Test 1** finds each rule's top in W and 2W by annealing (30,000 evaluations each) and the tail correlation on a
+  uniform sample of 2W. **Tests 2 and 3** deal 8 tables on lines and 3 on grids (§4 says 20; `--tables`); the reference
+  is W enumerated when it has at most 300,000 states, else 10·B of annealing (§4 says 100·B; `--ref-mult`). Test 3's
+  "one closed form": one coordinate free, every other taking at most two values up to sign over the 24.
+- **Test 4** runs the scripted starters only (no model seats) at 10 starting objects and 0.05 births a second (the
+  beginner presets' new numbers; `--objects`, `--births`), 3 games of 300 s per β, plus one comparison row at the old
+  24 and 0.1 (not counted). "No move found" is the share of acts in the last 100 s whose program returned no calls.
+- **Test 5** is β-independent; it is repeated on each row and counted on each.
+
+### First run (14 November 2026)
+
+All tests, defaults (25 minutes on 4 cores; grids since measure tests 1–3 once when every board is reachable). Pools:
+line-q from `lines-rational`, line-z from `lines-beginner`, grids from `grids-beginner`; no rule lacked a value
+function. 23 failures. Abbreviated (full notes in the script's output):
+
+| Variant | β | 1 no ramp | 2 no cheap optimum | 3 no single answer | 4 no convergence | 5 disclosure |
+|---|--:|---|---|---|---|---|
+| line-q | 0.02 | FAIL: 1/23 rules ramp, 8 tops at W's edge | FAIL: 4/8 tables cheap, B-search median 100% (W ≈ 2.4·10⁷) | PASS: 1/8 one answer, 24 best keep 83% | PASS: 10 → 20–24 objects; no move found 92%; 17%/min move; 12% in one family | FAIL: 1 probe |
+| line-q | 0.05 | FAIL: 1/23, 12 at edge | FAIL: 3/8, 94% (1.2·10⁷) | PASS: 1/8, 75% | PASS: 10 → 21–29; 92%; 21%/min; 12% | FAIL: 1 |
+| line-q | 0.05, 24 objects, 0.1/s | – | – | – | PASS: 24 → 47–58; 89%; 18%/min; 19% | – |
+| line-q | 0.1 | FAIL: 1/23, 11 at edge | FAIL: 5/8, 100% (5.5·10⁶) | PASS: 0/8, 59% | PASS: 10 → 19–22; 91%; 23%/min; 12% | FAIL: 1 |
+| line-z | 0.02 | FAIL: 3/23, 11 at edge | FAIL: 7/8, 100% (3.4·10⁵) | FAIL: 3/8, 81% | PASS: 10 → 19–23; 92%; 17%/min; 31% | FAIL: 5 |
+| line-z | 0.05 | FAIL: 4/23, 16 at edge | FAIL: 8/8, 100% (2.1·10⁵) | PASS: 2/8, 89% | PASS: 10 → 22–23; 93%; 19%/min; 38% | FAIL: 5 |
+| line-z | 0.05, 24 objects, 0.1/s | – | – | – | PASS: 24 → 42–55; 88%; 22%/min; 22% | – |
+| line-z | 0.1 | FAIL: 2/23, 13 at edge | FAIL: 8/8, 100% (1.2·10⁵) | PASS: 2/8, 86% | PASS: 10 → 20–28; 92%; 19%/min; 35% | FAIL: 5 |
+| grid-4-d10 | 0.02 | PASS: 0/24 | FAIL: 1/3, 92% (10¹⁶, every board) | PASS: 0/3, 71% | PASS: 10 → 20–28; 90%; 20%/min; 7% | FAIL: 1 |
+| grid-4-d10 | 0.05 | PASS: 0/24 | PASS: 0/3, 81% | PASS: 0/3, 82% | PASS: 10 → 20–24; 90%; 21%/min; 5% | FAIL: 1 |
+| grid-4-d10 | 0.05, 24 objects, 0.1/s | – | – | – | PASS: 24 → 52–58; 68%; 42%/min; 2% | – |
+| grid-4-d10 | 0.1 | PASS: 0/24 | PASS: 0/3, 66% | PASS: 0/3, 80% | PASS: 10 → 24–30; 85%; 32%/min; 4% | FAIL: 1 |
+
+What it says:
+- **Lines fail tests 1, 2 and 5 at every β; line-q no less than line-z.** On line-z a searcher with the rules reaches
+  the best line of W in every table at every β; on line-q in 3–5 of 8. The ramping rules on line-z are Whole Crossing
+  (k-spf, k-gpf, m-spf) and Square Area/spf, with tops at 99–100% of W's energy that grow 73–86% from W to 2W. Raising
+  β shrinks W (line-z 3.4·10⁵ → 1.2·10⁵ states) but does not change a verdict.
+- **Test 4 passes everywhere, and that is the threshold's fault, not the game's.** The freeze shows in "no move found":
+  85–93% of late acts at 10 objects (62–75% on grids at 24). But the starters still change 17–23% of line objects a
+  minute, above the 10% floor, and the largest family on line-z holds 31–38%, under the 50% bar. The 10-object preset
+  freezes harder than 24 objects did (line-z 93% against 88%; grids 90% against 68%).
+- **Test 3 passes most line tables only through the closed-form clause**: the best 24 keep 75–89% of 24 × the best
+  (§4 expected 85–96%), but the coarse closed-form check does not recognise their family.
+- **Grids pass 1–4 apart from one cheap table in three at β = 0.02** (three tables are noisy); disclosure fails on
+  grids too.
