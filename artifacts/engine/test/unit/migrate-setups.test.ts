@@ -13,7 +13,7 @@ const legacy = { language: "python", penaltyWeight: 2, excludedFamilies: ["sudok
 test("a positive defence rate turns defence goals on for everyone; excluded defence ids move to their own list", () => {
   assert.deepEqual(migrateSettings({ ...legacy, defenceRate: 0.25 }, DEFENCE), {
     languages: ["python"], penaltyWeight: 2, defenceGoals: true,
-    excludedFamilies: ["sudoku_scholar", "odds_evens"], excludedDefenceFamilies: ["hate_red"], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife", fullChargeSeconds: 30, bidSeconds: 0, bidPricing: "first", bidVisibility: "sealed", bidDisclosure: "private",
+    excludedFamilies: ["sudoku_scholar", "odds_evens"], excludedDefenceFamilies: ["hate_red"], scoreIntervalSeconds: 10, durationMode: "halfLife", fullChargeSeconds: 30, bidSeconds: 0, bidPricing: "first", bidVisibility: "sealed", bidDisclosure: "private",
   });
   assert.equal(migrateSettings({ ...legacy, defenceRate: 1 }, DEFENCE)!.defenceGoals, true);
 });
@@ -36,9 +36,9 @@ test("a single stored language becomes the allowed set of that one language; its
   assert.equal(migrateSettings(current, DEFENCE), null, "settings in the current shape are left alone");
 });
 
-test("settings stored before the scoreboard interval, disclosure noise, capacity and bid phase existed get their defaults; chosen values are kept", () => {
+test("settings stored before the scoreboard interval, capacity and bid phase existed get their defaults; chosen values are kept", () => {
   const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [] };
-  const filled = { scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife", fullChargeSeconds: 30, bidSeconds: 0, bidPricing: "first", bidVisibility: "sealed", bidDisclosure: "private" };
+  const filled = { scoreIntervalSeconds: 10, durationMode: "halfLife", fullChargeSeconds: 30, bidSeconds: 0, bidPricing: "first", bidVisibility: "sealed", bidDisclosure: "private" };
   assert.deepEqual(migrateSettings(current, DEFENCE), { ...current, ...filled });
   assert.deepEqual(migrateSettings({ ...current, scoreIntervalSeconds: 30 }, DEFENCE), { ...current, ...filled, scoreIntervalSeconds: 30 });
   assert.equal(migrateSettings({ ...current, scoreIntervalSeconds: 30, peerNoiseBits: 0, durationMode: "fixed", fullChargeSeconds: 120, bidSeconds: 30, bidPricing: "second", bidVisibility: "open", bidDisclosure: "all" }, DEFENCE), null, "nothing to change: idempotent");

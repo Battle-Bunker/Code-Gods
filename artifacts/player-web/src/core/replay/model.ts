@@ -74,7 +74,7 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
       return ev.reason ? `${word}: ${ev.reason}` : word;
     }
     case "object.spawned": return `Object ${shortId(ev.objectId)} appeared`;
-    case "object.rescored": return `Object ${shortId(ev.objectId)} re-scored for the number of players (hold rarity)`;
+    case "object.rescored": return `Object ${shortId(ev.objectId)} re-scored during planning`;
     case "object.transformed": return `${god(ev.ownerId)}'s agent ${ev.agentId ? shortId(ev.agentId) : "?"} changed object ${shortId(ev.objectId)}: ${callText(ev.calls) || "no calls"}`;
     case "agent.failed": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} failed on object ${shortId(ev.objectId)}: ${ev.reason}`;
     case "agent.skipped": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} looked at object ${shortId(ev.objectId)} and did nothing (paid ${bits(ev.cost.read)} ⚡ to look)`;

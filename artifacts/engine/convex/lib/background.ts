@@ -1,6 +1,6 @@
 /**
  * Background work (pure): what runs in Node actions but is not a game's tick: agent examinations (validate, summon
- * measurement, an AI seat's summons: hundreds of sandbox runs each) and hold-table computations (seconds of CPU each).
+ * measurement, an AI seat's summons: hundreds of sandbox runs each) and AI seats' turns.
  * A deployment runs a bounded number of Node actions at once and each tick needs one (plus one per language for its
  * acts), so background work is capped deployment-wide (engine/background.ts): past the cap it waits, and ticks keep
  * their capacity however many games start or summon at the same moment.
@@ -9,19 +9,17 @@
 /**
  * Background jobs of each kind running at once, deployment-wide. A backend runs 64 actions at once (the local one and
  * the cloud's smaller plans). An examination holds up to three (itself, its acts' action, a compilation), so eight leave
- * about forty for ticks (each one action, plus one per language while a wave runs). A hold computation is seconds
- * of CPU in one action; they have their own, smaller cap so a burst of starts never keeps players' summons waiting.
+ * about forty for ticks (each one action, plus one per language while a wave runs).
  *
- * Hold computations and AI seats' turns (seconds each: a provider call, then the seat's own validations and summons)
- * are scheduled functions, as ticks are, and the scheduler runs only about ten at once, oldest first: measured with 20
- * games starting together, forty seats' first turns (or forty hold tables) kept every game's planning-end tick waiting
- * 30–70 s. Three of each leave the scheduler to the ticks, which are short. A seat's turn past the cap is queued and
+ * AI seats' turns (seconds each: a provider call, then the seat's own validations and summons) are scheduled functions,
+ * as ticks are, and the scheduler runs only about ten at once, oldest first: measured with 20 games starting together,
+ * forty seats' first turns kept every game's planning-end tick waiting 30–70 s. Three leave the scheduler to the ticks, which are short. A seat's turn past the cap is queued and
  * runs when a turn in flight ends (engine/background.ts takeTurn: no polling); its examinations run under the turn's slot.
  */
-export const BACKGROUND_LIMITS = { examination: 8, hold: 3, turn: 3 } as const;
+export const BACKGROUND_LIMITS = { examination: 8, turn: 3 } as const;
 export type BackgroundKind = keyof typeof BACKGROUND_LIMITS;
 /**
- * How long a queued job (a seat's turn, a hold computation) may wait for a slot; past it the row is dropped. A seat's
+ * How long a queued job (a seat's turn) may wait for a slot; past it the row is dropped. A seat's
  * `aiNextAt` allows the same time (ai/seats.ts queued), so its watchdog restarts the chain only after that.
  */
 export const QUEUE_MS = 5 * 60_000;

@@ -27,8 +27,8 @@
  *   --saturation                      mode rules: also print saturation and the leader's lead over the game's time
  *   --set a,b,c                       the policies in play (default: all but random and sniper for equilibria)
  *   --duration S  --objects K  --spawn HZ  --power B  --rate HZ      override the setup
- *   --kappa K  --capacity S|none  --distance | --flat (default: the setup's cost model)  --unbounded-debt  --erasure L  --erasure-noise SIGMA  --aggregate sum|min|geo  --scoring final|integral
- *   --learn S  --agents N  --candidates C  --peer-noise SIGMA  --cap HZ  --free-offers  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
+ *   --kappa K  --capacity S|none  --distance | --flat (default: the setup's cost model)  --unbounded-debt  --erasure L  --aggregate sum|min|geo  --scoring final|integral
+ *   --learn S  --agents N  --candidates C  --cap HZ  --free-offers  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
  *   --summon                          charge each policy its summon price: its agents start once the god has saved it
  *   --only a,b  --out DIR             report: only these sections; also write each section's text and JSON to DIR
  *   --jobs J                          worker processes (default: the cores)
@@ -36,14 +36,12 @@
  */
 import { execFile } from "node:child_process";
 import { availableParallelism } from "node:os";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { instantiate, seededRng, type Instantiation } from "@workspace/game-types";
 import { SEED_SETUPS, costModelOf } from "../../game-core/src/settings.ts";
 import { availableFamilies, context, family, selector, type Params } from "../src/index.ts";
-import { HOLD_ESTIMATOR, buildHoldTable, holdBits, type HoldTable } from "./hold.ts";
 import { familyRule, space, type Rule } from "./rule-difficulty-lib.ts";
 import {
   DEFAULT_TUNING, DEVELOP_ECON, POLICIES, equilibria, playGame, profileKey, profiles, ranksOf, summarise, valueIn, winShares,
@@ -78,35 +76,24 @@ export function econOf(setupId: string, patch: Partial<Econ> = {}): Econ {
   const s = setupOf(setupId).settings;
   return {
     powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, durationSeconds: s.halfLifeSeconds,
-    startingObjectCount: s.startingObjectCount, spawnRateHz: s.spawnRateHz, capacitySeconds: s.fullChargeSeconds, ...DEVELOP_ECON, peerNoiseBits: s.peerNoiseBits,
+    startingObjectCount: s.startingObjectCount, spawnRateHz: s.spawnRateHz, capacitySeconds: s.fullChargeSeconds, ...DEVELOP_ECON,
     // The setup's own cost model (Annotated basics prices changes by distance since 11 Nov 2026).
     distancePricing: costModelOf(s) === "distance-v1", ...patch,
   };
 }
 
 const ruleCache = new Map<string, Rule>();
-const HOLD_FILE = join(tmpdir(), `coordination-hold-${HOLD_ESTIMATOR.id}-${HOLD_ESTIMATOR.version}.json`);
-let holdTables: Record<string, HoldTable> | null = null, holdDirty = false;
-/** Writes the hold tables computed so far, for the worker processes (and the next run). */
-export function saveHoldTables() { if (holdDirty) { writeFileSync(HOLD_FILE, JSON.stringify(holdTables)); holdDirty = false; } }
-/**
- * A dealt rule as the engine scores it in a game of `players` gods: the shipped table's surprisal plus hold rarity's
- * correction for m = players − 1 (docs/energy-model.md §8; the engine computes the same table at the game's start).
- */
+/** A dealt rule as the engine scores it: the shipped table's surprisal (`players` keys the cache only). */
 export function gameRule(familyId: string, params: Params, inst: Instantiation, players: number): Rule {
   const key = `${inst.key}|${familyId}|${JSON.stringify(params)}|m=${players - 1}`;
   let rule = ruleCache.get(`${key}|${SCALE[familyId] ?? 1}`);
   if (rule) return rule;
   const base = familyRule(familyId, params, inst);
-  if (players < 2) return base;
-  holdTables ??= existsSync(HOLD_FILE) ? JSON.parse(readFileSync(HOLD_FILE, "utf8")) as Record<string, HoldTable> : {};
-  let hold = holdTables[key];
-  if (!hold) { hold = holdTables[key] = buildHoldTable(familyId, params, inst, players - 1, `coordination|${key}`); holdDirty = true; }
-  const top = base.topBits + (hold.levels.length ? hold.levels[hold.levels.length - 1][1] : 0);
+  const top = base.topBits;
   // --equal-tops B (an experiment, docs/beginner-pool.md §5): every rule's bits are scaled so its best board is worth B.
   // --equal-par B: scaled so reference greedy play holds B bits per object at the end (the par, measured per family).
   const scale = (EQUAL_TOPS ? EQUAL_TOPS / top : 1) * (SCALE[familyId] ?? 1);
-  ruleCache.set(`${key}|${SCALE[familyId] ?? 1}`, rule = { ...base, bits: o => scale * (base.bits(o) + holdBits(hold, o)), topBits: scale * top });
+  ruleCache.set(`${key}|${SCALE[familyId] ?? 1}`, rule = { ...base, bits: o => scale * base.bits(o), topBits: scale * top });
   return rule;
 }
 /** The rules of game `g`: the setup's own dealer (settings.utilitySelectorId) on a seed shared by every table. */
@@ -214,8 +201,7 @@ export function rulesMarkdown(policies: readonly Policy[], byPolicy: ReadonlyMap
 const SELF = fileURLToPath(import.meta.url);
 /** Plays every table (in worker processes) and returns profileKey → stats. Tables are given in slot order. */
 export async function playTables(run: Run, tables: readonly (readonly Policy[])[], jobs: number): Promise<Map<string, TableStats>> {
-  for (let g = 0; g < run.games; g++) dealOf(run.setup, run.players, g); // the hold tables, once, for every worker
-  saveHoldTables();
+  for (let g = 0; g < run.games; g++) dealOf(run.setup, run.players, g); // every deal, once, before the workers
   const unique = [...new Map(tables.map(t => [profileKey(t), [...t].sort() as Policy[]])).values()];
   const chunks: Policy[][][] = Array.from({ length: Math.min(jobs, unique.length) }, () => []);
   unique.forEach((t, k) => chunks[k % chunks.length].push(t));
@@ -285,9 +271,9 @@ function runOf(): Run {
     ...(opt("spawn") ? { spawnRateHz: num("spawn", 0) } : {}), ...(opt("power") ? { powerPerSecond: num("power", 0) } : {}),
     ...(opt("rate") ? { interactionRateHz: num("rate", 0) } : {}), ...(opt("kappa") ? { kappa: num("kappa", 0) } : {}),
     ...(opt("capacity") ? { capacitySeconds: opt("capacity") === "none" ? undefined : num("capacity", 0) } : {}), ...(flag("distance") ? { distancePricing: true } : {}), ...(flag("flat") ? { distancePricing: false } : {}), ...(flag("unbounded-debt") ? { debtBound: false } : {}),
-    ...(opt("erasure") ? { erasure: num("erasure", 0) } : {}), ...(opt("erasure-noise") ? { erasureNoiseBits: num("erasure-noise", 0) } : {}), ...(opt("aggregate") ? { aggregate: opt("aggregate") as Aggregate } : {}),
+    ...(opt("erasure") ? { erasure: num("erasure", 0) } : {}), ...(opt("aggregate") ? { aggregate: opt("aggregate") as Aggregate } : {}),
     ...(opt("scoring") ? { scoring: opt("scoring") as Econ["scoring"] } : {}), ...(opt("learn") ? { learnSeconds: num("learn", 0) } : {}),
-    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}), ...(opt("cap") ? { agentCapHz: num("cap", 4) } : {}), ...(flag("free-offers") ? { offerReads: false } : {}), ...(opt("peer-noise") ? { peerNoiseBits: num("peer-noise", 8) } : {}),
+    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}), ...(opt("cap") ? { agentCapHz: num("cap", 4) } : {}), ...(flag("free-offers") ? { offerReads: false } : {}),
   };
   return { setup, games: num("games", 24), players: num("players", 3), econ: econOf(setup, patch), ...(opt("pool") ? { pool: opt("pool")!.split(",") } : {}), ...(opt("equal-tops") ? { equalTops: num("equal-tops", 0) } : {}), ...(flag("match") ? { match: true } : {}),
     tuning: { hoarderThreshold: num("hoard", DEFAULT_TUNING.hoarderThreshold), sniperSeconds: num("snipe", DEFAULT_TUNING.sniperSeconds),
@@ -348,8 +334,6 @@ async function main() {
       { name: "develop", title: "The rules on develop", mode: "equilibria", set: CORE },
       { name: "erasure1", title: "Candidate: breaking costs extra (1 bit of work per bit destroyed)", mode: "equilibria", set: CORE, econ: { erasure: 1 } },
       { name: "erasure3", title: "Candidate: breaking costs extra (3 bits of work per bit destroyed)", mode: "equilibria", set: CORE, econ: { erasure: 3 } },
-      { name: "erasure1-noise8", title: "Breaking costs extra, charged on the disclosed salience (noise σ = 8 bits)", mode: "equilibria", set: CORE, econ: { erasure: 1, erasureNoiseBits: 8 } },
-      { name: "erasure3-noise8", title: "Breaking costs extra ×3, charged on the disclosed salience (noise σ = 8 bits)", mode: "equilibria", set: CORE, econ: { erasure: 3, erasureNoiseBits: 8 } },
       { name: "min", title: "Candidate: own bits × the smallest other god's bits", mode: "equilibria", set: CORE, econ: { aggregate: "min" } },
       { name: "geo", title: "Candidate: own bits × the geometric mean of the others' bits", mode: "equilibria", set: CORE, econ: { aggregate: "geo" } },
       { name: "integral", title: "Candidate: points averaged over the game's time", mode: "equilibria", set: CORE, econ: { scoring: "integral" } },
@@ -396,7 +380,6 @@ async function main() {
     // seats is the rule each was dealt. The setup's own dealer deals, on seeds shared by every policy.
     const policies = (opt("set")?.split(",") as Policy[] | undefined) ?? ["greedy", "considerate", "deny"];
     for (let g = 0; g < run.games; g++) dealOf(run.setup, P, g);
-    saveHoldTables();
     const rulesIn = async (r: Run, policy: Policy, from: number, to: number) => {
       const step = Math.ceil((to - from) / jobs);
       const parts = await Promise.all(Array.from({ length: Math.ceil((to - from) / step) }, (_, k) => new Promise<RuleGame[]>((resolve, reject) => {
@@ -411,7 +394,6 @@ async function main() {
       // from the measured ones (games 100000 on); every family is then scaled so its par is B.
       const B = num("equal-par", 0), parGames = num("par-games", 300);
       for (let g = 100000; g < 100000 + parGames; g++) dealOf(run.setup, P, g);
-      saveHoldTables();
       const par = await rulesIn({ ...run, scale: {} }, (opt("par-policy") ?? "greedy") as Policy, 100000, 100000 + parGames);
       run.scale = Object.fromEntries([...par].map(([f, s]) => [f, B / s.ownBits]));
       setPool(run.pool, run.equalTops, run.scale, run.deal);
@@ -487,7 +469,6 @@ async function main() {
     }
     json.validation = rows;
   } else throw new Error(`Unknown mode: ${mode}`);
-  saveHoldTables();
   if (opt("json")) writeFileSync(opt("json")!, JSON.stringify(json, null, 1));
 }
 

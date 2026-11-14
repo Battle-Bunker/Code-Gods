@@ -81,10 +81,8 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   // exact on every scoring batch, so this ended game's replay below steps per event.
   const published = final.batches.filter((b: any) => b.scoreboard);
   assert.equal(published[0].seq, 0, "the starting scoreboard");
-  // …and, still at world 0, the one hold rarity's re-scoring publishes (docs/energy-model.md §8).
   const starting = published.filter((b: any) => b.worldTo === 0);
-  assert.equal(starting.length, 2, "the start's scoreboard and the re-scored one");
-  assert.ok(starting[1].events.every((e: any) => e.t === "rescore"));
+  assert.equal(starting.length, 1, "only the start's scoreboard at world 0");
   assert.ok(published.at(-1).events.some((e: any) => e.t === "phase" && e.phase === "ended"), "the final scoreboard comes with the end");
   const periodic = published.slice(starting.length, -1);
   periodic.forEach((b: any, i: number) => {
@@ -98,9 +96,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   for (const e of logged) {
     const row = final.objectEvents.find((r: any) => r.objectId === e.objectId && r.version === e.version);
     assert.ok(row, `a row for ${e.objectId} v${e.version}`);
-    // The rows are the state index: a version re-scored during planning (hold rarity) holds its rescore's bits.
-    const rescored = final.batches.flatMap((b: any) => b.events).filter((r: any) => r.t === "rescore" && r.objectId === e.objectId && r.version === e.version).at(-1);
-    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, rescored?.net ?? e.net, e.before, e.agentId]);
+    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, e.net, e.before, e.agentId]);
   }
   const roster: string[] = final.game.roster.map((m: any) => m.id);
   const [hostPages, adaPages, boPages] = [await pagesOf(host), await pagesOf(ada), await pagesOf(bo)];

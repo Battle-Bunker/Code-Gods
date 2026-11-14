@@ -325,7 +325,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "games.object": {
     kind: "query", audience: "player",
     human: { title: "Show one object", tooltip: "One object of a game: its value and how many bits all players together see in it." },
-    ai: { description: "One object of a game as disclosed publicly: its value, version and salience (noisy while live). The assistant reads its own view of objects with get_observation." },
+    ai: { description: "One object of a game as disclosed publicly: its value, version and salience. The assistant reads its own view of objects with get_observation." },
     tools: [], palette: null, why: "One row of the spectator list subscribes to it; the assistant reads its own objects with get_observation.",
   },
   // ----- layout -----
@@ -467,7 +467,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.objectsPage": {
     kind: "query", audience: "player",
     human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits, the others' care, mutations, creation time or last mutation." },
-    ai: { description: "A page of the human's objects ordered by payoff, their bits, the others' care (the disclosed, noisy sum while the game is live), how many times they have been mutated, when they were created or when last mutated (all public), with footer totals; the Objects panel's infinite scroll." },
+    ai: { description: "A page of the human's objects ordered by payoff, their bits, the others' care, how many times they have been mutated, when they were created or when last mutated (all public), with footer totals; the Objects panel's infinite scroll." },
     tools: [], palette: null, why: "The Objects panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
   },
   "dock.state": {
@@ -503,7 +503,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.object": {
     kind: "query", audience: "player",
     human: { title: "One of my objects", tooltip: "One object with your bits, the others' care and your payoff." },
-    ai: { description: "One object as the human sees it: value, mutations, their own score, the others' summed bits (noisy while live) and their payoff." },
+    ai: { description: "One object as the human sees it: value, mutations, their own score, the others' summed bits and their payoff." },
     tools: [], palette: null, why: "One row of the Objects panel; panels read it per visible object.",
   },
   "player.objectsTop": {
@@ -527,7 +527,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.series": {
     kind: "query", audience: "player",
     human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },
-    ai: { description: "The game's public transformation log as the human sees it: every spawn and transformation (unattributed while live; the human's own marked mine), with the value before and after, the human's own bits and the OTHER gods' summed bits before and after (noisy while live, peerNoiseBits; exact after the end). The data for inferring the other gods' rules." },
+    ai: { description: "The game's public transformation log as the human sees it: every spawn and transformation (unattributed while live; the human's own marked mine), with the value before and after, the human's own bits and the OTHER gods' summed bits before and after. The data for inferring the other gods' rules." },
     tools: ["get_utility_series"], palette: null, why: "An analytics feed paged by the assistant or a stored panel; the human reads it through panels, not a button.",
   },
   "player.board": {

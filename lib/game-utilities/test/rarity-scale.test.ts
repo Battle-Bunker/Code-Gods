@@ -6,18 +6,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rarityOf, rarityScale } from "../src/explain/rarity-scale.ts";
 import type { CalibrationTable } from "../src/calibration.ts";
-import type { HoldTable } from "../src/hold.ts";
 
 const table = (levels: [number | number[], number][], slope = 1) => ({ levels, slope }) as unknown as CalibrationTable;
 
-test("the rarity of a rule score is the table's bits, plus the game's hold correction", () => {
+test("the rarity of a rule score is the table's bits", () => {
   const reward = table([[0, 0], [1, 1.5], [2, 4], [4, 10]]);
   assert.equal(rarityOf({ reward }, 2), 4, "at a step");
   assert.equal(rarityOf({ reward }, 3), 7, "between two steps: half way from 4 to 10");
   assert.equal(rarityOf({ reward }, 5), 11, "above the top: the slope");
-  const hold = { m: 2, levels: [[1, 0.5], [2, 1]] } as unknown as HoldTable;
-  assert.equal(rarityOf({ reward, hold }, 2), 5);
-  assert.equal(rarityOf({ reward, hold }, 0), 0, "no hold below its lowest level");
 });
 
 test("the scale: one row per primary value, the lowest step with it", () => {

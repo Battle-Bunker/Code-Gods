@@ -353,7 +353,7 @@ test("a game from the Tiered rules setup deals every god a tiered rule; an ordin
     const catalog: { id: string; role: string; available: boolean; excluded: boolean }[] =
       await waitFor(async () => (await host.c.query(api.rooms.get, { room: roomId })).utilityCatalog, "the room's catalogue", 60_000);
     // Tables the deal lacks are prepared on demand; the game then begins by itself (startGame waits for it).
-    const game = await startGame(host, roomId, { requestId: randomUUID(), holdSettled: false }, 240_000);
+    const game = await startGame(host, roomId, { requestId: randomUUID() }, 240_000);
     const g = await admin.query(internal.testing.rawGame, { gameId: game.gameId as never });
     if (seedId === "grid-tiered") await tiersStayPrivate(game.gameId, roomId, ada, g.deities);
     await host.c.mutation(api.rooms.endActiveGame, { roomId });

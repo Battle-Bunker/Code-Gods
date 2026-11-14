@@ -352,7 +352,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
     const target = remembered && !ended && !can.seenAs ? all.find(a => a.id === remembered.agentId) : undefined;
     if (!remembered || !target) return out;
     const previous = remembered.previous;
-    const compared = versionComparison(previous.before, previous.since, { estimate: acts.estimate, restored: previous.restored });
+    const compared = versionComparison(previous.before, previous.since, { restored: previous.restored });
     out.set(target.id, {
       busy: !!runnerState.busy,
       // Only while that put-back is in flight; a busy or unanswered one leaves the button (and its notice) again.
@@ -376,7 +376,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remembered, runnerState.busy, runnerState.replace, all, acts.estimate, ended, can.seenAs, can.can.destroy.ok, commands]);
+  }, [remembered, runnerState.busy, runnerState.replace, all, ended, can.seenAs, can.can.destroy.ok, commands]);
   // "See it in My agents" (the forge): that agent's row comes into view inside the pane, with a short ring.
   const reveal = runnerState.reveal;
   const [rung, setRung] = useState<string | null>(null);

@@ -9,7 +9,6 @@
     "./estimator": "./scripts/estimator.ts",
     "./canonical-json": "./src/canonical-json.ts",
     "./card-text": "./src/card-text.ts",
-    "./hold": "./scripts/hold.ts",
     "./example-agents": "./src/example-agents.ts"
   },
   "scripts": {

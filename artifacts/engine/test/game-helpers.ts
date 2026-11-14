@@ -128,10 +128,9 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   const { roomId, shortCode } = await owner.c.mutation(api.rooms.create, {});
   // The owner is seated as a player by rooms.create; these rooms seat every member given.
   for (const m of rest) await m.c.mutation(api.rooms.join, { room: shortCode });
-  // The default setup discloses exact sums (peerNoiseBits 0, for a first game); these rooms keep the general default's noise.
   if (settings) {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
-    await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { peerNoiseBits: 8, ...settings } });
+    await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings });
   }
   return { roomId: roomId as string, shortCode: shortCode as string };
 }
@@ -179,27 +178,15 @@ export type Started = { gameId: string; shortCode: string; guid: string };
  * convex/bidding.ts): the game begins when bidding ends. Never read `.gameId` off `api.owner.start` directly
  * (test/unit/start-result-guard.test.ts enforces this).
  */
-export async function startGame(owner: God, roomId: string, args: { requestId?: string; holdSettled?: boolean } = {}, ms = 120_000): Promise<Started> {
-  const { holdSettled, ...start } = args;
-  return startedGame(owner, roomId, await owner.c.action(api.owner.start, { roomId, ...start }), ms, holdSettled);
+export async function startGame(owner: God, roomId: string, args: { requestId?: string } = {}, ms = 120_000): Promise<Started> {
+  return startedGame(owner, roomId, await owner.c.action(api.owner.start, { roomId, ...args }), ms);
 }
 
-/**
- * The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing` and
- * then hold rarity's corrections (engine/hold.ts): they re-score the starting objects once during planning, so a test
- * reading scores right after the start would otherwise race them. `holdSettled: false` returns without waiting
- * (game-hold.test.ts watches the computing state itself).
- */
-export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000, holdSettled = true): Promise<Started> {
-  const settled = async (g: Started) => {
-    if (!holdSettled) return g;
-    await waitFor(async () => (await admin.query(internal.testing.rawGameDoc, { gameId: g.gameId }))?.holdState !== "computing" || undefined,
-      "hold rarity's corrections are in", ms, 100);
-    return g;
-  };
+/** The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing`. */
+export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000): Promise<Started> {
   if (started?.status !== "preparing" && started?.status !== "bidding") {
     assert.ok(started?.gameId, `the start began a game: ${JSON.stringify(started)}`);
-    return settled({ gameId: started.gameId, shortCode: started.shortCode, guid: started.guid });
+    return { gameId: started.gameId, shortCode: started.shortCode, guid: started.guid };
   }
   const game = await waitFor(async () => {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
@@ -208,7 +195,7 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
     return room.activeGame;
   }, `the prepared game in ${roomId} starts`, ms, 500);
   const { guid } = await owner.c.query(api.games.header, { code: game.shortCode });
-  return settled({ gameId: game.id, shortCode: game.shortCode, guid });
+  return { gameId: game.id, shortCode: game.shortCode, guid };
 }
 
 export const TS = {

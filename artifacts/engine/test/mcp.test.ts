@@ -462,8 +462,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   await check("mcp list_setups (own setup saved)", listed);
   await check("mcp delete_setup", await call(token, "delete_setup", { setupId: ownSetup.data.id }));
   await host.c.mutation(api.setups.remove, { setupId: hostSetup.id });
-  // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum plus the
-  // version's live disclosure noise, settings.peerNoiseBits), by hand.
+  // The utility series and the board equal what the private per-deity vectors give the viewer (own, others' sum), by hand.
   const ownOf = (net: number[]) => net[me], othersOf = (net: number[]) => net.reduce((x, n, i) => (i === me ? x : x + n), 0);
   // Page through the whole series (each page is whole rows, cut to the result bound).
   const series: any = { rows: 0, columns: {} };
@@ -485,11 +484,10 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     const row: any = byKey.get(`${cols.objectId[i]}:${cols.version[i]}`);
     assert.ok(row, "every series row is a stored event");
     assert.deepEqual([cols.value[i], cols.kind[i], cols.world[i]], [row.value, row.kind, row.world]);
-    assert.ok(Math.abs(cols.own[i] - ownOf(row.net)) < 1e-12 && Math.abs(cols.others[i] - (othersOf(row.net) + row.noise)) < 1e-9, "own and the noisy others' sum after");
-    assert.notEqual(row.noise, 0, "the default disclosure is noisy");
+    assert.ok(Math.abs(cols.own[i] - ownOf(row.net)) < 1e-12 && Math.abs(cols.others[i] - othersOf(row.net)) < 1e-9, "own and the others' sum after");
     const prior: any = byKey.get(`${cols.objectId[i]}:${cols.version[i] - 1}`);
     if (!prior) { assert.equal(cols.dOthers[i], null); continue; }
-    assert.ok(Math.abs(cols.dOthers[i] - (othersOf(row.net) + row.noise - othersOf(prior.net) - prior.noise)) < 1e-9, "dOthers is the change of the disclosed others' sum");
+    assert.ok(Math.abs(cols.dOthers[i] - (othersOf(row.net) - othersOf(prior.net))) < 1e-9, "dOthers is the change of the others' sum");
     assert.ok(Math.abs(cols.dOwn[i] - (ownOf(row.net) - ownOf(prior.net))) < 1e-12);
     assert.equal(cols.mine[i], row.ownerId === ada.subject);
     assert.equal(cols.before[i], row.before);
@@ -499,7 +497,7 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     const b = board.objects.find((x: any) => x.objectId === o._id);
     if (!b || b.version !== o.version) continue; // moved on since the snapshot
     const own = o.scores.find((x: any) => x.god === ada.subject).netBits, others = o.scores.filter((x: any) => x.god !== ada.subject).reduce((n: number, x: any) => n + x.netBits, 0);
-    assert.ok(Math.abs(b.own - own) < 1e-12 && Math.abs(b.others - (others + o.noise)) < 1e-9, "the board's own and (noisy) others' bits are the object's");
+    assert.ok(Math.abs(b.own - own) < 1e-12 && Math.abs(b.others - others) < 1e-9, "the board's own and others' bits are the object's");
   }
   const atStart = (await call(token, "get_board_at", { world: 0 })).data;
   assert.equal(atStart.objects.length, 12, "the board at world 0 is the starting objects");
@@ -527,10 +525,8 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   const truth = snap.deities.filter((d: any) => d.godId !== ada.subject).map((d: any) => d.utility.familyId).sort();
   // A class lists up to five aliases; families of the class are the representative's and its aliases'.
   const holds = (h: any) => { const left = [...truth]; return h.draws.every((d: any) => { const fams = [d.familyId, ...d.aliases.map((a: any) => a.familyId)]; const i = left.findIndex(f => fams.includes(f)); if (i < 0) return false; left.splice(i, 1); return true; }); };
-  // Exact disclosure: an exact fit holds the truth. With the default disclosure noise (8 bits) and a dozen objects the
-  // fit cannot pin it (docs/public-log-design.md §5.1); it must at least never trust the data more than the noise.
-  if ((snap.game.settings.peerNoiseBits ?? 0) === 0) assert.ok(!fitted.exact || fitted.hypotheses.some(holds), `an exact fit has the other gods' families ${truth} among its hypotheses`);
-  else assert.ok(fitted.sigma >= snap.game.settings.peerNoiseBits, `the fit's σ (${fitted.sigma}) is at least the disclosure noise`);
+  // Exact disclosure: an exact fit holds the truth.
+  assert.ok(!fitted.exact || fitted.hypotheses.some(holds), `an exact fit has the other gods' families ${truth} among its hypotheses`);
   // evaluate_value is the caller's own utility: it matches the engine's own score of that object.
   const value = await call(token, "evaluate_value", { value: objects[0].value });
   const secret = (await raw(game.gameId)).objects.find((o: any) => o._id === objects[0].id);

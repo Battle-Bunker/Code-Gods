@@ -17,10 +17,10 @@ import { fail } from "../lib/errors";
 import { aiEnabledFor } from "../lib/aiAccess";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
-import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
+import { EVENT_LOG_SCHEMA, LEASE_MS, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { gameRotationV, scoreV } from "./tables";
-import { publicSalienceOf, publishStandings } from "./readModel";
+import { publishStandings } from "./readModel";
 import { scheduleFill } from "./objectViews";
 import { dealKeyOf } from "../lib/dealRotation";
 import { clockDoc } from "./state";
@@ -218,9 +218,9 @@ export const commitStart = internalMutation({
   args: {
     roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.optional(v.string()),
     prepared: v.optional(v.string()),
-    seasonCommitment: v.string(), noiseKey: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
+    seasonCommitment: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
     deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
-    objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
+    objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number() })),
     /** The deal's calibration tables, pinned by god (engine/pinned.ts): the game scores with these until it ends. */
     tablesStorageId: v.optional(v.id("_storage")),
     /** A deal made with winning bids (docs/bid-phase.md): each deity's handicap in percent, in `deities` order, and the auction for the replay. */
@@ -268,12 +268,10 @@ export const commitStart = internalMutation({
       settings, roster, spectators: allMembers.filter(m => m.kind === "human" && !byGod.has(m.godId)).map(m => m.godId),
       ...(setupId ? { setupId, setupName } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0,
-      endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
+      endAtWorld: args.endAtWorld, executionEpoch: 0,
       ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
       ...(handicaps ? { handicaps } : {}),
       ...(args.rotation && !handicaps ? { rotation: args.rotation } : {}),
-      // Hold rarity (docs/energy-model.md §8): more than one player needs its corrections, computed during planning.
-      ...(args.deities.length > 1 ? { holdState: "computing" as const, holdPending: [] } : {}),
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     if (args.auction !== undefined) await ctx.db.insert("gameAuctions", { gameId, auction: args.auction });
@@ -285,21 +283,19 @@ export const commitStart = internalMutation({
     }
     const events = [];
     for (const o of args.objects) {
-      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}),
-        publicSalience: publicSalienceOf(o, true), createdAt: 0 });
-      events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
-        ...(o.noise !== undefined ? { noise: o.noise } : {}) });
+      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience,
+        publicSalience: o.salience, createdAt: 0 });
+      events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits) });
     }
     // The first scoreboard (docs/public-log-design.md §3): published with the starting objects, at world 0.
-    // Exact totals are stored for the replay; the scoreboard players see is the disclosed one (noisy peers' sums).
     const godIds = args.deities.map(d => d.godId);
-    const totals = totalsOf(godIds, args.objects, handicaps), disclosed = disclosedTotalsOf(godIds, args.objects, handicaps);
+    const totals = totalsOf(godIds, args.objects, handicaps);
     await ctx.db.insert("tickBatches", {
-      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
+      gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: totals,
     });
     await insertObjectEvents(ctx, gameId, 0, events, 1);
     // The hot state lives off the games doc (game/state.ts): the clock every reader of world time reads, and the loop's own.
-    const scoreboard = { totals: disclosed, world: 0, at: now };
+    const scoreboard = { totals, world: 0, at: now };
     await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard });
     await publishStandings(ctx, { _id: gameId, roster }, scoreboard, { agentCount: 0, objectCount: args.objects.length });
     await ctx.db.insert("gameEngine", {
@@ -317,7 +313,6 @@ export const commitStart = internalMutation({
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
     // Each god's object rows and totals (game/objectViews.ts), paged off the start's own transaction.
     await scheduleFill(ctx, gameId);
-    if (args.deities.length > 1) await ctx.scheduler.runAfter(0, internal.engine.hold.start, { gameId });
     const result = { gameId, shortCode, guid };
     if (args.requestId) {
       await ctx.db.insert("receipts", { roomId: room._id, actorId, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });

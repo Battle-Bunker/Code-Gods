@@ -45,8 +45,7 @@ function phasePill(s: Situation, now: number): string {
       if (left) return "Planning";
       // Past the deadline, planning holds until every allowed language's agent sandbox is warm.
       if (obs.sandboxes?.some(sb => sb.state !== "ready")) return "Planning · agent sandboxes warming up";
-      // …and until hold rarity's corrections for this player count are computed (docs/energy-model.md §8).
-      return obs.holdRarity?.state === "computing" ? "Planning · computing scoring for this many players" : "Planning";
+      return "Planning";
     }
     case "running": return `Running · ${clock(obs.economy?.worldSeconds ?? 0)}`;
     case "paused": {

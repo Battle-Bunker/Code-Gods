@@ -6,16 +6,12 @@
  *   standingsHistory  one row per publication (the race's series, cursor-paged by seq)
  *   objects.publicSalience  each object's salience as disclosed now (the spectator's skeleton orders by it)
  */
-import { v } from "convex/values";
 import { rankTotals } from "@workspace/game-core";
-import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 
 type Scoreboard = { totals: number[]; world: number; at: number };
 
-/** The salience as disclosed: with the value's live disclosure noise while the game runs, exact once it has ended. */
-export const publicSalienceOf = (o: { salience: number; noise?: number }, live: boolean) => o.salience + (live ? o.noise ?? 0 : 0);
 
 /**
  * Publish a scoreboard to the read model: every roster god's standings row (ranked as the leaderboard ranks them) and
@@ -33,8 +29,7 @@ export async function publishStandings(ctx: MutationCtx, game: { _id: Id<"games"
     else await ctx.db.insert("standings", row);
   }
   const last = await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").first();
-  // A second publication at the same world time (hold rarity's re-scoring during planning, docs/energy-model.md §8)
-  // replaces that moment's row: the history has one row per world time.
+  // A second publication at the same world time replaces that moment's row: the history has one row per world time.
   if (last && last.world === board.world) {
     await ctx.db.patch(last._id, { at: board.at, totals: board.totals, agentCount: counts.agentCount, objectCount: counts.objectCount });
     return;
@@ -58,21 +53,3 @@ export async function recountAgents(ctx: MutationCtx, gameId: Id<"games">, agent
 export async function hasStandings(ctx: MutationCtx, gameId: Id<"games">) {
   return !!await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).first();
 }
-
-const FINAL_PAGE = 200;
-
-/**
- * An ended game's disclosure is exact: its objects' public salience loses the live noise, a page at a time (scheduled
- * by engine/loop.ts endGame, after the commit that ends the game, so the end itself stays light).
- */
-export const finalizeObjects = internalMutation({
-  args: { gameId: v.id("games"), cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, { gameId, cursor }) => {
-    const page = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: FINAL_PAGE });
-    for (const o of page.page as Doc<"objects">[]) {
-      const exact = publicSalienceOf(o, false);
-      if (o.publicSalience !== exact) await ctx.db.patch(o._id, { publicSalience: exact });
-    }
-    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId, cursor: page.continueCursor });
-  },
-});

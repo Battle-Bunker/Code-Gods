@@ -30,12 +30,12 @@ import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
 import { gameScoringTables } from "./pinned";
-import { disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
+import { openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
 import { FutileMemo, NO_FAILURES, failureKind, futileAfter, pickPair, unaffordableReason, type ActKind } from "../lib/futility";
 import { agentCapacityOf } from "../lib/power";
-import { MAX_OBJECTS, MAX_SIMULATE_MS, MIN_TICK_MS, TICK_SECONDS, leaseRenewalDue, waveBudgetMs, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
+import { MAX_OBJECTS, MAX_SIMULATE_MS, MIN_TICK_MS, TICK_SECONDS, leaseRenewalDue, waveBudgetMs, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { godTotalsOf } from "../lib/views";
 
 type Score = Doc<"objects">["scores"][number];
@@ -49,8 +49,6 @@ const lastCommitMs = new Map<string, number>();
 /** How often a planning phase held for a warming (or failed: its retries back off) sandbox checks again. */
 const HOLD_POLL_MS = 1000;
 const HOLD_FAILED_POLL_MS = 5000;
-/** The longest planning waits for hold rarity's corrections (docs/energy-model.md §8), from the start. */
-const HOLD_MAX_MS = 10 * 60_000;
 
 /** No answer from the sandbox within the wave's budget (lib/world.ts waveBudgetMs). */
 const LATE = Symbol("late");
@@ -117,15 +115,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     if (phase === "planning" || phase === "paused") {
       const deadline = phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
       if (now < deadline) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait" });
-      // Hold rarity's corrections (engine/hold.ts) hold planning the same way, until computed (or failed). Actions run at
-      // most once: one that died without a word (a timeout, a restart) would hold planning for ever, so past
-      // HOLD_MAX_MS from the start the game plays on static rarity.
-      if (phase === "planning" && game.holdState === "computing" && now - game.createdAt > HOLD_MAX_MS) {
-        await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `Not computed within ${HOLD_MAX_MS / 60_000} minutes of the start` });
-        return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + HOLD_POLL_MS });
-      }
-      const hold = game.holdState === undefined ? [] : [{ state: game.holdState === "computing" ? "warming" as const : "ready" as const, readyAt: game.holdReadyAt }];
-      const end = phase === "planning" ? planningEnd(deadline, [...sandboxes, ...hold]) : { at: deadline };
+      const end = phase === "planning" ? planningEnd(deadline, sandboxes) : { at: deadline };
       if ("hold" in end) {
         const failed = sandboxes.some(s => s.state === "failed");
         return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });
@@ -147,7 +137,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
 
     // The in-memory world.
     const roster = snap.deities.map(d => d.godId);
-    const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false, noise: o.noise }));
+    const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false }));
     const occupied = new Set<ObjectValue>(objects.map(o => o.value));
     // Which object holds each value (a collision remembers its holder: lib/futility.ts), and each object's version.
     const holders = new Map<ObjectValue, typeof objects[number]>(objects.map(o => [o.value, o]));
@@ -186,12 +176,11 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       let outcome = actOutcome(settings, p.before, result);
       let next: Score[] | undefined;
       if (outcome.ok && outcome.commit) {
-        // The commit clause: commit only if the act strictly raises the owner's payoff on this object as the owner sees it
-        // (the others' sums with their values' disclosure noise: no side channel to the exact sums).
+        // The commit clause: commit only if the act strictly raises the owner's payoff on this object.
         if (!settings.commitClause) outcome = { ok: false, reason: "this room does not offer the commit clause", cost: outcome.cost };
         else if (!occupied.has(outcome.value)) {
           next = scoresOf(tables, settings, deals, outcome.value);
-          if (!commitRaises(object.scores, next, agent.ownerId, object.noise ?? 0, disclosureNoise(settings, game.noiseKey, outcome.value))) {
+          if (!commitRaises(object.scores, next, agent.ownerId)) {
             outcome = { ok: false, reason: "the commit clause kept the object: it would not raise your points", cost: outcome.cost };
           }
         }
@@ -224,10 +213,8 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         object.value = outcome.value; object.version++; object.changed = true;
         object.scores = next ?? scoresOf(tables, settings, deals, outcome.value);
         object.salience = salienceOf(object.scores);
-        // The new value's live disclosure noise (settings.peerNoiseBits): a function of the value, stored with the version.
-        object.noise = disclosureNoise(settings, game.noiseKey, object.value);
         events.push({ t: "transform", objectId: object.id, before: p.before, value: object.value, version: object.version, world: p.world,
-          agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), noise: object.noise, seed: p.seed.toString() });
+          agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), seed: p.seed.toString() });
       } else {
         events.push({ t: "fail", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString(),
           reason: outcome.ok ? "another object already has this value" : outcome.reason.slice(0, 300), ...(kind === "error" ? { error: true as const } : {}) });
@@ -321,7 +308,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     if (late) console.warn(`tick ${gameId}#${seq}: ${late} act(s) skipped (host): no answer from the sandbox within the wave's budget`);
 
     // Spawns (a Poisson process), the lifetime end and the object limit.
-    const spawns: { tmp: string; value: ObjectValue; scores: Score[]; salience: number; noise: number }[] = [];
+    const spawns: { tmp: string; value: ObjectValue; scores: Score[]; salience: number }[] = [];
     let recoveryReason: string | undefined;
     const plan = planSpawns({
       nextSpawn: game.nextSpawn, windowStart, until, endAtWorld: game.endAtWorld, room: MAX_OBJECTS - objects.length,
@@ -331,9 +318,8 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         if (value === undefined) return false;
         occupied.add(value);
         const scores = scoresOf(tables, settings, deals, value), tmp = `tmp:${spawns.length}`;
-        const noise = disclosureNoise(settings, game.noiseKey, value);
-        spawns.push({ tmp, value, scores, salience: salienceOf(scores), noise });
-        events.push({ t: "spawn", objectId: tmp, value: value as number | string, version: 0, world, net: net(scores, roster), noise });
+        spawns.push({ tmp, value, scores, salience: salienceOf(scores) });
+        events.push({ t: "spawn", objectId: tmp, value: value as number | string, version: 0, world, net: net(scores, roster) });
         return true;
       },
     });
@@ -362,21 +348,18 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     const committed = await ctx.runMutation(internal.engine.loop.commit, {
       ...base, kind: "window",
       clock: { phase, worldSeconds: until, lastTick: now, nextSpawn, ...(recoveryReason ? { recoveryReason } : {}) },
-      objects: changed.map(o => ({ id: o.id as Doc<"objects">["_id"], fromVersion: o.fromVersion, value: o.value as number | string, version: o.version, scores: o.scores, salience: o.salience,
-        ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
+      objects: changed.map(o => ({ id: o.id as Doc<"objects">["_id"], fromVersion: o.fromVersion, value: o.value as number | string, version: o.version, scores: o.scores, salience: o.salience })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, spentRead: a.spentRead, account: a.account,
         transforms: a.transforms, skips: a.skips, failures: a.failures, lastFailures: a.lastFailures })),
       futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
         entries: m.entries as { o: Doc<"objects">["_id"]; v: number; by?: Doc<"objects">["_id"]; bv?: number }[] })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
-      // The leaderboard after the window: the commit publishes it only when the scoreboard is due (scoreIntervalSeconds).
-      // Exact totals for the log when scores changed; the disclosed ones only when the scoreboard is due (the commit
-      // re-checks), so an ordinary tick does not pay for them.
+      // The leaderboard after the window, when scores changed or the scoreboard is due (scoreIntervalSeconds): the
+      // commit publishes it only when the scoreboard is due (it re-checks).
       ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
-      ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
-      // Each god's totals as disclosed, from the snapshot that already holds every object (game/objectViews.ts).
-      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true, game.handicaps) } : {}),
+      // Each god's totals, from the snapshot that already holds every object (game/objectViews.ts).
+      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

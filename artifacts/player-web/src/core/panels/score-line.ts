@@ -128,8 +128,6 @@ export interface ActLineInput {
   /** The ✨ rarity of the rule score before and after, from the player's own table (the goal explainer's `rarity`), when it is loaded. */
   rarityBefore?: number | null;
   rarityAfter?: number | null;
-  /** The room blurs the others' side while the game is live (score-lines.tsx liveIsEstimate): see pointsCause. */
-  estimate?: boolean;
   /** Seen as another player (a replay): "Their agent … their rule score". */
   third?: boolean;
 }
@@ -182,15 +180,14 @@ const span = (a: number, b: number) => (amount(a) === amount(b) ? "" : `${amount
  * (points = your ✨ rarity × how much the others want it). A factor is named only when its own change pushed the points
  * the way they went; with a figure missing, or when neither explains the move, null (nothing is guessed).
  */
-export function pointsCause(i: { rule: -1 | 0 | 1; pointsDelta: number; ownBefore?: number; ownAfter?: number; othersBefore?: number; othersAfter?: number; noun?: string;
-  /** The room blurs the others' side (live figures are an estimate): a small move of it may be noise, so it is named only when it accounts for at least half of the points' move. */ estimate?: boolean }): string | null {
+export function pointsCause(i: { rule: -1 | 0 | 1; pointsDelta: number; ownBefore?: number; ownAfter?: number; othersBefore?: number; othersAfter?: number; noun?: string }): string | null {
   const { ownBefore, ownAfter, othersBefore, othersAfter, noun = "object" } = i;
   if (!isKnown(ownBefore) || !isKnown(ownAfter) || !isKnown(othersBefore) || !isKnown(othersAfter)) return null;
   const way = Math.sign(i.pointsDelta);
   const byOthers = ownBefore * (othersAfter - othersBefore), byOwn = (ownAfter - ownBefore) * othersAfter;
   const causes: string[] = [];
   const figures = (text: string) => (text ? ` (${text})` : "");
-  if (way !== 0 && Math.sign(byOthers) === way && (!i.estimate || Math.abs(byOthers) >= Math.abs(i.pointsDelta) / 2)) {
+  if (way !== 0 && Math.sign(byOthers) === way) {
     causes.push(`the others want this ${noun} ${othersAfter > othersBefore ? "more" : "less"} now${figures(span(othersBefore, othersAfter))}`);
   }
   if (way !== 0 && Math.sign(byOwn) === way) {
@@ -213,7 +210,7 @@ export function actLine(input: ActLineInput): string {
   const theirs = (text: string) => input.third ? text.replace(/\byour\b/g, "their").replace(/\bYour\b/g, "Their").replace(/\byou\b/g, "them") : text;
   return theirs(ownActLine(input));
 }
-function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAfter, rarityBefore, rarityAfter, pointsBefore, pointsAfter, ownBefore, othersBefore, ownAfter, othersAfter, estimate }: ActLineInput): string {
+function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAfter, rarityBefore, rarityAfter, pointsBefore, pointsAfter, ownBefore, othersBefore, ownAfter, othersAfter }: ActLineInput): string {
   const head = `Your agent ${agent} ${describeChange(before, after, noun)}`;
   // What the move did to the rarity, so its size can be read: only when both sides are known and show differently.
   const rare = (x: number) => minus((Math.round(x * 10) / 10 === 0 ? 0 : Math.round(x * 10) / 10).toFixed(1));
@@ -230,7 +227,7 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
     if (moved && way !== null && Math.sign(delta) !== way) {
       const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", main part first" : ""}${rarity})`;
       const change = `but this ${noun}'s points ${delta > 0 ? "rose" : "fell"} ${signed(Math.abs(delta)).slice(1)} (${amount(pointsBefore)} → ${amount(pointsAfter)})`;
-      const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun, estimate });
+      const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun });
       return cause ? `${head}: ${told}, ${change} because ${cause}.`
         : `${head}: ${told}, ${change}. ${article(noun).replace(/^a/, "A")}'s points are your ✨ rarity for it × how much the others want it, not the rule score alone.`;
     }
@@ -334,16 +331,14 @@ export function agentEarnings(events: readonly EventLike[], /** Agent id → the
 }
 /**
  * "12 of its latest moves, counted here: +648 points on 9 grids (+54 a move). Only the latest events are counted, not
- * the whole game." The number is the moves counted, never the moves made. `estimate`: the room blurs the others' side
- * while the game is live (score-lines.tsx liveIsEstimate), so the figures are "about" and the note says so.
+ * the whole game." The number is the moves counted, never the moves made.
  */
-export function earningsLine(earned: AgentEarnings | undefined, noun = "object", { third = false, estimate = false }: { third?: boolean; estimate?: boolean } = {}): string | null {
+export function earningsLine(earned: AgentEarnings | undefined, noun = "object", { third = false }: { third?: boolean } = {}): string | null {
   if (!earned || earned.moves < 1) return null;
   const count = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
-  const about = estimate ? "about " : "";
   const head = `${earned.moves.toLocaleString("en-US")} of ${third ? "their agent's" : "its"} latest moves, counted here`;
-  const each = earned.moves > 1 ? ` (${about}${signed(earned.points / earned.moves)} a move)` : "";
-  return `${head}: ${about}${signed(earned.points)} points on ${count(earned.objects, noun)}${each}. Only the latest events are counted, not the whole game${estimate ? ", and live points are an estimate" : ""}.`;
+  const each = earned.moves > 1 ? ` (${signed(earned.points / earned.moves)} a move)` : "";
+  return `${head}: ${signed(earned.points)} points on ${count(earned.objects, noun)}${each}. Only the latest events are counted, not the whole game.`;
 }
 
 /** The first counted moves of one agent, accumulated as its events arrive: frozen at FIRST_MOVES, never rolling. */

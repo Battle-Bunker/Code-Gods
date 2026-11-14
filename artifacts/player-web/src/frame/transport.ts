@@ -63,5 +63,5 @@ export const loadTables: LoadTables = async (_settings, descriptor) => {
     calibration = bridge().request<CalibrationReply>({ type: "calibration" }).catch(error => { calibration = undefined; throw error; });
   }
   const reply = await calibration;
-  return { reward: reply.reward, ...(reply.penalty ? { penalty: reply.penalty } : {}), ...(reply.hold ? { hold: reply.hold } : {}) };
+  return { reward: reply.reward, ...(reply.penalty ? { penalty: reply.penalty } : {}) };
 };
