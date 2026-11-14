@@ -25,7 +25,6 @@ import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { convexSiteUrl } from "./config";
 import { isAdminUser, tokenKind } from "./identity";
 import { credentialKind, credentialProblem, type CredentialKind } from "./principal";
-import { memberOf } from "../v2/access";
 
 export type Permission = "read" | "act" | "owner";
 /** What a credential grants: one room with a Permission, or the human's whole account ("account"). */
@@ -115,11 +114,10 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
   const id = ctx.db.normalizeId("credentials", credentialId);
   const credential = id ? await ctx.db.get(id) : null;
   if (!credential) return null;
-  const roomId = credential.roomId ? ctx.db.normalizeId("v2Rooms", credential.roomId) : null;
-  const room = roomId ? await ctx.db.get(roomId) : null;
+  const room = credential.roomId ? await credentialRoom(ctx, credential.roomId) : null;
   if (credentialProblem(credential, room, Date.now())) return null;
   // A room credential acts for a member: someone who has left the room (its owner included) holds nothing there.
-  if (room && !await memberOf(ctx, room._id, credential.subject)) return null;
+  if (credential.roomId && !await credentialRoomMember(ctx, credential.roomId, credential.subject)) return null;
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", credential.subject)).unique();
   if (!user) return null;
   if (credential.permission === "account") {
@@ -129,6 +127,23 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
     subject: user.subject, name: user.name, scope: "player", roomId: credential.roomId, permission: credential.permission,
     credentialId: credential._id, label: credential.label, isAdmin: false, credentialKind: credentialKind(credential),
   };
+}
+
+/**
+ * The room a credential is bound to: a v2 room (engine v2; its MCP tools are generated from the
+ * affordance directory, agent/mcpV2.ts). Both carry `ownerId` as the owner's subject.
+ */
+export async function credentialRoom(ctx: QueryCtx | MutationCtx, roomId: string): Promise<{ ownerId: string; code: string | null } | null> {
+  const v2 = ctx.db.normalizeId("v2Rooms", roomId);
+  if (v2) { const r = await ctx.db.get(v2); return r ? { ownerId: r.ownerId, code: r.code } : null; }
+  return null;   // a v1 room's credential: its room is gone (archive/engine-v1)
+}
+
+/** Whether `subject` is a member of a credential's room (`v2Members`). */
+export async function credentialRoomMember(ctx: QueryCtx | MutationCtx, roomId: string, subject: string): Promise<boolean> {
+  const v2 = ctx.db.normalizeId("v2Rooms", roomId);
+  if (v2) return !!await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", v2).eq("userId", subject)).first();
+  return false;
 }
 
 /** viewerForCredential, or ConvexError {code: "UNAUTHENTICATED"}. */

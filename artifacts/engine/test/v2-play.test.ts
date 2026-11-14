@@ -82,8 +82,11 @@ test("ready: the world starts when every human is ready", async () => {
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal(header.phase, "live");
   const e0 = (await me(bo!)).energy;
-  await new Promise(r => setTimeout(r, 3000));
-  assert.ok((await me(bo!)).energy > e0, "the own store accrues while the world runs, read as of now");
+  // World time moves with the tick (the first one can be slow: a sandbox's cold start), so wait for the store to grow.
+  for (let i = 0; (await me(bo!)).energy <= e0; i++) {
+    assert.ok(i < 60, "the own store accrues while the world runs, read as of now");
+    await new Promise(r => setTimeout(r, 500));
+  }
   assert.equal((await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 100, cursor: null } })).page.length, 24);
 });
 
@@ -113,10 +116,12 @@ test("pause once, resume by the owner, end by the owner", async () => {
   await perform(late!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code });
   assert.equal((await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late").spectator, true, "joining mid-game: watching");
   assert.equal((await perform(bo!, "game.pause", {}, scope())).ok, true);
-  assert.equal((await ada!.query("v2/games:header", { gameId })).phase, "paused");
+  const paused = await ada!.query("v2/games:header", { gameId });
+  assert.deepEqual([paused.phase, paused.endsAt], ["paused", null], "no countdown while paused");
   assert.equal((await perform(bo!, "game.resume", {}, scope())).error.code, "refused", "only the owner resumes");
   await perform(ada!, "game.resume", {}, scope());
-  assert.equal((await ada!.query("v2/games:header", { gameId })).phase, "live");
+  const resumed = await ada!.query("v2/games:header", { gameId });
+  assert.ok(resumed.phase === "live" && resumed.endsAt > Date.now(), "the end is set again on resume");
   assert.equal((await perform(bo!, "game.pause", {}, scope())).error.code, "refused", "one pause each");
   await new Promise(r => setTimeout(r, 4000));
   const moves = await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } });

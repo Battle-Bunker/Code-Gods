@@ -3,7 +3,7 @@
  */
 import { v } from "convex/values";
 import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
-import { viewerForCredential, type Viewer } from "../auth/access";
+import { credentialRoom, viewerForCredential, type Viewer } from "../auth/access";
 
 const LAST_USED_RESOLUTION_MS = 60_000;
 
@@ -17,8 +17,7 @@ export type Who = {
 async function whoOf(ctx: QueryCtx, viewer: Viewer): Promise<Who | null> {
   const credential = (await ctx.db.get(ctx.db.normalizeId("credentials", viewer.credentialId!)!))!;
   if (credential.permission === "account" || credential.roomId === undefined) return null;
-  const roomId = ctx.db.normalizeId("v2Rooms", credential.roomId);
-  const room = roomId ? await ctx.db.get(roomId) : null;
+  const room = await credentialRoom(ctx, credential.roomId);
   return {
     credentialId: credential._id, subject: viewer.subject, name: viewer.name, roomId: credential.roomId, roomCode: room?.code ?? null,
     permission: credential.permission, kind: viewer.credentialKind ?? "device", label: credential.label,

@@ -12,6 +12,7 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { noteSummoned, useAgentCount, useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
 import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
+import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
 import {
   affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
@@ -62,18 +63,27 @@ export function ForgePane() {
   const current = programs?.[0];
   const opening = useMemo(() => (rule ? openingProgram(rule.row.family, rule.row.tieBreaker, language) : null), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
   const others = useMemo(() => (rule ? otherStartingPoints(rule.row.family, language) : []), [rule?.row.family, language]); // eslint-disable-line react-hooks/exhaustive-deps
-  const base = agent ? current?.source ?? "" : opening?.source ?? "";
+  // The agent's own code; until its program arrives (right after a summon), the code just summoned, never a blank box.
+  const base = agent ? current?.source ?? ran ?? "" : opening?.source ?? "";
   const source = draft ?? base;
   const changed = !!agent && !!current && source !== current.source;
   const primary = primaryAction({ agents: count, selected: !!agent, draftChanged: changed });
   const price = summonPrice(language, source);
   useEffect(() => { statusRef.current?.scrollIntoView({ block: "nearest" }); }, [status]);   // ux-lessons 5.3
+  // A "Summon my first agent" pressed elsewhere on the screen (the planning line, Where am I) is performed here, once.
+  const firstSummonRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const take = () => { if (header?.gameId && takeFirstSummon(header.gameId)) firstSummonRef.current(); };
+    take();
+    return onFirstSummon(take);
+  }, [header?.gameId, !!opening]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!header) return null;
   if (!header.me) return <p className="p-4 text-sm text-muted-foreground">You're watching: only players write agents.</p>;
   if (!rule) return <p className="p-4 text-sm text-muted-foreground">Your rule is being dealt…</p>;
 
   const fail = (e: unknown) => setStatus({ tone: "error", text: failureText(e) });
+  firstSummonRef.current = () => { if (count === 0 && opening && summon.available && !runner.busy) void doSummon(opening.source, true, agentName(opening.title)); };
   const doSummon = async (src: string, first: boolean, name?: string) => {
     setStatus({ tone: "info", text: first ? "Summoning your first agent…" : "Summoning…" });
     try {
@@ -120,6 +130,9 @@ export function ForgePane() {
         </select>
         <span className="text-xs text-muted-foreground">{agent ? `${agent.name}, version ${agent.version}` : opening ? `${opening.title}: ${opening.summary}` : ""}</span>
       </div>
+      {count === 0 && (
+        <p className="text-sm" data-testid="text-forge-hint">You don't need to change anything: <span className="font-medium">Summon my first agent</span> runs this code as it is. Later, try the one line marked "Try this:".</p>
+      )}
       <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
         className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">

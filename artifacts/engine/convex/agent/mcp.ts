@@ -7,50 +7,28 @@
  *   - 2025-era clients (`initialize`, `tools/list`, `tools/call`), routed by the SDK's own `isLegacyRequest`
  *     to a stateless `WebStandardStreamableHTTPServerTransport` with JSON responses (the SDK's built-in
  *     legacy fallback would answer with SSE).
- * The SDK runs in Convex's V8 runtime as is; JSON Schema validation uses its bundled cfWorker validator
- * (no `new Function`).
- *
- * Tools: only `whoami` while engine v2's tools are built (the v1 tool registry left with the v1 engine in D2; v2's
- * MCP surface is generated from lib/v2-affordances). Authentication and the OAuth server are unchanged.
+ * The SDK runs in Convex's V8 runtime as is. Every tool is generated from the affordance directory (agent/mcpV2.ts,
+ * owner decision 16); none is registered by hand.
  *
  * Authentication: `Authorization: Bearer <player JWT>` (MCP OAuth access tokens; verified with this
  * deployment's own key) or `Bearer cgc_…` / `x-api-key: cgc_…` (device credentials, looked up by hash).
  * Unauthenticated → 401 with `WWW-Authenticate: Bearer resource_metadata="<site>/.well-known/oauth-protected-resource/mcp"`.
+ * `tools/list` shows only the tools the grant may use; every call is checked again by its `defineOp`.
  */
-import {
-  createMcpHandler, fromJsonSchema, isLegacyRequest, McpServer, WebStandardStreamableHTTPServerTransport,
-  type CallToolResult, type JsonSchemaType, type McpHttpHandler,
-} from "@modelcontextprotocol/server";
-import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/server/validators/cf-worker";
+import { createMcpHandler, isLegacyRequest, WebStandardStreamableHTTPServerTransport, type McpHttpHandler } from "@modelcontextprotocol/server";
 import { jwtVerify, createLocalJWKSet } from "jose";
 import { internal } from "../_generated/api";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { PLAYER_JWT_AUDIENCE, playerIssuer, siteOrigin, siteUrl } from "../auth/config";
 import { sha256Hex } from "../auth/crypto";
 import { jwks } from "../auth/jwt";
-import { bearerFrom, envList, isAllowedOrigin } from "./rules";
+import { NEEDS_CONTEXT, serverForV2, v2ContextFor, v2PermissionOf } from "./mcpV2";
+import type { AffordanceContext } from "@workspace/v2-affordances";
+import { bearerFrom, envList, grantHint, isAllowedOrigin } from "./rules";
 import type { Who } from "./store";
 
 export const MAX_MCP_BODY_BYTES = 256 * 1024;
 const SERVER = { name: "code-gods", title: "Code Gods", version: "0.1.0" };
-const INSTRUCTIONS = "Code Gods: you act as the human who connected you, in one room, with their rights (read < act < owner). " +
-  "The game tools are being rebuilt; for now only whoami answers.";
-
-const validator = new CfWorkerJsonSchemaValidator();
-const WHOAMI_INPUT = { type: "object", properties: {}, additionalProperties: false } as const;
-const WHOAMI_OUTPUT = {
-  type: "object",
-  properties: {
-    subject: { type: "string" }, name: { type: "string" }, roomId: { type: "string" }, roomCode: { type: ["string", "null"] },
-    permission: { type: "string", enum: ["read", "act", "owner"] }, kind: { type: "string" }, label: { type: "string" }, expiresAt: { type: "number" },
-  },
-  required: ["subject", "name", "roomId", "roomCode", "permission", "kind", "label", "expiresAt"],
-} as const;
-let whoamiSchemas: { input: ReturnType<typeof fromJsonSchema>; output: ReturnType<typeof fromJsonSchema> } | undefined;
-const schemas = () => whoamiSchemas ??= {
-  input: fromJsonSchema(WHOAMI_INPUT as unknown as JsonSchemaType, validator), output: fromJsonSchema(WHOAMI_OUTPUT as unknown as JsonSchemaType, validator),
-};
-
 export const resourceUrl = () => `${siteUrl()}/mcp`;
 export const resourceMetadataUrl = () => `${siteUrl()}/.well-known/oauth-protected-resource/mcp`;
 
@@ -76,13 +54,22 @@ async function authenticate(ctx: ActionCtx, request: Request): Promise<Who | nul
   }
 }
 
-/**
- * A fresh MCP server for one request. Its tools are generated from the affordance directory (owner decision 16;
- * W6-2's MCP generator), never registered here by hand: until that lands on v2 rooms, the server lists none.
- */
-function serverFor(_who: Who) {
-  return new McpServer(SERVER, { capabilities: { tools: {} }, instructions: INSTRUCTIONS, jsonSchemaValidator: validator });
+/** A JSON-RPC "Tool X not found" for a tool beyond the grant → the permission it needs (rules.ts grantHint). */
+async function withGrantHint(response: Response, who: Who): Promise<Response> {
+  if (!response.headers.get("content-type")?.includes("application/json")) return response;
+  const text = await response.text();
+  let body: { error?: { code?: unknown; message?: unknown } } | undefined;
+  try { body = JSON.parse(text); } catch { /* not ours to rewrite */ }
+  const hint = body?.error?.code === -32602 && typeof body.error.message === "string" ? grantHint(body.error.message, who.permission, v2PermissionOf) : null;
+  if (!hint) return new Response(text, { status: response.status, headers: response.headers });
+  body!.error!.message = hint;
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+  return new Response(JSON.stringify(body), { status: response.status, headers });
 }
+
+/** A fresh MCP server for one request, with the directory's tools this principal's grant may use. */
+const serverFor = (ctx: ActionCtx, who: Who, v2: AffordanceContext | null) => serverForV2(ctx, who, v2, SERVER);
 
 /**
  * The modern (2026-07-28) leg: one handler per isolate (it is built for concurrent requests; its factory
@@ -90,8 +77,8 @@ function serverFor(_who: Who) {
  */
 let modernHandler: McpHttpHandler | undefined;
 const modern = () => modernHandler ??= createMcpHandler(({ authInfo }) => {
-  const { who } = (authInfo?.extra as { request: { who: Who } }).request;
-  return serverFor(who);
+  const { ctx, who, v2 } = (authInfo?.extra as { request: { ctx: ActionCtx; who: Who; v2: AffordanceContext | null } }).request;
+  return serverFor(ctx, who, v2);
 }, { responseMode: "json", legacy: "reject", maxRequestBodySize: MAX_MCP_BODY_BYTES });
 
 export const mcp = httpAction(async (ctx, request) => {
@@ -104,19 +91,32 @@ export const mcp = httpAction(async (ctx, request) => {
   const who = await authenticate(ctx, request);
   if (who === "missing") return unauthorized();
   if (!who) return unauthorized("invalid_token");
+  // The principal's context, resolved by the server, decides the generated tool list. Only tools/list and
+  // tools/call need it; a context that no longer resolves (the room or user gone) is an invalid token, not a crash.
+  let v2: AffordanceContext | null = null;
+  if (NEEDS_CONTEXT.has(await methodOf(request))) {
+    try { v2 = await v2ContextFor(ctx, who); } catch { return unauthorized("invalid_token"); }
+  }
   try {
     if (await isLegacyRequest(request, undefined, { maxRequestBodySize: MAX_MCP_BODY_BYTES })) {
-      const server = serverFor(who);
+      const server = serverFor(ctx, who, v2);
       const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       await server.connect(transport);
-      try { return await transport.handleRequest(request); } finally { await server.close(); }
+      try { return await withGrantHint(await transport.handleRequest(request), who); } finally { await server.close(); }
     }
-    return await modern().fetch(request, { authInfo: { token: "", clientId: who.credentialId, scopes: [who.permission], extra: { request: { who } } } });
+    return await withGrantHint(await modern().fetch(request, { authInfo: { token: "", clientId: who.credentialId, scopes: [who.permission], extra: { request: { ctx, who, v2 } } } }), who);
   } catch (error) {
     console.error("mcp failed", error instanceof Error ? error.message : "unknown");
     return json({ jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error" } }, 500);
   }
 });
+
+/** The JSON-RPC method of a request (the modern era's Mcp-Method header, else the body's), "" when unreadable. */
+async function methodOf(request: Request): Promise<string> {
+  const header = request.headers.get("mcp-method");
+  if (header) return header;
+  try { const body = await request.clone().json() as { method?: unknown }; return typeof body?.method === "string" ? body.method : ""; } catch { return ""; }
+}
 
 /** GET and DELETE (2025 session operations, SSE streams): this server is stateless and JSON only. */
 export const mcpMethodNotAllowed = httpAction(async () =>

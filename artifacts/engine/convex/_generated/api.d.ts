@@ -10,6 +10,7 @@
 
 import type * as agent_connect from "../agent/connect.js";
 import type * as agent_mcp from "../agent/mcp.js";
+import type * as agent_mcpV2 from "../agent/mcpV2.js";
 import type * as agent_oauth from "../agent/oauth.js";
 import type * as agent_oauthStore from "../agent/oauthStore.js";
 import type * as agent_rules from "../agent/rules.js";
@@ -42,6 +43,8 @@ import type * as migrations from "../migrations.js";
 import type * as runtime_assets from "../runtime/assets.js";
 import type * as v2_access from "../v2/access.js";
 import type * as v2_agents from "../v2/agents.js";
+import type * as v2_ai from "../v2/ai.js";
+import type * as v2_aiTurn from "../v2/aiTurn.js";
 import type * as v2_artefacts from "../v2/artefacts.js";
 import type * as v2_bids from "../v2/bids.js";
 import type * as v2_checkData from "../v2/checkData.js";
@@ -94,6 +97,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "agent/connect": typeof agent_connect;
   "agent/mcp": typeof agent_mcp;
+  "agent/mcpV2": typeof agent_mcpV2;
   "agent/oauth": typeof agent_oauth;
   "agent/oauthStore": typeof agent_oauthStore;
   "agent/rules": typeof agent_rules;
@@ -126,6 +130,8 @@ declare const fullApi: ApiFromModules<{
   "runtime/assets": typeof runtime_assets;
   "v2/access": typeof v2_access;
   "v2/agents": typeof v2_agents;
+  "v2/ai": typeof v2_ai;
+  "v2/aiTurn": typeof v2_aiTurn;
   "v2/artefacts": typeof v2_artefacts;
   "v2/bids": typeof v2_bids;
   "v2/checkData": typeof v2_checkData;

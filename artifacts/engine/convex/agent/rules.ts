@@ -116,3 +116,13 @@ export function bearerFrom(headers: Headers): { kind: "credential" | "jwt"; valu
 
 /** Comma/space separated env list. */
 export const envList = (value: string | undefined) => (value ?? "").split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
+
+const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
+/** A hint for a tool call refused for lack of permission: which permission the tool needs and how to get it. */
+export function grantHint(message: string, held: Permission, needs: (name: string) => Permission | undefined): string | null {
+  const name = /^Tool (\S+) not found$/.exec(message)?.[1];
+  const needed = name ? needs(name) : undefined;
+  if (!name || !needed || RANK[needed] <= RANK[held]) return null;
+  return `Tool ${name} needs the ${needed} permission; this connection has ${held}. ` +
+    `The human can reconnect (or issue a new room credential) with ${needed} rights; until then use the tools tools/list shows.`;
+}

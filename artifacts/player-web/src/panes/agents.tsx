@@ -4,6 +4,7 @@
  * (dropped when the row unmounts): name, language, share of power, energy ("about 0 ⚡" with the exact figure in the
  * tooltip), what it did, and Destroy, whose confirmation says what comes back. Operations only through affordances.
  */
+import { summonFirst } from "./first-summon";
 import { useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
@@ -61,7 +62,7 @@ export function AgentsPane() {
         <div className="space-y-2 p-4" data-testid="agents-empty">
           <p className="text-muted-foreground">You have no agents yet. An agent moves lines towards your goal, and every move that helps raises your points.</p>
           {header.phase !== "ended" && (
-            <button type="button" className="bg-primary text-primary-foreground px-3 py-1.5 font-medium" onClick={() => void openPane("forge")} data-testid="button-agents-summon">Summon my first agent</button>
+            <button type="button" className="bg-primary text-primary-foreground px-3 py-1.5 font-medium" onClick={() => { if (header?.gameId) void summonFirst(header.gameId, openPane); }} data-testid="button-agents-summon">Summon my first agent</button>
           )}
         </div>
       ) : (

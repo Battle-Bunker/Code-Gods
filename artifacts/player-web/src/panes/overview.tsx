@@ -2,6 +2,7 @@
  * "Where am I": what is happening, how you are doing and the one thing to do next. Explains "your points now" before
  * the first agent exists (ux-lessons 2.4: walkers asked "11 points and I haven't done anything?").
  */
+import { summonFirst } from "@/panes/first-summon";
 import { useAgentCount, useGame, useGameScope, useLeaderboard, useMe } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { ordinal, pointsText, powerText } from "@/core/words";
@@ -17,7 +18,7 @@ export function OverviewPane() {
   const count = useAgentCount();
   const none = seated && count === 0;
   const step = !seated ? "You're watching: open Lines to see the world, and the Leaderboard to see who leads."
-    : header.phase === "ended" ? "The game is over: How the game went says where you finished and why."
+    : header.phase === "ended" ? "The game is over: How the game went says where you finished."
     : none ? "Summon your first agent: it moves lines towards your goal, and every move that helps raises your points."
     : header.phase === "planning" ? "Your agent is ready. When the world starts, watch What just changed to see each move it makes and why your points moved."
     : "Watch What just changed: each move of your agent says what changed and why your points moved. Try a change to your agent's code in Agent code.";
@@ -25,7 +26,7 @@ export function OverviewPane() {
     <div className="space-y-3 p-4 text-sm" data-testid="overview">
       <p className="text-base" data-testid="text-next-step">{step}</p>
       {seated && none && header.phase !== "ended" && (
-        <button type="button" className="bg-primary text-primary-foreground px-3 py-1.5 font-medium" onClick={() => void openPane("forge")} data-testid="button-overview-summon">Summon my first agent</button>
+        <button type="button" className="bg-primary text-primary-foreground px-3 py-1.5 font-medium" onClick={() => void summonFirst(header.gameId, openPane)} data-testid="button-overview-summon">Summon my first agent</button>
       )}
       {seated && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
