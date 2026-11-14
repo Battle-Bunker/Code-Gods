@@ -118,6 +118,14 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     incremental hill climbing towards profitable combined states." (Within a game no two objects hold the same state;
     spec §2.6. It withdraws the architect's call that there is no uniqueness constraint.)
 
+25. On shortcuts through representations (relayed by the coordinator, 14 November), asked whether a swap of 0 and 9 on
+    a grid should cost at least nine unit adds on each cell: "No. Obviously not. We want there to be shortcuts to
+    certain states via mutators that operate in some representations. That makes the state space more interestingly
+    shaped in terms of cost function topology and more like real life exploration of problem spaces." (The far-move rule
+    is about the size of an additive change in one act. Mutators that operate in another representation (swap, rotate,
+    reverse, spin, mirror, stretch by a factor) are intended shortcuts, priced as choices or by digits, never by the
+    unit path. It cancels the coordinator's trial of path-priced grid choice moves.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

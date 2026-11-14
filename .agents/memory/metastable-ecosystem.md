@@ -62,6 +62,11 @@ to change the game's logic.
   for several players; cooperation is about how each agent climbs, never about a destination. A far move in one act
   costs at least the cheapest path of smaller acts.
 - **Objects are unique** within a game (decision 24): no two objects hold the same state.
+- **Shortcuts through representations are wanted** (decision 25). The far-move rule covers the size of an additive
+  change (an amount added costs in proportion to its size, more in one act than as a path). Swap, rotate, reverse,
+  spin, mirror and stretch by a factor are intended shortcuts, priced as choices or by digits, never by the unit path:
+  the owner wants the cost landscape's topology to have them. Do not "fix" a jump that beats its path by crossing a
+  high-φ state either (2–4% of line cases after #580): it is inherent to an exact potential.
 - **Before changing a mechanic, ask whether it makes a fixed point easier to reach.** Fewer degrees of freedom, a more
   concentrated law, exact disclosure of others' values, cheaper jumps, rules that read one coordinate each, and
   duplicates all do. `docs/engine-v2/landscape-analysis.md` holds the measurements and the standing collapse check.
