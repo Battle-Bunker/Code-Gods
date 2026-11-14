@@ -59,8 +59,8 @@ Rules the parity test enforces (`parityProblems()`, `test/parity.test.ts`):
    over the fake's handler map; `convexOpsProblems` over `artifacts/engine/convex/v2`, which turns strict as soon as
    `convex/v2/ops/` exists);
 3. the web app calls no v2 mutation or action except through `useAffordance` (`appProblems` over
-   `artifacts/player-web/src`: only the runtime file that builds `perform`, which names functions with `opPath` or
-   `VIEW_OP_PATH`, may call one);
+   `artifacts/player-web/src`: only the one runtime file that builds `perform`, named `affordance-runtime.ts(x)`, may
+   call one);
 4. for every context and caller, the assistant, MCP and the palette offer the same set;
 5. ids are `namespace.verb` and unique; text within limits; keywords present; destructive and spending affordances
    confirm; server writes take an optional `requestId` (idempotent retries); schemas convert to JSON Schema.
@@ -116,7 +116,8 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 - The app's root renders `<AffordanceProvider runtime={{ context, perform }}>` (`@workspace/v2-affordances/react`),
   with `runtime` memoised per context. `context` is built from the page's subscriptions: the page's context (room,
   phase, replay), the principal (signed in, member, seated, owner, admin), `room` facts (players, minimum) and the
-  game's cold facts (energy, pause used, agents). `perform(id, args)` is the one place the app calls Convex. For a
+  game's cold facts (energy, pause used, agents). `perform(id, args)`, in the app's one `affordance-runtime.ts`, is the
+  one place the app calls Convex. For a
   server affordance it calls `opPath(id).public` with `opKind(affordance)` (`convex.query` / `mutation` / `action`) and
   `{args, roomId, gameId, replay}`, reading a thrown failure with `outcomeOf`. For a view operation it applies
   `applyView` to the local view state for an instant answer and calls `VIEW_OP_PATH.public` so the other clients follow.
@@ -127,7 +128,9 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
   with `needsInput` opens a form from the params (or hands off to the assistant). A **read** affordance's row opens
   the pane that subscribes to that data (R7: the app makes no one-off reads); the read itself is for models and the CLI.
 - View state (`ViewState`: open panes, representation pins, object sort and filter, focused object and the
-  representations it compares, glossary, replay cursor) lives in the human's `v2Layouts` row. `pinnedRep(view,
+  representations it compares, where none means every representation the rule depends on, glossary, replay cursor:
+  an event number, or a world time plus events after it, which the replay pane resolves) lives in the human's
+  `v2Layouts` row. A view operation that changes nothing keeps the version and is not written. `pinnedRep(view,
   family, default)` is the representation a compact face draws. Pins are never kept in localStorage.
 
 ## 5. The directory (generated; `pnpm --filter @workspace/v2-affordances gen:doc`)

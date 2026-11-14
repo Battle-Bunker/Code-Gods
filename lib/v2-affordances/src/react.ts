@@ -20,7 +20,7 @@ export interface AffordanceRuntime {
 export class AffordanceError extends Error {
   readonly code: OpError["code"];
   readonly fix?: string;
-  constructor(e: OpError) { super(e.message); this.code = e.code; if (e.fix) this.fix = e.fix; }
+  constructor(e: OpError) { super(e.message); this.name = "AffordanceError"; this.code = e.code; if (e.fix) this.fix = e.fix; }
 }
 
 export interface AffordanceHandle<Id extends AffordanceId> {

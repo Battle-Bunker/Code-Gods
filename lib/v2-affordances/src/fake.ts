@@ -310,22 +310,24 @@ export function createFake(state: FakeState = emptyState()) {
     state, receipts,
     addUser(userId: string, name: string, admin = false) { state.users[userId] = { name, ...(admin ? { admin } : {}) }; },
     contextFor: (userId: string | null, roomId: string | null = null, gameId: string | null = null, grant?: Grant) => contextFor(state, userId, roomId, gameId, { grant }),
-    async perform(who: { userId: string; roomId?: string | null; gameId?: string | null; grant?: Grant; via?: Via }, id: string, args: unknown): Promise<OpOutcome> {
+    /** `replay`: the caller is watching a replay of `gameId` (the app's replay route; a server reads it from the scope). */
+    async perform(who: { userId: string; roomId?: string | null; gameId?: string | null; grant?: Grant; via?: Via; replay?: boolean }, id: string, args: unknown): Promise<OpOutcome> {
       if (!isAffordanceId(id)) return { ok: false, error: { code: "unknown", message: `Unknown affordance: ${id}` } };
       const a = AFFORDANCES[id];
       const roomId = who.roomId ?? null, gameId = who.gameId ?? null;
       if (a.runs === "client") {
         // A view operation changes the human's stored view, as `defineViewOps` does on the server.
         const key = `${who.userId}|${roomId ?? ""}`;
-        const { outcome, view } = applyView(state.views[key] ?? EMPTY_VIEW, id, args, contextFor(state, who.userId, roomId, gameId, { grant: who.grant }), who.via ?? "app");
-        if (outcome.ok) state.views[key] = view;
+        const ctx = contextFor(state, who.userId, roomId, gameId, { grant: who.grant, replay: who.replay });
+        const { outcome, view, changed } = applyView(state.views[key] ?? EMPTY_VIEW, id, args, ctx, who.via ?? "app");
+        if (changed) state.views[key] = view;
         return outcome;
       }
       const handler = FAKE_HANDLERS[id as Extract<AffordanceId, keyof typeof FAKE_HANDLERS>];
       // A transaction, as a Convex mutation is: a failure leaves the world as it was.
       const before = structuredClone(state);
       const out = await runOp(a, handler as never, args, {
-        ctx: contextFor(state, who.userId, roomId, gameId, { grant: who.grant }), via: who.via ?? "app",
+        ctx: contextFor(state, who.userId, roomId, gameId, { grant: who.grant, replay: who.replay }), via: who.via ?? "app",
         callerKey: who.userId, receipts, env: { state, userId: who.userId, roomId, gameId, grant: who.grant },
       });
       if (!out.ok) Object.assign(state, before);

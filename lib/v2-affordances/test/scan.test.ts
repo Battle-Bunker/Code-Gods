@@ -39,12 +39,17 @@ test("check 3 names hooks and direct calls, and allows the one runtime file", ()
   const root = mkdtempSync(join(tmpdir(), "v2app-"));
   writeFileSync(join(root, "button.tsx"), 'const end = useMutation(api.v2.ops.game.end);\nconst go = useAction(makeFunctionReference("v2/ops/agent:summon"));\nconst q = useQuery(api.v2.play.me, {});\n');
   writeFileSync(join(root, "sneaky.ts"), 'await convex.mutation(api.v2.ops.game.end, {});\nconst r = makeFunctionReference(`v2/ops/agent:summon`);\n');
-  writeFileSync(join(root, "runtime.ts"), 'const p = opPath(id).public;\nawait convex.mutation(makeFunctionReference(`v2/${p}`), x);\n');
+  writeFileSync(join(root, "affordance-runtime.ts"), 'const p = opPath(id).public;\nawait convex.mutation(makeFunctionReference(`v2/${p}`), x);\n');
+  writeFileSync(join(root, "label.ts"), 'const label = opPath(id).public;\nawait convex.mutation(api.v2.ops.game.end, {});\n');
   assert.deepEqual(appProblems(root).sort(), [
     "check 3: button.tsx calls a v2 mutation or action with a hook; use useAffordance",
     "check 3: button.tsx calls a v2 mutation or action with a hook; use useAffordance",
+    "check 3: label.ts calls a v2 mutation or action directly; use useAffordance",
     "check 3: sneaky.ts calls a v2 mutation or action directly; use useAffordance",
   ]);
   writeFileSync(join(root, "ref.ts"), 'export const ref = makeFunctionReference("v2/ops/game:end");\n');
   assert.ok(appProblems(root).includes("check 3: ref.ts names a v2 function outside the affordance runtime"));
+  mkdirSync(join(root, "other"));
+  writeFileSync(join(root, "other", "affordance-runtime.tsx"), "");
+  assert.ok(appProblems(root).includes("check 3: more than one affordance runtime: affordance-runtime.ts, other/affordance-runtime.tsx"));
 });

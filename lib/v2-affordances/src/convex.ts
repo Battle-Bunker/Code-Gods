@@ -107,8 +107,8 @@ export function defineViewOps<DM extends GenericDataModel>(host: ViewHost<DM>) {
   const run = async (ctx: GenericMutationCtx<DM>, who: { session: true } | { delegate: Delegate }, input: OpScope & { id: string; args: unknown }) => {
     const { id, args, ...scope } = input;
     const caller = await host.resolve(ctx, who, scope);
-    const { outcome, view } = applyView(await host.loadView(ctx, caller, scope), id, args, caller.ctx, "delegate" in who ? who.delegate.via : "app");
-    if (outcome.ok) await host.saveView(ctx, caller, scope, view);
+    const { outcome, view, changed } = applyView(await host.loadView(ctx, caller, scope), id, args, caller.ctx, "delegate" in who ? who.delegate.via : "app");
+    if (changed) await host.saveView(ctx, caller, scope, view);
     return outcome;
   };
   const args = { id: v.string(), args: v.any(), ...scopeArgs };

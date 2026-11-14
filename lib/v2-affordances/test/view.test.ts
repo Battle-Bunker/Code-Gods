@@ -25,6 +25,19 @@ test("representation pins and switching", () => {
   assert.deepEqual(v.focus, { objectId: "o1", reps: ["gen"] });
   assert.deepEqual(v.panes, [{ pane: "object", place: "main" }]);
   assert.equal(v.version, 4);
+  assert.equal(pinnedRep(v, "constructor", "si"), "cart", "only own pins count");
+  const same = applyView(v, "view.showRepresentation", { objectId: "o1", rep: "gen" }, live);
+  assert.deepEqual([same.changed, same.view.version, same.outcome], [false, 4, { ok: true, result: { ok: true, layoutVersion: 4 } }]);
+});
+
+test("opening an open pane keeps the order; opening another object shows its rule's representations", () => {
+  let v = { ...EMPTY_VIEW, panes: [{ pane: "object", place: "main" as const }, { pane: "agents", place: "left" as const }] };
+  v = applyView(v, "view.showRepresentation", { objectId: "o1", rep: "si" }, live).view;
+  assert.deepEqual(v.panes.map(p => p.pane), ["object", "agents"]);
+  v = applyView(v, "view.openPane", { pane: "object", place: "right" }, live).view;
+  assert.deepEqual(v.panes, [{ pane: "object", place: "right" }, { pane: "agents", place: "left" }]);
+  v = applyView(v, "view.openObject", { objectId: "o2" }, live).view;
+  assert.deepEqual(v.focus, { objectId: "o2", reps: [] });
 });
 
 test("replay controls move a cursor and refuse without a replay", () => {
@@ -35,7 +48,14 @@ test("replay controls move a cursor and refuse without a replay", () => {
   v = applyView(v, "replay.step", { by: 3 }, replay).view;
   v = applyView(v, "replay.step", { by: -10 }, replay).view;
   v = applyView(v, "replay.speed", { speed: 4 }, replay).view;
-  assert.deepEqual(v.replay, { gameId: "g1", seq: 0, worldSeconds: null, playing: false, speed: 4 });
+  assert.deepEqual(v.replay, { gameId: "g1", cursor: { seq: 0 }, playing: false, speed: 4 });
+  v = applyView(v, "replay.seek", { worldSeconds: 120 }, replay).view;
+  v = applyView(v, "replay.step", { by: 1 }, replay).view;
+  assert.deepEqual(v.replay!.cursor, { worldSeconds: 120, plus: 1 }, "a step after a seek by time moves on from that time");
+  assert.equal(applyView(v, "replay.seek", { seq: 3, worldSeconds: 1 }, replay).outcome.ok, false);
+  v = applyView(v, "view.closePane", { pane: "replay" }, replay).view;
+  assert.equal(v.replay, null);
+  assert.equal(applyView(v, "replay.play", {}, replay).outcome.ok, false, "no controls on a closed replay");
   assert.equal(applyView(v, "replay.speed", { speed: 3 }, replay).outcome.ok, false);
   assert.equal((applyView(v, "replay.play", {}, live).outcome as { ok: false; error: { message: string } }).error.message, "Not available while the game runs.");
 });
@@ -51,6 +71,10 @@ test("a remote assistant changes what the human sees; a read-only credential can
   assert.equal(f.state.views[`u2|${roomId}`]!.pins["*"], "cart");
   const readOnly = await f.perform({ userId: "u2", roomId, grant: "read", via: "mcp" }, "view.openPane", { pane: "agents" });
   assert.ok(!readOnly.ok && readOnly.error.code === "refused");
+  await f.perform({ userId: "u1", roomId }, "game.end", {});
+  const gameId = f.state.rooms[roomId]!.games[0]!;
+  assert.ok((await f.perform({ userId: "u2", roomId, via: "mcp" }, "replay.open", { gameId })).ok);
+  assert.ok((await f.perform({ userId: "u2", roomId, gameId, replay: true, via: "mcp" }, "replay.play", {})).ok, "an assistant drives the human's replay");
 });
 
 test("useAffordance's handle: availability, reason, confirmation, and run through perform", async () => {
@@ -65,6 +89,6 @@ test("useAffordance's handle: availability, reason, confirmation, and run throug
   assert.deepEqual([end.available, end.hidden, end.reason], [false, true, "Only the room owner can do this."]);
   const pause = affordanceHandle("game.pause", rt);
   assert.equal(pause.available, true);
-  await assert.rejects(pause.run({}), (e: unknown) => e instanceof AffordanceError && e.message === "Too dear." && e.code === "failed");
+  await assert.rejects(pause.run({}), (e: unknown) => e instanceof AffordanceError && e.message === "Too dear." && e.code === "failed" && e.name === "AffordanceError");
   assert.deepEqual(calls, [["game.pause", {}]]);
 });
