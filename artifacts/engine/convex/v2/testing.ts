@@ -228,3 +228,15 @@ export const program = internalQuery({
     return await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agentId).eq("version", version)).unique();
   },
 });
+
+/** A player's own value row of an object, as `v2/play:object` projects it (the disclosure test's reference). */
+export const valueOf = internalQuery({
+  args: { objectId: v.id("v2Objects"), userId: v.string() },
+  handler: async (ctx, { objectId, userId }) => {
+    fixtures();
+    const object = (await ctx.db.get(objectId))!, game = (await ctx.db.get(object.gameId))!;
+    const member = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!;
+    const v = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", member._id)).unique())!;
+    return { score: v.score, level: v.level, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version };
+  },
+});

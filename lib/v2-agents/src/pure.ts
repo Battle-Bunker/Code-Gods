@@ -6,3 +6,4 @@ export * from "./births.ts";
 export * from "./starters.ts";
 export * from "./summon.ts";
 export { CATALOGUE, LENSES, type FamilyEntry, type TieBreakerEntry, type Lens, type LensId } from "./catalogue.ts";
+export * from "./host.ts";
