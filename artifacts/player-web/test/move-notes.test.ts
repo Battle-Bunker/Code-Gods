@@ -28,3 +28,10 @@ test("the same words from two different agents are two notes; other players' mov
 test("a row without notes (an older replay file) shows none rather than failing the act log", () => {
   assert.deepEqual(noteLines([{ seq: 1, agentId: "a1" } as never, mv(2, ["hi"])]), new Map([[2, ["hi"]]]));
 });
+
+test("a tug-of-war note names its object, so the act log can offer to leave it alone (round 10)", async () => {
+  const { tugNoteNumber } = await import("../src/panes/move-notes.ts");
+  assert.equal(tugNoteNumber("Tug-of-war on line 7: another player keeps pulling it back. Make a deal with them; to keep your side, leave line 7 alone (Leave alone, in Agent code)."), 7);
+  assert.equal(tugNoteNumber("Tug-of-war on grid 12: another player keeps pulling it back. (said 3 times)"), 12);
+  assert.equal(tugNoteNumber("Climbing line 3."), null);
+});

@@ -8,7 +8,7 @@ import { readLeave, setLeave } from "@workspace/v2-agents/pure";
 import { failureText } from "@/site/components/action";
 import { editPrice, type Language } from "./forge-model";
 import { leaveLine, listWords, parseNumbers, missingLeave } from "./leave-alone";
-import { onForgeRequest, takeForgeRequest } from "./forge-request";
+import { askedRecently, onForgeRequest, takeForgeRequest } from "./forge-request";
 
 export function LeaveAlone({ agentId, name, language, source, one, many }: {
   agentId: string; name: string; language: Language; source: string; one: string; many: string;
@@ -28,11 +28,21 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
       if (!r) return;
       setText([...new Set([...(readLeave(source) ?? []), ...r.numbers])].sort((a, b) => a - b).join(", "));
       setSaid(null);
-      requestAnimationFrame(() => { box.current?.scrollIntoView({ block: "nearest" }); box.current?.querySelector("input")?.focus({ preventScroll: true }); });
+      const reveal = () => { box.current?.scrollIntoView({ block: "nearest" }); box.current?.querySelector("input")?.focus({ preventScroll: true }); };
+      requestAnimationFrame(reveal);
+      // Again once the palette's dialog has closed: it hands focus back to where it was (round 10: the control never got it).
+      for (const ms of [350, 800, 1500]) setTimeout(() => box.current?.querySelector("input")?.focus({ preventScroll: true }), ms);
     };
     take();
     return onForgeRequest(take);
   }, [source]);
+  // Mounted (or remounted by the dock) just after a request: focus the field, once the palette has let go of focus.
+  useEffect(() => {
+    if (!askedRecently("leave")) return;
+    const focus = () => box.current?.querySelector("input")?.focus({ preventScroll: true });
+    const timers = [100, 400, 800].map(ms => setTimeout(focus, ms));
+    return () => timers.forEach(clearTimeout);
+  }, []);
   if (op.hidden) return null;
   if (now === null) return <p ref={box as React.RefObject<HTMLParagraphElement>} className="border-t pt-2 text-xs text-muted-foreground" data-testid="leave-alone-missing">{missingLeave(name)}</p>;
   const parsed = parseNumbers(text, one);

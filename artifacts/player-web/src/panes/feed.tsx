@@ -10,7 +10,9 @@ import { num, timeLeft } from "@/core/words";
 import { useReplaying } from "@/core/affordance-runtime";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
-import { noteLines } from "./move-notes";
+import { noteLines, tugNoteNumber } from "./move-notes";
+import { requestForge } from "./forge-request";
+import { useOpenPane } from "@/dock/open-pane";
 import { logLine } from "./log-line";
 import { VirtualRows } from "@/components/virtual-rows";
 
@@ -59,7 +61,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
           <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
         </div>
       ) : <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>}
-      {notes?.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
+      {notes?.map(n => <AgentNote key={n} text={n} variant={variant} />)}
     </li>
   );
 }
@@ -67,9 +69,6 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
 /** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
 function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; variant: string; kinds: ReadonlyMap<string, string> }) {
   const anonymous = useContext(AnonymousContext);
-  // Live, the movers are unknown: whether anyone at the table reads chat is all the entry can say.
-  const me = useGame()?.me;
-  const othersBots = [...kinds.entries()].filter(([id]) => id !== me).every(([, k]) => k !== "human");
   const length = useGame()?.worldSeconds ?? null;
   // Its moves' notes show on the entry itself: the moves are folded away below.
   const notesBySeq = useContext(NotesContext);
@@ -77,8 +76,8 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
       <p className="text-xs text-muted-foreground tabular-nums">{timeLeft(tug.to, length)} · contested {objectWord(variant).one}</p>
-      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one, length, { anonymous, othersBots })}</p>
-      {tugNotes.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
+      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one, length, { anonymous })}</p>
+      {tugNotes.map(n => <AgentNote key={n} text={n} variant={variant} />)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
         <ol className="divide-y">{tug.moves.map(m => <MoveRow key={m.seq} move={m} names={names} variant={variant} />)}</ol>
@@ -124,6 +123,22 @@ function ConcernsFeed() {
       )}
       {moves.status === "LoadingMore" && <p className="border-t py-2 text-center text-xs text-muted-foreground">Loading earlier moves…</p>}
     </div>
+  );
+}
+
+/** An agent's note; a tug-of-war note offers to leave that object alone (round 10: it said "add N to LEAVE"). */
+function AgentNote({ text, variant }: { text: string; variant: string }) {
+  const header = useGame();
+  const replaying = useReplaying();
+  const openPane = useOpenPane(header?.phase ?? "live");
+  const n = tugNoteNumber(text);
+  const live = !replaying && header?.phase !== "ended";
+  return (
+    <p className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">
+      Your agent says: {text}
+      {n !== null && live && <> <button type="button" className="not-italic underline underline-offset-4" data-testid="button-note-leave"
+        onClick={() => void requestForge({ kind: "leave", numbers: [n] }, openPane)}>Leave {objectWord(variant).one} {n} alone</button></>}
+    </p>
   );
 }
 

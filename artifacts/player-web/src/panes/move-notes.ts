@@ -24,3 +24,9 @@ export function noteLines(moves: readonly NoteMove[]): Map<number, string[]> {
   }
   return out;
 }
+
+/** The object a starter's tug-of-war note is about (lib/v2-sandbox helpers `contested`), or null for any other note. */
+export function tugNoteNumber(note: string): number | null {
+  const m = /^Tug-of-war on (?:line|grid) (\d+):/.exec(note);
+  return m ? Number(m[1]) : null;
+}

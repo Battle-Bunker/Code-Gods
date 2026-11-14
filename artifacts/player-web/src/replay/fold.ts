@@ -28,7 +28,7 @@ interface ValueAt extends Snap { at: number }
 interface StateAt { at: number; state: string; changedAt: number }
 interface Timeline { objectId: string; number: number; bornAt: number; born: number; states: StateAt[]; values: Map<string, ValueAt[]> }
 interface Tick { at: number; standings: Standings; point: StandingsPoint }
-interface Command { at: number; kind: string; agentId: string; language?: string; version?: number; share?: number; shares?: Record<string, number>; worldSeconds: number }
+interface Command { at: number; kind: string; agentId: string; name?: string; language?: string; version?: number; share?: number; shares?: Record<string, number>; worldSeconds: number }
 type RawEvent = { seq: number; kind: string; data: Record<string, unknown> };
 type RawRule = { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; card: string; layers: string[]; contentHash: string; value?: MyRuleRow["value"] | null; handicap?: number | null };
 
@@ -164,7 +164,7 @@ export function indexReplay(file: unknown): ReplayIndex {
       }
       case "command": {
         push(ix.commands, String(d.memberId), {
-          at, kind: String(d.kind), agentId: String(d.agentId ?? ""), worldSeconds: world,
+          at, kind: String(d.kind), agentId: String(d.agentId ?? ""), worldSeconds: world, ...(typeof d.name === "string" ? { name: d.name } : {}),
           ...(typeof d.language === "string" ? { language: d.language } : {}), ...(typeof d.version === "number" ? { version: d.version } : {}),
           ...(typeof d.share === "number" ? { share: d.share } : {}), ...(d.shares ? { shares: d.shares as Record<string, number> } : {}),
         });
@@ -281,7 +281,7 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       for (const c of ix.commands.get(member) ?? []) {
         if (c.at > a) break;
         const agent = live.get(c.agentId);
-        if (c.kind === "summon") live.set(c.agentId, { agentId: c.agentId, name: `Agent ${++named}`, language: c.language ?? "typescript", version: c.version ?? 0, share: c.share ?? 0, createdAt: c.worldSeconds });
+        if (c.kind === "summon") { named += 1; live.set(c.agentId, { agentId: c.agentId, name: c.name ?? `Agent ${named}`, language: c.language ?? "typescript", version: c.version ?? 0, share: c.share ?? 0, createdAt: c.worldSeconds }); }
         else if (c.kind === "destroy") live.delete(c.agentId);
         else if (c.kind === "allocate") for (const [id, share] of Object.entries(c.shares ?? {})) { const x = live.get(id); if (x) x.share = share; }
         else if (agent) { agent.version = c.version ?? agent.version; agent.language = c.language ?? agent.language; }

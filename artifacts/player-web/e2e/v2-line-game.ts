@@ -158,6 +158,15 @@ try {
     console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();
+    if (label === "desktop") {
+      // The palette's "Leave lines alone" opens Agent code at the control, focused (round 10: it closed and did nothing).
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Leave lines alone");
+      await page.keyboard.press("Enter");
+      // No confirmation page: the row only opens the control (its Save prices the edit).
+      await page.getByTestId("input-leave-alone").waitFor({ state: "visible", timeout: 10_000 });
+      await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "input-leave-alone", null, { timeout: 5_000 });
+    }
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
@@ -251,7 +260,7 @@ try {
     assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
     // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |undefined|cannot/i, `the main part says where the number is: ${main}`);
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |undefined|cannot/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {

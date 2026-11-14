@@ -111,6 +111,9 @@ export function nouned(text: string, noun?: { one: string; many: string }): stri
   return text.replace(/\b([Aa])n ([Oo])bject\b/g, (_, a: string, o: string) => `${a} ${o === "O" ? cap(noun.one) : noun.one}`).replace(/\b([Oo])bject(s?)\b/g, (_, o: string, s: string) => (o === "O" ? cap : (w: string) => w)(s ? noun.many : noun.one));
 }
 
+/** Operations the palette answers by opening their control on the screen, not by running them. */
+const OPENS_CONTROL = new Set<AffordanceId>(["agent.leaveAlone"]);
+
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {
   const rows: Command[] = paletteFor(ctx).map(e => ({
@@ -118,7 +121,8 @@ export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Comm
     human: { title: nouned(e.title, host.noun), tooltip: nouned(e.tooltip, host.noun) },
     group: e.group,
     keywords: e.keywords,
-    confirm: e.confirm,
+    // A row that only opens the screen's own control confirms nothing: the control does (round 10: the palette asked first).
+    confirm: OPENS_CONTROL.has(e.id as AffordanceId) && host.panes ? "none" : e.confirm,
     performer: performerFor(e, host),
     available: () => e.availability,
   }));
