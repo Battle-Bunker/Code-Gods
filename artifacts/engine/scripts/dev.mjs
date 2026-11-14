@@ -34,6 +34,7 @@
  *   and DEV (a leftover DEV=1 turns test fixtures on behind TEST_FIXTURES' back; convex/auth/identity.ts fixturesOn)
  */
 import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
+import { convexRunner, uploadRuntime } from "./upload-runtime.mjs";
 import { spawnSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
@@ -126,6 +127,9 @@ const watch = (stream, out) => stream.on("data", chunk => {
     // 5. A local deployment migrates its stored rows as every deploy does (CLAUDE.md "Schema migrations").
     runConvex("migrations:runAll").then(() => console.log("[dev] Started the schema migrations (migrations:status)."))
       .catch(error => console.error(`[dev] starting the schema migrations failed: ${error.message}`))
+      // 6. The Python runtime bundle for v2 agents (built first if missing; skipped when already uploaded).
+      .then(() => uploadRuntime(convexRunner([], root, env), { log: m => console.log(`[dev] ${m}`) }))
+      .catch(error => console.error(`[dev] uploading the runtime bundle failed: ${error.message}`))
       .finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
   }
 });

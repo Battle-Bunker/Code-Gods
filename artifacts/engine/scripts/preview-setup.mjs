@@ -132,6 +132,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const sha = (process.env.PREVIEW_SHA ?? process.env.GITHUB_SHA ?? "preview").slice(0, 12);
   run("npx", ["convex", "run", "version:record", JSON.stringify({ site: "functions", build: sha })], "version:record");
   run("node", ["scripts/run-migrations.mjs"], "schema migrations");
+  run("node", ["scripts/upload-runtime.mjs"], "upload-runtime (Python bundle for v2 agents)");
 
   step("Static site");
   run("node", ["scripts/deploy-static.mjs", ...(process.env.PREVIEW_STATIC_ARGS ? process.env.PREVIEW_STATIC_ARGS.split(" ") : [])], "deploy-static",
