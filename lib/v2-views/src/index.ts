@@ -5,3 +5,4 @@ export * from "./improve.ts";
 export * from "./scene.ts";
 export * from "./rep-view.tsx";
 export * from "./render/register.ts";
+export * from "./faces.tsx";

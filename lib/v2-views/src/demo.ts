@@ -6,13 +6,14 @@
 import { Qn, q, ref, type EvalContext, type Q, type RuleFamily, type Rung } from "@workspace/v2-core";
 import { distanceLadder, isPrime, nearbyPrimes, type LineState } from "@workspace/v2-linear";
 import type { PartLadders } from "./annotate.ts";
+import { fmtQ } from "./format.ts";
 
 const Q_STEPS = [q(8), q(4), q(2), q(1), q(1, 2), q(1, 4), q(1, 8), q(0)];
 const PRIME_STEPS = [q(3), q(2), q(1), q(0)];
 
 const steps = (ds: readonly Q[], near: string, exact: string): readonly Rung[] => [
   { score: null, label: "anything" },
-  ...ds.map(d => ({ score: [Qn.neg(d)], label: Qn.isZero(d) ? exact : `${near} ${Qn.toWire(d)}` })),
+  ...ds.map(d => ({ score: [Qn.neg(d)], label: Qn.isZero(d) ? exact : `${near} ${fmtQ(d)}` })),
 ];
 
 /** The nearest whole minute at or after the first: 1 below 1, else the nearer integer, ties to the smaller. */
@@ -51,7 +52,7 @@ export const emptyTank: RuleFamily<LineState, Record<string, never>> & PartLadde
     ctx.read(tick);
     ctx.term("gap", `gap between the emptying time and minute ${N}`, Qn.abs(Qn.sub(T, q(N))), [xRef]);
     const P = nearbyPrimes(q(N))[0]!;
-    ctx.term("pgap", isPrime(N) ? `${N} is a prime: gap` : `gap between minute ${N} and the prime ${P}`, Qn.abs(q(N - P)), [xRef]);
+    ctx.term("pgap", isPrime(N) ? `distance from minute ${N} to a prime (${N} is one)` : `distance from minute ${N} to the prime ${P}`, Qn.abs(q(N - P)), [xRef]);
     ctx.score([{ term: "gap", sense: "min" }, { term: "pgap", sense: "min" }]);
     ctx.mark({ kind: "focus", ref: xRef });
     ctx.mark({ kind: "candidate", ref: tick, term: "gap" });
