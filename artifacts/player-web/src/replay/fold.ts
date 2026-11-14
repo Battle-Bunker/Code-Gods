@@ -3,7 +3,7 @@
  * convex/v2/replays.ts: the header, every player's rule, every `v2Events` event) is folded once into an index of each
  * line's states and values, each player's moves, scoreboards and agents, each keyed by the number of events applied;
  * `frameAt(index, applied)` answers what the SDK hooks answer live (sdk/hooks.ts), as the game stood after that many
- * events. Nothing is recomputed but what the record leaves out: want and points from the ✨ rarities (spec §8), the act
+ * events. Nothing is recomputed but what the record leaves out: want and points from the rarities in bits (spec §8), the act
  * log's rows from an act and its values (as the tick writes `v2Moves`), the names of agents.
  *
  * After the end nothing is private, so every player's rule, values and moves are here, and a frame answers for any
@@ -123,7 +123,7 @@ export function indexReplay(file: unknown): ReplayIndex {
         const t = ix.byId.get(String(d.objectId));
         if (!t) break;
         const own = (d.values ?? []) as { memberId: string; score: Score; level: number; rarityBits: number }[];
-        // Points from bits (spec §8, engine world.ts valuesOf): own ✨ rarity × the others' sum, summed in seat order.
+        // Points from bits (spec §8, engine world.ts valuesOf): own rarity in bits × the others' sum, summed in seat order.
         const total = own.reduce((s, v) => s + v.rarityBits, 0);
         const act = pending && pending.objectId === t.objectId ? pending : null;
         pending = null;

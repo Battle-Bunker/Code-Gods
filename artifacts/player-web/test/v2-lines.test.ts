@@ -9,14 +9,14 @@ import { lineType, type LineState } from "@workspace/v2-linear";
 import { activeOp, compareOp, digestScale, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
 import { workedExample } from "../src/panes/worked-example.ts";
 
-test("every order the human can pick pages by a server sort; a step up is a higher ✨ rarity", () => {
+test("every order the human can pick pages by a server sort; a step up is a rarer line", () => {
   // Catches: "level" sent to the server, which has no such index (the pane would throw on its first page).
   assert.equal(serverSort("points"), "points");
   assert.equal(serverSort("level"), "rarity");
   assert.equal(serverSort("recent"), "recent");
   assert.equal(serverSort(undefined), "points");
   for (const s of SORTS) assert.ok(["points", "rarity", "recent"].includes(serverSort(s.sort)));
-  assert.ok(SORTS.every(s => !/bits|payoff|object/i.test(s.label)));
+  assert.ok(SORTS.every(s => !/payoff|object/i.test(s.label)));
 });
 
 test("payoff rectangle: one scale for both sides from the digest, so the area is the points", () => {
@@ -39,12 +39,17 @@ test("payoff rectangle: one scale for both sides from the digest, so the area is
   assert.deepEqual(payoffRect({ rarity: 2, want: 3 }, digestScale(undefined), 40), { kind: "none", width: 0, height: 0 });
 });
 
-test("Why?: the formula in the house words with the line's numbers, then the main part or why it does not score", () => {
-  const v = { rarity: 3.4, want: 2, points: 6.8 };
+test("Why?: the line's score as yours × others' = points, then the main part or why it does not score", () => {
+  const v = { rarity: 3.4, want: 2 };
   assert.equal(whyLine(v, { sentence: "Distance from the gradient to the nearest prime: 1" }),
-    "your ✨ rarity 3.4 × how much the others want it 2.0 = your points 6.8. Main part: Distance from the gradient to the nearest prime: 1.");
+    "your 3.40 bits × others' 2.00 bits = 6.80 points. Main part: Distance from the gradient to the nearest prime: 1.");
   assert.match(whyLine(v, { worst: "the line and the axes make no triangle" }), /This line does not score for your rule: the line and the axes make no triangle\.$/);
-  assert.doesNotMatch(whyLine(v, {}), /bits|payoff|object/);
+  assert.doesNotMatch(whyLine(v, {}), /payoff|object/);
+});
+
+test("Why?: a line only you care about says it scores nothing until someone else finds it rare", () => {
+  assert.equal(whyLine({ rarity: 4.24, want: 0 }, {}),
+    "your 4.24 bits × others' 0.00 bits = 0.00 points. Only you care about this line, so it scores nothing yet: it needs someone else to find it rare too.");
 });
 
 test("the goal card names a rule's parts in plain words (main part, tie-breaker)", () => {

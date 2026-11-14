@@ -14,7 +14,7 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { evaluateObject, levelOf, objectLadder, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
 import { fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
-import { annotate, CompactFace, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
+import { annotate, fmtBits as bitsText, CompactFace, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 
@@ -61,7 +61,7 @@ const examplesOf = (f: Family) => {
   return { params, lines: c?.lines ?? autoLines(f, params) };
 };
 
-/** Made-up ✨ rarities per step for the storyboard rule (real ones come from the rule's calibration artefact). */
+/** Made-up rarities (bits) per step for the storyboard rule (real ones come from the rule's calibration artefact). */
 const TANK_RARITIES = [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8];
 const raritiesOf = (f: Family) => (f === emptyTank ? TANK_RARITIES : undefined);
 
@@ -83,7 +83,7 @@ function Storyboards() {
   return (
     <section className="g-section" id="story" data-section="story">
       <h2>Storyboards: a line under a two-part beginner rule</h2>
-      <p className="g-note">Empty Tank is the plan's illustration (§3.4), not a dealt rule; its ✨ rarities and points are made up.</p>
+      <p className="g-note">Empty Tank is the plan's illustration (§3.4), not a dealt rule; its rarities and points are made up.</p>
       <h3>On the goal card</h3>
       <GoalCard rule={rule} example={line} rarities={TANK_RARITIES} />
       <h3>In the Objects list (a row)</h3>
@@ -91,15 +91,15 @@ function Storyboards() {
         <CompactFace rule={rule} state={line} annotation={a} next />
         <div className="g-objrow-text">
           <ObjectChip type={lineType} state={line} />
-          <div>{levelText(a)} · ✨ rarity {a.rarity?.toFixed(1)}</div>
-          <div className="g-note">width your ✨ rarity, height how much the others want it, area your points (12.1)</div>
+          <div>{levelText(a)} · {a.rarity === null ? "" : bitsText(a.rarity)}</div>
+          <div className="g-note">width your bits, height the others' bits, area your points</div>
         </div>
       </div>
       <div className="g-objrow">
         <CompactFace rule={rule} state={mc(2, -6)} />
         <div className="g-objrow-text">
           <ObjectChip type={lineType} state={mc(2, -6)} />
-          <div>{annotate(rule, mc(2, -6)).worst} · ✨ 0 · not scoring</div>
+          <div>{annotate(rule, mc(2, -6)).worst} · 0.00 bits · not scoring</div>
         </div>
       </div>
       <h3>In the act log</h3>

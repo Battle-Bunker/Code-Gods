@@ -2,12 +2,12 @@
  * Lines (the `objects` pane): which lines earn you points, and why. A virtualised list over the skeleton of ids in the
  * human's order (`v2/play:objectIds`, page by page as the end comes into view), each visible row its own subscription
  * to its line (`v2/play:object`), dropped when it scrolls away (docs/convex-read-architecture.md R1). A row: the line
- * drawn in your rule's main view (or the representation pinned for the family) with its marks, your ✨ rarity and points,
- * the points rectangle (width = your ✨ rarity, height = how much the others want it, area = your points: ux-lessons 2.8)
+ * drawn in your rule's main view (or the representation pinned for the family) with its marks, your bits (rarity) and points,
+ * the points rectangle (width = your bits, height = the others' bits added together, area = your points: ux-lessons 2.8)
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { one, productSign } from "@/core/words";
+import { bitsText, num, pointsText, scoreFormula } from "@/core/words";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -18,24 +18,24 @@ import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { usePaneOps } from "@/dock/open-pane";
 import { VirtualRows } from "@/components/virtual-rows";
+import { BitsHelp } from "@/core/score-help";
 import { listMaxHeight } from "@/lib/virtual-window";
-import { pointsText, rarityText } from "@/core/words";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { digestScale, payoffRect, serverSort, SORTS, whyLine, widen, type PayoffScale } from "./lines";
 
 /** The rectangle's box: the side the largest value fills, and room for its two edge labels. */
-const SIDE = 44, LABEL_W = 34, LABEL_H = 13;
+const SIDE = 44, LABEL_W = 42, LABEL_H = 13;
 const YOURS = "#1f6f8b", OTHERS = "#b8336a", AREA = "rgba(217, 150, 30, 0.55)";
 /** A row: the compact face (160 × 100 and its foot) beside the numbers. */
 const ROW_H = 214, SPECTATOR_ROW_H = 36;
 
 
-function PointsRectangle({ number, rarity, want, points, scale }: { number: number; rarity: number; want: number; points: number; scale: PayoffScale }) {
+function PointsRectangle({ number, rarity, want, scale }: { number: number; rarity: number; want: number; scale: PayoffScale }) {
   const g = payoffRect({ rarity, want }, scale, SIDE);
-  const title = `your ✨ rarity ${one(rarity)} × how much the others want it ${one(want)} ${productSign(rarity, want, points)} your points ${one(points)}`;
+  const title = scoreFormula(rarity, want);
   const top = SIDE - g.height;
-  const wText = one(rarity), hText = one(want);
+  const wText = num(rarity), hText = num(want);
   return (
     <svg width={SIDE + LABEL_W} height={SIDE + LABEL_H} viewBox={`0 0 ${SIDE + LABEL_W} ${SIDE + LABEL_H}`} className="shrink-0 overflow-visible"
       role="img" aria-label={title} data-testid={`points-rect-line-${number}`} data-kind={g.kind} data-width={g.width.toFixed(2)} data-height={g.height.toFixed(2)}>
@@ -54,9 +54,10 @@ function PointsKey() {
   const swatch = (c: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: c }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground" data-testid="text-points-key">
-      <span className="inline-flex items-center gap-1">{swatch(YOURS)}width: <span style={{ color: YOURS }}>your ✨ rarity</span></span>
-      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>how much the others want it</span></span>
+      <span className="inline-flex items-center gap-1">{swatch(YOURS)}width: <span style={{ color: YOURS }}>your bits</span></span>
+      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
       <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
+      <BitsHelp testId="button-bits-help-lines" />
     </p>
   );
 }
@@ -102,12 +103,12 @@ function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpe
         <span className="font-semibold">Line {number}</span>
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">contested</span>}
-        {v && <span data-testid={`text-points-line-${number}`}>{rarityText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
+        {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
       </p>
-      {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} points={v.points} scale={widen(scale, v.rarityBits, v.want)} />}
+      {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} />}
       {v && (
         <p className="line-clamp-5 text-muted-foreground" data-testid={`text-why-line-${number}`}>
-          <span className="font-medium text-foreground">Why? </span>{whyLine({ rarity: v.rarityBits, want: v.want, points: v.points }, { sentence: main?.sentence, worst: a?.worst })}
+          <span className="font-medium text-foreground">Why? </span>{whyLine({ rarity: v.rarityBits, want: v.want }, { sentence: main?.sentence, worst: a?.worst })}
         </p>
       )}
     </div>
@@ -142,7 +143,7 @@ function SeatedLines() {
     return (
       <p className="p-4 text-sm text-muted-foreground" data-testid="lines-empty">
         When the world starts, its lines appear here, best for you first: each drawn the way your rule reads it, with a rectangle whose width is
-        your ✨ rarity for it and whose height is how much the others want it, so its area is your points.
+        your bits for it and whose height is the others' bits added together, so its area is your points.
       </p>
     );
   }

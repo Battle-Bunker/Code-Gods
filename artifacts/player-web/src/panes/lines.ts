@@ -1,10 +1,10 @@
 /**
  * The Lines and One line panes' pure parts (unit-tested): the sort the server answers for the human's chosen order, the
  * payoff rectangle's geometry, the row's "Why?" sentence, and how the expanded face's switcher maps to the human's
- * view state (`focus.reps`) and back to view operations. Player words only (ux-lessons 2.1, 2.8): points, ✨ rarity,
- * "how much the others want it", the noun "line".
+ * view state (`focus.reps`) and back to view operations. Player words only (ux-lessons 2.1, 2.8): points, your bits
+ * (rarity), the others' bits added together, the noun "line".
  */
-import { one, productSign } from "../core/words.ts";
+import { onlyYouNote, scoreFormula } from "../core/words.ts";
 import type { ViewState } from "@workspace/v2-affordances";
 
 // ------------------------------------------------------------------ sort
@@ -12,7 +12,7 @@ import type { ViewState } from "@workspace/v2-affordances";
 export type ViewSort = ViewState["objects"]["sort"];
 export type ServerSort = "points" | "rarity" | "recent";
 
-/** The human's order (view.sortObjects) as the index the server pages by: a higher step is a higher ✨ rarity. */
+/** The human's order (view.sortObjects) as the index the server pages by: a higher step is a rarer line (more bits). */
 export function serverSort(sort: ViewSort | undefined): ServerSort {
   switch (sort) {
     case "level": return "rarity";
@@ -23,14 +23,14 @@ export function serverSort(sort: ViewSort | undefined): ServerSort {
 
 export const SORTS: readonly { sort: ViewSort; label: string }[] = [
   { sort: "points", label: "your points" },
-  { sort: "level", label: "your ✨ rarity" },
+  { sort: "level", label: "your bits (rarity)" },
   { sort: "recent", label: "recently changed" },
 ];
 
 // ------------------------------------------------------------------ payoff rectangle
 
 /**
- * One line's points drawn as a rectangle: width = your ✨ rarity, height = how much the others want it, on ONE linear
+ * One line's points drawn as a rectangle: width = your bits, height = the others' bits added together, on ONE linear
  * scale for both axes, so equal values make a square and the area is your points. The scale is the largest value of
  * either among every line of the game (the viewer's digest, written by the tick), so it holds still as rows scroll.
  * A non-zero side keeps at least MIN_PX so a tiny value stays visible (the labels carry the exact values).
@@ -68,13 +68,14 @@ export function payoffRect(row: { rarity: number; want: number }, scale: PayoffS
 
 
 /**
- * The row's "Why?": the formula in the house words with this line's numbers, then what the main part of the rule read
- * (or why the line does not score). "your ✨ rarity 3.4 × how much the others want it 2.0 = your points 6.8".
+ * The row's "Why?": the line's score in the one formula ("your 3.40 bits × others' 2.00 bits = 6.80 points"), why it
+ * scores nothing when only you care, then what the main part of the rule read (or why the line does not score).
  */
-export function whyLine(v: { rarity: number; want: number; points: number }, main: { sentence?: string; worst?: string | null }): string {
-  const formula = `your ✨ rarity ${one(v.rarity)} × how much the others want it ${one(v.want)} ${productSign(v.rarity, v.want, v.points)} your points ${one(v.points)}`;
-  if (main.worst) return `${formula}. This line does not score for your rule: ${main.worst}.`;
-  return main.sentence ? `${formula}. Main part: ${main.sentence.replace(/\.$/, "")}.` : `${formula}.`;
+export function whyLine(v: { rarity: number; want: number }, main: { sentence?: string; worst?: string | null }): string {
+  const only = onlyYouNote(v.rarity, v.want);
+  const head = `${scoreFormula(v.rarity, v.want)}.${only ? ` ${only}` : ""}`;
+  if (main.worst) return `${head} This line does not score for your rule: ${main.worst}.`;
+  return main.sentence ? `${head} Main part: ${main.sentence.replace(/\.$/, "")}.` : head;
 }
 
 // ------------------------------------------------------------------ the goal card's parts

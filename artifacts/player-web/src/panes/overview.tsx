@@ -5,7 +5,8 @@
 import { summonFirst } from "@/panes/first-summon";
 import { useAgentCount, useGame, useGameScope, useLeaderboard, useMe } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
-import { ordinal, pointsText, powerText } from "@/core/words";
+import { isTied, ordinal, pointsText, powerText, SCORE_SENTENCE, TIE_NOTE, totalNote, TOTAL_NOTE } from "@/core/words";
+import { BitsHelp, LineByLine, TiedMark } from "@/core/score-help";
 
 export function OverviewPane() {
   const header = useGame();
@@ -31,16 +32,22 @@ export function OverviewPane() {
       {seated && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           <dt className="text-muted-foreground">Your points now</dt>
-          <dd data-testid="text-overview-points">{pointsText(mine?.net ?? 0)}{mine && standings ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}</dd>
+          <dd data-testid="text-overview-points">
+            {pointsText(mine?.net ?? 0)}{mine && standings ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
+            {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-overview-tied" /> <span className="text-xs text-muted-foreground">{TIE_NOTE}</span></>}
+          </dd>
           {me && <><dt className="text-muted-foreground">Your power</dt><dd>{powerText(me.power)}</dd></>}
         </dl>
       )}
       {seated && (
-        <p className="text-muted-foreground" data-testid="text-points-explained">
-          Every line already gives everyone some points: on each line, yours are your ✨ rarity (how rarely a random line scores as well on your
-          rule) times how much the others want it. Your points now are those added up over every line, not only the lines
-          your agent moved. Your agent's job is to raise them.
-        </p>
+        <div className="space-y-2" data-testid="text-points-explained">
+          <p>{SCORE_SENTENCE}</p>
+          <p className="text-muted-foreground">
+            {totalNote(TOTAL_NOTE, (mine?.handicap ?? 0) > 0)} Every line counts, not only the lines your agent moved, so you can have points before you do anything. Rarity is
+            counted in bits <BitsHelp testId="button-bits-help-overview" />. Your agent's job is to raise your total.
+          </p>
+          <LineByLine testId="button-line-by-line-overview" className="border border-border px-3 py-1.5 text-sm hover:bg-muted" />
+        </div>
       )}
     </div>
   );

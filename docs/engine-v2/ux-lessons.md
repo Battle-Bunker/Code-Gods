@@ -38,6 +38,11 @@ ever reached a scoring move or the end of a game.
 1. One word per quantity, everywhere: **points** (the total and each object's share), **✨ rarity** (how rare a rule
    score is), **⚡ energy** (what summons and acts cost), **power** (energy earned per second). Never "bits" or "payoff"
    in player-facing text ("600 bits", "64 bits/s" meant nothing; "bits" stays in engine docs only).
+   *Superseded for rarity by the owner (14 November, the scoring comprehension fix):* rarity is shown in **bits**, with
+   "each bit = twice as rare" on hover and on tap, and the ladder adds "1 in N by chance" (N = 2^bits). Every measure
+   (bits, energy, points) reads with 2 decimal places from one formatter (`artifacts/player-web/src/core/words.ts`, on
+   v2-views' `fmtNum`), and a line's score is always written "your 4.24 bits × others' 12.03 bits = 51.01 points"
+   (the product of the full values; "≈" when the shown factors do not multiply to it).
 2. Each move of the player's own agent gets one line that says the cell changed, the rule score before → after, the ✨
    rarity before → after **with its reason** ("fewer random grids score this well"), and this object's points before →
    after, with how much the others want it. When that want changed, both values are shown ("2.4 (was 3.2)"): two

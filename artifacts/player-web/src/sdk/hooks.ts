@@ -52,7 +52,7 @@ export interface MyRule {
   row: MyRuleRow;
   /** What the view components draw with; null when this build does not know the family. */
   rule: LineRule | null;
-  /** ✨ rarity per level of the dealt ladder. */
+  /** rarity in bits per level of the dealt ladder. */
   rarities: number[];
 }
 /** The viewer's private rule: family, parameters, card, ladder with rung rarities, the primary representation. */

@@ -1,15 +1,15 @@
 /**
  * The object faces (integration plan §3.3): the compact face (the rule's primary representation, its marks, the step and
- * ✨ rarity), the parts list, the ladder ("steps to the top"), the representation switcher and the expanded face (every
+ * rarity in bits), the parts list, the ladder ("steps to the top"), the representation switcher and the expanded face (every
  * representation the rule depends on, side by side on a wide card and as tabs on a narrow one, cross-highlighted by
  * meaning; the parts, the worked computation, the ladder and the nearest improvement).
  *
- * Player words only: points, ✨ rarity, ⚡ energy, "main part", "tie-breaker", "step n of N", the noun "line".
+ * Player words only: points, rarity in bits (each bit = twice as rare), ⚡ energy, "main part", "tie-breaker", "step n of N", the noun "line".
  */
 import { useMemo, useState, type ReactElement } from "react";
 import { elementValue, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
-import { fmtQ, fmtRarity, fmtValue, isUndef } from "./format.ts";
+import { BITS_HELP, chanceText, fmtBits, fmtQ, fmtValue, isUndef } from "./format.ts";
 import { nearestImprovement, type Improvement } from "./improve.ts";
 import { markRefs } from "./refs.ts";
 import { labelOf, ObjectChip, RepView } from "./rep-view.tsx";
@@ -39,7 +39,7 @@ export interface CompactFaceProps<S, P> {
   readonly next?: boolean | Improvement | null;
 }
 
-/** The rule's primary representation at 160 × 100 with its marks, and "✨ 3.4 · step 5 of 8" beneath. */
+/** The rule's primary representation at 160 × 100 with its marks, and "3.40 bits · step 5 of 8" beneath. */
 export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const a = props.annotation ?? annotate(props.rule, props.state);
   const site = props.site ?? 0;
@@ -56,7 +56,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
       <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms}
         before={props.before} next={imp ? (imp.result as S) : undefined} />
       <div className="v2v-face-foot">
-        {a.rarity !== null && <span className="v2v-rarity">{fmtRarity(a.rarity)}</span>}
+        {a.rarity !== null && <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(a.rarity)}</span>}
         <span className="v2v-step" data-worst={a.score === null ? "" : undefined} title={a.worst ?? ladderHelp}>{levelText(a)}</span>
       </div>
       {a.worst ? <div className="v2v-face-why">{a.worst}</div> : <div className="v2v-face-why" title={parts[0]?.sentence}>{mainLine(props.rule, props.state, a, site)}</div>}
@@ -144,11 +144,14 @@ export interface LadderViewProps {
   readonly annotation: Annotation;
   /** Folded under its title (the expanded face on a phone is long); open when undefined. */
   readonly open?: boolean;
-  /** ✨ rarity per rung (index = level), when the rule's artefact is known. */
+  /** Rarity in bits per rung (index = level), when the rule's artefact is known. */
   readonly rarities?: readonly number[];
 }
 
-/** "Steps to the top": every rung of the rule's ladder, the one reached marked, with ✨ rarity per step when known. */
+/**
+ * "Steps to the top": every rung of the rule's ladder, the one reached marked, with its rarity in bits and its chance
+ * ("1 in 1.2 million by chance", 2^bits) per step when known.
+ */
 export function LadderView({ annotation: a, rarities, open }: LadderViewProps): ReactElement {
   const rungs = a.ladder.slice(1).map((r, i) => ({ level: i + 1, label: r.label })).reverse();
   return (
@@ -159,12 +162,17 @@ export function LadderView({ annotation: a, rarities, open }: LadderViewProps): 
           <li key={r.level} data-reached={r.level <= a.level ? "" : undefined} data-here={r.level === a.level ? "" : undefined}>
             <span className="v2v-ladder-n">{r.level}</span>
             <span className="v2v-ladder-label">{r.label}</span>
-            {rarities?.[r.level] !== undefined && <span className="v2v-rarity">{fmtRarity(rarities[r.level]!)}</span>}
             {r.level === a.level && <span className="v2v-ladder-here">this line</span>}
+            {rarities?.[r.level] !== undefined && (
+              <span className="v2v-ladder-odds">
+                <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(rarities[r.level]!)}</span>
+                <span className="v2v-chance">{chanceText(rarities[r.level]!)} by chance</span>
+              </span>
+            )}
           </li>
         ))}
       </ol>
-      {rarities && <p className="v2v-ladder-note">Each step up is rarer among random lines; rarer is worth more to you.</p>}
+      {rarities && <p className="v2v-ladder-note">Each step up is rarer among random lines; rarer is worth more to you. {BITS_HELP}</p>}
     </details>
   );
 }
@@ -215,7 +223,7 @@ export interface ExpandedFaceProps<S, P> {
   readonly state: S;
   readonly site?: number;
   readonly before?: S;
-  /** ✨ rarity per rung of the rule's ladder. */
+  /** Rarity in bits per rung of the rule's ladder. */
   readonly rarities?: readonly number[];
   /** Show the nearest improvement (the viewer's own rule only). Default true. */
   readonly improvement?: boolean;
@@ -276,7 +284,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       <header className="v2v-exp-head">
         <ObjectChip type={rule.type} state={state} />
         <span className="v2v-exp-level" data-worst={a.score === null ? "" : undefined}>
-          {a.rarity !== null && <span className="v2v-rarity">{fmtRarity(a.rarity)}</span>} {levelText(a)}
+          {a.rarity !== null && <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(a.rarity)}</span>} {levelText(a)}
         </span>
       </header>
       {a.worst && <p className="v2v-worst">This line does not score for your rule: {a.worst}.</p>}

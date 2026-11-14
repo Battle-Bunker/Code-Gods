@@ -108,7 +108,7 @@ test("the others-care, points-over-time and rules panes are offered where they h
   assert.deepEqual(PANES["others-care"].phases, ["live", "paused", "ended", "replay"]);
   assert.deepEqual(PANES["points-over-time"].phases, ["live", "paused", "ended", "replay"]);
   assert.deepEqual(PANES.rules.phases, ["planning", "live", "paused", "ended", "replay"]);
-  for (const id of PANE_IDS) assert.doesNotMatch(`${PANES[id].title} ${PANES[id].blurb}`, /\b(bits|payoff|objects?|grids?)\b/i, id);
+  for (const id of PANE_IDS) assert.doesNotMatch(`${PANES[id].title} ${PANES[id].blurb}`, /\b(payoff|objects?|grids?)\b/i, id);
 });
 
 test("the assistant pane is offered in every phase, so a player can ask for help before, during and after a game", () => {

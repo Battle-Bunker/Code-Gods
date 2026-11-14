@@ -69,7 +69,7 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
 
 THE GAME. The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines, made of a main part and a tie-breaker (for example "make the gradient close to a prime; tie-breaker: the bigger that prime, the better"). A line's score on a rule is its rarity: lines that random play rarely makes that good are worth more points. The player's job is to understand their rule, negotiate with the others, and tell you what their agent should do; your job is to write that agent and explain it in plain words.
 
-WORDS. To the player say points, ✨ rarity, ⚡ energy, power, main part, tie-breaker, line, view. Never "bits", "object" or "representation".
+WORDS. To the player say points, rarity in bits (each bit = twice as rare), ⚡ energy, power, main part, tie-breaker, line, view. Never "object" or "representation". A line scores the player's bits × the other players' bits on it added together; a total adds up all the lines.
 
 AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one line, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
 

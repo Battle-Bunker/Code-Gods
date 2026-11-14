@@ -5,7 +5,8 @@
  */
 import { useMemo } from "react";
 import { useGame, useLeaderboard, useStandingsHistory } from "@/sdk";
-import { ordinal, pointsText } from "@/core/words";
+import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, TOTALS_NOTE } from "@/core/words";
+import { LineByLine, TiedMark } from "@/core/score-help";
 import { LineChart, slotColour } from "@/components/charts";
 import { raceSeries } from "./chart-model";
 
@@ -27,6 +28,7 @@ export function RacePane() {
   const standings = useLeaderboard();
   if (!standings) return <p className="p-4 text-sm text-muted-foreground" data-testid="race-empty">The first scores appear once the world runs.</p>;
   const slotOf = (id: string) => header?.roster.findIndex(m => m.memberId === id) ?? -1;
+  const tied = standings.rows.some(r => isTied(standings.rows, r));
   return (
     <div>
       <RaceChart />
@@ -34,6 +36,7 @@ export function RacePane() {
         {standings.rows.map(r => (
           <li key={r.memberId} className={`flex items-center gap-3 px-4 py-2 ${r.memberId === header?.me ? "bg-primary/10 font-medium" : ""}`} data-testid={`row-standing-${r.memberId}`}>
             <span className="w-10 tabular-nums text-muted-foreground">{ordinal(r.rank)}</span>
+            {tied && <span className="w-9 shrink-0">{isTied(standings.rows, r) && <TiedMark testId={`text-tied-${r.memberId}`} />}</span>}
             <span aria-hidden className="inline-block h-[2px] w-3 shrink-0 rounded" style={{ background: slotColour(slotOf(r.memberId)) }} />
             <span className="flex-1 truncate">{r.name}{r.memberId === header?.me ? " (you)" : ""}</span>
             <span className="tabular-nums">{pointsText(r.net)}</span>
@@ -41,6 +44,10 @@ export function RacePane() {
           </li>
         ))}
       </ol>
+      <div className="space-y-1 border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-leaderboard-note">
+        <p>{totalNote(TOTALS_NOTE, standings.rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
+        <LineByLine testId="button-line-by-line-race" />
+      </div>
     </div>
   );
 }

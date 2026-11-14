@@ -4,7 +4,7 @@
  * and another player's, close together in time, fold into one entry that says who pulls, how often, what it cost you,
  * and to talk; the line's row is marked contested. Pure: from the act log's own rows (newest first).
  */
-import { clock, one } from "../core/words.ts";
+import { clock, num } from "../core/words.ts";
 
 export interface TugMove { seq: number; objectId: string; number: number; mine: boolean; worldSeconds: number; charge: number | null }
 export type FeedItem<M extends TugMove> =
@@ -49,7 +49,7 @@ export function foldTugs<M extends TugMove>(moves: readonly M[]): FeedItem<M>[] 
 
 export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>): string {
   return `Tug-of-war on line ${t.number}: your agent and another player's agent moved it back and forth ${t.moves.length} times ` +
-    `(${clock(t.from)} to ${clock(t.to)}). Your agent spent ${one(t.mySpend)} ⚡ on it, and theirs spent energy too, so neither of ` +
+    `(${clock(t.from)} to ${clock(t.to)}). Your agent spent ${num(t.mySpend)} ⚡ on it, and theirs spent energy too, so neither of ` +
     "you is getting anywhere. Talk to them in chat about this line.";
 }
 

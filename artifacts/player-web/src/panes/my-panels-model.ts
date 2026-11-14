@@ -44,7 +44,7 @@ function MyStats() {
       {me && <p>Your energy: {Math.round(me.energy)} ⚡</p>}
       {board && (
         <ol>
-          {board.rows.map(r => <li key={r.memberId}>{r.name}: {r.net.toFixed(1)} points</li>)}
+          {board.rows.map(r => <li key={r.memberId}>{r.name}: {r.net.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} points</li>)}
         </ol>
       )}
     </div>

@@ -1,10 +1,10 @@
 /**
  * The charts' pure parts (unit-tested): scales and ticks, the race's and "Your points over time"'s series from the
  * standings history, the others-care scatter from the viewer's digest, and the captions. Player words only
- * (ux-lessons 2.1): points, ✨ rarity, "how much the others want it", the noun "line". An axis never reaches below zero
+ * (ux-lessons 2.1): points, your bits (rarity), the others' bits added together, the noun "line". An axis never reaches below zero
  * unless a value does, and then only as far as that value (ux-lessons 2.9).
  */
-import { clock, one, pointsText, productSign } from "../core/words.ts";
+import { clock, onlyYouNote, pointsText, scoreFormula } from "../core/words.ts";
 
 // ------------------------------------------------------------------ scales
 
@@ -137,13 +137,13 @@ export function riseAndFall(points: readonly XY[], s: { you: boolean; ended: boo
 export type CareKind = "both" | "others" | "mine" | "none";
 export interface CarePoint { number: number; rarity: number; want: number; points: number; kind: CareKind }
 
-/** Which corner a line sits in: who cares about it (any ✨ rarity, any want). */
+/** Which corner a line sits in: who cares about it (any bits of yours, any of the others'). */
 export function careKind(rarity: number, want: number): CareKind {
   const r = finite(rarity) > 0, w = finite(want) > 0;
   return r && w ? "both" : w ? "others" : r ? "mine" : "none";
 }
 
-/** The viewer's digest (packed [line number, your ✨ rarity, how much the others want it, …]) as points. */
+/** The viewer's digest (packed [line number, your bits, the others' bits added together, …]) as points. */
 export function carePoints(packed: readonly number[] | null | undefined): CarePoint[] {
   const out: CarePoint[] = [];
   if (!packed) return out;
@@ -168,8 +168,9 @@ export const CARE_KINDS: readonly { kind: CareKind; slot: number | null; label: 
   { kind: "none", slot: null, label: "Nobody cares yet" },
 ];
 
-/** A dot's hover text. */
+/** A dot's hover text: the line's score in the one formula, and why it scores nothing when only you care. */
 export function careTitle(p: CarePoint): string {
-  return `Line ${p.number}: your ✨ rarity ${one(p.rarity)} × how much the others want it ${one(p.want)} ${productSign(p.rarity, p.want, p.points)} ${pointsText(p.points)}`;
+  const only = onlyYouNote(p.rarity, p.want);
+  return `Line ${p.number}: ${scoreFormula(p.rarity, p.want)}${only ? `. ${only}` : ""}`;
 }
 

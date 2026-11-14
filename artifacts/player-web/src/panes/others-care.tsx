@@ -1,5 +1,5 @@
 /**
- * What others care about (integration plan §1.6): every line as a dot, across your ✨ rarity, up how much the others
+ * What others care about (integration plan §1.6): every line as a dot, across your bits, up how much the others
  * want it, from the viewer's digest written by the tick (`v2/play:digest`, one document). You never see another
  * player's rule, only the others' total want, so the corners say who cares: both of you (your points), only the others
  * (worth offering in a deal), only you (no points until they want it too), nobody yet.
@@ -20,7 +20,7 @@ export function OthersCarePane() {
   return (
     <div className="space-y-3 p-3 text-sm" data-testid="others-care">
       <p className="text-xs text-muted-foreground">
-        How much the others want a line is their ✨ rarities for it, added up. You never see their rules, only that total: it shows what they care about.
+        How much the others want a line is their bits for it, added up (others' bits). You never see their rules, only that total: it shows what they care about.
       </p>
       <CareScatter points={points} />
       <ul className="space-y-1 text-xs" data-testid="others-care-counts">

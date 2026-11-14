@@ -13,17 +13,16 @@ const tools = assistantTools(ctx);
 const RULE = "Make the gradient close to a prime; tie-breaker: the bigger that prime, the better.";
 const STARTERS = [{ title: "Simple", summary: "One small step a turn.", language: "python", source: "def agent(offer):\n    return None\n" }];
 
-const VOCAB = ["points", "✨ rarity", "⚡ energy", "power", "main part", "tie-breaker", "line"];
+const VOCAB = ["points", "rarity, in bits (each bit = twice as rare)", "your rarity × theirs. Your total adds up all the lines.", "⚡ energy", "power", "main part", "tie-breaker", "line"];
 
 for (const [name, prompt] of [
   ["assistant", assistantSystemPrompt({ context: "planning", playerName: "Ada", rule: RULE, affordances: tools, starters: STARTERS })],
   ["AI seat", aiSeatSystemPrompt({ name: "Robo", rule: RULE, affordances: tools, starters: STARTERS })],
 ] as const) {
-  test(`the ${name} prompt teaches the vocabulary, lists the context's affordances and never says "bits"`, () => {
+  test(`the ${name} prompt teaches the vocabulary, lists the context's affordances and how a score is made`, () => {
     assert.ok(tools.some(t => t.name === "agent_check") && tools.some(t => t.name === "agent_summon"));
     for (const word of VOCAB) assert.ok(prompt.includes(word), word);
     for (const t of tools) assert.ok(prompt.includes(t.name), t.name);
-    assert.doesNotMatch(prompt, /\bbits?\b/i);
     assert.ok(prompt.includes(RULE) && prompt.includes("def agent(offer)"));
     // Check before summoning.
     assert.ok(prompt.indexOf("Always agent_check") >= 0 && prompt.indexOf("Always agent_check") < prompt.indexOf("agent_summon or"));
