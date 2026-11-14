@@ -17,7 +17,8 @@ const engine = new URL("../../../artifacts/engine/convex/", import.meta.url);
 function walkPublicFunctions(): Map<string, "query" | "mutation" | "action"> {
   const api = readFileSync(new URL("_generated/api.d.ts", engine), "utf8");
   const block = api.slice(api.indexOf("declare const fullApi"), api.indexOf("}>;", api.indexOf("declare const fullApi")));
-  const modules = [...block.matchAll(/^\s+"?([\w/]+)"?: typeof \w+;/gm)].map(m => m[1]);
+  // Engine v2's modules (v2/*) are listed by the affordance directory, not this catalogue.
+  const modules = [...block.matchAll(/^\s+"?([\w/]+)"?: typeof \w+;/gm)].map(m => m[1]).filter(m => !m.startsWith("v2/"));
   assert.ok(modules.length > 30, "the generated module list was found");
   const found = new Map<string, "query" | "mutation" | "action">();
   for (const module of modules) {

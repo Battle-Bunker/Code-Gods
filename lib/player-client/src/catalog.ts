@@ -16,7 +16,8 @@ import type { GROUPS, ToolName } from "./tools.ts";
 
 type Paths<T, P extends string = ""> = { [K in keyof T & string]: T[K] extends FunctionReference<any, "public"> ? `${P}${K}` : Paths<T[K], `${P}${K}.`> }[keyof T & string];
 /** "rooms.join" | "auth.credentials.list" | "agent.connect.pending" | … (module path with dots, then the export). */
-export type PublicFunctionPath = Paths<typeof api>;
+/** v1's catalogue; engine v2's functions (`v2.*`) are listed by the affordance directory (lib/v2-affordances). */
+export type PublicFunctionPath = Exclude<Paths<typeof api>, `v2.${string}`>;
 type Kinds<T, P extends string = ""> = { [K in keyof T & string]: T[K] extends FunctionReference<infer Ty, "public"> ? [`${P}${K}`, Ty] : Kinds<T[K], `${P}${K}.`> }[keyof T & string];
 /** The registered kind of one public function, from the generated api. */
 export type FunctionKind<P extends PublicFunctionPath> = Extract<Kinds<typeof api>, [P, unknown]>[1];
