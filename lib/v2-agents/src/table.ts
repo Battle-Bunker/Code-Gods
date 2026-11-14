@@ -114,8 +114,7 @@ export const TABLE_TOOLS = [
 
 interface Agent { id: string; seat: number; name: string; share: number; acc: Account; program: Program; programs: Program[]; acts: number }
 
-/** Two object states are the same when their canonical JSON is (bigints written as text). */
-const sameState = (a: unknown, b: unknown) => JSON.stringify(a, (_k, v) => (typeof v === "bigint" ? `${v}n` : v)) === JSON.stringify(b, (_k, v) => (typeof v === "bigint" ? `${v}n` : v));
+const OCCUPIED = "another object is already in that state";
 
 export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promise<TableReport> {
   const { type, variant, seats } = input;
@@ -209,11 +208,12 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length,
       value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
+      ...(input.unique ? { occupied: (e: string) => lines.some((l, j) => j !== object && type.encode(l) === e) } : {}),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
     const changed = record.outcome === "committed" && record.after !== record.before;
-    const taken = changed && input.unique === true && lines.some((l, j) => j !== object && sameState(l, state));
-    if (taken) stats[i]!.refused++;
+    const taken = changed && input.unique === true && lines.some((l, j) => j !== object && type.encode(l) === type.encode(state));
+    if (taken || record.reason === OCCUPIED) stats[i]!.refused++;
     const verdict = !changed ? "other" : taken ? "refused" : affordable(energy, record.charge, actCredit(capacity)) ? "committed" : "unaffordable";
     const charge = verdict === "unaffordable" || verdict === "refused" ? readCharge(record.readBits) : record.charge;
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }

@@ -33,6 +33,8 @@ export interface ActInput<S> {
   readonly history?: HostInput<S>["history"];
   readonly values?: HostInput<S>["values"];
   readonly others?: HostInput<S>["others"];
+  /** Whether another object already holds a state (unique objects): such a result is refused. */
+  readonly occupied?: HostInput<S>["occupied"];
 }
 
 export type Outcome = "committed" | "skipped" | "failed";
@@ -77,7 +79,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const economy = input.economy ?? SPEC_ECONOMY;
   const host = new EngineHost({
     type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy,
-    value: input.value, history: input.history, values: input.values, others: input.others,
+    value: input.value, history: input.history, values: input.values, others: input.others, occupied: input.occupied,
   });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));
   const result = await sandbox.act({ source: input.program.source, offer: { object: input.object ?? 0 }, seed: input.seed, host, limits: input.limits });
@@ -98,6 +100,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const calls = parseCalls(parsed);
   if (typeof calls === "string") return nothing("failed", { reason: calls }, result.steps);
   const applied = applyCalls(input.type, input.variant, input.state, calls);
+  if (!isInvalid(applied) && input.occupied?.(input.type.encode(applied.result))) return nothing("failed", { reason: "another object is already in that state" }, result.steps);
   if (isInvalid(applied)) return nothing("failed", { reason: applied.invalid }, result.steps);
 
   const record: ActRecord = {

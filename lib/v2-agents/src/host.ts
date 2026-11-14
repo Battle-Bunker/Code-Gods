@@ -76,6 +76,9 @@ export interface HostInput<S> {
    * added up, before and after a plan). The agent never sees them, only the total.
    */
   readonly others?: readonly { readonly rule: RuleRef; readonly values: GameValues }[];
+  /** Owner decision 24 (objects are unique): whether another object already holds this state (as the type encodes it).
+   *  A plan whose result is held is not allowed, so quotes, cheapest() and othersAfter skip it. */
+  readonly occupied?: (encoded: string) => boolean;
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -311,6 +314,7 @@ export class EngineHost<S> implements AgentHost {
     if (!parsed.length) return { valid: false, reason: "a plan needs at least one move" };
     const applied = applyCalls(this.type, this.variant, this.state, parsed);
     if (isInvalid(applied)) return { valid: false, reason: applied.invalid };
+    if (this.input.occupied?.(this.type.encode(applied.result))) return { valid: false, reason: "another object is already in that state" };
     return { valid: true, prices: [...applied.prices], total: applied.total, result: applied.result };
   }
 

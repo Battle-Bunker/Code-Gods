@@ -128,3 +128,11 @@ test("with the rule's value function, myScore and rarity give the bits valueLook
   assert.equal(ask(h, { op: "rarity", score: ["0", "5"] }).result.bits, look([Qn.parse("0"), Qn.parse("5")]).bits);
   assert.equal(ask(h, { op: "rarity", score: null }).result.bits, 0, "the worst score is worth nothing");
 });
+
+test("unique objects: a plan onto a state another object holds is not allowed, so a quote refuses it", () => {
+  const at = { lines: [fromMC(q(2), q(3))] }, held = lineType.encode({ lines: [fromMC(q(2), q(4))] });
+  const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, occupied: e => e === held });
+  const up = host.price([{ mutator: "si.shift", site: 0, args: { k: "1" } }]), down = host.price([{ mutator: "si.shift", site: 0, args: { k: "-1" } }]);
+  assert.deepEqual([up.valid, up.valid ? "" : up.reason], [false, "another object is already in that state"]);
+  assert.equal(down.valid, true);
+});
