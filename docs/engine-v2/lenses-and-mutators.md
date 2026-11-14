@@ -399,6 +399,9 @@ whole number, peg or point the primary measures closeness to) and a number from 
    that whole number and ⌊m⌋, the bigger the better. *Entangles:* m and c in a product, so Prime Landing (c), Prime Gradient (m) and
    Whole Crossing (−c/m) all pull on it. *Keeper:* coef.swap a ↔ c keeps m × c exactly (the swap's ally); zoom
    multiplies it by f.
+   *Tensions:* its secondary (b) rewards a steep line (a big ⌊m⌋), which pulls Whole Crossing's x-intercept −c/m toward
+   0, and Ruler's distance down with it. *Collateral carried by:* coef.swap (keeps m × c, wrecks Prime Staircase 97%),
+   rot.turn (moves m × c and the y-intercept together).
 2. **Whole Hypotenuse** (the normal form). *Primary:* "Draw the slope triangle of your gradient p/q: q along, p up.
    Make its sloping side, √(p² + q²), as close as possible to a whole number." (Pythagoras, school year 8–9.)
    *Secondaries:* (a) the y-intercept as close as possible to a multiple of that whole number; (b) the greatest common
@@ -406,34 +409,57 @@ whole number, peg or point the primary measures closeness to) and a number from 
    angle and rot.turn by a Pythagorean tangent both keep a Pythagorean gradient Pythagorean and multiply the hypotenuse
    (Gaussian integers multiply): a multiplicative climb, not a ramp in one number. *Entangles:* Prime Gradient, Pell-like
    rules, Pythagorean Area.
+   *Tensions:* hypotenuses are products of 4k + 1 primes, so the gradient's top and bottom grow together; that fights
+   Prime Gradient (m near a prime: a whole gradient, q = 1, never has a whole hypotenuse) and Divisibility Ladder's small
+   factors of m. *Collateral carried by:* orbit.turn and rot.turn (they keep its structure and wreck intercept rules:
+   92% on Prime Gradient, 91% on Exact Change).
 3. **Mirror Meeting** (the fold lens, with a dealt mirror). *Primary:* "The mirror is the line y = x + d (d dealt per
    game). Your line hits the mirror at one point. Make that point as close as possible to a peg (whole x and whole y)."
    The point is x = (d − c)/(m − 1). *Secondaries:* (a) the greatest common factor of the peg's
    x and ⌊m⌋, the bigger the better; (b) the peg's distance² from the origin as close as possible to a multiple of ⌊c⌋. *Keeper:* the fold in the dealt
    mirror keeps the meeting point and wrecks everyone else: a free move for this god that its neighbours must police.
    The dealt d means no answer carries over between games.
+   *Tensions:* the meeting point x = (d − c)/(m − 1) wants c near d and m away from 1, against Prime Landing's big
+   prime c and Whole Crossing's c a multiple of m. *Collateral carried by:* the fold in the dealt mirror (its free move)
+   and mirror.any in general (35% mean destroy).
 4. **Swap Twins** (the reciprocal chart). *Primary:* "Your line y = mx + c and its swap y = cx + m always cross at
    x = 1. Together with the y-axis they make a thin triangle with corners (0, c), (0, m) and (1, m + c). Make its area,
    |m − c| ÷ 2, as close as possible to a whole number." *Secondaries:* (a) the greatest common factor of the whole
    area and ⌊m + c⌋ (the crossing height), the bigger the better; (b) ⌊c⌋ as close as possible to a multiple of the whole
    area. *Keeper:* coef.swap keeps the area
    and the crossing exactly; it is this god's own move, and it wrecks Prime Staircase (97%).
+   *Tensions:* a whole area wants m and c a whole even step apart, against rules that want m and c to share factors
+   (Whole Crossing's c a multiple of m) or c much bigger than m (Prime Landing). *Collateral carried by:* coef.swap.
 5. **Slanted Graph Paper** (another basis, with a dealt slant). *Primary:* "On graph paper whose rows are each pushed s
    squares right (s dealt per game, e.g. ½), your line's gradient is m ÷ (1 − s·m). Make it as close as possible to a
    whole number." *Secondaries:* (a) the greatest common factor of that whole number and
    ⌊c ÷ (1 − s·m)⌋ (the slanted y-intercept), the bigger the better; (b) the slanted y-intercept as close as possible to a
    multiple of that whole number. *Keeper:* basis.lean by s′ changes the slant the line sees;
    tilt and lean together walk the modular group. *Entangles:* every gradient rule, through a dealt Möbius twist.
+   *Tensions:* near m = 1/s the slanted numbers blow up, so it pushes m one way and Prime Gradient's whole gradients
+   another, game by game. *Collateral carried by:* basis.lean (keeps the x-intercept, wrecks Prime Staircase 97%) and
+   si.tilt.
 6. **Family Tree** (the fraction tree; a secondary for existing families). "Tie-breaker: the y-intercept as close as
    possible, in the fraction tree, to the whole number or prime your main rule aims at (the fewest up-and-down steps)."
    For Prime Gradient (the anchor is the prime nearest m) or Whole Crossing (the whole number nearest the x-intercept). *Keeper:* sb.step. It couples m and c in a metric no school lens
    shows, and its own move is the gentlest in the game (6% destroy).
+   *Tensions:* it pulls c toward m's anchor in the tree, so c stays small and simple, against Prime Landing's big prime
+   c. *Collateral carried by:* sb.step (gentle) and si.tilt.
 7. **Pole Star** (the dual point; second pool, advanced). *Primary:* "Make 1 ÷ (your line's distance from the origin)²,
    that is (a² + b²) ÷ c², as close as possible to a whole number." *Secondary:* the greatest common factor of that whole
    number and c² (the pole's denominator squared), the bigger the better: it ties the pole's grid to the primary's
    anchor. *Keeper:* pole.slide by whole steps keeps the pole on pegs; zoom moves the distance.
    *Entangles:* Ruler (the same distance, the other way up) — a natural rival pair, since Ruler wants the line far and
    Pole Star rewards particular near distances.
+   *Tensions:* Ruler (the line far away) directly; any big-c rule, since a big c shrinks (a² + b²)/c². *Collateral carried
+   by:* pole.slide and basis.zoom (zoom moves the distance and keeps the gradient).
+8. **Small and Smooth** (zoom; a counterweight in the sense of owner decision 30, "rules that prefer small values and
+   lots of prime factors instead of large primes"). *Primary:* "Make the area of your line's triangle with the axes as
+   close as possible to a whole number." *Secondaries* (tied to that whole number): (a) the more prime factors it has
+   for its size (prime factors counted with repeats, minus the number of its digits), the better; (b) the greatest common
+   factor of it and ⌊c⌋, the bigger the better. *Tensions:* every "big prime" rule (Prime Landing, Prime Gradient):
+   smooth small areas want small, composite intercepts. *Collateral carried by:* basis.zoom (multiplies the area by f²,
+   its own climb, and wrecks Prime Landing 50%) and mach.stretch.
 
 ---
 
