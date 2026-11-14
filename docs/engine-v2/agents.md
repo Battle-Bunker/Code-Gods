@@ -160,6 +160,11 @@ the same as a function. The pool run is in [agent-harness-results.md](agent-harn
 - On shared lines rules interfere: with Prime Gradient/prime tilting the same lines, m Meets c's main part fell from
   2.6 to 1.8 while its tie-breaker rose. The table is the material for negotiation.
 
-## Still to come from W2
+## The primer for the AI assistant
 
-The assistant's primer. This page will list it when it lands.
+`AGENT_PRIMER` (or `agentPrimer(type)`) from `@workspace/v2-agents` (`src/primer.ts`) is the text the embedded and
+remote assistants load to write and explain v2 agents: the game in one paragraph, the player's words, what costs ⚡
+(looks, moves priced by the view they are made through, steps and digits, W + 0.05·W², free but capped thinking,
+summon by length), every view and move (read from the object type), the helpers (`HELPERS`, checked against both guest
+libraries), the starting points and an example. About 7,000 characters; a test keeps it under 9,000 and true to the
+code. W6's assistant skill for writing agents loads it in place of v1's `PRIMER_AGENTS`.
