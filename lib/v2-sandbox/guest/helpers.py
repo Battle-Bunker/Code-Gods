@@ -83,7 +83,12 @@ def move(mutator, site=0, **args):
     return call(mutator, site=site, **args)
 
 
+_last_cheapest = [None, None, None]   # the offer, the plan cheapest() returned, and its price
+
+
 def price(offer, plan):
+    if plan is _last_cheapest[1] and offer is _last_cheapest[0]:   # just quoted: no second call
+        return _last_cheapest[2]
     q = offer.quote(_as_plan(plan))
     return q.charge if q.valid else None
 
@@ -94,6 +99,7 @@ def cheapest(offer, plans):
         p = price(offer, plan)
         if p is not None and p < best_price:
             best, best_price = _as_plan(plan), p
+    _last_cheapest[:] = [offer, best, best_price if best is not None else None]
     return best
 
 
