@@ -42,6 +42,7 @@ export const STRATEGY = `HOW POINTS WORK. Your points on a line are your rarity 
 - a line only you like scores nothing for you; a line that several rules like scores for all of them;
 - moving a line away from what the others want lowers your own points on it, even when your rule likes the new line better;
 - a tug-of-war (you move a line, someone moves it back) burns both players' ⚡ and scores nothing: stop and talk instead.
+- while the game is live, the others' rarity you see is an estimate: it carries noise of about 8 bits, fixed for each line state, so reading it again does not remove it. One figure tells little and many tell more: trust trends over several lines and moves, and check what you infer in chat.
 Agents do the moving; you decide what they do. The starters (Simple, Thorough, Bold) already note a tug-of-war to their owner (they keep playing the line; a deal is what ends it) and leave any line you put in their LEAVE list; they do not know the other players' rules, so they cannot tell when a move spoils a line for someone else: that is what deals and ${toolName("agent.replace")} are for. Naive is a teaching example: never run it.
 
 EACH TURN, in this order, with a few tool calls (not every step every turn):
