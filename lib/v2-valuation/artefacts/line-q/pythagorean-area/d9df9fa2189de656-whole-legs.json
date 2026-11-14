@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/pythagorean-area/{\"A\":6}/tb=whole-legs",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2245,5 +2245,7 @@
    null
   ]
  },
- "contentHash": "b1b1cebcb71199c8"
+ "cap": 0,
+ "dealable": false,
+ "contentHash": "5a7e03f9100a85f2"
 }

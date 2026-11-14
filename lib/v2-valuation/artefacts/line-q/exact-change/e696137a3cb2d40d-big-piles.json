@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/exact-change/{\"ways\":6}/tb=big-piles",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1622,5 +1622,7 @@
    null
   ]
  },
- "contentHash": "eba7b111a3f8a70f"
+ "cap": 4,
+ "dealable": false,
+ "contentHash": "fc86469e9f52c0a9"
 }

@@ -191,6 +191,11 @@ export interface Layer<P> {
   thresholds(params: P, variant: Variant): readonly Q[];
   /** Words for a rung: "within 1/4 of a prime". */
   rungLabel(threshold: Q, params: P): string;
+  /**
+   * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
+   * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.
+   */
+  dealtOn?(variant: Variant): boolean;
 }
 
 /**

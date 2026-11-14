@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-staircase/{}/tb=near-miss",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1098,5 +1098,7 @@
    null
   ]
  },
- "contentHash": "3ce4dbe5ef803005"
+ "cap": 4,
+ "dealable": false,
+ "contentHash": "d7c81f16e0fec20d"
 }

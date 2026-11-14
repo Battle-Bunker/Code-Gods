@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=omega",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2863,5 +2863,7 @@
    null
   ]
  },
- "contentHash": "f5660e4eb82c5723"
+ "cap": 0,
+ "dealable": false,
+ "contentHash": "b4f58ee93f1177f3"
 }

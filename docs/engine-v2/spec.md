@@ -721,11 +721,14 @@ step values; single-line objects only):
 
 ### 7.5 The too-hard backlog
 
-A rule (family, parameters, tie-breaker, variant) is not dealable when its run is **unconverged** at the budget it ran with,
-**unreachable** at its first rung, **flagged** (by the splitting or direct check, or because its ladder was truncated
-below a rung no climb reached), or **too coarse** (a dealt layer takes fewer
-than `minLevels` distinct values where it counts, §4.1). `calibrate --write` regenerates the rows of the rules it
-calibrated in `docs/engine-v2/too-hard-backlog.md`, with the reasons; a person or a later session decides whether to
+A rule (family, parameters, tie-breaker, variant) is dealt with its ladder **capped** (coordinator's call (g),
+provisional): the artefact's `cap` is the last rung through which every non-empty rung met the error target, and a line
+above the cap scores as the cap. It is **not dealable** (`dealable: false`) when it is **unreachable** at its first
+rung, **too coarse** (a dealt layer takes fewer than `minLevels` distinct values, §4.1), or fewer than six rungs converge
+below the cap. A rule that misses only its rarest rungs is therefore dealt, capped; the splitting, direct and
+equilibration flags stay in the artefact as diagnostics. `calibrate --write` regenerates the rows of the rules it
+calibrated in `docs/engine-v2/too-hard-backlog.md`, with the reasons, and `recap` recomputes every artefact's cap and the
+whole file from the committed figures; a person or a later session decides whether to
 change the ladder, the parameters or the family, or to raise the budget for it explicitly (an artefact records the
 budget it used).
 
@@ -752,7 +755,7 @@ its contents and that every rule in each variant's dealable grid has a converged
 ### 7.7 Values at run time
 
 When an object's state changes, the server evaluates each player's rule on it (§4.2), finds the level from the ladder,
-and looks up bits from the artefact (curve or step). This is a few element computations per player: no sampling at run
+and looks up bits from the artefact (curve or step), at most the cap's (§7.5). This is a few element computations per player: no sampling at run
 time. Values are stored per (object, player) (§10).
 
 ### 7.8 Resolution: enough bits on a line
