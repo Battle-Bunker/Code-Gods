@@ -63,11 +63,12 @@ export const BITS_HELP = "Each bit = twice as rare.";
 export const fmtEnergy = (energy: number): string => `${fmtNum(energy)} ⚡`;
 
 const SCALE: readonly (readonly [number, string])[] = [
-  [1e24, "septillion"], [1e21, "sextillion"], [1e18, "quintillion"], [1e15, "quadrillion"], [1e12, "trillion"], [1e9, "billion"], [1e6, "million"],
+  [1e12, "trillion"], [1e9, "billion"], [1e6, "million"],
 ];
 /**
  * How rare a number of bits is, as a chance: "1 in N" with N = 2^bits, said the way people say it: "1 in 1.4",
- * "1 in 32", "1 in 16,000", "1 in 1.2 million", "1 in 3.4 billion" (two significant figures from a thousand up).
+ * "1 in 32", "1 in 16,000", "1 in 1.2 million", "1 in 3.4 billion" (two significant figures from a thousand up), and past
+ * a trillion a power of ten: "1 in 2.4 × 10⁴²".
  */
 export function chanceText(bits: number): string {
   // Capped at 1,000 bits so 2^bits stays finite (a degenerate calibration never prints "1 in NaN").
@@ -76,6 +77,13 @@ export function chanceText(bits: number): string {
   if (n < 999.5) return `1 in ${Math.round(n)}`;
   const unit = 10 ** (Math.floor(Math.log10(n)) - 1);
   const r = Math.round(n / unit) * unit;
+  // Past a trillion the scale words stop meaning anything to a player: a power of ten, two significant figures.
+  if (r >= 1e15) {
+    let e = Math.floor(Math.log10(r)), m = Math.round((r / 10 ** e) * 10) / 10;
+    if (m >= 10) { m = 1; e += 1; }
+    const sup = String(e).replace(/\d/g, d => "⁰¹²³⁴⁵⁶⁷⁸⁹"[Number(d)]!);
+    return `1 in ${m.toLocaleString("en-US", { maximumFractionDigits: 1 })} × 10${sup}`;
+  }
   const big = SCALE.find(([v]) => r >= v * 0.9999999);
   if (!big) return `1 in ${r.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
   const v = Math.round((r / big[0]) * 10) / 10;

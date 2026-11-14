@@ -244,7 +244,7 @@ try {
       await options.first().getByText(/→ [\d,]+\.\d\d bits?/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
-      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+( [a-z]+)? by chance\)/, `a move has its new bits: ${first}`);
+      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+( [a-z]+| × 10[⁰¹²³⁴⁵⁶⁷⁸⁹]+)? by chance\)/, `a move has its new bits: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
     // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).
     // Tap selects a part (nothing depends on hover): only its marks are drawn, and the chip clears it.

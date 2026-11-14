@@ -32,4 +32,9 @@ test("1 in N by chance, N = 2^bits, rounded the way people say big numbers", () 
   assert.equal(chanceText(Math.log2(999.6e6)), "1 in 1 billion", "rounding up to the next word");
   assert.equal(chanceText(Math.log2(999.9)), "1 in 1,000", "rounding up to a thousand is grouped like a thousand");
   assert.doesNotMatch(chanceText(5000), /NaN|Infinity/, "a degenerate calibration still reads as a number");
+  // Past a trillion, a power of ten, never digits mixed with a scale word ("2,400,000,000,000,000,000 septillion").
+  assert.equal(chanceText(Math.log2(2.4e15)), "1 in 2.4 × 10¹⁵");
+  assert.equal(chanceText(140.79), "1 in 2.4 × 10⁴²");
+  assert.equal(chanceText(Math.log2(999e12)), "1 in 1 × 10¹⁵", "rounding up to the next power");
+  for (const b of [50, 80, 100, 140.79, 300, 999]) assert.match(chanceText(b), /^1 in \d(\.\d)? × 10[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/, `${b} bits: ${chanceText(b)}`);
 });
