@@ -8,6 +8,7 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
+import { VALUE_RECORDS } from "../convex/v2/values.gen.ts";
 import { rungsOf } from "../convex/v2/artefacts.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -134,4 +135,12 @@ test("the stored replay: built once at the end, served only to a member with a J
 }
 
 gameSuite("lines-beginner", lineType, lineZ);
-gameSuite("grids-beginner", gridType, grid4);
+// Decision 23: a game deals only rules with a value function. Grids play end to end here once their value functions are
+// in values.gen.ts; until then the server withholds the preset, and this says so.
+if (VALUE_RECORDS.some(r => r.variant === grid4.id)) gameSuite("grids-beginner", gridType, grid4);
+else test("grids-beginner is withheld until grid value functions land", async () => {
+  const [h] = await humans("grids withheld");
+  const out = await perform(h!, "room.create", { name: "grids", preset: "grids-beginner" }).catch((e: any) => e.data);
+  assert.match(out.error.message, /not playable yet/);
+  assert.ok(!(await h!.query("v2/setups:presets", {})).some((p: any) => p.id === "grids-beginner"), "not listed");
+});

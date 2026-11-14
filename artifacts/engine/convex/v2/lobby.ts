@@ -246,7 +246,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     await ctx.db.insert("v2Rules", {
       gameId, memberId: m._id, family: rule.family, params: rule.params, layers: view.layers, tieBreaker: rule.tieBreaker,
       ruleKey: rule.ruleKey, contentHash: rule.contentHash, title: view.title, card: view.card, depends: view.depends,
-      primary: view.primary, ladder: view.ladder,
+      primary: view.primary,
       ...(won.has(m._id) ? { bid: won.get(m._id)!.percent, handicap: won.get(m._id)!.handicap } : {}),
     });
     await ctx.db.insert("v2Players", {

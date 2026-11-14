@@ -23,14 +23,14 @@ export const STORED_REPLAY_VERSION = 1;
 const CONCERN = 0.05;
 
 type Score = (string | null)[] | null;
-interface Snap { score: Score; level: number; rarityBits: number; want: number; points: number }
+interface Snap { score: Score; rarityBits: number; want: number; points: number }
 interface ValueAt extends Snap { at: number }
 interface StateAt { at: number; state: string; changedAt: number }
 interface Timeline { objectId: string; number: number; bornAt: number; born: number; states: StateAt[]; values: Map<string, ValueAt[]> }
 interface Tick { at: number; standings: Standings; point: StandingsPoint }
 interface Command { at: number; kind: string; agentId: string; language?: string; version?: number; share?: number; shares?: Record<string, number>; worldSeconds: number }
 type RawEvent = { seq: number; kind: string; data: Record<string, unknown> };
-type RawRule = { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; card: string; layers: string[]; ladder: MyRuleRow["ladder"]; handicap?: number | null };
+type RawRule = { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; card: string; layers: string[]; contentHash: string; handicap?: number | null };
 
 export interface ReplayIndex {
   gameId: string;
@@ -78,7 +78,7 @@ function ruleRow(r: RawRule, variant: string | undefined): MyRuleRow {
   const f = familyOf(r.family);
   return {
     family: r.family, title: f?.title ?? r.family, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card,
-    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ladder: r.ladder, ruleKey: r.ruleKey, bid: null, handicap: r.handicap ?? null,
+    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ruleKey: r.ruleKey, contentHash: r.contentHash, value: { knots: [], tail: null }, bid: null, handicap: r.handicap ?? null,
   };
 }
 
@@ -123,7 +123,7 @@ export function indexReplay(file: unknown): ReplayIndex {
       case "values": {
         const t = ix.byId.get(String(d.objectId));
         if (!t) break;
-        const own = (d.values ?? []) as { memberId: string; score: Score; level: number; rarityBits: number }[];
+        const own = (d.values ?? []) as { memberId: string; score: Score; rarityBits: number }[];
         // Points from bits (spec §8, engine world.ts valuesOf): own rarity in bits × the others' sum, summed in seat order.
         const total = own.reduce((s, v) => s + v.rarityBits, 0);
         const act = pending && pending.objectId === t.objectId ? pending : null;
@@ -131,7 +131,7 @@ export function indexReplay(file: unknown): ReplayIndex {
         if (act) t.states.push({ at, state: act.after, changedAt: world });
         for (const v of own) {
           const want = total - v.rarityBits;
-          const now: ValueAt = { at, score: v.score, level: v.level, rarityBits: v.rarityBits, want, points: v.rarityBits * want };
+          const now: ValueAt = { at, score: v.score, rarityBits: v.rarityBits, want, points: v.rarityBits * want };
           const list = t.values.get(v.memberId) ?? [];
           const was = list.at(-1);
           list.push(now);
@@ -139,7 +139,7 @@ export function indexReplay(file: unknown): ReplayIndex {
           if (!act || !was) continue;
           const mine = v.memberId === act.memberId;
           if (!mine && Math.abs(now.points - was.points) <= CONCERN) continue;
-          const snap = (s: Snap): Snap => ({ score: s.score, level: s.level, rarityBits: s.rarityBits, want: s.want, points: s.points });
+          const snap = (s: Snap): Snap => ({ score: s.score, rarityBits: s.rarityBits, want: s.want, points: s.points });
           const move = {
             seq: moveSeq, worldSeconds: act.worldSeconds, objectId: t.objectId, number: t.number, agentId: mine ? act.agentId : null, mine,
             calls: act.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: act.calls[0]?.rep ?? "",
@@ -239,7 +239,7 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       if (!out) {
         out = {
           objectId: t.objectId, number: t.number, bornAt: t.bornAt, state: s.state, version: i + 1, changedAt: s.changedAt,
-          value: v ? { score: v.score, level: v.level, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version } : null,
+          value: v ? { score: v.score, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version } : null,
         } as unknown as PlayObject;
         ix.answers.set(key, out);
       }

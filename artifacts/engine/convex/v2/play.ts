@@ -7,6 +7,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
+import { valueRecord } from "./values";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
@@ -16,6 +17,13 @@ import {
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
 
+/** The rule's value function, as valueLookup takes it (knots and tail). */
+function valueFn(ruleKey: string) {
+  const r = valueRecord(ruleKey);
+  if (!r) throw new Error(`No value function for ${ruleKey}`);
+  return { knots: r.knots.map(k => ({ u: k.u, bits: k.bits, lo: k.lo, hi: k.hi })), tail: (r.tail ?? null) as unknown };
+}
+
 export const myRule = query({
   args: { gameId: v.string() },
   returns: myRuleV,
@@ -23,7 +31,7 @@ export const myRule = query({
     const { rule: r } = await requireSeat(ctx, gameId);
     return {
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
-      ladder: r.ladder, ruleKey: r.ruleKey, bid: r.bid ?? null, handicap: r.handicap ?? null,
+      ruleKey: r.ruleKey, contentHash: r.contentHash, value: valueFn(r.ruleKey), bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
   },
 });
@@ -80,7 +88,7 @@ export const object = query({
     const value = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
     return {
       objectId: object._id, number: object.number, bornAt: object.bornAt, state: state.state, version: state.version, changedAt: state.changedAt,
-      value: value ? { score: value.score, level: value.level, rarityBits: value.rarityBits, want: value.want, points: value.points, version: value.version } : null,
+      value: value ? { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points, version: value.version } : null,
     };
   },
 });

@@ -12,10 +12,10 @@ import type { ViewState } from "@workspace/v2-affordances";
 export type ViewSort = ViewState["objects"]["sort"];
 export type ServerSort = "points" | "rarity" | "recent";
 
-/** The human's order (view.sortObjects) as the index the server pages by: a higher step is a rarer line (more bits). */
+/** The human's order (view.sortObjects) as the index the server pages by (rarity: more bits first). */
 export function serverSort(sort: ViewSort | undefined): ServerSort {
   switch (sort) {
-    case "level": return "rarity";
+    case "rarity": return "rarity";
     case "recent": return "recent";
     default: return "points";
   }
@@ -23,7 +23,7 @@ export function serverSort(sort: ViewSort | undefined): ServerSort {
 
 export const SORTS: readonly { sort: ViewSort; label: string }[] = [
   { sort: "points", label: "your points" },
-  { sort: "level", label: "your bits (rarity)" },
+  { sort: "rarity", label: "your bits (rarity)" },
   { sort: "recent", label: "recently changed" },
 ];
 

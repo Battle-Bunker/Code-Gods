@@ -74,7 +74,7 @@ async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule
   await ctx.db.insert("v2ObjectStates", { objectId, gameId: game._id, state: wire, version: 1, changedAt: world });
   const values = valuesOf(decode(wire, game.variant), game.variant, seats);
   for (const val of values)
-    await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, level: val.level, rarityBits: val.rarityBits, want: val.want, points: val.points, version: 1, changedAt: world });
+    await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: 1, changedAt: world });
   return { objectId, values };
 }
 
@@ -86,8 +86,8 @@ async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatR
   const before = new Map<string, Value>();
   for (const val of after) {
     const row = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique())!;
-    before.set(val.memberId, { memberId: val.memberId, score: row.score, level: row.level, rarityBits: row.rarityBits, want: row.want, points: row.points });
-    await ctx.db.patch(row._id, { score: val.score, level: val.level, rarityBits: val.rarityBits, want: val.want, points: val.points, version: row.version + 1, changedAt: world });
+    before.set(val.memberId, { memberId: val.memberId, score: row.score, rarityBits: row.rarityBits, want: row.want, points: row.points });
+    await ctx.db.patch(row._id, { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: row.version + 1, changedAt: world });
   }
   return { before, after, stateBefore: st.state };
 }
@@ -154,7 +154,7 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
     const { objectId, values } = await addObject(ctx, game, seats, i + 1, wire, 0);
     changes.push({ number: i + 1, values });
     await appendEvent(ctx, game._id, "objectBorn", { objectId, number: i + 1, state: wire, worldSeconds: 0 });
-    await appendEvent(ctx, game._id, "values", { objectId, number: i + 1, values: values.map(({ memberId, score, level, rarityBits }) => ({ memberId, score, level, rarityBits })) });
+    await appendEvent(ctx, game._id, "values", { objectId, number: i + 1, values: values.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
   }
   await applyToPlayers(ctx, game._id, changes);
   const leaseId = crypto.randomUUID();
@@ -333,7 +333,7 @@ export const commit = internalMutation({
       const { objectId, values } = await addObject(ctx, game, seats, number, wire, world);
       changes.push({ number, values });
       await appendEvent(ctx, game._id, "objectBorn", { objectId, number, state: wire, worldSeconds: world });
-      await appendEvent(ctx, game._id, "values", { objectId, number, values: values.map(({ memberId, score, level, rarityBits }) => ({ memberId, score, level, rarityBits })) });
+      await appendEvent(ctx, game._id, "values", { objectId, number, values: values.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
     }
 
     const P = game.settings.economy;
@@ -366,7 +366,7 @@ export const commit = internalMutation({
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world);
       changes.push({ number: act.number, values: after, before });
-      await appendEvent(ctx, game._id, "values", { objectId: act.objectId, number: act.number, values: after.map(({ memberId, score, level, rarityBits }) => ({ memberId, score, level, rarityBits })) });
+      await appendEvent(ctx, game._id, "values", { objectId: act.objectId, number: act.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
       const gained = (after.find(x => x.memberId === act.memberId)?.points ?? 0) - (before.get(act.memberId)?.points ?? 0);
       await ctx.db.patch(energy._id, { pointsGained: energy.pointsGained + gained });
       const program = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id).eq("version", agent.version)).unique();
@@ -381,8 +381,8 @@ export const commit = internalMutation({
           ...(mine ? { agentId: act.agentId, charge, ...(record.notes?.length ? { notes: record.notes } : {}) } : {}), mine, by: act.memberId as Id<"v2Members">,
           calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: record.calls[0]?.rep ?? "",
           stateBefore: record.before, stateAfter: record.after,
-          before: { score: was.score, level: was.level, rarityBits: was.rarityBits, want: was.want, points: was.points },
-          after: { score: val.score, level: val.level, rarityBits: val.rarityBits, want: val.want, points: val.points },
+          before: { score: was.score, rarityBits: was.rarityBits, want: was.want, points: was.points },
+          after: { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points },
         });
       }
     }
