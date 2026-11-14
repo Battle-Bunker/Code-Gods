@@ -70,6 +70,8 @@ export function availableAffordances(ctx: AffordanceContext, dir: Directory = DI
   const out: Offered[] = [];
   for (const a of dir) {
     if (!a.contexts.includes(ctx.context) || !callerAllows(a.caller, ctx.principal) || !grantAllows(a, ctx)) continue;
+    // AI that cannot spend in this room is not offered at all (playtest: players were offered the assistant first).
+    if (a.spends === "aiBudget" && ctx.room?.aiOff) continue;
     const availability = a.available?.(ctx) ?? { ok: true };
     if (!availability.ok && availability.hidden) continue;
     out.push({ affordance: a, availability });
@@ -91,6 +93,7 @@ export function refusal(a: AnyAffordance, ctx: AffordanceContext, args?: Record<
   if (!callerAllows(a.caller, ctx.principal)) return { ok: false, reason: callerReason(a.caller), hidden: true };
   if (!grantAllows(a, ctx)) return { ok: false, reason: "This connection's permission does not allow it.", fix: "Reconnect with a wider permission." };
   if (!a.contexts.includes(ctx.context)) return { ok: false, reason: `Not available ${contextWords(ctx)}.` };
+  if (a.spends === "aiBudget" && ctx.room?.aiOff) return { ok: false, reason: ctx.room.aiOff, hidden: true };
   const own = a.available?.(ctx, args as never);
   return own && !own.ok ? own : null;
 }

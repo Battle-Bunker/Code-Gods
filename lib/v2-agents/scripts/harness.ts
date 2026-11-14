@@ -5,15 +5,17 @@
  *   --agent example|simple|thorough|bold   the shipped agent each player runs (default example)
  *   --source file.py|file.ts   run this program instead (every player)
  *   --language typescript|python   (default typescript)
- *   --budget 500  --lines 8  --seed s1  --variant line-z
+ *   --budget 500  --lines 8  --seed s1  --variant line-z (or grid-4-d10: the grid; "lines" are then boards)
  *   --pool [file.md]           every family and tie-breaker, solo, with each shipped agent, and some three-player
  *                              tables; prints Markdown (or writes it to the file)
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import type { ObjectType } from "@workspace/v2-core";
+import { gridType } from "@workspace/v2-grid";
 import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
-import { CATALOGUE, exampleFor, sandboxes, startersFor, type AgentKind, type ShippedLanguage } from "../src/index.ts";
+import { exampleFor, hasStarters, sandboxes, startersFor, type AgentKind, type ShippedLanguage } from "../src/index.ts";
 import { byView, formatReport, runHarness, type HarnessPlayer } from "../src/harness.ts";
 
 const { values } = parseArgs({
@@ -24,14 +26,17 @@ const { values } = parseArgs({
   },
   allowPositionals: true,
 });
-const variant = lineType.variants.find(v => v.id === values.variant)!;
+// The object type whose variant was asked for (line-z, line-q, grid-4-d10, ...).
+const type = ([lineType, gridType] as ObjectType<any>[]).find(t => t.variants.some(v => v.id === values.variant));
+if (!type) throw new Error(`no object type has the variant ${values.variant}`);
+const variant = type.variants.find(v => v.id === values.variant)!;
 const language = values.language as ShippedLanguage;
 const budget = Number(values.budget), lines = Number(values.lines);
 const boxes = sandboxes();
 
 function player(spec: string, kind: AgentKind, name = spec): HarnessPlayer {
   const [family, tieBreaker] = spec.split("/") as [string, string | undefined];
-  const f = lineType.families.find(x => x.id === family);
+  const f = type.families.find(x => x.id === family);
   if (!f) throw new Error(`no family ${family}`);
   const tb = tieBreaker ?? f.tieBreakers[0]!.id;
   const params = f.dealable(variant)[0] as Record<string, unknown>;
@@ -61,16 +66,29 @@ async function pool(): Promise<string> {
     "| Rule | Agent | Acts made / skipped | ⚡ spent | Main part (start → end / top) | Tie-breaker | Lines at main top | Bits gained | Bits per 100 ⚡ | ⚡ on reads | ⚡ on changes |",
     "|---|---|---|--:|---|---|---|--:|--:|---|---|",
   ];
-  for (const f of lineType.families.filter(x => CATALOGUE.some(e => e.family === x.id))) for (const tb of f.tieBreakers) for (const kind of ["example", "simple", "thorough", "bold"] as const) {
+  for (const f of type.families.filter(x => hasStarters(x.id))) for (const tb of f.tieBreakers) for (const kind of ["example", "simple", "thorough", "bold"] as const) {
     const spec = `${f.id}/${tb.id}`;
     if (!exampleFor(f.id, tb.id, "typescript")) continue;   // no agents written for this tie-breaker yet (starters.ts undescribed())
-    const r = await runHarness(boxes, { type: lineType, variant, players: [player(spec, kind)], budget, lines, seed: values.seed! });
+    const r = await runHarness(boxes, { type, variant, players: [player(spec, kind)], budget, lines, seed: values.seed! });
     const x = r.rules[0]!, s = r.spend[0]!;
     const status = r.artefacts[x.rule] && r.artefacts[x.rule] !== "converged" ? ` (${r.artefacts[x.rule]})` : "";
     out.push(`| ${spec}${status} | ${kind} | ${s.acts.committed} / ${s.acts.skipped} | ${f1(s.spent)} | ${f1(x.levels.start[0]!)} → ${f1(x.levels.end[0]!)} / ${x.levels.top[0]} | ` +
       `${f1(x.levels.start[1]!)} → ${f1(x.levels.end[1]!)} / ${x.levels.top[1]} | ${x.mainTop.start} → ${x.mainTop.end} | ` +
       `${x.bitsGained === null ? "–" : f1(x.bitsGained)} | ${x.bitsGained === null || s.spent === 0 ? "–" : f1(100 * x.bitsGained / s.spent)} | ` +
       `${byView(s.reads)} | ${byView(s.changes)} |`);
+  }
+  if (type.id === "grid") {
+    // Points: three players on shared boards, each table with every player on the same kind of agent, so the
+    // points-aware starters can be compared with Naive (one table per kind; the rules are the described ones).
+    const rules = type.families.filter(x => hasStarters(x.id)).flatMap(f => f.tieBreakers.filter(t => exampleFor(f.id, t.id, "typescript")).map(t => `${f.id}/${t.id}`)).slice(0, 3);
+    out.push("", "## Three players on shared boards, by agent", "",
+      "Each table is three players with different rules acting on the same boards, every player running the same kind of",
+      "shipped agent; every rule is measured on every board, and points are π_i = n_i · Σ_{j≠i} n_j per board, summed.", "");
+    for (const kind of ["example", "simple", "thorough", "bold", "naive"] as const) {
+      const r = await runHarness(boxes, { type, variant, players: rules.map((s, i) => player(s, kind, `P${i + 1}`)), budget, lines, seed: values.seed! });
+      out.push(`### ${kind}: ${rules.join(" · ")}`, "", formatReport(r), "");
+    }
+    return out.join("\n");
   }
   out.push("", "## Three players on shared lines (examples)", "",
     "Each table is three players with different rules acting on the same lines; every rule is measured on every line, so a",
@@ -81,7 +99,7 @@ async function pool(): Promise<string> {
     ["square-area/omega", "triangle-area/even", "crossing-check/whole"],
   ];
   for (const specs of tables) {
-    const r = await runHarness(boxes, { type: lineType, variant, players: specs.map((s, i) => player(s, "example", `P${i + 1}`)), budget, lines, seed: values.seed! });
+    const r = await runHarness(boxes, { type, variant, players: specs.map((s, i) => player(s, "example", `P${i + 1}`)), budget, lines, seed: values.seed! });
     out.push(`### ${specs.join(" · ")}`, "", formatReport(r), "");
   }
   return out.join("\n");
@@ -94,7 +112,7 @@ try {
   } else {
     if (!values.rule?.length) throw new Error("give --rule family/tieBreaker (repeat for several players) or --pool");
     const players = values.rule.map((s, i) => player(s, values.agent as AgentKind, values.rule!.length > 1 ? `P${i + 1}` : s));
-    const r = await runHarness(boxes, { type: lineType, variant, players, budget, lines, seed: values.seed! });
+    const r = await runHarness(boxes, { type, variant, players, budget, lines, seed: values.seed! });
     console.log(formatReport(r));
   }
 } finally {

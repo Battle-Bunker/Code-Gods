@@ -107,6 +107,11 @@ export interface GridScene {
   readonly right?: readonly ElementRef[];
   readonly bottom?: readonly ElementRef[];
   readonly groups?: readonly { readonly cells: readonly number[]; readonly el: ElementRef }[];
+  /** A word or two for what each margin holds ("total", "off by"), drawn over it; the elements' labels say the rest. */
+  readonly rightTitle?: string;
+  readonly bottomTitle?: string;
+  /** What the groups' values are ("pair totals"), for the scene's text form. */
+  readonly groupTitle?: string;
 }
 
 export interface PlaneItem {

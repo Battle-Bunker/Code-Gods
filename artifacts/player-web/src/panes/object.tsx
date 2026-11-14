@@ -9,9 +9,8 @@ import { useMemo } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { ExpandedFace, ObjectChip, shortTitle } from "@workspace/v2-views";
-import { lineType } from "@workspace/v2-linear";
 import { representation } from "@workspace/v2-core";
-import { decodeState, useGame, useGameScope, useMyObject, useMyRule } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyObject, useMyRule } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
 import { bitsText, pointsText } from "@/core/words";
@@ -32,14 +31,15 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const header = useGame();
   const replaying = useReplaying();
   const openPane = useOpenPane(replaying ? "replay" : header?.phase ?? "live");
-  const state = useMemo(() => (o ? decodeState(o.state) : null), [o?.state]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!o || !state) return <p className="p-4 text-sm text-muted-foreground">Loading this line…</p>;
+  const state = useMemo(() => (o ? decodeState(o.state, header?.variant) : null), [o?.state, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
+  const word = objectWord(header?.variant);
+  if (!o || !state) return <p className="p-4 text-sm text-muted-foreground">Loading this {word.one}…</p>;
   const rule = my?.rule ?? null;
   if (!seated || !rule) {
     return (
       <div className="space-y-2 p-4 text-sm" data-testid="line-expanded">
-        <p className="font-semibold">Line {o.number}: <ObjectChip type={lineType} state={state} /></p>
-        <p className="text-muted-foreground">{seated ? "This version of the app cannot draw your rule yet: reload the page to update it." : "You hold no rule in this game, so there is no score to explain on this line."}</p>
+        <p className="font-semibold">{word.One} {o.number}: <ObjectChip type={objectTypeOf(header?.variant)} state={state} /></p>
+        <p className="text-muted-foreground">{seated ? "This version of the app cannot draw your rule yet: reload the page to update it." : `You hold no rule in this game, so there is no score to explain on this ${word.one}.`}</p>
       </div>
     );
   }
@@ -52,7 +52,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
     <div className="space-y-3 p-3" data-testid="line-expanded" data-line={o.number}>
       <div className="space-y-1 text-sm">
         <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-semibold">Line {o.number}</span>
+          <span className="font-semibold">{word.One} {o.number}</span>
           {v && <span data-testid="text-line-points">{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
           {v && <BitsHelp testId="button-bits-help-line" />}
         </p>
@@ -61,12 +61,12 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       <ExpandedFace rule={rule} state={state} rarities={my!.rarities} active={active} compare={compared}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
-        Try a change on this line
+        Try a change on this {word.one}
       </button>
       {pinned !== active && pin.available && (
         <button type="button" className="text-xs underline underline-offset-4" data-testid="button-pin-representation"
-          onClick={() => void pin.run({ rep: active, family: rule.family.id }).catch(failed("Lines did not change"))}>
-          Draw every line in Lines this way ({shortTitle(representation(rule.type, active).title)})
+          onClick={() => void pin.run({ rep: active, family: rule.family.id }).catch(failed(`${word.Many} did not change`))}>
+          Draw every {word.one} in {word.Many} this way ({shortTitle(representation(rule.type, active).title)})
         </button>
       )}
     </div>
@@ -75,6 +75,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
 
 export function LinePane() {
   const focus = useView().focus;
-  if (!focus) return <p className="p-4 text-sm text-muted-foreground" data-testid="line-empty">Pick a line in Lines to see it here.</p>;
+  const word = objectWord(useGame()?.variant);
+  if (!focus) return <p className="p-4 text-sm text-muted-foreground" data-testid="line-empty">Pick a {word.one} in {word.Many} to see it here.</p>;
   return <FocusedLine key={focus.objectId} objectId={focus.objectId} reps={focus.reps} />;
 }

@@ -4,9 +4,8 @@
  * by v2-views in the representation that changed. Older pages load on request; every loaded page stays live.
  */
 import { createContext, useContext, useMemo } from "react";
-import { lineType, type LineState } from "@workspace/v2-linear";
 import { chipRep, repText } from "@workspace/v2-views";
-import { decodeState, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
+import { decodeState, objectTypeOf, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
 import { clock, num } from "@/core/words";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
@@ -16,8 +15,9 @@ import { noteLines } from "./move-notes";
 const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
 
 /** The line's written form in the representation the move changed (an equation that expresses it, else the first that does). */
-function lineText(state: LineState, rep: string, site: number): string {
-  return repText(lineType, state, chipRep(lineType, state, rep, site), site);
+function lineText(state: unknown, rep: string, site: number, variant: string): string {
+  const type = objectTypeOf(variant);
+  return repText(type, state, chipRep(type, state, rep, site), site);
 }
 
 function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap<string, string>; top: number | null; variant: string }) {
@@ -25,7 +25,7 @@ function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap
   const text = useMemo(() => {
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
-    try { change = { before: lineText(decodeState(move.stateBefore), move.rep, site), after: lineText(decodeState(move.stateAfter), move.rep, site) }; } catch { change = null; }
+    try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
     return moveSentence({
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
       change, what: callWords(move.calls, variantOf(variant)), before: move.before, after: move.after, top,

@@ -84,7 +84,11 @@ try {
     const pull = page.getByTestId("button-pull-back");
     for (let i = 0; i < 4 && !(await pull.count()); i++) {
       await page.getByTestId("button-summon-beside").click();
-      await page.getByTestId("text-forge-status").getByText(/Summoned for/).waitFor({ timeout: 60_000 });
+      // Either it is paid ("Summoned for …"), or there is not enough energy and the pull-back is offered at once.
+      await Promise.race([
+        page.getByTestId("text-forge-status").getByText(/Summoned for/).waitFor({ timeout: 60_000 }),
+        pull.waitFor({ timeout: 60_000 }),
+      ]);
       await page.waitForTimeout(500);
     }
     await pull.waitFor({ timeout: 10_000 });

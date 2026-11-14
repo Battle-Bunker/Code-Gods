@@ -143,8 +143,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
                   {kind === "site"
                     ? <DropdownMenuItem onSelect={() => setSheet(true)} data-testid="menu-connected-apps">Connected apps</DropdownMenuItem>
                     : engineSite() !== location.origin && <DropdownMenuItem asChild><a href={`${engineSite()}/`} target="_blank" rel="noreferrer" data-testid="menu-connected-apps">Connected apps: on the engine site</a></DropdownMenuItem>}
-                  {/* A dev server's credential is not a sign-in: it ends when the dev server stops. */}
-                  {kind !== "token" && <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>}
+                  <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

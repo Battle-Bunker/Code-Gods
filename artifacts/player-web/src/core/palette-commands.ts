@@ -14,11 +14,18 @@ import { PANES, PANE_IDS, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
 
 /** Reads that a pane shows live: the row opens that pane. */
-const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
+export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "game.standings": "race", "game.get": "overview", "rule.explain": "my-card", "rule.ladder": "my-card", "objects.list": "objects",
-  "moves.list": "feed", "agents.list": "agents", "agent.programs": "forge", "chat.list": "public-chat", "rep.mutators": "my-card",
+  "moves.list": "feed", "agents.list": "agents", "agent.programs": "forge", "chat.list": "public-chat", "rep.mutators": "what-if",
   "panel.list": "my-panels", "panel.code": "my-panels",
+  // The auction's result and the handicap show in Where am I; a line's views, quotes and score in One line and What if.
+  "game.auction": "overview", "rule.rarity": "my-card", "object.read": "object", "object.element": "object",
+  "object.quote": "what-if", "object.score": "what-if",
 };
+/** Reads the room page shows (its members, past games, the rotation, the bid phase). */
+export const ROOM_READS: ReadonlySet<string> = new Set(["room.get", "room.history", "game.rotation", "bid.state"]);
+/** Reads the avatar menu shows (who you are, your connected apps). */
+export const ACCOUNT_READS: ReadonlySet<string> = new Set(["account.whoami", "account.connections"]);
 
 export interface PaletteHost {
   perform(id: AffordanceId, args: unknown): Promise<OpOutcome>;
@@ -49,7 +56,8 @@ function soleParam(id: AffordanceId): { name: string; kind: "string" | "number" 
 
 function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   const id = e.id as AffordanceId;
-  if (id === "room.get" && host.roomPath) return { kind: "navigate", to: host.roomPath };
+  if (ROOM_READS.has(id) && host.roomPath) return { kind: "navigate", to: host.roomPath };
+  if (ACCOUNT_READS.has(id)) return { kind: "form", page: { kind: "info", title: e.title, lines: ["Your account and connected apps are in the menu under your avatar (top right)."] } };
   if (id === "room.list") return { kind: "navigate", to: "/" };
   const pane = READ_PANES[id];
   const panes = host.panes;
@@ -68,7 +76,7 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
     return {
       kind: "form",
       page: {
-        kind: "field", title: e.title, label: sole.name, placeholder: sole.name === "code" ? "ABC123" : "",
+        kind: "field", title: e.title, label: FIELD_LABELS[sole.name] ?? sole.name, placeholder: sole.name === "code" ? "ABC123" : "",
         validate: v => (!v.trim() ? "Type something first." : sole.kind === "number" && !Number.isFinite(Number(v)) ? "A number, please." : null),
         onSubmit: v => run(host, id, { [sole.name]: sole.kind === "number" ? Number(v) : v.trim() }),
       },
@@ -76,6 +84,9 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
   }
   return { kind: "form", page: { kind: "info", title: e.title, lines: [e.tooltip, "Use its controls on the screen; your assistant can also do it for you."] } };
 }
+
+/** A field's label in words: the parameter's name only when there is none. */
+const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question" };
 
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {

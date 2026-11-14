@@ -27,6 +27,9 @@
       "path": "../v2-linear"
     },
     {
+      "path": "../v2-grid"
+    },
+    {
       "path": "../v2-sandbox"
     },
     {

@@ -6,6 +6,7 @@
  * The URL carries the room's code: `v2/rooms:byCode` finds it (and whether the viewer is a member); a member's page
  * subscribes to `v2/rooms:get`. When the room's game starts, everyone on the page is taken to it (never on first load).
  */
+import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { Bot, Copy, Crown, User } from "lucide-react";
@@ -175,7 +176,8 @@ function MemberRoom({ roomId, code }: { roomId: string; code: string }) {
     seen.current = gameId;
     if (prev !== undefined && gameId && prev !== gameId) navigate(gamePath(room.code, gameId));
   }, [gameId, room, navigate]);
-  const context = affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null });
+  const aiOff = useLive(api.v2.assistant.status, roomId ? { roomId: roomId as Id<"v2Rooms"> } : "skip").data?.off ?? null;
+  const context = affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, aiOff });
   return (
     <Page context={context} scope={{ roomId }} roomPath={roomPath(code)} crumbs={[{ label: code }]} placeholder={`Search or do anything in ${code}`} conn={room ? { ok: !q.error } : null}
       chip={room ? `Room ${room.code}` : undefined}>

@@ -369,8 +369,8 @@
    "label": "y(k) to T exactly",
    "layer": 0,
    "main": 7,
-   "bits": 10.7924,
-   "error": 0.0001,
+   "bits": 10.7925,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -381,8 +381,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 2",
    "layer": 1,
    "main": 7,
-   "bits": 10.9739,
-   "error": 0.0001,
+   "bits": 10.974,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -393,8 +393,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 3",
    "layer": 1,
    "main": 7,
-   "bits": 11.2549,
-   "error": 0.0001,
+   "bits": 11.255,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -405,8 +405,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 5",
    "layer": 1,
    "main": 7,
-   "bits": 12.5998,
-   "error": 0.0003,
+   "bits": 12.6,
+   "error": 0.0001,
    "source": "exact"
   },
   {
@@ -417,8 +417,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 7",
    "layer": 1,
    "main": 7,
-   "bits": 14.0442,
-   "error": 0.0009,
+   "bits": 14.0449,
+   "error": 0.0002,
    "source": "exact"
   },
   {
@@ -429,8 +429,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 11",
    "layer": 1,
    "main": 7,
-   "bits": 15.6392,
-   "error": 0.0029,
+   "bits": 15.6414,
+   "error": 0.0007,
    "source": "exact"
   },
   {
@@ -441,8 +441,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 13",
    "layer": 1,
    "main": 7,
-   "bits": 16.5005,
-   "error": 0.0052,
+   "bits": 16.5044,
+   "error": 0.0013,
    "source": "exact"
   },
   {
@@ -453,8 +453,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 17",
    "layer": 1,
    "main": 7,
-   "bits": 16.8708,
-   "error": 0.0067,
+   "bits": 16.8758,
+   "error": 0.0017,
    "source": "exact"
   },
   {
@@ -465,8 +465,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 19",
    "layer": 1,
    "main": 7,
-   "bits": 17.617,
-   "error": 0.0113,
+   "bits": 17.6254,
+   "error": 0.0028,
    "source": "exact"
   },
   {
@@ -477,8 +477,8 @@
    "label": "y(k) to T exactly; the gradient's largest prime factor at least 23",
    "layer": 1,
    "main": 7,
-   "bits": 22.2965,
-   "error": 0.2875,
+   "bits": 22.5007,
+   "error": 0.0833,
    "source": "exact"
   },
   {
@@ -585,18 +585,18 @@
     9.9015,
     10.6438,
     10.7915,
-    10.7923,
-    10.9738,
-    11.2548,
-    12.5994,
-    14.0433,
-    15.6364,
-    16.4953,
-    16.864,
-    17.6057,
-    22.009,
-    23.4853,
-    23.5672
+    10.7925,
+    10.9739,
+    11.255,
+    12.6,
+    14.0447,
+    15.6407,
+    16.5031,
+    16.8741,
+    17.6226,
+    22.4174,
+    25.1559,
+    25.4347
    ],
    "hi": [
     0,
@@ -2620,5 +2620,5 @@
    ]
   }
  },
- "contentHash": "f4cf762bf2c6b929"
+ "contentHash": "826d2bfe71dfb558"
 }

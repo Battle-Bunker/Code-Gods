@@ -19,6 +19,9 @@ export const pairs = (n: number): [number, number][] => {
   return out;
 };
 
+/** The corner boxes' names, in the order `boxes` lists them. */
+export const BOX_NAMES = ["top-left", "top-right", "bottom-left", "bottom-right"] as const;
+
 /** The four corner boxes (quarters of the board, N even): top-left, top-right, bottom-left, bottom-right. */
 export const boxes = (n: number): number[][] => {
   const h = n / 2;

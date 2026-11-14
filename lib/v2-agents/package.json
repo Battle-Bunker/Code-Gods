@@ -21,7 +21,8 @@
     "@workspace/v2-sandbox": "workspace:*",
     "@workspace/v2-economy": "workspace:*",
     "@workspace/v2-ai": "workspace:*",
-    "@workspace/v2-affordances": "workspace:*"
+    "@workspace/v2-affordances": "workspace:*",
+    "@workspace/v2-grid": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:"

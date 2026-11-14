@@ -364,8 +364,8 @@
    "label": "y(k) to T exactly",
    "layer": 0,
    "main": 7,
-   "bits": 10.7924,
-   "error": 0.0001,
+   "bits": 10.7925,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -376,8 +376,8 @@
    "label": "y(k) to T exactly; different primes at least 1",
    "layer": 1,
    "main": 7,
-   "bits": 10.7924,
-   "error": 0.0001,
+   "bits": 10.7925,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -389,7 +389,7 @@
    "layer": 1,
    "main": 7,
    "bits": 10.7944,
-   "error": 0.0001,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -401,7 +401,7 @@
    "layer": 1,
    "main": 7,
    "bits": 10.8469,
-   "error": 0.0001,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -412,8 +412,8 @@
    "label": "y(k) to T exactly; different primes at least 4",
    "layer": 1,
    "main": 7,
-   "bits": 11.3288,
-   "error": 0.0001,
+   "bits": 11.3289,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -424,8 +424,8 @@
    "label": "y(k) to T exactly; different primes at least 5",
    "layer": 1,
    "main": 7,
-   "bits": 11.6038,
-   "error": 0.0002,
+   "bits": 11.6039,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -436,8 +436,8 @@
    "label": "y(k) to T exactly; different primes at least 6",
    "layer": 1,
    "main": 7,
-   "bits": 15.1795,
-   "error": 0.0021,
+   "bits": 15.181,
+   "error": 0.0005,
    "source": "exact"
   }
  ],
@@ -515,13 +515,13 @@
     10.2238,
     10.7923,
     10.7923,
-    10.7923,
-    10.7923,
-    10.7943,
-    10.8468,
-    11.3286,
-    11.6036,
-    15.1774
+    10.7925,
+    10.7925,
+    10.7944,
+    10.8469,
+    11.3289,
+    11.6039,
+    15.1805
    ],
    "hi": [
     0,
@@ -2120,5 +2120,5 @@
    ]
   }
  },
- "contentHash": "7a1d04c822cca990"
+ "contentHash": "5769de9b051543ea"
 }

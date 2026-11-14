@@ -14,6 +14,8 @@ export interface ContextInput {
   header?: Header | null;
   me?: Me | null;
   replay?: boolean;
+  /** Why AI cannot spend in this room (`v2/assistant:status.off`): what spends the AI budget is then not offered. */
+  aiOff?: string | null;
 }
 
 export function affordanceContext(i: ContextInput): AffordanceContext {
@@ -30,7 +32,7 @@ export function affordanceContext(i: ContextInput): AffordanceContext {
       admin: i.admin,
     },
   };
-  if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidOpen: !!room.bidding };
+  if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidOpen: !!room.bidding, ...(i.aiOff ? { aiOff: i.aiOff } : {}) };
   if (header) ctx.game = { phase: header.phase, ...(i.me ? { energy: i.me.energy, pauseUsed: i.me.pauseUsed, agents: i.me.agents } : {}) };
   return ctx;
 }

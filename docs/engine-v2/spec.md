@@ -644,7 +644,11 @@ p(n) = 2^−mixedInt(n), whose Kraft sum is exactly 1, and `lib/v2-valuation/src
   - `band`: for every m, ranges of c holding every line whose main layer is at level `fromMain` or above (a linear
     substitution such as c = T − km ± d, or a parametrised set such as c a multiple of t when 2|m| = t²). It is summed
     over m and c within 40 bits; ranges too wide to enumerate add their mass to the bound. The contract is checked against
-    brute force for every band in `test/sums.test.ts`.
+    brute force for every band in `test/sums.test.ts`. A family may declare several bands (`bands`); each rung takes the
+    tightest interval. A band of **points** is evaluated at any size, so only m beyond the budget is outside. With
+    `points: "same"` (the same c for every m, e.g. Prime Staircase's primes) that remainder is bounded by T(m) times the
+    points' mass. With `points: "one-per-m"` (c fixed by m where the main layer is exact, e.g. c = T(1 − m) or c = T − km)
+    it is bounded by T(m) times the most one c can weigh.
   - **Nothing declared (the generic fallback):** every line with φ(m) + φ(c) ≤ 28. This certifies rungs up to about
     8 bits only.
 - **Where a rung is not exact**, the simulation below fills it if it converges. The rule is then **hybrid**, and
