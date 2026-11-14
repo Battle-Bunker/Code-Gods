@@ -1,0 +1,563 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-nines/{\"T\":9}/tb=odd",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "opposite-nines",
+ "params": {
+  "T": 9
+ },
+ "tieBreaker": "odd",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "8"
+   ],
+   "label": "anything; odd numbers at least 8",
+   "layer": 1,
+   "main": 0,
+   "bits": 1.3453,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "11"
+   ],
+   "label": "anything; odd numbers at least 11",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.7798,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "12"
+   ],
+   "label": "anything; odd numbers at least 12",
+   "layer": 1,
+   "main": 0,
+   "bits": 2.9327,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32"
+   ],
+   "label": "the pairs' totals off by at most 32 in all",
+   "layer": 0,
+   "main": 1,
+   "bits": 2.9874,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 32 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 1,
+   "bits": 3.956,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 32 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 1,
+   "bits": 5.7433,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-32",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 32 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 1,
+   "bits": 6.0369,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24"
+   ],
+   "label": "the pairs' totals off by at most 24 in all",
+   "layer": 0,
+   "main": 2,
+   "bits": 6.2063,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 24 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 2,
+   "bits": 6.913,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 24 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 2,
+   "bits": 8.1652,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-24",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 24 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 2,
+   "bits": 8.3298,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-20"
+   ],
+   "label": "the pairs' totals off by at most 20 in all",
+   "layer": 0,
+   "main": 3,
+   "bits": 8.4366,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-20",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 20 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 3,
+   "bits": 9.1615,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-20",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 20 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 3,
+   "bits": 10.7598,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-20",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 20 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 3,
+   "bits": 11.0047,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "the pairs' totals off by at most 16 in all",
+   "layer": 0,
+   "main": 4,
+   "bits": 11.1906,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 16 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 4,
+   "bits": 11.6992,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 16 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 4,
+   "bits": 12.632,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 16 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 4,
+   "bits": 12.7324,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-14"
+   ],
+   "label": "the pairs' totals off by at most 14 in all",
+   "layer": 0,
+   "main": 5,
+   "bits": 12.8085,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-14",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 14 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 5,
+   "bits": 13.3357,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-14",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 14 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 5,
+   "bits": 14.4113,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-14",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 14 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 5,
+   "bits": 14.5291,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12"
+   ],
+   "label": "the pairs' totals off by at most 12 in all",
+   "layer": 0,
+   "main": 6,
+   "bits": 14.6245,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 12 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 6,
+   "bits": 15.1702,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 12 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 6,
+   "bits": 16.4235,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 12 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 6,
+   "bits": 16.5626,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10"
+   ],
+   "label": "the pairs' totals off by at most 10 in all",
+   "layer": 0,
+   "main": 7,
+   "bits": 16.6837,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "6"
+   ],
+   "label": "the pairs' totals off by at most 10 in all; odd numbers at least 6",
+   "layer": 1,
+   "main": 7,
+   "bits": 16.8151,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "8"
+   ],
+   "label": "the pairs' totals off by at most 10 in all; odd numbers at least 8",
+   "layer": 1,
+   "main": 7,
+   "bits": 17.4128,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "10"
+   ],
+   "label": "the pairs' totals off by at most 10 in all; odd numbers at least 10",
+   "layer": 1,
+   "main": 7,
+   "bits": 18.9627,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "11"
+   ],
+   "label": "the pairs' totals off by at most 10 in all; odd numbers at least 11",
+   "layer": 1,
+   "main": 7,
+   "bits": 20.7694,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "12"
+   ],
+   "label": "the pairs' totals off by at most 10 in all; odd numbers at least 12",
+   "layer": 1,
+   "main": 7,
+   "bits": 21.8826,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "13"
+   ],
+   "label": "the pairs' totals off by at most 10 in all; odd numbers at least 13",
+   "layer": 1,
+   "main": 7,
+   "bits": 24.8414,
+   "error": 0,
+   "source": "exact"
+  }
+ ],
+ "cap": 34,
+ "convergedCap": 34,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution"
+   ],
+   "lo": [
+    0,
+    1.3453,
+    2.7798,
+    2.9327,
+    2.9874,
+    3.956,
+    5.7433,
+    6.0369,
+    6.2063,
+    6.913,
+    8.1652,
+    8.3298,
+    8.4366,
+    9.1615,
+    10.7598,
+    11.0047,
+    11.1906,
+    11.6992,
+    12.632,
+    12.7324,
+    12.8085,
+    13.3357,
+    14.4113,
+    14.5291,
+    14.6245,
+    15.1702,
+    16.4235,
+    16.5626,
+    16.6837,
+    16.8151,
+    17.4128,
+    18.9627,
+    20.7694,
+    21.8826,
+    24.8414
+   ],
+   "hi": [
+    0,
+    1.3453,
+    2.7798,
+    2.9327,
+    2.9874,
+    3.956,
+    5.7433,
+    6.0369,
+    6.2063,
+    6.913,
+    8.1652,
+    8.3298,
+    8.4366,
+    9.1615,
+    10.7598,
+    11.0047,
+    11.1906,
+    11.6992,
+    12.632,
+    12.7324,
+    12.8085,
+    13.3357,
+    14.4113,
+    14.5291,
+    14.6245,
+    15.1702,
+    16.4235,
+    16.5626,
+    16.6837,
+    16.8151,
+    17.4128,
+    18.9627,
+    20.7694,
+    21.8826,
+    24.8414
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "6384cabebd15300a"
+}

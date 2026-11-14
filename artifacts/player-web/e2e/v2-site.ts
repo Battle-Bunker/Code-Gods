@@ -91,6 +91,17 @@ try {
       assert.doesNotMatch(await page.locator("body").innerText(), /not available/i);
       await noHorizontalScroll(page, `${label} room`);
       await shot(page, `v2-room-${label}`);
+      // The palette runs an operation that asks for text (playtest round 1: Enter did nothing).
+      const said = `hello from the palette ${label}`;
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Send a chat message");
+      await page.keyboard.press("Enter");
+      const field = page.getByTestId("input-palette-field");
+      await field.waitFor();
+      await field.fill(said);
+      await field.press("Enter");
+      await page.locator("[data-testid^=row-chat-]").getByText(said).first().waitFor({ timeout: 15_000 });
+      await page.getByText("Message sent to the room's chat.").first().waitFor({ timeout: 5_000 });
     });
 
     await check(`${label}: a live line game shows your totals, the panes and the lines' faces`, async () => {

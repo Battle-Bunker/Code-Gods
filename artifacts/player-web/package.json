@@ -84,12 +84,13 @@
     "@workspace/v2-affordances": "workspace:*",
     "@workspace/v2-agents": "workspace:*",
     "@workspace/v2-client": "workspace:*",
-    "zod": "catalog:",
     "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-grid": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",
     "@workspace/v2-views": "workspace:*",
     "convex": "1.48.0",
-    "dockview-react": "^8.8.2"
+    "dockview-react": "^8.8.2",
+    "zod": "catalog:"
   }
 }

@@ -1,6 +1,7 @@
 # Annotations for lines: contributors, chains and targets
 
-Status: design (phase 1). The storyboards in §9 are running pages (`artifacts/player-web/annotations-lines.html`,
+Status: design (phase 1), revised for owner decision 23 (14 November: no discrete steps; a line's bits are the rarity of
+being at least as good as its actual (main, tie-breaker) utilities, so annotations show quantities, not thresholds). The storyboards in §9 are running pages (`artifacts/player-web/annotations-lines.html`,
 `pnpm --filter @workspace/player-web e2e:annotations-lines` captures them); the implementation plan is §11.
 
 The owner (14 November 2026): "I want serious thought and UX work going into the annotations system for the new Lines
@@ -10,7 +11,7 @@ design for."
 
 Who it is for: a 12-year-old learning linear equations, dealt one secret rule. The annotation succeeds when that child
 can say, for their own rule and the line in front of them, **what number the rule reads, where it is on the line, what
-the next step up is and what it would cost, and why another player might want the same line**. Those four sentences
+what would make it rarer and what that would cost, and why another player might want the same line**. Those four sentences
 are the test of every design choice below and of the persona walk in §11.4. They are also what the child needs to
 negotiate with other players and to instruct an AI assistant (owner decision 9).
 
@@ -57,41 +58,39 @@ quantity read off a representation through the single element API:
 | **element** | a coordinate or derived element of a representation | c (`si.c`), the area (`tri.area`), the crossing (`cart.xInt`), y(2) (`table.y(x=2)`), the unchanged number (`mach.fixed`) |
 | **lens value** | a number-fact of an element (layered-line-rules §1.5's `num` lens) | the nearest prime to c and its distance; the nearest square to the area, its root and that root's smallest prime factor |
 | **relation** | a measure between two quantities | the gap from y(2) to 37; the run of n dividing y(n) |
-| **target** | the layer's next threshold, as a value in the same units | "within 1 of a prime", "the prime at least 29" |
+| **reference** | what a distance is measured to (the target is to be on it), or for a size the natural values around it | the prime 23; the square 25; the primes 29, 31 above 23 |
 
 The **measure** is the last relation (a distance for a `min` layer, a size or count for a `max` layer); it is the
 layer's score component, exactly the term v2-core records. A contributor therefore always reads, left to right:
 
-> **● c = 25** → nearest prime **23** → **2 away** → target: within **1**
+> **● c = 25** → nearest prime **23** → **2 away** · the closer, the better
 
-> **◆ that prime 23** → target: at least **29**
+> **◆ that prime 23** · the bigger, the better
 
-and the two together place the line on the rule's joint ladder (spec §4.4): **step 11 of 27**.
+and the two together give the line its rarity: **2.13 bits (1 in 4.4 by chance)**.
 
-**Graded distance-to-target as contributors.** Each contributor carries a **gauge**: its layer's thresholds as notches,
-in the layer's own units, easiest at the left, the top at the right (for a distance: 4 · 2 · 1 · exactly; for a size: 2 ·
-3 · 5 · … · 31). The notches reached are filled in the contributor's colour; the line's value is a needle; the next
-notch is the target, drawn hollow and labelled. This replaces the parts' "step 7 of 9" counts (§8, W5): only the line
-has steps; a part has **targets**.
+**The gauge is the quantity on a ruler** (decision 23: no thresholds, notches or part steps). Each contributor has a
+**lens ruler**: a magnified number line of the quantity it reads. For a distance it shows the value, the reference it is
+measured to (the prime 23, the square 25, the whole number −2) and its neighbours, so "2 below" is a visible gap that
+shrinks to zero; for a size it shows the value among its natural values (the primes 17, 19, **23**, 29, 31 …), bigger to
+the right. A quantity that is discrete by nature (a smallest prime factor, a run) shows its natural values, never imposed
+buckets. Under the ruler, what the rule wants in words: "the closer, the better", "the bigger, the better".
 
-The two rungs on one screen: the main part's gauge on top, the tie-breaker's beneath, and between them one sentence
-saying how they combine: "The main part decides first; the tie-breaker orders lines that are level on it." When the
-main part is below its top, the tie-breaker's gauge is drawn coarser (spec §4.4: coarsened below the main top) and says
-so: "counts in bigger steps until the main part is exact".
+The two parts on one screen: the main part's ruler on top, the tie-breaker's beneath, and one sentence on how they
+combine: "The main part counts first; the tie-breaker decides between lines that are equally good on the main part."
 
 ## 3. The derivation chain, and where each link is visible
 
-For every rule the chain from the screen to the points is the same six links. The table says what shows each link at
+For every rule the chain from the screen to the points is the same five links. The table says what shows each link at
 rest (no pointer), on hover or tap, and on demand (an explicit "How this scores" fold).
 
 | # | Link | At rest | Hover / tap a contributor | On demand ("How this scores") |
 |---|---|---|---|---|
 | 1 | **See**: the element in a representation | its badge (● c) on the element in the primary view; the value in the reading strip | the element lit in **every** shown view (projection, §4.2) | the elements read, with the representation each came from |
 | 2 | **Read**: the quantity the rule reads (element or lens value) | "c = 25 → nearest prime 23" in the strip | the lens value drawn in the view (the prime 23 as a tick on the y-axis; the nearest square as an outline) | the lens worked: "primes near 25: 23 (2 below), 29 (4 above)" |
-| 3 | **Target and distance** | the gauge with needle and next notch | the target drawn in the view (a band on the axis, a ghost line) | every threshold with its rarity |
-| 4 | **Step** | "step 11 of 27" | which gauge moved it there | the joint ladder, this line marked, the next step named |
-| 5 | **Bits and chance** | "2.13 bits (1 in 4.4 by chance)" | "each bit = twice as rare" | the ladder's bits per step and "1 in N" per step |
-| 6 | **Points** | "your 2.13 × others' 3.10 = 6.60 points" | the points rectangle | how others' bits are made (§7) |
+| 3 | **Reference and distance** | the ruler: value, reference, gap | the reference drawn in the view (a tick on the axis, a target point) | the lens worked out |
+| 4 | **Bits and chance** | "2.13 bits (1 in 4.4 by chance)" | "each bit = twice as rare" | "only 1 in 4.4 random lines are at least this good on both parts" |
+| 5 | **Points** | "your 2.13 × others' 3.10 = 6.60 points" | the points rectangle | how others' bits are made (§7) |
 
 Rule: **no link is only on hover.** Everything a phone user needs is at rest or one tap away (§8).
 
@@ -125,7 +124,7 @@ element with the same meaning (`cart.yInt`, `table.y(x=0)`, `mach.plus`, `seq.ze
   the y-axis at 23; as "→ 23" beside c in the equation; as the y(0) column's target in a table).
 
 The colours are reserved: no other ink on an annotated view uses teal or violet. Good/bad is never colour: progress is
-filled notches, a top is "✓ top", a line that does not score is a grey hatch with ⊘ and a sentence. (Today a finished
+a ruler's gap, a line that does not score is a grey hatch with ⊘ and a sentence. (Today a finished
 bar is green in one face and red in another: W2.)
 
 ### 4.3 Views the rule does not read
@@ -153,39 +152,91 @@ Lens values and candidates are dynamic elements; each has one drawing per scene 
 |---|---|---|---|---|
 | nearest primes to c (with distances) | ticks on the y-axis, the nearest solid, others faint, each "23 · 2 below" | "c = 25 → 23 (2 below), 29 (4 above)" under the equation | the y(0) cell with the same note | beside the "+ c" stage |
 | nearest square to the area | the square of that area drawn on the same scale beside the triangle, side labelled with the root | — | — | — |
-| nearest whole number to the crossing | a tick on the x-axis at k, the band ± next target | — | — | — |
-| next target (the next notch) | a band on the axis, or a ghost of the cheapest line that reaches it, dashed, with its price | a ghost equation under the real one | the target value in the cell | the target output |
+| nearest whole number to the crossing | a tick on the x-axis at k | — | — | — |
+| a better value one move away | a ghost of that move's line, dashed | a ghost equation under the real one | the new value in the cell | the new output |
 
 ## 5. What would raise it
 
 The annotation's job is not finished when the child knows the score; it is finished when they know **what to change and
 what it costs**. Each contributor that is below its top shows:
 
-1. **The target in the drawing**: the band or tick it must reach (§4.5), in its colour, hollow.
-2. **Moves that reach it, priced**: up to three moves on the price/step frontier (the cheapest move that climbs, then
-   the cheapest that climbs higher than every cheaper one), from the type's mutators, each "Move the line down 1 · 5.94 ⚡
-   → step 15 of 27 · ● c 25 → 24: within 1". The first is drawn as a dashed ghost; pointing at another
-   moves the ghost. A move that reaches the next notch of one contributor but drops the other says so ("… but the
-   tie-breaker falls from 23 to 19").
-3. **When no single move is in budget**, the closest improvement, honestly labelled ("gets closer, still step 12").
+1. **The reference in the drawing**: the tick, point or shape the quantity is measured to (§4.5), in its colour.
+2. **Moves that make the line rarer, priced**: up to three moves on the price/rarity frontier (the cheapest move that
+   raises the bits, then the cheapest that raises them further), each with its new values and new bits: "Move the line
+   down 1 · 5.94 ⚡ · ● c 25 → 24 · → 3.31 bits (1 in 10)". The first is drawn as a dashed ghost; pointing at another
+   moves the ghost. A move that helps one part and hurts the other says so ("◆ the prime 23 → 7").
+3. **When no single move is in budget**, the closest improvement, honestly labelled.
 
 Moves are generated from the same mutators the agent pays for (spec §5), so a child can paste the sentence to their
 assistant ("move line 7 down 2") and get exactly that.
 
-## 6. Scale
+## 6. Scale: the window is chosen from what the rule reads
 
-A contributor must always be legible. The plane picks its window from the **contributors**, not from a fixed ±12:
+The owner (14 November): "Choosing chart viewport params and which points to label proactively (without hover) is really
+important for UX for the Line object type … Find an appropriate charting library that helps with choosing the most
+interesting viewport params … and integrate with that library via including interesting points for the current
+player's scoring rule for the charting library to choose display params around."
 
-1. **Fit what the rule reads**: the window contains the origin, the line's intercepts and every cited point and target,
-   padded. Scales may differ between the axes; when they do, the view says so ("1 square across = 1, up = 50") and keeps
-   a small 1:1 slope glyph in the corner, so a steep line still looks steep.
-2. **Zoom inset** when a contributor is below 6 px after fitting (the triangle of y = 290x + 59 is 0.2 wide and 59
-   tall): a magnified inset of that contributor, joined to its place by a leader.
-3. **Numeric fallback**: when even an inset cannot show it (a lens value of 10⁶), the badge carries the number on a
-   leader to the axis edge ("c = 1,000,003 ↑"), and the reading strip is the explanation.
+### 6.1 What the libraries actually automate
 
-The same rule applies to tables (the columns shown are those the rule reads: 1 … run + 1 for the Divisibility Ladder,
-x = k for Treasure, not a fixed 0 … 5).
+No library picks "the most interesting viewport" by itself: every one fits a window to the data it is given, so the
+interesting points must come from the rule. What differs is what they do with them.
+
+| Library (licence) | Fit a window to given points | Nice ticks | Independent x/y scales, equal-aspect option | Labels placed without collisions | React / Node tests | Size (min+gz) |
+|---|---|---|---|---|---|---|
+| **d3-scale + d3-array** (ISC) | extent → domain, `nice()` | yes (`ticks`, `nice`) | yes; aspect is the caller's | no | pure functions; any renderer; runs in Node | ≈ 12 KB |
+| Observable Plot (ISC) | domain from every mark's data, `inset`, `nice` | yes (d3) | yes; `aspectRatio` | no (text marks are not de-overlapped; `tip` only keeps one tooltip in frame) | returns a DOM node: React needs a ref; Node needs jsdom; per-element interaction is post-processing | ≈ 70 KB + d3 |
+| Vega-Lite (BSD-3) | `zero: false`, `nice`, padding | yes | yes | axis-label overlap only; Vega's `label` transform de-overlaps text against marks (bitmap occupancy) | async view runtime, not React-native | ≈ 300 KB+ |
+| JSXGraph (MIT/LGPL) | `zoomElements([...])` fits the board to elements | yes | yes; `keepaspectratio` | `label.autoPosition` | imperative board, needs a DOM | ≈ 200 KB |
+| Mafs (MIT) | no (you set the `viewBox`) | yes | `preserveAspectRatio` | no | React-native | ≈ 40 KB |
+| function-plot (MIT) | no (domains given) | yes (d3) | yes | no | d3 DOM | ≈ 40 KB + d3 |
+| uPlot (MIT) | y auto-range for series | yes | yes | no | canvas | ≈ 20 KB |
+| Plotly (MIT) | `autorange` with padding | yes | yes; `scaleanchor` | annotations are not de-overlapped | heavy DOM | ≈ 1 MB |
+| d3fc-label-layout (MIT) | — | — | — | greedy, annealing and remove-overlaps strategies over label rectangles; no obstacles (the line), annealing is random | pure strategies but d3 v1 dependencies | ≈ 6 KB |
+
+**Choice: d3-scale (with d3-array) for the window and ticks; our own small placer for labels.** d3-scale is the
+fitting and tick engine that Observable Plot, Vega and Recharts themselves use, as pure functions: the window is
+computed in Node tests exactly as in the browser, and the drawing stays our React SVG, which every element's identity,
+pointer and keyboard behaviour needs (design §4, §8). Plot or Vega would add a second rendering model for the same
+fit. For labels, the only library that avoids the line itself is Vega's `label` transform, which cannot be used
+outside Vega's scene graph; d3fc-label-layout's greedy strategy is the right algorithm but knows no obstacles and pulls
+in d3 v1, so `lib/v2-views/src/plot/labels.ts` is that greedy candidate-position algorithm (eight positions per point,
+in growing rings, a leader when far) with the line, the axes and every point's mark as obstacles, deterministic.
+
+### 6.2 The contract: interesting points come from the rule
+
+No second source: the plane gathers its interesting points from the rule's own marks, **projected by meaning** onto the
+plane (`crossing.x0` → the x-intercept, `si.c` → the y-intercept, `table.y(x=2)` → the point at x = 2), with a
+priority each:
+
+| Priority | What | In the window | Label at rest |
+|---|---|---|---|
+| 1 | a focus or measure mark's element; the nearest candidate (the target); the triangle the rule reads | always | always, clear of each other, the line and the axes |
+| 2 | other candidates; the rule's short notes; the intercepts when the rule cites nothing on this plane | always | where there is room |
+| 3 | the representation's own landmarks: the origin, the intercepts | unless one would shrink what matters more than 8-fold on an axis and lie more than 30 units away | on hover/tap (titles) |
+
+Then (`plot/viewport.ts`): the extent of the points, padded; **one scale** for both axes while the narrower content
+still fills an eighth of its axis (a gradient then looks like itself); else **each axis its own scale**, niced to round numbers, and the
+picture says "Scales differ: across, one square is 0.05; up, one square is 20". An axis left outside the window is named
+at the edge ("x-axis ↓ (y = 0)"). A region thinner than 10 px is drawn as a schematic in a corner, "not to scale". A
+fraction with a bottom number above 16 is written "≈ 6.00", whole numbers from 10,000 are grouped, and a tick number
+under a label is left out. Tests: `lib/v2-views/test/plot.test.ts` checks every priority-1 point inside the window and
+every priority-1 label on screen and clear of the others in the compact and expanded boxes (the expanded SVG then scales
+to the card), on
+y = 290x + 59, a near-horizontal line, c = 27,720, lines through the origin, a near-vertical line, and each pool rule's
+top state; `e2e/annotations-lines.ts` measures the same in the browser at 390 and 1440 px on the gallery's hard cases (`v2-views.html?section=plot`).
+
+Before and after, y = 290x + 59 under Square Area (the fixed ±12 window made the triangle a sliver):
+
+![Before: fixed window](../screenshots/annotations-lines/plot-before-290x59.png)
+![After: fitted to the triangle the rule reads](../screenshots/annotations-lines/plot-after-290x59.png)
+![After, phone](../screenshots/annotations-lines/plot-after-290x59-390.jpg)
+![Far from the origin: y = 5x + 27,720 under Prime Landing](../screenshots/annotations-lines/plot-after-27720.png)
+
+### 6.3 Still to come
+
+The lens ruler (§2) in the faces themselves, for references a window cannot separate (27,720 against
+the prime 27,733 is legible; 10⁶ against 10⁶ + 1 is not); the same fitting for tables (the columns the rule reads).
 
 ## 7. Other players
 
@@ -216,17 +267,19 @@ player may see (spec §9 disclosure, unchanged): the **others' bits on each line
 
 Every frame below is a running page: `annotations-lines.html?rule=<id>&frame=<f>` on the player-web dev server
 (`src/gallery/lines/`, a prototype: its per-family lens readings are hand-written, which §11.1 removes). The numbers are
-real (the rules, element values, gauges, moves and prices come from v2-core and v2-linear; the bits per step
-are the calibrated line-z artefacts in `lib/v2-valuation/artefacts`), except the others' bits, which are illustrative.
+real (the rules, element values, moves and prices come from v2-core and v2-linear; the bits are read from the
+calibrated line-z artefacts in `lib/v2-valuation/artefacts` until the continuous valuation of decision 23 lands, so they
+move in jumps where the new valuation will move smoothly), except the others' bits, which are illustrative. The graph
+and triangle panels are the real v2-views plane (#462).
 
 ### 9.1 Prime Landing: y = 6x + 25, tie-breaker "that prime as big as possible"
 
 Primary: the equation; the rule also reads the graph. The child sees **● c = 25** with its badge in the equation and on
 the y-axis; the rule reads the nearest prime, **23, 2 below** (29 is 4 above): a ruler under the card magnifies that
-stretch of numbers with the primes as ticks and the next target, "within 1", as a band. The tie-breaker ◆ is that prime,
-23, next target ≥ 29. The line is on **step 11 of 27, 2.13 bits (1 in 4.4)**. The moves are honest about the trade:
-"Move the line down 1 · 5.94 ⚡ → step 15" (within 1); "Slide the line to y = 6x + 7 · 8.94 ⚡ → step 20" (exactly a
-prime, but the tie-breaker falls from 23 to 7); "… y = 6x + 13 · 9.94 ⚡ → step 22".
+stretch of numbers with the primes as ticks. The tie-breaker ◆ is that prime, 23, on a ruler of primes. The line is
+**2.13 bits (1 in 4.4)**. The moves are honest about the trade: "Move the line down 1 · 5.94 ⚡ → 3.31 bits";
+"Slide the line to y = 6x + 7 · 8.94 ⚡ → 7.09 bits" (on a prime, but the tie-breaker falls from 23 to 7); "… y = 6x +
+13 · 9.94 ⚡ → 10.10 bits".
 
 ![Prime Landing, One line, desktop](../screenshots/annotations-lines/prime-landing-1440-light.png)
 
@@ -239,10 +292,10 @@ twin is visible; "How this scores" is open with the six links.
 
 Primary: the triangle. The legs 7 and 7 are drawn thick and labelled; **area 24½** is written in the triangle, not under
 it; the nearest square **25 = 5 × 5** is drawn as a 5 × 5 square on the same grid, so "close to a square number" is two
-shapes of nearly the same size; the ruler shows 16, 25 and 36 with the area ½ from 25 and the next target ¼. The legs
-project onto the graph as the two intercepts. Tie-breaker ◆: the square's side 5 (a prime), next target ≥ 7. Moves:
-"Change the gradient to −2 · 6.44 ⚡ → step 37" (area 16, exactly, but the root falls to 4) and "Multiply every output
-by 2 · 10.17 ⚡ → step 40" (area 49 = 7², and the root rises to 7): the moves teach that the two parts can pull apart or
+shapes of nearly the same size; the ruler shows 16, 25 and 36 with the area ½ from 25. The legs project onto the graph as the two
+intercepts. Tie-breaker ◆: the square's side 5 (a prime), on a ruler of primes. Moves: "Change the gradient to −2 ·
+6.44 ⚡" (area 16, exactly, but the root falls to 4) and "Multiply every output by 2 · 10.17 ⚡" (area 49 = 7², and the
+root rises to 7), each with its new bits: the moves teach that the two parts can pull apart or
 together.
 
 ![Square Area, desktop](../screenshots/annotations-lines/square-area-1440-light.png)
@@ -251,8 +304,8 @@ together.
 ### 9.3 Whole Crossing: y = 3x + 7, tie-breaker "that whole number's largest prime factor"
 
 Primary: the graph. The crossing **x₀ = −2⅓** is ringed on the x-axis, the nearest whole number **−2** is ⅓ to its
-right, and the band "within ¼" is the next target; the strip shows the solving ("0 = 3x + 7 → x₀ = −2⅓"). Step 4 of
-40, 1.12 bits. "Move the line down 1 · 5.94 ⚡" makes the crossing exactly −2 and the line jumps to step 29. Compared
+right; the strip shows the solving ("0 = 3x + 7 → x₀ = −2⅓"); 1.12 bits. "Move the line down 1 · 5.94 ⚡" puts the
+crossing exactly on −2, and the move shows the bits it would bring. Compared
 with the table of values (the main view kept), the crossing projects as "y < 0 at x = −3, y > 0 at x = −2".
 
 ![Whole Crossing, desktop](../screenshots/annotations-lines/whole-crossing-1440-light.png)
@@ -261,11 +314,11 @@ with the table of values (the main view kept), the crossing projects as "y < 0 a
 ### 9.4 Treasure (x = 2, treasure 37): y = 15x + 6, tie-breaker "the gradient's smallest prime factor"
 
 Primary: the table at x = 2 (substitution). **● y(2) = 15 × 2 + 6 = 36**, the treasure 37, **1 short**; the graph draws
-the treasure (2, 37) as a hollow target; the tie-breaker ◆ reads m = 15 = 3 × 5, smallest prime factor 3 (next ≥ 5).
-Step 24 of 39, 7.73 bits (1 in 212). Others want this line 3.10 bits, and Ada has shown her card (Prime Landing): ◇ her
+the treasure (2, 37) as a hollow target; the tie-breaker ◆ reads m = 15 = 3 × 5, smallest prime factor 3 (bigger is better).
+7.73 bits (1 in 212). Others want this line 3.10 bits, and Ada has shown her card (Prime Landing): ◇ her
 rule reads c = 6, 1 from the primes 5 and 7, drawn on the same views in grey with her name. The frame finds the move
 that lifts both: "change the gradient to 16, keeping y(1) = 21" (5.94 ⚡) gives y = 16x + 5: y(2) = 37 exactly for you
-(step 29) and c = 5, a prime, for her (step 19 of 27). That is the sentence a child takes into a negotiation.
+and c = 5, a prime, for her: rarer for both. That is the sentence a child takes into a negotiation.
 
 ![Treasure, desktop](../screenshots/annotations-lines/treasure-1440-light.png)
 ![Treasure, others and a told rule](../screenshots/annotations-lines/treasure-others-1440-light.jpg)
@@ -274,7 +327,7 @@ that lifts both: "change the gradient to 16, keeping y(1) = 21" (5.94 ⚡) gives
 ### 9.5 Divisibility Ladder: y = 12x + 12
 
 The table shows the columns the rule reads, y(1) … y(5), each "÷ n = whole" until the first that is not: y(5) = 72 is
-not a multiple of 5, so the run is 4 (step 16 of 55). The run is the contributor; its gauge counts ≥ 1 … ≥ 11.
+not a multiple of 5, so the run is 4. The run is the contributor; its ruler counts whole numbers.
 
 ![Divisibility Ladder](../screenshots/annotations-lines/divisibility-ladder-1440-light.png)
 
@@ -292,8 +345,8 @@ square is shown on the ruler only.
 ### 9.7 Compact contexts and the goal card
 
 Lines rows, a chip, the act log and a chat mention, all with the same badges. The goal card shows **your line on the
-ladder** (the line in focus, or your best line), with "Steps to the top" open and the next step named; the worked
-example is below it, not instead of it.
+rarity** (the line in focus, or your best line): its rulers, its bits, the moves that would make it rarer and the bits
+of the rarest lines for the rule; the worked example is below it, not instead of it.
 
 ![Compact contexts](../screenshots/annotations-lines/compact-1440-light.png)
 ![Compact contexts, phone (Treasure)](../screenshots/annotations-lines/compact-390-dark.png)
@@ -305,8 +358,9 @@ example is below it, not instead of it.
    a square", "y(2) to 37"). Moves name the thing moved ("move the line down 2", "make the gradient 5"), never "add −1 to
    b".
 2. **No "distance … : 0".** A zero distance is "exactly": "c = 23 is a prime". A size is "at least …".
-3. **One step vocabulary.** "Step n of N" is the **line's** place on your rule's ladder, nothing else. A part has
-   **targets** ("next target: within 1"). Two step counts never appear side by side.
+3. **No steps or thresholds** (decision 23): no "step n of N", no "within ¼" buckets, no "≥ 5" pills. State the
+   quantity ("c is 1/12 from a whole number"), its bits to 2 decimals with "1 in N by chance", and what a reachable better
+   value would be worth.
 4. **Name every lens value the first time.** "Smallest prime factor of 2: 2" becomes "the area is close to 4 = 2 × 2;
    its root is 2, whose smallest prime factor is 2". "Root" is always "the square's root (the side of the square)" on
    first use.
@@ -315,7 +369,7 @@ example is below it, not instead of it.
 7. **Bits always pair with a chance once per view**: "4.72 bits (1 in 26 by chance)".
 8. **Unreadable fractions become decimals**: a bottom number above 16 is written "≈ 6.00" (the exact value on demand).
 9. **The four persona sentences are generated**, in the reading strip and in "How this scores": what the rule reads,
-   where it is, the next step and its price, and what others' bits say.
+   where it is, what would make it rarer and its price, and what others' bits say.
 
 ## 11. Implementation plan
 
@@ -328,11 +382,11 @@ The rule's evaluation stays the only source: annotations never recompute a score
    through `ctx.read` (they compute them today with numbers.ts and record them only in labels), so the chain's links are
    reads, in order, with their values.
 2. **Term chain**: a term's `from` lists its links in chain order (source element first, lens values next).
-3. **Mark `target`**: `{ kind: "target", of: ElementRef, at: Q, term }`: the reference value a layer measures to (the
-   prime 23 for c). Annotations draw the band from the layer's next threshold.
+3. **The reference as a mark**: the candidate mark the rule already places (the prime 23 on the y-axis), for every rule
+   that measures a distance (Treasure and Whole Crossing still lack theirs; asked of the spec lead).
 4. **Meaning aliases** on element declarations, for projection (§4.2).
-5. v2-views: `contributors(annotation)` (pure: chain, gauge, identity, targets, sentences), `moves(rule, state, k)` (top
-   k distinct improvements), a scale-aware plane window, projected marks, and the faces rebuilt on them.
+5. v2-views: `contributors(annotation)` (pure: chain, ruler, identity, references, sentences), `moves(rule, state, k)` (the
+   price/rarity frontier, on the continuous valuation), a scale-aware plane window, projected marks, and the faces rebuilt on them.
 
 Items 1–4 are lib/v2-linear and lib/v2-core changes: proposed to the app session as exact diffs, merged by whichever
 session holds those files.
@@ -341,26 +395,30 @@ session holds those files.
 
 1. This document and the storyboard gallery.
 2. v2-views: contributors model and wording (tests first: the four storyboard lines, the wording rules as assertions),
-   gauges instead of part steps, one step vocabulary, identity colours.
+   rulers instead of steps and thresholds (on the spec lead's continuous valuation), identity colours.
 3. v2-views: projection by meaning, badges in every scene, stacked compare, switcher with "More views", tap selection.
-4. v2-views: scale-aware plane, insets, numeric fallback; target bands and ghost moves; top-3 moves.
+4. v2-views: the plane fitted to the rule's points (done: #462); ghost moves; the price/rarity frontier of moves.
 5. player-web: One line, Lines rows and the goal card linked to the focused line; others' bits sentence.
 6. e2e for the flow; the persona walk (§11.4).
 
 ### 11.3 Tests
 
 Unit: every family's contributors on the storyboard lines (chain, target, sentence); no parameter letter, no
-"distance … : 0", no "step" in a part (property over every dealable rule × seeded lines); window fitting keeps every
+"distance … : 0", no "step", "within" bucket or "≥" pill (property over every dealable rule × seeded lines); window fitting keeps every
 contributor ≥ 6 px or inset. E2E (gallery, both widths): tap selects and the chip clears it; compare keeps the primary;
 a selection lights a visible twin.
 
 ### 11.4 Persona walk
 
 A non-coder persona (Jo, desktop; Sam, phone) is dealt a rule in a practice game and must say, unaided: what number
-their rule reads, where it is on their line, what the next step up is and what it would cost, and why another player
+their rule reads, where it is on their line, what would make it rarer and what it would cost, and why another player
 might want the same line. Pass: all four correct for two different rules.
 
 ## 12. Open questions for the owner
+
+Interim rulings from the coordinator until the owner answers: Q1 no told rules (disclosure unchanged); Q2 unequal
+axis scales allowed when stated; Q3 the cheapest move shown at rest.
+
 
 1. **Told rules.** May a player show their rule card to chosen players (§7.3), so both see each other's contributors on
    shared lines? It changes disclosure (today: never another's rule) but only by the owner of the rule's choice.

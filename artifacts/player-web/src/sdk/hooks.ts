@@ -15,7 +15,7 @@ import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
-import { ruleRefOf, rungRarities, type LineRule } from "./rule";
+import { ruleRefOf, rungRarities, type GameRule } from "./rule";
 import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint } from "./types";
 import { sharedRanks } from "@/core/words";
 
@@ -51,7 +51,7 @@ export function useMe() {
 export interface MyRule {
   row: MyRuleRow;
   /** What the view components draw with; null when this build does not know the family. */
-  rule: LineRule | null;
+  rule: GameRule | null;
   /** rarity in bits per level of the dealt ladder. */
   rarities: number[];
 }

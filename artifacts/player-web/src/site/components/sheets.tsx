@@ -40,7 +40,7 @@ export function ConnectedAppsSheet({ open, onOpenChange, roomCode }: { open: boo
         <div className="mt-4">
           {creds.isLoading && <Skeleton className="h-10 w-full" />}
           {creds.error && <ErrorLine message={errMsg(creds.error)} />}
-          {creds.data && creds.data.length === 0 && <EmptyState title="No connected apps" body={<>Connect one with “Connect a player app…” in the menu{roomCode ? <> or <code className="font-mono text-xs" data-testid="text-connect-command">pnpm player connect --room {roomCode}</code></> : null}.</>} testId="text-no-credentials" />}
+          {creds.data && creds.data.length === 0 && <EmptyState title="No connected apps" body={<>Connect one with <code className="font-mono text-xs" data-testid="text-connect-command">pnpm player connect --room {roomCode ?? "CODE"}</code>, or by adding {location.origin}/mcp to an MCP client.</>} testId="text-no-credentials" />}
           {!!creds.data?.length && <ul className="divide-y" data-testid="list-credentials">{creds.data.map(row)}</ul>}
         </div>
       </SheetContent>

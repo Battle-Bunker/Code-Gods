@@ -173,6 +173,53 @@
 .v2v-rep[data-size="compact"] .v2v-table { margin: 4px auto; font-size: 11px; }
 .v2v-rep[data-size="compact"] .v2v-table th, .v2v-rep[data-size="compact"] .v2v-table td { padding: 2px 4px; }
 
+/* ------------------------------------------------------------ grid (SVG): numbers only, in ink; colour is a mark's */
+.v2v-rep[data-scene="grid"] { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.v2v-rep[data-size="expanded"][data-scene="grid"] { min-height: 0; padding: 4px 0; }
+.v2v-grid { display: block; max-width: 100%; height: auto; overflow: visible; }
+.v2v-grid .board { fill: var(--v2v-paper); stroke: var(--v2v-line); stroke-width: 1.5; }
+.v2v-grid .board-line { stroke: var(--v2v-rule); stroke-width: 1; }
+.v2v-grid .cell-bg { fill: transparent; transition: fill 120ms; }
+.v2v-grid .digit { fill: var(--v2v-ink); text-anchor: middle; font-weight: 600; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.v2v-grid .cell[data-focus] .cell-bg { fill: var(--v2v-focus-bg); }
+.v2v-grid .cell[data-focus] .digit { fill: var(--v2v-focus); font-weight: 750; }
+.v2v-grid .cell[data-cand] .cell-bg { fill: var(--v2v-cand-bg); }
+.v2v-grid .cell[data-cand] .digit { fill: var(--v2v-cand); }
+.v2v-grid .cell[data-member] .cell-bg { fill: color-mix(in srgb, var(--v2v-lit) 55%, transparent); }
+.v2v-grid .cell[data-lit] .cell-bg { fill: var(--v2v-lit); }
+.v2v-grid .cell[data-changed] .cell-bg { stroke: var(--v2v-changed); stroke-width: 2; }
+.v2v-grid .was { fill: var(--v2v-faint); font-size: 9px; text-decoration: line-through; }
+
+.v2v-grid .margin-bg { fill: transparent; }
+.v2v-grid .margin-val { fill: var(--v2v-ink); text-anchor: middle; font-weight: 650; }
+.v2v-grid .margin[data-focus] .margin-bg { fill: var(--v2v-focus-bg); }
+.v2v-grid .margin[data-focus] .margin-val { fill: var(--v2v-focus); }
+.v2v-grid .margin[data-cand] .margin-bg { fill: var(--v2v-cand-bg); }
+.v2v-grid .margin[data-cand] .margin-val { fill: var(--v2v-cand); }
+.v2v-grid .margin[data-lit] .margin-bg { fill: var(--v2v-lit); }
+.v2v-grid .margin[data-changed] .margin-val { text-decoration: underline; }
+.v2v-grid .margin-title { fill: var(--v2v-faint); font-size: 10px; text-anchor: middle; }
+.v2v-grid .note { fill: var(--v2v-muted); font-size: 11px; }
+
+/* Groups: a step on a shared edge, a link with its badge, an outlined group with its label. */
+.v2v-grid .pill { fill: var(--v2v-card); stroke: var(--v2v-axis); stroke-width: 1; }
+.v2v-grid .pill-text, .v2v-grid .group-label, .v2v-grid .badge { fill: var(--v2v-ink); text-anchor: middle; font-size: 10.5px; font-weight: 650; }
+.v2v-grid .badge { font-size: 9.5px; }
+.v2v-grid .group-label { font-size: 11.5px; }
+.v2v-grid .badge-bg { fill: var(--v2v-card); stroke: var(--v2v-axis); stroke-width: 0.8; }
+.v2v-grid .link-line { stroke: var(--v2v-axis); stroke-width: 1.1; stroke-linecap: round; opacity: 0.4; }
+.v2v-grid .box-line { fill: none; stroke: var(--v2v-axis); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.v2v-grid [data-focus] .pill, .v2v-grid [data-focus] .badge-bg { stroke: var(--v2v-focus); fill: var(--v2v-focus-bg); }
+.v2v-grid [data-focus] .pill-text, .v2v-grid [data-focus] .group-label, .v2v-grid [data-focus] .badge { fill: var(--v2v-focus); }
+.v2v-grid [data-focus] .link-line { stroke: var(--v2v-focus); opacity: 0.9; stroke-width: 1.8; }
+.v2v-grid [data-focus] .box-line { stroke: var(--v2v-focus); stroke-dasharray: none; stroke-width: 2; }
+.v2v-grid [data-cand] .pill, .v2v-grid [data-cand] .badge-bg { stroke: var(--v2v-cand); fill: var(--v2v-cand-bg); }
+.v2v-grid [data-cand] .pill-text, .v2v-grid [data-cand] .group-label, .v2v-grid [data-cand] .badge { fill: var(--v2v-cand); }
+.v2v-grid [data-cand] .link-line, .v2v-grid [data-cand] .box-line { stroke: var(--v2v-cand); opacity: 1; }
+.v2v-grid [data-lit] .pill, .v2v-grid [data-lit] .badge-bg { fill: var(--v2v-lit); }
+.v2v-grid [data-lit] .link-line, .v2v-grid [data-lit] .box-line { stroke: var(--v2v-ink); opacity: 1; stroke-width: 2; }
+.v2v-rep[data-size="compact"] .v2v-grid .pill { stroke-width: 0.8; }
+
 /* ------------------------------------------------------------ chip */
 .v2v-chip { align-self: flex-start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: inline-flex; align-items: baseline; gap: 6px; font-size: 14px; padding: 1px 8px; border-radius: 999px;
   background: var(--v2v-paper); border: 1px solid var(--v2v-rule); white-space: nowrap; }
@@ -270,6 +317,8 @@
 .v2v-move[data-dir="down"] { border-left-color: var(--v2v-focus); }
 .v2v-move-who { font-weight: 650; }
 .v2v-move-change { font-family: ui-serif, Georgia, serif; white-space: nowrap; }
+/* A change written as the cells that changed (a grid) wraps, in the page's own type. */
+.v2v-move-change:not([data-scene="equation"]) { font-family: inherit; white-space: normal; }
 .v2v-move-step { font-weight: 600; }
 .v2v-face-why { font-size: 11px; color: var(--v2v-muted); line-height: 1.25; padding: 0 2px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -278,3 +327,16 @@
 .v2v-face-part .v2v-pips { margin-top: 0; }
 .v2v-face-part-n { font-weight: 600; }
 .v2v-face-next { font-size: 11px; color: var(--v2v-cand); padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ------------------------------------------------------------ plane: fitted window (plot/viewport.ts, plot/labels.ts) */
+.v2v-plane .region-label { fill: var(--v2v-cand); font-size: 10.5px; font-weight: 700; }
+.v2v-plane .leader { stroke: var(--v2v-faint); stroke-width: 1; stroke-dasharray: 2 2; }
+.v2v-plane .inset-box { fill: var(--v2v-card); stroke: var(--v2v-axis); stroke-width: 1; }
+.v2v-scale-note { margin: 2px 0 0; font-size: 11px; color: var(--v2v-muted); }
+
+/* A compact growth pattern starts at its first term: the start (y(0)) is never scrolled out of a narrow row. */
+.v2v-rep[data-size="compact"] .v2v-seq { justify-content: flex-start; overflow: hidden; gap: 1px; padding: 8px 4px; }
+.v2v-rep[data-size="compact"] .v2v-seq-term { min-width: 0; }
+.v2v-rep[data-size="compact"] .v2v-seq-val { font-size: 13px; padding: 1px 3px; }
+.v2v-rep[data-size="compact"] .v2v-seq-step { font-size: 10px; }
+.v2v-plane .leg { stroke: var(--v2v-cand); stroke-width: 3.5; stroke-linecap: round; opacity: 0.75; }

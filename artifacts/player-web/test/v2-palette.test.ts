@@ -31,5 +31,33 @@ test("a read opens the pane that shows it live, through the dock's pane plan; a 
 test("joining by code asks for the code (a minimum length is not mistaken for no field)", () => {
   const home = affordanceContext({ signedIn: true, admin: false });
   const join = paletteCommands(home, { perform: async () => ({ ok: true as const, result: {} }), navigate() {} } as never).find(r => r.id === "room.join")!.performer;
-  assert.ok(join.kind === "form" && join.page.kind === "field" && join.page.label === "code");
+  assert.ok(join.kind === "form" && join.page.kind === "field" && join.page.label === "Room code");
+});
+
+test("every read the palette offers in a game opens where the app shows it live (playtest: 'Show the auction's result' failed)", async () => {
+  const { AFFORDANCES } = await import("@workspace/v2-affordances");
+  const { READ_PANES, ROOM_READS, ACCOUNT_READS } = await import("../src/core/palette-commands.ts");
+  for (const a of Object.values(AFFORDANCES) as { id: string; effect: string; runs: string; kind?: string; contexts: readonly string[] }[]) {
+    if (a.effect !== "read" || a.runs === "client" || a.id === "agent.check" || a.id === "room.list") continue;
+    const shown = a.id in READ_PANES || ROOM_READS.has(a.id) || ACCOUNT_READS.has(a.id);
+    assert.ok(shown, `${a.id}: the palette has nowhere to show it`);
+  }
+});
+
+test("each pane is a typed-only row by its own title, which opens it (playtest round 2: search found no pane)", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: true, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never });
+  const opened: string[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} } };
+  const rows = paletteCommands(ctx, host as never);
+  const lines = rows.find(r => r.human.title === "Open Lines");
+  assert.ok(lines && lines.typedOnly, "Open Lines is a typed-only row");
+  assert.ok(lines.performer.kind === "submit");
+  void lines.performer.run();
+  assert.deepEqual(opened, ["objects"]);
+});
+
+test("in a room without AI, none of the assistant's operations is listed", () => {
+  const ctx = affordanceContext({ signedIn: true, admin: false, room: { members: [{ me: true, owner: false, spectator: false }], preset: "lines-beginner" } as never, header: { phase: "live", me: "m1" } as never, aiOff: "AI is only available in rooms run by an administrator." });
+  const ids = paletteCommands(ctx, { perform: async () => ({ ok: true as const, result: {} }), navigate() {} } as never).map(r => r.id);
+  assert.deepEqual(ids.filter(id => id.startsWith("assistant.") || id === "pitch.draft"), []);
 });

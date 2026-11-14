@@ -1,35 +1,38 @@
 /**
  * The viewer's dealt rule as the view components take it (`RuleRef` of lib/v2-views): the family, parameters and
- * tie-breaker the server dealt (`v2/play:myRule`), resolved against the deployed object type (v2-linear). The browser
+ * tie-breaker the server dealt (`v2/play:myRule`), resolved against the deployed object type (lines, grids). The browser
  * never scores for the server: this is for drawing the viewer's own annotations (integration plan §3.1).
  */
-import type { RuleFamily, Variant } from "@workspace/v2-core";
-import { lineType, type LineState } from "@workspace/v2-linear";
+import type { RuleFamily } from "@workspace/v2-core";
+import { gridType } from "@workspace/v2-grid";
+import { lineType } from "@workspace/v2-linear";
 import type { RuleRef } from "@workspace/v2-views";
+import { OBJECT_TYPES, objectTypeOf, variantOf } from "./object-types.ts";
 import type { MyRuleRow } from "./types";
 
-export type LineRule = RuleRef<LineState, unknown>;
+export { variantOf };
+/** A dealt rule as the views take it, on whichever object type the game plays. */
+export type GameRule = RuleRef<any, unknown>;
 
-export function variantOf(id: string): Variant {
-  return lineType.variants.find(v => v.id === id) ?? lineType.variants[0]!;
-}
-
-export function familyOf(id: string): RuleFamily<LineState, unknown> | undefined {
-  return lineType.families.find(f => f.id === id) as RuleFamily<LineState, unknown> | undefined;
+/** A family by id, from every object type (ids are unique across types). */
+export function familyOf(id: string): RuleFamily<any, unknown> | undefined {
+  for (const t of OBJECT_TYPES) { const f = t.families.find(x => x.id === id); if (f) return f as RuleFamily<any, unknown>; }
+  return undefined;
 }
 
 /** The rule a view draws with, or null when this build does not know the family (a deploy behind the server). */
-export function ruleRefOf(row: MyRuleRow, variantId: string): LineRule | null {
+export function ruleRefOf(row: MyRuleRow, variantId: string): GameRule | null {
   const family = familyOf(row.family);
   if (!family) return null;
-  return { type: lineType, family, params: row.params, variant: variantOf(variantId), tieBreaker: row.tieBreaker };
+  return { type: objectTypeOf(variantId), family, params: row.params, variant: variantOf(variantId), tieBreaker: row.tieBreaker };
 }
 
 /** The rarity in bits of each rung of the dealt ladder (index = level), as the server calibrated them. */
 export const rungRarities = (row: MyRuleRow): number[] => row.ladder.map(r => r.rarityBits);
 
-/** A state on the wire (`a,b,c;…`) as the line type holds it. */
-export const decodeState = (wire: string): LineState => lineType.decode(wire);
-
-/** A spectator's or a replay viewer's representation when there is no rule: the variant's first. */
-export const DEFAULT_REP = "si";
+/**
+ * A state on the wire as its object type holds it: the game's variant decides the type; without one, the wire's shape
+ * does (a grid's rows are joined by "/", a line is `a,b,c;…`).
+ */
+export const decodeState = (wire: string, variantId?: string | null): any =>
+  (variantId ? objectTypeOf(variantId) : wire.includes("/") ? gridType : lineType).decode(wire);

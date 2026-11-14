@@ -1,10 +1,12 @@
 # Treasure · Simple
-# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8)).
+# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; different primes among y(1) … y(8)).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
-# back again and again) scores nothing for either of you: it walks away from one and leaves you a note so you can
-# talk to that player. It never spends more than a quarter of its energy on one move.
+# back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
+# with that player and change the agent to keep it. It never spends more than a quarter of its energy on one move.
+# Changing it later costs only what you change. To summon another agent, first move power from your agents to your
+# own store (energy moves with it), pay, then share the power out again.
 # Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
 
@@ -12,6 +14,12 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
     # main: how far y(k) is from T (closer is better)
+    if tie == "m-spf":   # the gradient's smallest prime factor big is better
+        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
+        return [main, fm[0] if fm else 1]
+    if tie == "m-gpf":   # the gradient's largest prime factor big is better
+        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
+        return [main, fm[-1] if fm else 1]
     if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better
         primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)
         return [main, len(primes)]
@@ -24,10 +32,9 @@ SPEND = 0.25    # never spend more than a quarter of your energy on one move
 
 
 def agent(offer):
-    # A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on
-    # both sides: leave the line, with a note telling your owner to talk to that player.
-    if contested(offer, 3):
-        return None
+    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
+    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
+    contested(offer, 3)
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker

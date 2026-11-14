@@ -67,7 +67,7 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   // An ended game shown in replay has the replay's arrangement.
   const paneOps = usePaneOps(dockPhase === "ended" && rt.context.context === "replay" ? "replay" : dockPhase ?? "planning");
   const panes = dockPhase ? paneOps : undefined;
-  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, ...(panes ? { panes } : {}) }), [rt, navigate, roomPath, panes]);
+  const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, notify: title => toast({ title }), ...(panes ? { panes } : {}) }), [rt, navigate, roomPath, panes]);
   const p = rt.context.principal;
   const ctx: PaletteContext = { role: p.owner ? "owner" : p.seated ? "seated" : p.member ? "member" : p.signedIn ? "signed-in" : "visitor", admin: p.admin, assistantOn: false };
   return (
@@ -143,8 +143,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
                   {kind === "site"
                     ? <DropdownMenuItem onSelect={() => setSheet(true)} data-testid="menu-connected-apps">Connected apps</DropdownMenuItem>
                     : engineSite() !== location.origin && <DropdownMenuItem asChild><a href={`${engineSite()}/`} target="_blank" rel="noreferrer" data-testid="menu-connected-apps">Connected apps: on the engine site</a></DropdownMenuItem>}
-                  {/* A dev server's credential is not a sign-in: it ends when the dev server stops. */}
-                  {kind !== "token" && <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>}
+                  <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

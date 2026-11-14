@@ -11,7 +11,8 @@
     "calibrate": "node --experimental-strip-types src/cli.ts",
     "law": "node --experimental-strip-types src/law.ts",
     "recap": "node --experimental-strip-types src/recap.ts",
-    "values": "node --max-old-space-size=8000 --experimental-strip-types src/values-cli.ts"
+    "values": "node --max-old-space-size=8000 --experimental-strip-types src/values-cli.ts",
+    "grid-validate": "node --experimental-strip-types src/grid-validate.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",

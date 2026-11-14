@@ -65,3 +65,19 @@ test("the AI seat plays for points: the scoring identity, a turn loop of real to
   assert.match(prompt, /Never lie about your rule/);
   assert.match(prompt, /at most one message per turn/);
 });
+
+test("the assistant and the AI seat both teach paying for an agent: price, pull back just enough, pay, re-share, say what it cost", () => {
+  const live: AffordanceContext = { ...ctx, context: "live", game: { phase: "live", energy: 100, pauseUsed: false, agents: 1 } };
+  const liveTools = assistantTools(live);
+  for (const prompt of [
+    assistantSystemPrompt({ context: "live", playerName: "Ada", rule: RULE, affordances: liveTools }),
+    aiSeatSystemPrompt({ name: "Robo", rule: RULE, affordances: liveTools }),
+  ]) {
+    assert.match(prompt, /PAYING FOR AN AGENT/);
+    const at = (s: string) => prompt.indexOf(s, prompt.indexOf("PAYING FOR AN AGENT"));
+    assert.ok(at("agent_check") < at("power_allocate") && at("power_allocate") < at("agent_summon"), "price, then pull back, then pay");
+    for (const name of ["agent_check", "agents_list", "power_allocate", "agent_summon", "agent_replace"]) assert.ok(liveTools.some(t => t.name === name), name);
+    assert.match(prompt, /in one line what you did and what it cost/);
+    assert.match(prompt, /costs only the change/);
+  }
+});

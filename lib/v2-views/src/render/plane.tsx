@@ -1,313 +1,494 @@
 /**
- * The plane scene (cart, tri): an SVG of the line on a grid, zoomed to what matters (the origin, the intercepts, every
- * point a mark cites), with equal scales on both axes so a gradient looks like itself. Marks:
- * - focus: a ring on a point, a heavier line on a segment; numbers go to the readouts;
- * - candidate: a tick on an axis (xAxisMark, yAxisMark), a hollow dot (pointAtX …), a dashed line (ghost), labelled with
- *   its coordinate and, in the expanded view, its term ("3 · 1 away");
- * - measure: a bracket between two points, labelled with its term;
- * - note: words beside the element (expanded only).
+ * The plane scene (cart, tri, norm): the line drawn across a window fitted to what the rule reads
+ * (docs/engine-v2/annotations-design.md §6). `planeLayout` is pure: it gathers the interesting points from the rule's
+ * own marks (no second source), fits the window with d3-scale (plot/viewport.ts), and places the labels of the points
+ * that matter at rest (plot/labels.ts). Priorities:
+ * - 1: what a focus or measure mark cites, the nearest candidate (the target), the region the rule reads: always in the
+ *   window, always labelled;
+ * - 2: the other candidates and notes: in the window, labelled where there is room;
+ * - 3: the representation's own landmarks (the origin, the intercepts): in the window unless that would crush the
+ *   others (then the off-screen axis is named at the edge), never labelled at rest (their titles say what they are).
  * Drawing uses floating point; every number shown is the exact rational of the element or term.
  */
 import type { ReactElement } from "react";
 import { Qn, type ElementRef, type ElementValue, type Mark, type Q, type SceneData } from "@workspace/v2-core";
-import { fmtQ, fmtValue } from "../format.ts";
+import { fmtQ, fmtValue, fmtNum } from "../format.ts";
 import { markRefs } from "../refs.ts";
 import type { RenderProps, SceneRenderer } from "../scene.ts";
-import { compactMarks, elAttrs, NOTE_MAX, hover, key, markState, Readouts, termQ, termText } from "./common.tsx";
+import { clipLine, fitViewport, type Viewport, type XY } from "../plot/viewport.ts";
+import { placeLabels, textWidth, type Placed, type Rect, type Seg } from "../plot/labels.ts";
+import { elAttrs, hover, key, markState, NOTE_MAX, Readouts, termQ, termText } from "./common.tsx";
 
 type Plane = Extract<SceneData, { kind: "plane" }>;
 type P = RenderProps<Plane>;
-interface Pt { x: number; y: number }
+type Candidate = Extract<Mark, { kind: "candidate" }>;
 
 const N = (q: Q) => Qn.toNumber(q);
 
-/** A drawable geometry for an element value. */
-function geom(v: ElementValue): { point: Pt } | { seg: [Pt, Pt] } | null {
-  if (v.kind === "point") return { point: { x: N(v.x), y: N(v.y) } };
-  if (v.kind === "segment") return { seg: [{ x: N(v.from.x), y: N(v.from.y) }, { x: N(v.to.x), y: N(v.to.y) }] };
-  return null;
+/** A point the plane may draw, with why it matters. */
+export interface PlanePoint {
+  readonly id: string;
+  readonly ref: ElementRef | null;
+  readonly priority: 1 | 2 | 3;
+  readonly x: number; readonly y: number;
+  readonly px: number; readonly py: number;
+  readonly label: string;
+  readonly kind: "focus" | "cand" | "axis-cand" | "item" | "note";
+}
+export interface PlaneLabel extends Placed { readonly text: string; readonly ax: number; readonly ay: number }
+
+export interface PlaneLayout {
+  readonly view: Viewport;
+  /** The object's line across the window (box px). */
+  readonly line: Seg | null;
+  readonly lineRef: ElementRef | null;
+  readonly points: readonly PlanePoint[];
+  readonly labels: readonly PlaneLabel[];
+  /** The triangle with the axes, when the rule reads it: box px, and whether it is too thin to see. */
+  readonly region: { readonly ref: ElementRef; readonly pts: readonly XY[]; readonly world: readonly XY[]; readonly thin: boolean } | null;
+  /** Axes outside the window, named at the edge: "x-axis ↓ (y = 0)". */
+  readonly offAxes: readonly string[];
+  /** The marks drawn here: the rule's marks on this plane, projected ones moved onto their plane element (compact: filtered). */
+  readonly marks: readonly Mark[];
+  /** The axes' numbers that are drawn (none under a label or a point). */
+  readonly ticks: readonly TickLabel[];
 }
 
-interface View { x0: number; x1: number; y0: number; y1: number; w: number; h: number; pad: number }
+export interface TickLabel { readonly text: string; readonly x: number; readonly y: number; readonly anchor: "middle" | "end"; readonly box: Rect }
 
-/** The world window: the origin, intercepts and mark points, padded, at least ±4, fitted to the box's aspect. */
-function fit(points: Pt[], w: number, h: number, pad: number, limit: number): View {
-  let x0 = -2, x1 = 2, y0 = -2, y1 = 2;
-  for (const p of points) {
-    if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || Math.abs(p.x) > limit || Math.abs(p.y) > limit) continue;
-    x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
-  }
-  const grow = (a: number, b: number): [number, number] => {
-    const span = Math.max(b - a, 6), mid = (a + b) / 2;
-    return [mid - span * 0.62, mid + span * 0.62];
-  };
-  [x0, x1] = grow(x0, x1); [y0, y1] = grow(y0, y1);
-  const iw = w - 2 * pad, ih = h - 2 * pad;
-  const k = Math.min(iw / (x1 - x0), ih / (y1 - y0));
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  return { x0: cx - iw / k / 2, x1: cx + iw / k / 2, y0: cy - ih / k / 2, y1: cy + ih / k / 2, w, h, pad };
-}
-const sx = (v: View, x: number) => v.pad + ((x - v.x0) / (v.x1 - v.x0)) * (v.w - 2 * v.pad);
-const sy = (v: View, y: number) => v.pad + ((v.y1 - y) / (v.y1 - v.y0)) * (v.h - 2 * v.pad);
-
-/** The infinite line through two points, clipped to the view (Liang–Barsky); null when it misses. */
-function clipLine(v: View, a: Pt, b: Pt): [Pt, Pt] | null {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  let t0 = -Infinity, t1 = Infinity;
-  const edges: [number, number][] = [[-dx, a.x - v.x0], [dx, v.x1 - a.x], [-dy, a.y - v.y0], [dy, v.y1 - a.y]];
-  for (const [p, q] of edges) {
-    if (p === 0) { if (q < 0) return null; continue; }
-    const t = q / p;
-    if (p < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t);
-  }
-  if (t0 > t1) return null;
-  return [{ x: a.x + t0 * dx, y: a.y + t0 * dy }, { x: a.x + t1 * dx, y: a.y + t1 * dy }];
-}
-
-function niceStep(span: number): number {
-  const raw = span / 8;
-  for (const s of [1, 2, 5, 10, 20, 50]) if (raw <= s) return s;
-  return 100;
-}
-
-const inView = (v: View, p: Pt) => p.x >= v.x0 && p.x <= v.x1 && p.y >= v.y0 && p.y <= v.y1;
-
-function Grid({ v, size }: { v: View; size: "compact" | "expanded" }) {
-  const step = niceStep(Math.max(v.x1 - v.x0, v.y1 - v.y0));
-  const out: ReactElement[] = [];
-  for (let x = Math.ceil(v.x0 / step) * step; x <= v.x1; x += step) {
-    if (x !== 0) out.push(<line key={`gx${x}`} className="grid" x1={sx(v, x)} x2={sx(v, x)} y1={0} y2={v.h} />);
-  }
-  for (let y = Math.ceil(v.y0 / step) * step; y <= v.y1; y += step) {
-    if (y !== 0) out.push(<line key={`gy${y}`} className="grid" y1={sy(v, y)} y2={sy(v, y)} x1={0} x2={v.w} />);
-  }
-  if (v.y0 <= 0 && v.y1 >= 0) out.push(<line key="ax" className="axis" x1={0} x2={v.w} y1={sy(v, 0)} y2={sy(v, 0)} />);
-  if (v.x0 <= 0 && v.x1 >= 0) out.push(<line key="ay" className="axis" y1={0} y2={v.h} x1={sx(v, 0)} x2={sx(v, 0)} />);
-  if (size === "expanded") {
-    const lab = step * 2;
-    for (let x = Math.ceil(v.x0 / lab) * lab; x <= v.x1; x += lab) {
-      if (x !== 0) out.push(<text key={`lx${x}`} className="tick-label" x={sx(v, x)} y={Math.min(v.h - 3, Math.max(10, sy(v, 0) + 11))} textAnchor="middle">{x < 0 ? `−${-x}` : x}</text>);
-    }
-    for (let y = Math.ceil(v.y0 / lab) * lab; y <= v.y1; y += lab) {
-      if (y !== 0) out.push(<text key={`ly${y}`} className="tick-label" x={Math.min(v.w - 3, Math.max(3, sx(v, 0) - 4))} y={sy(v, y) + 3} textAnchor="end">{y < 0 ? `−${-y}` : y}</text>);
-    }
-  }
-  return <g aria-hidden="true">{out}</g>;
-}
-
-/** The first element value a scene's items or marks give as a line (the object's line). */
-function mainLine(p: P): [Pt, Pt] | null {
-  const item = p.scene.items.find(i => i.draw === "line");
-  const g = item ? geom(p.values(item.el)) : null;
-  return g && "seg" in g ? g.seg : null;
+/** The axes' numbers: along the axes (or the edges, when an axis is off the window), every other one when crowded. */
+export function tickLabels(v: Viewport): TickLabel[] {
+  const out: TickLabel[] = [];
+  const yAt = Math.min(v.box.h - 3, Math.max(10, (v.y0 <= 0 && v.y1 >= 0 ? v.sy(0) : v.box.h - 4) + 11));
+  const xAt = Math.min(v.box.w - 3, Math.max(28, (v.x0 <= 0 && v.x1 >= 0 ? v.sx(0) : 30) - 4));
+  const wOf = (t: string) => t.length * 5.5;
+  const ex = Math.max(1, Math.ceil(Math.max(...v.xTicks.map(t => wOf(tickText(t)) + 8)) / Math.abs(v.sx(v.xStep) - v.sx(0))));
+  const ey = Math.max(1, Math.ceil(14 / Math.abs(v.sy(0) - v.sy(v.yStep))));
+  v.xTicks.forEach((x, i) => { if (x !== 0 && i % ex === 0) { const t = tickText(x), w = wOf(t); out.push({ text: t, x: v.sx(x), y: yAt, anchor: "middle", box: { x: v.sx(x) - w / 2, y: yAt - 9, w, h: 11 } }); } });
+  v.yTicks.forEach((y, i) => { if (y !== 0 && i % ey === 0) { const t = tickText(y), w = wOf(t); out.push({ text: t, x: xAt, y: v.sy(y) + 3, anchor: "end", box: { x: xAt - w, y: v.sy(y) - 6, w, h: 11 } }); } });
+  return out;
 }
 
 /**
- * The label of a candidate: its coordinate ("3"), plus its term in the expanded view ("3 · 1 away") unless a measure
- * already labels the distance from it.
+ * The rule's marks as this plane draws them: a mark on the plane (or on cart, whose points every plane shares) as it
+ * is; a mark on another representation moved onto the element here that means the same (si.c → cart.yInt,
+ * crossing.x0 → cart.xInt, table.y(x=2) → cart.pointAtX(q=2)); a mark with nowhere to go here is dropped. Compact faces
+ * keep the focus and measure marks and the nearest candidate.
  */
-function candLabel(p: P, m: Extract<Mark, { kind: "candidate" }>, marks: readonly Mark[]): string {
+function localMarks(p: P, project: PlaneLayoutInput["project"]): Mark[] {
+  const here = (r: ElementRef): ElementRef | null => {
+    if (r.rep === p.rep || r.rep === "cart") return r;
+    for (const x of project?.(r, [p.rep, "cart"]) ?? []) if (p.values(x).kind !== "undefined") return x;
+    return null;
+  };
+  const out: Mark[] = [];
+  for (const m of p.marks) {
+    if (m.kind === "measure") {
+      const a = here(m.from), b = here(m.to);
+      if (a && b) out.push({ ...m, from: a, to: b });
+    } else {
+      const r = here(m.ref);
+      if (r) out.push({ ...m, ref: r } as Mark);
+    }
+  }
+  if (p.size !== "compact") return out;
+  const best = nearestCandidate(p, out, "any");
+  return out.filter(m => m.kind === "focus" || m.kind === "measure" || m === best);
+}
+
+/** The candidate with the smallest term, among point candidates or any (ghost lines included). */
+function nearestCandidate(p: P, marks: readonly Mark[], which: "point" | "any"): Candidate | null {
+  let best: Candidate | null = null, bd = Infinity;
+  for (const m of marks) {
+    if (m.kind !== "candidate" || (which === "point" && p.values(m.ref).kind !== "point")) continue;
+    const t = termQ(p, m);
+    const d = t ? Math.abs(N(t)) : Infinity;
+    if (best === null || d < bd) { best = m; bd = d; }
+  }
+  return best;
+}
+
+function overlaps(a: Rect, b: Rect): boolean { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+
+/** Where a too-thin region's schematic is drawn: the top-right corner. */
+export function insetBox(box: { w: number; h: number }, compact: boolean): Rect {
+  const w = compact ? 44 : 84, h = compact ? 34 : 60;
+  return { x: box.w - w - 4, y: 4, w, h };
+}
+
+/** Coefficients a·x + b·y + c = 0 of the object's line: from the general form when the type has it, else the item. */
+function lineCoeffs(p: Pick<P, "values" | "scene">): { a: number; b: number; c: number; ref: ElementRef | null } | null {
+  const item = p.scene.items.find(i => i.draw === "line");
+  const gen = (name: string) => p.values({ rep: "gen", name });
+  try {
+    const a = gen("a"), b = gen("b"), c = gen("c");
+    if (a.kind === "number" && b.kind === "number" && c.kind === "number") return { a: N(a.q), b: N(b.q), c: N(c.q), ref: item?.el ?? null };
+  } catch { /* an object type without a general form */ }
+  const v = item ? p.values(item.el) : null;
+  if (!v || v.kind !== "segment") return null;
+  const x1 = N(v.from.x), y1 = N(v.from.y), x2 = N(v.to.x), y2 = N(v.to.y);
+  return { a: y2 - y1, b: x1 - x2, c: x2 * y1 - x1 * y2, ref: item!.el };
+}
+
+const pointOf = (v: ElementValue): XY | null => (v.kind === "point" ? { x: N(v.x), y: N(v.y) } : null);
+
+/** A short word for an element: its label without the bracket ("x-intercept"). */
+const short = (p: Pick<P, "labelOf">, r: ElementRef) => p.labelOf(r).replace(/\s*\(.*\)/, "");
+
+/** A number as a child reads it: exact when its bottom number is small, else "≈ 6.00". */
+export const readable = (q: Q): string => {
+  if (q.d > 16n) return `≈ ${fmtNum(N(q))}`;
+  const t = fmtQ(q);
+  // Whole numbers from 10,000 up are grouped ("27,720").
+  return q.d === 1n && (q.n >= 10000n || q.n <= -10000n) ? t.replace(/\d+/, d => Number(d).toLocaleString("en-US")) : t;
+};
+const readablePoint = (v: ElementValue): string => (v.kind === "point" ? `(${readable(v.x)}, ${readable(v.y)})` : fmtValue(v));
+
+/** "3 · 1 below" / "3 · exactly": a candidate's coordinate and how far the rule's quantity is from it. */
+function candLabel(p: Pick<P, "values" | "terms" | "size">, m: Candidate, measured: boolean): string {
   const arg = m.ref.args ? Object.values(m.ref.args)[0] : undefined;
   const v = p.values(m.ref);
   const axis = /AxisMark$/.test(m.ref.name) || v.kind === "segment";
-  const what = axis && arg !== undefined ? fmtQ(Qn.parse(arg)) : v.kind === "point" ? fmtValue(v) : arg !== undefined ? fmtQ(Qn.parse(arg)) : "";
-  const t = termText(p, m);
-  const measured = marks.some(x => x.kind === "measure" && (key(x.to) === key(m.ref) || key(x.from) === key(m.ref)));
+  const what = axis && arg !== undefined ? readable(Qn.parse(arg)) : v.kind === "point" ? readablePoint(v) : arg !== undefined ? readable(Qn.parse(arg)) : "";
+  const t = termQ(p as P, m);
   if (!t || p.size === "compact" || measured) return what;
-  return `${what} · ${t} away`;
+  return Qn.isZero(t) ? `${what} · exactly` : `${what} · ${readable(Qn.abs(t))} away`;
 }
 
-/** The candidate to label an element with: one whose term has no measure, else the first. */
-function candFor(marks: readonly Mark[], r: ElementRef): Extract<Mark, { kind: "candidate" }> | null {
-  const cs = marks.filter((m): m is Extract<Mark, { kind: "candidate" }> => m.kind === "candidate" && key(m.ref) === key(r));
-  const measuredTerms = new Set(marks.filter(m => m.kind === "measure").map(m => (m as { term: string }).term));
-  return cs.find(c => c.term === undefined || !measuredTerms.has(c.term)) ?? cs[0] ?? null;
+export interface PlaneLayoutInput extends Pick<P, "rep" | "scene" | "values" | "marks" | "terms" | "size" | "project"> {
+  readonly labelOf?: (r: ElementRef) => string;
+  readonly box: { readonly w: number; readonly h: number };
 }
 
-function Scene({ p }: { p: P }) {
-  const box = planeRenderer.box[p.size];
-  const marks = compactMarks(p);
-  const q: P = { ...p, marks };
-  const line = mainLine(p);
-  const lineItem = p.scene.items.find(i => i.draw === "line");
-  if (lineItem && !line) {
-    return <div className="v2v-undef">{fmtValue(p.values(lineItem.el))}</div>;
-  }
+export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
+  const labelOf = input.labelOf ?? ((r: ElementRef) => r.name);
+  const p = { ...input, labelOf } as unknown as P;
+  const L = lineCoeffs(p);
+  if (!L) return null;
+  const compact = p.size === "compact";
+  const marks = localMarks(p, input.project);
 
-  // What the window must show: the origin, the line's axis crossings, every item point and cited point.
-  const pts: Pt[] = [{ x: 0, y: 0 }];
-  if (line) {
-    const [a, b] = line;
-    const dx = b.x - a.x, dy = b.y - a.y;
-    if (dx !== 0) pts.push({ x: 0, y: a.y - (dy / dx) * a.x });
-    if (dy !== 0) pts.push({ x: a.x - (dx / dy) * a.y, y: 0 });
-  }
-  for (const it of p.scene.items) { const g = geom(p.values(it.el)); if (g && "point" in g) pts.push(g.point); }
-  for (const m of marks) for (const r of markRefs(m)) { const g = geom(p.values(r)); if (g && "point" in g) pts.push(g.point); }
-  const v = fit(pts, box.w, box.h, p.size === "compact" ? 4 : 8, 30);
-
-  const placed = new Set<string>();
-  const drawnNotes = new Set<string>();
-  const layers: ReactElement[] = [];
-  // Labels already placed (screen boxes); a new label that would overlap one moves down a line.
-  const boxes: { x: number; y: number; w: number }[] = [];
-  const spot = (x: number, y: number, text: string, anchor: "start" | "middle" = "start") => {
-    const w = text.length * 5.6, x0 = anchor === "middle" ? x - w / 2 : x;
-    let yy = y;
-    for (let i = 0; i < 6 && boxes.some(b => Math.abs(b.y - yy) < 11 && x0 < b.x + b.w && b.x < x0 + w); i++) yy += 11;
-    boxes.push({ x: x0, y: yy, w });
-    return yy;
-  };
-  const front: ReactElement[] = [];
-
-  // Region: the triangle the line makes with the axes.
-  for (const it of p.scene.items.filter(i => i.draw === "region")) {
-    if (!line || p.values(it.el).kind === "undefined") continue; // its sentence goes to the readouts
-    const [a, b] = line;
-    const dx = b.x - a.x, dy = b.y - a.y;
-    if (dx === 0 || dy === 0) continue;
-    placed.add(key(it.el));
-    const yInt = a.y - (dy / dx) * a.x, xInt = a.x - (dx / dy) * a.y;
-    const pts3 = [[0, 0], [xInt, 0], [0, yInt]].map(([x, y]) => `${sx(v, x!)},${sy(v, y!)}`).join(" ");
-    layers.push(<polygon key={`r${key(it.el)}`} className="region" points={pts3} {...elAttrs(q, it.el)} {...hover(q, it.el)}><title>{p.labelOf(it.el)}: {fmtValue(p.values(it.el))}</title></polygon>);
-  }
-
-  // The previous line, when it moved.
-  if (p.before && lineItem) {
-    const g = geom(p.before(lineItem.el));
-    if (g && "seg" in g && fmtValue(p.before(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
-      const c = clipLine(v, g.seg[0], g.seg[1]);
-      if (c) layers.push(<line key="was" className="line-was" x1={sx(v, c[0].x)} y1={sy(v, c[0].y)} x2={sx(v, c[1].x)} y2={sy(v, c[1].y)} />);
-    }
-  }
-
-  // The nearest improvement's line, when the face asks for it: dashed, in the candidate colour, marked "next".
-  if (p.next && lineItem) {
-    const g = geom(p.next(lineItem.el));
-    if (g && "seg" in g && fmtValue(p.next(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
-      const c = clipLine(v, g.seg[0], g.seg[1]);
-      if (c) {
-        const end = c[1].y > c[0].y ? c[1] : c[0];
-        layers.push(
-          <g key="next" data-next="">
-            <line className="line-next" x1={sx(v, c[0].x)} y1={sy(v, c[0].y)} x2={sx(v, c[1].x)} y2={sy(v, c[1].y)} />
-            <text className="cand-label label-halo" x={Math.min(sx(v, end.x) + 3, v.w - 26)} y={Math.max(sy(v, end.y) + 10, 10)}>next</text>
-          </g>,
-        );
+  // ------------------------------------------------ the interesting points, from the rule's marks
+  type Raw = Omit<PlanePoint, "px" | "py">;
+  const raw = new Map<string, Raw>();
+  const add = (r: Raw) => { const old = raw.get(r.id); if (!old || r.priority < old.priority) raw.set(r.id, old ? { ...r, label: r.label || old.label } : r); };
+  const measuredRefs = new Set(marks.filter(m => m.kind === "measure").flatMap(m => markRefs(m).map(key)));
+  // The nearest point candidate (smallest term) is the target: priority 1; the others are context.
+  const nearest = nearestCandidate(p, marks, "point");
+  const here = (r: ElementRef) => [r];
+  for (const m of marks) {
+    for (const r of markRefs(m).flatMap(here)) {
+      const pt = pointOf(p.values(r));
+      if (!pt) continue;
+      const k = key(r);
+      if (m.kind === "focus" || m.kind === "measure") {
+        add({ id: k, ref: r, priority: 1, ...pt, kind: "focus", label: compact || r.args ? readablePoint(p.values(r)).replace(/^\((.*), 0\)$/, compact ? "$1" : "($1, 0)") : `${short(p, r)} ${readablePoint(p.values(r))}` });
+      } else if (m.kind === "candidate") {
+        add({ id: k, ref: r, priority: m === nearest ? 1 : 2, ...pt, kind: /AxisMark$/.test(r.name) ? "axis-cand" : "cand", label: candLabel(p, m, measuredRefs.has(k)) });
+      } else if (m.kind === "note" && !compact && m.text.length <= NOTE_MAX) {
+        add({ id: `${k}#note`, ref: r, priority: 2, ...pt, kind: "note", label: m.text });
       }
     }
   }
-
-  // Ghost lines (candidates and other cited segments).
-  const ghostMarks = marks.filter((m): m is Extract<Mark, { kind: "candidate" }> => m.kind === "candidate" && geom(p.values(m.ref)) !== null && "seg" in geom(p.values(m.ref))!);
-  const nearest = ghostMarks.reduce<{ m: Mark | null; d: number }>((acc, m) => {
-    const t = termQ(p, m); const d = t ? Math.abs(N(t)) : Infinity;
-    return d < acc.d ? { m, d } : acc;
-  }, { m: null, d: Infinity }).m;
-  for (const m of ghostMarks) {
-    const g = geom(p.values(m.ref)) as { seg: [Pt, Pt] };
-    const c = clipLine(v, g.seg[0], g.seg[1]);
-    if (!c) continue;
-    placed.add(key(m.ref));
-    const at = { x: c[0].x + (c[1].x - c[0].x) * 0.82, y: c[0].y + (c[1].y - c[0].y) * 0.82 };
-    layers.push(
-      <g key={`g${key(m.ref)}`} {...elAttrs(q, m.ref)} {...hover(q, m.ref)}>
-        <line className="ghost" data-near={m === nearest ? "" : undefined} x1={sx(v, c[0].x)} y1={sy(v, c[0].y)} x2={sx(v, c[1].x)} y2={sy(v, c[1].y)} />
-        {(() => { const t = candLabel(p, m, marks); const X = Math.min(sx(v, at.x) + 4, v.w - t.length * 5.6 - 2); return <text className="cand-label label-halo" x={X} y={spot(X, sy(v, at.y) - 4, t)}>{t}</text>; })()}
-        <title>{p.labelOf(m.ref)}</title>
-      </g>,
-    );
+  // The representation's own landmarks: the origin and the line's intercepts (drawn, labelled on demand).
+  const land: Raw[] = [{ id: "origin", ref: null, priority: 3, x: 0, y: 0, kind: "item", label: "" }];
+  for (const it of p.scene.items) if (it.draw === "point" || it.draw === "tick") {
+    const pt = pointOf(p.values(it.el));
+    if (pt && !raw.has(key(it.el))) land.push({ id: key(it.el), ref: it.el, priority: 3, ...pt, kind: "item", label: `${short(p, it.el)} ${readablePoint(p.values(it.el))}` });
+  }
+  // The triangle the rule reads: its corners matter as much as its marks.
+  const regionItem = p.scene.items.find(i => i.draw === "region");
+  let world: XY[] | null = null;
+  if (regionItem && p.values(regionItem.el).kind !== "undefined" && L.a !== 0 && L.b !== 0 && L.c !== 0) {
+    world = [{ x: 0, y: 0 }, { x: -L.c / L.a, y: 0 }, { x: 0, y: -L.c / L.b }];
   }
 
-  // The line itself.
-  if (line && lineItem) {
-    placed.add(key(lineItem.el));
-    const c = clipLine(v, line[0], line[1]);
-    if (c) {
-      const st = markState(marks, lineItem.el);
-      layers.push(
-        <g key="line" {...elAttrs(q, lineItem.el)} {...hover(q, lineItem.el)}>
-          <line className="hit" x1={sx(v, c[0].x)} y1={sy(v, c[0].y)} x2={sx(v, c[1].x)} y2={sy(v, c[1].y)} />
-          <line className="line" data-focus={st.focus ? "" : undefined} x1={sx(v, c[0].x)} y1={sy(v, c[0].y)} x2={sx(v, c[1].x)} y2={sy(v, c[1].y)} />
-          <title>{p.labelOf(lineItem.el)}</title>
+  // The region's label: the rule's own note on it (fractions made readable), else its name and value; priority 1 when
+  // the rule cites it.
+  let regionLabel: { text: string; priority: 1 | 2 } | null = null;
+  if (world && regionItem) {
+    const rk = key(regionItem.el);
+    const cites = marks.filter(m => markRefs(m).some(r => key(r) === rk));
+    const note = cites.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note");
+    const v = p.values(regionItem.el);
+    const text = compact
+      ? (v.kind === "number" ? readable(v.q) : "")
+      : note ? note.text.replace(/(-?\d+)\/(\d+)/g, (_, n: string, d: string) => readable(Qn.parse(`${n}/${d}`))) : `${short(p, regionItem.el)} ${v.kind === "number" ? readable(v.q) : ""}`;
+    regionLabel = { text, priority: cites.length ? 1 : 2 };
+  }
+
+  // An area rule's triangle: its legs are what the area is made of, so the two intercepts are labelled as legs.
+  if (world && regionItem && regionLabel?.priority === 1) {
+    const legs: [string, string, XY][] = [["legX", "xInt", world[1]!], ["legY", "yInt", world[2]!]];
+    for (const [leg, at, pt] of legs) {
+      let v: ElementValue;
+      try { v = p.values({ rep: p.rep, name: leg }); } catch { continue; }
+      if (v.kind !== "number") continue;
+      add({ id: key({ rep: "cart", name: at }), ref: { rep: "cart", name: at }, priority: 1, ...pt, kind: "item", label: `leg ${readable(v.q)}` });
+    }
+  }
+
+  // ------------------------------------------------ the window
+  const important = [...raw.values()].filter(r => r.priority <= 2);
+  const core: XY[] = [...important, ...(world ?? [])];
+  // Landmarks join the window unless they would shrink what matters more than 8-fold on an axis (and lie beyond 30 units).
+  const span = (vs: number[]) => (vs.length ? Math.max(...vs) - Math.min(...vs) : 0);
+  const fits = (pt: XY) => {
+    if (!core.length) return true;
+    for (const ax of ["x", "y"] as const) {
+      const vs = core.map(c => c[ax]), s0 = span(vs), s1 = span([...vs, pt[ax]]);
+      if (s1 > Math.max(8 * s0, 30)) return false;
+    }
+    return true;
+  };
+  const kept = land.filter(fits);
+  const pad = compact ? 8 : 18;
+  // With nothing else to show (a rule that reads no point here), the line's own intercepts frame it.
+  const fitPts = [...core, ...kept];
+  const view = fitViewport({ points: fitPts, box: input.box, pad });
+  const line = clipLine(view, L.a, L.b, L.c);
+
+  const inView = (pt: XY) => pt.x >= view.x0 && pt.x <= view.x1 && pt.y >= view.y0 && pt.y <= view.y1;
+  // When the rule cites nothing here, the landmarks (the intercepts) are what there is to read: labelled where there is room.
+  const promote = raw.size === 0 && !regionLabel;
+  const points: PlanePoint[] = [...raw.values(), ...kept.filter(k => k.id !== "origin").map(k => (promote ? { ...k, priority: 2 as const } : k))]
+    .filter(inView).map(r => ({ ...r, px: view.sx(r.x), py: view.sy(r.y) }));
+
+  // ------------------------------------------------ labels at rest
+  const h = 13;
+  // Two cited points at one place with the same words (y(1) and x(4) on y = −x + 5, both (1, 4)) get one label.
+  const said: PlanePoint[] = [];
+  const once = (pt: PlanePoint) => {
+    if (said.some(o => o.label === pt.label && Math.hypot(o.px - pt.px, o.py - pt.py) < 6)) return false;
+    said.push(pt);
+    return true;
+  };
+  const reqs = points.filter(pt => pt.priority <= 2 && pt.label && once(pt)).map(pt => ({
+    id: pt.id, x: pt.px, y: pt.py, w: textWidth(pt.label), h, priority: pt.priority as 1 | 2,
+    prefer: (pt.kind === "axis-cand" && pt.ref?.name === "xAxisMark" ? "s" : pt.kind === "axis-cand" ? "w" : undefined) as "s" | "w" | undefined,
+  }));
+  const segs: Seg[] = [];
+  if (line) segs.push(line);
+  if (view.y0 <= 0 && view.y1 >= 0) segs.push({ x1: 0, y1: view.sy(0), x2: view.box.w, y2: view.sy(0) });
+  if (view.x0 <= 0 && view.x1 >= 0) segs.push({ x1: view.sx(0), y1: 0, x2: view.sx(0), y2: view.box.h });
+  const region = world && regionItem ? (() => {
+    const px = world.map(w => ({ x: view.sx(w.x), y: view.sy(w.y) }));
+    const ws = Math.abs(px[1]!.x - px[0]!.x), hs = Math.abs(px[2]!.y - px[0]!.y);
+    return { ref: regionItem.el, pts: px, world, thin: Math.min(ws, hs) < 10 };
+  })() : null;
+  const texts = new Map(points.map(pt => [pt.id, pt.label]));
+  if (region && regionLabel?.text) {
+    // Anchored inside the triangle (its centroid), or at the right-angle corner of a thin one.
+    const c = region.thin ? region.pts[0]! : { x: (region.pts[0]!.x + region.pts[1]!.x + region.pts[2]!.x) / 3, y: (region.pts[0]!.y + region.pts[1]!.y + region.pts[2]!.y) / 3 };
+    reqs.push({ id: "region", x: c.x, y: c.y, w: textWidth(regionLabel.text), h, priority: regionLabel.priority, prefer: undefined });
+    texts.set("region", regionLabel.text);
+  }
+  // A measure's words (the distance it brackets) are placed with the rest, at the bracket's middle.
+  for (const m of marks) {
+    if (m.kind !== "measure") continue;
+    const a = pointOf(p.values(m.from)), b = pointOf(p.values(m.to));
+    const t = termText(p, m);
+    if (!a || !b || !t) continue;
+    const id = `measure:${key(m.from)}-${key(m.to)}`;
+    reqs.push({ id, x: (view.sx(a.x) + view.sx(b.x)) / 2, y: (view.sy(a.y) + view.sy(b.y)) / 2, w: textWidth(t), h, priority: 1, prefer: undefined });
+    texts.set(id, t);
+  }
+  const offAxes: string[] = [];
+  if (view.y0 > 0) offAxes.push("x-axis ↓ (y = 0)"); else if (view.y1 < 0) offAxes.push("x-axis ↑ (y = 0)");
+  if (view.x0 > 0) offAxes.push("y-axis ← (x = 0)"); else if (view.x1 < 0) offAxes.push("y-axis → (x = 0)");
+  // Kept clear: the not-to-scale inset, the off-axis notes and the axes' numbers (labels go around them; a number a
+  // label still covers, or that sits under a point, is left out below).
+  const blocked: Rect[] = offAxes.map((t, i) => ({ x: 4, y: view.box.h - 14 - i * 12, w: textWidth(t), h: 12 }));
+  if (region?.thin) blocked.push(insetBox(view.box, compact));
+  const allTicks = compact ? [] : tickLabels(view);
+  const placed = placeLabels(reqs, segs, view.box, [...blocked, ...allTicks.map(t => t.box)]);
+  const labels: PlaneLabel[] = placed.map((l, i) => ({ ...l, text: texts.get(l.id)!, ax: reqs[i]!.x, ay: reqs[i]!.y }));
+
+
+  const covers = [...labels.filter(l => l.shown).map(l => l.box), ...blocked, ...points.map(pt => ({ x: pt.px - 5, y: pt.py - 5, w: 10, h: 10 }))];
+  const ticks = allTicks.filter(t => !covers.some(c => overlaps(c, t.box)));
+  return { view, line, lineRef: L.ref, points, labels, region, offAxes, marks, ticks };
+}
+
+// ------------------------------------------------------------------ drawing
+
+const tickText = (t: number) => {
+  const r = Math.abs(t) >= 1000 ? Math.round(t).toLocaleString("en-US") : String(Math.round(t * 1000) / 1000);
+  return t < 0 ? `−${r.replace("-", "")}` : r;
+};
+
+
+/** The grid, the axes and their numbers; a tick number under a placed label is left out (the label matters more). */
+function Grid({ v, ticks }: { v: Viewport; ticks: readonly TickLabel[] }) {
+  const out: ReactElement[] = [];
+  for (const x of v.xTicks) if (x !== 0) out.push(<line key={`gx${x}`} className="grid" x1={v.sx(x)} x2={v.sx(x)} y1={0} y2={v.box.h} />);
+  for (const y of v.yTicks) if (y !== 0) out.push(<line key={`gy${y}`} className="grid" y1={v.sy(y)} y2={v.sy(y)} x1={0} x2={v.box.w} />);
+  if (v.y0 <= 0 && v.y1 >= 0) out.push(<line key="ax" className="axis" x1={0} x2={v.box.w} y1={v.sy(0)} y2={v.sy(0)} />);
+  if (v.x0 <= 0 && v.x1 >= 0) out.push(<line key="ay" className="axis" y1={0} y2={v.box.h} x1={v.sx(0)} x2={v.sx(0)} />);
+  for (const t of ticks) out.push(<text key={`t${t.anchor}${t.text}`} className="tick-label" x={t.x} y={t.y} textAnchor={t.anchor}>{t.text}</text>);
+  return <g aria-hidden="true">{out}</g>;
+}
+
+const segOf = (v: ElementValue): [XY, XY] | null => (v.kind === "segment" ? [{ x: N(v.from.x), y: N(v.from.y) }, { x: N(v.to.x), y: N(v.to.y) }] : null);
+const lineThrough = (v: Viewport, s: [XY, XY]) => {
+  const a = s[1].y - s[0].y, b = s[0].x - s[1].x, c = s[1].x * s[0].y - s[0].x * s[1].y;
+  return clipLine(v, a, b, c);
+};
+
+function Scene({ p }: { p: P }) {
+  const box = planeRenderer.box[p.size];
+  const L = planeLayout({ ...p, box });
+  const lineItem = p.scene.items.find(i => i.draw === "line");
+  if (!L) return <div className="v2v-undef">{lineItem ? fmtValue(p.values(lineItem.el)) : "nothing to draw"}</div>;
+  const { view: v, marks } = L;
+  const q: P = { ...p, marks };
+  const placed = new Set<string>();
+  const drawnNotes = new Set<string>();
+  const back: ReactElement[] = [], front: ReactElement[] = [];
+
+  if (L.region) {
+    placed.add(key(L.region.ref));
+    const val = fmtValue(p.values(L.region.ref));
+    if (!L.region.thin) {
+      back.push(<polygon key="region" className="region" points={L.region.pts.map(x => `${x.x},${x.y}`).join(" ")} {...elAttrs(q, L.region.ref)} {...hover(q, L.region.ref)}><title>{`${p.labelOf(L.region.ref)}: ${val}`}</title></polygon>);
+      // The legs the area is made of, along the axes.
+      const [o, xi, yi] = L.region.pts;
+      back.push(<line key="legx" className="leg" x1={o!.x} y1={o!.y} x2={xi!.x} y2={xi!.y} />, <line key="legy" className="leg" x1={o!.x} y1={o!.y} x2={yi!.x} y2={yi!.y} />);
+    } else {
+      // Too thin to see at this scale: a schematic in the corner, each side stretched, said to be not to scale.
+      const ib = insetBox(v.box, p.size === "compact"), IW = ib.w, IH = ib.h, X = ib.x, Y = ib.y, m = 6;
+      const ws = L.region.world, xs = ws.map(w => w.x), ys = ws.map(w => w.y);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      const pts = ws.map(w => `${X + m + ((w.x - x0) / (x1 - x0 || 1)) * (IW - 2 * m)},${Y + m + ((y1 - w.y) / (y1 - y0 || 1)) * (IH - 2 * m - (p.size === "compact" ? 0 : 10))}`).join(" ");
+      front.push(
+        <g key="inset" className="inset">
+          <rect className="inset-box" x={X} y={Y} width={IW} height={IH} />
+          <polygon className="region" points={pts} {...elAttrs(q, L.region.ref)} {...hover(q, L.region.ref)}><title>{`${p.labelOf(L.region.ref)}: ${val} (drawn not to scale)`}</title></polygon>
+          {p.size === "expanded" && <text className="note" x={X + 3} y={Y + IH - 3}>not to scale</text>}
         </g>,
       );
     }
   }
 
-  // Measures: a bracket between two points.
+  if (p.before && lineItem) {
+    const s = segOf(p.before(lineItem.el)), now = segOf(p.values(lineItem.el));
+    if (s && fmtValue(p.before(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
+      const c = lineThrough(v, s);
+      if (c && now) back.push(<line key="was" className="line-was" {...c} />);
+    }
+  }
+  if (p.next && lineItem) {
+    const s = segOf(p.next(lineItem.el));
+    if (s && fmtValue(p.next(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
+      const c = lineThrough(v, s);
+      if (c) {
+        // Unlabelled on the drawing (a word there would sit on the axes' numbers): the move's words are beside the face.
+        back.push(<g key="next" data-next=""><line className="line-next" {...c} /><title>the line after the next move</title></g>);
+      }
+    }
+  }
+
+  // Ghost lines (candidate segments: the line of gradient g through the same y-intercept).
+  const ghosts = marks.filter((m): m is Candidate => m.kind === "candidate" && p.values(m.ref).kind === "segment");
+  let nearestGhost: Mark | null = null, best = Infinity;
+  for (const g of ghosts) { const t = termQ(p, g); const d = t ? Math.abs(N(t)) : Infinity; if (d < best) { best = d; nearestGhost = g; } }
+  for (const m of ghosts) {
+    const s = segOf(p.values(m.ref))!;
+    const c = lineThrough(v, s);
+    if (!c) continue;
+    placed.add(key(m.ref));
+    const t = candLabel(p, m, false);
+    const at = { x: c.x1 + (c.x2 - c.x1) * 0.82, y: c.y1 + (c.y2 - c.y1) * 0.82 };
+    back.push(
+      <g key={`g${key(m.ref)}`} {...elAttrs(q, m.ref)} {...hover(q, m.ref)}>
+        <line className="ghost" data-near={m === nearestGhost ? "" : undefined} {...c} />
+        {p.size === "expanded" && <text className="cand-label label-halo" x={Math.min(at.x + 4, v.box.w - textWidth(t))} y={Math.max(at.y - 4, 10)}>{t}</text>}
+        <title>{p.labelOf(m.ref)}</title>
+      </g>,
+    );
+  }
+
+  if (L.line && L.lineRef) {
+    placed.add(key(L.lineRef));
+    const st = markState(marks, L.lineRef);
+    back.push(
+      <g key="line" {...elAttrs(q, L.lineRef)} {...hover(q, L.lineRef)}>
+        <line className="hit" {...L.line} />
+        <line className="line" data-focus={st.focus ? "" : undefined} {...L.line} />
+        <title>{p.labelOf(L.lineRef)}</title>
+      </g>,
+    );
+  }
+
+  const labelOf = new Map(L.labels.map(l => [l.id, l]));
+  // Measures: a bracket between two points, labelled with the term.
   for (const m of marks) {
     if (m.kind !== "measure") continue;
-    const a = geom(p.values(m.from)), b = geom(p.values(m.to));
-    if (!a || !b || !("point" in a) || !("point" in b)) continue;
-    const A = { x: sx(v, a.point.x), y: sy(v, a.point.y) }, B = { x: sx(v, b.point.x), y: sy(v, b.point.y) };
-    const len = Math.hypot(B.x - A.x, B.y - A.y) || 1;
-    const off = 7; // the bracket sits beside the segment (below an x-axis gap, left of a y-axis gap)
+    const a = pointOf(p.values(m.from)), b = pointOf(p.values(m.to));
+    if (!a || !b) continue;
+    const A = { x: v.sx(a.x), y: v.sy(a.y) }, B = { x: v.sx(b.x), y: v.sy(b.y) };
+    const len = Math.hypot(B.x - A.x, B.y - A.y) || 1, off = 7;
     const nx = (-(B.y - A.y) / len) * off, ny = ((B.x - A.x) / len) * off;
     const flip = ny < 0 || (ny === 0 && nx > 0) ? -1 : 1;
     const ox = nx * flip, oy = ny * flip;
-    const d = `M${A.x},${A.y} l${ox},${oy} L${B.x + ox},${B.y + oy} l${-ox},${-oy}`;
-    const mid = { x: (A.x + B.x) / 2 + ox * 2.4, y: (A.y + B.y) / 2 + oy * 2.4 + 4 };
     front.push(
       <g key={`m${key(m.from)}-${key(m.to)}`} data-mark="measure" data-term={m.term}>
-        <path className="measure" d={d} />
-        <text className="measure-label label-halo" x={mid.x} y={mid.y} textAnchor="middle">{termText(p, m)}</text>
+        <path className="measure" d={`M${A.x},${A.y} l${ox},${oy} L${B.x + ox},${B.y + oy} l${-ox},${-oy}`} />
+        {(() => { const ml = labelOf.get(`measure:${key(m.from)}-${key(m.to)}`); return ml ? <text className="measure-label label-halo" data-priority={1} x={ml.box.x + 1} y={ml.box.y + ml.box.h - 3}>{ml.text}</text> : null; })()}
       </g>,
     );
   }
 
-  // Points: scene items and cited points (focus rings, candidate ticks and dots).
-  const pointRefs = new Map<string, { r: ElementRef; item: boolean }>();
-  for (const it of p.scene.items) if (it.draw === "point" || it.draw === "tick") pointRefs.set(key(it.el), { r: it.el, item: true });
-  for (const m of marks) for (const r of markRefs(m)) {
-    if (r.rep !== p.rep && r.rep !== "cart") continue;
-    const g = geom(p.values(r));
-    if (g && "point" in g && !pointRefs.has(key(r))) pointRefs.set(key(r), { r, item: false });
+  // Points: each drawn once, with its label where the placer put it.
+  const rl = labelOf.get("region");
+  if (rl?.shown && L.region) {
+    front.push(<text key="region-label" className="region-label label-halo" data-priority={rl.priority} x={rl.box.x + 1} y={rl.box.y + rl.box.h - 3} {...elAttrs(q, L.region.ref)}>{rl.text}</text>);
+    const n = marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && key(m.ref) === key(L.region!.ref));
+    if (n) drawnNotes.add(n.text);
   }
-  // Two cited points at the same place (y(1) and x(4) on y = −x + 5 both at (1, 4)) get one label.
-  const labelled: { t: string; X: number; Y: number }[] = [];
-  const fresh = (t: string, X: number, Y: number) => {
-    if (!t || labelled.some(l => l.t === t && Math.hypot(l.X - X, l.Y - Y) < 6)) return false;
-    labelled.push({ t, X, Y });
-    return true;
-  };
-  for (const { r } of pointRefs.values()) {
-    const g = geom(p.values(r));
-    if (!g || !("point" in g) || !inView(v, g.point)) continue; // undefined or off the window: a readout instead
-    placed.add(key(r));
-    const X = sx(v, g.point.x), Y = sy(v, g.point.y);
-    const st = markState(marks, r);
-    const axisMark = /AxisMark$/.test(r.name);
-    const cand = candFor(marks, r);
-    const raw = cand ? candLabel(p, cand, marks) : "";
-    const label = fresh(raw, X, Y) ? raw : "";
-    const isX = r.name === "xAxisMark";
+  const drawn = new Set<string>();
+  for (const pt of L.points) {
+    if (!pt.ref) continue;
+    const k = key(pt.ref);
+    const lab = labelOf.get(pt.id);
+    const labelEl = lab && lab.shown ? (
+      <>
+        {lab.leader && <line className="leader" x1={pt.px} y1={pt.py} x2={Math.min(Math.max(pt.px, lab.box.x), lab.box.x + lab.box.w)} y2={Math.min(Math.max(pt.py, lab.box.y), lab.box.y + lab.box.h)} />}
+        <text className={pt.kind === "note" ? "note label-halo" : "cand-label label-halo"} data-priority={pt.priority} x={lab.box.x + 1} y={lab.box.y + lab.box.h - 3}>{lab.text}</text>
+      </>
+    ) : null;
+    if (pt.kind === "note") { if (labelEl) { drawnNotes.add(lab!.text); front.push(<g key={pt.id}>{labelEl}</g>); } continue; }
+    if (drawn.has(k)) continue;
+    drawn.add(k);
+    placed.add(k);
+    const st = markState(marks, pt.ref);
+    const axisMark = /AxisMark$/.test(pt.ref.name), isX = pt.ref.name === "xAxisMark";
+    const X = pt.px, Y = pt.py;
     front.push(
-      <g key={`p${key(r)}`} {...elAttrs(q, r)} {...hover(q, r)}>
+      <g key={`p${k}`} data-priority={pt.priority} {...elAttrs(q, pt.ref)} {...hover(q, pt.ref)}>
         {axisMark
           ? <line className="cand" x1={isX ? X : X - 5} x2={isX ? X : X + 5} y1={isX ? Y - 5 : Y} y2={isX ? Y + 5 : Y} />
-          : st.cand
-            ? <circle className="cand" cx={X} cy={Y} r={3.6} />
-            : <circle className="dot" data-focus={st.focus ? "" : undefined} cx={X} cy={Y} r={p.size === "compact" ? 2.4 : 3} />}
+          : st.cand ? <circle className="cand" cx={X} cy={Y} r={3.6} /> : <circle className="dot" data-focus={st.focus ? "" : undefined} cx={X} cy={Y} r={p.size === "compact" ? 2.4 : 3} />}
         {st.focus && <circle className="ring" cx={X} cy={Y} r={6} />}
-        {label && <text className="cand-label label-halo" x={isX ? X : X + 7} y={spot(isX ? X : X + 7, isX ? Y - 8 : Y + 3.5, label, isX ? "middle" : "start")} textAnchor={isX ? "middle" : "start"}>{label}</text>}
-        {p.size === "expanded" && st.notes.filter(n => n.length <= NOTE_MAX).slice(0, 1).map(n => {
-          drawnNotes.add(n);
-          const X0 = Math.min(X + 7, v.w - n.length * 5.4 - 2);
-          return <text key="note" className="note label-halo" x={X0} y={spot(X0, Y - 8, n)}>{n}</text>;
-        })}
-        <title>{p.labelOf(r)}: {fmtValue(p.values(r))}</title>
+        {labelEl}
+        <title>{`${p.labelOf(pt.ref)}: ${fmtValue(p.values(pt.ref))}`}</title>
       </g>,
     );
   }
 
+  const caption = p.size === "expanded" && !v.equal
+    ? `Scales differ: across, one square is ${tickText(v.xStep)}; up, one square is ${tickText(v.yStep)}.`
+    : null;
   return (
     <>
-      <svg className="v2v-plane" width={v.w} height={v.h} viewBox={`0 0 ${v.w} ${v.h}`} role="img" aria-label={planeText(p.scene, p.values)}>
-        <Grid v={v} size={p.size} />
-        {layers}
+      <svg className="v2v-plane" width={v.box.w} height={v.box.h} viewBox={`0 0 ${v.box.w} ${v.box.h}`} role="img" aria-label={planeText(p.scene, p.values)}
+        data-scales={v.equal ? "equal" : "independent"}>
+        <Grid v={v} ticks={L.ticks} />
+        {back}
         {front}
+        {p.size === "expanded" && L.offAxes.map((t, i) => <text key={t} className="note label-halo" x={4} y={v.box.h - 4 - i * 12}>{t}</text>)}
       </svg>
+      {caption && <p className="v2v-scale-note">{caption}</p>}
       <Readouts p={q} placed={placed} drawnNotes={drawnNotes} />
     </>
   );
@@ -328,7 +509,7 @@ function planeText(scene: Plane, values: (r: ElementRef) => ElementValue): strin
 
 export const planeRenderer: SceneRenderer<Plane> = {
   kind: "plane",
-  box: { compact: { w: 160, h: 100 }, expanded: { w: 320, h: 220 } },
+  box: { compact: { w: 160, h: 100 }, expanded: { w: 340, h: 236 } },
   render: p => <Scene p={p} />,
   text: (scene, values) => planeText(scene, values),
 };

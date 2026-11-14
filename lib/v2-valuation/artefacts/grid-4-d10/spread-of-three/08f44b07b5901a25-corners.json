@@ -1,0 +1,696 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/spread-of-three/{}/tb=corners",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "spread-of-three",
+ "params": {},
+ "tieBreaker": "corners",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "unconverged",
+ "reasons": [
+  "sampled to the error target through rung 45 of 50 (3200000 boards); the rest await a longer background run"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    null,
+    "6"
+   ],
+   "label": "anything; the corners at least 6",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.0668,
+   "error": 0.0038,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    null,
+    "10"
+   ],
+   "label": "anything; the corners at least 10",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.1559,
+   "error": 0.0039,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    null,
+    "11"
+   ],
+   "label": "anything; the corners at least 11",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.1777,
+   "error": 0.0039,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-24"
+   ],
+   "label": "the squares' spreads from 3 off by at most 24 in all",
+   "layer": 0,
+   "main": 1,
+   "bits": 0.2806,
+   "error": 0.0039,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-24",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 24 in all; the corners at least 6",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.3933,
+   "error": 0.004,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-24",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 24 in all; the corners at least 10",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.5433,
+   "error": 0.0041,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-24",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 24 in all; the corners at least 11",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.5786,
+   "error": 0.0041,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-18"
+   ],
+   "label": "the squares' spreads from 3 off by at most 18 in all",
+   "layer": 0,
+   "main": 2,
+   "bits": 0.7497,
+   "error": 0.0041,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-18",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 18 in all; the corners at least 6",
+   "layer": 1,
+   "main": 2,
+   "bits": 0.8968,
+   "error": 0.0042,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-18",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 18 in all; the corners at least 10",
+   "layer": 1,
+   "main": 2,
+   "bits": 1.0977,
+   "error": 0.0043,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-18",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 18 in all; the corners at least 11",
+   "layer": 1,
+   "main": 2,
+   "bits": 1.1475,
+   "error": 0.0043,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-14"
+   ],
+   "label": "the squares' spreads from 3 off by at most 14 in all",
+   "layer": 0,
+   "main": 3,
+   "bits": 1.373,
+   "error": 0.0043,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-14",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 14 in all; the corners at least 6",
+   "layer": 1,
+   "main": 3,
+   "bits": 1.616,
+   "error": 0.0045,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-14",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 14 in all; the corners at least 10",
+   "layer": 1,
+   "main": 3,
+   "bits": 1.9874,
+   "error": 0.0047,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-14",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 14 in all; the corners at least 11",
+   "layer": 1,
+   "main": 3,
+   "bits": 2.0796,
+   "error": 0.0047,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 10 in all",
+   "layer": 0,
+   "main": 4,
+   "bits": 2.4976,
+   "error": 0.0046,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-10",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 10 in all; the corners at least 6",
+   "layer": 1,
+   "main": 4,
+   "bits": 2.73,
+   "error": 0.0048,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-10",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 10 in all; the corners at least 10",
+   "layer": 1,
+   "main": 4,
+   "bits": 3.0628,
+   "error": 0.0051,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-10",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 10 in all; the corners at least 11",
+   "layer": 1,
+   "main": 4,
+   "bits": 3.1421,
+   "error": 0.0051,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the squares' spreads from 3 off by at most 8 in all",
+   "layer": 0,
+   "main": 5,
+   "bits": 3.4068,
+   "error": 0.005,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-8",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 8 in all; the corners at least 6",
+   "layer": 1,
+   "main": 5,
+   "bits": 3.7406,
+   "error": 0.0054,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-8",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 8 in all; the corners at least 10",
+   "layer": 1,
+   "main": 5,
+   "bits": 4.2535,
+   "error": 0.0061,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-8",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 8 in all; the corners at least 11",
+   "layer": 1,
+   "main": 5,
+   "bits": 4.3704,
+   "error": 0.0061,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 6 in all",
+   "layer": 0,
+   "main": 6,
+   "bits": 4.7105,
+   "error": 0.006,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-6",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 6 in all; the corners at least 6",
+   "layer": 1,
+   "main": 6,
+   "bits": 5.1788,
+   "error": 0.0069,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-6",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 6 in all; the corners at least 10",
+   "layer": 1,
+   "main": 6,
+   "bits": 5.9733,
+   "error": 0.0082,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-6",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 6 in all; the corners at least 11",
+   "layer": 1,
+   "main": 6,
+   "bits": 6.1535,
+   "error": 0.0084,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the squares' spreads from 3 off by at most 4 in all",
+   "layer": 0,
+   "main": 7,
+   "bits": 6.5736,
+   "error": 0.0081,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-4",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 4 in all; the corners at least 6",
+   "layer": 1,
+   "main": 7,
+   "bits": 6.9662,
+   "error": 0.0092,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-4",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 4 in all; the corners at least 10",
+   "layer": 1,
+   "main": 7,
+   "bits": 7.5279,
+   "error": 0.0104,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-4",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 4 in all; the corners at least 11",
+   "layer": 1,
+   "main": 7,
+   "bits": 7.6318,
+   "error": 0.0106,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "the squares' spreads from 3 off by at most 3 in all",
+   "layer": 0,
+   "main": 8,
+   "bits": 7.8195,
+   "error": 0.0102,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-3",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 3 in all; the corners at least 6",
+   "layer": 1,
+   "main": 8,
+   "bits": 8.2854,
+   "error": 0.012,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-3",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 3 in all; the corners at least 10",
+   "layer": 1,
+   "main": 8,
+   "bits": 8.9785,
+   "error": 0.015,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-3",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 3 in all; the corners at least 11",
+   "layer": 1,
+   "main": 8,
+   "bits": 9.0961,
+   "error": 0.0154,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the squares' spreads from 3 off by at most 2 in all",
+   "layer": 0,
+   "main": 9,
+   "bits": 9.3047,
+   "error": 0.0151,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-2",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 2 in all; the corners at least 6",
+   "layer": 1,
+   "main": 9,
+   "bits": 9.9231,
+   "error": 0.0185,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-2",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 2 in all; the corners at least 10",
+   "layer": 1,
+   "main": 9,
+   "bits": 10.8336,
+   "error": 0.0252,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-2",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 2 in all; the corners at least 11",
+   "layer": 1,
+   "main": 9,
+   "bits": 10.9921,
+   "error": 0.0268,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the squares' spreads from 3 off by at most 1 in all",
+   "layer": 0,
+   "main": 10,
+   "bits": 11.19,
+   "error": 0.0285,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-1",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 off by at most 1 in all; the corners at least 6",
+   "layer": 1,
+   "main": 10,
+   "bits": 11.8955,
+   "error": 0.0427,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-1",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 off by at most 1 in all; the corners at least 10",
+   "layer": 1,
+   "main": 10,
+   "bits": 13.1033,
+   "error": 0.0752,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "-1",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 off by at most 1 in all; the corners at least 11",
+   "layer": 1,
+   "main": 10,
+   "bits": 13.2882,
+   "error": 0.0839,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the squares' spreads from 3 exactly",
+   "layer": 0,
+   "main": 11,
+   "bits": 13.6242,
+   "error": 0.0571,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0",
+    "4"
+   ],
+   "label": "the squares' spreads from 3 exactly; the corners at least 4",
+   "layer": 1,
+   "main": 11,
+   "bits": 14.0284,
+   "error": 0.0724,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0",
+    "6"
+   ],
+   "label": "the squares' spreads from 3 exactly; the corners at least 6",
+   "layer": 1,
+   "main": 11,
+   "bits": 14.7976,
+   "error": null,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0",
+    "8"
+   ],
+   "label": "the squares' spreads from 3 exactly; the corners at least 8",
+   "layer": 1,
+   "main": 11,
+   "bits": 16.2118,
+   "error": null,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0",
+    "10"
+   ],
+   "label": "the squares' spreads from 3 exactly; the corners at least 10",
+   "layer": 1,
+   "main": 11,
+   "bits": 18.2415,
+   "error": null,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0",
+    "11"
+   ],
+   "label": "the squares' spreads from 3 exactly; the corners at least 11",
+   "layer": 1,
+   "main": 11,
+   "bits": 19.3669,
+   "error": null,
+   "source": "sampled"
+  },
+  {
+   "score": [
+    "0",
+    "12"
+   ],
+   "label": "the squares' spreads from 3 exactly; the corners at least 12",
+   "layer": 1,
+   "main": 11,
+   "bits": 20.4936,
+   "error": null,
+   "source": "sampled"
+  }
+ ],
+ "cap": 45,
+ "convergedCap": 45,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": null,
+  "sampling": {
+   "proposals": 23,
+   "evaluations": 3200000,
+   "ess": [
+    3156000,
+    134727,
+    131635,
+    131068,
+    129299,
+    125257,
+    120874,
+    120205,
+    119565,
+    114727,
+    109916,
+    109244,
+    110226,
+    100624,
+    90818,
+    89768,
+    95330,
+    87724,
+    79536,
+    78848,
+    80792,
+    68588,
+    55529,
+    54544,
+    57682,
+    43690,
+    30517,
+    29389,
+    31173,
+    24520,
+    19222,
+    18482,
+    19842,
+    14462,
+    9243,
+    8709,
+    9130,
+    6092,
+    3283,
+    2886,
+    2552,
+    1142,
+    368,
+    295,
+    637,
+    397,
+    164,
+    265,
+    56,
+    31,
+    8
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "37f23178bc3d2ac7"
+}

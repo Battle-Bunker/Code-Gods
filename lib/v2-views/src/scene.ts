@@ -32,6 +32,8 @@ export interface RenderProps<D extends SceneData = SceneData> {
   readonly meaningOf: (ref: ElementRef) => string;
   /** Pointing at an element (null: pointing away). */
   readonly onHover?: (ref: ElementRef | null) => void;
+  /** The elements of these representations that mean what `ref` means (projection by meaning, refs.ts). */
+  readonly project?: (ref: ElementRef, reps: readonly string[]) => readonly ElementRef[];
   /** Words for an element ("gradient"), for titles and screen readers. */
   readonly labelOf: (ref: ElementRef) => string;
 }

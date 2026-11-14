@@ -1,6 +1,7 @@
 /**
  * PROTOTYPE faces for the line annotations storyboards (docs/engine-v2/annotations-design.md §2–§8): the reading strip,
- * contributor cards with gauges (targets, never part "steps"), the moves that raise the line with their prices, One line
+ * contributor cards whose gauge is the quantity on a ruler (owner decision 23: no steps, no thresholds), the moves that
+ * make the line rarer with their prices and new bits, One line
  * at rest / selected / compared, Lines rows, the chip, the act log, a chat mention, the goal card linked to the line, and
  * what others' bits say (with a told rule).
  */
@@ -24,20 +25,6 @@ export function words(s: string, params: unknown): string {
 
 const pointsOf = (bits: number) => `your ${fmtNum(bits)} × others' ${fmtNum(OTHERS)} = ${fmtNum(bits * OTHERS)} points`;
 
-export function Gauge({ c, compact }: { c: Contributor; compact?: boolean }): ReactElement {
-  const g = c.gauge;
-  const shown = compact ? g.notches.map((n, i) => ({ n, i })).filter(({ i }) => Math.abs(i - g.reached) <= 2 || i === g.notches.length - 1) : g.notches.map((n, i) => ({ n, i }));
-  return (
-    <ol className="la-gauge" data-role={c.role} aria-label={`${c.title}: ${g.reached} of ${g.notches.length} targets met`}>
-      {shown.map(({ n, i }, j) => (
-        <li key={i} data-on={i < g.reached ? "" : undefined} data-next={i === g.reached ? "" : undefined} data-gap={j > 0 && shown[j - 1]!.i !== i - 1 ? "" : undefined}>
-          {n}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 export function Strip({ r, sel, onSel, oneLine }: { r: Reading; sel: Role | null; onSel?: (x: Role | null) => void; oneLine?: boolean }): ReactElement {
   return (
     <div className="la-strip" data-one={oneLine ? "" : undefined}>
@@ -46,7 +33,7 @@ export function Strip({ r, sel, onSel, oneLine }: { r: Reading; sel: Role | null
           style={{ opacity: sel && sel !== c.role ? 0.45 : 1 }} onClick={() => onSel?.(sel === c.role ? null : c.role)} aria-pressed={sel === c.role}>
           <span className="la-glyph">{GLYPH[c.role]}</span>
           {(oneLine ? c.chain.slice(0, 3) : c.chain).map((x, i) => <span key={i} className="la-link">{i > 0 && <span className="la-arrow">→</span>}{x}</span>)}
-          {!oneLine && <span className="la-link la-next">{c.top ? "✓ top" : <>next target: <b>{words(c.next!, r.rule.params)}</b></>}</span>}
+          {!oneLine && <span className="la-link la-next">{c.aim}</span>}
         </button>
       ))}
     </div>
@@ -59,26 +46,25 @@ function ContributorCard({ c, r, sel, onSel }: { c: Contributor; r: Reading; sel
       onClick={() => onSel(sel === c.role ? null : c.role)}>
       <span className="la-card-head">
         <span className="la-card-name">{GLYPH[c.role]} {c.role === "main" ? "Main part" : c.role === "tb" ? "Tie-breaker" : `${c.owner}'s rule`}: {words(c.title, r.rule.params)}</span>
-        <span className="la-card-state">{c.top ? "✓ top" : `next: ${words(c.next!, r.rule.params)}`}</span>
+        <span className="la-card-state">{c.aim}</span>
       </span>
       <span className="la-card-sentence">{c.sentence}</span>
       {c.ruler && <RulerView c={c} />}
-      <Gauge c={c} />
     </button>
   );
 }
 
 export function Moves({ r, onPick, picked }: { r: Reading; onPick?: (i: number) => void; picked: number }): ReactElement {
-  if (r.level === r.top) return <p className="la-moves-top">This line is at the top of your ladder: no move can raise it.</p>;
+  if (!r.moves.length) return <p className="la-moves-top">No single move makes this line rarer for your rule.</p>;
   return (
     <div className="la-moves">
-      <h4>What would raise it</h4>
+      <h4>What would make it rarer</h4>
       <ol>
         {r.moves.map((m, i) => (
           <li key={i} data-picked={i === picked ? "" : undefined} onMouseEnter={() => onPick?.(i)} onClick={() => onPick?.(i)}>
             <span className="la-move-words">{cap(m.words)}</span>
             <span className="la-move-price">{fmtNum(m.price)} ⚡</span>
-            <span className="la-move-step">→ step {m.levelAfter} of {r.top}</span>
+            <span className="la-move-step">→ {bitsText(m.bits)} ({chance(m.bits)})</span>
             <span className="la-move-effect">{m.effect}</span>
           </li>
         ))}
@@ -114,7 +100,11 @@ export function RulerView({ c, width = 340 }: { c: Contributor; width?: number }
         </g>
       ))}
       <circle className="la-ruler-value" cx={X(r.value)} cy={Y} r={5} />
-      <text className="la-ruler-label la-ruler-vlabel" x={Math.min(W - 4, Math.max(4, X(r.value)))} y={Y - 12} textAnchor={X(r.value) > W - 60 ? "end" : X(r.value) < 60 ? "start" : "middle"}>{GLYPH[c.role]} {r.valueLabel}</text>
+      {(() => {
+        // Centred over the value, kept inside the ruler (a long name never runs off its edge).
+        const t = `${GLYPH[c.role]} ${r.valueLabel}`, tw = t.length * 6.2;
+        return <text className="la-ruler-label la-ruler-vlabel" x={Math.min(W - tw / 2 - 2, Math.max(tw / 2 + 2, X(r.value)))} y={Y - 12} textAnchor="middle">{t}</text>;
+      })()}
       {r.bandLabel && <text className="la-ruler-label la-ruler-target" x={W - 2} y={10} textAnchor="end">{r.bandLabel}</text>}
     </svg>
   );
@@ -130,9 +120,8 @@ function HowThisScores({ r, open }: { r: Reading; open?: boolean }): ReactElemen
       <summary>How this scores</summary>
       <ol>
         <li><b>See.</b> {m!.sentence}</li>
-        <li><b>Target.</b> The main part's targets are {m!.gauge.notches.map(n => words(n, r.rule.params)).join(" · ")}; this line meets {m!.gauge.reached} of them. {t!.sentence}</li>
-        <li><b>Step.</b> Both parts together put the line on step {r.level} of {r.top} of your rule's ladder. {r.combine}</li>
-        <li><b>Rarity.</b> {bitsText(r.bits)}: only {chance(r.bits).replace(" by chance", "")} random lines reach step {r.level}. Each bit is twice as rare.{next !== undefined && ` The next step is ${bitsText(next)} (${chance(next)}).`}</li>
+        <li><b>Tie-breaker.</b> {t!.sentence} {r.combine}</li>
+        <li><b>Rarity.</b> {bitsText(r.bits)}: only {chance(r.bits).replace(" by chance", "")} random lines are at least this good on both parts. Each bit is twice as rare.{r.moves[0] && ` After "${r.moves[0].words}": ${bitsText(r.moves[0].bits)} (${chance(r.moves[0].bits)}).`}</li>
         <li><b>Points.</b> {cap(pointsOf(r.bits))}. Others' bits are how rare this line is for the other players' rules, added together.</li>
       </ol>
     </details>
@@ -201,7 +190,6 @@ export function OneLine(p: OneLineProps): ReactElement {
       <header className="la-head">
         <span className="la-head-name">Line {p.number}</span>
         <span className="la-head-eq">{r.equation}</span>
-        <span className="la-head-step">step {r.level} of {r.top}</span>
         <span className="la-head-bits">{bitsText(r.bits)} <span className="la-muted">({chance(r.bits)})</span></span>
         <span className="la-head-points">{cap(pointsOf(r.bits))}</span>
       </header>
@@ -218,7 +206,7 @@ export function OneLine(p: OneLineProps): ReactElement {
             {views.map(v => (
               <section key={v} className="la-panel" aria-label={VIEW_TITLE[v]}>
                 <h4>{VIEW_TITLE[v]}{v === r.primary && <span className="la-tag">your rule's main view</span>}{!r.contributors.some(c => c.anchors[v]) && <span className="la-tag" data-other="">not read by your rule</span>}</h4>
-                <View view={v} state={r.state} contributors={contributors} sel={sel} onSel={setSel} ghost={v === r.primary || v === "cart" || v === "si" ? ghost : null} size="card" width={colW} />
+                <View view={v} state={r.state} contributors={contributors} sel={sel} onSel={setSel} ghost={v === r.primary || v === "cart" || v === "si" ? ghost : null} size="card" width={colW} evaluation={r.annotation.sites[0]!.evaluation} />
               </section>
             ))}
           </div>
@@ -244,7 +232,7 @@ export function Chip({ r }: { r: Reading }): ReactElement {
   return (
     <span className="la-linechip">
       {at > 0 ? <>{eq.slice(0, at)}<b data-role="main">{GLYPH.main}{eq.slice(at)}</b></> : eq}
-      <span className="la-muted"> · step {r.level}/{r.top}</span>
+      <span className="la-muted"> · {bitsText(r.bits)}</span>
     </span>
   );
 }
@@ -252,11 +240,11 @@ export function Chip({ r }: { r: Reading }): ReactElement {
 export function Row({ r, number, width }: { r: Reading; number: number; width: number }): ReactElement {
   return (
     <div className="la-row">
-      <View view={r.primary} state={r.state} contributors={r.contributors} sel={null} size="row" width={Math.min(200, width * 0.42)} />
+      <View view={r.primary} state={r.state} contributors={r.contributors} sel={null} size="row" width={Math.min(200, width * 0.42)} evaluation={r.annotation.sites[0]!.evaluation} />
       <div className="la-row-text">
         <p><b>Line {number}</b> {r.primary !== "si" && <span className="la-muted">{r.equation}</span>}</p>
         <Strip r={r} sel={null} oneLine />
-        <p>step {r.level} of {r.top} · {bitsText(r.bits)} · <b>{fmtNum(r.bits * OTHERS)} points</b></p>
+        <p>{bitsText(r.bits)} ({chance(r.bits)}) · <b>{fmtNum(r.bits * OTHERS)} points</b></p>
       </div>
     </div>
   );
@@ -268,9 +256,9 @@ export function ActLine({ before, after, who }: { before: Reading; after: Readin
     <p className="la-act">
       <b>{who}</b> changed line 7: {before.equation} → {after.equation}.{" "}
       {changed.map(({ c, d }) => (
-        <span key={c.role} data-role={c.role} className="la-act-c">{GLYPH[c.role]} {c.name} {c.value} → {d.value}{d.gauge.reached > c.gauge.reached ? `: now ${words(d.gauge.notches[d.gauge.reached - 1]!, before.rule.params)}` : ""}. </span>
+        <span key={c.role} data-role={c.role} className="la-act-c">{GLYPH[c.role]} {c.name} {c.value} → {d.value}. </span>
       ))}
-      Step {before.level} → {after.level} of {after.top}. {fmtNum(before.bits)} → {bitsText(after.bits)} ({chance(after.bits)}). Points {fmtNum(before.bits * OTHERS)} → {fmtNum(after.bits * OTHERS)}.
+      Rarity {fmtNum(before.bits)} → {bitsText(after.bits)} ({chance(after.bits)}). Points {fmtNum(before.bits * OTHERS)} → {fmtNum(after.bits * OTHERS)}.
     </p>
   );
 }
@@ -279,31 +267,17 @@ export function ActLine({ before, after, who }: { before: Reading; after: Readin
 
 export function GoalLinked({ r, number }: { r: Reading; number: number }): ReactElement {
   const f = r.rule.family;
-  const labels = useMemo(() => {
-    const ladder = (lineType.families.find(x => x.id === f.id) ? r.annotation.ladder : r.annotation.ladder);
-    return ladder.map(x => words(x.label, r.rule.params));
-  }, [r, f.id]);
-  const move = r.moves[0];
-  const lo = Math.max(1, r.level - 2), hi = Math.min(r.top, Math.max(r.level + 2, move?.levelAfter ?? 0));
-  const rows = [r.top, ...Array.from({ length: hi - lo + 1 }, (_, i) => hi - i)].filter((x, i, a) => a.indexOf(x) === i);
+  const best = r.rarities[r.rarities.length - 1] ?? 0;
   return (
     <article className="la-goal">
       <h3>{f.title}</h3>
       <p className="la-goal-card">{f.card(r.rule.params as never, r.rule.tieBreaker as string)}</p>
-      <p className="la-goal-link">Your line {number}, <b>{r.equation}</b>, is on <b>step {r.level} of {r.top}</b>. {move && <>Next: {move.words} ({fmtNum(move.price)} ⚡) → step {move.levelAfter}.</>}</p>
+      <p className="la-goal-link">Your line {number}, <b>{r.equation}</b>: <b>{bitsText(r.bits)}</b> ({chance(r.bits)}).</p>
       <Strip r={r} sel={null} />
-      <ol className="la-ladder">
-        {rows.map((lv, i) => (
-          <li key={lv} data-here={lv === r.level ? "" : undefined} data-reached={lv <= r.level ? "" : undefined} data-gap={i > 0 && rows[i - 1]! - lv > 1 ? "" : undefined}>
-            <span className="la-ladder-n">{lv}</span>
-            <span className="la-ladder-label">{labels[lv]}</span>
-            {lv === r.level && <span className="la-ladder-here">line {number} is here</span>}
-            {move && lv === move.levelAfter && <span className="la-ladder-next">{move.words}</span>}
-            <span className="la-ladder-bits">{bitsText(r.rarities[lv] ?? 0)} · {chance(r.rarities[lv] ?? 0)}</span>
-          </li>
-        ))}
-      </ol>
-      <details className="la-how"><summary>All {r.top} steps, and a worked example</summary><p className="la-muted">(The full ladder and the rule's worked example, as today, below the linked line.)</p></details>
+      {r.contributors.map(c => c.ruler && <div key={c.role} className="la-goal-ruler"><RulerView c={c} /></div>)}
+      <Moves r={r} picked={0} />
+      <p className="la-muted">The rarest lines for this rule (main part on target, tie-breaker as big as it counts) are {bitsText(best)}, {chance(best)}.</p>
+      <details className="la-how"><summary>A worked example</summary><p className="la-muted">(The rule's worked example, as today, below your own line.)</p></details>
     </article>
   );
 }
@@ -318,8 +292,8 @@ export function Others({ r, told, shared }: { r: Reading; told: Reading; shared:
       <p>Others' bits on this line: <b>{fmtNum(OTHERS)}</b>: for somebody's rule it is about {chance(OTHERS).replace(" by chance", "")} rare. You cannot see their rules; ask them.</p>
       <div className="la-told" data-role="told">
         <p><b>{GLYPH.told} Ada showed you her card</b> ({told.rule.family.title}): “{told.rule.family.card(told.rule.params as never, told.rule.tieBreaker as string)}”</p>
-        <p>{t.sentence.replace("Your rule", "Her rule")} On her ladder this line is step {told.level} of {told.top}.</p>
-        {shared && <p className="la-shared">Together: <b>{shared.words}</b> ({fmtNum(shared.price)} ⚡) lifts both. Yours → step {shared.levelAfter} of {r.top}; hers → step {read(told.rule, shared.after, false).level} of {told.top}.</p>}
+        <p>{t.sentence.replace("Your rule", "Her rule")} For her this line is {bitsText(told.bits)}.</p>
+        {shared && <p className="la-shared">Together: <b>{shared.words}</b> ({fmtNum(shared.price)} ⚡) makes it rarer for both: yours → {bitsText(shared.bits)}; hers → {bitsText(read(told.rule, shared.after, false).bits)}.</p>}
       </div>
     </section>
   );

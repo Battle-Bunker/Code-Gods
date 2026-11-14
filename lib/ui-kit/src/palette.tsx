@@ -416,7 +416,11 @@ function FieldPage({ page, inputRef, busy, error, onSubmit, onBack }: {
     <form className="px-3 py-3 space-y-2" onSubmit={e => { e.preventDefault(); if (ok) onSubmit(value.trim()); }}>
       <label className="block text-sm font-medium" htmlFor="palette-field">{page.label}</label>
       <input id="palette-field" ref={inputRef} value={value} placeholder={page.placeholder} onChange={e => setValue(e.target.value)} disabled={busy}
-        onKeyDown={e => { if (e.key === "Backspace" && !value) { e.preventDefault(); onBack(); } }}
+        onKeyDown={e => {
+          if (e.key === "Backspace" && !value) { e.preventDefault(); onBack(); }
+          // The command list around this field takes Enter for itself (and cancels the form's submit): submit here.
+          if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (ok) onSubmit(value.trim()); }
+        }}
         aria-invalid={!!problem || undefined} data-testid="input-palette-field"
         className={`w-full border bg-background px-3 py-2 text-sm outline-none focus:border-primary ${problem ? "border-destructive" : "border-border"}`} />
       {problem ? <p className="text-xs text-destructive" role="alert">{problem}</p>

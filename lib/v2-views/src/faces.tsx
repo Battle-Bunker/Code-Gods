@@ -4,14 +4,15 @@
  * representation the rule depends on, side by side on a wide card and as tabs on a narrow one, cross-highlighted by
  * meaning; the parts, the worked computation, the ladder and the nearest improvement).
  *
- * Player words only: points, rarity in bits (each bit = twice as rare), ⚡ energy, "main part", "tie-breaker", "step n of N", the noun "line".
+ * Player words only: points, rarity in bits (each bit = twice as rare), ⚡ energy, "main part", "tie-breaker", "step n of N", and
+ * the game's own noun ("line", "grid": the object type's id), never "object".
  */
 import { useMemo, useState, type ReactElement } from "react";
 import { elementValue, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
 import { BITS_HELP, chanceText, fmtBits, fmtQ, fmtValue, isUndef } from "./format.ts";
 import { nearestImprovement, type Improvement } from "./improve.ts";
-import { markRefs } from "./refs.ts";
+import { markRefs, nounOf } from "./refs.ts";
 import { labelOf, ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
 
@@ -50,7 +51,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
     () => (props.next === true ? (a.level === a.top ? null : nearestImprovement(props.rule, props.state)) : props.next || null),
     [props.next, props.rule, props.state, a.level, a.top],
   );
-  const ladderHelp = "Your rule's ladder: each step up is rarer among random lines and worth more to you.";
+  const ladderHelp = `Your rule's ladder: each step up is rarer among random ${a.noun}s and worth more to you.`;
   return (
     <div className="v2v v2v-compact-face" data-level={a.level}>
       <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms}
@@ -89,11 +90,15 @@ function shortLabel<S>(type: ObjectType<S>, r: ElementRef): string {
 export function mainLine<S, P>(rule: RuleRef<S, P>, state: S, a: Annotation, site = 0): string {
   const part = a.sites[site]?.parts[0];
   if (!part || isUndef(part.value)) return "";
-  const note = part.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.text.length <= 28);
   const term = a.sites[site]!.evaluation.terms.find(t => t.id === part.term)!;
-  const what = note?.text ?? term.from.map(r => `${shortLabel(rule.type, r)} ${fmtValue(elementValue(rule.type, state, r, site))}`).join(", ");
   const amount = fmtQ(part.value);
-  return part.sense === "min" ? `${what} · off by ${amount}` : `${what} · ${amount}`;
+  const tail = part.sense === "min" ? ` · off by ${amount}` : ` · ${amount}`;
+  // A part made of many elements (a row's four totals, sixteen cells) is said by its own label: a note there is one
+  // unit's ("4 short"), not the whole's.
+  if (term.from.length > 3) return `${term.label[0]!.toUpperCase()}${term.label.slice(1)}${tail}`;
+  const note = part.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.text.length <= 28);
+  const what = note?.text ?? term.from.map(r => `${shortLabel(rule.type, r)} ${fmtValue(elementValue(rule.type, state, r, site))}`).join(", ");
+  return what + tail;
 }
 
 // ------------------------------------------------------------------ parts list
@@ -162,7 +167,7 @@ export function LadderView({ annotation: a, rarities, open }: LadderViewProps): 
           <li key={r.level} data-reached={r.level <= a.level ? "" : undefined} data-here={r.level === a.level ? "" : undefined}>
             <span className="v2v-ladder-n">{r.level}</span>
             <span className="v2v-ladder-label">{r.label}</span>
-            {r.level === a.level && <span className="v2v-ladder-here">this line</span>}
+            {r.level === a.level && <span className="v2v-ladder-here">this {a.noun}</span>}
             {rarities?.[r.level] !== undefined && (
               <span className="v2v-ladder-odds">
                 <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(rarities[r.level]!)}</span>
@@ -172,7 +177,7 @@ export function LadderView({ annotation: a, rarities, open }: LadderViewProps): 
           </li>
         ))}
       </ol>
-      {rarities && <p className="v2v-ladder-note">Each step up is rarer among random lines; rarer is worth more to you. {BITS_HELP}</p>}
+      {rarities && <p className="v2v-ladder-note">Each step up is rarer among random {a.noun}s; rarer is worth more to you. {BITS_HELP}</p>}
     </details>
   );
 }
@@ -193,7 +198,7 @@ export interface RepSwitcherProps<S> {
 export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
   return (
     <div className="v2v-switcher">
-      <div className="v2v-tabs" role="tablist" aria-label="Ways to see this line">
+      <div className="v2v-tabs" role="tablist" aria-label={`Ways to see this ${nounOf(p.type)}`}>
         {p.type.representations.map(r => (
           <button key={r.id} type="button" role="tab" aria-selected={p.active === r.id} className="v2v-tab"
             data-depends={p.depends.includes(r.id) ? "" : undefined} data-primary={p.primary === r.id ? "" : undefined}
@@ -287,7 +292,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
           {a.rarity !== null && <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(a.rarity)}</span>} {levelText(a)}
         </span>
       </header>
-      {a.worst && <p className="v2v-worst">This line does not score for your rule: {a.worst}.</p>}
+      {a.worst && <p className="v2v-worst">This {a.noun} does not score for your rule: {a.worst}.</p>}
 
       <RepSwitcher type={rule.type} depends={depends} primary={rule.family.main.rep} active={active} compare={compare} onActive={setActive} onCompare={setCompare} />
       <div className="v2v-panels" data-compare={compare ? "" : undefined}>
@@ -316,7 +321,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
             <span className="v2v-next-label">{imp.kind === "level" ? "Next step" : "Closer"}:</span> {imp.sentence}
           </p>
         )}
-        {a.level === a.top && <p className="v2v-next" data-kind="top">This line is at the top of your ladder.</p>}
+        {a.level === a.top && <p className="v2v-next" data-kind="top">This {a.noun} is at the top of your ladder.</p>}
         <LadderView annotation={a} rarities={props.rarities} open={props.ladderOpen} />
       </div>
     </div>

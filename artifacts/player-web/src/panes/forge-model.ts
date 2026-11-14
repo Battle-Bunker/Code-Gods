@@ -2,7 +2,7 @@
  * The forge's plain logic (ux-lessons §1.3–1.9, §3): what the editor opens with, what the primary button does, what a
  * summon or a replace message says, and the frozen before/after comparison of a put-back. Pure, unit-tested.
  */
-import { exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
+import { editBits, exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
 import { energyText, num, powerText } from "../core/words.ts";
 
 /** The first agent's share of power (ux-lessons 3.7: close to 75%, leaving room to replace it with any starter). */
@@ -26,6 +26,12 @@ export function otherStartingPoints(family: string, language: Language): Shipped
 
 /** The summon (or replace) price of a program, in ⚡. */
 export const summonPrice = (language: Language, source: string) => summonBits(language, source).energy;
+/** What replacing an agent's program costs (owner decision 21): only what changed, as agent.replace charges it. */
+export const editPrice = (language: Language, oldSource: string, newSource: string) => editBits(language, oldSource, newSource).energy;
+/** The edit's price beside the whole program's, and the energy to pay it. */
+export function editLine(o: { edit: number; full: number; energy: number }): string {
+  return `Replacing costs changes only: ${energyText(o.edit)} (the whole program would be ${energyText(o.full)}); you have ${energyText(o.energy)}.`;
+}
 
 export type Primary = "summonFirst" | "replace" | "summon";
 /**
@@ -47,9 +53,9 @@ export function affordLine(o: { price: number; energy: number; justRan: boolean;
   if (o.justRan) return null;
   if (o.price <= o.energy) return `Summoning costs ${energyText(o.price)}; you have ${energyText(o.energy)}.`;
   if (!(o.ownPerSecond > 0)) return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}. Your agents hold all your power, so your own store does not grow: give yourself some power back.`;
-  if (o.price > o.capacity) return `Summoning costs ${energyText(o.price)}, more than your own store can hold at your current split (${energyText(o.capacity)}). Give yourself more power, or shorten the code.`;
+  if (o.price > o.capacity) return `Summoning costs ${energyText(o.price)}, more than your own store can hold while your agents get this much of your power (${energyText(o.capacity)}). Give yourself more power, or shorten the code.`;
   const seconds = Math.ceil((o.price - o.energy) / o.ownPerSecond);
-  return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}: at your current split your own store reaches it in about ${seconds} second${seconds === 1 ? "" : "s"}.`;
+  return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}: at the way your power is shared now, your own store reaches it in about ${seconds} second${seconds === 1 ? "" : "s"}.`;
 }
 
 /** What a first summon did, in the same breath as what power is (ux-lessons 1.9, 3.7). */

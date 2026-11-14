@@ -18,7 +18,7 @@ import { decode, encode, typeOf, variantOf } from "./world";
 import { rungsOf } from "./artefacts";
 
 type Snapshot = {
-  phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number;
+  phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
   worldSeconds: number; lastTickAt: number;
   settings: { worldSeconds: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
@@ -40,8 +40,11 @@ export const tick = internalAction({
       const snap = await ctx.runQuery(SNAPSHOT, { gameId });
       if (!snap || snap.phase !== "live" || snap.leaseId !== leaseId) return;
       const now = Date.now();
-      const dt = Math.min(MAX_DT, Math.max(0, (now - snap.lastTickAt) / 1000));
-      const world = snap.worldSeconds + dt;
+      // World time follows the wall clock to the announced end (endsAt), so a game ends when its clock says 0:00
+      // however slow the ticks run; one tick does at most MAX_DT seconds of births and opportunities.
+      const wall = snap.endsAt !== null ? snap.settings.worldSeconds - (snap.endsAt - now) / 1000 : snap.worldSeconds + (now - snap.lastTickAt) / 1000;
+      const world = Math.max(snap.worldSeconds, Math.min(snap.settings.worldSeconds, wall));
+      const dt = Math.min(MAX_DT, world - snap.worldSeconds);
       const variant = variantOf(snap.variant), econ = snap.settings.economy;
       const r = rng(snap.seed, "tick", snap.tick);
 

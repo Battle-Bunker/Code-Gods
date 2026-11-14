@@ -29,7 +29,7 @@ import Connect from "@/site/pages/connect";
 import AdminAgents from "@/site/pages/admin-agents";
 import { RuleFamily, RuleGallery } from "@/site/pages/rule-gallery";
 import SignIn from "@/site/pages/sign-in";
-import { connection, convexClient, engineSite, fetchAppAccessToken, type Connection } from "./connection";
+import { connection, convexClient, engineSite, type Connection } from "./connection";
 import { Screen } from "./screen";
 import { ROUTE_PATTERNS } from "./routes";
 
@@ -69,10 +69,7 @@ function AccountSignIn({ conn }: { conn: Extract<Connection, { mode: "account" }
 
 function Connected({ conn }: { conn: Connection }) {
   const client = convexClient(conn.convexUrl);
-  const fetchAccessToken = useCallback(() => fetchAppAccessToken(), []);
-  const auth: EngineAuth = conn.mode === "devserver" ? { kind: "token", fetchAccessToken }
-    : conn.mode === "account" ? { kind: "account", auth: conn.auth, session: conn.session! }
-    : { kind: "site" };
+  const auth: EngineAuth = conn.mode === "account" ? { kind: "account", auth: conn.auth, session: conn.session! } : { kind: "site" };
   // A revoked or expired account grant is forgotten by the SDK (in this tab, or another one: the storage event):
   // start again from the sign-in screen.
   useEffect(() => {
@@ -98,13 +95,13 @@ function Connected({ conn }: { conn: Connection }) {
 function Routes({ mode }: { mode: Connection["mode"] }) {
   // The consent and admin pages belong to the engine's own site (its Google session approves; docs/external-clients.md).
   const siteOnly = (title: string) => () => <SiteOnly title={title} />;
-  const devserver = mode === "devserver", offSite = mode !== "site";
+  const offSite = mode !== "site";
   return (
     // Keep a shared shell outside the boundary so it survives a page crash.
     <RoutedErrorBoundary>
       <SignInGate>
       <Switch>
-        <Route path={ROUTE_PATTERNS.home} component={devserver ? CredentialRoom : Home} />
+        <Route path={ROUTE_PATTERNS.home} component={Home} />
         <Route path={ROUTE_PATTERNS.game} component={Game} />
         <Route path={ROUTE_PATTERNS.room} component={Room} />
         <Route path={ROUTE_PATTERNS.device} component={offSite ? siteOnly("Approve a device") : Device} />
@@ -148,14 +145,6 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
-/**
- * A dev server's app at /: its credential is a v1 room credential, which v2 rooms do not accept. Sign in on the site,
- * or connect with an account grant (the assistant's delegation to v2 rooms arrives with the MCP generator).
- */
-function CredentialRoom() {
-  return <Screen title="This player app needs an account grant" testId="text-connection-error"><p>Room credentials belong to the old engine. Open the engine's site and sign in, or connect this app with an account grant.</p><AppHelp /></Screen>;
-}
-
 function SiteOnly({ title }: { title: string }) {
   const [location] = useLocation();
   return (
@@ -169,8 +158,8 @@ function SiteOnly({ title }: { title: string }) {
 function AppHelp() {
   return (
     <div className="text-sm space-y-2 text-muted-foreground">
-      <p>In your own player app: set <code>CODE_GODS_ENGINE_URL</code> to the engine site (in your environment's secret store or <code>.env.local</code>), run <code>pnpm player connect --room CODE</code>, approve the code on the engine, store the printed <code>CODE_GODS_CREDENTIAL</code> the same way and restart the dev server (<code>pnpm --filter @workspace/player-web dev</code>).</p>
-      <p>Check with <code>pnpm player status</code>.</p>
+      <p>To run this app on another origin, set <code>VITE_CODE_GODS_ENGINE_URL</code> to the engine's site and sign in: the engine's connect page asks you to allow the app (an account grant).</p>
+      <p>A command-line or MCP client connects with <code>pnpm player connect --room CODE</code>, or by adding the engine's <code>/mcp</code> to an MCP client.</p>
     </div>
   );
 }

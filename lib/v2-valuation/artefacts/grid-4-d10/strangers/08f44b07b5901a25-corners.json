@@ -1,0 +1,567 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/strangers/{}/tb=corners",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "strangers",
+ "params": {},
+ "tieBreaker": "corners",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "12"
+   ],
+   "label": "anything; the corners at least 12",
+   "layer": 1,
+   "main": 0,
+   "bits": 1.2832,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "20"
+   ],
+   "label": "anything; the corners at least 20",
+   "layer": 1,
+   "main": 0,
+   "bits": 1.8257,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "24"
+   ],
+   "label": "anything; the corners at least 24",
+   "layer": 1,
+   "main": 0,
+   "bits": 1.8546,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2"
+   ],
+   "label": "pairs of strangers at least 2",
+   "layer": 0,
+   "main": 1,
+   "bits": 1.8585,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2",
+    "12"
+   ],
+   "label": "pairs of strangers at least 2; the corners at least 12",
+   "layer": 1,
+   "main": 1,
+   "bits": 3.1571,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2",
+    "20"
+   ],
+   "label": "pairs of strangers at least 2; the corners at least 20",
+   "layer": 1,
+   "main": 1,
+   "bits": 4.669,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "2",
+    "24"
+   ],
+   "label": "pairs of strangers at least 2; the corners at least 24",
+   "layer": 1,
+   "main": 1,
+   "bits": 4.8696,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4"
+   ],
+   "label": "pairs of strangers at least 4",
+   "layer": 0,
+   "main": 2,
+   "bits": 4.9074,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4",
+    "12"
+   ],
+   "label": "pairs of strangers at least 4; the corners at least 12",
+   "layer": 1,
+   "main": 2,
+   "bits": 5.646,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4",
+    "20"
+   ],
+   "label": "pairs of strangers at least 4; the corners at least 20",
+   "layer": 1,
+   "main": 2,
+   "bits": 6.5947,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "4",
+    "24"
+   ],
+   "label": "pairs of strangers at least 4; the corners at least 24",
+   "layer": 1,
+   "main": 2,
+   "bits": 6.7317,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5"
+   ],
+   "label": "pairs of strangers at least 5",
+   "layer": 0,
+   "main": 3,
+   "bits": 6.7621,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5",
+    "12"
+   ],
+   "label": "pairs of strangers at least 5; the corners at least 12",
+   "layer": 1,
+   "main": 3,
+   "bits": 7.3915,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5",
+    "20"
+   ],
+   "label": "pairs of strangers at least 5; the corners at least 20",
+   "layer": 1,
+   "main": 3,
+   "bits": 8.4594,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "5",
+    "24"
+   ],
+   "label": "pairs of strangers at least 5; the corners at least 24",
+   "layer": 1,
+   "main": 3,
+   "bits": 8.6592,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6"
+   ],
+   "label": "pairs of strangers at least 6",
+   "layer": 0,
+   "main": 4,
+   "bits": 8.7097,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6",
+    "12"
+   ],
+   "label": "pairs of strangers at least 6; the corners at least 12",
+   "layer": 1,
+   "main": 4,
+   "bits": 9.283,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6",
+    "20"
+   ],
+   "label": "pairs of strangers at least 6; the corners at least 20",
+   "layer": 1,
+   "main": 4,
+   "bits": 10.5229,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "6",
+    "24"
+   ],
+   "label": "pairs of strangers at least 6; the corners at least 24",
+   "layer": 1,
+   "main": 4,
+   "bits": 10.8166,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7"
+   ],
+   "label": "pairs of strangers at least 7",
+   "layer": 0,
+   "main": 5,
+   "bits": 10.9012,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7",
+    "12"
+   ],
+   "label": "pairs of strangers at least 7; the corners at least 12",
+   "layer": 1,
+   "main": 5,
+   "bits": 11.3656,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7",
+    "20"
+   ],
+   "label": "pairs of strangers at least 7; the corners at least 20",
+   "layer": 1,
+   "main": 5,
+   "bits": 12.641,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "7",
+    "24"
+   ],
+   "label": "pairs of strangers at least 7; the corners at least 24",
+   "layer": 1,
+   "main": 5,
+   "bits": 13.0189,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8"
+   ],
+   "label": "pairs of strangers at least 8",
+   "layer": 0,
+   "main": 6,
+   "bits": 13.1441,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8",
+    "12"
+   ],
+   "label": "pairs of strangers at least 8; the corners at least 12",
+   "layer": 1,
+   "main": 6,
+   "bits": 13.5541,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8",
+    "20"
+   ],
+   "label": "pairs of strangers at least 8; the corners at least 20",
+   "layer": 1,
+   "main": 6,
+   "bits": 14.9429,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "8",
+    "24"
+   ],
+   "label": "pairs of strangers at least 8; the corners at least 24",
+   "layer": 1,
+   "main": 6,
+   "bits": 15.4469,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9"
+   ],
+   "label": "pairs of strangers at least 9",
+   "layer": 0,
+   "main": 7,
+   "bits": 15.6399,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "8"
+   ],
+   "label": "pairs of strangers at least 9; the corners at least 8",
+   "layer": 1,
+   "main": 7,
+   "bits": 15.7041,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "12"
+   ],
+   "label": "pairs of strangers at least 9; the corners at least 12",
+   "layer": 1,
+   "main": 7,
+   "bits": 16.0229,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "16"
+   ],
+   "label": "pairs of strangers at least 9; the corners at least 16",
+   "layer": 1,
+   "main": 7,
+   "bits": 16.8014,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "20"
+   ],
+   "label": "pairs of strangers at least 9; the corners at least 20",
+   "layer": 1,
+   "main": 7,
+   "bits": 18.1494,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "24"
+   ],
+   "label": "pairs of strangers at least 9; the corners at least 24",
+   "layer": 1,
+   "main": 7,
+   "bits": 20.1428,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "9",
+    "28"
+   ],
+   "label": "pairs of strangers at least 9; the corners at least 28",
+   "layer": 1,
+   "main": 7,
+   "bits": 22.9251,
+   "error": 0,
+   "source": "exact"
+  }
+ ],
+ "cap": 34,
+ "convergedCap": 34,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "max",
+ "curve": {
+  "model": "quadratic-count",
+  "alpha": -0.5792657615111007,
+  "beta": 1.0439180932703203,
+  "gamma": 0.08428043093270757,
+  "snapped": false
+ },
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution"
+   ],
+   "lo": [
+    0,
+    1.2832,
+    1.8257,
+    1.8546,
+    1.8585,
+    3.1571,
+    4.669,
+    4.8696,
+    4.9074,
+    5.646,
+    6.5947,
+    6.7317,
+    6.7621,
+    7.3915,
+    8.4594,
+    8.6592,
+    8.7097,
+    9.283,
+    10.5229,
+    10.8166,
+    10.9012,
+    11.3656,
+    12.641,
+    13.0189,
+    13.1441,
+    13.5541,
+    14.9429,
+    15.4469,
+    15.6399,
+    15.7041,
+    16.0229,
+    16.8014,
+    18.1494,
+    20.1428,
+    22.9251
+   ],
+   "hi": [
+    0,
+    1.2832,
+    1.8257,
+    1.8546,
+    1.8585,
+    3.1571,
+    4.669,
+    4.8696,
+    4.9074,
+    5.646,
+    6.5947,
+    6.7317,
+    6.7621,
+    7.3915,
+    8.4594,
+    8.6592,
+    8.7097,
+    9.283,
+    10.5229,
+    10.8166,
+    10.9012,
+    11.3656,
+    12.641,
+    13.0189,
+    13.1441,
+    13.5541,
+    14.9429,
+    15.4469,
+    15.6399,
+    15.7041,
+    16.0229,
+    16.8014,
+    18.1494,
+    20.1428,
+    22.9251
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "89fc5e95c70beb99"
+}

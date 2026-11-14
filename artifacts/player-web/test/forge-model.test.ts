@@ -30,10 +30,20 @@ test("messages say what happened in plain words (ux 1.9, 3.3, 3.6, 3.7, 3.5)", (
   assert.match(replacedText("Simple"), /keeps its stored ⚡ and its share of your power; the price came from your own energy/);
   assert.equal(affordLine({ price: 50, energy: 10, justRan: true }), null, "no stale price after a summon");
   assert.equal(affordLine({ price: 50, energy: 10, justRan: false, ownPerSecond: 4, capacity: 120 }),
-    "Summoning costs 50.00 ⚡, and you have 10.00 ⚡: at your current split your own store reaches it in about 10 seconds.");
+    "Summoning costs 50.00 ⚡, and you have 10.00 ⚡: at the way your power is shared now, your own store reaches it in about 10 seconds.");
   assert.equal(affordLine({ price: 200, energy: 10, justRan: false, ownPerSecond: 4, capacity: 120 }),
-    "Summoning costs 200.00 ⚡, more than your own store can hold at your current split (120.00 ⚡). Give yourself more power, or shorten the code.");
+    "Summoning costs 200.00 ⚡, more than your own store can hold while your agents get this much of your power (120.00 ⚡). Give yourself more power, or shorten the code.");
   assert.equal(affordLine({ price: 50, energy: 10, justRan: false, ownPerSecond: 0, capacity: 0 }),
     "Summoning costs 50.00 ⚡, and you have 10.00 ⚡. Your agents hold all your power, so your own store does not grow: give yourself some power back.");
   assert.equal(comparisonText({ acts: 10, pointsGained: 210 }, { acts: 3, pointsGained: 3 }), "Before your change: +21.00 points a move. Since: +1.00 points a move. Early moves are a rough guide.");
+});
+
+test("an edit is priced by what changed, beside the whole program's price; an unchanged program costs nothing", async () => {
+  const { editPrice, editLine } = await import("../src/panes/forge-model.ts");
+  const old = "function agent(offer) {\n  const FAR = 4;\n  return null;\n}\n";
+  const changed = old.replace("FAR = 4", "FAR = 2");
+  const e = editPrice("typescript", old, changed), full = summonPrice("typescript", changed);
+  assert.ok(e > 0 && e < full, `a one-number change costs less than the whole program (${e} < ${full})`);
+  assert.equal(editPrice("typescript", old, old), 0);
+  assert.equal(editLine({ edit: 12.5, full: 300, energy: 100 }), "Replacing costs changes only: 12.50 ⚡ (the whole program would be 300.00 ⚡); you have 100.00 ⚡.");
 });

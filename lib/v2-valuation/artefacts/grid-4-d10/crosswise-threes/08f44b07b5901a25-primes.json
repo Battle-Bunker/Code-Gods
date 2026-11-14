@@ -1,0 +1,738 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/crosswise-threes/{}/tb=primes",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "crosswise-threes",
+ "params": {},
+ "tieBreaker": "primes",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "6"
+   ],
+   "label": "anything; prime numbers at least 6",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.3027,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "9"
+   ],
+   "label": "anything; prime numbers at least 9",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.4818,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "10"
+   ],
+   "label": "anything; prime numbers at least 10",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.4952,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 12 in all",
+   "layer": 0,
+   "main": 1,
+   "bits": 0.5014,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 12 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 1,
+   "bits": 0.8355,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 12 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 1,
+   "bits": 1.1424,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 12 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 1,
+   "bits": 1.1715,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 10 in all",
+   "layer": 0,
+   "main": 2,
+   "bits": 1.1859,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 10 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 2,
+   "bits": 1.6442,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 10 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.2786,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-10",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 10 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 2,
+   "bits": 2.3549,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 8 in all",
+   "layer": 0,
+   "main": 3,
+   "bits": 2.3937,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 8 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 3,
+   "bits": 2.9135,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 8 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 3,
+   "bits": 4.0154,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 8 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 3,
+   "bits": 4.196,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 6 in all",
+   "layer": 0,
+   "main": 4,
+   "bits": 4.2926,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 6 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 4,
+   "bits": 4.6362,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 6 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 4,
+   "bits": 5.39,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 6 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 4,
+   "bits": 5.5048,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 5 in all",
+   "layer": 0,
+   "main": 5,
+   "bits": 5.5635,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-5",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 5 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 5,
+   "bits": 5.919,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-5",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 5 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 5,
+   "bits": 6.8481,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-5",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 5 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 5,
+   "bits": 7.0102,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 4 in all",
+   "layer": 0,
+   "main": 6,
+   "bits": 7.0952,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 4 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 6,
+   "bits": 7.4604,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 4 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 6,
+   "bits": 8.5875,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 4 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 6,
+   "bits": 8.8162,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 3 in all",
+   "layer": 0,
+   "main": 7,
+   "bits": 8.9415,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 3 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 7,
+   "bits": 9.3175,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 3 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 7,
+   "bits": 10.6707,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 3 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 7,
+   "bits": 10.9967,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 2 in all",
+   "layer": 0,
+   "main": 8,
+   "bits": 11.1885,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 2 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 8,
+   "bits": 11.5807,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 2 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 8,
+   "bits": 13.2014,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 2 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 8,
+   "bits": 13.6798,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 1 in all",
+   "layer": 0,
+   "main": 9,
+   "bits": 13.9978,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 1 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 9,
+   "bits": 14.418,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 1 in all; prime numbers at least 9",
+   "layer": 1,
+   "main": 9,
+   "bits": 16.378,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart off by at most 1 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 9,
+   "bits": 17.1338,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the folded pairs from 3 apart exactly",
+   "layer": 0,
+   "main": 10,
+   "bits": 17.7769,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "4"
+   ],
+   "label": "the folded pairs from 3 apart exactly; prime numbers at least 4",
+   "layer": 1,
+   "main": 10,
+   "bits": 17.8318,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "6"
+   ],
+   "label": "the folded pairs from 3 apart exactly; prime numbers at least 6",
+   "layer": 1,
+   "main": 10,
+   "bits": 18.2449,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "8"
+   ],
+   "label": "the folded pairs from 3 apart exactly; prime numbers at least 8",
+   "layer": 1,
+   "main": 10,
+   "bits": 19.559,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "9"
+   ],
+   "label": "the folded pairs from 3 apart exactly; prime numbers at least 9",
+   "layer": 1,
+   "main": 10,
+   "bits": 20.6911,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "10"
+   ],
+   "label": "the folded pairs from 3 apart exactly; prime numbers at least 10",
+   "layer": 1,
+   "main": 10,
+   "bits": 22.1881,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "11"
+   ],
+   "label": "the folded pairs from 3 apart exactly; prime numbers at least 11",
+   "layer": 1,
+   "main": 10,
+   "bits": 24.0815,
+   "error": 0,
+   "source": "exact"
+  }
+ ],
+ "cap": 46,
+ "convergedCap": 46,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution"
+   ],
+   "lo": [
+    0,
+    0.3027,
+    0.4818,
+    0.4952,
+    0.5014,
+    0.8355,
+    1.1424,
+    1.1715,
+    1.1859,
+    1.6442,
+    2.2786,
+    2.3549,
+    2.3937,
+    2.9135,
+    4.0154,
+    4.196,
+    4.2926,
+    4.6362,
+    5.39,
+    5.5048,
+    5.5635,
+    5.919,
+    6.8481,
+    7.0102,
+    7.0952,
+    7.4604,
+    8.5875,
+    8.8162,
+    8.9415,
+    9.3175,
+    10.6707,
+    10.9967,
+    11.1885,
+    11.5807,
+    13.2014,
+    13.6798,
+    13.9978,
+    14.418,
+    16.378,
+    17.1338,
+    17.7769,
+    17.8318,
+    18.2449,
+    19.559,
+    20.6911,
+    22.1881,
+    24.0815
+   ],
+   "hi": [
+    0,
+    0.3027,
+    0.4818,
+    0.4952,
+    0.5014,
+    0.8355,
+    1.1424,
+    1.1715,
+    1.1859,
+    1.6442,
+    2.2786,
+    2.3549,
+    2.3937,
+    2.9135,
+    4.0154,
+    4.196,
+    4.2926,
+    4.6362,
+    5.39,
+    5.5048,
+    5.5635,
+    5.919,
+    6.8481,
+    7.0102,
+    7.0952,
+    7.4604,
+    8.5875,
+    8.8162,
+    8.9415,
+    9.3175,
+    10.6707,
+    10.9967,
+    11.1885,
+    11.5807,
+    13.2014,
+    13.6798,
+    13.9978,
+    14.418,
+    16.378,
+    17.1338,
+    17.7769,
+    17.8318,
+    18.2449,
+    19.559,
+    20.6911,
+    22.1881,
+    24.0815
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "931ae05c865a13d3"
+}

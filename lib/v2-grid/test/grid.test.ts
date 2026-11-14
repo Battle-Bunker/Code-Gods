@@ -39,3 +39,15 @@ test("the cell code is complete: 2^−φ sums to exactly 1 over every board of t
   assert.equal(n, 81);
   assert.ok(Math.abs(total - 1) < 1e-12, String(total));
 });
+
+test("each margin of a scene says in a word what it holds, and the groups say what they are", () => {
+  const s = board("0120", "3001", "0000", "9000");
+  const scene = (id: string) => gridType.representations.find(r => r.id === id)!.layout(s, 0) as { rightTitle?: string; bottomTitle?: string; groupTitle?: string };
+  assert.equal(scene("tally").rightTitle, "total");
+  assert.equal(scene("tally").bottomTitle, "total");
+  assert.equal(scene("mirror").rightTitle, "gap");
+  assert.equal(scene("steps").rightTitle, "uneven");
+  assert.equal(scene("steps").groupTitle, "steps");
+  assert.equal(scene("turn").groupTitle, "pair totals");
+  assert.equal(scene("boxes").groupTitle, "box totals");
+});

@@ -225,6 +225,9 @@ importers:
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core
+      '@workspace/v2-grid':
+        specifier: workspace:*
+        version: link:../../lib/v2-grid
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
@@ -474,6 +477,9 @@ importers:
       '@workspace/v2-economy':
         specifier: workspace:*
         version: link:../v2-economy
+      '@workspace/v2-grid':
+        specifier: workspace:*
+        version: link:../v2-grid
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
@@ -571,7 +577,19 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
+      d3-array:
+        specifier: ^3.2.4
+        version: 3.2.4
+      d3-scale:
+        specifier: ^4.0.2
+        version: 4.0.2
     devDependencies:
+      '@types/d3-array':
+        specifier: ^3.2.2
+        version: 3.2.2
+      '@types/d3-scale':
+        specifier: ^4.0.9
+        version: 4.0.9
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
@@ -581,6 +599,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      '@workspace/v2-grid':
+        specifier: workspace:*
+        version: link:../v2-grid
       react:
         specifier: 'catalog:'
         version: 19.1.0

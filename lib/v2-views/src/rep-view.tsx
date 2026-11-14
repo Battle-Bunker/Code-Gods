@@ -5,7 +5,7 @@
  */
 import type { ReactElement } from "react";
 import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
-import { marksForRep, meaningKey } from "./refs.ts";
+import { marksForRep, meaningKey, projectRef } from "./refs.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
 import { isSingleLine } from "./render/equation.tsx";
@@ -66,7 +66,9 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
     <div className="v2v-rep" data-size={size} data-rep={repId} data-scene={rep.scene} aria-label={props.label ?? rep.title}>
       {renderer.render({
         rep: repId, scene, values, size,
-        marks: marksForRep(repId, props.marks ?? []),
+        // A plane also draws the marks of other representations that project onto it by meaning.
+        marks: rep.scene === "plane" ? (props.marks ?? []) : marksForRep(repId, props.marks ?? []),
+        project: (r, reps) => projectRef(type, r, reps),
         terms: new Map((props.terms ?? []).map(t => [t.id, t])),
         before: props.before === undefined ? undefined : valuesOf(type, props.before, site),
         next: props.next === undefined ? undefined : valuesOf(type, props.next, site),
@@ -96,9 +98,17 @@ function sceneRefs(rep: string, scene: SceneData, site: number): ElementRef[] {
     case "machine": return scene.stages.filter(s => s.el).map(s => ({ rep, name: s.el!, site }));
     case "plane": return scene.items.filter(i => i.draw === "line").map(i => i.el);
     case "pegboard": return [scene.on];
+    case "grid": return [...scene.cells];
     default: return [];
   }
 }
+
+/** The representation a viewer without a rule sees (a spectator, a replay): the object type's first (the board, for a grid). */
+export const defaultRep = <S,>(type: ObjectType<S>): string => type.representations[0]!.id;
+
+/** The element refs a scene shows, exported for the move line (what changed between two states). */
+export const shownRefs = <S,>(type: ObjectType<S>, state: S, repId: string, site = 0): ElementRef[] =>
+  sceneRefs(repId, representation(type, repId).layout(state, site), site);
 
 /** Whether a representation can express this line (none of what its scene shows is undefined). */
 export function expresses<S>(type: ObjectType<S>, state: S, repId: string, site = 0): boolean {

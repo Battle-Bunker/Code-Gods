@@ -64,6 +64,8 @@ export interface RoomFacts {
   minPlayers: number;
   /** Whether the room's bid phase is open (a preset with bidding, after the owner starts and before the deal). */
   bidOpen?: boolean;
+  /** Why AI cannot spend in this room (not an administrator's room, or a quota of 0); absent when it can. */
+  aiOff?: string;
 }
 
 /** Everything availability depends on. Built by the app from its subscriptions, by the server from the game header. */

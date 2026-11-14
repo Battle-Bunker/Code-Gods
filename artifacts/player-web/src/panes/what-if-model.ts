@@ -8,8 +8,8 @@
  */
 import { EngineHost } from "@workspace/v2-agents/pure";
 import { Qn, representation, variantMutators, type Q, type Variant } from "@workspace/v2-core";
-import { lineType, type LineState } from "@workspace/v2-linear";
-import type { LineRule } from "../sdk/rule.ts";
+import { objectTypeOf } from "../sdk/object-types.ts";
+import type { GameRule } from "../sdk/rule.ts";
 
 /**
  * One argument: a number (`fractions`: whether it may be a fraction; a stretch factor may be one even on a
@@ -34,8 +34,9 @@ const shown = (v: Q | string) => (typeof v === "string" ? v : Qn.toWire(v).repla
 
 /** The board's moves, in the line type's order, each with its arguments. */
 export function mutatorChoices(variant: Variant): MutatorChoice[] {
-  return variantMutators(lineType, variant).map(m => {
-    const rep = m.reps.find(r => lineType.representations.some(x => x.id === r)) ?? m.reps[0]!;
+  const type = objectTypeOf(variant.id);
+  return variantMutators(type, variant).map(m => {
+    const rep = m.reps.find(r => type.representations.some(x => x.id === r)) ?? m.reps[0]!;
     // Every argument costing at most 12 bits, cheapest first: enough to tell numbers from words and to see fractions.
     const combos = [...(m.args(variant).enumerate?.(12) ?? [])] as Record<string, Q | string>[];
     const args = Object.keys(combos[0] ?? {}).map((name): ArgField => {
@@ -45,8 +46,8 @@ export function mutatorChoices(variant: Variant): MutatorChoice[] {
       return words.length ? { name, kind: "choice", choices: words, start }
         : { name, kind: "number", fractions: values.some(v => typeof v !== "string" && v.d !== 1n), start };
     });
-    const known = lineType.representations.some(x => x.id === rep);
-    return { id: m.id, rep, repTitle: known ? representation(lineType, rep).title.split(":")[0]!.trim() : "other moves", title: m.title, args };
+    const known = type.representations.some(x => x.id === rep);
+    return { id: m.id, rep, repTitle: known ? representation(type, rep).title.split(":")[0]!.trim() : "other moves", title: m.title, args };
   });
 }
 
@@ -71,11 +72,11 @@ export interface Standing {
 }
 export type WhatIf =
   | { ok: false; reason: string }
-  | { ok: true; after: LineState; what: string; price: number; charge: number; from: Standing; to: Standing };
+  | { ok: true; after: unknown; what: string; price: number; charge: number; from: Standing; to: Standing };
 
 export interface WhatIfInput {
-  rule: LineRule;
-  state: LineState;
+  rule: GameRule;
+  state: unknown;
   call: { mutator: string; site?: number; args: Record<string, string> };
   /** rarity in bits per step of the dealt ladder (index = step). */
   rarities: readonly number[];
@@ -84,11 +85,14 @@ export interface WhatIfInput {
 }
 
 const CONTEXT = { hostCallsLeft: 64 } as never;
-const hostOn = (rule: LineRule, state: LineState) =>
-  new EngineHost({ type: lineType, variant: rule.variant, state, rule: { family: rule.family.id, params: rule.params as Record<string, unknown>, tieBreaker: rule.tieBreaker ?? undefined }, energy: 0 });
+/** A mutator of the rule's object type. */
+const mutatorOf = (rule: GameRule, id: string) => rule.type.mutators.find(x => x.id === id)!;
+
+const hostOn = (rule: GameRule, state: unknown) =>
+  new EngineHost({ type: rule.type, variant: rule.variant, state, rule: { family: rule.family.id, params: rule.params as Record<string, unknown>, tieBreaker: rule.tieBreaker ?? undefined }, energy: 0 });
 
 /** The rule's verdict on a line: its step, rarity in bits and points (the "before" of every move tried on it). */
-export function standing(rule: LineRule, state: LineState, rarities: readonly number[], want: number | null): Standing {
+export function standing(rule: GameRule, state: unknown, rarities: readonly number[], want: number | null): Standing {
   const r = hostOn(rule, state).handle({ op: "myScore" } as never, CONTEXT);
   if (!r.ok) throw new Error(r.error);
   const { level, top } = r.result as { level: number; top: number };
@@ -109,7 +113,7 @@ export function whatIf(i: WhatIfInput, from?: Standing): WhatIf {
     const quote = q.result as { valid: boolean; reason?: string; total: number; charge: number };
     const priced = host.price(calls);
     if (!quote.valid || !priced.valid) return { ok: false, reason: (quote.reason ?? "this move is not allowed").replace(/^[\w.]+: /, "") };
-    const m = lineType.mutators.find(x => x.id === i.call.mutator)!;
+    const m = mutatorOf(i.rule, i.call.mutator);
     return {
       ok: true, after: priced.result, what: m.describe(m.args(i.rule.variant).decode(i.call.args)), price: quote.total, charge: quote.charge,
       from: from ?? standing(i.rule, i.state, i.rarities, i.want), to: standing(i.rule, priced.result, i.rarities, i.want),
