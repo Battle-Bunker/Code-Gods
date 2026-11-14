@@ -5,7 +5,7 @@
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef, type Variant } from "@workspace/v2-core";
 import { lineParams, type LineState } from "./line.ts";
-import { nearbyPrimes, nearestInteger, primeFactorCount, primesBetween, smallestPrimeFactor } from "./numbers.ts";
+import { largestPrimeFactor, nearbyPrimes, nearestInteger, primeFactorCount, primesBetween, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies } from "./beginner.ts";
 
 type Ctx = EvalContext<LineState>;
@@ -22,6 +22,7 @@ const qs = (xs: readonly number[]) => xs.map(x => q(x));
 const SIZES = qs([1, 2, 3, 4, 6, 8, 12, 16, 24]);
 /** Prime-size ladders: one rung per prime up to 31 (curator, #385), within reach of the default budget. */
 const PRIMES = qs(primesBetween(3, 31));
+const PRIMES_FROM_2 = qs(primesBetween(2, 31));
 const COUNTS = qs([1, 2, 3, 4, 5, 6]);
 const BOTTOMS = qs([12, 8, 6, 4, 3, 2, 1, 0]);
 
@@ -50,8 +51,10 @@ const pg = {
   tieBreakers: [
     { id: "prime", title: "the size of that prime", sentence: () => "Tie-breaker: the bigger that prime, the better.",
       rep: "si", sense: "max", measure: "size", thresholds: () => PRIMES, rungLabel: atLeast("the prime") },
-    { id: "cPrime", title: "the y-intercept close to a prime too", sentence: () => "Tie-breaker: make the y-intercept as close as possible to a prime as well.",
-      rep: "si", sense: "min", measure: "distance", thresholds: (_p: object, v: Variant) => distances(v), rungLabel: within("c to a prime") },
+    { id: "c-spf", title: "the y-intercept's smallest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's smallest prime factor, the better.",
+      rep: "si", sense: "max", measure: "size", thresholds: () => PRIMES_FROM_2, rungLabel: atLeast("the y-intercept's smallest prime factor") },
+    { id: "c-gpf", title: "the y-intercept's largest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's largest prime factor, the better.",
+      rep: "si", sense: "max", measure: "size", thresholds: () => PRIMES_FROM_2, rungLabel: atLeast("the y-intercept's largest prime factor") },
   ] as L<object>[],
 };
 export const primeGradient: RuleFamily<LineState, object> = {
@@ -68,10 +71,12 @@ export const primeGradient: RuleFamily<LineState, object> = {
       ctx.term(`d${p}`, `distance to ${p}`, gap(m, q(p)), [mRef]);
       ctx.mark({ kind: "candidate", ref: g, term: `d${p}` });
     }
-    const near = primeGap(m), cp = primeGap(c);
+    const near = primeGap(m);
+    const whole = c.d === 1n;
     ctx.term("near", "distance from the gradient to the nearest prime", near.d, [mRef]);
     ctx.term("prime", "that prime", q(near.p), [mRef]);
-    ctx.term("cPrime", `distance from the y-intercept to ${cp.p}`, cp.d, [cRef]);
+    ctx.term("c-spf", "the y-intercept's smallest prime factor", q(whole ? smallestPrimeFactor(c.n) : 1n), [cRef]);
+    ctx.term("c-gpf", "the y-intercept's largest prime factor", q(whole ? largestPrimeFactor(c.n) : 1n), [cRef]);
     ctx.mark({ kind: "focus", ref: mRef });
     ctx.mark({ kind: "note", ref: mRef, text: `nearest prime ${near.p}` });
   },

@@ -250,24 +250,49 @@ function bandRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Vari
   const T1 = Math.max(0, 1 - prefix[prefix.length - 1]!);
   const lower = (v: bigint) => { let a = 0, b = byValue.length; while (a < b) { const h = (a + b) >> 1; if (byValue[h]!.n < v) a = h + 1; else b = h; } return a; };
   const mass = new Array<number>(ladder.length).fill(0);
-  let slack = 0;
+  let slack = 0, pointMass = 0;
+  // mixedInt is completely multiplicative past its constant: bits(t·k) = bits(t) + bits(k) − bits(1) for k ≠ 0, so the
+  // multiples of t within the budget are t·k for the k cheapest first, stopping at the budget.
+  const one = mixedIntBits(1n);
+  const add = (pm: number, c: bigint, bits: number, mN: bigint) => {
+    const score = evaluateObject(lineType, family, params, { lines: [fromMC(q(mN), q(c))] }, variant, tieBreaker).score;
+    mass[levelOf(score, ladder)]! += pm * 2 ** -bits;
+  };
+  if (band.fixed) for (const r of band.ranges(0n, params)) pointMass += 2 ** -mixedIntBits(r.lo);
   for (const m of ints) {
     const pm = 2 ** -m.bits;
-    const seen = new Set<number>();
+    const seen = new Set<bigint>();
     for (const r of band.ranges(m.n, params)) {
+      if (band.fixed) {
+        // A point, evaluated whatever its size (its mass is in pointMass).
+        if (!seen.has(r.lo)) { seen.add(r.lo); add(pm, r.lo, mixedIntBits(r.lo), m.n); }
+        continue;
+      }
+      if (r.step) {
+        const tBits = mixedIntBits(r.step);
+        for (const k of ints) {
+          const bits = k.n === 0n ? mixedIntBits(0n) : tBits + k.bits - one;
+          if (k.n !== 0n && tBits + k.bits - one > cfg.bandBits) { if (k.bits > cfg.bandBits - tBits + one) break; continue; }
+          const c = r.step * k.n;
+          if (c < r.lo || c > r.hi || seen.has(c)) continue;
+          seen.add(c);
+          add(pm, c, bits, m.n);
+        }
+        continue;
+      }
       const i0 = lower(r.lo), i1 = lower(r.hi + 1n);
-      if (!r.step && i1 - i0 > cfg.wideRange) { slack += pm * (prefix[i1]! - prefix[i0]!); continue; }
+      if (i1 - i0 > cfg.wideRange) { slack += pm * (prefix[i1]! - prefix[i0]!); continue; }
       for (let i = i0; i < i1; i++) {
         const c = byValue[i]!;
-        if (r.step && c.n % r.step !== 0n) continue;
-        if (seen.has(i)) continue;
-        seen.add(i);
-        const score = evaluateObject(lineType, family, params, { lines: [fromMC(q(m.n), q(c.n))] }, variant, tieBreaker).score;
-        mass[levelOf(score, ladder)]! += pm * 2 ** -c.bits;
+        if (seen.has(c.n)) continue;
+        seen.add(c.n);
+        add(pm, c.n, c.bits, m.n);
       }
     }
   }
-  const out = 2 * T1 + slack;
+  // Outside the enumeration: m beyond the budget (T1, times the points' mass when the c values are fixed points, all
+  // of which were summed), c beyond it (T1), and the wide ranges' mass.
+  const out = band.fixed ? T1 * pointMass : 2 * T1 + slack;
   const lo: number[] = [], hi: number[] = [];
   let acc = 0;
   for (let k = ladder.length - 1; k >= 0; k--) {

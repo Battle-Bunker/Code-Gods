@@ -5,7 +5,8 @@
  * whose artefact is not dealable (spec §7.5), so a pool lists candidates and the artefacts decide what is live.
  */
 import { tieBreakersOn, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { beginnerFamilies } from "./beginner.ts";
+import { divisibilityLadder, primeLanding, primeStaircase, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
+import { primeGradient } from "./families.ts";
 import { lineQ, lineZ, lineZ4 } from "./type.ts";
 
 export interface PoolRule {
@@ -23,10 +24,13 @@ export interface Preset {
 }
 
 /**
- * The curator's beginner pool (layered-line-rules.md §8) on a variant: every beginner family with each of its
+ * The beginner pool on a variant: every pool family with each of its
  * tie-breakers that is dealt there (Layer.dealtOn).
  */
-const beginnerRules = (v: Variant): readonly PoolRule[] => beginnerFamilies.flatMap(f =>
+/** The beginner pool (layered-line-rules.md §10.5): families an exact sum can value, the owner's two examples kept. */
+export const beginnerPool = [primeLanding, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase] as const;
+
+const beginnerRules = (v: Variant): readonly PoolRule[] => beginnerPool.flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));
 
 export const presets: readonly Preset[] = [

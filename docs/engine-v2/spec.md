@@ -1001,25 +1001,26 @@ line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 
 ### 12.5 Rule families
 
 Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
-them. **The beginner pool** is the curator's (`docs/engine-v2/layered-line-rules.md` §8, definitions in
-`docs/engine-v2/scripts/line-families.mjs`), built in `lib/v2-linear/src/beginner.ts` and dealt by the presets of
-`presets.ts` (`lines-beginner` on `line-z`, `lines-rational` on `line-q`, `lines-four` on `line-z4`). A tie-breaker about a
-prime's size has one rung per prime (the curator, #385): primes up to 31, the last prime of a staircase run up to 47.
-A family's first tie-breaker is its default:
+them. **The beginner pool** is the curator's exact-only pool (`docs/engine-v2/layered-line-rules.md` §10.5): families
+an exact sum can value (owner decision 19 and the owner's instruction that families are chosen so), the owner's two
+examples kept. It is `beginnerPool` in `lib/v2-linear/src/presets.ts`, dealt by `lines-beginner` on `line-z`,
+`lines-rational` on `line-q` and `lines-four` on `line-z4`. Each family's summation plan is in `sums.ts` (§7.2). A
+tie-breaker about a prime's size has one rung per prime, up to 31 (37 for a crossing's largest prime factor). A
+family's first tie-breaker is its default:
 
-| Family | Main layer (rep) | Tie-breakers (alternatives) | Params |
+| Family | Main layer (rep) | Tie-breakers (alternatives) | Sum |
 |---|---|---|---|
-| `prime-staircase` | the run of different primes from y(0): max (seq) | `first-prime`, `last-prime` (sizes), `near-miss`, `step-back` (distances to a prime) | — |
-| `square-area` | the triangle's area close to a square: min (tri) | `spf` (the root's smallest prime factor, default), `lpf` (its largest), `omega` (Ω of the root) | — |
-| `treasure` | y(k) close to T: min (table) | `prime-terms` (different primes among y(1)…y(8)), `prime-gradient`, `square-start` | (k, T) = (2, 37) |
-| `ruler` | distance² from (0, 0) close to a square: min (norm) | `far` (that distance), `prime-gradient`, `square-area` | — |
-| `exact-change` | ways to pay N with coins a and b close to 6: min (coins) | `big-piles`, `big-bill`, `prime-coins` | ways = 6 |
-| `prime-landing` | the y-intercept close to a prime: min (si) | `big-prime` (that prime), `prime-gradient`, `next-prime` (y(1)) | — |
-| `same-on-both-rulers` | the number the machine leaves unchanged close to T: min (mach) | `steep` (\|m − 1\|), `prime-start`, `whole-values`, `whole-lamp` | T = 6 |
-| `pythagorean-area` | the triangle's area close to A: min (tri) | `slanted-square`, `prime-height`, `whole-legs` | A = 6 |
+| `prime-landing` | the y-intercept close to a prime (si) | `big-prime` (that prime), `m-spf`, `m-gpf` (the gradient's smallest and largest prime factor) | separable |
+| `square-area` | the triangle's area close to a square (tri) | `spf`, `lpf` (the root's smallest and largest prime factor), `omega` (Ω of the root) | band: 2\|m\| = t², c a multiple of t |
+| `whole-crossing` | the x-axis crossing −c/m close to a whole number k (cart) | `k-spf`, `k-gpf` (k's prime factors), `m-spf` | band: c a multiple of m |
+| `divisibility-ladder` | the run of n dividing y(n), the line not through (0, 0) (table) | `m-spf`, `m-gpf`, `steep` (\|m\|), `m-prime` (m close to a prime) | separable (n \| mn + c ⇔ n \| c) |
+| `treasure` | y(k) close to T (table), (k, T) = (2, 37) | `m-spf`, `m-gpf`, `prime-terms` (different primes among y(1)…y(8)) | band: c = T − km ± 4 |
+| `same-on-both-rulers` | the number the machine leaves unchanged close to T (mach), T = 6 | `m-spf`, `m-gpf`, `steep` (\|m − 1\|) | band: c between (T ± 2)(1 − m) |
+| `prime-gradient` | the gradient close to a prime (si) | `prime` (that prime), `c-spf`, `c-gpf` (the y-intercept's prime factors) | separable |
+| `prime-staircase` | the run of different primes from y(0) (seq) | `first-prime` | band: c over the primes |
 
-The owner's first examples remain as a second tier (`families.ts`): `prime-gradient`, `triangle-area`, `m-meets-c`,
-`crossing-check` and `whole-intercept`, each with two tie-breakers.
+The owner's other first examples remain outside the pool (`families.ts`): `triangle-area`, `m-meets-c`, `crossing-check` and
+`whole-intercept`.
 
 ### 12.6 Variants and multi-line scoring
 
