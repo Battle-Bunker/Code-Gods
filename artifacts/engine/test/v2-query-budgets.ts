@@ -44,6 +44,7 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/play:agentPrograms", args: f => ({ agentId: f.agentId }), reads: "v2AgentPrograms by_agent, ≤ 20", cold: false },
   { query: "v2/play:moves", args: f => ({ gameId: f.gameId, ...page }), reads: "v2Moves by_game_member_seq page", cold: false },
   { query: "v2/play:tugs", args: f => ({ gameId: f.gameId }), reads: "the caller's v2Tugs by flips, ≤ 20", cold: false },
+  { query: "v2/play:log", args: f => ({ gameId: f.gameId, ...page }), reads: "v2Log by_game_seq page", cold: false },
   { query: "v2/play:digest", args: f => ({ gameId: f.gameId }), reads: "1 v2Digests", cold: false },
   { query: "v2/spectate:objectIds", args: f => ({ gameId: f.gameId, ...page }), reads: "v2Objects by_game page", cold: false },
   { query: "v2/spectate:object", args: f => ({ objectId: f.objectId }), reads: "v2Objects + v2ObjectStates", cold: false },

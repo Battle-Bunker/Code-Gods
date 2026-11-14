@@ -1,0 +1,65 @@
+/**
+ * The public log (v1's, restored: docs/public-log-design.md §1–§2 on archive/engine-v1). Every birth and every move of
+ * the game is public to every seated player as it happens: the object, its state before and after, its version and
+ * world time, and the viewer's own bits and the others' summed bits after it (with the disclosure noise while live).
+ * While live nothing in it says who made another player's move (no mover, agent, calls or cost); a player's own moves
+ * keep them; an ended game shows everything, exact. A room member who is not seated sees the rows without bits.
+ *
+ * What would break: a player not seeing a move that did not concern them; a live row that attributes another player's
+ * move or discloses an exact others' sum; a row whose bits are not the viewer's.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { admin, humans, perform } from "./v2-helpers.ts";
+
+const page = { numItems: 50, cursor: null };
+const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
+
+test("every seated player reads every move, unattributed while live, with their own bits and the disclosed others' sum", { timeout: 240_000 }, async () => {
+  const [ada, bo, cy] = await humans("Log Ada", "Log Bo", "Log Cy");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Log room" })).result;
+  const code = (await ada!.query("v2/rooms:get", { roomId })).code;
+  await perform(bo!, "room.join", { code }, {});
+  await perform(cy!, "room.join", { code }, {});
+  await perform(cy!, "room.setSpectator", { spectator: true }, { roomId });
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  await perform(ada!, "game.startWorldNow", {}, { gameId });
+  await new Promise(r => setTimeout(r, 10_000));
+  await perform(ada!, "game.pause", {}, { gameId });   // a still board, so both read the same rows
+
+  const [a, b] = [(await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page, (await bo!.query("v2/play:log", { gameId, paginationOpts: page })).page];
+  assert.deepEqual(a.map((r: any) => r.seq), b.map((r: any) => r.seq), "both players read the same rows: every move, theirs or not");
+  assert.ok(a.some((r: any) => r.kind === "move") && a.some((r: any) => r.kind === "born"));
+  const moves = a.filter((r: any) => r.kind === "move");
+  assert.ok(moves.some((r: any) => !r.mine), "Ada sees moves that are not hers");
+  for (const [k, r] of a.entries()) {
+    const s = b[k];
+    if (!r.mine) assert.deepEqual([r.by, r.agentId, r.calls, r.charge], [null, null, null, null], `row ${r.seq}: another player's move is unattributed while live`);
+    else assert.ok(r.by && r.calls?.length && r.charge !== null, "Ada's own moves keep their mover, calls and cost");
+    assert.ok(close(r.own + r.others, s.own + s.others), "one salience for both: own + others shown is the same");
+    assert.ok(close(r.points, r.own * Math.max(0, r.others)));
+  }
+  // The newest row of an object is its current state: the bits there are the viewer's, as play:object gives them.
+  const seen = new Set<string>();
+  for (const r of a) {
+    if (seen.has(r.objectId)) continue;
+    seen.add(r.objectId);
+    const o = await ada!.query("v2/play:object", { objectId: r.objectId });
+    if (o.version !== r.version) continue;
+    assert.ok(close(r.own, o.value.rarityBits) && close(r.others, o.value.want), `row ${r.seq} is Ada's value now`);
+  }
+  const watcher = (await cy!.query("v2/play:log", { gameId, paginationOpts: page })).page;
+  assert.equal(watcher.length, a.length);
+  assert.ok(watcher.every((r: any) => r.own === null && r.others === null && r.points === null), "a member watching sees no bits");
+
+  await perform(ada!, "game.end", {}, { gameId });
+  const ended = (await ada!.query("v2/play:log", { gameId, paginationOpts: page })).page;
+  for (const r of ended.filter((x: any) => x.kind === "move")) assert.ok(r.by && r.calls?.length, "after the end every move names its mover and calls");
+  for (const r of ended) {
+    if (seen.has(`exact:${r.objectId}`)) continue;
+    seen.add(`exact:${r.objectId}`);
+    const o = await ada!.query("v2/play:object", { objectId: r.objectId });
+    if (o.version === r.version) assert.ok(close(r.others, o.value.want), "exact after the end");
+  }
+});

@@ -41,6 +41,7 @@ A page query answers at most 50 rows, whatever `numItems` asks (`convex/v2/pages
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
 | `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` and `notes` (what their agent noted for them) only on the caller's own moves |
+| `v2/play:log` | `gameId, paginationOpts` | room member: the public log (v1's), newest first: every birth and move with state before/after, version and world time; seated, the caller's own bits, the others' summed bits (with the disclosure noise while live) and points, after and before (null for a member not seated); mover, agent, calls and cost only on the caller's own moves while live, on every move after the end |
 | `v2/play:tugs` | `gameId` | seated: the caller's tugs-of-war over the whole game (lines that changed hands between their agents and others' at least twice), most-flipped first, ≤ 20: moves, flips, their agents' spend, the others by name, first and last world second, the best state for them. The tick folds them as moves commit (`v2Tugs`) |
 | `v2/spectate:objectIds`, `object` | as above | member; states only |
 | `v2/layout:current` | `roomId` | member |

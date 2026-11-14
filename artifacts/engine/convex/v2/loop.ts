@@ -54,7 +54,7 @@ export const powerTerms = (game: Doc<"v2Games">, p: Doc<"v2Players">) =>
 /** The next event seq per game within one transaction, so a commit of many events reads the engine row once. */
 const nextSeq = new WeakMap<MutationCtx, Map<string, { engineId: Id<"v2Engine">; seq: number }>>();
 /** Appends an event to the record (dense seq from 0). */
-export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind: Doc<"v2Events">["kind"], data: unknown) {
+export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind: Doc<"v2Events">["kind"], data: unknown): Promise<number> {
   let games = nextSeq.get(ctx);
   if (!games) nextSeq.set(ctx, games = new Map());
   let at = games.get(gameId);
@@ -62,9 +62,18 @@ export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind:
     const engine = await engineOf(ctx, gameId);
     games.set(gameId, at = { engineId: engine._id, seq: engine.events });
   }
-  await ctx.db.insert("v2Events", { gameId, seq: at.seq, kind, data });
+  const seq = at.seq;
+  await ctx.db.insert("v2Events", { gameId, seq, kind, data });
   at.seq += 1;
   await ctx.db.patch(at.engineId, { events: at.seq });
+  return seq;
+}
+
+/** Every roster seat's exact bits of a state, in roster order, and the state's disclosure noise (a v2Log row's). */
+function logBits(game: Doc<"v2Games">, values: readonly Value[]) {
+  const by = new Map(values.map(v => [v.memberId, v]));
+  const first = values[0];
+  return { bits: game.roster.map(r => by.get(r.memberId)?.rarityBits ?? 0), noise: first ? first.shownWant - first.want : 0 };
 }
 
 // ---------------------------------------------------------------- values in the read model
@@ -213,7 +222,8 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   for (const [i, wire] of states.entries()) {
     const { objectId, values } = await addObject(ctx, game, seats, i + 1, wire, 0);
     changes.push({ number: i + 1, values });
-    await appendEvent(ctx, game._id, "objectBorn", { objectId, number: i + 1, state: wire, worldSeconds: 0 });
+    const seq = await appendEvent(ctx, game._id, "objectBorn", { objectId, number: i + 1, state: wire, worldSeconds: 0 });
+    await ctx.db.insert("v2Log", { gameId: game._id, seq, worldSeconds: 0, kind: "born", objectId, number: i + 1, version: 1, state: wire, ...logBits(game, values) });
     await appendEvent(ctx, game._id, "values", { objectId, number: i + 1, values: values.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
   }
   await applyToPlayers(ctx, game._id, changes);
@@ -402,7 +412,8 @@ export const commit = internalMutation({
       const number = ++objects;
       const { objectId, values } = await addObject(ctx, game, seats, number, wire, world);
       changes.push({ number, values });
-      await appendEvent(ctx, game._id, "objectBorn", { objectId, number, state: wire, worldSeconds: world });
+      const bornSeq = await appendEvent(ctx, game._id, "objectBorn", { objectId, number, state: wire, worldSeconds: world });
+      await ctx.db.insert("v2Log", { gameId: game._id, seq: bornSeq, worldSeconds: world, kind: "born", objectId, number, version: 1, state: wire, ...logBits(game, values) });
       await appendEvent(ctx, game._id, "values", { objectId, number, values: values.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
     }
 
@@ -430,7 +441,7 @@ export const commit = internalMutation({
         energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world,
         ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
-      await appendEvent(ctx, game._id, "act", {
+      const actSeq = await appendEvent(ctx, game._id, "act", {
         n, tick: engine.tick, worldSeconds: world, objectId: act.objectId, number: act.number, agentId: act.agentId, memberId: act.memberId,
         seed: act.seed, energy: act.energy, liveObjects: act.liveObjects, program: { version: act.programVersion, language: agent.language },
         ...(act.input ? { input: act.input } : {}),
@@ -440,6 +451,12 @@ export const commit = internalMutation({
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
       changes.push({ number: act.number, values: after, before });
+      const was = logBits(game, [...before.values()]), now = logBits(game, after);
+      await ctx.db.insert("v2Log", {
+        gameId: game._id, seq: actSeq, worldSeconds: world, kind: "move", objectId: act.objectId, number: act.number, version: st.version + 1,
+        stateBefore: record.before, state: record.after, bits: now.bits, bitsBefore: was.bits, noise: now.noise, noiseBefore: was.noise,
+        by: act.memberId as Id<"v2Members">, agentId: act.agentId, calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), charge,
+      });
       await appendEvent(ctx, game._id, "values", { objectId: act.objectId, number: act.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
       // What the agent gained as its owner is shown it (disclosed points; the record holds the exact values).
       const gained = (after.find(x => x.memberId === act.memberId)?.shownPoints ?? 0) - (before.get(act.memberId)?.shownPoints ?? 0);
