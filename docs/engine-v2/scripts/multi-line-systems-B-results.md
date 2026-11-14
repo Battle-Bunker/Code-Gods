@@ -269,6 +269,450 @@ within path budgets W = 30, 60 and 120, with the φ of the best state.
 - rails/st-spf + right-triangle/pegs + square-area/root-omega: best 12 distinct keep 59%, best 12 up to symmetry 58%; top three orbits: x−180 = 0; 361x+2y+1 = 0; 2y+1 = 0 (F 395); x+180 = 0; 361x+2y+1 = 0; 2y+1 = 0 (F 395); x−180 = 0; 360x+2y+361 = 0; 2y+1 = 0 (F 240)
 - square-area/centroid-spf + mirror/pegs + even-gradients/pegs: best 12 distinct keep 95%, best 12 up to symmetry 88%; top three orbits: −3x+160y−5 = 0; 4x+162y+117 = 0; −5x+81y+4 = 0 (F 195); −3x+160y−8 = 0; 4x+162y+121 = 0; −5x+81y−1 = 0 (F 190); 3x+160y+8 = 0; 2x+24y−17 = 0; −10x+81y+60 = 0 (F 188)
 
+## The tied pool (B2): alignment and tension, pair by pair and per mutator
+
+Two lines. 16 dealt rules: 8 families, two tied secondaries each (§8 of the doc). From 1,500 states drawn from the
+tilted law t = 0.55, every candidate call. For an ordered pair (i, j): among calls that raise rule i by at least
+half a bit, the share that raise j (by ≥ ½ bit), lower it, or leave it. Verdict: **aligned** when raise − lower
+≥ 0.15, **tension** when lower − raise ≥ 0.15, **neutral** when ≥ 60% leave it, else mixed.
+
+### Overall (raise/lower/leave %, and the verdict)
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 99/0/1 aligned | 14/5/81 neutral | 14/5/81 neutral | 14/4/82 neutral | 14/4/82 neutral | 22/9/70 neutral | 22/9/70 neutral | 12/10/78 neutral | 14/10/76 neutral | 3/5/92 neutral | 4/7/89 neutral | 3/3/93 neutral | 6/7/88 neutral | 6/4/89 neutral | 6/4/89 neutral |
+| whole-answer/south-west | 99/0/0 aligned | · | 14/5/81 neutral | 14/5/81 neutral | 14/4/82 neutral | 14/4/82 neutral | 22/9/69 neutral | 22/9/69 neutral | 12/10/78 neutral | 14/10/76 neutral | 3/5/92 neutral | 4/7/89 neutral | 3/3/93 neutral | 5/7/88 neutral | 7/4/89 neutral | 7/4/89 neutral |
+| square-cross/divisor-factors | 22/11/67 neutral | 22/11/67 neutral | · | 100/0/0 aligned | 32/0/68 aligned | 32/0/68 aligned | 21/10/69 neutral | 21/10/69 neutral | 28/12/59 aligned | 26/13/61 neutral | 8/8/84 neutral | 9/11/81 neutral | 4/5/92 neutral | 5/7/88 neutral | 14/4/81 neutral | 14/4/81 neutral |
+| square-cross/divisor-meets-intercept | 23/11/67 neutral | 22/11/67 neutral | 100/0/0 aligned | · | 32/0/68 aligned | 32/0/68 aligned | 21/10/69 neutral | 21/10/69 neutral | 28/12/59 aligned | 26/13/61 neutral | 8/8/84 neutral | 9/11/80 neutral | 4/5/92 neutral | 5/7/88 neutral | 14/5/81 neutral | 14/5/81 neutral |
+| on-the-diagonal/north-east | 30/10/60 aligned | 30/10/60 aligned | 44/5/51 aligned | 44/5/51 aligned | · | 100/0/0 aligned | 36/28/35 mixed | 36/28/35 mixed | 18/10/72 neutral | 18/11/71 neutral | 6/5/89 neutral | 6/7/87 neutral | 2/2/95 neutral | 2/3/95 neutral | 18/5/78 neutral | 18/5/78 neutral |
+| on-the-diagonal/diagonal-gradient | 30/10/60 aligned | 30/10/60 aligned | 44/5/51 aligned | 44/5/51 aligned | 100/0/0 aligned | · | 36/28/35 mixed | 36/28/35 mixed | 18/10/72 neutral | 18/11/71 neutral | 6/5/89 neutral | 6/7/87 neutral | 2/2/95 neutral | 2/3/95 neutral | 18/5/78 neutral | 18/5/78 neutral |
+| whole-distance/distance-factors | 15/16/68 neutral | 16/16/68 neutral | 9/3/87 neutral | 9/3/87 neutral | 12/45/44 tension | 12/45/44 tension | · | 100/0/0 aligned | 6/5/88 neutral | 9/7/84 neutral | 4/5/91 neutral | 3/6/92 neutral | 2/6/92 neutral | 2/6/92 neutral | 6/21/73 tension | 6/21/73 tension |
+| whole-distance/distance-divisor | 15/16/68 neutral | 16/16/68 neutral | 9/3/87 neutral | 9/3/87 neutral | 12/45/43 tension | 12/45/44 tension | 100/0/0 aligned | · | 6/5/88 neutral | 9/7/84 neutral | 4/5/91 neutral | 3/6/92 neutral | 2/6/92 neutral | 2/6/92 neutral | 6/21/73 tension | 6/21/73 tension |
+| steep-ratio/steep | 9/8/83 neutral | 9/8/83 neutral | 13/14/74 neutral | 13/14/74 neutral | 6/1/93 neutral | 6/1/93 neutral | 6/6/88 neutral | 6/6/88 neutral | · | 91/1/8 aligned | 8/3/89 neutral | 9/5/87 neutral | 5/3/92 neutral | 7/7/86 neutral | 21/3/76 aligned | 21/3/76 aligned |
+| steep-ratio/ratio-gap | 8/8/84 neutral | 8/8/84 neutral | 10/12/77 neutral | 10/12/77 neutral | 5/4/91 neutral | 5/4/91 neutral | 8/6/86 neutral | 8/6/86 neutral | 80/1/19 aligned | · | 7/3/89 neutral | 8/5/87 neutral | 4/3/92 neutral | 7/7/86 neutral | 18/3/78 aligned | 18/3/78 aligned |
+| far-crossing/far-right | 8/10/82 neutral | 7/10/82 neutral | 10/18/72 neutral | 10/18/72 neutral | 6/10/84 neutral | 6/10/84 neutral | 12/8/80 neutral | 12/8/80 neutral | 24/8/68 aligned | 26/8/66 aligned | · | 69/1/30 aligned | 2/23/75 tension | 4/22/74 tension | 23/5/71 aligned | 23/5/71 aligned |
+| far-crossing/crossing-share | 9/11/80 neutral | 9/11/80 neutral | 12/20/68 neutral | 12/20/68 neutral | 7/6/88 neutral | 7/6/88 neutral | 9/7/83 neutral | 9/7/83 neutral | 27/10/63 aligned | 29/10/61 aligned | 70/1/29 aligned | · | 7/17/75 neutral | 8/23/69 neutral | 24/3/73 aligned | 24/3/73 aligned |
+| high-start/steep-and-high | 9/5/86 neutral | 9/5/86 neutral | 6/13/81 neutral | 6/13/81 neutral | 3/6/92 neutral | 3/6/92 neutral | 8/7/85 neutral | 8/7/85 neutral | 18/8/74 neutral | 19/8/72 neutral | 3/24/73 tension | 9/26/65 tension | · | 64/3/33 aligned | 13/4/83 neutral | 13/4/83 neutral |
+| high-start/start-factors | 11/7/82 neutral | 10/7/83 neutral | 6/11/83 neutral | 6/11/83 neutral | 2/5/93 neutral | 2/5/93 neutral | 6/6/88 neutral | 6/6/88 neutral | 19/10/71 neutral | 21/12/67 neutral | 4/15/81 neutral | 7/19/74 neutral | 44/3/53 aligned | · | 10/4/86 neutral | 10/4/86 neutral |
+| gap-match/small-gap-factors | 8/8/84 neutral | 8/8/84 neutral | 11/32/57 tension | 11/32/57 tension | 10/4/86 neutral | 10/4/86 neutral | 10/8/81 neutral | 10/8/81 neutral | 38/21/41 aligned | 38/19/42 aligned | 14/6/80 neutral | 14/8/78 neutral | 6/4/90 neutral | 7/6/87 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 8/8/84 neutral | 8/8/84 neutral | 11/32/56 tension | 11/32/57 tension | 10/4/86 neutral | 10/4/86 neutral | 10/8/81 neutral | 10/8/81 neutral | 38/21/41 aligned | 38/19/42 aligned | 14/6/80 neutral | 14/8/78 neutral | 6/4/90 neutral | 7/6/87 neutral | 100/0/0 aligned | · |
+
+Ordered pairs from different families: aligned 30, tension 16, neutral 174, mixed 4, – 0.
+
+### Per mutator: the verdict of every ordered pair from different families, counted
+
+| Mutator | calls | aligned | tension | neutral | mixed | too few |
+|---|--:|--:|--:|--:|--:|--:|
+| line.si.shift | 17200 | 6 | 23 | 143 | 10 | 42 |
+| line.si.tilt | 17199 | 78 | 2 | 120 | 24 | 0 |
+| line.gen.nudge | 27612 | 61 | 0 | 158 | 5 | 0 |
+| line.mirror | 12000 | 56 | 8 | 147 | 13 | 0 |
+| line.stretch | 17144 | 8 | 0 | 191 | 11 | 14 |
+| line.slide | 11999 | 0 | 21 | 153 | 8 | 42 |
+| sys.translate | 5999 | 6 | 29 | 109 | 10 | 70 |
+| sys.mirror | 6000 | 0 | 8 | 101 | 3 | 112 |
+| pair.combine | 9890 | 20 | 16 | 96 | 8 | 84 |
+| pair.slideOn | 4799 | 4 | 33 | 89 | 0 | 98 |
+| pair.reflect | 664 | 24 | 4 | 84 | 0 | 112 |
+| pair.quarter | 1556 | 8 | 16 | 108 | 8 | 84 |
+
+### Per mutator, pair by pair (raise/lower/leave %; "–" fewer than 20 calls raise i)
+
+<details><summary>line.si.shift</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 100/0/0 aligned | 0/0/100 neutral | 0/0/100 neutral | 7/7/86 neutral | 7/7/86 neutral | 22/10/67 neutral | 22/10/67 neutral | 0/0/100 neutral | 4/3/93 neutral | 2/7/90 neutral | 2/9/88 neutral | 3/6/91 neutral | 5/8/87 neutral | 4/8/89 neutral | 4/8/89 neutral |
+| whole-answer/south-west | 100/0/0 aligned | · | 0/0/100 neutral | 0/0/100 neutral | 7/7/86 neutral | 7/7/86 neutral | 22/10/67 neutral | 22/10/67 neutral | 0/0/100 neutral | 4/3/93 neutral | 2/7/90 neutral | 2/9/88 neutral | 3/6/91 neutral | 5/8/87 neutral | 4/8/89 neutral | 4/8/89 neutral |
+| square-cross/divisor-factors | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/north-east | 27/9/64 aligned | 27/9/64 aligned | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 26/43/31 tension | 26/43/31 tension | 0/0/100 neutral | 3/5/92 neutral | 3/7/90 neutral | 2/6/91 neutral | 3/6/91 neutral | 3/6/91 neutral | 14/10/75 neutral | 14/10/75 neutral |
+| on-the-diagonal/diagonal-gradient | 27/9/64 aligned | 27/9/64 aligned | 0/0/100 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 26/43/31 tension | 26/43/31 tension | 0/0/100 neutral | 3/5/92 neutral | 3/7/90 neutral | 2/6/91 neutral | 3/6/91 neutral | 3/6/91 neutral | 14/10/75 neutral | 14/10/75 neutral |
+| whole-distance/distance-factors | 11/33/57 tension | 11/33/57 tension | 0/0/100 neutral | 0/0/100 neutral | 3/64/33 tension | 3/64/33 tension | · | 100/0/0 aligned | 0/0/100 neutral | 4/4/92 neutral | 3/7/90 neutral | 2/7/91 neutral | 1/10/88 neutral | 2/10/88 neutral | 3/30/67 tension | 3/30/67 tension |
+| whole-distance/distance-divisor | 11/33/57 tension | 11/33/57 tension | 0/0/100 neutral | 0/0/100 neutral | 3/64/33 tension | 3/64/33 tension | 100/0/0 aligned | · | 0/0/100 neutral | 4/4/92 neutral | 3/7/90 neutral | 2/7/91 neutral | 1/10/88 neutral | 2/10/88 neutral | 3/30/67 tension | 3/30/67 tension |
+| steep-ratio/steep | – – | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/ratio-gap | 8/11/81 neutral | 8/11/81 neutral | 0/0/100 neutral | 0/0/100 neutral | 2/17/81 tension | 2/17/81 tension | 17/9/75 neutral | 17/9/75 neutral | 0/0/100 neutral | · | 4/5/91 neutral | 3/8/89 neutral | 1/6/93 neutral | 3/9/87 neutral | 1/8/91 neutral | 1/8/91 neutral |
+| far-crossing/far-right | 10/19/71 neutral | 10/19/71 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/30/67 tension | 3/30/67 tension | 26/17/57 mixed | 26/17/57 mixed | 0/0/100 neutral | 8/7/85 neutral | · | 59/1/40 aligned | 3/17/80 neutral | 7/17/76 neutral | 2/14/84 neutral | 2/14/84 neutral |
+| far-crossing/crossing-share | 10/13/77 neutral | 10/13/77 neutral | 0/0/100 neutral | 0/0/100 neutral | 2/20/78 tension | 2/20/78 tension | 17/14/69 neutral | 17/14/69 neutral | 0/0/100 neutral | 7/5/88 neutral | 59/4/37 aligned | · | 7/7/86 neutral | 11/9/80 neutral | 2/10/87 neutral | 2/10/87 neutral |
+| high-start/steep-and-high | 22/4/74 aligned | 22/4/74 aligned | 0/0/100 neutral | 0/0/100 neutral | 4/6/90 neutral | 4/6/90 neutral | 16/8/76 neutral | 16/8/76 neutral | 0/0/100 neutral | 4/3/93 neutral | 5/12/84 neutral | 11/28/61 tension | · | 80/0/19 aligned | 5/6/89 neutral | 5/6/89 neutral |
+| high-start/start-factors | 15/10/75 neutral | 15/10/75 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/9/89 neutral | 3/9/89 neutral | 12/7/81 neutral | 12/7/81 neutral | 0/0/100 neutral | 5/5/90 neutral | 5/9/86 neutral | 8/16/76 neutral | 36/3/60 aligned | · | 3/8/90 neutral | 3/8/90 neutral |
+| gap-match/small-gap-factors | 14/15/70 neutral | 14/15/70 neutral | 0/0/100 neutral | 0/0/100 neutral | 15/25/60 mixed | 15/25/60 mixed | 28/18/54 mixed | 28/18/54 mixed | 0/0/100 neutral | 3/1/96 neutral | 2/7/92 neutral | 2/8/90 neutral | 3/7/90 neutral | 4/7/89 neutral | · | 99/0/1 aligned |
+| gap-match/gap-divisor | 15/15/70 neutral | 15/15/70 neutral | 0/0/100 neutral | 0/0/100 neutral | 15/25/60 mixed | 15/25/60 mixed | 28/18/53 mixed | 28/18/53 mixed | 0/0/100 neutral | 3/1/96 neutral | 2/7/92 neutral | 2/8/90 neutral | 3/7/90 neutral | 4/7/89 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>line.si.tilt</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 99/0/1 aligned | 39/12/49 aligned | 39/12/49 aligned | 34/2/64 aligned | 34/2/64 aligned | 24/13/63 neutral | 24/13/63 neutral | 19/16/65 neutral | 19/16/65 neutral | 6/8/86 neutral | 6/12/82 neutral | 0/0/99 neutral | 4/4/92 neutral | 20/3/78 aligned | 20/3/78 aligned |
+| whole-answer/south-west | 100/0/0 aligned | · | 40/12/49 aligned | 40/12/49 aligned | 34/2/64 aligned | 34/2/64 aligned | 24/13/63 neutral | 24/13/63 neutral | 19/16/65 neutral | 19/16/65 neutral | 6/8/86 neutral | 6/12/82 neutral | 0/0/99 neutral | 4/4/92 neutral | 20/3/78 aligned | 20/3/78 aligned |
+| square-cross/divisor-factors | 27/14/60 mixed | 27/14/60 mixed | · | 100/0/0 aligned | 43/0/57 aligned | 43/0/57 aligned | 27/11/62 aligned | 27/11/62 aligned | 25/13/62 neutral | 25/14/62 neutral | 8/8/83 neutral | 9/12/79 neutral | 0/0/99 neutral | 1/2/97 neutral | 24/3/73 aligned | 24/3/73 aligned |
+| square-cross/divisor-meets-intercept | 27/14/60 mixed | 27/14/60 mixed | 100/0/0 aligned | · | 43/0/57 aligned | 43/0/57 aligned | 27/11/62 aligned | 27/11/62 aligned | 25/13/62 neutral | 25/14/62 neutral | 8/8/83 neutral | 9/12/79 neutral | 0/0/99 neutral | 1/2/97 neutral | 24/3/73 aligned | 24/3/73 aligned |
+| on-the-diagonal/north-east | 34/14/53 aligned | 34/14/53 aligned | 63/10/28 aligned | 63/10/28 aligned | · | 100/0/0 aligned | 44/22/34 aligned | 44/22/34 aligned | 23/15/62 neutral | 23/15/62 neutral | 9/6/85 neutral | 9/9/82 neutral | 0/0/100 neutral | 0/0/99 neutral | 29/2/69 aligned | 29/2/69 aligned |
+| on-the-diagonal/diagonal-gradient | 34/14/53 aligned | 34/14/53 aligned | 63/10/28 aligned | 63/10/28 aligned | 100/0/0 aligned | · | 44/22/34 aligned | 44/22/34 aligned | 23/15/62 neutral | 23/15/62 neutral | 9/6/85 neutral | 9/9/82 neutral | 0/0/100 neutral | 0/0/99 neutral | 29/2/69 aligned | 29/2/69 aligned |
+| whole-distance/distance-factors | 27/14/59 mixed | 27/14/59 mixed | 44/14/42 aligned | 44/14/42 aligned | 49/4/47 aligned | 49/4/47 aligned | · | 100/0/0 aligned | 21/16/63 neutral | 20/16/64 neutral | 8/6/86 neutral | 8/9/82 neutral | 0/0/100 neutral | 1/1/98 neutral | 22/3/74 aligned | 22/3/74 aligned |
+| whole-distance/distance-divisor | 27/14/59 mixed | 27/14/59 mixed | 44/14/42 aligned | 44/14/42 aligned | 49/4/47 aligned | 49/4/47 aligned | 100/0/0 aligned | · | 21/16/63 neutral | 20/16/64 neutral | 8/6/86 neutral | 8/9/82 neutral | 0/0/100 neutral | 1/1/98 neutral | 22/3/74 aligned | 22/3/74 aligned |
+| steep-ratio/steep | 11/14/75 neutral | 11/14/75 neutral | 21/23/56 mixed | 21/23/56 mixed | 14/1/85 neutral | 14/1/85 neutral | 11/10/79 neutral | 11/10/79 neutral | · | 97/0/3 aligned | 13/5/82 neutral | 13/6/81 neutral | 1/0/99 neutral | 3/6/91 neutral | 29/2/69 aligned | 29/2/69 aligned |
+| steep-ratio/ratio-gap | 11/14/75 neutral | 11/14/75 neutral | 21/23/56 mixed | 21/23/56 mixed | 13/1/85 neutral | 13/1/85 neutral | 11/9/80 neutral | 11/9/80 neutral | 95/0/5 aligned | · | 13/5/82 neutral | 13/6/81 neutral | 1/0/99 neutral | 3/6/91 neutral | 29/2/69 aligned | 29/2/69 aligned |
+| far-crossing/far-right | 13/21/66 neutral | 13/21/66 neutral | 27/38/35 mixed | 27/38/35 mixed | 20/2/79 aligned | 20/2/79 aligned | 16/7/77 neutral | 16/7/77 neutral | 49/16/35 aligned | 49/13/38 aligned | · | 95/1/4 aligned | 1/1/98 neutral | 4/5/92 neutral | 54/2/45 aligned | 54/2/45 aligned |
+| far-crossing/crossing-share | 13/20/67 neutral | 13/20/67 neutral | 27/37/36 mixed | 27/37/36 mixed | 20/2/78 aligned | 20/2/78 aligned | 16/8/76 neutral | 16/8/76 neutral | 48/16/36 aligned | 48/13/39 aligned | 93/1/7 aligned | · | 2/1/97 neutral | 4/5/91 neutral | 52/2/47 aligned | 52/2/47 aligned |
+| high-start/steep-and-high | 11/16/73 neutral | 11/14/75 neutral | 16/27/57 mixed | 16/27/57 mixed | 3/0/97 neutral | 3/0/97 neutral | 2/6/92 neutral | 2/6/92 neutral | 25/25/49 mixed | 27/21/52 mixed | 14/30/56 tension | 21/40/40 tension | · | 19/22/59 mixed | 19/0/81 aligned | 19/0/81 aligned |
+| high-start/start-factors | 12/10/79 neutral | 11/11/78 neutral | 7/12/81 neutral | 7/12/81 neutral | 1/1/98 neutral | 1/1/98 neutral | 2/1/96 neutral | 2/1/96 neutral | 18/16/66 neutral | 19/18/64 neutral | 6/5/90 neutral | 6/7/87 neutral | 2/1/96 neutral | · | 4/2/95 neutral | 4/2/95 neutral |
+| gap-match/small-gap-factors | 16/13/71 neutral | 16/13/71 neutral | 29/41/30 mixed | 29/41/30 mixed | 24/2/74 aligned | 24/2/74 aligned | 17/14/69 neutral | 17/14/69 neutral | 41/20/39 aligned | 42/16/42 aligned | 20/9/71 neutral | 20/13/67 neutral | 1/0/99 neutral | 1/3/96 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 16/13/71 neutral | 16/13/71 neutral | 29/41/30 mixed | 29/41/30 mixed | 24/2/74 aligned | 24/2/74 aligned | 17/14/69 neutral | 17/14/69 neutral | 41/20/39 aligned | 42/16/42 aligned | 20/9/71 neutral | 20/13/67 neutral | 1/0/99 neutral | 1/3/96 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>line.gen.nudge</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 98/0/1 aligned | 1/1/97 neutral | 1/1/97 neutral | 3/0/96 neutral | 3/0/97 neutral | 18/2/80 aligned | 18/2/80 aligned | 13/10/77 neutral | 15/10/75 neutral | 5/5/91 neutral | 7/7/86 neutral | 6/3/91 neutral | 10/9/80 neutral | 6/3/91 neutral | 6/3/91 neutral |
+| whole-answer/south-west | 99/0/1 aligned | · | 1/1/97 neutral | 1/1/97 neutral | 3/0/96 neutral | 3/0/96 neutral | 19/2/79 aligned | 19/2/79 aligned | 13/10/77 neutral | 14/10/75 neutral | 5/5/91 neutral | 7/7/86 neutral | 6/3/91 neutral | 10/9/81 neutral | 6/3/91 neutral | 6/3/91 neutral |
+| square-cross/divisor-factors | 15/26/58 mixed | 15/28/57 mixed | · | 98/0/2 aligned | 6/0/94 neutral | 6/0/94 neutral | 14/2/85 neutral | 14/2/85 neutral | 61/16/23 aligned | 58/17/25 aligned | 19/10/70 neutral | 29/11/60 aligned | 15/5/80 neutral | 24/8/68 aligned | 50/19/31 aligned | 50/19/31 aligned |
+| square-cross/divisor-meets-intercept | 16/27/58 mixed | 16/28/56 mixed | 100/0/0 aligned | · | 6/0/94 neutral | 6/0/94 neutral | 14/2/84 neutral | 14/2/84 neutral | 62/16/22 aligned | 59/17/23 aligned | 20/10/70 neutral | 29/11/59 aligned | 16/5/79 neutral | 24/9/67 aligned | 51/19/30 aligned | 51/19/30 aligned |
+| on-the-diagonal/north-east | 49/8/44 aligned | 50/8/43 aligned | 9/1/90 neutral | 9/1/90 neutral | · | 99/0/1 aligned | 38/14/49 aligned | 38/14/49 aligned | 33/0/68 aligned | 31/1/68 aligned | 14/4/83 neutral | 13/3/85 neutral | 14/1/85 neutral | 10/5/85 neutral | 45/10/45 aligned | 45/10/45 aligned |
+| on-the-diagonal/diagonal-gradient | 48/8/44 aligned | 49/8/43 aligned | 9/1/90 neutral | 9/1/90 neutral | 100/0/0 aligned | · | 37/14/49 aligned | 37/14/49 aligned | 33/0/67 aligned | 32/1/67 aligned | 14/4/82 neutral | 13/3/85 neutral | 14/1/85 neutral | 10/5/85 neutral | 46/10/44 aligned | 46/10/44 aligned |
+| whole-distance/distance-factors | 31/4/64 aligned | 31/4/64 aligned | 2/1/97 neutral | 2/1/97 neutral | 4/5/91 neutral | 4/5/91 neutral | · | 100/0/0 aligned | 13/8/79 neutral | 14/8/78 neutral | 5/4/90 neutral | 6/5/88 neutral | 7/5/88 neutral | 7/6/87 neutral | 7/4/89 neutral | 7/4/89 neutral |
+| whole-distance/distance-divisor | 31/4/64 aligned | 31/4/64 aligned | 2/1/97 neutral | 2/1/97 neutral | 4/5/91 neutral | 4/5/91 neutral | 100/0/0 aligned | · | 13/8/79 neutral | 14/8/78 neutral | 5/4/90 neutral | 6/5/88 neutral | 7/5/88 neutral | 7/6/87 neutral | 7/4/89 neutral | 7/4/89 neutral |
+| steep-ratio/steep | 6/8/86 neutral | 6/8/86 neutral | 3/4/93 neutral | 3/4/93 neutral | 1/0/99 neutral | 1/0/99 neutral | 4/3/93 neutral | 4/3/93 neutral | · | 94/0/6 aligned | 8/2/90 neutral | 9/3/88 neutral | 5/2/93 neutral | 9/7/84 neutral | 26/1/73 aligned | 26/1/73 aligned |
+| steep-ratio/ratio-gap | 7/7/86 neutral | 6/7/86 neutral | 2/4/93 neutral | 2/4/93 neutral | 1/0/99 neutral | 1/0/99 neutral | 4/3/93 neutral | 4/3/93 neutral | 87/1/12 aligned | · | 8/2/90 neutral | 9/3/88 neutral | 5/2/93 neutral | 9/8/83 neutral | 24/1/75 aligned | 24/1/75 aligned |
+| far-crossing/far-right | 10/12/78 neutral | 9/12/79 neutral | 4/8/89 neutral | 4/8/89 neutral | 2/2/96 neutral | 2/2/96 neutral | 7/5/89 neutral | 7/5/89 neutral | 36/4/60 aligned | 37/4/59 aligned | · | 77/0/23 aligned | 4/7/89 neutral | 4/8/88 neutral | 31/2/67 aligned | 31/2/67 aligned |
+| far-crossing/crossing-share | 13/13/74 neutral | 13/13/74 neutral | 5/7/88 neutral | 5/7/88 neutral | 1/0/98 neutral | 1/0/98 neutral | 7/4/89 neutral | 7/4/89 neutral | 35/7/58 aligned | 36/8/56 aligned | 67/0/33 aligned | · | 15/2/82 neutral | 15/7/77 neutral | 27/1/72 aligned | 27/1/72 aligned |
+| high-start/steep-and-high | 15/8/77 neutral | 16/8/76 neutral | 4/5/91 neutral | 4/5/91 neutral | 2/1/97 neutral | 2/1/97 neutral | 12/6/82 neutral | 12/6/82 neutral | 28/7/65 aligned | 30/8/62 aligned | 5/4/90 neutral | 23/7/70 aligned | · | 79/1/20 aligned | 20/4/77 aligned | 20/4/77 aligned |
+| high-start/start-factors | 14/7/79 neutral | 13/7/80 neutral | 3/3/94 neutral | 3/3/94 neutral | 1/0/99 neutral | 1/0/99 neutral | 6/3/91 neutral | 6/3/91 neutral | 25/10/65 neutral | 27/13/59 mixed | 3/2/95 neutral | 11/4/84 neutral | 38/1/60 aligned | · | 11/3/86 neutral | 11/3/86 neutral |
+| gap-match/small-gap-factors | 9/13/77 neutral | 10/13/77 neutral | 8/14/78 neutral | 8/14/78 neutral | 5/0/95 neutral | 5/0/95 neutral | 7/6/87 neutral | 7/6/87 neutral | 87/1/12 aligned | 87/2/11 aligned | 24/2/74 aligned | 24/1/75 aligned | 12/2/86 neutral | 14/7/79 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 9/13/77 neutral | 10/13/77 neutral | 8/14/78 neutral | 8/14/78 neutral | 5/0/95 neutral | 5/0/95 neutral | 7/6/87 neutral | 7/6/87 neutral | 87/1/12 aligned | 87/2/11 aligned | 24/2/74 aligned | 24/1/75 aligned | 12/2/86 neutral | 14/7/79 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>line.mirror</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 99/0/1 aligned | 35/14/50 aligned | 35/14/50 aligned | 26/5/70 aligned | 26/5/70 aligned | 28/11/61 aligned | 28/11/61 aligned | 15/6/79 neutral | 13/6/81 neutral | 6/6/88 neutral | 5/5/90 neutral | 6/5/89 neutral | 6/8/86 neutral | 2/2/96 neutral | 2/2/96 neutral |
+| whole-answer/south-west | 99/0/1 aligned | · | 35/14/50 aligned | 35/14/50 aligned | 26/5/70 aligned | 26/5/70 aligned | 28/11/61 aligned | 28/11/61 aligned | 15/6/79 neutral | 13/6/82 neutral | 5/6/88 neutral | 5/5/90 neutral | 6/5/89 neutral | 6/8/86 neutral | 2/2/96 neutral | 2/2/96 neutral |
+| square-cross/divisor-factors | 30/10/61 aligned | 30/10/61 aligned | · | 100/0/0 aligned | 39/0/61 aligned | 39/0/61 aligned | 26/13/61 neutral | 26/13/61 neutral | 32/10/58 aligned | 27/10/63 aligned | 7/8/85 neutral | 9/8/83 neutral | 7/7/86 neutral | 9/12/79 neutral | 2/1/97 neutral | 2/1/97 neutral |
+| square-cross/divisor-meets-intercept | 30/10/61 aligned | 30/10/61 aligned | 100/0/0 aligned | · | 39/0/61 aligned | 39/0/61 aligned | 26/13/61 neutral | 26/13/61 neutral | 32/10/58 aligned | 27/10/63 aligned | 7/8/85 neutral | 9/8/83 neutral | 7/7/86 neutral | 9/12/79 neutral | 2/1/97 neutral | 2/1/97 neutral |
+| on-the-diagonal/north-east | 43/8/49 aligned | 43/8/49 aligned | 78/1/20 aligned | 78/1/20 aligned | · | 100/0/0 aligned | 45/25/31 aligned | 45/25/31 aligned | 29/9/62 aligned | 24/10/67 neutral | 6/6/87 neutral | 8/7/85 neutral | 7/6/87 neutral | 8/9/83 neutral | 3/2/96 neutral | 3/2/96 neutral |
+| on-the-diagonal/diagonal-gradient | 43/8/49 aligned | 43/8/49 aligned | 78/1/20 aligned | 78/1/20 aligned | 100/0/0 aligned | · | 45/25/31 aligned | 45/25/31 aligned | 29/9/62 aligned | 24/10/67 neutral | 6/6/87 neutral | 8/7/85 neutral | 7/6/87 neutral | 8/9/83 neutral | 3/2/96 neutral | 3/2/96 neutral |
+| whole-distance/distance-factors | 33/12/54 aligned | 33/12/54 aligned | 37/17/46 aligned | 37/17/46 aligned | 32/18/50 mixed | 32/18/50 mixed | · | 100/0/0 aligned | 15/9/77 neutral | 14/9/78 neutral | 6/5/89 neutral | 6/5/89 neutral | 5/5/90 neutral | 5/7/88 neutral | 2/4/95 neutral | 2/4/95 neutral |
+| whole-distance/distance-divisor | 33/12/54 aligned | 33/12/54 aligned | 37/17/46 aligned | 37/17/46 aligned | 32/18/50 mixed | 32/18/50 mixed | 100/0/0 aligned | · | 15/9/77 neutral | 14/9/78 neutral | 6/5/89 neutral | 6/5/89 neutral | 5/5/90 neutral | 5/7/88 neutral | 2/4/95 neutral | 2/4/95 neutral |
+| steep-ratio/steep | 25/13/62 neutral | 25/13/62 neutral | 65/22/13 aligned | 65/22/13 aligned | 30/7/63 aligned | 30/7/63 aligned | 21/15/64 neutral | 21/15/64 neutral | · | 88/1/12 aligned | 7/8/84 neutral | 11/9/80 neutral | 8/7/85 neutral | 11/13/76 neutral | 1/2/98 neutral | 1/2/98 neutral |
+| steep-ratio/ratio-gap | 20/12/67 neutral | 20/12/67 neutral | 53/22/25 aligned | 53/22/25 aligned | 23/8/69 neutral | 23/8/69 neutral | 18/12/69 neutral | 18/12/69 neutral | 82/1/17 aligned | · | 7/7/85 neutral | 10/9/81 neutral | 8/6/86 neutral | 10/12/78 neutral | 1/2/97 neutral | 1/2/97 neutral |
+| far-crossing/far-right | 14/13/73 neutral | 14/13/73 neutral | 22/24/54 mixed | 22/24/54 mixed | 9/10/81 neutral | 9/10/81 neutral | 13/10/77 neutral | 13/10/77 neutral | 11/9/80 neutral | 11/9/80 neutral | · | 49/0/51 aligned | 0/48/52 tension | 1/46/53 tension | 0/2/98 neutral | 0/2/98 neutral |
+| far-crossing/crossing-share | 19/19/62 neutral | 19/19/62 neutral | 41/45/14 mixed | 41/45/14 mixed | 18/18/64 neutral | 18/18/64 neutral | 19/19/62 neutral | 19/19/62 neutral | 24/18/58 mixed | 23/15/62 neutral | 73/0/27 aligned | · | 0/66/34 tension | 0/80/20 tension | 0/1/99 neutral | 0/1/99 neutral |
+| high-start/steep-and-high | 15/11/74 neutral | 16/12/73 neutral | 22/21/57 mixed | 22/21/57 mixed | 10/9/81 neutral | 10/9/81 neutral | 10/11/79 neutral | 10/11/79 neutral | 11/8/80 neutral | 12/9/79 neutral | 0/53/47 tension | 0/46/54 tension | · | 45/4/51 aligned | 0/1/98 neutral | 0/1/98 neutral |
+| high-start/start-factors | 21/18/61 neutral | 21/18/61 neutral | 36/39/25 mixed | 36/39/25 mixed | 15/14/71 neutral | 15/14/71 neutral | 14/17/69 neutral | 14/17/69 neutral | 21/18/61 neutral | 20/18/62 neutral | 1/58/41 tension | 0/65/35 tension | 58/1/40 aligned | · | 1/1/99 neutral | 1/1/99 neutral |
+| gap-match/small-gap-factors | 20/5/75 aligned | 20/5/75 aligned | 18/12/70 neutral | 18/12/70 neutral | 15/5/80 neutral | 15/5/80 neutral | 13/10/77 neutral | 13/10/77 neutral | 5/3/92 neutral | 5/5/90 neutral | 0/2/98 neutral | 0/2/98 neutral | 2/0/98 neutral | 2/0/98 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 20/5/75 aligned | 20/5/75 aligned | 18/12/70 neutral | 18/12/70 neutral | 15/5/80 neutral | 15/5/80 neutral | 13/10/77 neutral | 13/10/77 neutral | 5/3/92 neutral | 5/5/90 neutral | 0/2/98 neutral | 0/2/98 neutral | 2/0/98 neutral | 2/0/98 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>line.stretch</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 99/0/0 aligned | 3/2/95 neutral | 3/2/95 neutral | 3/2/94 neutral | 3/2/94 neutral | 20/5/75 aligned | 20/5/75 aligned | 19/18/63 neutral | 20/18/62 neutral | 0/0/100 neutral | 2/3/96 neutral | 4/2/94 neutral | 5/5/90 neutral | 1/3/96 neutral | 1/3/96 neutral |
+| whole-answer/south-west | 100/0/0 aligned | · | 3/2/95 neutral | 3/2/95 neutral | 3/2/94 neutral | 3/2/94 neutral | 20/5/75 aligned | 20/5/75 aligned | 19/18/63 neutral | 20/18/62 neutral | 0/0/100 neutral | 2/3/96 neutral | 4/2/94 neutral | 5/5/90 neutral | 1/3/96 neutral | 1/3/96 neutral |
+| square-cross/divisor-factors | 11/10/79 neutral | 11/10/79 neutral | · | 99/0/1 aligned | 6/1/93 neutral | 6/1/93 neutral | 7/7/86 neutral | 7/7/86 neutral | 25/18/57 mixed | 22/18/60 mixed | 0/0/100 neutral | 2/2/96 neutral | 2/3/95 neutral | 4/5/91 neutral | 2/9/89 neutral | 2/9/89 neutral |
+| square-cross/divisor-meets-intercept | 11/10/79 neutral | 11/10/79 neutral | 100/0/0 aligned | · | 6/1/93 neutral | 6/1/93 neutral | 7/7/86 neutral | 7/7/86 neutral | 25/18/57 mixed | 23/18/59 mixed | 0/0/100 neutral | 2/2/96 neutral | 2/3/95 neutral | 5/5/90 neutral | 2/9/89 neutral | 2/9/89 neutral |
+| on-the-diagonal/north-east | 20/13/67 neutral | 20/14/67 neutral | 9/5/87 neutral | 9/5/87 neutral | · | 100/0/0 aligned | 21/25/55 mixed | 21/25/55 mixed | 21/15/64 neutral | 22/15/63 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/1/99 neutral | 1/2/98 neutral | 2/3/94 neutral | 2/3/94 neutral |
+| on-the-diagonal/diagonal-gradient | 20/13/67 neutral | 20/14/67 neutral | 9/5/87 neutral | 9/5/87 neutral | 100/0/0 aligned | · | 21/25/55 mixed | 21/25/55 mixed | 21/15/64 neutral | 22/15/63 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/1/99 neutral | 1/2/98 neutral | 2/3/94 neutral | 2/3/94 neutral |
+| whole-distance/distance-factors | 31/7/63 aligned | 31/7/63 aligned | 3/2/96 neutral | 2/2/96 neutral | 5/6/89 neutral | 5/6/89 neutral | · | 100/0/0 aligned | 16/18/66 neutral | 17/16/67 neutral | 0/0/100 neutral | 1/1/98 neutral | 3/1/96 neutral | 3/3/95 neutral | 3/4/93 neutral | 3/4/93 neutral |
+| whole-distance/distance-divisor | 31/7/63 aligned | 31/7/63 aligned | 3/2/96 neutral | 3/2/96 neutral | 5/6/89 neutral | 5/6/89 neutral | 100/0/0 aligned | · | 16/18/66 neutral | 17/16/67 neutral | 0/0/100 neutral | 1/1/98 neutral | 3/1/96 neutral | 3/3/95 neutral | 3/4/93 neutral | 3/4/93 neutral |
+| steep-ratio/steep | 11/8/82 neutral | 11/8/82 neutral | 3/3/94 neutral | 3/3/94 neutral | 2/1/97 neutral | 2/1/97 neutral | 6/6/88 neutral | 6/6/88 neutral | · | 83/2/15 aligned | 0/0/100 neutral | 1/2/97 neutral | 3/3/94 neutral | 5/5/90 neutral | 2/3/95 neutral | 2/3/95 neutral |
+| steep-ratio/ratio-gap | 12/8/80 neutral | 12/8/80 neutral | 3/3/94 neutral | 3/3/94 neutral | 2/1/97 neutral | 2/1/97 neutral | 6/7/87 neutral | 6/7/87 neutral | 87/3/11 aligned | · | 0/0/100 neutral | 2/3/96 neutral | 3/3/94 neutral | 5/6/89 neutral | 2/3/95 neutral | 2/3/95 neutral |
+| far-crossing/far-right | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – |
+| far-crossing/crossing-share | 12/14/75 neutral | 12/14/74 neutral | 3/4/93 neutral | 4/4/92 neutral | 0/0/100 neutral | 0/0/100 neutral | 5/3/93 neutral | 5/3/93 neutral | 17/14/69 neutral | 20/19/61 neutral | 0/0/100 neutral | · | 14/4/82 neutral | 16/6/78 neutral | 2/0/98 neutral | 2/0/98 neutral |
+| high-start/steep-and-high | 17/5/78 neutral | 17/6/78 neutral | 2/3/94 neutral | 2/3/94 neutral | 1/2/98 neutral | 1/2/98 neutral | 8/5/87 neutral | 8/5/87 neutral | 27/16/57 mixed | 25/14/61 neutral | 0/0/100 neutral | 9/3/88 neutral | · | 63/7/30 aligned | 1/4/95 neutral | 1/4/95 neutral |
+| high-start/start-factors | 13/8/79 neutral | 12/9/79 neutral | 3/2/95 neutral | 3/2/95 neutral | 0/1/99 neutral | 0/1/99 neutral | 4/4/92 neutral | 4/4/92 neutral | 23/14/63 neutral | 24/14/62 neutral | 0/0/100 neutral | 6/2/92 neutral | 34/5/61 aligned | · | 2/3/96 neutral | 2/3/96 neutral |
+| gap-match/small-gap-factors | 7/7/85 neutral | 7/7/85 neutral | 3/10/87 neutral | 3/10/87 neutral | 2/2/96 neutral | 2/2/96 neutral | 12/16/71 neutral | 12/16/71 neutral | 21/21/57 mixed | 17/22/61 neutral | 0/0/100 neutral | 1/0/99 neutral | 1/5/94 neutral | 4/5/91 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 7/7/85 neutral | 7/7/85 neutral | 3/10/87 neutral | 3/10/87 neutral | 2/2/96 neutral | 2/2/96 neutral | 12/16/71 neutral | 12/16/71 neutral | 21/21/57 mixed | 17/22/61 neutral | 0/0/100 neutral | 1/0/99 neutral | 1/5/94 neutral | 4/5/91 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>line.slide</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | 99/0/1 aligned | 0/0/100 neutral | 0/0/100 neutral | 6/12/82 neutral | 6/12/82 neutral | 20/11/69 neutral | 20/11/69 neutral | 0/0/100 neutral | 5/3/92 neutral | 2/5/94 neutral | 1/7/92 neutral | 2/4/95 neutral | 3/7/90 neutral | 4/12/85 neutral | 4/12/85 neutral |
+| whole-answer/south-west | 100/0/0 aligned | · | 0/0/100 neutral | 0/0/100 neutral | 6/12/82 neutral | 6/12/82 neutral | 20/11/69 neutral | 20/11/69 neutral | 0/0/100 neutral | 5/3/92 neutral | 2/5/94 neutral | 1/7/92 neutral | 2/4/95 neutral | 3/7/90 neutral | 4/12/85 neutral | 4/12/85 neutral |
+| square-cross/divisor-factors | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/north-east | 20/6/74 neutral | 21/6/74 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 25/52/23 tension | 25/52/23 tension | 0/0/100 neutral | 2/6/91 neutral | 2/2/96 neutral | 0/2/98 neutral | 2/3/95 neutral | 1/2/98 neutral | 14/10/75 neutral | 14/10/75 neutral |
+| on-the-diagonal/diagonal-gradient | 20/6/74 neutral | 21/6/74 neutral | 0/0/100 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 25/52/23 tension | 25/52/23 tension | 0/0/100 neutral | 2/6/91 neutral | 2/2/96 neutral | 0/2/98 neutral | 2/3/95 neutral | 1/2/98 neutral | 14/10/75 neutral | 14/10/75 neutral |
+| whole-distance/distance-factors | 7/20/72 neutral | 7/20/72 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/67/30 tension | 3/67/30 tension | · | 100/0/0 aligned | 0/0/100 neutral | 4/3/92 neutral | 2/4/94 neutral | 1/4/96 neutral | 1/4/94 neutral | 1/4/95 neutral | 4/31/65 tension | 4/31/65 tension |
+| whole-distance/distance-divisor | 7/20/72 neutral | 7/20/72 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/67/30 tension | 3/67/30 tension | 100/0/0 aligned | · | 0/0/100 neutral | 4/3/92 neutral | 2/4/94 neutral | 1/4/96 neutral | 1/4/94 neutral | 1/4/95 neutral | 4/31/65 tension | 4/31/65 tension |
+| steep-ratio/steep | – – | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/ratio-gap | 9/6/84 neutral | 9/6/84 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/19/80 tension | 1/19/80 tension | 22/8/70 neutral | 22/8/70 neutral | 0/0/100 neutral | · | 3/2/95 neutral | 2/6/92 neutral | 0/3/97 neutral | 3/6/91 neutral | 1/7/92 neutral | 1/7/92 neutral |
+| far-crossing/far-right | 7/12/81 neutral | 7/13/80 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/32/65 tension | 3/32/65 tension | 23/17/60 mixed | 23/17/60 mixed | 0/0/100 neutral | 7/5/88 neutral | · | 32/0/68 aligned | 0/32/68 tension | 7/14/78 neutral | 2/19/80 tension | 2/19/80 tension |
+| far-crossing/crossing-share | 6/6/88 neutral | 6/6/88 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/7/92 neutral | 1/7/92 neutral | 10/7/83 neutral | 10/7/83 neutral | 0/0/100 neutral | 5/3/92 neutral | 42/0/58 aligned | · | 8/0/92 neutral | 12/3/85 neutral | 1/5/94 neutral | 1/5/94 neutral |
+| high-start/steep-and-high | 10/13/77 neutral | 11/13/77 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/23/74 tension | 3/23/74 tension | 22/21/57 mixed | 22/21/57 mixed | 0/0/100 neutral | 2/7/92 neutral | 0/6/94 neutral | 9/15/76 neutral | · | 50/2/47 aligned | 2/14/85 neutral | 2/14/85 neutral |
+| high-start/start-factors | 11/8/81 neutral | 11/8/81 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/12/87 neutral | 1/12/87 neutral | 12/12/76 neutral | 12/12/76 neutral | 0/0/100 neutral | 6/10/84 neutral | 8/2/90 neutral | 9/3/88 neutral | 36/5/59 aligned | · | 1/10/89 neutral | 1/10/89 neutral |
+| gap-match/small-gap-factors | 11/16/73 neutral | 12/16/72 neutral | 0/0/100 neutral | 0/0/100 neutral | 14/24/62 neutral | 14/24/62 neutral | 29/19/52 mixed | 29/19/52 mixed | 0/0/100 neutral | 1/1/98 neutral | 1/3/96 neutral | 0/3/96 neutral | 1/4/95 neutral | 0/3/96 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 11/16/73 neutral | 12/16/72 neutral | 0/0/100 neutral | 0/0/100 neutral | 14/24/62 neutral | 14/24/62 neutral | 29/19/52 mixed | 29/19/52 mixed | 0/0/100 neutral | 1/1/98 neutral | 1/3/96 neutral | 0/3/96 neutral | 1/4/95 neutral | 0/3/96 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>sys.translate</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-factors | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/north-east | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 14/63/22 tension | 14/63/22 tension | 0/0/100 neutral | 2/4/94 neutral | 4/4/91 neutral | 1/5/93 neutral | 3/4/93 neutral | 1/4/95 neutral | 6/20/74 neutral | 6/20/74 neutral |
+| on-the-diagonal/diagonal-gradient | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 14/63/22 tension | 14/63/22 tension | 0/0/100 neutral | 2/4/94 neutral | 4/4/91 neutral | 1/5/93 neutral | 3/4/93 neutral | 1/4/95 neutral | 6/20/74 neutral | 6/20/74 neutral |
+| whole-distance/distance-factors | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 2/77/22 tension | 2/77/22 tension | · | 100/0/0 aligned | 0/0/100 neutral | 3/1/96 neutral | 4/5/91 neutral | 1/6/93 neutral | 2/7/91 neutral | 3/7/90 neutral | 1/38/60 tension | 1/38/60 tension |
+| whole-distance/distance-divisor | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 2/77/22 tension | 2/77/22 tension | 100/0/0 aligned | · | 0/0/100 neutral | 3/1/96 neutral | 4/5/91 neutral | 1/6/93 neutral | 2/7/91 neutral | 3/7/90 neutral | 1/38/60 tension | 1/38/60 tension |
+| steep-ratio/steep | – – | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/ratio-gap | 0/1/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/33/64 tension | 3/33/64 tension | 37/10/53 aligned | 37/10/53 aligned | 0/0/100 neutral | · | 2/0/98 neutral | 2/6/92 neutral | 1/10/88 neutral | 4/10/86 neutral | 0/16/84 tension | 0/16/84 tension |
+| far-crossing/far-right | 0/1/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 5/31/65 tension | 5/31/65 tension | 39/10/52 aligned | 39/10/52 aligned | 0/0/100 neutral | 2/1/97 neutral | · | 32/0/68 aligned | 0/32/68 tension | 7/14/78 neutral | 0/20/80 tension | 0/20/80 tension |
+| far-crossing/crossing-share | 0/1/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 2/6/92 neutral | 2/6/92 neutral | 11/5/84 neutral | 11/5/84 neutral | 0/0/100 neutral | 2/1/97 neutral | 42/0/58 aligned | · | 8/0/92 neutral | 12/3/85 neutral | 1/6/92 neutral | 1/6/92 neutral |
+| high-start/steep-and-high | 0/1/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 5/22/74 tension | 5/22/74 tension | 26/17/58 mixed | 26/17/58 mixed | 0/0/100 neutral | 2/8/91 neutral | 0/6/94 neutral | 9/15/76 neutral | · | 50/2/47 aligned | 0/17/83 tension | 0/17/83 tension |
+| high-start/start-factors | 0/1/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/20/78 tension | 1/20/78 tension | 26/7/67 aligned | 26/7/67 aligned | 0/0/100 neutral | 3/4/93 neutral | 8/2/90 neutral | 9/3/88 neutral | 36/5/59 aligned | · | 1/17/82 tension | 1/17/82 tension |
+| gap-match/small-gap-factors | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 19/31/50 mixed | 19/31/50 mixed | 35/37/28 mixed | 35/37/28 mixed | 0/0/100 neutral | 0/3/97 neutral | 0/6/94 neutral | 3/7/90 neutral | 0/1/99 neutral | 3/0/97 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 19/31/50 mixed | 19/31/50 mixed | 35/37/28 mixed | 35/37/28 mixed | 0/0/100 neutral | 0/3/97 neutral | 0/6/94 neutral | 3/7/90 neutral | 0/1/99 neutral | 3/0/97 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>sys.mirror</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-factors | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/north-east | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 7/3/90 neutral | 0/0/100 neutral | 6/0/94 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral |
+| on-the-diagonal/diagonal-gradient | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 7/3/90 neutral | 0/0/100 neutral | 6/0/94 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral |
+| whole-distance/distance-factors | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-divisor | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/steep | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 48/31/21 aligned | 15/21/64 neutral | 21/26/54 mixed | 18/18/65 neutral | 22/19/60 mixed | 0/0/100 neutral | 0/0/100 neutral |
+| steep-ratio/ratio-gap | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 59/30/11 aligned | · | 18/20/63 neutral | 23/24/54 mixed | 18/14/69 neutral | 23/15/63 neutral | 0/0/100 neutral | 0/0/100 neutral |
+| far-crossing/far-right | 0/0/100 neutral | 0/1/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/0/99 neutral | 1/0/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 3/4/92 neutral | 3/3/94 neutral | · | 49/0/51 aligned | 0/48/52 tension | 1/44/55 tension | 0/0/100 neutral | 0/0/100 neutral |
+| far-crossing/crossing-share | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 7/9/85 neutral | 6/6/88 neutral | 73/0/27 aligned | · | 0/66/34 tension | 0/80/20 tension | 0/0/100 neutral | 0/0/100 neutral |
+| high-start/steep-and-high | 0/0/100 neutral | 0/0/99 neutral | 0/0/100 neutral | 1/0/99 neutral | 1/0/99 neutral | 1/0/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 4/2/94 neutral | 3/1/96 neutral | 0/53/47 tension | 0/46/54 tension | · | 43/0/56 aligned | 0/0/100 neutral | 0/0/100 neutral |
+| high-start/start-factors | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/0/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 9/3/89 neutral | 8/3/90 neutral | 2/82/16 tension | 0/95/5 tension | 81/1/18 aligned | · | 0/0/100 neutral | 0/0/100 neutral |
+| gap-match/small-gap-factors | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | · | – – |
+| gap-match/gap-divisor | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | · |
+
+</details>
+
+<details><summary>pair.combine</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-factors | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 28/15/57 mixed | 28/15/57 mixed | 4/9/88 neutral | 6/13/82 neutral | 4/9/87 neutral | 4/10/86 neutral | 13/7/79 neutral | 13/7/79 neutral |
+| square-cross/divisor-meets-intercept | 0/0/100 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 28/15/57 mixed | 28/15/57 mixed | 4/9/88 neutral | 6/13/82 neutral | 4/9/87 neutral | 4/10/86 neutral | 13/7/79 neutral | 13/7/79 neutral |
+| on-the-diagonal/north-east | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/diagonal-gradient | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-factors | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-divisor | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/steep | 0/0/100 neutral | 0/0/100 neutral | 2/31/66 tension | 2/31/66 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 98/0/2 aligned | 12/5/83 neutral | 13/6/81 neutral | 13/7/81 neutral | 12/7/80 neutral | 45/3/51 aligned | 45/3/51 aligned |
+| steep-ratio/ratio-gap | 0/0/100 neutral | 0/0/100 neutral | 2/32/66 tension | 2/32/66 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 97/0/3 aligned | · | 12/5/83 neutral | 13/6/82 neutral | 12/7/81 neutral | 12/7/80 neutral | 45/3/52 aligned | 45/3/52 aligned |
+| far-crossing/far-right | 0/0/100 neutral | 0/0/100 neutral | 1/41/57 tension | 1/41/58 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 53/16/31 aligned | 54/15/31 aligned | · | 93/2/5 aligned | 9/14/76 neutral | 8/18/74 neutral | 58/5/38 aligned | 57/5/38 aligned |
+| far-crossing/crossing-share | 0/0/100 neutral | 0/0/100 neutral | 2/41/57 tension | 2/41/57 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 51/18/32 aligned | 51/15/33 aligned | 86/0/14 aligned | · | 13/14/73 neutral | 10/19/72 neutral | 54/5/41 aligned | 54/5/41 aligned |
+| high-start/steep-and-high | 0/0/100 neutral | 0/0/100 neutral | 1/45/54 tension | 1/45/54 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 48/15/37 aligned | 48/15/37 aligned | 8/12/79 neutral | 12/15/73 neutral | · | 87/2/12 aligned | 57/2/41 aligned | 57/2/42 aligned |
+| high-start/start-factors | 0/0/100 neutral | 0/0/100 neutral | 2/45/54 tension | 2/45/54 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 52/13/36 aligned | 52/12/36 aligned | 8/11/81 neutral | 11/14/76 neutral | 95/1/4 aligned | · | 61/2/37 aligned | 61/2/37 aligned |
+| gap-match/small-gap-factors | 0/0/100 neutral | 0/0/100 neutral | 1/45/55 tension | 1/45/55 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 34/35/31 mixed | 34/33/33 mixed | 10/7/83 neutral | 10/8/81 neutral | 11/7/82 neutral | 11/8/81 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 0/0/100 neutral | 0/0/100 neutral | 1/45/55 tension | 1/45/55 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 34/35/31 mixed | 34/33/32 mixed | 10/7/83 neutral | 10/8/81 neutral | 11/7/82 neutral | 11/8/81 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>pair.slideOn</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-factors | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/north-east | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 37/21/42 aligned | 37/21/42 aligned | 0/0/100 neutral | 7/2/91 neutral | 2/2/95 neutral | 2/5/93 neutral | 0/9/91 neutral | 0/9/91 neutral | 14/9/77 neutral | 14/9/77 neutral |
+| on-the-diagonal/diagonal-gradient | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 37/21/42 aligned | 37/21/42 aligned | 0/0/100 neutral | 7/2/91 neutral | 2/2/95 neutral | 2/5/93 neutral | 0/9/91 neutral | 0/9/91 neutral | 14/9/77 neutral | 14/9/77 neutral |
+| whole-distance/distance-factors | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 8/57/35 tension | 8/57/35 tension | · | 100/0/0 aligned | 0/0/100 neutral | 2/3/95 neutral | 3/3/94 neutral | 1/4/95 neutral | 1/4/95 neutral | 1/4/95 neutral | 2/13/85 neutral | 2/13/85 neutral |
+| whole-distance/distance-divisor | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 8/57/35 tension | 8/57/35 tension | 100/0/0 aligned | · | 0/0/100 neutral | 2/3/95 neutral | 3/3/94 neutral | 1/4/95 neutral | 1/4/95 neutral | 1/4/95 neutral | 2/13/85 neutral | 2/13/85 neutral |
+| steep-ratio/steep | – – | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/ratio-gap | 2/0/98 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/37/62 tension | 1/37/62 tension | 2/34/64 tension | 2/34/64 tension | 0/0/100 neutral | · | 3/6/90 neutral | 5/9/86 neutral | 2/3/95 neutral | 2/5/94 neutral | 0/12/87 neutral | 0/12/87 neutral |
+| far-crossing/far-right | 1/0/99 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/41/59 tension | 1/41/59 tension | 4/35/62 tension | 4/35/62 tension | 0/0/100 neutral | 4/7/89 neutral | · | 55/13/32 aligned | 2/18/80 tension | 4/15/81 neutral | 1/16/83 tension | 1/16/83 tension |
+| far-crossing/crossing-share | 1/1/98 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 1/42/58 tension | 1/42/58 tension | 2/34/64 tension | 2/34/64 tension | 0/0/100 neutral | 8/11/82 neutral | 67/8/24 aligned | · | 8/8/84 neutral | 12/8/80 neutral | 2/20/79 tension | 2/20/79 tension |
+| high-start/steep-and-high | 1/1/98 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/45/55 tension | 0/45/55 tension | 2/40/58 tension | 2/40/58 tension | 0/0/100 neutral | 5/5/90 neutral | 4/11/85 neutral | 11/19/70 neutral | · | 68/5/27 aligned | 0/24/76 tension | 0/24/76 tension |
+| high-start/start-factors | 1/1/98 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/49/51 tension | 0/49/51 tension | 3/42/55 tension | 3/42/55 tension | 0/0/100 neutral | 4/6/90 neutral | 7/12/81 neutral | 16/24/61 neutral | 66/11/24 aligned | · | 0/30/70 tension | 0/30/70 tension |
+| gap-match/small-gap-factors | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | · | – – |
+| gap-match/gap-divisor | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | · |
+
+</details>
+
+<details><summary>pair.reflect</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-factors | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/north-east | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/diagonal-gradient | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-factors | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-divisor | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/steep | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 11/5/84 neutral | 11/5/84 neutral | 12/10/78 neutral | 15/11/74 neutral | 52/7/40 aligned | 52/7/40 aligned |
+| steep-ratio/ratio-gap | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 95/1/5 aligned | · | 11/5/84 neutral | 11/5/84 neutral | 11/9/79 neutral | 14/11/75 neutral | 50/8/41 aligned | 50/8/41 aligned |
+| far-crossing/far-right | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 64/9/27 aligned | 68/5/27 aligned | · | 82/5/14 aligned | 0/41/59 tension | 0/45/55 tension | 73/0/27 aligned | 73/0/27 aligned |
+| far-crossing/crossing-share | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 70/5/25 aligned | 70/0/30 aligned | 90/0/10 aligned | · | 5/35/60 tension | 5/35/60 tension | 75/0/25 aligned | 75/0/25 aligned |
+| high-start/steep-and-high | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 68/0/32 aligned | 68/0/32 aligned | 0/14/86 neutral | 5/9/86 neutral | · | 86/5/9 aligned | 73/0/27 aligned | 73/0/27 aligned |
+| high-start/start-factors | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 72/4/24 aligned | 72/4/24 aligned | 0/12/88 neutral | 4/8/88 neutral | 76/0/24 aligned | · | 68/0/32 aligned | 68/0/32 aligned |
+| gap-match/small-gap-factors | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 50/21/30 aligned | 50/20/30 aligned | 12/6/82 neutral | 11/5/83 neutral | 12/8/79 neutral | 13/11/76 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 50/21/30 aligned | 50/20/30 aligned | 12/6/82 neutral | 11/5/83 neutral | 12/8/79 neutral | 13/11/76 neutral | 100/0/0 aligned | · |
+
+</details>
+
+<details><summary>pair.quarter</summary>
+
+| i ↓ raises, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| square-cross/divisor-factors | 2/1/97 neutral | 0/0/100 neutral | · | 100/0/0 aligned | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 33/8/59 aligned | 26/8/65 aligned | 9/15/76 neutral | 9/18/73 neutral | 7/17/75 neutral | 10/20/70 neutral | 1/12/87 neutral | 1/12/87 neutral |
+| square-cross/divisor-meets-intercept | 2/1/97 neutral | 0/0/100 neutral | 100/0/0 aligned | · | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 33/8/59 aligned | 26/8/65 aligned | 9/15/76 neutral | 9/18/73 neutral | 7/17/75 neutral | 10/20/70 neutral | 1/12/87 neutral | 1/12/87 neutral |
+| on-the-diagonal/north-east | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| on-the-diagonal/diagonal-gradient | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-factors | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-divisor | – – | – – | – – | – – | – – | – – | – – | · | – – | – – | – – | – – | – – | – – | – – | – – |
+| steep-ratio/steep | 1/0/99 neutral | 0/0/100 neutral | 63/12/25 aligned | 63/12/25 aligned | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | · | 83/1/16 aligned | 1/11/88 neutral | 1/15/83 neutral | 2/13/85 neutral | 3/14/83 neutral | 2/16/82 neutral | 2/16/82 neutral |
+| steep-ratio/ratio-gap | 2/0/98 neutral | 0/0/100 neutral | 56/13/31 aligned | 56/13/31 aligned | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 92/2/6 aligned | · | 2/10/88 neutral | 2/15/82 neutral | 2/12/85 neutral | 3/16/81 neutral | 2/15/83 neutral | 2/15/83 neutral |
+| far-crossing/far-right | 2/2/96 neutral | 0/0/100 neutral | 45/42/13 mixed | 45/42/13 mixed | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 4/5/91 neutral | 5/4/91 neutral | · | 98/0/2 aligned | 2/91/7 tension | 0/91/9 tension | 2/2/96 neutral | 2/2/96 neutral |
+| far-crossing/crossing-share | 2/2/96 neutral | 0/0/100 neutral | 46/41/13 mixed | 46/41/13 mixed | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 4/4/93 neutral | 6/2/93 neutral | 100/0/0 aligned | · | 2/93/6 tension | 0/93/7 tension | 2/2/96 neutral | 2/2/96 neutral |
+| high-start/steep-and-high | 5/2/93 neutral | 0/0/100 neutral | 34/38/28 mixed | 34/38/28 mixed | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 5/5/90 neutral | 5/3/91 neutral | 2/78/21 tension | 2/79/19 tension | · | 97/2/2 aligned | 3/2/95 neutral | 3/2/95 neutral |
+| high-start/start-factors | 4/1/94 neutral | 0/0/100 neutral | 38/36/26 mixed | 38/36/26 mixed | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 6/7/88 neutral | 6/10/85 neutral | 0/64/36 tension | 0/65/35 tension | 78/0/22 aligned | · | 3/3/94 neutral | 3/3/94 neutral |
+| gap-match/small-gap-factors | 0/0/100 neutral | 0/0/100 neutral | 8/72/19 tension | 8/72/19 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 8/44/47 tension | 6/44/50 tension | 3/14/83 neutral | 3/14/83 neutral | 6/17/78 neutral | 6/19/75 neutral | · | 100/0/0 aligned |
+| gap-match/gap-divisor | 0/0/100 neutral | 0/0/100 neutral | 8/72/19 tension | 8/72/19 tension | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 0/0/100 neutral | 8/44/47 tension | 6/44/50 tension | 3/14/83 neutral | 3/14/83 neutral | 6/17/78 neutral | 6/19/75 neutral | 100/0/0 aligned | · |
+
+</details>
+
+## The tied pool (B2): every hill and its adversaries
+
+Each rule alone climbs (steepest ascent with kicks, 3,000 evaluations, path budget W = 120) from 6 births. For
+the climb's best state: the rule's own gain, the secondary reached, and every other rule's mean change in bits.
+Adversaries lose a bit or more on average; allies gain a bit or more.
+
+| Hill (rule) | own gain | secondary reached (mean) | adversaries (mean Δ bits) | allies (mean Δ bits) |
+|---|--:|--:|---|---|
+| whole-answer/answer-divisor (big) | 9.7 | 9.7 | none | far-crossing/far-right (+1.8), steep-ratio/ratio-gap (+1.7), high-start/start-factors (+1.1), square-cross/divisor-meets-intercept (+1.0), square-cross/divisor-factors (+1.0) |
+| whole-answer/south-west (small) | 8.7 | 28023.3 | on-the-diagonal/north-east (-1.2), on-the-diagonal/diagonal-gradient (-1.2) | high-start/steep-and-high (+3.2) |
+| square-cross/divisor-factors (smooth) | 7.3 | 9.0 | none | whole-distance/distance-factors (+1.0), whole-distance/distance-divisor (+1.0) |
+| square-cross/divisor-meets-intercept (big) | 10.1 | 20.3 | none | steep-ratio/ratio-gap (+1.7) |
+| on-the-diagonal/north-east (big) | 6.7 | 5.5 | none | whole-distance/distance-divisor (+1.1), whole-distance/distance-factors (+1.1) |
+| on-the-diagonal/diagonal-gradient (big) | 4.0 | 1.3 | none | steep-ratio/ratio-gap (+1.4), steep-ratio/steep (+1.2), whole-answer/answer-divisor (+1.0) |
+| whole-distance/distance-factors (smooth) | 4.7 | 2.5 | none | whole-answer/answer-divisor (+3.8), whole-answer/south-west (+2.9), far-crossing/far-right (+2.4), high-start/start-factors (+1.9), far-crossing/crossing-share (+1.7), steep-ratio/steep (+1.6), steep-ratio/ratio-gap (+1.1) |
+| whole-distance/distance-divisor (big) | 9.2 | 3.8 | none | whole-answer/answer-divisor (+5.9), high-start/start-factors (+2.6), steep-ratio/ratio-gap (+2.2), far-crossing/far-right (+1.8), steep-ratio/steep (+1.8), whole-answer/south-west (+1.6), far-crossing/crossing-share (+1.5) |
+| steep-ratio/steep (big) | 11.5 | 46655.8 | none | none |
+| steep-ratio/ratio-gap (big) | 17.6 | 7571.2 | none | none |
+| far-crossing/far-right (big) | 6.5 | 309.8 | on-the-diagonal/north-east (-1.1), on-the-diagonal/diagonal-gradient (-1.1) | none |
+| far-crossing/crossing-share (big) | 6.5 | 60.5 | on-the-diagonal/north-east (-1.1), on-the-diagonal/diagonal-gradient (-1.1) | high-start/steep-and-high (+2.5), gap-match/gap-divisor (+1.4), gap-match/small-gap-factors (+1.1) |
+| high-start/steep-and-high (big) | 19.1 | 6777.0 | none | steep-ratio/steep (+2.4), steep-ratio/ratio-gap (+1.8), whole-distance/distance-factors (+1.4), whole-distance/distance-divisor (+1.4) |
+| high-start/start-factors (smooth) | 13.9 | 6.8 | none | far-crossing/crossing-share (+2.3), far-crossing/far-right (+1.8), square-cross/divisor-meets-intercept (+1.1), square-cross/divisor-factors (+1.1) |
+| gap-match/small-gap-factors (smooth) | 5.4 | 1.7 | none | steep-ratio/ratio-gap (+3.1), steep-ratio/steep (+2.8) |
+| gap-match/gap-divisor (big) | 6.9 | 3.0 | none | steep-ratio/steep (+2.5), steep-ratio/ratio-gap (+2.3) |
+
+## The tied pool (B2) on joint hills: alignment and tension where it counts
+
+A rule's secondary only counts once its primary is at the top, so two rules' secondaries meet only on states where
+both primaries are at the top: the joint hill a cooperating pair stands on. For every pair of rules from different
+families: up to 6 such states (climbs on the sum of the two rules' bits from births, 600 evaluations each);
+every candidate call from them that raises rule i (by any amount). Of those calls, "breaks" is the share that knock
+rule j's primary off its top (any climber ignoring j does that; it is not the tension decision 30 asks for); of the
+rest, the share that raise, lower or leave j's hill (by ≥ 0.05 bits). Verdict on those: aligned when raise − lower
+≥ 0.15, tension when lower − raise ≥ 0.15, neutral when ≥ 60% leave it, else mixed; "–" fewer than 10 such calls.
+Then **the ongoing climb**: from each joint state rule i climbs on (1,500 evaluations, W = 60) using only states that
+keep rule j's primary at its top; rule j's mean change over that leg. An adversary loses ≥ 1 bit of its hill.
+
+Joint states found per pair: median 6 of 6, none for 8 of 112 pairs.
+
+### Calls that raise i: raise/lower/leave % of j's hill (j's primary kept), the share breaking j's primary, and the verdict
+
+| i ↓ climbs, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| whole-answer/answer-divisor | · | · | – – | – – | – – | – – | – – | – – | – – | 9/27/64 (breaks 8%) tension | – – | – – | – – | – – | – – | – – |
+| whole-answer/south-west | · | · | 0/0/100 (breaks 50%) neutral | 0/7/93 (breaks 24%) neutral | 0/92/8 (breaks 79%) tension | – – | 13/81/6 (breaks 63%) tension | 0/94/6 (breaks 69%) tension | 0/25/75 (breaks 20%) tension | 0/62/38 (breaks 30%) tension | 22/11/67 (breaks 10%) neutral | 10/29/62 (breaks 9%) tension | 21/11/68 (breaks 0%) neutral | 5/30/65 (breaks 2%) tension | 30/52/17 (breaks 34%) tension | – – |
+| square-cross/divisor-factors | – – | – – | · | · | – – | – – | – – | – – | 0/0/100 (breaks 0%) neutral | – – | 0/0/100 (breaks 44%) neutral | 0/0/100 (breaks 50%) neutral | – – | – – | – – | – – |
+| square-cross/divisor-meets-intercept | – – | – – | · | · | – – | – – | – – | – – | 0/0/100 (breaks 0%) neutral | – – | – – | 0/80/20 (breaks 33%) tension | – – | – – | – – | – – |
+| on-the-diagonal/north-east | – – | – – | – – | – – | · | · | – – | – – | 0/0/100 (breaks 38%) neutral | – – | – – | – – | 0/0/100 (breaks 0%) neutral | – – | 0/71/29 (breaks 50%) tension | – – |
+| on-the-diagonal/diagonal-gradient | – – | – – | – – | – – | · | · | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – |
+| whole-distance/distance-factors | – – | – – | – – | – – | – – | – – | · | · | – – | – – | – – | – – | – – | 0/73/27 (breaks 0%) tension | – – | – – |
+| whole-distance/distance-divisor | – – | – – | – – | – – | – – | – – | · | · | – – | – – | – – | – – | 17/33/50 (breaks 0%) tension | – – | – – | – – |
+| steep-ratio/steep | – – | – – | – – | – – | 0/57/43 (breaks 50%) tension | 0/68/32 (breaks 0%) tension | 0/0/100 (breaks 50%) neutral | 0/82/18 (breaks 68%) tension | · | · | 0/0/100 (breaks 0%) neutral | 0/0/100 (breaks 14%) neutral | 39/16/45 (breaks 0%) aligned | 9/61/30 (breaks 0%) tension | 0/0/100 (breaks 41%) neutral | 3/47/50 (breaks 6%) tension |
+| steep-ratio/ratio-gap | – – | – – | – – | 0/0/100 (breaks 57%) neutral | – – | – – | – – | 0/74/26 (breaks 72%) tension | · | · | 10/10/80 (breaks 0%) neutral | 12/6/82 (breaks 0%) neutral | 30/15/55 (breaks 0%) aligned | 0/43/57 (breaks 0%) tension | – – | 0/93/7 (breaks 83%) tension |
+| far-crossing/far-right | 0/77/23 (breaks 59%) tension | 47/12/41 (breaks 11%) aligned | 0/0/100 (breaks 16%) neutral | 0/73/27 (breaks 21%) tension | 42/8/50 (breaks 68%) aligned | 0/16/84 (breaks 69%) tension | 0/96/4 (breaks 31%) tension | – – | 0/0/100 (breaks 0%) neutral | 3/69/28 (breaks 0%) tension | · | · | 0/100/0 (breaks 5%) tension | 0/86/14 (breaks 12%) tension | 26/48/26 (breaks 52%) tension | – – |
+| far-crossing/crossing-share | 9/73/18 (breaks 48%) tension | 9/18/73 (breaks 15%) neutral | 0/0/100 (breaks 54%) neutral | 0/71/29 (breaks 30%) tension | 45/0/55 (breaks 66%) aligned | – – | 13/33/53 (breaks 17%) tension | 0/43/57 (breaks 71%) tension | 0/0/100 (breaks 9%) neutral | 8/81/12 (breaks 0%) tension | · | · | 0/22/78 (breaks 0%) tension | 0/88/13 (breaks 0%) tension | 43/57/0 (breaks 48%) mixed | 0/55/45 (breaks 19%) tension |
+| high-start/steep-and-high | 0/48/52 (breaks 40%) tension | 48/24/28 (breaks 32%) aligned | – – | – – | 0/93/7 (breaks 58%) tension | – – | – – | 11/39/50 (breaks 56%) tension | 50/0/50 (breaks 11%) aligned | 17/46/37 (breaks 13%) tension | 0/0/100 (breaks 50%) neutral | 0/38/63 (breaks 43%) tension | · | · | – – | – – |
+| high-start/start-factors | – – | – – | – – | – – | – – | – – | – – | – – | – – | 0/96/4 (breaks 16%) tension | – – | 0/0/100 (breaks 0%) neutral | · | · | – – | – – |
+| gap-match/small-gap-factors | – – | 41/0/59 (breaks 6%) aligned | – – | – – | – – | – – | – – | – – | – – | 0/94/6 (breaks 0%) tension | 40/7/53 (breaks 12%) aligned | – – | – – | – – | · | · |
+| gap-match/gap-divisor | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | – – | · | · |
+
+Ordered pairs (different families), by calls: aligned 9, tension 44, neutral 24, mixed 1, – 146.
+
+| Mutator | calls that raise i | aligned | tension | neutral | mixed | too few |
+|---|--:|--:|--:|--:|--:|--:|
+| line.gen.nudge | 319 | 1 | 0 | 1 | 0 | 222 |
+| line.mirror | 64 | 0 | 1 | 0 | 0 | 223 |
+| line.si.shift | 270 | 0 | 1 | 2 | 0 | 221 |
+| line.si.tilt | 159 | 0 | 1 | 1 | 0 | 222 |
+| line.slide | 202 | 0 | 1 | 0 | 0 | 223 |
+| line.stretch | 429 | 4 | 5 | 6 | 1 | 208 |
+| pair.combine | 29 | 0 | 0 | 0 | 0 | 224 |
+| pair.quarter | 54 | 0 | 0 | 1 | 0 | 223 |
+| pair.reflect | 3 | 0 | 0 | 0 | 0 | 224 |
+| pair.slideOn | 166 | 0 | 0 | 0 | 0 | 224 |
+| sys.mirror | 60 | 0 | 1 | 0 | 0 | 223 |
+| sys.translate | 154 | 0 | 0 | 0 | 0 | 224 |
+
+### The ongoing climb: mean change of j (bits) while i climbs on alone from the joint hill
+
+| i ↓ climbs, j → | whole-answer/answer-divisor | whole-answer/south-west | square-cross/divisor-factors | square-cross/divisor-meets-intercept | on-the-diagonal/north-east | on-the-diagonal/diagonal-gradient | whole-distance/distance-factors | whole-distance/distance-divisor | steep-ratio/steep | steep-ratio/ratio-gap | far-crossing/far-right | far-crossing/crossing-share | high-start/steep-and-high | high-start/start-factors | gap-match/small-gap-factors | gap-match/gap-divisor |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| whole-answer/answer-divisor | · | · | 0.0 | -0.4 | -1.7 | 0.0 | 0.2 | 2.1 | 0.2 | -1.4 | -0.6 | -0.6 | -2.4 | -0.9 | -0.6 | -0.4 |
+| whole-answer/south-west | · | · | 0.0 | 0.0 | -4.9 | -1.2 | 1.0 | -8.5 | -0.2 | -3.6 | -1.8 | -0.9 | 0.3 | -1.7 | -0.5 | -10.7 |
+| square-cross/divisor-factors | 0.0 | -0.8 | · | · | -1.8 | 0.5 | 0.2 | 0.0 | 0.1 | -1.0 | -0.1 | 0.0 | 0.1 | -1.7 | -0.5 | -3.0 |
+| square-cross/divisor-meets-intercept | -3.8 | -1.1 | · | · | 0.0 | 0.0 | -0.2 | · | 0.2 | -3.1 | -1.3 | -2.6 | -1.4 | 0.2 | -0.3 | 0.9 |
+| on-the-diagonal/north-east | -1.3 | -0.9 | 0.0 | 0.0 | · | · | · | · | 0.0 | 0.9 | -1.3 | -0.6 | 0.0 | -1.4 | -0.2 | 0.0 |
+| on-the-diagonal/diagonal-gradient | 0.0 | 0.0 | 0.0 | 0.0 | · | · | · | · | 0.0 | 1.0 | -0.7 | -0.6 | 0.0 | -2.4 | 0.0 | 0.0 |
+| whole-distance/distance-factors | -8.7 | 0.6 | 0.0 | -0.2 | · | · | · | · | 0.0 | 0.0 | 0.4 | -0.4 | -2.3 | -6.6 | 0.0 | · |
+| whole-distance/distance-divisor | 0.8 | -0.3 | 0.0 | · | · | · | · | · | 0.0 | -0.3 | 0.2 | 0.3 | -3.1 | -0.2 | · | · |
+| steep-ratio/steep | -5.9 | -0.8 | -0.2 | -0.3 | -1.2 | -3.7 | 0.0 | -1.8 | · | · | 0.0 | 0.0 | 6.2 | -0.6 | -0.5 | -3.7 |
+| steep-ratio/ratio-gap | -5.0 | 0.3 | 0.2 | 0.0 | -0.9 | -2.7 | -0.2 | -1.4 | · | · | -0.4 | 0.0 | 4.3 | -3.4 | 0.1 | -3.8 |
+| far-crossing/far-right | -6.9 | -1.2 | -0.1 | -1.7 | -2.0 | -1.2 | -0.3 | -3.5 | 0.0 | -1.4 | · | · | -9.0 | -8.1 | 0.2 | -0.5 |
+| far-crossing/crossing-share | -5.4 | -1.4 | 0.0 | -0.5 | -0.8 | 1.2 | 0.6 | -1.1 | 0.1 | -3.3 | · | · | -3.6 | -5.7 | 0.6 | 0.0 |
+| high-start/steep-and-high | -5.7 | -0.3 | 0.0 | 0.1 | -4.2 | 0.0 | 0.8 | -0.2 | 2.6 | 0.9 | 0.0 | -0.7 | · | · | 0.1 | 0.0 |
+| high-start/start-factors | -1.4 | 0.1 | 0.0 | 0.3 | -0.1 | 0.0 | -0.0 | -3.4 | 0.4 | -5.5 | -0.0 | -0.0 | · | · | 0.4 | 0.5 |
+| gap-match/small-gap-factors | -1.2 | -0.6 | -0.1 | -1.2 | 0.7 | -3.7 | 0.9 | · | -0.1 | -1.7 | -1.9 | 0.0 | -0.8 | 0.7 | · | · |
+| gap-match/gap-divisor | -4.4 | 1.1 | 0.0 | 0.0 | 1.8 | 0.0 | · | · | 0.1 | 0.0 | 0.3 | 0.2 | -0.7 | 0.0 | · | · |
+
+Ordered pairs by the climb: adversary 64, ally 7, neutral 137.
+
+| Hill | sense | adversaries (Δ bits while it climbs) | allies |
+|---|---|---|---|
+| whole-answer/answer-divisor | big | high-start/steep-and-high (-2.4), on-the-diagonal/north-east (-1.7), steep-ratio/ratio-gap (-1.4) | whole-distance/distance-divisor (+2.1) |
+| whole-answer/south-west | small | gap-match/gap-divisor (-10.7), whole-distance/distance-divisor (-8.5), on-the-diagonal/north-east (-4.9), steep-ratio/ratio-gap (-3.6), far-crossing/far-right (-1.8), high-start/start-factors (-1.7), on-the-diagonal/diagonal-gradient (-1.2) | none |
+| square-cross/divisor-factors | smooth | gap-match/gap-divisor (-3.0), on-the-diagonal/north-east (-1.8), high-start/start-factors (-1.7), steep-ratio/ratio-gap (-1.0) | none |
+| square-cross/divisor-meets-intercept | big | whole-answer/answer-divisor (-3.8), steep-ratio/ratio-gap (-3.1), far-crossing/crossing-share (-2.6), high-start/steep-and-high (-1.4), far-crossing/far-right (-1.3), whole-answer/south-west (-1.1) | none |
+| on-the-diagonal/north-east | big | high-start/start-factors (-1.4), far-crossing/far-right (-1.3), whole-answer/answer-divisor (-1.3) | none |
+| on-the-diagonal/diagonal-gradient | big | high-start/start-factors (-2.4) | none |
+| whole-distance/distance-factors | smooth | whole-answer/answer-divisor (-8.7), high-start/start-factors (-6.6), high-start/steep-and-high (-2.3) | none |
+| whole-distance/distance-divisor | big | high-start/steep-and-high (-3.1) | none |
+| steep-ratio/steep | big | whole-answer/answer-divisor (-5.9), on-the-diagonal/diagonal-gradient (-3.7), gap-match/gap-divisor (-3.7), whole-distance/distance-divisor (-1.8), on-the-diagonal/north-east (-1.2) | high-start/steep-and-high (+6.2) |
+| steep-ratio/ratio-gap | big | whole-answer/answer-divisor (-5.0), gap-match/gap-divisor (-3.8), high-start/start-factors (-3.4), on-the-diagonal/diagonal-gradient (-2.7), whole-distance/distance-divisor (-1.4) | high-start/steep-and-high (+4.3) |
+| far-crossing/far-right | big | high-start/steep-and-high (-9.0), high-start/start-factors (-8.1), whole-answer/answer-divisor (-6.9), whole-distance/distance-divisor (-3.5), on-the-diagonal/north-east (-2.0), square-cross/divisor-meets-intercept (-1.7), steep-ratio/ratio-gap (-1.4), on-the-diagonal/diagonal-gradient (-1.2), whole-answer/south-west (-1.2) | none |
+| far-crossing/crossing-share | big | high-start/start-factors (-5.7), whole-answer/answer-divisor (-5.4), high-start/steep-and-high (-3.6), steep-ratio/ratio-gap (-3.3), whole-answer/south-west (-1.4), whole-distance/distance-divisor (-1.1) | on-the-diagonal/diagonal-gradient (+1.2) |
+| high-start/steep-and-high | big | whole-answer/answer-divisor (-5.7), on-the-diagonal/north-east (-4.2) | steep-ratio/steep (+2.6) |
+| high-start/start-factors | smooth | steep-ratio/ratio-gap (-5.5), whole-distance/distance-divisor (-3.4), whole-answer/answer-divisor (-1.4) | none |
+| gap-match/small-gap-factors | smooth | on-the-diagonal/diagonal-gradient (-3.7), far-crossing/far-right (-1.9), steep-ratio/ratio-gap (-1.7), whole-answer/answer-divisor (-1.2), square-cross/divisor-meets-intercept (-1.2) | none |
+| gap-match/gap-divisor | big | whole-answer/answer-divisor (-4.4) | on-the-diagonal/north-east (+1.8), whole-answer/south-west (+1.1) |
+
 ## Attacks: one-sentence families against each rule
 
 Each attack is a closed-form family of systems; the table gives each rule's bits on the attack's members at
