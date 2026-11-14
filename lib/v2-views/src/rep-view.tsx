@@ -6,6 +6,7 @@
 import type { ReactElement } from "react";
 import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
 import { marksForRep, meaningKey, projectRef } from "./refs.ts";
+import { typesetNote } from "./format.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
 import { isSingleLine } from "./render/equation.tsx";
@@ -53,6 +54,10 @@ export interface RepViewProps<S> {
   readonly roles?: readonly { readonly ref: ElementRef; readonly role: "main" | "tb" }[];
 }
 
+/** The marks with their notes' fractions typeset, once, so every view and its bookkeeping read the same text. */
+const typesetMarks = (marks: readonly Mark[]): readonly Mark[] =>
+  marks.some(m => m.kind === "note" && /\d\/\d/.test(m.text)) ? marks.map(m => (m.kind === "note" ? { ...m, text: typesetNote(m.text) } : m)) : marks;
+
 export function RepView<S>(props: RepViewProps<S>): ReactElement {
   const { type, state, rep: repId, size } = props;
   const site = props.site ?? 0;
@@ -78,7 +83,7 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
       {renderer.render({
         rep: repId, scene, values, size,
         // A plane also draws the marks of other representations that project onto it by meaning.
-        marks: rep.scene === "plane" ? (props.marks ?? []) : marksForRep(repId, props.marks ?? []),
+        marks: typesetMarks(rep.scene === "plane" ? (props.marks ?? []) : marksForRep(repId, props.marks ?? [])),
         project: (r, reps) => projectRef(type, r, reps),
         terms: new Map((props.terms ?? []).map(t => [t.id, t])),
         before: props.before === undefined ? undefined : valuesOf(type, props.before, site),

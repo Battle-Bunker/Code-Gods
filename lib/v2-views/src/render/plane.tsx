@@ -12,7 +12,7 @@
  */
 import type { ReactElement } from "react";
 import { Qn, type ElementRef, type ElementValue, type Mark, type Q, type SceneData } from "@workspace/v2-core";
-import { fmtQ, fmtValue, fmtNum } from "../format.ts";
+import { fmtQ, fmtValue, fmtNum, readable } from "../format.ts";
 import { markRefs } from "../refs.ts";
 import type { RenderProps, SceneRenderer } from "../scene.ts";
 import { clipLine, fitViewport, type Viewport, type XY } from "../plot/viewport.ts";
@@ -139,12 +139,6 @@ const pointOf = (v: ElementValue): XY | null => (v.kind === "point" ? { x: N(v.x
 const short = (p: Pick<P, "labelOf">, r: ElementRef) => p.labelOf(r).replace(/\s*\(.*\)/, "");
 
 /** A number as a child reads it: exact when its bottom number is small, else "≈ 6.00". */
-export const readable = (q: Q): string => {
-  if (q.d > 16n) return `≈ ${fmtNum(N(q))}`;
-  const t = fmtQ(q);
-  // Whole numbers from 10,000 up are grouped ("27,720").
-  return q.d === 1n && (q.n >= 10000n || q.n <= -10000n) ? t.replace(/\d+/, d => Number(d).toLocaleString("en-US")) : t;
-};
 const readablePoint = (v: ElementValue): string => (v.kind === "point" ? `(${readable(v.x)}, ${readable(v.y)})` : fmtValue(v));
 
 /** "3 · 1 below" / "3 · exactly": a candidate's coordinate and how far the rule's quantity is from it. */
@@ -386,7 +380,8 @@ function Scene({ p }: { p: P }) {
   }
   if (L.region) {
     placed.add(key(L.region.ref));
-    const val = fmtValue(p.values(L.region.ref));
+    const regionValue = p.values(L.region.ref);
+    const val = regionValue.kind === "number" ? readable(regionValue.q) : fmtValue(regionValue);
     if (!L.region.thin) {
       back.push(<polygon key="region" className="region" points={L.region.pts.map(x => `${x.x},${x.y}`).join(" ")} {...elAttrs(q, L.region.ref)} {...hover(q, L.region.ref)}><title>{`${p.labelOf(L.region.ref)}: ${val}`}</title></polygon>);
       // The legs the area is made of, along the axes.

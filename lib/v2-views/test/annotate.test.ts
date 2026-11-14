@@ -15,7 +15,19 @@ test("format: true minus, vulgar fractions, mixed numbers", () => {
   assert.equal(fmtQ(q(1, 3)), "⅓");
   assert.equal(fmtQ(q(10, 3)), "3⅓");
   assert.equal(fmtQ(q(-7, 4)), "−1¾");
-  assert.equal(fmtQ(q(22, 7)), "22/7");
+  // Any other fraction is typeset the same way: a mixed number with a small raised numerator over a lowered denominator.
+  assert.equal(fmtQ(q(22, 7)), "3¹⁄₇");
+  assert.equal(fmtQ(q(8, 11)), "⁸⁄₁₁");
+  assert.equal(fmtQ(q(-407, 12)), "−33¹¹⁄₁₂");
+  assert.doesNotMatch(fmtQ(q(21, 11)), /\//, "never a slash a reader could misread as division");
+});
+
+test("readable: exact fractions up to a denominator of 100, an approximate decimal beyond", async () => {
+  const { readable } = await import("../src/format.ts");
+  assert.equal(readable(q(147, 64)), "2¹⁹⁄₆₄");
+  assert.equal(readable(q(1, 3)), "⅓");
+  assert.equal(readable(q(1000, 101)), "≈ 9.90");
+  assert.equal(readable(q(27720)), "27,720");
 });
 
 test("Prime Gradient: main part and tie-breaker, their values the scored terms, the reference and the distance", () => {

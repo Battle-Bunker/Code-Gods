@@ -1,7 +1,8 @@
 /**
  * Numbers and element values as people read them: a true minus sign, vulgar fractions for the small denominators a
- * 12-year-old knows (½, ⅓, ¾ …), mixed numbers above one ("3⅓"), and "p/q" for everything else. Display only: scores and
- * prices are never computed from these strings.
+ * 12-year-old knows (½, ⅓, ¾ …), mixed numbers above one ("3⅓"), and every other fraction typeset the same way, a small
+ * raised numerator over a lowered denominator ("3¹⁄₇", "⁸⁄₁₁"): never "8/11", which "8/11x" would read as division.
+ * Display only: scores and prices are never computed from these strings.
  */
 import { Qn, type ElementValue, type Q, type Undef } from "@workspace/v2-core";
 
@@ -12,15 +13,46 @@ const GLYPHS: Readonly<Record<string, string>> = {
   "1/6": "⅙", "5/6": "⅚", "1/8": "⅛", "3/8": "⅜", "5/8": "⅝", "7/8": "⅞",
 };
 
-/** "3", "−2", "½", "3⅓", "−1¾", "7/11", "−22/7". */
+const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹", SUB = "₀₁₂₃₄₅₆₇₈₉";
+const raised = (n: bigint) => [...n.toString()].map(d => SUP[Number(d)]).join("");
+const lowered = (n: bigint) => [...n.toString()].map(d => SUB[Number(d)]).join("");
+
+/** "3", "−2", "½", "3⅓", "−1¾", "⁷⁄₁₁", "−3¹⁄₇". */
 export function fmtQ(x: Q): string {
   const sign = x.n < 0n ? MINUS : "";
   const n = x.n < 0n ? -x.n : x.n;
   if (x.d === 1n) return sign + n.toString();
   const whole = n / x.d, rest = n % x.d;
-  const glyph = GLYPHS[`${rest}/${x.d}`];
-  if (glyph) return sign + (whole > 0n ? whole.toString() : "") + glyph;
-  return `${sign}${n}/${x.d}`;
+  const w = whole > 0n ? whole.toString() : "";
+  return sign + w + (GLYPHS[`${rest}/${x.d}`] ?? `${raised(rest)}⁄${lowered(x.d)}`);
+}
+
+/** The largest denominator written as an exact fraction; beyond it a number is written "≈ 2.37". */
+const EXACT_DENOMINATOR = 100n;
+
+/**
+ * A number on a ruler, a plot or a part: exact while its denominator is at most 100 ("2¹⁹⁄₆₄", "⅓"), else approximate
+ * ("≈ 9.90"); whole numbers from 10,000 up grouped ("27,720").
+ */
+export function readable(q: Q): string {
+  if (q.d > EXACT_DENOMINATOR) return `≈ ${fmtNum(Number(q.n) / Number(q.d))}`;
+  const t = fmtQ(q);
+  return q.d === 1n && (q.n >= 10000n || q.n <= -10000n) ? t.replace(/\d+/, d => Number(d).toLocaleString("en-US")) : t;
+}
+
+/**
+ * A sentence's plain numbers typeset ("multiply every output by 1/2", "move by -3" → "… by ½", "… by −3"): a mutator's
+ * own description, for the moves list and the act log alike.
+ */
+export function typesetNumbers(text: string): string {
+  return text
+    .replace(/(^|[\s(,])(-?)(\d+)\/(\d+)/g, (_m, pre: string, sign: string, n: string, d: string) => pre + fmtQ(Qn.parse(`${sign}${n}/${d}`)))
+    .replace(/(^|[\s(,])-(?=\d)/g, `$1${MINUS}`);
+}
+
+/** A rule's own note ("distance² 784/225, nearest square 4") with its fractions written as every other number is. */
+export function typesetNote(text: string): string {
+  return text.replace(/(^|[^\d⁄])(-?\d+)\/(\d+)/g, (_m, pre: string, n: string, d: string) => pre + readable(Qn.parse(`${n}/${d}`)));
 }
 
 /** A number written after an operator: "+ 3", "− ½" (the sign becomes the operator). */

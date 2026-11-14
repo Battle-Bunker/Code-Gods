@@ -13,7 +13,7 @@ import {
   elementDecl, elementValue, evaluateObject, Qn, q, refKey, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
-import { fmtQ, isUndef } from "./format.ts";
+import { fmtQ, isUndef, readable, typesetNote } from "./format.ts";
 
 export type Role = "main" | "tb";
 
@@ -72,14 +72,8 @@ const N = (x: Q) => Number(x.n) / Number(x.d);
 /** A sentence's first letter capitalised, unless it is a mathematical letter ("y-intercept", "x(4)", "m = 3"). */
 const cap = (s: string) => (!s || /^[a-z](?![a-z])/.test(s) ? s : s[0]!.toUpperCase() + s.slice(1));
 
-/** A number as a child reads it: exact with a small bottom number, else "≈ 6.00"; whole numbers from 10,000 grouped. */
-export function readable(x: Q): string {
-  if (x.d > 16n) return `≈ ${(Math.round(N(x) * 100) / 100).toFixed(2).replace("-", "−")}`;
-  const t = fmtQ(x);
-  return x.d === 1n && (x.n >= 10000n || x.n <= -10000n) ? t.replace(/\d+/, d => Number(d).toLocaleString("en-US")) : t;
-}
 const readableN = (v: number) => {
-  for (let d = 1; d <= 16; d++) { const n = Math.round(v * d); if (Math.abs(n - v * d) < 1e-9) return readable(q(n, d)); }
+  for (let d = 1; d <= 100; d++) { const n = Math.round(v * d); if (Math.abs(n - v * d) < 1e-9) return readable(q(n, d)); }
   return `≈ ${(Math.round(v * 100) / 100).toFixed(2).replace("-", "−")}`;
 };
 
@@ -217,7 +211,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     ? from.flatMap(r => {
       const k = refKey({ ...r, site: undefined });
       const note = e.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && refKey({ ...m.ref, site: undefined }) === k);
-      if (note) return [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: note.text }];
+      if (note) return [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: typesetNote(note.text) }];
       // A unit at its target carries the rule's focus mark instead of a note.
       const onTarget = e.marks.some(m => m.kind === "focus" && refKey({ ...m.ref, site: undefined }) === k);
       return onTarget ? [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: "on target" }] : [];
@@ -277,6 +271,14 @@ export function changesBetween(was: readonly Contributor[], now: readonly Contri
     if (!q) return;
     const a = p.source.find(s => s.value), b = q.source.find(s => s.value && s.label === a?.label);
     const short = p.title.replace(/^(the|that) /, "");
+    // A quantity that does not exist on one side (a vertical line has no y-intercept) is "none" there: the reason
+    // sentence belongs on the part's own card, not inside a change.
+    const was = isUndef(p.value), is = isUndef(q.value);
+    if (was || is) {
+      const at = (c: Contributor) => (isUndef(c.value) ? "none" : c.sense === "min" ? c.distance?.replace(/^off by /, "") ?? c.valueText : c.valueText);
+      if (!(was && is)) out.push(`${short}: ${at(p)} → ${at(q)}`);
+      return;
+    }
     // A part that adds up several units (a grid's rows) changes as a whole: "every row adds up to 18: off by 32 → 30".
     if (p.sense === "min" && (p.units.length > 0 || !p.reference)) {
       if (p.valueText !== q.valueText) out.push(`${short}: ${p.distance ?? p.valueText} → ${q.distance?.replace(/^off by /, "") ?? q.valueText}`);

@@ -86,6 +86,10 @@ test("the calls in words, from the line's own mutators", () => {
   assert.equal(callWords([{ mutator: "si.shift", site: 0, args: { k: "-1" } }, { mutator: "si.shift", site: 0, args: { k: "2" } }], z), "move the line down 1, then move the line up 2");
   assert.equal(callWords([{ mutator: "si.shift", site: 0, args: { k: "1/2" } }], z), "move the line up or down", "arguments outside the variant: the mutator's title");
   assert.equal(callWords([{ mutator: "no.such", site: 0, args: {} }], z), null);
+  // On the rationals, fractions are typeset as on every other screen ("½", "⁵⁄₁₂"), never "1/2".
+  const rq = lineType.variants.find(v => v.id === "line-q")!;
+  assert.equal(callWords([{ mutator: "mach.stretch", site: 0, args: { f: "1/2" } }], rq), "multiply every output by ½");
+  assert.doesNotMatch(callWords([{ mutator: "cart.pivot", site: 0, args: { x0: "5/12", k: "-1" } }], rq)!, /\d\/\d/);
 });
 
 test("no sentence uses the words walkers did not understand", () => {
