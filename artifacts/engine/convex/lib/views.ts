@@ -1,22 +1,22 @@
 /**
  * The per-god object read model's numbers (docs/convex-read-architecture.md §4.1, §4.3): pure, so the tick action, the
  * read-model sync, the start, the end and the backfill compute them exactly as the observation does (lib/projection.ts
- * personalObject). Live, the others' sum carries each value's disclosure noise (settings.peerNoiseBits); ended, exact.
+ * personalObject).
  */
 import { applyHandicap, viewOf } from "./world.ts";
 
 type Score = { god: string; ordinal: number | number[]; rewardBits: number; netBits: number; penaltyBits?: number };
-/** What a row is computed from: an object's scores (every roster god's) and its value's disclosure noise. */
-export type Scored = { scores: readonly Score[]; noise?: number };
+/** What a row is computed from: an object's scores (every roster god's). */
+export type Scored = { scores: readonly Score[] };
 /** The objects panel's filters: contested (yours > 0 and the others care: exactly payoff > 0) and chips (they care, yours ≤ 0). */
 export type Quadrant = "contested" | "chips" | "other";
 export const quadrantOf = (own: number, care: number): Quadrant => (care > 0 ? (own > 0 ? "contested" : "chips") : "other");
 
 /** God `godId`'s numbers on one object as disclosed (null when the god holds no score on it). */
-export function viewRowOf(o: Scored, godId: string, live: boolean) {
+export function viewRowOf(o: Scored, godId: string) {
   const own = o.scores.find(s => s.god === godId);
   if (!own) return null;
-  const view = viewOf(o.scores, godId, live ? o.noise ?? 0 : 0);
+  const view = viewOf(o.scores, godId);
   return {
     ordinal: own.ordinal, rewardBits: own.rewardBits, ...(own.penaltyBits !== undefined ? { penaltyBits: own.penaltyBits } : {}), netBits: own.netBits,
     peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff,
@@ -35,11 +35,11 @@ export type GodTotals = {
 };
 
 /** Every roster god's totals over these objects. */
-export function godTotalsOf(roster: readonly string[], objects: readonly Scored[], live: boolean, handicaps?: readonly number[]): GodTotals[] {
+export function godTotalsOf(roster: readonly string[], objects: readonly Scored[], handicaps?: readonly number[]): GodTotals[] {
   return roster.map((godId, index) => {
     const t: GodTotals = { godId, objectCount: 0, score: 0, sumOwnNetBits: 0, sumPeerNetBits: 0, contested: 0, chips: 0, maxOwn: 0, maxCare: 0, maxPayoff: 0, minPayoff: 0 };
     for (const o of objects) {
-      const r = viewRowOf(o, godId, live);
+      const r = viewRowOf(o, godId);
       if (!r) continue;
       t.objectCount++; t.score += r.payoff; t.sumOwnNetBits += r.netBits; t.sumPeerNetBits += r.peerNetBits;
       t.maxOwn = Math.max(t.maxOwn, Math.abs(r.netBits)); t.maxCare = Math.max(t.maxCare, r.peerCare);

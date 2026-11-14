@@ -100,8 +100,8 @@ test("an OpenAI seat whose reply is JSON but no decision says so and keeps the r
 
 test("an idle engine makes an AI seat wait, never end its chain (a human may return before the park)", { timeout: 240000 }, async () => {
   const { host, roomId, godId, game } = await aiRoom(300_000);
-  const { members } = await admin.query(internal.testing.rawRoom, { roomId });
-  const chain = members.find((m: any) => m.godId === godId).aiChain;
+  // The seat's chain starts off the start's transaction (ai.seats.startAll): wait for its generation.
+  const chain = await waitFor(async () => (await admin.query(internal.testing.rawRoom, { roomId })).members.find((m: any) => m.godId === godId).aiChain, "the seat's turn chain started", 60_000, 200);
   // Planning an hour long: no tick runs to park the game before this read.
   await admin.mutation(internal.testing.setActivity, { at: Date.now() - 31 * 60 * 1000 });
   try {

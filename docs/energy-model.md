@@ -742,58 +742,11 @@ reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). 
 boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
 fail once on an object before being kept off it, and pay their reads). Debt is bounded by power and moves with it (§7.2).
 
-## 8. Hold rarity (PR 5)
+## 8. Hold rarity (deleted)
 
-- Payoff bits = −log2 P(U(x) ≥ u ∧ U(x′) ≥ u) = static(u) + hold(u, m). Here x ~ prior, and x′ is x after m = (number
-  of other players) random mutations. One player gives m = 0: static rarity, no correction.
-- **The noise** (`lib/game-types/src/noise.ts`, `NOISE_VERSION`): one mutation is drawn with probability ∝ 2^−C over
-  the type's single calls, C the change cost of §4. Only the elementary mutators, and every Int multiplier up to 1024,
-  are enumerated. A composite call costs far more (a two-cell call 29.7 bits against one cell's 11.5: 2^−18 per call), so
-  its mass is negligible. A mutation that cannot apply leaves the value as it is.
-- **The estimator** (`lib/game-utilities/scripts/hold.ts`, `hold-ams` v1): adaptive multilevel splitting over U with
-  the calibration kernel. After each stage the particles are draws from μ | U ≥ ℓ, and the share whose m-mutation noise
-  still scores ≥ ℓ is P(hold | ≥ ℓ) at that level (floored at 1/(2N)). A hold table is [level, hold bits] for one draw
-  and one m. The lookup interpolates between levels, is 0 below the lowest and flat above the top.
-- **Where tables come from** (owner, 5 Nov: option A): on demand. They are computed during planning, alongside the
-  sandbox warm-up, for the dealt families at the game's m, and cached by (static table key, m, NOISE_VERSION). Planning
-  waits for them as it waits for sandboxes, and a post-deploy job warms the Annotated basics families on the default
-  shape for m = 1..3. The shipped static tables are untouched.
-- **In the engine** (PR 5b). A game with more than one player needs its corrections (rooms start with at least three
-  players today, so in practice m ≥ 2; the engine and the warm-up also cover m = 1).
-  - The start (`game/lobby.ts commitStart`) sets `games.holdState = "computing"` and schedules `engine/hold.ts start`.
-    It looks up each god's table in `holdTables` (key = sha256(static table key, `holdKeyPart(m)`)) and fans out one
-    action per missing one; each stores its table and, the last, schedules `finish`.
-  - `finish` adds the tables to the game's pinned file (`engine/pinned.ts`, per god `hold`), re-scores the starting
-    objects with it, and `holdData.apply` writes the objects, the per-object history rows (same version: the state
-    index) and one `rescore` event per object (log schema 7; projected as `object.rescored`). `holdState` is then
-    `ready`; on any error `failed` (`holdError`), and the game scores on static rarity.
-  - The tick (`engine/tick.ts`) holds planning while `holdState` is `computing`, as for a warming sandbox, and world time
-    starts no earlier than `holdReadyAt`. Actions run at most once, so a computation that died silently would hold
-    planning for ever: ten minutes after the start the tick marks it `failed`. The observation's `holdRarity` is the
-    readiness item the header shows.
-  - `apply` also republishes the totals and the scoreboard (and so the standings) from the re-scored objects. The
-    replaced pinned file is deleted ten minutes later, for readers that loaded the game before the swap.
-  - The client scores the same way: the seat's calibration download (`calibration/mine.ts`) carries the `hold` table once
-    it is in (not cached while it is computing), and the SDK evaluator and the score workings add `holdBits` (the
-    lookup lives in `game-utilities/src/hold.ts`).
-  - Scoring (`engine/node.ts score`) adds `holdBits(table, ordinal)` to the reward's surprisal.
-  - The deploy workflow runs `engine/holdData:scheduleWarm` (one scheduled action per table, two seconds apart; about
-    264 tables of about 2 s each for the default board).
-- **The check** (`scripts/hold-check.ts`; a check, not a gate). On 4×4 base10 rgb, with 120 particles, at matched static
-  rarity:
-
-  | Family | static | hold, n = 2 | n = 3 | n = 4 | geometric average over m (q = 1/n), n = 2 / 3 / 4 |
-  |---|---|---|---|---|---|
-  | Line Painter (one colour's lines) | ≈ 16 bits | 1.4 | 2.4 | 2.8 | 0.7 / 1.1 / 1.4 |
-  | Chessmaster (2×2 chessboards, a lattice) | ≈ 16.5 bits | 2.4 | 3.3 | 5.6 | 0.8 / 1.3 / 1.7 |
-  | Head Count (more of yours than the enemy's) | ≈ 15.5–18 bits | 2.7 | 2.7 | 4.1 | 0.9 / 1.3 / 1.6 |
-
-  - The lattice gets about one more bit than the line at the same static rarity, which is the brittleness the owner
-    saw in play-tests.
-  - The geometric average is about half the m = n − 1 figure, because it gives the owner's own turns (m = 0, sure to
-    hold) probability q. That is expected; the owner decided on m = n − 1.
-  - The small contest simulation (40 events, owner's best single edit with probability 1/n, else one noise mutation) is
-    too noisy at this size to rank the rules, but it shows the same order on average.
+Hold rarity (a correction to rarity for how rarely an object survives the other players' random mutations, computed
+during planning) was deleted from `develop` in engine v2's deletion D1; rarity is the calibration table's surprisal
+alone. The design and code are on `archive/engine-v1`.
 
 ## 9. Stored data (widen → migrate → narrow)
 

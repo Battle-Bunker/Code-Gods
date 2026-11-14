@@ -4,8 +4,7 @@
  * (`Authorization: Bearer`, the token the app's Convex client holds). The caller's own tables in a game they may read;
  * another god's only once the game ended, for a caller its replay admits (they name that god's goal, which the replay
  * reveals and a live game hides). The game and the god are in the path, so the answer for a path never changes (a
- * seat's draws are fixed) once its hold correction is in (`hold`, docs/energy-model.md §8; not cached while it is
- * computing): `Cache-Control: private, immutable`, cached by the browser per path, never by a shared cache. The app
+ * seat's draws are fixed): `Cache-Control: private, immutable`, cached by the browser per path, never by a shared cache. The app
  * finds the path in player.myUtility (live, or as a replay answers it), which it subscribes to.
  */
 import { v } from "convex/values";
@@ -35,9 +34,7 @@ export const seat = internalQuery({
     const deity = await deityOf(ctx, game._id, godId);
     if (!deity) return fail("NOT_FOUND", godId === viewer.subject ? "You have no seat in this game" : "No such player in this game");
     const u = deity.utility as { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } };
-    // Hold rarity (docs/energy-model.md §8): the reward's correction at this game's m, once computed.
-    const hold = game.holdState === "ready" ? { m: game.roster.length - 1 } : game.holdState === "computing" ? { pending: true } : undefined;
-    return { settings: game.settings, draws: [{ familyId: u.familyId, params: u.params }, ...(u.penalty ? [{ familyId: u.penalty.familyId, params: u.penalty.params }] : [])], ...(hold ? { hold } : {}) };
+    return { settings: game.settings, draws: [{ familyId: u.familyId, params: u.params }, ...(u.penalty ? [{ familyId: u.penalty.familyId, params: u.penalty.params }] : [])] };
   },
 });
 
@@ -51,11 +48,7 @@ export const download = httpAction(async (ctx, request) => {
   try {
     const seat = await ctx.runQuery(internal.calibration.mine.seat, { roomId, gameId, godId });
     const [reward, penalty] = JSON.parse(await ctx.runAction(internal.calibration.node.tablesOf, { settings: seat.settings, draws: seat.draws })) as unknown[];
-    const m = seat.hold && "m" in seat.hold ? seat.hold.m : undefined;
-    const hold = m === undefined ? null : await ctx.runAction(internal.engine.hold.cachedFor, { settings: seat.settings, draw: seat.draws[0] as { familyId: string; params: unknown }, m });
-    // While the correction is computing the answer will change: not cached until it is in.
-    const cache = seat.hold && "pending" in seat.hold ? "private, no-store" : "private, max-age=31536000, immutable";
-    return json({ reward, ...(penalty ? { penalty } : {}), ...(hold ? { hold } : {}) }, 200, { ...BEARER_CORS, "Cache-Control": cache });
+    return json({ reward, ...(penalty ? { penalty } : {}) }, 200, { ...BEARER_CORS, "Cache-Control": "private, max-age=31536000, immutable" });
   } catch (error) {
     const refused = refusal(error);
     if (refused) return reply(refused.body, refused.status);

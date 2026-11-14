@@ -6,7 +6,7 @@
  * file storage or prepare them on demand (engine/calibration.ts resolveTables) and pass them in, `InstanceTables` for
  * scoring; dealing needs none (every available family is dealable, its tables are prepared after the deal).
  */
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   DEFAULT_SETTINGS, SETTINGS_FIELDS, allowedLanguages, SettingsChangeError, applySettingsChange, canonicalCostModel, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
@@ -17,7 +17,6 @@ import {
   coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
   type UtilityDescriptor, dealWithBids, type Bid,
 } from "@workspace/game-utilities";
-import { holdBits, type HoldTable } from "@workspace/game-utilities/hold";
 import { fail } from "../lib/errors";
 import { settingsDomain } from "./settingsDomain";
 
@@ -69,23 +68,6 @@ export const cryptoRng: Rng = {
 export const uniform01 = () => cryptoRng.int(2 ** 48) / 2 ** 48;
 /** Uniform in (0, 1). */
 export const openUniform = () => (randomBytes(6).readUIntBE(0, 6) + 0.5) / 281474976710656;
-/** A fresh per-game key for the disclosure noise (PRIVATE: games.noiseKey, never projected). */
-export const newNoiseKey = () => randomBytes(32).toString("hex");
-/**
- * The live disclosure noise on the others' sums at one object VALUE (settings.peerNoiseBits, Gaussian σ in bits;
- * docs/public-log-design.md §5.2): a keyed function of (the game's private key, the value), so a value that recurs
- * (A → B → A, or a later spawn) shows the same noise every time and repeated observations cannot average it away.
- * Stored with each object version as it is written. 0 when off.
- */
-export function disclosureNoise(settings: Pick<GameSettings, "peerNoiseBits">, noiseKey: string | undefined, value: ObjectValue): number {
-  const sigma = settings.peerNoiseBits ?? 0;
-  if (!(sigma > 0) || !noiseKey) return 0;
-  const digest = createHmac("sha256", noiseKey).update(JSON.stringify(value)).digest();
-  // Two 48-bit uniforms in (0, 1), Box–Muller.
-  const u1 = (digest.readUIntBE(0, 6) + 0.5) / 281474976710656, u2 = (digest.readUIntBE(6, 6) + 0.5) / 281474976710656;
-  return sigma * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-}
-
 // ------------------------------------------------------------------------------------------------
 // scoring and dealing (calibration tables)
 // ------------------------------------------------------------------------------------------------
@@ -121,8 +103,7 @@ function table(tables: InstanceTables, draw: { familyId: string; params: Utility
 export interface PinnedTables {
   readonly pinned: true;
   readonly instance: string;
-  /** `hold`: the reward's hold correction at this game's m (docs/energy-model.md §8); absent for one player or until computed. */
-  readonly byGod: ReadonlyMap<string, { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable; readonly hold?: HoldTable }>;
+  readonly byGod: ReadonlyMap<string, { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable }>;
 }
 export type ScoringTables = InstanceTables | PinnedTables;
 const isPinned = (t: ScoringTables): t is PinnedTables => (t as PinnedTables).pinned === true;
@@ -152,8 +133,7 @@ export function score(tables: ScoringTables, settings: GameSettings, descriptor:
   const inst = instantiationOf(settings);
   const t = godTables(tables, settings, descriptor, godId);
   const ordinal = evaluator(descriptor, inst)(value);
-  // Hold rarity (docs/energy-model.md §8): static rarity plus the hold correction of the game's player count.
-  const rewardBits = bits(surprisal(t.reward, ordinal) + holdBits((t as { hold?: HoldTable }).hold, ordinal));
+  const rewardBits = bits(surprisal(t.reward, ordinal));
   if (!descriptor.penalty) return { ordinal, rewardBits, netBits: bits(netBits({ rewardBits }, settings.penaltyWeight)) };
   const penaltyTable = t.penalty!;
   const penaltyOrdinal = evaluator(descriptor.penalty, inst)(value);

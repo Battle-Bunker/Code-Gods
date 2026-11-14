@@ -11,8 +11,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  COLOUR_COMPONENTS, COST_MODELS, GRID, NOISE_VERSION, SYMBOL_COMPONENTS, changeCost, effectWork, generatorOf,
-  gridCostTable, gridElementaryCosts, gridFamilies, kraftRate, layerSize, noise, noiseStep, noiseVersion, seededRng,
+  COLOUR_COMPONENTS, COST_MODELS, GRID, SYMBOL_COMPONENTS, changeCost, effectWork, generatorOf,
+  gridCostTable, gridElementaryCosts, gridFamilies, kraftRate, layerSize, seededRng,
   sha256, siteWork,
   type CostModel, type Generator, type GridValue, type Instantiation, type TypeArgs,
 } from "../src/index.ts";
@@ -544,144 +544,6 @@ test("set-v1 regression: a real act is charged the old price, with the model omi
     acts++;
   }
   assert.ok(acts > 80, `${acts}`);
-});
-
-// ------------------------------------------------------------------------------------------------
-// §5.5 (9) noise
-// ------------------------------------------------------------------------------------------------
-
-test("noise versions: set-v1 keeps the old version string; distance-v1 has its own", () => {
-  assert.equal(NOISE_VERSION, "noise-v1|beta=0.05");
-  assert.equal(noiseVersion(), NOISE_VERSION);
-  assert.equal(noiseVersion(S1), NOISE_VERSION);
-  assert.notEqual(noiseVersion(D), NOISE_VERSION);
-  assert.equal(noiseVersion(D), "noise-v1|beta=0.05|cost=distance-v1");
-});
-
-test("set-v1 noise is what it was: the same boards as before cost models, with the model omitted or named", () => {
-  // sha256 of the board after 200 noise steps, recorded from the code before cost models (commit 9e44c70):
-  //   x = spawn(seededRng(`cost-models|${key}`)); noise(inst, x, 200, seededRng(`cost-models-noise|${key}`))
-  const before: Record<string, string> = {
-    "Grid(4,base10,mono)": "83a541b3a9ac813416eed03e8f376f350a9fb9f123f31f848e2d80beb5a07ffd",
-    "Grid(5,base10,rgby)": "7dcd6a5bb923782893966bbdba4db422df72b379067e22b883a9db7292b03636",
-    "Grid(7,cards,rainbow6)": "e4a6dab4e046eb826e513fa7729bc85b92b8cd37b2cd9c2ca1fb0a3b113d7017",
-  };
-  for (const inst of [mono4, grid(5, "base10", "rgby"), grid(7, "cards", "rainbow6")]) {
-    const codec = GRID.codec(inst), x = GRID.spawn(inst, seededRng(`cost-models|${inst.key}`));
-    const run = (...model: CostModel[]) => codec.encode(noise(inst, x, 200, seededRng(`cost-models-noise|${inst.key}`), ...model));
-    assert.equal(sha256(run() as string), before[inst.key], inst.key);
-    assert.equal(run(S1), run(), inst.key);
-    assert.notEqual(run(D), run(), `${inst.key}: distance-v1 draws from another distribution`);
-  }
-  // every representative: naming set-v1 changes nothing
-  for (const inst of ALL) {
-    const x = GRID.spawn(inst, seededRng(`n|${inst.key}`)), codec = GRID.codec(inst);
-    assert.equal(codec.encode(noise(inst, x, 40, seededRng("same"))), codec.encode(noise(inst, x, 40, seededRng("same"), S1)), inst.key);
-  }
-  assert.equal(noiseStep(mono4), noiseStep(mono4, S1));
-  assert.notEqual(noiseStep(mono4), noiseStep(mono4, D));
-});
-
-/** P(argument) = 2^(−C(W))/Z over the slider's arguments ±1 … ±(R − 1) (plus `others`, weights of other families). */
-function sliderDistribution(location: number, R: number, others: number[] = []): { p: (k: number) => number; other: number[] } {
-  const wt = (k: number) => 2 ** -changeCost(location + L3 * Math.abs(k));
-  let Z = others.reduce((s, x) => s + x, 0);
-  for (let k = 1; k < R; k++) Z += 2 * wt(k);
-  return { p: k => wt(k) / Z, other: others.map(x => x / Z) };
-}
-
-test("distance-v1 noise on a middle digit: one cell, uniform, moved by k with probability 2^(−C(W_k))/Z", () => {
-  // Grid(3,base10,mono), every cell a 5. W_k = log2 9 + λ·|k| (9 cells, one family), C = W + 0.05·W²:
-  //   k = ±1: W = 4.755, C = 5.885;  ±2: 6.340, 8.350;  ±3: 7.925, 11.065;  ±4: 9.510, 14.032;  ±5: 11.095, 17.250; …
-  // Z = 2·Σ_{k=1..9} 2^(−C_k) = 2·(0.016919 + 0.003065 + 0.000467 + 0.0000597 + …) = 0.04103, so
-  //   P(±1) = 0.4124 each, P(±2) = 0.0747, P(±3) = 0.0114, P(±4) = 0.00146.
-  // From a 5: −5 … +4 fit; +5 … +9 and −6 … −9 leave the range and leave the board as it is (about 7e-5 in all).
-  const inst = grid(3, "base10", "mono"), start = flat(inst, 5), step = noiseStep(inst, D), rng = seededRng("distance noise");
-  const dist = sliderDistribution(Math.log2(9), 10);
-  near(dist.p(1), 0.4124, 5e-4);
-  near(dist.p(2), 0.0747, 5e-4);
-  near(dist.p(3), 0.0114, 2e-4);
-  const n = 60000, byDelta = new Map<number, number>(), byCell = Array(9).fill(0);
-  let unchanged = 0;
-  for (let t = 0; t < n; t++) {
-    const y = step(start, rng) as GridValue;
-    assert.ok(y.col.every(c => c === 0), "a mono board never changes colour");
-    const changed = [...y.sym.keys()].filter(i => y.sym[i] !== 5);
-    assert.ok(changed.length <= 1, "one cell at most");
-    if (!changed.length) { unchanged++; continue; }
-    byCell[changed[0]]++;
-    byDelta.set(y.sym[changed[0]] - 5, (byDelta.get(y.sym[changed[0]] - 5) ?? 0) + 1);
-  }
-  assert.ok(start.sym.every(s => s === 5), "the input is never mutated");
-  for (let k = -5; k <= 4; k++) {
-    if (k === 0) continue;
-    const p = dist.p(k), f = (byDelta.get(k) ?? 0) / n;
-    near(f, p, 5 * Math.sqrt(p * (1 - p) / n) + 1e-4, `P(${k})`);
-  }
-  assert.deepEqual([...byDelta.keys()].filter(k => k < -5 || k > 4 || k === 0), []);
-  const out = dist.p(5) + 2 * [6, 7, 8, 9].reduce((s, k) => s + dist.p(k), 0);
-  near(unchanged / n, out, 5 * Math.sqrt(out / n) + 1e-4, "out of range");
-  assert.ok(chiSquare(byCell) < chiCritical(8), `cells: ${byCell}`);
-});
-
-test("distance-v1 noise at the ends of the slider: the half of the moves that leaves the range changes nothing", () => {
-  // Every cell a 9: every +k (half of Z, by symmetry) cannot apply; every −k can. So exactly half the steps do nothing.
-  const inst = grid(3, "base10", "mono"), step = noiseStep(inst, D);
-  for (const [digit, sign] of [[9, -1], [0, 1]] as const) {
-    const start = flat(inst, digit), rng = seededRng(`edge ${digit}`), n = 20000;
-    let unchanged = 0, ones = 0;
-    for (let t = 0; t < n; t++) {
-      const y = step(start, rng) as GridValue, changed = [...y.sym.keys()].filter(i => y.sym[i] !== digit);
-      if (!changed.length) { unchanged++; continue; }
-      assert.equal(changed.length, 1);
-      const d = y.sym[changed[0]] - digit;
-      assert.ok(Math.sign(d) === sign && y.sym[changed[0]] >= 0 && y.sym[changed[0]] <= 9, `${digit} moved by ${d}`);
-      if (Math.abs(d) === 1) ones++;
-    }
-    near(unchanged / n, 0.5, 5 * Math.sqrt(0.25 / n), `stuck at ${digit}`);
-    near(ones / n, 0.4124, 5 * Math.sqrt(0.25 / n), `${digit} by one`);
-  }
-});
-
-test("distance-v1 noise on coloured boards and cards: one site of one cell, families weighted by their prices", () => {
-  // Grid(4,base10,rgb), every cell a 5 in red. Location = 1 + 4 = 5 bits. Colour: 2 arguments at W = 6, C = 7.8.
-  // Rank ±1: W = 6.585, C = 8.753. So colour : (rank ±1) = 2·2^(−7.8) : 2·2^(−8.753) = 1.936 : 1.
-  const start = flat(rgb4, 5, 0), step = noiseStep(rgb4, D), rng = seededRng("rgb noise"), n = 40000;
-  const dist = sliderDistribution(5, 10, [2 ** -changeCost(6), 2 ** -changeCost(6)]);
-  near((dist.other[0] + dist.other[1]) / (2 * dist.p(1)), 1.936, 5e-3);
-  let colour = 0, one = 0;
-  const colours = [0, 0, 0];
-  for (let t = 0; t < n; t++) {
-    const y = step(start, rng) as GridValue;
-    const ds = [...y.sym.keys()].filter(i => y.sym[i] !== 5), dc = [...y.col.keys()].filter(i => y.col[i] !== 0);
-    assert.ok(ds.length + dc.length <= 1, "one site at most");
-    if (dc.length) { colour++; colours[y.col[dc[0]]]++; assert.ok(y.col[dc[0]] < 3); }
-    if (ds.length && Math.abs(y.sym[ds[0]] - 5) === 1) one++;
-  }
-  const pc = dist.other[0] + dist.other[1];
-  near(colour / n, pc, 5 * Math.sqrt(pc * (1 - pc) / n), "a colour change");
-  near(one / n, 2 * dist.p(1), 5 * Math.sqrt(0.25 / n), "a digit by one");
-  near(colours[1] / colour, 0.5, 5 * Math.sqrt(0.25 / colour), "the two other colours are equally likely");
-  // Cards: a step changes the rank within the suit, or the suit keeping the rank, or the colour; always a valid board.
-  const S = SYMBOL_COMPONENTS.cards, crng = seededRng("card noise"), cstep = noiseStep(cards3, D), codec = GRID.codec(cards3);
-  let x = GRID.spawn(cards3, crng);
-  const seen = { rank: 0, suit: 0, colour: 0, none: 0 };
-  for (let t = 0; t < 6000; t++) {
-    const y = cstep(x, crng) as GridValue;
-    assert.ok(codec.isValid(codec.encode(y)));
-    const ds = [...y.sym.keys()].filter(i => y.sym[i] !== x.sym[i]), dc = [...y.col.keys()].filter(i => y.col[i] !== x.col[i]);
-    assert.ok(ds.length + dc.length <= 1);
-    if (dc.length) seen.colour++;
-    else if (!ds.length) seen.none++;
-    else {
-      const a = x.sym[ds[0]], b = y.sym[ds[0]];
-      const rankMoved = S.ranks[a] !== S.ranks[b], suitMoved = S.suits![a] !== S.suits![b];
-      assert.ok(rankMoved !== suitMoved, `${a} → ${b} moved the rank and the suit at once`);
-      seen[rankMoved ? "rank" : "suit"]++;
-    }
-    x = y;
-  }
-  assert.ok(seen.rank > 500 && seen.suit > 500 && seen.colour > 500, JSON.stringify(seen));
 });
 
 test("dial-v1 and log-v1 on the beginner board: hand-derived tables", () => {

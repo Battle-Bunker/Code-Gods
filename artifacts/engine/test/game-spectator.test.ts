@@ -110,16 +110,15 @@ test("spectator read model: header, standings and their history, the salience sk
   const huge = await watcher.c.query(api.games.objectIds, { gameId: game.gameId, paginationOpts: { numItems: 5000, cursor: null } });
   assert.ok(huge.page.length <= 50, "a page is capped server-side");
 
-  // ---- one object row: live, the salience carries the value's disclosure noise -------------------------------------
-  const noisy = secret.objects.find((o: any) => o.noise);
-  assert.ok(noisy, "the default settings add disclosure noise");
+  // ---- one object row: its value and salience ---------------------------------------------------------------------
+  const one = secret.objects[0];
   const row = await waitFor(async () => {
-    const r = await watcher.c.query(api.games.object, { objectId: noisy._id });
-    const now = (await raw(game.gameId)).objects.find((o: any) => o._id === noisy._id);
+    const r = await watcher.c.query(api.games.object, { objectId: one._id });
+    const now = (await raw(game.gameId)).objects.find((o: any) => o._id === one._id);
     return r.version === now.version && { r, now };
   }, "a stable read of one object", 20_000, 100);
   assert.deepEqual(Object.keys(row.r).sort(), ["id", "salience", "value", "version"]);
-  assert.ok(close(row.r.salience, row.now.salience + row.now.noise), "live: Σ net bits + the value's noise (hand: stored salience + noise)");
+  assert.ok(close(row.r.salience, row.now.salience), "Σ net bits (hand: the stored salience)");
 
   // ---- chat: the game's own window, newest first, paged -------------------------------------------------------------
   const chat = await watcher.c.query(api.rooms.chat, { roomId, gameId: game.gameId, paginationOpts: { numItems: 10, cursor: null } });
@@ -128,7 +127,7 @@ test("spectator read model: header, standings and their history, the salience sk
   assert.deepEqual(roomChat.page.map((m: any) => m.text), ["During the game"], "newest first, one per page");
   assert.equal(roomChat.isDone, false);
 
-  // ---- the end: exact salience, final standings -------------------------------------------------------------------
+  // ---- the end: salience, final standings -------------------------------------------------------------------
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const ended = await raw(game.gameId);
   const endedHeader = await watcher.c.query(api.games.header, { code: game.shortCode });
@@ -138,10 +137,10 @@ test("spectator read model: header, standings and their history, the salience sk
   assert.equal(final.world, ended.game.scoreboard.world);
   assert.deepEqual(final.rows.map((r: any) => r.totalPayoff), rankTotals(roster, ended.game.scoreboard.totals).map(r => r.totalPayoff), "the end's exact scoreboard");
   await waitFor(async () => {
-    const r = await watcher.c.query(api.games.object, { objectId: noisy._id });
-    const o = ended.objects.find((x: any) => x._id === noisy._id);
+    const r = await watcher.c.query(api.games.object, { objectId: one._id });
+    const o = ended.objects.find((x: any) => x._id === one._id);
     return close(r.salience, o.salience);
-  }, "ended: the exact salience", 20_000, 250);
+  }, "ended: the salience", 20_000, 250);
   const endedChat = await watcher.c.query(api.rooms.chat, { roomId, gameId: game.gameId, paginationOpts: { numItems: 10, cursor: null } });
   assert.deepEqual(endedChat.page.map((m: any) => m.text), ["During the game"]);
 });

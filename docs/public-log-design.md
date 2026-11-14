@@ -255,59 +255,10 @@ nothing (100% exact).
 | 16 | 6 | 150 spawns + 60/god pushed | none | 0% | 0% | 59% | 0.54 | 0.62 | 28% | 4508 |
 | 16 | 6 | 150 spawns + 60/god pushed | 1 correct | 0% | 0% | 69% | 0.55 | 0.28 | 28% | 5113 |
 
-### 5.2 Finding, and the disclosure noise
+### 5.2 Finding
 
-**With exact per-object peer sums and the public calibration tables, identifying the rule set is easy, not hard.**
-At σ = 0 the fit names every other god's exact rule and parameters (up to draws the data cannot tell apart) from a
-few dozen observed values, for three gods and for six, in about a second; a hint barely matters. This predated the
-public log (the per-object peer sums were already live), and anyone with the repository could run the same fit
-because the calibration tables ship with it. Rounding to 1 bit does not help.
-
-The owner's ruling (2026-11-01): add a precision setting, on by default, at a level where identification needs many
-observations plus correct negotiation hints. **`peerNoiseBits`** (game setting; options 0, 2, 4, 8, 16 bits; default
-**8**): while a game is live, every disclosed sum of the other gods' bits is the exact sum plus Gaussian noise of that
-standard deviation.
-
-- **A function of the value, stored with each version.** The noise at a value is a keyed hash of (the game's private
-  key `games.noiseKey`, the value) turned into a Gaussian (engine/node.ts `disclosureNoise`), written as `noise` on the
-  spawn or transform event, the `objectEvents` row and the object. The same value always discloses the same noise,
-  whenever it recurs (A → B → A, or a later spawn), so neither repeated queries nor repeated observations average it
-  away; the others' sum at a value is a function of the value alone (§6), so its noisy disclosure is too.
-- **One draw shared by every viewer.** Each seated player's others' sum and the public salience carry the same draw,
-  so own + others = salience stays consistent and no player gets two independent samples of one quantity. (Two
-  players pooling their data learn each other's own bits, which they could tell each other anyway.)
-- **Everything that depends on the others' sum follows the noisy value, live:** peer care, payoff, the own live score,
-  the salience on the public game view, the series and board, trajectories, events, the live replay, the `run_code`
-  datasets and the tools (all through the same projection functions), and the **published scoreboard**: each god's
-  total is computed from the noisy sums (`disclosedTotalsOf`), so a player's own published row equals their live
-  score and the scoreboard leaks nothing beyond the disclosed sums.
-- **Exact everywhere server-side** (scoring, stored `net` vectors and batch totals) and in every projection of an ended
-  game. The commit clause is the exception: it decides on the disclosed values (below).
-- **The fit knows the noise** (`noiseBits` = the game's setting while live): the likelihood's σ is at least the
-  noise, and `exact` means "explains the data to within the noise".
-
-Why 8: at σ = 2 identification is still certain; at 4 it is likely from 100 values; at 8 the top hypothesis is right
-in a third of 3-god games after ~50 values and in 17% of 6-god games after ~90 (67% after ~400), a correct hint raises family recall
-noticeably (50% → 75% for three gods at ~50 values), and only long games (hundreds of values) approach certainty;
-at 16 even long games rarely pin the set. 8 is "possible but hard". The cost: a player's view of what the others
-care about on a single object is ±8 bits uncertain, so cooperation rests more on talk and on trends than on one
-object's number.
-
-**The commit clause decides on the disclosed values.** A conditional act (`only_if_better`) commits only if it raises
-the owner's payoff as the owner sees it: own bits exact, each value's others' sum with its disclosure noise
-(`commitRaises`, lib/world.ts). Deciding on the exact payoff would have been a side channel: each conditional act
-answers "is own(v)·max(0, y(v)) above the current payoff?", so an agent probing one value against objects of
-different payoffs binary-searches the EXACT y(v) in about a dozen acts (one bit each), which reduces the game to the
-σ = 0 rows of §5.1 for every probed value. On the disclosed values the same probing recovers only y(v) + ε(v), and ε
-is a fixed function of v, so repeated or cleverer probing never gets past the noisy value the player is shown when
-the act commits: probing is equivalent to observing values, which the σ = 8 rows already measure. (An agent's
-behaviour itself cannot be blinded; it never discloses another god's individual bits.)
-
-Measured (`inference-experiment.ts --probes N`, σ = 8, 6 trials): giving the viewer N of its values exactly, as the
-old clause's probing would, lifts the same single-σ fit from 33% to 50% exact for three gods at ~50 values (N = 10 or
-30) and leaves six gods at 17–33%; but an attacker would fit the probed values on their own, and §5.1's σ = 0 rows
-show 20 exact values identify a three-god game 90–100% of the time. The leak was nearly complete; with the clause on
-disclosed values, N = 0 by construction.
+The disclosure noise this section introduced (`peerNoiseBits`) was deleted from `develop` in engine v2's deletion D1:
+every disclosed sum is exact. The finding and the noise's design are on `archive/engine-v1`.
 
 ## 6. Every object is an independent universe
 

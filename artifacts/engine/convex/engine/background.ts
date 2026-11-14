@@ -1,7 +1,7 @@
 /**
  * The deployment-wide cap on background work (lib/background.ts): a job takes a slot (a `workSlots` row) before it
  * starts and gives it back when it ends. At most BACKGROUND_LIMITS[kind] rows of a kind are live; a row whose action
- * died expires. Scheduled jobs (an AI seat's turn, a hold computation) past the cap are queued here and run when a
+ * died expires. Scheduled jobs (an AI seat's turn) past the cap are queued here and run when a
  * slot is released: nothing polls, so waiting jobs cost the scheduler nothing.
  */
 import { v } from "convex/values";
@@ -10,7 +10,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type ActionCtx, type MutationCtx } from "../_generated/server";
 import { BACKGROUND_LIMITS, BACKGROUND_SLOT_MS, QUEUE_MS, slotAttemptDelays, slotFree, type BackgroundKind } from "../lib/background";
 
-const QUEUE_OF = { turn: "turnQueue", hold: "holdQueue" } as const;
+const QUEUE_OF = { turn: "turnQueue" } as const;
 type Queued = keyof typeof QUEUE_OF;
 
 /** The kind's live slots (expired rows are removed on the way). */
@@ -36,7 +36,7 @@ export const release = internalMutation({
     const row = await ctx.db.get(slot);
     if (!row) return;
     await ctx.db.delete(slot);
-    if (row.kind === "turn" || row.kind === "hold") await promote(ctx, row.kind);
+    if (row.kind === "turn") await promote(ctx, row.kind);
   },
 });
 
@@ -46,19 +46,17 @@ async function promote(ctx: MutationCtx, kind: Queued) {
   let free = BACKGROUND_LIMITS[kind] - (await liveSlots(ctx, kind, now)).length;
   if (free <= 0) return;
   for (const waiting of await ctx.db.query("workSlots").withIndex("by_kind", q => q.eq("kind", QUEUE_OF[kind])).take(free + 8)) {
-    const stale = waiting.expiresAt <= now || (kind === "turn" ? !waiting.turn : !waiting.hold);
+    const stale = waiting.expiresAt <= now || !waiting.turn;
     if (!stale && free <= 0) break;
     await ctx.db.delete(waiting._id);
     if (stale) continue;
     free--;
     const slot = await ctx.db.insert("workSlots", { kind, expiresAt: now + BACKGROUND_SLOT_MS });
-    if (kind === "turn") await ctx.scheduler.runAfter(0, internal.ai.turn.run, { ...waiting.turn!, slot });
-    else await ctx.scheduler.runAfter(0, internal.engine.hold.computeOne, { ...waiting.hold!, slot });
+    await ctx.scheduler.runAfter(0, internal.ai.turn.run, { ...waiting.turn!, slot });
   }
 }
 
 const turnV = v.object({ gameId: v.id("games"), godId: v.string(), chain: v.number() });
-const holdV = v.object({ gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() });
 
 /**
  * A scheduled job asks for a slot of its kind: the slot when one is free and nobody waits, else null and the job is
@@ -80,12 +78,6 @@ async function takeOrQueue(ctx: MutationCtx, kind: Queued, same: (row: Doc<"work
 export const takeTurn = internalMutation({
   args: { turn: turnV },
   handler: (ctx, { turn }) => takeOrQueue(ctx, "turn", r => r.turn?.gameId === turn.gameId && r.turn.godId === turn.godId && r.turn.chain === turn.chain, { turn }),
-});
-
-/** A hold computation (engine/hold.ts computeOne): its slot, or null when it was queued. */
-export const takeHold = internalMutation({
-  args: { hold: holdV },
-  handler: (ctx, { hold }) => takeOrQueue(ctx, "hold", r => r.hold?.gameId === hold.gameId && r.hold.key === hold.key, { hold }),
 });
 
 /**

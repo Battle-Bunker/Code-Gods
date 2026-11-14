@@ -79,16 +79,10 @@ test("when the points and the rule score disagree, the line names the factor tha
   // The same rule score, a rarer grid by the rule (the table changed around it): 10 × 2 = 20, 12 × 2 = 24.
   assert.equal(actLine({ ...base, ruleBefore: 5, ruleAfter: 5, pointsBefore: 20, pointsAfter: 24, ownBefore: 10, othersBefore: 2, ownAfter: 12, othersAfter: 2 }),
     `${head}your rule score stayed 5, but this grid's points rose 4 (20.0 → 24.0) because this grid is rarer by your rule now (your ✨ rarity 10.0 → 12.0).`);
-  // A room that blurs the others' side (an estimate): the others are named as the cause only when their move accounts
-  // for at least half of the points' move. 30 × 4 = 120, 25 × 3.9 = 97.5: the others explain 30 × −0.1 = −3 of −22.5.
-  const blurred = { ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 120, pointsAfter: 97.5, ownBefore: 30, othersBefore: 4, ownAfter: 25, othersAfter: 3.9 };
-  assert.equal(actLine({ ...blurred, estimate: true }),
-    `${head}your rule score went up (4 → 5), but this grid's points fell 22.5 (120.0 → 97.5) because a higher rule score is not rarer here (your ✨ rarity 30.0 → 25.0).`);
-  assert.equal(actLine(blurred),
-    `${head}your rule score went up (4 → 5), but this grid's points fell 22.5 (120.0 → 97.5) because the others want this grid less now (4.0 → 3.9) and a higher rule score is not rarer here (your ✨ rarity 30.0 → 25.0).`, "an exact room names both");
-  // Blurred, and the others' move is most of it: 10 × 2 = 20, 10 × 2.5 = 25.
-  assert.equal(actLine({ ...base, ruleBefore: 5, ruleAfter: 5, pointsBefore: 20, pointsAfter: 25, ownBefore: 10, othersBefore: 2, ownAfter: 10, othersAfter: 2.5, estimate: true }),
-    `${head}your rule score stayed 5, but this grid's points rose 5 (20.0 → 25.0) because the others want this grid more now (2.0 → 2.5).`);
+  // Both factors pushed the points down: 30 × 4 = 120, 25 × 3.9 = 97.5. Each is named.
+  const both = { ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 120, pointsAfter: 97.5, ownBefore: 30, othersBefore: 4, ownAfter: 25, othersAfter: 3.9 };
+  assert.equal(actLine(both),
+    `${head}your rule score went up (4 → 5), but this grid's points fell 22.5 (120.0 → 97.5) because the others want this grid less now (4.0 → 3.9) and a higher rule score is not rarer here (your ✨ rarity 30.0 → 25.0).`);
   // The figures before the act are not in the window: say what is known, never a guessed cause.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 102.1, pointsAfter: 98.4, ownAfter: 25.9, othersAfter: 3.8 }),
     `${head}your rule score went up (4 → 5), but this grid's points fell 3.7 (102.1 → 98.4). A grid's points are your ✨ rarity for it × how much the others want it, not the rule score alone.`);
@@ -179,8 +173,6 @@ test("what each agent's moves earned, counted from the events the pane holds, wi
   assert.deepEqual(agentEarnings(events, new Map([["a1", 1]])).get("a2"), { moves: 1, points: -10, objects: 1 }, "another agent is untouched");
   assert.equal(earningsLine({ moves: 1234, points: 1240.4, objects: 23 }, "grid"), "1,234 of its latest moves, counted here: +1,240.4 points on 23 grids (+1 a move). Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine({ moves: 2, points: 108, objects: 2 }, "grid", { third: true }), "2 of their agent's latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
-  // A room that blurs the others' side: the points are an estimate, and the line says "about".
-  assert.equal(earningsLine({ moves: 12, points: 648, objects: 9 }, "grid", { estimate: true }), "12 of its latest moves, counted here: about +648 points on 9 grids (about +54 a move). Only the latest events are counted, not the whole game, and live points are an estimate.");
 });
 
 test("your points now", () => {

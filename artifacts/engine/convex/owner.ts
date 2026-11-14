@@ -15,7 +15,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
-import { assertShape, catalogFor, deal, dealWithBidsFor, dealerOf, disclosureNoise, newNoiseKey, nextSettings, openUniform, pinTables, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { assertShape, catalogFor, deal, dealWithBidsFor, dealerOf, nextSettings, openUniform, pinTables, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { storePinned } from "./engine/pinned";
 import { ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
@@ -130,18 +130,18 @@ async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSe
 async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly Deal[], tables: InstanceTables,
   commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string; auction?: unknown; rotation?: GameRotation }): Promise<Started | null> {
   const occupied = new Set<ObjectValue>();
-  const objects = [], noiseKey = newNoiseKey();
+  const objects = [];
   for (let i = 0; i < settings.startingObjectCount; i++) {
     const value = uniqueSpawn(settings, occupied);
     if (value === undefined) break; // only a nearly full tiny domain gets here
     occupied.add(value);
     const scores = scoresOf(tables, settings, deals, value);
-    objects.push({ value: value as number | string, scores, salience: salienceOf(scores), noise: disclosureNoise(settings, noiseKey, value) });
+    objects.push({ value: value as number | string, scores, salience: salienceOf(scores) });
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
   const args = {
     ...commit,
-    seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: gameEndSeconds(settings.durationMode, settings.halfLifeSeconds, openUniform),
+    seasonCommitment: seasonCommitment(), endAtWorld: gameEndSeconds(settings.durationMode, settings.halfLifeSeconds, openUniform),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     // A god's outcome of the bid phase is on its own card (private like the card): what it won, and its handicap.
     deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: { ...utilityCard(settings, d.utility), ...(d.bid ? { bid: d.bid, handicap: d.bid.handicap } : {}), ...(d.rotation ? { rotation: d.rotation } : {}) } })),

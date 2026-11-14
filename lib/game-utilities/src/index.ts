@@ -38,7 +38,6 @@ export {
   type Candidate, type DrawClass, type FitInput, type FitResult, type Hint, type Hypothesis, type Role,
 } from "./inference.ts";
 export * from "./explain/index.ts";
-export { HOLD_ESTIMATOR, holdBits, type HoldTable } from "./hold.ts";
 export { baseLaw, conditionalTier, degenerateBoards, drawGiven, hybridLaw, liveness, TIER_MIN_ADDED_BITS, TIER_MAX_ADDED_BITS, type DisjointBase, type HybridLaw, type Liveness } from "./tiers/hybrid.ts";
 export { isTiered, tiersOf, baseParams, type GridTiers, type Interaction, type TierValue } from "./families/grid/tiers.ts";
 export { hybridLawOf, tierLiveness, HYBRID_VERSION } from "./families/grid/tiers-hybrid.ts";

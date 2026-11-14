@@ -389,11 +389,11 @@ export const MOVE_MEANS = "A move is an act that changed a grid; acts that only 
  * when it was replaced; "since" is the new version's average over its FIRST counted moves (score-line.ts
  * accumulateFirstMoves: up to COMPARE_OVER, then frozen), never a rolling window, because every agent earns most right
  * after it starts and a rolling figure mostly measured how recently it started (a player undid a good change over it).
- * Null until COMPARE_MOVES are in. `restored`: the line for a version that was put back. `estimate`: live points are "about".
+ * Null until COMPARE_MOVES are in. `restored`: the line for a version that was put back.
  */
-export function versionComparison(before: { moves: number; points: number } | undefined, since: { moves: number; points: number; frozen?: boolean } | undefined, o: { estimate?: boolean; restored?: boolean } = {}): string | null {
+export function versionComparison(before: { moves: number; points: number } | undefined, since: { moves: number; points: number; frozen?: boolean } | undefined, o: { restored?: boolean } = {}): string | null {
   if (!since || since.moves < COMPARE_MOVES) return null;
-  const each = (e: { moves: number; points: number }) => { const r = Math.round(e.points / e.moves * 10) / 10; return `${o.estimate ? "about " : ""}${r === 0 ? "+0" : `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("en-US", { maximumFractionDigits: 1 })}`}`; };
+  const each = (e: { moves: number; points: number }) => { const r = Math.round(e.points / e.moves * 10) / 10; return `${r === 0 ? "+0" : `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("en-US", { maximumFractionDigits: 1 })}`}`; };
   const over = `${since.frozen ? "" : "so far, "}over its first ${since.moves.toLocaleString("en-US")} moves`;
   if (o.restored) return `Back on the previous version: ${each(since)} points a move ${over} since.`;
   if (!before || before.moves < 1) return `Since your change: ${each(since)} points a move ${over}. Nothing was counted for the version before it.`;

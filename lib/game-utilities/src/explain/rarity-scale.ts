@@ -1,18 +1,17 @@
 /**
  * How a rule score becomes ✨ rarity, for the player's own rule: the bits of any ordinal as the engine counts them
- * (the reward table's surprisal plus the game's hold correction, as scoreWorkings does), and a short scale of
+ * (the reward table's surprisal, as scoreWorkings does), and a short scale of
  * representative rule scores from the table, so the size of a move can be anticipated. Pure.
  */
 import { surprisal } from "../calibration.ts";
-import { holdBits } from "../hold.ts";
 import type { Ordinal } from "../types.ts";
 import type { WorkingsTables } from "./workings.ts";
 
 const arr = (o: Ordinal): readonly number[] => (typeof o === "number" ? [o] : o);
 
 /** The ✨ rarity (reward bits) of a rule score under the game's tables: what "How this scores" shows for a board with it. */
-export function rarityOf(tables: Pick<WorkingsTables, "reward" | "hold">, ordinal: Ordinal): number {
-  const bits = surprisal(tables.reward, ordinal) + holdBits(tables.hold, ordinal);
+export function rarityOf(tables: Pick<WorkingsTables, "reward">, ordinal: Ordinal): number {
+  const bits = surprisal(tables.reward, ordinal);
   return bits === 0 ? 0 : bits;
 }
 
@@ -27,7 +26,7 @@ export interface RarityScaleRow {
  * that has it), and when that is still too many, the first, the last and the steps nearest to evenly spaced ✨ between
  * them, so the scale shows how rarity grows over the whole range.
  */
-export function rarityScale(tables: Pick<WorkingsTables, "reward" | "hold">, maxRows = 5): RarityScaleRow[] {
+export function rarityScale(tables: Pick<WorkingsTables, "reward">, maxRows = 5): RarityScaleRow[] {
   const seen = new Set<number>(), rows: RarityScaleRow[] = [];
   for (const [o] of tables.reward.levels) {
     const ordinal = arr(o);

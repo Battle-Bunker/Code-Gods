@@ -163,13 +163,6 @@ export interface GameSettings {
    */
   scoreIntervalSeconds: number;
   /**
-   * The standard deviation (bits) of the noise on every disclosed sum of the other gods' net bits while a game is live
-   * (docs/public-log-design.md §5): one Gaussian draw per spawn or transformation, stored server-side, so the same event
-   * always discloses the same value. Payoffs, care, salience and the live scoreboard follow the noisy sums. 0 is exact.
-   * One of PEER_NOISE_OPTIONS. An ended game is exact.
-   */
-  peerNoiseBits: number;
-  /**
    * The bid phase (docs/bid-phase.md): seconds the players have, when the game starts and before it is dealt, to bid a
    * handicap percentage on rule families of the pool. The highest bid on a family wins it, exclusively, and that
    * percentage is taken off the winner's score; everyone else is dealt as usual from the families nobody won. 0: no bid
@@ -283,9 +276,6 @@ export const isBeginnerGoal = (s: { boardKey: string | undefined; familyId: stri
  * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
  */
 export const DEFAULT_FULL_CHARGE_SECONDS = 30;
-/** The pre-authored choices of peerNoiseBits (σ in bits) and the default, chosen from the inference experiment. */
-export const PEER_NOISE_OPTIONS: readonly number[] = Object.freeze([0, 2, 4, 8, 16]);
-export const DEFAULT_PEER_NOISE_BITS = 8;
 
 // These IDs describe the contract, not a claim that runners are installed.
 export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
@@ -315,7 +305,6 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   commitClause: false,
   objectSelection: "uniform",
   scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
-  peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
   bidSeconds: 0,
   bidPricing: "first",
   bidVisibility: "sealed",
@@ -348,7 +337,7 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
 /**
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
  * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
- * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode,
+ * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, durationMode,
  * fullChargeSeconds, bidSeconds, bidPricing: 2026-11).
  * Use it wherever stored settings (rooms, setups, games) are read. With `played` (the settings of a game already
  * started, live or ended) the economy is history and is left as it was charged: `fullChargeSeconds` is not filled, so a
@@ -366,7 +355,6 @@ export function upgradeStoredSettings(settings: unknown, played = false, { keepR
     ...(kept && kept.length !== (s.languages as unknown[]).length ? { languages: kept.length ? kept : ["typescript"] } : {}),
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
-    ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
     ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
     // No bid phase before the setting existed (docs/bid-phase.md): a played game is left without the fields (read `?? 0`).
     ...(!played && !("bidSeconds" in s) ? { bidSeconds: 0 } : {}),
@@ -381,7 +369,7 @@ export function upgradeStoredSettings(settings: unknown, played = false, { keepR
  * Settings of features deleted from the engine (engine v2 deletion D1; the code is on archive/engine-v1). Stored rooms,
  * setups and games may still carry them; they are dropped wherever stored settings are read, and ignored in a change.
  */
-export const RETIRED_SETTINGS: readonly string[] = Object.freeze(["observation"]);
+export const RETIRED_SETTINGS: readonly string[] = Object.freeze(["observation", "peerNoiseBits"]);
 
 /** These settings without the RETIRED_SETTINGS keys, or null when they carry none (or are not a settings object). */
 export function withoutRetiredSettings(settings: unknown): Record<string, unknown> | null {
@@ -526,9 +514,6 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   }
   if (!Number.isInteger(settings.scoreIntervalSeconds)) throw new Error("scoreIntervalSeconds must be a whole number of seconds");
   inRange("scoreIntervalSeconds", settings.scoreIntervalSeconds);
-  if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
-    throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
-  }
   // Absent only in the settings of a game started before the bid phase existed (it had none).
   if (settings.bidSeconds !== undefined) {
     if (!Number.isInteger(settings.bidSeconds)) throw new Error("bidSeconds must be a whole number of seconds");
@@ -758,10 +743,6 @@ const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
   interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
   startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
   costModel: "distance-v1",
-  // No disclosure noise on the beginner setup: with noise, a live total reads high (the others' sum is floored at 0
-  // after the noise) and every total drops when the game ends (live 308, final 194 in a first game), which a new
-  // player reads as a bug. Eight known simple rules have little secrecy to protect; docs/public-log-design.md §5.2.
-  peerNoiseBits: 0,
 });
 
 /** Tiered rules for players (docs/tiered-rules.md); the other compositions are Lab setups (LAB_SETUPS). */
@@ -1044,11 +1025,6 @@ export const SETTINGS_DOCS = {
     question: "How often do the public scores update?", section: "time", tier: "more", control: "number", unit: "s", suggested: SCORE_INTERVALS,
     meaning: "Every player's public score on the leaderboard changes for everyone at once, every this many seconds of world time; your own score stays live.",
     consequence: "Lengthening it makes it harder to tell from the leaderboard whose move changed an object, while shortening it makes the race easier to follow.",
-  },
-  peerNoiseBits: {
-    question: "How blurred are the other players' combined interest in each object?", section: "goals", tier: "more", control: "segmented", unit: "bits", suggested: PEER_NOISE_OPTIONS,
-    meaning: "While the game runs, the other players' summed bits for each object are shown with random noise of this size, fixed per change; after the end the exact numbers show.",
-    consequence: "More noise makes it harder to work out the other players' rules from the numbers alone, so negotiation clues matter more, but it also makes their interest in each object less certain.",
   },
   bidSeconds: {
     question: "How long may players bid for rules before the game is dealt?", section: "goals", tier: "ask", control: "number", unit: "s", suggested: [0, 20, 30, 45, 60, 120],

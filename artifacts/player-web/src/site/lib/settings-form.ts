@@ -50,7 +50,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   powerPerSecond: "Power per player", fullChargeSeconds: "Energy fills in", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference", ruleTiers: "Rule tiers",
-  commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
+  commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates",
   costModel: "Change pricing",
   bidSeconds: "Bidding time", bidPricing: "Bid price", bidVisibility: "Bids shown", bidDisclosure: "Bid results shown",
 };
@@ -340,7 +340,6 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
   if (key === "bidSeconds" && typeof v === "number") return v === 0 ? "No bidding" : duration(v);
   if (key === "scoreIntervalSeconds" && typeof v === "number") return `every ${duration(v)}`;
-  if (key === "peerNoiseBits" && typeof v === "number") return v === 0 ? "Exact" : `±${n(v)} bits`;
   if (key === "penaltyWeight" && typeof v === "number") return v === 0.5 ? "½" : `${n(v)}`;
   return typeof v === "number" ? n(v) : v;
 }

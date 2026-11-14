@@ -69,8 +69,7 @@ export function GameStandings({ gameId, roster, meId, ownerId, planning, emptyBo
 const OBJECT_PAGE = 50;
 
 /**
- * The world's objects, hottest first. Public: only salience (Σ of every player's net bits, with its disclosure noise
- * while live), never anyone's own score. A skeleton (games.objectIds: ids and salience, paged by the index) and one
+ * The world's objects, hottest first. Public: only salience (Σ of every player's net bits), never anyone's own score. A skeleton (games.objectIds: ids and salience, paged by the index) and one
  * subscription per visible row (games.object); rows scrolled out of view unmount and drop theirs.
  */
 export function Objects(props: { gameId: string; instance?: InstanceInfo; emptyBody?: string }) {

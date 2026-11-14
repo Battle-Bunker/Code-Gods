@@ -76,30 +76,22 @@ test("the scoreboard publishes once per interval: at the first commit reaching t
 });
 
 
-test("the live disclosure adds an object version's noise to the peers' sum; care, payoff and every god's total follow it", async () => {
-  const { viewOfNet, viewOf, disclosedTotalsOf, totalsOf } = await import("../../convex/lib/world.ts");
-  // Roster [a, b, c]; net bits 2, 3, −1; the viewer is a (index 0): others 3 + (−1) = 2, with noise −2.5 → −0.5.
+test("a god's view: own bits, the others' sum, care and payoff, from the score list or the log's net vector", async () => {
+  const { viewOfNet, viewOf } = await import("../../convex/lib/world.ts");
+  // Roster [a, b, c]; net bits 2, 3, −1; the viewer is a (index 0): others 3 + (−1) = 2, payoff 4.
   assert.deepEqual(viewOfNet([2, 3, -1], 0), { netBits: 2, peerNetBits: 2, peerCare: 2, payoff: 4 });
-  assert.deepEqual(viewOfNet([2, 3, -1], 0, -2.5), { netBits: 2, peerNetBits: -0.5, peerCare: 0, payoff: 0 });
   const scores = [{ god: "a", netBits: 2 }, { god: "b", netBits: 3 }, { god: "c", netBits: -1 }];
-  assert.deepEqual(viewOf(scores, "b", 1), { netBits: 3, peerNetBits: 2, peerCare: 2, payoff: 6 }, "b: others 2 − 1 = 1, +1 noise");
-  // Disclosed totals: a 2·max(0, 2 + 1) = 6, b 3·max(0, 1 + 1) = 6, c −1·max(0, 5 + 1) = −6 (one object, noise +1).
-  assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores, noise: 1 }]), [6, 6, -6]);
-  assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores }]), totalsOf(["a", "b", "c"], [{ scores }]), "without noise: the exact totals");
+  assert.deepEqual(viewOf(scores, "b"), { netBits: 3, peerNetBits: 1, peerCare: 1, payoff: 3 }, "b: others 2 − 1 = 1");
 });
 
-test("the commit clause decides on the payoffs the owner sees: own bits exact, the others' sum with each value's disclosure noise", async () => {
+test("the commit clause commits only when the owner's payoff on the object strictly rises", async () => {
   const { commitRaises } = await import("../../convex/lib/world.ts");
-  // Owner a; others b and c. Before: a 2, others 1 + 1 = 2 → exact payoff 4. After: a 3, others 1 + 0 = 1 → exact 3.
+  // Owner a; others b and c. Before: a 2, others 1 + 1 = 2 → payoff 4. After: a 3, others 1 + 0 = 1 → payoff 3.
   const before = [{ god: "a", netBits: 2 }, { god: "b", netBits: 1 }, { god: "c", netBits: 1 }];
   const after = [{ god: "a", netBits: 3 }, { god: "b", netBits: 1 }, { god: "c", netBits: 0 }];
-  assert.equal(commitRaises(before, after, "a", 0, 0), false, "exact: 3 < 4, kept");
-  // Disclosed: before others 2 − 1.5 = 0.5 → 1; after others 1 + 1 = 2 → 6. The owner sees a rise, so it commits,
-  // whatever the exact payoffs: the clause reveals nothing beyond the noisy values the owner is shown.
-  assert.equal(commitRaises(before, after, "a", -1.5, 1), true);
-  // And the reverse: an exact rise the disclosed numbers do not show is kept.
-  assert.equal(commitRaises(after, before, "a", 0, 0), true, "exact: 4 > 3");
-  assert.equal(commitRaises(after, before, "a", 5, -2), false, "disclosed: before 3·6 = 18, after 2·0 = 0");
+  assert.equal(commitRaises(before, after, "a"), false, "3 < 4, kept");
+  assert.equal(commitRaises(after, before, "a"), true, "4 > 3");
+  assert.equal(commitRaises(before, before, "a"), false, "no change is no rise");
 });
 
 test("a tick renews its lease only when it is running low, and a wave gets the budget left (at least the minimum)", async () => {

@@ -7,11 +7,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { GameSettings } from "@workspace/game-core";
 import { instantiate } from "@workspace/game-types";
-import { explainer, type CalibrationTable, type GoalExplainer, type HoldTable, type UtilityDescriptor } from "@workspace/game-utilities";
+import { explainer, type CalibrationTable, type GoalExplainer, type UtilityDescriptor } from "@workspace/game-utilities";
 import { GoalExplainerProvider } from "@workspace/object-views";
 import { loadTables } from "@sdk-transport";
-import { useDockState, useMyUtility } from "./hooks";
-import { tablesKey } from "./tables-key";
+import { useMyUtility } from "./hooks";
 import { useRoom } from "./context";
 
 /**
@@ -20,12 +19,12 @@ import { useRoom } from "./context";
  */
 function useScoringInputs(key: string, mine: ReturnType<typeof useMyUtility>) {
   const { roomId } = useRoom();
-  const [loaded, setLoaded] = useState<{ key: string; tables: { reward: CalibrationTable; penalty?: CalibrationTable; hold?: HoldTable }; netBits: (typeof import("@workspace/game-core"))["netBits"] }>();
+  const [loaded, setLoaded] = useState<{ key: string; tables: { reward: CalibrationTable; penalty?: CalibrationTable }; netBits: (typeof import("@workspace/game-core"))["netBits"] }>();
   useEffect(() => {
     if (!mine || loaded?.key === key) return;
     let live = true;
     void Promise.all([loadTables(mine.settings as GameSettings, mine.utility as UtilityDescriptor, { roomId, gameId: mine.gameId, godId: mine.godId }), import("@workspace/game-core")])
-      .then(([tables, core]) => { if (live) setLoaded({ key, tables: tables as { reward: CalibrationTable; penalty?: CalibrationTable; hold?: HoldTable }, netBits: core.netBits }); })
+      .then(([tables, core]) => { if (live) setLoaded({ key, tables: tables as { reward: CalibrationTable; penalty?: CalibrationTable }, netBits: core.netBits }); })
       .catch(error => console.warn("[sdk] score workings unavailable:", error));
     return () => { live = false; };
   }, [key, mine, loaded?.key]);
@@ -36,8 +35,7 @@ export function useMyGoal(): GoalExplainer | null {
   const mine = useMyUtility();
   const descriptor = mine?.utility as UtilityDescriptor | undefined;
   const settings = mine?.settings as { objectType: string; typeArgs?: Record<string, number | string>; penaltyWeight?: number } | undefined;
-  // Loaded again once the game's hold correction is ready, so the worked rarity is the engine's (tables-key.ts).
-  const key = tablesKey(mine, useDockState()?.holdRarity?.state);
+  const key = mine ? `${mine.gameId}:${mine.godId}` : "";
   const scoring = useScoringInputs(key, mine);
   return useMemo(() => {
     if (!descriptor || !settings) return null;

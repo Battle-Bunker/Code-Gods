@@ -10,7 +10,6 @@ import { LineChart, Obj, Table, useDockState, useGame, useLeaderboard, useMyCard
 import { usePastGames } from "@/core/game/past-games";
 import { Link } from "@/core/navigation";
 import { finishPlace, liveResultRows } from "./results-rank";
-import { liveIsEstimate } from "./score-lines";
 import { HANDICAP_FOOTNOTE, auctionLines, cardBid, cardHandicap, handicapLabel, handicapNote, handicapsOf } from "@/site/lib/bidding";
 import { ruleName, useAuction } from "@/core/game/auction";
 import { RotationNote } from "@/site/components/rotation-note";
@@ -77,7 +76,6 @@ export default function Results({ params, phase }: PanelProps<"results">) {
       {next}
       {/* The outcome is the panel's headline; once this game has ended, the next step is the room (its next game). */}
       <p className="font-serif text-xl font-semibold leading-snug" data-testid="text-results-headline">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
-      {liveIsEstimate(room?.settings) && <p className="text-xs leading-snug text-muted-foreground" data-testid="text-results-exact">Final points are counted exactly when the game ends. During the game your points were an estimate: how much the others want each object is blurred to keep their rules secret, and that usually reads high.</p>}
       {/* Its place in the rotation: whose rule you get next, and the totals over the rotation so far. */}
       <RotationNote game={live ? past?.find(g => g.id === game?.gameId) : record} history={past} me={me} />
       {live && room?.shortCode && (

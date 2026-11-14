@@ -337,7 +337,7 @@ export const loadProbe = internalQuery({
       id: g._id, phase: g.phase, seq: g.tick.seq, leaseUntil: g.tick.leaseUntil, commits: g.stats.commits, discarded: g.stats.discarded,
       acts: g.stats.acts, tickFailures: g.tickFailures ?? 0, worldSeconds: g.worldSeconds, lastTick: g.lastTick, endAtWorld: g.endAtWorld,
       createdAt: g.createdAt, planningEndsAt: g.planningEndsAt, endedAt: g.endedAt ?? null, endReason: g.endReason ?? null,
-      holdState: g.holdState ?? null, engineError: g.engineError ?? null, agentCount: g.agentCount, objectCount: g.objectCount,
+      engineError: g.engineError ?? null, agentCount: g.agentCount, objectCount: g.objectCount,
     }) };
   },
 });
@@ -364,7 +364,7 @@ export const rawReadModels = internalQuery({
       standings: (await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).collect()).map(strip).sort((a, b) => a.godId.localeCompare(b.godId)),
       history: (await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect()).map(strip),
       objects: (await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect())
-        .map(o => ({ id: o._id, salience: o.salience, noise: o.noise ?? 0, publicSalience: o.publicSalience })),
+        .map(o => ({ id: o._id, salience: o.salience, publicSalience: o.publicSalience })),
     };
   },
 });
