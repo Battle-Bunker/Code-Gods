@@ -2,6 +2,7 @@
  * `agent.*`: checking, summoning, replacing, putting back and destroying an agent. Check runs the program in the
  * sandbox; summon, replace and put back are actions whose writes are one internal mutation each (commands.ts).
  */
+import { notReadyText, type Readiness } from "../readiness";
 import { OpFailure } from "@workspace/v2-affordances";
 import { makeFunctionReference } from "convex/server";
 import { destroyAgent, ownAgent } from "../agents.ts";
@@ -11,6 +12,7 @@ import { callerOf, defineOp, seated } from "./define";
 
 const SUMMON = makeFunctionReference<"mutation", Record<string, unknown>, { agentId: string; price: number }>("v2/commands:summon");
 const REPROGRAM = makeFunctionReference<"mutation", Record<string, unknown>, { version: number; price: number }>("v2/commands:reprogramAgent");
+const READINESS = makeFunctionReference<"query", { language: "typescript" | "python" }, Readiness | null>("v2/runtimeReady:status");
 const CHECK = makeFunctionReference<"action", Record<string, unknown>, unknown>("v2/checkNode:check");
 
 async function guarded<T>(f: () => Promise<T>): Promise<T> {
@@ -28,6 +30,9 @@ export const { op: programs, as: programsAs } = defineOp("agent.programs", "quer
 
 export const { op: check, as: checkAs } = defineOp("agent.check", "action", async (env, a) => {
   const c = callerOf(env);
+  // Never wait for a sandbox to boot (readiness.ts, v1): say so and let the player try again.
+  const readiness = await env.ctx.runQuery(READINESS, { language: a.language });
+  if (readiness?.state !== "ready") throw new OpFailure(notReadyText(a.language, readiness));
   const out = await env.ctx.runAction(CHECK, { userId: c.userId!, scope: c.scope, language: a.language, source: a.source, ...(a.agentId ? { agentId: a.agentId } : {}) }) as { refused?: string };
   if (out.refused) throw new OpFailure(out.refused);
   return out as never;

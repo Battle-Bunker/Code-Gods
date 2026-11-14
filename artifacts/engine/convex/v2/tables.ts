@@ -128,6 +128,12 @@ export const v2Tables = {
   }).index("by_room_phase", ["roomId", "phase", "number"]).index("by_room", ["roomId", "number"]).index("by_code", ["code"])
     .index("by_parked", ["parked"]),
 
+  /** Whether each language's sandbox runtime has booted (readiness.ts: players never wait for a boot). */
+  v2RuntimeReadiness: defineTable({
+    language: languageV, version: v.string(), state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")),
+    reason: v.optional(v.string()), at: v.number(),
+  }).index("by_language_version", ["language", "version"]),
+
   /** When a human last acted (activity.ts: idle parking); one row, key "global". */
   v2Activity: defineTable({ key: v.string(), lastHumanActivityAt: v.number() }).index("by_key", ["key"]),
 

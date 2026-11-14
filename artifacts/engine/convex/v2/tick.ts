@@ -26,6 +26,7 @@ type Snapshot = {
   held: { objectId: string; state: string }[]; noiseKey: string | null;
   settings: { worldSeconds: number; startingObjects: number; peerNoiseBits?: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
+  ready: ("typescript" | "python")[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
 };
 const SNAPSHOT = makeFunctionReference<"query", { gameId: Id<"v2Games"> }, Snapshot | null>("v2/loop:snapshot");
@@ -66,6 +67,7 @@ export const tick = internalAction({
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));
 
       // Energy settled to this tick's world time, then spent act by act (the commit settles again, authoritatively).
+      const acting = snap.agents.filter(a => snap.ready.includes(a.language));
       const balance = new Map(snap.agents.map(a => {
         const income = agentIncome(econ.powerPerSecond, a.share);
         return [a.agentId, settle({ balance: a.energy, settledWorldSeconds: a.settledAt }, world, income, energyCapacity(income, econ.fullChargeSeconds)).balance];
@@ -89,7 +91,8 @@ export const tick = internalAction({
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
       const acts = [];
       for (const [i, number] of picks.entries()) {
-        const agent = pickByEnergy(snap.agents, a => balance.get(a.agentId)!, r);
+        // Only agents whose language's sandbox has booted act (readiness.ts): nobody waits for a boot.
+        const agent = pickByEnergy(acting, a => balance.get(a.agentId)!, r);
         if (!agent) break;
         const s = states.get(number);
         if (!s) continue;

@@ -19,6 +19,7 @@ import { mintPlayerJwt } from "../auth/jwt";
 import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
+import { RUNTIME_VERSION } from "./readiness";
 import { newNoiseKey, noiseAt, shownAt } from "./disclose";
 
 const fixtures = () => {
@@ -443,6 +444,18 @@ export const setActivity = internalMutation({
     const doc = await ctx.db.query("v2Activity").withIndex("by_key", q => q.eq("key", "global")).unique();
     if (doc) await ctx.db.patch(doc._id, { lastHumanActivityAt: at });
     else await ctx.db.insert("v2Activity", { key: "global", lastHumanActivityAt: at });
+  },
+});
+
+/** Sets a language's readiness (readiness.ts) for the current runtime: "warming" stays so for two minutes. */
+export const setReadiness = internalMutation({
+  args: { language: v.union(v.literal("typescript"), v.literal("python")), state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")) },
+  handler: async (ctx, { language, state }) => {
+    fixtures();
+    const version = RUNTIME_VERSION[language];
+    const row = await ctx.db.query("v2RuntimeReadiness").withIndex("by_language_version", q => q.eq("language", language).eq("version", version)).unique();
+    if (row) await ctx.db.patch(row._id, { state, at: Date.now() });
+    else await ctx.db.insert("v2RuntimeReadiness", { language, version, state, at: Date.now() });
   },
 });
 

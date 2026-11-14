@@ -12,6 +12,7 @@ import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { DEFAULT_PEER_NOISE_BITS, newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd } from "./duration.ts";
+import { ensureWarm } from "./readiness.ts";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 const AI_TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
@@ -307,6 +308,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   });
   await ctx.db.patch(room._id, { gameId, lastGameId: gameId, games: number, revision: room.revision + 1 });
   const game = (await ctx.db.get(gameId))!;
+  // Agent sandboxes boot in the background during planning (readiness.ts): nobody waits for them.
+  await ensureWarm(ctx);
   await summonPracticePartners(ctx, game);
   await restartAutopilots(ctx, room._id);
   // AI players take their first turn in planning, then every AI_TURN_MS (aiTurn.ts).

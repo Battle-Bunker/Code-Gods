@@ -94,6 +94,10 @@ v1's game settings as room settings (`room.settings` overrides): `durationMode` 
 Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
+Sandbox readiness (v1's, `readiness.ts`): players never wait for a sandbox to boot. A game's start warms every
+language in the background (`v2RuntimeReadiness`, keyed by the pinned runtime); `agent.check` answers "still starting"
+instead of waiting; the tick skips agents of languages not ready; planning holds past its deadline until every language
+is ready.
 At most 8 players can play (v1's cap); the rest of a room watches.
 
 `v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
