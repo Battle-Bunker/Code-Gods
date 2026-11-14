@@ -62,7 +62,8 @@ export function ForgePane() {
   const current = programs?.[0];
   const opening = useMemo(() => (rule ? openingProgram(rule.row.family, rule.row.tieBreaker, language) : null), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
   const others = useMemo(() => (rule ? otherStartingPoints(rule.row.family, language) : []), [rule?.row.family, language]); // eslint-disable-line react-hooks/exhaustive-deps
-  const base = agent ? current?.source ?? "" : opening?.source ?? "";
+  // The agent's own code; until its program arrives (right after a summon), the code just summoned, never a blank box.
+  const base = agent ? current?.source ?? ran ?? "" : opening?.source ?? "";
   const source = draft ?? base;
   const changed = !!agent && !!current && source !== current.source;
   const primary = primaryAction({ agents: count, selected: !!agent, draftChanged: changed });
@@ -120,6 +121,9 @@ export function ForgePane() {
         </select>
         <span className="text-xs text-muted-foreground">{agent ? `${agent.name}, version ${agent.version}` : opening ? `${opening.title}: ${opening.summary}` : ""}</span>
       </div>
+      {count === 0 && (
+        <p className="text-sm" data-testid="text-forge-hint">You don't need to change anything: <span className="font-medium">Summon my first agent</span> runs this code as it is. Later, try the one line marked "Try this:".</p>
+      )}
       <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
         className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
