@@ -184,10 +184,9 @@ export async function startGame(owner: God, roomId: string, args: { requestId?: 
 
 /** The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing`. */
 export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000): Promise<Started> {
-  const settled = async (g: Started) => g;
   if (started?.status !== "preparing" && started?.status !== "bidding") {
     assert.ok(started?.gameId, `the start began a game: ${JSON.stringify(started)}`);
-    return settled({ gameId: started.gameId, shortCode: started.shortCode, guid: started.guid });
+    return { gameId: started.gameId, shortCode: started.shortCode, guid: started.guid };
   }
   const game = await waitFor(async () => {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
@@ -196,7 +195,7 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
     return room.activeGame;
   }, `the prepared game in ${roomId} starts`, ms, 500);
   const { guid } = await owner.c.query(api.games.header, { code: game.shortCode });
-  return settled({ gameId: game.id, shortCode: game.shortCode, guid });
+  return { gameId: game.id, shortCode: game.shortCode, guid };
 }
 
 export const TS = {

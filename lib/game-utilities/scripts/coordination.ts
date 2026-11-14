@@ -36,9 +36,8 @@
  */
 import { execFile } from "node:child_process";
 import { availableParallelism } from "node:os";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { instantiate, seededRng, type Instantiation } from "@workspace/game-types";
 import { SEED_SETUPS, costModelOf } from "../../game-core/src/settings.ts";
@@ -202,7 +201,7 @@ export function rulesMarkdown(policies: readonly Policy[], byPolicy: ReadonlyMap
 const SELF = fileURLToPath(import.meta.url);
 /** Plays every table (in worker processes) and returns profileKey → stats. Tables are given in slot order. */
 export async function playTables(run: Run, tables: readonly (readonly Policy[])[], jobs: number): Promise<Map<string, TableStats>> {
-  for (let g = 0; g < run.games; g++) dealOf(run.setup, run.players, g); // the hold tables, once, for every worker
+  for (let g = 0; g < run.games; g++) dealOf(run.setup, run.players, g); // every deal, once, before the workers
   const unique = [...new Map(tables.map(t => [profileKey(t), [...t].sort() as Policy[]])).values()];
   const chunks: Policy[][][] = Array.from({ length: Math.min(jobs, unique.length) }, () => []);
   unique.forEach((t, k) => chunks[k % chunks.length].push(t));

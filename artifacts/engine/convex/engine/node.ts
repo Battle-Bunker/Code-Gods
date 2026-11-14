@@ -6,7 +6,7 @@
  * file storage or prepare them on demand (engine/calibration.ts resolveTables) and pass them in, `InstanceTables` for
  * scoring; dealing needs none (every available family is dealable, its tables are prepared after the deal).
  */
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   DEFAULT_SETTINGS, SETTINGS_FIELDS, allowedLanguages, SettingsChangeError, applySettingsChange, canonicalCostModel, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,

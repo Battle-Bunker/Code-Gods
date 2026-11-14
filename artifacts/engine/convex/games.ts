@@ -170,7 +170,7 @@ export const objectIds = query({
     await readable(ctx, gameId);
     const page = await ctx.db.query("objects").withIndex("by_game_salience", q => q.eq("gameId", gameId)).order("desc")
       .paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(OBJECT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
-    return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.publicSalience })) };
+    return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.salience })) };
   },
 });
 

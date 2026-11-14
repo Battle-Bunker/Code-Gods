@@ -6,11 +6,9 @@
  *   standingsHistory  one row per publication (the race's series, cursor-paged by seq)
  *   objects.publicSalience  each object's salience as disclosed now (the spectator's skeleton orders by it)
  */
-import { v } from "convex/values";
 import { rankTotals } from "@workspace/game-core";
-import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, type MutationCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 
 type Scoreboard = { totals: number[]; world: number; at: number };
 
