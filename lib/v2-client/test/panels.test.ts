@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EMPTY_VIEW } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf } from "../src/panels.ts";
+import { dockGroups, EMPTY_VIEW, parseDock } from "@workspace/v2-affordances";
+import { closePlan, columns, defaultPanes, dockFor, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf } from "../src/panels.ts";
 
 test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
   // Catches: shownPanes dropping a stored panel's pane as an unknown id, so "Open as a pane" shows nothing.
@@ -147,4 +147,14 @@ test("arranging panes in a replay keeps the replay open", () => {
 
 test("opening one line keeps every pane", () => {
   assert.deepEqual(openPlan({ panes: defaultPanes("live") }, "live", "object"), [{ id: "view.openPane", args: { pane: "object", place: "main" } }, { id: "view.openPane", args: { pane: "object" } }]);
+});
+
+test("an assistant in front in planning is in front when the world starts (re-walk: it landed behind a tab)", () => {
+  const panes = [{ pane: "my-card", place: "main" as const }, { pane: "forge", place: "right" as const }, { pane: "assistant", place: "right" as const }, { pane: "overview", place: "left" as const }];
+  const front = { ...EMPTY_VIEW, panes, dock: { planning: parseDock("row(overview 25, my-card 40, forge|*assistant 35)") } };
+  const groupOf = (v: typeof front) => dockGroups(dockFor(v, "live")!).find(l => l.group.tabs.includes("assistant"))!.group;
+  assert.equal(groupOf(front).active, "assistant");
+  // Behind a tab in planning, it stays where the live screen puts it.
+  const behind = { ...front, dock: { planning: parseDock("row(overview 25, my-card 40, *forge|assistant 35)") } };
+  assert.notEqual(groupOf(behind).active, "assistant");
 });

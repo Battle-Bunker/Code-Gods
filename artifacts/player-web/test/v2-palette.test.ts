@@ -61,3 +61,15 @@ test("in a room without AI, none of the assistant's operations is listed", () =>
   const ids = paletteCommands(ctx, { perform: async () => ({ ok: true as const, result: {} }), navigate() {} } as never).map(r => r.id);
   assert.deepEqual(ids.filter(id => id.startsWith("assistant.") || id === "pitch.draft"), []);
 });
+
+test("leave alone and hold open Agent code at their controls, not a page that says to find them (playtest round 7)", async () => {
+  const opened: string[] = [];
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} } };
+  const rows = paletteCommands(ctx, host as never);
+  for (const id of ["agent.leaveAlone", "agent.hold"]) {
+    const p = rows.find(r => r.id === id)?.performer;
+    assert.equal(p?.kind, "submit", id);
+    if (p?.kind === "submit") await p.run();
+  }
+  assert.deepEqual(opened, ["forge", "forge"]);
+});

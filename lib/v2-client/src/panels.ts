@@ -5,7 +5,7 @@
  * them and every client of theirs follows. How they are laid out on a desktop is the view state's `dock` (`dockFor`).
  * Player words only: points, rarity in bits, ⚡ energy, power, "line".
  */
-import { defaultDock, dockInsert, dockKindOf, dockWithout, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
+import { defaultDock, dockGroups, dockInsert, dockKindOf, dockWithout, type DockNode, type Place, type ViewState } from "@workspace/v2-affordances";
 
 /** A game's phase, or "replay": an ended game watched at a playhead (the replay's own arrangement). */
 export type GamePhase = "planning" | "live" | "paused" | "ended" | "replay";
@@ -162,7 +162,10 @@ export function dockFor(view: Pick<ViewState, "panes" | "dock">, phase: GamePhas
   const keep = (n: DockNode) => dockWithout(n, p => !ids.has(p));
   // An arrangement holding none of the shown panes would put them all in one group: the default's places serve instead.
   let tree = (view.dock?.[kind] && keep(view.dock[kind])) || keep(defaultDock(kind));
-  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, false);
+  // A pane joining this screen's dock goes behind its group's tab, except the assistant when it was in front in the
+  // arrangement it comes from (re-walk: the conversation went behind a tab when the world started).
+  const frontElsewhere = (pane: string) => Object.values(view.dock ?? {}).some(t => t && dockGroups(t).some(l => l.group.active === pane));
+  for (const p of shown) tree = dockInsert(tree, p.pane, p.place, p.pane === "assistant" && frontElsewhere(p.pane));
   return tree;
 }
 

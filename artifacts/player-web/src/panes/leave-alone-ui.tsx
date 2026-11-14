@@ -28,7 +28,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
       if (!r) return;
       setText([...new Set([...(readLeave(source) ?? []), ...r.numbers])].sort((a, b) => a - b).join(", "));
       setSaid(null);
-      requestAnimationFrame(() => box.current?.scrollIntoView({ block: "nearest" }));
+      requestAnimationFrame(() => { box.current?.scrollIntoView({ block: "nearest" }); box.current?.querySelector("input")?.focus({ preventScroll: true }); });
     };
     take();
     return onForgeRequest(take);
@@ -59,7 +59,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
       <p className={`text-xs ${"error" in parsed ? "text-destructive" : "text-muted-foreground"}`} data-testid="text-leave-alone">
         {"error" in parsed ? parsed.error : leaveLine({ agent: name, now, next: next!, price, one, many })} Use it to keep a deal made in chat.
       </p>
-      {said && <p className={said.tone === "ok" ? "text-xs" : "text-xs text-destructive"} data-testid="text-leave-alone-done">{said.tone === "ok" ? "✓ " : ""}{said.text}</p>}
+      {said && <p className={said.tone === "ok" ? "text-sm font-medium" : "text-sm text-destructive"} role="status" data-testid="text-leave-alone-done">{said.tone === "ok" ? "✓ " : ""}{said.text}</p>}
     </form>
   );
 }
