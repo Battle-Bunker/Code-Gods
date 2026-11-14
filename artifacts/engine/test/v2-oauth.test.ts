@@ -57,6 +57,10 @@ test("a human approves an MCP client's OAuth request for a v2 room; its token ac
   const approve = (h: typeof ada, args: Record<string, unknown>) => perform(h!, "account.approveConnection", { request: flow.request, completion, ...args });
   const failed = async (p: Promise<any>) => { try { const out = await p; return out.error?.code ?? "ok"; } catch (e) { return (e as any).data?.error?.code ?? "threw"; } };
 
+  // What /connect shows: the client, the grant asked for, the hinted room and the human's v2 rooms to choose from.
+  const shown = await ada!.query("v2/connect:pending", { request: flow.request });
+  assert.deepEqual([shown.clientName, shown.grant, shown.status, shown.hint?.roomId, shown.hint?.member], ["v2 OAuth test", "owner", "pending", roomId, true], JSON.stringify(shown));
+  assert.ok(shown.rooms.some((r: any) => r.roomId === roomId && r.owner));
   assert.equal(await failed(approve(stranger, { grant: "act", room: roomId })), "failed", "not a member of the room");
   assert.equal(await failed(approve(bo, { grant: "owner", room: roomId, ownerConsent: true })), "failed", "an owner grant needs the room's owner");
   assert.equal(await failed(approve(ada, { grant: "owner", room: roomId })), "failed", "an owner grant needs explicit consent");
@@ -91,4 +95,16 @@ test("an account request is approved as asked, with explicit consent, or not at 
   assert.match((await approve({ grant: "account" })).error.message, /explicit consent/);
   assert.equal((await approve({ grant: "account", accountConsent: true })).ok, true);
   assert.ok(await complete(flow, completion), "the approving browser collects the code");
+});
+
+test("a human denies an OAuth request: nothing to collect, and it cannot be approved after", { timeout: 60_000 }, async () => {
+  const [dee] = await humans("OAuth Dee");
+  const roomId = (await perform(dee!, "room.create", { name: "Dee's room" })).result.roomId;
+  const flow = await startOAuth(roomId, "act");
+  assert.equal((await perform(dee!, "account.denyConnection", { request: flow.request })).ok, true);
+  assert.equal((await dee!.query("v2/connect:pending", { request: flow.request })).status, "denied");
+  const completion = randomBytes(32).toString("base64url");
+  const late = await perform(dee!, "account.approveConnection", { request: flow.request, grant: "act", room: roomId, completion }).catch((e: any) => e.data);
+  assert.equal(late.error.code, "failed", "a denied request stays denied");
+  assert.equal(await complete(flow, completion), null);
 });

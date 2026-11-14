@@ -38,6 +38,8 @@ export interface FakeState {
   views: Record<string, ViewState>;
   /** Each human's in-client assistant per room: mode, grant, conversation and waiting messages (no model runs). */
   assistants?: Record<string, FakeAssistant>;
+  /** Connection requests the human denied: never approved after. */
+  denied?: string[];
   /** Each human's stored panels by `${userId}|${slug}` (no compiler: the source stands in for the compiled code). */
   panels?: Record<string, FakePanel>;
   next: number; now: number;
@@ -406,7 +408,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     delete e.state.connections[a.connectionId];
     return ok;
   },
+  "account.denyConnection": (e, a) => {
+    if (e.state.connections[a.request]) throw new OpFailure("That request was already approved.");
+    (e.state.denied ??= []).push(a.request);
+    return ok;
+  },
   "account.approveConnection": (e, a) => {
+    if (e.state.denied?.includes(a.request)) throw new OpFailure("Invalid or expired connection request.");
     if (a.grant === "account") throw new OpFailure("The fake server connects one room at a time.");
     e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
     return ok;
