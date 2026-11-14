@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=whole-lamp",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2246,5 +2246,7 @@
    null
   ]
  },
- "contentHash": "dec8e2c9e16d8e0a"
+ "cap": 11,
+ "dealable": true,
+ "contentHash": "ee14c7ef0d124551"
 }

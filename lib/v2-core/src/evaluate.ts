@@ -157,6 +157,11 @@ export function ruleLayers<P>(family: RuleFamily<any, P>, tieBreaker?: TieBreake
   return [family.main, tb];
 }
 
+/** The tie-breakers a family deals on a variant (Layer.dealtOn), in the family's order. */
+export function tieBreakersOn<P>(family: RuleFamily<any, P>, variant: Variant): readonly Layer<P>[] {
+  return family.tieBreakers.filter(t => t.dealtOn?.(variant) ?? true);
+}
+
 /** The id a dealt rule's key records: the chosen tie-breaker, or "none". */
 export function tieBreakerId(family: RuleFamily<any, any>, tieBreaker?: TieBreaker): string {
   const ls = ruleLayers(family, tieBreaker);

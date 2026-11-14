@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/pythagorean-area/{\"A\":6}/tb=prime-height",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2075,5 +2075,7 @@
    null
   ]
  },
- "contentHash": "98a7a4cd70edd7f3"
+ "cap": 31,
+ "dealable": true,
+ "contentHash": "a7b058de8e5457ce"
 }
