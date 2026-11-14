@@ -1,0 +1,198 @@
+{
+ "schema": 1,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/m-meets-c/{}",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "m-meets-c",
+ "params": {},
+ "seed": "v2",
+ "config": {
+  "computeBudget": 16000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 4,
+  "initialSamples": 64
+ },
+ "status": "converged",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-13"
+   ],
+   "label": "m and c within 13",
+   "bits": 0.0567,
+   "error": 0.0073
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "m and c within 8",
+   "bits": 0.1066,
+   "error": 0.0097
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "m and c within 5",
+   "bits": 0.1951,
+   "error": 0.013
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "m and c within 3",
+   "bits": 0.3132,
+   "error": 0.0184
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "m and c within 2",
+   "bits": 0.4854,
+   "error": 0.0212
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "m and c within 1",
+   "bits": 0.7504,
+   "error": 0.0246
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "m and c exactly",
+   "bits": 1.7528,
+   "error": 0.0316
+  }
+ ],
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0288,
+  "mixingSteps": 112.9804,
+  "steps": 6343389,
+  "samplesPerChain": 2048,
+  "split": [
+   0,
+   0.0764,
+   0.1329,
+   0.2243,
+   0.3382,
+   0.5049,
+   0.766,
+   1.7349
+  ],
+  "direct": [
+   0,
+   0.0764,
+   0.1289,
+   0.2248,
+   0.3354,
+   0.494,
+   0.7618,
+   1.7219
+  ],
+  "levelMatrix": [
+   [
+    3175,
+    148,
+    25,
+    11,
+    5,
+    8,
+    4,
+    0
+   ],
+   [
+    101,
+    1872,
+    160,
+    42,
+    18,
+    13,
+    11,
+    3
+   ],
+   [
+    29,
+    154,
+    3143,
+    328,
+    71,
+    63,
+    39,
+    25
+   ],
+   [
+    9,
+    41,
+    279,
+    3078,
+    326,
+    276,
+    86,
+    41
+   ],
+   [
+    7,
+    18,
+    68,
+    300,
+    4217,
+    416,
+    312,
+    70
+   ],
+   [
+    1,
+    7,
+    45,
+    296,
+    423,
+    5775,
+    777,
+    560
+   ],
+   [
+    4,
+    8,
+    39,
+    117,
+    348,
+    691,
+    16381,
+    1188
+   ],
+   [
+    3,
+    1,
+    30,
+    50,
+    83,
+    561,
+    1256,
+    17900
+   ]
+  ]
+ },
+ "contentHash": "23587b7e6c46970b"
+}

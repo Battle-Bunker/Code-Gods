@@ -12,7 +12,8 @@
     "build:artifact": "node clients/claude-artifact/build.mjs",
     "test:artifact": "node --test clients/claude-artifact/core.test.js",
     "test:offline": "pnpm run test:offline:rest && pnpm --filter @workspace/game-utilities test",
-    "test:offline:rest": "pnpm --filter @workspace/engine test:unit && pnpm --filter @workspace/player-client test:unit && for pkg in ai-player game-core game-types object-views ui-kit player-web; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done && pnpm run test:artifact && pnpm run test:ci-scripts",
+    "test:v2": "for pkg in v2-core v2-linear v2-valuation; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done",
+    "test:offline:rest": "pnpm run test:v2 && pnpm --filter @workspace/engine test:unit && pnpm --filter @workspace/player-client test:unit && for pkg in ai-player game-core game-types object-views ui-kit player-web; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done && pnpm run test:artifact && pnpm run test:ci-scripts",
     "test:ci-scripts": "node --test .github/scripts/*.test.mjs",
     "variants": "node .github/scripts/variants.mjs",
     "smoke:artifact": "node clients/claude-artifact/smoke.mjs"

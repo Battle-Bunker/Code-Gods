@@ -1,0 +1,15 @@
+{
+  "name": "@workspace/v2-linear",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@workspace/v2-core": "workspace:*"
+  }
+}

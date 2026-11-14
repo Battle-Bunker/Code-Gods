@@ -1,0 +1,20 @@
+{
+  "name": "@workspace/v2-valuation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "calibrate": "node --experimental-strip-types src/cli.ts"
+  },
+  "dependencies": {
+    "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-linear": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}
