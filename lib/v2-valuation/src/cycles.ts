@@ -93,11 +93,11 @@ export function cycleDiagnostic<S>(type: ObjectType<S>, variant: Variant, states
   const nbr = new Map<string, string[]>();
   for (const k of r.keys()) { const [x, y] = k.split("|") as [string, string]; if (keys.has(x) && keys.has(y)) (nbr.get(x) ?? nbr.set(x, []).get(x)!).push(y); }
   const sums: number[] = [];
-  for (const [a, bs] of nbr) for (const b of bs) for (const c of nbr.get(b) ?? []) {
+  loops: for (const [a, bs] of nbr) for (const b of bs) for (const c of nbr.get(b) ?? []) {
     if (c === a) continue;
     if (r.has(`${c}|${a}`)) sums.push(Math.abs(r.get(`${a}|${b}`)! + r.get(`${b}|${c}`)! + r.get(`${c}|${a}`)!));
     for (const d of nbr.get(c) ?? []) if (d !== a && d !== b && r.has(`${d}|${a}`)) sums.push(Math.abs(r.get(`${a}|${b}`)! + r.get(`${b}|${c}`)! + r.get(`${c}|${d}`)! + r.get(`${d}|${a}`)!));
-    if (sums.length > 200_000) break;
+    if (sums.length > 200_000) break loops;
   }
   const abs = [...r.values()].map(Math.abs);
   return { edges, oneWay, perMutator, worstEdge: maxOf(abs), medianEdge: median(abs), worstCycle: maxOf(sums), medianCycle: median(sums), cycles: sums.length };

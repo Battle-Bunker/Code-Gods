@@ -13,13 +13,19 @@ import { compareScores, evaluateObject, mixedIntBits, objectLadder, levelOf, q, 
 
 /** Compares two score components (null ranks last), as compareScores does. */
 const compareComponent = (a: Q | null, b: Q): number => compareScores([a], [b]);
-import { fromMC, lineType, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineParams, lineType, type LineState } from "@workspace/v2-linear";
+
+/** The exact sums enumerate single lines: a variant with several lines per object needs its own law (not built). */
+function oneLine(variant: Variant): void {
+  const p = lineParams(variant);
+  if (p.linesPerObject !== 1 || p.domain !== "Z") throw new Error(`${variant.id}: exact sums are built for one whole-number line per object`);
+}
 
 /** Every integer n with mixedInt(n) ≤ budget, with its bits: by prime factorisation, cheapest primes first. */
 export function integersWithin(budget: number): { n: bigint; bits: number }[] {
   const primes: number[] = [];
   for (let k = 2; primes.length === 0 || primes[primes.length - 1]! < 2 * budget; k++) if (primes.every(p => k % p)) primes.push(k);
-  const out: { n: bigint; bits: number }[] = [{ n: 0n, bits: mixedIntBits(0n) }];
+  const out: { n: bigint; bits: number }[] = mixedIntBits(0n) <= budget ? [{ n: 0n, bits: mixedIntBits(0n) }] : [];
   const rec = (i: number, n: bigint, sum: number): void => {
     if (n > 1n || i === 0 && n === 1n) {
       const b = mixedIntBits(n);
@@ -48,6 +54,7 @@ export interface ExactRungs {
 
 /** Exact rung values for a rule on a whole-number variant, every line within φ(m) + φ(c) ≤ budget enumerated. */
 export function exactRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker, budget: number): ExactRungs {
+  oneLine(variant);
   const ladder = objectLadder(lineType, family, params, variant, tieBreaker);
   const ints = integersWithin(budget);
   const mass = new Array<number>(ladder.length).fill(0);
@@ -83,6 +90,7 @@ export function exactRungs<P>(family: RuleFamily<LineState, P>, params: P, varia
  */
 export function exactRungsSeparable<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker,
   on: readonly ("m" | "c")[], budget: number): ExactRungs & { readonly separableChecked: number } {
+  oneLine(variant);
   const ladder = objectLadder(lineType, family, params, variant, tieBreaker);
   const ints = integersWithin(budget);
   const line = (m: bigint, c: bigint) => ({ lines: [fromMC(q(m), q(c))] });
@@ -166,6 +174,7 @@ export function exactRungsSeparable<P>(family: RuleFamily<LineState, P>, params:
  * cheapest paths.
  */
 export function dominantRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker, budget: number): number[] {
+  oneLine(variant);
   const ladder = objectLadder(lineType, family, params, variant, tieBreaker);
   const ints = integersWithin(budget);
   const best = new Array<number>(ladder.length).fill(Infinity), count = new Array<number>(ladder.length).fill(0);

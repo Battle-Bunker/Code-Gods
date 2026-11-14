@@ -76,6 +76,13 @@ existing code. The specification that follows from them is [spec.md](spec.md).
 18. On the bid phase: "I want that still in the rebuilt app." (Integration plan §5.9 ports bidding onto v2 rule
     families in M3: a bid names a family; the dealer draws the winner's parameters and tie-breaker.)
 
+19. On requiring consistent prices (each mutator may carry a handling fee shared by a move and its inverse; the
+    asymmetric part comes from one energy function of the line): "I'm comfortable with this constraint. If you still
+    think this makes sense after your analysis, implement it. Please consider whether the analytical approach can
+    actually fully substitute for the simulation one (tested with the simulation method at lower rungs). Don't be
+    attached to the simulation method just because we thought of it first and decided on it before thinking of the
+    chained analytical approach." (The study: [analytic-calibration.md](analytic-calibration.md).)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** Mutator price lists are NOT required to satisfy detailed balance; value is
