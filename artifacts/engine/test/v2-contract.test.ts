@@ -163,3 +163,16 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   assert.equal(listed.result.page.length, 5);
   assert.ok(listed.result.nextCursor);
 });
+
+test("account: connected assistants are listed and revoked by their human only", async () => {
+  await admin.mutation("v2/testing:seedAccountCredential", { userId: ada.userId });
+  const listed = await perform(ada, "account.connections", {}, {}, "query");
+  assert.equal(listed.ok, true, JSON.stringify(listed));
+  const [first] = listed.result.connections;
+  assert.ok(first && first.roomId === null);
+  try { await perform(bo, "account.revokeConnection", { connectionId: first.connectionId }); assert.fail("not Bo's"); } catch (e) {
+    assert.equal((e as any).data?.error?.code, "failed");
+  }
+  assert.equal((await perform(ada, "account.revokeConnection", { connectionId: first.connectionId })).ok, true);
+  assert.ok(!(await perform(ada, "account.connections", {}, {}, "query")).result.connections.some((c: any) => c.connectionId === first.connectionId));
+});
