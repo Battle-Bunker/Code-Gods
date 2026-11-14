@@ -41,6 +41,7 @@ A page query answers at most 50 rows, whatever `numItems` asks (`convex/v2/pages
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
 | `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` and `notes` (what their agent noted for them) only on the caller's own moves |
+| `v2/play:tugs` | `gameId` | seated: the caller's tugs-of-war over the whole game (lines that changed hands between their agents and others' at least twice), most-flipped first, ≤ 20: moves, flips, their agents' spend, the others by name, first and last world second, the best state for them. The tick folds them as moves commit (`v2Tugs`) |
 | `v2/spectate:objectIds`, `object` | as above | member; states only |
 | `v2/layout:current` | `roomId` | member |
 | `v2/replays:stored` | `gameId` | member |
@@ -63,6 +64,9 @@ the object type's wire (`line-z`: `a,b,c` per line, `;` between lines). Scores a
 destroy, allocate), `phase`, `objectBorn`, `values` (per player utility and bits), `act` (the act record with its
 seed, energy, offered object, program version), `tick` (standings), `gameEnded`. Folding `values` gives the standings;
 every `act` re-executes from its own fields (test/v2-game.test.ts).
+
+A game's seed decides its births and every act's seed, so `game.rematch` (the room's last game dealt again: the same
+rule to each player and the same seed) starts from the same objects; only the players' programs and choices differ.
 
 ## Running it
 

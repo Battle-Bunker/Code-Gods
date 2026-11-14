@@ -139,6 +139,19 @@ export const roomOps = [
     },
   }),
   affordance({
+    id: "game.rematch", title: "Rematch: the same deal", group: "owner", scope: "room",
+    description: "Starts a game dealt exactly as the room's last one: each player gets the rule they had, and the game has the same seed, so the same starting objects are born at the same times. Only the players' programs and choices differ, so two games can be compared (a deal made against none). Needs the same seated players as the last game; there is no bid phase.",
+    tooltip: "Play the last game's deal again.", keywords: ["rematch", "replay deal", "same seed", "again", "compare"],
+    params: obj({ requestId: requestId.optional() }),
+    result: z.object({ gameId: id }),
+    contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server",
+    available: ctx => {
+      const r = ctx.room;
+      if (r?.bidOpen) return { ok: false, reason: "The bid phase is open; the deal follows when it closes." };
+      return { ok: true };
+    },
+  }),
+  affordance({
     id: "game.startWorldNow", title: "End planning now", group: "owner", scope: "game",
     description: "Ends the planning phase early and starts the world: objects are born and agents begin to act.",
     tooltip: "Skip the rest of planning.", keywords: ["skip planning", "start now", "go live"],

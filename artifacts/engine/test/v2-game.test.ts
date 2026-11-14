@@ -84,6 +84,26 @@ test("no agent owes more than its capacity (the credit rule)", async () => {
   for (const a of await admin.query("v2/testing:agentsOf", { gameId })) assert.ok(a.energy >= -a.capacity - 1e-6, `${a.agentId}: ${a.energy} < -${a.capacity}`);
 });
 
+test("the tugs-of-war the tick folded are the act log's", async () => {
+  const { moves, tugs } = await admin.query("v2/testing:movesAndTugs", { gameId });
+  const want = new Map<string, any>();
+  for (const m of [...moves].sort((a: any, b: any) => a.seq - b.seq)) {
+    const k = `${m.memberId}:${m.objectId}`, t = want.get(k) ?? { moves: 0, flips: 0, mySpend: 0, others: [] as string[], from: m.worldSeconds, best: null as any };
+    if (t.moves > 0 && m.mine !== t.lastMine) t.flips++;
+    t.moves++; t.lastMine = m.mine; t.mySpend += m.mine ? m.charge : 0; t.to = m.worldSeconds;
+    if (!m.mine && !t.others.includes(m.by)) t.others.push(m.by);
+    if (!t.best || m.points > t.best.points) t.best = { state: m.stateAfter, points: m.points };
+    want.set(k, t);
+  }
+  assert.equal(tugs.length, want.size, "one row per (player, line) with moves");
+  for (const t of tugs) {
+    const w = want.get(`${t.memberId}:${t.objectId}`);
+    assert.ok(w, `a tug row with moves behind it: ${t.number}`);
+    assert.deepEqual({ moves: t.moves, flips: t.flips, others: t.others, from: t.from, to: t.to, best: t.best }, { moves: w.moves, flips: w.flips, others: w.others, from: w.from, to: w.to, best: w.best });
+    assert.ok(Math.abs(t.mySpend - w.mySpend) < 1e-6);
+  }
+});
+
 test("folding the record gives the final standings exactly", () => {
   const rarity = new Map<string, Map<string, number>>();   // object → member → bits
   for (const e of events) if (e.kind === "values") rarity.set(e.data.objectId, new Map(e.data.values.map((x: any) => [x.memberId, x.rarityBits])));

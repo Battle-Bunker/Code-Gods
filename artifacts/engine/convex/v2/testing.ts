@@ -77,6 +77,8 @@ export const seedGame = internalMutation({
     contested: v.optional(v.number()),
     /** Moves in each member's act log (default 3). */
     moves: v.optional(v.number()),
+    /** Tugs-of-war in each member's v2Tugs (default none), on the first objects. */
+    tugs: v.optional(v.number()),
   },
   handler: async (ctx, a) => {
     fixtures();
@@ -148,6 +150,11 @@ export const seedGame = internalMutation({
           calls: [{ mutator: "si.tilt", site: 0, args: { k: "1" } }], rep: "si", stateBefore: state, stateAfter: state, before: snap, after: snap, charge: 1.5,
         });
       }
+    }
+
+    for (const { memberId } of rules) for (let i = 0; i < Math.min(a.tugs ?? 0, n); i++) {
+      const others = members.filter(m => m !== memberId).slice(0, 2);
+      await ctx.db.insert("v2Tugs", { gameId, memberId, objectId: objects[i]!, number: i + 1, moves: 12, flips: 2 + (i % 9), lastMine: true, mySpend: 40, others, from: i, to: i + 30, best: { state: "fixture", points: 3 } });
     }
 
     // A tug-of-war on one line in the owner's act log: the owner's agent and the next seat's, alternating (foldTugs).
@@ -362,6 +369,18 @@ async function movesOfGame(ctx: QueryCtx, gameId: Id<"v2Games">) {
   return out;
 }
 
+/** A game's act log rows (seq order per member) and the tugs the tick folded from them. */
+export const movesAndTugs = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const moves = (await movesOfGame(ctx, gameId)).map(m => ({ memberId: m.memberId, seq: m.seq, objectId: m.objectId, mine: m.mine, by: m.by, charge: m.charge ?? 0, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, points: m.after.points }));
+    const game = (await ctx.db.get(gameId))!, tugs = [];
+    for (const r of game.roster) tugs.push(...await ctx.db.query("v2Tugs").withIndex("by_game_member_flips", q => q.eq("gameId", gameId).eq("memberId", r.memberId)).collect());
+    return { moves, tugs };
+  },
+});
+
 /** Rows of a game as they were stored before decision 23 (#488): a level on values and moves, a ladder on rules. */
 export const legacyLevels = internalMutation({
   args: { gameId: v.id("v2Games") },
@@ -393,4 +412,25 @@ export const legacyCounts = internalQuery({
 export const assistantPrefs = internalQuery({
   args: { roomId: v.id("v2Rooms"), userId: v.string() },
   handler: async (ctx, { roomId, userId }) => await ctx.db.query("v2AssistantPrefs").withIndex("by_room_user", q => q.eq("roomId", roomId).eq("userId", userId)).unique(),
+});
+
+/** Appends `count` events of about `bytes` of data each to a game's record (a long game's size, without playing it). */
+export const bulkEvents = internalMutation({
+  args: { gameId: v.id("v2Games"), count: v.number(), bytes: v.number() },
+  handler: async (ctx, { gameId, count, bytes }) => {
+    fixtures();
+    const last = await ctx.db.query("v2Events").withIndex("by_game_seq", q => q.eq("gameId", gameId)).order("desc").first();
+    const from = (last?.seq ?? -1) + 1, pad = "x".repeat(bytes);
+    for (let i = 0; i < count; i++) await ctx.db.insert("v2Events", { gameId, seq: from + i, kind: "act", data: { n: from + i, pad } });
+    return from + count;
+  },
+});
+
+/** Starts the replay build of an ended game, as its end does (loop.ts endGame). */
+export const buildReplay = internalMutation({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    await ctx.scheduler.runAfter(0, makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replayBuild:build"), { gameId });
+  },
 });

@@ -210,17 +210,35 @@ export async function closeIfAllDone(ctx: MutationCtx, roomId: Id<"v2Rooms">) {
   if (humans.every(h => rows.some(r => r.memberId === h._id && r.done))) await closeBidding(ctx, room);
 }
 
+/** The room's last game's deal, to deal again (`game.rematch`): each member's rule and the seed. */
+export interface Rematch { seed: string; dealKey: string; rules: Map<string, DealtRule> }
+export async function rematchDeal(ctx: QueryCtx, room: Doc<"v2Rooms">): Promise<Rematch> {
+  const last = room.lastGameId ? await ctx.db.get(room.lastGameId) : null;
+  if (!last) throw new OpFailure("There is no last game to deal again yet.", "game.start");
+  if (last.phase !== "ended") throw new OpFailure("The last game is still on; a rematch deals it again once it has ended.");
+  const pool = dealablePool(presetOf(room.preset)), byKey = new Map(pool.map(r => [r.ruleKey, r]));
+  if (last.preset !== room.preset) throw new OpFailure("The room's setup changed since the last game; a rematch deals the same setup.", "game.start");
+  const rules = new Map<string, DealtRule>();
+  for (const r of await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", last._id)).take(MAX_MEMBERS)) {
+    const rule = byKey.get(r.ruleKey);
+    if (!rule) throw new OpFailure("The last game's rules are no longer dealt by this setup.", "game.start");
+    rules.set(r.memberId, rule);
+  }
+  return { seed: last.seed, dealKey: last.dealKey, rules };
+}
+
 /**
  * Starts a game in the room: deals every seated member a rule (rotated, fresh, or with the bid phase's wins), opens
  * their accounts at the preset's starting energy, writes the header and the record's first event, and enters
  * planning. The world (births, acts) is the loop's (W3-4). A preset with a bid phase opens it instead (`openBidding`).
  */
-export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?: { bids: Bid[]; pricing: BidPricing }): Promise<Id<"v2Games">> {
+export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?: { bids: Bid[]; pricing: BidPricing }, again?: Rematch): Promise<Id<"v2Games">> {
   const preset = presetOf(room.preset);
   const seats = (await membersOf(ctx, room._id)).filter(m => !m.spectator);
   if (seats.length < preset.minPlayers) throw new OpFailure(`Needs ${preset.minPlayers} players; ${seats.length} seated.`, "seats.fillPracticePartners");
-  const seed = crypto.randomUUID(), now = Date.now();
-  let { rules, dealKey, rotation } = await nextDeal(ctx, room, seats, seed);
+  const seed = again?.seed ?? crypto.randomUUID(), now = Date.now();
+  let { rules, dealKey, rotation } = again ? { rules: seats.map(m => again.rules.get(m._id)!), dealKey: again.dealKey, rotation: null } : await nextDeal(ctx, room, seats, seed);
+  if (rules.some(r => !r) || (again && again.rules.size !== seats.length)) throw new OpFailure("A rematch needs the same seated players as the last game.", "game.start");
   let wins: BidWin[] = [];
   if (auction && auction.bids.length) {
     // A won bid voids the rotation (the auction is the fairness instrument); with no counted bid this is the plain deal.
@@ -240,7 +258,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   const gameId = await ctx.db.insert("v2Games", {
     roomId: room._id, number, code: `${room.code}-${number}`, phase: "planning", preset: preset.id, variant: preset.variant, seed,
     settings, roster: seats.map(m => ({ memberId: m._id, name: m.name, kind: m.kind })), createdAt: now, startedAt: now,
-    planningEndsAt: now + settings.planningSeconds * 1000, dealKey, rotates: wins.length === 0,
+    planningEndsAt: now + settings.planningSeconds * 1000, dealKey, rotates: wins.length === 0 && !again,
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
   });

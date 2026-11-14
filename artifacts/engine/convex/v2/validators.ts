@@ -104,6 +104,16 @@ export const movesPageV = paginationResultValidator(v.object({
   /** What the caller's own agent noted for them on this move (lib/v2-agents `note`); empty on others' moves. */
   notes: v.array(v.string()),
 }));
+/** The caller's tugs-of-war: lines that changed hands between their agents and others' at least MIN_TUG_FLIPS times. */
+export const tugsV = v.array(v.object({
+  objectId: v.id("v2Objects"), number: v.number(), moves: v.number(), flips: v.number(), mySpend: v.number(),
+  /** The other players whose agents moved it, by name. */
+  others: v.array(v.object({ memberId: v.id("v2Members"), name: v.string() })),
+  /** World seconds of the first and last move. */
+  from: v.number(), to: v.number(),
+  /** The state it passed through that was worth most to the caller, and those points. */
+  best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+}));
 export const digestV = v.object({ version: v.number(), packed: v.array(v.number()) });
 
 /** Spectators: every object's shared state, no values. */
