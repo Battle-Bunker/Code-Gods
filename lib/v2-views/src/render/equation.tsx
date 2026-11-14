@@ -6,7 +6,7 @@
 import { Qn, ref, type ElementRef, type ElementValue, type SceneData } from "@workspace/v2-core";
 import { fmtQ, MINUS } from "../format.ts";
 import type { RenderProps, SceneRenderer } from "../scene.ts";
-import { compactMarks, El, key, Readouts } from "./common.tsx";
+import { compactMarks, El, key, markState, Readouts } from "./common.tsx";
 
 type Eq = Extract<SceneData, { kind: "equation" }>;
 /** An element piece; a coefficient of ±1 carries its variable instead of a "1" ("−x" is one node). */
@@ -68,7 +68,10 @@ function Template({ p }: { p: RenderProps<Eq> }) {
           : (
             <El key={i} p={q} r={x.r}>
               {p.before && p.size === "expanded" ? <Was p={p} r={x.r} /> : null}
-              {x.op}{x.mag}{x.variable && <span className="v2v-var">{x.variable}</span>}
+              {x.op}{x.mag}
+              {/* A coefficient of 1 a rule cites is shown, faint, so the mark has a number to sit on. */}
+              {x.variable && markState(q.marks, x.r).focus && <span className="v2v-implied">1</span>}
+              {x.variable && <span className="v2v-var">{x.variable}</span>}
             </El>
           ))}
       </div>

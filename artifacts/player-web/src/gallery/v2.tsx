@@ -158,7 +158,7 @@ function Dealt() {
             <div className="g-dealt-grid">
               {f.dealable(lineQ).map(p => (
                 <Cell key={JSON.stringify(p)} title={Object.entries(p as object).map(([k, v]) => `${k} = ${v}`).join(", ") || "no parameters"}>
-                  <CompactFace rule={ruleOf(f, p)} state={line} />
+                  <CompactFace rule={ruleOf(f, p)} state={line} next />
                 </Cell>
               ))}
             </div>

@@ -7,12 +7,12 @@
  * Player words only: points, ✨ rarity, ⚡ energy, "main part", "tie-breaker", "step n of N", the noun "line".
  */
 import { useMemo, useState, type ReactElement } from "react";
-import { representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
+import { elementValue, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
-import { fmtRarity } from "./format.ts";
+import { fmtQ, fmtRarity, fmtValue, isUndef } from "./format.ts";
 import { nearestImprovement, type Improvement } from "./improve.ts";
 import { markRefs } from "./refs.ts";
-import { ObjectChip, RepView } from "./rep-view.tsx";
+import { labelOf, ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
 
 /** "step 5 of 8" (or "5/8" short), or "not scoring". */
@@ -59,7 +59,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
         {a.rarity !== null && <span className="v2v-rarity">{fmtRarity(a.rarity)}</span>}
         <span className="v2v-step" data-worst={a.score === null ? "" : undefined} title={a.worst ?? ladderHelp}>{levelText(a)}</span>
       </div>
-      {a.worst && <div className="v2v-face-why">{a.worst}</div>}
+      {a.worst ? <div className="v2v-face-why">{a.worst}</div> : <div className="v2v-face-why" title={parts[0]?.sentence}>{mainLine(props.rule, props.state, a, site)}</div>}
       {!a.worst && parts.length > 1 && (
         <div className="v2v-face-parts">
           {parts.map(p => p.rung !== null && (
@@ -74,6 +74,26 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
       {imp && <div className="v2v-face-next" title={imp.sentence}>next: {imp.describe} → step {imp.levelAfter}</div>}
     </div>
   );
+}
+
+/** A dynamic or derived element's short name: its label without the parenthesis, or "out(1)" for a parametrised one. */
+function shortLabel<S>(type: ObjectType<S>, r: ElementRef): string {
+  if (r.args && Object.keys(r.args).length) return `${r.name}(${Object.values(r.args).map(v => v.replace("-", "−")).join(", ")})`;
+  return labelOf(type, r).replace(/\s*\(.*\)/, "");
+}
+
+/**
+ * The compact card's one line about the main part: the quantity and the target in the rule's own words (its short
+ * note, or the elements the part was computed from), then the distance: "area 9, target 8 · off by 1".
+ */
+export function mainLine<S, P>(rule: RuleRef<S, P>, state: S, a: Annotation, site = 0): string {
+  const part = a.sites[site]?.parts[0];
+  if (!part || isUndef(part.value)) return "";
+  const note = part.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.text.length <= 28);
+  const term = a.sites[site]!.evaluation.terms.find(t => t.id === part.term)!;
+  const what = note?.text ?? term.from.map(r => `${shortLabel(rule.type, r)} ${fmtValue(elementValue(rule.type, state, r, site))}`).join(", ");
+  const amount = fmtQ(part.value);
+  return part.sense === "min" ? `${what} · off by ${amount}` : `${what} · ${amount}`;
 }
 
 // ------------------------------------------------------------------ parts list
