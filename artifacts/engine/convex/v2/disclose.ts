@@ -55,6 +55,13 @@ export function shownAt(v: { rarityBits: number; want: number }, noise: number):
 /** The σ a game's live reads carry (0 when it has no key: exact). */
 export const peerNoiseBitsOf = (game: Pick<NoiseGame, "noiseKey" | "settings">) => (game.noiseKey ? sigmaOf(game) : 0);
 
+/**
+ * Live anonymity (v1's public log, docs/public-log-design.md §1): while a game is live, nothing a player reads about
+ * another player's transformation says who made it: no mover, agent, calls or cost. A player's own moves keep them, and
+ * an ended game is fully transparent.
+ */
+export const attributed = (game: Pick<NoiseGame, "phase">, mine: boolean) => mine || game.phase === "ended";
+
 /** Whether reads disclose the noisy values (the game is not over). */
 export const disclosesNoise = (game: Pick<NoiseGame, "phase">) => game.phase !== "ended";
 

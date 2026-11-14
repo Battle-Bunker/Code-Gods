@@ -100,6 +100,7 @@ test("no two objects ever hold the same state (decision 24)", () => {
       held.set(e.data.objectId, e.data.state);
     }
     if (e.kind === "act" && e.data.outcome === "committed") {
+      assert.notEqual(e.data.after, e.data.before, `act ${e.data.n}: a transformation onto the object's own value fails (v1)`);
       assert.equal(clash(e.data.objectId, e.data.after), undefined, `act ${e.data.n} moved line ${e.data.number} onto another's state`);
       held.set(e.data.objectId, e.data.after);
     }
@@ -193,7 +194,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       ...(d.input ?? {}), values: valueFn(rule.ruleKey, events[0].data),
       // The other seats' rules and value functions (their othersAfter), in seat order, from the bundle.
       others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey, events[0].data) })),
-      occupied: (s: string) => { const h = held.get(s); return h !== undefined && h !== d.objectId; }, disclosed,
+      occupied: (s: string) => held.has(s), disclosed,
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);
