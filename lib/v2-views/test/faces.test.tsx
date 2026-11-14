@@ -55,3 +55,24 @@ test("move line: the change, the step before → after, the rarity with its reas
     points={{ before: 8.2, after: 7.9, want: 1.1, wantBefore: 2.4 }} />));
   assert.match(t2, /the others want it 1\.1, was 2\.4\): because the others want this line less now/);
 });
+
+test("compact face: says 'step n of N', each part's step, the reason when not scoring, and the next move", () => {
+  const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />));
+  assert.match(t, /step 5 of 8/);
+  assert.match(t, /main 5\/8/);
+  assert.match(t, /tie-break 4\/4/);
+  assert.match(t, /next: .* → step 8/);
+  const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />);
+  assert.match(html, /data-next=""/, "the next line drawn on the plane");
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} />)), /not scoring this tank is not draining/);
+});
+
+test("plane: two cited points at the same place get one label", async () => {
+  const { crossingCheck } = await import("@workspace/v2-linear");
+  const { RepView, annotate } = await import("../src/index.ts");
+  const rule = { type: lineType, family: crossingCheck, params: { k: 1, q: 4 }, variant: lineQ };
+  const s = mc(-1, 5); // y(1) = 4 and x(4) = 1: both at (1, 4)
+  const e = annotate(rule, s).sites[0]!.evaluation;
+  const html = renderToStaticMarkup(<RepView type={lineType} state={s} rep="cart" size="expanded" marks={e.marks} terms={e.terms} />);
+  assert.equal((html.match(/\(1, 4\)/g) ?? []).length - (html.match(/<title>[^<]*\(1, 4\)/g) ?? []).length, 1);
+});
