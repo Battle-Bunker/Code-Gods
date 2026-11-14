@@ -247,7 +247,7 @@ start result show "No synergy has been measured for … : the Aligned Lottery de
 ## 4. Per-pair quantities: synergy on demand (Phase C)
 
 The Aligned Lottery (`selectors.ts fairAligned`) scores 32 candidate deals by a family-pair matrix `W_ij` (depth-averaged
-PMI of the two families' upper contour sets; `lib/grid-lab/docs/explore/synergy.md`), shipped for three shapes. The
+PMI of the two families' upper contour sets; `archive/engine-v1:lib/grid-lab/docs/explore/synergy.md`), shipped for three shapes. The
 atlas costs ~11,000 joint splitting climbs (3 CPU-hours) per shape: not an on-demand quantity. The requirement is that a
 new rule, or a new shape, needs no thought about it. Design:
 

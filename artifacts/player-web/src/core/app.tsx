@@ -1,5 +1,5 @@
 /**
- * The app (docs/unify-apps-plan.md): every page calibrated to the signed-in human, on one URL scheme (./routes.ts):
+ * The app (archive/engine-v1:docs/unify-apps-plan.md): every page calibrated to the signed-in human, on one URL scheme (./routes.ts):
  *
  *   /                          your rooms
  *   /rooms/:room               the room: its active game, members and their roles, chat, next game, past games

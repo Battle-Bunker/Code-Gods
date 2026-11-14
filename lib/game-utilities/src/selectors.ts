@@ -99,7 +99,7 @@ export const divineLottery: UtilitySelector = {
 };
 
 /**
- * A family-level pairwise synergy matrix for one instantiation and prior (lib/grid-lab/docs/explore/synergy.md
+ * A family-level pairwise synergy matrix for one instantiation and prior (archive/engine-v1:lib/grid-lab/docs/explore/synergy.md
  * §1: W_ij = depth-averaged PMI of the two families' upper contour sets under the prior, in bits; > 0 aligned).
  * Shipped with the calibration data under data/synergy/; unmeasured pairs count as 0 (orthogonal).
  */
@@ -116,7 +116,7 @@ export function registerSynergy(matrix: SynergyMatrix): void {
   SYNERGY.set(`${matrix.instKey}|${matrix.priorId}`, matrix);
 }
 export const synergyFor = (inst: Instantiation, priorId = "uniform") => SYNERGY.get(`${inst.key}|${priorId}`);
-// Shipped matrices (scripts/import-synergy.mjs): exported by lib/grid-lab's synergy atlas.
+// Shipped matrices (scripts/import-synergy.mjs): exported by archive/engine-v1:lib/grid-lab's synergy atlas.
 for (const m of MATRICES as readonly SynergyMatrix[]) registerSynergy(m);
 
 /**

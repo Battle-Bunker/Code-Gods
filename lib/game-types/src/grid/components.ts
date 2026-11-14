@@ -3,7 +3,7 @@
  * descriptors and calibration tables index them, so a change needs a new component id
  * (test/components.lock.json guards them).
  *
- * Indices match lib/grid-lab/gridlab/core.py exactly:
+ * Indices match archive/engine-v1:lib/grid-lab/gridlab/core.py exactly:
  *   symbols  digit sets: index = digit value; cards: index = suit * 13 + rank,
  *            rank 0..12 = A,2..10,J,Q,K and suit 0..3 = ♠ ♥ ♦ ♣ (codes "AS", "TH", "KC", ...)
  *   colours  spectral (rainbow) order: rgb = R G B, rgby = R Y G B, rainbow6 = R O Y G B V;

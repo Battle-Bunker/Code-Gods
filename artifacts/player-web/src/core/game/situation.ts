@@ -16,7 +16,7 @@ export function useSituation() {
       obs, room, phase,
       seated: !!obs && obs.seated !== false && !!obs.gameId,
       isOwner: !!room && !!obs && room.ownerId === obs.self.godId,
-      // Players of the next game: spectators watch (docs/unify-apps-plan.md §2).
+      // Players of the next game: spectators watch (archive/engine-v1:docs/unify-apps-plan.md §2).
       players: room?.members.filter(m => !m.spectator).length ?? 0,
       agents: agentList.length, agentList,
       ready: obs?.self.ready ?? false,

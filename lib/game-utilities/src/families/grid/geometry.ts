@@ -1,4 +1,4 @@
-/** Geometry & topology lens rules (lib/grid-lab/gridlab/rules/geometry.py, cards from rules/cards.py). */
+/** Geometry & topology lens rules (archive/engine-v1:lib/grid-lab/gridlab/rules/geometry.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import { colourParam, choiceParam } from "../../params.ts";
 import { rankAt, rankName, rankOptions, suitOptions } from "./games.ts";
@@ -371,7 +371,7 @@ const royalCourt = gridFamily<CourtP>({
 
 
 // ================================================================================================
-// Not shortlisted (new cards, checked against grid-lab by test/gridlab_parity.py)
+// Not shortlisted (new cards)
 // ================================================================================================
 
 type ColourP = { colour: string };

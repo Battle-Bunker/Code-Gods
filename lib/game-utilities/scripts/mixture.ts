@@ -1,6 +1,6 @@
 /**
  * Mixture priors: ρ = ½·uniform + ½·pool, where the pool is a frozen list of objects (e.g. grids from earlier
- * games, lib/grid-lab/docs/explore/priors.md). The tail is exact given the uniform table:
+ * games, archive/engine-v1:lib/grid-lab/docs/explore/priors.md). The tail is exact given the uniform table:
  *
  *   G_ρ(t) = ½·G_uniform(t) + ½·#{y ∈ pool : u(y) ≥ t} / |pool|
  *

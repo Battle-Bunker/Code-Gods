@@ -1,4 +1,4 @@
-/** Games-kids-know lens rules (lib/grid-lab/gridlab/rules/games.py, cards from rules/cards.py). */
+/** Games-kids-know lens rules (archive/engine-v1:lib/grid-lab/gridlab/rules/games.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import type { Params } from "../../types.ts";
 import { setParam, colourParam, choiceParam, intParam } from "../../params.ts";
@@ -458,7 +458,7 @@ const fullHouse = gridFamily<HouseP>({
 
 
 // ================================================================================================
-// Not shortlisted (new cards, checked against grid-lab by test/gridlab_parity.py)
+// Not shortlisted (new cards)
 // ================================================================================================
 
 const suitWord = (g: GridSpec) => (g.cards ? "suit" : "colour");

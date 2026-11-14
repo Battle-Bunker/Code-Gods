@@ -1,6 +1,6 @@
 /**
- * Information scoring (docs/clean-implementation-plan.md §4.4, lib/grid-lab/docs/defence-goals.md,
- * reference implementation lib/grid-lab/gridlab/defence.py, "floored" mode).
+ * Information scoring (archive/engine-v1:docs/clean-implementation-plan.md §4.4, archive/engine-v1:lib/grid-lab/docs/defence-goals.md,
+ * reference implementation archive/engine-v1:lib/grid-lab/gridlab/defence.py, "floored" mode).
  *
  * For god i on object x:
  *   s⁺_i(x)  reward bits: surprisal of the reward ordinal under the spawn prior μ (calibration table)

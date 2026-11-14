@@ -52,8 +52,8 @@ objectViews.register({ type: "Tree", defaultRenderer: "outline", infer: isTree, 
 
 | component | what |
 |---|---|
-| `Rarity`, `rarityText(bits, noun)` | "1 in 145" headline (never saturates; words for big numbers, "an everyday grid" below 1 in 2), "rarer than 993 of 1,000 grids", ✨ bits (lib/grid-lab/docs/kid-cards.md §2) |
-| `PenaltyWarning`, `penaltyLine(h, comparative, noun)` | "⚠️ redder than 90% of grids" (inverts the soft hinge of the penalty bits), or "⚠️ fine" at or below the median (lib/grid-lab/docs/defence-goals.md §6) |
+| `Rarity`, `rarityText(bits, noun)` | "1 in 145" headline (never saturates; words for big numbers, "an everyday grid" below 1 in 2), "rarer than 993 of 1,000 grids", ✨ bits (archive/engine-v1:lib/grid-lab/docs/kid-cards.md §2) |
+| `PenaltyWarning`, `penaltyLine(h, comparative, noun)` | "⚠️ redder than 90% of grids" (inverts the soft hinge of the penalty bits), or "⚠️ fine" at or below the median (archive/engine-v1:lib/grid-lab/docs/defence-goals.md §6) |
 | `ScoreBreakdown` | a god's own view of one object: ✨, ⚠️, own net bits, everyone else **together** (peer net bits and peer care), payoff. Aggregates only, never individual peers |
 | `HowScoringWorks` | the explainer: rarity bits, net bits, payoff = your bits × max(0, others' bits); "if the others don't care, nobody scores" (anchor `#how-scoring-works`) |
 | `UtilityCardView` | emoji and name, plain summary, "uses: ♠ Suits · …" chips (`familyUses`), the source, then the defence-goal card |

@@ -1,5 +1,5 @@
 /**
- * The goal card's ★ blocks (src/card-tiers.ts; docs/layered-rules-design.md §4): the base rule first, each tier in a
+ * The goal card's ★ blocks (src/card-tiers.ts; archive/engine-v1:docs/layered-rules-design.md §4): the base rule first, each tier in a
  * block that opens by itself at its gate or when the board already holds a tier point.
  */
 import { test } from "node:test";

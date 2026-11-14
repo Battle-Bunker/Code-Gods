@@ -237,7 +237,7 @@ export const gameTables = {
   members: defineTable({
     roomId: v.id("rooms"), godId: v.string(), name: v.string(), kind, ready: v.boolean(), joinedAt: v.number(),
     /**
-     * Watches the next game instead of playing it (docs/unify-apps-plan.md §2): not dealt in, not counted toward the
+     * Watches the next game instead of playing it (archive/engine-v1:docs/unify-apps-plan.md §2): not dealt in, not counted toward the
      * 3 to 8 players. A preference for the next game; a running game's roster never changes. The owner is a player unless they choose to watch;
      * AI seats never are.
      */

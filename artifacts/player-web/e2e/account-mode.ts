@@ -1,5 +1,5 @@
 /**
- * The app on another origin, in account mode (src/core/connection.ts, docs/unify-apps-plan.md §3): built with
+ * The app on another origin, in account mode (src/core/connection.ts, archive/engine-v1:docs/unify-apps-plan.md §3): built with
  * VITE_CODE_GODS_ENGINE_URL and served from localhost while the engine is 127.0.0.1:<site port>. The human
  * approves an account grant on the engine's /connect page (explicit consent) and the app is then them everywhere:
  * Alice creates a room, plays in it, starts the game and gets her dock, all from the other origin. The consent pages

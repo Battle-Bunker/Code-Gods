@@ -11,7 +11,7 @@ import { createObjectTypeRegistry } from "../src/registry.ts";
 import { looksLikeGrid } from "../src/grid-display.ts";
 
 test("rarity: kid-cards §2 table (1 in N headline, ✨ bits, per mille)", () => {
-  // score → bits from lib/grid-lab/docs/kid-cards.md §2
+  // score → bits from archive/engine-v1:lib/grid-lab/docs/kid-cards.md §2
   const rows: [number, string, number, string][] = [
     [Math.log2(2.5), "1 in 2.5", 600, "1.3"],
     [-Math.log2(0.072), "1 in 14", 928, "3.8"],
