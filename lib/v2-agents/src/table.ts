@@ -65,6 +65,8 @@ export interface TableInput<S> {
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
+  /** Experiments only: summons and edits cost at most this (to try programs dearer than a player's store). */
+  readonly summonCap?: number;
   readonly model?: TableModel;
   /** Called after each model turn (for logs). */
   readonly onTurn?: (seat: string, at: number, run: RunResult) => void;
@@ -104,6 +106,10 @@ export interface TableReport {
   readonly usd: number;
   /** Objects on the table at the end (the starting lines plus births). */
   readonly objects: number;
+  /** The objects' states at the end, in object order (for analysis: what was left to climb). */
+  readonly final: readonly unknown[];
+  /** Dynamics: committed moves in the last 60 world seconds, and how many distinct objects they moved. */
+  readonly late: { readonly moves: number; readonly objectsMoved: number };
 }
 
 /** The tools a table answers: the server tools an AI seat is offered, less the room's admin. */
@@ -150,6 +156,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const mine = (i: number) => agents.filter(a => a.seat === i);
   function pay(i: number, price: number, kind: "summons" | "edits") {
     const own = settledOwn(i);
+    if (input.summonCap !== undefined) price = Math.min(price, input.summonCap);
     if (own.balance < price) throw new Error(`That costs ${Math.round(price * 10) / 10} ⚡; you have ${Math.round(own.balance * 10) / 10} in your own store. Move power from your agents to your store first (power.allocate), then pay.`);
     players[i]!.own = spend(own, price);
     stats[i]![kind === "summons" ? "spentSummons" : "spentEdits"] += price;
@@ -418,7 +425,8 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       commitments: (l => ({ enacted: l.filter(c => c.status === "enacted").length, pending: l.filter(c => c.status === "pending").length, retracted: l.filter(c => c.status === "retracted").length }))(ledger(i)),
     })),
     chat: chat.map(({ from, text, at }) => ({ from, text, at })),
-    deals: found.deals, usd, objects: lines.length,
+    deals: found.deals, usd, objects: lines.length, final: lines,
+    late: (l => ({ moves: l.length, objectsMoved: new Set(l.map(e => e.object)).size }))(log.filter(e => e.at >= input.seconds - 60)),
   };
 }
 
