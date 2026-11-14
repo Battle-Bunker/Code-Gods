@@ -6,16 +6,17 @@
  * the panes round the same way). A line's score is written once, by `scoreFormula`: the product shown is the product of
  * the full values, and "≈" stands in for "=" when the shown figures do not multiply to it.
  */
-import { BITS_HELP, chanceText, fmtBits, fmtNum } from "@workspace/v2-views/format";
-export { chanceText };
+import { BITS_HELP, chanceText, fmtBits, fmtNum, pointsText, scoreFormula } from "@workspace/v2-views/format";
+export { chanceText, pointsText, scoreFormula };
+
+/** A measure in hundredths, as shown. */
+const shown = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100);
 
 /** 2 decimal places, en-US grouping, a true minus sign, never "−0.00": every measure a player reads. */
 export const num = fmtNum;
 /** "Each bit = twice as rare." */
 export { BITS_HELP };
 
-/** "12.50 points". */
-export const pointsText = (x: number) => `${num(x)} point${num(x) === "1.00" ? "" : "s"}`;
 /** "3.40 bits". */
 export const bitsText = fmtBits;
 /**
@@ -52,18 +53,6 @@ export const HANDICAP_NOTE = "A won bid's share (the −% beside a total) comes 
 /** A total's note, with the handicap's when it applies. */
 export const totalNote = (note: string, handicapped: boolean) => (handicapped ? `${note} ${HANDICAP_NOTE}` : note);
 
-/** A measure in hundredths, as shown. */
-const shown = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100);
-
-/**
- * A line's score: "your 4.24 bits × others' 12.03 bits = 51.01 points" (others' = the other players' bits on the line
- * added together). The product is the full values' product, rounded; "≈" when the shown factors do not multiply to it.
- */
-export function scoreFormula(yours: number, others: number): string {
-  const product = yours * others;
-  const sign = Math.round(shown(yours) * shown(others) / 100) === shown(product) ? "=" : "≈";
-  return `your ${bitsText(yours)} × others' ${bitsText(others)} ${sign} ${pointsText(product)}`;
-}
 
 /** Why an object you find rare scores nothing: nobody else does (others' bits show 0.00). Null otherwise. */
 export function onlyYouNote(yours: number, others: number, one = "line"): string | null {

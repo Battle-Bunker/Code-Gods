@@ -8,13 +8,15 @@ import type { ReactElement } from "react";
 import type { Score } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { contributors } from "./contributors.ts";
-import { partLine } from "./faces.tsx";
-import { fmtBits, fmtEnergy, fmtNum } from "./format.ts";
+import { CompactFace, partLine } from "./faces.tsx";
+import { fmtBits, fmtEnergy, fmtNum, scoreFormula } from "./format.ts";
 import { moves } from "./moves.ts";
 import { nounOf } from "./refs.ts";
 
 export interface SummaryObject<S> {
   readonly number: number;
+  /** The app's id for it, passed back when the player opens it. */
+  readonly id?: string;
   readonly state: S;
   /** The player's final points, bits and the others' bits on it. */
   readonly points: number;
@@ -44,73 +46,115 @@ export interface SummaryInput<S> {
   readonly total: number;
 }
 
-export interface Summary {
+export interface Summary<S = unknown> {
   readonly noun: string;
-  readonly earned: readonly { readonly number: number; readonly points: number; readonly why: string }[];
+  /** One thing to try next game, and the object it is about (when it is about one). */
+  readonly next: { readonly text: string; readonly number: number | null };
+  /** The best that scored: the main part's chain ("● y-intercept 23 · on 23") and the score's arithmetic. */
+  readonly earned: readonly { readonly number: number; readonly id?: string; readonly state: S; readonly points: number; readonly chain: string; readonly formula: string }[];
   readonly earnedNote: string;
-  readonly costs: readonly string[];
+  /** Each tug-of-war, dearest first: what happened, with whom, at what cost. */
+  readonly costs: readonly { readonly number: number; readonly text: string }[];
   readonly costNote: string | null;
-  readonly next: string;
 }
 
 const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 /** "Ada", "Ada and Bo", "Ada, Bo and Cy". */
 const names = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "another player" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
+/** "You and Ada", "You, Ada and Bo". */
+const youAnd = (list: readonly string[]) => (list.length <= 1 ? `You and ${list[0] ?? "another player"}` : `You, ${names(list)}`);
 
 /** How many objects make the "what earned" list. */
 const BEST = 3;
 
-export function summarise<S>(input: SummaryInput<S>): Summary {
+export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const { rule } = input;
   const noun = nounOf(rule.type), Noun = cap(noun);
 
-  // What earned: the best few that scored, each through its main part ("y-intercept 23 · on 23").
+  // What earned: the best few that scored, each through its main part, and its score's arithmetic.
   const best = [...input.objects].filter(o => o.points > 0).sort((a, b) => b.points - a.points).slice(0, BEST);
   const earned = best.map(o => {
     const main = contributors(rule, o.state).parts[0];
-    const said = main ? partLine(main).slice(2) : "";
-    return { number: o.number, points: o.points, why: `${Noun} ${o.number}: ${said}${said ? "; " : ""}your ${fmtBits(o.bits)} × others' ${fmtBits(o.want)} = ${fmtNum(o.points)} points.` };
+    return { number: o.number, ...(o.id ? { id: o.id } : {}), state: o.state, points: o.points, chain: main ? partLine(main) : "", formula: scoreFormula(o.bits, o.want) };
   });
   const sum = best.reduce((t, o) => t + o.points, 0);
   const earnedNote = best.length
     ? `${best.length === 1 ? `This ${noun}` : `These ${best.length} ${noun}s`} earned ${fmtNum(sum)} of your ${fmtNum(input.total)} points.`
     : `No ${noun} scored for you this game: a ${noun} scores when it is rare for your rule and for someone else's at the same time.`;
 
-  // What cost: each tug-of-war, dearest first.
+  // What cost: each tug-of-war, dearest first, said as what happened.
   const tugs = [...input.tugs].sort((a, b) => b.mySpend - a.mySpend);
-  const costs = tugs.map(t => `${Noun} ${t.number}: a tug-of-war with ${names(t.withNames)} (${t.flips} pulls): your agent spent ${fmtEnergy(t.mySpend)} on it.`);
+  const costs = tugs.map(t => ({ number: t.number, text: `${youAnd(t.withNames)} pulled ${noun} ${t.number} back and forth (${t.flips} pulls; ${fmtEnergy(t.mySpend)} of yours).` }));
   const spent = tugs.reduce((t, x) => t + x.mySpend, 0);
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all: energy that moved no ${noun} for good.` : null;
 
-  // One thing to try: the dearest tug-of-war's other side, by name; else the most wanted object made rarer for you.
-  let next: string;
+  // One thing to try, as a concrete lever: the dearest tug-of-war's object left alone (or a state agreed in chat, with
+  // people: practice partners do not read it); else the most wanted object made rarer for you.
+  let next: Summary["next"];
   const top = tugs[0];
-  if (top && top.practice) next = `Next game, tell your agent to leave ${noun} ${top.number} to ${names(top.withNames)}: it cost you ${fmtEnergy(top.mySpend)}, and practice partners do not read chat.`;
-  else if (top) next = `Talk to ${top.withNames[0] ?? "the other player"} about ${noun} ${top.number} before your agents pull it: you both want it.`;
-  else {
+  if (top) {
+    const lever = `Next game, add ${noun} ${top.number} to your agent's leave-alone list`;
+    next = { number: top.number, text: top.practice ? `${lever}.` : `${lever}, or agree a state for it with ${names(top.withNames)} in chat.` };
+  } else {
     const wanted = [...input.objects].sort((a, b) => b.want - a.want)[0];
     const m = wanted ? moves(rule, wanted.state, input.value ?? null, { k: 1 })[0] : undefined;
     next = wanted && m
-      ? `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.`
-      : `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.`;
+      ? { number: wanted.number, text: `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.` }
+      : { number: null, text: `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.` };
   }
-  return { noun, earned, earnedNote, costs, costNote, next };
+  return { noun, next, earned, earnedNote, costs, costNote };
 }
 
-/** The summary as three short sections: what earned your points, what cost you, and one thing to try next game. */
-export function GameSummary({ summary }: { summary: Summary }): ReactElement {
+export interface GameSummaryProps<S> {
+  readonly summary: Summary<S>;
+  readonly rule: RuleRef<S, unknown>;
+  readonly value?: (u: Score) => number;
+  /** Opens an object (by its id, else its number), e.g. in the replay. */
+  readonly onOpen?: (id: string | undefined, number: number) => void;
+}
+
+/**
+ * The summary in the contributor chain's visual language: "Try next game" first and strongest, then what earned your
+ * points (each with its compact face and the ● chain, tappable), then what cost you.
+ */
+export function GameSummary<S>({ summary, rule, value, onOpen }: GameSummaryProps<S>): ReactElement {
+  const Noun = cap(summary.noun);
   return (
     <section className="v2v v2v-summary" aria-label="How your game went">
+      <div className="v2v-summary-next" data-testid="text-summary-next">
+        <h4 className="v2v-summary-next-title">Try next game</h4>
+        <p>{summary.next.text}</p>
+      </div>
       <h4 className="v2v-summary-title">What earned your points</h4>
-      {summary.earned.length > 0 && <ol className="v2v-summary-list">{summary.earned.map(e => <li key={e.number}>{e.why}</li>)}</ol>}
+      {summary.earned.length > 0 && (
+        <ol className="v2v-summary-earned">
+          {summary.earned.map(e => {
+            const inner = (
+              <>
+                <CompactFace rule={rule} state={e.state} value={value} />
+                <span className="v2v-summary-why">
+                  <b>{Noun} {e.number}</b>
+                  <span className="v2v-face-part" data-role="main">{e.chain}</span>
+                  <span className="v2v-summary-formula">{e.formula}</span>
+                </span>
+              </>
+            );
+            return (
+              <li key={e.number}>
+                {onOpen
+                  ? <button type="button" className="v2v-summary-open" aria-label={`Open ${summary.noun} ${e.number}`} onClick={() => onOpen(e.id, e.number)}>{inner}</button>
+                  : <div className="v2v-summary-open">{inner}</div>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
       <p className="v2v-summary-note">{summary.earnedNote}</p>
       <h4 className="v2v-summary-title">What cost you</h4>
       {summary.costs.length > 0
-        ? <ol className="v2v-summary-list">{summary.costs.map(c => <li key={c}>{c}</li>)}</ol>
+        ? <ol className="v2v-summary-list">{summary.costs.map(c => <li key={c.number}>{c.text}</li>)}</ol>
         : <p className="v2v-summary-note">{`No tug-of-war: your agents did not fight another player's over a ${summary.noun}.`}</p>}
       {summary.costNote && <p className="v2v-summary-note">{summary.costNote}</p>}
-      <h4 className="v2v-summary-title">Try next game</h4>
-      <p className="v2v-summary-next">{summary.next}</p>
     </section>
   );
 }

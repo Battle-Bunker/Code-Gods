@@ -218,11 +218,14 @@ try {
     await assertNoSteps(page, `${label}: the results`);
     // The end in plain words: what earned your points, what cost you, one thing to try next game.
     const summary = page.getByTestId("results-summary");
-    await summary.getByText("Try next game").waitFor({ timeout: 20_000 });
+    await summary.getByTestId("text-summary-next").waitFor({ timeout: 20_000 });
+    // The next step sits right under the headline: on a phone it is on screen with it (above the fold).
+    const head = await page.getByTestId("text-results-headline").boundingBox(), next = await summary.getByTestId("text-summary-next").boundingBox();
+    assert.ok(head && next && next.y - head.y < 260, `the next step is right under the headline (${head?.y} → ${next?.y})`);
     const said = await summary.innerText();
-    assert.match(said, /What earned your points/);
+    assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(Talk to .+ about line \d+|tell your agent to leave line \d+|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(add line \d+ to your agent's leave-alone list|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();
@@ -233,7 +236,16 @@ try {
     await shot(page, `game-${label}-end`);
     // The standings once, in Results (a persona walk met the same table three times), and the way back to the room.
     assert.equal(await page.getByTestId("leaderboard").count(), 0, "no second standings table once the game has ended");
-    await results.getByTestId("link-back-to-room").click();
+    const back = await results.getByTestId("link-back-to-room").getAttribute("href");
+    // Each earned line opens itself (One line), so the player can see why it earned.
+    const firstEarned = page.getByTestId("results-summary").locator("button.v2v-summary-open").first();
+    if (await firstEarned.count()) {
+      const n = /Line (\d+)/.exec(await firstEarned.innerText())![1];
+      await firstEarned.click();
+      await page.getByTestId("pane-object").getByText(new RegExp(`Line ${n}\\b`)).first().waitFor({ timeout: 10_000 });
+    }
+    assert.match(back ?? "", /\/rooms\/[A-Z0-9]+$/, "the way back to the room");
+    await page.goto(`${SITE}${back}`);
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
     assert.deepEqual(errors, [], `${label}: no page errors`);
     await context.close();
