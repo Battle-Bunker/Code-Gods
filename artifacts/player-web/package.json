@@ -86,6 +86,9 @@
     "@workspace/object-views": "workspace:*",
     "@workspace/player-client": "workspace:*",
     "@workspace/ui-kit": "workspace:*",
+    "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-linear": "workspace:*",
+    "@workspace/v2-views": "workspace:*",
     "convex": "1.48.0",
     "dockview-react": "^8.8.2"
   }

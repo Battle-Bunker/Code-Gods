@@ -234,6 +234,15 @@ importers:
       '@workspace/ui-kit':
         specifier: workspace:*
         version: link:../../lib/ui-kit
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../../lib/v2-core
+      '@workspace/v2-linear':
+        specifier: workspace:*
+        version: link:../../lib/v2-linear
+      '@workspace/v2-views':
+        specifier: workspace:*
+        version: link:../../lib/v2-views
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.1.0)
