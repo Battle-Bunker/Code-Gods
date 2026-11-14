@@ -830,6 +830,9 @@ The contracts need no grid-specific branch; the grid scene renderer is the one n
 
 ## 14. Build plan
 
+The path from these packages to the working app, and the changes it makes to this table, are in
+[integration-plan.md](integration-plan.md) (§5.7 lists the changes).
+
 Ordered pull requests, each into `develop`. "∥" marks work that separate sessions can do at the same time once its
 dependencies have merged. Interfaces they share are frozen in the PR that introduces them; a change to one is its own PR.
 
