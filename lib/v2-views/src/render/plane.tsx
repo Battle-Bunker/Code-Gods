@@ -355,8 +355,8 @@ function Scene({ p }: { p: P }) {
     if (s && fmtValue(p.next(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
       const c = lineThrough(v, s);
       if (c) {
-        const end = c.y2 < c.y1 ? { x: c.x2, y: c.y2 } : { x: c.x1, y: c.y1 };
-        back.push(<g key="next" data-next=""><line className="line-next" {...c} /><text className="cand-label label-halo" x={Math.min(end.x + 3, v.box.w - 26)} y={Math.max(end.y + 10, 10)}>next</text></g>);
+        // Unlabelled on the drawing (a word there would sit on the axes' numbers): the move's words are beside the face.
+        back.push(<g key="next" data-next=""><line className="line-next" {...c} /><title>the line after the next move</title></g>);
       }
     }
   }
