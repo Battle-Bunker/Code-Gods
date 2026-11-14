@@ -252,7 +252,7 @@ try {
       await options.first().getByText(/→ [\d,]+\.\d\d bits?/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
-      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+( [a-z]+)? by chance\)/, `a move has its new bits: ${first}`);
+      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+( [a-z]+| × 10[⁰¹²³⁴⁵⁶⁷⁸⁹]+)? by chance\)/, `a move has its new bits: ${first}`);
     } else await line.getByText(/No single move makes this grid rarer/).waitFor();
     await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
     await line.screenshot({ path: path.join(shots, `grid-${label}-parts.png`) });
