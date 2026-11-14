@@ -67,6 +67,11 @@ try {
         for (const b of boxes) {
           if (b.r.left < frame.left - 1 || b.r.right > frame.right + 1 || b.r.top < frame.top - 1 || b.r.bottom > frame.bottom + 1) out.push(`"${b.t}" leaves its drawing`);
           for (const o of boxes) if (o !== b && b.r.left < o.r.right - 1 && o.r.left < b.r.right - 1 && b.r.top < o.r.bottom - 1 && o.r.top < b.r.bottom - 1) out.push(`"${b.t}" overlaps "${o.t}"`);
+          // The axes' numbers count as obstacles too (the y-intercept label once sat on "27,720").
+          for (const t of svg.querySelectorAll<SVGTextElement>("text.tick-label")) {
+            const o = t.getBoundingClientRect();
+            if (b.r.left < o.right - 1 && o.left < b.r.right - 1 && b.r.top < o.bottom - 1 && o.top < b.r.bottom - 1) out.push(`"${b.t}" overlaps the axis number ${t.textContent}`);
+          }
         }
       }
       return { bad: out, n };

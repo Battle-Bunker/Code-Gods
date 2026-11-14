@@ -99,9 +99,25 @@ for (const c of CASES) {
           assert.ok(l.box.x >= -0.5 && l.box.y >= -0.5 && l.box.x + l.box.w <= b.box.w + 0.5 && l.box.y + l.box.h <= b.box.h + 0.5, `${where}: the label "${l.text}" leaves the box`);
           for (const o of labels) if (o !== l) assert.equal(overlap(l.box, o.box), 0, `${where}: "${l.text}" overlaps "${o.text}"`);
         }
+        // The axes' numbers drawn never sit under a priority-1 label or a point.
+        for (const t of L.ticks) {
+          for (const l of labels) assert.equal(overlap(t.box, l.box), 0, `${where}: tick ${t.text} under "${l.text}"`);
+          for (const pt of L.points.filter(x => x.priority === 1)) assert.equal(overlap(t.box, { x: pt.px - 5, y: pt.py - 5, w: 10, h: 10 }), 0, `${where}: tick ${t.text} under ${pt.id}`);
+        }
         // The line itself is always drawn across the window when it exists.
         assert.ok(L.line, `${where}: the line is drawn`);
       }
     }
   });
 }
+
+test("an area rule's triangle labels both legs at rest", () => {
+  const rule: RuleRef<LineState, unknown> = { type: lineType, family: squareArea, params: {}, variant: lineZ };
+  const s = mc(-1, 7);
+  const e = annotate(rule, s).sites[0]!.evaluation;
+  const scene = lineType.representations.find(r => r.id === "tri")!.layout(s, 0);
+  const L = planeLayout({ rep: "tri", scene: scene as never, values: valuesOf(lineType, s, 0), marks: e.marks, terms: new Map(e.terms.map(t => [t.id, t])), size: "expanded", box: planeRenderer.box.expanded, project: (r, reps) => projectRef(lineType, r, reps) })!;
+  const legs = L.labels.filter(l => l.shown && l.text.startsWith("leg"));
+  assert.deepEqual(legs.map(l => l.text).sort(), ["leg 7", "leg 7"]);
+  assert.ok(legs.every(l => l.priority === 1));
+});

@@ -339,3 +339,4 @@
 .v2v-rep[data-size="compact"] .v2v-seq-term { min-width: 0; }
 .v2v-rep[data-size="compact"] .v2v-seq-val { font-size: 13px; padding: 1px 3px; }
 .v2v-rep[data-size="compact"] .v2v-seq-step { font-size: 10px; }
+.v2v-plane .leg { stroke: var(--v2v-cand); stroke-width: 3.5; stroke-linecap: round; opacity: 0.75; }
