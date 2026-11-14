@@ -9,7 +9,7 @@ import { biddingView } from "../bidding";
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
 import { allowedLanguages, costModelOf, deityIncome, fullReadCharge, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
-import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
+import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, OBJECT_TYPES, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
 import type { ClockedGame, Scoreboard } from "../game/state";
@@ -46,11 +46,14 @@ export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard
  * still opens, so its owner can choose a Grid board.
  */
 export function objectInstance(settings: GameSettings): InstanceInfo | undefined {
-  let inst: ReturnType<typeof instantiationOf>;
-  try { inst = instantiationOf(settings); } catch { return undefined; }
+  if (!knownObjectType(settings)) return undefined;
+  const inst = instantiationOf(settings);
   const info = instanceInfo(inst, costModelOf(settings));
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
+
+/** Whether settings name an object type that still exists (stored rooms and games may name the removed Int or string). */
+export const knownObjectType = (settings: Pick<GameSettings, "objectType">): boolean => OBJECT_TYPES.some(t => t.id === settings.objectType);
 
 export const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
 
@@ -393,7 +396,7 @@ export function observation(input: ObservationInput): Observation {
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
-      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, fullRead: fullReadCharge(settings),
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, ...(knownObjectType(settings) ? { fullRead: fullReadCharge(settings) } : {}),
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),

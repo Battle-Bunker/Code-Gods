@@ -11,7 +11,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_FIELDS, allowedLanguages, SettingsChangeError, applySettingsChange, canonicalCostModel, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
-import { objectType, type Rng } from "@workspace/game-types";
+import { OBJECT_TYPES, objectType, type Rng } from "@workspace/game-types";
 import {
   card, context, divineLottery, evaluator, fairAligned, familiesFor, penaltyMeanBits, publicCatalog, selector, synergyFor,
   coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
@@ -223,6 +223,7 @@ export function catalogFor(settings: GameSettings) {
  */
 export function assertShape(manifest: CalibrationManifest, settings: GameSettings) {
   const prior = priorOf(settings.priorId);
+  if (!OBJECT_TYPES.some(t => t.id === settings.objectType)) fail("BAD_REQUEST", `The ${settings.objectType} object type was removed: choose a Grid board (or a setup) for this room`);
   let inst;
   try { inst = instantiationOf(settings); } catch (error) { return fail("BAD_REQUEST", `Invalid typeArgs: ${(error as Error).message}`); }
   if (!isPlayableInstantiation(inst)) fail("BAD_REQUEST", `${inst.key} is retired: choose one of the listed ${settings.objectType} settings`);

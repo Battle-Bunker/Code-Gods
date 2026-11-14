@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seedSetupSettings } from "@workspace/game-core";
-import { api, gods, roomWith, setupEntries, startGame, touch, adminGods } from "./game-helpers.ts";
+import { admin, api, gods, internal, roomWith, setupEntries, startGame, touch, adminGods } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
@@ -156,4 +156,18 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
   await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), setupId: classic });
   const copied = await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), settings: { planningSeconds: 30 } });
   assert.equal(copied.setup.created, true, "the room's change is kept as the owner's copy even past the cap");
+});
+
+test("a room stored on the removed Int type still opens, and starting it says the type is gone", { timeout: 60_000 }, async () => {
+  // Catches: the observation, the rules text or the start crashing on a room created before D1 removed Int and string.
+  const [host] = await gods("Int Room Host");
+  await touch(host);
+  const { roomId } = await roomWith([host]);
+  const legacy = { ...seedSetupSettings("grid-annotated-basics"), objectType: "Int", typeArgs: { min: 0, max: 1000 } };
+  await admin.mutation(internal.testing.makeLegacy, { roomId, settings: legacy });
+  const observation = await host.c.query(api.player.observation, { roomId });
+  assert.equal(observation.instance, undefined, "no instance for a removed type");
+  assert.equal((await host.c.query(api.rooms.get, { room: roomId })).settings.objectType, "Int");
+  const error = await host.c.action(api.owner.start, { roomId }).then(() => null, (e: any) => e);
+  assert.ok(error && /Int object type was removed/.test(error.data?.message ?? error.message), String(error?.data?.message ?? error));
 });
