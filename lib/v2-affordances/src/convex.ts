@@ -72,7 +72,7 @@ export function makeDefineOp<DM extends GenericDataModel>(host: OpHost<DM>) {
       });
       // A mutation is a transaction only if it throws: a handler's domain failure must undo what it wrote before it.
       // The client reads the outcome back from the error's data (`outcomeOf`).
-      if (kind === "mutation" && !out.ok && out.error.code === "failed") throw new ConvexError(out);
+      if (kind === "mutation" && !out.ok && out.error.code === "failed") throw new ConvexError(out as never);
       return out;
     };
     const pub = { args: { args: v.any(), ...scopeArgs }, handler: (ctx: CtxOf<DM, K>, input: OpScope & { args: unknown }) => run(ctx, { session: true }, input) };
