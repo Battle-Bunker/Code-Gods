@@ -58,9 +58,31 @@ export interface PlayerSpend {
   readonly firstFailure?: string;
 }
 
+/** What a player's agents did to the player's points (spec §8: π_i = n_i · Σ_{j≠i} n_j per line, summed). */
+export interface PlayerPoints {
+  readonly player: string;
+  /** Σ over lines of π_i at the start and at the end, and the difference (what the server's running total counts). */
+  readonly start: number;
+  readonly end: number;
+  readonly gained: number;
+  /** Energy spent on moves that raised the player's points on a line, which another player's move then took back. */
+  readonly reversalEnergy: number;
+  /** How often another player's move took back one of this player's gains. */
+  readonly reversals: number;
+  /**
+   * The share of the others' summed rarity this player's moves kept, on lines where the others had some (mean of
+   * Σn_j after / Σn_j before over those moves; 1 = no harm, above 1 = helped them); null when it made no such move.
+   */
+  readonly othersKept: number | null;
+  /** Notes the player's agents left (first few kept). */
+  readonly notes: number;
+  readonly sampleNotes: readonly string[];
+}
+
 export interface HarnessReport {
   readonly rules: readonly RuleOutcome[];
   readonly spend: readonly PlayerSpend[];
+  readonly points: readonly PlayerPoints[];
   readonly artefacts: Readonly<Record<string, string>>;
 }
 
@@ -101,15 +123,41 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
   const sandboxOf = new Map<string, Sandbox>();
   for (const p of players) sandboxOf.set(p.program.language, await boxes.get(p.program.language));
 
+  // Each player's value of a line (n_i, bits on their artefact; 0 without values), and their rung rarities.
+  const valuers = players.map(p => {
+    const family = type.families.find(f => f.id === p.rule.family)!;
+    const found = findArtefact(variant.id, p.rule);
+    const a = found && found.rungs.every(x => x.bits !== null) ? found : null;
+    return {
+      bits: (s: S) => (a ? bitsOf(a, evaluateSite(type, family, p.rule.params, s, variant, 0, p.rule.tieBreaker).score) : 0),
+      rungs: a ? a.rungs.map(g => ({ score: g.score, bits: g.bits ?? 0, layer: g.layer, ...(g.main !== undefined ? { main: g.main } : {}) })) : [],
+    };
+  });
+  /** Every player's points on a state: π_i = n_i · Σ_{j≠i} n_j. */
+  const pointsOf = (s: S) => { const n = valuers.map(v => v.bits(s)); const total = n.reduce((a, b) => a + b, 0); return n.map(x => x * (total - x)); };
+  const bitsAll = (s: S) => valuers.map(v => v.bits(s));
+  let points = lines.map(pointsOf);
+  const startPoints = points.map(x => x.slice());
+  // Each line's moves (who moved; every player's points before and after), and each player's latest gain per line.
+  const log = lines.map(() => [] as { by: number; before: number[]; after: number[] }[]);
+  const gains = lines.map(() => new Map<number, { charge: number; pointsAfter: number }>());
+  const reversal = players.map(() => ({ energy: 0, count: 0, notes: [] as string[], noteCount: 0, kept: [] as number[] }));
+
   for (let turn = 0; ; turn++) {
     const live = players.map((_, i) => i).filter(i => energy[i]! > 0 && spend[i]!.acts.committed + spend[i]!.acts.skipped + spend[i]!.acts.failed < maxActs);
     if (!live.length) break;
     const i = live[turn % live.length]!, p = players[i]!, s = spend[i]!;
     const object = r.below(lines.length);
+    const n = bitsAll(lines[object]!), total = n.reduce((a, b) => a + b, 0);
+    const history = log[object]!.filter(m => m.by === i || m.before[i] !== m.after[i]).slice(-8)
+      .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
     const { record, state } = await runAct(sandboxOf.get(p.program.language)!, {
       type, variant, state: lines[object]!, rule: p.rule, program: p.program, seed: BigInt(`0x${hashHex(`${input.seed}:${turn}`).slice(0, 15)}`),
       energy: energy[i]!, object, liveObjects: lines.length,
+      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, rungs: valuers[i]!.rungs,
     });
+    reversal[i]!.noteCount += record.notes.length;
+    for (const t of record.notes) if (reversal[i]!.notes.length < 3 && !reversal[i]!.notes.includes(t)) reversal[i]!.notes.push(t);
     energy[i]! -= record.charge;
     s.spent += record.charge;
     s.acts[record.outcome]++;
@@ -118,6 +166,21 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     for (const [view, bits] of Object.entries(record.readsByRep)) add(s.reads, view, bits / SPEC_ECONOMY.kappa);
     if (record.outcome === "committed") {
       lines = lines.map((l, j) => (j === object ? state : l));
+      const before = points[object]!, after = pointsOf(state);
+      const othersBefore = n.reduce((t, x, j) => (j === i ? t : t + x), 0);
+      if (othersBefore > 0) {
+        const nAfter = bitsAll(state);
+        reversal[i]!.kept.push(nAfter.reduce((t, x, j) => (j === i ? t : t + x), 0) / othersBefore);
+      }
+      points[object] = after;
+      log[object]!.push({ by: i, before, after });
+      // A gain someone else's move took back: the energy the gain cost was burnt in a tug-of-war.
+      for (let q = 0; q < players.length; q++) {
+        const g = gains[object]!.get(q);
+        if (q !== i && g && after[q]! < g.pointsAfter) { reversal[q]!.energy += g.charge; reversal[q]!.count++; gains[object]!.delete(q); }
+      }
+      // The mover's own move starts a new gain, or ends the old one (a drop it made itself is not a tug-of-war).
+      if (after[i]! > before[i]!) gains[object]!.set(i, { charge: record.charge, pointsAfter: after[i]! }); else gains[object]!.delete(i);
       const change = record.charge - record.readBits / SPEC_ECONOMY.kappa;
       if (record.changeBits > 0) for (const c of record.calls) add(s.changes, c.rep, change * c.price.total / record.changeBits);
     }
@@ -144,7 +207,13 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
       bitsGained: a ? bits(lines) - bits(start) : null,
     };
   });
-  return { rules, spend: spend.map(({ firstFailure, ...s }) => (firstFailure ? { ...s, firstFailure } : s)), artefacts };
+  const sum = (rows: number[][], j: number) => rows.reduce((t, x) => t + x[j]!, 0);
+  const pointsReport = players.map((p, j) => ({
+    player: p.name, start: sum(startPoints, j), end: sum(points, j), gained: sum(points, j) - sum(startPoints, j),
+    reversalEnergy: reversal[j]!.energy, reversals: reversal[j]!.count,
+    othersKept: reversal[j]!.kept.length ? reversal[j]!.kept.reduce((a, b) => a + b, 0) / reversal[j]!.kept.length : null, notes: reversal[j]!.noteCount, sampleNotes: reversal[j]!.notes,
+  }));
+  return { rules, spend: spend.map(({ firstFailure, ...s }) => (firstFailure ? { ...s, firstFailure } : s)), points: pointsReport, artefacts };
 }
 
 // ---------------------------------------------------------------- printing
@@ -160,6 +229,10 @@ export function formatReport(r: HarnessReport): string {
     "| Player | Rule | Main part level (start → end / top) | Tie-breaker level | Lines at the main top | Bits gained |",
     "|---|---|---|---|---|--:|",
     ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${f1(x.levels.start[0]!)} → ${f1(x.levels.end[0]!)} / ${x.levels.top[0]} | ${x.levels.start[1] === undefined ? "–" : `${f1(x.levels.start[1])} → ${f1(x.levels.end[1]!)} / ${x.levels.top[1]}`} | ${x.mainTop.start} → ${x.mainTop.end} | ${x.bitsGained === null ? `– (${r.artefacts[x.rule] ?? "no artefact"})` : f1(x.bitsGained)} |`),
+    "",
+    "| Player | Points gained (start → end) | ⚡ lost to reversals (times) | Others' rarity kept by its moves | Notes |",
+    "|---|--:|--:|--:|--:|",
+    ...r.points.map(x => `| ${x.player} | ${f1(x.gained)} (${f1(x.start)} → ${f1(x.end)}) | ${f1(x.reversalEnergy)} (${x.reversals}) | ${x.othersKept === null ? "–" : `${Math.round(100 * x.othersKept)}%`} | ${x.notes} |`),
     "",
     "| Player | Acts (made / skipped / failed) | ⚡ spent | ⚡ on reads, by view | ⚡ on changes, by view |",
     "|---|---|--:|---|---|",

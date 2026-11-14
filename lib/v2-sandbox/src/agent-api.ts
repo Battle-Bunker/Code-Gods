@@ -37,10 +37,14 @@ export type HostRequest =
   | { op: "myRule" }
   | { op: "myScore" }
   | { op: "quote"; calls: Call[] }
-  | { op: "budget" };
+  | { op: "budget" }
+  | { op: "worth" }
+  | { op: "rarity"; score: (QWire | null)[] | null }
+  | { op: "recent" }
+  | { op: "note"; text: string };
 
 export type HostOp = HostRequest["op"];
-export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScore", "quote", "budget"];
+export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScore", "quote", "budget", "worth", "rarity", "recent", "note"];
 
 /** §3.1 */
 export interface ViewReply { rep: string; site: number; elements: Record<string, ElementValueWire>; bits: number }
@@ -67,6 +71,16 @@ export interface ScoreReply {
 /** §6.3: `bits` here are the calls' prices, in order; `charge` what committing them would cost in energy. */
 export interface QuoteReply { valid: boolean; reason?: string; bits: number[]; total: number; charge: number }
 export interface BudgetReply { energy: number; readPrice: number; beta: number; hostCallsLeft: number }
+/**
+ * What the offered line is worth now, as the player sees it (spec §8): their own rarity n_i, the others' summed rarity
+ * Σ n_j and their points π_i = n_i · Σ n_j, in bits.
+ */
+export interface WorthReply { mine: number; others: number; points: number }
+/** The rarity the player's own rule gives a score (their own calibration, as their goal card shows), in bits. */
+export interface RarityReply { bits: number }
+/** The latest moves on the offered line the player may see (newest last): theirs, and others' that changed their points. */
+export interface RecentReply { moves: { mine: boolean; pointsBefore: number; pointsAfter: number }[] }
+export interface NoteReply { kept: boolean }
 
 /** The result half of a successful reply, per op. */
 export interface HostResults {
@@ -76,6 +90,10 @@ export interface HostResults {
   myScore: ScoreReply;
   quote: QuoteReply;
   budget: BudgetReply;
+  worth: WorthReply;
+  rarity: RarityReply;
+  recent: RecentReply;
+  note: NoteReply;
 }
 
 /**

@@ -5,7 +5,7 @@
  */
 import { applyCalls, isInvalid, type ObjectType, type Price, type Variant } from "@workspace/v2-core";
 import type { ActLimits, Language, Sandbox, TranscriptEntry } from "@workspace/v2-sandbox";
-import { changeCharge, EngineHost, lensOf, parseCalls, SPEC_ECONOMY, type Economy, type RuleRef } from "./host.ts";
+import { changeCharge, EngineHost, lensOf, parseCalls, SPEC_ECONOMY, type Economy, type HostInput, type RuleRef } from "./host.ts";
 
 export interface Program {
   readonly language: Language;
@@ -28,6 +28,10 @@ export interface ActInput<S> {
   readonly liveObjects?: number;
   readonly limits?: Partial<ActLimits>;
   readonly economy?: Economy;
+  /** What the offered line is worth to the player now, its recent visible moves and the rule's rung rarities (host.ts). */
+  readonly value?: HostInput<S>["value"];
+  readonly history?: HostInput<S>["history"];
+  readonly rungs?: HostInput<S>["rungs"];
 }
 
 export type Outcome = "committed" | "skipped" | "failed";
@@ -62,20 +66,25 @@ export interface ActRecord {
   readonly before: string;
   readonly after: string;
   readonly transcript: readonly TranscriptEntry[];
+  /** Short notes the agent left its owner (`note`), for the act log. */
+  readonly notes: readonly string[];
   readonly steps?: number;
 }
 
 export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{ record: ActRecord; state: S }> {
   if (sandbox.language !== input.program.language) throw new Error(`a ${sandbox.language} sandbox cannot run a ${input.program.language} program`);
   const economy = input.economy ?? SPEC_ECONOMY;
-  const host = new EngineHost({ type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy });
+  const host = new EngineHost({
+    type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy,
+    value: input.value, history: input.history, rungs: input.rungs,
+  });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));
   const result = await sandbox.act({ source: input.program.source, offer: { object: input.object ?? 0 }, seed: input.seed, host, limits: input.limits });
   const before = input.type.encode(input.state);
   const readBits = result.readBits + offerBits;
   const readsByRep: Record<string, number> = Object.fromEntries(host.readsByRep);
   if (offerBits > 0) readsByRep.offer = offerBits;
-  const base = { offerBits, readBits, readsByRep, before, transcript: result.transcript };
+  const base = { offerBits, readBits, readsByRep, before, transcript: result.transcript, notes: [...host.notes] };
   const nothing = (outcome: "skipped" | "failed", extra: { reason?: string; code?: string } = {}, steps?: number) => ({
     record: { outcome, ...extra, calls: [], changeBits: 0, charge: readBits / economy.kappa, after: before, ...base, ...(steps === undefined ? {} : { steps }) },
     state: input.state,

@@ -24,6 +24,16 @@
 #                                [] for 0, 1 and -1. (Past 10,000 a leftover factor counts as prime.)
 #   better(a, b)                 is score a better than score b? Scores are lists of parts compared in order, bigger
 #                                is better; None is the worst score and a None part is the worst part.
+#   worth(offer)                 what this line is worth to you now: mine (your rarity), others (the other players'
+#                                rarity added up) and points (mine x others). None when the game does not say.
+#   rarity(offer, score)         the rarity your rule gives a score (from your own score function); 0 when the game
+#                                does not say. Free.
+#   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
+#   pushback(offer)              how many times lately someone else's move took back points your agent had just won
+#                                on this line (a tug-of-war).
+#   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
+#   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note saying
+#                                the agent is leaving this line and suggesting they talk to the other player.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -154,6 +164,51 @@ def factors(n):
     if x > 1:
         out.append(x)
     return out
+
+
+def worth(offer):
+    try:
+        return offer.worth()
+    except HostError:
+        return None
+
+
+def recent(offer):
+    try:
+        return offer.recent()
+    except HostError:
+        return []
+
+
+def pushback(offer):
+    count, gained = 0, False
+    for m in recent(offer):
+        if m.mine:
+            gained = m.points_after > m.points_before
+        elif gained and m.points_after < m.points_before:
+            count, gained = count + 1, False
+    return count
+
+
+def note(offer, text):
+    try:
+        return offer.note(text)
+    except HostError:
+        return False
+
+
+def contested(offer, times):
+    if pushback(offer) < times:
+        return False
+    note(offer, f"Leaving line {offer.object}: another player keeps pulling it back. Talk to them?")
+    return True
+
+
+def rarity(offer, s):
+    try:
+        return offer.rarity(s)
+    except HostError:
+        return 0
 
 
 def better(a, b):

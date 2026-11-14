@@ -209,6 +209,21 @@ class Offer:
     def budget(self):
         return Record(_ask({"op": "budget"}))
 
+    def worth(self):
+        return Record(_ask({"op": "worth"}))
+
+    def rarity(self, score):
+        if score is not None and not isinstance(score, (list, tuple)):
+            raise TypeError("rarity takes a score: a list of parts, or None")
+        parts = None if score is None else [None if x is None else _wire(x, "score") for x in score]
+        return _ask({"op": "rarity", "score": parts})["bits"]
+
+    def recent(self):
+        return [Record(dict(m)) for m in _ask({"op": "recent"})["moves"]]
+
+    def note(self, text):
+        return _ask({"op": "note", "text": str(text)})["kept"]
+
 
 def __decode(text):
     return Offer(_LOADS(text)["object"])

@@ -13,6 +13,7 @@ const { record, state } = await runAct(await pool.get(program.language), {
   program: { language: "python" | "typescript" | "javascript", source },
   seed, energy,                                        // the agent's energy, as budget() reports it
   object, liveObjects,                                 // the offer: log2(liveObjects) read bits
+  value, history, rungs,                               // optional, the points reads (below): what the player may see of this line
   limits, economy,                                     // optional: sandbox limits; { kappa, beta } (default v2-economy's KAPPA, BETA)
 });
 ```
@@ -29,10 +30,23 @@ const { record, state } = await runAct(await pool.get(program.language), {
 | `charge` | R/κ + (committed ? W + βW² : 0), in energy |
 | `before`, `after` | the state, encoded by the object type |
 | `transcript`, `steps` | every host request and reply; sandbox steps used |
+| `notes` | up to 3 short notes the agent left its owner this act (e.g. why it left a line); show them in the act log, folding repeats |
 
 `state` is the new state (the old one unless committed). A failed or skipped act is still charged its reads. All
 prices come from v2-core's `applyCalls` and the object type's `readLength`, so a new price list in `v2-linear` needs no
 change here.
+
+**The points reads** (all optional; without them an agent still runs, `worth` is null and `rarity` 0). They carry only
+what the player may see (spec §8 disclosure):
+
+- `value: { mine, others, points }`: the player's rarity on the offered line, the other players' rarity added up,
+  and the player's points there (mine × others).
+- `history: { mine, pointsBefore, pointsAfter }[]`: the latest moves on the offered line, newest last: the player's
+  own, and others' that changed the player's points (the server's per-line point deltas). The host passes the last 8.
+- `rungs: { score, bits, layer?, main? }[]`: the player's rule's committed ladder (the artefact's rungs), so that
+  `rarity(score)` prices a score the agent computed. `worth()` is answered only when rungs are given.
+
+`worth` costs 6 read bits, `recent` 2 per move, `rarity` and `note` nothing (`WORTH_BITS`, `RECENT_BITS_PER_MOVE`).
 
 The engine host is `EngineHost` (`lib/v2-agents/src/host.ts`); its read accounting is spec §3.1 with one addition: a
 view with no coordinates (`tri`) is charged its static elements, or it would be a free full read.
@@ -57,6 +71,12 @@ Every act's prelude defines these, with the same names and behaviour in both lan
 | `whole(x)`, `root(n)` | the whole number nearest x (a half rounds up); the whole square root of n, rounded down | 0 |
 | `factors(n)` | n's prime factors, smallest first, with repeats: `factors(12)` is `[2, 2, 3]` | 0 |
 | `better(a, b)` | is score a better than score b (lists of parts compared in order, bigger is better; null is worst) | 0 |
+| `worth(offer)` | what this line is worth to you now: `mine` (your rarity), `others` (the other players' rarity added up), `points` (mine × others); null/None when the game does not say | 1, a small read |
+| `rarity(offer, score)` | the rarity your rule gives a score your own score function computed; 0 when the game does not say | 1, free |
+| `recent(offer)` | the latest moves on this line you may see, newest last: `mine`, `pointsBefore`, `pointsAfter` (Python `points_before`, `points_after`) | 1, a small read per move |
+| `pushback(offer)` | how many times lately another player's move took back points your agent had just won here (a tug-of-war) | as `recent` |
+| `contested(offer, times)` | true once `pushback` reaches `times`; it then leaves the owner a note that the agent is leaving the line | as `recent` |
+| `note(offer, text)` | leave your owner a short note in the act log (at most 3 an act, 200 characters) | 1, free |
 
 An agent is `agent(offer)` returning a plan (a list of moves) or null/None to skip. The lower-level guest API
 (`offer.view`, `offer.quote`, `call`, `Q`, `Fraction`) stays available.
@@ -66,7 +86,7 @@ An agent is `agent(offer)` returning a plan (a list of moves) or null/None to sk
 ```ts
 import { exampleFor, startersFor, shippedAgents, summonBits, check, BEGINNER_STARTING_ENERGY } from "@workspace/v2-agents";
 exampleFor(family, tieBreaker, "python")   // what "Summon my first agent" opens with for the player's dealt rule
-startersFor(family, "typescript")          // [Simple, Thorough, Bold]: "Other starting points", each a Replace
+startersFor(family, "typescript")          // [Simple, Thorough, Bold, Naive]: "Other starting points", each a Replace
 // each: { family, kind, tieBreaker, language, title, summary, source }
 ```
 
@@ -75,6 +95,13 @@ startersFor(family, "typescript")          // [Simple, Thorough, Bold]: "Other s
   from one description per family (`lib/v2-agents/src/catalogue.ts`: the family's score in both languages, and the
   moves that can raise each tie-breaker); the rendered copies are in `lib/v2-agents/agents/<family>/` (regenerate with
   `pnpm --filter @workspace/v2-agents render`; a test fails when they are stale).
+- **Playing for points.** Points on a line are the owner's rarity times the others' rarity, so the example and the
+  three starters walk away from a tug-of-war (`contested(offer, 3)`: another player took back their gains three times
+  lately), leaving the owner a note to talk to that player, and never spend more than a quarter of their energy on one
+  move. They only take changes that make the line better for their rule, so they never lower their owner's rarity.
+  **Naive (for learning)** is the same search without any of this, labelled as a teaching example: show it beside
+  Simple so a player can see why. On 18 harness seats (three 3-player beginner tables, two seeds, 1,500 ⚡ each, 24
+  lines) Simple scored 19,236 points against Naive's 18,285; neither went negative.
 - Tests check that every family and tie-breaker in `v2-linear` has them, that each agent's own score equals the
   engine's on whole-number and fraction lines, that both languages make the same moves, that each example raises
   both the main part (to its top) and the tie-breaker on newborn lines, and that every one fits the starting energy.
@@ -192,7 +219,9 @@ pnpm --filter @workspace/v2-agents harness -- --pool docs/engine-v2/agent-harnes
 Players take turns on shared newborn lines with a fixed energy budget each (no births, power or accrual). It prints,
 per rule, the mean level of the main part and the tie-breaker at the start and the end, the lines at the main top, and
 the bits gained (the committed artefact's rungs; "–" when the rule has no values yet), and per player the acts made,
-skipped and failed and the energy on reads and on changes by view. `runHarness` (`@workspace/v2-agents/harness`) is
+skipped and failed and the energy on reads and on changes by view. When the rules have values it also prints each player's
+points (start, end, gained), the energy their gains cost that another player then took back (`reversalEnergy`), how
+much the others' rarity kept on the lines they moved (`othersKept`), and their agents' notes. `runHarness` (`@workspace/v2-agents/harness`) is
 the same as a function. The pool run is in [agent-harness-results.md](agent-harness-results.md); what it shows, at
 500 ⚡ on line-z:
 
@@ -221,5 +250,5 @@ the same as a function. The pool run is in [agent-harness-results.md](agent-harn
 remote assistants load to write and explain v2 agents: the game in one paragraph, the player's words, what costs ⚡
 (looks, moves priced by the view they are made through, steps and digits, W + 0.05·W², free but capped thinking,
 summon by length), every view and move (read from the object type), the helpers (`HELPERS`, checked against both guest
-libraries), the starting points and an example. About 7,000 characters; a test keeps it under 9,000 and true to the
-code. W6's assistant skill for writing agents loads it in place of v1's `PRIMER_AGENTS`.
+libraries), the starting points and an example. It has a "Playing for points" paragraph (the scoring identity, tug-of-wars, deals honoured by changing the agent).
+About 9,800 characters; a test keeps it under 10,000 and true to the code. W6's assistant skill for writing agents loads it in place of v1's `PRIMER_AGENTS`.
