@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { lineType } from "@workspace/v2-linear";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
-import { affordLine, comparisonText, FIRST_SHARE, openingProgram, primaryAction, replacedText, summonPrice, summonedText } from "../src/panes/forge-model.ts";
+import { affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonPrice, summonedText } from "../src/panes/forge-model.ts";
 
 const beginner = PRESETS.find(p => p.id === "lines-beginner")!;
 
@@ -48,4 +48,16 @@ test("an edit is priced by what changed, beside the whole program's price; an un
   assert.ok(e > 0 && e < full, `a one-number change costs less than the whole program (${e} < ${full})`);
   assert.equal(editPrice("typescript", old, old), 0);
   assert.equal(editLine({ edit: 12.5, full: 300, energy: 100 }), "Replacing costs changes only: 12.50 ⚡ (the whole program would be 300.00 ⚡); you have 100.00 ⚡.");
+});
+
+test("a beginner's first summon opens with the Simple starter; the example stays, offered as how a rule is climbed", () => {
+  // The coordinator's call (a), lines and grids: the points-aware Simple starter first, not the tie-breaker's example.
+  for (const id of beginner.families) {
+    const f = lineType.families.find(x => x.id === id)!;
+    const tb = f.tieBreakers[0]?.id ?? null;
+    const p = openingProgram(id, tb, "typescript")!;
+    assert.equal(p.title, "Simple", `${id}/${tb}`);
+    const others = otherStartingPoints(id, "typescript", tb);
+    if (tb) assert.ok(others.some(o => o.kind === "example" && o.title === "See how a rule is climbed"), `${id}/${tb}: the example is offered`);
+  }
 });

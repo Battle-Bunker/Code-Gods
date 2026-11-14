@@ -52,6 +52,8 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   const wc = contributors(rule(wholeCrossing, "k-gpf"), mc(3, 7)).parts[0]!;
   assert.equal(wc.reference?.value, -2);
   assert.equal(wc.distance, "⅓ below −2");
+  // The reference is said once, as the reference: never again among the sources ("…, nearest whole number −2 · on −2").
+  assert.deepEqual(wc.source.filter(x => x.text).map(x => x.label), ["where it crosses the x-axis"], wc.source.map(x => x.label).join(", "));
   const tr = contributors(rule(treasure, "m-spf"), mc(15, 6)).parts[0]!;
   assert.equal(tr.source[0]!.text, "36");
   assert.equal(tr.source[0]!.label, "y(2)");

@@ -374,6 +374,27 @@ nothing to do while the game runs (a second starter blocked, the other starters 
 with no reason and no next step; on a phone, the setup choice two screens below Play and a tab strip running off the
 right edge. Those outside grids went to the app session.
 
+**The annotations chain on grids** (14 November, after the line contributors, #489 to #513). Grid faces and the grid
+goal card use the line components unchanged, with three additions in lib/v2-views:
+- each part lists what every unit it adds up contributes, from the rule's own notes ("row 1: 5 short · row 2: 7 short ·
+  row 3: 6 short · row 4: 14 short"). Units are listed only when their short names tell them apart (rows, columns,
+  boxes); pairs and 2×2 squares are left to the board, which draws each note beside its cells;
+- a sum of distances sits on a ruler from 0 (perfect);
+- a move says what it did to the part as a whole ("every corner box adds up to the target: off by 12 → 10"), not to its
+  first row, and leaves out the sixteen digits of the result.
+
+`e2e:grid-game` asserts the walk's four questions on One grid at desktop and phone, against the live engine:
+1. the ● main part and how much it is;
+2. its ruler;
+3. the moves that would make the board rarer, each with its price and new bits;
+4. the others' bits in the formula.
+
+This is the scripted walk, not yet a non-coder persona's.
+
+| Desktop: One grid beside the goal card | Desktop: parts and moves | Phone: parts and moves |
+| --- | --- | --- |
+| ![](../screenshots/annotations-grids/desktop-one-grid-and-goal.jpg) | ![](../screenshots/annotations-grids/desktop-parts-and-moves.jpg) | ![](../screenshots/annotations-grids/phone-parts-and-moves.jpg) |
+
 ## 8. Decisions and judgment calls
 
 **The owner's, since the first draft:** decision 22 (keep the old beginner rules and every kind of grid rule; value what
