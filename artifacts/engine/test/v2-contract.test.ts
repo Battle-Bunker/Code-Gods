@@ -163,3 +163,31 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   assert.equal(listed.result.page.length, 5);
   assert.ok(listed.result.nextCursor);
 });
+
+test("account: connected assistants are listed and revoked by their human only", async () => {
+  await admin.mutation("v2/testing:seedAccountCredential", { userId: ada.userId });
+  const listed = await perform(ada, "account.connections", {}, {}, "query");
+  assert.equal(listed.ok, true, JSON.stringify(listed));
+  const [first] = listed.result.connections;
+  assert.ok(first && first.roomId === null);
+  try { await perform(bo, "account.revokeConnection", { connectionId: first.connectionId }); assert.fail("not Bo's"); } catch (e) {
+    assert.equal((e as any).data?.error?.code, "failed");
+  }
+  assert.equal((await perform(ada, "account.revokeConnection", { connectionId: first.connectionId })).ok, true);
+  assert.ok(!(await perform(ada, "account.connections", {}, {}, "query")).result.connections.some((c: any) => c.connectionId === first.connectionId));
+});
+
+test("account.approveConnection: a member approves a device for a v2 room, lowered never raised, never by a delegate", async () => {
+  const { createHash } = await import("node:crypto");
+  const code = "ABCD" + String(Math.floor(Math.random() * 9000) + 1000);
+  const deviceId = await admin.mutation("v2/testing:seedDevice", { roomId, userCodeHash: createHash("sha256").update(code).digest("hex"), permission: "act" });
+  const fails = async (p: Promise<unknown>) => { try { await p; return "no error"; } catch (e) { return (e as any).data?.error?.code ?? "untyped"; } };
+  const [stranger] = await humans("Contract Stranger");
+  assert.equal(await fails(perform(stranger!, "account.approveConnection", { request: code, grant: "act" })), "failed", "not a member");
+  assert.equal(await fails(perform(bo, "account.approveConnection", { request: code, grant: "owner" })), "failed", "not raised");
+  const asDelegate = await admin.mutation("v2/ops/account:approveConnectionAs", { args: { request: code, grant: "read" }, delegate: { userId: bo.userId, roomId, grant: "act", via: "mcp" } });
+  assert.equal(asDelegate.error.code, "refused", "consent is the human's own click");
+  assert.equal((await perform(bo, "account.approveConnection", { request: `${code.slice(0, 4)}-${code.slice(4)}`, grant: "read" })).ok, true);
+  const row = await admin.query("v2/testing:device", { deviceId });
+  assert.deepEqual([row.status, row.subject, row.permission], ["approved", bo.userId, "read"]);
+});

@@ -284,3 +284,28 @@ export const accountJwt = internalAction({
   },
 });
 const SEED_ACCOUNT = makeFunctionReference<"mutation", { userId: string }, string>("v2/testing:seedAccountCredential");
+
+/** A game's clock (the cold check waits for tick commits). */
+export const clock = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    return await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
+  },
+});
+
+/** A pending device request for a v2 room (the device flow's request half), and how a test reads it back. */
+export const seedDevice = internalMutation({
+  args: { roomId: v.string(), userCodeHash: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")) },
+  handler: async (ctx, a) => {
+    fixtures();
+    return await ctx.db.insert("devices", {
+      deviceSecretHash: crypto.randomUUID(), userCodeHash: a.userCodeHash, challenge: "c".repeat(43), roomId: a.roomId, permission: a.permission,
+      label: "v2 test device", status: "pending", expiresAt: Date.now() + 300_000,
+    });
+  },
+});
+export const device = internalQuery({
+  args: { deviceId: v.id("devices") },
+  handler: async (ctx, { deviceId }) => { fixtures(); return await ctx.db.get(deviceId); },
+});
