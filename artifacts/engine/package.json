@@ -21,7 +21,8 @@
     "upload-calibration": "node scripts/upload-calibration.mjs",
     "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts test/external-clients.test.ts",
     "test:unit": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts",
-    "test:calibration": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game-calibration.test.ts test/calibration-ondemand.test.ts"
+    "test:calibration": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game-calibration.test.ts test/calibration-ondemand.test.ts",
+    "test:v2": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/v2-*.test.ts"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.6",
@@ -34,6 +35,10 @@
     "@workspace/game-types": "workspace:*",
     "@workspace/game-utilities": "workspace:*",
     "@workspace/player-client": "workspace:*",
+    "@workspace/v2-affordances": "workspace:*",
+    "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-linear": "workspace:*",
+    "@workspace/v2-valuation": "workspace:*",
     "better-auth": "1.6.33",
     "convex": "1.48.0",
     "jose": "6.2.13",
