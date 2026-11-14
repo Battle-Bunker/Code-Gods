@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/m-meets-c/{}/tb=size",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2241,5 +2241,7 @@
    null
   ]
  },
- "contentHash": "0f9870ab82f7817f"
+ "cap": 7,
+ "dealable": true,
+ "contentHash": "d80418d6614c5fd1"
 }

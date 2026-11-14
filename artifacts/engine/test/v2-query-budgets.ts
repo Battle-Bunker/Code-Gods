@@ -8,7 +8,7 @@
 export const LIMITS = { docs: 100, bytes: 64 * 1024, ms: 50 } as const;
 
 /** What the measured game provides for the queries' arguments. */
-export interface V2Fixture { roomId: string; gameId: string; objectId: string; agentId: string }
+export interface V2Fixture { roomId: string; gameId: string; objectId: string; agentId: string; threadId: string; turnId: string }
 const page = { paginationOpts: { numItems: 50, cursor: null } };
 
 export interface V2Budget {
@@ -44,6 +44,12 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/spectate:objectIds", args: f => ({ gameId: f.gameId, ...page }), reads: "v2Objects by_game page", cold: false },
   { query: "v2/spectate:object", args: f => ({ objectId: f.objectId }), reads: "v2Objects + v2ObjectStates", cold: false },
   { query: "v2/layout:current", args: f => ({ roomId: f.roomId }), reads: "1 v2Layouts", cold: true },
+  { query: "v2/panels:list", args: () => ({}), reads: "v2Panels by_user_slug, ≤ 40", cold: true },
+  { query: "v2/panels:code", args: () => ({ slug: "gate-panel" }), reads: "1 v2Panels + 1 v2PanelVersions", cold: true },
   { query: "v2/replays:stored", args: f => ({ gameId: f.gameId }), reads: "1 v2Games", cold: true },
+  { query: "v2/assistant:status", args: f => ({ roomId: f.roomId }), reads: "room + member + prefs + v2AiUsage + latest turn + queue (≤ 10)", cold: true },
+  { query: "v2/assistant:threads", args: f => ({ roomId: f.roomId }), reads: "room + member + v2AssistantThreads by_room_user_game, ≤ 20", cold: true },
+  { query: "v2/assistant:transcript", args: f => ({ threadId: f.threadId, paginationOpts: { numItems: 30, cursor: null } }), reads: "1 thread + v2AssistantMessages by_thread_seq page (≤ 30)", cold: true },
+  { query: "v2/assistant:turn", args: f => ({ turnId: f.turnId }), reads: "1 v2AssistantTurns + its v2AssistantCalls (≤ 64)", cold: true },
   { query: "v2/bids:state", args: f => ({ roomId: f.roomId }), reads: "room + v2RoomBids by_room (≤ 16) + members (≤ 16)", cold: true },
 ];

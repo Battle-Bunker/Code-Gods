@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/pythagorean-area/{\"A\":6}/tb=slanted-square",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2349,5 +2349,7 @@
    null
   ]
  },
- "contentHash": "091ba76ef11d27e8"
+ "cap": 0,
+ "dealable": false,
+ "contentHash": "fcfb225acbd5e1f6"
 }

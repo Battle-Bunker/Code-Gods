@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/treasure/{\"T\":37,\"k\":2}/tb=prime-terms",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2763,5 +2763,7 @@
    null
   ]
  },
- "contentHash": "0d93a8f160e773ed"
+ "cap": 4,
+ "dealable": false,
+ "contentHash": "53abf8b51acfca77"
 }
