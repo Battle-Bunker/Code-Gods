@@ -55,6 +55,8 @@ export function ForgePane() {
   // A phone shows the code only on request: a wall of code filled a first-time player's screen (persona walks).
   const wide = useWide();
   const [showCode, setShowCode] = useState(false);
+  // Pressed "Summon another agent" without the energy for it: the pull-back is offered now.
+  const [wantMore, setWantMore] = useState(false);
   // An accepted summon counts at once, before the agent list catches up (ux-lessons 1.8).
   const count = useAgentCount() ?? 0;
   // The agent in the editor: the one chosen, else the first; a destroyed one gives way to the next.
@@ -165,7 +167,7 @@ export function ForgePane() {
         )}
         {count > 0 && primary !== "summonFirst" && (
           // Always on offer once an agent exists: a second agent should not need a code change first (owner).
-          <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => summon.available && !runner.busy && void doSummon(source, false)}
+          <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => { if (runner.busy) return; setWantMore(true); if (summon.available) void doSummon(source, false).then(id => { if (id) setWantMore(false); }); else setStatus(null); }}
             className="border px-3 py-2" data-testid="button-summon-beside">{primary === "replace" ? "Summon beside it" : "Summon another agent"}</button>
         )}
         <button type="button" aria-disabled={!check.available || undefined} onClick={() => check.available && void doCheck()} className="border px-3 py-2" title="Try one move on a sample line without spending energy. Summon does not wait for it." data-testid="button-check">Check</button>
@@ -186,13 +188,13 @@ export function ForgePane() {
       </div>
       {!runner.busy && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
       {me && agents && agents.length > 0 && primary !== "summonFirst" && (
-        <PullBack me={me} agents={agents} price={price} verb={primary === "replace" ? "edit" : "summon"} offer={ran !== source || primary === null}
+        <PullBack me={me} agents={agents} price={price} verb={primary === "replace" ? "edit" : "summon"} offer={wantMore || (ran !== source && status?.tone !== "ok")}
           pay={() => (primary === "replace" ? doReplace(source) : doSummon(source, false))} />
       )}
       <div ref={statusRef} aria-live="polite">
         {status && (
-          <div className={`border px-3 py-2 ${status.tone === "error" ? "border-destructive/50 text-destructive" : status.tone === "ok" ? "border-primary/40" : ""}`} data-testid="text-forge-status">
-            <p>{status.text}</p>
+          <div className={`border px-3 py-2 ${status.tone === "error" ? "border-destructive/50 text-destructive" : status.tone === "ok" ? "border-emerald-600/50 bg-emerald-600/5" : ""}`} data-testid="text-forge-status" data-tone={status.tone}>
+            <p>{status.tone === "ok" ? "✓ " : ""}{status.text}</p>
             {status.action === "agents" && <button type="button" className="mt-1 underline underline-offset-4" onClick={() => void openPane("agents")} data-testid="button-open-agents">Open My agents</button>}
           </div>
         )}

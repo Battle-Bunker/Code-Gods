@@ -45,10 +45,10 @@ export function AgentsPane() {
   const me = useMe();
   const agents = useMyAgents();
   const openPane = useOpenPane(header?.phase ?? "planning");
-  if (!header) return null;
-  if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="agents-spectator">Each player's agents are private to them. You're watching, so there are none to show.</p>;
   // A summon already accepted counts even while the list lags it (ux 1.8): never offer the first summon again.
   const count = useAgentCount();
+  if (!header) return null;
+  if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="agents-spectator">Each player's agents are private to them. You're watching, so there are none to show.</p>;
   const none = agents !== undefined && agents.length === 0 && count === 0;
   return (
     <div className="text-sm" data-testid="agents">

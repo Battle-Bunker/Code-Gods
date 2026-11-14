@@ -26,6 +26,9 @@ export function ResultsPane() {
           icon={<Play className="mr-1.5 h-4 w-4" aria-hidden />} />
       )}
       <Rotation summary={header.phase === "ended" ? rotationSummary(round, header.me, header.gameId) : null} />
+      {header.phase === "ended" && round === null && rows.some(r => r.handicap > 0) && (
+        <p className="text-muted-foreground" data-testid="text-results-no-rotation">A rule was won in the bid this game, so there is no rotation this round: the next game deals new rules.</p>
+      )}
       {header.me && rows.length > 0 && (
         <MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={header.phase === "ended"} testId="results-points" />
       )}

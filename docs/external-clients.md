@@ -1,8 +1,7 @@
 # External player clients
 
 Status: design adopted 2026-11-01; the account grant (decision 9, §3.3) added 2026-11-02 with the app unification
-(archive/engine-v1:docs/unify-apps-plan.md §3). It extends [`surface-architecture.md`](surface-architecture.md) and
-[`player-client-integration.md`](player-client-integration.md). Routes and functions are in [`engine-api.md`](engine-api.md).
+(archive/engine-v1:docs/unify-apps-plan.md §3). It extends [`surface-architecture.md`](surface-architecture.md). Routes and functions are in [`engine-api.md`](engine-api.md).
 
 **Goal.** A player can run their own client on any origin and change it freely with a coding agent during play. The
 origin can be a Replit dev URL (`https://xyz.replit.dev`), `http://localhost:5173`, Codespaces, a static host or a

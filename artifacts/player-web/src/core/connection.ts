@@ -8,10 +8,6 @@
  *               VITE_CODE_GODS_ENGINE_URL naming the engine's site. The human approves an account grant on
  *               the engine's /connect page (OAuth + PKCE; core/player-auth.ts) and the app is then the
  *               human everywhere, as on the site, except the consent pages and admin, which stay on the engine's site.
- *  "devserver": a player's own app, run as a Vite dev server in any environment. The dev server holds a room
- *               credential (CODE_GODS_CREDENTIAL, from the environment's secret store or .env.local) and answers
- *               GET /__codegods/token with a 10-minute player JWT; the browser never sees the credential. The app is
- *               then that human in the credential's room, with its permission.
  *
  * The Convex client is kept on globalThis, so hot updates of any module never open a second connection or drop
  * subscriptions.
@@ -20,7 +16,7 @@ import { ConvexReactClient } from "convex/react";
 import { createPlayerAuth, isAccountSession, type AccountSession, type PlayerAuth } from "@/core/player-auth";
 import { keepCurrent } from "./updates";
 
-export type Mode = "devserver" | "site" | "account";
+export type Mode = "site" | "account";
 export type Connection =
   | { mode: "site"; convexUrl: string }
   | {
@@ -29,31 +25,12 @@ export type Connection =
       session: AccountSession | null;
       /** Why the last sign-in did not complete (denied, expired, …), shown on the sign-in screen. */
       signInError?: string;
-    }
-  | {
-      mode: "devserver"; convexUrl: string;
-      /** The credential's room (Convex id) and permission. */
-      roomId: string; permission: "read" | "act" | "owner";
-      /** The engine's site URL (its consent and admin pages live there). */
-      siteUrl?: string;
     };
 
-type TokenResponse = { token: string; expiresAt: number; convexUrl: string; siteUrl?: string; roomId: string; permission: "read" | "act" | "owner" };
 type Global = typeof globalThis & { __cgConnection?: Promise<Connection>; __cgConvex?: ConvexReactClient };
 const g = globalThis as Global;
 
-const appTokenUrl = () => `${import.meta.env.BASE_URL.replace(/\/$/, "")}/__codegods/token`;
-
-async function fetchAppToken(): Promise<TokenResponse | null> {
-  const response = await fetch(appTokenUrl(), { cache: "no-store", credentials: "same-origin" });
-  // No player-app dev server here: a 404, or (on the engine's static site) the SPA fallback's index.html.
-  if (response.status === 404 || !response.headers.get("content-type")?.includes("application/json")) return null;
-  const body = await response.json().catch(() => ({})) as Partial<TokenResponse> & { error?: string };
-  if (!response.ok || !body.token) throw new Error(body.error ?? `The player app could not get an engine token (${response.status}). Run \`pnpm player status\`.`);
-  return body as TokenResponse;
-}
-
-/** The engine site's URL: this origin, or the one a dev server's credential names. */
+/** The engine site's URL: this origin, or the engine an account-mode app signs in to. */
 let site: string | undefined;
 export const engineSite = () => site ?? location.origin;
 
@@ -92,11 +69,6 @@ async function accountConnection(engineUrl: string): Promise<Connection> {
 async function detect(): Promise<Connection> {
   const engine = accountEngineUrl();
   if (engine) return accountConnection(engine);
-  const app = await fetchAppToken();
-  if (app) {
-    site = app.siteUrl;
-    return { mode: "devserver", convexUrl: app.convexUrl, roomId: app.roomId, permission: app.permission, ...(app.siteUrl ? { siteUrl: app.siteUrl } : {}) };
-  }
   return { mode: "site", convexUrl: await siteConvexUrl() };
 }
 
@@ -129,7 +101,3 @@ let accessToken: AccessToken | undefined;
 export function setAppAccessToken(source: AccessToken | undefined): void { accessToken = source; }
 export async function appAccessToken(): Promise<string | null> { return accessToken ? accessToken() : null; }
 
-/** Dev-server mode: a fresh player JWT for the Convex client's fetchAccessToken (null = refused). */
-export async function fetchAppAccessToken(): Promise<string | null> {
-  return (await fetchAppToken())?.token ?? null;
-}

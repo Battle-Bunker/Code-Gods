@@ -132,8 +132,9 @@ function Screen({ header }: { header: Header }) {
   const room = useLive(api.v2.rooms.get, { roomId: header.roomId }).data as Room | undefined;
   const me = useLive(api.v2.play.me, header.me ? { gameId: header.gameId } : "skip").data;
   const live = useLive(api.v2.games.header, { gameId: header.gameId }).data ?? header;
-  const context = useMemo(() => affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, header: live, me: me ?? null }),
-    [isAuthenticated, user?.isAdmin, room, live, me?.energy, me?.pauseUsed, me?.agents]); // eslint-disable-line react-hooks/exhaustive-deps
+  const aiOff = useLive(api.v2.assistant.status, { roomId: header.roomId }).data?.off ?? null;
+  const context = useMemo(() => affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, header: live, me: me ?? null, aiOff }),
+    [isAuthenticated, user?.isAdmin, room, live, me?.energy, me?.pauseUsed, me?.agents, aiOff]); // eslint-disable-line react-hooks/exhaustive-deps
   const code = room?.code ?? "";
   const owner = !!room?.members.find(m => m.me)?.owner;
   return (

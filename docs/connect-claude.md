@@ -19,7 +19,7 @@ refresh automatically.
 
 ## Claude Code (device credential)
 
-Get a room credential with the device flow (see `docs/room-assistant.md`), keep it in your environment
+Get a room credential with the device flow (`pnpm player connect --room CODE`, PILOT.md), keep it in your environment
 as `CODE_GODS_CREDENTIAL`, then:
 
 ```sh

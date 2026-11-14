@@ -47,9 +47,9 @@ export function affordLine(o: { price: number; energy: number; justRan: boolean;
   if (o.justRan) return null;
   if (o.price <= o.energy) return `Summoning costs ${energyText(o.price)}; you have ${energyText(o.energy)}.`;
   if (!(o.ownPerSecond > 0)) return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}. Your agents hold all your power, so your own store does not grow: give yourself some power back.`;
-  if (o.price > o.capacity) return `Summoning costs ${energyText(o.price)}, more than your own store can hold at your current split (${energyText(o.capacity)}). Give yourself more power, or shorten the code.`;
+  if (o.price > o.capacity) return `Summoning costs ${energyText(o.price)}, more than your own store can hold while your agents get this much of your power (${energyText(o.capacity)}). Give yourself more power, or shorten the code.`;
   const seconds = Math.ceil((o.price - o.energy) / o.ownPerSecond);
-  return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}: at your current split your own store reaches it in about ${seconds} second${seconds === 1 ? "" : "s"}.`;
+  return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}: at the way your power is shared now, your own store reaches it in about ${seconds} second${seconds === 1 ? "" : "s"}.`;
 }
 
 /** What a first summon did, in the same breath as what power is (ux-lessons 1.9, 3.7). */

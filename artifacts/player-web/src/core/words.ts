@@ -95,3 +95,9 @@ export function ownEnergy(m: { energy: number; capacity: number; ownPerSecond: n
     : `Your own energy: ${exactEnergy(m.energy)}. It rises by ${powerText(m.ownPerSecond)}, up to ${exactEnergy(m.capacity)}. Summons and replacements are paid from it.`;
   return { text: `${energyText(m.energy)}${full ? " (full)" : ""}`, full, title };
 }
+
+/** During a game: the rule this player won by bid, and the handicap that comes off their total (null when none). */
+export function bidNote(r: { bid: number | null; handicap: number | null; title: string }): string | null {
+  if (r.bid === null || !r.handicap) return null;
+  return `You won ${r.title} in the bid: ${r.handicap}% comes off your total at the end of the game.`;
+}
