@@ -1,6 +1,6 @@
 /**
  * The deployed versions every client watches, so a running page learns of a deploy and updates itself
- * (lib/player-client/src/update.ts; docs/engine-api.md "Deployed versions").
+ * (lib/v2-client/src/update.ts; docs/engine-api.md "Deployed versions").
  *
  *   app        the app's static build (served at /)              recorded by scripts/deploy-static.mjs after its upload
  *   functions  the engine's functions                            recorded by the deploy workflow after `convex deploy`

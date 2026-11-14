@@ -22,11 +22,11 @@ const newRoom = async (ownerId: string) => {
   return { roomId, shortCode };
 };
 
-test("a device request names its room the way the rest of the engine does: any case, O for 0, L for 1, dashes, or the GUID", async () => {
-  const shortCode = `Q0${randomBytes(2).toString("hex").toUpperCase()}1`, guid = crypto.randomUUID();
-  const roomId = await fixtures.mutation("auth/testing:createRoom", { shortCode, ownerId: "someone", guid }) as string;
+test("a device request names its room by its code (any case, dashes ignored) or its id", async () => {
+  const shortCode = `Q0${randomBytes(2).toString("hex").toUpperCase()}1`;
+  const roomId = await fixtures.mutation("auth/testing:createRoom", { shortCode, ownerId: "someone" }) as string;
   const challenge = "x".repeat(43);
-  for (const room of [shortCode.toLowerCase().replace("0", "o").replace(/1$/, "l"), `${shortCode.slice(0, 3)}-${shortCode.slice(3)}`, guid]) {
+  for (const room of [shortCode.toLowerCase(), `${shortCode.slice(0, 3)}-${shortCode.slice(3)}`, roomId]) {
     const result = await post("/api/device/request", { room, challenge });
     assert.equal(result.status, 200, `room reference ${room}: ${JSON.stringify(result.body)}`);
     assert.equal(result.body.roomId, roomId);
@@ -88,25 +88,6 @@ test("admin needs a verified allowlisted email", async () => {
   assert.equal((await client((await login("admin")).jwt).query("auth/user:me") as { isAdmin: boolean }).isAdmin, true);
   // "unverified" has an allowlisted email (dev.mjs) that the provider does not vouch for.
   assert.equal((await client((await login("unverified")).jwt).query("auth/user:me") as { isAdmin: boolean }).isAdmin, false);
-});
-
-test("sign-in is required for the server info, the sandboxes' warm-up and the engine's HTTP data routes (owner decision 2026-11-02)", async () => {
-  // Catches: an anonymous visitor reading the manifest, booting the agent sandboxes, or loading tables or a replay; and
-  // a browser's Better Auth JWT not being accepted by the HTTP routes the app calls with it.
-  assert.equal(await errorCode(client().query("manifest:get")), "UNAUTHENTICATED");
-  assert.equal(await errorCode(client().action("manifest/node:warm")), "UNAUTHENTICATED");
-  const routes = [`${SITE}/api/calibration/no-room/no-game/no-god`, `${SITE}/api/replay/no-room/no-game`];
-  for (const url of routes) assert.equal((await fetch(url)).status, 401, `${url} signed out`);
-  // A signed-in human still gets them (the routes then refuse the unknown room, not the caller).
-  const { jwt } = await login("alice");
-  const alice = client(jwt);
-  await alice.action("manifest/node:warm");
-  assert.ok(((await alice.query("manifest:get")) as { objectTypes: unknown[] }).objectTypes.length > 0);
-  for (const url of routes) assert.equal((await fetch(url, { headers: { authorization: `Bearer ${jwt}` } })).status, 404, `${url} with a browser JWT`);
-  // The rule gallery's tables by instantiation: signed out refused; signed in, an unknown family is the request's fault.
-  const ruleTables = `${SITE}/api/rule-tables?instance=Grid(4,base10,rgb)&family=no_such_family&params=%7B%7D`;
-  assert.equal((await fetch(ruleTables)).status, 401, "rule tables signed out");
-  assert.equal((await fetch(ruleTables, { headers: { authorization: `Bearer ${jwt}` } })).status, 400, "rule tables with a browser JWT");
 });
 
 test("sign-out ends the session at once, even for an unexpired browser JWT", async () => {

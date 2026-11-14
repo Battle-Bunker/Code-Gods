@@ -109,7 +109,7 @@ async function revoke(ctx: MutationCtx, id: Id<"credentials">) {
   if (row && row.revokedAt === undefined) await ctx.db.patch(id, { revokedAt: Date.now() });
 }
 async function roomOf(ctx: MutationCtx, roomId: string) {
-  const id = ctx.db.normalizeId("rooms", roomId);
+  const id = ctx.db.normalizeId("v2Rooms", roomId);
   return id ? await ctx.db.get(id) : null;
 }
 
@@ -131,10 +131,10 @@ export const redeemCode = internalMutation({
     }
     const subject = request.subject!, granted = request.grantedPermission!;
     const ttl = idleTtl(granted);
-    let room: Doc<"rooms"> | null = null;
+    let room: Doc<"v2Rooms"> | null = null;
     if (granted !== "account") {
       room = await roomOf(ctx, request.roomId!);
-      const member = room ? await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", room!._id).eq("godId", subject)).unique() : null;
+      const member = room ? await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", room!._id).eq("userId", subject)).first() : null;
       if (!member || credentialProblem({ subject, roomId: request.roomId!, permission: granted, expiresAt: now + ttl }, room, now)) {
         await ctx.db.patch(request._id, { status: "redeemed" });
         return { error: "invalid_grant" as const };
@@ -148,7 +148,7 @@ export const redeemCode = internalMutation({
     await ctx.db.patch(request._id, { status: "redeemed", credentialId });
     const client = await ctx.db.query("oauthClients").withIndex("by_client", q => q.eq("clientId", request.clientId)).unique();
     if (client) await ctx.db.patch(client._id, { usedAt: now });
-    return { credentialId, subject, roomId: facts.roomId, roomCode: room?.shortCode ?? null, permission: granted };
+    return { credentialId, subject, roomId: facts.roomId, roomCode: room?.code ?? null, permission: granted };
   },
 });
 
@@ -171,7 +171,7 @@ export const refresh = internalMutation({
     const ttl = idleTtl(row.permission);
     await ctx.db.insert("oauthRetiredRefresh", { hash: args.refreshHash, credentialId: row._id, retiredAt: now });
     await ctx.db.patch(row._id, { refreshHash: args.newRefreshHash, refreshExpiresAt: now + ttl, expiresAt: now + ttl, lastUsedAt: now });
-    return { credentialId: row._id, subject: row.subject, roomId: row.roomId, roomCode: room?.shortCode ?? null, permission: row.permission };
+    return { credentialId: row._id, subject: row.subject, roomId: row.roomId, roomCode: room?.code ?? null, permission: row.permission };
   },
 });
 

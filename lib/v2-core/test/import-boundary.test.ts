@@ -27,7 +27,7 @@ test("v2 packages do not import the old engine's libraries", () => {
       const text = readFileSync(f, "utf8");
       for (const old of FORBIDDEN) {
         // Code imports only (import … from, import(), require, export … from, package.json dependencies). Reading a
-        // data file (the pinned Python bundle under game-runtime/dist) is not an import.
+        // data file (the pinned Python bundle) is not an import.
         const spec = `["'](?:@workspace/${old}|(?:\\.\\./)+${old})(?:["'/])`;
         const imports = new RegExp(`(?:\\bfrom\\s*|\\bimport\\s*\\(?\\s*|\\brequire\\s*\\(\\s*)${spec}`);
         const dependency = new RegExp(`"@workspace/${old}"\\s*:`);

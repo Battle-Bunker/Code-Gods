@@ -114,7 +114,7 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
   const id = ctx.db.normalizeId("credentials", credentialId);
   const credential = id ? await ctx.db.get(id) : null;
   if (!credential) return null;
-  const roomId = credential.roomId ? ctx.db.normalizeId("rooms", credential.roomId) : null;
+  const roomId = credential.roomId ? ctx.db.normalizeId("v2Rooms", credential.roomId) : null;
   const room = roomId ? await ctx.db.get(roomId) : null;
   if (credentialProblem(credential, room, Date.now())) return null;
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", credential.subject)).unique();

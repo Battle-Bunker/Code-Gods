@@ -16,7 +16,7 @@ import { convexToJson, type Value } from "convex/values";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
-import type { AccountSession, PlayerAuth } from "@workspace/player-client/browser";
+import type { AccountSession, PlayerAuth } from "@/core/player-auth";
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
 import { liveResult } from "@/lib/live-result";

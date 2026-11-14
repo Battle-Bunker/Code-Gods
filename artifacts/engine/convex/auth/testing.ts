@@ -8,7 +8,6 @@ import { components } from "../_generated/api";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { requireRoomPermission, requireViewer } from "./access";
 import { normalizeUserCode, sha256Hex } from "./crypto";
-import { DEFAULT_SETTINGS, defaultSettingsFor } from "@workspace/game-core";
 
 function guard() {
   if (process.env.TEST_FIXTURES !== "1") throw new ConvexError({ code: "NOT_FOUND", message: "Not available" });
@@ -26,24 +25,22 @@ export const probe = query({
   },
 });
 
-/** A schema-valid room row with default settings, plus the owner's membership (what rooms.create writes: the owner is seated, not a spectator). */
+/** A v2 room with its code, plus the owner's membership (what room.create writes: the owner is seated, not a spectator). */
 export const createRoom = internalMutation({
-  args: { shortCode: v.string(), ownerId: v.string(), guid: v.optional(v.string()) },
-  handler: async (ctx, { shortCode, ownerId, guid }) => {
+  args: { shortCode: v.string(), ownerId: v.string() },
+  handler: async (ctx, { shortCode, ownerId }) => {
     guard();
     const now = Date.now();
-    const roomId = await ctx.db.insert("rooms", {
-      shortCode, guid: guid ?? crypto.randomUUID(), encoded: shortCode, ownerId, createdAt: now, revision: 0, seq: 0,
-      settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
-      aiQuota: 300_000, assistantQuota: 300_000, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
+    const roomId = await ctx.db.insert("v2Rooms", {
+      code: shortCode.toUpperCase(), name: "Auth fixture room", ownerId, revision: 0, createdAt: now, preset: "lines-beginner", overrides: {}, games: 0,
     });
-    await ctx.db.insert("members", { roomId, godId: ownerId, userId: ownerId, name: ownerId, kind: "human", ready: false, spectator: false, joinedAt: now });
+    await ctx.db.insert("v2Members", { roomId, kind: "human", name: ownerId, spectator: false, joinedAt: now, userId: ownerId });
     return roomId;
   },
 });
 
 export const setRoomOwner = internalMutation({
-  args: { roomId: v.id("rooms"), ownerId: v.string() },
+  args: { roomId: v.id("v2Rooms"), ownerId: v.string() },
   handler: async (ctx, { roomId, ownerId }) => {
     guard();
     await ctx.db.patch(roomId, { ownerId });
@@ -52,7 +49,7 @@ export const setRoomOwner = internalMutation({
 
 /** Delete a room row (its members stay): credentials bound to it must stop working. */
 export const deleteRoom = internalMutation({
-  args: { roomId: v.id("rooms") },
+  args: { roomId: v.id("v2Rooms") },
   handler: async (ctx, { roomId }) => {
     guard();
     await ctx.db.delete(roomId);

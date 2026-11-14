@@ -1,5 +1,5 @@
 /**
- * Keeping this page current after a deploy (lib/player-client/src/update.ts): a build the engine serves (with a build
+ * Keeping this page current after a deploy (lib/v2-client/src/update.ts): a build the engine serves (with a build
  * id in its index.html) updates itself at a safe moment and keeps the route; a dev server only gets a dismissible note
  * when the engine's functions change (it has its own hot reload).
  * Every failed call is checked for a client-too-old rejection, which updates at once.
