@@ -47,10 +47,17 @@ export interface Human extends Caller {
 }
 /** Seeds humans with fresh user ids; each is a signed-in browser caller. */
 export async function humans(...names: string[]): Promise<Human[]> {
+  return await seed(names, false);
+}
+/** Site admins (a verified ADMIN_EMAILS address on the test-only provider). */
+export async function admins(...names: string[]): Promise<Human[]> {
+  return await seed(names, true);
+}
+async function seed(names: string[], isAdmin: boolean): Promise<Human[]> {
   const out: Human[] = [];
   for (const name of names) {
     const userId = `test|${randomUUID()}`;
-    const sessionId = await admin.mutation("v2/testing:seedUser", { subject: userId, name });
+    const sessionId = await admin.mutation("v2/testing:seedUser", { subject: userId, name, ...(isAdmin ? { admin: true } : {}) });
     const c = new ConvexHttpClient(URL_);
     adminAuth(c, { subject: userId, issuer: SITE_, sessionId });
     const withClaim = (claim: string) => { const k = new ConvexHttpClient(URL_); adminAuth(k, { subject: userId, issuer: SITE_, sessionId, gate: claim }); return caller(k); };

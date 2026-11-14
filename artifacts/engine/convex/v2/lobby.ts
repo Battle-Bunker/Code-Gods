@@ -10,6 +10,7 @@ import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
+const AI_TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
 const CLOSE_BIDDING = makeFunctionReference<"mutation", { roomId: Id<"v2Rooms">; deadline: number }>("v2/bids:closeAtDeadline");
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -105,6 +106,16 @@ export async function fillPracticePartners(ctx: MutationCtx, room: Doc<"v2Rooms"
     await ctx.db.insert("v2Members", { roomId: room._id, kind: "practice", name: `Practice partner ${next++}`, spectator: false, joinedAt: Date.now() + added });
   if (added) await ctx.db.patch(room._id, { revision: room.revision + 1 });
   return added;
+}
+
+/** Seats a model-backed AI player (named "AI player N"; `template` names its style, unused until templates move to v2). */
+export async function addAiSeat(ctx: MutationCtx, room: Doc<"v2Rooms">, template?: string): Promise<Id<"v2Members">> {
+  const members = await membersOf(ctx, room._id);
+  if (members.length >= MAX_MEMBERS) throw new OpFailure(`This room is full (${MAX_MEMBERS} members).`);
+  const next = Math.max(0, ...members.map(m => Number(/^AI player (\d+)$/.exec(m.name)?.[1] ?? 0))) + 1;
+  const memberId = await ctx.db.insert("v2Members", { roomId: room._id, kind: "ai", name: `AI player ${next}`, spectator: false, joinedAt: Date.now(), ...(template ? { aiTemplate: template } : {}) });
+  await ctx.db.patch(room._id, { revision: room.revision + 1 });
+  return memberId;
 }
 
 export async function removeSeat(ctx: MutationCtx, room: Doc<"v2Rooms">, memberId: string) {
@@ -262,6 +273,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   await ctx.db.patch(room._id, { gameId, lastGameId: gameId, games: number, revision: room.revision + 1 });
   const game = (await ctx.db.get(gameId))!;
   await summonPracticePartners(ctx, game);
+  // AI players take their first turn in planning, then every AI_TURN_MS (aiTurn.ts).
+  for (const m of seats) if (m.kind === "ai") await ctx.scheduler.runAfter(1000, AI_TURN, { gameId, memberId: m._id, n: 0 });
   await ctx.scheduler.runAt(game.planningEndsAt!, PLANNING_ENDS, { gameId });
   return gameId;
 }

@@ -31,8 +31,21 @@ export async function currentUser(ctx: QueryCtx): Promise<User | null> {
 export async function requireUser(ctx: QueryCtx): Promise<User> {
   return (await currentUser(ctx)) ?? fail("UNAUTHENTICATED", "Please sign in");
 }
-/** The human a delegate (assistant, MCP, CLI) acts for, from the users table. */
+/**
+ * An AI player acts through the same operations as a human's assistant, as the principal `member:<memberId>`: a
+ * seat with no user behind it (seats.addAi). It is never an admin and owns nothing.
+ */
+export const AI_PRINCIPAL = "member:";
+const aiMemberId = (userId: string) => userId.startsWith(AI_PRINCIPAL) ? userId.slice(AI_PRINCIPAL.length) : null;
+
+/** The human a delegate (assistant, MCP, CLI) acts for, from the users table; or an AI player's principal. */
 export async function userById(ctx: QueryCtx, userId: string): Promise<User | null> {
+  const ai = aiMemberId(userId);
+  if (ai !== null) {
+    const id = ctx.db.normalizeId("v2Members", ai);
+    const m = id ? await ctx.db.get(id) : null;
+    return m?.kind === "ai" ? { userId, name: m.name, admin: false } : null;
+  }
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", userId)).unique();
   return user ? { userId: user.subject, name: user.name, admin: isAdminUser(user, process.env) } : null;
 }
@@ -46,6 +59,12 @@ export async function gameById(ctx: QueryCtx, gameId: string): Promise<Doc<"v2Ga
   return id ? await ctx.db.get(id) : null;
 }
 export async function memberOf(ctx: QueryCtx, roomId: Id<"v2Rooms">, userId: string): Promise<Doc<"v2Members"> | null> {
+  const ai = aiMemberId(userId);
+  if (ai !== null) {
+    const id = ctx.db.normalizeId("v2Members", ai);
+    const m = id ? await ctx.db.get(id) : null;
+    return m && m.kind === "ai" && m.roomId === roomId ? m : null;
+  }
   return await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", roomId).eq("userId", userId)).first();
 }
 export async function playerOf(ctx: QueryCtx, gameId: Id<"v2Games">, memberId: Id<"v2Members">): Promise<Doc<"v2Players"> | null> {

@@ -309,3 +309,12 @@ export const device = internalQuery({
   args: { deviceId: v.id("devices") },
   handler: async (ctx, { deviceId }) => { fixtures(); return await ctx.db.get(deviceId); },
 });
+
+/** A member's AI usage in a game (the AI seat test reads that its turns ran and were counted). */
+export const aiUsage = internalQuery({
+  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
+  handler: async (ctx, { gameId, memberId }) => {
+    fixtures();
+    return await ctx.db.query("v2AiUsage").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
+  },
+});

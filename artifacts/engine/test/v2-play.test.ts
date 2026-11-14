@@ -82,8 +82,11 @@ test("ready: the world starts when every human is ready", async () => {
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal(header.phase, "live");
   const e0 = (await me(bo!)).energy;
-  await new Promise(r => setTimeout(r, 3000));
-  assert.ok((await me(bo!)).energy > e0, "the own store accrues while the world runs, read as of now");
+  // World time moves with the tick (the first one can be slow: a sandbox's cold start), so wait for the store to grow.
+  for (let i = 0; (await me(bo!)).energy <= e0; i++) {
+    assert.ok(i < 60, "the own store accrues while the world runs, read as of now");
+    await new Promise(r => setTimeout(r, 500));
+  }
   assert.equal((await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 100, cursor: null } })).page.length, 24);
 });
 

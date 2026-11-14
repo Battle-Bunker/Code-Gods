@@ -185,6 +185,9 @@ importers:
       '@workspace/v2-agents':
         specifier: workspace:*
         version: link:../../lib/v2-agents
+      '@workspace/v2-ai':
+        specifier: workspace:*
+        version: link:../../lib/v2-ai
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core

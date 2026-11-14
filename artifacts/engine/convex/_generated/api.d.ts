@@ -150,6 +150,8 @@ import type * as testing from "../testing.js";
 import type * as testingNode from "../testingNode.js";
 import type * as v2_access from "../v2/access.js";
 import type * as v2_agents from "../v2/agents.js";
+import type * as v2_ai from "../v2/ai.js";
+import type * as v2_aiTurn from "../v2/aiTurn.js";
 import type * as v2_artefacts from "../v2/artefacts.js";
 import type * as v2_bids from "../v2/bids.js";
 import type * as v2_checkData from "../v2/checkData.js";
@@ -342,6 +344,8 @@ declare const fullApi: ApiFromModules<{
   testingNode: typeof testingNode;
   "v2/access": typeof v2_access;
   "v2/agents": typeof v2_agents;
+  "v2/ai": typeof v2_ai;
+  "v2/aiTurn": typeof v2_aiTurn;
   "v2/artefacts": typeof v2_artefacts;
   "v2/bids": typeof v2_bids;
   "v2/checkData": typeof v2_checkData;
