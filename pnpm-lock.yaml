@@ -572,6 +572,19 @@ importers:
         specifier: workspace:*
         version: link:../v2-core
 
+  lib/v2-sandbox:
+    dependencies:
+      quickjs-emscripten:
+        specifier: 0.31.0
+        version: 0.31.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
+
   lib/v2-valuation:
     dependencies:
       '@workspace/v2-core':

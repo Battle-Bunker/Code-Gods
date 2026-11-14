@@ -32,6 +32,9 @@
     },
     {
       "path": "./lib/v2-valuation"
+    },
+    {
+      "path": "./lib/v2-sandbox"
     }
   ]
 }
