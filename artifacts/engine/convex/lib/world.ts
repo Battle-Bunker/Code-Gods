@@ -62,8 +62,7 @@ export const EVENTS_PER_BATCH = 400;
  * 10 marks the selection and exposure rules of 11 Nov 2026 (docs/energy-model.md §7): no rate limit per agent (before it,
  * each agent was offered at most 4 opportunities per world second), and every offer is charged as a read of which object
  * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
- * 11 adds the `look` event (paid observation, lib/knowledge.ts): a god paid its own energy to be told one object, or all
- * of them.
+ * 11 added the `look` event (paid observation, deleted in D1: stored ones stay in their batches and are never shown).
  * 12 is cost models (docs/mutation-cost-design.md §11): an act's cost.change (and cost.work) is priced under the game's
  * settings.costModel ("distance-v1" charges a number by how far it moved); in every batch below 12 it is priced under
  * "set-v1", whatever the settings say. A game without the setting (every game started before 12) is "set-v1" too, so a

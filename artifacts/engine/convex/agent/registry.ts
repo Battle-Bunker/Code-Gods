@@ -372,7 +372,6 @@ export const EXECUTORS: Executors = {
   replace_agent: (ctx, p, args) => command(ctx, p, "replace_agent", args),
   destroy_agent: (ctx, p, args) => command(ctx, p, "destroy_agent", args),
   allocate_power: (ctx, p, args) => command(ctx, p, "allocate_power", args),
-  look: (ctx, p, args) => command(ctx, p, "look", args),
   set_ready: (ctx, p, args) => command(ctx, p, "set_ready", args),
   set_spectator: async (ctx, { principal, who }, args) => ({
     data: await ctx.runMutation(internal.rooms.setSpectatorAs, { principal, roomId: who.roomId, spectator: args.spectator, ...(args.deityId ? { godId: args.deityId } : {}) }),

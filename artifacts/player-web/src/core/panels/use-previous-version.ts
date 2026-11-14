@@ -11,7 +11,7 @@ import { accumulateFirstMoves } from "./score-line";
 type Events = Parameters<typeof accumulateFirstMoves>[1];
 
 export function usePreviousVersion(gameId: string | undefined, agents: readonly { id: string }[], loading: boolean,
-  /** The recent events (the act lines' own subscription) to count that agent's first moves from; none where the earnings are not counted (paid looks). */ events?: Events,
+  /** The recent events (the act lines' own subscription) to count that agent's first moves from. */ events?: Events,
   /** The world time now: when the replace's own event is not among the events, the time its receipt was first seen stands for it. */ worldNow?: number): { previous: PreviousVersion; agentId: string } | null {
   const { previous } = useRunner();
   // While the agent list loads, an empty list is not "the agent is gone".

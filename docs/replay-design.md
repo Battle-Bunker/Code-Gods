@@ -92,7 +92,7 @@ Schema history (the full list is the comment on `EVENT_LOG_SCHEMA`): 2 summons, 
 3 act seeds; 4 the published scoreboard, disclosure noise and `objectEvents`; 5 the energy model's cost shape
 (`{read, change, total}`) and `skip`; 6 the power budget; 7 hold rarity's `rescore`; 8 the read price κ; 9 runtime
 errors marked on failed acts; 10 the selection and exposure rules of 11 Nov 2026 (no rate limit per agent; every offer
-charged as a read); 11 the `look` event of paid observation; **12 cost models**: an act's `cost.change` is priced under the game's
+charged as a read); 11 the `look` event of paid observation (deleted in D1; never shown); **12 cost models**: an act's `cost.change` is priced under the game's
 `settings.costModel` (`"distance-v1"` charges a number by how far it moved; docs/mutation-cost-design.md §11). Every
 batch below 12 is priced under `"set-v1"`, and so is a game whose settings do not name a model (every game started
 before 12). The model is a setting of the game, fixed at its start and carried in the replay's `game.settings`, so no

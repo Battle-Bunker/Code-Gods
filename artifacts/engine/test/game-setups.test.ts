@@ -42,7 +42,7 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   const [ann] = await gods("Seed Ann");
   const system = (await list(ann)).filter(r => r.system);
   assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
-  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Basics with bidding", "Basics with paid looks", "Classic", "Low income", "Big board", "Master", "Tiered rules"]);
+  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Basics with bidding", "Classic", "Low income", "Big board", "Master", "Tiered rules"]);
   for (const d of system) {
     assert.ok(!("settings" in d), "a list row has no settings");
     assert.deepEqual((await get(ann, d.id)).settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
@@ -53,6 +53,18 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   await admin.mutation(internal.testing.makeLegacy, { setupId: big.id as never, settings: { ...seedSetupSettings("grid-big"), planningSeconds: 999 } });
   await admin.mutation(internal.setups.ensureSeeded, {});
   assert.deepEqual((await get(ann, big.id)).settings, seedSetupSettings("grid-big"));
+});
+
+test("a system setup the code no longer ships is marked deleted by the seed sync: never listed or opened, its row kept", async () => {
+  // Catches: "Basics with paid looks" (deleted in D1) still offered on a deployment that had seeded it.
+  const seedId = `grid-retired-${randomUUID().slice(0, 8)}`;
+  const retired = await admin.mutation(internal.testing.seedRetiredSetup, { seedId, name: "Retired board", settings: seedSetupSettings("grid-annotated-basics") }) as string;
+  const [ann] = await gods("Retired Ann");
+  assert.ok((await list(ann)).some(r => r.id === retired), "listed before the sync");
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  assert.ok(!(await list(ann)).some(r => r.id === retired), "not listed after it");
+  assert.deepEqual((await list(ann)).filter(r => r.system).map(d => d.seedId), SEED_SETUPS.map(s => s.seedId));
+  assert.equal(await errorCode(ann.c.query(api.setups.get, { setupId: retired })), "NOT_FOUND");
 });
 
 test("Lab setups: an administrator sees, opens, copies and applies one; to anyone else it does not exist, by list, search or id", { timeout: 120_000 }, async () => {
