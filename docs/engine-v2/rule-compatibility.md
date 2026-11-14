@@ -6,6 +6,15 @@
 - **Settling and holding pays about 18× on a mixed table.** When every player brings the lines to one agreed state and
   holds them there, everyone scores far more than when each climbs their own rule.
 - **Keeping off each other's lines does not pay.** On these tables, staying off lines lost to naive play.
+- **A lone seat pays only by learning the shared state in chat.**
+  - Among naive players, the one seat that settles at the shared state y = −x + 59 gains 9× its naive points.
+  - Settling at its own best state alone loses for two rules of three.
+  - So a seat's first job is to say what its rule wants and ask the others what theirs want.
+- **On grids, settle only once everyone agrees.** All three settling at a shared board pays 2.8×, and the poorest
+  seat 4× its naive points. One settler alone loses.
+- **The starters refuse moves that lower their own points, only on contested lines.**
+  - That gains 55% over greedy on the conflicted table.
+  - It costs about 11% on the compatible one, within noise (about 1.4 standard errors; 6 games each). Accepted for now.
 
 All runs below: 3-player mixed table (Prime Landing/big-prime, Treasure/prime-terms, Whole Crossing/k-spf), server
 economy, 300 s, 2 games. Table total points at the end:

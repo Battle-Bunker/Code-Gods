@@ -78,3 +78,29 @@ test("a settle deal: its target is read from the chat, it is enacted by TARGET a
   assert.equal(commitmentsOf("Ada", chat, [], [after.replace("c: 59", "c: 58")])[0]!.status, "pending", "another target does not keep it");
   assert.match(commitmentBriefing(commitmentsOf("Ada", chat, [], [before])), /settle lines 3 and 7 at y = -x \+ 59 and hold them\. This turn, set TARGET = \{ m: -1, c: 59 \} and SETTLE = \[3, 7\]/);
 });
+
+test("a settle deal over every line, or at a board: read from the chat, enacted only by SETTLE = [] at that target, briefed so", () => {
+  const every: ChatRow[] = [
+    { from: "Ada", text: "Let's settle every line at y = -x + 59 and hold them all. Deal?", at: 10 },
+    { from: "Bo", text: "Agreed.", at: 20 },
+  ];
+  const [d] = findDeals(every).deals;
+  assert.deepEqual([d!.lines, d!.every, d!.target], [[], true, { m: -1, c: 59 }]);
+  const all = "const TARGET = { m: -1, c: 59 };\nconst SETTLE = [];\nfunction agent(offer) {}";
+  assert.equal(commitmentsOf("Bo", every, [], [all])[0]!.status, "enacted");
+  assert.equal(commitmentsOf("Bo", every, [], [all.replace("SETTLE = []", "SETTLE = [3]")])[0]!.status, "pending", "a few lines are not every line");
+  const moves: MoveRow[] = [{ by: "Ada", line: 17, at: 30, lowered: ["Bo"] }];
+  assert.deepEqual(commitmentsOf("Bo", every, moves, [all])[0]!.partnerBreaks, [{ line: 17, at: 30 }], "any line counts");
+  assert.match(commitmentBriefing(commitmentsOf("Bo", every, [], ["const TARGET = null;\nconst SETTLE = [];"])), /settle every line at y = -x \+ 59 and hold them\. This turn, set TARGET = \{ m: -1, c: 59 \} and SETTLE = \[\]/);
+  assert.match(commitmentBriefing(commitmentsOf("Bo", every, [], [all])), /your agents hold every line at y = -x \+ 59: kept/);
+  const boards: ChatRow[] = [
+    { from: "Ada", text: "Settle boards 2 and 5 at 8118455454451881 and hold them? Deal?", at: 10 },
+    { from: "Bo", text: "Deal", at: 15 },
+  ];
+  const [g] = findDeals(boards).deals;
+  assert.deepEqual([g!.lines, g!.target], [[2, 5], { board: "8118455454451881" }]);
+  const held = "const TARGET = \"8118455454451881\";\nconst SETTLE = [2, 5];";
+  assert.equal(commitmentsOf("Bo", boards, [], [held])[0]!.status, "enacted");
+  assert.equal(commitmentsOf("Bo", boards, [], [held.replace("1881\"", "1882\"")])[0]!.status, "pending");
+  assert.match(commitmentBriefing(commitmentsOf("Bo", boards, [], ["const TARGET = null;"])), /settle boards 2 and 5 at 8118455454451881 and hold them\. This turn, set TARGET = "8118455454451881" and SETTLE = \[2, 5\]/);
+});

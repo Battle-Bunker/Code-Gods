@@ -118,3 +118,26 @@ The mixed table, 2 games, 300 s, the cheapest model at low effort. Spent $0.137 
   - A settled table pays 18× (`rule-compatibility.md`), so this gap is the next prompt target.
 - **A lone model seat in "mix" gains less than the naive seats beside it** (6,044 against 7,654 a seat). Rules rotate
   over the 3 games, so this is a rough comparison.
+
+## Model seats that talk first and settle (2026-11-14)
+
+The prompt now has three rules:
+- A seat's first job is to say what its rule wants and ask what the others' rules want.
+- It proposes settle deals over every line.
+- On boards, it settles only once everyone has agreed.
+
+The deal tracker reads deals over every line and deals at a board's digits. 2 games, 300 s, the cheapest model at low
+effort. Table points gained per game:
+
+| Table | Naive | Model seats | Lowest seat-game, naive → model | Settle deals accepted / kept | Spent |
+|---|--:|--:|--:|--:|--:|
+| Lines (Prime Landing, Treasure, Whole Crossing) | 8,159 (6 games) | **107,195 (13×)** | 1,195 → 10,105 | 15 / 11 | $0.106 |
+| Grid (Magic Eighteen, Opposite Nines, Mirrormancer) | 108,496 | **327,913 (3.0×)** | 22,633 → 36,023 | 2 deals, both kept | $0.102 |
+
+- **Lines.** The seats said their rules in the first turn. They converged on y = −x + 59 within a minute and held every
+  line there. Treasure gains least at that state (about 11,000 a game against about 48,000 for each of the others),
+  yet still more than 4× its naive points.
+- **Grids.**
+  - One game reached 509,000. The seats found rows that suit all three ("2 7 2 7").
+  - The other game reached 147,000.
+  - They describe boards row by row, not as 16 digits, so the tracker counted them as plain deals, not settle deals.
