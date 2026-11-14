@@ -109,9 +109,4 @@ export function seated<K extends "query" | "mutation">(env: OpEnv<DataModel, K>)
   return { ...r, member: r.member, player: r.player };
 }
 
-/** A server affordance whose handler lands in a later pull request (W3-3 … W3-8). */
-export function notYet(pr: string): never {
-  throw new OpFailure(`Not built yet: the server implements this in ${pr}.`);
-}
-
 export type { OpKind };

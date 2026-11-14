@@ -2,7 +2,7 @@
  * The v2 API contract (W3-1) on the live local backend: every live query of plan §2.2 answers a seeded game within its
  * `returns` validator (Convex checks it on every call), sign-in is required everywhere, a player sees only their own
  * rule, values and agents, and server affordances run through `defineOp` (session and delegated twin, receipts,
- * refusals, a stub's failure as a value).
+ * refusals, a domain failure as a value).
  *
  * What would break: a query whose answer drifts from its validator; a query that answers a signed-out caller or
  * leaks another player's value; an operation that bypasses the directory's checks or applies a retry twice.
@@ -114,7 +114,7 @@ test("every live query refuses a signed-out caller", async () => {
   for (const [q, args] of calls) assert.equal(await errorCode(anonymous.query(q, args)), "UNAUTHENTICATED", q);
 });
 
-test("operations run through defineOp: results, receipts, refusals, delegates and stubs", async () => {
+test("operations run through defineOp: results, receipts, refusals, delegates and failures", async () => {
   const created = await perform(ada, "room.create", { name: "Ops room" });
   assert.equal(created.ok, true, JSON.stringify(created));
   const { roomId: opsRoom, code } = created.result;
@@ -133,8 +133,8 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   assert.equal(bad.error.code, "invalid_args");
   assert.equal((await perform(anonymous, "room.get", {}, { roomId: opsRoom }, "query")).error.code, "refused");
 
-  // A stub mutation's failure rolls back and reaches the client as the outcome in the ConvexError's data.
-  try { await perform(ada, "seats.removeAi", { memberId: "x" }, { roomId: opsRoom }); assert.fail("a stub fails"); } catch (e) {
+  // A mutation's domain failure rolls back and reaches the client as the outcome in the ConvexError's data.
+  try { await perform(ada, "seats.removeAi", { memberId: "x" }, { roomId: opsRoom }); assert.fail("no such AI seat"); } catch (e) {
     assert.equal((e as { data?: { error?: { code?: string } } }).data?.error?.code, "failed");
   }
   // An action resolves its caller through a query and returns its failure as a value (a summon dearer than the store).
