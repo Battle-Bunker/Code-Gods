@@ -47,6 +47,11 @@ export function grantAllows(a: AnyAffordance, ctx: AffordanceContext): boolean {
   }
 }
 
+/** How a server affordance is called in Convex: an action where the sandbox or a model runs, else by its effect. */
+export function opKind(a: AnyAffordance): "query" | "mutation" | "action" {
+  return a.action ? "action" : a.effect === "read" ? "query" : "mutation";
+}
+
 export function onSurface(a: AnyAffordance, surface: Surface): boolean {
   return !a.surfaces?.except.includes(surface);
 }

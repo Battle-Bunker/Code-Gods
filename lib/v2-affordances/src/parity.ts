@@ -7,7 +7,7 @@
  *   5. text limits, unique ids, keywords present, destructive and spending affordances confirm.
  * Check 2 (every server affordance has exactly one handler, every public v2 mutation or action is one) is
  * `handlerProblems` (server.ts) over a handler map, and `convexOpsProblems` (scan.ts) over `convex/v2`. Check 3 (the
- * app calls no v2 mutation or action except through `useAffordance`) comes with the React hook.
+ * app calls no v2 mutation or action except through `useAffordance`) is `appProblems` (scan.ts).
  */
 import { z } from "zod/v4";
 import { DIRECTORY, type Directory } from "./directory.ts";
@@ -99,6 +99,7 @@ export function parityProblems(all: Directory = DIRECTORY, gen: Generators = GEN
     if (a.contexts.length === 0) problems.push(`check 5: ${a.id} is offered in no context`);
     if (a.effect === "destructive" && a.confirm === "none") problems.push(`check 5: ${a.id} is destructive but does not confirm`);
     if (a.spends && a.confirm === "none") problems.push(`check 5: ${a.id} spends ${a.spends} but does not confirm`);
+    if (a.runs === "client" && a.action) problems.push(`check 5: ${a.id} is a view operation declared as a Convex action`);
     if (a.runs === "client" && a.spends) problems.push(`check 5: ${a.id} is a view operation that spends`);
     if (a.runs === "server" && a.effect !== "read" && !("requestId" in a.params.shape)) problems.push(`check 5: ${a.id} writes on the server but takes no requestId`);
     if (!(a.params instanceof z.ZodObject)) problems.push(`check 5: ${a.id} params must be an object`);

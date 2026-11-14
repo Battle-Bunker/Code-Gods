@@ -132,6 +132,6 @@ export const playOps = [
     tooltip: "Help me pitch a deal to other players.", keywords: ["negotiate", "pitch", "deal", "cooperate"],
     params: obj({ to: z.array(id).max(15).optional().describe("Member ids to address; omit for everyone."), aim: z.string().max(300).optional(), requestId: requestId.optional() }),
     result: z.object({ draft: z.string() }),
-    contexts: IN_GAME, caller: "seated", effect: "write", spends: "aiBudget", confirm: "summary", runs: "server",
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "aiBudget", confirm: "summary", runs: "server", action: true,
   }),
 ] as const;

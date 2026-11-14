@@ -2,7 +2,9 @@
  * Source scans for the parity checks that span packages (Node only; used by tests):
  * - check 2 on the Convex side: under `convex/v2`, every public mutation or action is a `defineOp` in
  *   `ops/<namespace>.ts` exported as `{ op: <verb>, as: <verb>As }`, and, once `ops/` exists, every server affordance
- *   has exactly one (live queries, which are not affordances, are left alone).
+ *   has exactly one (live queries, which are not affordances, are left alone);
+ * - check 3 on the app: `artifacts/player-web/src` calls no v2 mutation or action except through `useAffordance`,
+ *   i.e. only the one runtime file that builds `perform` (it names functions with `opPath` / `VIEW_OP_PATH`) may.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
@@ -31,6 +33,8 @@ export function convexOpsProblems(root: string, dir: Directory = DIRECTORY): str
   for (const file of tsFiles(root)) {
     const text = stripComments(readFileSync(file, "utf8")), rel = relative(root, file);
     for (const m of text.matchAll(PUBLIC_WRITE)) problems.push(`check 2: ${rel} makes a public ${m[0].replace(/Generic|\s|\(/g, "")} outside defineOp`);
+    if (/\bdefineViewOps\(/.test(text) && (rel !== "ops/view.ts" || !/\{\s*op:\s*apply\s*,\s*as:\s*applyAs\s*\}\s*=\s*defineViewOps\(/.test(text)))
+      problems.push(`check 2: view operations must be exported from ops/view.ts as { op: apply, as: applyAs } = defineViewOps(...)`);
     for (const m of text.matchAll(DEFINE)) {
       const id = m[1]!, [ns, verb] = id.split(".") as [string, string];
       ids.push(id);
@@ -39,5 +43,25 @@ export function convexOpsProblems(root: string, dir: Directory = DIRECTORY): str
     }
   }
   if (existsSync(join(root, "ops"))) problems.push(...handlerProblems(ids, dir));
+  return problems;
+}
+
+const HOOK_V2 = /\b(?:useMutation|useAction)\s*\(\s*(?:api\s*(?:\.\s*v2\b|\[\s*["']v2)|makeFunctionReference\s*\(\s*[`"']v2\/)/g;
+const CALL_V2 = /\.(?:mutation|action)\s*\(\s*(?:api\s*(?:\.\s*v2\b|\[\s*["']v2)|makeFunctionReference\s*\(\s*[`"']v2\/)/g;
+const REF_V2 = /\bmakeFunctionReference\s*\(\s*[`"']v2\//;
+const RUNTIME = /\b(?:opPath|VIEW_OP_PATH)\b/;
+
+/** Problems in the web app's source (root = `artifacts/player-web/src`). */
+export function appProblems(root: string): string[] {
+  const problems: string[] = [];
+  for (const file of tsFiles(root)) {
+    const text = stripComments(readFileSync(file, "utf8")), rel = relative(root, file);
+    const hooks = [...text.matchAll(HOOK_V2)].length;
+    for (let i = 0; i < hooks; i++) problems.push(`check 3: ${rel} calls a v2 mutation or action with a hook; use useAffordance`);
+    if (RUNTIME.test(text)) continue;   // the runtime that implements perform
+    const calls = [...text.matchAll(CALL_V2)].length;
+    for (let i = 0; i < calls; i++) problems.push(`check 3: ${rel} calls a v2 mutation or action directly; use useAffordance`);
+    if (hooks + calls === 0 && REF_V2.test(text)) problems.push(`check 3: ${rel} names a v2 function outside the affordance runtime`);
+  }
   return problems;
 }

@@ -58,7 +58,8 @@ test("the server derives the context: refusals, invalid args and domain failures
   assert.deepEqual(await f.perform(as("u2"), "agent.destroy", { agentId: theirs.result.agentId }), { ok: false, error: { code: "failed", message: "That agent is not yours." } });
   assert.deepEqual(await f.perform(as("u2"), "object.read", { objectId: "o1", rep: "si" }),
     { ok: true, result: { rep: "si", site: 0, elements: { m: { kind: "number", q: "2" }, c: { kind: "number", q: "3" }, sign: { kind: "symbol", text: "rising" } }, bits: 10 } });
-  assert.equal((await f.perform(as("u1"), "view.openPane", { pane: "agents" }) as { ok: false; error: { code: string } }).error.code, "unknown");
+  assert.deepEqual(await f.perform(as("u1"), "view.openPane", { pane: "agents" }), { ok: true, result: { ok: true, layoutVersion: 1 } }, "a view operation changes the stored view");
+  assert.equal((await f.perform(as("u1"), "account.signIn", {}) as { ok: false; error: { code: string } }).error.code, "unknown");
 });
 
 test("a retry is answered from its receipt even when the write changed what the checks see", async () => {
@@ -154,6 +155,7 @@ test("defineOp: the public function acts as the session, the twin as the delegat
     assert.deepEqual(outcomeOf(e), { ok: false, error: { code: "failed", message: "That agent is not yours." } });
     return true;
   }, "a failed mutation throws so Convex rolls it back");
+  assert.throws(() => defineOp("agent.summon", "mutation", () => ({ agentId: "a", price: 1 })), /declared as a Convex action, not a mutation/);
   assert.throws(() => defineOp("view.openPane" as never, "mutation", () => ({}) as never), /not a server affordance/);
   assert.deepEqual(opPath("agent.summon"), { public: "v2/ops/agent:summon", internal: "v2/ops/agent:summonAs" });
   assert.equal(z.string().parse(pause.kind), "mutation");

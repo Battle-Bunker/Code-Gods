@@ -6,6 +6,7 @@
  * `contextFor` shows how a server derives the caller's context from the room and the game header.
  */
 import { AFFORDANCES, isAffordanceId, type AffordanceId, type Via } from "./directory.ts";
+import { applyView, EMPTY_VIEW, type ViewState } from "./layout.ts";
 import { memoryReceipts, OpFailure, runOp, type OpOutcome, type ServerHandlers } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
 
@@ -26,6 +27,8 @@ export interface FakeState {
   rooms: Record<string, FakeRoom>; games: Record<string, FakeGame>;
   connections: Record<string, { userId: string; client: string; roomId: string | null; grant: Grant }>;
   receipts: Record<string, OpOutcome>;
+  /** Each human's view state per room (their `v2Layouts` pane params). */
+  views: Record<string, ViewState>;
   next: number; now: number;
 }
 
@@ -36,7 +39,7 @@ const FAMILIES = ["closeGradient", "nearIntercept", "pegCount", "triangleArea"];
 export interface FakeEnv { state: FakeState; userId: string; roomId: string | null; gameId: string | null; grant?: Grant }
 
 export function emptyState(): FakeState {
-  return { users: {}, rooms: {}, games: {}, connections: {}, receipts: {}, next: 1, now: 1_800_000_000_000 };
+  return { users: {}, rooms: {}, games: {}, connections: {}, receipts: {}, views: {}, next: 1, now: 1_800_000_000_000 };
 }
 const newId = (s: FakeState, prefix: string) => `${prefix}${s.next++}`;
 
@@ -301,6 +304,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
 /** A fake deployment: perform any server affordance as a user, through the same `runOp` path `defineOp` uses. */
 export function createFake(state: FakeState = emptyState()) {
   state.receipts ??= {};
+  state.views ??= {};
   const receipts = memoryReceipts(state.receipts);
   return {
     state, receipts,
@@ -309,8 +313,14 @@ export function createFake(state: FakeState = emptyState()) {
     async perform(who: { userId: string; roomId?: string | null; gameId?: string | null; grant?: Grant; via?: Via }, id: string, args: unknown): Promise<OpOutcome> {
       if (!isAffordanceId(id)) return { ok: false, error: { code: "unknown", message: `Unknown affordance: ${id}` } };
       const a = AFFORDANCES[id];
-      if (a.runs !== "server") return { ok: false, error: { code: "unknown", message: `${id} is a view operation; the human's layout performs it.` } };
       const roomId = who.roomId ?? null, gameId = who.gameId ?? null;
+      if (a.runs === "client") {
+        // A view operation changes the human's stored view, as `defineViewOps` does on the server.
+        const key = `${who.userId}|${roomId ?? ""}`;
+        const { outcome, view } = applyView(state.views[key] ?? EMPTY_VIEW, id, args, contextFor(state, who.userId, roomId, gameId, { grant: who.grant }), who.via ?? "app");
+        if (outcome.ok) state.views[key] = view;
+        return outcome;
+      }
       const handler = FAKE_HANDLERS[id as Extract<AffordanceId, keyof typeof FAKE_HANDLERS>];
       // A transaction, as a Convex mutation is: a failure leaves the world as it was.
       const before = structuredClone(state);
