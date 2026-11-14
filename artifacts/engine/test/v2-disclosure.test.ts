@@ -80,3 +80,11 @@ test("one object's moves are the caller's own act-log rows for it, newest first,
   assert.deepEqual(Object.keys(rows[0].after).sort(), ["points", "rarityBits", "want"], "the caller's bits and the others' total, nothing per player");
   assert.deepEqual(await bo!.query("v2/play:objectMoves", { gameId, number: 9999 }), []);
 });
+
+test("live, another player's move on an object is unattributed; only the player's own moves carry a name", async () => {
+  const live = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId], objects: 4, contested: 1 });
+  const rows = await ada!.query("v2/play:objectMoves", { gameId: live.gameId, number: 1 });
+  assert.ok(rows.some((r: { mine: boolean }) => !r.mine), "the seed's other player moved it");
+  for (const r of rows) if (!r.mine) assert.equal(r.by, null, `seq ${r.seq}: ${JSON.stringify(r.by)}`);
+  assert.ok(!JSON.stringify(rows).includes("Disc Bo"), "Bo is not named");
+});

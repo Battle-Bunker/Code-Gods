@@ -8,7 +8,7 @@ import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
 import { useMemo } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { GameSummary, summarise, type SummaryClimb, type SummaryTug } from "@workspace/v2-views";
+import { ANOTHER, GameSummary, summarise, type SummaryClimb, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
 import { decodeState, objectWord, useGame, useObjectMovesOf, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
@@ -135,7 +135,7 @@ function EndSummary({ total }: { total: number }) {
     const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
     const climbs: SummaryClimb[] = contestedNumbers.flatMap((number, i) => {
       const rows = contestedMoves[i];
-      return rows ? [{ number, moves: [...rows].reverse().map(m => ({ by: m.mine ? "you" : m.by?.name ?? "another player", before: m.before, after: m.after })) }] : [];
+      return rows ? [{ number, moves: [...rows].reverse().map(m => ({ by: m.mine ? "you" : m.by?.name ?? ANOTHER, before: m.before, after: m.after })) }] : [];
     });
     return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null, climbs });
   }, [my, header, objects, serverTugs, moves.results, total, round, contestedNumbers, contestedMoves]);

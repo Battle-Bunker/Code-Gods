@@ -90,10 +90,10 @@ try {
     const rows = line.locator(".v2v-move-option");
     assert.ok(await rows.count() >= 2, `${label}: candidates`);
     for (const t of await line.locator(".v2v-move-option .v2v-move-bits").allInnerTexts())
-      assert.match(t, /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points? \([+−][\d.,]+ from now\)/, `${label}: ${t}`);
+      assert.match(t, /your [\d.,]+ bits? × others' (about )?[\d.,]+ bits? [=≈] [\d.,]+ points? \((about )?[+−][\d.,]+ from now\)/, `${label}: ${t}`);
     const points = await rows.evaluateAll((els: Element[]) => els.map(e => Number(e.getAttribute("data-points"))));
     assert.deepEqual([...points].sort((a, b) => b - a), points, `${label}: best for points first`);
-    assert.match(await line.getByTestId("text-climb").innerText(), /^(The climb from here: “.+” takes your points from [\d.,]+ points? to [\d.,]+ points?|Stuck here: no single move raises your points above)/);
+    assert.match(await line.getByTestId("text-climb").innerText(), /^(The climb from here: “.+” takes your points from (about )?[\d.,]+ points? to (about )?[\d.,]+ points?|Stuck here: no single move raises your points above)/);
     await line.getByTestId("button-order-rarity").click();
     const mine = await yours(line);
     assert.deepEqual([...mine].sort((a, b) => b - a), mine, `${label}: best for my rarity first`);
@@ -107,8 +107,10 @@ try {
     // The seed's four pulls (and its earlier quiet move on line 1, if shown).
     const steps = await history.getByTestId("climb-step").allInnerTexts();
     assert.ok(steps.length >= 4, `${label}: ${steps.length} steps`);
-    assert.ok(steps.some(t => /^Your agent ↑ you 1\.00 bits · ↓ the others 1\.00 bits$/.test(t)), steps.join(" | "));
-    assert.ok(steps.some(t => /^Practice partner \d's agent ↓ you 1\.00 bits · ↑ the others 1\.00 bits$/.test(t)), steps.join(" | "));
+    assert.ok(steps.some(t => /^Your agent ↑ you 1\.00 bits · ↓ the others (about )?1\.00 bits$/.test(t)), steps.join(" | "));
+    // Live, another player's move is unattributed (v1's public log).
+    assert.ok(steps.some(t => /^Another player ↓ you 1\.00 bits · ↑ the others (about )?1\.00 bits$/.test(t)), steps.join(" | "));
+    assert.ok(!steps.some(t => /Practice partner/.test(t)), `${label}: no one named while live`);
     assert.match(await history.getByTestId("text-climb-verdict").innerText(), /^Stuck: these moves undo each other/);
     await line.locator(".v2v-moves").scrollIntoViewIfNeeded();
     await shot(page, `climb-${label}.jpg`);

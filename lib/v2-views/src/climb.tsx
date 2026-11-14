@@ -7,9 +7,12 @@
 import type { ReactElement } from "react";
 import { fmtNum, pointsText } from "./format.ts";
 
+/** Who moved it, while the game runs and the mover is not the player (v1's public log names no one). */
+export const ANOTHER = "another player";
+
 /** One move on the object, as the player's act log has it. */
 export interface ClimbMove {
-  /** Who moved it: "you", or the other player's name. */
+  /** Who moved it: "you", the other player's name once the game has ended, or ANOTHER while it runs. */
   readonly by: string;
   readonly before: { readonly rarityBits: number; readonly want: number; readonly points: number };
   readonly after: { readonly rarityBits: number; readonly want: number; readonly points: number };
@@ -74,7 +77,7 @@ export function climbSentence(c: Climb, noun: string, number: number): string {
 const arrow = (x: number) => (x > EPS ? "↑" : x < -EPS ? "↓" : "→");
 
 /** The last few moves on the object, newest last, each ↑/↓ for the player and for the others, and what they add up to. */
-export function ClimbHistory({ climb, noun, shown = 5 }: { climb: Climb; noun: string; shown?: number }): ReactElement | null {
+export function ClimbHistory({ climb, noun, shown = 5, approx = false }: { climb: Climb; noun: string; shown?: number; /** Live, the others' numbers are blurred (peerNoiseBits): theirs are estimates. */ approx?: boolean }): ReactElement | null {
   if (!climb.steps.length) return null;
   const steps = climb.steps.slice(-shown);
   const verdict = climb.kind === "together" ? `Climbing together: no move lowered your bits or the others'.`
@@ -87,9 +90,9 @@ export function ClimbHistory({ climb, noun, shown = 5 }: { climb: Climb; noun: s
       <ol>
         {steps.map((s, i) => (
           <li key={i} data-testid="climb-step">
-            <b>{s.by === "you" ? "Your agent" : `${s.by}'s agent`}</b>
+            <b>{s.by === "you" ? "Your agent" : s.by === ANOTHER ? "Another player" : `${s.by}'s agent`}</b>
             <span data-dir={sign(s.you)}> {arrow(s.you)} you {fmtNum(Math.abs(s.you))} bits</span>
-            <span data-dir={sign(s.others)}> · {arrow(s.others)} the others {fmtNum(Math.abs(s.others))} bits</span>
+            <span data-dir={sign(s.others)}> · {arrow(s.others)} the others {approx ? "about " : ""}{fmtNum(Math.abs(s.others))} bits</span>
           </li>
         ))}
       </ol>

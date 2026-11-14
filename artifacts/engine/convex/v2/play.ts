@@ -245,7 +245,8 @@ export const MAX_OBJECT_MOVES = 50;
 /**
  * The caller's own act-log rows for one object, by its number, newest first (≤ 50): who moved it lately and whether
  * each move went up or down for the caller (bits) and for the others (their total), so the face shows the climb and the
- * end summary says whether the players climbed together or undid each other, without paging the whole act log. One v2Objects row by number and one index page of v2Moves.
+ * end summary says whether the players climbed together or undid each other, without paging the whole act log. Live,
+ * another player's move carries no name (v1's public log); an ended game names who moved it. One v2Objects row by number and one index page of v2Moves.
  */
 export const objectMoves = query({
   args: { gameId: v.string(), number: v.number() },
@@ -264,7 +265,8 @@ export const objectMoves = query({
       seq: m.seq, number: m.number, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, mine: m.mine,
       before: { rarityBits: m.before.rarityBits, want: m.before.want, points: m.before.points },
       after: { rarityBits: m.after.rarityBits, want: m.after.want, points: m.after.points },
-      by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
+      // Live, another player's move is unattributed (v1's public log, #587): only an ended game names who moved it.
+      by: m.by && (m.mine || game.phase === "ended") ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
     }));
   },
 });

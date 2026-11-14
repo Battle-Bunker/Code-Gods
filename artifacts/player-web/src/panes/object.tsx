@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle } from "@workspace/v2-views";
+import { ANOTHER, ClimbHistory, climbOf, ExpandedFace, moves as candidatesOf, ObjectChip, shortTitle } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMyAgents, useMyObject, useMyRule, useObjectMoves, useOthersAt, useOthersBlurred } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
@@ -50,7 +50,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   // The climb on it lately: the viewer's own act-log rows on this object (≤ 50, one small read), oldest first.
   const recent = useObjectMoves(replaying ? null : o?.number);
   // Judged on the moves it shows (the last few), so the verdict matches the list.
-  const climb = useMemo(() => climbOf([...(recent ?? [])].slice(0, CLIMB_SHOWN).reverse().map(m => ({ by: m.mine ? "you" : m.by?.name ?? "another player", before: m.before, after: m.after }))), [recent]);
+  const climb = useMemo(() => climbOf([...(recent ?? [])].slice(0, CLIMB_SHOWN).reverse().map(m => ({ by: m.mine ? "you" : m.by?.name ?? ANOTHER, before: m.before, after: m.after }))), [recent]);
   if (!o || !state) return <p className="p-4 text-sm text-muted-foreground">Loading this {word.one}…</p>;
   const rule = my?.rule ?? null;
   if (!seated || !rule) {
@@ -80,7 +80,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
       </div>
       <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
-        moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} />}
+        moves={candidates} others={othersAt} climb={<ClimbHistory climb={climb} noun={word.one} approx={blurred} />}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}
