@@ -100,3 +100,48 @@ table, the pool needs more pairs that read different coordinates, or tie-breaker
 | prime-gradient/prime | prime-staircase/first-prime | y = 37x + 19 | 22.1 of 22.1 (100%) | 6.9 of 19.2 (36%) | 153 | conflict | no |
 
 7 compatible, 1 partial and 20 in conflict, of 28 pairs; in 17 pairs both main parts can be at their best on the same line.
+
+## Tables: how many can win together (2–4 players)
+
+`lib/v2-agents/scripts/tables.ts` (lines, exact at game scale, every dealt tie-breaker) and
+`lib/v2-agents/scripts/grid-tables.ts` (grids: 4×4 digits, too many boards to enumerate, so a hill-climbing search with
+restarts; its counts are lower bounds). A table is winnable when some single object (one line, or one board) lets
+every player keep the share of their best alone.
+
+| Players | Lines, ≥ 80% (family sets with a winnable deal) | Grids, ≥ 80% (search) | Lines, ≥ 50% | Grids, ≥ 50% (search) |
+|---|---|---|---|---|
+| 2 | 9 of 28 (35 of 229 rule pairs) | 4 of 28 | 22 of 28 | 23 of 28 |
+| 3 | 2 of 56 (6 of 1,287 tables) | 0 of 56 | 18 of 56 | 18 of 56 |
+| 4 | 0 of 70 (0 of 4,455 tables) | 0 of 70 | 1 of 70 | 3 of 70 |
+
+- **More freedom per object does not make shared wins common.** A grid's sixteen cells give no more winnable tables
+  than a line's two numbers: grid rules read the whole board, so they compete for the same cells.
+- **Three or more players rarely share a win, and four never do at 80%.**
+- **The winnable 3-player line tables** all combine Prime Landing (reads the y-intercept) with Prime Gradient and a
+  gradient-factor tie-breaker (Treasure or Whole Crossing m-spf), which all want a prime gradient. That is the
+  "compatible deal": families whose main parts read different features (c vs m), or whose tie-breakers want the same
+  thing.
+- **Multi-line objects (line-z4):** waiting for the spec lead's answer on how a rule scores an object of several lines.
+  If it is the best line, players can each own a line in one object and shared wins become easy; if it is a sum, it is
+  no easier than one line.
+
+## Play on a compatible table (server economy, 300 s, 2 games; mean points gained a seat)
+
+Prime Landing/m-spf, Treasure/m-spf and Prime Gradient/prime (a winnable 3-player table), against the mixed table of the
+earlier runs (Prime Landing/big-prime, Treasure/prime-terms, Whole Crossing/k-spf):
+
+| Table | Naive | New starters (quarter-energy cap) | New starters, no cap | Model seats (cheap, commitments) |
+|---|--:|--:|--:|--:|
+| Compatible | 14,649 | 9,937 | 13,967 | ≈ 9,600 (deals 16, kept 10) |
+| Mixed | 2,752 | 2,246 | 2,119 | 1,908 |
+
+- **A compatible deal multiplies everyone's points by about five.** That is the cooperation lesson at the table level:
+  which rules sit together decides most of the score.
+- **On a compatible table, greedy play is already cooperation.** Each move toward one's own goal also helps the others,
+  so anything that slows the agents (the energy cap, keeping off lines) costs points. The cap is now dropped; without
+  it the starters come within 5% of Naive there.
+- **On a conflicted table nothing beats Naive.** There are few shared lines to protect, and points go to whoever moves
+  most.
+- **What would make keeping deals pay:** tables where shared states exist but greedy play does not find them, i.e.
+  partial compatibility where coordination (agreeing which shared target to build) matters. The pool has few such
+  pairs.

@@ -42,7 +42,7 @@ export const STRATEGY = `HOW POINTS WORK. Your points on a line are your rarity 
 - a line only you like scores nothing for you; a line that several rules like scores for all of them;
 - moving a line away from what the others want lowers your own points on it, even when your rule likes the new line better;
 - a tug-of-war (you move a line, someone moves it back) burns both players' ⚡ and scores nothing: stop and talk instead.
-Agents do the moving; you decide what they do. The starters (Simple, Thorough, Bold) already note a tug-of-war to their owner (they keep playing the line; a deal is what ends it) and never spend more than a quarter of their energy on one move; they do not know the other players' rules, so they cannot tell when a move spoils a line for someone else: that is what deals and ${toolName("agent.replace")} are for. Naive is a teaching example: never run it.
+Agents do the moving; you decide what they do. The starters (Simple, Thorough, Bold) already note a tug-of-war to their owner (they keep playing the line; a deal is what ends it) and leave any line you put in their LEAVE list; they do not know the other players' rules, so they cannot tell when a move spoils a line for someone else: that is what deals and ${toolName("agent.replace")} are for. Naive is a teaching example: never run it.
 
 EACH TURN, in this order, with a few tool calls (not every step every turn):
 1. Look: ${toolName("game.standings")}, then ${toolName("objects.list")} sorted by points, and ${toolName("moves.list")} for lines where other players' moves cost you points (contested lines).

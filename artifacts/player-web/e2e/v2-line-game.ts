@@ -6,7 +6,9 @@
  *   "Summon my first agent" in one press (no check first) → "Start the world now" → a move of your agent appears in the
  *   act log as a full sentence with your bits and points before → after (yours × others' = points) → "See it line by line" opens Lines by points → the Lines rows draw compact faces with marks
  *   → one line opens with every representation the rule reads (desktop: pointing at an element lights the same
- *   meaning in another representation) → the goal card shows the ladder and the next step → the game ends on its own
+ *   meaning in another representation; the main part names the number its rule reads, with its ● badge, where it is,
+ *   and the moves that would make it rarer with their prices and new bits; a tap selects a part) → the goal card shows
+ *   the parts on their rulers → the game ends on its own
  *   and the results lead with "You finished …".
  * The room's game is shortened to 5 s planning and 30 world seconds (room.settings, as its owner).
  *
@@ -181,6 +183,32 @@ try {
         await line.locator('[data-ref="cart.yInt"][data-lit]').first().waitFor({ state: "attached", timeout: 3000 });
       } else console.log("desktop: this rule's representations have no si.c; cross-highlight not checked");
     }
+    // The annotations flow (docs/engine-v2/annotations-design.md §10, the persona walk's four questions), on real bits:
+    // 1. what number the rule reads: the main part's sentence names it, and the element carries the ● badge;
+    const parts = line.locator(".v2v-part");
+    await parts.first().waitFor({ timeout: 10_000 });
+    const main = await parts.first().innerText();
+    assert.match(main, /^● Main part: /m, `the main part is named with its glyph: ${main}`);
+    assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
+    assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
+    // 2. where it is: a distance with its direction or a size, on a ruler;
+    assert.match(main, /\d+(\.\d+)? (above|below) |\bon [−\d]|off by |exactly|: [−\d≈]/, `the main part says where the number is: ${main}`);
+    // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
+    const options = line.locator(".v2v-move-option");
+    if (await options.count()) {
+      const first = await options.first().innerText();
+      assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
+      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+ by chance\)/, `a move has its new bits: ${first}`);
+    } else await line.getByText(/No single move makes this line rarer/).waitFor();
+    // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).
+    // Tap selects a part (nothing depends on hover): only its marks are drawn, and the chip clears it.
+    await parts.first().click();
+    await line.locator(".v2v-selchip").getByText(/main part selected/).waitFor();
+    await line.getByRole("button", { name: "Clear the selection" }).click();
+    await line.locator(".v2v-selchip").waitFor({ state: "detached" });
+    await line.screenshot({ path: path.join(shots, `annotations-${label}-one-line.png`) });
+    await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
+    await line.screenshot({ path: path.join(shots, `annotations-${label}-parts.png`) });
     await shot(page, `game-${label}-line`);
 
 

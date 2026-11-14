@@ -97,7 +97,8 @@ startersFor(family, "typescript")          // [Simple, Thorough, Bold, Naive]: "
   `pnpm --filter @workspace/v2-agents render`; a test fails when they are stale).
 - **Playing for points.** Points on a line are the owner's rarity times the others' rarity, so the example and the
   three starters note a tug-of-war to their owner (`contested(offer, 3)`: another player took back their gains three
-  times lately), so the owner can make a deal, and never spend more than a quarter of their energy on one move. They
+  times lately), so the owner can make a deal, and leave every line in their `LEAVE` list. (A cap of a quarter of their energy per
+  move was dropped: on a compatible table it cost 30% of their points, 9,937 against 13,967 without it.) They
   keep playing the line: on the server's economy, walking away from contested lines gave them up (2,015–2,346 points a
   seat against 2,728 for staying, over six 300 s seats; docs/engine-v2/ai-table-results.md). They only take changes that make the line better for their rule, so they never lower their owner's rarity.
   **Naive (for learning)** is the same search without any of this, labelled as a teaching example: show it beside
@@ -271,7 +272,7 @@ example).
   board nobody else wants yet is worth a little). Above the reserve they climb: energy left idle is lost to the store's
   cap, and a game where every agent waits for the others never starts. When the game does not say what boards are
   worth they climb. This is the smallest additive design on the points reads that exist (`worth`, `rarity`, `recent`);
-  the line starters do not weigh points this way (they climb, note tug-of-wars and keep a quarter-of-energy cap), so
+  the line starters do not weigh points this way (they climb, note tug-of-wars and leave the lines in LEAVE), so
   the two are to be unified.
 - **Prices and steps are tight.** Every grid agent costs at most 600 ⚡ to summon (the dearest, Magic Eighteen's Bold,
   588 in TypeScript), and every one fits the 500,000 steps an act may take: a board has many more possible moves than

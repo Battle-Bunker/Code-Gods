@@ -39,20 +39,20 @@ export const isGridTypeFamily = (id: string): boolean => gridType.families.some(
 type StarterKind = Exclude<AgentKind, "example">;
 const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: string; far: number; quotes: number }> = {
   simple: {
-    title: "Simple", summary: "Changes one cell, or the board in your rule's own way, by a little; below its reserve, only changes worth a point per ⚡.",
+    title: "Simple", summary: "Nudges the numbers a little at a time towards your rule. When its energy runs low, it saves it for grids the other players want too (that is where points are).",
     tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 2, quotes: 4,
   },
   thorough: {
-    title: "Thorough", summary: "Tries every cell and every pair of cells (moving an amount from one to the other), prices more plans; below its reserve, only changes worth a point per ⚡.",
+    title: "Thorough", summary: "Like Simple, but it also moves an amount from one number to another and compares more prices before it pays. It saves its energy the same way when low.",
     tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.", far: 2, quotes: 6,
   },
   bold: {
-    title: "Bold", summary: "Moves amounts of 2 or more between two cells (on some rules also changing a row or an opposite pair), so it gets there in fewer, dearer moves; below its reserve, only changes worth a point per ⚡.",
+    title: "Bold", summary: "Makes bigger changes, 2 or more at a time, so it gets there in fewer but dearer moves. It saves its energy the same way when low.",
     tryThis: "change FAR = 3 to 2: jumps of 2 only, cheaper moves.", far: 3, quotes: 6,
   },
   naive: {
     title: "Naive (for learning)",
-    summary: "Chases your rule on every board it is offered, whatever the price and whatever the others think of the board. Compare it with Simple.",
+    summary: "Chases your rule on every grid, whatever it costs and whatever the others want. It is here to learn from: compare it with Simple.",
     tryThis: "summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.", far: 2, quotes: 8,
   },
 };

@@ -394,8 +394,8 @@ session holds those files.
 Done: the design (#458, #468); the fitted plane and labels (#462, #471); the line element without a window (#465); the
 nearest square (#483); contributors, rulers, moves on the value function and the faces without steps (#489, this list's
 items 2 and part of 3 and 5); identity badges (● main part, ◆ tie-breaker) on the elements each part reads, projected by
-meaning into every view, with the part named in the element's title. Still to do: the app's value record wired into One
-line, Lines and the goal card (W5, from myRule `value`); the persona walk.
+meaning into every view, with the part named in the element's title. The app's value record reaches the faces (#498, W5); the persona walk is
+below (§11.4), and `e2e:game` asserts its four answers.
 
 1. This document and the storyboard gallery.
 2. v2-views: contributors model and wording (tests first: the four storyboard lines, the wording rules as assertions),
@@ -417,6 +417,25 @@ a selection lights a visible twin.
 A non-coder persona (Jo, desktop; Sam, phone) is dealt a rule in a practice game and must say, unaided: what number
 their rule reads, where it is on their line, what would make it rarer and what it would cost, and why another player
 might want the same line. Pass: all four correct for two different rules.
+
+**Walk of 2026-11-14** (after #489, #496, #498, #503: real bits from the rule's value function). The live game, through
+`e2e:game`, which now asserts the four answers. Two rules were dealt: "a run of different primes from y(0)" (phone, Sam)
+and "a run of n dividing y(n)" (desktop, Jo). The shots below are at device scale 1, from the e2e.
+
+| Question | Where the player finds it | Result |
+| --- | --- | --- |
+| What number does my rule read? | The ● main-part card names it ("a run of different primes from y(0): 2"); the elements it reads carry the ● badge in the rule's main view (y = 2x + 5: the growth pattern's 5● and 7●, then "the run stops here" at 9) | **yes** |
+| Where is it on my line? | The ruler under the card: the value among its kind's natural values (the primes 2, 3, 5, 7, 11, 13) | **yes** |
+| What would make it rarer, and what would that cost? | "What would make it rarer": "Move the line down 2 → y = 2x + 3 · 6.44 ⚡ · a run of different primes from y(0) 2 → 3 · → 8.94 bits (1 in 491 by chance)" | **yes** |
+| Why might another player want the same line? | The line's header: "your N bits × others' M bits = points" (asserted by the e2e on every run) | **yes**, but only as a number: the face does not say *which* rule of theirs reads it (§6, hidden by design) |
+
+Wording found on the way (the rules' own titles in `lib/v2-linear/src/beginner.ts`, sent to the spec lead): "a run of
+n dividing y(n)" makes the player decode a letter (§10 forbids parameter letters, and n is a running index, not a
+parameter); "the gradient steep" is not a phrase ("how steep the line is").
+
+| Desktop: parts and moves | Phone: one line | Phone: parts and moves |
+| --- | --- | --- |
+| ![](../screenshots/annotations-lines/walk-desktop-parts.png) | ![](../screenshots/annotations-lines/walk-phone-one-line.png) | ![](../screenshots/annotations-lines/walk-phone-parts.png) |
 
 ## 12. Open questions for the owner
 
