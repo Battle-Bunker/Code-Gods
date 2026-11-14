@@ -65,6 +65,9 @@ export interface TableInput<S> {
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
+  /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). A fixed draw per state, keyed by the
+   *  table's seed: agents read others + noise (othersAfter, worth); the scores here stay exact. */
+  readonly noise?: number;
   /** Experiments only: summons and edits cost at most this (to try programs dearer than a player's store). */
   readonly summonCap?: number;
   readonly model?: TableModel;
@@ -103,6 +106,11 @@ export interface SeatReport {
   readonly lateIdleShare: number;
   /** Moves refused because another object already held the result (input.unique). */
   readonly refused: number;
+  /** Committed moves; the share that raised the seat's exact points; and flips (moves putting an object back to the
+   *  state another seat just moved it from). */
+  readonly moves: number;
+  readonly trueGainShare: number;
+  readonly flips: number;
   readonly messages: number;
   readonly proposals: number;
   readonly summoned: number;
@@ -161,7 +169,15 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const gains = new Map<number, Map<number, { charge: number; pointsAfter: number }>>();
   const reversal = seats.map(() => 0);
   const chat: { from: string; by: number; text: string; at: number }[] = [];
-  const stats = seats.map(() => ({ messages: 0, summoned: 0, replaced: 0, allocations: 0, toolCalls: 0, failedToolCalls: 0, acts: 0, spentActs: 0, spentSummons: 0, spentEdits: 0, lateActs: 0, lateIdle: 0, refused: 0 }));
+  const stats = seats.map(() => ({ messages: 0, summoned: 0, replaced: 0, allocations: 0, toolCalls: 0, failedToolCalls: 0, acts: 0, spentActs: 0, spentSummons: 0, spentEdits: 0, lateActs: 0, lateIdle: 0, refused: 0, moves: 0, trueGains: 0, flips: 0 }));
+  // Disclosure noise: a fixed normal draw per state (Box–Muller on the state's keyed hash).
+  const noiseAt = (e: string) => {
+    if (!input.noise) return 0;
+    const h = hashHex(`${input.seed}:noise:${e}`), u1 = (parseInt(h.slice(0, 12), 16) + 1) / (2 ** 48 + 1), u2 = parseInt(h.slice(12, 24), 16) / 2 ** 48;
+    return input.noise * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  };
+  /** Per object: the last committed move's seat and the state it left (to count flips: a move back by another seat). */
+  const lastMove = new Map<number, { by: number; from: string }>();
   const players = seats.map(() => ({ own: newAccount(0, econ.startingEnergy), allocated: 0 }));
   const agents: Agent[] = [];
   let usd = 0, world = 0, actN = 0;
@@ -230,8 +246,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
-      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
+      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(type.encode(lines[object]!))), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
+      ...(input.noise ? { disclosed: noiseAt } : {}),
       ...(input.unique ? { occupied: (e: string) => lines.some((l, j) => j !== object && type.encode(l) === e) } : {}),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
@@ -245,8 +262,12 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
     input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", state: verdict === "committed" ? state : lines[object]!, objects: lines.length });
     if (verdict !== "committed") return;
+    const from = type.encode(lines[object]!), to = type.encode(state), last = lastMove.get(object);
+    if (last && last.by !== i && last.from === to) stats[i]!.flips++;
+    lastMove.set(object, { by: i, from });
     lines = lines.map((l, j) => (j === object ? state : l));
     const before = points[object]!, after = pointsOf(state);
+    stats[i]!.moves++; if (after[i]! > before[i]! + 1e-9) stats[i]!.trueGains++;
     points[object] = after;
     const entry = { seq: log.length, object, by: i, agentId: a.id, before, after, record, charge, at: world };
     log.push(entry);
@@ -436,6 +457,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       start: startTotals[i]!, end: totalOf(i), gained: totalOf(i) - startTotals[i]!,
       lateIdleShare: stats[i]!.lateActs ? stats[i]!.lateIdle / stats[i]!.lateActs : 0,
       refused: stats[i]!.refused,
+      moves: stats[i]!.moves, trueGainShare: stats[i]!.moves ? stats[i]!.trueGains / stats[i]!.moves : 0, flips: stats[i]!.flips,
       reversalEnergy: reversal[i]!, spent: { acts: stats[i]!.spentActs, summons: stats[i]!.spentSummons, edits: stats[i]!.spentEdits },
       acts: stats[i]!.acts, messages: stats[i]!.messages, proposals: proposed.filter(by => by === i).length,
       summoned: stats[i]!.summoned, replaced: stats[i]!.replaced, allocations: stats[i]!.allocations,

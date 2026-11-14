@@ -21,7 +21,7 @@ import { runTable } from "../src/table.ts";
 
 const { values: o } = parseArgs({ options: {
   table: { type: "string", default: "mixed" }, agents: { type: "string", default: "climb" }, variant: { type: "string", default: "line-q" },
-  births: { type: "string", default: "0.05" }, objects: { type: "string", default: "10" }, games: { type: "string", default: "2" }, seconds: { type: "string", default: "300" },
+  births: { type: "string", default: "0.05" }, objects: { type: "string", default: "10" }, noise: { type: "string", default: "0" }, games: { type: "string", default: "2" }, seconds: { type: "string", default: "300" },
 } });
 const TABLES: Record<string, string[]> = {
   compatible: ["prime-landing/m-spf", "treasure/m-spf", "prime-gradient/prime"],
@@ -54,6 +54,14 @@ const SHORTCUT = `  const now = score(m, c, p, tie), step = climb(offer, options
   if (!Q.eq(m, Q.of(0))) sc.push([move("cart.mirror", { axis: "diagonal" }), Q.div(Q.of(1), m), Q.neg(Q.div(c, m))]);
   return climb(offer, sc.map(([pl, m2, c2]) => [pl, score(m2, c2, p, tie)]), now, QUOTES);`;
 const ROUNDING = "  tries.push(...rounding(m, c));";
+// own: v1's starters climbed only their own rule (never the others' disclosed sum).
+const OWN = `  const now = score(m, c, p, tie);
+  let best = null, top = now;
+  for (const [pl, s] of options) if (better(s, top) && price(offer, pl) !== null) { top = s; best = pl; }
+  return best ? [best] : null;`;
+// ownfirst: points, but only among steps that do not lower one's own rule (the others' noisy sum as a weaker signal).
+const OWNFIRST = `  const now = score(m, c, p, tie);
+  return climb(offer, options.filter(([, s]) => !better(now, s)), now, QUOTES);`;
 const DIP = `  const step = climb(offer, options, score(m, c, p, tie), QUOTES);
   if (step || Math.random() >= 0.25) return step;
   const w = worth(offer);
@@ -64,7 +72,7 @@ const DIP = `  const step = climb(offer, options, score(m, c, p, tie), QUOTES);
 const program = (family: string) => {
   const a = startersFor(family, "typescript").find(x => x.kind === (o.agents === "naive" ? "naive" : "simple"))!;
   const swap = (with_: string) => { const s = a.source.replace(RETURN, with_); if (s === a.source) throw new Error("the starter's last line moved"); return s; };
-  const source = o.agents === "wide" ? swap(WIDE) : o.agents === "dip" ? swap(DIP) : o.agents === "shortcut" ? swap(SHORTCUT)
+  const source = o.agents === "wide" ? swap(WIDE) : o.agents === "dip" ? swap(DIP) : o.agents === "shortcut" ? swap(SHORTCUT) : o.agents === "own" ? swap(OWN) : o.agents === "ownfirst" ? swap(OWNFIRST)
     : o.agents === "noround" ? a.source.split("\n").filter(l => !l.startsWith(ROUNDING)).join("\n") : a.source;
   if (o.agents === "noround" && source === a.source) throw new Error("no rounding line");
   return { language: a.language, source };
@@ -106,7 +114,7 @@ const SHORTCUTS = [
 const moves = (s: LineState, set: string) => (set === "steps" ? [...steps(3), ...rounding(s)] : set === "shortcuts" ? [...steps(3), ...rounding(s), ...SHORTCUTS] : [...steps(10), ...rounding(s)]);
 for (let g = 0; g < Number(o.games); g++) {
   const seats = rules.map((rule, k) => ({ name: `P${k}`, kind: "starter" as const, rule, program: program(rule.family) }));
-  const r = await runTable(boxes, { type: lineType, variant, lines: Number(o.objects), seed: `g${g}`, seconds: Number(o.seconds), seats, unique: true, birthsPerSecond: Number(o.births), summonCap: E.startingEnergy });
+  const r = await runTable(boxes, { type: lineType, variant, lines: Number(o.objects), seed: `g${g}`, seconds: Number(o.seconds), seats, unique: true, birthsPerSecond: Number(o.births), noise: Number(o.noise), summonCap: E.startingEnergy });
   const final = r.final as LineState[];
   const held = new Set(final.map(s => lineType.encode(s)));
   const frozen: Record<string, number> = {};
@@ -130,7 +138,9 @@ for (let g = 0; g < Number(o.games); g++) {
     frozen[`${objective}@${set}`] = stuck / final.length;
   }
   const idle = r.seats.reduce((a, s) => a + s.lateIdleShare, 0) / r.seats.length;
-  console.log(JSON.stringify({ table: o.table, agents: o.agents, variant: variant.id, births: Number(o.births), game: g, objects: r.objects,
+  const moved = r.seats.reduce((a, s) => a + s.moves, 0);
+  console.log(JSON.stringify({ noise: Number(o.noise), moves: moved, flipRate: moved ? +(r.seats.reduce((a, s) => a + s.flips, 0) / moved).toFixed(3) : 0,
+    trueGainShare: moved ? +(r.seats.reduce((a, s) => a + s.trueGainShare * s.moves, 0) / moved).toFixed(2) : 0, table: o.table, agents: o.agents, variant: variant.id, births: Number(o.births), game: g, objects: r.objects,
     lateMoves: r.late.moves, lateObjectsMoved: r.late.objectsMoved, lateIdle: +idle.toFixed(2),
     frozen: Object.fromEntries(Object.entries(frozen).map(([k, v]) => [k, +v.toFixed(2)])), gained: Math.round(r.seats.reduce((a, s) => a + s.gained, 0)),
     byMutator: Object.fromEntries(Object.entries(r.byMutator).map(([k, v]) => [k, { moves: v.moves, points: Math.round(v.points), charge: Math.round(v.charge) }])),
