@@ -1,5 +1,5 @@
 /**
- * The v2 deal (convex/v2/deal.ts): only rules with a converged artefact are dealt; a fresh deal is seeded and gives
+ * The v2 deal (convex/v2/deal.ts): only rules with a dealable artefact are dealt (capped: call (g)); a fresh deal is seeded and gives
  * seats different rules while the pool lasts; rotation passes rules one seat along until everyone has held each once
  * (cases copied from v1's deal-rotation test). What would break: an unconverged or too-coarse rule reaching a player;
  * a deal that is not reproducible from its seed; a rotation that repeats a rule for a player within a round.
@@ -18,11 +18,13 @@ test("the bundled artefacts are up to date with lib/v2-valuation/artefacts", () 
   execFileSync(process.execPath, [join(import.meta.dirname, "..", "..", "scripts", "gen-v2-artefacts.mjs"), "--check"]);
 });
 
-test("the pool holds exactly the preset's rules whose artefact converged", () => {
+test("the pool holds exactly the preset's rules whose artefact is dealable, from every beginner family", () => {
   const pool = dealablePool(beginner);
   assert.ok(pool.length > 0, "something is dealable");
+  assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...beginner.families].sort(), "every beginner family deals");
   for (const r of pool) {
-    assert.equal(artefactFor(r.ruleKey)?.status, "converged", r.ruleKey);
+    const a = artefactFor(r.ruleKey)!;
+    assert.ok(a.dealable && a.status !== "too-coarse" && a.status !== "unreachable", r.ruleKey);
     assert.ok(beginner.families.includes(r.family));
     assert.ok(r.tieBreaker, "a dealt rule is a main layer plus one tie-breaker");
   }
@@ -36,7 +38,7 @@ test("a fresh deal is reproducible from its seed and spreads the pool over the s
   assert.deepEqual(a, b);
   const first = a.slice(0, Math.min(5, pool.length)).map(r => r.ruleKey);
   assert.equal(new Set(first).size, first.length, "different rules while the pool lasts");
-  assert.throws(() => freshDeal([], 3, "s"), /converged/);
+  assert.throws(() => freshDeal([], 3, "s"), /dealable/);
 });
 
 test("a dealt rule's card and ladder come from its family and artefact", () => {

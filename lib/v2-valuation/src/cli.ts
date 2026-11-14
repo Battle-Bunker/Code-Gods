@@ -8,8 +8,8 @@
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { canonicalJson, hashHex, type RuleFamily } from "@workspace/v2-core";
-import { calibrate, type Artefact } from "./artefact.ts";
+import { canonicalJson, hashHex, tieBreakersOn, type RuleFamily } from "@workspace/v2-core";
+import { BACKLOG_HEAD, calibrate, type Artefact } from "./artefact.ts";
 import type { Estimate } from "./estimate.ts";
 import { findVariant } from "./registry.ts";
 import { describeLine } from "@workspace/v2-linear";
@@ -58,7 +58,7 @@ const calibrated: string[] = [];
 const backlog: string[] = [];
 for (const family of families) {
   const paramSets = flag("all") ? family.dealable(variant) : family.dealable(variant).slice(0, 1);
-  const choices: (string | null)[] = tbOpt ? [tbOpt === "none" ? null : tbOpt] : family.tieBreakers.length ? family.tieBreakers.map(t => t.id) : [null];
+  const choices: (string | null)[] = tbOpt ? [tbOpt === "none" ? null : tbOpt] : tieBreakersOn(family, variant).length ? tieBreakersOn(family, variant).map(t => t.id) : [null];
   for (const params of paramSets) for (const tieBreaker of choices) {
     const t = Date.now();
     const { artefact, estimate } = calibrate(type, variant, family, params, { seed, tieBreaker, config: budget ? { computeBudget: budget } : {} });
@@ -68,16 +68,13 @@ for (const family of families) {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, `${hashHex(canonicalJson(params))}-${artefact.tieBreaker}.json`), JSON.stringify(artefact, null, 1) + "\n");
       calibrated.push(backlogRow(family.id, params, artefact.tieBreaker, variant.id));
-      if (artefact.status !== "converged") backlog.push(`${backlogRow(family.id, params, artefact.tieBreaker, variant.id)} ${artefact.status} | ${artefact.reasons.join("; ")} |`);
+      if (!artefact.dealable) backlog.push(`${backlogRow(family.id, params, artefact.tieBreaker, variant.id)} ${artefact.status} | ${artefact.reasons.join("; ")} |`);
     }
   }
 }
 if (flag("write")) {
-  const head = "# Too-hard backlog (spec §7.5)\n\nRules whose calibration did not converge, or was flagged, at the budget it ran with. They are not dealable.\n" +
-    "`pnpm --filter @workspace/v2-valuation calibrate -- --write` regenerates the rows of the rules it calibrates.\n\n" +
-    "| Family | Params | Tie-breaker | Variant | Status | Why |\n|---|---|---|---|---|---|\n";
   const kept = existsSync(BACKLOG)
     ? readFileSync(BACKLOG, "utf8").split("\n").filter(l => l.startsWith("| ") && !l.startsWith("| Family") && !calibrated.some(c => l.startsWith(c)))
     : [];
-  writeFileSync(BACKLOG, head + [...kept, ...backlog].map(l => l + "\n").join(""));
+  writeFileSync(BACKLOG, BACKLOG_HEAD + [...kept, ...backlog].map(l => l + "\n").join(""));
 }

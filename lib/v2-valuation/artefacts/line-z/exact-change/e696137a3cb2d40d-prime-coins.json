@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/exact-change/{\"ways\":6}/tb=prime-coins",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1462,5 +1462,7 @@
    null
   ]
  },
- "contentHash": "d2f753cb7bfb6885"
+ "cap": 27,
+ "dealable": true,
+ "contentHash": "008cd4279f63ff0b"
 }

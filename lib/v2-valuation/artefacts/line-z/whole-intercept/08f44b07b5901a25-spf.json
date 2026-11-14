@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/whole-intercept/{}/tb=spf",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2466,5 +2466,7 @@
    null
   ]
  },
- "contentHash": "2e2187b0a2f3b6e1"
+ "cap": 0,
+ "dealable": false,
+ "contentHash": "c8881caba7a7fed7"
 }

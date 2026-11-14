@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/prime-staircase/{}/tb=last-prime",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2259,5 +2259,7 @@
    null
   ]
  },
- "contentHash": "59442d51b7c3114d"
+ "cap": 9,
+ "dealable": true,
+ "contentHash": "dcd1d00f84bfbb39"
 }

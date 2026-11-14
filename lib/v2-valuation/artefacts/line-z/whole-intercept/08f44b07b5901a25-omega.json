@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/whole-intercept/{}/tb=omega",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1991,5 +1991,7 @@
    null
   ]
  },
- "contentHash": "fc7076646dd16501"
+ "cap": 0,
+ "dealable": false,
+ "contentHash": "78a5616b5e7857a1"
 }

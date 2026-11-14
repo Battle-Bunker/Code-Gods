@@ -1,7 +1,7 @@
 /**
  * The deal (spec §7.6, integration plan §4.3): which rule each seat holds. A dealt rule is a family's main layer plus
  * one of its tie-breakers, with parameters from the family's dealable grid, and is dealt only when its artefact is
- * committed and converged. Pure: the lobby (ops/game.ts) persists the result.
+ * committed and dealable. Pure: the lobby (ops/game.ts) persists the result.
  *
  * Rotation (copied and cleaned from v1's lib/dealRotation.ts, docs/beginner-pool.md §6): when a room plays again with
  * the same players and the same deal key, the last game's rules pass one seat along, so over as many games as there
@@ -29,7 +29,7 @@ export function familyOf(id: string): RuleFamily<unknown, unknown> {
 
 const pools = new Map<string, DealtRule[]>();
 /**
- * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a converged artefact (spec §7.5)
+ * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a dealable artefact (spec §7.5, call (g))
  * and shipped starters (a player, or a practice partner, must be able to summon one: integration plan §5.2).
  */
 export function dealablePool(preset: Preset): DealtRule[] {
@@ -67,7 +67,7 @@ export function freshDeal(pool: readonly DealtRule[], seats: number, seed: strin
 export const dealRng = (seed: string): Rng => rng(seed, "deal");
 /** A fresh deal drawn from `r`. */
 export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng): DealtRule[] {
-  if (pool.length === 0) throw new Error("No rule of this preset has a converged artefact: nothing can be dealt");
+  if (pool.length === 0) throw new Error("No rule of this preset has a dealable artefact: nothing can be dealt");
   const order = [...pool];
   for (let i = order.length - 1; i > 0; i--) {
     const j = r.below(i + 1);
@@ -100,7 +100,8 @@ export function offers(pool: readonly DealtRule[]) {
   const out: { family: string; title: string; card: string; top: number }[] = [];
   for (const id of [...new Set(pool.map(r => r.family))]) {
     const rules = pool.filter(r => r.family === id), f = familyOf(id);
-    const top = Math.max(...rules.map(r => Math.max(0, ...(artefactFor(r.ruleKey)?.rungs.map(x => x.bits ?? 0) ?? [0]))));
+    // Each rule's top is its cap's value (call (g)): the rungs above it are not dealt.
+    const top = Math.max(...rules.map(r => { const a = artefactFor(r.ruleKey); return a ? a.rungs[a.cap]?.bits ?? 0 : 0; }));
     out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top) });
   }
   return out;
@@ -161,13 +162,17 @@ export function ruleView(rule: DealtRule): RuleView {
   const layers = ruleLayers(f, rule.tieBreaker).map(l => l.id);
   return {
     title: f.title, card: f.card(rule.params, rule.tieBreaker), depends: [...f.depends], primary: f.main.rep, layers,
-    ladder: a.rungs.map((r, level) => ({ level, label: r.label, rarityBits: r.bits ?? 0, ...(r.layer >= 0 ? { layer: layers[r.layer]! } : {}) })),
+    // The dealt ladder stops at the cap (call (g)): the rungs above it did not converge, and lines there score as the cap.
+    ladder: a.rungs.slice(0, a.cap + 1).map((r, level) => ({ level, label: r.label, rarityBits: r.bits ?? 0, ...(r.layer >= 0 ? { layer: layers[r.layer]! } : {}) })),
   };
 }
 
-/** The ladder of a dealt rule as v2-core compares scores on it (from the artefact, so levels and bits agree). */
+/**
+ * The ladder of a dealt rule as v2-core compares scores on it (from the artefact, so levels and bits agree): up to the
+ * cap (call (g)), with each rung's main level (a joint ladder's levelOf needs it).
+ */
 export function artefactLadder(rule: DealtRule): Rung[] {
   const a = artefactFor(rule.ruleKey);
   if (!a) throw new Error(`No artefact for ${rule.ruleKey}`);
-  return a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer }));
+  return a.rungs.slice(0, a.cap + 1).map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
 }

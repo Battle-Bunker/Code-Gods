@@ -34,8 +34,13 @@ export interface FakeState {
   receipts: Record<string, OpOutcome>;
   /** Each human's view state per room (their `v2Layouts` pane params). */
   views: Record<string, ViewState>;
+  /** Each human's in-client assistant per room: mode, grant, conversation and waiting messages (no model runs). */
+  assistants?: Record<string, FakeAssistant>;
+  /** Each human's stored panels by `${userId}|${slug}` (no compiler: the source stands in for the compiled code). */
+  panels?: Record<string, FakePanel>;
   next: number; now: number;
 }
+interface FakeAssistant { mode: "autopilot" | "onRequest" | "readOnly"; grant: Grant; threadId: string; messages: string[]; queue: { queueId: string; text: string }[] }
 
 export const FAKE_PRESET = { id: "lines-beginner", minPlayers: 3, startingEnergy: 100, summonPrice: 10 };
 const FAMILIES = ["closeGradient", "nearIntercept", "pegCount", "triangleArea"];
@@ -363,6 +368,29 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     for (const [agentId, share] of Object.entries(a.shares)) agentOf(e, agentId).share = share / total;
     return ok;
   },
+  "assistant.send": (e, a) => {
+    const as = assistantOf(e);
+    if (a.newThread) as.threadId = newId(e.state, "thread");
+    as.messages.push(a.text);
+    return { threadId: as.threadId, turnId: newId(e.state, "turn"), queueId: null, queued: false };
+  },
+  "assistant.cancel": () => ({ status: "idle" as const }),
+  "assistant.setMode": (e, a) => {
+    const as = assistantOf(e);
+    if (a.grant === "owner" && !a.ownerConsent) throw new OpFailure("Owner rights for the assistant need your explicit consent.");
+    as.mode = a.mode;
+    if (a.grant) as.grant = a.grant;
+    return { mode: as.mode, grant: as.grant };
+  },
+  "assistant.editQueued": (e, a) => { queuedOf(e, a.queueId).text = a.text; return ok; },
+  "assistant.removeQueued": (e, a) => { const as = assistantOf(e); queuedOf(e, a.queueId); as.queue = as.queue.filter(q => q.queueId !== a.queueId); return ok; },
+  "assistant.sendQueued": e => {
+    const as = assistantOf(e);
+    if (!as.queue.length) return { turnId: null };
+    as.messages.push(as.queue.map(q => q.text).join("\n\n"));
+    as.queue = [];
+    return { turnId: newId(e.state, "turn") };
+  },
   "account.whoami": e => ({ userId: e.userId, name: nameOf(e.state, e.userId), roomId: e.roomId, grant: e.grant ?? null }),
   "account.connections": e => ({ connections: Object.entries(e.state.connections).filter(([, c]) => c.userId === e.userId).map(([connectionId, c]) => ({ connectionId, client: c.client, roomId: c.roomId, grant: c.grant, lastUsedAt: null })) }),
   "account.revokeConnection": (e, a) => {
@@ -375,7 +403,54 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
     return ok;
   },
+  "panel.list": e => ({
+    panels: Object.values(e.state.panels ?? {}).filter(p => p.userId === e.userId).map(p => ({
+      panelId: p.panelId, slug: p.slug, title: p.title, placement: p.placement, size: p.size, currentVersion: p.versions.at(-1)!.version,
+      enabled: p.enabled, updatedAt: e.state.now, author: authorOf(e), lastForeignVersion: 0,
+    })),
+  }),
+  "panel.code": (e, a) => {
+    const p = panelOf(e, a.slug), v = a.version === undefined ? p.versions.at(-1) : p.versions.find(x => x.version === a.version);
+    if (!v) throw new OpFailure(`Panel "${a.slug}" has no version ${a.version}.`);
+    return { slug: p.slug, version: v.version, source: v.source, compiled: v.source, diagnostics: [], compilerVersion: "fake", sourceHash: "fake", author: authorOf(e), createdAt: e.state.now };
+  },
+  "panel.save": (e, a) => {
+    const panels = e.state.panels ??= {}, key = `${e.userId}|${a.slug}`;
+    const p = panels[key] ??= { panelId: newId(e.state, "p"), userId: e.userId, slug: a.slug, title: a.slug, placement: "right", size: "md", enabled: true, versions: [] };
+    if (a.title) p.title = a.title;
+    if (a.placement) p.placement = a.placement;
+    if (a.size) p.size = a.size;
+    const version = (p.versions.at(-1)?.version ?? 0) + 1;
+    p.versions.push({ version, source: a.source });
+    return { saved: true, slug: a.slug, version, diagnostics: [] };
+  },
+  "panel.rollback": (e, a) => {
+    const p = panelOf(e, a.slug), old = p.versions.find(x => x.version === a.version);
+    if (!old) throw new OpFailure(`Panel "${a.slug}" has no version ${a.version}.`);
+    const version = p.versions.at(-1)!.version + 1;
+    p.versions.push({ version, source: old.source });
+    return { slug: a.slug, version, from: a.version };
+  },
+  "panel.setEnabled": (e, a) => { panelOf(e, a.slug).enabled = a.enabled; return ok; },
+  "panel.remove": (e, a) => { panelOf(e, a.slug); delete e.state.panels![`${e.userId}|${a.slug}`]; return ok; },
 };
+
+interface FakePanel {
+  panelId: string; userId: string; slug: string; title: string; placement: "left" | "right" | "bottom"; size: "sm" | "md" | "lg"; enabled: boolean;
+  versions: { version: number; source: string }[];
+}
+function panelOf(e: FakeEnv, slug: string): FakePanel {
+  return e.state.panels?.[`${e.userId}|${slug}`] ?? (() => { throw new OpFailure(`No panel "${slug}".`, "panel.list"); })();
+}
+const authorOf = (e: FakeEnv) => e.grant ? { kind: "delegate" as const, label: e.grant } : { kind: "browser" as const, label: nameOf(e.state, e.userId) };
+
+function assistantOf(e: FakeEnv): FakeAssistant {
+  const key = `${e.userId}|${e.roomId ?? ""}`;
+  return (e.state.assistants ??= {})[key] ??= { mode: "onRequest", grant: "act", threadId: newId(e.state, "thread"), messages: [], queue: [] };
+}
+function queuedOf(e: FakeEnv, queueId: string) {
+  return assistantOf(e).queue.find(q => q.queueId === queueId) ?? (() => { throw new OpFailure("No such waiting message."); })();
+}
 
 /** A fake deployment: perform any server affordance as a user, through the same `runOp` path `defineOp` uses. */
 export function createFake(state: FakeState = emptyState()) {

@@ -1,4 +1,5 @@
 /** Rooms, seats and the start: creating and joining a room, seats and settings, the deal (integration plan §4.3). */
+import { restartAutopilots } from "./assistant";
 import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
@@ -273,6 +274,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   await ctx.db.patch(room._id, { gameId, lastGameId: gameId, games: number, revision: room.revision + 1 });
   const game = (await ctx.db.get(gameId))!;
   await summonPracticePartners(ctx, game);
+  await restartAutopilots(ctx, room._id);
   // AI players take their first turn in planning, then every AI_TURN_MS (aiTurn.ts).
   for (const m of seats) if (m.kind === "ai") await ctx.scheduler.runAfter(1000, AI_TURN, { gameId, memberId: m._id, n: 0 });
   await ctx.scheduler.runAt(game.planningEndsAt!, PLANNING_ENDS, { gameId });
