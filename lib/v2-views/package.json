@@ -5,10 +5,11 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./demo": "./src/demo.ts"
+    "./demo": "./src/demo.ts",
+    "./styles.css": "./src/styles.css"
   },
   "scripts": {
-    "test": "node --import tsx --test test/*.test.ts"
+    "test": "node --import tsx --test test/*.test.ts test/*.test.tsx"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",

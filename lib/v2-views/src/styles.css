@@ -1,0 +1,160 @@
+/*
+ * v2-views styles. Every colour is a token on .v2v; a dark scheme applies under [data-v2v-scheme="dark"] (or
+ * prefers-color-scheme under [data-v2v-scheme="auto"]). Import once: `import "@workspace/v2-views/styles.css"`.
+ * Mark colours: focus (what counts) is warm, candidates (nearby targets) are teal, measures (distances) are ink-blue.
+ */
+.v2v {
+  --v2v-paper: #fbf8f2;
+  --v2v-card: #fffdf8;
+  --v2v-ink: #1c2033;
+  --v2v-muted: #5d6275;
+  --v2v-faint: #9a9caa;
+  --v2v-rule: #e3ddd0;
+  --v2v-grid: #ece6da;
+  --v2v-axis: #8b8a93;
+  --v2v-line: #1c2033;
+  --v2v-region: rgba(46, 125, 113, 0.14);
+  --v2v-focus: #c2410c;
+  --v2v-focus-bg: rgba(194, 65, 12, 0.12);
+  --v2v-cand: #0f766e;
+  --v2v-cand-bg: rgba(15, 118, 110, 0.12);
+  --v2v-measure: #3046a8;
+  --v2v-lit: rgba(250, 204, 21, 0.45);
+  --v2v-changed: #7c3aed;
+  color: var(--v2v-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+[data-v2v-scheme="dark"] .v2v,
+.v2v[data-v2v-scheme="dark"] {
+  --v2v-paper: #141824;
+  --v2v-card: #1b2030;
+  --v2v-ink: #e9e7e1;
+  --v2v-muted: #a9adbd;
+  --v2v-faint: #6c7186;
+  --v2v-rule: #2f3547;
+  --v2v-grid: #232a3b;
+  --v2v-axis: #7d8396;
+  --v2v-line: #f2efe8;
+  --v2v-region: rgba(94, 214, 196, 0.16);
+  --v2v-focus: #fb923c;
+  --v2v-focus-bg: rgba(251, 146, 60, 0.16);
+  --v2v-cand: #5eead4;
+  --v2v-cand-bg: rgba(94, 234, 212, 0.14);
+  --v2v-measure: #a5b4fc;
+  --v2v-lit: rgba(250, 204, 21, 0.3);
+  --v2v-changed: #c4b5fd;
+}
+@media (prefers-color-scheme: dark) {
+  [data-v2v-scheme="auto"] .v2v {
+    --v2v-paper: #141824; --v2v-card: #1b2030; --v2v-ink: #e9e7e1; --v2v-muted: #a9adbd; --v2v-faint: #6c7186;
+    --v2v-rule: #2f3547; --v2v-grid: #232a3b; --v2v-axis: #7d8396; --v2v-line: #f2efe8;
+    --v2v-region: rgba(94, 214, 196, 0.16); --v2v-focus: #fb923c; --v2v-focus-bg: rgba(251, 146, 60, 0.16);
+    --v2v-cand: #5eead4; --v2v-cand-bg: rgba(94, 234, 212, 0.14); --v2v-measure: #a5b4fc;
+    --v2v-lit: rgba(250, 204, 21, 0.3); --v2v-changed: #c4b5fd;
+  }
+}
+
+/* ------------------------------------------------------------ one representation */
+.v2v-rep { position: relative; box-sizing: border-box; background: var(--v2v-card); border-radius: 8px; overflow: hidden; }
+.v2v-rep[data-size="compact"] { width: 160px; height: 100px; }
+.v2v-rep[data-size="expanded"] { width: 100%; max-width: 360px; min-height: 220px; }
+.v2v-rep[data-size="expanded"][data-scene="equation"] { min-height: 120px; }
+.v2v-rep svg { display: block; }
+.v2v-undef { display: flex; align-items: center; justify-content: center; height: 100%; padding: 8px; box-sizing: border-box;
+  color: var(--v2v-muted); font-size: 12px; text-align: center; line-height: 1.3; }
+
+/* An element: a number, a stage, a box. Hover and cross-highlight. */
+.v2v-el { border-radius: 4px; transition: background-color 120ms; cursor: default; }
+.v2v-el[data-focus] { color: var(--v2v-focus); background: var(--v2v-focus-bg); font-weight: 650; }
+.v2v-el[data-cand] { color: var(--v2v-cand); background: var(--v2v-cand-bg); }
+.v2v-el[data-lit] { background: var(--v2v-lit); box-shadow: 0 0 0 2px var(--v2v-lit); }
+.v2v-el[data-changed] { text-decoration: underline 2px var(--v2v-changed); text-underline-offset: 3px; }
+.v2v-implied { opacity: 0.45; }
+.v2v-was { color: var(--v2v-faint); text-decoration: line-through; font-size: 0.75em; margin-right: 2px; }
+
+.v2v-overlay { position: absolute; left: 4px; bottom: 3px; display: flex; gap: 6px; font-size: 10px; color: var(--v2v-muted);
+  background: color-mix(in srgb, var(--v2v-card) 85%, transparent); padding: 0 3px; border-radius: 4px; }
+.v2v-overlay .v2v-el { padding: 0 2px; }
+.v2v-rep[data-size="expanded"] .v2v-undef { min-height: 200px; }
+
+/* Readouts: numbers the rule cites that have no place in the picture. */
+.v2v-readouts { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--v2v-muted); padding: 6px 10px 8px; }
+.v2v-readouts .v2v-el { padding: 0 3px; color: var(--v2v-ink); }
+.v2v-readouts .v2v-el[data-focus] { color: var(--v2v-focus); }
+.v2v-notes { list-style: none; margin: 0; padding: 0 10px 8px; font-size: 12px; color: var(--v2v-muted); }
+.v2v-notes li::before { content: "› "; color: var(--v2v-faint); }
+
+/* ------------------------------------------------------------ equation */
+.v2v-eq { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; padding: 6px; box-sizing: border-box; }
+.v2v-eq-line { white-space: nowrap; font-family: ui-serif, Georgia, "Times New Roman", serif; letter-spacing: 0.01em; }
+.v2v-rep[data-size="compact"] .v2v-eq-line { font-size: 21px; }
+.v2v-rep[data-size="expanded"] .v2v-eq { min-height: 120px; }
+.v2v-rep[data-size="expanded"] .v2v-eq-line { font-size: 32px; }
+.v2v-eq-line .v2v-el { padding: 0 2px; }
+.v2v-var { font-style: italic; }
+.v2v-eq-sub { font-size: 12px; color: var(--v2v-muted); margin-top: 6px; text-align: center; }
+
+/* ------------------------------------------------------------ plane (SVG) */
+.v2v-plane .grid { stroke: var(--v2v-grid); stroke-width: 1; }
+.v2v-plane .axis { stroke: var(--v2v-axis); stroke-width: 1.2; }
+.v2v-plane .tick-label { fill: var(--v2v-faint); font-size: 9px; }
+.v2v-plane .line { stroke: var(--v2v-line); stroke-width: 2.2; fill: none; stroke-linecap: round; }
+.v2v-plane .line[data-focus] { stroke: var(--v2v-focus); stroke-width: 3; }
+.v2v-plane .line-was { stroke: var(--v2v-changed); stroke-width: 1.6; stroke-dasharray: 2 3; fill: none; opacity: 0.8; }
+.v2v-plane .region { fill: var(--v2v-region); }
+.v2v-plane .dot { fill: var(--v2v-line); }
+.v2v-plane .dot[data-focus] { fill: var(--v2v-focus); }
+.v2v-plane .ring { fill: none; stroke: var(--v2v-focus); stroke-width: 2; }
+.v2v-plane .cand { stroke: var(--v2v-cand); fill: none; stroke-width: 1.6; }
+.v2v-plane .cand-dot { fill: var(--v2v-cand); }
+.v2v-plane .ghost { stroke: var(--v2v-cand); stroke-width: 1.4; stroke-dasharray: 5 4; fill: none; }
+.v2v-plane .ghost[data-near] { stroke-width: 2; }
+.v2v-plane .cand-label { fill: var(--v2v-cand); font-size: 10px; font-weight: 600; }
+.v2v-plane .measure { stroke: var(--v2v-measure); stroke-width: 1.6; fill: none; }
+.v2v-plane .measure-label { fill: var(--v2v-measure); font-size: 10.5px; font-weight: 700; }
+.v2v-plane .note { fill: var(--v2v-muted); font-size: 10px; }
+.v2v-plane .label-halo { paint-order: stroke; stroke: var(--v2v-card); stroke-width: 3px; stroke-linejoin: round; }
+.v2v-plane [data-lit] { filter: drop-shadow(0 0 3px rgba(250, 204, 21, 0.95)); }
+.v2v-plane .hit { stroke: transparent; stroke-width: 12; fill: none; }
+.v2v-plane .readout { fill: var(--v2v-muted); font-size: 10px; }
+
+/* ------------------------------------------------------------ sequence */
+.v2v-seq { display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 100%; padding: 8px 6px; box-sizing: border-box; }
+.v2v-rep[data-size="expanded"] .v2v-seq { min-height: 170px; gap: 4px; }
+.v2v-seq-term { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 26px; }
+.v2v-seq-n { font-size: 10px; color: var(--v2v-faint); }
+.v2v-seq-val { font-size: 15px; font-weight: 600; padding: 1px 4px; border: 1px solid var(--v2v-rule); border-radius: 6px; background: var(--v2v-paper); }
+.v2v-rep[data-size="expanded"] .v2v-seq-val { font-size: 18px; padding: 2px 7px; }
+.v2v-seq-term[data-faint] { opacity: 0.6; }
+.v2v-seq-step { font-size: 11px; color: var(--v2v-muted); align-self: flex-end; margin-bottom: 22px; white-space: nowrap; padding: 0 1px; }
+.v2v-seq-gap { align-self: flex-end; margin-bottom: 22px; color: var(--v2v-faint); font-size: 12px; }
+.v2v-tiles { display: grid; grid-template-columns: repeat(2, 7px); gap: 1px; align-content: end; justify-content: center; }
+.v2v-tiles i { width: 7px; height: 7px; background: var(--v2v-cand); opacity: 0.65; border-radius: 1.5px; }
+.v2v-tiles i[data-neg] { background: var(--v2v-focus); }
+
+/* ------------------------------------------------------------ machine */
+.v2v-mach { display: flex; flex-direction: column; justify-content: center; gap: 8px; height: 100%; padding: 8px; box-sizing: border-box; }
+.v2v-mach-run { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 14px; white-space: nowrap; }
+.v2v-rep[data-size="expanded"] .v2v-mach-run { font-size: 16px; gap: 5px; }
+.v2v-mach-io { min-width: 22px; text-align: center; font-weight: 650; padding: 2px 5px; border-radius: 6px; border: 1px dashed var(--v2v-rule); }
+.v2v-mach-stage { padding: 3px 6px; border-radius: 6px; background: var(--v2v-paper); border: 1.5px solid var(--v2v-line); font-weight: 600; }
+.v2v-mach-arrow { color: var(--v2v-faint); }
+.v2v-rep[data-size="compact"] .v2v-mach { gap: 5px; padding: 6px 3px; }
+.v2v-rep[data-size="compact"] .v2v-mach-run { font-size: 11.5px; gap: 1px; }
+.v2v-rep[data-size="compact"] .v2v-mach-io { min-width: 12px; padding: 1px 3px; }
+.v2v-rep[data-size="compact"] .v2v-mach-stage { padding: 1px 3px; border-width: 1px; }
+.v2v-rep[data-size="compact"] .v2v-mach-arrow { font-size: 10px; }
+.v2v-mach-caption { font-size: 11px; color: var(--v2v-muted); text-align: center; }
+.v2v-mach-gap { font-size: 12px; text-align: center; color: var(--v2v-measure); font-weight: 650; }
+
+/* ------------------------------------------------------------ table */
+.v2v-table { border-collapse: collapse; margin: 8px auto; font-size: 13px; }
+.v2v-table th, .v2v-table td { border: 1px solid var(--v2v-rule); padding: 3px 7px; text-align: center; }
+.v2v-table th { color: var(--v2v-muted); font-weight: 500; font-size: 11px; }
+
+/* ------------------------------------------------------------ chip */
+.v2v-chip { display: inline-flex; align-items: baseline; gap: 6px; font-size: 14px; padding: 1px 8px; border-radius: 999px;
+  background: var(--v2v-paper); border: 1px solid var(--v2v-rule); white-space: nowrap; }
+.v2v-chip-eq { font-family: ui-serif, Georgia, serif; }
+.v2v-chip-extra { color: var(--v2v-muted); font-size: 12px; }
