@@ -128,6 +128,7 @@ class Context<S> implements EvalContext<S> {
   readonly terms = new Map<TermId, Term>();
   readonly marks: Mark[] = [];
   scored: Score | undefined = undefined;
+  components: readonly ScoreComponent[] = [];
   readonly type: ObjectType<S>; readonly family: RuleFamily<S, unknown>; readonly state: S;
   readonly site: number; readonly variant: Variant; readonly sites: number;
   constructor(type: ObjectType<S>, family: RuleFamily<S, unknown>, state: S, site: number, variant: Variant, sites: number) {
@@ -154,6 +155,7 @@ class Context<S> implements EvalContext<S> {
   }
   score(components: readonly ScoreComponent[]): void {
     if (this.scored !== undefined) throw new Error(`${this.family.id} scored twice`);
+    this.components = components.map(c => ({ term: c.term, sense: c.sense }));
     const out: Q[] = [];
     for (const c of components) {
       const t = this.terms.get(c.term);
@@ -182,7 +184,7 @@ export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>
   const ctx = new Context<S>(type, family as RuleFamily<S, unknown>, state, site, variant, sites);
   family.evaluate(ctx, params);
   if (ctx.scored === undefined) throw new Error(`${family.id} did not score`);
-  return { score: ctx.scored, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
+  return { score: ctx.scored, components: ctx.components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
 }
 
 export interface ObjectEvaluation {

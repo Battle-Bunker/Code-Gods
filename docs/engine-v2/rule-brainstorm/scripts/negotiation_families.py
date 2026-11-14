@@ -5,7 +5,8 @@ Standalone (no engine): exact rationals, the line-q read length and price list o
 
     python3 -I docs/engine-v2/rule-brainstorm/scripts/negotiation_families.py [section ...]
 
-Sections: families, pairs, triples, claims, negotiations, attacks (default: all).
+Sections: families, examples, pairs, triples, pool, coalitions, claims, levels, beginner, negotiations, attacks, defend
+(default: all).
 """
 from __future__ import annotations
 
@@ -88,6 +89,16 @@ def nearest_square_root(x: Q, at_least: int = 0) -> int:
         cand = (abs(x - k * k), k)
         best = cand if best is None or cand < best else best
     return best[1]
+
+
+def prime_dist(x: Q) -> Q:
+    """Distance from x to the nearest prime (primes are positive)."""
+    if x <= 2:
+        return 2 - x
+    n = math.floor(x)
+    lo = next(k for k in range(n, 1, -1) if is_prime(k))
+    hi = next(k for k in itertools.count(n + 1) if is_prime(k))
+    return min(x - lo, hi - x)
 
 
 def decimal_period(x: Q) -> int:
@@ -214,10 +225,9 @@ def square_corner(m, c):
         return None
     r = nearest_square_root(A, 1)
     p = -c / m
-    legs_int = (p.denominator == 1) + (c.denominator == 1)
     h2 = p * p + c * c
     hyp_gap = abs(h2 - nearest_square_root(h2, 0) ** 2)
-    return (-abs(A - r * r), big_omega(r), legs_int, -hyp_gap)
+    return (-abs(A - r * r), big_omega(r), -(dist_int(p) + dist_int(c)), -hyp_gap)
 
 
 @family("FP", "Fixed Point", at_zero)
@@ -233,7 +243,7 @@ def prime_table(m, c):
     ys = [m * k + c for k in range(6)]
     ps = [int(y) for y in ys if y.denominator == 1 and is_prime(int(y))]
     y6 = m * 6 + c
-    return (len(set(ps)), int(y6.denominator == 1 and is_prime(int(y6))), min(ps) if ps else 0, -abs(m))
+    return (len(set(ps)), -prime_dist(y6), min(ps) if ps else 0, -abs(m))
 
 
 @family("RU", "Ruler", at_zero)
@@ -243,7 +253,7 @@ def ruler(m, c):
     D2 = c * c / (1 + m * m)
     k = nearest_square_root(D2, 1)
     fx, fy = -m * c / (1 + m * m), c / (1 + m * m)
-    return (-abs(D2 - k * k), (fx.denominator == 1) + (fy.denominator == 1), min(k, 12), -m.denominator)
+    return (-abs(D2 - k * k), -(dist_int(fx) + dist_int(fy)), min(k, 12), -m.denominator)
 
 
 @family("PC", "Prime Coefficients", lambda s: s is not None and s[0] == 3)
@@ -256,7 +266,7 @@ def prime_coefficients(m, c):
 
 @family("LD", "Long Division", at_zero)
 def long_division(m, c, L=6):
-    return (-abs(decimal_period(m) - L), -abs(m.numerator), int(is_prime(m.denominator)), -c.denominator)
+    return (-abs(decimal_period(m) - L), -abs(m.numerator), spf(m.denominator), -c.denominator)
 
 
 @family("HW", "Half-Way House", at_zero)
@@ -285,13 +295,13 @@ def long_shot(m, c):
     else:
         (x0, y0), (x1, y1) = pg[0], pg[-1]
         span = (x1 - x0) ** 2 + (y1 - y0) ** 2
-    return (span, len(pg), int(c != 0), -m.denominator)
+    return (span, len(pg), min(abs(c), 6), -m.denominator)
 
 
 @family("SG", "Steady Gradient", at_zero)
 def steady_gradient(m, c):
     M = nearest_int(m)
-    return (-dist_int(m), tau(M), -c.denominator, int(M != 0 and (c / M).denominator == 1))
+    return (-dist_int(m), tau(M), -c.denominator, -(dist_int(c / M) if M != 0 else Q(1)))
 
 
 @family("PN", "Pythagorean Normal", at_zero)
@@ -301,7 +311,7 @@ def pythagorean_normal(m, c):
         return None  # both a and b nonzero (a slanted line)
     s = a * a + b * b
     r = nearest_square_root(Q(s), 1)
-    return (-abs(s - r * r), r, int(is_prime(abs(c0))), -abs(a + b + c0))
+    return (-abs(s - r * r), r, -prime_dist(Q(abs(c0))), -abs(a + b + c0))
 
 
 @family("ST", "Square Term", at_zero)
@@ -323,7 +333,7 @@ def midpoint_peg(m, c):
         return None
     p = -c / m
     mx, my = p / 2, c / 2
-    return (-(dist_int(mx) + dist_int(my)), int(abs(mx) == abs(my)), min(abs(mx) + abs(my), 12), -m.denominator)
+    return (-(dist_int(mx) + dist_int(my)), -abs(abs(mx) - abs(my)), min(abs(mx) + abs(my), 12), -m.denominator)
 
 
 @family("MA", "Matched Pair", at_zero)
@@ -331,8 +341,20 @@ def matched_pair(m, c):
     if m == 0:
         return None
     s = abs(m.numerator)
-    return (-abs(s - c.denominator), spf(s) if s == c.denominator else 1, int(m.denominator == abs(c.numerator)), -abs(m))
+    return (-abs(s - c.denominator), spf(s), -abs(m.denominator - abs(c.numerator)), -abs(m))
 
+
+# The beginner pool (owner, 2026-11-14): a primary and exactly one graded secondary.
+BEGINNER = {
+    "WL": lambda m, c: whole_landing(m, c)[:2],                       # ‖c‖, spf(N)
+    "WC": lambda m, c: (lambda s: s and s[:2])(whole_crossing(m, c)),  # ‖p‖, τ(P)
+    "SC": lambda m, c: (lambda s: s and s[:2])(square_corner(m, c)),   # |A − r²|, Ω(r)
+    "RU": lambda m, c: (lambda s: s and s[:2])(ruler(m, c)),           # |D² − k²|, foot's distance to a peg
+    "MA": lambda m, c: (lambda s: s and s[:2])(matched_pair(m, c)),    # | |num m| − den c |, spf(|num m|)
+    "HW": lambda m, c: half_way(m, c)[:2],                             # ‖y(½)‖, spf(H)
+    "FP": lambda m, c: (lambda s: s and s[:2])(fixed_point(m, c)),     # ‖X‖, |m + 1|
+    "LD": lambda m, c: (long_division(m, c)[0], long_division(m, c)[3]),  # |ℓ − 6|, den(c)
+}
 
 ORDER = ["WL", "WC", "SC", "FP", "PT", "RU", "PC", "LD", "HW", "G1,1", "G-1,0", "G2,5", "LS", "SG", "PN", "ST", "MP", "MA"]
 
@@ -606,6 +628,7 @@ def sec_claims():
                                 and is_int(c / Q(math.isqrt((1 + m * m).numerator)))})
     check("WC ∩ MA = WL ∩ MA (the shared number is forced to 1)", T["WC"] & T["MA"] == T["WL"] & T["MA"])
     check("MA ∩ HW = ∅", not (T["MA"] & T["HW"]))
+    check("MA ∩ FP forces the shared number to 1", all(abs(m.numerator) == 1 for m, c in T["MA"] & T["FP"]))
     check("RU ∩ MA = ∅", not (T["RU"] & T["MA"]))
     check("SC ∩ LD = ∅", not (T["SC"] & T["LD"]))
     check("PC ∩ {WL, WC, SC, RU, PN, MA} = ∅",
@@ -754,7 +777,46 @@ def sec_defend():
             print(f"   {r[1]:6} {r[2]:18} phi {r[3]:3}  cheapest damage {r[0]:5} by {r[4]} (hurts {r[5]})")
 
 
+def sec_levels():
+    """Distinct values of each rung: the primary over the whole grid (sampled), each secondary over the family's top lines."""
+    T = tops()
+    ms, cs = grid()
+    sample = [(m, c) for i, m in enumerate(ms) for j, c in enumerate(cs) if (i * 7 + j) % 11 == 0]
+    print("## Levels: distinct values per rung (primary on a 1/11 sample of the grid, secondaries on the top lines)")
+    for f in ORDER:
+        prim = {s[0] for s in (score(f, *mc) for mc in sample) if s is not None}
+        secs = [set() for _ in range(3)]
+        for mc in T[f]:
+            sc = score(f, *mc)
+            for i in range(3):
+                secs[i].add(sc[i + 1])
+        cap = lambda n: str(n) if n < 1000 else ">=1000"
+        print(f"{f:6} primary {cap(len(prim)):>7}  S1 {cap(len(secs[0])):>6}  S2 {cap(len(secs[1])):>6}  S3 {cap(len(secs[2])):>6}")
+
+
+BEGINNER_DEALS = [
+    ("WL-SC", "WL", (Q(-1), Q(7)), "SC", (Q(-1, 2), Q(4)), [(Q(-1, 2), Q(7)), (Q(-1, 8), Q(7)), (Q(-1, 2), Q(4))]),
+    ("WC-MA", "WC", (Q(1, 3), Q(-4)), "MA", (Q(3, 5), Q(5, 3)), [(Q(1, 3), Q(-4)), (Q(2, 5), Q(1, 2)), (Q(3, 10), Q(1, 3)), (Q(5, 26), Q(1, 5))]),
+    ("RU-WL", "RU", (Q(-3, 4), Q(25, 4)), "WL", (Q(-1), Q(7)), [(Q(-4, 3), Q(5)), (Q(-3, 4), Q(25)), (Q(-12, 5), Q(13)), (Q(-12, 5), Q(169))]),
+    ("LD-WL", "LD", (Q(1, 7), Q(0)), "WL", (Q(-1), Q(7)), [(Q(1, 7), Q(7)), (Q(1, 13), Q(13))]),
+    ("FP-HW", "FP", (Q(-1), Q(8)), "HW", (Q(4), Q(5)), [(Q(-2), Q(9)), (Q(0), Q(7)), (Q(-2, 3), Q(10, 3)), (Q(-4, 5), Q(27, 5))]),
+    ("WC-SC", "WC", (Q(1, 3), Q(-4)), "SC", (Q(-1, 2), Q(4)), [(Q(-1, 2), Q(4)), (Q(-1, 2), Q(6)), (Q(-1, 2), Q(12))]),
+    ("MA-FP", "MA", (Q(3, 5), Q(5, 3)), "FP", (Q(-1), Q(8)), [(Q(-1), Q(8)), (Q(-1, 2), Q(3)), (Q(-3, 2), Q(5, 3)), (Q(-3, 37), Q(-13, 3))]),
+]
+
+
+def sec_beginner():
+    print("## Beginner pool negotiations (primary, one secondary)")
+    B = lambda f, m, c: fmt_score(BEGINNER[f](m, c))
+    for title, fa, la, fb, lb, deals in BEGINNER_DEALS:
+        print(title)
+        for lab, mc in [("A alone", la), ("B alone", lb)] + [("deal", d) for d in deals]:
+            print(f"   {lab:8} {fmt_line(*mc):18} phi {phi(*mc):3}  {fa}={B(fa, *mc)}  {fb}={B(fb, *mc)}")
+
+
 SECTIONS = {
+    "levels": sec_levels,
+    "beginner": sec_beginner,
     "defend": sec_defend,
     "families": sec_families,
     "examples": sec_examples,
