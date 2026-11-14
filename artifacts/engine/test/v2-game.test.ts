@@ -1,6 +1,6 @@
 /**
- * Milestone M1's acceptance (integration plan §5.2), on the live local backend: a room of three practice partners on
- * `Lines · beginner`, planning 5 s and 60 world seconds. Every partner summons its rule's Simple starter (TypeScript
+ * Milestones M1's and M4's acceptance (integration plan §5.2, §5.5), on the live local backend, once per object type: a
+ * room of three practice partners on `Lines · beginner`, then on `Grids · beginner`, planning 5 s and 60 world seconds. Every partner summons its rule's Simple starter (TypeScript
  * for one, Python for two), each makes committed acts, the standings are not zero and the game ends by itself. Then the
  * record replays (spec §9.2–§9.3): folding the stored events gives the final standings exactly, and re-executing every
  * act from its recorded inputs in a local sandbox gives the same act.
@@ -9,19 +9,23 @@
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
 import { rungsOf } from "../convex/v2/artefacts.ts";
-import { after, before, test } from "node:test";
+import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
 import { lineType, lineZ } from "@workspace/v2-linear";
+import { gridType, grid4 } from "@workspace/v2-grid";
+import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
 import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers.ts";
 
+function gameSuite(preset: string, type: ObjectType<any>, variant: Variant) {
+describe(preset, () => {
 let host: Human, roomId: string, gameId: string;
 const events: any[] = [];
 
 before(async () => {
-  [host] = await humans("M1 Host");
-  ({ roomId } = (await perform(host!, "room.create", { name: "M1 room" })).result);
+  [host] = await humans(`${preset} host`);
+  ({ roomId } = (await perform(host!, "room.create", { name: `${preset} room`, preset })).result);
   await perform(host!, "room.setSpectator", { spectator: true }, { roomId });
   assert.deepEqual((await perform(host!, "seats.fillPracticePartners", {}, { roomId })).result, { added: 3 });
   await perform(host!, "room.settings", { overrides: { planningSeconds: 5, worldSeconds: 60 } }, { roomId });
@@ -93,7 +97,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
   // Acts the commit overrode (a stale state, an unaffordable change) carry `charged`; the rest are the agent's own record.
   const acts = events.filter(e => e.kind === "act" && e.data.charged === undefined);
   assert.ok(acts.length > 10, `enough acts to mean something (${acts.length})`);
-  assert.ok(acts.some(e => e.data.input?.value && Array.isArray(e.data.input.history)), "agents are told their owner's stake in the line, and it is recorded");
+  assert.ok(acts.some(e => e.data.input?.value && Array.isArray(e.data.input.history)), "agents are told their owner's stake in the object, and it is recorded");
   for (const e of acts) {
     const d = e.data, key = `${d.agentId}:${d.program.version}`;
     if (!sources.has(key)) sources.set(key, (await admin.query("v2/testing:program", { agentId: d.agentId, version: d.program.version })).source);
@@ -101,7 +105,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
     if (!sandboxes.has(language)) sandboxes.set(language, createSandbox({ language, execution: "inline" }));
     const rule = rules.get(d.memberId) as any;
     const { record } = await runAct(await sandboxes.get(language)!, {
-      type: lineType, variant: lineZ, state: lineType.decode(d.before),
+      type, variant, state: type.decode(d.before),
       rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker },
       program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number, liveObjects: d.liveObjects,
       // What the agent was told of its owner's stake (recorded), and the dealt rule's ladder (from the game's artefact).
@@ -119,10 +123,15 @@ test("the stored replay: built once at the end, served only to a member with a J
   }
   const url = `${SITE_}/api/v2/replay/${gameId}`;
   assert.equal((await fetch(url)).status, 401, "sign-in is required");
-  const [outsider] = await humans("M1 Outsider");
+  const [outsider] = await humans(`${preset} outsider`);
   assert.equal((await fetch(url, { headers: { authorization: `Bearer ${await httpJwt(outsider!.userId)}` } })).status, 403);
   const file = await (await fetch(url, { headers: { authorization: `Bearer ${await httpJwt(host!.userId)}` } })).json();
   assert.equal(file.version, 1);
   assert.deepEqual(file.events.map((e: any) => e.seq), events.map(e => e.seq), "every event, in order");
   assert.equal(file.rules.length, 3, "after the end every player's rule is open");
 });
+});
+}
+
+gameSuite("lines-beginner", lineType, lineZ);
+gameSuite("grids-beginner", gridType, grid4);

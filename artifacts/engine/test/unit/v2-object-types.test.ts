@@ -41,3 +41,16 @@ test("a grid representation's mutators name their arguments, with choices for ce
   assert.deepEqual(ms.map(m => m.id), ["cells.add", "cells.swap"]);
   assert.deepEqual(ms[0]!.args, [{ name: "cell", code: "choice" }, { name: "k", code: "integer" }]);
 });
+test("Grids · beginner deals every grid family, each a main layer plus one tie-breaker, on the grid board", async () => {
+  const { presetOf } = await import("../../convex/v2/presets.ts");
+  const { dealablePool } = await import("../../convex/v2/deal.ts");
+  for (const id of ["grids-beginner", "grids-beginner-bidding"]) {
+    const p = presetOf(id);
+    assert.equal(p.id, id);
+    assert.equal(p.variant, "grid-4-d10");
+    const pool = dealablePool(p);
+    assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
+    assert.equal(pool.length, 24);
+  }
+  assert.ok(presetOf("grids-beginner-bidding").bid);
+});

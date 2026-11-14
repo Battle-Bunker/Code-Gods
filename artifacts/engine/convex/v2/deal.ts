@@ -11,7 +11,7 @@
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
-import { CATALOGUE } from "@workspace/v2-agents/pure";
+import { hasStarters } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { topBits, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
@@ -41,7 +41,7 @@ function buildPool(preset: Preset): DealtRule[] {
   const { type, variant } = findVariant(preset.variant);
   const out: DealtRule[] = [];
   for (const r of preset.pool) {
-    if (!FAMILIES.has(r.family) || !CATALOGUE.some(e => e.family === r.family)) continue;
+    if (!FAMILIES.has(r.family) || !hasStarters(r.family)) continue;
     for (const tb of r.tieBreakers) {
       const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
       const vf = valueRecord(key);
