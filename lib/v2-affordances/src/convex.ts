@@ -6,7 +6,8 @@
  * - the internal twin (`as`) takes the same plus `delegate`, the human an assistant or MCP credential acts for.
  * Both resolve the caller's context from the server's own records (the host's `resolve`, W3), validate the args with
  * the affordance's zod schema, apply `refusal`, answer a repeated `requestId` from the host's receipts, and check the
- * result against the declaration (`runOp`). Each returns an `OpOutcome`; refusals and failures are values, not throws.
+ * result against the declaration (`runOp`). Each returns an `OpOutcome`; refusals are values. A mutation whose handler
+ * fails (`OpFailure`) throws a `ConvexError` carrying the outcome, so its writes roll back (`outcomeOf` reads it).
  *
  * Layout convention: `convex/v2/ops/<namespace>.ts` holds the affordances `<namespace>.*`, each as
  *   export const { op: <verb>, as: <verb>As } = defineOp("<namespace>.<verb>", "<kind>", handler);
@@ -16,9 +17,9 @@ import {
   actionGeneric, internalActionGeneric, internalMutationGeneric, internalQueryGeneric, mutationGeneric, queryGeneric,
   type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx,
 } from "convex/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { AFFORDANCES, type ServerAffordanceId } from "./directory.ts";
-import { runOp, type Handler, type ReceiptStore } from "./server.ts";
+import { runOp, type Handler, type OpOutcome, type ReceiptStore } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
 
 /** query for reads; mutation for writes; action where the sandbox or a model runs (check, summon, replace, pitch). */
@@ -40,6 +41,11 @@ export interface OpHost<DM extends GenericDataModel> {
 }
 export interface OpEnv<DM extends GenericDataModel, K extends OpKind> { ctx: CtxOf<DM, K>; caller: Caller; scope: OpScope }
 
+/** The outcome of a defineOp call: its return value, or the failed outcome a rolled-back mutation threw. */
+export function outcomeOf(e: unknown): OpOutcome | null {
+  return e instanceof ConvexError && typeof e.data === "object" && e.data !== null && "ok" in e.data ? e.data as OpOutcome : null;
+}
+
 /** The public and internal function paths of an affordance under the layout convention. */
 export function opPath(id: string): { public: string; internal: string } {
   const [ns, verb] = id.split(".") as [string, string];
@@ -60,10 +66,14 @@ export function makeDefineOp<DM extends GenericDataModel>(host: OpHost<DM>) {
     const run = async (ctx: CtxOf<DM, K>, who: { session: true } | { delegate: Delegate }, input: OpScope & { args: unknown }) => {
       const { args, ...scope } = input;
       const caller = await host.resolve(ctx as GenericQueryCtx<DM>, who, scope);
-      return runOp(a, handler as never, args, {
+      const out = await runOp(a, handler as never, args, {
         ctx: caller.ctx, via: "delegate" in who ? who.delegate.via : "app", callerKey: caller.callerKey,
         env: { ctx, caller, scope }, receipts: kind === "query" ? undefined : host.receipts?.(ctx as GenericMutationCtx<DM>),
       });
+      // A mutation is a transaction only if it throws: a handler's domain failure must undo what it wrote before it.
+      // The client reads the outcome back from the error's data (`outcomeOf`).
+      if (kind === "mutation" && !out.ok && out.error.code === "failed") throw new ConvexError(out);
+      return out;
     };
     const pub = { args: { args: v.any(), ...scopeArgs }, handler: (ctx: CtxOf<DM, K>, input: OpScope & { args: unknown }) => run(ctx, { session: true }, input) };
     const twin = {

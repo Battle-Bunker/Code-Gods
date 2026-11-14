@@ -47,14 +47,16 @@ export async function runOp<E>(a: AnyAffordance, handler: (env: E, args: never) 
   const parsed = a.params.safeParse(raw ?? {});
   if (!parsed.success) return { ok: false, error: { code: "invalid_args", message: z.prettifyError(parsed.error) } };
   const args = parsed.data as Record<string, unknown>;
-  const no = refusal(a, o.ctx, args, o.via);
-  if (no) return { ok: false, error: { code: "refused", message: no.reason, ...(no.fix ? { fix: no.fix } : {}) } };
+  // A retry is answered from its receipt before any check: the write it repeats may have changed what the checks see
+  // (a pause moved the game to paused; a summon spent the last energy).
   const requestId = typeof args.requestId === "string" ? args.requestId : null;
   const key = requestId && o.receipts ? `${o.callerKey}|${a.id}|${requestId}` : null;
   if (key) {
     const seen = await o.receipts!.get(key);
     if (seen) return seen.ok ? { ...seen, replayed: true } : seen;
   }
+  const no = refusal(a, o.ctx, args, o.via);
+  if (no) return { ok: false, error: { code: "refused", message: no.reason, ...(no.fix ? { fix: no.fix } : {}) } };
   let outcome: OpOutcome;
   try {
     const result = await handler(o.env, args as never);
@@ -65,15 +67,15 @@ export async function runOp<E>(a: AnyAffordance, handler: (env: E, args: never) 
     if (!(e instanceof OpFailure)) throw e;
     outcome = { ok: false, error: { code: "failed", message: e.message, ...(e.fix ? { fix: e.fix } : {}) } };
   }
-  // A domain failure is a receipt too: the same request gets the same answer.
-  if (key) await o.receipts!.put(key, outcome);
+  // Only a completed write is a receipt. A domain failure is rolled back by the host (the fake restores its state; a
+  // Convex mutation throws), so a retry runs again on whatever the world is then.
+  if (key && outcome.ok) await o.receipts!.put(key, outcome);
   return outcome;
 }
 
-/** A receipt store in memory (the fake server, tests). */
-export function memoryReceipts(): ReceiptStore & { size(): number } {
-  const m = new Map<string, OpOutcome>();
-  return { get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); }, size: () => m.size };
+/** A receipt store over a plain record (the fake keeps it in its state, so the CLI's receipts persist with the world). */
+export function memoryReceipts(record: Record<string, OpOutcome> = {}): ReceiptStore & { size(): number } {
+  return { get: async k => record[k] ?? null, put: async (k, v) => { record[k] = v; }, size: () => Object.keys(record).length };
 }
 
 /**

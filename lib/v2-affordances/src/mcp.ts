@@ -33,9 +33,11 @@ export async function callTool(name: string, args: unknown, ctx: AffordanceConte
 
 type JsonRpc = { jsonrpc: "2.0"; id?: string | number | null; method: string; params?: { name?: string; arguments?: unknown } };
 
-/** Answers MCP `tools/list` and `tools/call`; null for any other method (the host's MCP server handles those). */
+/** Answers MCP `tools/list` and `tools/call`; null for notifications and any other method (the host handles those). */
 export async function mcpDispatch(msg: JsonRpc, ctx: AffordanceContext, perform: Perform): Promise<object | null> {
-  const id = msg.id ?? null;
+  // A JSON-RPC notification (no id) gets no answer, and a tool call is never run from one.
+  if (msg.id === undefined || msg.id === null) return null;
+  const id = msg.id;
   if (msg.method === "tools/list") return { jsonrpc: "2.0", id, result: { tools: mcpTools(ctx) } };
   if (msg.method === "tools/call") {
     const name = msg.params?.name;

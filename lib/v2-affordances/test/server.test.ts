@@ -6,7 +6,7 @@ import { z } from "zod/v4";
 import { AFFORDANCES, handlerProblems, memoryReceipts, runOp, PRINCIPALS, OpFailure } from "../src/index.ts";
 import { FAKE_HANDLERS, FAKE_PRESET, createFake } from "../src/fake.ts";
 import { callTool, mcpDispatch } from "../src/mcp.ts";
-import { makeDefineOp, opPath } from "../src/convex.ts";
+import { makeDefineOp, opPath, outcomeOf } from "../src/convex.ts";
 import { runCli } from "../src/cli.ts";
 
 test("check 2: the fake implements every server affordance exactly once, and no view operation", () => {
@@ -61,6 +61,35 @@ test("the server derives the context: refusals, invalid args and domain failures
   assert.equal((await f.perform(as("u1"), "view.openPane", { pane: "agents" }) as { ok: false; error: { code: string } }).error.code, "unknown");
 });
 
+test("a retry is answered from its receipt even when the write changed what the checks see", async () => {
+  const { f, as } = await liveGame();
+  const requestId = randomUUID();
+  assert.ok((await f.perform(as("u2"), "game.pause", { requestId })).ok);
+  const again = await f.perform(as("u2"), "game.pause", { requestId });
+  assert.ok(again.ok && again.replayed, JSON.stringify(again));
+  assert.equal((await f.perform(as("u2"), "game.pause", { requestId: randomUUID() }) as { ok: false; error: { message: string } }).error.message, "Not available while the game is paused.");
+});
+
+test("a failed write leaves the world as it was", async () => {
+  const { f, gameId, as } = await liveGame();
+  const mine = await f.perform(as("u2"), "agent.summon", { language: "python", source: "def agent(o): pass" }) as { ok: true; result: { agentId: string } };
+  const theirs = await f.perform(as("u3"), "agent.summon", { language: "python", source: "def agent(o): pass" }) as { ok: true; result: { agentId: string } };
+  const out = await f.perform(as("u2"), "power.allocate", { shares: { [mine.result.agentId]: 1, [theirs.result.agentId]: 1 } });
+  assert.ok(!out.ok && out.error.message === "That agent is not yours.");
+  assert.equal(f.state.games[gameId]!.agents.find(a => a.agentId === mine.result.agentId)!.share, 1);
+});
+
+test("after a game ends the room is a lobby again; the ended game is still readable by its players", async () => {
+  const { f, roomId, gameId } = await liveGame();
+  assert.ok((await f.perform({ userId: "u1", roomId }, "game.end", {})).ok);
+  assert.equal(f.contextFor("u1", roomId).context, "room");
+  assert.ok((await f.perform({ userId: "u2", gameId, roomId }, "agents.list", {})).ok);
+  f.addUser("u5", "U5");
+  await f.perform({ userId: "u5" }, "room.join", { code: f.state.rooms[roomId]!.code });
+  assert.equal(f.state.rooms[roomId]!.members.find(m => m.userId === "u5")!.spectator, false);
+  assert.ok((await f.perform({ userId: "u1", roomId }, "game.start", {})).ok, "a second game starts");
+});
+
 test("consent cannot be performed by a delegated caller", async () => {
   const f = createFake();
   f.addUser("u1", "U1");
@@ -91,6 +120,9 @@ test("MCP: tools/list for the credential, tools/call wraps results as untrusted 
   assert.equal((await callTool("game_end", {}, readCtx, "mcp", perform)).content[0]!.text, "This connection's permission does not allow it. (Reconnect with a wider permission.)");
   assert.equal((await callTool("account_approveConnection", { request: "x", grant: "owner" }, ctx, "mcp", perform)).content[0]!.text, "Unknown tool: account_approveConnection");
   assert.equal(await mcpDispatch({ jsonrpc: "2.0", id: 3, method: "initialize" }, ctx, perform), null);
+  let ran = false;
+  assert.equal(await mcpDispatch({ jsonrpc: "2.0", method: "tools/call", params: { name: "chat_send", arguments: { text: "hi" } } }, ctx, async () => { ran = true; return { ok: true, result: { ok: true } }; }), null);
+  assert.equal(ran, false, "a notification never runs a tool");
 });
 
 test("defineOp: the public function acts as the session, the twin as the delegate; both check, receipt and validate", async () => {
@@ -117,6 +149,11 @@ test("defineOp: the public function acts as the session, the twin as the delegat
   const end = defineOp("game.end", "mutation", () => ({ ok: true }));
   const delegated = await (end.as as unknown as Fn)._handler({}, { args: {}, delegate: { userId: "u9", roomId: "r1", grant: "act", via: "mcp" } });
   assert.deepEqual(delegated, { ok: false, error: { code: "refused", message: "Only the room owner can do this." } });
+  const failing = defineOp("power.allocate", "mutation", () => { throw new OpFailure("That agent is not yours."); });
+  await assert.rejects((failing.op as unknown as Fn)._handler({}, { args: { shares: { a: 1 } } }), (e: unknown) => {
+    assert.deepEqual(outcomeOf(e), { ok: false, error: { code: "failed", message: "That agent is not yours." } });
+    return true;
+  }, "a failed mutation throws so Convex rolls it back");
   assert.throws(() => defineOp("view.openPane" as never, "mutation", () => ({}) as never), /not a server affordance/);
   assert.deepEqual(opPath("agent.summon"), { public: "v2/ops/agent:summon", internal: "v2/ops/agent:summonAs" });
   assert.equal(z.string().parse(pause.kind), "mutation");
@@ -126,12 +163,19 @@ test("the CLI runs commands against the fake", async () => {
   const f = createFake();
   const lines: string[] = [], errs: string[] = [];
   const io = { out: (l: string) => lines.push(l), err: (l: string) => errs.push(l) };
-  assert.equal(await runCli(["room", "create", "--as", "u1", "--name", "Lines night"], f.state, io), 0);
+  assert.equal(await runCli(["--as", "u1", "room", "create", "--name", "Lines night"], f.state, io), 0);
   assert.deepEqual(JSON.parse(lines.pop()!), { roomId: "r1", code: "CR1X" });
-  assert.equal(await runCli(["room", "get", "--as", "u1", "--room", "r1"], f.state, io), 0);
+  assert.equal(await runCli(["--as", "u1", "--room", "r1", "room", "get"], f.state, io), 0);
   assert.equal(JSON.parse(lines.pop()!).name, "Lines night");
-  assert.equal(await runCli(["game", "end", "--as", "u1", "--room", "r1"], f.state, io), 1);
+  assert.equal(await runCli(["--as", "u1", "--room", "r1", "game", "end"], f.state, io), 1);
   assert.deepEqual(errs, ["refused: Not available before the game starts."]);
+  assert.equal(await runCli(["--as", "u1", "--room", "r1", "chat", "send", "--text", "--room"], f.state, io), 0, "a command's value is never a global flag");
+  assert.equal(f.state.rooms.r1!.chat[0]!.text, "--room");
+  const id = "3b241101-e2bb-4255-8caf-4136c566a962";
+  const saved = () => JSON.parse(JSON.stringify(f.state));   // as the CLI keeps it between runs
+  let state = saved();
+  for (let n = 0; n < 2; n++) { assert.equal(await runCli(["--as", "u1", "--room", "r1", "chat", "send", "--text", "once", "--request-id", id], state, io), 0); state = JSON.parse(JSON.stringify(state)); }
+  assert.deepEqual(state.rooms.r1.chat.map((c: { text: string }) => c.text), ["--room", "once"], "the receipt persists with the world");
   assert.equal(await runCli(["help"], f.state, io), 0);
   assert.ok(lines.some(l => l.startsWith("agent summon --language")));
 });

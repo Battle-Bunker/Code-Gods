@@ -18,7 +18,10 @@ function tsFiles(dir: string): string[] {
   });
 }
 
-const PUBLIC_WRITE = /\b(?:mutation|action|mutationGeneric|actionGeneric)\s*\(/g;
+// Public builders that can write: v2 HTTP routes belong in convex/http.ts, not here. Custom builders wrapping these
+// (customMutation) also match, through the call to the base builder they need.
+const PUBLIC_WRITE = /\b(?:mutation|action|mutationGeneric|actionGeneric|httpAction|httpActionGeneric|customMutation|customAction)\s*\(/g;
+const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 const DEFINE = /\bdefineOp\(\s*"([^"]+)"/g;
 
 /** Problems with `convex/v2` (root = that directory); none while it does not exist. */
@@ -26,7 +29,7 @@ export function convexOpsProblems(root: string, dir: Directory = DIRECTORY): str
   const problems: string[] = [];
   const ids: string[] = [];
   for (const file of tsFiles(root)) {
-    const text = readFileSync(file, "utf8"), rel = relative(root, file);
+    const text = stripComments(readFileSync(file, "utf8")), rel = relative(root, file);
     for (const m of text.matchAll(PUBLIC_WRITE)) problems.push(`check 2: ${rel} makes a public ${m[0].replace(/Generic|\s|\(/g, "")} outside defineOp`);
     for (const m of text.matchAll(DEFINE)) {
       const id = m[1]!, [ns, verb] = id.split(".") as [string, string];

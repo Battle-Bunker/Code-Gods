@@ -5,7 +5,7 @@
  * prices are flat, and only the "si" and "gen" representations are answered. W3's `defineOp` handlers replace it.
  * `contextFor` shows how a server derives the caller's context from the room and the game header.
  */
-import { DIRECTORY, isAffordanceId, type AffordanceId, type Via } from "./directory.ts";
+import { AFFORDANCES, isAffordanceId, type AffordanceId, type Via } from "./directory.ts";
 import { memoryReceipts, OpFailure, runOp, type OpOutcome, type ServerHandlers } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
 
@@ -25,6 +25,7 @@ export interface FakeState {
   users: Record<string, { name: string; admin?: boolean }>;
   rooms: Record<string, FakeRoom>; games: Record<string, FakeGame>;
   connections: Record<string, { userId: string; client: string; roomId: string | null; grant: Grant }>;
+  receipts: Record<string, OpOutcome>;
   next: number; now: number;
 }
 
@@ -35,13 +36,14 @@ const FAMILIES = ["closeGradient", "nearIntercept", "pegCount", "triangleArea"];
 export interface FakeEnv { state: FakeState; userId: string; roomId: string | null; gameId: string | null; grant?: Grant }
 
 export function emptyState(): FakeState {
-  return { users: {}, rooms: {}, games: {}, connections: {}, next: 1, now: 1_800_000_000_000 };
+  return { users: {}, rooms: {}, games: {}, connections: {}, receipts: {}, next: 1, now: 1_800_000_000_000 };
 }
 const newId = (s: FakeState, prefix: string) => `${prefix}${s.next++}`;
 
 /** The caller's context as a server derives it: never from the client's say-so. */
 export function contextFor(s: FakeState, userId: string | null, roomId: string | null, gameId: string | null, opts: { replay?: boolean; grant?: Grant } = {}): AffordanceContext {
   const room = roomId ? s.rooms[roomId] : undefined;
+  // The game in view: the one named, else the room's current one (cleared when it ends).
   const game = gameId ? s.games[gameId] : room?.gameId ? s.games[room.gameId] : undefined;
   const signedIn = userId !== null && userId in s.users;
   const member = !!room && room.members.some(m => m.userId === userId);
@@ -49,7 +51,7 @@ export function contextFor(s: FakeState, userId: string | null, roomId: string |
     context: !signedIn ? "signedOut" : !room ? "home" : opts.replay ? "replay" : game ? game.phase : "room",
     principal: {
       signedIn, member, owner: !!room && room.ownerId === userId, admin: signedIn && !!s.users[userId!]!.admin,
-      seated: !!game && userId !== null && game.seated.includes(userId) && game.phase !== "ended",
+      seated: !!game && userId !== null && game.seated.includes(userId),
     },
     ...(opts.grant ? { grant: opts.grant } : {}),
   };
@@ -181,7 +183,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   },
   "game.startWorldNow": e => { gameOf(e).phase = "live"; return ok; },
   "game.resume": e => { gameOf(e).phase = "live"; return ok; },
-  "game.end": e => { const g = gameOf(e); g.phase = "ended"; g.endedAt = e.state.now++; return ok; },
+  "game.end": e => {
+    const g = gameOf(e);
+    g.phase = "ended"; g.endedAt = e.state.now++;
+    e.state.rooms[g.roomId]!.gameId = null;
+    return ok;
+  },
   "game.get": e => {
     const g = gameOf(e), seat = g.seated.includes(e.userId);
     return {
@@ -293,21 +300,26 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
 
 /** A fake deployment: perform any server affordance as a user, through the same `runOp` path `defineOp` uses. */
 export function createFake(state: FakeState = emptyState()) {
-  const receipts = memoryReceipts();
+  state.receipts ??= {};
+  const receipts = memoryReceipts(state.receipts);
   return {
     state, receipts,
     addUser(userId: string, name: string, admin = false) { state.users[userId] = { name, ...(admin ? { admin } : {}) }; },
     contextFor: (userId: string | null, roomId: string | null = null, gameId: string | null = null, grant?: Grant) => contextFor(state, userId, roomId, gameId, { grant }),
     async perform(who: { userId: string; roomId?: string | null; gameId?: string | null; grant?: Grant; via?: Via }, id: string, args: unknown): Promise<OpOutcome> {
       if (!isAffordanceId(id)) return { ok: false, error: { code: "unknown", message: `Unknown affordance: ${id}` } };
-      const a = DIRECTORY.find(x => x.id === id)!;
+      const a = AFFORDANCES[id];
       if (a.runs !== "server") return { ok: false, error: { code: "unknown", message: `${id} is a view operation; the human's layout performs it.` } };
       const roomId = who.roomId ?? null, gameId = who.gameId ?? null;
       const handler = FAKE_HANDLERS[id as Extract<AffordanceId, keyof typeof FAKE_HANDLERS>];
-      return runOp(a, handler as never, args, {
+      // A transaction, as a Convex mutation is: a failure leaves the world as it was.
+      const before = structuredClone(state);
+      const out = await runOp(a, handler as never, args, {
         ctx: contextFor(state, who.userId, roomId, gameId, { grant: who.grant }), via: who.via ?? "app",
         callerKey: who.userId, receipts, env: { state, userId: who.userId, roomId, gameId, grant: who.grant },
       });
+      if (!out.ok) Object.assign(state, before);
+      return out;
     },
   };
 }
