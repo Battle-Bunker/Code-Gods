@@ -395,3 +395,4 @@
 .v2v-move-reason { grid-column: 1 / -1; font-size: 11px; color: var(--v2v-muted); font-style: italic; }
 .v2v-plane .inset-label { font-size: 9px; fill: var(--v2v-ink); }
 .v2v-rep[data-size="expanded"] .v2v-plane .inset-label { font-size: 10px; }
+.v2v-summary-held { margin-top: 6px; }

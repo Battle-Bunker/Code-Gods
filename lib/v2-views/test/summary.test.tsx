@@ -81,6 +81,13 @@ test("the component: three short sections, no steps, the noun of the object type
   const gs = summarise({ rule: g, objects: [{ number: 2, state: { cells: [3, 1, 1, 3, 0, 4, 8, 0, 2, 2, 2, 2, 9, 0, 0, 3] }, points: 9, bits: 3, want: 3 }], tugs: [], total: 9 });
   const gt = text(renderToStaticMarkup(<GameSummary summary={gs} rule={g} />));
   assert.match(gt, /Grid 2/);
+  // A held board is drawn in the advice, not written as sixteen digits.
+  const board = { cells: [5, 3, 2, 9, 3, 7, 3, 5, 5, 2, 4, 7, 9, 5, 1, 2] };
+  const hold = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
+  assert.equal(hold.next.text, "Next game, hold grid 22 like this: it was worth 783.27 points to you there.");
+  const hh = renderToStaticMarkup(<GameSummary summary={hold} rule={g} />);
+  assert.match(hh, /data-testid="text-summary-next"[\s\S]*class="v2v-grid"/, "the board drawn in the advice");
+  assert.doesNotMatch(text(hh), /5 3 2 9 \//);
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
