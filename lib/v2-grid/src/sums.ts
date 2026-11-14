@@ -5,7 +5,7 @@
  * rule itself, and checks the additivity on boards drawn from the law before using it.
  */
 import { gridParams } from "./grid.ts";
-import { boxes, pairs, rows } from "./units.ts";
+import { boxes, foldLine, folds, pairs, rows } from "./units.ts";
 import type { Variant } from "@workspace/v2-core";
 
 export interface GridSums {
@@ -15,11 +15,19 @@ export interface GridSums {
 
 const cells = (v: Variant) => Array.from({ length: gridParams(v).size ** 2 }, (_, i) => [i]);
 
+/**
+ * The plans, by family id. Spread of Three reads overlapping windows and has none: it is sampled (owner decision 22).
+ */
 export const gridSums: Readonly<Record<string, GridSums>> = {
-  "row-totals": { units: v => rows(gridParams(v).size) },
-  "opposite-pairs": { units: v => pairs(gridParams(v).size) },
-  "mirror-rows": { units: v => rows(gridParams(v).size) },
+  "mirrormancer": { units: v => rows(gridParams(v).size) },
+  "magic-eighteen": { units: v => rows(gridParams(v).size) },
+  "opposite-nines": { units: v => pairs(gridParams(v).size) },
+  "two-pair": { units: v => boxes(gridParams(v).size) },
+  "strangers": { units: v => boxes(gridParams(v).size) },
+  "leapfrog": { units: v => rows(gridParams(v).size) },
+  "crosswise-threes": { units: v => { const n = gridParams(v).size; return [...folds(n), ...foldLine(n).map(i => [i])]; } },
   "steady-steps": { units: v => rows(gridParams(v).size) },
   "box-totals": { units: v => boxes(gridParams(v).size) },
   "prime-cells": { units: cells },
 };
+

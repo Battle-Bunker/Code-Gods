@@ -1,15 +1,13 @@
 {
  "schema": 5,
- "ruleKey": "grid@1/grid-4-d10#76e049325923b745/row-totals/{\"T\":12}/tb=primes",
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/two-pair/{}/tb=corners",
  "objectType": "grid",
  "objectTypeVersion": 1,
  "variant": "grid-4-d10",
  "variantHash": "76e049325923b745",
- "family": "row-totals",
- "params": {
-  "T": 12
- },
- "tieBreaker": "primes",
+ "family": "two-pair",
+ "params": {},
+ "tieBreaker": "corners",
  "seed": "v2",
  "config": {
   "computeBudget": 32000000,
@@ -38,36 +36,36 @@
   {
    "score": [
     null,
-    "6"
+    "8"
    ],
-   "label": "anything; prime numbers at least 6",
+   "label": "anything; the corners at least 8",
    "layer": 1,
    "main": 0,
-   "bits": 0.7539,
+   "bits": 0.0673,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     null,
-    "10"
+    "12"
    ],
-   "label": "anything; prime numbers at least 10",
+   "label": "anything; the corners at least 12",
    "layer": 1,
    "main": 0,
-   "bits": 1.5847,
+   "bits": 0.1255,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     null,
-    "11"
+    "14"
    ],
-   "label": "anything; prime numbers at least 11",
+   "label": "anything; the corners at least 14",
    "layer": 1,
    "main": 0,
-   "bits": 1.6027,
+   "bits": 0.151,
    "error": 0,
    "source": "exact"
   },
@@ -75,46 +73,46 @@
    "score": [
     "-16"
    ],
-   "label": "the rows' totals off by at most 16 in all",
+   "label": "the boxes' gaps from two pairs off by at most 16 in all",
    "layer": 0,
    "main": 1,
-   "bits": 1.6071,
+   "bits": 0.2054,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-16",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 16 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 8",
    "layer": 1,
    "main": 1,
-   "bits": 2.0073,
+   "bits": 0.4174,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-16",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 16 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 12",
    "layer": 1,
    "main": 1,
-   "bits": 2.8684,
+   "bits": 0.603,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-16",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 16 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 14",
    "layer": 1,
    "main": 1,
-   "bits": 2.9148,
+   "bits": 0.6786,
    "error": 0,
    "source": "exact"
   },
@@ -122,46 +120,46 @@
    "score": [
     "-12"
    ],
-   "label": "the rows' totals off by at most 12 in all",
+   "label": "the boxes' gaps from two pairs off by at most 12 in all",
    "layer": 0,
    "main": 2,
-   "bits": 2.931,
+   "bits": 0.7998,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-12",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 12 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 8",
    "layer": 1,
    "main": 2,
-   "bits": 3.3673,
+   "bits": 1.3465,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-12",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 12 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 12",
    "layer": 1,
    "main": 2,
-   "bits": 4.7999,
+   "bits": 1.8706,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-12",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 12 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 14",
    "layer": 1,
    "main": 2,
-   "bits": 4.9416,
+   "bits": 2.0762,
    "error": 0,
    "source": "exact"
   },
@@ -169,46 +167,46 @@
    "score": [
     "-8"
    ],
-   "label": "the rows' totals off by at most 8 in all",
+   "label": "the boxes' gaps from two pairs off by at most 8 in all",
    "layer": 0,
    "main": 3,
-   "bits": 5.0062,
+   "bits": 2.3296,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-8",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 8 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 8",
    "layer": 1,
    "main": 3,
-   "bits": 5.3235,
+   "bits": 2.9649,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-8",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 8 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 12",
    "layer": 1,
    "main": 3,
-   "bits": 6.3346,
+   "bits": 3.4688,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-8",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 8 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 14",
    "layer": 1,
    "main": 3,
-   "bits": 6.4364,
+   "bits": 3.6168,
    "error": 0,
    "source": "exact"
   },
@@ -216,46 +214,46 @@
    "score": [
     "-6"
    ],
-   "label": "the rows' totals off by at most 6 in all",
+   "label": "the boxes' gaps from two pairs off by at most 6 in all",
    "layer": 0,
    "main": 4,
-   "bits": 6.4881,
+   "bits": 3.7439,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-6",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 6 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 8",
    "layer": 1,
    "main": 4,
-   "bits": 6.8464,
+   "bits": 4.7407,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-6",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 6 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 12",
    "layer": 1,
    "main": 4,
-   "bits": 8.2145,
+   "bits": 5.5376,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-6",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 6 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 14",
    "layer": 1,
    "main": 4,
-   "bits": 8.3905,
+   "bits": 5.7603,
    "error": 0,
    "source": "exact"
   },
@@ -263,46 +261,46 @@
    "score": [
     "-4"
    ],
-   "label": "the rows' totals off by at most 4 in all",
+   "label": "the boxes' gaps from two pairs off by at most 4 in all",
    "layer": 0,
    "main": 5,
-   "bits": 8.4892,
+   "bits": 5.9319,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-4",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 4 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 8",
    "layer": 1,
    "main": 5,
-   "bits": 8.7573,
+   "bits": 6.8081,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-4",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 4 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 12",
    "layer": 1,
    "main": 5,
-   "bits": 9.6534,
+   "bits": 7.2989,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-4",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 4 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 14",
    "layer": 1,
    "main": 5,
-   "bits": 9.7512,
+   "bits": 7.4012,
    "error": 0,
    "source": "exact"
   },
@@ -310,46 +308,46 @@
    "score": [
     "-3"
    ],
-   "label": "the rows' totals off by at most 3 in all",
+   "label": "the boxes' gaps from two pairs off by at most 3 in all",
    "layer": 0,
    "main": 6,
-   "bits": 9.8055,
+   "bits": 7.467,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-3",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 3 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 8",
    "layer": 1,
    "main": 6,
-   "bits": 10.1095,
+   "bits": 8.5835,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-3",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 3 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 12",
    "layer": 1,
    "main": 6,
-   "bits": 11.2405,
+   "bits": 9.2175,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-3",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 3 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 14",
    "layer": 1,
    "main": 6,
-   "bits": 11.3805,
+   "bits": 9.349,
    "error": 0,
    "source": "exact"
   },
@@ -357,46 +355,46 @@
    "score": [
     "-2"
    ],
-   "label": "the rows' totals off by at most 2 in all",
+   "label": "the boxes' gaps from two pairs off by at most 2 in all",
    "layer": 0,
    "main": 7,
-   "bits": 11.4615,
+   "bits": 9.4307,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-2",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 2 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 8",
    "layer": 1,
    "main": 7,
-   "bits": 11.8086,
+   "bits": 10.8419,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-2",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 2 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 12",
    "layer": 1,
    "main": 7,
-   "bits": 13.2943,
+   "bits": 11.705,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-2",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 2 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 14",
    "layer": 1,
    "main": 7,
-   "bits": 13.5155,
+   "bits": 11.8927,
    "error": 0,
    "source": "exact"
   },
@@ -404,46 +402,46 @@
    "score": [
     "-1"
    ],
-   "label": "the rows' totals off by at most 1 in all",
+   "label": "the boxes' gaps from two pairs off by at most 1 in all",
    "layer": 0,
    "main": 8,
-   "bits": 13.6518,
+   "bits": 12.0087,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-1",
-    "6"
+    "8"
    ],
-   "label": "the rows' totals off by at most 1 in all; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 8",
    "layer": 1,
    "main": 8,
-   "bits": 14.0481,
+   "bits": 13.7816,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-1",
-    "10"
+    "12"
    ],
-   "label": "the rows' totals off by at most 1 in all; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 12",
    "layer": 1,
    "main": 8,
-   "bits": 16.1061,
+   "bits": 15.0762,
    "error": 0,
    "source": "exact"
   },
   {
    "score": [
     "-1",
-    "11"
+    "14"
    ],
-   "label": "the rows' totals off by at most 1 in all; prime numbers at least 11",
+   "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 14",
    "layer": 1,
    "main": 8,
-   "bits": 16.5261,
+   "bits": 15.4105,
    "error": 0,
    "source": "exact"
   },
@@ -451,22 +449,10 @@
    "score": [
     "0"
    ],
-   "label": "the rows' totals exactly",
+   "label": "the boxes' gaps from two pairs exactly",
    "layer": 0,
    "main": 9,
-   "bits": 16.8241,
-   "error": 0,
-   "source": "exact"
-  },
-  {
-   "score": [
-    "0",
-    "5"
-   ],
-   "label": "the rows' totals exactly; prime numbers at least 5",
-   "layer": 1,
-   "main": 9,
-   "bits": 17.0132,
+   "bits": 15.6289,
    "error": 0,
    "source": "exact"
   },
@@ -475,10 +461,10 @@
     "0",
     "6"
    ],
-   "label": "the rows' totals exactly; prime numbers at least 6",
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 6",
    "layer": 1,
    "main": 9,
-   "bits": 17.2736,
+   "bits": 16.8899,
    "error": 0,
    "source": "exact"
   },
@@ -487,10 +473,10 @@
     "0",
     "8"
    ],
-   "label": "the rows' totals exactly; prime numbers at least 8",
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 8",
    "layer": 1,
    "main": 9,
-   "bits": 18.3663,
+   "bits": 17.8563,
    "error": 0,
    "source": "exact"
   },
@@ -499,22 +485,10 @@
     "0",
     "10"
    ],
-   "label": "the rows' totals exactly; prime numbers at least 10",
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 10",
    "layer": 1,
    "main": 9,
-   "bits": 20.4349,
-   "error": 0,
-   "source": "exact"
-  },
-  {
-   "score": [
-    "0",
-    "11"
-   ],
-   "label": "the rows' totals exactly; prime numbers at least 11",
-   "layer": 1,
-   "main": 9,
-   "bits": 21.9103,
+   "bits": 19.0255,
    "error": 0,
    "source": "exact"
   },
@@ -523,10 +497,34 @@
     "0",
     "12"
    ],
-   "label": "the rows' totals exactly; prime numbers at least 12",
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 12",
    "layer": 1,
    "main": 9,
-   "bits": 23.7344,
+   "bits": 20.3845,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "14"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 14",
+   "layer": 1,
+   "main": 9,
+   "bits": 21.9199,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "16"
+   ],
+   "label": "the boxes' gaps from two pairs exactly; the corners at least 16",
+   "layer": 1,
+   "main": 9,
+   "bits": 23.6178,
    "error": 0,
    "source": "exact"
   }
@@ -586,96 +584,96 @@
    ],
    "lo": [
     0,
-    0.7539,
-    1.5847,
-    1.6027,
-    1.6071,
-    2.0073,
-    2.8684,
-    2.9148,
-    2.931,
-    3.3673,
-    4.7999,
-    4.9416,
-    5.0062,
-    5.3235,
-    6.3346,
-    6.4364,
-    6.4881,
-    6.8464,
-    8.2145,
-    8.3905,
-    8.4892,
-    8.7573,
-    9.6534,
-    9.7512,
-    9.8055,
-    10.1095,
-    11.2405,
-    11.3805,
-    11.4615,
-    11.8086,
-    13.2943,
-    13.5155,
-    13.6518,
-    14.0481,
-    16.1061,
-    16.5261,
-    16.8241,
-    17.0132,
-    17.2736,
-    18.3663,
-    20.4349,
-    21.9103,
-    23.7344
+    0.0673,
+    0.1255,
+    0.151,
+    0.2054,
+    0.4174,
+    0.603,
+    0.6786,
+    0.7998,
+    1.3465,
+    1.8706,
+    2.0762,
+    2.3296,
+    2.9649,
+    3.4688,
+    3.6168,
+    3.7439,
+    4.7407,
+    5.5376,
+    5.7603,
+    5.9319,
+    6.8081,
+    7.2989,
+    7.4012,
+    7.467,
+    8.5835,
+    9.2175,
+    9.349,
+    9.4307,
+    10.8419,
+    11.705,
+    11.8927,
+    12.0087,
+    13.7816,
+    15.0762,
+    15.4105,
+    15.6289,
+    16.8899,
+    17.8563,
+    19.0255,
+    20.3845,
+    21.9199,
+    23.6178
    ],
    "hi": [
     0,
-    0.7539,
-    1.5847,
-    1.6027,
-    1.6071,
-    2.0073,
-    2.8684,
-    2.9148,
-    2.931,
-    3.3673,
-    4.7999,
-    4.9416,
-    5.0062,
-    5.3235,
-    6.3346,
-    6.4364,
-    6.4881,
-    6.8464,
-    8.2145,
-    8.3905,
-    8.4892,
-    8.7573,
-    9.6534,
-    9.7512,
-    9.8055,
-    10.1095,
-    11.2405,
-    11.3805,
-    11.4615,
-    11.8086,
-    13.2943,
-    13.5155,
-    13.6518,
-    14.0481,
-    16.1061,
-    16.5261,
-    16.8241,
-    17.0132,
-    17.2736,
-    18.3663,
-    20.4349,
-    21.9103,
-    23.7344
+    0.0673,
+    0.1255,
+    0.151,
+    0.2054,
+    0.4174,
+    0.603,
+    0.6786,
+    0.7998,
+    1.3465,
+    1.8706,
+    2.0762,
+    2.3296,
+    2.9649,
+    3.4688,
+    3.6168,
+    3.7439,
+    4.7407,
+    5.5376,
+    5.7603,
+    5.9319,
+    6.8081,
+    7.2989,
+    7.4012,
+    7.467,
+    8.5835,
+    9.2175,
+    9.349,
+    9.4307,
+    10.8419,
+    11.705,
+    11.8927,
+    12.0087,
+    13.7816,
+    15.0762,
+    15.4105,
+    15.6289,
+    16.8899,
+    17.8563,
+    19.0255,
+    20.3845,
+    21.9199,
+    23.6178
    ]
   },
   "simulation": null
  },
- "contentHash": "49ba971e257992c8"
+ "contentHash": "0cbbe39166a951fa"
 }

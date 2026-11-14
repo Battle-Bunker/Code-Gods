@@ -1,11 +1,11 @@
 {
  "schema": 5,
- "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-pairs/{\"T\":9}/tb=primes",
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/opposite-nines/{\"T\":9}/tb=primes",
  "objectType": "grid",
  "objectTypeVersion": 1,
  "variant": "grid-4-d10",
  "variantHash": "76e049325923b745",
- "family": "opposite-pairs",
+ "family": "opposite-nines",
  "params": {
   "T": 9
  },
@@ -559,5 +559,5 @@
   },
   "simulation": null
  },
- "contentHash": "591339d06cd89c37"
+ "contentHash": "32f3de4ea9c0b8e3"
 }
