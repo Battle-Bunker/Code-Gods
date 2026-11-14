@@ -15,6 +15,7 @@ import { Migrations } from "@convex-dev/migrations";
 import type { FunctionReference } from "convex/server";
 import { components, internal } from "./_generated/api";
 import { v } from "convex/values";
+import { newNoiseKey, noiseAt, shownAt } from "./v2/disclose";
 import type { DataModel } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
 
@@ -39,9 +40,32 @@ export const stripRuleLadders = migrations.define({
   table: "v2Rules",
   migrateOne: (_ctx, r) => (r.ladder === undefined ? undefined : { ladder: undefined }),
 });
+/**
+ * Disclosure noise restored (v1's peerNoiseBits; v2/disclose.ts): a game not yet ended gets its private noise key. An
+ * ended game needs none (its reads are exact). `noiseKey` stays optional: games ended before it have none.
+ */
+export const noiseKeys = migrations.define({
+  table: "v2Games",
+  migrateOne: (_ctx, g) => (g.phase === "ended" || g.noiseKey ? undefined : { noiseKey: newNoiseKey() }),
+});
+/**
+ * A value row of a game not yet ended gets its disclosed fields (the others' sum at its state's noise), so the live
+ * sorts and reads disclose. Ended games' rows are read exact and keep none (the fields stay optional).
+ */
+export const shownValues = migrations.define({
+  table: "v2ObjectValues",
+  migrateOne: async (ctx, r) => {
+    if (r.shownWant !== undefined) return;
+    const game = await ctx.db.get(r.gameId);
+    if (!game || game.phase === "ended") return;
+    const state = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", r.objectId)).unique();
+    if (!state) return;
+    return shownAt(r, noiseAt(game, state.state));
+  },
+});
 
 /** Every pending component migration, in order. Append new ones at the end; one leaves when it is narrowed. */
-const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.stripLevels, internal.migrations.stripObjectLevels, internal.migrations.stripRuleLadders];
+const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.stripLevels, internal.migrations.stripObjectLevels, internal.migrations.stripRuleLadders, internal.migrations.noiseKeys, internal.migrations.shownValues];
 
 /** Starts RUN_ALL in order (a migration already done is skipped); `reset: true` runs them again (the tests). */
 export const runAll = internalMutation({

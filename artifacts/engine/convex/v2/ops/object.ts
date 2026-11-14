@@ -2,6 +2,7 @@
 import { defineOp, inGame, seated } from "./define";
 import { ask, hostFor, objectIn } from "../reads.ts";
 import { encode, scopeOf, valueOf } from "../world.ts";
+import { disclosed } from "../disclose.ts";
 import type { Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 
@@ -46,5 +47,5 @@ export const { op: score, as: scoreAs } = defineOp("object.score", "query", asyn
   const s = ask(await hostFor(env.ctx, game, member, state), { op: "myScore" });
   const value = await env.ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
   // The utility and its bits as the commit valued them (decision 23); the terms are the host's.
-  return { score: value?.score ?? null, terms: s.terms, number: object.number, bits: value?.rarityBits ?? 0, points: value?.points ?? 0 };
+  return { score: value?.score ?? null, terms: s.terms, number: object.number, bits: value?.rarityBits ?? 0, points: value ? disclosed(game, value).points : 0 };
 });

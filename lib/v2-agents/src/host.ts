@@ -82,7 +82,7 @@ export interface HostInput<S> {
   /**
    * Disclosure noise on the others' sum while a game is live (v1's public-log design §5.2): the noise at a state (as the
    * type encodes it), a keyed function of the state alone, so repeats cannot average it away. `othersAfter` reports
-   * max(0, exact + noise); 0 or absent is exact.
+   * exact + noise, unclamped as v1 disclosed it (only points clamp: own × max(0, others)); 0 or absent is exact.
    */
   readonly disclosed?: (encoded: string) => number;
 }
@@ -198,7 +198,8 @@ export class EngineHost<S> implements AgentHost {
         if (!this.others?.length) return err("this game does not say what lines are worth to the others");
         const priced = this.price(request.calls);
         const exact = (s: S) => this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, s, this.variant, o.tieBreaker).score).bits, 0);
-        const total = (s: S) => Math.max(0, exact(s) + (this.input.disclosed?.(this.type.encode(s)) ?? 0));
+        // As v1 disclosed it (public-log-design §2): others = exact + noise, unclamped; only points clamp at 0.
+        const total = (s: S) => exact(s) + (this.input.disclosed?.(this.type.encode(s)) ?? 0);
         // The others' totals and nothing else: a failure scoring another player's rule must not name it in its message.
         let before: number, after: number | null;
         try { before = total(this.state); after = priced.valid ? total(priced.result) : null; }

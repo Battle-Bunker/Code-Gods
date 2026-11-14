@@ -128,13 +128,20 @@ test("ready: the world starts when every human is ready", async () => {
     assert.ok(i < 60, "the own store accrues while the world runs, read as of now");
     await new Promise(r => setTimeout(r, 500));
   }
-  assert.equal((await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 100, cursor: null } })).page.length, 24);
+  // The 24 starting objects, born at world second 0 (a slow first tick may already have added a birth).
+  const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  const born = await Promise.all(ids.map((o: any) => ada!.query("v2/spectate:object", { objectId: o.objectId })));
+  assert.equal(born.filter((o: any) => o.bornAt === 0).length, 24);
 });
 
 test("reads: a representation, an element, a quote and a score, as an agent is told them", async () => {
-  const [first] = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 1, cursor: null } })).page;
-  const objectId = first.objectId;
-  const si = await perform(ada!, "object.read", { objectId, rep: "si" }, scope(), "query");
+  // A line with a gradient (y = mx + c reads it; a vertical line has no m): the newest few, the first that reads.
+  const newest = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 10, cursor: null } })).page;
+  let objectId = "", si: any = null;
+  for (const o of newest) {
+    si = await perform(ada!, "object.read", { objectId: o.objectId, rep: "si" }, scope(), "query");
+    if (si.ok && si.result.elements.m) { objectId = o.objectId; break; }
+  }
   assert.equal(si.ok, true, JSON.stringify(si));
   assert.ok(si.result.elements.m && si.result.bits > 0);
   const c = await perform(ada!, "object.element", { objectId, rep: "si", name: "c" }, scope(), "query");

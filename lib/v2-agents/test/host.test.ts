@@ -137,7 +137,7 @@ test("unique objects: a plan onto a state another object holds is not allowed, s
   assert.equal(down.valid, true);
 });
 
-test("disclosure noise: othersAfter reports the others' sum plus the noise at each state, never below 0", () => {
+test("disclosure noise: othersAfter reports the others' sum plus the noise at each state, unclamped as v1 disclosed it", () => {
   const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
   const others = [{ rule: other, values: findValues("line-z", other)! }];
   const at = { lines: [fromMC(q(7), q(3))] }, next = lineType.encode({ lines: [fromMC(q(7), q(4))] });
@@ -151,5 +151,6 @@ test("disclosure noise: othersAfter reports the others' sum plus the noise at ea
   assert.ok(exact.before > 0 && exact.after > 0);
   const noisy = ask(e => (e === next ? 2.5 : -1));
   assert.deepEqual([noisy.before, noisy.after], [exact.before - 1, exact.after + 2.5], "the noise at the state before and at the state after");
-  assert.deepEqual(ask(() => -1e6), { before: 0, after: 0 }, "never below 0");
+  // v1 (public-log-design §2): others = Σ + noise, unclamped; the server's disclosed want is the same number.
+  assert.deepEqual(ask(() => -1e6), { before: exact.before - 1e6, after: exact.after - 1e6 }, "the noisy sum as disclosed, below 0 too");
 });

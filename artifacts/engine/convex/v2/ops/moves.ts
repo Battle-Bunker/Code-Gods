@@ -1,4 +1,5 @@
 /** `moves.list`: moves that concern the caller (the act log, plan §2.3). */
+import { disclosed } from "../disclose";
 import { defineOp, seated } from "./define";
 import { pageOf } from "./paging";
 
@@ -9,7 +10,7 @@ export const { op: list, as: listAs } = defineOp("moves.list", "query", async (e
     page: page.page.map(m => ({
       seq: m.seq, objectId: m.objectId, number: m.number, agentId: m.agentId ?? null, mine: m.mine,
       calls: m.calls.map(c => ({ mutator: c.mutator, args: c.args, site: c.site })),
-      pointsBefore: m.before.points, pointsAfter: m.after.points, charge: m.charge ?? null,
+      pointsBefore: disclosed(game, m.before).points, pointsAfter: disclosed(game, m.after).points, charge: m.charge ?? null,
     })),
     nextCursor: page.isDone ? null : page.continueCursor,
   };

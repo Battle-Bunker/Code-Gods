@@ -35,7 +35,9 @@ export const valueSnapV = v.object({ score: scoreWireV, rarityBits: v.number(), 
  * still carry a level, a rule its ladder. Narrowed in a later PR once dev and production report the migration done.
  */
 const legacyLevel = v.optional(v.number());
-const storedValueSnapV = v.object({ score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number() });
+/** `shownWant`/`shownPoints`: as disclosed while live (disclose.ts); absent on rows written before the noise was restored. */
+const shownFields = { shownWant: v.optional(v.number()), shownPoints: v.optional(v.number()) };
+const storedValueSnapV = v.object({ score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(), ...shownFields });
 const legacyLadder = v.optional(v.array(v.object({ level: v.number(), label: v.string(), rarityBits: v.number(), layer: v.optional(v.string()) })));
 export const bidV = v.object({ family: v.string(), percent: v.number() });
 /** A family on offer in the bid phase, as a player judges it: its card and the most ✨ bits its rules reach. */
@@ -90,7 +92,11 @@ export const v2Tables = {
       minPlayers: v.number(),
       economy: v.object({ powerPerSecond: v.number(), fullChargeSeconds: v.number(), opportunitiesPerSecond: v.number(), birthsPerSecond: v.number() }),
       bid: v.optional(v.object({ pricing: v.union(v.literal("first"), v.literal("second")), disclosure: v.union(v.literal("none"), v.literal("handicaps"), v.literal("all")) })),
+      /** σ of the disclosure noise on the others' sums while live (disclose.ts; absent: the default, 8). */
+      peerNoiseBits: v.optional(v.number()),
     }),
+    /** PRIVATE: the key of the game's disclosure noise (disclose.ts). Never returned while live. */
+    noiseKey: v.optional(v.string()),
     roster: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), kind: memberKindV })),
     createdAt: v.number(),
     /** Wall-clock deadlines: planning's end, and the world's end (null while paused; recomputed on resume). */
@@ -123,6 +129,8 @@ export const v2Tables = {
     events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
     /** Each player's running points total (hot, so it lives here and not on any document a query reads). */
     totals: v.record(v.string(), v.number()),
+    /** The same totals from the disclosed points (what the published standings show while live). */
+    shownTotals: v.optional(v.record(v.string(), v.number())),
   }).index("by_game", ["gameId"]),
 
   /** A player's dealt rule (private to that player): `{family, params, layers}` and its card (its value: values.ts). */
@@ -161,7 +169,7 @@ export const v2Tables = {
    */
   v2ObjectValues: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), memberId: v.id("v2Members"), number: v.number(),
-    score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(),
+    score: scoreWireV, level: legacyLevel, rarityBits: v.number(), want: v.number(), points: v.number(), ...shownFields,
     version: v.number(), changedAt: v.number(),
     /** The last moves on it that concerned this player (at most HISTORY, oldest first): their agents' `history`. */
     recent: v.optional(v.array(v.object({ mine: v.boolean(), pointsBefore: v.number(), pointsAfter: v.number() }))),
@@ -169,6 +177,9 @@ export const v2Tables = {
     .index("by_game_member_points", ["gameId", "memberId", "points"])
     .index("by_game_member_rarity", ["gameId", "memberId", "rarityBits"])
     .index("by_game_member_want", ["gameId", "memberId", "want"])
+    // The live sorts read the disclosed values (a sort on the exact ones would leak their order).
+    .index("by_game_member_shownPoints", ["gameId", "memberId", "shownPoints"])
+    .index("by_game_member_shownWant", ["gameId", "memberId", "shownWant"])
     .index("by_game_member_born", ["gameId", "memberId", "number"])
     .index("by_game_member_changed", ["gameId", "memberId", "changedAt"]),
 

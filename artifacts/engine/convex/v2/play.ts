@@ -18,6 +18,7 @@ import {
   agentEnergyV, agentProgramsV, agentRowV, digestV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
+import { disclosed, disclosesNoise, noiseAt } from "./disclose";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -59,6 +60,9 @@ const SORT_INDEX = {
   points: "by_game_member_points", rarity: "by_game_member_rarity", want: "by_game_member_want",
   born: "by_game_member_born", recent: "by_game_member_changed",
 } as const;
+/** While live, the sorts on the others' sum and on points read the disclosed values (the exact order would leak). */
+const LIVE_SORT_INDEX = { ...SORT_INDEX, points: "by_game_member_shownPoints", want: "by_game_member_shownWant" } as const;
+export const sortIndexOf = (game: Parameters<typeof disclosesNoise>[0], sort: keyof typeof SORT_INDEX) => (disclosesNoise(game) ? LIVE_SORT_INDEX : SORT_INDEX)[sort];
 
 /** The objects skeleton: a page of object ids in the caller's order; each row subscribes to `object`. */
 export const objectIds = query({
@@ -66,14 +70,16 @@ export const objectIds = query({
   returns: objectIdsV,
   handler: async (ctx, { gameId, sort, paginationOpts }) => {
     const { game, member } = await requireSeat(ctx, gameId);
-    const page = await ctx.db.query("v2ObjectValues").withIndex(SORT_INDEX[sort], q => q.eq("gameId", game._id).eq("memberId", member._id))
+    const page = await ctx.db.query("v2ObjectValues").withIndex(sortIndexOf(game, sort), q => q.eq("gameId", game._id).eq("memberId", member._id))
       .order("desc").paginate(pageOpts(paginationOpts));
     return { ...page, page: page.page.map(r => ({ objectId: r.objectId, number: r.number })) };
   },
 });
 
 /** A move's value snapshot without a level stored before decision 23 (migrations:stripLevels). */
-const snap = ({ score, rarityBits, want, points }: { score: (string | null)[] | null; rarityBits: number; want: number; points: number }) => ({ score, rarityBits, want, points });
+/** A move's value snapshot as a read discloses it (disclose.ts: the noisy others' sum while live, exact after). */
+const snapIn = (game: Parameters<typeof disclosed>[0]) => (s: { score: (string | null)[] | null; rarityBits: number; want: number; points: number; shownWant?: number; shownPoints?: number }) =>
+  ({ score: s.score, rarityBits: s.rarityBits, ...disclosed(game, s) });
 
 /** An object and its state; sign-in first, so a signed-out caller learns nothing, not even whether it exists. */
 export async function objectAndState(ctx: QueryCtx, objectId: string) {
@@ -92,11 +98,12 @@ export const object = query({
   returns: playObjectV,
   handler: async (ctx, { objectId }) => {
     const { object, state } = await objectAndState(ctx, objectId);
-    const { member } = await requireGameMember(ctx, object.gameId);
+    const { game, member } = await requireGameMember(ctx, object.gameId);
     const value = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
     return {
       objectId: object._id, number: object.number, bornAt: object.bornAt, state: state.state, version: state.version, changedAt: state.changedAt,
-      value: value ? { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points, version: value.version } : null,
+      // The others' sum and the points as disclosed while live (disclose.ts), exact after the end.
+      value: value ? { score: value.score, rarityBits: value.rarityBits, ...disclosed(game, value), version: value.version } : null,
     };
   },
 });
@@ -162,7 +169,7 @@ export const moves = query({
       ...page,
       page: page.page.map(m => ({
         seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: m.agentId ?? null, mine: m.mine,
-        calls: m.calls, rep: m.rep, stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snap(m.before), after: snap(m.after), charge: m.charge ?? null,
+        calls: m.calls, rep: m.rep, stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: snapIn(game)(m.before), after: snapIn(game)(m.after), charge: m.charge ?? null,
         by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
         notes: m.notes ?? [],
       })),
@@ -228,7 +235,9 @@ export const othersAt = query({
       const r = applyCall(type, variant, now, call);
       if (isInvalid(r)) { after.push(null); continue; }
       const wire = encode(r.result, game.variant);
-      const want = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
+      const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
+      // The others' sum at the candidate as disclosed while live: the noise of that state (disclose.ts).
+      const want = exact + (disclosesNoise(game) ? noiseAt(game, wire) : 0);
       // Objects are unique: a candidate onto a state another object holds is not available (its number says which).
       const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
       const holder = holders.find(h => h.objectId !== object._id);
@@ -263,8 +272,9 @@ export const objectMoves = query({
       .order("desc").take(MAX_OBJECT_MOVES);
     return rows.map(m => ({
       seq: m.seq, number: m.number, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, mine: m.mine,
-      before: { rarityBits: m.before.rarityBits, want: m.before.want, points: m.before.points },
-      after: { rarityBits: m.after.rarityBits, want: m.after.want, points: m.after.points },
+      // The others' sum and the points as disclosed while live (disclose.ts), exact after the end.
+      before: { rarityBits: m.before.rarityBits, ...disclosed(game, m.before) },
+      after: { rarityBits: m.after.rarityBits, ...disclosed(game, m.after) },
       // Live, another player's move is unattributed (v1's public log, #587): only an ended game names who moved it.
       by: m.by && (m.mine || game.phase === "ended") ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
     }));

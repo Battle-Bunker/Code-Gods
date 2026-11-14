@@ -11,7 +11,8 @@ import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value } from "./world.ts";
+import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
+import { disclosesNoise, noiseAt, shownAt } from "./disclose.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -29,6 +30,7 @@ const CONCERN = 0.05;
 
 const BUILD_REPLAY = makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replayBuild:build");
 const TICK = makeFunctionReference<"action", { gameId: Id<"v2Games">; leaseId: string }>("v2/tick:tick");
+const EXACT_DIGEST = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; memberId: Id<"v2Members"> }>("v2/loop:exactDigest");
 
 // ---------------------------------------------------------------- reading the game
 
@@ -77,13 +79,21 @@ async function holderOf(ctx: MutationCtx, gameId: Id<"v2Games">, state: string, 
   return null;
 }
 
+/** A player's value of a state, exact and as disclosed while live (disclose.ts: the state's noise on the others' sum). */
+type Value = ExactValue & { shownWant: number; shownPoints: number };
+function valuesAt(game: Doc<"v2Games">, seats: SeatRule[], wire: string): Value[] {
+  const noise = noiseAt(game, wire);
+  return valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects).map(v => ({ ...v, ...shownAt(v, noise) }));
+}
+const shownOf = (v: Value) => ({ shownWant: v.shownWant, shownPoints: v.shownPoints });
+
 /** Writes a new object's state and every player's value; returns the values. */
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {
   const objectId = await ctx.db.insert("v2Objects", { gameId: game._id, number, bornAt: world });
   await ctx.db.insert("v2ObjectStates", { objectId, gameId: game._id, state: wire, version: 1, changedAt: world });
-  const values = valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects);
+  const values = valuesAt(game, seats, wire);
   for (const val of values)
-    await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: 1, changedAt: world });
+    await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val), version: 1, changedAt: world });
   return { objectId, values };
 }
 
@@ -97,14 +107,16 @@ const concerns = (mine: boolean, was: number, now: number) => mine || Math.abs(n
 async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, wire: string, world: number, mover: string) {
   const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
   await ctx.db.patch(st._id, { state: wire, version: st.version + 1, changedAt: world });
-  const after = valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects);
+  const after = valuesAt(game, seats, wire);
   const before = new Map<string, Value>();
   for (const val of after) {
     const row = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique())!;
-    before.set(val.memberId, { memberId: val.memberId, score: row.score, rarityBits: row.rarityBits, want: row.want, points: row.points });
+    // A row written before the noise was restored has no shown fields: its disclosed values were the exact ones.
+    before.set(val.memberId, { memberId: val.memberId, score: row.score, rarityBits: row.rarityBits, want: row.want, points: row.points, shownWant: row.shownWant ?? row.want, shownPoints: row.shownPoints ?? row.points });
     const mine = val.memberId === mover;
-    const recent = concerns(mine, row.points, val.points) ? [...(row.recent ?? []), { mine, pointsBefore: row.points, pointsAfter: val.points }].slice(-HISTORY) : undefined;
-    await ctx.db.patch(row._id, { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: row.version + 1, changedAt: world, ...(recent ? { recent } : {}) });
+    // An agent's history is what its owner was shown: the disclosed points.
+    const recent = concerns(mine, row.points, val.points) ? [...(row.recent ?? []), { mine, pointsBefore: row.shownPoints ?? row.points, pointsAfter: val.shownPoints }].slice(-HISTORY) : undefined;
+    await ctx.db.patch(row._id, { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val), version: row.version + 1, changedAt: world, ...(recent ? { recent } : {}) });
   }
   return { before, after, stateBefore: st.state };
 }
@@ -136,9 +148,9 @@ async function foldTugs(ctx: MutationCtx, gameId: Id<"v2Games">, moves: readonly
 async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: { number: number; values: Value[]; before?: Map<string, Value> }[]) {
   if (changes.length === 0) return;
   const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
-  const engine = await engineOf(ctx, gameId), totals = { ...engine.totals };
+  const engine = await engineOf(ctx, gameId), totals = { ...engine.totals }, shownTotals = { ...(engine.shownTotals ?? engine.totals) };
   for (const p of players) {
-    let delta = 0, touched = false;
+    let delta = 0, shownDelta = 0, touched = false;
     const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", p.memberId)).unique();
     const packed = digest ? [...digest.packed] : [];
     for (const c of changes) {
@@ -146,20 +158,27 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
       if (!now) continue;
       touched = true;
       delta += now.points - (c.before?.get(p.memberId)?.points ?? 0);
+      shownDelta += now.shownPoints - (c.before?.get(p.memberId)?.shownPoints ?? 0);
       const at = 3 * (c.number - 1);
       while (packed.length < at) packed.push(0);
-      packed.splice(at, 3, c.number, now.rarityBits, now.want);
+      // The scatter shows the others' sum as disclosed while live (exact again at the end: exactDigest).
+      packed.splice(at, 3, c.number, now.rarityBits, now.shownWant);
     }
     if (!touched) continue;
     totals[p.memberId] = (totals[p.memberId] ?? 0) + delta;
+    shownTotals[p.memberId] = (shownTotals[p.memberId] ?? 0) + shownDelta;
     if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
     else await ctx.db.insert("v2Digests", { gameId, memberId: p.memberId, packed, version: 1 });
   }
-  await ctx.db.patch(engine._id, { totals });
+  await ctx.db.patch(engine._id, { totals, shownTotals });
 }
 
-/** Writes the scoreboard: standings ranked by net total, a history row and a `tick` event. */
-async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number) {
+/**
+ * Writes the scoreboard: standings ranked by net total, a history row and a `tick` event. While live the published
+ * standings are the disclosed totals (each player's points at the disclosed others' sums); the record and the final
+ * standings are exact.
+ */
+async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number, final = false) {
   const engine = await engineOf(ctx, game._id);
   const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
   const handicap = new Map<string, number>();
@@ -167,15 +186,17 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number)
     const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", p.memberId)).unique();
     handicap.set(p.memberId, r?.handicap ?? 0);
   }
-  const rows = players.map(p => {
-    const h = handicap.get(p.memberId) ?? 0, total = engine.totals[p.memberId] ?? 0;
+  const rank = (totals: Record<string, number>) => players.map(p => {
+    const h = handicap.get(p.memberId) ?? 0, total = totals[p.memberId] ?? 0;
     return { memberId: p.memberId, name: game.roster.find(r => r.memberId === p.memberId)?.name ?? "", total, handicap: h, net: total - (h / 100) * Math.abs(total), rank: 0 };
   }).sort((a, b) => b.net - a.net).map((r, i) => ({ ...r, rank: i + 1 }));
+  const rows = rank(engine.totals);
+  const shown = !final && disclosesNoise(game) ? rank(engine.shownTotals ?? engine.totals) : rows;
   const seq = engine.scoreboards;
   const existing = await ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-  if (existing) await ctx.db.patch(existing._id, { seq, worldSeconds: world, rows });
-  else await ctx.db.insert("v2Standings", { gameId: game._id, seq, worldSeconds: world, rows });
-  await ctx.db.insert("v2StandingsHistory", { gameId: game._id, seq, worldSeconds: world, totals: rows.map(r => ({ memberId: r.memberId, net: r.net })) });
+  if (existing) await ctx.db.patch(existing._id, { seq, worldSeconds: world, rows: shown });
+  else await ctx.db.insert("v2Standings", { gameId: game._id, seq, worldSeconds: world, rows: shown });
+  await ctx.db.insert("v2StandingsHistory", { gameId: game._id, seq, worldSeconds: world, totals: shown.map(r => ({ memberId: r.memberId, net: r.net })) });
   await ctx.db.patch(engine._id, { scoreboards: seq + 1, scoreboardAt: world });
   await appendEvent(ctx, game._id, "tick", { tick: engine.tick, worldSeconds: world, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
   return rows;
@@ -212,11 +233,13 @@ export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase === "ended") return;
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
-  const rows = await scoreboard(ctx, game, clock.worldSeconds);
+  const rows = await scoreboard(ctx, game, clock.worldSeconds, true);
   const acts = engine.acts;
   await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts } });
   await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
   await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
+  // An ended game is fully transparent: each player's scatter goes back to the exact sums.
+  for (const s of game.roster) await ctx.scheduler.runAfter(0, EXACT_DIGEST, { gameId: game._id, memberId: s.memberId });
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
   // Who joined while it ran watched it; the next game seats them.
@@ -280,6 +303,9 @@ export const planningEnds = internalMutation({
 // ---------------------------------------------------------------- the tick's reads and its commit
 
 /** What a tick needs: the clock, the economy, every live agent with its program and energy, the rules. */
+/** At most this many objects' states a tick reads for its `occupied` view (games stay far below it). */
+const MAX_HELD = 8000;
+
 export const snapshot = internalQuery({
   args: { gameId: v.id("v2Games") },
   handler: async (ctx, { gameId }) => {
@@ -298,6 +324,9 @@ export const snapshot = internalQuery({
       phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, endsAt: game.endsAt ?? null, leaseId: engine.leaseId, tick: engine.tick,
       acts: engine.acts, objects: engine.objects, worldSeconds: clock.worldSeconds, lastTickAt: clock.lastTickAt,
       seats: await seatRules(ctx, game), agents: withEnergy,
+      // Decision 24: every object's state (the tick's `occupied`), and the disclosure noise's key (the tick's `disclosed`).
+      held: (await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", gameId)).take(MAX_HELD)).map(s => ({ objectId: s.objectId, state: s.state })),
+      noiseKey: game.noiseKey ?? null,
     };
   },
 });
@@ -315,7 +344,7 @@ export const actInputs = internalQuery({
     for (const objectId of objectIds) for (const memberId of memberIds) {
       // One document a pair: the value row carries the last moves that concerned this player (changeObject).
       const val = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique();
-      out.push({ memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.want, points: val.points } } : {}), history: val?.recent ?? [] });
+      out.push({ memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.shownWant ?? val.want, points: val.shownPoints ?? val.points } } : {}), history: val?.recent ?? [] });
     }
     return out;
   },
@@ -412,7 +441,8 @@ export const commit = internalMutation({
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
       changes.push({ number: act.number, values: after, before });
       await appendEvent(ctx, game._id, "values", { objectId: act.objectId, number: act.number, values: after.map(({ memberId, score, rarityBits }) => ({ memberId, score, rarityBits })) });
-      const gained = (after.find(x => x.memberId === act.memberId)?.points ?? 0) - (before.get(act.memberId)?.points ?? 0);
+      // What the agent gained as its owner is shown it (disclosed points; the record holds the exact values).
+      const gained = (after.find(x => x.memberId === act.memberId)?.shownPoints ?? 0) - (before.get(act.memberId)?.shownPoints ?? 0);
       await ctx.db.patch(energy._id, { pointsGained: energy.pointsGained + gained });
       const program = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id).eq("version", agent.version)).unique();
       if (program) await ctx.db.patch(program._id, { acts: program.acts + 1, pointsGained: program.pointsGained + gained });
@@ -421,14 +451,14 @@ export const commit = internalMutation({
         const was = before.get(val.memberId)!;
         const mine = val.memberId === act.memberId;
         if (!concerns(mine, was.points, val.points)) continue;
-        tugMoves.push({ memberId: val.memberId as Id<"v2Members">, objectId: act.objectId, number: act.number, mine, by: act.memberId as Id<"v2Members">, charge: mine ? charge : 0, world, state: record.after, points: val.points });
+        tugMoves.push({ memberId: val.memberId as Id<"v2Members">, objectId: act.objectId, number: act.number, mine, by: act.memberId as Id<"v2Members">, charge: mine ? charge : 0, world, state: record.after, points: val.shownPoints });
         await ctx.db.insert("v2Moves", {
           gameId: game._id, memberId: val.memberId as Id<"v2Members">, seq, worldSeconds: world, objectId: act.objectId, number: act.number,
           ...(mine ? { agentId: act.agentId, charge, ...(record.notes?.length ? { notes: record.notes } : {}) } : {}), mine, by: act.memberId as Id<"v2Members">,
           calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: record.calls[0]?.rep ?? "",
           stateBefore: record.before, stateAfter: record.after,
-          before: { score: was.score, rarityBits: was.rarityBits, want: was.want, points: was.points },
-          after: { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points },
+          before: { score: was.score, rarityBits: was.rarityBits, want: was.want, points: was.points, ...shownOf(was) },
+          after: { score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val) },
         });
       }
     }
@@ -463,3 +493,18 @@ export const tickFailed = internalMutation({
   },
 });
 
+/** At the end, a player's scatter with the exact others' sums (it showed the disclosed ones while live). */
+export const exactDigest = internalMutation({
+  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
+  handler: async (ctx, { gameId, memberId }) => {
+    const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
+    if (!digest) return;
+    const packed = [...digest.packed];
+    for await (const r of ctx.db.query("v2ObjectValues").withIndex("by_game_member_born", q => q.eq("gameId", gameId).eq("memberId", memberId))) {
+      const at = 3 * (r.number - 1);
+      while (packed.length < at) packed.push(0);
+      packed.splice(at, 3, r.number, r.rarityBits, r.want);
+    }
+    await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
+  },
+});

@@ -71,6 +71,16 @@ world.ts). A committed act whose state another object holds (index `v2ObjectStat
 refused at commit like an invalid call: outcome `failed`, a `reason` naming the other object, its reads charged only.
 Stored games that already hold duplicates keep them.
 
+Disclosure noise (v1's rule, restored; docs/public-log-design.md §5.2 on archive/engine-v1; `disclose.ts`): while a
+game is live every disclosed others' sum is the exact sum plus the noise of the object's state (HMAC of the state under
+the game's private `noiseKey`, Gaussian, σ = `settings.peerNoiseBits`, default 8), one draw for every viewer; points
+shown are own × max(0, others shown). Stored exact, with `shownWant`/`shownPoints` beside: `play:object`,
+`objectIds` (the want and points sorts use the shown indexes), `moves`, `objectMoves`, `othersAt`, `digest`,
+`standings` (the disclosed totals), `objects.list`, `moves.list`, `object.score`, the agents' `value`, `history` and
+`othersAfter` (the tick passes `disclosed`), tugs and agents' points gained all disclose. After the end: exact
+(standings, digest, values, moves); replays are exact. The noise key is never returned and not in the replay file.
+Agents get `occupied` (decision 24): the tick's view of which object holds each state.
+
 Values carry the uniqueness correction (§2.6, `withUniqueness`) at a fixed object count per game, `valueObjects`: the
 starting objects plus half the births the game expects (a live count would make stored values stale at every birth).
 The server's values, the agents' `values`/`others` (with `uniqueness`), `myRule`'s `value.uniqueness` (the app's
