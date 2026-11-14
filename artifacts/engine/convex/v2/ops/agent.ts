@@ -43,6 +43,11 @@ export const { op: replace, as: replaceAs } = defineOp("agent.replace", "action"
   return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, ...(c.turnId ? { turnId: c.turnId } : {}), agentId: a.agentId, language: a.language, source: a.source }));
 });
 
+export const { op: leaveAlone, as: leaveAloneAs } = defineOp("agent.leaveAlone", "action", async (env, a) => {
+  const c = callerOf(env);
+  return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, ...(c.turnId ? { turnId: c.turnId } : {}), agentId: a.agentId, leave: a.numbers }));
+});
+
 export const { op: putBack, as: putBackAs } = defineOp("agent.putBack", "action", async (env, a) => {
   const c = callerOf(env);
   return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, ...(c.turnId ? { turnId: c.turnId } : {}), agentId: a.agentId, version: a.version }));

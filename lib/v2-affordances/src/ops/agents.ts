@@ -62,6 +62,16 @@ export const agentOps = [
     available: ctx => { const a = hasAgents(ctx); return a.ok ? energyCheck(ctx) : a; },
   }),
   affordance({
+    id: "agent.leaveAlone", title: "Leave objects alone", group: "agents", scope: "game",
+    description: "Sets the numbers of the objects (lines, grids) an agent leaves alone, to honour a deal made in chat: only its "
+      + "code's leave-alone list (LEAVE) changes, priced as that small edit. An empty list lets it work on every object again.",
+    tooltip: "Keep an agent off some objects.", keywords: ["leave alone", "deal", "skip", "promise", "don't touch", "LEAVE"],
+    params: obj({ agentId: id, numbers: z.array(z.number().int().positive()).max(64).describe("The objects' numbers, e.g. [3, 19]; [] for none."), requestId: requestId.optional() }),
+    result: z.object({ version: z.number().int(), price: z.number() }),
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server", action: true,
+    available: ctx => { const a = hasAgents(ctx); return a.ok ? energyCheck(ctx) : a; },
+  }),
+  affordance({
     id: "agent.putBack", title: "Put back an earlier version", group: "agents", scope: "game",
     description: "Replaces an agent's program with one of its earlier versions, at that version's summon price.",
     tooltip: "Go back to an earlier version.", keywords: ["revert", "undo", "put back", "rollback"],
