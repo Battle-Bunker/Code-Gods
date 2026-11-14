@@ -97,8 +97,6 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
   const dockNow = useDockState({ hz: 1 });
   const previous = useRunner().previous;
   const ended = dockNow?.phase === "ended";
-  const observation = dockNow?.economy?.observation;
-  const paid = !ended && observation !== undefined && observation !== "free";
   const estimate = !ended && liveIsEstimate(room?.settings);
   return useMemo(() => {
     const acts = latestOwnActs(events);
@@ -116,15 +114,13 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const byAgent = new Map<string, string>();
     for (const [id, act] of acts) byAgent.set(id, say(act));
     const earned = new Map<string, string>();
-    // Not in a room whose looking costs energy: there the points "before" a move are the player's last look at the
-    // object, which may predate changes they were never told about, so after minus before is not the move's own effect.
     // A replace keeps the agent's id: its figure is its current program's, from its latest replace on.
-    const sums = paid ? new Map<string, AgentEarnings>() : agentEarnings(events, boundaryOf(previous));
+    const sums = agentEarnings(events, boundaryOf(previous));
     for (const [id, sum] of sums) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
     const objects = new Map<string, string>();
     for (const [id, act] of acts) objects.set(id, act.objectId);
     return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, objects, latestObject: acts.latest?.objectId, earned, sums, estimate };
-  }, [events, goal, noun, agents, third, estimate, paid, previous]);
+  }, [events, goal, noun, agents, third, estimate, previous]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

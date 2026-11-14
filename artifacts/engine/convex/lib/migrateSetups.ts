@@ -16,7 +16,7 @@ import { upgradeStoredSettings } from "@workspace/game-core";
  * Returns null when the settings are already in the new shape (so the migration is idempotent).
  */
 export function migrateSettings(settings: unknown, defenceIds: ReadonlySet<string>, played = false): Record<string, unknown> | null {
-  const languages = upgradeStoredSettings(settings, played);
+  const languages = upgradeStoredSettings(settings, played, { keepRetired: true });
   const defence = migrateDefence(languages ?? settings, defenceIds);
   return defence ?? languages;
 }

@@ -33,7 +33,7 @@ import { instantiate, objectType as objectTypeDef } from "@workspace/game-types"
 import type { TypeArgs } from "@workspace/game-types";
 import { COST_MODELS, DEFAULT_COST_MODEL, isCostModel } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, OPTIONAL_SETTINGS_FIELDS, OPTION_KEYS, validRuleTiers, settingsOptionsFor, supportedCostModels, upgradeLegacyLanguage, validLanguages,
+  DEFAULT_SETTINGS, OPTIONAL_SETTINGS_FIELDS, OPTION_KEYS, validRuleTiers, settingsOptionsFor, supportedCostModels, upgradeLegacyLanguage, validLanguages, withoutRetiredSettings,
   type FamilyDomain, type FamilyRole, type GameSettings,
 } from "./settings.ts";
 
@@ -143,7 +143,8 @@ function withLanguages(s: GameSettings, languages: unknown): GameSettings {
  * `validateSettings` does that.
  */
 export function applySettingsChange(settings: GameSettings, patch: Partial<GameSettings>, domain: SettingsDomain): GameSettings {
-  const given = (upgradeLegacyLanguage(patch) ?? patch) as Record<string, unknown>;
+  const legacy = upgradeLegacyLanguage(patch) ?? patch;
+  const given = (withoutRetiredSettings(legacy) ?? legacy) as Record<string, unknown>;
   for (const key of Object.keys(given)) if (!FIELDS.has(key)) throw new SettingsChangeError(key, `Unknown setting ${key}`);
   let next: GameSettings = { ...settings };
   const changed = (key: keyof GameSettings) => given[key] !== undefined && !sameSettings(given[key], settings[key]);

@@ -44,8 +44,8 @@ backwards compatibility baggage and attachment to prior work is one of the bigge
 priority." So, in v2 work (decision 15):
 
 - **Delete early.** Everything as it stood before v2 is on the branch `archive/engine-v1` (never push to it). What v1
-  can lose today is deleted now (integer and string objects, bidding, paid looks, tiers, hold rarity, score noise, every
-  setup but Annotated basics); the rest of the old engine leaves `develop` as soon as v2 replaces it
+  can lose today is deleted now (integer and string objects, paid looks, tiers, hold rarity, score noise, every setup but
+  Annotated basics and its bidding twin); the rest of the old engine leaves `develop` as soon as v2 replaces it
   (integration plan §5.8). Old code lives only on the archive branch: no legacy copies, no adapters, no frozen v1
   directories kept "for reference" on `develop`.
 - No compatibility with stored games, old calibration tables, old settings or the old event log.

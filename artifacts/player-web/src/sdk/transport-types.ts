@@ -20,7 +20,6 @@ export type QueryReturns = {
   "player.objectsTop": FunctionReturnType<typeof api.player.objectsTop>;
   "player.objectRank": FunctionReturnType<typeof api.player.objectRank>;
   "player.totals": FunctionReturnType<typeof api.player.totals>;
-  "player.staleCount": FunctionReturnType<typeof api.player.staleCount>;
   "dock.state": FunctionReturnType<typeof api.dock.state>;
   "dock.agents": FunctionReturnType<typeof api.dock.agents>;
   "dock.transformations": FunctionReturnType<typeof api.dock.transformations>;

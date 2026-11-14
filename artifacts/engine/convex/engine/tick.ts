@@ -37,7 +37,6 @@ import { FutileMemo, NO_FAILURES, failureKind, futileAfter, pickPair, unaffordab
 import { agentCapacityOf } from "../lib/power";
 import { MAX_OBJECTS, MAX_SIMULATE_MS, MIN_TICK_MS, TICK_SECONDS, leaseRenewalDue, waveBudgetMs, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { godTotalsOf } from "../lib/views";
-import { paidLive, readWhole } from "../lib/knowledge";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
@@ -161,11 +160,6 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...NO_FAILURES, ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
     const readCap = readBound(instantiationOf(settings));
-    // Paid observation (lib/knowledge.ts): which gods this window tells which objects (their agents changed the object,
-    // or an act of theirs read all of it). The read-model sync rewrites only those gods' rows.
-    const paid = paidLive(game);
-    const told = new Map<string, Set<string>>();
-    const tell = (objectId: string, godId: string) => { if (paid) told.set(objectId, (told.get(objectId) ?? new Set()).add(godId)); };
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
     const expected = settings.interactionRateHz * windowLength;
@@ -179,7 +173,6 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       if (!result) return; // a host failure (capacity, unavailable): not the agent's fault, nothing is charged
       applied++;
       const { object, agent } = p;
-      if ("calls" in result && readWhole(result.readBits, readCap)) tell(object.id, agent.ownerId);
       // Every offer is a read (§7.1): the agent learned which object it holds, whatever it then looked at or did.
       const readBits = result.readBits + p.offerBits;
       if ("calls" in result && isSkip(result.calls)) {
@@ -233,7 +226,6 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         object.salience = salienceOf(object.scores);
         // The new value's live disclosure noise (settings.peerNoiseBits): a function of the value, stored with the version.
         object.noise = disclosureNoise(settings, game.noiseKey, object.value);
-        tell(object.id, agent.ownerId);
         events.push({ t: "transform", objectId: object.id, before: p.before, value: object.value, version: object.version, world: p.world,
           agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), noise: object.noise, seed: p.seed.toString() });
       } else {
@@ -384,9 +376,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
       ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
       // Each god's totals as disclosed, from the snapshot that already holds every object (game/objectViews.ts).
-      // Under paid observation a god's own totals move with the published scoreboard only (the coarse leaderboard is free).
-      ...((paid ? due : changed.length || spawns.length) ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true, game.handicaps) } : {}),
-      ...(told.size ? { told: [...told].map(([id, gods]) => ({ id: id as Doc<"objects">["_id"], gods: [...gods] })) } : {}),
+      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true, game.handicaps) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

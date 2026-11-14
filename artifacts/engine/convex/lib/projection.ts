@@ -8,8 +8,7 @@
 import { biddingView } from "../bidding";
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { godLooks, allowedLanguages, costModelOf, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
-import { lookPriceOf } from "./knowledge";
+import { allowedLanguages, costModelOf, deityIncome, fullReadCharge, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
@@ -207,7 +206,10 @@ export function agentOutcomes(agent: Pick<Doc<"agents">, "transforms" | "failure
 // ------------------------------------------------------------------------------------------------
 
 type Batch = Doc<"tickBatches">;
-type Ev = Batch["events"][number];
+type StoredEv = Batch["events"][number];
+/** Events the game still has: a stored `look` (paid observation, deleted in D1; rows stay until D3) is never shown. */
+type Ev = Exclude<StoredEv, { t: "look" }>;
+const shown = (ev: StoredEv): ev is Ev => ev.t !== "look";
 
 /**
  * One event as god `godId` (roster index `index`, -1 for a spectator) may see it. Spawns and transforms
@@ -251,11 +253,6 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
     if (ev.ownerId !== godId) return null;
     return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) };
   }
-  if (ev.t === "look") {
-    // A god's looks are its own while the game is live (what it chose to watch says what it cares about).
-    if (live && ev.ownerId !== godId) return null;
-    return { type: "god.looked" as const, mine: ev.ownerId === godId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
-  }
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
     return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: actCost(ev.cost) };
@@ -287,7 +284,7 @@ export type ProjectedEvent = NonNullable<ReturnType<typeof projectEvent>>;
 /** The viewer's events of a list of batches, each tagged with its batch seq (`live`: the game has not ended). */
 export function projectBatches(batches: readonly Batch[], godId: string, index: number, live: boolean) {
   const out: (ProjectedEvent & { seq: number })[] = [];
-  for (const batch of batches) for (const ev of batch.events) {
+  for (const batch of batches) for (const ev of batch.events.filter(shown)) {
     const projected = projectEvent(ev, godId, index, live);
     if (projected) out.push({ ...projected, seq: batch.seq });
   }
@@ -329,7 +326,6 @@ export function replayEvent(ev: Ev) {
     };
     case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) };
     case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) };
-    case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
 export type ReplayEventOut = ReturnType<typeof replayEvent>;
@@ -338,7 +334,7 @@ export type ReplayEventOut = ReturnType<typeof replayEvent>;
 export function replayBatches(batches: readonly (Batch & { from?: number })[]) {
   return batches.map(b => ({
     seq: b.seq, at: b.at, worldFrom: b.worldFrom, worldTo: b.worldTo, ...(b.from ? { from: b.from } : {}),
-    events: b.events.map(replayEvent),
+    events: b.events.filter(shown).map(replayEvent),
   }));
 }
 
@@ -371,8 +367,7 @@ export type ObservationInput = {
    * godTotals score, in place of `objects` (then empty: the leaderboard is the published scoreboard).
    */
   views?: readonly { id: string; value: number | string; own: { ordinal: number | number[]; rewardBits: number; penaltyBits?: number; netBits: number }; peerNetBits: number; peerCare: number; payoff: number;
-    /** Paid observation: the world time the god was last told this object (lib/knowledge.ts). */
-    knownAt?: number }[];
+  }[];
   score?: number;
 };
 
@@ -396,12 +391,10 @@ export function observation(input: ObservationInput): Observation {
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
-      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, fullRead: lookPriceOf(settings),
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, fullRead: fullReadCharge(settings),
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),
-      // Paid observation (lib/knowledge.ts): objects are shown as last told (`knownAt`); one look at one object costs lookPrice.
-      ...(paidObservation(settings) ? { observation: settings.observation, ...(godLooks(settings) ? { lookPrice: lookPriceOf(settings) } : {}) } : {}),
     },
     self: {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,
@@ -415,7 +408,7 @@ export function observation(input: ObservationInput): Observation {
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
       ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects, game.handicaps)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
     },
-    objects: game && deity ? input.views?.map(o => ({ id: o.id, value: o.value, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff, ...(o.knownAt !== undefined ? { knownAt: o.knownAt } : {}) })) ?? input.objects.flatMap(o => {
+    objects: game && deity ? input.views?.map(o => ({ id: o.id, value: o.value, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff })) ?? input.objects.flatMap(o => {
       const view = personalObject(o, self.godId, game.phase !== "ended");
       return view ? [{ id: view.id, value: view.value, own: view.own, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff }] : [];
     }) : [],

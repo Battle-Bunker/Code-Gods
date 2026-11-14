@@ -678,7 +678,7 @@ export const detachEngine = internalMutation({
   },
 });
 
-/** Set a god's own energy (its account settled at the game's world time): the paid look's affordability tests. */
+/** Set a god's own energy (its account settled at the game's world time). */
 export const setGodEnergy = internalMutation({
   args: { gameId: v.id("games"), godId: v.string(), balance: v.number() },
   handler: async (ctx, { gameId, godId, balance }) => {

@@ -42,7 +42,7 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   const [ann] = await gods("Seed Ann");
   const system = (await list(ann)).filter(r => r.system);
   assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
-  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Basics with bidding", "Basics with paid looks", "Classic", "Low income", "Big board", "Master", "Tiered rules"]);
+  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Basics with bidding", "Classic", "Low income", "Big board", "Master", "Tiered rules"]);
   for (const d of system) {
     assert.ok(!("settings" in d), "a list row has no settings");
     assert.deepEqual((await get(ann, d.id)).settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
