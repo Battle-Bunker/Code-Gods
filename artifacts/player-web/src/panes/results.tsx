@@ -7,7 +7,10 @@ import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
 import { useMemo } from "react";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
+import { usePaneOps } from "@/dock/open-pane";
+import { toast } from "@/hooks/use-toast";
 import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
@@ -27,6 +30,8 @@ export function ResultsPane() {
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
+      {/* The next step right under the headline (on a phone, above the fold): what to try, then why. */}
+      {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       {header.phase === "ended" && code && (
         <Link href={roomPath(code)} className="inline-flex items-center bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground" data-testid="link-back-to-room">
           Back to the room for the next game
@@ -40,7 +45,6 @@ export function ResultsPane() {
       {header.phase === "ended" && round === null && rows.some(r => r.handicap > 0) && (
         <p className="text-muted-foreground" data-testid="text-results-no-rotation">A rule was won in the bid this game, so there is no rotation this round: the next game deals new rules.</p>
       )}
-      {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       {header.me && rows.length > 0 && (
         <MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={header.phase === "ended"} testId="results-points" />
       )}
@@ -100,7 +104,7 @@ function EndSummary({ total }: { total: number }) {
   const objects = useMyObjects(top);
   const summary = useMemo(() => {
     if (!my || !header) return null;
-    const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
+    const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, id: o.objectId, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
     const tugs: SummaryTug[] = foldTugs(moves.results).flatMap(i => (i.kind === "tug"
       ? [(() => {
         const others = [...new Map(i.moves.filter(m => !m.mine && m.by).map(m => [m.by!.memberId, m.by!.name])).entries()];
@@ -110,7 +114,14 @@ function EndSummary({ total }: { total: number }) {
       : []));
     return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total });
   }, [my, header, objects, moves.results, total]);
+  const openObject = useAffordance("view.openObject");
+  const panes = usePaneOps(header?.phase ?? "ended");
+  const onOpen = async (id: string | undefined) => {
+    if (!id || !await panes.open("object")) return;
+    try { await openObject.run({ objectId: id }); }
+    catch (e) { toast({ title: `The ${objectWord(header?.variant).one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
+  };
   // Said only once the page and its objects have loaded: an empty list read "no line scored" to a player with points.
   if (!summary || ids.status === "LoadingFirstPage" || objects.some(o => o === undefined)) return null;
-  return <div data-testid="results-summary"><GameSummary summary={summary} /></div>;
+  return <div data-testid="results-summary"><GameSummary summary={summary as never} rule={my!.rule as never} value={my!.bits ?? undefined} onOpen={id => void onOpen(id)} /></div>;
 }

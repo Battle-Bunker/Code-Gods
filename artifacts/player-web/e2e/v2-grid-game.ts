@@ -248,11 +248,14 @@ try {
     await assertNoSteps(page, `${label}: the results`);
     // The end in plain words: what earned your points, what cost you, one thing to try next game.
     const summary = page.getByTestId("results-summary");
-    await summary.getByText("Try next game").waitFor({ timeout: 20_000 });
+    await summary.getByTestId("text-summary-next").waitFor({ timeout: 20_000 });
+    // The next step sits right under the headline: on a phone it is on screen with it (above the fold).
+    const head = await page.getByTestId("text-results-headline").boundingBox(), next = await summary.getByTestId("text-summary-next").boundingBox();
+    assert.ok(head && next && next.y - head.y < 260, `the next step is right under the headline (${head?.y} → ${next?.y})`);
     const summed = await summary.innerText();
-    assert.match(summed, /What earned your points/);
+    assert.match(summed, /What earned your points/i);
     assert.match(summed, /What cost you/);
-    assert.match(summed, /(Talk to .+ about grid \d+|tell your agent to leave grid \d+|is the one the others want most|Open your secret goal)/, summed);
+    assert.match(summed, /(add grid \d+ to your agent's leave-alone list|is the one the others want most|Open your secret goal)/, summed);
     await summary.screenshot({ path: path.join(shots, `grid-${label}-summary.png`) });
     await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.

@@ -81,3 +81,18 @@ export function chanceText(bits: number): string {
   const v = Math.round((r / big[0]) * 10) / 10;
   return `1 in ${v.toLocaleString("en-US", { maximumFractionDigits: v < 10 ? 1 : 0 })} ${big[1]}`;
 }
+
+/** "12.50 points". */
+export const pointsText = (x: number): string => `${fmtNum(x)} point${fmtNum(x) === "1.00" ? "" : "s"}`;
+/** A measure in hundredths, as shown. */
+const hundredths = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100);
+/**
+ * A score: "your 4.24 bits × others' 12.03 bits = 51.01 points" (others' = the other players' bits added together). The
+ * product is the full values' product, rounded; "≈" when the shown factors do not multiply to it (the owner's rule:
+ * displayed arithmetic is self-consistent). The one place every pane and the end summary write a score.
+ */
+export function scoreFormula(yours: number, others: number): string {
+  const product = yours * others;
+  const sign = Math.round(hundredths(yours) * hundredths(others) / 100) === hundredths(product) ? "=" : "≈";
+  return `your ${fmtBits(yours)} × others' ${fmtBits(others)} ${sign} ${pointsText(product)}`;
+}
