@@ -246,6 +246,14 @@ try {
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     await assertNoSteps(page, `${label}: the results`);
+    // The end in plain words: what earned your points, what cost you, one thing to try next game.
+    const summary = page.getByTestId("results-summary");
+    await summary.getByText("Try next game").waitFor({ timeout: 20_000 });
+    const summed = await summary.innerText();
+    assert.match(summed, /What earned your points/);
+    assert.match(summed, /What cost you/);
+    assert.match(summed, /(Talk to .+ about grid \d+|is the one the others want most|Open your secret goal)/, summed);
+    await summary.screenshot({ path: path.join(shots, `grid-${label}-summary.png`) });
     await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.
     const note = await results.getByTestId("text-results-note").innerText();
