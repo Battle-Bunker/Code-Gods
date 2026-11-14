@@ -264,6 +264,30 @@ export const snapshot = internalQuery({
   },
 });
 
+/**
+ * What players' agents are told about lines they may be offered (lib/v2-agents HostInput), for each player and line
+ * asked: the player's own value on it as of the last commit, and the last moves on it the player may see (their own,
+ * and others' that changed their points). Read for a tick's offered lines in a few batches; recorded with each act,
+ * so replay re-executes from the record.
+ */
+export const actInputs = internalQuery({
+  args: { gameId: v.id("v2Games"), memberIds: v.array(v.id("v2Members")), objectIds: v.array(v.id("v2Objects")) },
+  handler: async (ctx, { gameId, memberIds, objectIds }) => {
+    const out: { memberId: string; objectId: string; value?: { mine: number; others: number; points: number }; history: { mine: boolean; pointsBefore: number; pointsAfter: number }[] }[] = [];
+    for (const objectId of objectIds) for (const memberId of memberIds) {
+      const val = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique();
+      const moves = await ctx.db.query("v2Moves").withIndex("by_game_member_object", q => q.eq("gameId", gameId).eq("memberId", memberId).eq("objectId", objectId)).order("desc").take(HISTORY);
+      out.push({
+        memberId, objectId, ...(val ? { value: { mine: val.rarityBits, others: val.want, points: val.points } } : {}),
+        history: moves.reverse().map(m => ({ mine: m.mine, pointsBefore: m.before.points, pointsAfter: m.after.points })),
+      });
+    }
+    return out;
+  },
+});
+/** Moves on the offered line an agent is told of, at most. */
+export const HISTORY = 8;
+
 /** The states of the objects with these numbers. */
 export const statesOf = internalQuery({
   args: { gameId: v.id("v2Games"), numbers: v.array(v.number()) },
@@ -282,6 +306,8 @@ export const statesOf = internalQuery({
 const actV = v.object({
   n: v.number(), verdict: v.string(), agentId: v.id("v2Agents"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(), version: v.number(),
   seed: v.string(), energy: v.number(), liveObjects: v.number(), programVersion: v.number(), record: v.any(),
+  /** What the agent was told of its owner's stake in the line (actInput), recorded so replay re-executes exactly. */
+  input: v.optional(v.any()),
 });
 
 /**
@@ -316,7 +342,7 @@ export const commit = internalMutation({
       const agent = await ctx.db.get(act.agentId);
       const energy = await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", act.agentId)).unique();
       if (!agent || agent.destroyedAt !== undefined || !energy) continue;   // destroyed since the tick read it
-      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string };
+      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string; notes?: string[] };
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", act.objectId)).unique())!;
       const income = agentIncome(P.powerPerSecond, agent.share), capacity = energyCapacity(income, P.fullChargeSeconds);
       const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, capacity);
@@ -335,6 +361,7 @@ export const commit = internalMutation({
       await appendEvent(ctx, game._id, "act", {
         n, tick: engine.tick, worldSeconds: world, objectId: act.objectId, number: act.number, agentId: act.agentId, memberId: act.memberId,
         seed: act.seed, energy: act.energy, liveObjects: act.liveObjects, program: { version: act.programVersion, language: agent.language },
+        ...(act.input ? { input: act.input } : {}),
         ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
       });
       if (!committed) continue;
@@ -352,7 +379,7 @@ export const commit = internalMutation({
         if (!mine && Math.abs(val.points - was.points) <= CONCERN) continue;
         await ctx.db.insert("v2Moves", {
           gameId: game._id, memberId: val.memberId as Id<"v2Members">, seq, worldSeconds: world, objectId: act.objectId, number: act.number,
-          ...(mine ? { agentId: act.agentId, charge } : {}), mine, by: act.memberId as Id<"v2Members">,
+          ...(mine ? { agentId: act.agentId, charge, ...(record.notes?.length ? { notes: record.notes } : {}) } : {}), mine, by: act.memberId as Id<"v2Members">,
           calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: record.calls[0]?.rep ?? "",
           stateBefore: record.before, stateAfter: record.after,
           before: { score: was.score, level: was.level, rarityBits: was.rarityBits, want: was.want, points: was.points },

@@ -3,7 +3,7 @@
  * a score's bits. Bundled by scripts/gen-v2-artefacts.mjs; no calibration runs on the server.
  */
 import type { Score } from "@workspace/v2-core";
-import { bitsFor, type Artefact, type Tail } from "@workspace/v2-valuation";
+import { bitsFor, rungBits, type Artefact, type Tail } from "@workspace/v2-valuation";
 import { ARTEFACT_RECORDS } from "./artefacts.gen.ts";
 
 export interface ArtefactRecord {
@@ -41,4 +41,11 @@ export const dealable = (a: ArtefactRecord | null): a is ArtefactRecord => a?.de
 /** A score's ✨ rarity in bits under a rule's artefact. */
 export function rarityOf(a: ArtefactRecord, score: Score): number {
   return bitsFor(a as unknown as Artefact, score);
+}
+
+/** A dealt rule's ladder as an agent reads it (`rarity`, `worth`): each rung up to the cap with its score and bits. */
+export function rungsOf(ruleKey: string): { score: (string | null)[] | null; bits: number; layer?: number; main?: number }[] {
+  const a = artefactFor(ruleKey);
+  if (!a) return [];
+  return a.rungs.slice(0, a.cap + 1).map((r, i) => ({ score: r.score, bits: rungBits(a, i), ...(r.layer >= 0 ? { layer: r.layer } : {}), ...(r.main !== undefined ? { main: r.main } : {}) }));
 }

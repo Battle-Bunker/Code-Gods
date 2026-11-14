@@ -16,17 +16,22 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
 import { decode, encode, variantOf } from "./world";
+import { rungsOf } from "./artefacts";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number;
   worldSeconds: number; lastTickAt: number;
   settings: { worldSeconds: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
-  seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null } }[];
+  seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
 };
 const SNAPSHOT = makeFunctionReference<"query", { gameId: Id<"v2Games"> }, Snapshot | null>("v2/loop:snapshot");
 const STATES = makeFunctionReference<"query", { gameId: Id<"v2Games">; numbers: number[] }, { number: number; objectId: string; state: string; version: number }[]>("v2/loop:statesOf");
 const COMMIT = makeFunctionReference<"mutation">("v2/loop:commit");
+type ActInput = { value?: { mine: number; others: number; points: number }; history: { mine: boolean; pointsBefore: number; pointsAfter: number }[] };
+const ACT_INPUTS = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberIds: Id<"v2Members">[]; objectIds: Id<"v2Objects">[] }, (ActInput & { memberId: string; objectId: string })[]>("v2/loop:actInputs");
+/** Players × lines per actInputs batch (each pair reads at most 9 documents). */
+const PAIRS_PER_BATCH = 150;
 const FAILED = makeFunctionReference<"mutation">("v2/loop:tickFailed");
 
 export const tick = internalAction({
@@ -53,6 +58,15 @@ export const tick = internalAction({
         return [a.agentId, settle({ balance: a.energy, settledWorldSeconds: a.settledAt }, world, income, energyCapacity(income, econ.fullChargeSeconds)).balance];
       }));
       const local = new Map<number, string>();   // states changed earlier in this tick
+      const ladders = new Map<string, ReturnType<typeof rungsOf>>();
+      // Every offered line, for every player with an agent: fetched up front in parallel batches (the act loop is serial).
+      const memberIds = [...new Set(snap.agents.map(a => a.memberId))] as Id<"v2Members">[];
+      const objectIds = [...new Set([...states.values()].map(s => s.objectId))] as Id<"v2Objects">[];
+      const per = Math.max(1, Math.floor(PAIRS_PER_BATCH / Math.max(1, memberIds.length)));
+      const batches = [];
+      for (let i = 0; i < objectIds.length; i += per) batches.push(ctx.runQuery(ACT_INPUTS, { gameId, memberIds, objectIds: objectIds.slice(i, i + per) }));
+      const told = new Map<string, ActInput>();
+      for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
       const acts = [];
       for (const [i, number] of picks.entries()) {
         const agent = pickByEnergy(snap.agents, a => balance.get(a.agentId)!, r);
@@ -64,10 +78,14 @@ export const tick = internalAction({
         // The act's seed (spec §9.3: `act:<n>` from the game seed), as the 64-bit integer the sandbox takes.
         const seed = hash64(`${snap.seed}:act:${snap.acts + i}`).toString(), energy = balance.get(agent.agentId)!;
         const sandbox = await sandboxFor(ctx, agent.language);
+        // What the agent may know of its owner's stake in the line (W2's worth/recent/contested), as of the last commit.
+        const input = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
+        if (!ladders.has(seat.rule.ruleKey)) ladders.set(seat.rule.ruleKey, rungsOf(seat.rule.ruleKey));
         const { record } = await runAct(sandbox, {
           type: lineType, variant, state: decode(local.get(number) ?? s.state),
           rule: { family: seat.rule.family, params: seat.rule.params as Record<string, unknown>, tieBreaker: seat.rule.tieBreaker },
           program: { language: agent.language, source: agent.source }, seed, energy, object: number - 1, liveObjects: snap.objects,
+          ...input, rungs: ladders.get(seat.rule.ruleKey)!,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.
@@ -79,7 +97,7 @@ export const tick = internalAction({
         if (verdict === "committed") local.set(number, record.after);
         acts.push({
           n: snap.acts + i, verdict, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
-          seed, energy, liveObjects: snap.objects, programVersion: agent.version, record,
+          seed, energy, liveObjects: snap.objects, programVersion: agent.version, record, input,
         });
       }
       await ctx.runMutation(COMMIT, { gameId, leaseId, world, now, born, acts: chainVersions(acts), picks: picks.length });
