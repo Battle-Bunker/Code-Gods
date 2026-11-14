@@ -12,8 +12,8 @@ import { elementValue, representation, type ElementRef, type Mark, type ObjectTy
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
 import { BITS_HELP, chanceText, fmtBits, fmtQ, fmtValue, isUndef } from "./format.ts";
 import { nearestImprovement, type Improvement } from "./improve.ts";
-import { markRefs } from "./refs.ts";
-import { labelOf, nounOf, ObjectChip, RepView } from "./rep-view.tsx";
+import { markRefs, nounOf } from "./refs.ts";
+import { labelOf, ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
 
 /** "step 5 of 8" (or "5/8" short), or "not scoring". */
@@ -90,15 +90,15 @@ function shortLabel<S>(type: ObjectType<S>, r: ElementRef): string {
 export function mainLine<S, P>(rule: RuleRef<S, P>, state: S, a: Annotation, site = 0): string {
   const part = a.sites[site]?.parts[0];
   if (!part || isUndef(part.value)) return "";
-  // One note says the quantity ("area 9, target 8"); several are each one unit's ("4 short"), so none stands for the whole.
-  const notes = part.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note");
-  const note = notes.length === 1 && notes[0]!.text.length <= 28 ? notes[0] : undefined;
   const term = a.sites[site]!.evaluation.terms.find(t => t.id === part.term)!;
   const amount = fmtQ(part.value);
-  // A part made of many elements (a row's four totals, sixteen cells) is said by its own label.
-  if (!note && term.from.length > 3) return `${term.label[0]!.toUpperCase()}${term.label.slice(1)}: ${amount}`;
+  const tail = part.sense === "min" ? ` · off by ${amount}` : ` · ${amount}`;
+  // A part made of many elements (a row's four totals, sixteen cells) is said by its own label: a note there is one
+  // unit's ("4 short"), not the whole's.
+  if (term.from.length > 3) return `${term.label[0]!.toUpperCase()}${term.label.slice(1)}${tail}`;
+  const note = part.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.text.length <= 28);
   const what = note?.text ?? term.from.map(r => `${shortLabel(rule.type, r)} ${fmtValue(elementValue(rule.type, state, r, site))}`).join(", ");
-  return part.sense === "min" ? `${what} · off by ${amount}` : `${what} · ${amount}`;
+  return what + tail;
 }
 
 // ------------------------------------------------------------------ parts list

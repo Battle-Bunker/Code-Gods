@@ -103,9 +103,6 @@ function sceneRefs(rep: string, scene: SceneData, site: number): ElementRef[] {
 /** The representation a viewer without a rule sees (a spectator, a replay): the object type's first (the board, for a grid). */
 export const defaultRep = <S,>(type: ObjectType<S>): string => type.representations[0]!.id;
 
-/** The game's own noun for an object of this type ("line", "grid"), never "object" (ux-lessons 2.5). */
-export const nounOf = <S,>(type: ObjectType<S>): string => type.id;
-
 /** The element refs a scene shows, exported for the move line (what changed between two states). */
 export const shownRefs = <S,>(type: ObjectType<S>, state: S, repId: string, site = 0): ElementRef[] =>
   sceneRefs(repId, representation(type, repId).layout(state, site), site);

@@ -6,12 +6,12 @@
  * Never disagreeing: every number here is a recorded term or an element the rule read. Nothing is recomputed.
  */
 import {
-  elementDecl, elementValue, evaluateObject, representation, layerLadders, levelOf, objectLadder, type ElementRef, type Evaluation, type Mark,
+  elementDecl, elementValue, evaluateObject, refKey, representation, layerLadders, levelOf, objectLadder, type ElementRef, type Evaluation, type Mark,
   type ObjectEvaluation, type ObjectType, type Q, type RuleFamily, type Rung, type Score, type Term, type TieBreaker, type Undef,
   type Variant,
 } from "@workspace/v2-core";
 import { fmtQ, fmtTermValue, fmtValue, isUndef } from "./format.ts";
-import { markTerm } from "./refs.ts";
+import { markTerm, nounOf } from "./refs.ts";
 import { rendererFor } from "./scene.ts";
 
 export interface RuleRef<S, P> {
@@ -109,11 +109,13 @@ function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, st
   const working: string[] = [];
   // A rule that reads most of a representation's coordinates (every cell of a board) gets that representation in one
   // line ("the board: 3 1 1 3 / …"), not one line per coordinate.
-  const coords = new Map<string, number>();
+  const coords = new Map<string, Set<string>>();
   for (const r of e.reads) {
-    try { if (elementDecl(rule.type, r).role === "coordinate") coords.set(r.rep, (coords.get(r.rep) ?? 0) + 1); } catch { /* unknown: skipped below */ }
+    let role;
+    try { role = elementDecl(rule.type, r).role; } catch { continue; }
+    if (role === "coordinate") coords.set(r.rep, (coords.get(r.rep) ?? new Set()).add(refKey(r)));
   }
-  const whole = new Set([...coords].filter(([, n]) => n >= WHOLE_REP).map(([rep]) => rep));
+  const whole = new Set([...coords].filter(([, ks]) => ks.size >= WHOLE_REP).map(([rep]) => rep));
   for (const rep of whole) working.push(`${representation(rule.type, rep).title}: ${sceneText(rule.type, state, rep, site)}`);
   for (const r of e.reads) {
     let decl;
@@ -164,7 +166,7 @@ export function annotateEvaluation<S, P>(rule: RuleRef<S, P>, state: S, ev: Obje
   }
   const r = opts.rarities;
   return {
-    noun: rule.type.id, score: ev.score, level, top, ladder,
+    noun: nounOf(rule.type), score: ev.score, level, top, ladder,
     rarity: r?.[level] ?? null, nextRarity: level < top ? r?.[level + 1] ?? null : null,
     worst, sites,
   };

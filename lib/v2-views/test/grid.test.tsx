@@ -112,6 +112,9 @@ test("groups: two cells apart are linked, two neighbours get a step label on the
   assert.equal((box.match(/class="box"/g) ?? []).length, 2);
   assert.match(box, /data-ref="t\.b0"[^>]*>(<[^>]+>)*8</);
   assert.match(box, /<rect class="box-line"/);
+  // Steps sharing cells with each other do not make boxes that do not overlap count as overlapping.
+  const mixed = drawScene({ groups: [{ cells: [0, 1], el: ref("t", "s0") }, { cells: [1, 2], el: ref("t", "s1") }, { cells: [10, 11, 14, 15], el: ref("t", "b") }] }, { vals: { s0: 1, s1: 2, b: 7 } });
+  assert.match(mixed, /<rect class="box-line"/);
 });
 
 test("overlapping groups (nine 2×2 windows) and a group of any cells each get a node and a label of their own", () => {

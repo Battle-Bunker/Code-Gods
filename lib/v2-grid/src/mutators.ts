@@ -6,7 +6,7 @@
  */
 import { choiceBits, sampleStepsNonzero, stepsNonzeroBits, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
-import { boxes, lines, pairs } from "./units.ts";
+import { BOX_NAMES, boxes, lines, pairs } from "./units.ts";
 
 export type GridArgs = Readonly<Record<string, string | number>>;
 
@@ -107,7 +107,6 @@ const lineWords = (name: unknown): string => {
   const [, kind, i] = /^(row|col)(\d+)$/.exec(String(name))!;
   return `${kind === "row" ? "row" : "column"} ${Number(i!) + 1}`;
 };
-const BOX_WORDS = ["top-left", "top-right", "bottom-left", "bottom-right"];
 
 // ---------------------------------------------------------------- the nine
 
@@ -214,7 +213,7 @@ export const tilt: M = {
 
 export const boxAdd: M = {
   id: "boxes.add", reps: ["boxes"], title: "add to every cell of a corner box", perSite: false,
-  describe: a => `${signed(k(a))} in every cell of the ${BOX_WORDS[Number(String(a.box).slice(3))]} box`,
+  describe: a => `${signed(k(a))} in every cell of the ${BOX_NAMES[Number(String(a.box).slice(3))]} box`,
   args: v => fields({ box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)), k: amount }),
   apply: (s, _site, a, v) => addTo(s, v, boxes(N(v))[Number((a.box as string).slice(3))]!, () => k(a)),
   inverse: { kind: "mutator", id: "boxes.add", args: a => ({ ...a, k: -k(a) }) },

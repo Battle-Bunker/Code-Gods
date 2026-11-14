@@ -74,9 +74,10 @@ function Scene({ p }: { p: P }): ReactElement {
   // A compact card keeps the right margin (what most rules are about) and the rest only where a mark cites it.
   const bottom = expanded || (s.bottom ?? []).some(r => cited.has(key(r))) ? s.bottom ?? [] : [];
   const groups = (s.groups ?? []).map((gr, i) => ({ ...gr, i, kind: kindOf(gr, s.cols) }))
-    .filter(gr => expanded || gr.kind !== "step" || markState(marks, gr.el).focus);
+    .filter(gr => { const st = markState(marks, gr.el); return expanded || gr.kind !== "step" || st.focus || !!st.cand; });
+  // Whether outlined groups share cells (nine windows do; four boxes do not): steps and links always share theirs.
   const seen = new Map<number, number>();
-  for (const gr of s.groups ?? []) for (const c of gr.cells) seen.set(c, (seen.get(c) ?? 0) + 1);
+  for (const gr of groups) if (gr.kind === "box") for (const c of gr.cells) seen.set(c, (seen.get(c) ?? 0) + 1);
   const overlapping = [...seen.values()].some(n => n > 1);
 
   // Notes: a short one beside a row's value; the rest (and any on a group, a cell or a column) listed underneath.

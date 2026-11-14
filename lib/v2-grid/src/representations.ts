@@ -5,7 +5,7 @@
  */
 import { q, ref, type ElementDecl, type ElementValue, type Representation } from "@workspace/v2-core";
 import { at, cellLabel, cellName, type GridState } from "./grid.ts";
-import { boxes, cols, pairs, rows } from "./units.ts";
+import { BOX_NAMES, boxes, cols, pairs, rows } from "./units.ts";
 
 type Decl = ElementDecl<GridState>;
 const num = (x: number): ElementValue => ({ kind: "number", q: q(x) });
@@ -83,10 +83,9 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   };
 
   const bx = n % 2 === 0 ? boxes(n) : [];
-  const BOX = ["top-left", "top-right", "bottom-left", "bottom-right"];
   const boxRep: Representation<GridState> = {
     id: "boxes", title: "the board cut into four corner boxes", scene: "grid", perSite: false,
-    elements: bx.map((cs, k) => derived(`box${k}`, `the ${BOX[k]} box's total`, s => sum(s, cs), `boxTotal:${k}`)),
+    elements: bx.map((cs, k) => derived(`box${k}`, `the ${BOX_NAMES[k]} box's total`, s => sum(s, cs), `boxTotal:${k}`)),
     layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals" }),
   };
 

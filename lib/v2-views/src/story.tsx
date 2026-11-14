@@ -3,12 +3,12 @@
  * annotation and the faces; neither computes a score of its own.
  */
 import type { ReactElement } from "react";
-import { representation, type ObjectType } from "@workspace/v2-core";
+import { representation, type ObjectType, type Variant } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
 import { ExpandedFace, levelText } from "./faces.tsx";
-import { fmtBits, fmtNum } from "./format.ts";
-import { fmtValue } from "./format.ts";
-import { chipRep, labelOf, nounOf, repText, shownRefs, valuesOf } from "./rep-view.tsx";
+import { fmtBits, fmtNum, fmtValue } from "./format.ts";
+import { nounOf } from "./refs.ts";
+import { chipRep, labelOf, repText, shownRefs, valuesOf } from "./rep-view.tsx";
 
 export interface GoalCardProps<S, P> {
   readonly rule: RuleRef<S, P>;
@@ -64,12 +64,15 @@ const CHANGES_SHOWN = 2;
  * The change in words. An object with an equation is written before → after ("y = −3x + 10 → y = −3x + 9"); one without
  * (a grid) names the elements of its chip's view that changed: "row 1, column 1: 3 → 7; and 2 more".
  */
-function changeText<S>(type: ObjectType<S>, before: S, after: S, rep: string): string {
+function changeText<S>(type: ObjectType<S>, variant: Variant, before: S, after: S, rep: string): string {
   if (representation(type, rep).scene === "equation") return `${form(type, before, rep)} → ${form(type, after, rep)}`;
-  const b = valuesOf(type, before, 0), a = valuesOf(type, after, 0);
-  const changed = shownRefs(type, after, rep).filter(r => fmtValue(b(r)) !== fmtValue(a(r)));
+  const sites = Math.min(type.sites(before, variant), type.sites(after, variant));
+  const changed = Array.from({ length: sites }, (_, site) => {
+    const b = valuesOf(type, before, site), a = valuesOf(type, after, site);
+    return shownRefs(type, after, rep, site).filter(r => fmtValue(b(r)) !== fmtValue(a(r))).map(r => ({ r, was: fmtValue(b(r)), now: fmtValue(a(r)) }));
+  }).flat();
   if (!changed.length) return "no change";
-  const said = changed.slice(0, CHANGES_SHOWN).map(r => `${labelOf(type, r)}: ${fmtValue(b(r))} → ${fmtValue(a(r))}`);
+  const said = changed.slice(0, CHANGES_SHOWN).map(c => `${labelOf(type, c.r)}: ${c.was} → ${c.now}`);
   const more = changed.length - said.length;
   return said.join("; ") + (more ? `; and ${more} more` : "");
 }
@@ -103,7 +106,7 @@ export function MoveLine<S, P>(props: MoveLineProps<S, P>): ReactElement {
   return (
     <p className="v2v v2v-move" data-dir={up ? "up" : down ? "down" : "same"}>
       <span className="v2v-move-who">{props.who} changed a {noun}:</span>{" "}
-      <span className="v2v-move-change" data-scene={representation(rule.type, rep).scene}>{changeText(rule.type, before, after, rep)}</span>
+      <span className="v2v-move-change" data-scene={representation(rule.type, rep).scene}>{changeText(rule.type, rule.variant, before, after, rep)}</span>
       {props.what && <> ({props.what})</>}. <span className="v2v-move-step">{step}</span>.
       {rarity && <> {rarity}.</>}
       {points && <> {points}.</>}
