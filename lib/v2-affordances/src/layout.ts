@@ -8,7 +8,7 @@ import { z } from "zod/v4";
 import { AFFORDANCES, refusal, type AffordanceOf, type ClientAffordanceId, type Via } from "./directory.ts";
 import { OpFailure, type OpOutcome } from "./server.ts";
 import type { AffordanceContext } from "./types.ts";
-import { DockSyntaxError, defaultDock, dockActivate, dockInsert, dockKindOf, dockPanes, dockWithout, parseDock, type DockKind, type DockNode } from "./dock.ts";
+import { DockSyntaxError, defaultDock, dockActivate, dockGroups, dockInsert, dockKindOf, dockPanes, dockWithout, parseDock, type DockKind, type DockNode } from "./dock.ts";
 
 export type Place = "main" | "left" | "right" | "bottom";
 export interface ViewState {
@@ -99,8 +99,9 @@ function opened(v: ViewState, pane: string, place: Place | undefined, ctx: Affor
     return { ...v, panes, dock: kind && !dockPanes(dock[kind] ?? defaultDock(kind)).includes(pane) ? placed(dock, pane, at, ctx) : dock };
   }
   // A pane opened at a place joins that place behind the tab shown there (the panes on screen, stored before a change,
-  // keep their tabs); without a place, or moved, it comes to the front.
-  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx, open || !place) };
+  // keep their tabs); without a place, or moved, it comes to the front. The assistant always does: a conversation
+  // opened to talk in is no use behind a tab.
+  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx, open || !place || pane === "assistant") };
 }
 /**
  * The arrangements after closing `pane`: out of the screen in view's (other screens keep its place there for when it is
@@ -134,7 +135,13 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     if (!kind) throw new OpFailure("Say which screen's dock to arrange: planning, live, ended or replay.");
     const { [kind]: _old, ...rest } = v.dock;
     if (!a.dock.trim()) return { ...v, dock: rest };
-    try { return { ...v, dock: { ...rest, [kind]: parseDock(a.dock) } }; }
+    try {
+      let tree = parseDock(a.dock);
+      // An assistant (a delegated caller) arranging the screen keeps its own conversation in front, as the human had it.
+      const before = v.dock[kind] ?? defaultDock(kind);
+      if (ctx.grant && dockGroups(before).some(l => l.group.active === "assistant") && dockPanes(tree).includes("assistant")) tree = dockActivate(tree, "assistant");
+      return { ...v, dock: { ...rest, [kind]: tree } };
+    }
     catch (e) { if (e instanceof DockSyntaxError) throw new OpFailure(e.message); throw e; }
   },
   "view.pinRepresentation": (v, a) => ({ ...v, pins: { ...v.pins, [a.family ?? "*"]: a.rep } }),
