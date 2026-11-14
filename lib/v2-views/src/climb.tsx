@@ -34,8 +34,8 @@ const sign = (x: number) => (x > EPS ? 1 : x < -EPS ? -1 : 0);
 
 /**
  * How the moves went (oldest first): "together" when no move lowered either side and some raised them; "undoing" when
- * the player's bits went up and down at least twice (each side undid the other); "alone" when only the player moved it;
- * otherwise "mixed".
+ * the player's bits went up and down at least twice and the moves cancelled out (the points ended within a quarter of
+ * all the movement from where they started); "alone" when only the player moved it; otherwise "mixed".
  */
 export function climbOf(moves: readonly ClimbMove[]): Climb {
   const steps = moves.map(m => ({ by: m.by, you: m.after.rarityBits - m.before.rarityBits, others: m.after.want - m.before.want }));
@@ -46,9 +46,11 @@ export function climbOf(moves: readonly ClimbMove[]): Climb {
     if (d && last && d !== last) reversals++;
     if (d) last = d;
   }
+  const gross = moves.reduce((t, m) => t + Math.abs(m.after.points - m.before.points), 0);
+  const net = moves.length ? moves.at(-1)!.after.points - moves[0]!.before.points : 0;
   const kind: ClimbKind = !others.length ? "alone"
     : steps.every(s => s.you >= -EPS && s.others >= -EPS) && steps.some(s => s.you > EPS || s.others > EPS) ? "together"
-    : reversals >= 2 ? "undoing"
+    : reversals >= 2 && Math.abs(net) <= gross / 4 + EPS ? "undoing"
     : "mixed";
   return { kind, steps, from: moves[0]?.before.points ?? 0, to: moves.at(-1)?.after.points ?? 0, with: others };
 }
@@ -59,7 +61,7 @@ export const namesText = (list: readonly string[]) => (list.length <= 1 ? list[0
 /** One sentence for a contested object at the end of a game. */
 export function climbSentence(c: Climb, noun: string, number: number): string {
   const Noun = noun[0]!.toUpperCase() + noun.slice(1);
-  const who = `you and ${namesText(c.with)}`;
+  const who = namesText(["you", ...c.with]);
   const pts = `your points ${fmtNum(c.from)} → ${pointsText(c.to)}`;
   switch (c.kind) {
     case "together": return `${Noun} ${number}: ${who} climbed together, every move raising the points: ${pts}.`;

@@ -218,6 +218,8 @@ try {
     // One grid is read on the ended game: the 30 s world ends about now, and the change of phase remounts the panes
     // (opened just before it, its buttons detached under the click).
     await page.getByTestId("text-phase").getByText(/ended/i).waitFor({ timeout: 60_000 });
+    // The end brings the results forward; the header's button brings Grids back.
+    if (!await page.locator("[data-testid^=row-line-]").first().isVisible()) await page.getByTestId("button-line-by-line-bar").click();
     await page.locator("[data-testid^=row-line-]").first().click();
     const line = page.getByTestId("pane-object");
     await line.locator(".v2v-grid, [data-scene=grid]").first().waitFor({ state: "attached", timeout: 20_000 });
@@ -273,7 +275,7 @@ try {
     const summed = await summary.innerText();
     assert.match(summed, /What earned your points/i);
     assert.match(summed, /What cost you/);
-    assert.match(summed, /(leave it alone|leave that grid alone|is the one the others want most|Open your secret goal)/, summed);
+    assert.match(summed, /(moves marked ↑ both|is the one the others want most|Open your secret goal)/, summed);
     await summary.screenshot({ path: path.join(shots, `grid-${label}-summary.png`) });
     await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.

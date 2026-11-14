@@ -30,3 +30,9 @@ test("only your own agents: alone; nothing moved: no history", () => {
   assert.equal(climbOf([step("you", [1, 2], [1, 1])]).kind, "alone");
   assert.equal(renderToStaticMarkup(<ClimbHistory climb={climbOf([])} noun="line" />), "");
 });
+
+test("up and down moves that still climbed far are mixed, not undone; three players are named in a list", () => {
+  const c = climbOf([step("you", [1, 3], [2, 1]), step("Ada", [3, 2], [1, 5]), step("Bo", [2, 4], [5, 4]), step("Ada", [4, 3.5], [4, 6])]);
+  assert.equal(c.kind, "mixed", "points 2 → 21: the moves did not cancel out");
+  assert.match(climbSentence(c, "grid", 5), /^Grid 5: you, Ada and Bo moved it 4 times, some moves up for you and some down: your points 2\.00 → 21\.00 points\.$/);
+});
