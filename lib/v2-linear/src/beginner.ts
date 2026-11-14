@@ -127,7 +127,7 @@ const treasureShape: Shape<KT> = {
     more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table", upTo(8), "different primes", "count"),
   ],
 };
-export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
+export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
   const at = ref("table", "y", { x: p.k });
   const v = ctx.read(at);
   const y = num(v);
@@ -146,6 +146,10 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], trea
   ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [ref("si", "m")]);
   ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [ref("si", "m")]);
   ctx.mark({ kind: "focus", ref: at });
+  // The target T on the y-axis, so the plane can draw where y(k) should land (marks only).
+  const tm = ref("cart", "yAxisMark", { y: p.T });
+  ctx.read(tm);
+  ctx.mark({ kind: "candidate", ref: tm, term: "treasure" });
 });
 
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
@@ -209,7 +213,7 @@ const crossingShape: Shape<object> = {
     factorTies<object>("m", "the gradient")[0]!,
   ],
 };
-export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si"], crossingShape, [{}], ctx => {
+export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, [{}], ctx => {
   const xRef = ref("crossing", "x0"), kRef = ref("crossing", "near"), mRef = ref("si", "m");
   const xv = ctx.read(xRef);
   const x = num(xv);
@@ -223,6 +227,10 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
   ctx.term("m-spf", "the gradient's smallest prime factor", m === null ? mv : spfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
+  // The nearest whole number on the x-axis, so the plane can draw the target (marks only).
+  const km = ref("cart", "xAxisMark", { x: k });
+  ctx.read(km);
+  ctx.mark({ kind: "candidate", ref: km, term: "crossing" });
 });
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
