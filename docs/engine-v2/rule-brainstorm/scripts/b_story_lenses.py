@@ -8,7 +8,10 @@ non-vertical primitive line a*x + b*y + c0 = 0 with |a|, |c0| <= BOUND and
 where each family's best lines sit relative to the cheap centre. The census is a
 sketch, not the calibration of spec section 7.
 
-Run:  python3 docs/engine-v2/rule-brainstorm/scripts/b_story_lenses.py [--census]
+Run:  python3 docs/engine-v2/rule-brainstorm/scripts/b_story_lenses.py [--beginner] [--census]
+
+--beginner evaluates the two-rung beginner set (the top eight) instead of the full
+second-pool ladders.
 """
 from fractions import Fraction as F
 from math import gcd, floor, isqrt, log2
@@ -172,7 +175,7 @@ def empty_tank(m, c):
     n = near_pos_int(t)
     return [D("|T - N| (empty at a whole minute)", abs(t - n)),
             N(f"spf(N), N = {n} (capped at 13)", spf(n), min(spf(n), 13)),
-            N("den(m) (whole litres a minute; smaller better)", m.denominator, -m.denominator),
+            N("den(m) (whole litres a minute; smaller better)", m.denominator, max(-m.denominator, -12)),
             D("dist(c, square) (start volume square)", d_sq(c))], f"T = {t}"
 
 
@@ -182,7 +185,7 @@ def taxi(m, c, K=5):
     return [D(f"dist(y({K}), whole)", dZ(y)),
             D("dist(c, whole) (whole pick-up charge)", dZ(c)),
             N(f"tau(F), F = {f} (capped at 12)", tau(f), min(tau(f), 12)),
-            N("den(m) (whole pounds a km; smaller better)", m.denominator, -m.denominator)], f"y({K}) = {y}"
+            N("den(m) (whole pounds a km; smaller better)", m.denominator, max(-m.denominator, -12))], f"y({K}) = {y}"
 
 
 def catch_up(m, c, r=4):
@@ -192,8 +195,8 @@ def catch_up(m, c, r=4):
     n = near_pos_int(t)
     ystar = r * t
     return [D("|t - N| (catch up at a whole hour)", abs(t - n)),
-            N("a real chase (c < 0 and m > r)", int(c < 0 and m > r)),
-            N("den(m) (smaller better)", m.denominator, -m.denominator),
+            D("dist(c, whole) (whole-km head start)", dZ(c)),
+            N("den(m) (smaller better)", m.denominator, max(-m.denominator, -12)),
             N(f"tau(meeting km {near_pos_int(ystar)}) (capped at 12)", tau(near_pos_int(ystar)), min(tau(near_pos_int(ystar)), 12))], f"t = {t}, km = {ystar}"
 
 
@@ -205,8 +208,8 @@ def same_reading(m, c):
     h = abs(m.numerator) + m.denominator
     return [D("dist(agreeing reading, whole)", dZ(f)),
             N(f"Omega(|{n}|) (capped at 6)", big_omega(n), min(big_omega(n), 6)),
-            N("height |num m| + den m (smaller better)", h, -h),
-            N("agree below zero", int(f < 0))], f"agree at {f}"
+            N("height |num m| + den m (smaller better, capped at 20)", h, max(-h, -20)),
+            D("dist(f/10, whole) (agree at a round ten)", dZ(f / 10))], f"agree at {f}"
 
 
 def matchsticks(m, c):
@@ -217,13 +220,25 @@ def matchsticks(m, c):
             D("dist(y(10), prime)", d_prime(10 * m + c))], f"y(10) = {10 * m + c}"
 
 
+def leftover(a, b, C):
+    """Least change left after buying x, y >= 1 whole items with a*x + b*y <= C;
+    if one of each is unaffordable, how much money is short (a + b - C)."""
+    if C < a + b:
+        return a + b - C
+    best = C
+    for x in range(1, (C - b) // a + 1):
+        rest = C - a * x
+        best = min(best, rest - b * (rest // b))
+    return best
+
+
 def shopping(m, c):
     a, b, c0 = triple(m, c)
     if not (a > 0 and c0 < 0):
         return WORST, "a price or the budget is not positive"
     C = -c0
     count = sum(1 for x in range(1, C // a + 1) if (C - a * x) > 0 and (C - a * x) % b == 0)
-    return [N("some basket exists (x, y >= 1)", int(count > 0)),
+    return [D("change left (or money short) for the best basket", F(leftover(a, b, C))),
             D("dist(A, prime) + dist(B, prime)", d_prime(F(a)) + d_prime(F(b))),
             D("dist(C/(A+B), whole) (an equal basket)", dZ(F(C, a + b))),
             N("number of baskets", count)], f"{a}x + {b}y = {C}"
@@ -239,7 +254,7 @@ def fence(m, c):
     n = near_pos_int(t)
     return [D("|t - N| (finish together at a whole hour)", abs(t - n)),
             D("dist(p, whole) + dist(q, whole)", dZ(p) + dZ(q)),
-            N("the painters differ (p != q)", int(p != q)),
+            D("dist(min(p, q), prime) (the faster painter takes a prime number of hours)", d_prime(min(p, q))),
             D(f"dist(N = {n}, prime)", d_prime(F(n)))], f"p = {p}, q = {q}, t = {t}"
 
 
@@ -343,7 +358,7 @@ def per_minute(m, c, K=10):
     if not (m > 0 and c >= 0):
         return WORST, "not a price plan"
     return [D(f"dist(y({K})/{K}, whole)", dZ((m * K + c) / K)),
-            N("connection fee c > 0", int(c > 0)),
+            D(f"|c/{K} - N| (the fee adds a whole number of pence, at least 1, to each minute)", abs(c / K - near_pos_int(c / K))),
             D(f"dist(y({2 * K})/{2 * K}, whole)", dZ((m * 2 * K + c) / (2 * K))),
             N("whole averages for 1..10 minutes", sum(1 for x in range(1, 11) if ((m * x + c) / x).denominator == 1))], ""
 
@@ -368,6 +383,40 @@ FAMILIES = [
 ]
 
 
+# ---------------------------------------------------------------- beginner set: primary + one secondary
+def two(fn, keep):
+    def f(m, c):
+        comps, note = fn(m, c)
+        return (comps if comps is WORST else [comps[i] for i in keep]), note
+    return f
+
+
+def b_matchsticks(m, c):
+    return [D("|c - 1| (pattern 0 is one stick)", abs(c - 1)),
+            D("dist(m + 1, odd prime) (shapes with a prime number of sides, triangles or more)",
+              F(3) - (m + 1) if m + 1 <= 3 else d_prime(m + 1))], ""
+
+
+def b_per_minute(m, c, K=10):
+    if not (m > 0 and c >= 0):
+        return WORST, "not a price plan"
+    t = c / K
+    return [D(f"dist(y({K})/{K}, whole)", dZ((m * K + c) / K)),
+            D(f"|c/{K} - N| (the fee adds a whole number of pence, at least 1, to each minute)", abs(t - near_pos_int(t)))], ""
+
+
+BEGINNER = [
+    ("Matchstick Chains", b_matchsticks, [(F(4), F(1)), (F(3), F(1)), (F(1, 2), F(5))]),
+    ("Steady vs Doubling", two(doubling, [0, 1]), [(F(42), F(-80)), (F(2), F(0)), (F(1, 2), F(7))]),
+    ("Shopping Baskets", two(shopping, [0, 1]), [(F(-2, 3), F(25, 3)), (F(-1), F(5)), (F(-3, 4), F(5, 2))]),
+    ("Same Reading", two(same_reading, [0, 1]), [(F(2), F(40)), (F(9, 5), F(32)), (F(1, 2), F(1, 3))]),
+    ("Ladder Against the Wall", two(ladder, [0, 1]), [(F(-4, 3), F(4)), (F(-1), F(3)), (F(-2, 5), F(7, 3))]),
+    ("Savings Goal (T = 100)", two(savings, [0, 3]), [(F(1, 2), F(2)), (F(1), F(0)), (F(3), F(1, 3))]),
+    ("Empty Tank", two(empty_tank, [0, 1]), [(F(-1), F(7)), (F(-2), F(4)), (F(-3, 4), F(5, 2))]),
+    ("Price per Minute (K = 10)", b_per_minute, [(F(3), F(20)), (F(2), F(0)), (F(1, 3), F(7, 2))]),
+]
+
+
 def evaluate(fn, m, c):
     comps, note = fn(m, c)
     if comps is WORST:
@@ -381,8 +430,8 @@ def fmt(v):
     return str(v)
 
 
-def examples():
-    for name, fn, lines in FAMILIES:
+def examples(families):
+    for name, fn, lines in families:
         print(f"## {name}")
         for m, c in lines:
             score, note, comps = evaluate(fn, m, c)
@@ -396,7 +445,7 @@ def examples():
         print()
 
 
-def census(bound=16):
+def census(families, bound=16):
     lines = []
     for a in range(-bound, bound + 1):
         for b in range(1, bound + 1):
@@ -407,7 +456,7 @@ def census(bound=16):
                 lines.append((m, c, phi(m, c)))
     total = sum(2.0 ** -p for _, _, p in lines)
     print(f"census: {len(lines)} lines, |a|,|c0| <= {bound}, 1 <= b <= {bound}; weights 2^-phi\n")
-    for name, fn, _ in FAMILIES:
+    for name, fn, _ in families:
         rows = []
         for m, c, p in lines:
             score, _, _ = evaluate(fn, m, c)
@@ -428,6 +477,7 @@ def census(bound=16):
 
 
 if __name__ == "__main__":
-    examples()
+    fams = BEGINNER if "--beginner" in sys.argv else FAMILIES
+    examples(fams)
     if "--census" in sys.argv:
-        census()
+        census(fams)
