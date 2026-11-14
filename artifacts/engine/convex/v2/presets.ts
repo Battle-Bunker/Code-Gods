@@ -1,3 +1,5 @@
+import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
+
 /**
  * The deployed presets the server knows (integration plan §1.2: a room picks a preset plus a few overrides).
  *
@@ -33,11 +35,12 @@ export interface Preset {
 
 const BEGINNER: Preset = {
   id: "lines-beginner", title: "Lines · beginner", variant: "line-z", minPlayers: 3,
-  planningSeconds: 60, worldSeconds: 300, startingEnergy: 100, startingObjects: 24,
+  planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy, startingObjects: 24,
   families: ["prime-gradient", "triangle-area", "m-meets-c", "crossing-check", "whole-intercept", "square-area"],
-  // Today's defaults (game-core settings: 8 bits/s of power, a 30 s full charge); opportunities fewer than v1's 100 Hz
-  // because a v2 act runs host calls (to be measured in M1).
-  economy: { powerPerSecond: 8, fullChargeSeconds: 30, opportunitiesPerSecond: 4, birthsPerSecond: 0.1 },
+  economy: {
+    powerPerSecond: LINES_BEGINNER_ECONOMY.powerPerSecond, fullChargeSeconds: LINES_BEGINNER_ECONOMY.fullChargeSeconds,
+    opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 0.1,
+  },
 };
 
 export const PRESETS: readonly Preset[] = [
