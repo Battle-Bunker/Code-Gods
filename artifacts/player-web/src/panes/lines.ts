@@ -71,10 +71,10 @@ export function payoffRect(row: { rarity: number; want: number }, scale: PayoffS
  * The row's "Why?": the line's score in the one formula ("your 3.40 bits × others' 2.00 bits = 6.80 points"), why it
  * scores nothing when only you care, then what the main part of the rule read (or why the line does not score).
  */
-export function whyLine(v: { rarity: number; want: number }, main: { sentence?: string; worst?: string | null }): string {
-  const only = onlyYouNote(v.rarity, v.want);
+export function whyLine(v: { rarity: number; want: number }, main: { sentence?: string; worst?: string | null }, one = "line"): string {
+  const only = onlyYouNote(v.rarity, v.want, one);
   const head = `${scoreFormula(v.rarity, v.want)}.${only ? ` ${only}` : ""}`;
-  if (main.worst) return `${head} This line does not score for your rule: ${main.worst}.`;
+  if (main.worst) return `${head} This ${one} does not score for your rule: ${main.worst}.`;
   return main.sentence ? `${head} Main part: ${main.sentence.replace(/\.$/, "")}.` : head;
 }
 
@@ -84,10 +84,10 @@ export function whyLine(v: { rarity: number; want: number }, main: { sentence?: 
  * How a rule with parts ranks lines, in plain words (ux-lessons 2.6: "(main part, tie-breaker)", never "primary,
  * secondary"); null for a rule of one part.
  */
-export function partsNote(parts: number): string | null {
+export function partsNote(parts: number, one = "line", many = `${one}s`): string | null {
   if (parts <= 1) return null;
   const names = ["main part", "tie-breaker", "second tie-breaker", "third tie-breaker"].slice(0, parts);
-  return `Your rule scores a line in ${parts} parts (${names.join(", ")}): the main part counts first, and each tie-breaker only decides between lines level on everything before it.`;
+  return `Your rule scores a ${one} in ${parts} parts (${names.join(", ")}): the main part counts first, and each tie-breaker only decides between ${many} that tie on everything before it.`;
 }
 
 // ------------------------------------------------------------------ switcher ↔ view state

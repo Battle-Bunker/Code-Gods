@@ -7,7 +7,7 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { bitsText, num, pointsText, scoreFormula, OTHERS_NOTE } from "@/core/words";
+import { bitsText, num, othersNote, pointsText, scoreFormula } from "@/core/words";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -50,6 +50,7 @@ function PointsRectangle({ number, rarity, want, scale }: { number: number; rari
 
 /** The colour coding, said once above the list in the formula's words. */
 function PointsKey() {
+  const word = objectWord(useGame()?.variant);
   const swatch = (c: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: c }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground" data-testid="text-points-key">
@@ -57,7 +58,7 @@ function PointsKey() {
       <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
       <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
       <BitsHelp testId="button-bits-help-lines" />
-      <span className="basis-full" data-testid="text-others-note">{OTHERS_NOTE}</span>
+      <span className="basis-full" data-testid="text-others-note">{othersNote(word.one)}</span>
     </p>
   );
 }
@@ -103,13 +104,13 @@ function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpe
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">{word.One} {number}</span>
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
-          title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">tug-of-war</span>}
+          title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} />}
       {v && (
         <p className="line-clamp-5 text-muted-foreground" data-testid={`text-why-line-${number}`}>
-          <span className="font-medium text-foreground">Why? </span>{whyLine({ rarity: v.rarityBits, want: v.want }, { sentence: main?.sentence, worst: a?.worst })}
+          <span className="font-medium text-foreground">Why? </span>{whyLine({ rarity: v.rarityBits, want: v.want }, { sentence: main?.sentence, worst: a?.worst }, word.one)}
         </p>
       )}
     </div>
@@ -135,7 +136,7 @@ function SeatedLines() {
     // The pane first (the arrangement on screen kept, at most five), then the line in it.
     if (!await panes.open("object")) return;
     try { await openObject.run({ objectId }); }
-    catch (e) { toast({ title: "The line did not open", description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
+    catch (e) { toast({ title: `The ${objectWord(header?.variant).one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
   }, [panes, openObject]);
   const { results, status, loadMore } = ids;
   const onNearEnd = useCallback(() => { if (status === "CanLoadMore") loadMore(30); }, [status, loadMore]);

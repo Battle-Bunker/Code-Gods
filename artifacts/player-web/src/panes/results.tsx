@@ -4,9 +4,9 @@
  * (a peak above the final figure read as a mismatch), then the final standings, your row marked.
  */
 import { Play } from "lucide-react";
-import { useGame, useLeaderboard, useRotationRound } from "@/sdk";
+import { objectWord, useGame, useLeaderboard, useRotationRound } from "@/sdk";
 import { AffordanceButton } from "@/site/components/action";
-import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, TOTALS_NOTE } from "@/core/words";
+import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
@@ -47,7 +47,7 @@ export function ResultsPane() {
       )}
       {rows.length > 0 && (
         <div className="space-y-1 text-xs text-muted-foreground" data-testid="text-results-note">
-          <p>{totalNote(TOTALS_NOTE, rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
+          <p>{totalNote(totalsSumNote(objectWord(header?.variant).one), rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
           <LineByLine testId="button-line-by-line-results" />
         </div>
       )}

@@ -4,13 +4,14 @@
  */
 import { useMemo } from "react";
 import { GoalCard } from "@workspace/v2-views";
-import { useGameScope, useMyRule, type GameRule } from "@/sdk";
+import { objectWord, useGameScope, useMyRule, type GameRule } from "@/sdk";
 import { partsNote } from "./lines";
 import { workedExample } from "./worked-example";
 
 function Card({ rule, rarities, parts }: { rule: GameRule; rarities: number[]; parts: number }) {
   const example = useMemo(() => workedExample(rule), [rule]);
-  const note = partsNote(parts);
+  const word = objectWord(rule.variant.id);
+  const note = partsNote(parts, word.one, word.many);
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
       {note && <p className="text-xs text-muted-foreground" data-testid="text-rule-parts">{note}</p>}
