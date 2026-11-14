@@ -250,3 +250,10 @@ test("an agent's first counted moves are accumulated as they arrive and frozen a
 test("before the first agent, one short clause says why there are points already", () => {
   assert.equal(pointsBeforeAgent("grid"), "Every grid already gives everyone some points; your agent's job is to raise yours.");
 });
+
+test("the others' want says what it was when it changed, so the before points can be checked", async () => {
+  const { othersWantClause } = await import("../src/core/panels/score-line.ts");
+  assert.equal(othersWantClause(2.4, "grid", 3.2), "how much the others want this grid: 2.4 (was 3.2)");
+  assert.equal(othersWantClause(2.4, "grid", 2.41), "how much the others want this grid: 2.4", "the same when shown: said once");
+  assert.equal(othersWantClause(2.4, "grid"), "how much the others want this grid: 2.4");
+});

@@ -149,8 +149,14 @@ export function zeroPointsReason(ownAfter: number | undefined, othersAfter: numb
  * differently because of this figure (a player saw +41.6 once and +0.4 another time for the same step). The bands:
  * what shows as 0.0 none, below 1 "barely", 8 and above "a lot", between them the bare figure; below 0 they would rather not have it.
  */
-export function othersWantClause(others: number | undefined, noun = "object"): string | null {
+export function othersWantClause(others: number | undefined, noun = "object", before?: number): string | null {
   if (typeof others !== "number" || !Number.isFinite(others)) return null;
+  // What it was, when that shows differently: the "before" points are the old rarity × the OLD want (two walkers
+  // checked "14.5 = 4.5 × 2.4" against the new figure and found it did not add up).
+  const was = typeof before === "number" && Number.isFinite(before) && amount(before) !== amount(others) ? ` (was ${amount(before)})` : "";
+  return wantWords(others, noun) + was;
+}
+function wantWords(others: number, noun: string): string {
   // What shows as 0.0 is none.
   if (Math.abs(others) < 0.05) return `the others do not want this ${noun}`;
   if (others < 0) return `the others would rather not have this ${noun}: ${amount(others)}`;
@@ -217,7 +223,7 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
     ? `: ✨ rarity ${rare(rarityBefore)} → ${rare(rarityAfter)} (${rarityAfter > rarityBefore ? "fewer" : "more"} random ${noun}s score this well)` : "";
   const plain = ruleScoreChange(ruleBefore, ruleAfter);
   const rule = plain ? plain + rarity : plain;
-  const others = othersWantClause(othersAfter, noun);
+  const others = othersWantClause(othersAfter, noun, othersBefore);
   if (isKnown(pointsBefore) && isKnown(pointsAfter)) {
     const delta = pointsAfter - pointsBefore, moved = signed(delta) !== "+0";
     const way = ruleDirection(ruleBefore, ruleAfter);
