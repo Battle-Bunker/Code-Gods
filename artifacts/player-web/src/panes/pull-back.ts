@@ -45,3 +45,23 @@ export function proposedSplit(before: Readonly<Record<string, number>>, newAgent
   const scale = (total - fresh) / total;
   return { ...Object.fromEntries(ids.map(id => [id, r4(before[id]! * scale)])), [newAgent]: r4(fresh) };
 }
+
+/** A summon or an edit the server refused for want of energy: its numbers (agent.summon / agent.replace `error.data`). */
+export interface Shortfall { price: number; store: number; secondsToPay: number | null; payNow: Record<string, number> | null }
+
+/** The shortfall a refusal carries, or null when it is another refusal. */
+export function shortfallOf(e: unknown): Shortfall | null {
+  const d = (e as { data?: Record<string, unknown> } | null)?.data;
+  if (!d || typeof d.price !== "number" || typeof d.store !== "number") return null;
+  const payNow = (d.payNow as { shares?: Record<string, number> } | null)?.shares ?? null;
+  return { price: d.price, store: d.store, secondsToPay: typeof d.secondsToPay === "number" ? d.secondsToPay : null, payNow };
+}
+
+const fmt = (x: number) => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/** The words beside a refused purchase: both ways to pay, or why waiting never pays. */
+export function shortText(s: Shortfall, verb: "summon" | "edit"): string {
+  const head = `This ${verb} costs ${fmt(s.price)} ⚡ and your store holds ${fmt(s.store)} ⚡`;
+  if (s.secondsToPay === null) return `${head}: waiting never pays it at this split. Pull power back from your agents, or shorten the code.`;
+  const n = Math.max(1, Math.ceil(s.secondsToPay));
+  return `${head}: it pays by itself in about ${n} second${n === 1 ? "" : "s"}, or pull power back from your agents to pay now.`;
+}

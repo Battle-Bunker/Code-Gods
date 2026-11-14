@@ -16,6 +16,7 @@ import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
 import { useWide } from "@/core/use-wide";
 import { PullBack } from "./pull-back-ui";
+import { shortfallOf, shortText } from "./pull-back";
 import {
   affordLine, comparisonText, editLine, editPrice, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
 } from "./forge-model";
@@ -57,6 +58,8 @@ export function ForgePane() {
   const [showCode, setShowCode] = useState(false);
   // Pressed "Summon another agent" without the energy for it: the pull-back is offered now.
   const [wantMore, setWantMore] = useState(false);
+  /** A summon or edit refused for want of energy: paid by itself once the store holds it, or by pulling power back. */
+  const [short, setShort] = useState<{ verb: "summon" | "edit"; src: string; price: number } | null>(null);
   // An accepted summon counts at once, before the agent list catches up (ux-lessons 1.8).
   const count = useAgentCount() ?? 0;
   // The agent in the editor: the one chosen, else the first; a destroyed one gives way to the next.
@@ -81,6 +84,11 @@ export function ForgePane() {
   useEffect(() => { statusRef.current?.scrollIntoView({ block: "nearest" }); }, [status]);   // ux-lessons 5.3
   // A "Summon my first agent" pressed elsewhere on the screen (the planning line, Where am I) is performed here, once.
   const firstSummonRef = useRef<() => void>(() => {});
+  // A purchase still wanted pays itself once the store holds its price (once; the pull-back, when pressed, takes over).
+  const payShortRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (short && me && me.energy >= short.price && !runner.busy) payShortRef.current();
+  }, [short, me?.energy, runner.busy]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const take = () => { if (header?.gameId && takeFirstSummon(header.gameId)) firstSummonRef.current(); };
     take();
@@ -92,6 +100,19 @@ export function ForgePane() {
   if (!rule) return <p className="p-4 text-sm text-muted-foreground">Your rule is being dealt…</p>;
 
   const fail = (e: unknown) => setStatus({ tone: "error", text: failureText(e) });
+  /** A purchase the store cannot pay yet stays wanted (playtest round 5: the offer to pull power back lived a second). */
+  const refused = (e: unknown, verb: "summon" | "edit", src: string, first: boolean) => {
+    const s = first ? null : shortfallOf(e);
+    if (!s) { fail(e); return; }
+    setShort({ verb, src, price: s.price });
+    setStatus({ tone: "info", text: shortText(s, verb) });
+  };
+  payShortRef.current = () => {
+    if (!short) return;
+    const s = short;
+    setShort(null);
+    void (s.verb === "edit" ? doReplace(s.src) : doSummon(s.src, false));
+  };
   firstSummonRef.current = () => { if (count === 0 && opening && summon.available && !runner.busy) void doSummon(opening.source, true, agentName(opening.title)); };
   /** The new agent's id, or false when nothing was summoned. */
   const doSummon = async (src: string, first: boolean, name?: string): Promise<string | false> => {
@@ -101,9 +122,10 @@ export function ForgePane() {
       if (!r) return false;
       setRan(src); setDraft(null); setSelected(r.agentId);
       if (header?.gameId) noteSummoned(header.gameId);
+      setShort(null);
       setStatus({ tone: "ok", text: first ? summonedText({ name: name ?? "Your agent", share: FIRST_SHARE, power: me?.power ?? 0 }) : `Summoned for ${energyText(r.price)}.`, action: "agents" });
       return r.agentId;
-    } catch (e) { fail(e); return false; }
+    } catch (e) { refused(e, "summon", src, first); return false; }
   };
   /** null when replaced, false when not. */
   const doReplace = async (src: string): Promise<null | false> => {
@@ -113,9 +135,10 @@ export function ForgePane() {
       const r = await runner.run("replace", () => replace.run({ agentId: agent.agentId, language, source: src }));
       if (!r) return false;
       setRan(src); setDraft(null);
+      setShort(null);
       setStatus({ tone: "ok", text: replacedText(agent.name, r.price), action: "agents" });
       return null;
-    } catch (e) { fail(e); return false; }
+    } catch (e) { refused(e, "edit", src, false); return false; }
   };
   const doCheck = async () => {
     setReport(`Checking: one move on a sample ${objectWord(header?.variant).one}…`);
@@ -192,7 +215,7 @@ export function ForgePane() {
         ? editLine({ edit: replacePrice, full: price, energy: me?.energy ?? 0 })
         : affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
       {me && agents && agents.length > 0 && primary !== "summonFirst" && (
-        <PullBack me={me} agents={agents} price={replacePrice ?? price} verb={primary === "replace" ? "edit" : "summon"} offer={wantMore || (ran !== source && status?.tone !== "ok")}
+        <PullBack me={me} agents={agents} price={short?.price ?? replacePrice ?? price} verb={short?.verb ?? (primary === "replace" ? "edit" : "summon")} offer={!!short || wantMore || (ran !== source && status?.tone !== "ok")} onStart={() => setShort(null)}
           pay={() => (primary === "replace" ? doReplace(source) : doSummon(source, false))} />
       )}
       <div ref={statusRef} aria-live="polite">

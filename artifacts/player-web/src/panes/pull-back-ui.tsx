@@ -16,7 +16,7 @@ type Phase = { kind: "idle" } | { kind: "filling"; before: Record<string, number
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function PullBack({ me, agents, price, verb, offer, pay }: {
+export function PullBack({ me, agents, price, verb, offer, pay, onStart }: {
   me: Me; agents: readonly Agent[]; price: number;
   /** Whether to offer it now (not for the code just paid for); a pull-back under way stays on screen either way. */
   offer: boolean;
@@ -24,6 +24,8 @@ export function PullBack({ me, agents, price, verb, offer, pay }: {
   verb: "summon" | "edit";
   /** Pays with the forge's own operation: the new agent's id after a summon, null after an edit, false when it failed. */
   pay: () => Promise<string | null | false>;
+  /** Called when the pull-back starts (it pays from then on, so a purchase waiting to pay itself stands down). */
+  onStart?: () => void;
 }) {
   const allocate = useAffordance("power.allocate");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
@@ -62,7 +64,7 @@ export function PullBack({ me, agents, price, verb, offer, pay }: {
     return (
       <button type="button" className="self-start border border-primary px-3 py-2 text-sm font-medium" data-testid="button-pull-back"
         title="Your agents keep a sliver of power for a moment; the rest fills your own store, the cost is paid, then you choose the new split."
-        onClick={() => void run(plan.shares, { kind: "filling", before })}>
+        onClick={() => { onStart?.(); void run(plan.shares, { kind: "filling", before }); }}>
         Pull power back to pay for this (about {plan.seconds} s)
       </button>
     );
