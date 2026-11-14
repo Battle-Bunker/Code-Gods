@@ -22,7 +22,7 @@ test("y = 2x + 1 in every representation", () => {
   assert.deepEqual(["a", "b", "c", "sum"].map(n => val(s, "gen", n)), ["-2", "1", "-1", "-2"]);
   assert.equal(val(s, "cart", "xInt"), "(-1/2, 0)");
   assert.equal(val(s, "cart", "yInt"), "(0, 1)");
-  assert.equal(val(s, "cart", "line"), "(-13/2, -12)-(11/2, 12)");
+  assert.equal(val(s, "cart", "line"), "(0, 1)-(1, 3)"); // two points of the line, no drawing window
   assert.equal(val(s, "cart", "pointAtY", { q: 5 }), "(2, 5)");
   assert.equal(val(s, "tri", "area"), "1/4");
   assert.equal(val(s, "tri", "hyp2"), "5/4");
