@@ -50,14 +50,16 @@ export function AgentsPane() {
   if (!header) return null;
   if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="agents-spectator">Each player's agents are private to them. You're watching, so there are none to show.</p>;
   const none = agents !== undefined && agents.length === 0 && count === 0;
+  const power = me && (
+    <div className={`space-y-1 px-4 py-3 ${none ? "border-b" : "border-t"}`} data-testid="text-own-power">
+      <p>Your energy <Energy value={me.energy} testId="text-own-energy" /> <span className="text-muted-foreground">(for summoning and replacing agents)</span></p>
+      <p className="text-muted-foreground" data-testid="text-power-explained">{powerSentence(me.power, (agents ?? []).map(a => a.share))}</p>
+    </div>
+  );
+  // With agents, they come first: "is my agent working?" is answered at the top of the pane, before how power works.
   return (
     <div className="text-sm" data-testid="agents">
-      {me && (
-        <div className="space-y-1 border-b px-4 py-3" data-testid="text-own-power">
-          <p>Your energy <Energy value={me.energy} testId="text-own-energy" /> <span className="text-muted-foreground">(for summoning and replacing agents)</span></p>
-          <p className="text-muted-foreground" data-testid="text-power-explained">{powerSentence(me.power, (agents ?? []).map(a => a.share))}</p>
-        </div>
-      )}
+      {none && power}
       {none ? (
         <div className="space-y-2 p-4" data-testid="agents-empty">
           <p className="text-muted-foreground">You have no agents yet. An agent moves lines towards your goal, and every move that helps raises your points.</p>
@@ -68,6 +70,7 @@ export function AgentsPane() {
       ) : (
         <ul className="divide-y">{(agents ?? []).map(a => <AgentRow key={a.agentId} agent={a} power={me?.power} />)}</ul>
       )}
+      {!none && power}
     </div>
   );
 }

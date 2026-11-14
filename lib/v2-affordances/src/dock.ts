@@ -169,7 +169,7 @@ export function formatDock(n: DockNode): string {
  */
 export const DEFAULT_DOCKS: Readonly<Record<DockKind, string>> = {
   planning: "row(overview 26, my-card 34, forge 40)",
-  live: "row(column(my-card 45, agents 55) 30, objects 40, column(feed 50, race 50) 30)",
+  live: "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race 50) 30)",
   ended: "row(my-card 28, results 44, race 28)",
   replay: "row(my-card 28, objects 42, column(feed 50, race 50) 30)",
 };

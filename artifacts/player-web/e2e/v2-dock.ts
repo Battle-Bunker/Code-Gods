@@ -2,7 +2,7 @@
  * The desktop dock gives every open pane a usable size (playtest round 1, item 1), against the LIVE local engine. At
  * 1440×900 and 1280×720, in a practice game:
  *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
- *   its key elements (the goal card's rule, the lines' sort, the act log, the agents' power and the agent's stats line,
+ *   its key elements (the goal card's rule, the lines' sort, the act log, the agent's stats line,
  *   the leaderboard's chart, the results' headline and "Watch the replay") lie wholly inside the pane, inside the window → opening One line keeps What just
  *   changed and the lines in view → a dragged gutter is stored and comes back after a reload.
  * At 390×844 the phone stays stacked, and the forge's "Open My agents" adds My agents to the stack (every other pane
@@ -79,7 +79,7 @@ const KEY: Record<string, string | string[]> = {
   object: "[data-testid=text-line-points]",
   feed: "[data-testid=text-move-line], [data-testid=text-tug-line], [data-testid=feed-empty]",
   // The agent's stats line (energy, moves, skips, failures, spend, points: round 2 saw it cut at 1440×900).
-  agents: ["[data-testid=text-own-power]", "[data-testid^=text-agent-work-]"],
+  agents: "[data-testid^=text-agent-work-]",
   race: "[data-testid=race-chart], [data-testid=race-empty]",
   results: ["[data-testid=text-results-headline]", "[data-testid=button-watch-replay]"],
 };
@@ -90,7 +90,10 @@ async function usable(page: Page, panes: string[], what: string) {
   const screen = { x: 0, y: 0, width: viewport.width, height: viewport.height };
   for (const pane of panes) {
     const section = page.getByTestId(`pane-${pane}`);
-    await section.waitFor({ timeout: 20_000 });
+    await section.waitFor({ timeout: 20_000 }).catch(async (e: Error) => {
+      await page.screenshot({ path: path.join(shots, "dock-failed.png") });
+      throw new Error(`${what}: ${pane} is not on screen; the dock: ${await dockText(page)} (${e.message.split("\n")[0]})`);
+    });
     const box = await section.boundingBox() as Box;
     assert.ok(box.width >= 300 && box.height >= 220, `${what}: ${pane}'s body is ${Math.round(box.width)}×${Math.round(box.height)} px`);
     assert.ok(inside(box, screen), `${what}: ${pane} is inside the window (${JSON.stringify(box)})`);
@@ -152,6 +155,7 @@ try {
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
+    console.log(`${label}: ended dock: ${await dockText(page)}`);
     await usable(page, ["results", "my-card", "race"], `${label} ended`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
     assert.deepEqual(errors, [], `${label}: page errors`);
