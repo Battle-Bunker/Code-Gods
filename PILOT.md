@@ -154,8 +154,7 @@ Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are 
 - **Idle parking.** After 30 minutes without human activity (creating or joining a room, the owner's
   start or resume, and the clients' activity touches on real interaction), the engine parks running games in `recovery`: no ticks and no AI turns are scheduled, so a
   parked deployment costs nothing. AI turns, polling and subscriptions never count as activity. The
-  next human activity resumes parked games automatically; the room assistant can do it with
-  `pnpm player assistant wake`.
+  next human activity resumes parked games automatically.
 
 ### The engine's own app (no duplicate needed)
 
@@ -163,51 +162,33 @@ Each human can play at `https://<dep>.convex.site/rooms/CODE`, signed in with Go
 It is the same app a player can run themselves, with the same rights. Use it as the fallback for anyone
 without their own player app.
 
-### Your own player app (any dev environment)
+### The CLI and remote assistants (any dev environment)
 
-Each player runs their own copy of the repository as a live-moddable client of the one engine: a
-local checkout, GitHub Codespaces, Gitpod or Replit all work. Player apps need no engine code, database
-or provider keys. Do not give players editor access to the engine's own deployment.
+Every operation of the game is also a command of `pnpm player` and a tool of the engine's MCP server
+(`<site>/mcp`), generated from one directory (`docs/engine-v2/affordances.md`). Either acts for one human in one
+room, with the rights that human approved.
 
-1. Clone (or fork) the repository and run `pnpm install`.
-2. Set `CODE_GODS_ENGINE_URL` to the engine's site URL (`https://<dep>.convex.site`), in your
-   environment's secret store (e.g. Codespaces secrets) or in a gitignored `.env.local` where you run
-   pnpm.
-3. Run `pnpm player connect --room CODE` (add `--permission owner` for the room owner's full
-   delegation, or `read` for observation only; the default is `act`; `--write-env .env.local` stores
-   both values for you).
-4. Open the printed `/device` link in the browser where you are signed in to the engine, check the
-   comparison code, room, permission and label, and approve. An owner grant needs the current room
-   owner's extra consent.
-5. Store the printed credential as `CODE_GODS_CREDENTIAL` the same way. It is shown once; it is
+1. Clone the repository and run `pnpm install`. Set `CODE_GODS_ENGINE_URL` to the engine's site URL
+   (`https://<dep>.convex.site`); without it the CLI talks to the local engine (`http://127.0.0.1:3211`).
+2. Run `pnpm player connect --room CODE` (add `--permission owner` for the room owner's full delegation, or
+   `read` for observation only; the default is `act`).
+3. Open the printed `/device` link in the browser where you are signed in to the engine, check the code, room,
+   permission and label, and approve. An owner grant needs the current room owner. The CLI saves the credential
+   in `~/.config/code-gods/cli.json` (mode 600; `--config FILE` or `CODE_GODS_CONFIG` to move it). It is
    room-bound, expires after 7 days and can be revoked on the engine site (menu → Connected apps) or with
-   `pnpm player assistant disconnect`.
-6. Run `pnpm --filter @workspace/player-web dev` (port 22772 unless `PORT` is set). The Vite dev server
-   keeps the credential server-side and gives the browser only 10-minute JWTs (`/__codegods/token`).
-7. Open the app through the **launch link** the dev server prints to its console
-   (`…/__codegods/launch?key=…`). A forwarded dev URL is public, so tokens go only to a browser that
-   opened this link. Keep it private. To keep the link stable across restarts, store a long random
-   value as `CODE_GODS_LAUNCH_KEY`. Otherwise each restart prints a new link. Replit, Codespaces and
-   Gitpod URLs are detected; behind another proxy or tunnel set `CODE_GODS_PUBLIC_ORIGIN` (and
-   `CODE_GODS_ALLOWED_HOSTS` for any further hosts).
+   `pnpm player disconnect`.
+4. `pnpm player status` checks the connection; `pnpm player tools` lists what you may do now (it follows the
+   game's phase and your rights); `pnpm player help [namespace [verb]]` documents each command, e.g.
+   `pnpm player chat send --text "hello"`, `pnpm player agent summon --language python --source "$(cat agent.py)"`,
+   or `pnpm player call object.read '{"objectId":"…","rep":"si"}'`.
 
-Or, with no credential at all: set `VITE_CODE_GODS_ENGINE_URL` to the engine's site URL instead and run the
-same dev server. The app then asks you to sign in, you approve it on the engine's `/connect` page (it acts as
-you in every room, like the engine's own site; revoke it there under Connected apps), and it works from any
-origin (`docs/player-client-integration.md`, "the app in account mode"). In Replit's webview, open the app in a
-tab of its own to sign in.
+An MCP client (Claude Code, Claude Desktop, any other) connects to `<site>/mcp` itself, with OAuth: add the
+server URL and approve the connection when the engine asks. It gets the same tools.
 
-#### On Replit
-
-Import the repository as a Repl. `.replit` defines the **Player** workflow (the dev server above, port
-22772); store the two values (and optionally `CODE_GODS_LAUNCH_KEY`) in Replit Secrets and restart
-the workflow. The Replit Agent can act as the room assistant (`replit.md`).
-
-`pnpm player status` checks the connection. The player's coding agent is their **room assistant**
-(`docs/room-assistant.md`): it uses the same credential through `pnpm player assistant …` and can
-build live panels in the running client (`docs/panels.md`). Client UI and analytics are freely
-editable; to update, pull from Git and restart the dev server. The engine stays authoritative:
-a modified client can do no more than its human could, and never sees opponents' individual scores.
+Each human can also play in the engine's own app at `https://<dep>.convex.site/rooms/CODE`, or run the app as
+their own dev server with `VITE_CODE_GODS_ENGINE_URL` set to the engine's site URL: it then asks you to sign in,
+you approve it on the engine's `/connect` page (it acts as you in every room, like the engine's own site; revoke
+it there under Connected apps), and it works from any origin.
 
 ## First smoke game
 
@@ -270,8 +251,9 @@ A local deployment created before Google sign-in (its `users` rows have `issuer`
 there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again. Schema changes since then are
 migrations (CLAUDE.md "Schema migrations"), which `dev` starts on every run like a deploy does.
 
-A local player app: `pnpm player connect --engine http://127.0.0.1:3211 --room CODE --write-env .env.local`
-(gitignored), approve as a test identity, then `PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web dev`.
+The CLI against the local engine: `pnpm player connect --room CODE`, approve as a test identity on
+`http://127.0.0.1:3211/device`, then any `pnpm player …` command. A local app in account mode:
+`VITE_CODE_GODS_ENGINE_URL=http://127.0.0.1:3211 PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web dev`.
 `artifacts/engine/scripts/seed-players.ts` seeds a room with several connected simulated players.
 
 Tests that use the local backend: `pnpm --filter @workspace/engine test:game`,

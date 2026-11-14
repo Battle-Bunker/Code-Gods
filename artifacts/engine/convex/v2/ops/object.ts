@@ -25,7 +25,7 @@ export const { op: quote, as: quoteAs } = defineOp("object.quote", "query", asyn
   const calls = a.calls.map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
   const q = ask(host, { op: "quote", calls });
   const priced = host.price(calls);
-  const after = priced.valid ? ask(await hostFor(env.ctx, game, member, encode(priced.result as never)), { op: "myScore" }) : null;
+  const after = priced.valid ? ask(await hostFor(env.ctx, game, member, encode(priced.result, game.variant)), { op: "myScore" }) : null;
   return { valid: q.valid, ...(q.reason ? { reason: q.reason } : {}), bits: q.bits, total: q.total, charge: q.charge,
     after: after ? { score: after.score, level: after.level, top: after.top, terms: after.terms } : null };
 });

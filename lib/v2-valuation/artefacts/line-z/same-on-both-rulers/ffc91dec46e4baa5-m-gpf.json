@@ -414,8 +414,8 @@
    "label": "the unchanged number to T exactly",
    "layer": 0,
    "main": 8,
-   "bits": 7.3114,
-   "error": 0.0082,
+   "bits": 7.3196,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -426,8 +426,8 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 2",
    "layer": 1,
    "main": 8,
-   "bits": 10.2281,
-   "error": 0.0619,
+   "bits": 10.2898,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -438,8 +438,8 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 3",
    "layer": 1,
    "main": 8,
-   "bits": 11.5822,
-   "error": 0.158,
+   "bits": 11.7396,
+   "error": 0,
    "source": "exact"
   },
   {
@@ -450,9 +450,9 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 5",
    "layer": 1,
    "main": 8,
-   "bits": 12.9581,
-   "error": 0.9086,
-   "source": "simulated"
+   "bits": 13.5341,
+   "error": 0.0002,
+   "source": "exact"
   },
   {
    "score": [
@@ -462,9 +462,9 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 7",
    "layer": 1,
    "main": 8,
-   "bits": 13.9915,
-   "error": 1.4028,
-   "source": "simulated"
+   "bits": 15.298,
+   "error": 0.0006,
+   "source": "exact"
   },
   {
    "score": [
@@ -474,9 +474,9 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 11",
    "layer": 1,
    "main": 8,
-   "bits": 16.9005,
-   "error": 1.0172,
-   "source": "simulated"
+   "bits": 17.7609,
+   "error": 0.0031,
+   "source": "exact"
   },
   {
    "score": [
@@ -486,9 +486,9 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 13",
    "layer": 1,
    "main": 8,
-   "bits": 17.7732,
-   "error": 2.2983,
-   "source": "simulated"
+   "bits": 19.2539,
+   "error": 0.0088,
+   "source": "exact"
   },
   {
    "score": [
@@ -498,9 +498,9 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 17",
    "layer": 1,
    "main": 8,
-   "bits": 24.6965,
-   "error": 1.8263,
-   "source": "simulated"
+   "bits": 21.366,
+   "error": 0.038,
+   "source": "exact"
   },
   {
    "score": [
@@ -510,13 +510,13 @@
    "label": "the unchanged number to T exactly; the gradient's largest prime factor at least 19",
    "layer": 1,
    "main": 8,
-   "bits": 25.0499,
-   "error": 3.5317,
-   "source": "simulated"
+   "bits": 22.9268,
+   "error": 0.1119,
+   "source": "exact"
   }
  ],
- "cap": 34,
- "convergedCap": 34,
+ "cap": 40,
+ "convergedCap": 40,
  "tail": null,
  "dealable": true,
  "primarySense": "min",
@@ -599,15 +599,15 @@
     7.2807,
     7.3025,
     7.3032,
-    7.3032,
-    10.1662,
-    11.4242,
-    12.6483,
-    13.3418,
-    13.6829,
-    13.7387,
-    13.763,
-    13.7678
+    7.3196,
+    10.2898,
+    11.7396,
+    13.534,
+    15.2975,
+    17.7577,
+    19.2451,
+    21.3281,
+    22.8149
    ],
    "hi": [
     0,
@@ -643,14 +643,14 @@
     7.3189,
     7.3196,
     7.3196,
-    10.29,
-    11.7402,
-    13.536,
-    15.3026,
-    17.7749,
-    19.2751,
-    21.4235,
-    23.0538
+    10.2898,
+    11.7397,
+    13.5343,
+    15.2986,
+    17.764,
+    19.2627,
+    21.404,
+    23.0387
    ]
   },
   "simulation": {
@@ -2722,5 +2722,5 @@
    ]
   }
  },
- "contentHash": "629577ff911ef5f7"
+ "contentHash": "8e54c23332d82053"
 }

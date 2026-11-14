@@ -8,14 +8,13 @@
 import { births, runAct } from "@workspace/v2-agents";
 import { hash64, rng } from "@workspace/v2-core";
 import { actCredit, affordable, agentIncome, energyCapacity, opportunities, pickByEnergy, readCharge, settle } from "@workspace/v2-economy";
-import { lineType } from "@workspace/v2-linear";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
-import { decode, encode, variantOf } from "./world";
+import { decode, encode, typeOf, variantOf } from "./world";
 import { rungsOf } from "./artefacts";
 
 type Snapshot = {
@@ -50,7 +49,7 @@ export const tick = internalAction({
       const r = rng(snap.seed, "tick", snap.tick);
 
       const nBorn = opportunities(econ.birthsPerSecond, dt, r);
-      const born = Array.from({ length: nBorn }, (_, i) => encode(births(lineType, variant, `${snap.seed}:${snap.objects + i + 1}`, 1)[0]!));
+      const born = Array.from({ length: nBorn }, (_, i) => encode(births(typeOf(snap.variant), variant, `${snap.seed}:${snap.objects + i + 1}`, 1)[0]!, snap.variant));
       const nOffers = snap.objects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
       const picks = Array.from({ length: nOffers }, () => 1 + r.below(snap.objects));
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));
@@ -86,7 +85,7 @@ export const tick = internalAction({
         const input = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
         if (!ladders.has(seat.rule.ruleKey)) ladders.set(seat.rule.ruleKey, rungsOf(seat.rule.ruleKey));
         const { record } = await runAct(sandbox, {
-          type: lineType, variant, state: decode(local.get(number) ?? s.state),
+          type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: { family: seat.rule.family, params: seat.rule.params as Record<string, unknown>, tieBreaker: seat.rule.tieBreaker },
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
           ...input, rungs: ladders.get(seat.rule.ruleKey)!,

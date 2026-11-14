@@ -107,7 +107,7 @@ here is half the growth of the total. A result past the cap or below 0 is refuse
 | Id | Rep | Arguments (bits) | Effect | Inverse | Price of the cheapest call |
 |---|---|---|---|---|---|
 | `cells.add` | cells | cell: choice of 16 (4); k: steps | cell += k | `cells.add(cell, −k)` | 9.94 (+½ when k = 1) |
-| `cells.swap` | cells | two cells: choice of 120 pairs (6.91) | swap them | self | 10.08, no surcharge |
+| `cells.swap` | cells | a, b: two choices of 16 (8; a = b is refused) | swap them | self | 11.17, no surcharge |
 | `tally.add` | tally | line: choice of 8 rows and columns (3); k: steps | every cell of the line += k | `tally.add(line, −k)` | 8.94 (+2 when k = 1) |
 | `tally.rotate` | tally | line (3); j: choice of 3 (1.58) | the line's cells move j places along, the last coming round to the front | `tally.rotate(line, 4 − j)` (same price) | 7.75, no surcharge |
 | `turn.spin` | turn | one of 7 turns and flips (2.81) | the whole board turned a quarter, half or three quarters, or flipped (two axes, two diagonals) | the opposite turn; flips are their own | 5.98, no surcharge |
@@ -168,14 +168,15 @@ continuity (decision 13) is read off the law's support: each dealt layer must ta
 Six families. Each main layer is in one representation and in a 12-year-old's words; each has three alternative
 tie-breakers, and a dealt rule is the main layer plus exactly one (decision 14). Every layer is graded (a distance, a
 count, a size; decision 13). All six are unit-additive (§5), so every pairing is exact. The figures are from the exact
-law on `grid-4-d10` (the probe that chose the targets; PR 2 fixes thresholds and caps so that every dealt top is in the
-15–25 bit band, then commits the artefacts).
+law on `grid-4-d10`. The ladders' last rungs are set so that every dealt top is in the 15–25 bit band: the committed
+artefacts (`lib/v2-valuation/artefacts/grid-4-d10/`, every one `exact`) put the eighteen pairings' tops at 21.8–24.8
+bits.
 
 | # | Family (rep, units) | Main layer: the card | Tie-breakers (alternatives) | Main top (bits) |
 |---|---|---|---|---|
 | 1 | **Row Totals** (tally, rows) | "Every row should add up to 12." Distance: Σ rows \|total − 12\| | the first column as big as possible (Σ, size) · as many prime numbers as possible (count) · as many 0s as possible (count) | 16.8 |
 | 2 | **Opposite Pairs** (turn, pairs) | "Every cell and its opposite (a half turn away) should add up to 9." Σ pairs \|a + b − 9\| | the top half adds up to as much as possible · as many primes as possible · as many odd numbers as possible | 37.0 exact (capped near 20) |
-| 3 | **Mirror Rows** (mirror, rows) | "Every row should read the same backwards." Σ rows (\|a − d\| + \|b − c\|) | the two middle columns as big as possible · as many primes as possible · every row adds up to as close to 12 as possible | 19.6 |
+| 3 | **Mirror Rows** (mirror, rows) | "Every row should read the same backwards." Σ rows (\|a − d\| + \|b − c\|) | the two middle columns as big as possible · as many primes as possible · as many 0s as possible | 19.6 exact (capped at 1: 16.0) |
 | 4 | **Steady Steps** (steps, rows) | "Along every row the numbers should go up (or down) in equal steps, like 1 3 5 7." Σ rows \|s0 − s1\| + \|s1 − s2\| | each row climbs as far as possible (Σ \|last − first\|) · the rows start as high as possible (first column) · as many primes as possible | ≈ 26 exact (capped near 20) |
 | 5 | **Box Totals** (boxes, corner boxes) | "Each corner box of four should add up to 12." Σ boxes \|total − 12\| | the four corners of the board as big as possible · as many primes as possible · as many 0s as possible | 16.8 |
 | 6 | **Prime Cells** (cells, cells) | "As many cells as possible should hold a prime number (2, 3, 5 or 7)." count | those primes add up to as much as possible · as many 7s as possible · the corners as big as possible | 25.0 (capped near 14 cells) |

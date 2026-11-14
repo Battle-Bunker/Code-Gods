@@ -91,7 +91,23 @@ export type SceneData =
   | { readonly kind: "table"; readonly columns: readonly { readonly header: string; readonly el: ElementRef }[] }
   | { readonly kind: "sequence"; readonly terms: readonly { readonly n: number; readonly el: ElementRef }[]; readonly picture: "tiles" | "dots" }
   | { readonly kind: "machine"; readonly stages: readonly { readonly label: string; readonly el?: string }[]; readonly input: ElementRef; readonly output: ElementRef }
-  | { readonly kind: "pegboard"; readonly window: readonly [number, number]; readonly on: ElementRef };
+  | { readonly kind: "pegboard"; readonly window: readonly [number, number]; readonly on: ElementRef }
+  | GridScene;
+
+/**
+ * A board of cells (the grid object type, docs/engine-v2/grids.md §3): `cells` in reading order, `rows` × `cols`; a
+ * representation's own elements sit in the margins (a row's or column's total) or on groups of cells (an opposite pair,
+ * a box, the step between two neighbours), each group listing its cells by index.
+ */
+export interface GridScene {
+  readonly kind: "grid";
+  readonly rows: number;
+  readonly cols: number;
+  readonly cells: readonly ElementRef[];
+  readonly right?: readonly ElementRef[];
+  readonly bottom?: readonly ElementRef[];
+  readonly groups?: readonly { readonly cells: readonly number[]; readonly el: ElementRef }[];
+}
 
 export interface PlaneItem {
   readonly draw: "line" | "point" | "segment" | "region" | "tick";

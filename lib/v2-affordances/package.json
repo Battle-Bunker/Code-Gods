@@ -9,7 +9,8 @@
     "./fake": "./src/fake.ts",
     "./scan": "./src/scan.ts",
     "./react": "./src/react.ts",
-    "./layout": "./src/layout.ts"
+    "./layout": "./src/layout.ts",
+    "./remote": "./src/remote.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",

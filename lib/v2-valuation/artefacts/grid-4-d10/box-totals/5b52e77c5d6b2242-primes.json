@@ -1,0 +1,681 @@
+{
+ "schema": 5,
+ "ruleKey": "grid@1/grid-4-d10#76e049325923b745/box-totals/{\"T\":12}/tb=primes",
+ "objectType": "grid",
+ "objectTypeVersion": 1,
+ "variant": "grid-4-d10",
+ "variantHash": "76e049325923b745",
+ "family": "box-totals",
+ "params": {
+  "T": 12
+ },
+ "tieBreaker": "primes",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "exact",
+ "reasons": [],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "main": 0,
+   "bits": 0,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "6"
+   ],
+   "label": "anything; prime numbers at least 6",
+   "layer": 1,
+   "main": 0,
+   "bits": 0.7539,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "10"
+   ],
+   "label": "anything; prime numbers at least 10",
+   "layer": 1,
+   "main": 0,
+   "bits": 1.5847,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    null,
+    "11"
+   ],
+   "label": "anything; prime numbers at least 11",
+   "layer": 1,
+   "main": 0,
+   "bits": 1.6027,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16"
+   ],
+   "label": "the boxes' totals off by at most 16 in all",
+   "layer": 0,
+   "main": 1,
+   "bits": 1.6071,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 16 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 1,
+   "bits": 2.0073,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 16 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 1,
+   "bits": 2.8684,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-16",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 16 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 1,
+   "bits": 2.9148,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12"
+   ],
+   "label": "the boxes' totals off by at most 12 in all",
+   "layer": 0,
+   "main": 2,
+   "bits": 2.931,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 12 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 2,
+   "bits": 3.3673,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 12 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 2,
+   "bits": 4.7999,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-12",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 12 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 2,
+   "bits": 4.9416,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the boxes' totals off by at most 8 in all",
+   "layer": 0,
+   "main": 3,
+   "bits": 5.0062,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 8 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 3,
+   "bits": 5.3235,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 8 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 3,
+   "bits": 6.3346,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-8",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 8 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 3,
+   "bits": 6.4364,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6"
+   ],
+   "label": "the boxes' totals off by at most 6 in all",
+   "layer": 0,
+   "main": 4,
+   "bits": 6.4881,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 6 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 4,
+   "bits": 6.8464,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 6 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 4,
+   "bits": 8.2145,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-6",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 6 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 4,
+   "bits": 8.3905,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4"
+   ],
+   "label": "the boxes' totals off by at most 4 in all",
+   "layer": 0,
+   "main": 5,
+   "bits": 8.4892,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 4 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 5,
+   "bits": 8.7573,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 4 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 5,
+   "bits": 9.6534,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-4",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 4 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 5,
+   "bits": 9.7512,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "the boxes' totals off by at most 3 in all",
+   "layer": 0,
+   "main": 6,
+   "bits": 9.8055,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 3 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 6,
+   "bits": 10.1095,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 3 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 6,
+   "bits": 11.2405,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-3",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 3 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 6,
+   "bits": 11.3805,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the boxes' totals off by at most 2 in all",
+   "layer": 0,
+   "main": 7,
+   "bits": 11.4615,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 2 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 7,
+   "bits": 11.8086,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 2 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 7,
+   "bits": 13.2943,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-2",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 2 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 7,
+   "bits": 13.5155,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the boxes' totals off by at most 1 in all",
+   "layer": 0,
+   "main": 8,
+   "bits": 13.6518,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "6"
+   ],
+   "label": "the boxes' totals off by at most 1 in all; prime numbers at least 6",
+   "layer": 1,
+   "main": 8,
+   "bits": 14.0481,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "10"
+   ],
+   "label": "the boxes' totals off by at most 1 in all; prime numbers at least 10",
+   "layer": 1,
+   "main": 8,
+   "bits": 16.1061,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "-1",
+    "11"
+   ],
+   "label": "the boxes' totals off by at most 1 in all; prime numbers at least 11",
+   "layer": 1,
+   "main": 8,
+   "bits": 16.5261,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the boxes' totals exactly",
+   "layer": 0,
+   "main": 9,
+   "bits": 16.8241,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "5"
+   ],
+   "label": "the boxes' totals exactly; prime numbers at least 5",
+   "layer": 1,
+   "main": 9,
+   "bits": 17.0132,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "6"
+   ],
+   "label": "the boxes' totals exactly; prime numbers at least 6",
+   "layer": 1,
+   "main": 9,
+   "bits": 17.2736,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "8"
+   ],
+   "label": "the boxes' totals exactly; prime numbers at least 8",
+   "layer": 1,
+   "main": 9,
+   "bits": 18.3663,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "10"
+   ],
+   "label": "the boxes' totals exactly; prime numbers at least 10",
+   "layer": 1,
+   "main": 9,
+   "bits": 20.4349,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "11"
+   ],
+   "label": "the boxes' totals exactly; prime numbers at least 11",
+   "layer": 1,
+   "main": 9,
+   "bits": 21.9103,
+   "error": 0,
+   "source": "exact"
+  },
+  {
+   "score": [
+    "0",
+    "12"
+   ],
+   "label": "the boxes' totals exactly; prime numbers at least 12",
+   "layer": 1,
+   "main": 9,
+   "bits": 23.7344,
+   "error": 0,
+   "source": "exact"
+  }
+ ],
+ "cap": 42,
+ "convergedCap": 42,
+ "tail": null,
+ "dealable": true,
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "exact": {
+   "method": [
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution",
+    "convolution"
+   ],
+   "lo": [
+    0,
+    0.7539,
+    1.5847,
+    1.6027,
+    1.6071,
+    2.0073,
+    2.8684,
+    2.9148,
+    2.931,
+    3.3673,
+    4.7999,
+    4.9416,
+    5.0062,
+    5.3235,
+    6.3346,
+    6.4364,
+    6.4881,
+    6.8464,
+    8.2145,
+    8.3905,
+    8.4892,
+    8.7573,
+    9.6534,
+    9.7512,
+    9.8055,
+    10.1095,
+    11.2405,
+    11.3805,
+    11.4615,
+    11.8086,
+    13.2943,
+    13.5155,
+    13.6518,
+    14.0481,
+    16.1061,
+    16.5261,
+    16.8241,
+    17.0132,
+    17.2736,
+    18.3663,
+    20.4349,
+    21.9103,
+    23.7344
+   ],
+   "hi": [
+    0,
+    0.7539,
+    1.5847,
+    1.6027,
+    1.6071,
+    2.0073,
+    2.8684,
+    2.9148,
+    2.931,
+    3.3673,
+    4.7999,
+    4.9416,
+    5.0062,
+    5.3235,
+    6.3346,
+    6.4364,
+    6.4881,
+    6.8464,
+    8.2145,
+    8.3905,
+    8.4892,
+    8.7573,
+    9.6534,
+    9.7512,
+    9.8055,
+    10.1095,
+    11.2405,
+    11.3805,
+    11.4615,
+    11.8086,
+    13.2943,
+    13.5155,
+    13.6518,
+    14.0481,
+    16.1061,
+    16.5261,
+    16.8241,
+    17.0132,
+    17.2736,
+    18.3663,
+    20.4349,
+    21.9103,
+    23.7344
+   ]
+  },
+  "simulation": null
+ },
+ "contentHash": "7841722793c92254"
+}

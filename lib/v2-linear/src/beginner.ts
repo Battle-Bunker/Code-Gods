@@ -209,18 +209,19 @@ const crossingShape: Shape<object> = {
     factorTies<object>("m", "the gradient")[0]!,
   ],
 };
-export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["si", "cart"], crossingShape, [{}], ctx => {
-  const mRef = ref("si", "m"), cRef = ref("si", "c"), xRef = ref("cart", "xInt");
+export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, [{}], ctx => {
+  const mRef = ref("si", "m"), cRef = ref("si", "c"), xRef = ref("crossing", "x0"), kRef = ref("crossing", "near");
   const mv = ctx.read(mRef);
   const m = num(mv);
   if (m === null || Qn.isZero(m)) return allUndefined(ctx, crossingShape, m === null ? mv : { kind: "undefined", reason: "a flat line never crosses the x-axis (or lies along it)" }, mRef);
   const c = num(ctx.read(cRef))!;
   ctx.read(xRef);
+  ctx.read(kRef);
   const x = Qn.neg(Qn.div(c, m));
   const k = Qn.floor(Qn.add(x, q(1, 2)));   // the nearest whole number
   ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${k}`, gap(x, q(k)), [xRef]);
-  ctx.term("k-spf", `smallest prime factor of ${k}`, spfQ(q(k)), [xRef]);
-  ctx.term("k-gpf", `largest prime factor of ${k}`, gpfQ(q(k)), [xRef]);
+  ctx.term("k-spf", `smallest prime factor of ${k}`, spfQ(q(k)), [kRef]);
+  ctx.term("k-gpf", `largest prime factor of ${k}`, gpfQ(q(k)), [kRef]);
   ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
 });
@@ -243,9 +244,9 @@ export const divisibilityLadder = family("divisibility-ladder", "Divisibility La
   let run = 0;
   const cols: ElementRef[] = [];
   for (let n = 1; n <= 12; n++) {
-    const r = ref("table", "y", { x: n });
-    const y = num(ctx.read(r))!;
-    if (y.d !== 1n || y.n % BigInt(n) !== 0n) { ctx.mark({ kind: "note", ref: r, text: `${n} does not divide y(${n}): the run stops here` }); break; }
+    const r = ref("table", "q", { x: n }); // y(n) ÷ n
+    const yn = num(ctx.read(r))!;
+    if (yn.d !== 1n) { ctx.mark({ kind: "note", ref: r, text: `${n} does not divide y(${n}): the run stops here` }); break; }
     run++;
     cols.push(r);
     ctx.mark({ kind: "focus", ref: r });

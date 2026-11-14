@@ -268,19 +268,30 @@ class Context<S> implements EvalContext<S> {
  * saturates at its top.
  */
 export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, site = 0, tieBreaker?: TieBreaker): Evaluation {
-  const layers = ruleLayers(family, tieBreaker);
   const sites = type.sites(state, variant);
   const ctx = new Context<S>(type, family as RuleFamily<S, unknown>, state, site, variant, sites);
   family.evaluate(ctx, params);
   for (const l of [family.main, ...family.tieBreakers]) if (!ctx.terms.has(l.id)) throw new Error(`${family.id} did not record layer ${l.id}`);
+  const { score, components } = scoreOf(family, params, variant, tieBreaker, id => ctx.terms.get(id)!.value);
+  return { score, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
+}
+
+/**
+ * A dealt rule's score from its layers' term values (by layer id): the main layer, then the dealt tie-breaker, each
+ * negated for "min"; an undefined main layer makes it WORST; the main layer saturates at its top when a tie-breaker
+ * follows. evaluateSite makes every score this way, and exact sums that know a rule's terms use it too.
+ */
+export function scoreOf<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker: TieBreaker | undefined,
+  value: (layerId: string) => Q | Undef): { score: Score; components: ScoreComponent[] } {
+  const layers = ruleLayers(family, tieBreaker);
   const score: (Q | null)[] = [];
   const components: ScoreComponent[] = [];
   let worst = false;
   layers.forEach((layer, j) => {
-    const t = ctx.terms.get(layer.id)!;
+    const v = value(layer.id);
     components.push({ term: layer.id, sense: layer.sense });
-    if (isUndef(t.value)) { if (j === 0) worst = true; score.push(null); return; }
-    let c = layer.sense === "max" ? t.value : neg(t.value);
+    if (isUndef(v)) { if (j === 0) worst = true; score.push(null); return; }
+    let c = layer.sense === "max" ? v : neg(v);
     // The main layer saturates at its top when a tie-breaker follows: beyond its top it only opens the tie-breaker, so
     // a state past it must not outrank, or skip the rungs of, the tie-breaker.
     if (j < layers.length - 1) {
@@ -289,7 +300,7 @@ export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>
     }
     score.push(c);
   });
-  return { score: worst ? null : score, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
+  return { score: worst ? null : score, components };
 }
 
 export interface ObjectEvaluation {

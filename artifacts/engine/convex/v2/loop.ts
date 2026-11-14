@@ -8,12 +8,11 @@
  */
 import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
 import { births } from "@workspace/v2-agents/pure";
-import { lineType } from "@workspace/v2-linear";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { decode, encode, valuesOf, variantOf, type SeatRule, type Value } from "./world.ts";
+import { decode, encode, typeOf, valuesOf, variantOf, type SeatRule, type Value } from "./world.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -73,7 +72,7 @@ export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind:
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {
   const objectId = await ctx.db.insert("v2Objects", { gameId: game._id, number, bornAt: world });
   await ctx.db.insert("v2ObjectStates", { objectId, gameId: game._id, state: wire, version: 1, changedAt: world });
-  const values = valuesOf(decode(wire), game.variant, seats);
+  const values = valuesOf(decode(wire, game.variant), game.variant, seats);
   for (const val of values)
     await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, level: val.level, rarityBits: val.rarityBits, want: val.want, points: val.points, version: 1, changedAt: world });
   return { objectId, values };
@@ -83,7 +82,7 @@ async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule
 async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, wire: string, world: number) {
   const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
   await ctx.db.patch(st._id, { state: wire, version: st.version + 1, changedAt: world });
-  const after = valuesOf(decode(wire), game.variant, seats);
+  const after = valuesOf(decode(wire, game.variant), game.variant, seats);
   const before = new Map<string, Value>();
   for (const val of after) {
     const row = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique())!;
@@ -148,10 +147,10 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number)
 export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase !== "planning") return;
   const now = Date.now(), seats = await seatRules(ctx, game);
-  const states = births(lineType, variantOf(game.variant), game.seed, game.settings.startingObjects);
+  const states = births(typeOf(game.variant), variantOf(game.variant), game.seed, game.settings.startingObjects);
   const changes = [];
   for (const [i, s] of states.entries()) {
-    const wire = encode(s);
+    const wire = encode(s, game.variant);
     const { objectId, values } = await addObject(ctx, game, seats, i + 1, wire, 0);
     changes.push({ number: i + 1, values });
     await appendEvent(ctx, game._id, "objectBorn", { objectId, number: i + 1, state: wire, worldSeconds: 0 });

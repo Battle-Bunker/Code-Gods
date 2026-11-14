@@ -57,6 +57,27 @@ try {
       assert.equal(await face.locator('[data-mark="measure"]').count(), 0, "the tie-breaker's marks only");
       await page.mouse.move(0, 0);
 
+      // The lenses of Whole Crossing and Divisibility Ladder, on their first curated lines (y = 3x − 7, y = 6x + 6).
+      const crossingFace = page.locator('[data-family="whole-crossing"] .v2v-expanded').first();
+      const crossingPanel = crossingFace.locator('[data-rep="crossing"]');
+      if (width < 700) await crossingFace.locator(".v2v-tab", { hasText: "crosses the x-axis" }).click();
+      assert.equal(await crossingPanel.locator(".v2v-eq-line").count(), 3, "the crossing is worked out in three steps");
+      const fits = await crossingPanel.evaluate(e => e.scrollWidth <= e.clientWidth + 1);
+      assert.ok(fits, `${width}: the crossing's steps fit their panel`);
+      await crossingPanel.locator('[data-ref="crossing.x0"]').hover();
+      const xLit = await crossingFace.locator("[data-lit]").evaluateAll(es => es.map(e => e.getAttribute("data-ref")));
+      assert.ok(xLit.includes("crossing.x0") && xLit.includes("cart.xInt"), `crossing cross-highlight lit ${xLit}`);
+      await page.mouse.move(0, 0);
+      const ladderFace = page.locator('[data-family="divisibility-ladder"] .v2v-expanded').first();
+      const ladderTable = ladderFace.locator('[data-rep="table"]');
+      if (width < 700) await ladderFace.locator(".v2v-tab", { hasText: "table of values" }).click();
+      assert.equal(await ladderTable.locator("td[data-miss]").count(), 1, "the ladder's first miss is marked");
+      assert.equal(await ladderTable.locator('td[data-run] [data-ref^="table.q"]').count(), 3, "the run of three is shaded");
+      if (OUT && scheme === "light") {
+        await crossingFace.screenshot({ path: `${OUT}/lens-crossing-${width}.png` });
+        await ladderFace.screenshot({ path: `${OUT}/lens-ladder-${width}.png` });
+      }
+
       if (OUT) {
         // The long families section only twice (desktop light, phone dark) to keep the repository small.
         const long = (width === 1440 && scheme === "light") || (width === 390 && scheme === "dark");

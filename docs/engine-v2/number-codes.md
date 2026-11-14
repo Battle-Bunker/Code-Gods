@@ -80,8 +80,8 @@ Rulers, Prime Gradient and Prime Staircase. Ruler, Exact Change and Pythagorean 
 of the pool reads one of m or c (or a whole number the main layer fixes), so each pairing sums as `separable` or as a
 `band` (spec §12.5). Of the 31 `line-z` pairings:
 
-- **Exact to the top: 17.** No simulation was run for them; every rung is certified within 2%.
-- **Hybrid: 12** (one flagged). Exact low rungs, the simulation above where it converges, capped as in call (g).
+- **Exact to the top: 18.** No simulation was run for them; every rung is certified within 2%.
+- **Hybrid: 11** (one flagged). Exact low rungs, the simulation above where it converges, capped as in call (g).
   Treasure + m-gpf is flagged: the simulation sits 0.4–0.55 bits below the exact value on rungs 27–29, the restricted
   chains' known bias; the exact value is the one dealt.
 - **Too coarse: 2.** Whole Intercept, whose main layer is constant on whole-number lines.
@@ -95,17 +95,27 @@ prime-terms).
 
 | Family | Best dealt top (bits) | How | Curator's reference |
 |---|--:|---|--:|
-| Prime Staircase | 27.25 ± 0.30 (first-prime) | hybrid (band over the primes; exact to 23 bits) | 22.8 |
+| Prime Staircase | 27.25 ± 0.30 (first-prime) | hybrid (band over the primes; exact to 23 bits) | 22.8 (first prime ≥ 13) |
 | Divisibility Ladder | 25.89 ± 0.39 (m-spf); 22.35 exact (m-prime) | hybrid; exact (separable) | — |
 | Square Area | 22.79 ± 0.40 (spf ≥ 31) | exact (band: 2\|m\| = t², c a multiple of t) | 22.6 (spf ≥ 29) |
-| Treasure | 22.33 ± 0.29 (m-spf) | hybrid (band) | 16.8 |
+| Treasure | 22.54 ± 0.09 (m-spf) | hybrid (band; y(k) = T as one c per m) | 16.8 (prime terms; 22.63 for m-spf) |
 | Prime Gradient | 22.22 ± 0.03 (c-spf) | exact (separable) | — |
 | Prime Landing | 22.22 ± 0.03 (m-spf) | exact (separable) | 23.7 |
 | Whole Crossing | 21.30 ± 0.14 (k-gpf) | exact (band: c a multiple of m near it) | matches rung for rung |
-| Same on Both Rulers | 11.79 ± 0.18 (m-spf) | hybrid (capped at 34 of 40) | 19.68 |
+| Same on Both Rulers | 23.09 ± 0.13 (m-spf) | exact to rung 40 of 40 (fixed point = T as one c per m) | 19.68 (23.22 for m-spf ≥ 19) |
 
-Same on Both Rulers is the one family short of its reference: its upper rungs (the fixed point exactly T with a large
-prime factor of m) are rare enough that neither the band (40 bits) nor the simulation reaches them, so call (g) caps it.
+**Why Treasure and Prime Staircase sit above the curator's reference.** They are no disagreement: the references are
+for other rungs. Treasure's 16.8 is its old prime-terms tie-breaker. That tie-breaker reads 15.18 here, which equals the
+curator's exact value (layered-line-rules.md §10.5, exact class table) once the older reference's 1.6-bit normalisation
+offset is removed. The new m-spf and m-gpf tie-breakers reach higher. The curator's own exact values for them are 22.63 and
+22.58 at a factor ≥ 23; ours are 22.54 and 22.50. Staircase's 22.8 is "first prime ≥ 13" under the old normalisation.
+The exact values agree to the hundredth: ≥ 11 is 19.04 and ≥ 13 is 20.85, both ours and the curator's. Our dealt top is
+a higher rung, ≥ 23, at 27.25.
+
+**Point bands.** Where the main layer is exact, c is fixed by m: c = T(1 − m) for Same on Both Rulers and c = T − km for
+Treasure. A band of one point per m is then summed at any size, and only m beyond the budget is left outside, bounded by
+T(m) times the most one c can weigh. That took Same on Both Rulers from 11.79 (capped) to 23.09, exact to the top, with
+steep exact at 13.98, the curator's value.
 
 | Variant | Family | Tie-breaker | Status | Dealt | Exact rungs | Dealt to rung | Dealt top (bits) |
 |---|---|---|---|---|---|---|--:|
@@ -155,14 +165,14 @@ prime factor of m) are rare enough that neither the band (40 bits) nor the simul
 | line-z | prime-landing | m-gpf | exact | yes | 27/27 | 27/27 | 20.15 ± 0.01 |
 | line-z | prime-landing | m-spf | exact | yes | 27/27 | 27/27 | 22.22 ± 0.03 |
 | line-z | prime-staircase | first-prime | hybrid | yes | 32/34 | 32/34 | 27.25 ± 0.30 |
-| line-z | same-on-both-rulers | m-gpf | hybrid | yes | 34/40 | 34/40 | 11.58 ± 0.16 |
-| line-z | same-on-both-rulers | m-spf | hybrid | yes | 34/40 | 34/40 | 11.79 ± 0.18 |
-| line-z | same-on-both-rulers | steep | hybrid | yes | 37/39 | 37/39 | 11.20 ± 0.12 |
+| line-z | same-on-both-rulers | m-gpf | hybrid | yes | 40/40 | 40/40 | 22.93 ± 0.11 |
+| line-z | same-on-both-rulers | m-spf | hybrid | yes | 40/40 | 40/40 | 23.09 ± 0.13 |
+| line-z | same-on-both-rulers | steep | exact | yes | 39/39 | 39/39 | 13.98 ± 0.00 |
 | line-z | square-area | lpf | exact | yes | 47/47 | 47/47 | 20.98 ± 0.12 |
 | line-z | square-area | omega | exact | yes | 43/43 | 43/43 | 11.24 ± 0.00 |
 | line-z | square-area | spf | exact | yes | 47/47 | 47/47 | 22.79 ± 0.40 |
-| line-z | treasure | m-gpf | flagged | yes | 37/39 | 37/39 | 22.30 ± 0.29 |
-| line-z | treasure | m-spf | hybrid | yes | 37/39 | 37/39 | 22.33 ± 0.29 |
+| line-z | treasure | m-gpf | flagged | yes | 37/39 | 37/39 | 22.50 ± 0.08 |
+| line-z | treasure | m-spf | hybrid | yes | 37/39 | 37/39 | 22.54 ± 0.09 |
 | line-z | treasure | prime-terms | hybrid | yes | 34/34 | 34/34 | 15.18 ± 0.00 |
 | line-z | triangle-area | even | hybrid | yes | 33/33 | 33/33 | 9.20 ± 0.00 |
 | line-z | triangle-area | legs | exact | yes | 36/36 | 36/36 | 9.03 ± 0.00 |
