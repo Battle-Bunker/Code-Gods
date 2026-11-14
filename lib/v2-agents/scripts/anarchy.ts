@@ -17,7 +17,7 @@ import { runTable } from "../src/table.ts";
 
 const { values: o } = parseArgs({ options: { seeds: { type: "string", default: "2" }, seconds: { type: "string", default: "300" } } });
 const SEEDS = Array.from({ length: Number(o.seeds) }, (_, k) => `g${k}`), SECONDS = Number(o.seconds);
-const beginner = presets.find(p => p.id === "lines-beginner")!.rules;
+const beginner = presets.find(p => p.id === "lines-whole")!.rules;
 const ruleOf = (id: string) => { const [family, tieBreaker] = id.split("/") as [string, string]; return { family, params: beginner.find(r => r.family === family)!.params as Record<string, unknown>, tieBreaker }; };
 const TABLES: Record<string, string[]> = {
   "2 · compatible": ["prime-landing/big-prime", "prime-gradient/prime"],

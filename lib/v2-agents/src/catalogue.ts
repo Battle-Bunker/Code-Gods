@@ -73,6 +73,8 @@ export interface FamilyEntry {
   readonly tieBreakers: Readonly<Record<string, TieBreakerEntry>>;
   /** The Simple starter's moves (default: shift and tilt). */
   readonly simple?: readonly LensId[];
+  /** The Thorough starter's moves (default: every lens offered to the family), where they would not fit the starting energy. */
+  readonly thorough?: readonly LensId[];
   /** The score is written for whole-number lines only (line-z: y = mx + c with whole m and c). */
   readonly wholeLines?: boolean;
 }
@@ -435,6 +437,130 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         pre: { ts: ["const mp = near(m, prime);"], py: ["mp = near(m, prime)"] },
         ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime is better",
         lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
+      },
+    },
+  },
+  // ---------------------------------------------------------------- restored (v2-linear beginner.ts, decision 22)
+  {
+    family: "ruler",
+    mainSays: "how far the distance from (0, 0), squared, is from a square number (closer is better)",
+    main: {
+      ts: [
+        "if (Q.isZero(m)) return null;                   // a flat line: the rule wants a sloping one",
+        "const d2 = Q.div(Q.mul(c, c), Q.add(Q.mul(m, m), 1));   // the distance from (0, 0), squared: c² / (m² + 1)",
+        "const sq = near(d2, square) || 1;               // the square number nearest it (1 at the least)",
+        `const main = ${neg("Q.abs(Q.sub(d2, sq))")};`,
+        "const far = root(sq);                           // that square's root: a whole distance",
+      ],
+      py: [
+        "if m == 0:                                      # a flat line: the rule wants a sloping one",
+        "    return None",
+        "d2 = c * c / (m * m + 1)                        # the distance from (0, 0), squared",
+        "sq = near(d2, square) or 1                      # the square number nearest it (1 at the least)",
+        "main = -abs(d2 - sq)",
+        "far = root(sq)                                  # that square's root: a whole distance",
+      ],
+    },
+    tieBreakers: {
+      far: {
+        ts: "far", py: "far", says: "a bigger whole distance is better",
+        lenses: ["shift", "tilt", "turnAtMinusOne", "stretch"], steps: 4, tryThis: "change FAR = 4 to 8 so it can jump to a bigger square.",
+      },
+      "prime-gradient": {
+        pre: { ts: ["const mp = near(m, prime);                  // the prime nearest the gradient"], py: ["mp = near(m, prime)                        # the prime nearest the gradient"] },
+        ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime is better",
+        lenses: ["tilt", "shift", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter: it scales the distance and the gradient together.",
+      },
+      "square-area": {
+        pre: { ts: ["const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));   // the triangle cut off the axes (none when c = 0)"], py: ["area = c * c / (2 * abs(m))                # the triangle cut off the axes (none when c = 0)"] },
+        ts: `Q.isZero(c) ? null : ${neg("Q.abs(Q.sub(area, near(area, square)))")}`, py: "None if c == 0 else -abs(area - near(area, square))", says: "a triangle whose area is close to a square number is better",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "change FAR = 4 to 6 so it can reach more squares.",
+      },
+    },
+  },
+  {
+    family: "exact-change",
+    thorough: ["shift", "tilt", "step", "turnAtMinusOne"],   // all of them would not fit the starting energy beside this score
+    // Read y = mx + c as a·x + b·y = N (b the smallest whole number making b·m and b·c whole; a = -b·m, N = b·c): a way
+    // to pay N with coins worth a and b is a point of the line with whole x, y ≥ 0.
+    mainSays: "how far the number of ways to pay is from the target (closer is better)",
+    main: {
+      ts: [
+        "if (Q.cmp(m, 0) >= 0) return null;              // a coin worth -m·b: the line must go downhill",
+        "const X = Q.neg(Q.div(c, m));                   // where the line meets y = 0: x goes no further",
+        "if (Q.cmp(X, 100001) >= 0) return null;         // too many ways to count: no score",
+        "const b = m.d * Q.of(m.d, c.d).d;               // the coin b: the smallest whole number making b·m and b·c whole",
+        "const ways = [];                                // each way to pay, as its x: the line's whole points with x, y ≥ 0",
+        "for (let x = 0; Q.cmp(x, X) <= 0; x++) if (Q.isInteger(Q.add(Q.mul(m, x), c))) ways.push(x);",
+        `const main = ${neg("Q.abs(ways.length - p.ways)")};`,
+      ],
+      py: [
+        "if m >= 0:                                      # a coin worth -m*b: the line must go downhill",
+        "    return None",
+        "X = -c / m                                      # where the line meets y = 0: x goes no further",
+        "if X >= 100001:                                 # too many ways to count: no score",
+        "    return None",
+        "b = m.denominator * Fraction(m.denominator, c.denominator).denominator   # the coin b: b*m and b*c whole",
+        "ways = [x for x in range(X // 1 + 1) if (m * x + c).denominator == 1]   # the line's whole points with x, y >= 0",
+        "main = -abs(len(ways) - p[\"ways\"])",
+      ],
+    },
+    tieBreakers: {
+      "big-piles": {
+        // The first way has the fewest coins of a and the last the fewest of b: the smaller pile is smallest in one of them.
+        pre: {
+          ts: ["if (!ways.length) return [main, null];      // no way to pay: no piles", "const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b"],
+          py: ["if not ways:                               # no way to pay: no piles", "    return [main, None]", "y = m * ways[-1] + c                       # the fewest coins of b"],
+        },
+        ts: "Q.cmp(ways[0], y) < 0 ? ways[0] : y", py: "min(ways[0], y)", says: "a bigger smaller pile, in every way to pay, is better",
+        lenses: ["shift", "tilt", "stretch"], steps: 4, tryThis: "remove the \"stretch\" line: can moving and tilting alone grow the piles?",
+      },
+      "big-bill": {
+        ts: "Q.mul(c, b)", py: "c * b", says: "a bigger bill N = b·c is better",
+        lenses: ["shift", "tilt", "stretch"], steps: 4, tryThis: "change FAR = 4 to 8: a bigger bill needs a steeper line to keep the ways the same.",
+      },
+      "prime-coins": {
+        pre: {
+          ts: ["const off = x => Q.abs(Q.sub(x, near(x, prime)));   // how far x is from the nearest prime"],
+          py: ["off = lambda x: abs(x - near(x, prime))    # how far x is from the nearest prime"],
+        },
+        ts: "Q.neg(Q.add(off(Q.mul(m, -b)), off(b)))", py: "-(off(-m * b) + off(b))", says: "both coins (a = -b·m and b) close to primes is better",
+        lenses: ["tilt", "shift"], steps: 4, tryThis: "change FAR = 4 to 6 so the coins can jump to primes further away.",
+      },
+    },
+  },
+  {
+    family: "pythagorean-area",
+    simple: ["shift", "tilt", "turnAtMinusOne"],   // from y = 0 only a turn makes a triangle
+    mainSays: "how far the triangle's area is from A (closer is better)",
+    main: {
+      ts: [
+        "if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score",
+        "const legX = Q.abs(Q.div(c, m)), legY = Q.abs(c); // the triangle's base and height",
+        "const area = Q.div(Q.mul(legX, legY), 2);",
+        `const main = ${neg("Q.abs(Q.sub(area, p.A))")};`,
+      ],
+      py: [
+        "if m == 0 or c == 0:                            # no triangle: the worst score",
+        "    return None",
+        "legX, legY = abs(c / m), abs(c)                 # the triangle's base and height",
+        "area = legX * legY / 2",
+        "main = -abs(area - p[\"A\"])",
+      ],
+    },
+    tieBreakers: {
+      "slanted-square": {
+        pre: { ts: ["const side2 = Q.add(Q.mul(legX, legX), Q.mul(legY, legY));   // the slanted side, squared (Pythagoras)"], py: ["side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)"] },
+        ts: neg("Q.abs(Q.sub(side2, near(side2, square)))"), py: "-abs(side2 - near(side2, square))", says: "a slanted side whose square is close to a square number is best",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter and see if it finds a 3-4-5 triangle sooner.",
+      },
+      "prime-height": {
+        ts: neg("Q.abs(Q.sub(legY, near(legY, prime)))"), py: "-abs(legY - near(legY, prime))", says: "a height close to a prime is better",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "change FAR = 4 to 8 so the height can jump to a prime further away.",
+      },
+      "whole-legs": {
+        ts: neg("Q.add(Q.abs(Q.sub(legX, whole(legX))), Q.abs(Q.sub(legY, whole(legY))))"), py: "-(abs(legX - whole(legX)) + abs(legY - whole(legY)))", says: "legs close to whole numbers are best",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "change FAR = 4 to 2: smaller changes cost less, but does it still get there?",
       },
     },
   },

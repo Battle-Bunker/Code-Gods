@@ -5,7 +5,7 @@
  * rule is the main layer plus one tie-breaker (decision 14 and its clarification).
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import type { LineState } from "./line.ts";
+import { lineParams, type LineState } from "./line.ts";
 import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 type Ctx = EvalContext<LineState>;
@@ -254,5 +254,88 @@ export const divisibilityLadder = family("divisibility-ladder", "Divisibility La
   ctx.term("m-prime", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
 });
 
+// ---------------------------------------------------------------- Ruler, Exact Change, Pythagorean Area (restored, decision 22)
+// Deleted on 14 November because no exact sum valued them; owner decision 22 keeps rules whose values are sampled.
+
+/** Not dealt on whole-number lines, where it cannot decide anything (Ruler's distance is never whole there; b is always 1). */
+const notOnWhole = <P,>(l: L<P>): L<P> => ({ ...l, dealtOn: v => lineParams(v).domain !== "Z" });
+
+const rulerShape: Shape<object> = {
+  main: distance("ruler", "distance² from (0, 0) close to a square", "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.", "norm"),
+  tieBreakers: [
+    notOnWhole(more("far", "that whole distance", "That distance should be as big as possible.", "norm")),
+    distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
+    distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri"),
+  ],
+};
+export const ruler = family("ruler", "Ruler", ["norm", "si", "tri"], rulerShape, [{}], ctx => {
+  const mRef = ref("si", "m"), d2Ref = ref("norm", "dist2"), area = ref("tri", "area");
+  const mv = ctx.read(mRef);
+  const m = num(mv);
+  if (m === null || Qn.isZero(m)) return allUndefined(ctx, rulerShape, m === null ? mv : { kind: "undefined", reason: "a flat line's distance is its height: the rule wants a sloping line" }, mRef);
+  const d2 = num(ctx.read(d2Ref))!;
+  ctx.read(ref("norm", "foot"));
+  // The nearest square k² with k ≥ 1.
+  let k = nearestSquareRoot(d2);
+  if (k === 0n) k = 1n;
+  const av = ctx.read(area);
+  ctx.term("ruler", `distance from distance² to ${k * k}`, gap(d2, q(k * k)), [d2Ref]);
+  ctx.term("far", "the whole distance nearest", q(k), [d2Ref]);
+  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
+  ctx.term("square-area", "distance from the area to a square", num(av) === null ? undef(av) : squareGap(num(av)!).d, [area]);
+  ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
+  ctx.mark({ kind: "note", ref: d2Ref, text: `distance² ${Qn.toWire(d2)}, nearest square ${k * k}` });
+});
+
+type W = { ways: number };
+const changeShape: Shape<W> = {
+  main: { ...distance<W>("change", "ways to pay close to the target", "", "coins"),
+    sentence: p => `Reading the line as a·x + b·y = N (coins worth a and b paying N), the number of ways to pay should be as close as possible to ${p.ways}.` },
+  tieBreakers: [
+    notOnWhole(more("big-piles", "the smaller pile in every way", "In every way to pay, the smaller pile should be as big as possible.", "coins")),
+    more("big-bill", "the bill", "The bill N should be as big as possible.", "gen"),
+    distance("prime-coins", "both coins close to primes", "Both coin values should be as close as possible to primes (distances added).", "gen"),
+  ],
+};
+export const exactChange = family<W>("exact-change", "Exact Change", ["coins", "gen"], changeShape, [{ ways: 6 }], (ctx, p) => {
+  const ways = ref("coins", "ways"), bill = ref("coins", "bill"), pile = ref("coins", "smallestPile");
+  const wv = ctx.read(ways);
+  const w = num(wv);
+  if (w === null) return allUndefined(ctx, changeShape, wv, ways);
+  const N = num(ctx.read(bill))!, pv = ctx.read(pile);
+  const a = num(ctx.read(ref("gen", "a")))!, b = num(ctx.read(ref("gen", "b")))!;
+  ctx.term("change", `distance from the ways to pay to ${p.ways}`, gap(w, q(p.ways)), [ways]);
+  ctx.term("big-piles", "the smaller pile, at its smallest", num(pv) ?? undef(pv), [pile]);
+  ctx.term("big-bill", "the bill", N, [bill]);
+  ctx.term("prime-coins", "distance of the coins from primes", Qn.add(distanceToPrime(a), distanceToPrime(b)), [ref("gen", "a"), ref("gen", "b")]);
+  ctx.mark({ kind: "focus", ref: ways });
+  ctx.mark({ kind: "note", ref: bill, text: `pay ${Qn.toWire(N)} with coins of ${Qn.toWire(a)} and ${Qn.toWire(b)}: ${Qn.toWire(w)} ways` });
+});
+
+type A = { A: number };
+const pythShape: Shape<A> = {
+  main: { ...distance<A>("area", "the area close to A", "", "tri"),
+    sentence: p => `The triangle the line cuts off the axes should have an area as close as possible to ${p.A}.` },
+  tieBreakers: [
+    distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri"),
+    distance("prime-height", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si"),
+    distance("whole-legs", "both legs close to whole numbers", "Both legs should be as close as possible to whole numbers (distances added).", "tri"),
+  ],
+};
+export const pythagoreanArea = family<A>("pythagorean-area", "Pythagorean Area", ["tri", "si"], pythShape, [{ A: 6 }], (ctx, p) => {
+  const area = ref("tri", "area");
+  const av = ctx.read(area);
+  const a = num(av);
+  if (a === null) return allUndefined(ctx, pythShape, av, area);
+  const hyp = ref("tri", "hyp2"), lx = ref("tri", "legX"), ly = ref("tri", "legY"), cRef = ref("si", "c");
+  const h = num(ctx.read(hyp))!, x = num(ctx.read(lx))!, y = num(ctx.read(ly))!, c = num(ctx.read(cRef))!;
+  ctx.term("area", `distance from the area to ${p.A}`, gap(a, q(p.A)), [area]);
+  ctx.term("slanted-square", "distance from side² to a square", squareGap(h).d, [hyp]);
+  ctx.term("prime-height", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [cRef]);
+  ctx.term("whole-legs", "distance of the legs from whole numbers", Qn.add(distanceToWhole(x), distanceToWhole(y)), [lx, ly]);
+  ctx.mark({ kind: "focus", ref: lx });
+  ctx.mark({ kind: "focus", ref: ly });
+});
+
 /** The beginner families of this file; the dealt pool (presets.ts) adds Prime Gradient from families.ts. */
-export const beginnerFamilies = [primeStaircase, squareArea, wholeCrossing, divisibilityLadder, treasure, primeLanding, sameOnBothRulers] as const;
+export const beginnerFamilies = [primeStaircase, squareArea, wholeCrossing, divisibilityLadder, treasure, primeLanding, sameOnBothRulers, ruler, exactChange, pythagoreanArea] as const;

@@ -120,8 +120,8 @@ try {
     const lab = await next.getByTestId("setup-group-lab").count();
     if (who !== "admin") assert.equal(lab, 0, "a player is never offered the Lab");
     else console.log(`${label}: Lab group ${lab ? "shown" : "absent (no Lab preset deployed)"} for an admin`);
-    await next.getByTestId("setup-lines-rational").click();
-    await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-rational]") as HTMLInputElement | null)?.checked === true);
+    await next.getByTestId("setup-lines-whole").click();
+    await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-whole]") as HTMLInputElement | null)?.checked === true);
     await next.getByTestId("setup-lines-beginner").click();
     await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-lines-beginner]") as HTMLInputElement | null)?.checked === true);
     // A number the server would refuse is explained, and nothing is sent.

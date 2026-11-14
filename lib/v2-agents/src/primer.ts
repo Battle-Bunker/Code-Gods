@@ -139,14 +139,14 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
   const ex = which ? withoutKnobs(exampleFor(which[0], which[1], "python")?.source.replace(/^(#[^\n]*\n)+\n*/, "")) : undefined;
   return `WRITING AGENTS (engine v2: ${w.title})
 
-THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player's job is to understand their rule, negotiate with the others, and tell you what their agent should do; your job is to write that agent and explain it in plain words.
+THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player understands their rule, negotiates with the others and tells you what their agent should do; you write that agent and explain it in plain words.
 
 WORDS. To the player say points, rarity in bits (each bit = twice as rare), ⚡ energy, power, main part, tie-breaker, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
 
 AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one ${one}, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
 
 WHAT COSTS ⚡.
-- Looking: each view read costs a little, once per turn (looking again is free; reading everything never costs more than one full look). Looking is about 32 times cheaper than changing.
+- Looking: each view read costs a little, once per turn (looking again is free; all views together cost at most one full look). Looking is about 32 times cheaper than a change.
 - Changing: each move is priced by the view it is made through: which move (a few ⚡), how big its numbers are, and a surcharge when the new ${one} takes more to write down. ${w.prices} A turn's changes cost W + 0.05·W², so a few small moves per turn beat one huge plan.
 - Thinking is free but capped: about half a million steps and 64 calls to the game (looks, goal, prices) per turn. So: look once, try many changes in your own code, price only the best few, and make the cheapest. The same change often costs different amounts through different views; choosing the view is the skill.
 - Summoning costs ⚡ by the program's length; comments are free, so explain in comments. Replacing a program costs only the change, so deal edits are cheap.
@@ -164,7 +164,7 @@ Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rat
 
 PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns ⚡ on both sides. The starters (not "Naive", a teaching example) improve the ${one} for their rule, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). On a contested ${one} (another player's move lowered their points: hurt(offer)) they only make moves that keep their own points (pays(offer, plan, s)). No two ${many} may be in the same state and long moves are expensive, so points come from climbing step by step toward states good for everyone. offer.object is the ${one}'s number.
 
-STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
+STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move; put the previous version back if it did worse.
 ${ex ? `
 EXAMPLE (Python; the TypeScript is ${w.typescript}):
 ${ex}` : ""}

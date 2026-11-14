@@ -13,7 +13,7 @@ import { deals, runTable, type TableSeat } from "../src/table.ts";
 const boxes = sandboxes();
 after(() => boxes.close());
 const t = (id: string, input: Record<string, unknown> = {}) => ({ name: toolName(id), input });
-const beginner = presets.find(p => p.id === "lines-beginner")!.rules;
+const beginner = presets.find(p => p.id === "lines-whole")!.rules;
 const seat = (name: string, kind: TableSeat["kind"], family: string, tieBreaker: string): TableSeat => {
   const params = beginner.find(r => r.family === family)!.params as Record<string, unknown>;
   const a = startersFor(family, "typescript").find(x => x.kind === (kind === "naive" ? "naive" : "simple"))!;

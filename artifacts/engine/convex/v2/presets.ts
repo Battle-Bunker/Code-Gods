@@ -68,7 +68,7 @@ const GRIDS = fromPool("grids-beginner", { startingEnergy: GRIDS_BEGINNER_ECONOM
 export const PRESETS: readonly Preset[] = [
   BEGINNER,
   { ...BEGINNER, id: "lines-beginner-bidding", title: "Lines · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
-  fromPool("lines-rational"),
+  fromPool("lines-whole"),
   fromPool("lines-four"),
   GRIDS,
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },

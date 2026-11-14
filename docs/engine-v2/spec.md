@@ -957,10 +957,12 @@ line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 
 ### 12.5 Rule families
 
 Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
-them. **The beginner pool** is the curator's exact-only pool (`docs/engine-v2/layered-line-rules.md` §10.5): families
-an exact sum can value (owner decision 19 and the owner's instruction that families are chosen so), the owner's two
-examples kept. It is `beginnerPool` in `lib/v2-linear/src/presets.ts`, dealt by `lines-beginner` on `line-z`,
-`lines-rational` on `line-q` and `lines-four` on `line-z4`. Each family's summation plan is in `sums.ts` (§7.2). A
+them. **The beginner pool** is the curator's pool (`docs/engine-v2/layered-line-rules.md` §10.5), the owner's two examples
+kept, plus Ruler, Exact Change and Pythagorean Area restored from the old game (owner decision 22: a rule no exact sum
+can value is valued by sampling, with honest intervals). It is `beginnerPool` in `lib/v2-linear/src/presets.ts`, dealt
+by `lines-beginner` on `line-q` (owner decision 2: lines are played on the rationals), by `lines-whole` on `line-z` (an
+explicitly chosen, easier variant) and by `lines-four` on `line-z4`. A family with a summation plan in `sums.ts` (§7.2)
+is valued exactly where the sum applies; the rest by sampling. A
 family's first tie-breaker is its default:
 
 | Family | Main layer (rep) | Tie-breakers (alternatives) | Sum |
@@ -973,6 +975,9 @@ family's first tie-breaker is its default:
 | `same-on-both-rulers` | the number the machine leaves unchanged close to T (mach), T = 6 | `m-spf`, `m-gpf`, `steep` (\|m − 1\|) | band: c between (T ± 2)(1 − m) |
 | `prime-gradient` | the gradient close to a prime (si) | `prime` (that prime), `c-spf`, `c-gpf` (the y-intercept's prime factors) | separable |
 | `prime-staircase` | the run of different primes from y(0) (seq) | `first-prime` | band: c over the primes |
+| `ruler` | the distance² from (0, 0) to the line close to a square k², k ≥ 1 (norm) | `far` (k; not on whole lines), `prime-gradient`, `square-area` | sampled |
+| `exact-change` | reading a·x + b·y = N as coins a, b paying N: the number of ways close to 6 (coins) | `big-piles` (the smaller pile at its smallest; not on whole lines), `big-bill` (N), `prime-coins` | sampled |
+| `pythagorean-area` | the triangle's area close to A = 6 (tri) | `slanted-square` (side² close to a square), `prime-height` (\|c\| close to a prime), `whole-legs` | sampled |
 
 The owner's other first examples remain outside the pool (`families.ts`): `triangle-area`, `m-meets-c`, `crossing-check` and
 `whole-intercept`.

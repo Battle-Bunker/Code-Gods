@@ -15,7 +15,7 @@ import { findValues } from "../src/harness.ts";
 
 const { values: o } = parseArgs({ options: { m: { type: "string", default: "40" }, c: { type: "string", default: "400" }, out: { type: "string" } } });
 const M = Number(o.m), C = Number(o.c);
-const pool = presets.find(p => p.id === "lines-beginner")!.rules;
+const pool = presets.find(p => p.id === "lines-whole")!.rules;
 // One rule per family: its first dealt tie-breaker (the pairing a beginner meets first).
 const rules = pool.map(r => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: (r.tieBreakers as string[])[0]! }));
 const lines: { m: number; c: number; s: LineState }[] = [];
