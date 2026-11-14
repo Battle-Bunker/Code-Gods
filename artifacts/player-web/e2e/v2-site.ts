@@ -126,7 +126,7 @@ try {
       await row.click();
       await page.getByTestId("pane-object").waitFor();
       await page.getByTestId("pane-objects").waitFor({ timeout: 5000 });   // the list a line is opened from stays
-      await page.getByTestId("pane-object").getByText("slope-intercept").first().waitFor();   // the rule's representations
+      await page.getByTestId("pane-object").getByText("your rule's main view").first().waitFor();   // the rule's representations
       await shot(page, `v2-line-${label}`);
     });
 

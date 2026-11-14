@@ -15,7 +15,8 @@ import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { evaluateObject, levelOf, objectLadder, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
 import { divisibilityLadder, fromMC, lineQ, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
-import { annotate, fmtBits as bitsText, CompactFace, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
+import { annotate, bitsLine, CompactFace, ExpandedFace, GoalCard, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
+import { valueFor } from "./values";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 import { GridsSection } from "./v2-grids";
@@ -65,9 +66,8 @@ const examplesOf = (f: Family) => {
   return { params, lines: c?.lines ?? autoLines(f, params) };
 };
 
-/** Made-up rarities (bits) per step for the storyboard rule (real ones come from the rule's calibration artefact). */
-const TANK_RARITIES = [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8];
-const raritiesOf = (f: Family) => (f === emptyTank ? TANK_RARITIES : undefined);
+/** The rule's value function from its calibrated record (the storyboard rule has none: no bits shown for it). */
+const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.params, r.tieBreaker === undefined ? r.family.tieBreakers[0]?.id : r.tieBreaker);
 
 const params = new URLSearchParams(location.search);
 const scheme = params.get("scheme") === "dark" ? "dark" : "light";
@@ -83,19 +83,19 @@ function Cell({ title, children, wide }: { title: string; children: ReactNode; w
 function Storyboards() {
   const rule = ruleOf(emptyTank, {});
   const line = mc(-3, 10);
-  const a = annotate(rule, line, { rarities: TANK_RARITIES });
+  const a = annotate(rule, line);
   return (
     <section className="g-section" id="story" data-section="story">
       <h2>Storyboards: a line under a two-part beginner rule</h2>
-      <p className="g-note">Empty Tank is the plan's illustration (§3.4), not a dealt rule; its rarities and points are made up.</p>
+      <p className="g-note">Empty Tank is the plan's illustration (§3.4), not a dealt rule; its points are made up and it has no calibrated rarity.</p>
       <h3>On the goal card</h3>
-      <GoalCard rule={rule} example={line} rarities={TANK_RARITIES} />
+      <GoalCard rule={rule} example={line} />
       <h3>In the Objects list (a row)</h3>
       <div className="g-objrow">
         <CompactFace rule={rule} state={line} annotation={a} next />
         <div className="g-objrow-text">
           <ObjectChip type={lineType} state={line} />
-          <div>{levelText(a)} · {a.rarity === null ? "" : bitsText(a.rarity)}</div>
+          <div>{bitsLine(a) || (a.score === null ? "not scoring" : "scoring")}</div>
           <div className="g-note">width your bits, height the others' bits, area your points</div>
         </div>
       </div>
@@ -108,11 +108,11 @@ function Storyboards() {
       </div>
       <h3>In the act log</h3>
       <div className="g-log">
-        <MoveLine rule={rule} before={line} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1" rarities={TANK_RARITIES}
+        <MoveLine rule={rule} before={line} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
           points={{ before: 8.2, after: 16.3, want: 2.4 }} />
-        <MoveLine rule={rule} before={mc(-3, 9)} after={mc(-2, 7)} who="Ada's agent" rarities={TANK_RARITIES}
+        <MoveLine rule={rule} before={mc(-3, 9)} after={mc(-2, 7)} who="Ada's agent"
           points={{ before: 16.3, after: 7.9, want: 2.4 }} />
-        <MoveLine rule={rule} before={mc(-2, 7)} after={mc(-2, 6)} who="Your agent Tank-1" what="move the line down 1" rarities={TANK_RARITIES}
+        <MoveLine rule={rule} before={mc(-2, 7)} after={mc(-2, 6)} who="Your agent Tank-1" what="move the line down 1"
           points={{ before: 7.9, after: 13.1, want: 2.1, wantBefore: 2.4 }} />
       </div>
     </section>
@@ -134,15 +134,15 @@ function FamilySection({ f }: { f: Family }) {
 }
 
 function LineRow({ rule, state }: { rule: RuleRef<LineState, unknown>; state: LineState }) {
-  const rarities = raritiesOf(rule.family);
-  const a = annotate(rule, state, { rarities });
+  const value = valueOf(rule);
+  const a = annotate(rule, state, { value });
   return (
     <div className="g-row" data-line={lineType.encode(state)}>
       <div className="g-small">
-        <Cell title="chip"><ObjectChip type={lineType} state={state} extra={levelText(a)} /></Cell>
+        <Cell title="chip"><ObjectChip type={lineType} state={state} extra={bitsLine(a)} /></Cell>
         <Cell title="compact"><CompactFace rule={rule} state={state} annotation={a} next /></Cell>
       </div>
-      <Cell title="expanded" wide><ExpandedFace rule={rule} state={state} rarities={rarities} ladderOpen={false} /></Cell>
+      <Cell title="expanded" wide><ExpandedFace rule={rule} state={state} value={value} /></Cell>
     </div>
   );
 }
@@ -174,7 +174,7 @@ function Hard() {
             <div className="g-small">
               <Cell title={h.title}><CompactFace rule={rule} state={h.state} rep={h.family === squareArea ? "tri" : "cart"} /></Cell>
             </div>
-            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} ladderOpen={false} improvement={false} initialRep={h.family === squareArea ? "tri" : "cart"} /></Cell>
+            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} value={valueOf(rule)} improvement={false} initialRep={h.family === squareArea ? "tri" : "cart"} /></Cell>
           </div>
         );
       })}
