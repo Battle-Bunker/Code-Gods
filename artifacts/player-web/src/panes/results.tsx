@@ -102,7 +102,11 @@ function EndSummary({ total }: { total: number }) {
     if (!my || !header) return null;
     const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
     const tugs: SummaryTug[] = foldTugs(moves.results).flatMap(i => (i.kind === "tug"
-      ? [{ number: i.number, withNames: [...new Set(i.moves.filter(m => !m.mine && m.by).map(m => m.by!.name))], flips: i.flips, mySpend: i.mySpend }]
+      ? [(() => {
+        const others = [...new Map(i.moves.filter(m => !m.mine && m.by).map(m => [m.by!.memberId, m.by!.name])).entries()];
+        const practice = others.length > 0 && others.every(([id]) => header.roster.find(r => r.memberId === id)?.kind === "practice");
+        return { number: i.number, withNames: others.map(([, n]) => n), flips: i.flips, mySpend: i.mySpend, practice };
+      })()]
       : []));
     return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total });
   }, [my, header, objects, moves.results, total]);
