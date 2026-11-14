@@ -4,7 +4,8 @@
 #   look(offer, rep)             what the line looks like in one view ("si", "seq", ...). Costs a little energy to
 #                                read, once per act: looking again at the same view is free.
 #   peek(offer, rep, name, args) one number of a view, e.g. peek(offer, "seq", "term", {"n": 3}).
-#   goal(offer)                  your rule: its family, its numbers and the sentence on its card. Free.
+#   goal(offer)                  your rule: its family, its numbers and the sentence on its card, and the object
+#                                it scores ("line", "grid"). Free.
 #   progress(offer)              how well the line does on your rule now: main and tiebreak (the score's parts,
 #                                bigger is better), and bits (what that score is worth, its rarity; None when the
 #                                game does not say). Costs what reading your rule's views costs.
@@ -234,7 +235,8 @@ def note(offer, text):
 def contested(offer, times):
     if pushback(offer) < times:
         return False
-    note(offer, f"Tug-of-war on line {offer.object}: another player keeps pulling it back. Make a deal with them, then add {offer.object} to LEAVE in your agent.")
+    noun = offer.my_rule().object   # "line", "grid": the game's own word (free)
+    note(offer, f"Tug-of-war on {noun} {offer.object}: another player keeps pulling it back. Make a deal with them, then add {offer.object} to LEAVE in your agent.")
     return True
 
 

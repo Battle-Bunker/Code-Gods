@@ -239,6 +239,21 @@ test("the starters play for points: below their reserve they keep their energy w
   }
 });
 
+test("a grid agent's own notes name the board: a tug-of-war is on a grid, not a line", async () => {
+  const [state] = births(gridType, grid4, "tug", 1);
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const sources = {
+    typescript: "function agent(offer) {\n  contested(offer, 0);\n  return null;\n}\n",
+    python: "def agent(offer):\n    contested(offer, 0)\n    return None\n",
+  } as const;
+  for (const language of ["typescript", "python"] as const) {
+    const { record } = await runAct(await boxes.get(language), { type: gridType, variant: grid4, state: state!, rule, program: { language, source: sources[language] }, seed: "1", energy: 100 });
+    assert.equal(record.notes.length, 1, language);
+    assert.match(record.notes[0]!, /^Tug-of-war on grid \d+:/, language);
+    assert.doesNotMatch(record.notes[0]!, /\bline\b/, language);
+  }
+});
+
 test("the primer for grids lists the board's views and moves, says board, and shows a grid example", () => {
   const primer = agentPrimer(gridType);
   for (const r of gridType.representations) assert.ok(primer.includes(`- ${r.id}: `), r.id);
