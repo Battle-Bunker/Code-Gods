@@ -51,7 +51,11 @@ function argNames(code: { decode(w: unknown): unknown }): string {
       const msg = (e as Error).message;
       const missing = /missing argument (\w+)/.exec(msg), choice = /^(\w+) must be one of (.+)$/.exec(msg);
       if (missing) { names.push(missing[1]!); probe[missing[1]!] = "2"; }
-      else if (choice) { names[names.indexOf(choice[1]!)] = `${choice[1]}: ${choice[2]!.split(", ").join(" | ")}`; probe[choice[1]!] = choice[2]!.split(", ")[0]!; }
+      else if (choice) {
+        const label = `${choice[1]}: ${choice[2]!.split(", ").join(" | ")}`, at = names.indexOf(choice[1]!);
+        if (at < 0) names.push(label); else names[at] = label;
+        probe[choice[1]!] = choice[2]!.split(", ")[0]!;
+      }
       else break;
     }
   }
