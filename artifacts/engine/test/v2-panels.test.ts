@@ -90,7 +90,7 @@ test("another human can neither see nor address a human's panels", async () => {
     ["panel.code", { slug: "secret-view" }], ["panel.code", { slug: "secret-view", version: 1 }], ["panel.rollback", { slug: "secret-view", version: 1 }],
     ["panel.remove", { slug: "secret-view" }], ["panel.setEnabled", { slug: "secret-view", enabled: false }],
   ] as const) assert.match(await failure(bob!, id, args), /^No panel "secret-view"/, id);
-  // Bob saving the same slug makes his own panel; Ada's is untouched.
+  // Bob saving the same slug makes Bob's own panel; Ada's is untouched.
   await ok(bob!, "panel.save", { slug: "secret-view", source: panel("his") });
   assert.match((await ok(ada!, "panel.code", { slug: "secret-view" })).source, /mine/);
   assert.equal((await listed(ada!))[0].currentVersion, 1);

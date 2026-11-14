@@ -72,7 +72,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
 
   const second = await perform(ada!, "agent.summon", { language: "typescript", source: tiny, name: "Second" }, scope(), "action");
   assert.equal(second.ok, true, JSON.stringify(second));
-  // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds her own store.
+  // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds Ada's own store.
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0.6, [second.result.agentId]: 0.2 } }, scope())).ok, true);
   const agents = await ada!.query("v2/play:agents", { gameId });
   assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.2, 0.6]);

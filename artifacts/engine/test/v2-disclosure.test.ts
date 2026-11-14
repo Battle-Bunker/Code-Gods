@@ -1,7 +1,7 @@
 /**
  * Disclosure (integration plan §5.2, spec §8): during a live game no v2 query or read affordance tells a player another
  * player's rule, score or value. A seeded game (v2/testing:seedGame); Bo asks everything a seated player can ask, and
- * nothing he is told names Ada's rule; every value he is given is his own.
+ * nothing Bo is told names Ada's rule; every value Bo is given is Bo's own.
  *
  * What would break: a query or operation that returns another player's rule key, card, score or value while the game runs.
  */
@@ -17,7 +17,7 @@ before(async () => {
   ({ roomId, gameId, objects } = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId, cy!.userId], objects: 8 }));
 });
 
-test("nothing Bo is told names Ada's rule, and every value he gets is his own", async () => {
+test("nothing Bo is told names Ada's rule, and every value Bo gets is Bo's own", async () => {
   const adaRule = await ada!.query("v2/play:myRule", { gameId });
   const boRule = await bo!.query("v2/play:myRule", { gameId });
   assert.notEqual(adaRule.family, boRule.family);
@@ -35,7 +35,7 @@ test("nothing Bo is told names Ada's rule, and every value he gets is his own", 
   for (const objectId of objects) {
     const mine = await q("v2/play:object", { objectId });
     const value = await admin.query("v2/testing:valueOf", { objectId, userId: bo!.userId });
-    assert.deepEqual(mine.value, value, "Bo's value of each object is his own row");
+    assert.deepEqual(mine.value, value, "Bo's value of each object is Bo's own row");
     await q("v2/spectate:object", { objectId });
     await op("object.score", { objectId });
     await op("object.read", { objectId, rep: "si" });
