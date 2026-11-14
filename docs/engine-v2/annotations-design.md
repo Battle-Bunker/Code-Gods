@@ -265,12 +265,11 @@ player may see (spec §9 disclosure, unchanged): the **others' bits on each line
 
 ## 9. Storyboards
 
-Every frame below is a running page: `annotations-lines.html?rule=<id>&frame=<f>` on the player-web dev server
-(`src/gallery/lines/`, a prototype: its per-family lens readings are hand-written, which §11.1 removes). The numbers are
-real (the rules, element values, moves and prices come from v2-core and v2-linear; the bits are read from the
-calibrated line-z artefacts in `lib/v2-valuation/artefacts` until the continuous valuation of decision 23 lands, so they
-move in jumps where the new valuation will move smoothly), except the others' bits, which are illustrative. The graph
-and triangle panels are the real v2-views plane (#462).
+Every frame below is a running page: `annotations-lines.html?rule=<id>&frame=<f>` on the player-web dev server, drawn
+by the real lib/v2-views faces (since the contributors PR; the first storyboards were a hand-written prototype). The numbers are
+real: the rules, element values, moves and prices come from v2-core and v2-linear, and the bits from each rule's value
+function (`valueLookup` on the records in `lib/v2-valuation/values`, owner decision 23). Some sentences below were
+written for the prototype; the screenshots are the faces as built.
 
 ### 9.1 Prime Landing: y = 6x + 25, tie-breaker "that prime as big as possible"
 
@@ -286,7 +285,7 @@ stretch of numbers with the primes as ticks. The tie-breaker ◆ is that prime, 
 Selected ● c on a phone: the chip "● c selected ✕" says what is lit; the graph is stacked under the equation so the lit
 twin is visible; "How this scores" is open with the six links.
 
-![Prime Landing, selected, phone](../screenshots/annotations-lines/prime-landing-select-390-dark.jpg)
+![Prime Landing, phone](../screenshots/annotations-lines/prime-landing-390-dark.png)
 
 ### 9.2 Square Area: y = −x + 7, tie-breaker "the root's smallest prime factor"
 
@@ -321,7 +320,6 @@ that lifts both: "change the gradient to 16, keeping y(1) = 21" (5.94 ⚡) gives
 and c = 5, a prime, for her: rarer for both. That is the sentence a child takes into a negotiation.
 
 ![Treasure, desktop](../screenshots/annotations-lines/treasure-1440-light.png)
-![Treasure, others and a told rule](../screenshots/annotations-lines/treasure-others-1440-light.jpg)
 ![Treasure, phone](../screenshots/annotations-lines/treasure-390-dark.png)
 
 ### 9.5 Divisibility Ladder: y = 12x + 12
@@ -392,6 +390,11 @@ Items 1–4 are lib/v2-linear and lib/v2-core changes: proposed to the app sessi
 session holds those files.
 
 ### 11.2 Order of pull requests
+
+Done: the design (#458, #468); the fitted plane and labels (#462, #471); the line element without a window (#465); the
+nearest square (#483); contributors, rulers, moves on the value function and the faces without steps (this list's items
+2 and part of 3 and 5). Still to do: identity badges projected into the equation, table and machine views; the app's
+value record wired into One line, Lines and the goal card (W3's myRule `value`); the persona walk.
 
 1. This document and the storyboard gallery.
 2. v2-views: contributors model and wording (tests first: the four storyboard lines, the wording rules as assertions),

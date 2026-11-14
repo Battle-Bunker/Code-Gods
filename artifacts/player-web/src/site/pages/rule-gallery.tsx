@@ -9,9 +9,8 @@ import { Link, useLocation, useParams, useSearch } from "wouter";
 import { GoalCard } from "@workspace/v2-views";
 import "@workspace/v2-views/styles.css";
 import { Page } from "@/site/components/layout";
-import { api, useLive } from "@/site/lib/convex";
 import { EmptyState, Section } from "@/site/components/page-parts";
-import { BOARDS, familyPage, galleryFamilies, gallerySearch, galleryRarities, setupFromSearch, type GalleryEntry, type GallerySetup } from "@/site/lib/rule-gallery";
+import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch, type GalleryEntry, type GallerySetup } from "@/site/lib/rule-gallery";
 import { ruleFamilyPath, ruleGalleryPath } from "@/site/lib/routes";
 import { workedExample } from "@/panes/worked-example";
 
@@ -77,10 +76,6 @@ export function RuleFamily() {
   const [, navigate] = useLocation();
   const page = useMemo(() => familyPage(family, setupFromSearch(search)), [family, search]);
   const example = useMemo(() => (page ? workedExample(page.rule) : null), [page]);
-  // Each step's rarity in bits, from the server's calibration (one live subscription per family shown).
-  const ask = page ? galleryRarities(page, undefined).query : null;
-  const rows = useLive(api.v2.gallery.family, ask ?? "skip").data;
-  const rarities = page ? galleryRarities(page, rows).rarities : null;
   useEffect(() => { document.title = `${page?.family.title ?? "Rule"} · Rule gallery · Code Gods`; }, [page?.family.title]);
   const go = (s: Partial<GallerySetup>) => page && navigate(ruleFamilyPath(family, gallerySearch({ ...page.setup, ...s })), { replace: true });
   const back = ruleGalleryPath(page ? gallerySearch({ board: page.setup.board, params: 0, tb: null }) : "");
@@ -125,8 +120,8 @@ export function RuleFamily() {
               </Section>
             </div>
             <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
-              <GoalCard rule={page.rule} example={example} {...(rarities ? { rarities } : {})} />
-              {!rarities && <p className="mt-2 text-xs text-muted-foreground">In a game, a line also shows its rarity in bits (each bit = twice as rare) and its chance: how rarely a random line scores that well.</p>}
+              <GoalCard rule={page.rule} example={example} />
+              <p className="mt-2 text-xs text-muted-foreground">In a game, your own lines also show their rarity in bits (each bit = twice as rare) and their chance: how rarely a random line is that good.</p>
             </div>
           </div>
         </>)}

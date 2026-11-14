@@ -3,85 +3,85 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
-import { q } from "@workspace/v2-core";
+import { q, type Score } from "@workspace/v2-core";
 import { fromMC, lineQ, lineType, triangleArea, type LineState } from "@workspace/v2-linear";
 import { CompactFace, ExpandedFace, type RuleRef } from "../src/index.ts";
 import { emptyTank } from "../src/demo.ts";
 
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
 const tank: RuleRef<LineState, Record<string, never>> = { type: lineType, family: emptyTank, params: {}, variant: lineQ };
-// Empty Tank's joint ladder (main level, tie-breaker level) in lexicographic order: three coarse tie-breaker steps at each
-// of the main part's levels 0–7, all four at its top 8: 36 steps. mc(−3, 10) is main 5, tie-breaker at its top: step 23.
-const RARITIES = Array.from({ length: 37 }, (_, i) => Math.round(i * 2) / 10);
+/** A stand-in value function: more bits the smaller the main gap (the real one comes from the rule's calibrated record). */
+const VALUE = (u: Score) => (u === null ? 0 : 6 + 3 * (Number(u[0]!.n) / Number(u[0]!.d)) + (u[1] ? Number(u[1].n) / Number(u[1].d) / 10 : 0));
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
-test("compact face: the primary drawn with its marks, the step and the rarity", () => {
-  const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} />);
+test("compact face: the primary drawn with its marks, the bits, one line per part; no steps", () => {
+  const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} value={VALUE} />);
   assert.match(html, /data-rep="cart"/);
   assert.match(html, /data-ref="cart\.xInt"[^>]*data-focus/);
-  assert.match(text(html), /5\/8/);
-  assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} />)), /not scoring/);
-});
-
-test("expanded face: every depended representation, both parts with their steps, the next step, the ladder", () => {
-  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} rarities={RARITIES} />);
   const t = text(html);
-  for (const rep of ["cart", "si", "seq"]) assert.match(html, new RegExp(`class="v2v-panel"[^>]*>\\s*<h4[^>]*>[^<]*`), rep);
-  assert.equal((html.match(/class="v2v-panel"/g) ?? []).length, 3);
-  assert.match(t, /main part step 5 of 8/);
-  assert.match(t, /tie-breaker step 4 of 4/);
-  assert.match(t, /4\.60 bits step 23 of 36/);
-  // The ladder: beside each step its bits and its chance (2^4.6 ≈ 24.3), and what a bit means.
-  assert.match(t, /this line 4\.60 bits 1 in 24 by chance/);
-  assert.match(t, /Each bit = twice as rare\./);
-  assert.match(t, /Next step: .*⚡\): step \d+ of 36\./);
-  assert.match(t, /Steps to the top/);
-  assert.match(t, /your rule's main view/);
-  // Tabs reach every representation of the line, the rule's own marked.
-  assert.equal((html.match(/role="tab"/g) ?? []).length, lineType.representations.length);
-  assert.match(html, /data-depends=""[^>]*data-primary=""[^>]*>line on the plane/);
+  assert.match(t, /bits \(1 in [\d.,]+ by chance\)/);
+  assert.match(t, /● /);
+  assert.match(t, /◆ /);
+  assert.doesNotMatch(t, /step \d|\d\/\d+ /);
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} value={VALUE} />)), /not scoring/);
 });
 
-test("expanded face: a line the rule cannot score says why and offers what brings it closer", () => {
+test("expanded face: the rule's views, both parts with their rulers, the moves with new bits; no steps or ladder", () => {
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} />);
+  const t = text(html);
+  assert.equal((html.match(/class="v2v-panel"/g) ?? []).length, 3);
+  assert.match(t, /Main part:/);
+  assert.match(t, /Tie-breaker:/);
+  assert.match(t, /the closer, the better/);
+  assert.match(t, /What would make it rarer/);
+  assert.match(t, /⚡/);
+  assert.match(t, /→ [\d.]+ bits \(1 in/);
+  assert.match(t, /your rule's main view/);
+  assert.match(html, /class="v2v-ruler"/);
+  assert.doesNotMatch(t, /\bstep \d|Steps to the top|within \d/);
+  // The rule's own views are tabs (its main view first, ★); the rest are under "More views".
+  assert.equal((html.match(/role="tab"/g) ?? []).length, new Set([tank.family.main.rep, ...tank.family.depends]).size);
+  assert.match(html, /data-depends=""[^>]*data-primary=""[^>]*>line on the plane/);
+  assert.match(t, /More views/);
+});
+
+test("expanded face: a line the rule cannot score says why and offers what would make it score", () => {
   const t = text(renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family: triangleArea, params: { A: 8 }, variant: lineQ }} state={mc(3, 0)} />));
   assert.match(t, /does not score for your rule: the line and the axes make no triangle/);
-  assert.match(t, /not scoring/);
-  assert.match(t, /Next step: /);
+  assert.match(t, /What would make it rarer/);
 });
 
 test("expanded face: a controlled switcher shows the representation and the comparison it is given", () => {
   // Catches: the app's stored choice (view.showRepresentation / compareRepresentations) ignored for the face's own state.
-  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} active="mach" compare="gen" onActive={() => {}} onCompare={() => {}} />);
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} active="mach" compare="gen" onActive={() => {}} onCompare={() => {}} improvement={false} />);
   assert.match(html, /aria-selected="true"[^>]*>function machine</);
   assert.match(html, /aria-label="general form"/);
   assert.match(html, /<option value="gen" selected="">/);
   // Uncontrolled, it opens on the rule's primary with nothing compared.
-  const own = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} />);
+  const own = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} improvement={false} />);
   assert.match(own, /aria-selected="true"[^>]*>line on the plane</);
   assert.doesNotMatch(own, /aria-label="general form"/);
 });
 
-test("move line: the change, the step before → after, the rarity with its reason, points with the want", async () => {
+test("move line: the change, what it did to the rule's quantities, the rarity with its reason, points with the want", async () => {
   const { MoveLine } = await import("../src/index.ts");
   const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
-    rarities={RARITIES} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
-  assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\. Up: step 23 → 36 of 36 ?\./);
-  assert.match(t, /Rarity 4\.60 → 7\.20 bits \(fewer random lines score this well\)\./);
+    value={VALUE} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
+  assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\./);
+  assert.match(t, /Rarity [\d.]+ → [\d.]+ bits, 1 in [\d.,]+ by chance \(fewer random lines are this good\)\./);
   assert.match(t, /Points on this line 8\.20 → 16\.30 \(the others want it 2\.40\)\./);
-  const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" rarities={RARITIES}
+  assert.doesNotMatch(t, /step \d/);
+  const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" value={VALUE}
     points={{ before: 8.2, after: 7.9, want: 1.1, wantBefore: 2.4 }} />));
   assert.match(t2, /the others want it 1\.10, was 2\.40\): because the others want this line less now/);
 });
 
-test("compact face: says 'step n of N', each part's step, the reason when not scoring, and the next move", () => {
-  const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />));
-  assert.match(t, /step 23 of 36/);
-  assert.match(t, /main 5\/8/);
-  assert.match(t, /tie-break 4\/4/);
-  assert.match(t, /next: .* → step \d+/);
-  const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} next />);
+test("compact face: the next move drawn and said, with its new bits; the reason when not scoring", () => {
+  const t = text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} value={VALUE} next />));
+  assert.match(t, /next: .* → [\d.]+ bits/);
+  const html = renderToStaticMarkup(<CompactFace rule={tank} state={mc(-3, 10)} value={VALUE} next />);
   assert.match(html, /data-next=""/, "the next line drawn on the plane");
-  assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} />)), /not scoring this tank is not draining/);
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tank} state={mc(2, -6)} />)), /this tank is not draining/);
 });
 
 test("plane: two cited points at the same place get one label", async () => {
@@ -99,7 +99,7 @@ test("plane: two cited points at the same place get one label", async () => {
 test("compact face: the main part's quantity, target and distance; a cited implicit coefficient is shown", async () => {
   const { mMeetsC } = await import("@workspace/v2-linear");
   const tri = { type: lineType, family: triangleArea, params: { A: 8 }, variant: lineQ };
-  assert.match(text(renderToStaticMarkup(<CompactFace rule={tri} state={mc(2, -6)} />)), /area 9, target 8 · off by 1/);
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tri} state={mc(2, -6)} />)), /area 9 · off by 1/);
   const mmc = { type: lineType, family: mMeetsC, params: {}, variant: lineQ };
   const html = renderToStaticMarkup(<CompactFace rule={mmc} state={mc(1, 5)} />);
   assert.match(text(html), /gradient 1, y-intercept 5 · off by 4/);

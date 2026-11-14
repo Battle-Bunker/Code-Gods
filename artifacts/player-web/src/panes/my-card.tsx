@@ -1,20 +1,35 @@
 /**
- * Your secret goal (the `my-card` pane): the dealt rule's card in plain words, a worked example on the expanded face
- * (the family's own example, else a seeded search: ./worked-example.ts) with the rarities in bits the server calibrated, and the rule's parts named "(main part, tie-breaker)" (ux-lessons 2.6).
+ * Your secret goal (the `my-card` pane): the dealt rule's card in plain words; the line in your focus explained first
+ * (its parts on their rulers, the moves that would make it rarer: docs/engine-v2/annotations-design.md, owner decision
+ * 23: no steps); then a worked example (the family's own, else a seeded search: ./worked-example.ts); and the rule's
+ * parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
 import { useMemo } from "react";
 import { GoalCard } from "@workspace/v2-views";
-import { useGameScope, useMyRule, type GameRule } from "@/sdk";
+import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule } from "@/sdk";
+import { useView } from "@/core/affordance-runtime";
 import { partsNote } from "./lines";
 import { workedExample } from "./worked-example";
 
-function Card({ rule, rarities, parts }: { rule: GameRule; rarities: number[]; parts: number }) {
+/** The line in the human's focus (Lines, One line, the palette), decoded, with its name: "Line 7". */
+function useFocusedMine(): { state: unknown; name: string } | null {
+  const focus = useView().focus;
+  const header = useGame();
+  const o = useMyObject(focus?.objectId);
+  const state = useMemo(() => (focus && o ? decodeState(o.state, header?.variant) : null), [focus, o?.state, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!focus || !o || !state) return null;
+  const word = objectWord(header?.variant);
+  return { state, name: `${word.One} ${o.number}` };
+}
+
+function Card({ rule, parts }: { rule: GameRule; parts: number }) {
   const example = useMemo(() => workedExample(rule), [rule]);
+  const mine = useFocusedMine();
   const note = partsNote(parts);
   return (
     <div className="space-y-2 p-3" data-testid="goal-card">
       {note && <p className="text-xs text-muted-foreground" data-testid="text-rule-parts">{note}</p>}
-      <GoalCard rule={rule} example={example} rarities={rarities} />
+      <GoalCard rule={rule} example={example} mine={mine} />
     </div>
   );
 }
@@ -32,7 +47,7 @@ function SeatedCard() {
       </div>
     );
   }
-  return <Card rule={my.rule} rarities={my.rarities} parts={my.row.layers.length} />;
+  return <Card rule={my.rule} parts={my.row.layers.length} />;
 }
 
 export function MyCardPane() {

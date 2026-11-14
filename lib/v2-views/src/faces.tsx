@@ -1,25 +1,41 @@
 /**
- * The object faces (integration plan §3.3): the compact face (the rule's primary representation, its marks, the step and
- * rarity in bits), the parts list, the ladder ("steps to the top"), the representation switcher and the expanded face (every
- * representation the rule depends on, side by side on a wide card and as tabs on a narrow one, cross-highlighted by
- * meaning; the parts, the worked computation, the ladder and the nearest improvement).
+ * The object faces (integration plan §3.3; docs/engine-v2/annotations-design.md; owner decision 23): the compact face
+ * (the rule's primary representation, its marks, the bits and one line per part), the contributor cards (each part's
+ * source, reference and distance on a ruler), the moves that would make the object rarer with their prices and new
+ * bits, the representation switcher (the rule's views first) and the expanded face.
  *
- * Player words only: points, rarity in bits (each bit = twice as rare), ⚡ energy, "main part", "tie-breaker", "step n of N", and
- * the game's own noun ("line", "grid": the object type's id), never "object".
+ * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", ⚡ energy, "main part",
+ * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
 import { useMemo, useState, type ReactElement } from "react";
-import { elementValue, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
+import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
-import { BITS_HELP, chanceText, fmtBits, fmtQ, fmtValue, isUndef } from "./format.ts";
-import { nearestImprovement, type Improvement } from "./improve.ts";
+import { BITS_HELP, chanceText, fmtBits, fmtEnergy } from "./format.ts";
+import { moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
-import { labelOf, ObjectChip, RepView } from "./rep-view.tsx";
+import { ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
 
-/** "step 5 of 8" (or "5/8" short), or "not scoring". */
-export function levelText(a: Annotation, short = false): string {
+export const GLYPH = { main: "●", tb: "◆" } as const;
+
+/** "2.13 bits (1 in 4.4 by chance)", or "not scoring"; empty without the rule's value function. */
+export function bitsLine(a: Annotation): string {
   if (a.score === null) return "not scoring";
-  return short ? `${a.level}/${a.top}` : `step ${a.level} of ${a.top}`;
+  return a.bits === null ? "" : `${fmtBits(a.bits)} (${chanceText(a.bits)} by chance)`;
+}
+
+/** One part in one line: "● y-intercept 25 · 2 above 23" / "◆ that prime 23". */
+export function partLine(p: Part): string {
+  const g = GLYPH[p.role];
+  const said = p.source.filter(x => x.text);
+  if (p.distance && said.length) return `${g} ${p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ")} · ${p.distance}`;
+  return `${g} ${p.title}: ${p.valueText}`;
+}
+
+/** The main part's one line, without its glyph (the Lines row's "Why?"). */
+export function mainLine<S, P>(_rule: RuleRef<S, P>, _state: S, a: Annotation, site = 0): string {
+  const p = a.sites[site]?.parts[0];
+  return p ? partLine(p).slice(2) : "";
 }
 
 // ------------------------------------------------------------------ compact face
@@ -29,156 +45,126 @@ export interface CompactFaceProps<S, P> {
   readonly state: S;
   /** Precomputed annotation (the caller may share it with other views); computed when absent. */
   readonly annotation?: Annotation;
+  /** The rule's value function (bits of a utility); without it no bits are shown and moves rank by utility. */
+  readonly value?: (u: Score) => number;
   /** A representation the viewer pinned instead of the rule's primary. */
   readonly rep?: string;
   readonly site?: number;
   readonly before?: S;
-  /**
-   * The nearest improvement, drawn as a hint (a dashed "next" line on a plane, and a line of words): true computes it
-   * here (only for the viewer's own rule), or pass one already computed.
-   */
-  readonly next?: boolean | Improvement | null;
+  /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
+  readonly next?: boolean | Move<S> | null;
 }
 
-/** The rule's primary representation at 160 × 100 with its marks, and "3.40 bits · step 5 of 8" beneath. */
+/** The rule's primary representation at 160 × 100 with its marks, the bits, one line per part, and the next move. */
 export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
-  const a = props.annotation ?? annotate(props.rule, props.state);
+  const a = props.annotation ?? annotate(props.rule, props.state, { value: props.value });
   const site = props.site ?? 0;
   const e = a.sites[site]!.evaluation;
   const parts = a.sites[site]!.parts;
   const rep = props.rep ?? props.rule.family.main.rep;
-  const imp = useMemo(
-    () => (props.next === true ? (a.level === a.top ? null : nearestImprovement(props.rule, props.state)) : props.next || null),
-    [props.next, props.rule, props.state, a.level, a.top],
+  const next = useMemo(
+    () => (props.next === true ? (a.score === null && !props.value ? null : moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null) : props.next || null),
+    [props.next, props.rule, props.state, props.value, a.score],
   );
-  const ladderHelp = `Your rule's ladder: each step up is rarer among random ${a.noun}s and worth more to you.`;
+  const bits = bitsLine(a);
   return (
-    <div className="v2v v2v-compact-face" data-level={a.level}>
+    <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
       <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms}
-        before={props.before} next={imp ? (imp.result as S) : undefined} />
-      <div className="v2v-face-foot">
-        {a.rarity !== null && <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(a.rarity)}</span>}
-        <span className="v2v-step" data-worst={a.score === null ? "" : undefined} title={a.worst ?? ladderHelp}>{levelText(a)}</span>
-      </div>
-      {a.worst ? <div className="v2v-face-why">{a.worst}</div> : <div className="v2v-face-why" title={parts[0]?.sentence}>{mainLine(props.rule, props.state, a, site)}</div>}
-      {!a.worst && parts.length > 1 && (
-        <div className="v2v-face-parts">
-          {parts.map(p => p.rung !== null && (
-            <div key={p.term} className="v2v-face-part" title={`${p.name}: step ${p.rung} of ${p.rungs}${p.rungLabel ? ` (${p.rungLabel})` : ""}`}>
-              <span className="v2v-face-part-name">{p.name === "main part" ? "main" : "tie-break"}</span>
-              <Pips n={p.rungs!} at={p.rung} />
-              <span className="v2v-face-part-n">{p.rung}/{p.rungs}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {imp && <div className="v2v-face-next" title={imp.sentence}>next: {imp.describe} → step {imp.levelAfter}</div>}
+        before={props.before} next={next ? next.after : undefined} />
+      {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
+      {a.worst
+        ? <div className="v2v-face-why">{a.worst}</div>
+        : parts.map(p => <div key={p.term} className="v2v-face-part" data-role={p.role} title={p.sentence}>{partLine(p)}</div>)}
+      {next && <div className="v2v-face-next" title={next.words}>next: {next.words}{next.bits !== null ? ` → ${fmtBits(next.bits)}` : ""}</div>}
     </div>
   );
 }
 
-/** A dynamic or derived element's short name: its label without the parenthesis, or "out(1)" for a parametrised one. */
-function shortLabel<S>(type: ObjectType<S>, r: ElementRef): string {
-  if (r.args && Object.keys(r.args).length) return `${r.name}(${Object.values(r.args).map(v => v.replace("-", "−")).join(", ")})`;
-  return labelOf(type, r).replace(/\s*\(.*\)/, "");
+// ------------------------------------------------------------------ ruler
+
+/** A part's quantity on a magnified number line: the value, its reference (strong) and the reference's kind's neighbours. */
+export function RulerView({ part, width = 300 }: { part: Part; width?: number }): ReactElement | null {
+  const r = part.ruler;
+  if (!r) return null;
+  const xs = [r.value, ...r.refs.map(x => x.at)];
+  let lo = Math.min(...xs), hi = Math.max(...xs);
+  const span = Math.max(hi - lo, 2);
+  lo -= span * 0.08; hi += span * 0.08;
+  const W = width, H = 50, pad = 12, Y = 26;
+  const X = (v: number) => pad + ((v - lo) / (hi - lo)) * (W - 2 * pad);
+  const label = `${GLYPH[part.role]} ${r.valueText}`, lw = label.length * 6.2;
+  // Labels of the references, thinned where they would collide (the strong one always kept).
+  const shown: { at: number; label: string; strong?: boolean }[] = [];
+  for (const ref of [...r.refs].sort((a, b) => Number(!!b.strong) - Number(!!a.strong))) {
+    if (shown.some(s => Math.abs(X(s.at) - X(ref.at)) < Math.max(s.label.length, ref.label.length) * 6.2 + 4)) continue;
+    shown.push(ref);
+  }
+  return (
+    <svg className="v2v-ruler" data-role={part.role} width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img"
+      aria-label={`${r.valueText}; ${r.refs.filter(x => x.strong).map(x => x.label).join(", ")}${part.distance ? `: ${part.distance}` : ""}`}>
+      <line className="v2v-ruler-axis" x1={pad} x2={W - pad} y1={Y} y2={Y} />
+      {r.refs.map(ref => <line key={ref.at} className="v2v-ruler-ref" data-strong={ref.strong ? "" : undefined} x1={X(ref.at)} x2={X(ref.at)} y1={Y - 7} y2={Y + 7} />)}
+      {shown.map(ref => <text key={ref.at} className="v2v-ruler-label" data-strong={ref.strong ? "" : undefined} x={X(ref.at)} y={Y + 19} textAnchor="middle">{ref.label}</text>)}
+      <circle className="v2v-ruler-value" cx={X(r.value)} cy={Y} r={4.5} />
+      <text className="v2v-ruler-label" data-value="" x={Math.min(W - lw / 2 - 2, Math.max(lw / 2 + 2, X(r.value)))} y={Y - 10} textAnchor="middle">{label}</text>
+    </svg>
+  );
 }
 
-/**
- * The compact card's one line about the main part: the quantity and the target in the rule's own words (its short
- * note, or the elements the part was computed from), then the distance: "area 9, target 8 · off by 1".
- */
-export function mainLine<S, P>(rule: RuleRef<S, P>, state: S, a: Annotation, site = 0): string {
-  const part = a.sites[site]?.parts[0];
-  if (!part || isUndef(part.value)) return "";
-  const term = a.sites[site]!.evaluation.terms.find(t => t.id === part.term)!;
-  const amount = fmtQ(part.value);
-  const tail = part.sense === "min" ? ` · off by ${amount}` : ` · ${amount}`;
-  // A part made of many elements (a row's four totals, sixteen cells) is said by its own label: a note there is one
-  // unit's ("4 short"), not the whole's.
-  if (term.from.length > 3) return `${term.label[0]!.toUpperCase()}${term.label.slice(1)}${tail}`;
-  const note = part.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && m.text.length <= 28);
-  const what = note?.text ?? term.from.map(r => `${shortLabel(rule.type, r)} ${fmtValue(elementValue(rule.type, state, r, site))}`).join(", ");
-  return what + tail;
-}
-
-// ------------------------------------------------------------------ parts list
+// ------------------------------------------------------------------ contributor cards
 
 export interface PartsListProps {
   readonly parts: readonly Part[];
   /** The part whose marks are lit (by index), or null. */
   readonly active: number | null;
   readonly onActive?: (i: number | null) => void;
+  /** A tapped part stays selected until tapped again or cleared. */
+  readonly onSelect?: (i: number | null) => void;
+  readonly selected?: number | null;
 }
 
-/** One box per part: its name, its sentence, its step on its own ladder and the next step. */
-export function PartsList({ parts, active, onActive }: PartsListProps): ReactElement {
+/** One card per part: what the rule wants, the part's quantity on its ruler, and what is better. Tap selects. */
+export function PartsList({ parts, active, onActive, onSelect, selected }: PartsListProps): ReactElement {
   return (
     <ol className="v2v-parts">
       {parts.map((p, i) => (
-        <li key={p.term} className="v2v-part" data-active={active === i ? "" : undefined} data-top={p.rung !== null && p.rung === p.rungs ? "" : undefined}
-          tabIndex={0} onMouseEnter={() => onActive?.(i)} onMouseLeave={() => onActive?.(null)} onFocus={() => onActive?.(i)} onBlur={() => onActive?.(null)}>
+        <li key={p.term} className="v2v-part" data-role={p.role} data-active={active === i ? "" : undefined} data-selected={selected === i ? "" : undefined}
+          tabIndex={0} aria-pressed={selected === i} role="button"
+          onMouseEnter={() => onActive?.(i)} onMouseLeave={() => onActive?.(null)} onFocus={() => onActive?.(i)} onBlur={() => onActive?.(null)}
+          onClick={() => onSelect?.(selected === i ? null : i)}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect?.(selected === i ? null : i); } else if (e.key === "Escape") onSelect?.(null); }}>
           <div className="v2v-part-head">
-            <span className="v2v-part-name">{p.name}</span>
-            {p.rung !== null && <span className="v2v-part-step">step {p.rung} of {p.rungs}</span>}
+            <span className="v2v-part-name">{GLYPH[p.role]} {p.name === "main part" ? "Main part" : "Tie-breaker"}: {p.title}</span>
+            <span className="v2v-part-aim">{p.aim}</span>
           </div>
           <div className="v2v-part-sentence">{p.sentence}</div>
-          {p.rung !== null && (
-            <div className="v2v-part-rung">
-              {p.rungLabel ? <span>✓ {p.rungLabel}</span> : <span>not on the first step yet</span>}
-              {p.nextLabel && <span className="v2v-part-next">next: {p.nextLabel}</span>}
-            </div>
-          )}
-          {p.rung !== null && p.rungs !== null && <Pips n={p.rungs} at={p.rung} />}
+          <RulerView part={p} />
         </li>
       ))}
     </ol>
   );
 }
 
-function Pips({ n, at }: { n: number; at: number }) {
+// ------------------------------------------------------------------ moves
+
+/** The moves that would make the object rarer: words, price, what they change, new bits. */
+export function MovesList<S>({ list, noun }: { list: readonly Move<S>[]; noun: string }): ReactElement {
+  if (!list.length) return <p className="v2v-next" data-kind="none">No single move makes this {noun} rarer for your rule.</p>;
   return (
-    <span className="v2v-pips" aria-hidden="true">
-      {Array.from({ length: n }, (_, i) => <i key={i} data-on={i < at ? "" : undefined} />)}
-    </span>
-  );
-}
-
-// ------------------------------------------------------------------ ladder
-
-export interface LadderViewProps {
-  readonly annotation: Annotation;
-  /** Folded under its title (the expanded face on a phone is long); open when undefined. */
-  readonly open?: boolean;
-  /** Rarity in bits per rung (index = level), when the rule's artefact is known. */
-  readonly rarities?: readonly number[];
-}
-
-/**
- * "Steps to the top": every rung of the rule's ladder, the one reached marked, with its rarity in bits and its chance
- * ("1 in 1.2 million by chance", 2^bits) per step when known.
- */
-export function LadderView({ annotation: a, rarities, open }: LadderViewProps): ReactElement {
-  const rungs = a.ladder.slice(1).map((r, i) => ({ level: i + 1, label: r.label })).reverse();
-  return (
-    <details className="v2v-ladder" open={open ?? true}>
-      <summary className="v2v-ladder-title">Steps to the top <span className="v2v-ladder-at">({levelText(a)})</span></summary>
+    <div className="v2v-moves">
+      <h4 className="v2v-moves-title">What would make it rarer</h4>
       <ol>
-        {rungs.map(r => (
-          <li key={r.level} data-reached={r.level <= a.level ? "" : undefined} data-here={r.level === a.level ? "" : undefined}>
-            <span className="v2v-ladder-n">{r.level}</span>
-            <span className="v2v-ladder-label">{r.label}</span>
-            {r.level === a.level && <span className="v2v-ladder-here">this {a.noun}</span>}
-            {rarities?.[r.level] !== undefined && (
-              <span className="v2v-ladder-odds">
-                <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(rarities[r.level]!)}</span>
-                <span className="v2v-chance">{chanceText(rarities[r.level]!)} by chance</span>
-              </span>
-            )}
+        {list.map((m, i) => (
+          <li key={i} className="v2v-move-option" data-first={i === 0 ? "" : undefined}>
+            <span className="v2v-move-words">{m.words[0]!.toUpperCase() + m.words.slice(1)}{!m.words.includes(m.text) && <span className="v2v-move-result"> → {m.text}</span>}</span>
+            <span className="v2v-move-price">{fmtEnergy(m.price.total)}</span>
+            <span className="v2v-move-changes">{m.changes.join(" · ")}</span>
+            {m.bits !== null && <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>}
           </li>
         ))}
       </ol>
-      {rarities && <p className="v2v-ladder-note">Each step up is rarer among random {a.noun}s; rarer is worth more to you. {BITS_HELP}</p>}
-    </details>
+      <p className="v2v-moves-hint">The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it.</p>
+    </div>
   );
 }
 
@@ -194,19 +180,33 @@ export interface RepSwitcherProps<S> {
   readonly onCompare: (rep: string | null) => void;
 }
 
-/** Tabs of every representation of the object type, the rule's own marked; "compare" pins a second one beside. */
+/** The rule's own views as tabs (its main view first, ★); every other view under "More views"; "compare" adds one beside. */
 export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
+  const reads = [p.primary, ...p.depends.filter(d => d !== p.primary)];
+  const others = p.type.representations.filter(r => !reads.includes(r.id));
   return (
     <div className="v2v-switcher">
       <div className="v2v-tabs" role="tablist" aria-label={`Ways to see this ${nounOf(p.type)}`}>
-        {p.type.representations.map(r => (
-          <button key={r.id} type="button" role="tab" aria-selected={p.active === r.id} className="v2v-tab"
-            data-depends={p.depends.includes(r.id) ? "" : undefined} data-primary={p.primary === r.id ? "" : undefined}
-            title={r.title + (p.depends.includes(r.id) ? " (your rule reads this)" : "")} onClick={() => p.onActive(r.id)}>
-            {shortTitle(r.title)}
-          </button>
-        ))}
+        {reads.map(id => {
+          const r = representation(p.type, id);
+          return (
+            <button key={id} type="button" role="tab" aria-selected={p.active === id} className="v2v-tab" data-depends="" data-primary={p.primary === id ? "" : undefined}
+              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}>{shortTitle(r.title)}</button>
+          );
+        })}
+        {others.some(r => r.id === p.active) && (
+          <button type="button" role="tab" aria-selected className="v2v-tab">{shortTitle(representation(p.type, p.active).title)}</button>
+        )}
       </div>
+      {others.length > 0 && (
+        <label className="v2v-compare">
+          More views{" "}
+          <select value={others.some(r => r.id === p.active) ? p.active : ""} onChange={e => e.target.value && p.onActive(e.target.value)}>
+            <option value="">▾</option>
+            {others.map(r => <option key={r.id} value={r.id}>{shortTitle(r.title)}</option>)}
+          </select>
+        </label>
+      )}
       <label className="v2v-compare">
         Compare with{" "}
         <select value={p.compare ?? ""} onChange={e => p.onCompare(e.target.value || null)}>
@@ -218,7 +218,7 @@ export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
   );
 }
 
-/** "slope-intercept: y = mx + c" → "slope-intercept"; "the line on the plane" → "the line on the plane". */
+/** "slope-intercept: y = mx + c" → "slope-intercept"; "the line on the plane" → "line on the plane". */
 export const shortTitle = (t: string): string => t.split(":")[0]!.replace(/^the /, "").trim();
 
 // ------------------------------------------------------------------ expanded face
@@ -228,14 +228,12 @@ export interface ExpandedFaceProps<S, P> {
   readonly state: S;
   readonly site?: number;
   readonly before?: S;
-  /** Rarity in bits per rung of the rule's ladder. */
-  readonly rarities?: readonly number[];
-  /** Show the nearest improvement (the viewer's own rule only). Default true. */
+  /** The rule's value function (bits of a utility), built once from its record with v2-valuation's valueLookup. */
+  readonly value?: (u: Score) => number;
+  /** Show the moves that would make it rarer (the viewer's own rule only). Default true. */
   readonly improvement?: boolean;
   /** The representation open first on a narrow card (default: the rule's primary). */
   readonly initialRep?: string;
-  /** Whether the ladder starts unfolded (default true; a popover on a phone may fold it). */
-  readonly ladderOpen?: boolean;
   /**
    * A controlled switcher (the app keeps it in the human's view state, so an assistant can switch it for them): the
    * representation shown and the one compared beside it. Each falls back to the face's own state when absent.
@@ -249,10 +247,10 @@ export interface ExpandedFaceProps<S, P> {
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
   const { rule, state } = props;
   const site = props.site ?? 0;
-  const a = useMemo(() => annotate(rule, state, { rarities: props.rarities }), [rule, state, props.rarities]);
-  const imp: Improvement | null = useMemo(
-    () => (props.improvement === false || a.level === a.top ? null : nearestImprovement(rule, state)),
-    [rule, state, props.improvement, a.level, a.top],
+  const a = useMemo(() => annotate(rule, state, { value: props.value }), [rule, state, props.value]);
+  const list = useMemo(
+    () => (props.improvement === false ? [] : moves(rule, state, props.value, { k: 3 })),
+    [rule, state, props.improvement, props.value],
   );
   const sa = a.sites[site]!;
   const e = sa.evaluation;
@@ -264,7 +262,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const setActive = (rep: string) => { setOwnActive(rep); props.onActive?.(rep); };
   const setCompare = (rep: string | null) => { setOwnCompare(rep); props.onCompare?.(rep); };
   const [hl, setHl] = useState<string | null>(null);
-  const [activePart, setActivePart] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
   const [hoverPart, setHoverPart] = useState<number | null>(null);
 
   // Pointing at an element lights its meaning everywhere and the part whose marks cite it.
@@ -275,54 +273,57 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
     const i = sa.parts.findIndex(p => p.marks.some(m => markRefs(m).some(x => key(x) === k)));
     setHoverPart(i >= 0 ? i : null);
   };
-  // Indexes from an earlier line may outlive a change of line: ignore any past this line's parts.
+  // Indexes from an earlier object may outlive a change of object: ignore any past this one's parts.
   const part = (i: number | null) => (i !== null && i < sa.parts.length ? i : null);
-  const lit = part(activePart) ?? part(hoverPart);
-  const ap = part(activePart);
-  const marks: readonly Mark[] = ap === null ? e.marks : sa.parts[ap]!.marks;
+  const sel = part(selected);
+  const lit = sel ?? part(hoverPart);
+  const marks: readonly Mark[] = sel === null ? e.marks : sa.parts[sel]!.marks;
 
-  const panels = [...new Set([...depends, active, ...(compare ? [compare] : [])])];
+  // The rule's own views side by side (the primary first), the active one and the compared one.
+  const panels = [...new Set([rule.family.main.rep, ...depends, active, ...(compare ? [compare] : [])])];
   const title = (id: string) => shortTitle(representation(rule.type, id).title);
+  const bits = bitsLine(a);
+  const first = list[0];
 
   return (
-    <div className="v2v v2v-expanded" data-level={a.level}>
+    <div className="v2v v2v-expanded" data-scoring={a.score === null ? undefined : ""}>
       <header className="v2v-exp-head">
         <ObjectChip type={rule.type} state={state} />
-        <span className="v2v-exp-level" data-worst={a.score === null ? "" : undefined}>
-          {a.rarity !== null && <span className="v2v-rarity" title={BITS_HELP}>{fmtBits(a.rarity)}</span>} {levelText(a)}
-        </span>
+        {bits && <span className="v2v-exp-level" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span>}
       </header>
       {a.worst && <p className="v2v-worst">This {a.noun} does not score for your rule: {a.worst}.</p>}
+      {sel !== null && (
+        <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
+          {GLYPH[sa.parts[sel]!.role]} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}
+          <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>✕</button>
+        </p>
+      )}
 
       <RepSwitcher type={rule.type} depends={depends} primary={rule.family.main.rep} active={active} compare={compare} onActive={setActive} onCompare={setCompare} />
       <div className="v2v-panels" data-compare={compare ? "" : undefined}>
         {panels.map(id => (
           <section key={id} className="v2v-panel" data-active={id === active ? "" : undefined} data-compare={id === compare ? "" : undefined}
-            data-depends={depends.includes(id) ? "" : undefined} aria-label={title(id)}>
+            data-depends={depends.includes(id) || id === rule.family.main.rep ? "" : undefined} aria-label={title(id)}>
             <h4 className="v2v-panel-title">
               {title(id)}
               {id === rule.family.main.rep && <span className="v2v-panel-tag">your rule's main view</span>}
-              {!depends.includes(id) && <span className="v2v-panel-tag" data-other="">not read by your rule</span>}
+              {!depends.includes(id) && id !== rule.family.main.rep && <span className="v2v-panel-tag" data-other="">not read by your rule</span>}
             </h4>
             <RepView type={rule.type} state={state} rep={id} size="expanded" site={site} marks={marks} terms={e.terms}
-              before={props.before} highlight={hl} onHover={onHover} />
+              before={props.before} next={first?.after} highlight={hl} onHover={onHover} />
           </section>
         ))}
       </div>
 
       <div className="v2v-exp-body">
-        <PartsList parts={sa.parts} active={lit} onActive={setActivePart} />
+        <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
+        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; the tie-breaker decides between {a.noun}s that are equally good on the main part.</p>}
+        {props.improvement !== false && <MovesList list={list} noun={a.noun} />}
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>
+          {a.bits !== null && <p>{fmtBits(a.bits)}: only {chanceText(a.bits)} random {a.noun}s are at least this good on both parts. {BITS_HELP}</p>}
         </details>
-        {imp && (
-          <p className="v2v-next" data-kind={imp.kind}>
-            <span className="v2v-next-label">{imp.kind === "level" ? "Next step" : "Closer"}:</span> {imp.sentence}
-          </p>
-        )}
-        {a.level === a.top && <p className="v2v-next" data-kind="top">This {a.noun} is at the top of your ladder.</p>}
-        <LadderView annotation={a} rarities={props.rarities} open={props.ladderOpen} />
       </div>
     </div>
   );
