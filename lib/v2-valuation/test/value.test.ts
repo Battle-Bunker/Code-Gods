@@ -144,3 +144,18 @@ test("a sampled estimate never moves an exact knot's certified interval; no orac
   assert.deepEqual(none.map(k => [k.u, k.bits]), [[null, 0]]);
   assert.equal(valueLookup({ knots: none, tail: { secondary: 0, primary: 0 } })([q(0), q(1)]).at, "beyond");
 });
+
+test("committed value functions are intact: each content hash matches, knots rise, and no sampled knot passes sampledMaxBits", async () => {
+  const { canonicalJson, hashHex } = await import("@workspace/v2-core");
+  const { readdirSync: ls, readFileSync: read } = await import("node:fs");
+  const root = new URL("../values/", import.meta.url);
+  let n = 0;
+  for (const v of ls(root)) for (const f of ls(new URL(`${v}/`, root))) for (const x of ls(new URL(`${v}/${f}/`, root))) {
+    const { contentHash, ...body } = JSON.parse(read(new URL(`${v}/${f}/${x}`, root), "utf8"));
+    assert.equal(hashHex(canonicalJson(body)), contentHash, `${v}/${f}/${x}`);
+    for (let i = 1; i < body.knots.length; i++) assert.ok(body.knots[i].bits >= body.knots[i - 1].bits, `${v}/${f}/${x}: knots rise`);
+    for (const k of body.knots) if (k.source === "sampled") assert.ok(k.bits <= body.config.sampledMaxBits, `${v}/${f}/${x}: ${k.bits}`);
+    n++;
+  }
+  assert.ok(n >= 60, `${n} value functions`);
+});

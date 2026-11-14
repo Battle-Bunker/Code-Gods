@@ -14,7 +14,7 @@
  * spent on acts, summons and edits, messages, proposals and tool calls; per table, deals read from the chat (`deals`).
  */
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
-import { aiSeatSystemPrompt, runAssistant, type Budget, type ChatProvider, type RunResult } from "@workspace/v2-ai";
+import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, findDeals, runAssistant, type Budget, type ChatProvider, type RunResult } from "@workspace/v2-ai";
 import { hashHex, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
 import {
   actCredit, affordable, agentIncome, defaultShare, energyCapacity, firstAgentShare, LINES_BEGINNER_ECONOMY, movePower, newAccount,
@@ -86,6 +86,8 @@ export interface SeatReport {
   readonly allocations: number;
   readonly toolCalls: number;
   readonly failedToolCalls: number;
+  /** The seat's commitments at the end: enacted in its agents' code, still pending, or retracted in chat. */
+  readonly commitments: { readonly enacted: number; readonly pending: number; readonly retracted: number };
 }
 export interface Deal { readonly by: number; readonly with: number; readonly lines: readonly number[]; readonly at: number; readonly kept: boolean; readonly text: string; readonly reply: string }
 export interface TableReport {
@@ -100,14 +102,6 @@ export const TABLE_TOOLS = [
   "game.get", "game.standings", "rule.explain", "rule.ladder", "objects.list", "object.read", "object.score", "moves.list",
   "chat.send", "chat.list", "agents.list", "agent.programs", "agent.check", "agent.summon", "agent.replace", "power.allocate",
 ] as const;
-
-const PROPOSAL = /\b(deal|if you|i'?ll|i will|let'?s|agree|leave|keep|won'?t|in return|swap|trade)\b/i;
-const ACCEPT = /\b(deal|yes|agreed?|ok(ay)?|sure|sounds good|accept(ed)?|happy to|works for me)\b/i;
-const REFUSE = /\b(no deal|not a deal|can'?t agree|won'?t agree|decline|no thanks)\b/i;
-/** The line numbers a message names: "line 4", "lines 2, 7 and 9". */
-const linesIn = (text: string) => [...text.matchAll(/\blines?\s*#?\s*(\d+(?:\s*(?:,|and|&|or)\s*#?\s*\d+)*)/gi)].flatMap(m => m[1]!.match(/\d+/g)!.map(Number));
-/** A reply that only asks back ("…instead. Deal?") is a counter-offer, not an acceptance. */
-const accepts = (text: string) => ACCEPT.test(text.replace(/\bdeal\s*\?/gi, "")) && !REFUSE.test(text);
 
 interface Agent { id: string; seat: number; name: string; share: number; acc: Account; program: Program; programs: Program[]; acts: number }
 
@@ -347,10 +341,19 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     return a.result.parse(result);
   }
 
+  /** A seat's commitments now: its deals in chat, checked against its agents' code and the moves (v2-ai commitments). */
+  function ledger(i: number) {
+    const name = (j: number) => seats[j]!.name;
+    const rows = chat.map(m => ({ from: m.from, text: m.text, at: m.at }));
+    const moves = log.map(m => ({ by: name(m.by), line: m.object, at: m.at, lowered: seats.map((_, j) => j).filter(j => m.after[j]! < m.before[j]!).map(name) }));
+    return commitmentsOf(name(i), rows, moves, mine(i).map(a => a.program.source), 2 * AI_TURN_SECONDS);
+  }
+
   async function modelTurn(i: number, k: number, of: number) {
     const m = input.model!, seat = seats[i]!, family = type.families.find(f => f.id === seat.rule.family)!;
     const tools = assistantTools(context(i)).filter(t => (TABLE_TOOLS as readonly string[]).includes(affordanceForTool(t.name)?.id ?? ""));
-    const briefing = `Turn ${k + 1} of ${of}. The game is live at ${Math.round(world)} s. You have ${Math.round(settledOwn(i).balance)} ⚡ in your own store and ${mine(i).length} agent(s). Act, then stop.`;
+    const briefing = `Turn ${k + 1} of ${of}. The game is live at ${Math.round(world)} s. You have ${Math.round(settledOwn(i).balance)} ⚡ in your own store and ${mine(i).length} agent(s). Act, then stop.`
+      + `\n\n${commitmentBriefing(ledger(i))}`;
     const run = await runAssistant({
       provider: typeof m.provider === "function" ? m.provider(seat.name) : m.provider, system: aiSeatSystemPrompt({ name: seat.name, rule: family.card(seat.rule.params, seat.rule.tieBreaker), affordances: tools }),
       messages: [{ role: "user", content: briefing }], tools, maxSteps: m.maxSteps ?? 6, budget: m.budget,
@@ -391,6 +394,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       acts: stats[i]!.acts, messages: stats[i]!.messages, proposals: proposed.filter(by => by === i).length,
       summoned: stats[i]!.summoned, replaced: stats[i]!.replaced, allocations: stats[i]!.allocations,
       toolCalls: stats[i]!.toolCalls, failedToolCalls: stats[i]!.failedToolCalls,
+      commitments: (l => ({ enacted: l.filter(c => c.status === "enacted").length, pending: l.filter(c => c.status === "pending").length, retracted: l.filter(c => c.status === "retracted").length }))(ledger(i)),
     })),
     chat: chat.map(({ from, text, at }) => ({ from, text, at })),
     deals: found.deals, usd,
@@ -398,29 +402,23 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
 }
 
 /**
- * Proposals and deals read from the chat (indexes into it), a heuristic: a proposal is a message naming at least one line ("line 4") with offer words
- * (deal, if you, I'll, leave, keep…); it is accepted by the first later message from another seat with agreement words
- * (deal, yes, ok, agreed…; "Deal?" alone asks back) and no refusal, within `window` world seconds (two model turns). A deal is kept when, from its acceptance
- * to the end, neither side made a move on a named line that lowered the other's points there.
+ * Proposals and deals read from the chat by v2-ai's `findDeals` (the heuristic the seats' commitments use), with seats
+ * as indexes. A deal is kept when, from its acceptance to the end, neither side made a move on a named line that
+ * lowered the other's points there.
  */
 export function deals(
   chat: readonly { by: number; text: string; at: number }[],
   log: readonly { object: number; by: number; before: readonly number[]; after: readonly number[]; at: number }[],
   window = 2 * AI_TURN_SECONDS,
 ): { deals: Deal[]; proposals: number[] } {
-  const out: Deal[] = [], proposals: number[] = [];
-  const taken = new Set<number>();
-  chat.forEach((m, k) => {
-    const named = linesIn(m.text);
-    if (taken.has(k) || !named.length || !PROPOSAL.test(m.text) || REFUSE.test(m.text)) return;   // an acceptance is not a proposal of its own
-    proposals.push(k);
-    const reply = chat.slice(k + 1).find((x, d) => !taken.has(k + 1 + d) && x.by !== m.by && x.at <= m.at + window && accepts(x.text)
-      && (linesIn(x.text).length === 0 || linesIn(x.text).some(l => named.includes(l))));
-    if (!reply) return;
-    taken.add(chat.indexOf(reply));
-    const broken = log.some(e => e.at >= reply.at && named.includes(e.object)
-      && ((e.by === m.by && e.after[reply.by]! < e.before[reply.by]!) || (e.by === reply.by && e.after[m.by]! < e.before[m.by]!)));
-    out.push({ by: m.by, with: reply.by, lines: named, at: reply.at, kept: !broken, text: m.text, reply: reply.text });
-  });
-  return { deals: out, proposals };
+  const found = findDeals(chat.map(m => ({ from: String(m.by), text: m.text, at: m.at })), window);
+  return {
+    proposals: found.proposals,
+    deals: found.deals.map(d => {
+      const by = Number(d.proposer), w = Number(d.accepter);
+      const broken = log.some(e => e.at >= d.at && d.lines.includes(e.object)
+        && ((e.by === by && e.after[w]! < e.before[w]!) || (e.by === w && e.after[by]! < e.before[by]!)));
+      return { by, with: w, lines: d.lines, at: d.at, kept: !broken, text: d.proposal, reply: d.reply };
+    }),
+  };
 }
