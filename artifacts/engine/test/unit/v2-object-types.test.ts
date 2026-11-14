@@ -44,7 +44,7 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
     assert.equal(p.variant, "grid-4-d10");
     const pool = dealablePool(p);
     assert.deepEqual([...new Set(pool.map(r => r.family))].sort(), [...p.families].sort(), "every grid family deals");
-    assert.equal(pool.length, 18);
+    assert.equal(pool.length, 24);
   }
   assert.ok(presetOf("grids-beginner-bidding").bid);
 });
