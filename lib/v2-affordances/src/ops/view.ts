@@ -16,7 +16,7 @@ const done = z.object({ ok: z.literal(true), layoutVersion: z.number().int() });
 export const viewOps = [
   affordance({
     id: "view.openPane", title: "Open a pane", group: "view", scope: "room",
-    description: "Opens a pane on the human's screen (and every client they have open), in front; given a place, it joins that place behind the tab shown there (open it again without a place to bring it to the front). An open pane given a place moves there.",
+    description: "Opens a pane on the human's screen (and every client they have open), in front; given a place, it joins that place behind the tab shown there (open it again without a place to bring it to the front). An open pane given a place moves there. "+ "During planning, panes about the running world (the lines or grids list, the act log, the leaderboard, how the agents are doing) are not on the planning screen: opening one keeps it for when the world starts, so tell the human it shows then.",
     tooltip: "Show a pane.", keywords: ["open", "show", "panel", "window"],
     params: obj({ pane, place: place.optional() }), result: done,
     contexts: IN_ROOM, caller: "member", effect: "write", confirm: "none", runs: "client",

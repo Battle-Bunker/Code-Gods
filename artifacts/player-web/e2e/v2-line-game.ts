@@ -104,7 +104,7 @@ try {
       const leave = page.getByTestId("leave-alone");
       await leave.getByTestId("input-leave-alone").fill("3");
       await leave.getByTestId("text-leave-alone").getByText(/will leave line 3 alone: only that part of its code changes, for [\d,.]+ ⚡/).waitFor();
-      await leave.getByTestId("button-leave-alone").click();
+      await leave.getByTestId("input-leave-alone").press("Enter");   // as the playtester did (round 7: "no confirmation after Enter")
       await leave.getByTestId("text-leave-alone-done").getByText(/now leaves line 3 alone \(it cost [\d.]+ ⚡\)/).waitFor({ timeout: 30_000 });
       await leave.getByTestId("text-leave-alone").getByText(/leaves line 3 alone\./).waitFor({ timeout: 10_000 });
       console.log(`${label}: ${(await leave.getByTestId("text-leave-alone-done").innerText()).trim()}`);
@@ -244,7 +244,7 @@ try {
       await options.first().getByText(/→ [\d,]+\.\d\d bits?/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
-      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+ by chance\)/, `a move has its new bits: ${first}`);
+      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+( [a-z]+)? by chance\)/, `a move has its new bits: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
     // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).
     // Tap selects a part (nothing depends on hover): only its marks are drawn, and the chip clears it.

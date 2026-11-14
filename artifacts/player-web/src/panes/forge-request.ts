@@ -5,13 +5,14 @@
  */
 import type { HoldTarget } from "@workspace/v2-agents/pure";
 
-export type ForgeRequest = { kind: "hold"; numbers: number[]; target: Exclude<HoldTarget, null> } | { kind: "leave"; numbers: number[] };
+/** A hold or leave request with no numbers (and a hold with no target) only brings the control into view, focused (the palette). */
+export type ForgeRequest = { kind: "hold"; numbers: number[]; target?: Exclude<HoldTarget, null> } | { kind: "leave"; numbers: number[] };
 
 let pending: ForgeRequest | null = null;
 const listeners = new Set<() => void>();
 
 /** Opens the forge (Agent code) and fills the control in; nothing is saved until the player presses Save. */
-export async function requestForge(r: ForgeRequest, openPane: (pane: string) => Promise<boolean>): Promise<void> {
+export async function requestForge(r: ForgeRequest, openPane: (pane: string) => Promise<unknown>): Promise<void> {
   pending = r;
   for (const l of listeners) l();
   await openPane("forge");

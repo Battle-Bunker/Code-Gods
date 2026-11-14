@@ -32,9 +32,9 @@ export function HoldControl({ agentId, name, language, source, one, many, grid }
     const take = () => {
       const r = takeForgeRequest("hold");
       if (r?.kind !== "hold") return;
-      setF({ numbers: r.numbers.join(", "), m: typeof r.target === "object" ? String(r.target.m) : "", c: typeof r.target === "object" ? String(r.target.c) : "", board: typeof r.target === "string" ? r.target : "" });
+      if (r.target !== undefined) setF({ numbers: r.numbers.join(", "), m: typeof r.target === "object" ? String(r.target.m) : "", c: typeof r.target === "object" ? String(r.target.c) : "", board: typeof r.target === "string" ? r.target : "" });
       setSaid(null);
-      requestAnimationFrame(() => box.current?.scrollIntoView({ block: "nearest" }));
+      requestAnimationFrame(() => { box.current?.scrollIntoView({ block: "nearest" }); box.current?.querySelector("input")?.focus({ preventScroll: true }); });
     };
     take();
     return onForgeRequest(take);
@@ -82,7 +82,7 @@ export function HoldControl({ agentId, name, language, source, one, many, grid }
       <p className={`text-xs ${error ? "text-destructive" : "text-muted-foreground"}`} data-testid="text-hold">
         {error ?? (next ? holdLine({ agent: name, ...next, one, many, price: changed ? price : null }) : "")} Settling where every player agreed is the deal that pays.
       </p>
-      {said && <p className={said.tone === "ok" ? "text-xs" : "text-xs text-destructive"} data-testid="text-hold-done">{said.tone === "ok" ? "✓ " : ""}{said.text}</p>}
+      {said && <p className={said.tone === "ok" ? "text-sm font-medium" : "text-sm text-destructive"} role="status" data-testid="text-hold-done">{said.tone === "ok" ? "✓ " : ""}{said.text}</p>}
     </form>
   );
 }

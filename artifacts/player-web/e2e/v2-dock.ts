@@ -85,6 +85,14 @@ const KEY: Record<string, string | string[]> = {
 };
 
 /** Every pane named is on screen with a usable body, and its key element is wholly inside it. */
+/** The panes in the dock's text form ("row(column(a 50,b 50) 30, c|*d 70)" → a, b, c, d). */
+const paneSet = (dock: string) => new Set([...dock.matchAll(/\*?([a-z][a-z-]*)/g)].map(m => m[1]!).filter(w => w !== "row" && w !== "column"));
+/** Opening a pane never closes another (coordinator, round 6: "was Results replaced?"): every pane before is still docked. */
+function noneClosed(before: string, after: string, what: string) {
+  const now = paneSet(after);
+  for (const p of paneSet(before)) assert.ok(now.has(p), `${what}: opening a pane closed ${p}: ${before} → ${after}`);
+}
+
 async function usable(page: Page, panes: string[], what: string) {
   const viewport = page.viewportSize() as { width: number; height: number };
   const screen = { x: 0, y: 0, width: viewport.width, height: viewport.height };
@@ -131,8 +139,10 @@ try {
     console.log(`${label}: planning and live defaults usable: ${await dockText(page)}`);
 
     // One line opens below the lines; nothing leaves the screen.
+    const liveDock = await dockText(page);
     await page.locator("[data-testid^=row-line-]").first().click();
     await usable(page, ["object", "objects", "feed", "my-card", "agents", "race"], `${label} one line`);
+    noneClosed(liveDock, await dockText(page), `${label} one line`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-one-line.png`) });
 
     // A dragged gutter is the human's arrangement: stored for the room, and back after a reload.
@@ -160,6 +170,7 @@ try {
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
     // Opening a pane never hides the one acted from (One line opened from Results' summary became a tab over Results):
     // from Results, open the line-by-line list, then one line from it; Results stays in view throughout.
+    const endedDock = await dockText(page);
     await page.getByTestId("pane-results").getByTestId("button-line-by-line-results").click();
     await page.getByTestId("pane-objects").waitFor({ timeout: 15_000 });
     await page.locator("[data-testid^=row-line-]").first().click();
@@ -168,6 +179,7 @@ try {
       assert.ok(await page.getByTestId(`pane-${p}`).isVisible(), `${label}: ${p} in view after opening from Results: ${await dockText(page)}`);
     }
     assert.ok(await page.getByTestId("pane-results").getByText(/You finished/).first().isVisible(), `${label}: Results' headline still in view`);
+    noneClosed(endedDock, await dockText(page), `${label} from Results`);
     console.log(`${label}: opened from Results, all in view: ${await dockText(page)}`);
     assert.deepEqual(errors, [], `${label}: page errors`);
     await context.close();

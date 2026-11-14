@@ -12,6 +12,7 @@ import type { Command, PaletteFormPage, Performer } from "@workspace/ui-kit/core
 import { AFFORDANCES, paletteFor, type AffordanceContext, type AffordanceId, type OpOutcome, type PaletteEntry } from "@workspace/v2-affordances";
 import { PANES, PANE_IDS, type PaneId } from "@workspace/v2-client";
 import type { z } from "zod/v4";
+import { requestForge } from "../panes/forge-request.ts";
 
 /** Reads that a pane shows live: the row opens that pane. */
 export const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
@@ -71,6 +72,10 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
       onPick: p => (panes ? (id === "view.openPane" ? panes.open(p) : panes.close(p)) : run(host, id, { pane: p })),
     };
     return { kind: "form", page };
+  }
+  // The forge's own controls (playtest round 7: the palette said only "use its controls on the screen"): open them, focused.
+  if ((id === "agent.leaveAlone" || id === "agent.hold") && panes) {
+    return { kind: "submit", run: () => requestForge(id === "agent.hold" ? { kind: "hold", numbers: [] } : { kind: "leave", numbers: [] }, p => panes.open(p)) };
   }
   if (!e.needsInput) return { kind: "submit", run: () => run(host, id, {}) };
   const sole = soleParam(id);
