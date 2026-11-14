@@ -1,0 +1,21 @@
+/* The sharing-rules proposal's storyboards (docs/engine-v2/sharing-rules-design.md): not wired into the game. */
+body { margin: 0; }
+.sr-page { background: var(--v2v-paper); min-height: 100vh; padding: 16px; box-sizing: border-box; font-size: 14px; display: grid; gap: 14px; align-content: start; max-width: 1180px; }
+.sr-banner { padding: 6px 10px; border: 2px dashed var(--v2v-cand); border-radius: 8px; color: var(--v2v-ink); font-weight: 600; background: var(--v2v-card); }
+.sr-page h1 { font-size: 20px; margin: 0; }
+.sr-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 760px) { .sr-cols { grid-template-columns: 1fr; } }
+.sr-card { background: var(--v2v-card); border: 1px solid var(--v2v-rule); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+.sr-card h3 { margin: 0; font-size: 14px; }
+.sr-muted { color: var(--v2v-muted); font-size: 12px; margin: 0; }
+.sr-menu { display: grid; gap: 4px; border: 1px solid var(--v2v-rule); border-radius: 8px; padding: 6px; background: var(--v2v-paper); }
+.sr-menu label { display: flex; gap: 8px; align-items: center; font-size: 13px; }
+.sr-btn { display: inline-block; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--v2v-main); background: var(--v2v-main); color: #fff; font-weight: 600; font-size: 13px; }
+.sr-btn[data-quiet] { background: transparent; color: var(--v2v-main); }
+.sr-chat { display: grid; gap: 6px; }
+.sr-msg { padding: 8px 10px; border-radius: 10px; background: var(--v2v-paper); border: 1px solid var(--v2v-rule); font-size: 13px; }
+.sr-msg[data-mine] { justify-self: end; background: var(--v2v-main-bg); border-color: var(--v2v-main); }
+.sr-msg b { display: block; font-size: 12px; margin-bottom: 2px; }
+.sr-chip { display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--v2v-rule); font-size: 12px; }
+.sr-code { font-family: ui-monospace, monospace; font-size: 12px; background: var(--v2v-paper); padding: 4px 6px; border-radius: 4px; overflow-wrap: anywhere; }
+.sr-for { font-weight: 700; color: var(--v2v-tb); }
