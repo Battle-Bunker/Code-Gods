@@ -16,8 +16,8 @@ export interface ArtefactRung {
 }
 
 export interface Artefact {
-  /** 2: layered ladders (tieBreaker, rungs[].layer, primarySense, distinctLevels). */
-  readonly schema: 2;
+  /** 3: the dealable cap (coordinator's call (g)); 2: layered ladders (tieBreaker, rungs[].layer, primarySense). */
+  readonly schema: 3;
   readonly ruleKey: string;
   readonly objectType: string;
   readonly objectTypeVersion: number;
@@ -33,6 +33,13 @@ export interface Artefact {
   readonly reasons: readonly string[];
   /** The rungs calibrated: the rule's ladder, or a prefix of it when its top rungs could not be reached (see reasons). */
   readonly rungs: readonly ArtefactRung[];
+  /**
+   * The dealt ladder's top (coordinator's call (g)): the last rung through which every rung met the error target. A
+   * line above it scores as the cap, so a rule that misses only its rarest rungs is still dealt, capped.
+   */
+  readonly cap: number;
+  /** Dealt: not too coarse or unreachable, and at least MIN_DEALABLE_RUNGS converged rungs up to the cap. */
+  readonly dealable: boolean;
   /** The primary layer's sense: a curve's argument t is −score[0] for "min", score[0] for "max". */
   readonly primarySense: "min" | "max";
   readonly curve: (Curve & { readonly snapped: boolean }) | null;
@@ -56,6 +63,36 @@ export interface Artefact {
 }
 
 const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
+
+/** The head of docs/engine-v2/too-hard-backlog.md: its rows are the rules that are not dealable. */
+export const BACKLOG_HEAD = "# Too-hard backlog (spec §7.5)\n\nRules that are not dealt: too coarse, unreachable, or with fewer than " +
+  "6 rungs converged to the error target (coordinator's call (g); a rule that misses only its rarest rungs is dealt with " +
+  "its ladder capped instead). `pnpm --filter @workspace/v2-valuation calibrate -- --write` regenerates the rows of " +
+  "the rules it calibrates; `recap` regenerates the whole file from the committed artefacts.\n\n" +
+  "| Family | Params | Tie-breaker | Variant | Status | Why |\n|---|---|---|---|---|---|\n";
+
+/** A rule is too hard (backlogged, never dealt) when fewer rungs than this converge (coordinator's call (g)). */
+export const MIN_DEALABLE_RUNGS = 6;
+
+/**
+ * The cap and whether the rule is dealt (call (g)), from an artefact's stored figures alone: the last rung r such that
+ * every non-empty rung 1 … r has a finite value within max(targetRelError · bits, absFloorBits); dealable when the rule
+ * is neither too coarse nor unreachable and at least MIN_DEALABLE_RUNGS non-empty rungs lie at or below the cap.
+ */
+export function capOf(a: { readonly status: string; readonly rungs: readonly { bits: number | null; error: number | null; empty?: true }[]; readonly config: ValuationConfig }): { cap: number; dealable: boolean; converged: number } {
+  let cap = 0, converged = 0;
+  for (let i = 1; i < a.rungs.length; i++) {
+    const r = a.rungs[i]!;
+    if (r.empty) { cap = i; continue; }
+    const { bits, error } = r;
+    if (bits === null || error === null || !Number.isFinite(bits) || !Number.isFinite(error)) break;
+    if (error > Math.max(a.config.targetRelError * bits, a.config.absFloorBits)) break;
+    cap = i;
+    converged++;
+  }
+  const dealable = a.status !== "too-coarse" && a.status !== "unreachable" && converged >= MIN_DEALABLE_RUNGS;
+  return { cap, dealable, converged };
+}
 
 export function contentHash(a: Omit<Artefact, "contentHash">): string {
   return hashHex(canonicalJson(a));
@@ -85,10 +122,11 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
     const f = fit(primary.measure === "distance" ? "distance" : "count", points);
     if (f && f.accepted) curve = { ...f.curve, snapped: f.snapped };
   }
+  const { cap, dealable } = capOf({ status: est.status, rungs, config });
   const body: Omit<Artefact, "contentHash"> = {
-    schema: 2, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
+    schema: 3, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
     variant: variant.id, variantHash: hashHex(canonicalJson(variant)), family: family.id, params, tieBreaker, seed, config,
-    status: est.status, reasons: est.reasons, rungs, primarySense: primary.sense, curve,
+    status: est.status, reasons: est.reasons, rungs, cap, dealable, primarySense: primary.sense, curve,
     diagnostics: {
       reversibility: r4(est.reversibility), mixingSteps: r4(est.mixingSteps), steps: est.steps, samplesPerChain: est.samplesPerChain,
       distinctLevels: est.distinctLevels, examples: est.examples,
@@ -105,12 +143,13 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
 export function bitsFor(a: Artefact, score: Score): number {
   if (a.rungs.length === 0) return 0;   // an unreachable rule: never dealt (§7.5), worth nothing if asked
   const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
-  const level = levelOf(score, ladder);
+  // Above the cap a line scores as the cap (call (g)): those rungs' values did not converge.
+  const level = Math.min(levelOf(score, ladder), a.cap);
   const base = a.rungs[level]!.bits;
   // The curve interpolates between main rungs, and only on a one-layer ladder: on a joint ladder the tie-breaker's rungs
   // sit between main rungs, and a value read off the main curve alone would not follow the lexicographic order.
   if (a.rungs.some(r => r.layer === 1)) return base;
-  if (score === null || score[0] === null || level === 0 || a.rungs[level + 1]?.layer !== 0 || !a.curve?.snapped) return base;
+  if (score === null || score[0] === null || level === 0 || level >= a.cap || a.rungs[level + 1]?.layer !== 0 || !a.curve?.snapped) return base;
   const t = a.primarySense === "min" ? -Qn.toNumber(score[0]!) : Qn.toNumber(score[0]!);
   const next = a.rungs[level + 1]!.bits;
   return Math.min(Math.max(evalCurve(a.curve, t), base), next);

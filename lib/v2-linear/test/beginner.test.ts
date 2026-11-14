@@ -93,3 +93,13 @@ test("whole-number lines get whole-number distance rungs where the distance is a
   assert.deepEqual(ts(primeLanding, "landing", lineQ), ["4", "2", "1", "1/2", "1/4", "1/8", "0"]);
   assert.deepEqual(ts(treasure, "treasure", lineZ), ["32", "16", "8", "4", "2", "1", "0"]);
 });
+
+test("tie-breakers that cannot decide anything on whole-number lines are not dealt there (Ruler's far, Exact Change's big piles)", async () => {
+  const { preset } = await import("../src/index.ts");
+  const tbs = (id: string, family: string) => preset(id).rules.find(r => r.family === family)!.tieBreakers;
+  for (const id of ["lines-beginner", "lines-four"]) {
+    assert.ok(!tbs(id, "ruler").includes("far") && !tbs(id, "exact-change").includes("big-piles"), id);
+    assert.ok(tbs(id, "ruler").includes("prime-gradient"), id);
+  }
+  assert.ok(tbs("lines-rational", "ruler").includes("far") && tbs("lines-rational", "exact-change").includes("big-piles"));
+});

@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/square-area/{}/tb=spf",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -3303,5 +3303,7 @@
    null
   ]
  },
- "contentHash": "74b11810e9105568"
+ "cap": 0,
+ "dealable": false,
+ "contentHash": "a8dbc3310d4dd5fc"
 }

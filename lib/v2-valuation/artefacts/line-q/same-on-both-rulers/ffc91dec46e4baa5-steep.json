@@ -1,5 +1,5 @@
 {
- "schema": 2,
+ "schema": 3,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/same-on-both-rulers/{\"T\":6}/tb=steep",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2439,5 +2439,7 @@
    null
   ]
  },
- "contentHash": "43bfa8743be377b4"
+ "cap": 8,
+ "dealable": true,
+ "contentHash": "1568fcedd07ae6fb"
 }

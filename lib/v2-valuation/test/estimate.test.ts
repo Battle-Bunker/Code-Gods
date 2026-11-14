@@ -58,7 +58,9 @@ test("the same seed gives the same artefact; values are non-decreasing up the la
   const c = calibrate(lineType, lineZ, primeGradient, {}, { seed: "other", config: cfg }).artefact;
   assert.notEqual(a.contentHash, c.contentHash);
   for (let i = 1; i < a.rungs.length; i++) assert.ok(a.rungs[i]!.bits >= a.rungs[i - 1]!.bits - 1e-9);
-  const at = (m: number, cc: number) => bitsFor(a, evaluateObject(lineType, primeGradient, {}, { lines: [{ a: BigInt(-m), b: 1n, c: BigInt(-cc) }] }, lineZ).score);
+  // The lookup on the whole ladder (this small budget caps it low; the cap has its own test in artefacts.test.ts).
+  const whole = { ...a, cap: a.rungs.length - 1 };
+  const at = (m: number, cc: number) => bitsFor(whole, evaluateObject(lineType, primeGradient, {}, { lines: [{ a: BigInt(-m), b: 1n, c: BigInt(-cc) }] }, lineZ).score);
   const rungOf = (label: string) => a.rungs.find(r => r.label === label)!.bits;
   assert.equal(at(-40, 0), a.rungs[0]!.bits);                             // 42 from the nearest prime: below every rung
   assert.equal(at(4, 0), rungOf("gradient to a prime within 1"));

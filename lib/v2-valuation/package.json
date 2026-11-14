@@ -9,7 +9,8 @@
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "calibrate": "node --experimental-strip-types src/cli.ts",
-    "law": "node --experimental-strip-types src/law.ts"
+    "law": "node --experimental-strip-types src/law.ts",
+    "recap": "node --experimental-strip-types src/recap.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
