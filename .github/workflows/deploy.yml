@@ -310,12 +310,6 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: node scripts/run-migrations.mjs
 
-      - name: Warm the hold-rarity cache (scheduled in the background; never blocks the deploy)
-        working-directory: artifacts/engine
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: npx convex run engine/holdData:scheduleWarm
-
       - name: Upload the runtime bundle (Python)
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

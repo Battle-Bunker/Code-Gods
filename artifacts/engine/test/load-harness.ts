@@ -161,7 +161,7 @@ const SOURCES = {
 type God = { subject: string; c: ConvexHttpClient };
 
 /** The functions whose executions the result lists per 5 s bucket (`logs.timeline`). */
-const TIMELINE = ["engine/tick:run", "engine/loop:commit", "runtime/acts:run", "runtime/compile:compile", "commands:submit", "ai/turn:run", "engine/hold:computeOne", "engine/loop:watchdog"];
+const TIMELINE = ["engine/tick:run", "engine/loop:commit", "runtime/acts:run", "runtime/compile:compile", "commands:submit", "ai/turn:run", "engine/loop:watchdog"];
 
 /** The backend's execution log from now on: log lines and execution times by function, pulled continuously. */
 function executionLog(target: Target) {
