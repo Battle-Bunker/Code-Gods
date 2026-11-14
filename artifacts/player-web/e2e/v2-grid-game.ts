@@ -132,6 +132,8 @@ try {
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
       const box = page.getByTestId("input-forge-code");
       await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");
+      // The price line follows the edit once the forge has re-rendered (reading it at once raced the render).
+      await page.getByTestId("text-forge-price").getByText(/changes only:/).waitFor({ timeout: 10_000 });
       const priced = await page.getByTestId("text-forge-price").innerText();
       const m = /changes only: ([\d,.]+) ⚡ \(the whole program would be ([\d,.]+) ⚡\)/.exec(priced);
       assert.ok(m, `the edit is priced by its change: ${priced}`);
@@ -163,17 +165,12 @@ try {
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
-    // The goal card: the ladder, each step's chance and the next step (before one line's pane takes the oldest pane's place).
+    // The goal card (decision 23): a worked example and the rule's parts, no steps.
     const goal = page.getByTestId("pane-my-card");
-    await goal.getByText(/Steps to the top/).first().waitFor();
-    await goal.getByText(/^1 in [\d.,]+( [a-z]+)? by chance$/).first().waitFor({ timeout: 10_000 });
-    await goal.getByText(/Next step:/).first().waitFor({ timeout: 5000 }).catch(() => {});   // absent only at the top of the ladder
-    if (label === "phone") {
-      await goal.screenshot({ path: path.join(shots, "grid-phone-goal-card.png") });
-      const ladder = goal.locator(".v2v-ladder").first();
-      await ladder.scrollIntoViewIfNeeded();
-      await ladder.screenshot({ path: path.join(shots, "grid-phone-goal-ladder.png") });
-    }
+    await goal.getByText(/A worked example/).first().waitFor();
+    await goal.locator(".v2v-part").first().waitFor();
+    assert.equal(await goal.getByText(/Steps to the top|step \d+ of \d+/).count(), 0, "no steps on the goal card");
+    if (label === "phone") await goal.screenshot({ path: path.join(shots, "grid-phone-goal-card.png") });
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
     await assertNoSteps(page, `${label}: the live game`);
     await shot(page, `grid-${label}-live`);
@@ -204,7 +201,8 @@ try {
     await line.getByTestId("button-bits-help-line").click();
     await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
     assert.doesNotMatch(await page.getByTestId("text-bits-help").innerText(), /\blines?\b/, "the bits help says grid, not line");
-    await page.keyboard.press("Escape");
+    // Closed as a phone closes it: a second tap on its button (Escape needs the focus inside the popover).
+    await line.getByTestId("button-bits-help-line").click();
     await page.getByTestId("text-bits-help").waitFor({ state: "detached" });
     if (label === "phone") {
       // The representation tabs take one scrolling row, so the board comes right after them (round 3: nine wrapped chips).
