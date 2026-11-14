@@ -53,8 +53,6 @@ export const v2Tables = {
     games: v.number(),
     /** The open bid phase (plan §5.9): a step of the start, before the game exists. */
     bidding: v.optional(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) })),
-    /** The deal rotation's state across the room's games (rule keys by seat), absent before the first deal. */
-    rotation: v.optional(v.any()),
   }).index("by_code", ["code"]),
 
   /** A seat or a spectator in a room (≤ 16 per room): a human, a practice partner or an AI player. */
@@ -78,7 +76,9 @@ export const v2Tables = {
     /** The economy and timing the game was started with (preset plus overrides), frozen at the start. */
     settings: v.object({
       planningSeconds: v.number(), worldSeconds: v.number(), startingEnergy: v.number(), startingObjects: v.number(),
-      minPlayers: v.number(), bid: v.optional(v.object({ pricing: v.union(v.literal("first"), v.literal("second")), disclosure: v.union(v.literal("none"), v.literal("handicaps"), v.literal("all")) })),
+      minPlayers: v.number(),
+      economy: v.object({ powerPerSecond: v.number(), fullChargeSeconds: v.number(), opportunitiesPerSecond: v.number(), birthsPerSecond: v.number() }),
+      bid: v.optional(v.object({ pricing: v.union(v.literal("first"), v.literal("second")), disclosure: v.union(v.literal("none"), v.literal("handicaps"), v.literal("all")) })),
     }),
     roster: v.array(v.object({ memberId: v.id("v2Members"), name: v.string(), kind: memberKindV })),
     createdAt: v.number(),
@@ -89,6 +89,10 @@ export const v2Tables = {
     artefacts: v.array(v.object({ memberId: v.id("v2Members"), ruleKey: v.string(), contentHash: v.string() })),
     /** Whether this game's deal continues the room's rotation (plan §5.9: not after a won bid). */
     rotates: v.boolean(),
+    /** What a fresh deal depends on (variant and dealable pool): a rotation continues only under the same key. */
+    dealKey: v.string(),
+    /** This game's place in a rotation (round 2 of 3: the second game of three), absent for a fresh deal. */
+    rotation: v.optional(v.object({ round: v.number(), of: v.number() })),
     summary: v.optional(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() })),
     replayFile: v.optional(v.id("_storage")),
   }).index("by_room_phase", ["roomId", "phase", "number"]).index("by_room", ["roomId", "number"]).index("by_code", ["code"]),

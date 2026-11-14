@@ -2,9 +2,9 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import { roomView } from "../rooms";
 import { DEFAULT_PRESET, isPreset } from "../presets";
-import { callerOf, defineOp, inRoom, notYet } from "./define";
+import { callerOf, defineOp, inRoom } from "./define";
 import { pageOf } from "./paging";
-import { createRoom, joinRoom } from "../lobby";
+import { changeSettings, createRoom, joinRoom, leaveRoom, setSpectator as setSpectatorIn } from "../lobby";
 
 export const { op: list, as: listAs } = defineOp("room.list", "query", async (env, a) => {
   const { ctx } = env, caller = callerOf(env);
@@ -44,6 +44,20 @@ export const { op: history, as: historyAs } = defineOp("room.history", "query", 
   };
 });
 
-export const { op: leave, as: leaveAs } = defineOp("room.leave", "mutation", () => notYet("W3-3"));
-export const { op: setSpectator, as: setSpectatorAs } = defineOp("room.setSpectator", "mutation", () => notYet("W3-3"));
-export const { op: settings, as: settingsAs } = defineOp("room.settings", "mutation", () => notYet("W3-3"));
+export const { op: leave, as: leaveAs } = defineOp("room.leave", "mutation", async env => {
+  const { room, member } = inRoom(env);
+  await leaveRoom(env.ctx, room, member);
+  return { ok: true as const };
+});
+
+export const { op: setSpectator, as: setSpectatorAs } = defineOp("room.setSpectator", "mutation", async (env, a) => {
+  const { room, member } = inRoom(env);
+  await setSpectatorIn(env.ctx, room, member, a.spectator);
+  return { ok: true as const };
+});
+
+export const { op: settings, as: settingsAs } = defineOp("room.settings", "mutation", async (env, a) => {
+  const { room } = inRoom(env);
+  await changeSettings(env.ctx, room, a);
+  return { ok: true as const };
+});
