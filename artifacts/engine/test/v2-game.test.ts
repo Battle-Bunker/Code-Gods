@@ -9,7 +9,6 @@
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
 import { VALUE_RECORDS } from "../convex/v2/values.gen.ts";
-import { rungsOf } from "../convex/v2/artefacts.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
@@ -18,6 +17,13 @@ import { gridType, grid4 } from "@workspace/v2-grid";
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
 import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers.ts";
+
+/** A dealt rule's value function as the tick passes it to an agent (decision 23), from the bundle by ruleKey. */
+function valueFn(ruleKey: string) {
+  const r = VALUE_RECORDS.find(x => x.ruleKey === ruleKey);
+  assert.ok(r, `a dealt rule has a value function: ${ruleKey}`);
+  return { knots: r.knots, tail: r.tail };
+}
 
 function gameSuite(preset: string, type: ObjectType<any>, variant: Variant) {
 describe(preset, () => {
@@ -109,8 +115,8 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       type, variant, state: type.decode(d.before),
       rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker },
       program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number, liveObjects: d.liveObjects,
-      // What the agent was told of its owner's stake (recorded), and the dealt rule's ladder (from the game's artefact).
-      ...(d.input ?? {}), rungs: rungsOf(rule.ruleKey),
+      // What the agent was told of its owner's stake (recorded), and the dealt rule's value function (from the bundle).
+      ...(d.input ?? {}), values: valueFn(rule.ruleKey),
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);

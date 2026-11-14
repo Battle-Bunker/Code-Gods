@@ -34,7 +34,7 @@ match. That union is your set. Write it in the PR description, with each suite's
 | A pure library (`lib/v2-core`, `lib/v2-linear`, `lib/v2-valuation`, `lib/v2-views`, `lib/v2-economy`, `lib/v2-client`, `lib/ui-kit`) | that package's `pnpm --filter <pkg> test`, plus the unit tests of packages that import the changed export (grep for it) | engine live suites, unless the engine's behaviour changes through it |
 | `lib/v2-affordances` (an operation) | `pnpm --filter @workspace/v2-affordances test`, plus `test:v2` if the server side of the operation changed | — |
 | `lib/v2-sandbox`, `lib/v2-agents` | that package's `test` (needs the Python bundle: `pnpm --filter @workspace/v2-sandbox setup:python && pnpm --filter @workspace/v2-sandbox build:python`) | browser suites |
-| `artifacts/engine/convex/lib/*` pure helpers, `convex/v2` pure modules (`deal.ts`, `presets.ts`, `artefacts.ts`) | `test:unit` | — |
+| `artifacts/engine/convex/lib/*` pure helpers, `convex/v2` pure modules (`deal.ts`, `presets.ts`, `values.ts`) | `test:unit` | — |
 | A v2 engine function (`artifacts/engine/convex/v2/**`) | `test:v2` (the files that call it: grep the function name), plus `test:unit` (`v2-query-budgets` checks the query table) if a public query was added, removed or renamed | — |
 | `convex/version.ts` | `test:version` | — |
 | `convex/auth/*`, `agent/*` (OAuth, `/mcp`), `http.ts` routes | `test:auth` (stop the dev engine first) | — |

@@ -44,7 +44,6 @@ import type * as v2_access from "../v2/access.js";
 import type * as v2_agents from "../v2/agents.js";
 import type * as v2_ai from "../v2/ai.js";
 import type * as v2_aiTurn from "../v2/aiTurn.js";
-import type * as v2_artefacts from "../v2/artefacts.js";
 import type * as v2_assistant from "../v2/assistant.js";
 import type * as v2_assistantCore from "../v2/assistantCore.js";
 import type * as v2_assistantRun from "../v2/assistantRun.js";
@@ -150,7 +149,6 @@ declare const fullApi: ApiFromModules<{
   "v2/agents": typeof v2_agents;
   "v2/ai": typeof v2_ai;
   "v2/aiTurn": typeof v2_aiTurn;
-  "v2/artefacts": typeof v2_artefacts;
   "v2/assistant": typeof v2_assistant;
   "v2/assistantCore": typeof v2_assistantCore;
   "v2/assistantRun": typeof v2_assistantRun;
