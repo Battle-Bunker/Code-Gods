@@ -169,3 +169,9 @@ test("a replay's moves are whole act-log rows: notes (none recorded) and no move
   assert.ok(rows.length > 0, "the replay has moves");
   for (const r of rows) assert.ok(Array.isArray((r as { notes?: unknown }).notes), `move ${r.seq} has notes`);
 });
+
+test("a replay calls an agent what the live game did, from the summon's name (round 10: 'Agent 1' for 'Simple')", () => {
+  const named = indexReplay({ ...FILE, events: FILE.events.map(e => (e.kind === "command" && (e.data as { kind?: string }).kind === "summon" ? { ...e, data: { ...(e.data as object), name: "Simple" } } : e)) } as never);
+  assert.deepEqual(frameAt(named, END).agents("m1").map(a => a.name), ["Simple"]);
+  assert.deepEqual(frameAt(ix, END).agents("m1").map(a => a.name), ["Agent 1"], "an older file without the name keeps the numbered name");
+});

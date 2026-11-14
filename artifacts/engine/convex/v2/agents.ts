@@ -91,14 +91,16 @@ export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player
   const whole = player.power * game.settings.economy.fullChargeSeconds;
   const moved = movePower({ balance: 0, settledWorldSeconds: world }, own, 0, share, 1 - player.allocated, whole);
   const sourceHash = hashHex(a.source), now = Date.now();
+  const name = a.name ?? `Agent ${player.agents + 1}`;
   const agentId = await ctx.db.insert("v2Agents", {
-    gameId: game._id, memberId: player.memberId, name: a.name ?? `Agent ${player.agents + 1}`, language: a.language, sourceHash,
+    gameId: game._id, memberId: player.memberId, name, language: a.language, sourceHash,
     version: 0, share, createdAt: now, source: a.source,
   });
   await ctx.db.insert("v2AgentEnergy", { agentId, gameId: game._id, energy: moved.agent.balance, acts: 0, skips: 0, failures: 0, spend: 0, pointsGained: 0, settledAt: world });
   await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: a.language, source: a.source, sourceHash, price, summonedAt: now, acts: 0, pointsGained: 0 });
   await ctx.db.patch(player._id, { energy: moved.own.balance, settledAt: world, allocated: roundShare(player.allocated + share), agents: player.agents + 1 });
-  await appendEvent(ctx, game._id, "command", { kind: "summon", memberId: player.memberId, agentId, language: a.language, sourceHash, version: 0, price, share, worldSeconds: world });
+  // The agent's name, so a replay calls it what the live game did (round 10: "Agent 1" for "Simple").
+  await appendEvent(ctx, game._id, "command", { kind: "summon", memberId: player.memberId, agentId, name, language: a.language, sourceHash, version: 0, price, share, worldSeconds: world });
   return { agentId, price };
 }
 

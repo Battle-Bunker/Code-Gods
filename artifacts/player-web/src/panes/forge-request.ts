@@ -7,11 +7,16 @@
 export type ForgeRequest = { kind: "leave"; numbers: number[] };
 
 let pending: ForgeRequest | null = null;
+/** When each control was last asked for: a control that mounts (or remounts as the dock rearranges) just after still takes focus. */
+const askedAt: Partial<Record<ForgeRequest["kind"], number>> = {};
+/** Whether this control was asked for within the last moments (round 10: the palette opened it, but it never had focus). */
+export const askedRecently = (kind: ForgeRequest["kind"], now = Date.now()) => now - (askedAt[kind] ?? -Infinity) < 3000;
 const listeners = new Set<() => void>();
 
 /** Opens the forge (Agent code) and fills the control in; nothing is saved until the player presses Save. */
 export async function requestForge(r: ForgeRequest, openPane: (pane: string) => Promise<unknown>): Promise<void> {
   pending = r;
+  askedAt[r.kind] = Date.now();
   for (const l of listeners) l();
   await openPane("forge");
 }

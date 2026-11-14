@@ -67,6 +67,8 @@ test("leave alone opens Agent code at its control, not a page that says to find 
   const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} } };
   const rows = paletteCommands(ctx, host as never);
   for (const id of ["agent.leaveAlone"]) {
+    // It only opens the control (its Save prices and confirms the edit): no confirmation page first (round 10).
+    assert.equal(rows.find(r => r.id === id)?.confirm, "none", `${id}: no confirmation to open a control`);
     const p = rows.find(r => r.id === id)?.performer;
     assert.equal(p?.kind, "submit", id);
     if (p?.kind === "submit") await p.run();

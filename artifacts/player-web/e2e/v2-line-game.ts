@@ -158,6 +158,24 @@ try {
     console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();
+    if (label === "desktop") {
+      // The palette's "Leave lines alone" opens Agent code at the control, focused (round 10: it closed and did nothing).
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Leave lines alone");
+      await page.waitForTimeout(300);
+      console.log("DEBUG rows:", (await page.locator("[data-testid^=row-palette-]").evaluateAll(els => els.slice(0, 5).map(e => `${e.getAttribute("data-testid")}${e.getAttribute("data-selected") === "true" || e.getAttribute("aria-selected") === "true" ? "*" : ""}`))).join(", "));
+      await page.keyboard.press("Enter");
+      // No confirmation page: the row only opens the control (its Save prices the edit).
+      await page.getByTestId("input-leave-alone").waitFor({ state: "visible", timeout: 10_000 });
+      await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "input-leave-alone", null, { timeout: 5_000 }).catch(async e => {
+        console.log("DEBUG active:", await page.evaluate(() => `${document.activeElement?.tagName} ${document.activeElement?.getAttribute("data-testid")} ${document.activeElement?.getAttribute("aria-label")}`),
+          "palette open:", await page.getByTestId("input-palette").isVisible().catch(() => false),
+          "page:", (await page.locator("[role=dialog]").allInnerTexts()).join(" | ").slice(0, 300),
+          "inputs:", await page.locator("[data-testid=input-leave-alone]").count(),
+          "manual:", await page.evaluate(async () => { const el = document.querySelector("[data-testid=input-leave-alone]") as HTMLInputElement | null; el?.focus(); const a = document.activeElement === el; await new Promise(r => setTimeout(r, 1500)); return `${a} then ${document.activeElement === el} same=${document.querySelector("[data-testid=input-leave-alone]") === el}`; }));
+        throw e;
+      });
+    }
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
