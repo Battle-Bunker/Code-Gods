@@ -54,12 +54,19 @@ export const standingsV = v.object({
 });
 export const standingsHistoryV = v.array(v.object({ seq: v.number(), worldSeconds: v.number(), totals: v.array(v.object({ memberId: v.id("v2Members"), net: v.number() })) }));
 
+/** The uniqueness correction's table for the game's variant and the object count its values assume (world.ts valueObjects). */
+export const uniquenessV = v.object({ ns: v.array(v.number()), heldMass: v.array(v.number()), objects: v.number() });
+
 /** `v2/play:myRule`: the caller's private rule. */
 export const myRuleV = v.object({
   family: v.string(), title: v.string(), params: v.any(), layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), card: v.string(),
   depends: v.array(v.string()), primary: v.string(), ruleKey: v.string(),
   /** The rule's value function (decision 23), as `valueLookup` takes it: what any utility is worth, in bits. */
-  value: v.object({ knots: v.array(v.object({ u: scoreWireV, bits: v.number(), lo: v.number(), hi: v.number() })), tail: v.any() }),
+  value: v.object({
+    knots: v.array(v.object({ u: scoreWireV, bits: v.number(), lo: v.number(), hi: v.number() })), tail: v.any(),
+    /** The game's uniqueness correction (decision 24): `withUniqueness(valueLookup(value), uniqueness, uniqueness.objects)`. */
+    uniqueness: v.optional(uniquenessV),
+  }),
   contentHash: v.string(),
   bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()),
 });

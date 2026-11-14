@@ -29,10 +29,10 @@ test("a grid variant is read and written as a grid; it is valued only once it ha
   // (and the deal to deal) a grid rule, by name. When grid value functions land, this asserts the rows-add-up line's
   // worth instead (it was > 16 bits under the artefacts).
   if (valueRecord(key)) {
-    const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat);
+    const [v] = valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1);
     assert.ok(v!.rarityBits > 16, `every row adds up to 18: ${v!.rarityBits} bits`);
   } else {
-    assert.throws(() => valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat), new RegExp(`No value function for ${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    assert.throws(() => valuesOf(decode(wire, "grid-4-d10"), "grid-4-d10", seat, 1), new RegExp(`No value function for ${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   }
 });
 

@@ -71,6 +71,11 @@ world.ts). A committed act whose state another object holds (index `v2ObjectStat
 refused at commit like an invalid call: outcome `failed`, a `reason` naming the other object, its reads charged only.
 Stored games that already hold duplicates keep them.
 
+Values carry the uniqueness correction (§2.6, `withUniqueness`) at a fixed object count per game, `valueObjects`: the
+starting objects plus half the births the game expects (a live count would make stored values stale at every birth).
+The server's values, the agents' `values`/`others` (with `uniqueness`), `myRule`'s `value.uniqueness` (the app's
+`valueOf`) and the replay file's rules all apply it the same way.
+
 A game's seed decides its births and every act's seed, so `game.rematch` (the room's last game dealt again: the same
 rule to each player and the same seed) starts from the same objects; only the players' programs and choices differ.
 

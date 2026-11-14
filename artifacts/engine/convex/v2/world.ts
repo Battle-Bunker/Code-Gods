@@ -6,7 +6,7 @@
 import { evaluateObject, scoreToWire, type ObjectType } from "@workspace/v2-core";
 import { findVariant } from "@workspace/v2-valuation";
 import { familyOf, type DealtRule } from "./deal.ts";
-import { worthOf } from "./values.ts";
+import { worthOf, type ValueScope } from "./values.ts";
 import { births } from "@workspace/v2-agents/pure";
 
 export interface SeatRule { memberId: string; rule: DealtRule }
@@ -19,16 +19,16 @@ export const decode = (wire: string, variantId: string): unknown => typeOf(varia
 export const encode = (state: unknown, variantId: string): string => typeOf(variantId).encode(state);
 
 /** One player's utility (as its wire) and its worth in bits. */
-export function valueOf(state: unknown, variantId: string, rule: DealtRule) {
+export function valueOf(state: unknown, variantId: string, rule: DealtRule, objects: number) {
   const family = familyOf(rule.family);
   // One-site variants only: a multi-site object has no score yet (per-line bits summed comes next; none is dealt).
   const utility = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).score;
-  return { score: scoreToWire(utility), rarityBits: worthOf(rule.ruleKey, utility).bits };
+  return { score: scoreToWire(utility), rarityBits: worthOf(rule.ruleKey, utility, { variant: variantId, objects }).bits };
 }
 
 /** Every seated player's value of a state, with want (the others' rarity) and points. */
-export function valuesOf(state: unknown, variantId: string, seats: readonly SeatRule[]): Value[] {
-  const own = seats.map(s => ({ memberId: s.memberId, ...valueOf(state, variantId, s.rule) }));
+export function valuesOf(state: unknown, variantId: string, seats: readonly SeatRule[], objects: number): Value[] {
+  const own = seats.map(s => ({ memberId: s.memberId, ...valueOf(state, variantId, s.rule, objects) }));
   const total = own.reduce((t, v) => t + v.rarityBits, 0);
   return own.map(v => {
     const want = total - v.rarityBits;
@@ -37,6 +37,16 @@ export function valuesOf(state: unknown, variantId: string, seats: readonly Seat
 }
 
 // ---------------------------------------------------------------- unique objects (spec §2.6, owner decision 24)
+
+/**
+ * The object count a game's values assume for the uniqueness correction: its mean over the game (the starting objects
+ * and half the births it expects), fixed per game. A live count would make every stored value stale at each birth.
+ */
+export function valueObjects(settings: { startingObjects: number; worldSeconds: number; economy: { birthsPerSecond: number } }): number {
+  return Math.max(1, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
+}
+/** A game's value scope: its variant and `valueObjects`. */
+export const scopeOf = (game: { variant: string; settings: Parameters<typeof valueObjects>[0] }): ValueScope => ({ variant: game.variant, objects: valueObjects(game.settings) });
 
 /** Draws a later birth may take: the first not held wins (a commit refuses to place a duplicate). */
 export const BIRTH_DRAWS = 8;

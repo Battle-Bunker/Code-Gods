@@ -10,7 +10,7 @@
 import { rng } from "@workspace/v2-core";
 import { fromMC, intercept, lineType, lineZ, slope, type LineState } from "@workspace/v2-linear";
 import { dealablePool, offers as offersOf, ruleView } from "./deal";
-import { valueOf as valueAt } from "./world";
+import { valueObjects, valueOf as valueAt } from "./world";
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -130,7 +130,7 @@ export const seedGame = internalMutation({
       const objectId = await ctx.db.insert("v2Objects", { gameId, number: i + 1, bornAt: i });
       objects.push(objectId);
       await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version: 1, changedAt: i });
-      const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt));
+      const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt, valueObjects({ startingObjects: preset.startingObjects, worldSeconds: preset.worldSeconds, economy: preset.economy })));
       const total = evals.reduce((s, e) => s + e.rarityBits, 0);
       for (const [k, { memberId }] of rules.entries()) {
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;

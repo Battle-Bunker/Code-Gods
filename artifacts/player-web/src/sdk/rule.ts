@@ -4,7 +4,7 @@
  * never scores for the server: this is for drawing the viewer's own annotations (integration plan §3.1).
  */
 import type { RuleFamily, Score } from "@workspace/v2-core";
-import { valueLookup, type Lookup } from "@workspace/v2-valuation";
+import { valueLookup, withUniqueness, type Lookup } from "@workspace/v2-valuation";
 import { gridType } from "@workspace/v2-grid";
 import { lineType } from "@workspace/v2-linear";
 import type { RuleRef } from "@workspace/v2-views";
@@ -37,12 +37,17 @@ export const bitsOf = (value: ValueOf | null): ((u: Score) => number) | null => 
  * The value function's knots as a lookup (`v2/play:myRule`'s `value`, or the gallery's `points`, which carry no bounds
  * and read as exact); null without knots (a replay file carries none).
  */
-export function valueOf(knots: readonly { u: readonly (string | null)[] | null; bits: number; lo?: number; hi?: number }[] | undefined, tail?: unknown): ValueOf | null {
+export function valueOf(
+  knots: readonly { u: readonly (string | null)[] | null; bits: number; lo?: number; hi?: number }[] | undefined, tail?: unknown,
+  /** The game's uniqueness correction (owner decision 24), as `myRule`'s `value.uniqueness` carries it: the server's bits. */
+  uniqueness?: { ns: readonly number[]; heldMass: readonly number[]; objects: number },
+): ValueOf | null {
   if (!knots?.length) return null;
-  return valueLookup({
+  const look = valueLookup({
     knots: knots.map(k => ({ u: k.u as (string | null)[] | null, bits: k.bits, lo: k.lo ?? k.bits, hi: k.hi ?? k.bits })),
     tail: (tail ?? { primary: 0, secondary: 0 }) as { primary: number; secondary: number },
   } as never);
+  return uniqueness ? withUniqueness(look, uniqueness, uniqueness.objects) : look;
 }
 
 

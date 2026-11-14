@@ -8,7 +8,8 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
-import { VALUE_RECORDS } from "../convex/v2/values.gen.ts";
+import { UNIQUENESS, VALUE_RECORDS } from "../convex/v2/values.gen.ts";
+import { valueObjects } from "../convex/v2/world.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
@@ -18,11 +19,15 @@ import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
 import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers.ts";
 
-/** A dealt rule's value function as the tick passes it to an agent (decision 23), from the bundle by ruleKey. */
-function valueFn(ruleKey: string) {
+/**
+ * A dealt rule's value function as the tick passes it to an agent (decision 23), from the bundle by ruleKey, with the
+ * game's uniqueness correction (decision 24: the variant's table at the object count the game's settings give).
+ */
+function valueFn(ruleKey: string, started: { variant: string; settings: Parameters<typeof valueObjects>[0] }) {
   const r = VALUE_RECORDS.find(x => x.ruleKey === ruleKey);
   assert.ok(r, `a dealt rule has a value function: ${ruleKey}`);
-  return { knots: r.knots, tail: r.tail };
+  const u = UNIQUENESS.find(t => t.variant === started.variant);
+  return { knots: r.knots, tail: r.tail, ...(u ? { uniqueness: { ns: u.ns, heldMass: u.heldMass, objects: valueObjects(started.settings) } } : {}) };
 }
 
 function gameSuite(preset: string, type: ObjectType<any>, variant: Variant) {
@@ -167,9 +172,9 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker },
       program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number, liveObjects: d.liveObjects,
       // What the agent was told of its owner's stake (recorded), and the dealt rule's value function (from the bundle).
-      ...(d.input ?? {}), values: valueFn(rule.ruleKey),
+      ...(d.input ?? {}), values: valueFn(rule.ruleKey, events[0].data),
       // The other seats' rules and value functions (their othersAfter), in seat order, from the bundle.
-      others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey) })),
+      others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey, events[0].data) })),
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);

@@ -4,7 +4,8 @@
  * paging the log. Served by GET /api/v2/replay/<gameId> (convex/http.ts), which checks the caller's Convex JWT on every
  * request: never a storage URL, since sign-in is required everywhere (owner decision 2026-11-02).
  */
-import { valueRecord } from "./values";
+import { slimKnots, valueFnIn, type ValueScope } from "./values";
+import { scopeOf } from "./world";
 import { PAGE, PAGE_BYTES } from "./replayFormat";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
@@ -12,10 +13,10 @@ import { internalMutation, internalQuery, query } from "../_generated/server";
 import { requireGameMember } from "./access";
 import { replayV } from "./validators";
 
-/** A rule's value function for the replay file (what valueLookup takes), so a replay's faces show bits. */
-const valueFnOf = (ruleKey: string) => {
-  const r = valueRecord(ruleKey);
-  return r ? { knots: r.knots.map(k => ({ u: k.u, bits: k.bits, lo: k.lo, hi: k.hi })), tail: r.tail ?? null } : null;
+/** A rule's value function for the replay file (what valueLookup takes, with the game's uniqueness correction). */
+const valueFnOf = (ruleKey: string, scope: ValueScope) => {
+  const f = valueFnIn(ruleKey, scope);
+  return f ? { ...f, knots: slimKnots(f.knots), tail: f.tail ?? null } : null;
 };
 
 
@@ -47,7 +48,7 @@ export const header = internalQuery({
     const rules = [];
     for (const s of game.roster) {
       const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", s.memberId)).unique();
-      if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, contentHash: r.contentHash, value: valueFnOf(r.ruleKey), handicap: r.handicap ?? null });
+      if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, contentHash: r.contentHash, value: valueFnOf(r.ruleKey, scopeOf(game)), handicap: r.handicap ?? null });
     }
     const { _id, _creationTime, replayFile: _, ...rest } = game;
     return { game: { gameId: _id, ...rest }, rules };

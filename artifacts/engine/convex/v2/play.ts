@@ -7,9 +7,9 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
-import { valueRecord } from "./values";
+import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { seatRules } from "./loop";
-import { decode, encode, typeOf, valuesOf, variantOf } from "./world";
+import { decode, encode, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
 import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
@@ -22,21 +22,21 @@ import { pageOpts } from "./pages";
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
 
-/** The rule's value function, as valueLookup takes it (knots and tail). */
-function valueFn(ruleKey: string) {
-  const r = valueRecord(ruleKey);
-  if (!r) throw new Error(`No value function for ${ruleKey}`);
-  return { knots: r.knots.map(k => ({ u: k.u, bits: k.bits, lo: k.lo, hi: k.hi })), tail: (r.tail ?? null) as unknown };
+/** The rule's value function, as valueLookup takes it (knots and tail), with the game's uniqueness correction. */
+function valueFn(ruleKey: string, scope: ValueScope) {
+  const f = valueFnIn(ruleKey, scope);
+  if (!f) throw new Error(`No value function for ${ruleKey}`);
+  return { ...f, knots: slimKnots(f.knots), tail: f.tail as unknown };
 }
 
 export const myRule = query({
   args: { gameId: v.string() },
   returns: myRuleV,
   handler: async (ctx, { gameId }) => {
-    const { rule: r } = await requireSeat(ctx, gameId);
+    const { rule: r, game } = await requireSeat(ctx, gameId);
     return {
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
-      ruleKey: r.ruleKey, contentHash: r.contentHash, value: valueFn(r.ruleKey), bid: r.bid ?? null, handicap: r.handicap ?? null,
+      ruleKey: r.ruleKey, contentHash: r.contentHash, value: valueFn(r.ruleKey, scopeOf(game)), bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
   },
 });
@@ -227,7 +227,7 @@ export const othersAt = query({
       after: calls.map(call => {
         const r = applyCall(type, variant, now, call);
         if (isInvalid(r)) return null;
-        const want = valuesOf(r.result, game.variant, seats).find(x => x.memberId === member._id)?.want ?? 0;
+        const want = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
         return { state: encode(r.result, game.variant), want };
       }),
     };

@@ -20,7 +20,20 @@ import {
   representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
-import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
+import { valueLookup, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
+
+/**
+ * A rule's value function as the server sends it: knots and tail, and the game's uniqueness correction (owner decision
+ * 24, spec §2.6) when it has one, applied as the server applies it (`withUniqueness`, at the game's object count).
+ */
+export type GameValues = Pick<ValueFunction, "knots" | "tail"> & {
+  readonly uniqueness?: { readonly ns: readonly number[]; readonly heldMass: readonly number[]; readonly objects: number };
+};
+/** The lookup a host prices with: the value function, corrected for the game's objects. */
+export function gameLookup(values: GameValues) {
+  const look = valueLookup(values);
+  return values.uniqueness ? withUniqueness(look, values.uniqueness, values.uniqueness.objects) : look;
+}
 import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest } from "@workspace/v2-sandbox";
 
 /** A rule as dealt: a family of the object type, its parameters and its tie-breaker. */
@@ -57,12 +70,12 @@ export interface HostInput<S> {
    * The player's rule's value function (owner decision 23: the server's value record, knots and tail): what a score is
    * worth in bits. Prices `rarity(score)` and gives `myScore()` its bits; `worth()` is only answered with it.
    */
-  readonly values?: Pick<ValueFunction, "knots" | "tail">;
+  readonly values?: GameValues;
   /**
    * The other players' rules and value functions, so the host can answer `othersAfter` (their rarity on the line,
    * added up, before and after a plan). The agent never sees them, only the total.
    */
-  readonly others?: readonly { readonly rule: RuleRef; readonly values: Pick<ValueFunction, "knots" | "tail"> }[];
+  readonly others?: readonly { readonly rule: RuleRef; readonly values: GameValues }[];
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -139,11 +152,11 @@ export class EngineHost<S> implements AgentHost {
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.input = input;
-    this.lookup = input.values ? valueLookup(input.values) : undefined;
+    this.lookup = input.values ? gameLookup(input.values) : undefined;
     this.others = input.others?.map(o => {
       const family = input.type.families.find(f => f.id === o.rule.family);
       if (!family) throw new Error(`${input.type.id} has no rule family ${o.rule.family}`);
-      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker)[1]?.id ?? null, look: valueLookup(o.values) };
+      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker)[1]?.id ?? null, look: gameLookup(o.values) };
     });
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
