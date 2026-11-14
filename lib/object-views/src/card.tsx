@@ -1,10 +1,9 @@
 /** The kid utility card (and its defence goal), and the Room helpers drawer generated from HelperDoc[]. */
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { capabilityClass } from "@workspace/game-types";
 import { familyUses, type BadgeLike } from "./catalog.ts";
 import type { GridSettings } from "./registry.ts";
-import type { GoalExplainer, Ordinal } from "@workspace/game-utilities";
-import { cardSections, tierBonus, tierOpens, type CardTierLike, type CardTierSection } from "./card-tiers.ts";
+import type { GoalExplainer } from "@workspace/game-utilities";
 import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { GridObject } from "./views.tsx";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
@@ -20,8 +19,6 @@ export interface UtilityCardLike {
   source: string;
   /** A tiny example board (its own size) and what it scores (docs/rules-design.md §3.2). */
   example?: { value: string; size: number; caption: string };
-  /** A tiered draw's ★ blocks (archive/engine-v1:docs/layered-rules-design.md §4). Absent on base draws and on cards dealt before tiers. */
-  tiers?: readonly CardTierLike[];
   penalty?: { familyId: string; emoji: string; name: string; summary: string; comparative: string; source: string };
 }
 
@@ -71,36 +68,11 @@ export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: Gri
 }
 
 /**
- * One "★ To score even higher" block: closed until the board reaches its gate or already holds a tier point (`auto`),
- * then it opens by itself, once; the player can open and close it by hand at any time. Closed over a board that has
- * tier points, it says so.
- */
-function TierBlock({ section, ordinal }: { section: CardTierSection; ordinal?: Ordinal | null }) {
-  const auto = tierOpens(section.tier, ordinal);
-  const [open, setOpen] = useState(auto);
-  useEffect(() => { if (auto) setOpen(true); }, [auto]);
-  const bonus = open ? null : tierBonus(section.tier, ordinal);
-  return (
-    <details className="mt-2 border-l-4 border-amber-500/70 bg-muted/40 px-3 py-2 text-sm" open={open}
-      onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-testid={`card-tier-${section.tier.id}`} data-open={open || undefined}>
-      <summary className="cursor-pointer font-medium leading-snug [overflow-wrap:anywhere]">{section.title}
-        {bonus && <span className="mt-0.5 block text-xs font-normal text-muted-foreground" data-testid={`card-tier-bonus-${section.tier.id}`}>{bonus}</span>}</summary>
-      <p className="mt-1.5 leading-relaxed" data-testid={`card-tier-text-${section.tier.id}`}>{ruleScoreWording(section.body)}</p>
-    </details>
-  );
-}
-
-/**
- * Emoji and name, plain summary in the player's score words (card-text.ts; a tiered draw: the base rule, then its ★ blocks), an example board (the annotated one with `goal`, else the card's tiny one when the rule
+ * Emoji and name, plain summary in the player's score words (card-text.ts), an example board (the annotated one with `goal`, else the card's tiny one when the rule
  * has one), a "uses" chip row, then the source (collapsed unless `sourceOpen`); a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
  */
-export function UtilityCardView({ card, uses, grid, goal, ordinal, sourceOpen = false }: {
+export function UtilityCardView({ card, uses, grid, goal, sourceOpen = false }: {
   card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings;
-  /**
-   * The score of the board the player is looking at (the goal card's example object): a ★ block opens by itself once
-   * it reaches the block's gate or holds one of its points.
-   */
-  ordinal?: Ordinal | null;
   /** Whether the source sections start expanded (they are collapsed by default). */
   sourceOpen?: boolean;
   /**
@@ -111,15 +83,13 @@ export function UtilityCardView({ card, uses, grid, goal, ordinal, sourceOpen = 
 }) {
   const badges = useMemo(() => uses ?? familyUses(card.familyId), [uses, card.familyId]);
   const penaltyUses = useMemo(() => (card.penalty ? familyUses(card.penalty.familyId) : []), [card.penalty?.familyId]);
-  const sections = useMemo(() => cardSections(card), [card.summary, card.tiers]);
   return (
     <div className="space-y-3" data-testid="utility-card">
       <div>
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
-        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{ruleScoreWording(sections.base)}
+        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{ruleScoreWording(card.summary)}
           {/\bprimary points?\b/.test(card.summary) && <> <span className="text-muted-foreground">(<Term id="points-tuple">how a rule score with parts compares</Term>)</span></>}</p>
-        {sections.tiers.map(t => <TierBlock key={t.tier.id + t.tier.index} section={t} ordinal={ordinal} />)}
         {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
         <Source text={card.source} language={card.language} testId="text-utility-source" open={sourceOpen} />

@@ -25,7 +25,7 @@ export interface PastDeal {
 
 /** The settings that decide what can be dealt: a change to any of them starts a fresh deal. */
 export function dealKeyOf(settings: Record<string, unknown>): string {
-  const pick = ["objectType", "typeArgs", "excludedFamilies", "utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "priorId", "ruleTiers"];
+  const pick = ["objectType", "typeArgs", "excludedFamilies", "utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "priorId"];
   return canonical(Object.fromEntries(pick.map(k => [k, settings[k] ?? null])));
 }
 

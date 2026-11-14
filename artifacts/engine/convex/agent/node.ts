@@ -77,8 +77,6 @@ async function seated(ctx: Parameters<typeof gatherSeries>[0], principal: Parame
 }
 const candidateOptions = (settings: GameSettings, exclude: readonly string[] = []) => ({
   exclude: [...settings.excludedFamilies, ...exclude], excludeDefence: [...settings.excludedDefenceFamilies, ...exclude], defenceGoals: settings.defenceGoals,
-  // A tiered game deals tiered draws only, so those are what a rival might hold.
-  ...(settings.ruleTiers ? { tiers: settings.ruleTiers } : {}),
 });
 
 type CandidateList = {

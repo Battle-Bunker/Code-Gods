@@ -52,7 +52,6 @@ function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Ins
   const [params, setParams] = useState<Params>(() => randomParams(familyId, inst, freshSeed()));
   const [sourceOpen, setSourceOpen] = useState(false);
   const summary = useMemo(() => familySummary(familyId, params, inst), [familyId, params, inst]);
-  const star = summary.indexOf("★");
   const href = routeHref(import.meta.env.BASE_URL, { kind: "ruleFamily", family: familyId }, gallerySearch(setup, params, language));
   return (
     <li className="flex flex-col gap-3 border bg-card p-4" data-testid={`tile-${familyId}`}>
@@ -68,11 +67,7 @@ function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Ins
         <button type="button" className="border px-1.5 py-0.5 text-xs hover:bg-muted" aria-label={`Random settings for ${f.name}`}
           onClick={() => setParams(randomParams(familyId, inst, freshSeed()))}>🎲</button>
       </div>
-      {/* A tiered draw's "★ To score even higher" sentences start on their own line, set apart from the base rule. */}
-      <p className="text-sm leading-relaxed" data-testid={`text-summary-${familyId}`}>{star < 0 ? summary : <>
-        {summary.slice(0, star).trimEnd()}
-        <span className="mt-1.5 block border-l-4 border-amber-500/70 pl-2" data-testid={`text-summary-tiers-${familyId}`}>{summary.slice(star)}</span>
-      </>}</p>
+      <p className="text-sm leading-relaxed" data-testid={`text-summary-${familyId}`}>{summary}</p>
       <details className="mt-auto text-xs" data-testid={`source-${familyId}`} onToggle={e => setSourceOpen(e.currentTarget.open)}>
         <summary className="cursor-pointer text-muted-foreground">Source ({language === "python" ? "Python" : "TypeScript"})</summary>
         {sourceOpen && <Source familyId={familyId} params={params} inst={inst} language={language} />}

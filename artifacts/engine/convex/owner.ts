@@ -13,7 +13,7 @@ import { LANGUAGE_SPECS, instantiationOf, gameEndSeconds, upgradeStoredSettings,
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
+import { context, family, firstUseSeconds, paramsInDomain, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
 import { assertShape, catalogFor, deal, dealWithBidsFor, dealerOf, nextSettings, openUniform, pinTables, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { storePinned } from "./engine/pinned";
@@ -108,7 +108,8 @@ export const MAX_PREPARING_MS = 30 * 60_000;
 /**
  * The rotated deal (lib/dealRotation.ts) for a start without bids, as each god's utility and the line its card shows:
  * the last game's rules passed one seat along when the room plays again with the same players and dealing settings.
- * Null (a fresh deal) otherwise, and when a passed-on rule can no longer be dealt here (a deploy withdrew it).
+ * Null (a fresh deal) otherwise, and when a passed-on rule can no longer be dealt here (a deploy withdrew its family or
+ * its params, as D1 did tiered rules' ★ tiers: archive/engine-v1).
  */
 async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSettings, godIds: readonly string[]): Promise<{ deals: { utility: UtilityDescriptor; rotation: Rotation }[] | null; game: GameRotation | null }> {
   // A game dealt with a bid phase is no part of a rotation; any other starts one (round 1) or continues it.
@@ -118,7 +119,8 @@ async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSe
   const r = rotatedDeal(godIds, dealKeyOf(settings as unknown as Record<string, unknown>), history as PastDeal[]);
   if (!r) return fresh;
   const dealable = new Set(catalogFor(settings).filter(f => f.role !== "penalty" && !f.excluded).map(f => f.id));
-  if (r.utilities.some(u => !dealable.has(u.familyId))) return fresh;
+  const here = context(instantiationOf(settings));
+  if (r.utilities.some(u => !dealable.has(u.familyId) || !paramsInDomain(family(u.familyId).params(here), u.params))) return fresh;
   const nameOf = (godId: string) => (history[0]!.names[history[0]!.godIds.indexOf(godId)] ?? godId).slice(0, 128);
   return {
     deals: r.utilities.map((utility, k) => ({ utility, rotation: { round: r.round, of: r.of, from: nameOf(r.from[k]!) } })),

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { LENSES, family, context } from "@workspace/game-utilities";
 import { instantiate } from "@workspace/game-types";
 import {
-  RESERVED_PARAMS, currentKey, optionKey, galleryFamilies, gallerySearch, paramFields, rawParamsOf, setupFields, paramsFromSearch, randomParams, setupFromSearch, withParam, DEFAULT_SETUP,
+  RESERVED_PARAMS, optionKey, galleryFamilies, gallerySearch, paramFields, rawParamsOf, setupFields, paramsFromSearch, randomParams, setupFromSearch, withParam, DEFAULT_SETUP,
 } from "../src/site/lib/rule-gallery.ts";
 
 const inSupport = (familyId: string, inst: ReturnType<typeof instantiate>, p: unknown) =>
@@ -96,42 +96,13 @@ test("a valid board the presets do not list still shows its own values in the se
   assert.ok(fields.find(f => f.id === "max")!.options.some(o => o.value === 100));
 });
 
-test("a family with tiers offers 'none' (the base rule) and each gated tier; a pick rides in the link in a compact form", () => {
-  const setup = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" } };
-  const inst = instantiate(setup.objectType, setup.typeArgs), ctx = context(inst);
-  const tiered = family("opposite_nines").tiered!(ctx, 1);
-  const field = paramFields("opposite_nines", inst).find(f => f.key === "tiers")!;
-  assert.equal(field.label, "To score even higher");
-  // "none" first, then exactly the gated depth-1 draws, each labelled in words.
-  assert.equal(field.options.length, tiered.length + 1);
-  assert.deepEqual([field.options[0].value, field.options[0].label], [null, "none (the base rule)"]);
-  assert.deepEqual(field.options.slice(1).map(o => o.value), tiered.map(p => p.tiers));
-  assert.ok(field.options.some(o => o.label === "lines that add up to 18"));
-  assert.equal(new Set(field.options.map(o => optionKey(o.value))).size, field.options.length, "option keys are distinct");
+test("an option's key is the scalar itself or a list's JSON, and a family without params draws {}", () => {
   assert.equal(optionKey(null), "");
-  assert.equal(optionKey([{ id: "lines", x: 18, gate: 6 }]), "lines.x18");
   assert.equal(optionKey("red"), "red");
   assert.equal(optionKey(7), "7");
-
-  // The base rule has no `tiers` key and nothing in the link; picking a tier adds it, picking none removes it.
-  assert.deepEqual(paramsFromSearch("opposite_nines", inst, gallerySearch(setup, {})), {});
-  assert.equal(currentKey({}, "tiers"), "");
-  const picked = withParam("opposite_nines", inst, {}, "tiers", field.options.find(o => optionKey(o.value) === "lines.x18")!.value);
-  assert.deepEqual(picked, { tiers: [{ id: "lines", x: 18, gate: 6 }] });
-  assert.equal(currentKey(picked, "tiers"), "lines.x18");
-  const search = gallerySearch(setup, picked);
-  assert.equal(search, "?size=4&symbols=base10&colours=mono&tiers=lines.x18");
-  assert.deepEqual(paramsFromSearch("opposite_nines", inst, search), picked);
-  assert.deepEqual(withParam("opposite_nines", inst, picked, "tiers", null), {});
-  assert.deepEqual(paramsFromSearch("opposite_nines", inst, "?tiers=lines.x999"), {}, "an unknown tier falls back to the base rule");
-  // Every tiered draw round-trips.
-  for (const p of tiered) assert.deepEqual(paramsFromSearch("opposite_nines", inst, gallerySearch(setup, p)), p);
-  // A board where a family declares tiers but deals none shows no empty picker; every field shown has a real choice.
-  for (const board of [instantiate("Grid", { size: 6, symbols: "base10", colours: "rgb" }), instantiate("Grid", { size: 4, symbols: "base16", colours: "rgb" })]) {
-    for (const id of galleryFamilies(board)) for (const f of paramFields(id, board)) {
-      if (f.optional) assert.ok(f.options.length >= 2 && family(id).tiered!(context(board), 1).length > 0, `${id}.${f.key} on ${board.key}`);
-    }
-  }
-  // Random params stay base draws (the family's own sampler).
+  assert.equal(optionKey([2, 3, 5]), "[2,3,5]");
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
+  assert.deepEqual(paramFields("opposite_nines", inst), []);
+  assert.deepEqual(paramsFromSearch("opposite_nines", inst, "?tiers=lines.x18"), {}, "a link from before D1 (★ tiers) opens the base rule");
   assert.deepEqual(randomParams("opposite_nines", inst, 5), {});
 });

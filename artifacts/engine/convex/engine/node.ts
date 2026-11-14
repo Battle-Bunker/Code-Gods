@@ -13,7 +13,7 @@ import {
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
 import {
-  availableFamilies, card, context, divineLottery, evaluator, fairAligned, familiesFor, penaltyMeanBits, publicCatalog, selector, synergyFor,
+  card, context, divineLottery, evaluator, fairAligned, familiesFor, penaltyMeanBits, publicCatalog, selector, synergyFor,
   coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
   type UtilityDescriptor, dealWithBids, type Bid,
 } from "@workspace/game-utilities";
@@ -164,8 +164,6 @@ export function deal(settings: GameSettings, count: number): UtilityDescriptor[]
   return selector(settings.utilitySelectorId ?? divineLottery.id).select(instantiationOf(settings), count, cryptoRng, {
     defenceGoals: settings.defenceGoals,
     exclude: settings.excludedFamilies, excludeDefence: settings.excludedDefenceFamilies, priorId: settings.priorId,
-    // Tiered rules (settings.ruleTiers): only tiered draws are dealt; absent, base draws exactly as ever.
-    ...(settings.ruleTiers ? { tiers: settings.ruleTiers } : {}),
   });
 }
 /**
@@ -200,24 +198,17 @@ export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) 
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, shape: c.shape,
     language, source: c.source[language],
     ...(c.example ? { example: { value: String(c.example.value), size: c.example.size, caption: c.example.caption } } : {}),
-    // A tiered draw's ★ blocks (optional: base draws and every card dealt before tiers have none).
-    ...(c.tiers ? { tiers: c.tiers.map(t => ({ id: t.id, heading: t.heading, text: t.text, gate: t.gate, index: t.index, arity: t.arity })) } : {}),
     ...(c.penalty ? { penalty: {
       familyId: c.penalty.familyId, emoji: c.penalty.emoji, name: c.penalty.name, summary: c.penalty.summary,
       comparative: c.penalty.comparative, shape: c.penalty.shape, source: c.penalty.source[language],
     } } : {}),
   };
 }
-/**
- * The public catalog of families any god might draw, with availability, badges and locked reasons. In a tiered game
- * (settings.ruleTiers) a reward family that offers no tiers of that kind here is never dealt, so it counts as excluded.
- */
+/** The public catalog of families any god might draw, with availability, badges and locked reasons. */
 export function catalogFor(settings: GameSettings) {
-  const inst = instantiationOf(settings);
-  const tiered = settings.ruleTiers ? new Set(availableFamilies(inst, "reward", [], settings.ruleTiers).map(f => f.id)) : null;
-  return publicCatalog(inst).map(f => ({
+  return publicCatalog(instantiationOf(settings)).map(f => ({
     ...f, excluded: (f.role === "penalty" ? !settings.defenceGoals || settings.excludedDefenceFamilies.includes(f.id)
-      : settings.excludedFamilies.includes(f.id) || (tiered !== null && !tiered.has(f.id))),
+      : settings.excludedFamilies.includes(f.id)),
   }));
 }
 
@@ -237,7 +228,7 @@ export function assertShape(manifest: CalibrationManifest, settings: GameSetting
   if (!isPlayableInstantiation(inst)) fail("BAD_REQUEST", `${inst.key} is retired: choose one of the listed ${settings.objectType} settings`);
   if (priorKey(prior) !== priorKey(UNIFORM_PRIOR)) {
     const excludedFamilies = [...settings.excludedFamilies, ...settings.excludedDefenceFamilies];
-    if (coverage(manifest, inst, excludedFamilies, prior, settings.ruleTiers).missing.length) fail("BAD_REQUEST", `The ${settings.priorId} prior has no shipped tables for ${inst.key}: choose the uniform prior or a shape it covers`);
+    if (coverage(manifest, inst, excludedFamilies, prior).missing.length) fail("BAD_REQUEST", `The ${settings.priorId} prior has no shipped tables for ${inst.key}: choose the uniform prior or a shape it covers`);
   }
   for (const [ids, role, words] of [[settings.excludedFamilies, "reward", "reward"], [settings.excludedDefenceFamilies, "penalty", "defence"]] as const) {
     const known = new Set(familiesFor(settings.objectType, role).map(f => f.id));

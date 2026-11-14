@@ -16,15 +16,12 @@
  * Nothing imports the files: the engine uploads them to Convex file storage at deploy
  * (artifacts/engine/scripts/upload-calibration.mjs) and loads them lazily.
  */
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { createHash } from "node:crypto";
-import { setHybridStore } from "../src/families/grid/tiers-hybrid.ts";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Worker, isMainThread, parentPort, threadId } from "node:worker_threads";
+import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { INT_PRESETS, STRING_PRESETS, instantiate, type Instantiation, type TypeArgs } from "@workspace/game-types";
-import { available, canonicalSupport, context, familiesFor, paramsKey, tieredCanonicalSupport } from "../src/catalog.ts";
+import { available, canonicalSupport, context, familiesFor, paramsKey } from "../src/catalog.ts";
 import {
   CALIBRATION_FORMAT, instantiateKey, manifestEntry, manifestOf, priorKey, tableKey, tableOrder, type CalibrationBudget,
   type CalibrationFile, type CalibrationTable,
@@ -66,8 +63,7 @@ export function jobsFor(inst: Instantiation, families?: ReadonlySet<string>): Jo
   const ctx = context(inst), out: Job[] = [];
   for (const f of familiesFor(inst.objectType)) {
     if (!available(f, inst).ok || (families && !families.has(f.id))) continue;
-    // Tiered draws (archive/engine-v1:docs/layered-rules-design.md) are not in the support; their tables ship where the family deals them.
-    for (const p of [...canonicalSupport(f, ctx), ...tieredCanonicalSupport(f, ctx)]) {
+    for (const p of canonicalSupport(f, ctx)) {
       out.push({ instance: inst.key, args: inst.args, objectType: inst.objectType, familyId: f.id, params: p, key: tableKey(f.id, p, inst) });
     }
   }
@@ -110,15 +106,6 @@ interface WorkMsg { job: Job; budget: CalibrationBudget }
 /** --budget applies to every job; otherwise each type's default (estimator.ts budgetFor). */
 type BudgetChoice = CalibrationBudget | null;
 interface DoneMsg { key: string; json: string; seconds: number; evaluations: number }
-
-// Hybrid laws do not depend on the colour set: share them between workers and runs through a scratch directory.
-const HYBRID_DIR = join(tmpdir(), "code-gods-hybrid-laws");
-mkdirSync(HYBRID_DIR, { recursive: true });
-const hybridFile = (key: string) => join(HYBRID_DIR, `${createHash("sha256").update(key).digest("hex")}.json`);
-setHybridStore({
-  get: key => (existsSync(hybridFile(key)) ? readFileSync(hybridFile(key), "utf8") : null),
-  set: (key, json) => { const f = hybridFile(key); writeFileSync(`${f}.${process.pid}.${threadId}`, json); renameSync(`${f}.${process.pid}.${threadId}`, f); },
-});
 
 if (!isMainThread && parentPort) {
   const port = parentPort;

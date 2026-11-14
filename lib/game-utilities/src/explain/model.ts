@@ -61,40 +61,6 @@ export interface Part {
   readonly group?: string;
   /** The cell the board picks this unit by, when its cells overlap other units' (a minesweeper number's 3×3 window). */
   readonly anchor?: Cell;
-  /**
-   * How close a unit that scores nothing is to scoring, from 0 (nowhere near) to just under 1 (one away). It is never
-   * shown; the goal-card example search reads it as a gradient, so a ★ tier whose units are hard to hit by chance still
-   * gets an example board that scores it (explain/index.ts `illumination`). Only the ★ tiers' units set it.
-   */
-  readonly heat?: number;
-}
-
-/** Where one ★ tier of a tiered draw stands on a board (archive/engine-v1:docs/layered-rules-design.md §4). */
-export interface TierStatus {
-  /** The interaction's id (the card's `tiers[].id`). */
-  readonly id: string;
-  /** Where the tier's points sit in the ordinal, and how many components it has. */
-  readonly index: number;
-  readonly arity: number;
-  /** The tier counts once the first component reaches this. */
-  readonly gate: number;
-  /** Whether the board has reached the gate (its tier units are then among the parts). */
-  readonly open: boolean;
-  /** How many more primary points open the tier (0 when open). */
-  readonly short: number;
-  /** How many of the tier's units score on this board (0 when the tier is not open yet). */
-  readonly scored: number;
-  /** "2 more opposite pairs to open ★: rows, columns and long diagonals adding up to 18." */
-  readonly note: string;
-  /**
-   * The unit that comes nearest, for an open tier that scores nothing: "Row 2: 3 short of 18 — 4 + 5 + 2 + 2 = 13, not
-   * 18." It is the nearest one *however far that is*: a tier may take a plan rather than one more cell (measured: a
-   * one-cell climber gets none of ✌️ Two Pair's linked boxes), and then even the nearest unit is two conditions away —
-   * "not linked — the boxes share both pairs (3s and 8s)" — which is still the whole of a player's foothold on it.
-   * Absent when the tier is not open, when it already scores, when it has no units on this board at all, and when its
-   * lens says nothing about how near a unit is (`Part.heat`).
-   */
-  readonly nearest?: string;
 }
 
 /** The whole board's explanation: its scoring units and what they add up to. */
@@ -111,8 +77,6 @@ export interface Explanation {
   readonly ordinal: Ordinal;
   /** Σ part.points[k] === ordinal[k] for every explained component k. Unverified explanations are never drawn. */
   readonly verified: boolean;
-  /** A tiered draw's ★ tiers on this board, in the ordinal's order (absent for a base draw). */
-  readonly tiers?: readonly TierStatus[];
 }
 
 /** One line of the raw-score breakdown: a kind of piece, how many there are, and what they add up to. */

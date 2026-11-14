@@ -21,11 +21,10 @@
  */
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { applicable, canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
-import { dealableParams, type TierOptions } from "./dealable.ts";
 import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "./types.ts";
 import { canonicalJson } from "./canonical-json.ts";
 import { cardProgram } from "./families/card.ts";
-import { ANALYTIC_MAX_ERROR_BITS, HYBRID_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
+import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // format
@@ -58,7 +57,6 @@ export function analyticFor(familyId: string, canonicalParams: Params, inst: Ins
       // The id and kind are checked here (they key tables); the levels, which may be lazy, when a table is built.
       assertAnalyticHeader(a, `${familyId} ${paramsKey(canonicalParams)} on ${inst.key}`);
       if (a.kind === "approx" && a.maxErrorBits! > ANALYTIC_MAX_ERROR_BITS) a = null;
-      else if (a.kind === "hybrid" && a.maxErrorBits! > HYBRID_MAX_ERROR_BITS) a = null;
     }
     analyticMemo.set(m, a);
   }
@@ -126,7 +124,7 @@ export interface CalibrationTable {
      * "exact": the whole domain was enumerated; "exact:<id>" / "approx:<id>": built from the family's analytic survival
      * function with that id (src/analytic.ts).
      */
-    readonly budget: CalibrationBudget | "exact" | `exact:${string}` | `approx:${string}` | `hybrid:${string}`;
+    readonly budget: CalibrationBudget | "exact" | `exact:${string}` | `approx:${string}`;
     /**
      * Built as `replicates` independent runs on 1/R of the budget each, merged in probability (scripts/estimator.ts
      * mergeReplicates; the engine's on-demand split, architecture.md §3.2). Absent: the single run. Same key, same
@@ -454,23 +452,14 @@ export interface Coverage {
 /** Grid sizes retired from play (3×3: too small for most families' structure). Never offered, tables or not. */
 export const RETIRED_GRID_SIZES: readonly number[] = Object.freeze([3]);
 
-/** The distinct canonical forms of some draws of a family (one table each), in order. */
-function canonicalOf(f: UtilityFamily<any>, ctx: FamilyContext, draws: readonly Params[]): Params[] {
-  const out = new Map<string, Params>();
-  for (const p of draws) { const c = f.canonical(p, ctx) as Params; out.set(paramsKey(c), c); }
-  return [...out.values()];
-}
-
 const coverageMemo = new WeakMap<CalibrationManifest, Map<string, Coverage>>();
 /**
  * Which dealable draws of an instantiation (every available reward and penalty family × canonical support, minus
- * `excludedFamilies`, default none) lack a fresh table in `manifest`. With `tiers` (a tiered game, settings.ruleTiers)
- * the reward draws are the families' canonical tiered draws of that depth and composition instead of their supports.
- * Memoised per manifest object.
+ * `excludedFamilies`, default none) lack a fresh table in `manifest`. Memoised per manifest object.
  */
 export function coverage(manifest: CalibrationManifest, inst: Instantiation, excludedFamilies: readonly string[] = [],
-  prior: PriorRef = UNIFORM_PRIOR, tiers?: TierOptions): Coverage {
-  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}\0${priorKey(prior)}${tiers ? `\0${tiers.depth}:${tiers.compose ?? "gated"}` : ""}`;
+  prior: PriorRef = UNIFORM_PRIOR): Coverage {
+  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}\0${priorKey(prior)}`;
   let memo = coverageMemo.get(manifest);
   if (!memo) coverageMemo.set(manifest, memo = new Map());
   let c = memo.get(memoKey);
@@ -480,7 +469,7 @@ export function coverage(manifest: CalibrationManifest, inst: Instantiation, exc
   let tables = 0;
   for (const f of familiesFor(inst.objectType)) {
     if (excluded.has(f.id) || !available(f, inst).ok) continue;
-    for (const p of tiers && f.role === "reward" ? canonicalOf(f, ctx, dealableParams(f, ctx, tiers)) : canonicalSupport(f, ctx)) {
+    for (const p of canonicalSupport(f, ctx)) {
       if (f.needs && !applicable(f, inst, p).ok) continue; // never dealt here, so never needs a table
       const stored = (isUniform(prior) ? entry?.tables : entry?.priors?.[priorKey(prior)])?.[f.id]?.[paramsKey(p)];
       if (stored !== undefined && stored === tableKey(f.id, p, inst, prior)) tables++;
