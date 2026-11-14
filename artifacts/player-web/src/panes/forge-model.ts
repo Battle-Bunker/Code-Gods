@@ -2,7 +2,7 @@
  * The forge's plain logic (ux-lessons §1.3–1.9, §3): what the editor opens with, what the primary button does, what a
  * summon or a replace message says, and the frozen before/after comparison of a put-back. Pure, unit-tested.
  */
-import { exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
+import { editBits, exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
 import { energyText, num, powerText } from "../core/words.ts";
 
 /** The first agent's share of power (ux-lessons 3.7: close to 75%, leaving room to replace it with any starter). */
@@ -26,6 +26,12 @@ export function otherStartingPoints(family: string, language: Language): Shipped
 
 /** The summon (or replace) price of a program, in ⚡. */
 export const summonPrice = (language: Language, source: string) => summonBits(language, source).energy;
+/** What replacing an agent's program costs (owner decision 21): only what changed, as agent.replace charges it. */
+export const editPrice = (language: Language, oldSource: string, newSource: string) => editBits(language, oldSource, newSource).energy;
+/** The edit's price beside the whole program's, and the energy to pay it. */
+export function editLine(o: { edit: number; full: number; energy: number }): string {
+  return `Replacing costs changes only: ${energyText(o.edit)} (the whole program would be ${energyText(o.full)}); you have ${energyText(o.energy)}.`;
+}
 
 export type Primary = "summonFirst" | "replace" | "summon";
 /**
