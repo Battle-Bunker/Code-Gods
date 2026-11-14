@@ -5,9 +5,6 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CATALOG, CATALOG_PATHS } from "@workspace/player-client/catalog";
-import { TOOLS } from "@workspace/player-client/tools";
-import { commandsFromCatalog } from "../src/commands.ts";
 import { matchScore, paletteRows, scoreCommand, sectionOf } from "../src/search.ts";
 import { INLINE_TIMEOUT_MS, deriveConfirm, inlineStep } from "../src/confirm.ts";
 import { pushRecent, readRecent, recordRecent } from "../src/recency.ts";
@@ -39,9 +36,15 @@ test("a row matched through an alias shows the alias; one matched by its title d
 });
 
 test("searching ranks available rows first, dims what the role blocks and hides what can never apply", () => {
-  const commands = commandsFromCatalog(CATALOG, () => local, "site");
+  const ownerOnly = (c: PaletteContext) => (c.role === "owner" ? { ok: true as const } : { ok: false as const, reason: "Only the room owner can do this." });
+  const adminOnly = (c: PaletteContext) => (c.admin ? { ok: true as const } : { ok: false as const, reason: "Only admins can do this.", hidden: true });
+  const commands: Command[] = [
+    { id: "game.end", human: { title: "End the game", tooltip: "" }, group: "owner", performer: local, available: ownerOnly },
+    { id: "chat.send", human: { title: "Send a chat message", tooltip: "" }, group: "room", keywords: ["end game talk"], performer: local, available: () => ({ ok: true }) },
+    { id: "admin.template", human: { title: "Add an AI template", tooltip: "" }, group: "account", performer: local, available: adminOnly },
+  ];
   const rows = paletteRows(commands, member, { query: "end game" }).flatMap(s => s.rows);
-  const end = rows.find(r => r.command.id === "rooms.endActiveGame");
+  const end = rows.find(r => r.command.id === "game.end");
   assert.ok(end && !end.availability.ok, "an owner command shows, dimmed, for a member");
   assert.ok(rows.findIndex(r => !r.availability.ok) > rows.findLastIndex(r => r.availability.ok) || rows.every(r => !r.availability.ok),
     "unavailable rows rank below available ones");
@@ -97,17 +100,6 @@ test("confirmation levels: explicit wins; irreversible for everyone is a modal; 
   assert.equal(deriveConfirm({ spends: true }), "summary");
   assert.equal(deriveConfirm({ everyone: true, irreversible: true }), "modal");
   assert.equal(deriveConfirm({ explicit: "none", destructive: true }), "none");
-  const fromCatalog = commandsFromCatalog(CATALOG, () => local, "site");
-  assert.equal(fromCatalog.find(c => c.id === "rooms.removeAi")?.confirm, "inline");
-  // A palette entry reached by a destructive tool states its confirmation (the multiplexed game-command entry is
-  // the player client's, which confirms its destroy row itself).
-  const destructive = new Set(TOOLS.filter(t => t.annotations.destructiveHint).map(t => t.name as string));
-  for (const path of CATALOG_PATHS) {
-    const e = CATALOG[path];
-    if (!e.palette || path === "commands.submit" || !e.tools.some(t => destructive.has(t))) continue;
-    assert.ok(e.palette.confirm && e.palette.confirm !== "none", `${path} is reached by a destructive tool and is confirmed`);
-  }
-  assert.equal(fromCatalog.find(c => c.id === "rooms.endActiveGame")?.confirm, "modal");
 });
 
 test("inline confirmation: Enter arms, Enter again within 5 s runs, later re-arms, another row re-arms", () => {

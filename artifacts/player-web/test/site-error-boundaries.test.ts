@@ -34,7 +34,6 @@ function throwingHooks(): string[] {
 
 test("every component that pages through a site query has an error boundary in its own file", () => {
   const hooks = throwingHooks();
-  assert.ok(hooks.includes("useSetupPages"), "the setup picker's paged hook is found");
   const users: string[] = [];
   for (const path of sources(SRC)) {
     if (!path.endsWith(".tsx")) continue;

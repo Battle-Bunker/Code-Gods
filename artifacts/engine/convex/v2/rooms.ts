@@ -48,6 +48,22 @@ export const get = query({
   },
 });
 
+/**
+ * A room by its join code (invite links and the URL carry the code): its id and whether the caller is a member. Any
+ * signed-in human holding the code may ask (the code is the invitation); null when no room has it.
+ */
+export const byCode = query({
+  args: { code: v.string() },
+  returns: v.union(v.object({ roomId: v.id("v2Rooms"), member: v.boolean() }), v.null()),
+  handler: async (ctx, { code }) => {
+    const user = await requireUser(ctx);
+    const room = await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", code.trim().toUpperCase())).first();
+    if (!room) return null;
+    const member = await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", room._id).eq("userId", user.userId)).first();
+    return { roomId: room._id, member: !!member };
+  },
+});
+
 export const chat = query({
   args: { roomId: v.string(), paginationOpts: paginationOptsValidator },
   returns: chatPageV,

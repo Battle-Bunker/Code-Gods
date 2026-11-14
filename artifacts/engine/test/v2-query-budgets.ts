@@ -21,6 +21,7 @@ export interface V2Budget {
 export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/rooms:list", reads: "v2Members by_user page", cold: true, pending: true },
   { query: "v2/rooms:get", reads: "room + ≤ 16 members + current and last game header", cold: true, pending: true },
+  { query: "v2/rooms:byCode", reads: "1 v2Rooms by_code + the caller's v2Members row", cold: true, pending: true },
   { query: "v2/rooms:chat", reads: "v2Chat by_room page", cold: true, pending: true },
   { query: "v2/rooms:history", reads: "v2Games by_room_phase page", cold: true, pending: true },
   { query: "v2/games:header", reads: "1 v2Games + the caller's member and player rows", cold: true, pending: true },

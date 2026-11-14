@@ -30,15 +30,12 @@
       ],
       "@sdk": [
         "./src/sdk/index.ts"
-      ],
-      "@sdk-transport": [
-        "./src/sdk/transport.ts"
       ]
     }
   },
   "references": [
     {
-      "path": "../../lib/object-views"
+      "path": "../../lib/v2-views"
     }
   ]
 }

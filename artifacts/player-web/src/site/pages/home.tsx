@@ -1,30 +1,71 @@
-import { useEffect } from "react";
-import { Link } from "wouter";
-import { api, useLive } from "@/site/lib/convex";
-import { Page, usePage } from "@/site/components/layout";
-import { Action } from "@/site/components/action";
-import { ruleGalleryPath } from "@/site/lib/routes";
+/**
+ * Home: your rooms (a paged skeleton of memberships; each row subscribes to its own room), Create room and Join with
+ * a code. Creating a room seats you and opens it (ux-lessons 1.1).
+ */
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { api } from "@workspace/engine/convex/_generated/api";
+import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
+import { Page } from "@/site/components/layout";
+import { AffordanceButton } from "@/site/components/action";
 import { EmptyState, ErrorLine } from "@/site/components/page-parts";
 import { useAuth } from "@/site/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
+import { useLive, useLivePages } from "@/site/lib/convex";
 import { errMsg } from "@/site/lib/errors";
-import { fmtWhen, isoWhen } from "@/site/lib/time";
-import type { RoomListRow } from "@/site/lib/types";
+import { affordanceContext } from "@/core/affordance-context";
+import { roomPath } from "@/site/lib/routes";
 
-/** A game needs three players (AI players count); a lobby with fewer says how many are missing. */
-const MIN_PLAYERS = 3;
-const statusWords = (r: RoomListRow) =>
-  r.activeGameShortCode ? `Game ${r.activeGameShortCode} ${r.phase === "recovery" ? "paused" : r.phase}` : `Lobby · ${r.memberCount} player${r.memberCount === 1 ? "" : "s"}${r.memberCount < MIN_PLAYERS ? ` · needs ${MIN_PLAYERS - r.memberCount} more` : ""}`;
+const phaseWords = { planning: "planning", live: "running", paused: "paused", ended: "ended" } as const;
 
-/** Signed in: your rooms, prominently with owner and creation date (no names); one Create room. */
+function RoomRow({ roomId }: { roomId: string }) {
+  const r = useLive(api.v2.rooms.get, { roomId });
+  if (r.error) return <li className="px-4 py-4 text-sm text-muted-foreground">This room is not available: {errMsg(r.error)}</li>;
+  const room = r.data;
+  if (!room) return <li className="px-4 py-4"><Skeleton className="h-8 w-full" /></li>;
+  const owner = room.members.find(m => m.owner);
+  const players = room.members.filter(m => !m.spectator).length, need = presetOf(room.preset).minPlayers;
+  const status = room.game ? `Game ${room.game.number} ${phaseWords[room.game.phase]}`
+    : `Lobby · ${players} player${players === 1 ? "" : "s"}${players < need ? ` · needs ${need - players} more` : ""}`;
+  return (
+    <li>
+      <Link href={roomPath(room.code)} className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] items-center gap-x-5 gap-y-1 px-4 py-4 hover:bg-muted/60" data-testid={`row-room-${room.roomId}`}>
+        <span className="font-mono text-xl font-semibold">{room.code}</span>
+        <span className="min-w-0 text-sm space-y-0.5">
+          <span className="block break-words font-medium">{room.name}</span>
+          <span className="block text-muted-foreground">Owner: {owner?.name ?? "?"}{owner?.me ? " (you)" : ""} · {presetOf(room.preset).title}</span>
+        </span>
+        <span className="col-span-2 sm:col-span-1 text-sm text-muted-foreground" data-testid={`text-room-phase-${room.roomId}`}>{status}</span>
+      </Link>
+    </li>
+  );
+}
+
+function JoinByCode({ onCancel }: { onCancel: () => void }) {
+  const [code, setCode] = useState("");
+  const [, navigate] = useLocation();
+  return (
+    <form className="flex flex-wrap items-center gap-2" onSubmit={e => e.preventDefault()}>
+      <input autoFocus value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="Room code" aria-label="Room code"
+        className="h-9 w-36 border px-2 font-mono uppercase" data-testid="input-join-code" />
+      <AffordanceButton id="room.join" args={() => ({ code })} label="Join" tone="primary" testId="button-join-submit"
+        disabledReason={code.trim().length < 4 ? "Type the room's code first." : null}
+        onDone={() => navigate(roomPath(code.trim().toUpperCase()))} />
+      <button type="button" className="text-sm underline underline-offset-4 text-muted-foreground" onClick={onCancel}>Cancel</button>
+    </form>
+  );
+}
+
 function Rooms() {
-  const { user } = useAuth();
-  const { run, openPalette } = usePage();
-  const rooms = useLive(api.rooms.list, {});
-  const empty = rooms.data?.length === 0;
-  const create = <Action k="rooms.create" label="Create room" tone="primary" onClick={() => run("rooms.create")} testId="button-create-room" />;
-  // Joining a friend's room is a first-minutes task: a visible button (phones have no shortcut), beside Create room.
-  const join = <button type="button" onClick={() => openPalette()} className="border px-4 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="button-join-by-code">Join with a code</button>;
+  const rooms = useLivePages(api.v2.rooms.list, {}, { initialNumItems: 20 });
+  const [, navigate] = useLocation();
+  const [joining, setJoining] = useState(false);
+  const empty = rooms.status === "Exhausted" && rooms.results.length === 0;
+  const create = <AffordanceButton id="room.create" args={{}} label="Create room" busyLabel="Creating…" tone="primary" testId="button-create-room"
+    onDone={r => navigate(roomPath(r.code))} />;
+  const join = joining ? <JoinByCode onCancel={() => setJoining(false)} />
+    : <button type="button" onClick={() => setJoining(true)} className="border px-4 py-2 text-sm font-medium hover:bg-muted" data-testid="button-join-by-code">Join with a code</button>;
   return (
     <div className="mx-auto max-w-[1100px] px-4 md:px-6 py-10 rise">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
@@ -32,38 +73,25 @@ function Rooms() {
         {!empty && <div className="flex flex-wrap gap-3">{join}{create}</div>}
       </div>
       <section className="border bg-card">
-        {rooms.isLoading && <div className="p-4 space-y-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>}
-        {rooms.error && <div className="p-4"><ErrorLine message={errMsg(rooms.error)} /></div>}
-        {empty && <EmptyState title="No rooms yet" body="Create one and share its link. A game needs 3 players, and AI players count." action={<div className="flex flex-wrap justify-center gap-3">{create}{join}</div>} testId="empty-rooms" />}
-        {!!rooms.data?.length && (
+        {rooms.status === "LoadingFirstPage" && <div className="p-4 space-y-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>}
+        {empty && <EmptyState title="No rooms yet" body="Create one and share its code. A game needs 3 players; practice partners can fill the empty seats." action={<div className="flex flex-wrap justify-center gap-3">{create}{join}</div>} testId="empty-rooms" />}
+        {rooms.results.length > 0 && (
           <ul className="divide-y">
-            {rooms.data.map(r => (
-              <li key={r.id}>
-                <Link href={`/rooms/${r.shortCode}`} className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto] items-center gap-x-5 gap-y-1 px-4 py-4 hover:bg-muted/60" data-testid={`row-room-${r.id}`}>
-                  <span className="font-mono text-xl font-semibold">{r.shortCode}</span>
-                  <span className="min-w-0 text-sm space-y-0.5">
-                    <span className="block break-words">Owner: <span className="font-medium">{r.ownerName}{r.ownerId === user?.id ? " (you)" : ""}</span></span>
-                    <span className="block">Created: <time dateTime={isoWhen(r.createdAt)}>{fmtWhen(r.createdAt)}</time></span>
-                  </span>
-                  <span className="col-span-2 sm:col-span-1 text-sm text-muted-foreground" data-testid={`text-room-phase-${r.id}`}>{statusWords(r)}</span>
-                </Link>
-              </li>
-            ))}
+            {rooms.results.map(r => <ErrorBoundary key={r.roomId} FallbackComponent={() => <li className="px-4 py-4 text-sm text-muted-foreground">This room could not be shown.</li>}><RoomRow roomId={r.roomId} /></ErrorBoundary>)}
           </ul>
         )}
+        {rooms.status === "CanLoadMore" && <button type="button" className="w-full border-t py-3 text-sm underline underline-offset-4" onClick={() => rooms.loadMore(20)} data-testid="button-more-rooms">Show more rooms</button>}
       </section>
-      <p className="mt-4 text-sm text-muted-foreground">
-        Curious what goals the gods can have? <Link href={ruleGalleryPath()} className="underline underline-offset-4" data-testid="link-rule-gallery">Browse the rule gallery</Link>.
-      </p>
     </div>
   );
 }
 
 export default function Home() {
-  const { isAuthenticated, isLoading, error, refetch } = useAuth();
+  const { isAuthenticated, isLoading, error, refetch, user } = useAuth();
   useEffect(() => { document.title = "Code Gods"; }, []);
+  const context = affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin });
   return (
-    <Page placeholder={isAuthenticated ? "Search or enter a room code" : "Search or do anything…"} crumbs={isAuthenticated ? [{ label: "Your rooms" }] : []}>
+    <Page context={context} placeholder={isAuthenticated ? "Search or enter a room code" : "Search or do anything…"} crumbs={isAuthenticated ? [{ label: "Your rooms" }] : []}>
       {isLoading ? (
         <div className="mx-auto max-w-[1100px] px-6 py-16 space-y-4"><Skeleton className="h-16 w-2/3" /><Skeleton className="h-6 w-1/2" /></div>
       ) : error ? (

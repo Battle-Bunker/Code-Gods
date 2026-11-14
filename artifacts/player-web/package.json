@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.config.ts && vite build --config vite.frame.config.ts",
+    "build": "vite build --config vite.config.ts",
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
@@ -87,6 +87,9 @@
     "@workspace/object-views": "workspace:*",
     "@workspace/player-client": "workspace:*",
     "@workspace/ui-kit": "workspace:*",
+    "@workspace/v2-affordances": "workspace:*",
+    "@workspace/v2-client": "workspace:*",
+    "zod": "catalog:",
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-views": "workspace:*",

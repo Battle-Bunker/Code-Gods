@@ -246,6 +246,12 @@ importers:
       '@workspace/ui-kit':
         specifier: workspace:*
         version: link:../../lib/ui-kit
+      '@workspace/v2-affordances':
+        specifier: workspace:*
+        version: link:../../lib/v2-affordances
+      '@workspace/v2-client':
+        specifier: workspace:*
+        version: link:../../lib/v2-client
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core
@@ -261,6 +267,9 @@ importers:
       dockview-react:
         specifier: ^8.8.2
         version: 8.8.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@convex-dev/better-auth':
         specifier: 0.12.6
@@ -568,9 +577,6 @@ importers:
       '@radix-ui/react-popover':
         specifier: ^1.1.7
         version: 1.1.23(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      '@workspace/player-client':
-        specifier: workspace:*
-        version: link:../player-client
       cmdk:
         specifier: ^1.1.1
         version: 1.1.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -618,6 +624,22 @@ importers:
       '@workspace/v2-sandbox':
         specifier: workspace:*
         version: link:../v2-sandbox
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
+
+  lib/v2-client:
+    dependencies:
+      '@workspace/engine':
+        specifier: workspace:*
+        version: link:../../artifacts/engine
+      '@workspace/v2-affordances':
+        specifier: workspace:*
+        version: link:../v2-affordances
+      convex:
+        specifier: 1.48.0
+        version: 1.48.0(react@19.1.0)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

@@ -1,0 +1,16 @@
+/** The game screen's panes by id (lib/v2-client PANE_IDS). */
+import type { PaneComponents } from "@/dock/dock";
+import { RoomChat } from "@/site/components/chat";
+import { useGameScope } from "@/sdk";
+import { OverviewPane } from "./overview";
+import { RacePane } from "./race";
+
+function ChatPane() {
+  return <RoomChat roomId={useGameScope().roomId} height="h-full min-h-[200px]" />;
+}
+
+export const PANE_COMPONENTS: PaneComponents = {
+  overview: OverviewPane,
+  race: RacePane,
+  "public-chat": ChatPane,
+};

@@ -117,7 +117,7 @@ export default function AdminAgents() {
       <div className="mx-auto max-w-[1000px] px-4 md:px-6 py-8 space-y-6 rise">
         <div className="flex items-end justify-between gap-4 flex-wrap">
           <h1 className="font-display text-5xl leading-none">AI players</h1>
-          {isAdmin && editing === undefined && <Action k="aiTemplates.create" label="New AI player" tone="primary" href="/admin/agents/new" testId="button-new-agent" />}
+          {isAdmin && editing === undefined && <Action label="New AI player" tone="primary" href="/admin/agents/new" testId="button-new-agent" />}
         </div>
         {isLoading ? <Skeleton className="h-40" /> : !isAdmin ? (
           <section className="border bg-card"><EmptyState title="Admins only" body="Your account cannot manage the AI library." action={<Link href="/" className="underline underline-offset-4">Your rooms</Link>} /></section>
