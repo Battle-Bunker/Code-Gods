@@ -24,7 +24,7 @@ function useFocusedMine(): { state: unknown; name: string } | null {
 }
 
 function Card({ rule, parts, value }: { rule: GameRule; parts: number; value: ((u: Score) => number) | null }) {
-  const example = useMemo(() => workedExample(rule), [rule]);
+  const example = useMemo(() => workedExample(rule, value), [rule, value]);
   const mine = useFocusedMine();
   const word = objectWord(rule.variant.id);
   const note = partsNote(parts, word.one, word.many);
