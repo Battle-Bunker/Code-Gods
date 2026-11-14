@@ -101,6 +101,11 @@ export interface Affordance<Id extends string = string, I extends z.ZodObject = 
   /** server: one Convex function (`defineOp`); client: a view operation on the human's layout. */
   runs: R;
   /**
+   * A server affordance that runs the sandbox or a model is a Convex action; otherwise reads are queries and writes
+   * mutations (`opKind`). Declared here so every caller (the app's `useAffordance`, the CLI) knows how to call it.
+   */
+  action?: true;
+  /**
    * What it acts in besides its params: the room or the game in view (the app passes its id) or bound (an MCP or CLI
    * credential is bound to one room, whose current game is the game). `none`: global (home, account).
    */
