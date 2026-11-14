@@ -29,6 +29,8 @@ import { PLAYER_JWT_AUDIENCE, playerIssuer, siteOrigin, siteUrl } from "../auth/
 import { sha256Hex } from "../auth/crypto";
 import { jwks } from "../auth/jwt";
 import { runTool, toolError } from "./registry";
+import { NEEDS_CONTEXT, serverForV2, v2ContextFor, v2PermissionOf } from "./mcpV2";
+import type { AffordanceContext } from "@workspace/v2-affordances";
 import { bearerFrom, envList, grantHint, isAllowedOrigin } from "./rules";
 import type { Who } from "./store";
 
@@ -86,13 +88,14 @@ async function authenticate(ctx: ActionCtx, request: Request): Promise<Who | nul
   }
 }
 
-const permissionOf = (name: string) => { try { return toolDef(name).permission; } catch { return undefined; } };
+const v1PermissionOf = (name: string) => { try { return toolDef(name).permission; } catch { return undefined; } };
 /** A JSON-RPC "Tool X not found" for a tool beyond the grant → the permission it needs (rules.ts grantHint). */
 async function withGrantHint(response: Response, who: Who): Promise<Response> {
   if (!response.headers.get("content-type")?.includes("application/json")) return response;
   const text = await response.text();
   let body: { error?: { code?: unknown; message?: unknown } } | undefined;
   try { body = JSON.parse(text); } catch { /* not ours to rewrite */ }
+  const permissionOf = who.engine === "v2" ? v2PermissionOf : v1PermissionOf;
   const hint = body?.error?.code === -32602 && typeof body.error.message === "string" ? grantHint(body.error.message, who.permission, permissionOf) : null;
   if (!hint) return new Response(text, { status: response.status, headers: response.headers });
   body!.error!.message = hint;
@@ -101,8 +104,10 @@ async function withGrantHint(response: Response, who: Who): Promise<Response> {
   return new Response(JSON.stringify(body), { status: response.status, headers });
 }
 
-/** A fresh MCP server for one request, with the tools this principal's grant may use. */
-function serverFor(ctx: ActionCtx, who: Who) {
+/** A fresh MCP server for one request, with the tools this principal's grant may use (a v2 room's: the directory's). */
+function serverFor(ctx: ActionCtx, who: Who, v2: AffordanceContext | null) {
+  // A v2 room's principal never falls through to the v1 registry.
+  if (who.engine === "v2") return serverForV2(ctx, who, v2, SERVER);
   const server = new McpServer(SERVER, { capabilities: { tools: {} }, instructions: INSTRUCTIONS, jsonSchemaValidator: validator });
   const principal = { credentialId: who.credentialId };
   for (const tool of toolsFor(who.permission)) {
@@ -130,8 +135,8 @@ function serverFor(ctx: ActionCtx, who: Who) {
  */
 let modernHandler: McpHttpHandler | undefined;
 const modern = () => modernHandler ??= createMcpHandler(({ authInfo }) => {
-  const { ctx, who } = (authInfo?.extra as { request: { ctx: ActionCtx; who: Who } }).request;
-  return serverFor(ctx, who);
+  const { ctx, who, v2 } = (authInfo?.extra as { request: { ctx: ActionCtx; who: Who; v2: AffordanceContext | null } }).request;
+  return serverFor(ctx, who, v2);
 }, { responseMode: "json", legacy: "reject", maxRequestBodySize: MAX_MCP_BODY_BYTES });
 
 export const mcp = httpAction(async (ctx, request) => {
@@ -144,19 +149,32 @@ export const mcp = httpAction(async (ctx, request) => {
   const who = await authenticate(ctx, request);
   if (who === "missing") return unauthorized();
   if (!who) return unauthorized("invalid_token");
+  // A v2 room's principal: its context, resolved by the server, decides the generated tool list. Only tools/list and
+  // tools/call need it; a context that no longer resolves (the room or user gone) is an invalid token, not a crash.
+  let v2: AffordanceContext | null = null;
+  if (who.engine === "v2" && NEEDS_CONTEXT.has(await methodOf(request))) {
+    try { v2 = await v2ContextFor(ctx, who); } catch { return unauthorized("invalid_token"); }
+  }
   try {
     if (await isLegacyRequest(request, undefined, { maxRequestBodySize: MAX_MCP_BODY_BYTES })) {
-      const server = serverFor(ctx, who);
+      const server = serverFor(ctx, who, v2);
       const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
       await server.connect(transport);
       try { return await withGrantHint(await transport.handleRequest(request), who); } finally { await server.close(); }
     }
-    return await withGrantHint(await modern().fetch(request, { authInfo: { token: "", clientId: who.credentialId, scopes: [who.permission], extra: { request: { ctx, who } } } }), who);
+    return await withGrantHint(await modern().fetch(request, { authInfo: { token: "", clientId: who.credentialId, scopes: [who.permission], extra: { request: { ctx, who, v2 } } } }), who);
   } catch (error) {
     console.error("mcp failed", error instanceof Error ? error.message : "unknown");
     return json({ jsonrpc: "2.0", id: null, error: { code: -32603, message: "Internal error" } }, 500);
   }
 });
+
+/** The JSON-RPC method of a request (the modern era's Mcp-Method header, else the body's), "" when unreadable. */
+async function methodOf(request: Request): Promise<string> {
+  const header = request.headers.get("mcp-method");
+  if (header) return header;
+  try { const body = await request.clone().json() as { method?: unknown }; return typeof body?.method === "string" ? body.method : ""; } catch { return ""; }
+}
 
 /** GET and DELETE (2025 session operations, SSE streams): this server is stateless and JSON only. */
 export const mcpMethodNotAllowed = httpAction(async () =>

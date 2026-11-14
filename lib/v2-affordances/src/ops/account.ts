@@ -39,9 +39,17 @@ export const accountOps = [
   }),
   affordance({
     id: "account.approveConnection", title: "Approve a connection", group: "account", scope: "none",
-    description: "Approves a pending OAuth or device connection request so a remote assistant can act for the human in one room. A human's own click only.",
+    description: "Approves a pending connection request so a remote assistant can act for the human: a device code (its room comes with it) or an OAuth request (the human chooses the room; an owner or account grant needs its explicit consent; `completion` is the browser's one-time secret that finishes the OAuth redirect). The grant may be lowered, never raised. A human's own click only.",
     tooltip: "Let this assistant act for you.", keywords: ["approve", "allow", "consent", "connect assistant"],
-    params: obj({ request: id, grant: z.enum(["read", "act", "owner"]), requestId: requestId.optional() }), result: ok,
+    params: obj({
+      request: id.describe("A device code, or an OAuth request id."),
+      grant: z.enum(["read", "act", "owner", "account"]).describe("account: an app acting as the human in every room (OAuth only)."),
+      room: id.optional().describe("OAuth: the room the connection acts in (not for an account grant)."),
+      completion: z.string().regex(/^[A-Za-z0-9_-]{43,128}$/).optional().describe("OAuth: the browser's one-time completion secret (43–128 base64url characters)."),
+      ownerConsent: z.boolean().optional().describe("OAuth: explicit consent to an owner grant."),
+      accountConsent: z.boolean().optional().describe("OAuth: explicit consent to an account grant."),
+      requestId: requestId.optional(),
+    }), result: ok,
     contexts: SIGNED_IN, caller: "signedIn", effect: "write", confirm: "modal", runs: "server", surfaces: CONSENT,
   }),
 ] as const;

@@ -43,6 +43,7 @@ const RANK = { read: 0, act: 1, owner: 2 } as const;
  */
 export const { op: approveConnection, as: approveConnectionAs } = defineOp("account.approveConnection", "mutation", async (env, a) => {
   const userId = callerOf(env).userId!, ctx = env.ctx;
+  if (a.grant === "account") throw new OpFailure("A device code connects one room; an account grant is only for OAuth requests.");
   const code = normalizeUserCode(a.request);
   if (!code) throw new OpFailure("That is not a device code (8 letters and digits).", "Approve an app's connection on the connect page.");
   const userCodeHash = await sha256Hex(code);
