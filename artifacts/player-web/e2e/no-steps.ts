@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 
-export const STEP_WORDS = /\bstep \d+|\brung\b|\blevel \d+|\d+\/\d+ (main|tie)/i;
+export const STEP_WORDS = /\bstep \d+|\bsteps to the top\b|\brung\b|\blevel \d+|\d+\/\d+ (main|tie)/i;
 
 /** Fails with the offending text and where it was when any visible text on the page speaks of steps. */
 export async function assertNoSteps(page: { locator(selector: string): { innerText(): Promise<string> } }, label: string): Promise<void> {
