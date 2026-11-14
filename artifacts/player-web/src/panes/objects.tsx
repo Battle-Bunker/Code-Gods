@@ -13,13 +13,14 @@ import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v2-views";
 import { lineType } from "@workspace/v2-linear";
-import { decodeState, DEFAULT_REP, useDigest, useGame, useGameScope, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type LineRule } from "@/sdk";
+import { decodeState, DEFAULT_REP, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type LineRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
 import { usePaneOps } from "@/dock/open-pane";
 import { VirtualRows } from "@/components/virtual-rows";
 import { listMaxHeight } from "@/lib/virtual-window";
 import { pointsText, rarityText } from "@/core/words";
+import { contestedLines, foldTugs } from "./tug-of-war";
 import { toast } from "@/hooks/use-toast";
 import { digestScale, payoffRect, serverSort, SORTS, whyLine, widen, type PayoffScale } from "./lines";
 
@@ -75,8 +76,8 @@ function SortControl() {
   );
 }
 
-function LineRow({ objectId, number, rule, rep, scale, focused, onOpen }: {
-  objectId: string; number: number; rule: LineRule | null; rep: string; scale: PayoffScale; focused: boolean; onOpen: (objectId: string) => void;
+function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpen }: {
+  objectId: string; number: number; rule: LineRule | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void;
 }) {
   const o = useMyObject(objectId);
   const state = useMemo(() => (o ? decodeState(o.state) : null), [o?.state]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -99,6 +100,8 @@ function LineRow({ objectId, number, rule, rep, scale, focused, onOpen }: {
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">Line {number}</span>
+        {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
+          title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">contested</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{rarityText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} points={v.points} scale={widen(scale, v.rarityBits, v.want)} />}
@@ -116,6 +119,9 @@ function SeatedLines() {
   const view = useView();
   const wide = useWide();
   const my = useMyRule();
+  // Lines your agent and another player's are pulling back and forth now (the act log's folded entries).
+  const moves = useMoves();
+  const contested = useMemo(() => contestedLines(foldTugs(moves.results)), [moves.results]);
   const digest = useDigest();
   const ids = useObjectIds(serverSort(view.objects.sort));
   const openObject = useAffordance("view.openObject");
@@ -148,7 +154,7 @@ function SeatedLines() {
         <PointsKey />
       </div>
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
-        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} onOpen={onOpen} />} />
+        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} />} />
     </div>
   );
 }
