@@ -207,3 +207,32 @@ Table points gained (mean of 3), with the share of acts in the last minute that 
 **A defect to report.** A board that stops moving within one game is the static end state the owner wants to avoid.
 The likely mechanisms: the whole-number neighbourhoods are small, nothing perturbs a line once it sits at a local
 optimum, and births are slow. Changing any of these is the owner's call.
+
+## Rational lines: starters, escapes, and the 10-object preset (2026-11-14)
+
+Scripted with `scripts/freeze.ts`, no model spend.
+- **Setup:** rational lines (line-q, the beginner default), the mixed table, unique objects, #580's prices, 300 s, 2 games each, so the differences are rough.
+- **The starters climb for points** (`climb`). On rational lines they also take the `rounding` steps: a fractional gradient or intercept to the whole number below or above, by one part (±1/d), or a stretch by its denominator.
+- **Escapes** are what a stuck climber does next:
+  - **wide:** steps up to twice as far;
+  - **dip:** a quarter of the time, the best step keeping 95% of its points;
+  - **shortcut:** the representation mutators, stretch by 2, 3, −1, 1/2 or 1/3, pivot, mirror (decision 25).
+- **"Frozen"** = no seat has a single move up its points, judged within steps (±3 plus `rounding`) and again with shortcuts added.
+
+| Starting objects / births | Agents | Table gained (mean) | Late acts idle | Frozen (steps) | Frozen (with shortcuts) |
+|---|---|--:|--:|--:|--:|
+| 10 / 0.05 | Naive | 1.7k | 68% | 32% | 0% |
+| 10 / 0.05 | Starter without `rounding` | 2.4k | 93% | 60% | 14% |
+| 10 / 0.05 | Starter (shipped) | 3.4k | 96% | 87% | 27% |
+| 10 / 0.05 | + dip | 4.0k | 94% | 90% | 26% |
+| 10 / 0.05 | + wide | 8.4k | 93% | 88% | 15% |
+| 10 / 0.05 | **+ shortcut** | **34.6k** | 92% | 83% | 50% |
+| 24 / 0.1 | Starter without `rounding` | 7.9k | 95% | 66% | 14% |
+| 24 / 0.1 | Starter (shipped) | 12.2k | 89% | 85% | 23% |
+
+- **Rational lines froze because of the starters' moves, not the rules.** Whole steps never clear a fraction. With `rounding` the starters gain about 1.4–1.5× more, and they climb to the edge of their step neighbourhood: 85–90% of objects have no better single step left.
+- **Shortcuts are the way across.**
+  - From most of those objects a stretch, pivot or mirror still raises someone's points.
+  - A climber that tries them once stuck gains about 10× the plain starter.
+  - That is the room for strategy the owner asked for. The starters stay plain on purpose, so a cleverer agent beats them.
+- **Dynamics.** Boards still go quiet: over 90% of late acts are idle for every climber. Only a few objects move in the last minute (1–12). Fewer objects (10 / 0.05) mean fewer of both.

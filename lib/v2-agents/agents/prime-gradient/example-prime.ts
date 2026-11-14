@@ -36,6 +36,7 @@ function agent(offer) {
     if (k === 0) continue;
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
   }
+  tries.push(...rounding(m, c));   // on a line with fractions: to a whole number, by one part, or stretched
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

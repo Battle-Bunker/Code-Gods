@@ -34,15 +34,15 @@
 #                                on this line (a tug-of-war).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
+#   rounding(m, c)               for a line y = mx + c with a fraction in it (rational lines): the steps that bring the
+#                                gradient or the y-intercept to the whole number below or above, nudge it by one part
+#                                (±1/d), or stretch the line by a denominator d; each (plan, m after, c after). [] when
+#                                both are whole numbers.
 #   climb(offer, options, now, most)
 #                                the step that raises your points here most (your rarity × the others' rarity, added
 #                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
 #                                `most` options best for your rule (all when left out), a small read each. now is your
 #                                score here; without the game's values it takes the step best for your rule instead.
-#   hurt(offer)                  True when another player's recent move on this line lowered your points.
-#   pays(offer, plan, s)         True when the plan leaves your points on this line at least where they are: your rarity
-#                                at score s times the others' total after it (True when the game does not say; False
-#                                for a plan the game does not allow).
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -192,6 +192,29 @@ def worth(offer):
         return None
 
 
+def rounding(m, c):
+    out = []
+    if not isinstance(m, Fraction) or not isinstance(c, Fraction):
+        return out
+    parts = []
+    if c.denominator != 1:
+        for to in (Fraction(c.numerator // c.denominator), Fraction(c.numerator // c.denominator + 1)):
+            out.append((call("si.shift", k=to - c), m, to))
+        for k in (Fraction(1, c.denominator), Fraction(-1, c.denominator)):
+            out.append((call("si.shift", k=k), m, c + k))
+        parts.append(c.denominator)
+    if m.denominator != 1:
+        for to in (Fraction(m.numerator // m.denominator), Fraction(m.numerator // m.denominator + 1)):
+            out.append((call("si.tilt", k=to - m), to, c))
+        for k in (Fraction(1, m.denominator), Fraction(-1, m.denominator)):
+            out.append((call("si.tilt", k=k), m + k, c))
+        if m.denominator != c.denominator:
+            parts.append(m.denominator)
+    for d in parts:
+        out.append((call("mach.stretch", f=Fraction(d)), m * d, c * d))
+    return out
+
+
 def climb(offer, options, now, most=None):
     options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
     if most is not None:
@@ -217,21 +240,6 @@ def climb(offer, options, now, most=None):
         if v > value + 1e-9:
             value, best = v, plan
     return None if best is None else _as_plan(best)
-
-
-def hurt(offer):
-    return any(not m.mine and m.points_after < m.points_before for m in recent(offer))
-
-
-def pays(offer, plan, s):
-    w = worth(offer)
-    if w is None:
-        return True
-    try:
-        o = offer.others_after(_as_plan(plan))
-        return o.after is not None and rarity(offer, s) * o.after >= w.mine * w.others
-    except HostError:
-        return True
 
 
 def fair(offer, plan):

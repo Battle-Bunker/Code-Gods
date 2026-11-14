@@ -168,6 +168,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   }
   out.push(
     "  }",
+    ...(kind === "naive" ? [] : ["  tries.push(...rounding(m, c));   // on a line with fractions: to a whole number, by one part, or stretched"]),
     ...(kind === "naive" ? [
       `  let top = score(m, c, ${args}), plans = [];`,
       "  for (const [plan, m2, c2] of tries) {",
@@ -255,6 +256,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     }
   }
   out.push(
+    ...(kind === "naive" ? [] : ["    tries += rounding(m, c)   # on a line with fractions: to a whole number, by one part, or stretched"]),
     ...(kind === "naive" ? [
       `    top, plans = score(m, c, ${args}), []`,
       "    for plan, m2, c2 in tries:",
