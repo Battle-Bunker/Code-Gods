@@ -143,6 +143,8 @@ export interface EvalContext<S> {
 
 export interface Evaluation {
   readonly score: Score;
+  /** The components the family scored, in order (the terms that make the score; views name them main part, tie-breaker). */
+  readonly components: readonly ScoreComponent[];
   readonly terms: readonly Term[];
   readonly marks: readonly Mark[];
   readonly reads: readonly ElementRef[];
