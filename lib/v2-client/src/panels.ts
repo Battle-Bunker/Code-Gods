@@ -18,7 +18,7 @@ const WORLD: readonly GamePhase[] = ["live", "paused", "ended", "replay"];
 export const REPLAY_PANE = "replay";
 const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -46,6 +46,7 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   "others-care": def({ id: "others-care", title: "What others care about", blurb: "Every line by your ✨ rarity and how much the others want it: who cares about what.", phases: WORLD, keywords: ["others", "want", "deals", "scatter"] }),
   "points-over-time": def({ id: "points-over-time", title: "Your points over time", blurb: "Your points at every scoreboard, rising and falling.", phases: WORLD, keywords: ["history", "chart", "points", "trend"] }),
   rules: def({ id: "rules", title: "How to play", blurb: "The game in 90 seconds, with this game's settings.", phases: ALL, keywords: ["rules", "help", "how", "settings", "energy", "power"] }),
+  assistant: def({ id: "assistant", title: "Your assistant", blurb: "Ask your assistant for help, or let it play for you.", phases: ALL, keywords: ["assistant", "ask", "help", "autopilot", "ai"] }),
   results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended"], keywords: ["end", "winner", "final"] }),
 };
 
@@ -78,15 +79,21 @@ const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("p
  * The panes to show now: the human's own arrangement once they have one (an empty view follows the phase's default),
  * without panes this phase has nothing for (the forge after the end). An arrangement made before the world started
  * (no pane that needs the world) meets the world's defaults when it starts, so a change made in planning never hides
- * the lines and the act log for the whole game. After the end the results come first even when not open (shown, not
- * stored). Unknown pane ids are dropped (a pane removed since the view was saved).
+ * the lines and the act log for the whole game; one made after the end (with the results) meets the planning defaults
+ * when the next game starts. An arrangement with none of the phase's default panes (a pane an
+ * assistant opened on the empty view, which the server stores as it is) meets the defaults the same way, the defaults
+ * first. More than MAX_PANES stored (by another client or an assistant) shows the newest. After the end the results come
+ * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved).
  */
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
-  const own = view.panes.filter(p => docked(p) && inPhase(p.pane, phase));
-  let panes = own.length ? own : defaultPanes(phase);
-  if (own.length && phase !== "planning" && !view.panes.some(p => docked(p) && needsWorld(p.pane))) {
-    const defaults = defaultPanes(phase);
-    panes = [...own, ...defaults.filter(d => !own.some(p => p.pane === d.pane))].slice(0, MAX_PANES);
+  const own = view.panes.filter(p => docked(p) && inPhase(p.pane, phase)).slice(-MAX_PANES);
+  const defaults = defaultPanes(phase);
+  let panes = own.length ? own : defaults;
+  // Before the world (arranged in planning) or after the end (the last game's results): the phase's defaults join.
+  const fromOtherPhase = phase === "planning" ? view.panes.some(p => p.pane === "results") : !view.panes.some(p => docked(p) && needsWorld(p.pane));
+  const lacksDefaults = !own.some(p => defaults.some(d => d.pane === p.pane));
+  if (own.length && (fromOtherPhase || lacksDefaults)) {
+    panes = [...defaults.filter(d => !own.some(p => p.pane === d.pane)).slice(0, Math.max(0, MAX_PANES - own.length)), ...own];
   }
   if (phase === "ended" && !panes.some(p => p.pane === "results")) return [{ pane: "results", place: "main" }, ...panes];
   return panes;
