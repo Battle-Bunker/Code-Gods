@@ -19,7 +19,8 @@ const { values: o } = parseArgs({ options: {
   games: { type: "string", default: "2" }, seconds: { type: "string", default: "300" }, usd: { type: "string", default: "1" },
   out: { type: "string" }, only: { type: "string" },
   model: { type: "string", default: "cheap" },
-  effort: { type: "string", default: "low" },   // cheap: the cheapest Anthropic model in v2-ai's list; strong: the next dearer one
+  effort: { type: "string", default: "low" },
+  rules: { type: "string" },   // three family/tie-breaker, comma-separated (default: the mixed table below)   // cheap: the cheapest Anthropic model in v2-ai's list; strong: the next dearer one
 } });
 const games = Number(o.games), seconds = Number(o.seconds);
 const key = process.env.CODE_GODS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
@@ -34,7 +35,7 @@ const budget = new Budget({ tokens: 50_000_000, usd: Number(o.usd) });
 
 const beginner = presets.find(p => p.id === "lines-beginner")!.rules;
 // Three families of the §10.5 beginner pool, one of them new in it (Whole Crossing).
-const RULES = [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]] as const;
+const RULES = (o.rules ? o.rules.split(",").map(r => r.split("/") as [string, string]) : [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]]) as readonly (readonly [string, string])[];
 const NAMES = ["Ada", "Bo", "Cy"];
 const seat = (k: number, kind: SeatKind): TableSeat => {
   const [family, tieBreaker] = RULES[k]!;

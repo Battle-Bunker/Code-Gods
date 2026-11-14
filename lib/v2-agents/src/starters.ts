@@ -58,15 +58,12 @@ const POINTS = {
   ts: [
     "  if (!plans.length) return null;",
     "  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
-    "  if (!plan || price(offer, plan) > energy(offer) * SPEND) return null;   // too dear: keep the energy for more turns",
     "  return plan;",
   ],
   py: [
     "    if not plans:",
     "        return None",
     "    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
-    "    if plan is None or price(offer, plan) > energy(offer) * SPEND:   # too dear: keep the energy for more turns",
-    "        return None",
     "    return plan",
   ],
 };
@@ -87,7 +84,7 @@ const HOW = [
   "no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.",
   "Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line",
   "back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal",
-  "with that player and change the agent to keep it. It never spends more than a quarter of its energy on one move.",
+  "with that player and put the line in LEAVE to keep it.",
   "Changing it later costs only what you change. To summon another agent, first move power from your agents to your",
   "own store (energy moves with it), pay, then share the power out again.",
 ];
@@ -136,7 +133,6 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
-      "const SPEND = 0.25;    // never spend more than a quarter of your energy on one move",
       "const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
     ]),
     "",
@@ -213,7 +209,6 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
-      "SPEND = 0.25    # never spend more than a quarter of your energy on one move",
       "LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
     ]),
     "",
