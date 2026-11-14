@@ -115,3 +115,20 @@ test("compact face: the main part's quantity, target and distance; a cited impli
   assert.match(text(html), /gradient 1, y-intercept 5 · off by 4/);
   assert.match(html, /data-ref="si\.m"[^>]*>(<span[^>]*>)?<span class="v2v-implied">1<\/span>/);
 });
+
+test("identity badges: the elements a part reads carry its role in every view, projected by meaning", async () => {
+  const { primeLanding, fromMC: f, lineZ } = await import("@workspace/v2-linear");
+  const rule: RuleRef<LineState, unknown> = { type: lineType, family: primeLanding as never, params: primeLanding.dealable(lineZ)[0], variant: lineZ, tieBreaker: "big-prime" };
+  const s: LineState = { lines: [f(q(6), q(25))] };
+  const reps = lineType.representations.map(r => r.id);
+  for (const compare of reps) {
+    const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} compare={compare} initialRep={rule.family.main.rep} />);
+    const roles = [...html.matchAll(/data-ref="([^"]+)"[^>]*data-role="(main|tb)"/g)].map(m => `${m[1]}:${m[2]}`);
+    assert.ok(roles.some(r => r.endsWith(":main")), `${compare}: a main-part badge somewhere: ${roles}`);
+    // The y-intercept is the main part's source; any view that shows the y-intercept badges it.
+    if (/data-ref="si\.c"/.test(html)) assert.match(html, /data-ref="si\.c"[^>]*data-role="main"/, compare);
+  }
+  // A badge is said, not only drawn: its title names the part.
+  const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={s} initialRep={rule.family.main.rep} />);
+  assert.match(html, /data-role="main"[^>]*title="[^"]*\(main part\)"/);
+});

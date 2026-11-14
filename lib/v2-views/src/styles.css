@@ -362,3 +362,8 @@
 .v2v-goal-sub { font-size: 14px; font-weight: 650; margin: 10px 0 4px; }
 .v2v-goal-example > summary { cursor: pointer; }
 .v2v-move-result { font-weight: 400; color: var(--v2v-muted); }
+
+/* Identity badges (design §8): the elements a part of your rule reads, in every view, by its glyph and colour. */
+.v2v .v2v-el[data-role] { color: var(--v2v-id); font-weight: 700; }
+.v2v .v2v-el[data-role]::after { content: "●" / ""; font-size: 0.55em; vertical-align: super; margin-left: 1px; color: var(--v2v-id); }
+.v2v .v2v-el[data-role="tb"]::after { content: "◆" / ""; }
