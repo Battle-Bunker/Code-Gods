@@ -6,7 +6,10 @@
 import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
-import { objectWord, useGame, useLeaderboard, useRotationRound } from "@/sdk";
+import { useMemo } from "react";
+import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
+import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
+import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
@@ -37,6 +40,7 @@ export function ResultsPane() {
       {header.phase === "ended" && round === null && rows.some(r => r.handicap > 0) && (
         <p className="text-muted-foreground" data-testid="text-results-no-rotation">A rule was won in the bid this game, so there is no rotation this round: the next game deals new rules.</p>
       )}
+      {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       {header.me && rows.length > 0 && (
         <MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={header.phase === "ended"} testId="results-points" />
       )}
@@ -80,4 +84,29 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
       </ol>
     </section>
   );
+}
+
+/**
+ * The end of the game in plain words (coordinator, 14 November: a persona was left with a rank and no next step): what
+ * earned your points, what cost you, and one thing to try next game (lib/v2-views summary.tsx). It reads only what the
+ * game's panes already share: Lines' skeleton by your points and its objects, the act log's tug-of-wars, your rule.
+ */
+function EndSummary({ total }: { total: number }) {
+  const header = useGame();
+  const my = useMyRule();
+  const ids = useObjectIds("points");
+  const moves = useMoves();
+  const top = useMemo(() => ids.results.slice(0, 5).map(r => r.objectId), [ids.results]);
+  const objects = useMyObjects(top);
+  const summary = useMemo(() => {
+    if (!my || !header) return null;
+    const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
+    const tugs: SummaryTug[] = foldTugs(moves.results).flatMap(i => (i.kind === "tug"
+      ? [{ number: i.number, withNames: [...new Set(i.moves.filter(m => !m.mine && m.by).map(m => m.by!.name))], flips: i.flips, mySpend: i.mySpend }]
+      : []));
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total });
+  }, [my, header, objects, moves.results, total]);
+  // Said only once the page and its objects have loaded: an empty list read "no line scored" to a player with points.
+  if (!summary || ids.status === "LoadingFirstPage" || objects.some(o => o === undefined)) return null;
+  return <div data-testid="results-summary"><GameSummary summary={summary} /></div>;
 }
