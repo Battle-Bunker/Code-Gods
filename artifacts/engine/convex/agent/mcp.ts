@@ -76,17 +76,12 @@ async function authenticate(ctx: ActionCtx, request: Request): Promise<Who | nul
   }
 }
 
-/** A fresh MCP server for one request: `whoami` (who this connection acts as, in which room, with which permission). */
-function serverFor(who: Who) {
-  const server = new McpServer(SERVER, { capabilities: { tools: {} }, instructions: INSTRUCTIONS, jsonSchemaValidator: validator });
-  server.registerTool("whoami", {
-    title: "Who am I", description: "Who this connection acts as: the human, the room, the permission and when it expires.",
-    annotations: { readOnlyHint: true, openWorldHint: false }, inputSchema: schemas().input, outputSchema: schemas().output,
-  }, async (): Promise<CallToolResult> => {
-    const result = { subject: who.subject, name: who.name, roomId: who.roomId, roomCode: who.roomCode, permission: who.permission, kind: who.kind, label: who.label, expiresAt: who.expiresAt };
-    return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result };
-  });
-  return server;
+/**
+ * A fresh MCP server for one request. Its tools are generated from the affordance directory (owner decision 16;
+ * W6-2's MCP generator), never registered here by hand: until that lands on v2 rooms, the server lists none.
+ */
+function serverFor(_who: Who) {
+  return new McpServer(SERVER, { capabilities: { tools: {} }, instructions: INSTRUCTIONS, jsonSchemaValidator: validator });
 }
 
 /**

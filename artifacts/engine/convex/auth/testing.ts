@@ -43,6 +43,9 @@ export const setRoomOwner = internalMutation({
   args: { roomId: v.id("v2Rooms"), ownerId: v.string() },
   handler: async (ctx, { roomId, ownerId }) => {
     guard();
+    // In v2 an owner is always a member: the new owner gets a members row if they had none.
+    const member = await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", roomId).eq("userId", ownerId)).first();
+    if (!member) await ctx.db.insert("v2Members", { roomId, kind: "human", userId: ownerId, name: ownerId, spectator: false, joinedAt: Date.now() });
     await ctx.db.patch(roomId, { ownerId });
   },
 });

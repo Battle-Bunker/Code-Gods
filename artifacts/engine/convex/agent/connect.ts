@@ -30,15 +30,13 @@ import { requireViewer, type Grant, type Permission, type Viewer } from "../auth
 import { sha256Hex } from "../auth/crypto";
 import { grantV } from "../auth/tables";
 import { findRoom } from "../auth/rooms";
+import { memberOf } from "../v2/access";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 const grant = grantV;
 const fail = (code: string, message: string): never => { throw new ConvexError({ code, message }); };
 /** The completion secret's format (the page sends 32 random bytes, base64url). */
 const COMPLETION = /^[A-Za-z0-9_-]{43,128}$/;
-/** The human's membership of a v2 room, or null. */
-const memberOf = (ctx: QueryCtx, roomId: Id<"v2Rooms">, userId: string) =>
-  ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", roomId).eq("userId", userId)).first();
 
 async function requireBrowser(ctx: QueryCtx): Promise<Viewer> {
   const viewer = await requireViewer(ctx);

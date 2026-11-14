@@ -25,6 +25,7 @@ import type { QueryCtx, MutationCtx } from "../_generated/server";
 import { convexSiteUrl } from "./config";
 import { isAdminUser, tokenKind } from "./identity";
 import { credentialKind, credentialProblem, type CredentialKind } from "./principal";
+import { memberOf } from "../v2/access";
 
 export type Permission = "read" | "act" | "owner";
 /** What a credential grants: one room with a Permission, or the human's whole account ("account"). */
@@ -117,6 +118,8 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
   const roomId = credential.roomId ? ctx.db.normalizeId("v2Rooms", credential.roomId) : null;
   const room = roomId ? await ctx.db.get(roomId) : null;
   if (credentialProblem(credential, room, Date.now())) return null;
+  // A room credential acts for a member: someone who has left the room (its owner included) holds nothing there.
+  if (room && !await memberOf(ctx, room._id, credential.subject)) return null;
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", credential.subject)).unique();
   if (!user) return null;
   if (credential.permission === "account") {

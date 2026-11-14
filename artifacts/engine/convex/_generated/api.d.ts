@@ -8,7 +8,6 @@
  * @module
  */
 
-import type * as activity from "../activity.js";
 import type * as agent_connect from "../agent/connect.js";
 import type * as agent_mcp from "../agent/mcp.js";
 import type * as agent_oauth from "../agent/oauth.js";
@@ -82,7 +81,6 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  activity: typeof activity;
   "agent/connect": typeof agent_connect;
   "agent/mcp": typeof agent_mcp;
   "agent/oauth": typeof agent_oauth;

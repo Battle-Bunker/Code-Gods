@@ -4,6 +4,7 @@
  */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { memberOf, normaliseCode } from "../v2/access";
 
 export type RoomFacts = { roomId: string; shortCode: string; ownerId: string };
 const facts = (room: Doc<"v2Rooms">): RoomFacts => ({ roomId: room._id, shortCode: room.code, ownerId: room.ownerId });
@@ -12,8 +13,7 @@ const facts = (room: Doc<"v2Rooms">): RoomFacts => ({ roomId: room._id, shortCod
 export async function findRoom(ctx: QueryCtx, ref: string): Promise<Doc<"v2Rooms"> | null> {
   const id = ctx.db.normalizeId("v2Rooms", ref);
   if (id) return ctx.db.get(id);
-  const code = ref.toUpperCase().replace(/[-\s]/g, "");
-  return ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", code)).first();
+  return ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", normaliseCode(ref))).first();
 }
 
 /** Resolve a room reference (lib findRoom: a Convex id or the code). Null when unknown or malformed. */
@@ -23,9 +23,10 @@ export async function resolveRoom(ctx: QueryCtx, ref: unknown): Promise<RoomFact
   return room ? facts(room) : null;
 }
 
-/** Whether `subject` is a member of the room (the owner always is). Approval never grants more than the human has. */
+/**
+ * Whether `subject` is a member of the room now (a members row: an owner who left is not one). Approval never grants
+ * more than the human has.
+ */
 export async function isRoomMember(ctx: QueryCtx, room: RoomFacts, subject: string): Promise<boolean> {
-  if (room.ownerId === subject) return true;
-  const row = await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", room.roomId as Id<"v2Rooms">).eq("userId", subject)).first();
-  return row !== null;
+  return (await memberOf(ctx, room.roomId as Id<"v2Rooms">, subject)) !== null;
 }

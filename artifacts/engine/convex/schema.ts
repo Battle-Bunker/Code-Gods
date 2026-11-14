@@ -13,9 +13,8 @@ const versionTables = {
 };
 
 /**
- * Infrastructure shared by both engines (integration plan §4.1), with the validators they had: the AI template library
- * (aiTemplates.ts), the host-wide AI spend, the last human activity (activity.ts), the agent runtime's assets and
- * compiled programs, and the stored settings manifest.
+ * Infrastructure shared by both engines (integration plan §4.1), with the validator it had: the AI template library
+ * (aiTemplates.ts).
  */
 const sharedTables = {
   aiTemplates: defineTable({
@@ -24,26 +23,6 @@ const sharedTables = {
     /** Deleted templates stay as tombstones so seeding never recreates them. */
     deleted: v.boolean(),
   }).index("by_template", ["templateId"]).index("by_deleted", ["deleted"]),
-  /** Host-wide AI spend per UTC day. */
-  aiUsage: defineTable({
-    day: v.string(), usd: v.number(), calls: v.number(),
-    assistantUsd: v.optional(v.number()), assistantCalls: v.optional(v.number()),
-  }).index("by_day", ["day"]),
-  /** Singleton (key "global"): the last authenticated human activity. */
-  activity: defineTable({ key: v.string(), lastHumanActivityAt: v.number() }).index("by_key", ["key"]),
-  runtimeAssets: defineTable({
-    name: v.string(), sha256: v.string(), storedSha256: v.string(), storageId: v.id("_storage"), size: v.number(), uploadedAt: v.number(),
-  }).index("by_name", ["name"]),
-  runtimeReadiness: defineTable({
-    language: v.union(v.literal("python"), v.literal("typescript")), version: v.string(),
-    state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")), reason: v.optional(v.string()),
-    attemptAt: v.number(), attempts: v.number(), readyAt: v.optional(v.number()), bootMs: v.optional(v.number()),
-  }).index("by_language", ["language"]),
-  compiledPrograms: defineTable({
-    key: v.string(), language: v.string(), js: v.string(), inspection: v.any(),
-    error: v.optional(v.object({ code: v.string(), message: v.string() })), compiledAt: v.number(),
-  }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]).index("by_language", ["language"]),
-  manifests: defineTable({ name: v.string(), body: v.string(), updatedAt: v.number() }).index("by_name", ["name"]),
 };
 
 /**
@@ -52,6 +31,7 @@ const sharedTables = {
  * Nothing on this branch reads or writes them.
  */
 const V1_TABLES = [
+  "aiUsage", "activity", "runtimeAssets", "runtimeReadiness", "compiledPrograms", "manifests",
   "holdTables", "examinationRuns", "workSlots", "rooms", "roomBids", "gameAuctions", "members", "games", "gameClocks", "gameEngine",
   "standings", "standingsHistory", "agentSamples", "deities", "objects", "objectViews", "knowledgeLog", "godTotals", "agents",
   "futileActs", "tickBatches", "objectEvents", "catalogs", "chat", "examinations", "receipts", "gameSetups",
