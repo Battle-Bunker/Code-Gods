@@ -1,5 +1,6 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
-import { membersOf, rotationFor, startGame } from "../lobby";
+import { membersOf, openBidding, rotationFor, startGame } from "../lobby";
+import { presetOf } from "../presets";
 import { OpFailure } from "@workspace/v2-affordances";
 import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
 import { defineOp, inGame, inRoom, notYet, seated } from "./define";
@@ -28,8 +29,13 @@ export const { op: rotation, as: rotationAs } = defineOp("game.rotation", "query
   return { seats: rotated ? seats.map((m, i) => ({ memberId: m._id, name: m.name, family: rotated.rules[i]!.family })) : [] };
 });
 
+/** Deals and starts planning; on a preset with a bid phase, opens the phase instead (the deal follows it). */
 export const { op: start, as: startAs } = defineOp("game.start", "mutation", async env => {
   const { room } = inRoom(env);
+  if (presetOf(room.preset).bid) {
+    await openBidding(env.ctx, room);
+    return { gameId: null, bidPhase: true };
+  }
   return { gameId: await startGame(env.ctx, room), bidPhase: false };
 });
 export const { op: startWorldNow, as: startWorldNowAs } = defineOp("game.startWorldNow", "mutation", async env => {
@@ -64,4 +70,16 @@ export const { op: pause, as: pauseAs } = defineOp("game.pause", "mutation", asy
   await pauseGame(env.ctx, game, member._id);
   return { ok: true as const };
 });
-export const { op: auction, as: auctionAs } = defineOp("game.auction", "query", () => notYet("W3-8"));
+/**
+ * The game's auction as its preset discloses it while the game runs: `none` (each player sees only their own win),
+ * `handicaps` (everyone's handicap, own family only) or `all`; everything after the end.
+ */
+export const { op: auction, as: auctionAs } = defineOp("game.auction", "query", async env => {
+  const { game, member } = inGame(env);
+  const a = await env.ctx.db.query("v2Auctions").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
+  const disclosure = game.phase === "ended" || env.scope.replay ? "all" : a?.disclosure ?? "none";
+  const name = (id: string) => game.roster.find(r => r.memberId === id)?.name ?? "";
+  const wins = (a?.wins ?? []).filter(w => disclosure !== "none" || w.memberId === member._id)
+    .map(w => ({ memberId: w.memberId, name: name(w.memberId), family: disclosure === "all" || w.memberId === member._id ? w.family : null, handicap: w.handicap }));
+  return { disclosure, wins, bids: disclosure === "all" && a ? a.bids.map(b => ({ memberId: b.memberId, family: b.family, percent: b.percent })) : null };
+});

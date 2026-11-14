@@ -255,3 +255,9 @@ export const agentsOf = internalQuery({
     return out;
   },
 });
+
+/** A game's header as stored (tests read fields no query returns, such as `rotates`). */
+export const header = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => { fixtures(); return await ctx.db.get(gameId); },
+});

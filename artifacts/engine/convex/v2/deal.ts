@@ -9,7 +9,8 @@
  * then the next game is dealt afresh. A deal made with winning bids never
  * rotates and never continues a rotation.
  */
-import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type RuleFamily, type Rung } from "@workspace/v2-core";
+import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type Rng, type RuleFamily, type Rung } from "@workspace/v2-core";
+import type { BidDealer } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import { CATALOGUE } from "@workspace/v2-agents/pure";
 import { findVariant, ruleKey } from "@workspace/v2-valuation";
@@ -60,13 +61,49 @@ export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
  * the pool lasts (the pool is reused from its start when there are more seats than rules).
  */
 export function freshDeal(pool: readonly DealtRule[], seats: number, seed: string): DealtRule[] {
+  return dealFrom(pool, seats, dealRng(seed));
+}
+/** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
+export const dealRng = (seed: string): Rng => rng(seed, "deal");
+/** A fresh deal drawn from `r`. */
+export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng): DealtRule[] {
   if (pool.length === 0) throw new Error("No rule of this preset has a converged artefact: nothing can be dealt");
-  const r = rng(seed, "deal"), order = [...pool];
+  const order = [...pool];
   for (let i = order.length - 1; i > 0; i--) {
     const j = r.below(i + 1);
     [order[i], order[j]] = [order[j]!, order[i]!];
   }
   return Array.from({ length: seats }, (_, i) => order[i % order.length]!);
+}
+
+/**
+ * The dealer as the bid mechanism reaches it (lib/v2-economy dealWithBids): a winner is dealt one of their family's
+ * dealable rules; everybody else is dealt fresh from the rules of the families nobody won, from the same stream, so
+ * a phase with no bids deals exactly what the plain deal would.
+ */
+export function bidDealer(pool: readonly DealtRule[]): BidDealer<DealtRule> {
+  return {
+    dealFamily(family, r) {
+      const rules = pool.filter(x => x.family === family);
+      if (!rules.length) throw new Error(`No dealable rule of ${family}`);
+      return rules[r.below(rules.length)]!;
+    },
+    dealRest(count, excluded, r) {
+      const left = pool.filter(x => !excluded.includes(x.family));
+      return dealFrom(left, count, r);
+    },
+  };
+}
+
+/** The families on offer in a bid phase: each with its card and its ladder's top (✨ bits, rounded). */
+export function offers(pool: readonly DealtRule[]) {
+  const out: { family: string; title: string; card: string; top: number }[] = [];
+  for (const id of [...new Set(pool.map(r => r.family))]) {
+    const rules = pool.filter(r => r.family === id), f = familyOf(id);
+    const top = Math.max(...rules.map(r => Math.max(0, ...(artefactFor(r.ruleKey)?.rungs.map(x => x.bits ?? 0) ?? [0]))));
+    out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- rotation
