@@ -202,7 +202,7 @@ export const setBidding = internalMutation({
     fixtures();
     const room = (await ctx.db.get(roomId))!;
     const offers = presetOf(room.preset).families.flatMap(id => {
-      const f = families.find(x => x.id === id) as RuleFamily<LineState, unknown> | undefined;
+      const f = lineType.families.find(x => x.id === id) as RuleFamily<LineState, unknown> | undefined;
       if (!f) return [];
       const params = f.dealable(lineZ)[0]!;
       return [{ family: f.id, title: f.title, card: f.card(params, null), top: (objectLadder(lineType, f, params, lineZ).length - 1) * RARITY_PER_LEVEL }];
