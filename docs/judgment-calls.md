@@ -120,7 +120,7 @@ alternative. Entries are in the order they were written; the numbers are labels,
     leads told to stop, push, write docs/handover-<area>.md and report; successors are fresh Opus sessions (fewer
     of them, run in sequence where they share files). Finished leads (energy, tiered rules, paid looks, bid,
     distance) simply stop. Coordinator replies kept short and check-ins sparse.
-36. (tiered-rules lead) Two Pair's ★ tiers stay dealt although a one-cell climber reaches 0.00-0.06 of them (they
+36. (tiered-rules lead; tiers deleted in D1, archive/engine-v1) Two Pair's ★ tiers stay dealt although a one-cell climber reaches 0.00-0.06 of them (they
     need two cells moved together): left for the owner. Kings' roads of 2 and 3 no longer dealt. Crosswise Threes
     added as a fifth tiered family (lines only).
 37. BALANCE (major). Measured: among equally skilled players the deal decides a single game, and no per-rule

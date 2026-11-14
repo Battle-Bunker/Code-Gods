@@ -8,7 +8,7 @@ Status: design, with measurements. It answers the finding that one-condition rul
 > factor of that integer. Or primary is distance of area with origin to a perfect square and secondary is the number of
 > prime factors in the root of that nearest perfect square."
 
-It builds on the grid's layered rules ([../layered-rules-design.md](../layered-rules-design.md),
+It builds on the grid's layered rules ([../layered-rules-design.md](https://github.com/Battle-Bunker/Code-Gods/blob/archive/engine-v1/docs/layered-rules-design.md),
 `archive/engine-v1:docs/tiered-rules.md`), on the spec's line, representations, codes and valuation
 ([spec.md](spec.md) §2.3, §4, §7, §12), and on the owner's principle on prices: moving to larger or more complex numbers
 costs more than coming back, which makes "gravitational centres that are expensive to depart from".
