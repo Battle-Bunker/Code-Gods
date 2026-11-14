@@ -216,25 +216,37 @@ test("each grid example climbs: no move lowers the main part, some raise it, som
   assert.deepEqual(stuck, []);
 });
 
-test("the starters play for points: below their reserve they keep their energy where nobody else values the board, and pay where others do", async () => {
-  for (const e of DESCRIBED) {
-    const f = familyOf(e.family), tieBreaker = f.tieBreakers[0]!.id;
-    const rule = { family: e.family, params: paramsOf(e.family), tieBreaker };
-    const v = worthOf(rule);
-    const [start] = births(gridType, grid4, `points-${e.family}`, 1);
-    const run = async (a: ShippedAgent, others: number, energy: number) => (await runAct(await boxes.get(a.language), {
-      type: gridType, variant: grid4, state: start!, rule, program: program(a), seed: "1", energy,
-      values: v.values, value: { mine: v.bits(start!), others, points: v.bits(start!) * others },
-    })).record.outcome;
-    for (const language of ["typescript", "python"] as const) {
-      const [simple, thorough, bold, naive] = startersFor(e.family, language, tieBreaker);
-      assert.equal(await run(naive!, 0, 280), "committed", `${e.family}: Naive pays on a board only it values`);
-      for (const a of [simple!, thorough!, bold!]) {
-        const what = `${e.family} ${a.title} (${language})`;
-        assert.equal(await run(a, 0, 280), "skipped", `${what}: below its reserve, a board nobody else values is not worth a move`);
-        assert.equal(await run(a, 60, 280), "committed", `${what}: a board the others value is`);
-        assert.equal(await run(a, 0, 500), "committed", `${what}: above its reserve it climbs`);
-      }
+test("contested (another player's move lowered my points): the starters make only moves that keep their own points; uncontested they climb", async () => {
+  // A board perfect for both Magic Eighteen (every row adds up to 18) and Opposite Nines (every cell and its opposite
+  // add up to 9): Magic Eighteen can only chase its tie-breaker (a bigger first column), which breaks the other
+  // player's pairs and so lowers my own points (my rarity times theirs) unless my rarity rises enough.
+  const theirs: GridState = { cells: [9, 0, 9, 0, 1, 8, 1, 8, 1, 8, 1, 8, 9, 0, 9, 0] };
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const opp = { family: "opposite-nines", params: paramsOf("opposite-nines"), tieBreaker: "odd" };
+  const mine = worthOf(rule), them = worthOf(opp);
+  const points = (s: GridState) => mine.bits(s) * them.bits(s);
+  const value = { mine: mine.bits(theirs), others: them.bits(theirs), points: points(theirs) };
+  const others = [{ rule: opp, values: them.values! }];
+  const hurtBy = [{ mine: true, pointsBefore: 1, pointsAfter: value.points }, { mine: false, pointsBefore: value.points + 5, pointsAfter: value.points }];
+  const run = async (a: ShippedAgent, history: typeof hurtBy) => {
+    const { record, state } = await runAct(await boxes.get(a.language), {
+      type: gridType, variant: grid4, state: theirs, rule, program: program(a), seed: "1", energy: 600, values: mine.values, value, history, others,
+    });
+    assert.notEqual(record.outcome, "failed", `${a.title} (${a.language}): ${record.reason}`);
+    return { outcome: record.outcome, after: points(state) };
+  };
+  for (const language of ["typescript", "python"] as const) {
+    const [simple, thorough, bold] = startersFor("magic-eighteen", language, "first-column");
+    for (const a of [thorough!, bold!]) {
+      // These move an amount between two cells of a row, so they can raise the first column and keep every row at 18.
+      const what = `${a.title} (${language})`;
+      const calm = await run(a, []);
+      assert.equal(calm.outcome, "committed", `${what}: uncontested, it climbs`);
+      assert.ok(calm.after < value.points, `${what}: uncontested, its climb lowers my own points here (the test bites)`);
+    }
+    for (const a of [simple!, thorough!, bold!]) {
+      const contested = await run(a, hurtBy);
+      if (contested.outcome === "committed") assert.ok(contested.after >= value.points - 1e-9, `${a.title} (${language}): contested, a move that lowers my points`);
     }
   }
 });

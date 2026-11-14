@@ -3,7 +3,8 @@
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
-# a note, so you can make a deal with that player. It never spends more than a quarter of its energy on one move.
+# a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
+# changes that keep them.
 # Try this: change FAR = 3 to 5: the fold line has no partner, so it can jump freely.
 
 
@@ -65,10 +66,9 @@ def agent(offer):
     # A promise: on these boards, only moves that leave the other players at least as well off.
     if offer.object in PROTECT:
         plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]
-    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best
-    if plan is None:           # nothing better (or nothing allowed): skip
+    # Contested (another player's move lowered your points here): only moves that keep your own points.
+    if hurt(offer):
+        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]
+    if not plans:   # nothing better (or nothing that keeps your points): skip
         return None
-    cost, e = price(offer, plan), energy(offer)
-    if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns
-        return None
-    return plan
+    return cheapest(offer, plans[:QUOTES])   # the cheapest of the best

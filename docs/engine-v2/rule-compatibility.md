@@ -206,3 +206,68 @@ off.
   compatible table, where climbing often passes through states that briefly lower the others.
 - **So no single rule wins everywhere yet.** Whether the starters adopt the points-never-fall rule depends on which
   tables the server deals (owner's call).
+
+### Which acceptance rule the starters use (2026-11-14)
+
+Scripted runs, no model spend. Same tables, server economy, 300 s. The starters keep greedy play, the cheapest of the
+best plans for their own rule. They differ in which moves they refuse. "Own points" is π_i = n_i · Σ n_j, the seat's
+rarity times the others' total, read through `pays(offer, plan, s)` (`othersAfter` gives only the others' total).
+
+First pass, 2 games each (table points gained):
+
+| Acceptance rule | Mixed (conflicted) | Compatible |
+|---|--:|--:|
+| Naive | 8,257 | 43,947 |
+| Greedy (Simple) | 6,357 | 41,902 |
+| Own points must not fall | 20,633 | 27,002 |
+| …unless the best 2-move continuation recovers them | 7,964 | 36,558 |
+| …unless the best 3-move continuation recovers them | 6,162 | 32,461 |
+| Most own points per ⚡ over all candidate moves | 23,358 | 29,805 |
+| Annealing: dips of up to 25% (or 50%) allowed while the line is young, none after 8 moves on it | 32,955 (31,321) | 30,814 (31,114) |
+| **Own points must not fall, on contested lines only** | 11,434 | 42,239 |
+| Annealing on contested lines only | 14,778 | 38,907 |
+
+The lookahead variants used up to about 100 `othersAfter` reads per act. The 3-move one hit the 64-call cap in some
+acts. Agents have no game clock, so annealing is keyed on the line's recent-move count instead.
+
+These games are chaotic: a little more or less ⚡ reshuffles who acts next. Re-measured with the shipped starters over
+6 games (mean ± standard error):
+
+| Starter | Mixed (conflicted) | Compatible |
+|---|--:|--:|
+| Naive | 8,159 ± 348 | 37,496 ± 3,831 |
+| Greedy | 7,274 ± 736 | 37,427 ± 3,078 |
+| **Greedy + the contested-line rule (shipped)** | **11,252 ± 567** | 33,130 ± 804 |
+
+- **Looking ahead does not help.** Refusing a move that lowers your own points loses on compatible tables, where
+  the others' own agents repair the dip. Giving the mover a 2- or 3-move continuation to recover rescues no table.
+- **Refusing only where you are being pulled back works best overall.** The rule:
+  `if (hurt(offer)) plans = plans.filter(plan => pays(offer, plan, top))`.
+  `hurt` means another player's recent move on this line lowered your points.
+  - It gains 55% over greedy on the conflicted table (about 4 standard errors).
+  - On the compatible table it is about 11% lower (about 1.4 standard errors) and steadier from game to game.
+- **The always-on rules gain more where everyone conflicts.** Annealing reaches 4× naive there, but loses 20–30% on
+  compatible tables. The shipped rule is the safer default.
+- **None of these pays a lone seat among naive players.**
+  - Prime Landing gains 3,262 as a naive seat among naive players, 1,952 as a lone Simple seat with this rule.
+  - Settling alone at your own best line pays for some rules and loses for others. Prime Landing: 2,096 against
+    3,262 naive. Treasure: 4,297 against 2,687. Whole Crossing: 698 against 2,308.
+  - Settling alone at the shared state y = −x + 59 pays 9×: Prime Landing gains 30,161, and the table 67,197.
+  - So a lone seat gains by learning the shared state in chat, from the others describing their rules. No tool
+    reads hidden rules.
+
+### Settling on a grid table
+
+Magic Eighteen/primes, Opposite Nines/primes and Mirrormancer/middle, the grid economy, 300 s, 2 games. The shared
+board 8118455454451881 was found by hill-climbing the table total. There the three score 26, 37 and 31 bits:
+5,901 points a board. The `#538` example board 9779855879979779 scores 33 for this table.
+
+| How the seats play | Table total at the end | Lowest seat |
+|---|--:|--:|
+| Naive | 108,883 | 22,690 |
+| Simple (with the old RESERVE check) | 55,846 | 8,529 |
+| One seat settles and holds (the others Simple) | 44,833 | 3,949 |
+| **All settle and hold** | **302,102** | **91,201** |
+
+On grids, settling pays only when everyone settles: 2.8× naive, and the poorest seat gets 4× its naive points. One
+settler alone loses.
