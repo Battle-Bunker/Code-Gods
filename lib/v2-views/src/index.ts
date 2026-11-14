@@ -9,3 +9,4 @@ export * from "./faces.tsx";
 export * from "./story.tsx";
 export * from "./contributors.ts";
 export * from "./moves.ts";
+export * from "./summary.tsx";
