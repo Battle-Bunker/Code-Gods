@@ -111,6 +111,11 @@ const levelOf = (g: FakeGame, userId: string, o: { m: number; c: number }) => {
 };
 const ladder = () => [0, 1, 2, 3, 4, 5, 6].map(level => ({ level, label: `d ≤ ${6 - level}`, rarityBits: level * 1.5 }));
 const nameOf = (s: FakeState, userId: string) => s.users[userId]?.name ?? userId;
+/** A user's member id in the game's room (the id surfaces show), falling back to the user id. */
+const memberOf = (e: FakeEnv, userId: string) => {
+  const g = gameOf(e);
+  return e.state.rooms[g.roomId]!.members.find(m => m.userId === userId)?.memberId ?? userId;
+};
 const ok = { ok: true as const };
 
 type El = { kind: "number"; q: string } | { kind: "symbol"; text: string };
@@ -138,7 +143,9 @@ function deal(s: FakeState, r: FakeRoom): string {
     .sort((a, b) => b.percent - a.percent);
   const wins: Record<string, { family: string; handicap: number }> = {};
   for (const bid of all) if (!wins[bid.u] && !Object.values(wins).some(w => w.family === bid.family)) wins[bid.u] = { family: bid.family, handicap: bid.percent };
-  const free = FAMILIES.filter(f => !Object.values(wins).some(w => w.family === f));
+  // Families nobody won; when bids took them all, the whole pool (rules may coincide, as when seats outnumber families).
+  const unwon = FAMILIES.filter(f => !Object.values(wins).some(w => w.family === f));
+  const free = unwon.length ? unwon : FAMILIES;
   let next = 0;
   const rules = Object.fromEntries(seated.map(u => [u, wins[u]?.family ?? free[next++ % free.length]!]));
   s.games[gameId] = {
@@ -238,11 +245,11 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   },
   "game.auction": e => {
     const g = gameOf(e), names = (u: string) => nameOf(e.state, u);
-    const wins = Object.entries(g.auction?.wins ?? {}).map(([u, w]) => ({ memberId: u, name: names(u), family: w.family, handicap: w.handicap }));
+    const wins = Object.entries(g.auction?.wins ?? {}).map(([u, w]) => ({ memberId: memberOf(e, u), name: names(u), family: w.family, handicap: w.handicap }));
     const open = g.phase === "ended";
     return {
       disclosure: open ? "all" : "handicaps", wins,
-      bids: open && g.auction ? Object.entries(g.auction.bids).flatMap(([u, fs]) => Object.entries(fs).map(([family, percent]) => ({ memberId: u, family, percent }))) : null,
+      bids: open && g.auction ? Object.entries(g.auction.bids).flatMap(([u, fs]) => Object.entries(fs).map(([family, percent]) => ({ memberId: memberOf(e, u), family, percent }))) : null,
     };
   },
   "game.startWorldNow": e => { gameOf(e).phase = "live"; return ok; },
@@ -257,7 +264,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const g = gameOf(e), seat = g.seated.includes(e.userId);
     return {
       gameId: g.gameId, phase: g.phase, worldSeconds: g.worldSeconds, endsAt: null, preset: roomOf(e).preset, variant: "line-z",
-      roster: g.seated.map(u => ({ memberId: u, name: nameOf(e.state, u) })),
+      roster: g.seated.map(u => ({ memberId: memberOf(e, u), name: nameOf(e.state, u) })),
       me: seat ? { energy: g.energy[e.userId]!, power: 1, ready: !!g.ready[e.userId], pauseUsed: !!g.pauseUsed[e.userId] } : null,
     };
   },
@@ -265,7 +272,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const g = gameOf(e);
     const pts = g.seated.map(u => {
       const points = Object.values(g.objects).reduce((t, o) => t + levelOf(g, u, o), 0), handicap = g.auction?.wins[u]?.handicap ?? 0;
-      return { memberId: u, name: nameOf(e.state, u), points, handicap, net: points - handicap / 100 * Math.abs(points) };
+      return { memberId: memberOf(e, u), name: nameOf(e.state, u), points, handicap, net: points - handicap / 100 * Math.abs(points) };
     });
     return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })) };
   },

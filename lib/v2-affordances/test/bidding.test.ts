@@ -37,13 +37,28 @@ test("bid from the screen and from the assistant; the top bid wins its family; t
 
   const during = await f.perform({ userId: "u2", roomId }, "game.auction", {}) as { ok: true; result: { disclosure: string; wins: { memberId: string; handicap: number }[]; bids: unknown } };
   assert.deepEqual([during.result.disclosure, during.result.bids], ["handicaps", null]);
-  assert.deepEqual(during.result.wins.map(w => [w.memberId, w.handicap]), [["u3", 40]]);
+  const u3member = room.members.find(m => m.userId === "u3")!.memberId;
+  assert.deepEqual(during.result.wins.map(w => [w.memberId, w.handicap]), [[u3member, 40]]);
   const rule = await f.perform({ userId: "u3", roomId }, "rule.explain", {}) as { ok: true; result: { wonByBid: unknown } };
   assert.deepEqual(rule.result.wonByBid, { handicap: 40 });
   const standings = await f.perform({ userId: "u2", roomId }, "game.standings", {}) as { ok: true; result: { rows: { memberId: string; points: number; handicap: number; net: number }[] } };
-  const u3 = standings.result.rows.find(r => r.memberId === "u3")!;
+  const u3 = standings.result.rows.find(r => r.memberId === u3member)!;
   assert.deepEqual([u3.handicap, u3.net], [40, u3.points - 0.4 * Math.abs(u3.points)], "the handicap comes off the total only");
   await f.perform({ userId: "u1", roomId }, "game.end", {});
   const after = await f.perform({ userId: "u2", roomId, gameId: game.gameId }, "game.auction", {}) as { ok: true; result: { bids: unknown[] } };
   assert.equal(after.result.bids.length, 3, "everything after the end");
+});
+
+test("when bids win every family, the other players are still dealt a rule", async () => {
+  const f = createFake();
+  const users = ["u1", "u2", "u3", "u4", "u5", "u6"];
+  for (const u of users) f.addUser(u, u);
+  const { roomId, code } = (await f.perform({ userId: "u1" }, "room.create", { preset: "lines-beginner-bidding" }) as { result: { roomId: string; code: string } }).result;
+  for (const u of users.slice(1)) await f.perform({ userId: u }, "room.join", { code });
+  await f.perform({ userId: "u1", roomId }, "game.start", {});
+  const families = ["closeGradient", "nearIntercept", "pegCount", "triangleArea"];
+  for (const [i, family] of families.entries()) await f.perform({ userId: users[i]!, roomId }, "bid.place", { family, percent: 10 });
+  for (const u of users) await f.perform({ userId: u, roomId }, "bid.done", {});
+  const game = f.state.games[f.state.rooms[roomId]!.gameId!]!;
+  for (const u of users) assert.ok(families.includes(game.rules[u]!), `${u} has ${game.rules[u]}`);
 });
