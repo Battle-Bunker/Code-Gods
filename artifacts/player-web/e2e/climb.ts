@@ -80,7 +80,10 @@ try {
     const g = convexRun("v2/testing:seedGame", { owner: subject, practice: 2, code: room, contested: 1 });
     await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
     if (label === "phone" && await page.getByTestId("button-jump-objects").count()) await page.getByTestId("button-jump-objects").click();
-    const row = page.getByTestId("row-line-1");
+    // The Lines list is virtualised and sorted by your points: scroll it until line 1's row is rendered.
+    const row = page.getByTestId("row-line-1"), list = page.getByTestId("pane-objects");
+    await list.locator("[data-testid^=row-line-]").first().waitFor({ timeout: 20_000 });
+    for (let i = 0; i < 30 && !await row.count(); i++) { await list.locator("[data-testid^=row-line-]").last().scrollIntoViewIfNeeded(); await page.waitForTimeout(150); }
     await row.scrollIntoViewIfNeeded({ timeout: 20_000 });
     await row.click();
     const line = page.getByTestId("pane-object");
