@@ -1,5 +1,5 @@
 /** Element refs as the views use them: which marks belong to a representation, and what an element means. */
-import { elementDecl, refKey, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
+import { elementDecl, refKey, representation, type ElementRef, type Mark, type ObjectType } from "@workspace/v2-core";
 
 /** The game's own noun for an object of this type ("line", "grid"), never "object" (ux-lessons 2.5). */
 export const nounOf = <S>(type: ObjectType<S>): string => type.id;
@@ -32,4 +32,28 @@ export function meaningKey<S>(type: ObjectType<S>, r: ElementRef): string {
   if (!meaning) return `@${refKey(r)}`;
   const args = r.args ? Object.values(r.args) : [];
   return args.length ? `${meaning}(${args.join(",")})` : meaning;
+}
+
+/**
+ * Projection by meaning (docs/engine-v2/annotations-design.md §4.2): the elements of the given representations that
+ * mean what `r` means, with its arguments carried over by position (si.c → cart.yInt; table.y(x=2) →
+ * cart.pointAtX(q=2); crossing.x0 → cart.xInt). Elements without a meaning project nowhere.
+ */
+export function projectRef<S>(type: ObjectType<S>, r: ElementRef, reps: readonly string[]): ElementRef[] {
+  let meaning: string | undefined;
+  try { meaning = elementDecl(type, r).meaning; } catch { return []; }
+  if (!meaning) return [];
+  const args = r.args ? Object.values(r.args) : [];
+  const out: ElementRef[] = [];
+  for (const id of reps) {
+    if (id === r.rep) continue;
+    let rep;
+    try { rep = representation(type, id); } catch { continue; }
+    for (const el of rep.elements) {
+      if (el.meaning !== meaning || (el.params?.length ?? 0) !== args.length) continue;
+      const a = el.params?.length ? Object.fromEntries(el.params.map((p, i) => [p.name, args[i]!])) : undefined;
+      out.push({ rep: id, name: el.name, ...(a ? { args: a } : {}), ...(r.site !== undefined ? { site: r.site } : {}) });
+    }
+  }
+  return out;
 }

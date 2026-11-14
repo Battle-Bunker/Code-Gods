@@ -327,3 +327,15 @@
 .v2v-face-part .v2v-pips { margin-top: 0; }
 .v2v-face-part-n { font-weight: 600; }
 .v2v-face-next { font-size: 11px; color: var(--v2v-cand); padding: 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ------------------------------------------------------------ plane: fitted window (plot/viewport.ts, plot/labels.ts) */
+.v2v-plane .region-label { fill: var(--v2v-cand); font-size: 10.5px; font-weight: 700; }
+.v2v-plane .leader { stroke: var(--v2v-faint); stroke-width: 1; stroke-dasharray: 2 2; }
+.v2v-plane .inset-box { fill: var(--v2v-card); stroke: var(--v2v-axis); stroke-width: 1; }
+.v2v-scale-note { margin: 2px 0 0; font-size: 11px; color: var(--v2v-muted); }
+
+/* A compact growth pattern starts at its first term: the start (y(0)) is never scrolled out of a narrow row. */
+.v2v-rep[data-size="compact"] .v2v-seq { justify-content: flex-start; overflow: hidden; gap: 1px; padding: 8px 4px; }
+.v2v-rep[data-size="compact"] .v2v-seq-term { min-width: 0; }
+.v2v-rep[data-size="compact"] .v2v-seq-val { font-size: 13px; padding: 1px 3px; }
+.v2v-rep[data-size="compact"] .v2v-seq-step { font-size: 10px; }
