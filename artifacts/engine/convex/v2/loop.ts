@@ -15,6 +15,7 @@ import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, t
 import { disclosesNoise, noiseAt, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
+import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -32,6 +33,9 @@ const CONCERN = 0.05;
 
 const BUILD_REPLAY = makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replayBuild:build");
 const TICK = makeFunctionReference<"action", { gameId: Id<"v2Games">; leaseId: string }>("v2/tick:tick");
+/** How often held planning looks again for ready sandboxes. */
+const HOLD_MS = 1000;
+const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 const EXACT_DIGEST = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; memberId: Id<"v2Members"> }>("v2/loop:exactDigest");
 
 // ---------------------------------------------------------------- reading the game
@@ -218,6 +222,13 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number,
 /** Planning ends (its deadline, everyone ready, or the owner): births, values, the lease, the first tick. */
 export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase !== "planning") return;
+  // Planning holds past its deadline until every language's sandbox is ready (readiness.ts, v1): world time then
+  // starts for everyone at once, and no agent waits for a boot.
+  if (!await allReady(ctx)) {
+    await ensureWarm(ctx);
+    await ctx.scheduler.runAfter(HOLD_MS, PLANNING_ENDS, { gameId: game._id });
+    return;
+  }
   const now = Date.now(), seats = await seatRules(ctx, game);
   const states = distinctBirths(game.variant, game.seed, game.settings.startingObjects);
   const changes = [];
@@ -344,6 +355,8 @@ export const snapshot = internalQuery({
       phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, endsAt: game.endsAt ?? null, endWorld: endWorldOf(game), leaseId: engine.leaseId, tick: engine.tick,
       acts: engine.acts, objects: engine.objects, worldSeconds: clock.worldSeconds, lastTickAt: clock.lastTickAt,
       seats: await seatRules(ctx, game), agents: withEnergy,
+      // Languages whose sandbox has booted: the tick skips the others' agents rather than wait (readiness.ts).
+      ready: (await Promise.all(LANGUAGES.map(async l => (await isReady(ctx, l) ? l : null)))).filter(l => l !== null),
       // Decision 24: every object's state (the tick's `occupied`), and the disclosure noise's key (the tick's `disclosed`).
       held: (await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", gameId)).take(MAX_HELD)).map(s => ({ objectId: s.objectId, state: s.state })),
       noiseKey: game.noiseKey ?? null,

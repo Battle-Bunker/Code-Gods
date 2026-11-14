@@ -12,7 +12,8 @@ import { createSandbox, provideModules, PYTHON_BUNDLE_SHA256, type Language, typ
 import { getQuickJS } from "quickjs-emscripten";
 import * as typescript from "typescript";
 import { makeFunctionReference } from "convex/server";
-import type { ActionCtx } from "../_generated/server";
+import { internalAction, type ActionCtx } from "../_generated/server";
+import { v } from "convex/values";
 
 // Imported here, in the engine's own module, so the bundler keeps both as installed packages (convex.json
 // externalPackages); imported from inside a workspace package they would be inlined, and QuickJS would lose its .wasm.
@@ -49,3 +50,18 @@ export async function sandboxFor(ctx: ActionCtx, language: Language): Promise<Sa
   }
   return s;
 }
+
+const SETTLE = makeFunctionReference<"mutation", { language: Language; version: string; ok: boolean; reason?: string }>("v2/runtimeReady:settle");
+
+/** Boots a language's sandbox in the background (readiness.ts ensureWarm schedules it) and records the outcome. */
+export const warm = internalAction({
+  args: { language: v.union(v.literal("typescript"), v.literal("python")), version: v.string() },
+  handler: async (ctx, { language, version }) => {
+    try {
+      await sandboxFor(ctx, language);
+      await ctx.runMutation(SETTLE, { language, version, ok: true });
+    } catch (e) {
+      await ctx.runMutation(SETTLE, { language, version, ok: false, reason: String((e as Error)?.message ?? e) });
+    }
+  },
+});
