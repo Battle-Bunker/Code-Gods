@@ -248,6 +248,29 @@ What it says (seed "validate", 3.2M boards a pairing at most; the Two Pair rows 
 The same direct and importance sampler applies to `line-z`, whose law is also a product (π = p(m)·p(c)); it is offered to
 the spec session as the replacement for the restricted-walk estimator there.
 
+### 5.2b Value functions (owner decision 23) and calibrated error bars
+
+Decision 23 replaces rungs with value functions: a board's bits are −log2 π{boards whose utilities are at least its own},
+at its actual utilities (lib/v2-valuation/src/value-grid.ts, on the machinery of value.ts). A family with units gets its
+whole utility distribution exactly from the convolution: every attainable score is a knot, to four decimals. Spread of
+Three gets knots from **2,000,000 plain draws from π** (weights 1, binomial ±2σ intervals), certified down to about
+15.5 bits; rarer scores take the marked extrapolated tail. `pnpm --filter @workspace/v2-valuation values -- --variant
+grid-4-d10 --write` builds all 33 in about four minutes.
+
+**Why plain draws, not importance sampling** (the coordinator asked for calibrated error bars; this is the measurement,
+`grid-value-validate`). Against every exact family:
+- *Importance-sampled survival* (the cross-entropy mixture of §5.2): over 11,000 scores, 12% lay beyond 2σ and 7.5%
+  beyond 3σ, with single scores off by up to 54σ (Leapfrog + primes at "every leap one apart, 8 primes": 5 bits too rare,
+  support 359). Inflating σ by 2 still left 6% beyond 3σ. The per-cell proposals miss whole regions of the target, and
+  the weights' variance cannot show what was never drawn: **no constant factor calibrates it**.
+- *Plain draws from π*, read at five fixed scores per pairing (survival near 2^−2 … 2^−14) over 10 independent samples
+  of 50,000 boards (974 independent checks): 5.4% beyond 2σ (normal 4.6%), 0.21% beyond 3σ (normal 0.27%), RMS z
+  1.04. **Calibrated with no inflation (factor 1).** (Reading every score of one sample instead overstates the misses:
+  those z values move together, since they share the sample.)
+
+So sampled grid values are certified only as deep as plain draws reach (about log2(draws / 30) bits); deeper scores are
+extrapolated and marked, and a longer background run (more draws) is the honest way to certify them.
+
 ### 5.3 Exact by transfer matrix (not built)
 
 Processing the board row by row with the previous row as the state (10⁴ states on 4×4 digits) sums exactly any rule
