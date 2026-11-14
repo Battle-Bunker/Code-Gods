@@ -5,44 +5,28 @@
  * rule is the main layer plus one tie-breaker (decision 14 and its clarification).
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import { lineParams, type LineState } from "./line.ts";
-import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, primesBetween, smallestPrimeFactor } from "./numbers.ts";
+import type { LineState } from "./line.ts";
+import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
 
-const ds = (...xs: string[]): Q[] => xs.map(x => Qn.parse(x));
-const ns = (...xs: number[]): Q[] => xs.map(x => q(x));
-const fracs = (...xs: [number, number][]): Q[] => xs.map(([n, d]) => q(n, d));
-/** One rung per prime from lo to hi (curator, #385). */
-const primes = (lo: number, hi: number): Q[] => primesBetween(lo, hi).map(p => q(p));
-const upTo = (k: number): Q[] => Array.from({ length: k }, (_, i) => q(i + 1));
-const within = (what: string) => (t: Q) => (Qn.isZero(t) ? `${what} exactly` : `${what} within ${Qn.toWire(t)}`);
-const atLeast = (what: string) => (t: Q) => `${what} at least ${Qn.toWire(t)}`;
-
-/** A distance layer: smaller is better, thresholds easiest first. */
-function distance<P>(id: string, title: string, sentence: string, rep: string, thresholds: Q[], what: string): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "min", measure: "distance", thresholds: () => thresholds, rungLabel: within(what) };
-}
-/**
- * A distance between whole numbers on whole-number lines (y(k) to T, c or m to a prime, …): on a Z-domain variant its
- * fractional thresholds would be rungs no line can tell apart from the next whole one, so they are dropped there.
- */
-function whole<P>(l: L<P>): L<P> {
-  return { ...l, thresholds: (p, v) => { const ts = l.thresholds(p, v); return lineParams(v).domain === "Z" ? ts.filter(t => t.d === 1n) : ts; } };
+/** A distance layer: smaller is better. */
+function distance<P>(id: string, title: string, sentence: string, rep: string): L<P> {
+  return { id, title, sentence: () => sentence, rep, sense: "min", measure: "distance" };
 }
 /** A count or size layer: bigger is better. */
-function more<P>(id: string, title: string, sentence: string, rep: string, thresholds: Q[], what: string, measure: "count" | "size" = "size"): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "max", measure, thresholds: () => thresholds, rungLabel: atLeast(what) };
+function more<P>(id: string, title: string, sentence: string, rep: string, measure: "count" | "size" = "size"): L<P> {
+  return { id, title, sentence: () => sentence, rep, sense: "max", measure };
 }
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
 const gpfQ = (x: Q): Q => q(x.d === 1n ? largestPrimeFactor(x.n) : 1n);
 /** Tie-breakers on the prime factors of a coefficient (the curator's §10.5: graded, an exact Euler-type sum). */
-const factorTies = <P,>(of: "m" | "c", what: string, top = 31): L<P>[] => [
-  more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si", primes(2, top), `${what}'s smallest prime factor`),
-  more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si", primes(2, top), `${what}'s largest prime factor`),
+const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
+  more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si"),
+  more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si"),
 ];
 
 const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ? v.reason : "not a number" });
@@ -67,11 +51,11 @@ function family<P extends object>(id: string, title: string, depends: string[], 
 // ---------------------------------------------------------------- 1. Prime Staircase
 
 const staircase: Shape<object> = {
-  main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq", upTo(6), "a run of primes", "count"),
+  main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq", "count"),
   // One secondary (the curator's §10.5): a run of six fixes the step at a multiple of 30, so the others order almost
   // nothing at the top.
   tieBreakers: [
-    more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq", primes(3, 31), "y(0)"),
+    more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq"),
   ],
 };
 export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq", "si"], staircase, [{}], ctx => {
@@ -96,11 +80,11 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
 // ---------------------------------------------------------------- 2. Square Area (the owner's example 2)
 
 const squareShape: Shape<object> = {
-  main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri", ds("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", "0"), "the area to a square"),
+  main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri"),
   tieBreakers: [
-    more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's smallest prime factor"),
-    more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's largest prime factor"),
-    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri", upTo(7), "prime factors of the root", "count"),
+    more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri"),
+    more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri"),
+    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri", "count"),
   ],
 };
 export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {
@@ -124,11 +108,11 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
 
 type KT = { k: number; T: number };
 const treasureShape: Shape<KT> = {
-  main: { ...whole(distance<KT>("treasure", "y(k) close to T", "", "table", ds("32", "16", "8", "4", "2", "1", "1/2", "1/4", "0"), "y(k) to T")),
+  main: { ...distance<KT>("treasure", "y(k) close to T", "", "table"),
     sentence: p => `When x is ${p.k}, y should be as close as possible to ${p.T}.` },
   tieBreakers: [
     ...factorTies<KT>("m", "the gradient"),
-    more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table", upTo(8), "different primes", "count"),
+    more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table", "count"),
   ],
 };
 export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
@@ -159,9 +143,9 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
 
 const landingShape: Shape<object> = {
-  main: whole(distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si", ds("4", "2", "1", "1/2", "1/4", "1/8", "0"), "c to a prime")),
+  main: distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si"),
   tieBreakers: [
-    more("big-prime", "that prime", "That prime should be as big as possible.", "si", primes(2, 31), "the prime"),
+    more("big-prime", "that prime", "That prime should be as big as possible.", "si"),
     ...factorTies<object>("m", "the gradient"),
   ],
 };
@@ -186,11 +170,11 @@ export const primeLanding = family("prime-landing", "Prime Landing", ["si", "car
 
 type T = { T: number };
 const rulersShape: Shape<T> = {
-  main: { ...distance<T>("fixed", "the unchanged number close to T", "", "mach", ds("16", "8", "4", "2", "1", "1/2", "1/4", "0"), "the unchanged number to T"),
+  main: { ...distance<T>("fixed", "the unchanged number close to T", "", "mach"),
     sentence: p => `The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to ${p.T}.` },
   tieBreakers: [
     ...factorTies<T>("m", "the gradient"),
-    more("steep", "the gradient far from 1", "The gradient should be as far from 1 as possible.", "si", fracs([1, 4], [1, 2], [1, 1], [2, 1], [3, 1], [5, 1], [8, 1]), "|m − 1|"),
+    more("steep", "the gradient far from 1", "The gradient should be as far from 1 as possible.", "si"),
   ],
 };
 export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si"], rulersShape, [{ T: 6 }], (ctx, p) => {
@@ -210,10 +194,10 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
 // ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
 const crossingShape: Shape<object> = {
-  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "crossing", ds("1/3", "1/4", "1/6", "1/8", "1/12", "1/16", "0"), "the crossing to a whole number"),
+  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "crossing"),
   tieBreakers: [
-    more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing", primes(2, 31), "its smallest prime factor"),
-    more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing", primes(2, 37), "its largest prime factor"),
+    more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing"),
+    more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing"),
     factorTies<object>("m", "the gradient")[0]!,
   ],
 };
@@ -240,11 +224,11 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
 
 const ladderShape: Shape<object> = {
-  main: more("ladder", "a run of n dividing y(n)", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table", upTo(11), "the run", "count"),
+  main: more("ladder", "a run of n dividing y(n)", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table", "count"),
   tieBreakers: [
     ...factorTies<object>("m", "the gradient"),
-    more("steep", "the gradient steep", "The gradient should be as steep as possible.", "si", ns(1, 2, 3, 4, 5, 6, 8, 10, 12, 16), "|m|"),
-    whole(distance("m-prime", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "0"), "m to a prime")),
+    more("steep", "the gradient steep", "The gradient should be as steep as possible.", "si"),
+    distance("m-prime", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
   ],
 };
 export const divisibilityLadder = family("divisibility-ladder", "Divisibility Ladder", ["table", "si"], ladderShape, [{}], ctx => {

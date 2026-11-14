@@ -17,7 +17,7 @@ for (const f of gridType2.families) {
   const tb = tieBreakersOn(f, grid2)[0]!.id;
   test(`${f.id} + ${tb} on the 2×2 board: every board's value is its exact survival (knots kept to 4 decimals)`, () => {
     const params = f.dealable(grid2)[0];
-    const u = (s: { cells: number[] }): Score => { const e = evaluateObject(gridType2, f, params, s, grid2, tb); return e.utility === undefined ? e.score : e.utility; };
+    const u = (s: { cells: number[] }): Score => evaluateObject(gridType2, f, params, s, grid2, tb).score;
     const mass = boards.map(s => ({ u: u(s), w: 2 ** -gridType2.readLength(s, grid2) }));
     const vf = gridValueFunction(gridType2, f, params, grid2, { tieBreaker: tb, draws: 40_000 });
     const look = valueLookup(vf);

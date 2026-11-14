@@ -78,13 +78,6 @@ export function largestPrimeFactor(n: bigint): bigint {
   return m > 1n ? m : big;
 }
 
-/** Every prime p with lo ≤ p ≤ hi: a prime-size ladder with one rung per prime (the curator's delta, #385). */
-export function primesBetween(lo: number, hi: number): number[] {
-  const out: number[] = [];
-  for (let n = Math.max(2, lo); n <= hi; n++) if (isPrime(BigInt(n))) out.push(n);
-  return out;
-}
-
 /** Ω(n): prime factors of |n| counted with multiplicity (a cofactor with no factor below the limit counts once); 0 for 0 and ±1. */
 export function primeFactorCount(n: bigint): number {
   let m = n < 0n ? -n : n;

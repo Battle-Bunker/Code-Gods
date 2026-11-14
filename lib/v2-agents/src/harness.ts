@@ -5,12 +5,12 @@
  *
  * The world is simplified: no births, no power or accrual. Each player starts with `budget` energy and the players
  * take turns; on its turn a player's agent is offered a line drawn uniformly (seeded), acts, and is charged. A player
- * stops when its energy is spent. Value is the calibration's bits (lib/v2-valuation artefacts) of each line's score
- * on each player's rule; a rule without an artefact reports levels only.
+ * stops when its energy is spent. Value is each line's bits on each player's rule, looked up at its score in the
+ * rule's committed value function (lib/v2-valuation values, owner decision 23); a rule without one reports utilities only.
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { evaluateSite, hashHex, layerLadders, levelOf, objectLadder, rng, scoreFromWire, scoreToWire, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
+import { evaluateSite, hashHex, rng, ruleLayers, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
@@ -34,19 +34,23 @@ export interface HarnessInput<S> {
   readonly seed: string;
   /** A cap on acts per player, in case an agent spends nothing. */
   readonly maxActs?: number;
-  /** A rule with no calibrated artefact is valued at one bit a rung of its own ladder (valuedArtefact). */
-  readonly standIn?: boolean;
 }
 
 /** How one rule fares on the shared lines (every player's rule is measured on every line). */
 export interface RuleOutcome {
   readonly player: string;
   readonly rule: string;
-  /** Mean level of each dealt layer (main part, tie-breaker) at the start and the end, and the layers' tops. */
-  readonly levels: { readonly start: readonly number[]; readonly end: readonly number[]; readonly top: readonly number[] };
-  /** Lines with the main part at its top, at the start and the end. */
-  readonly mainTop: { readonly start: number; readonly end: number };
-  /** The sum over lines of the rule's bits, end minus start (null without an artefact). */
+  /**
+   * Mean utility of each dealt layer (main part, tie-breaker; a distance negated) over the lines where it is defined, at
+   * the start and the end (null where no line has one).
+   */
+  readonly utilities: { readonly start: readonly (number | null)[]; readonly end: readonly (number | null)[] };
+  /**
+   * Mean bits per line at the start and the end, and the rule's top: its best knot's bits. `beyond`: lines whose score
+   * is past the best knot, so their bits are extrapolated. Null without a value function.
+   */
+  readonly bits: { readonly start: number; readonly end: number; readonly top: number; readonly beyond: { readonly start: number; readonly end: number } } | null;
+  /** The sum over lines of the rule's bits, end minus start (null without a value function). */
   readonly bitsGained: number | null;
 }
 
@@ -86,26 +90,11 @@ export interface HarnessReport {
   readonly rules: readonly RuleOutcome[];
   readonly spend: readonly PlayerSpend[];
   readonly points: readonly PlayerPoints[];
-  readonly artefacts: Readonly<Record<string, string>>;
 }
 
-// ---------------------------------------------------------------- artefacts
+// ---------------------------------------------------------------- value functions
 
-interface ArtefactFile { family: string; params: unknown; tieBreaker: string; variant: string; status: string; rungs: { score: (string | null)[] | null; bits: number | null; layer: number; main?: number; label: string }[] }
-const ARTEFACTS = join(import.meta.dirname, "..", "..", "v2-valuation", "artefacts");
 const canonical = (x: unknown): string => JSON.stringify(x, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
-
-/** The committed artefact for a dealt rule, or null. */
-export function findArtefact(variant: string, rule: HarnessPlayer["rule"]): ArtefactFile | null {
-  const dir = join(ARTEFACTS, variant, rule.family);
-  if (!existsSync(dir)) return null;
-  for (const f of readdirSync(dir)) {
-    const a = JSON.parse(readFileSync(join(dir, f), "utf8")) as ArtefactFile;
-    if (a.tieBreaker === rule.tieBreaker && canonical(a.params) === canonical(rule.params)) return a;
-  }
-  return null;
-}
-
 const VALUES = join(import.meta.dirname, "..", "..", "v2-valuation", "values");
 type ValueFile = { family: string; params: unknown; tieBreaker: string } & Pick<ValueFunction, "knots" | "tail">;
 
@@ -120,63 +109,23 @@ export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueF
   return null;
 }
 
-/** A score's bits on the artefact's rungs (the highest rung met; no curve between rungs). */
-function bitsOf(a: ArtefactFile, score: Score): number {
-  const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
-  if (!ladder.length) return 0;
-  return a.rungs[levelOf(score, ladder)]!.bits ?? 0;
-}
-
 /**
- * The committed artefact for a rule when it has values; else, with `standIn`, the rule's own ladder at one bit a rung
- * (status "stand-in"), so points can be compared before a family is calibrated; else null.
+ * A player's value of a line: `bits(s)` is n_i, their rarity, looked up at the line's score in the rule's value function
+ * (0 for every line without one); `values` is what `runAct` takes; `top` is the best knot's bits.
  */
-export function valuedArtefact<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], standIn = false): ArtefactFile | null {
-  const found = findArtefact(variant.id, rule);
-  if (found && found.rungs.every(x => x.bits !== null)) return found;
-  if (!standIn) return null;
+export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
   const family = type.families.find(f => f.id === rule.family)!;
-  const rungs = objectLadder(type, family, rule.params, variant, rule.tieBreaker).map((g, i) => ({
-    score: scoreToWire(g.score), bits: i, layer: g.layer, label: g.label, ...(g.main !== undefined ? { main: g.main } : {}),
-  }));
-  return { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker, variant: variant.id, status: "stand-in", rungs };
-}
-
-/**
- * A player's value of a line: `bits(s)` is n_i, their rarity (0 without values). With a value function (decision 23),
- * bits are looked up at the line's utility and `values` is what `runAct` takes; `level(s)` is then the whole bits, a
- * stand-in for the directory's levels until they go. Object types without value functions yet (grids) use the
- * committed artefact's rungs: `level(s)` is the rung reached and `rungs` what `runAct` takes.
- */
-export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], standIn = false) {
-  const family = type.families.find(f => f.id === rule.family)!;
+  const scoreOf = (s: S): Score => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
   const vf = findValues(variant.id, rule);
-  if (vf) {
-    const look = valueLookup(vf);
-    const scoreOf = (s: S) => { const e = evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker); return e.utility ?? e.score; };
-    return {
-      scoreOf,
-      bits: (s: S) => look(scoreOf(s)).bits,
-      worth: (u: Score) => { const w = look(u); return { bits: w.bits, lo: w.lo, hi: w.hi }; },
-      level: (s: S) => Math.floor(look(scoreOf(s)).bits),
-      top: Math.floor(Math.max(...vf.knots.map(k => k.bits))),
-      labels: vf.knots.map(k => (k.u === null ? "worst" : k.u.map(x => x ?? "–").join(", "))),
-      rungs: vf.knots.map(k => ({ score: k.u, bits: k.bits })),
-      values: { knots: vf.knots, tail: vf.tail } as Pick<ValueFunction, "knots" | "tail"> | undefined,
-    };
-  }
-  const a = valuedArtefact(type, variant, rule, standIn);
-  const scoreOf = (s: S) => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
-  const ladder = a ? a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) })) : [];
+  const look = vf ? valueLookup(vf) : null;
   return {
     scoreOf,
-    bits: (s: S) => (ladder.length ? a!.rungs[levelOf(scoreOf(s), ladder)]!.bits ?? 0 : 0),
-    level: (s: S) => (ladder.length ? levelOf(scoreOf(s), ladder) : 0),
-    top: a ? a.rungs.length - 1 : 0,
-    worth: (u: Score) => { const b = ladder.length ? a!.rungs[levelOf(u, ladder)]!.bits ?? 0 : 0; return { bits: b, lo: b, hi: b }; },
-    labels: a ? a.rungs.map(g => g.label) : [],
-    rungs: a ? a.rungs.map(g => ({ score: g.score, bits: g.bits ?? 0, layer: g.layer, ...(g.main !== undefined ? { main: g.main } : {}) })) : [],
-    values: undefined as Pick<ValueFunction, "knots" | "tail"> | undefined,
+    layers: ruleLayers(family, rule.tieBreaker).length,
+    lookup: (s: S) => (look ? look(scoreOf(s)) : null),
+    bits: (s: S) => (look ? look(scoreOf(s)).bits : 0),
+    worth: (u: Score) => { const w = look ? look(u) : { bits: 0, lo: 0, hi: 0 }; return { bits: w.bits, lo: w.lo, hi: w.hi }; },
+    top: vf ? vf.knots.at(-1)!.bits : null,
+    values: vf ? { knots: vf.knots, tail: vf.tail } as Pick<ValueFunction, "knots" | "tail"> : undefined,
   };
 }
 
@@ -193,7 +142,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
   const sandboxOf = new Map<string, Sandbox>();
   for (const p of players) sandboxOf.set(p.program.language, await boxes.get(p.program.language));
 
-  const valuers = players.map(p => valuer(type, variant, p.rule, input.standIn));
+  const valuers = players.map(p => valuer(type, variant, p.rule));
   /** Every player's points on a state: π_i = n_i · Σ_{j≠i} n_j. */
   const pointsOf = (s: S) => { const n = valuers.map(v => v.bits(s)); const total = n.reduce((a, b) => a + b, 0); return n.map(x => x * (total - x)); };
   const bitsAll = (s: S) => valuers.map(v => v.bits(s));
@@ -215,7 +164,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     const { record, state } = await runAct(sandboxOf.get(p.program.language)!, {
       type, variant, state: lines[object]!, rule: p.rule, program: p.program, seed: BigInt(`0x${hashHex(`${input.seed}:${turn}`).slice(0, 15)}`),
       energy: energy[i]!, object, liveObjects: lines.length,
-      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(valuers[i]!.values ? { values: valuers[i]!.values } : { rungs: valuers[i]!.rungs }),
+      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(valuers[i]!.values ? { values: valuers[i]!.values } : {}),
     });
     reversal[i]!.noteCount += record.notes.length;
     for (const t of record.notes) if (reversal[i]!.notes.length < 3 && !reversal[i]!.notes.includes(t)) reversal[i]!.notes.push(t);
@@ -247,26 +196,21 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     }
   }
 
-  const artefacts: Record<string, string> = {};
-  const rules = players.map(p => {
-    const family = type.families.find(f => f.id === p.rule.family)!;
-    const ladders = layerLadders(family, p.rule.params, variant, p.rule.tieBreaker);
-    const scoreOf = (s: S) => evaluateSite(type, family, p.rule.params, s, variant, 0, p.rule.tieBreaker).score;
-    const levels = (s: S) => { const sc = scoreOf(s); return ladders.map((l, j) => levelOf(sc === null ? null : [sc[j] ?? null], l)); };
-    const mean = (ls: S[]) => ladders.map((_, j) => ls.reduce((t, s) => t + levels(s)[j]!, 0) / ls.length);
-    const tops = ladders.map(l => l.length - 1);
-    const atTop = (ls: S[]) => ls.filter(s => levels(s)[0] === tops[0]).length;
-    const found = findArtefact(variant.id, p.rule);
-    const a = valuedArtefact(type, variant, p.rule, input.standIn);   // an unconverged run may have no values
-    const name = `${p.rule.family}/${p.rule.tieBreaker}`;
-    if (a) artefacts[name] = a.status;
-    else if (found) artefacts[name] = `${found.status}, no values`;
-    const bits = (ls: S[]) => ls.reduce((t, s) => t + bitsOf(a!, scoreOf(s)), 0);
+  const rules = players.map((p, i) => {
+    const v = valuers[i]!;
+    const num = (x: { n: bigint; d: bigint } | null | undefined) => (x ? Number(x.n) / Number(x.d) : null);
+    const utilities = (ls: S[]) => Array.from({ length: v.layers }, (_, j) => {
+      const xs = ls.map(s => num(v.scoreOf(s)?.[j])).filter((x): x is number => x !== null);
+      return xs.length ? xs.reduce((t, x) => t + x, 0) / xs.length : null;
+    });
+    const total = (ls: S[]) => ls.reduce((t, s) => t + v.bits(s), 0);
+    const beyond = (ls: S[]) => ls.filter(s => v.lookup(s)?.at === "beyond").length;
+    const n = Math.max(1, lines.length);
     return {
-      player: p.name, rule: name,
-      levels: { start: mean(start), end: mean(lines), top: tops },
-      mainTop: { start: atTop(start), end: atTop(lines) },
-      bitsGained: a ? bits(lines) - bits(start) : null,
+      player: p.name, rule: `${p.rule.family}/${p.rule.tieBreaker}`,
+      utilities: { start: utilities(start), end: utilities(lines) },
+      bits: v.top === null ? null : { start: total(start) / n, end: total(lines) / n, top: v.top, beyond: { start: beyond(start), end: beyond(lines) } },
+      bitsGained: v.top === null ? null : total(lines) - total(start),
     };
   });
   const sum = (rows: number[][], j: number) => rows.reduce((t, x) => t + x[j]!, 0);
@@ -275,7 +219,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     reversalEnergy: reversal[j]!.energy, reversals: reversal[j]!.count,
     othersKept: reversal[j]!.kept.length ? reversal[j]!.kept.reduce((a, b) => a + b, 0) / reversal[j]!.kept.length : null, notes: reversal[j]!.noteCount, sampleNotes: reversal[j]!.notes,
   }));
-  return { rules, spend: spend.map(({ firstFailure, ...s }) => (firstFailure ? { ...s, firstFailure } : s)), points: pointsReport, artefacts };
+  return { rules, spend: spend.map(({ firstFailure, ...s }) => (firstFailure ? { ...s, firstFailure } : s)), points: pointsReport };
 }
 
 // ---------------------------------------------------------------- printing
@@ -285,12 +229,17 @@ const f1 = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
 export const byView = (m: Readonly<Record<string, number>>): string =>
   Object.entries(m).sort((a, b) => b[1] - a[1]).map(([v, e]) => `${v} ${f1(e)}`).join(", ") || "–";
 
+const fu = (x: number | null | undefined) => (x === null || x === undefined ? "–" : f1(x));
+/** One layer's mean utility, start → end. */
+export const utilityCell = (x: RuleOutcome, j: number): string =>
+  x.utilities.start[j] === undefined ? "–" : `${fu(x.utilities.start[j])} → ${fu(x.utilities.end[j])}`;
+
 /** A report as Markdown: the rules' progress, then each player's spending by view. */
 export function formatReport(r: HarnessReport): string {
   const out = [
-    "| Player | Rule | Main part level (start → end / top) | Tie-breaker level | Lines at the main top | Bits gained |",
-    "|---|---|---|---|---|--:|",
-    ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${f1(x.levels.start[0]!)} → ${f1(x.levels.end[0]!)} / ${x.levels.top[0]} | ${x.levels.start[1] === undefined ? "–" : `${f1(x.levels.start[1])} → ${f1(x.levels.end[1]!)} / ${x.levels.top[1]}`} | ${x.mainTop.start} → ${x.mainTop.end} | ${x.bitsGained === null ? `– (${r.artefacts[x.rule] ?? "no artefact"})` : f1(x.bitsGained)} |`),
+    "| Player | Rule | Main part (mean utility, start → end) | Tie-breaker | Bits a line (start → end / top) | Lines past the top knot | Bits gained |",
+    "|---|---|---|---|---|---|--:|",
+    ...r.rules.map(x => `| ${x.player} | ${x.rule} | ${utilityCell(x, 0)} | ${utilityCell(x, 1)} | ${x.bits ? `${f1(x.bits.start)} → ${f1(x.bits.end)} / ${f1(x.bits.top)}` : "– (no value function)"} | ${x.bits ? `${x.bits.beyond.start} → ${x.bits.beyond.end}` : "–"} | ${x.bitsGained === null ? "–" : f1(x.bitsGained)} |`),
     "",
     "| Player | Points gained (start → end) | ⚡ lost to reversals (times) | Others' rarity kept by its moves | Notes |",
     "|---|--:|--:|--:|--:|",

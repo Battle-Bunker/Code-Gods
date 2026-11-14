@@ -15,7 +15,7 @@
  *
  * Every program has exactly one "Try this:" comment (ux-lessons §3.1).
  */
-import { grid4, gridType } from "@workspace/v2-grid";
+import { gridType } from "@workspace/v2-grid";
 import type { RuleFamily } from "@workspace/v2-core";
 import { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridLensId } from "./grid-catalogue.ts";
 import type { AgentKind, ShippedAgent, ShippedLanguage } from "./starters.ts";
@@ -85,21 +85,10 @@ function lensesFor(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | nul
   return [...new Set(ids)];
 }
 
-/** The main part as the score's first part: saturated at its top when a tie-breaker follows (v2-core scoreOf). */
-function saturated(f: RuleFamily<unknown, unknown>, language: ShippedLanguage): string {
-  // The top is written into the agent, so it must be the same for every dealable set of the rule's numbers.
-  const tops = new Set(f.dealable(grid4).map(p => { const ts = f.main.thresholds(p, grid4); return Number(ts[ts.length - 1]!.n); }));
-  if (tops.size !== 1) throw new Error(`${f.id}: the main part's top depends on the rule's numbers; the agents need it as a parameter`);
-  const [top] = [...tops] as [number];
-  // Past its top the main part counts as its top (v2-core scoreOf): a distance within the last threshold counts as on it.
-  if (f.main.sense === "min") return top === 0 ? "main" : language === "typescript" ? `Math.min(main, -${top})` : `min(main, -${top})`;
-  return language === "typescript" ? `Math.min(main, ${top})` : `min(main, ${top})`;
-}
-
 // ---------------------------------------------------------------- TypeScript
 
 function scoreTs(e: GridFamilyEntry, tieBreaker: string | null): string[] {
-  const f = familyOf(e.family), main = saturated(f, "typescript");
+  const f = familyOf(e.family), main = "main";   // the main part's utility: the score's first part (owner decision 23: no saturation)
   const out = [
     "// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.",
     `function score(b, p${tieBreaker === null ? ", tie" : ""}) {`,
@@ -220,7 +209,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
 // ---------------------------------------------------------------- Python
 
 function scorePy(e: GridFamilyEntry, tieBreaker: string | null): string[] {
-  const f = familyOf(e.family), main = saturated(f, "python");
+  const f = familyOf(e.family), main = "main";
   const out = [
     `def score(b, p${tieBreaker === null ? ", tie" : ""}):`,
     "    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.",

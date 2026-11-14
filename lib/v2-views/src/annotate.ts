@@ -120,12 +120,12 @@ export function annotate<S, P>(rule: RuleRef<S, P>, state: S, opts: AnnotateOpti
 export function annotateEvaluation<S, P>(rule: RuleRef<S, P>, state: S, ev: ObjectEvaluation, opts: AnnotateOptions = {}): Annotation {
   const sites = ev.sites.map((e, i) => annotateSite(rule, e, i, state));
   let worst: string | null = null;
-  if (ev.score === null) {
+  if (ev.score === null && ev.sites.length === 1) {
     const u = ev.sites.flatMap(e => e.terms).find(t => isUndef(t.value));
     worst = u ? (u.value as Undef).undefined : `this rule does not score this ${nounOf(rule.type)}`;
   }
-  // A multi-site object's utility is the object's own; one site's utility never stands for it.
-  const utility = ev.utility ?? (ev.sites.length === 1 ? ev.sites[0]!.utility : null) ?? null;
-  const bits = opts.value && (ev.utility !== undefined || ev.sites.length === 1) ? opts.value(utility) : null;
+  // The object's score; a multi-site object has none yet (per-line bits summed comes next), and one site's never stands for it.
+  const utility = ev.score;
+  const bits = opts.value && ev.sites.length === 1 ? opts.value(utility) : null;
   return { noun: nounOf(rule.type), score: ev.score, utility, bits, worst, sites };
 }

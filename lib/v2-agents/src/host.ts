@@ -16,7 +16,7 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
-  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, levelOf, Qn, ratBits,
+  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, Qn, ratBits,
   representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
@@ -55,14 +55,9 @@ export interface HostInput<S> {
   readonly history?: readonly { readonly mine: boolean; readonly pointsBefore: number; readonly pointsAfter: number }[];
   /**
    * The player's rule's value function (owner decision 23: the server's value record, knots and tail): what a score is
-   * worth in bits. Prices `rarity(score)` and gives `myScore()` its bits; `worth()` is only answered with it (or rungs).
+   * worth in bits. Prices `rarity(score)` and gives `myScore()` its bits; `worth()` is only answered with it.
    */
   readonly values?: Pick<ValueFunction, "knots" | "tail">;
-  /**
-   * Object types whose rules have no value function yet (grids): the committed artefact's rungs with their rarity, rung
-   * 0 first. Goes when they do (decision 23 PR 2).
-   */
-  readonly rungs?: readonly { readonly score: readonly (string | null)[] | null; readonly bits: number; readonly layer?: number; readonly main?: number }[];
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -159,18 +154,15 @@ export class EngineHost<S> implements AgentHost {
       case "quote": return this.quote(request.calls);
       case "budget": return ok({ energy: this.energy, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
       case "worth": {
-        const v = this.input.values || this.input.rungs?.length ? this.input.value : undefined;   // worth comes with rarity, or not at all
+        const v = this.input.values ? this.input.value : undefined;   // worth comes with rarity, or not at all
         return v ? ok({ mine: v.mine, others: v.others, points: v.points }, this.charged("worth", WORTH_BITS)) : err("this game does not say what lines are worth to agents");
       }
       case "rarity": {
-        const rungs = this.input.rungs;
-        if (!this.lookup && !rungs?.length) return err("this game does not say what scores are worth");
+        if (!this.lookup) return err("this game does not say what scores are worth");
         const s = request.score;
         if (s !== null && (!Array.isArray(s) || s.length > 4 || s.some(x => x !== null && typeof x !== "string"))) return err("a score is a list of parts, or null");
         const score = s === null ? null : s.map(x => (x === null ? null : Qn.parse(x)));
-        if (this.lookup) return ok({ bits: this.lookup(score).bits }, 0);
-        const ladder = rungs!.map(g => ({ score: g.score === null ? null : g.score.map(x => (x === null ? null : Qn.parse(x))), label: "", layer: g.layer ?? 0, ...(g.main !== undefined ? { main: g.main } : {}) }));
-        return ok({ bits: rungs![levelOf(score, ladder)]!.bits }, 0);
+        return ok({ bits: this.lookup(score).bits }, 0);
       }
       case "recent": {
         const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter }));
@@ -260,7 +252,7 @@ export class EngineHost<S> implements AgentHost {
     for (const rep of this.family.depends) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
     const e = evaluateObject(this.type, this.family, this.params, this.state, this.variant, this.tieBreaker);
     // The utilities (owner decision 23: plain lexicographic, bigger better, nothing saturates), and what they are worth.
-    const u = e.utility ?? e.score;
+    const u = e.score;
     const multi = e.sites.length > 1;
     const terms = e.sites.flatMap((ev, i) => ev.terms.map(t => ({
       id: multi ? `L${i + 1}:${t.id}` : t.id,

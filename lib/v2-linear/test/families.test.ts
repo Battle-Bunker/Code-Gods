@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compareScores, evaluateObject, evaluateSite, layerLadders, levelOf, objectLadder, refKey, rng, ruleLadder, ruleLayers, walkStep, Qn, type Evaluation, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
+import { compareScores, evaluateObject, evaluateSite, refKey, rng, ruleLayers, walkStep, Qn, type Evaluation, type RuleFamily, type TieBreaker } from "@workspace/v2-core";
 import { crossingCheck, families, ownerFamilies, lineType, lineQ, lineZ, lineZ4, mMeetsC, primeGradient, squareArea, triangleArea, wholeIntercept, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
@@ -12,7 +12,6 @@ test("every owner family: a textbook main layer and at least two alternative tie
     assert.ok(f.tieBreakers.length >= 2, f.id);
     assert.ok(f.depends.includes(f.main.rep), f.id);
     const p = f.dealable(lineQ)[0]!;
-    for (const l of [f.main, ...f.tieBreakers]) assert.ok(l.thresholds(p as never, lineQ).length >= 6, `${f.id}.${l.id}: at least six rungs`);
     for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Tie-breaker/);
   }
 });
@@ -46,12 +45,12 @@ test("the owner's other three, and the two layered examples of decision 12", () 
   assert.equal(score(ev(squareArea, {}, mc(-1, 12))), "-8,2");               // legs 12, 12: area 72, nearest square 64 = 8², spf(8) = 2
 });
 
-/** A test family: primary |m| (bigger is better, top 3), secondary: c, undefined when c is 0. */
+/** A test family: primary |m| (bigger is better), secondary: c, undefined when c is 0. */
 const toy: RuleFamily<LineState, object> = {
   id: "toy", title: "toy", card: () => "", params: [], dealable: () => [{}], depends: ["si"],
-  main: { id: "big", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size", thresholds: () => [Qn.q(1), Qn.q(2), Qn.q(3)], rungLabel: t => `|m| ≥ ${Qn.toWire(t)}` },
+  main: { id: "big", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size" },
   tieBreakers: [
-    { id: "c", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size", thresholds: () => [Qn.q(1), Qn.q(5)], rungLabel: t => `c ≥ ${Qn.toWire(t)}` },
+    { id: "c", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size" },
   ],
   evaluate(ctx) {
     const m = ctx.read({ rep: "si", name: "m" }), c = ctx.read({ rep: "si", name: "c" });
@@ -66,20 +65,13 @@ test("an undefined secondary ranks last in its own component; an undefined prima
   assert.equal(score(noSecondary), "3,_");
   assert.equal(compareScores(noSecondary.score, weak.score), -1);
   assert.equal(compareScores(noSecondary.score, ev(toy, {}, mc(2, 5)).score), 1);   // the primary decides first
-  // Joint ladder: [anything, (0, c≥1), (0, c≥5), main 1, (1, c≥1), (1, c≥5), main 2, …, main 3, (3, c≥1), (3, c≥5)].
-  const ladder = ruleLadder(toy, {}, lineZ);
-  assert.equal(ladder.length, 12);
-  assert.equal(levelOf(noSecondary.score, ladder), 9);                               // main top, no tie-breaker rung
-  assert.equal(levelOf(strong.score, ladder), 11);
-  assert.equal(levelOf(ev(toy, {}, mc(2, 5)).score, ladder), 8);                     // a tie-breaker counts below the top too
+  assert.equal(compareScores(strong.score, weak.score), 1);
 });
 
-test("an earlier layer saturates at its top: overshooting it does not meet later rungs", () => {
-  const ladder = ruleLadder(toy, {}, lineZ);
-  const over = ev(toy, {}, mc(7, -9));                                               // |m| = 7 > top 3, c bad
-  assert.equal(score(over), "3,-9");
-  assert.equal(levelOf(over.score, ladder), 9);
-  assert.equal(compareScores(over.score, ev(toy, {}, mc(3, 1)).score), -1);
+test("no saturation (owner decision 23): a better primary outranks whatever the tie-breaker", () => {
+  const over = ev(toy, {}, mc(7, -9));
+  assert.equal(score(over), "7,-9");
+  assert.equal(compareScores(over.score, ev(toy, {}, mc(3, 1)).score), 1);
 });
 
 test("score and annotation come from the same terms; every mark cites a read", () => {
@@ -112,31 +104,12 @@ test("the evaluation context refuses reads outside depends and marks of unread e
   assert.throws(() => ev(lazy, {}, mc(1, 1)), /did not record layer size/);
 });
 
-test("the joint ladder: (main level, tie-breaker level) in lexicographic order; value follows the order", () => {
-  // Z distances 13, 8, 5, 3, 2, 1, 0 (seven main levels); |c| ≥ 1, 2, 3, 4, 6, 8, 12, 16, 24 at the top, and three of
-  // them (3, 6, 12) below it.
-  const ladder = ruleLadder(mMeetsC, {}, lineZ);
-  assert.equal(ladder.length, 1 + 3 + 6 * 4 + 1 + 9);
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(1, 5)).score, ladder), 13);           // gap 4: main level 3; |c| = 5 meets 3
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(5, 1)).score, ladder), 12);           // the same main level (gap 4), |c| = 1
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(3, 3)).score, ladder), 31);           // gap 0, |c| = 3
-  assert.equal(levelOf(ev(mMeetsC, {}, mc(24, 24)).score, ladder), ladder.length - 1);
-  assert.equal(levelOf(null, ladder), 0);
-  // Lexicographically better scores never sit lower on the ladder.
-  const r = rng("joint-order");
-  let s = mc(1, 1);
-  const seen: { score: ReturnType<typeof ev>["score"]; level: number }[] = [];
-  for (let i = 0; i < 400; i++) { s = walkStep(lineType, lineZ, s, r); const e = ev(mMeetsC, {}, s); seen.push({ score: e.score, level: levelOf(e.score, ladder) }); }
-  for (const a of seen) for (const b of seen) if (compareScores(a.score, b.score) > 0 && a.score && b.score && a.score[0]!.n === b.score[0]!.n && a.score[0]!.d === b.score[0]!.d) assert.ok(a.level >= b.level);
-  assert.equal(ruleLadder(mMeetsC, {}, lineZ, null).length, 8);
-  assert.deepEqual(layerLadders(mMeetsC, {}, lineZ).map(l => l.length), [8, 10]);
-});
-
-test("a k-line object is calibrated on the totals of its lines' levels", () => {
-  const ladder = objectLadder(lineType, mMeetsC, {}, lineZ4, null);
-  assert.equal(ladder.length, 1 + 4 * 7);
+test("a k-line object: every line evaluated; no object score yet (per-line bits summed comes next)", () => {
   const four: LineState = { lines: [mc(3, 3).lines[0]!, mc(1, 5).lines[0]!, mc(0, 0).lines[0]!, mc(0, 40).lines[0]!] };
   const e = evaluateObject(lineType, mMeetsC, {}, four, lineZ4, null);
-  assert.equal(e.score!.map(x => Qn.toWire(x!)).join(","), `${7 + 3 + 7 + 0},0,0,-4,-40`);
-  assert.equal(levelOf(e.score, ladder), 17);
+  assert.deepEqual(e.sites.map(x => score(x)), ["0", "-4", "0", "-40"]);
+  assert.equal(e.score, null);
+  const one = evaluateObject(lineType, mMeetsC, {}, mc(1, 5), lineZ);
+  assert.equal(score(one.sites[0]!), "-4,5");
+  assert.deepEqual(one.score, one.sites[0]!.score);
 });

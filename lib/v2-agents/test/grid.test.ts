@@ -4,13 +4,15 @@
  *  - every grid family has an example per tie-breaker and the four starters, or is listed as missing (a todo);
  *  - an agent's own idea of the score is the engine's on sampled boards, in both languages;
  *  - both languages make the same moves on newborn boards, with and without what the board is worth, and none fails;
- *  - each example climbs (the main part to its top on some board, the tie-breaker up on some board);
+ *  - each example climbs (the main part never falls and rises on some board; the tie-breaker rises on some board, or
+ *    the main part, which decides first with no saturation (owner decision 23), is short of its best on every board, or a
+ *    board reached the best knot itself);
  *  - the starters play for points: they keep their energy where a change adds too few points per ⚡ (nobody else
  *    values the board), where Naive pays regardless.
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { applyCalls, evaluateSite, isInvalid, layerLadders, levelOf, scoreToWire } from "@workspace/v2-core";
+import { applyCalls, compareScores, evaluateSite, isInvalid, scoreFromWire, scoreToWire } from "@workspace/v2-core";
 import { grid4, gridType, type GridState } from "@workspace/v2-grid";
 import type { HostReply, HostRequest, Language } from "@workspace/v2-sandbox";
 import {
@@ -27,11 +29,12 @@ const DESCRIBED = GRID_CATALOGUE.filter(e => gridType.families.some(f => f.id ==
 const all = shippedAgents().filter(a => DESCRIBED.some(e => e.family === a.family));
 const program = (a: ShippedAgent) => ({ language: a.language, source: a.source });
 
-/**
- * What a rule's boards are worth: the committed artefact's rungs, or, for a family not calibrated yet, its own ladder
- * with one bit a rung (rarity rising with the rung is all the points-aware starters rely on).
- */
-const worthOf = (rule: { family: string; params: Record<string, unknown>; tieBreaker: string }) => valuer(gridType, grid4, rule, true);
+/** What a rule's boards are worth: its committed value function (owner decision 23). */
+const worthOf = (rule: { family: string; params: Record<string, unknown>; tieBreaker: string }) => {
+  const v = valuer(gridType, grid4, rule);
+  if (!v.values) throw new Error(`${rule.family}/${rule.tieBreaker}: no committed value function`);
+  return v;
+};
 
 test("the starters without a tie-breaker (they read the dealt one) run, and the languages agree", async () => {
   const [state] = births(gridType, grid4, "generic", 1);
@@ -97,13 +100,13 @@ test("host: the rule's score on a board, and quotes priced by v2-grid through th
   assert.equal(bad.result.valid, false, "a cell below 0 is not allowed");
 });
 
-test("host: worth and rarity on a board come from the rule's calibrated rungs", () => {
+test("host: worth and rarity on a board come from the rule's value function", () => {
   const rule = { family: "box-totals", params: { T: 12 }, tieBreaker: "corners" };
-  const v = valuer(gridType, grid4, rule);
-  assert.ok(v.rungs.length > 1, "the grid's committed artefacts have values");
-  const h = new EngineHost({ type: gridType, variant: grid4, state: board, rule, energy: 50, rungs: v.rungs, value: { mine: v.bits(board), others: 5, points: 5 * v.bits(board) } });
+  const v = worthOf(rule);
+  const h = new EngineHost({ type: gridType, variant: grid4, state: board, rule, energy: 50, values: v.values, value: { mine: v.bits(board), others: 5, points: 5 * v.bits(board) } });
   assert.equal(ask(h, { op: "worth" }).result.others, 5);
-  assert.equal(ask(h, { op: "rarity", score: ["0", "36"] }).result.bits, v.rungs.at(-1)!.bits, "the best score is the top rung");
+  const best = v.values!.knots.at(-1)!;
+  assert.equal(ask(h, { op: "rarity", score: best.u }).result.bits, v.top, "the best knot's score is worth the rule's top");
   assert.equal(ask(h, { op: "rarity", score: ["-28", "16"] }).result.bits, v.bits(board));
 });
 
@@ -169,7 +172,7 @@ test("both languages make the same moves on newborn boards, with and without wha
     const rule = { family: ts.family, params: paramsOf(ts.family), tieBreaker };
     const v = worthOf(rule);
     for (const [i, state] of states.entries()) for (const others of [undefined, 0, 40]) {
-      const told = others === undefined ? {} : { rungs: v.rungs, value: { mine: v.bits(state), others, points: v.bits(state) * others } };
+      const told = others === undefined ? {} : { values: v.values, value: { mine: v.bits(state), others, points: v.bits(state) * others } };
       const records = [];
       for (const a of [ts, py]) {
         const { record } = await runAct(await boxes.get(a.language), { type: gridType, variant: grid4, state, rule, program: program(a), seed: String(i), energy: 500, ...told });
@@ -183,18 +186,19 @@ test("both languages make the same moves on newborn boards, with and without wha
 });
 
 
-test("each grid example climbs: some board's main part reaches its top, some board's tie-breaker rises", async () => {
+test("each grid example climbs: the main part never falls and rises on some board; then the tie-breaker rises", async () => {
   const stuck: string[] = [];
   for (const e of DESCRIBED) {
     const f = familyOf(e.family), params = paramsOf(e.family);
     for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.id)) {
-      const ladders = layerLadders(f, params, grid4, tb);
-      const levels = (s: GridState) => {
+      // The main part's best: its utility at the value function's best knot.
+      const best = scoreFromWire(worthOf({ family: e.family, params, tieBreaker: tb }).values!.knots.at(-1)!.u)!;
+      const parts = (s: GridState) => {
         const sc = evaluateSite(gridType, f, params, s, grid4, 0, tb).score;
-        return ladders.map((r, j) => levelOf(sc === null ? null : [sc[j] ?? null], r));
+        return [sc?.[0] ?? null, sc?.[1] ?? null] as const;
       };
       const a = exampleFor(e.family, tb, "typescript")!;
-      let mainTop = false, tieUp = false;
+      let mainUp = false, tieUp = false, mainBest = false, atTop = false;
       for (const start of births(gridType, grid4, `climb-${e.family}`, 3)) {
         let s = start;
         for (let t = 0; t < 25; t++) {
@@ -203,13 +207,15 @@ test("each grid example climbs: some board's main part reaches its top, some boa
           if (record.outcome === "skipped") break;
           s = state;
         }
-        const [m0, t0] = levels(start), [m1, t1] = levels(s);
-        assert.ok(m1! >= m0!, `${e.family}/${tb}: the main part fell on ${gridType.encode(start)}`);
-        if (m1 === ladders[0]!.length - 1) mainTop = true;
-        if (t1! > t0!) tieUp = true;
+        const [m0, t0] = parts(start), [m1, t1] = parts(s);
+        assert.ok(compareScores([m1], [m0]) >= 0, `${e.family}/${tb}: the main part fell on ${gridType.encode(start)}`);
+        if (compareScores([m1], [m0]) > 0) mainUp = true;
+        if (compareScores([m1], [best[0]!]) >= 0) mainBest = true;
+        if (compareScores([t1], [t0]) > 0) tieUp = true;
+        if (compareScores([m1, t1], best) >= 0) atTop = true;   // the best knot itself: nothing left to climb
       }
-      if (!mainTop) stuck.push(`${e.family}/${tb}: no board reached the main part's top`);
-      if (!tieUp) stuck.push(`${e.family}/${tb}: no board's tie-breaker rose`);
+      if (!mainUp) stuck.push(`${e.family}/${tb}: no board's main part rose`);
+      if (!tieUp && mainBest && !atTop) stuck.push(`${e.family}/${tb}: no board's tie-breaker rose, though a main part reached its best`);
     }
   }
   assert.deepEqual(stuck, []);
@@ -223,7 +229,7 @@ test("the starters play for points: below their reserve they keep their energy w
     const [start] = births(gridType, grid4, `points-${e.family}`, 1);
     const run = async (a: ShippedAgent, others: number, energy: number) => (await runAct(await boxes.get(a.language), {
       type: gridType, variant: grid4, state: start!, rule, program: program(a), seed: "1", energy,
-      rungs: v.rungs, value: { mine: v.bits(start!), others, points: v.bits(start!) * others },
+      values: v.values, value: { mine: v.bits(start!), others, points: v.bits(start!) * others },
     })).record.outcome;
     for (const language of ["typescript", "python"] as const) {
       const [simple, thorough, bold, naive] = startersFor(e.family, language, tieBreaker);

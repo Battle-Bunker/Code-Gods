@@ -78,7 +78,7 @@ test("an agent's own score is the engine's, for every family, its dealable numbe
       const lines = e.wholeLines ? sample.filter(s => s.lines[0]!.b === 1n) : sample;
       for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
         const engine = lines.map(s => {
-          const ev = evaluateSite(lineType, f, params, s, lineZ, 0, tb.id), score = scoreToWire(ev.utility ?? ev.score);   // the utilities (decision 23)
+          const ev = evaluateSite(lineType, f, params, s, lineZ, 0, tb.id), score = scoreToWire(ev.score);   // the utilities (decision 23)
           return score === null ? "worst" : score.map(x => x ?? "null").join(",");
         });
         const what = `${e.family} ${JSON.stringify(params)}/${tb.id}`;
@@ -126,7 +126,7 @@ test("each example gains value: on some newborn line its bits rise and the main 
       const vf = findValues("line-z", rule);
       if (!vf) continue;   // not valued yet: the score test above still checks it
       const look = valueLookup(vf);
-      const utility = (s: LineState) => { const ev = evaluateSite(lineType, f, params, s, lineZ, 0, tb); return ev.utility ?? ev.score; };
+      const utility = (s: LineState) => evaluateSite(lineType, f, params, s, lineZ, 0, tb).score;
       const a = exampleFor(e.family, tb, "typescript")!;
       let rose = false;
       for (const start of births(lineType, lineZ, `climb-${e.family}`, 4)) {

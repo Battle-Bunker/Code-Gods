@@ -43,11 +43,10 @@ function wordsOf<S>(type: ObjectType<S>, m: Mutator<unknown, unknown>, args: unk
 export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) => number) | null | undefined, opts: MovesOptions = {}): Move<S>[] {
   const { type, family, params, variant, tieBreaker } = rule;
   const budget = opts.budget ?? DEFAULT_BUDGET;
-  // The object's utility; a multi-site object without one is ranked by its score, never by one site's utility.
-  const utilOf = (s: S): Score => { const ev = evaluateObject(type, family, params, s, variant, tieBreaker); return ev.utility ?? (ev.sites.length === 1 ? ev.sites[0]!.utility : ev.score) ?? null; };
-  const priced = (s: S) => { const ev = evaluateObject(type, family, params, s, variant, tieBreaker); return ev.utility !== undefined || ev.sites.length === 1; };
+  // The object's score (its utilities); a multi-site object has none yet, and one site's never stands for it.
+  const utilOf = (s: S): Score => evaluateObject(type, family, params, s, variant, tieBreaker).score;
   const u0 = utilOf(state);
-  if (!priced(state)) value = null;
+  if (type.sites(state, variant) !== 1) value = null;
   const before = value ? value(u0) : null;
   // Better: more bits; without a value function, a better utility (lexicographic).
   const better = (u: Score, bits: number | null, than: { utility: Score; bits: number | null }) =>

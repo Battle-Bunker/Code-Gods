@@ -20,7 +20,6 @@ test("the beginner pool: eight families (layered-line-rules.md §10.5), each a t
   for (const f of beginnerPool) {
     // Prime Staircase has one secondary (its run of six leaves the others almost nothing to order); the rest three or four.
     assert.ok(f.tieBreakers.length >= (f.id === "prime-staircase" ? 1 : 2) && f.tieBreakers.length <= 4, f.id);
-    for (const l of [f.main, ...f.tieBreakers]) assert.ok(l.thresholds(f.dealable(lineZ)[0] as never, lineZ).length >= 4, `${f.id}.${l.id}`);
   }
 });
 
@@ -77,10 +76,3 @@ test("Prime Staircase: a repeated prime stops the run; no run, no first prime", 
   assert.deepEqual(terms(primeStaircase, {}, mc(1, 1000)), { run: "0", "first-prime": "0" });  // 1000 is not prime
 });
 
-test("whole-number lines get whole-number distance rungs where the distance is always whole", () => {
-  const ts = (f: typeof treasure | typeof primeLanding, id: string, v: typeof lineZ) =>
-    [f.main, ...f.tieBreakers].find(l => l.id === id)!.thresholds(f.dealable(v)[0] as never, v).map(x => (x.d === 1n ? String(x.n) : `${x.n}/${x.d}`));
-  assert.deepEqual(ts(primeLanding, "landing", lineZ), ["4", "2", "1", "0"]);
-  assert.deepEqual(ts(primeLanding, "landing", lineQ), ["4", "2", "1", "1/2", "1/4", "1/8", "0"]);
-  assert.deepEqual(ts(treasure, "treasure", lineZ), ["32", "16", "8", "4", "2", "1", "0"]);
-});

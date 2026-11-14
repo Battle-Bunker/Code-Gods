@@ -11,7 +11,7 @@
  */
 import { canonicalJson, evaluateObject, hashHex, scoreOf, tieBreakerId, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { gridSums, type GridState } from "@workspace/v2-grid";
-import { ruleKey } from "./estimate.ts";
+import { ruleKey } from "./keys.ts";
 import { gridJointLaw } from "./exact-grid.ts";
 import { cellProbability, gridParams } from "@workspace/v2-grid";
 import { knotsFrom, massOracle, sampledOracle, tailOf, VALUE_CONFIG, type Oracle, type ValueConfig, type ValueFunction } from "./value.ts";
@@ -32,10 +32,10 @@ export function gridValueFunction<P>(type: ObjectType<GridState>, family: RuleFa
   if (gridSums[family.id]) {
     const { entries } = gridJointLaw(type, family, params, variant, tb);
     const name = "convolution of the units' laws";
-    oracles.push(massOracle(name, entries.map(e => ({ u: scoreOf(family, params, variant, tb, id => e.terms[ruleLayersIndex(family, tb, id)]!).utility, w: e.w })), 0));
+    oracles.push(massOracle(name, entries.map(e => ({ u: scoreOf(family, tb, id => e.terms[ruleLayersIndex(family, tb, id)]!).score, w: e.w })), 0));
     exact.push({ name, outside: 0 });
   } else {
-    const utility = (cells: number[]): Score => { const e = evaluateObject(type, family, params, { cells }, variant, tb); return e.utility === undefined ? e.score : e.utility; };
+    const utility = (cells: number[]): Score => evaluateObject(type, family, params, { cells }, variant, tb).score;
     const n = options.draws ?? GRID_DRAWS;
     const draw = drawFromPi(variant, rng("grid-value", seed, family.id, JSON.stringify(params), String(tb), variant.id));
     const draws: { u: Score; w: number }[] = [];

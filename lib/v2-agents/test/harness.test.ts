@@ -1,9 +1,9 @@
-/** The harness: a fixed budget, levels on every player's rule, energy split by view, bits from the artefacts. */
+/** The harness: a fixed budget, utilities on every player's rule, energy split by view, bits from the value functions. */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { lineType, lineZ } from "@workspace/v2-linear";
 import { exampleFor, sandboxes } from "../src/index.ts";
-import { findArtefact, formatReport, runHarness } from "../src/harness.ts";
+import { findValues, formatReport, runHarness } from "../src/harness.ts";
 
 const boxes = sandboxes();
 after(() => boxes.close());
@@ -25,9 +25,10 @@ test("two players on shared lines spend their budget, by view, and both rules ar
     assert.ok(s.acts.committed > 0);
   }
   const a = r.rules[0]!;
-  assert.equal(a.levels.top.length, 2, "main part and tie-breaker");
-  assert.ok(a.levels.end[0]! >= a.levels.start[0]! - 7);
-  assert.equal(r.artefacts["m-meets-c/meetPrime"], findArtefact("line-z", { family: "m-meets-c", params: {}, tieBreaker: "meetPrime" })!.status);
-  assert.equal(typeof a.bitsGained, "number");
+  assert.equal(a.utilities.start.length, 2, "main part and tie-breaker");
+  assert.equal(a.utilities.end.length, 2);
+  const vf = findValues("line-z", { family: "m-meets-c", params: {}, tieBreaker: "meetPrime" })!;
+  assert.equal(a.bits!.top, vf.knots.at(-1)!.bits, "the rule's top is its best knot's bits");
+  assert.ok(Math.abs(a.bitsGained! - 3 * (a.bits!.end - a.bits!.start)) < 1e-9, "bits gained is the sum over the lines");
   assert.match(formatReport(r), /\| A \| m-meets-c\/meetPrime \|/);
 });

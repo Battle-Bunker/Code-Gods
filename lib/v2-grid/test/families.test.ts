@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { elementValue, evaluateSite, ref, rng, ruleLadder, levelOf, tieBreakersOn, type Q } from "@workspace/v2-core";
+import { elementValue, evaluateSite, ref, rng, tieBreakersOn, type Q } from "@workspace/v2-core";
 import { gridType, grid4, type GridState } from "../src/index.ts";
 import { board } from "./helpers.ts";
 
@@ -47,14 +47,11 @@ test("strangers and two pairs on boards made for them", () => {
   assert.equal(terms("two-pair", board("3300", "3300", "0000", "0000"), {})["two-pair"], 2 + 2 + 2 + 2, "four of a kind is two steps off");
 });
 
-test("a perfect Magic Eighteen board is at the main layer's top, and its tie-breaker grades it", () => {
+test("a perfect Magic Eighteen board scores 0 on the main layer, and its tie-breaker grades it", () => {
   const s = board("9090", "0909", "4545", "3366");
   const f = fam("magic-eighteen");
   const e = evaluateSite(gridType, f, { T: 18 }, s, grid4, 0, "first-column");
-  const ladder = ruleLadder(f, { T: 18 }, grid4, "first-column");
-  const lvl = levelOf(e.score, ladder);
-  assert.equal(ladder[lvl]!.main, f.main.thresholds({ T: 18 }, grid4).length);
-  assert.ok(lvl < ladder.length - 1, "the first column (16) is not at its top");
+  assert.deepEqual(e.score!.map(x => x === null ? null : `${x.n}/${x.d}`), ["0/1", "16/1"]);   // distance 0; the first column adds to 16
 });
 
 test("every family evaluates every tie-breaker on random boards, its marks citing what it read", () => {
@@ -70,9 +67,8 @@ test("every family evaluates every tie-breaker on random boards, its marks citin
   }
 });
 
-test("every main layer and tie-breaker has at least six rungs, and cards read as sentences", () => {
+test("cards read as sentences", () => {
   for (const f of gridType.families) for (const p of f.dealable(grid4)) {
-    for (const l of [f.main, ...f.tieBreakers]) assert.ok(l.thresholds(p, grid4).length >= 6, `${f.id}.${l.id}`);
     for (const tb of f.tieBreakers) assert.match(f.card(p, tb.id), /^[A-Z].*\. Tie-breaker: [A-Z].*\.$/);
   }
 });

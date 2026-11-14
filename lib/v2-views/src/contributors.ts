@@ -217,7 +217,7 @@ export function contributors<S, P>(rule: RuleRef<S, P>, state: S, site = 0): Con
   const e = ev.sites[site]!;
   const parts = contributorsOf(rule, state, e, site);
   const u = e.terms.find(t => isUndef(t.value));
-  return { evaluation: e, utility: ev.utility ?? (ev.sites.length === 1 ? e.utility : null) ?? null, parts, worst: e.utility === null ? (u ? (u.value as Undef).undefined : "this rule does not score this line") : null };
+  return { evaluation: e, utility: ev.score, parts, worst: e.score === null ? (u ? (u.value as Undef).undefined : "this rule does not score this line") : null };
 }
 
 /**

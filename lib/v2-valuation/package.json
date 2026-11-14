@@ -8,11 +8,7 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
-    "calibrate": "node --experimental-strip-types src/cli.ts",
-    "law": "node --experimental-strip-types src/law.ts",
-    "recap": "node --experimental-strip-types src/recap.ts",
     "values": "node --max-old-space-size=8000 --experimental-strip-types src/values-cli.ts",
-    "grid-validate": "node --experimental-strip-types src/grid-validate.ts",
     "sampler-check": "node --max-old-space-size=3500 --experimental-strip-types src/sampler-check.ts",
     "grid-value-validate": "node --max-old-space-size=8000 --experimental-strip-types src/grid-value-validate.ts"
   },

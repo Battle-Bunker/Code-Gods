@@ -92,7 +92,7 @@ test("moves: each really improves the utility, at the price it quotes, cheapest 
     [emptyTank, {}, mc(-3, 10)], [primeGradient, {}, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],
   ] as const) {
     const r = rule(f as RuleFamily<LineState, unknown>, p, lineQ);
-    const before = evaluateObject(lineType, r.family, r.params, st, lineQ).utility ?? null;
+    const before = evaluateObject(lineType, r.family, r.params, st, lineQ).score;
     const ms = moves(r, st, null, { k: 3 });
     assert.ok(ms.length > 0, `${f.id}: a move`);
     for (const [i, m] of ms.entries()) {
