@@ -12,6 +12,7 @@ import type * as activity from "../activity.js";
 import type * as agent_bound from "../agent/bound.js";
 import type * as agent_connect from "../agent/connect.js";
 import type * as agent_mcp from "../agent/mcp.js";
+import type * as agent_mcpV2 from "../agent/mcpV2.js";
 import type * as agent_node from "../agent/node.js";
 import type * as agent_oauth from "../agent/oauth.js";
 import type * as agent_oauthStore from "../agent/oauthStore.js";
@@ -203,6 +204,7 @@ declare const fullApi: ApiFromModules<{
   "agent/bound": typeof agent_bound;
   "agent/connect": typeof agent_connect;
   "agent/mcp": typeof agent_mcp;
+  "agent/mcpV2": typeof agent_mcpV2;
   "agent/node": typeof agent_node;
   "agent/oauth": typeof agent_oauth;
   "agent/oauthStore": typeof agent_oauthStore;
