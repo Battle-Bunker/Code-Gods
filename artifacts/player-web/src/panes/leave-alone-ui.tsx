@@ -2,12 +2,13 @@
  * The forge's leave-alone control (./leave-alone.ts): "Simple leaves these lines alone: [3, 19] Save". Only the code's
  * leave-alone list changes, through the directory's `agent.leaveAlone` (so the palette and assistants do the same).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { readLeave, setLeave } from "@workspace/v2-agents/pure";
 import { failureText } from "@/site/components/action";
 import { editPrice, type Language } from "./forge-model";
 import { leaveLine, listWords, parseNumbers } from "./leave-alone";
+import { onForgeRequest, takeForgeRequest } from "./forge-request";
 
 export function LeaveAlone({ agentId, name, language, source, one, many }: {
   agentId: string; name: string; language: Language; source: string; one: string; many: string;
@@ -19,6 +20,19 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
   const [busy, setBusy] = useState(false);
   // A new version of the agent (this control or another surface) shows its own list.
   useEffect(() => { setText(readLeave(source)?.join(", ") ?? ""); }, [source]);
+  // Advice elsewhere ("leave line 3 alone") fills the list in (added to what is there) and brings it into view.
+  const box = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const take = () => {
+      const r = takeForgeRequest("leave");
+      if (!r) return;
+      setText([...new Set([...(readLeave(source) ?? []), ...r.numbers])].sort((a, b) => a - b).join(", "));
+      setSaid(null);
+      requestAnimationFrame(() => box.current?.scrollIntoView({ block: "nearest" }));
+    };
+    take();
+    return onForgeRequest(take);
+  }, [source]);
   if (now === null || op.hidden) return null;
   const parsed = parseNumbers(text, one);
   const next = "numbers" in parsed ? parsed.numbers : null;
@@ -34,7 +48,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
     finally { setBusy(false); }
   };
   return (
-    <form className="space-y-1 border-t pt-2 text-sm" data-testid="leave-alone" onSubmit={e => { e.preventDefault(); void save(); }}>
+    <form ref={box} className="space-y-1 border-t pt-2 text-sm" data-testid="leave-alone" onSubmit={e => { e.preventDefault(); void save(); }}>
       <label className="flex flex-wrap items-center gap-2">
         <span>{name} leaves these {many} alone:</span>
         <input value={text} onChange={e => { setText(e.target.value); setSaid(null); }} placeholder="e.g. 3, 19" inputMode="numeric"

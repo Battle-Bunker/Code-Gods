@@ -151,6 +151,14 @@ try {
       assert.ok(Number(m[1]!.replace(/,/g, "")) < Number(m[2]!.replace(/,/g, "")), `the change costs less than the whole: ${priced}`);
       console.log(`${label}: ${priced}`);
       await box.fill(await box.inputValue().then(v => v.replace("\nconst extra = 1;\n", "")));
+      // TARGET/SETTLE as a form (persona walk: "hold grid 12? don't know how"): numbers and a board, priced, then saved.
+      const hold = page.getByTestId("hold");
+      await hold.getByTestId("input-hold-numbers").fill("12");
+      await hold.getByTestId("input-hold-board").fill("9779855879979779");
+      await hold.getByTestId("text-hold").getByText(/will hold grid 12 at .* for [\d.]+ ⚡/).waitFor();
+      await hold.getByTestId("button-hold").click();
+      await hold.getByTestId("text-hold-done").getByText(/holds grid 12 at .*It cost [\d.]+ ⚡/).waitFor({ timeout: 30_000 });
+      console.log(`${label}: ${(await hold.getByTestId("text-hold-done").innerText()).trim()}`);
     }
     if (label === "phone") {
       // A phone folds the agent's code behind "Show the code" (a wall of code filled the screen in a persona walk).

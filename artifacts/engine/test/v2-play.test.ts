@@ -9,7 +9,7 @@
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { readLeave, startersFor } from "@workspace/v2-agents";
+import { readHold, readLeave, startersFor } from "@workspace/v2-agents";
 import { admin, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, roomId: string, gameId: string;
@@ -106,6 +106,13 @@ test("leave alone: a deal honoured by setting only the code's leave-alone list, 
   const versions = (await perform(bo!, "agent.programs", { agentId }, scope(), "query")).result.versions;
   assert.deepEqual(readLeave(versions[0].source), [3, 19]);
   assert.equal(versions[0].source.split("\n").length, simple!.source.split("\n").length, "nothing else changed");
+  // Settle and hold: TARGET and SETTLE only, priced as that edit; null stops it.
+  const held = await perform(bo!, "agent.hold", { agentId, numbers: [5, 2], target: { m: -1, c: 59 } }, scope(), "action");
+  assert.equal(held.ok, true, JSON.stringify(held));
+  assert.ok(held.result.price > 0 && held.result.price < summoned.result.price / 4, `holding costs a little: ${held.result.price}`);
+  const now = (await perform(bo!, "agent.programs", { agentId }, scope(), "query")).result.versions[0].source;
+  assert.deepEqual(readHold(now), { target: { m: -1, c: 59 }, numbers: [2, 5] });
+  assert.deepEqual(readLeave(now), [3, 19], "the leave-alone list is kept");
   // A program without the knob says what to do instead.
   await perform(bo!, "agent.replace", { agentId, language: "typescript", source: "function agent(offer) {\n  return null;\n}\n" }, scope(), "action");
   const none = await perform(bo!, "agent.leaveAlone", { agentId, numbers: [3] }, scope(), "action");
