@@ -1,7 +1,6 @@
 /**
  * Your secret goal (the `my-card` pane): the dealt rule's card in plain words, a worked example on the expanded face
- * (the family's own example, else a seeded search: ./worked-example.ts), the steps to the top with the rarity in bits of each
- * as the server calibrated them, and the rule's parts named "(main part, tie-breaker)" (ux-lessons 2.6).
+ * (the family's own example, else a seeded search: ./worked-example.ts) with the rarities in bits the server calibrated, and the rule's parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
 import { useMemo } from "react";
 import { GoalCard } from "@workspace/v2-views";
