@@ -192,13 +192,14 @@ const signed = (n: number) => `${n >= 0 ? "+" : "−"}${fmtNum(Math.abs(n))}`;
 export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): ReactElement {
   const [order, setOrder] = useState<Order>("points");
   if (!list.length) return <p className="v2v-next" data-kind="none">No single move makes this {noun} rarer for your rule.</p>;
-  const nowPoints = others?.now != null && bits != null ? bits * others.now : null;
+  // Points are your bits × max(0, the others' total): a blurred total can read below zero (v1 disclosed it unclamped).
+  const nowPoints = others?.now != null && bits != null ? bits * Math.max(0, others.now) : null;
   // Live, the others' numbers are blurred (peerNoiseBits): every points figure here is an estimate.
   const about = others?.approx ? "about " : "";
   const rows = list.map((m, i) => {
     const taken = others?.taken?.(m.after) ?? null;
     const theirs = others && taken === null ? others.at(m.after) : null;
-    const points = m.bits !== null && theirs !== null ? m.bits * theirs : null;
+    const points = m.bits !== null && theirs !== null ? m.bits * Math.max(0, theirs) : null;
     const both = m.bits !== null && bits != null && theirs !== null && others?.now != null && m.bits > bits && theirs > others.now;
     return { m, i, taken, theirs, points, both };
   });

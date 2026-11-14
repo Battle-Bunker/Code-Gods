@@ -132,7 +132,8 @@ const hundredths = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100)
  * displayed arithmetic is self-consistent). The one place every pane and the end summary write a score.
  */
 export function scoreFormula(yours: number, others: number, approx = false): string {
-  const product = yours * others;
+  // A blurred others' total can read below zero; points never do (yours × max(0, others)).
+  const product = yours * Math.max(0, others);
   // Live, the others' numbers are deliberately blurred (peerNoiseBits): never write them as exact.
   if (approx) return `your ${fmtBits(yours)} × others' about ${fmtBits(others)} ≈ ${pointsText(product)}`;
   const sign = Math.round(hundredths(yours) * hundredths(others) / 100) === hundredths(product) ? "=" : "≈";
