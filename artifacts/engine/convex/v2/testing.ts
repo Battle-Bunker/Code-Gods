@@ -71,7 +71,11 @@ export const seedRoom = internalMutation({
  * a few moves per player, digests and the `gameStarted` event.
  */
 export const seedGame = internalMutation({
-  args: { ...roomArgs, objects: v.optional(v.number()), phase: v.optional(v.union(v.literal("planning"), v.literal("live"), v.literal("paused"), v.literal("ended"))), seed: v.optional(v.string()) },
+  args: {
+    ...roomArgs, objects: v.optional(v.number()), phase: v.optional(v.union(v.literal("planning"), v.literal("live"), v.literal("paused"), v.literal("ended"))), seed: v.optional(v.string()),
+    /** A line the owner's agent and the next seat's pulled back and forth (a tug-of-war in the owner's act log), by number. */
+    contested: v.optional(v.number()),
+  },
   handler: async (ctx, a) => {
     fixtures();
     const { roomId, members } = await seedRoomIn(ctx, a);
@@ -140,6 +144,30 @@ export const seedGame = internalMutation({
         await ctx.db.insert("v2Moves", {
           gameId, memberId, seq: s, worldSeconds: s * 2, objectId, number: value.number, agentId, mine: true,
           calls: [{ mutator: "si.tilt", site: 0, args: { k: "1" } }], rep: "si", stateBefore: state, stateAfter: state, before: snap, after: snap, charge: 1.5,
+        });
+      }
+    }
+
+    // A tug-of-war on one line in the owner's act log: the owner's agent and the next seat's, alternating (foldTugs).
+    if (a.contested !== undefined && members.length > 1) {
+      const owner = rules[0]!.memberId, other = rules[1]!.memberId, objectId = objects[a.contested - 1]!;
+      const value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", owner)).unique())!;
+      const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
+      const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
+      const snap = { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points };
+      // The owner's agent carries the starters' settle-and-hold settings (off), so its hold control is offered.
+      if (ownerAgent) {
+        const held = `const TARGET = null;\nconst SETTLE = [];\n${source}`;
+        await ctx.db.patch(ownerAgent, { source: held });
+        const program = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", ownerAgent).eq("version", 0)).unique();
+        if (program) await ctx.db.patch(program._id, { source: held });
+      }
+      for (let i = 0; i < 4; i++) {
+        const mine = i % 2 === 0;
+        await ctx.db.insert("v2Moves", {
+          gameId, memberId: owner, seq: 100 + i, worldSeconds: 12 + i, objectId, number: a.contested, mine, by: mine ? owner : other,
+          ...(mine && ownerAgent ? { agentId: ownerAgent } : {}),
+          calls: [{ mutator: "si.shift", site: 0, args: { k: mine ? "1" : "-1" } }], rep: "si", stateBefore: state, stateAfter: state, before: snap, after: snap, charge: 2,
         });
       }
     }
