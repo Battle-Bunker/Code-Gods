@@ -9,7 +9,7 @@ import { ruleKey } from "@workspace/v2-valuation";
 import { representation, tieBreakersOn, type RuleFamily, type Variant } from "@workspace/v2-core";
 import { beginnerFamilies, lineType, type LineState } from "@workspace/v2-linear";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
-import type { GameRule } from "../../sdk/rule.ts";
+import { rungRarities, valueOf, type GameRule } from "../../sdk/rule.ts";
 
 export const BOARDS: readonly { id: string; title: string; blurb: string }[] = [
   { id: "line-z", title: "Whole-number lines", blurb: "One line per object, y = mx + c with whole numbers." },
@@ -121,12 +121,13 @@ export function familyPage(familyId: string, setup: GallerySetup): FamilyPage | 
 /**
  * The page's step rarities from the server (`v2/gallery:family`, the calibrated artefacts the bundle does not carry):
  * which preset to ask (one that deals the family on this board), the rule's key as the server builds it, and, once the
- * rows arrive, that rule's ladder in bits (null until then, or when the preset does not deal this exact rule).
+ * rows arrive, that rule's rarity in bits at each rung of its ladder, read from the value function's points (null until then, or
+ * when the preset does not deal this exact rule).
  */
-export function galleryRarities(page: FamilyPage, rows: readonly { ruleKey: string; ladder: readonly { rarityBits: number }[] }[] | undefined) {
+export function galleryRarities(page: FamilyPage, rows: readonly { ruleKey: string; points: readonly { score: readonly (string | null)[] | null; bits: number }[] }[] | undefined) {
   const preset = PRESETS.find(p => p.variant === page.setup.board && p.families.includes(page.family.id));
   const r = page.rule;
   const key = ruleKey(r.type as never, r.variant, r.family.id, r.params, r.tieBreaker ?? "none");
   const row = rows?.find(x => x.ruleKey === key);
-  return { query: preset ? { preset: preset.id, family: page.family.id } : null, key, rarities: row ? row.ladder.map(x => x.rarityBits) : null };
+  return { query: preset ? { preset: preset.id, family: page.family.id } : null, key, rarities: row ? rungRarities(r, valueOf(row.points.map(p => ({ u: p.score, bits: p.bits })))) : null };
 }

@@ -15,7 +15,7 @@ import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
-import { ruleRefOf, rungRarities, type GameRule } from "./rule";
+import { ruleRefOf, rungRarities, valueOf, type GameRule, type ValueOf } from "./rule";
 import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint } from "./types";
 import { sharedRanks } from "@/core/words";
 
@@ -52,7 +52,9 @@ export interface MyRule {
   row: MyRuleRow;
   /** What the view components draw with; null when this build does not know the family. */
   rule: GameRule | null;
-  /** rarity in bits per level of the dealt ladder. */
+  /** The rule's worth in bits at any score, from the server's value function (null in a replay, which has none). */
+  value: ValueOf | null;
+  /** rarity in bits at each rung of the rule's ladder, read from `value` (until the faces take `value` itself). */
   rarities: number[];
 }
 /** The viewer's private rule: family, parameters, card, ladder with rung rarities, the primary representation. */
@@ -62,7 +64,12 @@ export function useMyRule(): MyRule | undefined {
   const header = useGame();
   const live = useLiveValue(api.v2.play.myRule, gameId && seated && !replay ? { gameId } : "skip");
   const row = replay ? replay.frame.rule(replay.member) ?? undefined : live;
-  return useMemo(() => (row && header ? { row, rule: ruleRefOf(row, header.variant), rarities: rungRarities(row) } : undefined), [row, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
+  return useMemo(() => {
+    if (!row || !header) return undefined;
+    const rule = ruleRefOf(row, header.variant);
+    const value = valueOf(row.value?.knots, row.value?.tail);
+    return { row, rule, value, rarities: rungRarities(rule, value) };
+  }, [row, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** The objects skeleton: ids in the viewer's order, page by page; each row subscribes to its own object. */

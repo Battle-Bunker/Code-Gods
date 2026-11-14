@@ -18,15 +18,23 @@ import { runTable, type SeatKind, type TableReport, type TableSeat } from "../sr
 const { values: o } = parseArgs({ options: {
   games: { type: "string", default: "2" }, seconds: { type: "string", default: "300" }, usd: { type: "string", default: "1" },
   out: { type: "string" }, only: { type: "string" },
+  model: { type: "string", default: "cheap" },
+  effort: { type: "string", default: "low" },   // cheap: the cheapest Anthropic model in v2-ai's list; strong: the next dearer one
 } });
 const games = Number(o.games), seconds = Number(o.seconds);
 const key = process.env.CODE_GODS_ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_API_KEY;
-const cheapest = MODELS.filter(m => m.provider === "anthropic").sort((a, b) => a.prices.input + a.prices.output - b.prices.input - b.prices.output)[0]!;
-const provider: ChatProvider = key ? anthropicProvider({ apiKey: key, model: cheapest.id, prices: cheapest.prices, effort: "low" }) : mockProvider();
+const byPrice = MODELS.filter(m => m.provider === "anthropic").sort((a, b) => a.prices.input + a.prices.output - b.prices.input - b.prices.output);
+if (!["low", "medium", "high"].includes(o.effort)) throw new Error(`--effort is low, medium or high, not ${o.effort}`);
+if (o.model !== "cheap" && o.model !== "strong") throw new Error(`--model is cheap or strong, not ${o.model}`);
+const chosen = byPrice[o.model === "strong" ? 1 : 0];
+if (!chosen) throw new Error(`v2-ai's list has no ${o.model} Anthropic model`);
+const modelWords = o.model === "strong" ? "the second-cheapest Anthropic model in v2-ai's list" : "the cheapest Anthropic model in v2-ai's list";
+const provider: ChatProvider = key ? anthropicProvider({ apiKey: key, model: chosen.id, prices: chosen.prices, effort: o.effort as "low" | "medium" | "high" }) : mockProvider();
 const budget = new Budget({ tokens: 50_000_000, usd: Number(o.usd) });
 
 const beginner = presets.find(p => p.id === "lines-beginner")!.rules;
-const RULES = [["treasure", "prime-terms"], ["prime-staircase", "first-prime"], ["square-area", "lpf"]] as const;
+// Three families of the §10.5 beginner pool, one of them new in it (Whole Crossing).
+const RULES = [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]] as const;
 const NAMES = ["Ada", "Bo", "Cy"];
 const seat = (k: number, kind: SeatKind): TableSeat => {
   const [family, tieBreaker] = RULES[k]!;
@@ -64,14 +72,14 @@ await boxes.close();
 
 const lines: string[] = [];
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-lines.push(`| Table | Seat kind | Seats | Points gained (mean) | Reversal ⚡ (mean) | Edits / summons (⚡ spent) | Messages | Proposals | Deals accepted | Deals kept | Games with a kept deal |`);
-lines.push(`|---|---|---|---|---|---|---|---|---|---|---|`);
+lines.push(`| Table | Seat kind | Seats | Points gained (mean) | Reversal ⚡ (mean) | Edits / summons (⚡ spent) | Messages | Proposals | Deals accepted | Deals kept | Games with a kept deal | Commitments at the end: enacted / pending / retracted |`);
+lines.push(`|---|---|---|---|---|---|---|---|---|---|---|---|`);
 for (const [name, reports] of Object.entries(results)) {
   const seats = reports.flatMap(r => r.seats);
   for (const kind of [...new Set(seats.map(s => s.kind))]) {
     const ss = seats.filter(s => s.kind === kind);
     const deals = reports.flatMap(r => r.deals.filter(d => r.seats[d.by]!.kind === kind || r.seats[d.with]!.kind === kind));
-    lines.push(`| ${name} | ${kind} | ${ss.length} | ${mean(ss.map(s => s.gained)).toFixed(0)} | ${mean(ss.map(s => s.reversalEnergy)).toFixed(0)} | ${ss.reduce((t, s) => t + s.replaced, 0)} / ${ss.reduce((t, s) => t + s.summoned, 0)} (${ss.reduce((t, s) => t + s.spent.edits + s.spent.summons, 0).toFixed(0)}) | ${ss.reduce((t, s) => t + s.messages, 0)} | ${ss.reduce((t, s) => t + s.proposals, 0)} | ${kind === "model" ? deals.length : "–"} | ${kind === "model" ? deals.filter(d => d.kept).length : "–"} | ${kind === "model" ? `${reports.filter(r => r.deals.some(d => d.kept)).length} of ${reports.length}` : "–"} |`);
+    lines.push(`| ${name} | ${kind} | ${ss.length} | ${mean(ss.map(s => s.gained)).toFixed(0)} | ${mean(ss.map(s => s.reversalEnergy)).toFixed(0)} | ${ss.reduce((t, s) => t + s.replaced, 0)} / ${ss.reduce((t, s) => t + s.summoned, 0)} (${ss.reduce((t, s) => t + s.spent.edits + s.spent.summons, 0).toFixed(0)}) | ${ss.reduce((t, s) => t + s.messages, 0)} | ${ss.reduce((t, s) => t + s.proposals, 0)} | ${kind === "model" ? deals.length : "–"} | ${kind === "model" ? deals.filter(d => d.kept).length : "–"} | ${kind === "model" ? `${reports.filter(r => r.deals.some(d => d.kept)).length} of ${reports.length}` : "–"} | ${kind === "model" ? ["enacted", "pending", "retracted"].map(k => ss.reduce((t, s) => t + s.commitments[k as "enacted"], 0)).join(" / ") : "–"} |`);
   }
 }
 const chat = Object.values(results).flat().flatMap(r => r.chat);
@@ -87,7 +95,7 @@ ${seconds} world seconds on the beginner economy run as the server's tick runs i
 energy, ${ECON.powerPerSecond} power, ${ECON.fullChargeSeconds} s to full, ${ECON.startingEnergy} ⚡ to start, credit, births at 0.1 a second). Every seat summons its
 starter at the first-agent share; model seats then take a turn every 20 s with the server AI seat's prompt and tools
 (at most 6 model calls a turn), edits cost the change (owner decision 21) and power.allocate takes absolute shares. In "mix" each rule plays
-each kind once over three games. Model: ${key ? `the cheapest Anthropic model in v2-ai's list, low effort` : "the mock provider (no key): its turns only read"}.
+each kind once over three games. Model: ${key ? `${modelWords}, ${o.effort} effort` : "the mock provider (no key): its turns only read"}. Each model turn's message lists the seat's deals as commitments (v2-ai commitments.ts): pending until its agents' code skips the lines, or retracted.
 Shipped agents (examples and starters): median ${secs(median)}, dearest ${secs(dearest)}.
 
 Spent: $${spent.usd.toFixed(3)} over ${spent.calls} model calls (${spent.tokens.toLocaleString("en")} tokens).

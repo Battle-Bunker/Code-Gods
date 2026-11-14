@@ -3,7 +3,8 @@
  * tie-breaker the server dealt (`v2/play:myRule`), resolved against the deployed object type (lines, grids). The browser
  * never scores for the server: this is for drawing the viewer's own annotations (integration plan §3.1).
  */
-import type { RuleFamily } from "@workspace/v2-core";
+import { objectLadder, type RuleFamily, type Score } from "@workspace/v2-core";
+import { valueLookup, type Lookup } from "@workspace/v2-valuation";
 import { gridType } from "@workspace/v2-grid";
 import { lineType } from "@workspace/v2-linear";
 import type { RuleRef } from "@workspace/v2-views";
@@ -27,8 +28,29 @@ export function ruleRefOf(row: MyRuleRow, variantId: string): GameRule | null {
   return { type: objectTypeOf(variantId), family, params: row.params, variant: variantOf(variantId), tieBreaker: row.tieBreaker };
 }
 
-/** The rarity in bits of each rung of the dealt ladder (index = level), as the server calibrated them. */
-export const rungRarities = (row: MyRuleRow): number[] => row.ladder.map(r => r.rarityBits);
+/** A rule's worth: its rarity in bits at any score (utility), with certified bounds (owner decision 23). */
+export type ValueOf = (u: Score) => Lookup;
+
+/**
+ * The value function's knots as a lookup (`v2/play:myRule`'s `value`, or the gallery's `points`, which carry no bounds
+ * and read as exact); null without knots (a replay file carries none).
+ */
+export function valueOf(knots: readonly { u: readonly (string | null)[] | null; bits: number; lo?: number; hi?: number }[] | undefined, tail?: unknown): ValueOf | null {
+  if (!knots?.length) return null;
+  return valueLookup({
+    knots: knots.map(k => ({ u: k.u as (string | null)[] | null, bits: k.bits, lo: k.lo ?? k.bits, hi: k.hi ?? k.bits })),
+    tail: (tail ?? { primary: 0, secondary: 0 }) as { primary: number; secondary: number },
+  } as never);
+}
+
+/**
+ * The rarity in bits at each rung of the rule's ladder (index = level), read from its value function: what the faces
+ * draw until they take the value function itself (lib/v2-views, decision 23). Empty without one.
+ */
+export function rungRarities(rule: GameRule | null, value: ValueOf | null): number[] {
+  if (!rule || !value) return [];
+  return objectLadder(rule.type, rule.family, rule.params, rule.variant, rule.tieBreaker ?? undefined).map(r => value(r.score).bits);
+}
 
 /**
  * A state on the wire as its object type holds it: the game's variant decides the type; without one, the wire's shape

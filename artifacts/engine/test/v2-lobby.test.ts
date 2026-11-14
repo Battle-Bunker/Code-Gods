@@ -71,7 +71,7 @@ test("the start deals every seated member a converged rule and opens their accou
     const rule = await h.query("v2/play:myRule", { gameId });
     assert.ok(rule.ruleKey.includes(rule.family) && rule.tieBreaker, rule.ruleKey);
     assert.equal(rule.layers.length, 2);
-    assert.ok(rule.ladder.at(-1).rarityBits > 0, "rarities from the artefact");
+    assert.ok(rule.value.knots.length > 2 && rule.value.knots.at(-1).bits > 0, "the rule's value function comes with it");
     const me = await h.query("v2/play:me", { gameId });
     assert.deepEqual([me.energy, me.agents, me.ready], [150, 0, false]);
   }
@@ -81,7 +81,7 @@ test("the start deals every seated member a converged rule and opens their accou
   assert.equal((await perform(ada, "game.start", {}, { roomId })).error.code, "refused", "one game at a time");
 });
 
-test("the setup picker: the server's own presets, and nothing else; a family's ladders with their rarity", async () => {
+test("the setup picker: the server's own presets, and nothing else; a family's value curves", async () => {
   const [plain] = await humans("Lobby Plain");
   const presets = await plain!.query("v2/setups:presets", {});
   assert.ok(presets.some((p: any) => p.id === "lines-beginner" && p.families.length > 1), JSON.stringify(presets.map((p: any) => p.id)));
@@ -94,6 +94,6 @@ test("the setup picker: the server's own presets, and nothing else; a family's l
 
   const rules = await plain!.query("v2/gallery:family", { preset: "lines-beginner", family: "prime-landing" });
   assert.ok(rules.length > 0, "the family's dealable rules");
-  for (const r of rules) assert.ok(r.ladder.length > 1 && r.ladder.every((s: any) => s.rarityBits >= 0) && r.ladder.at(-1).rarityBits > 0, JSON.stringify(r.ladder));
+  for (const r of rules) assert.ok(r.points.length > 1 && r.points.every((p: any) => p.bits >= 0) && r.points.at(-1).bits > 0, JSON.stringify(r.points.slice(-3)));
   assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "prime-landing" }), []);
 });

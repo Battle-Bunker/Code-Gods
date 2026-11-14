@@ -11,10 +11,10 @@ Code: `artifacts/engine/convex/v2/`.
 | Live queries (subscriptions) | `rooms.ts`, `games.ts`, `play.ts`, `spectate.ts`, `layout.ts`, `replays.ts`, `bids.ts` | each declares `returns:` from `validators.ts`; app types come from the generated api (`FunctionReturnType<typeof api.v2.play.object>`) |
 | Operations | `ops/<namespace>.ts` | one `defineOp` per server affordance of `lib/v2-affordances` (`v2/ops/<ns>:<verb>` and its twin `<verb>As`); every one is built. A domain failure is `{ok: false, error: {code: "failed", message, fix?}}` (a mutation throws it as a ConvexError whose data is the outcome) |
 | Caller and context | `access.ts`, `ops/define.ts` | sign-in everywhere; the affordance context is derived from v2's own rows; a credential bound to a room acts there only |
-| Lobby and deal | `lobby.ts`, `deal.ts`, `artefacts.ts` (+ `artefacts.gen.ts`, `scripts/gen-v2-artefacts.mjs`) | only rules with a converged artefact are dealt; rotation as v1, keyed by rule key |
+| Lobby and deal | `lobby.ts`, `deal.ts` | only rules with a value function are dealt (decision 23); rotation as v1, keyed by rule key |
 | Loop | `loop.ts` (world start, commit, scoreboard, pause, resume, end, watchdog), `tick.ts` (Node: births, offers, `runAct`) | one lease per live game; the commit owns every write. Each act is told its owner's value on the offered line, the last 8 moves on it they may see (`actInputs`, fetched for the tick's lines in parallel batches) and their rule's rungs; the first two are recorded in the act event, and agents' notes land in the act event and on the mover's `v2Moves` row (`notes`) |
 | Agents and energy | `agents.ts`, `commands.ts`, `checkNode.ts`, `runtime.ts` (Node: inline sandboxes) | lib/v2-economy accounts: energy moves with power. `power.allocate` takes absolute shares (each a fraction of the player's power, ≤ 1 in all); what no agent holds feeds the own store. An agent's `offer.object` is the line's `number`, the one objects.list, moves.list, object.score and the app show |
-| Values | `world.ts`, `reads.ts` | n_i from the artefact, π_i = n_i · Σ_{j≠i} n_j; human reads through the agents' own EngineHost |
+| Values | `world.ts`, `values.ts` (+ `values.gen.ts`, `scripts/gen-v2-values.mjs`), `reads.ts` | decision 23: a score is the rule's utility (plain lexicographic, no levels); n_i = its worth in bits from the rule's value function (`valueLookup`); π_i = n_i · Σ_{j≠i} n_j; human reads through the agents' own EngineHost. `artefacts.ts` survives only for the agents' `rungs` input until W2's host switches |
 | Model calls | `ai.ts` (provider, `spendWithin`), `spend.ts` (who may spend how much), `perform.ts` (a delegate's affordance call) | AI only in rooms an administrator owns; the owner's per-game token quotas (`room.aiQuotas`: AI players together, each player's assistant; 0 = off); USD ceilings per game and per UTC day; call-rate limits. AI_MOCK=1 uses lib/v2-ai's offline mock |
 | AI players | `aiTurn.ts` | a turn every 20 s as `member:<id>`, ≤ 30 turns a game |
 | In-client assistant | `assistant.ts` (the pane's reads), `assistantCore.ts` (queue, turns, autopilot), `assistantRun.ts` (one action per turn), `assistantTables.ts` | acts as the human's delegate (`via: "assistant"`, their chosen grant, lowered to a passing connection's); read-only mode offers read tools only; never its own `assistant.*` |
@@ -33,7 +33,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/rooms:chat`, `v2/rooms:history` | `roomId, paginationOpts` | member |
 | `v2/games:header`, `standings` | `gameId` | member; `header.me` is the caller's seat or null |
 | `v2/games:standingsHistory` | `gameId, after` | member; ≤ 100 rows after `after` |
-| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated; `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
+| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated; `myRule.value` is the rule's value function (`{knots, tail}`, what `valueLookup` takes); `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
 | `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
@@ -49,7 +49,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/rooms:aiQuotas` | `roomId` | member: the owner's per-game token quotas `{ai, assistant}` |
 | `v2/connect:pending` | `request` (the /connect key) | signed in: the OAuth request's client, grant, status, expiry, hinted room and the caller's v2 rooms; decided by `account.approveConnection` / `account.denyConnection` |
 | `v2/setups:presets` | `{}` | signed in: the deployed presets (the setup picker); `room.create`/`room.settings` refuse any other id |
-| `v2/gallery:family` | `preset, family` | signed in: the family's dealable rules with card, layers and ladder, each rung's ✨ rarity |
+| `v2/gallery:family` | `preset, family` | signed in: the family's dealable rules with card, layers and value curve (`points`: each knot's score and bits) |
 
 Values: `rarityBits` is the player's n_i, `want` is Σ_{j≠i} n_j and `points` = n_i · want (spec §8). States travel as
 the object type's wire (`line-z`: `a,b,c` per line, `;` between lines). Scores are `(string | null)[] | null`.
@@ -57,7 +57,7 @@ the object type's wire (`line-z`: `a,b,c` per line, `;` between lines). Scores a
 ## The record (spec §9)
 
 `v2Events`, dense `seq` from 0: `gameStarted` (players and their dealt rules), `command` (summon, replace, putBack,
-destroy, allocate), `phase`, `objectBorn`, `values` (per player score, level, bits), `act` (the act record with its
+destroy, allocate), `phase`, `objectBorn`, `values` (per player utility and bits), `act` (the act record with its
 seed, energy, offered object, program version), `tick` (standings), `gameEnded`. Folding `values` gives the standings;
 every `act` re-executes from its own fields (test/v2-game.test.ts).
 
@@ -71,6 +71,5 @@ Suites: `v2-contract`, `v2-lobby`, `v2-play`, `v2-game` (M1's acceptance and rep
 
 - Agents run inline in the Node action (no worker thread in a Convex bundle): QuickJS keeps its time cap; a single long
   native Python step runs until the action's limit, and the watchdog then restarts the chain.
-- Only 2 of the 12 `line-z` rules have converged artefacts, so seats share rules until W1 converges more.
 - `v2/play:digest` grows with objects (30 KiB at 1,000 with three players; 64 KiB near 2,300).
 - R8's cold check (a cold query survives tick commits) is not yet run.

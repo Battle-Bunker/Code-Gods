@@ -4,7 +4,7 @@ import { pageOf } from "./paging";
 
 export const { op: list, as: listAs } = defineOp("objects.list", "query", async (env, a) => {
   const { game, member } = seated(env);
-  const index = a.sort === "recent" ? "by_game_member_changed" : a.sort === "level" ? "by_game_member_rarity" : "by_game_member_points";
+  const index = a.sort === "recent" ? "by_game_member_changed" : a.sort === "rarity" ? "by_game_member_rarity" : "by_game_member_points";
   const page = await env.ctx.db.query("v2ObjectValues").withIndex(index, q => q.eq("gameId", game._id).eq("memberId", member._id)).order("desc").paginate(pageOf(a));
-  return { page: page.page.map(r => ({ objectId: r.objectId, number: r.number, level: r.level, points: r.points })), nextCursor: page.isDone ? null : page.continueCursor };
+  return { page: page.page.map(r => ({ objectId: r.objectId, number: r.number, bits: r.rarityBits, points: r.points })), nextCursor: page.isDone ? null : page.continueCursor };
 });

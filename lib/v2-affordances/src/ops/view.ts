@@ -77,16 +77,16 @@ export const viewOps = [
   }),
   affordance({
     id: "view.sortObjects", title: "Sort objects", group: "view", scope: "room",
-    description: "Sorts the human's objects pane by their points, level or most recent change.",
+    description: "Sorts the human's objects pane by their points, rarity (bits) or most recent change.",
     tooltip: "Change the objects' order.", keywords: ["sort", "order", "rank"],
-    params: obj({ sort: z.enum(["points", "level", "recent"]) }), result: done,
+    params: obj({ sort: z.enum(["points", "rarity", "recent"]) }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "view.filterObjects", title: "Filter objects", group: "view", scope: "room",
-    description: "Filters the human's objects pane: only objects the caller's agents touched, or at least a level. Empty clears the filter.",
+    description: "Filters the human's objects pane: only objects the caller's agents touched, or worth at least some bits. Empty clears the filter.",
     tooltip: "Show only some objects.", keywords: ["filter", "only mine", "search objects"],
-    params: obj({ mine: z.boolean().optional(), minLevel: z.number().int().min(0).optional() }), result: done,
+    params: obj({ mine: z.boolean().optional(), minBits: z.number().min(0).optional() }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({

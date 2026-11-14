@@ -346,6 +346,23 @@ the new starters, model-backed seats and a mix (each rule playing each kind once
 v2-ai's list when a key is set, within `--usd` dollars (default 1), and the mock provider otherwise. Results:
 [ai-table-results.md](ai-table-results.md).
 
+## Deals as commitments (the AI player's scaffold)
+
+`lib/v2-ai/src/commitments.ts` turns chat into commitments for an AI player.
+- `findDeals` reads proposals and acceptances.
+- `commitmentsOf(me, chat, moves, programs)` lists every deal `me` is a side of, with a status:
+  - pending until every one of its agents' programs skips the named lines (`skipsLines`: the code reads `offer.object`
+    and names each line, outside comments);
+  - enacted once they do;
+  - retracted by a later message with retraction words.
+
+  It also lists each side's breaks: moves on a named line that lowered the other side's points.
+- `commitmentBriefing` writes the turn's "YOUR DEALS" section. It names the exact edit and its price, and asks the seat
+  to settle every pending deal first: enact it or retract it.
+
+It is derived from what happened, so a host needs no storage. The table appends the briefing to each model turn's
+message; the server's AI turn can do the same (W3). Nothing is enforced by the game.
+
 ## The primer for the AI assistant
 
 `AGENT_PRIMER` (or `agentPrimer(type)`) from `@workspace/v2-agents` (`src/primer.ts`) is the text the embedded and
