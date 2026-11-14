@@ -1,7 +1,7 @@
 /** The My agents pane's words (src/panes/agents-words.ts) and the results headline (src/panes/results-headline.ts). */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "../src/panes/agents-words.ts";
+import { DEBT_TEXT, debtText, destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "../src/panes/agents-words.ts";
 import { finishPlace, resultsHeadline, type StandingRow } from "../src/panes/results-headline.ts";
 
 test("energy a little below zero reads about 0 ⚡, with the exact figure for the tooltip (ux 3.9)", () => {
@@ -33,7 +33,8 @@ test("what an agent did, in one line", () => {
 test("a destroy confirmation says what comes back (ux 3.8)", () => {
   assert.equal(destroyConfirm("Tank-1", 517.4), "Tank-1 stops for good and makes no more moves. The 517 ⚡ it holds come back to you.");
   assert.equal(destroyConfirm("Tank-1", 1.2), "Tank-1 stops for good and makes no more moves. The 1 ⚡ it holds comes back to you.");
-  assert.equal(destroyConfirm("Tank-1", -8), "Tank-1 stops for good and makes no more moves. It holds no ⚡ now, so none comes back.");
+  assert.equal(destroyConfirm("Tank-1", -8), "Tank-1 stops for good and makes no more moves. It owes 8 ⚡: that debt moves to your own store.");
+  assert.equal(destroyConfirm("Tank-1", -0.4), "Tank-1 stops for good and makes no more moves. It holds no ⚡ now, so none comes back.");
   assert.equal(destroyConfirm("Tank-1", undefined), "Tank-1 stops for good and makes no more moves. The ⚡ it holds come back to you.");
 });
 
@@ -63,4 +64,12 @@ test("no standings have their own sentence", () => {
   assert.equal(resultsHeadline(null, "a"), "The game ended before any scores were counted.");
   assert.equal(resultsHeadline([], "a", false), "No scores yet: they appear once the world runs.");
   assert.equal(resultsHeadline([{ memberId: "a", name: "Ada", net: 1, handicap: 0, rank: 1 }], "a"), "You finished 1st of 1 with 1.00 point.");
+});
+
+test("an agent in debt says so, with the server's own explanation (energy-model §7.2; coordinator)", () => {
+  assert.equal(debtText(-326.4), "Owes 326.40 ⚡, borrowed to finish a change.");
+  assert.equal(debtText(-8.9), null, "a sliver below 0 is 'about 0' (working), not debt");
+  assert.equal(debtText(12), null);
+  assert.match(DEBT_TEXT, /^An agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities\. If you lower its power or remove it, the debt moves with the power to your own store\.$/);
+  assert.equal(destroyConfirm("Tank", -326.4), "Tank stops for good and makes no more moves. It owes 326 ⚡: that debt moves to your own store.");
 });

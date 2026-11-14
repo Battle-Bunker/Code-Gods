@@ -8,7 +8,7 @@ import { readHold, setHold, type HoldTarget } from "@workspace/v2-agents/pure";
 import { failureText } from "@/site/components/action";
 import { editPrice, type Language } from "./forge-model";
 import { onForgeRequest, takeForgeRequest } from "./forge-request";
-import { holdLine, holdChanged } from "./hold";
+import { holdLine, holdChanged, missingKnobs } from "./hold";
 import { parseNumbers } from "./leave-alone";
 
 export function HoldControl({ agentId, name, language, source, one, many, grid }: {
@@ -16,7 +16,7 @@ export function HoldControl({ agentId, name, language, source, one, many, grid }
 }) {
   const op = useAffordance("agent.hold");
   const now = readHold(source);
-  const box = useRef<HTMLFormElement>(null);
+  const box = useRef<HTMLElement>(null);
   const fromNow = () => ({
     numbers: now?.numbers.join(", ") ?? "",
     m: now && now.target && typeof now.target === "object" ? String(now.target.m) : "",
@@ -39,7 +39,8 @@ export function HoldControl({ agentId, name, language, source, one, many, grid }
     take();
     return onForgeRequest(take);
   }, []);
-  if (now === null || op.hidden) return null;
+  if (op.hidden) return null;
+  if (now === null) return <p ref={box as React.RefObject<HTMLParagraphElement>} className="border-t pt-2 text-xs text-muted-foreground" data-testid="hold-missing">{missingKnobs(name, "hold")}</p>;
   const nums = parseNumbers(f.numbers, one);
   const target: HoldTarget | undefined = grid
     ? (/^\d{16}$/.test(f.board) ? f.board : f.board === "" ? null : undefined)
@@ -59,7 +60,7 @@ export function HoldControl({ agentId, name, language, source, one, many, grid }
   };
   const field = "h-8 border bg-background px-2";
   return (
-    <form ref={box} className="space-y-1 border-t pt-2 text-sm" data-testid="hold" onSubmit={e => { e.preventDefault(); if (next && changed) void save(next); }}>
+    <form ref={box as React.RefObject<HTMLFormElement>} className="space-y-1 border-t pt-2 text-sm" data-testid="hold" onSubmit={e => { e.preventDefault(); if (next && changed) void save(next); }}>
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-2">
           <span>Hold {many}</span>

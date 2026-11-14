@@ -8,6 +8,7 @@ import { readLeave, setLeave } from "@workspace/v2-agents/pure";
 import { failureText } from "@/site/components/action";
 import { editPrice, type Language } from "./forge-model";
 import { leaveLine, listWords, parseNumbers } from "./leave-alone";
+import { missingKnobs } from "./hold";
 import { onForgeRequest, takeForgeRequest } from "./forge-request";
 
 export function LeaveAlone({ agentId, name, language, source, one, many }: {
@@ -21,7 +22,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
   // A new version of the agent (this control or another surface) shows its own list.
   useEffect(() => { setText(readLeave(source)?.join(", ") ?? ""); }, [source]);
   // Advice elsewhere ("leave line 3 alone") fills the list in (added to what is there) and brings it into view.
-  const box = useRef<HTMLFormElement>(null);
+  const box = useRef<HTMLElement>(null);
   useEffect(() => {
     const take = () => {
       const r = takeForgeRequest("leave");
@@ -33,7 +34,8 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
     take();
     return onForgeRequest(take);
   }, [source]);
-  if (now === null || op.hidden) return null;
+  if (op.hidden) return null;
+  if (now === null) return <p ref={box as React.RefObject<HTMLParagraphElement>} className="border-t pt-2 text-xs text-muted-foreground" data-testid="leave-alone-missing">{missingKnobs(name, "leave")}</p>;
   const parsed = parseNumbers(text, one);
   const next = "numbers" in parsed ? parsed.numbers : null;
   const changed = next !== null && next.join(",") !== now.join(",");
@@ -48,7 +50,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
     finally { setBusy(false); }
   };
   return (
-    <form ref={box} className="space-y-1 border-t pt-2 text-sm" data-testid="leave-alone" onSubmit={e => { e.preventDefault(); void save(); }}>
+    <form ref={box as React.RefObject<HTMLFormElement>} className="space-y-1 border-t pt-2 text-sm" data-testid="leave-alone" onSubmit={e => { e.preventDefault(); void save(); }}>
       <label className="flex flex-wrap items-center gap-2">
         <span>{name} leaves these {many} alone:</span>
         <input value={text} onChange={e => { setText(e.target.value); setSaid(null); }} placeholder="e.g. 3, 19" inputMode="numeric"

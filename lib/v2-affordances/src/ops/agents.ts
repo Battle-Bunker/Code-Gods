@@ -10,7 +10,7 @@ const hasAgents = (ctx: AffordanceContext): Availability =>
   ctx.game?.agents === 0 ? { ok: false, reason: "You have no agents yet.", fix: "agent.summon" } : { ok: true };
 
 const agentRow = z.object({
-  agentId: id, name: z.string(), language, share: z.number(), energy: z.number(), acts: z.number().int(), version: z.number().int(),
+  agentId: id, name: z.string(), language, share: z.number(), energy: z.number().describe("Below 0 is debt: an agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities. If you lower its power or remove it, the debt moves with the power to your own store."), acts: z.number().int(), version: z.number().int(),
 });
 const checkReport = z.object({
   verdict: z.enum(["works", "warns", "fails", "rejected"]), summary: z.string(), price: z.number().describe("The summon price in energy."),
@@ -21,7 +21,7 @@ const checkReport = z.object({
 export const agentOps = [
   affordance({
     id: "agents.list", title: "List my agents", group: "agents", scope: "game",
-    description: "The caller's agents (≤ 20): name, language, power share, energy, acts and current program version.",
+    description: "The caller's agents (≤ 20): name, language, power share, energy, acts and current program version. Energy below 0 is debt: an agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities. If you lower its power or remove it, the debt moves with the power to your own store.",
     tooltip: "Your agents and their energy.", keywords: ["agents", "my agents", "bots"],
     params: none, result: z.object({ agents: z.array(agentRow) }),
     contexts: [...IN_GAME, "ended"], caller: "seated", effect: "read", confirm: "none", runs: "server",

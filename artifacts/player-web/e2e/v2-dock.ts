@@ -191,6 +191,11 @@ try {
     await practiceGame(page, 45);
     await page.getByTestId("dock-stacked").waitFor();
     assert.equal(await page.getByTestId("dock-desktop").count(), 0, "no desktop dock on a phone");
+    // The sticky row of pane names is opaque and drawn above what scrolls under it (round 7/03, #559's opened-phone):
+    // half-legible text showed through a 95% background.
+    const nav = await page.getByTestId("dock-jump").evaluate((el: Element) => ({ bg: getComputedStyle(el).backgroundColor, z: getComputedStyle(el).zIndex }));
+    assert.doesNotMatch(nav.bg, /\/ 0?\.\d+\)$|,\s*0?\.\d+\)$/, `phone: the pane-name row is opaque: ${nav.bg}`);
+    assert.ok(Number(nav.z) >= 10, `phone: the pane-name row is above the panes: z-index ${nav.z}`);
     const jumps = async () => (await page.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length))));
     const first = await jumps();
     assert.ok(first.includes("forge") && first.includes("my-card"), first.join());

@@ -8,7 +8,7 @@ import { summonFirst } from "./first-summon";
 import { objectWord, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
-import { WORKING_TEXT, destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "./agents-words";
+import { DEBT_TEXT, WORKING_TEXT, debtText, destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "./agents-words";
 
 function Energy({ value, testId }: { value: number; testId: string }) {
   const exact = energyExact(value);
@@ -31,6 +31,7 @@ function AgentRow({ agent, power }: { agent: Agent; power: number | undefined })
           <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
             <span>Energy <Energy value={e.energy} testId={`text-agent-energy-${agent.agentId}`} /></span>
             {energyExact(e.energy) && <span data-testid={`text-agent-working-${agent.agentId}`}>{WORKING_TEXT}</span>}
+            {debtText(e.energy) && <Tip text={DEBT_TEXT}><span tabIndex={0} className="underline decoration-dotted underline-offset-4" data-testid={`text-agent-debt-${agent.agentId}`}>{debtText(e.energy)}</span></Tip>}
           </p>
           <p className="text-xs text-muted-foreground" data-testid={`text-agent-work-${agent.agentId}`}>{workText(e)}</p>
         </>

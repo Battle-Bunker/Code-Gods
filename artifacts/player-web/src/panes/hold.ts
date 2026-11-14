@@ -43,3 +43,9 @@ export function holdLine(o: { agent: string; numbers: readonly number[]; target:
 export function holdChanged(next: { numbers: readonly number[]; target: unknown }, now: { numbers: readonly number[]; target: unknown } | null): boolean {
   return !now || JSON.stringify([next.numbers, next.target]) !== JSON.stringify([now.numbers, now.target]);
 }
+
+/** Where a control would be when the agent's own code lacks its settings (annotations, #559: the tap found nothing). */
+export function missingKnobs(agent: string, what: "hold" | "leave"): string {
+  const knobs = what === "hold" ? "hold settings (TARGET, SETTLE)" : "leave-alone list (LEAVE)";
+  return `${agent}'s code has no ${knobs}, so there is nothing here to set. Replace it with a starter (Simple, Thorough or Bold), which has them, or ask your assistant to add them to this code.`;
+}
