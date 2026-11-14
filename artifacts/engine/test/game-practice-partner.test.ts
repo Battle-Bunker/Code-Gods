@@ -6,13 +6,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { exampleAgent } from "@workspace/game-utilities/example-agents";
 import { instantiationOf, type GameSettings } from "@workspace/game-core";
-import { admin, adminGods, api, internal, raw, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, gods, internal, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
-test("two practice partners each summon their rule's example agent, and spend nothing on a model", { timeout: 300_000 }, async () => {
-  const [host] = await adminGods("Practice Host");
+test("a player who is not an administrator practises against two practice partners, which each summon their rule's example agent and spend nothing on a model; a model-backed AI seat stays refused", { timeout: 300_000 }, async () => {
+  const [host] = await gods("Practice Host");
   await touch(host);
   const { roomId } = await roomWith([host], { planningSeconds: 600 });
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
+  assert.match(await rejects(host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" })), /administrator/, "a model-backed seat needs an administrator's room");
   for (let i = 0; i < 2; i++) await host.c.mutation(api.rooms.addAi, { roomId, templateId: "practice-example" });
   const { gameId } = await startGame(host, roomId);
   const game = await waitFor(async () => {

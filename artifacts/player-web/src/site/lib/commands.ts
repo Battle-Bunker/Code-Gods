@@ -54,7 +54,7 @@ export function titleFor(key: PublicFunctionPath | UiCommandId): string {
 
 export interface CmdRoom {
   id: string; shortCode: string; ownerId: string; ownerName: string;
-  members: readonly { id: string; name: string; kind: string; ready: boolean; spectator?: boolean }[];
+  members: readonly { id: string; name: string; kind: string; ready: boolean; spectator?: boolean; provider?: string }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
   /** The room's owner is an administrator: AI seats, the assistant and the quotas are available (rooms.get `aiEnabled`). */
   aiEnabled: boolean; aiQuota: number; assistantQuota: number;
@@ -173,8 +173,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     : ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok)));
   // A practice game: the owner plays, AI players take the seats a game still needs, and it starts in the same click.
   const missing = Math.max(0, scope.minPlayers - players);
+  // Its seats are practice partners (no model, engine aiTemplates.ts), so it needs neither an administrator's room nor
+  // a provider key: only a lobby the owner runs, with room.
   const practice = (): Availability => {
-    const a = addAi();
+    const a = ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok));
     if (!a.ok) return a;
     if (me?.spectator) return no("You are watching the next game; play it first.", { fix: "rooms.setSpectator" });
     if (scope.starting) return no("The game is already starting.");
@@ -187,7 +189,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       : scope.starting ? no("The game is already starting.")
       : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
       : bidding ? no("The players are bidding for their rules; the game starts by itself when bidding ends.")
-      : notAdminRoom && ais.some(a => !a.spectator) ? no(`${adminOnly} Remove the AI players to start.`, { fix: "rooms.removeAi" })
+      : notAdminRoom && ais.some(a => !a.spectator && a.provider !== "builtin") ? no(`${adminOnly} Remove the AI players to start.`, { fix: "rooms.removeAi" })
       : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff || notAdminRoom ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => addAi(),

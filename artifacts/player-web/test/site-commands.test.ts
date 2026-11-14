@@ -251,8 +251,15 @@ test("Add AI player seats the default one in one click; a practice game fills th
   const watching = { ...room([]), members: [{ id: "ada", name: "Ada", kind: "human", ready: false, spectator: true }] };
   assert.deepEqual(avail(scope({ room: watching }), "ui.practiceGame"), { ok: false, reason: "You are watching the next game; play it first.", fix: "rooms.setSpectator" });
   for (const s of [scope({ room: room(["ada"]), aiConfigured: false }), scope({ room: { ...room(["ada"]), aiEnabled: false } })]) {
-    for (const id of ["ui.addAiPlayer", "ui.practiceGame"]) assert.equal((avail(s, id) as { hidden?: boolean }).hidden, true, `${id} is hidden without AI players`);
+    assert.equal((avail(s, "ui.addAiPlayer") as { hidden?: boolean }).hidden, true, "a model-backed AI player is hidden without AI players");
+    // A practice game seats practice partners (no model): any owner, with or without a provider key, may play one.
+    assert.deepEqual(avail(s, "ui.practiceGame"), { ok: true }, "a practice game needs no AI players");
   }
+  // In a room that is not an administrator's, practice partners do not block the start; a model-backed seat does.
+  const partner = { id: "ai:p", name: "Pixel", kind: "ai", ready: true, provider: "builtin" }, model = { ...partner, id: "ai:m", provider: "anthropic" };
+  const nonAdmin = (extra: typeof partner[]) => scope({ room: { ...room(["ada", "bob"]), aiEnabled: false, members: [...room(["ada", "bob"]).members, ...extra] } });
+  assert.equal(avail(nonAdmin([partner]), "owner.start").ok, true, "practice partners play in any room");
+  assert.equal(avail(nonAdmin([model]), "owner.start").ok, false, "a model-backed AI seat still needs an administrator's room");
   assert.equal(avail(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob"]) }), "ui.practiceGame").ok, false, "owner only");
   assert.equal(avail(scope({ room: room(["ada"]), starting: true }), "ui.practiceGame").ok, false, "no second click while it starts");
 });
