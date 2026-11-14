@@ -190,9 +190,10 @@ export interface ValueConfig {
   readonly sampledRel: number;
   readonly sampledAbs: number;
   /**
-   * No sampled knot is certified past this many bits: the rarity to which the sampler was checked against the exact
-   * sums on line-z (sampler-check; 654 knots on 9 pairings, |z| ≤ 2.4 above 8 bits through 25 bits). Rarer scores are
-   * left to the tail rule, marked "beyond", with the last certified knot as their floor.
+   * No sampled knot is certified past this many bits: the rarity to which the direct-draw sampler stayed calibrated in
+   * independent replicates against the exact sums on line-z (sampler-check --replicates: 16 seeds, 6 pairings, |z| > 2 in
+   * 4.2% of checks at 6–12 bits and 2.8% at 12–18; above 18 bits too few checks). Rarer scores are left to the tail rule,
+   * marked "beyond", with the last certified knot as their floor.
    */
   readonly sampledMaxBits: number;
 }
@@ -200,7 +201,7 @@ export interface ValueConfig {
 export const VALUE_CONFIG: ValueConfig = {
   separableBits: 44, bandBits: 40, triangleBits: 28, wideRange: 200,
   tilts: [1, 0.75, 0.55, 0.4, 0.3], drawsPerTilt: 60_000, delta: 0.05, relTarget: 0.02, absFloor: 0.06, minSupport: 30,
-  sampledRel: 0.05, sampledAbs: 0.2, sampledMaxBits: 25,
+  sampledRel: 0.05, sampledAbs: 0.2, sampledMaxBits: 18,
 };
 
 export interface ValueTail {
