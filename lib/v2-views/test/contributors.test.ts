@@ -54,6 +54,10 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   assert.equal(wc.distance, "⅓ below −2");
   // The reference is said once, as the reference: never again among the sources ("…, nearest whole number −2 · on −2").
   assert.deepEqual(wc.source.filter(x => x.text).map(x => x.label), ["where it crosses the x-axis"], wc.source.map(x => x.label).join(", "));
+  // The tie-breaker reads the main part's reference (the whole number −2): its line says so, so one number carrying ●
+  // as the main part's target and ◆ as the tie-breaker's input is explained where it is read.
+  const wtb = contributors(rule(wholeCrossing, "k-gpf"), mc(3, 7)).parts[1]!;
+  assert.match(wtb.sentence, /of −2, the (nearest )?whole number the main part is measured to/, wtb.sentence);
   const tr = contributors(rule(treasure, "m-spf"), mc(15, 6)).parts[0]!;
   assert.equal(tr.source[0]!.text, "36");
   assert.equal(tr.source[0]!.label, "y(2)");
@@ -82,22 +86,25 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
   }
 });
 
-test("moves: the price/bits frontier, each with its new bits and what it changes", () => {
+test("moves: varied, one per kind: the cheapest for the main part, the cheapest for the tie-breaker, the most bits per ⚡", () => {
   const r = rule(primeLanding, "big-prime");
   const value = valueOf(r);
-  const s = mc(6, 25);
-  const before = value(contributors(r, s).utility);
-  const ms = moves(r, s, value, { k: 3 });
-  assert.ok(ms.length >= 2, `${ms.length} moves`);
-  for (let i = 0; i < ms.length; i++) {
-    assert.ok(ms[i]!.bits! > before, "every move makes the line rarer");
-    if (i > 0) {
-      assert.ok(ms[i]!.price.total >= ms[i - 1]!.price.total, "cheapest first");
-      assert.ok(ms[i]!.bits! > ms[i - 1]!.bits!, "each dearer move is worth more");
+  for (const s of [mc(6, 25), mc(3, 19), mc(-2, 40)]) {
+    const before = value(contributors(r, s).utility);
+    const ms = moves(r, s, value, { k: 3 });
+    assert.ok(ms.length >= 2, `${ms.length} moves`);
+    const kinds = ms.map(m => m.call.mutator);
+    assert.equal(new Set(kinds).size, kinds.length, `one move per kind: ${kinds.join(", ")}`);
+    for (const m of ms) {
+      assert.ok(m.bits! > before, "every move makes the line rarer");
+      assert.ok(m.reason.length > 0, "each move says why it is listed");
+      assert.equal(ms.filter(x => x.reason === m.reason).length, 1, `each reason once: ${ms.map(x => x.reason).join(" | ")}`);
+      assert.doesNotMatch(m.words, /\b(a|b|k) /, `move words leak a letter: ${m.words}`);
     }
-    assert.doesNotMatch(ms[i]!.words, /\b(a|b|k) /, `move words leak a letter: ${ms[i]!.words}`);
   }
-  assert.match(ms[0]!.changes.join(" "), /25 → /);
+  // Where the main part can improve (25 is 2 above the prime 23), the first move listed is the cheapest that does.
+  assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.reason, /main part/);
+  assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.changes.join(" "), /25 → /);
 });
 
 test("contributors never throw, and say no steps, on a walk of lines under every pool rule and tie-breaker", () => {

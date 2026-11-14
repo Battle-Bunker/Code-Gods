@@ -222,13 +222,18 @@ export const crossing: Representation<LineState> = {
     el("near", "nearest whole number", "number", "derived", crossingOr(x => num(q(nearestInteger(x))))),
     el("off", "off by", "number", "derived", crossingOr(x => num(distanceToWhole(x)))),
   ],
-  // 0 = 3x − 7, then 3x = 7, then x = 7/3; under it the nearest whole number and how far off it is.
-  layout: (): EquationScene => ({
-    kind: "equation",
-    template: ["0 = ", { el: "m" }, "x + ", { el: "c" }],
-    steps: [[{ el: "m" }, "x = ", { el: "rhs" }], ["x = ", { el: "x0" }]],
-    caption: ["nearest whole number ", { el: "near" }, ", off by ", { el: "off" }],
-  }),
+  // 0 = 3x − 7, then 3x = 7, then x = 7/3; under it the nearest whole number and how far off it is, or "on −3" when it
+  // crosses on a whole number (never "off by 0": the wording rules, annotations-design.md §10).
+  layout: (s, site): EquationScene => {
+    const l = s.lines[site];
+    const on = !!l && l.a !== 0n && Qn.isZero(distanceToWhole(q(-l.c, l.a)));
+    return {
+      kind: "equation",
+      template: ["0 = ", { el: "m" }, "x + ", { el: "c" }],
+      steps: [[{ el: "m" }, "x = ", { el: "rhs" }], ["x = ", { el: "x0" }]],
+      caption: on ? ["on the whole number ", { el: "near" }] : ["nearest whole number ", { el: "near" }, ", off by ", { el: "off" }],
+    };
+  },
 };
 
 // ---------------------------------------------------------------- norm: the line seen from the origin

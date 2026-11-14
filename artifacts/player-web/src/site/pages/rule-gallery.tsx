@@ -6,13 +6,12 @@
  */
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
-import { GoalCard } from "@workspace/v2-views";
+import { GoalCard, workedExample } from "@workspace/v2-views";
 import "@workspace/v2-views/styles.css";
 import { Page } from "@/site/components/layout";
 import { EmptyState, Section } from "@/site/components/page-parts";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch, type GalleryEntry, type GallerySetup } from "@/site/lib/rule-gallery";
 import { ruleFamilyPath, ruleGalleryPath } from "@/site/lib/routes";
-import { workedExample } from "@/panes/worked-example";
 import { objectWord } from "@/sdk/object-types";
 
 const field = "h-9 min-w-0 max-w-full border bg-background px-2 text-sm";

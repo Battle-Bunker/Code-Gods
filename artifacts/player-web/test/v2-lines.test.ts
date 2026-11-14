@@ -1,6 +1,6 @@
 /**
- * The Lines, One line and goal card panes' pure parts (src/panes/lines.ts, src/panes/worked-example.ts): the server
- * sort, the payoff rectangle, the row's "Why?", the switcher in the human's view state, and the worked example.
+ * The Lines, One line and goal card panes' pure parts (src/panes/lines.ts): the server
+ * sort, the payoff rectangle, the row's "Why?", the switcher in the human's view state.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -9,7 +9,6 @@ import { evaluateObject, ruleLayers, type Score } from "@workspace/v2-core";
 import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import { activeOp, compareOp, digestScale, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
-import { workedExample } from "../src/panes/worked-example.ts";
 
 test("every order the human can pick pages by a server sort", () => {
   assert.equal(serverSort("points"), "points");
@@ -83,21 +82,3 @@ function committedBits(variant: string, family: string, tieBreaker: string): ((u
   return u => look(u).bits;
 }
 
-test("worked example: every family gets a line worth some bits, below the best found, the same each time", () => {
-  const variant = lineType.variants[0]!;
-  for (const family of lineType.families) {
-    const params = family.dealable(variant)[0];
-    const rule = { type: lineType, family, params, variant };
-    const tb = ruleLayers(family, undefined)[1]?.id ?? "none";
-    const value = committedBits(variant.id, family.id, tb);
-    const line = workedExample<LineState, unknown>(rule, value);
-    assert.deepEqual(lineType.encode(workedExample<LineState, unknown>(rule, value)), lineType.encode(line), family.id);
-    // Without a value function the example still scores: a middling one of the scores the walk met.
-    assert.notEqual(evaluateObject(lineType, family, params, workedExample<LineState, unknown>(rule), variant).score, null, `${family.id}: scores without bits`);
-    if (family.examples) continue;
-    const score = evaluateObject(lineType, family, params, line, variant).score;
-    assert.notEqual(score, null, `${family.id}: the example scores`);
-    assert.ok(value, `${family.id}: a committed value function`);
-    assert.ok(value!(score) > 0, `${family.id}: the example is worth some bits`);
-  }
-});

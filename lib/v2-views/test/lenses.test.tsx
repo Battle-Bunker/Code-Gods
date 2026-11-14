@@ -23,8 +23,8 @@ const node = (html: string, k: string) => html.match(new RegExp(`<[^>]*data-ref=
 
 test("crossing text: worked from 0 = mx + c to x, then the nearest whole number and the gap", () => {
   assert.equal(repText(lineType, mc(3, -7), "crossing"), "0 = 3x − 7, so 3x = 7, so x = 2⅓ (nearest whole number 2, off by ⅓)");
-  assert.equal(repText(lineType, mc(1, -4), "crossing"), "0 = x − 4, so x = 4 (nearest whole number 4, off by 0)", "a repeated step is said once");
-  assert.equal(repText(lineType, mc(q(-1, 2), 3), "crossing"), "0 = −½x + 3, so −½x = −3, so x = 6 (nearest whole number 6, off by 0)");
+  assert.equal(repText(lineType, mc(1, -4), "crossing"), "0 = x − 4, so x = 4 (on the whole number 4)", "a repeated step is said once");
+  assert.equal(repText(lineType, mc(q(-1, 2), 3), "crossing"), "0 = −½x + 3, so −½x = −3, so x = 6 (on the whole number 6)");
   assert.equal(repText(lineType, mc(0, 4), "crossing"), "a flat line (gradient 0) never crosses the x-axis, or lies right along it");
 });
 

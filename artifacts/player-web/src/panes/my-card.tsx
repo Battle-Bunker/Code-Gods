@@ -1,16 +1,15 @@
 /**
  * Your secret goal (the `my-card` pane): the dealt rule's card in plain words; the line in your focus explained first
  * (its parts on their rulers, the moves that would make it rarer: docs/engine-v2/annotations-design.md, owner decision
- * 23: no steps); then a worked example (the family's own, else a seeded search: ./worked-example.ts); and the rule's
+ * 23: no steps); then a worked example (the family's own, else the most legible from a seeded walk: lib/v2-views example.ts); and the rule's
  * parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
 import { useMemo } from "react";
-import { GoalCard } from "@workspace/v2-views";
+import { GoalCard, workedExample } from "@workspace/v2-views";
 import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { partsNote } from "./lines";
-import { workedExample } from "./worked-example";
 
 /** The line in the human's focus (Lines, One line, the palette), decoded, with its name: "Line 7". */
 function useFocusedMine(): { state: unknown; name: string } | null {
