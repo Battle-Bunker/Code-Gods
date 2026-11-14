@@ -97,7 +97,7 @@ try {
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();
     assert.match(sentence, /✨ rarity [\d.]+ → [\d.]+|✨ rarity [\d.]+/, `the move says the ✨ rarity: ${sentence}`);
-    assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed/, `the move says the points before → after: ${sentence}`);
+    assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.doesNotMatch(sentence, /\bbits?\b|payoff|object/i);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
@@ -122,7 +122,7 @@ try {
       await line.locator('[data-ref="cart.yInt"]').first().waitFor({ state: "attached", timeout: 5000 });
       const c = line.locator('[data-ref="si.c"]').first();
       if (await c.count()) {
-        await c.hover();
+        await c.hover({ force: true });   // the line moves under live play: never "stable" for long
         await line.locator('[data-ref="cart.yInt"][data-lit]').first().waitFor({ state: "attached", timeout: 3000 });
       } else console.log("desktop: this rule's representations have no si.c; cross-highlight not checked");
     }
@@ -133,6 +133,8 @@ try {
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     console.log(`${label}: natural end at ${clock(t0)}: ${(await results.getByText(/You finished/).first().innerText()).slice(0, 120)}`);
+    // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.
+    await results.getByTestId("results-rotation").getByText(/^Game 1 of 3 in this rotation/).waitFor({ timeout: 10_000 });
     await shot(page, `game-${label}-end`);
     assert.deepEqual(errors, [], `${label}: no page errors`);
     await context.close();

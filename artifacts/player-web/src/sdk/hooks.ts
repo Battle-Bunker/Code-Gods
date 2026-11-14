@@ -24,6 +24,11 @@ export function useRoomInfo() {
   return useLiveValue(api.v2.rooms.get, { roomId: useGameScope().roomId });
 }
 
+/** The room's rotation round: its ended games and each seat's running total (null outside a rotation). */
+export function useRotationRound() {
+  return useLiveValue(api.v2.rooms.round, { roomId: useGameScope().roomId });
+}
+
 /**
  * The game in view's header: phase, clocks, roster, the viewer's seat. Cold (changes with the phase). In a replay its
  * seat (`me`) is the player the replay is watched as.

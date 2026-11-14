@@ -3,7 +3,7 @@
  * standings (the server's ranks, which equal totals share): "You finished 1st of 3 with 412.5 points." for a seated
  * player, "Ada won with 412.5 points." for a spectator.
  */
-import { ordinal, pointsText as points } from "../core/words.ts";
+import { ordinal, pointsText as points, sharedRanks } from "../core/words.ts";
 
 export interface StandingRow { memberId: string; name: string; net: number; handicap: number; rank: number }
 
@@ -32,4 +32,23 @@ export function resultsHeadline(rows: readonly StandingRow[] | null | undefined,
   const top = sorted.filter(r => r.rank === sorted[0]!.rank);
   if (!ended) return `${names(top.map(r => r.name))} ${top.length > 1 ? "lead" : "leads"} with ${points(top[0]!.net)} so far.`;
   return top.length > 1 ? `${names(top.map(r => r.name))} tied for first with ${points(top[0]!.net)}.` : `${top[0]!.name} won with ${points(top[0]!.net)}.`;
+}
+
+/** The room's rotation round (`v2/rooms:round`): its ended games, newest first, and each seat's net total over them. */
+export interface RotationRound {
+  round: number; of: number;
+  games: readonly { gameId: string; number: number }[];
+  totals: readonly { memberId: string; name: string; net: number }[];
+}
+/**
+ * The results' rotation part: which game of the round this was and the running totals, ties sharing a rank. Null
+ * when the game was not dealt in the room's current round.
+ */
+export function rotationSummary(r: RotationRound | null | undefined, me: string | null, gameId: string) {
+  if (!r || !r.games.some(g => g.gameId === gameId)) return null;
+  const heading = r.round >= r.of
+    ? "The rotation is over: every player has had each rule once. Final totals:"
+    : `Game ${r.round} of ${r.of} in this rotation: every player gets each rule once. Totals so far:`;
+  const rows = sharedRanks(r.totals.map(t => ({ ...t, rank: 0 }))).map(t => ({ ...t, mine: t.memberId === me }));
+  return { heading, rows };
 }
