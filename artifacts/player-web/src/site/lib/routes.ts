@@ -36,7 +36,8 @@ export function invitedTo(path: string): string | null {
     return null;
   }
   const room = decodeURIComponent(m[1]).toUpperCase();
-  return m[2] ? `Sign in to watch or play game ${decodeURIComponent(m[2]).toUpperCase()} in room ${room}.` : `Sign in to open room ${room}.`;
+  // A game is named by its room only: its id means nothing to a player (round 9).
+  return m[2] ? `Sign in to watch or play the game in room ${room}.` : `Sign in to open room ${room}.`;
 }
 
 /**

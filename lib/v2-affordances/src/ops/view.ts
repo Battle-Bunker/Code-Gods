@@ -78,7 +78,7 @@ export const viewOps = [
   affordance({
     id: "view.sortObjects", title: "Sort objects", group: "view", scope: "room",
     description: "Sorts the human's objects pane by their points, rarity (bits) or most recent change.",
-    tooltip: "Change the objects' order.", keywords: ["sort", "order", "rank"],
+    tooltip: "Change the list's order.", keywords: ["sort", "order", "rank"],
     params: obj({ sort: z.enum(["points", "rarity", "recent"]) }), result: done,
     contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),

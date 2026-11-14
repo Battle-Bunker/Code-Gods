@@ -24,3 +24,7 @@ test("the same words from two different agents are two notes; other players' mov
   assert.deepEqual(lines.get(2), ["Stuck."]);
   assert.deepEqual(lines.get(1), ["Stuck."]);
 });
+
+test("a row without notes (an older replay file) shows none rather than failing the act log", () => {
+  assert.deepEqual(noteLines([{ seq: 1, agentId: "a1" } as never, mv(2, ["hi"])]), new Map([[2, ["hi"]]]));
+});

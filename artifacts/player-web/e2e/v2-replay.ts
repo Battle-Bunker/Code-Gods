@@ -123,6 +123,10 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   await page.waitForTimeout(800);
   assert.equal(await applied(page), paused, `${label}: a paused replay stays put`);
   assert.ok(paused > second, `${label}: the pause kept the playhead (${paused})`);
+  // Every pane holds up once moves show (round 9: "What just changed" failed with "o.notes is not iterable").
+  const feed = page.getByTestId("pane-feed");
+  if (await feed.count()) await feed.locator("[data-testid=text-move-line], [data-testid=text-tug-line], [data-testid=feed-empty]").first().waitFor({ timeout: 10_000 });
+  assert.equal(await page.getByTestId("pane-error").count(), 0, `${label}: no pane failed: ${await page.getByTestId("pane-error").allInnerTexts()}`);
 
   // Through another player's eyes: their points (and their rule, in the goal card), kept once the server has it.
   if (!watchAs) console.log(`${label}: SKIPPED watch as: the running engine's functions predate replay.watchAs (it refuses the operation)`);

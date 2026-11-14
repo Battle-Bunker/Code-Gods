@@ -88,7 +88,7 @@ test("the playhead shows each line, value and move as it was, and nothing that c
     seq: 0, worldSeconds: 4, objectId: "o1", number: 1, agentId: "a1", mine: true,
     calls: [{ mutator: "shift", site: 0, args: { by: "1" } }], rep: "si", stateBefore: "s1a", stateAfter: "s1b",
     before: { score: ["1"], rarityBits: 2, want: 1, points: 2 }, after: { score: ["2"], rarityBits: 4, want: 1, points: 4 },
-    charge: 1.5,
+    charge: 1.5, notes: [],
   }]);
   const bo = mid.moves("m2");
   assert.equal(bo.length, 1, "Bo's points moved 2 → 4, so the move concerns him");
@@ -162,4 +162,10 @@ test("a replay's rule keeps the game's uniqueness correction, so its faces' bits
   const uniqueness = { ns: [1, 2], heldMass: [0.5, 0.25], objects: 30 };
   const withU = indexReplay({ ...FILE, rules: FILE.rules.map(r => (r.memberId === "m2" ? { ...r, value: { ...r.value!, uniqueness } } : r)) } as never);
   assert.deepEqual((frameAt(withU, END).rule("m2")!.value as { uniqueness?: unknown }).uniqueness, uniqueness);
+});
+
+test("a replay's moves are whole act-log rows: notes (none recorded) and no mover named for another's move (round 9: 'o.notes is not iterable')", () => {
+  const rows = frameAt(ix, END).moves("m1");
+  assert.ok(rows.length > 0, "the replay has moves");
+  for (const r of rows) assert.ok(Array.isArray((r as { notes?: unknown }).notes), `move ${r.seq} has notes`);
 });

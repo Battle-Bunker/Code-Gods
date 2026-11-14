@@ -144,6 +144,8 @@ export function indexReplay(file: unknown): ReplayIndex {
             seq: moveSeq, worldSeconds: act.worldSeconds, objectId: t.objectId, number: t.number, agentId: mine ? act.agentId : null, mine,
             calls: act.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: act.calls[0]?.rep ?? "",
             stateBefore: act.before, stateAfter: act.after, before: snap(was), after: snap(now), charge: mine ? act.charge : null,
+            // The file records no agent notes; every act-log row carries the list (round 9: "o.notes is not iterable").
+            notes: [],
           } as unknown as Move;
           push(ix.moves, v.memberId, { at, move });
         }

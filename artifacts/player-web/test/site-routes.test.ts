@@ -29,7 +29,8 @@ test("a past game is linked for its players and the room owner; between games th
 test("the sign-in screen names what an invite link opens: its room, or its game in its room", () => {
   assert.equal(invitedTo("/rooms/abcd"), "Sign in to open room ABCD.");
   assert.equal(invitedTo("/rooms/ABCD/configure"), "Sign in to open room ABCD.");
-  assert.equal(invitedTo("/rooms/ABCD/games/g9tq"), "Sign in to watch or play game G9TQ in room ABCD.");
+  // A game's id is not a name a player knows (round 9: "game NH7EHCWNZHV7MAZZPN4G65BSDN8J7C5J"): its room is.
+  assert.equal(invitedTo("/rooms/ABCD/games/nh7ehcwnzhv7mazzpn4g65bsdn8j7c5j"), "Sign in to watch or play the game in room ABCD.");
   assert.equal(invitedTo("/"), null);
   // The other pages that need an account say what signing in is for.
   assert.equal(invitedTo("/device?code=AB12"), "Sign in to approve the device that asked for access.");
