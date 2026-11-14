@@ -10,6 +10,7 @@ import type { Place } from "@workspace/v2-affordances";
 import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { api, useLive } from "@/site/lib/convex";
+import { objectWord, useGame } from "@/sdk";
 import { usePaneOps } from "./open-pane";
 
 export type PaneComponents = Partial<Record<string, () => ReactNode>>;
@@ -31,10 +32,15 @@ export function useDockScope(): DockScope {
  */
 export function usePaneName(): (pane: string) => string {
   const panels = useLive(api.v2.panels.list, {}).data;
+  // The objects' panes say what this game's objects are ("Grids", "One grid").
+  const word = objectWord(useGame()?.variant);
   return useCallback((pane: string) => {
     const slug = storedSlugOf(pane);
-    return slug ? panels?.find(p => p.slug === slug)?.title ?? slug : paneTitle(pane);
-  }, [panels]);
+    if (slug) return panels?.find(p => p.slug === slug)?.title ?? slug;
+    if (pane === "objects") return word.Many;
+    if (pane === "object") return `One ${word.one}`;
+    return paneTitle(pane);
+  }, [panels, word]);
 }
 
 function PaneError({ error, resetError }: ErrorFallbackProps) {
@@ -69,7 +75,7 @@ export function PaneMenu({ pane }: { pane: string }) {
         {PLACES.map(p => <DropdownMenuItem key={p.place} disabled={!move.available} onSelect={() => void ops.open(pane, p.place)}>{p.label}</DropdownMenuItem>)}
         <DropdownMenuItem disabled={!close.available} onSelect={() => void ops.close(pane)} data-testid={`button-close-pane-${pane}`}>Close</DropdownMenuItem>
         {others.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Open another pane</DropdownMenuLabel></>}
-        {others.map(id => <DropdownMenuItem key={id} onSelect={() => void ops.open(id)} data-testid={`button-open-pane-${id}`}>{PANES[id].title}</DropdownMenuItem>)}
+        {others.map(id => <DropdownMenuItem key={id} onSelect={() => void ops.open(id)} data-testid={`button-open-pane-${id}`}>{name(id)}</DropdownMenuItem>)}
       </DropdownMenuContent>
     </DropdownMenu>
   );
