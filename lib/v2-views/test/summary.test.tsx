@@ -124,3 +124,24 @@ test("the hold advice writes the settings in the agent's own language", () => {
   const held = summarise({ ...base, language: "python", tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
   assert.match(held.next.text, /In your agent's code: TARGET = \{"m": 2, "c": 7\}; SETTLE = \[24\]\.$/);
 });
+
+test("held deals: which were held, by whom, and what they earned against before the hold; a board drawn", () => {
+  const s = summarise({ ...base, holds: [
+    { number: 8, state: mc(2, 7), by: ["you", "Ada"], before: 3.1, after: 22.4 },
+    { number: 5, state: mc(1, 3), by: ["you"], before: 9, after: 4.5 },
+  ] });
+  assert.deepEqual(s.held.map(h => h.text), [
+    "Line 8, held at y = 2x + 7 by you and Ada: 22.40 points for you at the end, up from 3.10 points before the hold.",
+    "Line 5, held at y = x + 3 by you: 4.50 points for you at the end, down from 9.00 points before the hold.",
+  ]);
+  const t = text(renderToStaticMarkup(<GameSummary summary={s} rule={rule} />));
+  assert.match(t, /Deals held/);
+  assert.match(t, /Line 8, held at y = 2x \+ 7 by you and Ada/);
+  assert.doesNotMatch(text(renderToStaticMarkup(<GameSummary summary={summarise(base)} rule={rule} />)), /Deals held/, "no section without a hold");
+  const g: RuleRef<unknown, unknown> = { type: gridType as never, family: gridType.families[0] as never, params: gridType.families[0]!.dealable(grid4)[0], variant: grid4 };
+  const board = { cells: [9, 7, 7, 9, 8, 5, 5, 8, 7, 9, 9, 7, 9, 7, 7, 9] };
+  const gs = summarise({ rule: g, objects: [], tugs: [], total: 0, holds: [{ number: 3, state: board, by: ["you", "Bo"], before: 1, after: 2 }] });
+  assert.equal(gs.held[0]!.text, "Grid 3, held as drawn by you and Bo: 2.00 points for you at the end, up from 1.00 point before the hold.");
+  assert.deepEqual(gs.held[0]!.state, board);
+  assert.match(renderToStaticMarkup(<GameSummary summary={gs} rule={g} />), /data-testid="summary-held-3"[\s\S]*data-rep=/);
+});

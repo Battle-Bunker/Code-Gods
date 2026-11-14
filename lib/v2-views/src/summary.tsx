@@ -39,6 +39,16 @@ export interface SummaryTug<S = unknown> {
   readonly best?: { readonly state: S; readonly points: number };
 }
 
+/** A deal held on an object: the state it was held at, who held it, and the player's points before the hold and at the end. */
+export interface SummaryHold<S = unknown> {
+  readonly number: number;
+  readonly state: S;
+  /** Who held it, by name ("you" for the player). */
+  readonly by: readonly string[];
+  readonly before: number;
+  readonly after: number;
+}
+
 export interface SummaryInput<S> {
   readonly rule: RuleRef<S, unknown>;
   /** The rule's value function (bits of a utility), for the suggested move's new bits. */
@@ -53,6 +63,8 @@ export interface SummaryInput<S> {
   readonly language?: "typescript" | "python";
   /** Set when the act log was read only in part: how many moves the costs come from. */
   readonly movesRead?: number | null;
+  /** The deals held this game (settled at a state and kept there). */
+  readonly holds?: readonly SummaryHold<S>[];
 }
 
 export interface Summary<S = unknown> {
@@ -65,6 +77,8 @@ export interface Summary<S = unknown> {
   /** Each tug-of-war, dearest first: what happened, with whom, at what cost. */
   readonly costs: readonly { readonly number: number; readonly text: string }[];
   readonly costNote: string | null;
+  /** Each held deal, said: what was held, by whom, what it earned against before the hold (a board drawn: `state`). */
+  readonly held: readonly { readonly number: number; readonly text: string; readonly state?: S }[];
 }
 
 const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
@@ -134,7 +148,17 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
       ? { number: wanted.number, text: `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.` }
       : { number: null, text: `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.` };
   }
-  return { noun, next, earned, earnedNote, costs, costNote };
+  // Held deals: what was held, by whom, and what it earned for the player against before the hold.
+  const held = (input.holds ?? []).map(h => {
+    const w = written(rule, h.state);
+    const way = h.after >= h.before ? "up from" : "down from";
+    return {
+      number: h.number,
+      text: `${Noun} ${h.number}, held ${w ? `at ${w}` : "as drawn"} by ${names(h.by)}: ${pointsText(h.after)} for you at the end, ${way} ${pointsText(h.before)} before the hold.`,
+      ...(w ? {} : { state: h.state }),
+    };
+  });
+  return { noun, next, earned, earnedNote, costs, costNote, held };
 }
 
 export interface GameSummaryProps<S> {
@@ -160,6 +184,17 @@ export function GameSummary<S>({ summary, rule, value, onOpen }: GameSummaryProp
           <div className="v2v-summary-held"><RepView type={rule.type} state={summary.next.state} rep={rule.family.main.rep} size="compact" /></div>
         )}
       </div>
+      {summary.held.length > 0 && (<>
+        <h4 className="v2v-summary-title">Deals held</h4>
+        <ol className="v2v-summary-list">
+          {summary.held.map(h => (
+            <li key={h.number} data-testid={`summary-held-${h.number}`}>
+              {h.text}
+              {h.state !== undefined && <div className="v2v-summary-held"><RepView type={rule.type} state={h.state} rep={rule.family.main.rep} size="compact" /></div>}
+            </li>
+          ))}
+        </ol>
+      </>)}
       <h4 className="v2v-summary-title">What earned your points</h4>
       {summary.earned.length > 0 && (
         <ol className="v2v-summary-earned">

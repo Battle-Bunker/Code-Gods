@@ -248,3 +248,26 @@ export function useAgentCount(): number | undefined {
   if (me === undefined && agents === undefined) return local ? 1 : undefined;
   return Math.max(me?.agents ?? 0, agents?.length ?? 0, local ? 1 : 0);
 }
+
+/**
+ * The others' total bits on an object after each candidate move (at most four calls, applied by the server to the live
+ * state), live, keyed by the state after the move (its wire). Only the sum over the other players: never one player's
+ * rule or bits. While a new set of candidates loads (the object moved), the last answer stays, so the list does not
+ * flicker; none in a replay or for no candidates.
+ */
+export function useOthersAt(objectId: string | null | undefined, calls: readonly { mutator: string; site: number; args: Record<string, string> }[]): ReadonlyMap<string, number> | undefined {
+  const replay = useReplaySource();
+  const key = JSON.stringify(calls);
+  const args = useMemo(() => (objectId && !replay && calls.length ? { objectId, calls: calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })) } : "skip" as const), [objectId, !replay, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const live = useLiveValue(api.v2.play.othersAt, args);
+  const last = useRef<{ objectId: string; map: ReadonlyMap<string, number> } | null>(null);
+  return useMemo(() => {
+    if (live) last.current = { objectId: objectId!, map: new Map(live.after.flatMap(a => (a ? [[a.state, a.want] as const] : []))) };
+    return last.current && last.current.objectId === objectId ? last.current.map : undefined;
+  }, [live, objectId]);
+}
+/** Several agents' code versions (one subscription each, shared with the forge's), in the order asked; none in a replay. */
+export function useAgentProgramsOf(agentIds: readonly string[]) {
+  const replay = useReplaySource();
+  return useLiveValues(api.v2.play.agentPrograms, useMemo(() => (replay ? [] : agentIds.map(agentId => ({ agentId }))), [agentIds.join("|"), !replay])); // eslint-disable-line react-hooks/exhaustive-deps
+}

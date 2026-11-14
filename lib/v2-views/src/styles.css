@@ -402,3 +402,14 @@
 .v2v-hold p { margin: 2px 0; font-size: 13px; }
 .v2v-hold-code code { font-size: 12px; overflow-wrap: anywhere; }
 .v2v-hold-go { margin-top: 4px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--v2v-main); background: var(--v2v-main); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+
+/* Candidates with the others' totals (playtest round 8): the ordering toggle, the "↑ both" mark, propose and hold. */
+.v2v-move-order { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px; }
+.v2v-move-order button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--v2v-rule); background: var(--v2v-card); color: var(--v2v-ink); font: inherit; cursor: pointer; }
+.v2v-move-order button[aria-pressed="true"] { background: var(--v2v-ink); border-color: var(--v2v-ink); color: var(--v2v-paper); font-weight: 600; }
+.v2v-move-now { color: var(--v2v-muted); }
+.v2v-move-option[data-both] { border-color: var(--v2v-cand); background: var(--v2v-cand-bg); }
+.v2v-move-both { color: var(--v2v-cand); font-style: normal; }
+.v2v-move-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.v2v-move-acts button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--v2v-main); background: transparent; color: var(--v2v-main); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.v2v-move-acts button:first-child { background: var(--v2v-main); color: #fff; }
