@@ -79,7 +79,8 @@ try {
     await page.waitForURL(/\/games\//, { timeout: 30_000 });
     console.log(`${label}: seated and playing at ${clock(t0)}`);
 
-    await page.getByTestId("button-summon-first-forge").click();
+    // The planning line's button summons in one press (ux-lessons 1.3); it is the first a walker presses.
+    await page.getByTestId("button-summon-first").click();
     const status = page.getByTestId("text-forge-status");
     await status.getByText(/is summoned/).waitFor({ timeout: 60_000 });
     assert.match(await status.innerText(), /70% of it now goes to this agent/);

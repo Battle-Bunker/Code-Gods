@@ -12,6 +12,7 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { noteSummoned, useAgentCount, useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
 import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
+import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
 import {
   affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
@@ -69,12 +70,20 @@ export function ForgePane() {
   const primary = primaryAction({ agents: count, selected: !!agent, draftChanged: changed });
   const price = summonPrice(language, source);
   useEffect(() => { statusRef.current?.scrollIntoView({ block: "nearest" }); }, [status]);   // ux-lessons 5.3
+  // A "Summon my first agent" pressed elsewhere on the screen (the planning line, Where am I) is performed here, once.
+  const firstSummonRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const take = () => { if (header?.gameId && takeFirstSummon(header.gameId)) firstSummonRef.current(); };
+    take();
+    return onFirstSummon(take);
+  }, [header?.gameId, !!opening]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!header) return null;
   if (!header.me) return <p className="p-4 text-sm text-muted-foreground">You're watching: only players write agents.</p>;
   if (!rule) return <p className="p-4 text-sm text-muted-foreground">Your rule is being dealt…</p>;
 
   const fail = (e: unknown) => setStatus({ tone: "error", text: failureText(e) });
+  firstSummonRef.current = () => { if (count === 0 && opening && summon.available && !runner.busy) void doSummon(opening.source, true, agentName(opening.title)); };
   const doSummon = async (src: string, first: boolean, name?: string) => {
     setStatus({ tone: "info", text: first ? "Summoning your first agent…" : "Summoning…" });
     try {
