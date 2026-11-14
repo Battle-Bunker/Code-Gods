@@ -210,15 +210,16 @@ function anchorOf(leaves: Leaf[], place: DockPlace): Leaf {
 
 /**
  * The tree with `pane` added at `place` (unchanged when it is already in it): one line ("object") gets a group of its
- * own below the lines it is opened from, so the list stays in view; any other pane becomes a tab of the group at that
- * place, shown when `show` (a pane just opened), else behind the tab shown there (a pane carried over from elsewhere).
+ * own below the lines it is opened from (when they are in front), so the list stays in view; any other pane becomes a
+ * tab of the group at that place, shown when `show` (a pane just opened), else behind the tab shown there (a pane
+ * carried over from elsewhere).
  * Nothing is ever taken out to make room.
  */
 export function dockInsert(n: DockNode | null, pane: string, place: DockPlace, show: boolean): DockNode {
   if (!n) return { tabs: [pane], active: pane };
   if (dockPanes(n).includes(pane)) return n;
   const leaves = dockGroups(n);
-  const lines = pane === "object" ? leaves.find(l => l.group.tabs.includes("objects")) : undefined;
+  const lines = pane === "object" ? leaves.find(l => l.group.active === "objects") : undefined;
   if (lines) return normaliseDock(replaceAt(n, lines.path, g => ({ split: "column", sizes: [45, 55], children: [g, { tabs: [pane], active: pane }] })))!;
   const anchor = anchorOf(leaves, place);
   return replaceAt(n, anchor.path, g => {

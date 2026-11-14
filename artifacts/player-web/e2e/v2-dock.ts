@@ -77,7 +77,7 @@ const KEY: Record<string, string> = {
   forge: "[data-testid=select-forge-language]",
   objects: "[data-testid=lines-sort]",
   object: "[data-testid=text-line-points]",
-  feed: "[data-testid=feed] > *:first-child, [data-testid=feed-empty]",
+  feed: "[data-testid=text-move-line], [data-testid=text-tug-line], [data-testid=feed-empty]",
   agents: "[data-testid=text-own-power], [data-testid=agents-empty]",
   race: "[data-testid=race-chart], [data-testid=race-empty]",
   results: "[data-testid=button-watch-replay]",
@@ -101,7 +101,8 @@ async function usable(page: Page, panes: string[], what: string) {
 }
 
 const dockText = (page: Page) => page.getByTestId("dock-desktop").getAttribute("data-dock") as Promise<string>;
-const weights = (text: string) => (text.match(/ \d+(\.\d+)?/g) ?? []).map(Number);
+/** The left column's weight in the live arrangement (the first child of the row). */
+const leftColumn = (text: string) => Number(/^row\(column\(.*?\) (\d+(?:\.\d+)?),/.exec(text)?.[1] ?? NaN);
 
 const browser = await chromium.launch();
 try {
@@ -138,7 +139,7 @@ try {
     await page.mouse.up();
     await page.waitForFunction((b: string) => document.querySelector("[data-testid=dock-desktop]")?.getAttribute("data-dock") !== b, before, { timeout: 10_000 });
     const dragged = await dockText(page);
-    assert.ok(weights(dragged)[0]! > weights(before)[0]! + 2, `the left column grew: ${before} → ${dragged}`);
+    assert.ok(leftColumn(dragged) > leftColumn(before) + 2, `the left column grew: ${before} → ${dragged}`);
     await page.waitForTimeout(1500);
     await page.reload();
     await page.getByTestId("pane-object").waitFor({ timeout: 30_000 });

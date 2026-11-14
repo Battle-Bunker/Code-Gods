@@ -25,7 +25,7 @@ test("each phase's default shows its panes side by side, none behind a tab", () 
 });
 
 test("opening One line keeps What just changed and the lines in view; opening more adds tabs, never evicts", () => {
-  let v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "live", "object"), "live");
+  const v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "live", "object"), "live");
   assert.deepEqual(visible(v, "live").sort(), ["agents", "feed", "my-card", "object", "objects", "race"]);
   for (const pane of ["public-chat", "rules", "assistant", "others-care"]) v = run(v, openPlan(v, "live", pane), "live");
   const tree = dockFor(v, "live")!;
@@ -78,4 +78,11 @@ test("a whole game of changes leaves the next planning screen as it was, the age
   v = run(v, openPlan(v, "ended", "points-over-time"), "ended");
   // Panes opened during the game that planning can show join behind the tabs in front.
   assert.equal(formatDock(dockFor(v, "planning")!), "row(overview 20, my-card 30, forge|agents|public-chat 50)");
+});
+
+test("after the end the results keep their full height: panes carried from the live screen join behind tabs", () => {
+  const v = run(EMPTY_VIEW, openPlan(EMPTY_VIEW, "live", "object"), "live");
+  const ended = dockFor(v, "ended")!;
+  assert.deepEqual(visible(v, "ended").sort(), ["my-card", "race", "results"]);
+  assert.equal(dockGroups(ended).length, 3, formatDock(ended));
 });
