@@ -116,10 +116,10 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     if (record.outcome === "failed" && !s.firstFailure) s.firstFailure = record.reason;
     const add = (into: Record<string, number>, view: string, e: number) => { if (e > 0) into[view] = (into[view] ?? 0) + e; };
     for (const [view, bits] of Object.entries(record.readsByRep)) add(s.reads, view, bits / SPEC_ECONOMY.kappa);
-    if (record.outcome === "committed" && record.changeBits > 0) {
-      const change = record.charge - record.readBits / SPEC_ECONOMY.kappa;
-      for (const c of record.calls) add(s.changes, c.rep, change * c.price.total / record.changeBits);
+    if (record.outcome === "committed") {
       lines = lines.map((l, j) => (j === object ? state : l));
+      const change = record.charge - record.readBits / SPEC_ECONOMY.kappa;
+      if (record.changeBits > 0) for (const c of record.calls) add(s.changes, c.rep, change * c.price.total / record.changeBits);
     }
   }
 
