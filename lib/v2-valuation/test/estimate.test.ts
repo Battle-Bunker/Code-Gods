@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mixedIntBits } from "@workspace/v2-core";
-import { lineType, lineZ, mMeetsC, primeGradient, wholeIntercept } from "@workspace/v2-linear";
+import { lineType, lineZ, mMeetsC, primeGradient, primeLanding, wholeIntercept } from "@workspace/v2-linear";
 import { estimate, irreducible } from "../src/estimate.ts";
 import { stationary } from "../src/linalg.ts";
 import { calibrate, bitsFor } from "../src/artefact.ts";
@@ -88,8 +88,8 @@ test("a layer with too few distinct values where it counts makes the rule too co
 test("equilibration: seeded chains with no burn-in drift away from their seeds, and the check says so", () => {
   // Enumerated seeds sit far out (|c| up to 120) where the stationary law has little mass; with no burn-in the chains on
   // the upper rungs are still walking in from there during the first half of their samples.
-  const cfg = { computeBudget: 3_000_000, burnIn: 0, initialSamples: 16, thin: 2 };
-  const e = estimate({ type: lineType, variant: lineZ, family: primeGradient, params: {}, config: cfg });
+  const cfg = { computeBudget: 3_000_000, burnIn: 0, initialSamples: 16, thin: 1 };
+  const e = estimate({ type: lineType, variant: lineZ, family: primeLanding, params: {}, config: cfg });
   assert.ok(e.reasons.some(r => /chain not equilibrated/.test(r)), e.reasons.join("; "));
   assert.notEqual(e.status, "converged");
 });
