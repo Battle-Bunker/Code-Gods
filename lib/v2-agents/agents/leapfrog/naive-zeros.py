@@ -17,8 +17,10 @@ def score(b, p):
 
 FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-LINE = ["row" + str(i) for i in range(4)] + ["col" + str(i) for i in range(4)]   # rows then columns: their names
-LINES = [[4 * i + j for j in range(4)] for i in range(4)] + [[i + 4 * j for j in range(4)] for i in range(4)]   # and their cells
+LINE, LINES = [], []   # the rows and columns: their names, and their cells
+for i in range(4):
+    LINE += ["row" + str(i), "col" + str(i)]
+    LINES += [[4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]]
 
 
 def edit(b, cells, f):

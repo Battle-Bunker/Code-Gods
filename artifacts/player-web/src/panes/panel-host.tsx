@@ -24,10 +24,10 @@ const HOST_HOOKS: Record<HookName, (args: unknown[]) => HostAnswer> = {
   useRoomInfo: () => value(sdk.useRoomInfo()),
   useGame: () => value(sdk.useGame()),
   useMe: () => value(sdk.useMe()),
-  // The drawable rule holds functions; its row and rarities cross, and the frame resolves the rule as the app does.
+  // The drawable rule and the value lookup hold functions; the row crosses, and the frame builds both as the app does.
   useMyRule: function useMyRuleAnswer() {
     const r = sdk.useMyRule();
-    return value(useMemo(() => (r ? { row: r.row, rarities: r.rarities } : undefined), [r]));
+    return value(useMemo(() => (r ? { row: r.row } : undefined), [r]));
   },
   useMyAgents: () => value(sdk.useMyAgents()),
   useAgentCount: () => value(sdk.useAgentCount()),

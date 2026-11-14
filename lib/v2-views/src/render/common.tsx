@@ -51,7 +51,15 @@ export function elAttrs(p: RenderProps, r: ElementRef, extra: { changedFrom?: bo
     "data-cand": st.cand ? "" : undefined,
     "data-lit": lit ? "" : undefined,
     "data-changed": changed ? "" : undefined,
+    "data-role": p.roleOf?.(r) ?? undefined,
   };
+}
+
+const ROLE_WORDS = { main: "main part", tb: "tie-breaker" } as const;
+/** An element's title with the part of the rule that reads it: "y-intercept (main part)". */
+export function withRole(p: RenderProps, r: ElementRef, title: string): string {
+  const role = p.roleOf?.(r);
+  return role ? `${title} (${ROLE_WORDS[role]})` : title;
 }
 
 /** Pointer handlers that report the element (for cross-highlighting). */
@@ -64,7 +72,7 @@ export function hover(p: RenderProps, r: ElementRef) {
 export function El(props: { p: RenderProps; r: ElementRef; children: ReactNode; className?: string; title?: string }) {
   const { p, r } = props;
   return (
-    <span className={`v2v-el ${props.className ?? ""}`} {...elAttrs(p, r)} {...hover(p, r)} title={props.title ?? p.labelOf(r)}>
+    <span className={`v2v-el ${props.className ?? ""}`} {...elAttrs(p, r)} {...hover(p, r)} title={withRole(p, r, props.title ?? p.labelOf(r))}>
       {props.children}
     </span>
   );
@@ -92,11 +100,12 @@ export function Readouts({ p, placed, drawnNotes }: { p: RenderProps; placed: Re
     ? p.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && !drawnNotes?.has(m.text) && !shown.has(m.text)).map(m => m.text)
     : [];
   if (p.size === "compact") {
-    // A compact face has no room under the picture: focused numbers only, as one short overlay line.
+    // A compact face says its parts in the lines under the picture; a caption over the picture covered it (playtest
+    // round 4). The focused numbers stay for a screen reader, not drawn.
     const focused = items.filter(r => markState(p.marks, r).focus);
     if (!focused.length) return null;
     return (
-      <div className="v2v-overlay">
+      <div className="v2v-sr">
         {focused.map(r => <span key={key(r)}>{p.labelOf(r).replace(/\s*\(.*\)/, "")} <El p={p} r={r}>{fmtValue(p.values(r))}</El></span>)}
       </div>
     );

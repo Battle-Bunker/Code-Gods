@@ -7,6 +7,7 @@
  * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", ⚡ energy, "main part",
  * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
+import type { Contributor } from "./contributors.ts";
 import { useMemo, useState, type ReactElement } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
@@ -15,6 +16,9 @@ import { moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
 import { ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
+
+/** The elements each part reads, for the views' identity badges. */
+const rolesOf = (parts: readonly Contributor[]) => parts.flatMap(p => p.source.map(s => ({ ref: s.ref, role: p.role })));
 
 export const GLYPH = { main: "●", tb: "◆" } as const;
 
@@ -69,7 +73,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const bits = bitsLine(a);
   return (
     <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
-      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms}
+      <RepView type={props.rule.type} state={props.state} rep={rep} size="compact" site={site} marks={e.marks} terms={e.terms} roles={rolesOf(parts)}
         before={props.before} next={next ? next.after : undefined} />
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
       {a.worst
@@ -310,6 +314,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
               {!depends.includes(id) && id !== rule.family.main.rep && <span className="v2v-panel-tag" data-other="">not read by your rule</span>}
             </h4>
             <RepView type={rule.type} state={state} rep={id} size="expanded" site={site} marks={marks} terms={e.terms}
+              roles={rolesOf(sel === null ? sa.parts : [sa.parts[sel]!])}
               before={props.before} next={first?.after} highlight={hl} onHover={onHover} />
           </section>
         ))}
@@ -317,12 +322,12 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
 
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
-        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; the tie-breaker decides between {a.noun}s that are equally good on the main part.</p>}
+        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
         {props.improvement !== false && <MovesList list={list} noun={a.noun} />}
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>
-          {a.bits !== null && <p>{fmtBits(a.bits)}: only {chanceText(a.bits)} random {a.noun}s are at least this good on both parts. {BITS_HELP}</p>}
+          {a.bits !== null && <p>{`${fmtBits(a.bits)}: only ${chanceText(a.bits)} random ${a.noun}s are at least this good on both parts. ${BITS_HELP}`}</p>}
         </details>
       </div>
     </div>

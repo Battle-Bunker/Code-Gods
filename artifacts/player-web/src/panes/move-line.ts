@@ -88,7 +88,7 @@ export function pointsText(before: MoveSnap, after: MoveSnap, noun = "line"): st
   const formula = scoreFormula(after.rarityBits, after.want);
   const was = same(before.want, after.want) ? "" : ` (others' bits were ${num(before.want)})`;
   if (same(before.points, 0) && same(after.points, 0)) {
-    const why = onlyYouNote(after.rarityBits, after.want) ?? (same(after.rarityBits, 0) ? "It is not rare by your rule yet." : "");
+    const why = onlyYouNote(after.rarityBits, after.want, noun) ?? (same(after.rarityBits, 0) ? "It is not rare by your rule yet." : "");
     return `No points on this ${noun} yet: ${formula}${was}.${why ? ` ${why}` : ""}`;
   }
   if (same(before.points, after.points)) return `Points on this ${noun} stayed ${num(after.points)}: ${formula}${was}`;

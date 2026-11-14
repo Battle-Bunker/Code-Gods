@@ -10,7 +10,7 @@
 function score(b, p) {
   let main = 0;
   for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i
-  return [Math.min(main, -10), b.filter(x => x % 2).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more odd numbers is better
+  return [main, b.filter(x => x % 2).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more odd numbers is better
 }
 
 const FAR = 2;      // how far one change may go

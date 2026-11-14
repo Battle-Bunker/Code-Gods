@@ -58,7 +58,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         </p>
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {})}</p>}
       </div>
-      <ExpandedFace rule={rule} state={state} active={active} compare={compared}
+      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}

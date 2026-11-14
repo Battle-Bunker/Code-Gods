@@ -320,7 +320,11 @@ Nines and Crosswise Threes pair the same cells differently; Magic Eighteen and e
   depends on side by side. Marks: focus on cells and derived elements, notes ("3 short"), candidates.
 - **Agents**: priced host reads (a representation, or one element) exactly as for lines; starters Simple, Thorough and
   Bold per family that play for points (own bits times others' bits), coordinated with the agents session; an example per
-  family × tie-breaker in Python and TypeScript.
+  family × tie-breaker in Python and TypeScript. An agent's score is the engine's utilities (decision 23: nothing
+  saturates), and `rarity` and `worth` come from the rule's value function. Every starter but Naive has the LEAVE list
+  for deals. A board's agent reads 16 cells, so it costs more to summon than a line's (a Simple starter's median is
+  about 490 ⚡ against 337 ⚡); the grid presets start with 900 ⚡ instead of 600, so a starter takes about the same
+  share (`test/unit/v2-object-types.test.ts` holds the two shares within 15% of each other).
 - **Server**: a `grids-beginner` preset on `grid-4-d10` and its deal (bids included), with the server and app sessions.
 
 ## 7.1 The first walk through a grid game (14 November)
@@ -341,6 +345,34 @@ fixed: the act log and the overview said "line" in a grid game (now "changed a g
 "A 4 × 4 grid of digits"). Still open: "See it line by line", the "Lines" and "One line" pane titles, and the
 results' "points on every line" (the app session's dock and words); on a phone, One line lists nine long
 representation chips before the board itself; agents are named after their tie-breaker ("0s on the board").
+
+**With bidding** (`GRID_SETUP=grids-beginner-bidding`, 14 November): the practice game opens the bid phase, offering the
+board's families. The walker bids 10% on the first one, presses "Done bidding" and is dealt that family on the board.
+The results say "after your bid's 10% handicap", and the deal does not rotate. Times: desktop bid at 2.2 s, seated
+2.5 s, first scoring move 10.8 s, end 36.6 s; phone bid 2.1 s, seated 2.3 s, first scoring move 13.4 s, end 36.4 s.
+`test/v2-bidding.test.ts` runs the server's bid contract on both bidding presets.
+
+**A non-coder persona** (14 November; one played by an agent in a real browser against the local engine, reading
+only the screen; full game, no shortening):
+
+| Milestone | Desktop | Phone |
+|---|--:|--:|
+| In a room | 0:13 | 0:12 |
+| Grid setup chosen | 0:27 | 0:29 |
+| In a game | 1:03 | 0:42 |
+| First agent summoned (one press, no code) | 1:16 | 0:56 |
+| World started ("Start the world now", pressed twice) | 1:39 | 1:47 |
+| Could say how they score | ~2:49, partly | not reached |
+| Game over / result understood | 6:39 / 7:06 (rank only) | not followed |
+
+What worked: room, setup, practice game and first agent take about a minute with no dead end; the rule sentence
+("Every row should add up to 18") and the board's "8 short" marks read clearly. What stopped them, worst first:
+"line" and "code" words in the panes that explain scoring (feed, tug-of-war, leaderboard, chart, "Try this" and
+"shorten the code" hints); "See its rules" opened a gallery of line rules only (fixed: the gallery has a Grids board);
+scoring explained as a formula of bits rather than through the player's own rule, with walls of numbers in the feed;
+nothing to do while the game runs (a second starter blocked, the other starters described in jargon); an end screen
+with no reason and no next step; on a phone, the setup choice two screens below Play and a tab strip running off the
+right edge. Those outside grids went to the app session.
 
 ## 8. Decisions and judgment calls
 

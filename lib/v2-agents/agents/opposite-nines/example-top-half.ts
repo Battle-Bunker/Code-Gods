@@ -10,11 +10,12 @@
 function score(b, p) {
   let main = 0;
   for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i
-  return [Math.min(main, -10), b.slice(0, 8).reduce((t, x) => t + x, 0)];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
+  return [main, b.slice(0, 8).reduce((t, x) => t + x, 0)];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
 }
 
 const FAR = 4;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
+const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
 // (such a move is not allowed, and an unchanged board is never better).
@@ -25,6 +26,7 @@ function edit(b, cells, f) {
 }
 
 function agent(offer) {
+  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this board alone
   // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
   // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
   contested(offer, 3);

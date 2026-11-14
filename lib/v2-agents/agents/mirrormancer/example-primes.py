@@ -12,11 +12,12 @@ def score(b, p):
     main = 0
     for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap
         main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])
-    return [min(main, -1), len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 
 
 FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
+LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 
 def edit(b, cells, f):
@@ -29,6 +30,8 @@ def edit(b, cells, f):
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this board alone
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)

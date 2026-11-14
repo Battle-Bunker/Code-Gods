@@ -12,7 +12,7 @@ def score(b, p):
     main = 0
     for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap
         main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])
-    return [min(main, -1), b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
+    return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
 
 
 FAR = 2      # how far one change may go

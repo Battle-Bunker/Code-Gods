@@ -2,7 +2,7 @@
  * The rule gallery, the room's setup picker and settings, and the what-if pane, in the browser against the LIVE local
  * engine (`pnpm --filter @workspace/engine dev`), at desktop (1440×900) and phone (390×844):
  *   /rule-gallery lists the rules of a board; a rule's page follows its numbers and tie-breaker in the URL and shows the
- *   goal card's steps to the top → a new room's owner picks a setup (no Lab group for a player) and changes the
+ *   goal card's worked example → a new room's owner picks a setup (no Lab group for a player) and changes the
  *   settings; the next game starts with them (its header says so) → during the live game, One line's "Try a change"
  *   opens What if, which shows the line after a change, your rarity with its chance and the price, and explains a bad number.
  * Every page is checked for sideways scrolling at both sizes.
@@ -11,6 +11,7 @@
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
+import { assertNoSteps } from "./no-steps.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -72,6 +73,7 @@ try {
     // ---- the rule gallery
     await page.getByTestId("link-rule-gallery").click();
     await page.getByTestId("page-rule-gallery").waitFor();
+    await assertNoSteps(page, `${label}: the rule gallery`);
     const beginner = page.getByTestId("section-beginner");
     assert.ok(await beginner.locator("[data-testid^=tile-]").count() >= 4, "the beginner rules are listed");
     await noSideways(page, `${label} gallery`);
@@ -89,9 +91,11 @@ try {
     await page.getByTestId("radio-tie-breaker-even").check();
     await card.getByText(/legs as close to equal/).waitFor();
     await page.getByTestId("goal-card").getByText(/A worked example/).first().waitFor();
+    await assertNoSteps(page, `${label}: a rule's gallery page`);
     // A rule a setup deals: its goal card's parts on their rulers and the moves that would make the example rarer.
     await page.goto(`${SITE}/rule-gallery/prime-landing`);
     await page.getByTestId("goal-card").getByText(/What would make it rarer|No single move/).first().waitFor({ timeout: 15_000 });
+    await assertNoSteps(page, `${label}: a dealt rule's gallery page`);
     await page.goBack();
     await page.getByTestId("text-family-card").getByText(/legs as close to equal/).waitFor();
     await noSideways(page, `${label} rule page`);
@@ -149,6 +153,7 @@ try {
     await page.getByTestId("button-open-what-if").click();
     const whatIf = page.getByTestId("pane-what-if");
     await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 });
+    await assertNoSteps(page, `${label}: the game with What if`);
     // Owner decision 23: no steps; the rarity says its chance.
     assert.doesNotMatch(await whatIf.getByTestId("what-if-result").innerText(), /\bstep\b/i);
     if (await whatIf.getByTestId("text-what-if-rarity").count()) {

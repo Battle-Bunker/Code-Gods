@@ -1,8 +1,8 @@
 /**
  * The rule gallery (`/rule-gallery`) and one rule's page (`/rule-gallery/:family`), integration plan §1.1: generated
- * from the v2 rule families of the line type and the deployed presets (site/lib/rule-gallery.ts), with no room, game
+ * from the v2 rule families of each object type (lines, grids) and the deployed presets (site/lib/rule-gallery.ts), with no room, game
  * or server read. The gallery lists the rules a board deals; a rule's page shows its card for the chosen numbers and
- * tie-breaker, its parts, the views it reads and the goal card's worked example with its steps to the top.
+ * tie-breaker, its parts, the views it reads and the goal card's worked example with its rarity in bits.
  */
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
@@ -13,6 +13,7 @@ import { EmptyState, Section } from "@/site/components/page-parts";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch, type GalleryEntry, type GallerySetup } from "@/site/lib/rule-gallery";
 import { ruleFamilyPath, ruleGalleryPath } from "@/site/lib/routes";
 import { workedExample } from "@/panes/worked-example";
+import { objectWord } from "@/sdk/object-types";
 
 const field = "h-9 min-w-0 max-w-full border bg-background px-2 text-sm";
 
@@ -55,7 +56,7 @@ export function RuleGallery() {
         <header className="space-y-3">
           <h1 className="font-display text-4xl md:text-5xl leading-none">Rule gallery</h1>
           <p className="max-w-[70ch] text-sm text-muted-foreground">
-            Every secret rule a game can deal you. Pick a board, then open a rule to see a worked example and the steps to the top.
+            Every secret rule a game can deal you. Pick a board, then open a rule to see a worked example and how rare each line is by chance.
           </p>
           <BoardPicker board={setup.board} onPick={b => navigate(ruleGalleryPath(gallerySearch({ board: b, params: 0, tb: null })), { replace: true })} />
         </header>
@@ -76,6 +77,7 @@ export function RuleFamily() {
   const [, navigate] = useLocation();
   const page = useMemo(() => familyPage(family, setupFromSearch(search)), [family, search]);
   const example = useMemo(() => (page ? workedExample(page.rule) : null), [page]);
+  const word = objectWord(page?.setup.board ?? setupFromSearch(search).board);
   useEffect(() => { document.title = `${page?.family.title ?? "Rule"} · Rule gallery · Code Gods`; }, [page?.family.title]);
   const go = (s: Partial<GallerySetup>) => page && navigate(ruleFamilyPath(family, gallerySearch({ ...page.setup, ...s })), { replace: true });
   const back = ruleGalleryPath(page ? gallerySearch({ board: page.setup.board, params: 0, tb: null }) : "");
@@ -102,7 +104,7 @@ export function RuleFamily() {
                     </select>
                   </label>
                   <fieldset className="space-y-1">
-                    <legend className="text-xs text-muted-foreground">Tie-breaker: it decides between lines the main part scores the same</legend>
+                    <legend className="text-xs text-muted-foreground">Tie-breaker: it decides between {word.many} the main part scores the same</legend>
                     {page.tieBreakers.map(t => (
                       <label key={t.id} className="flex items-start gap-2 py-1">
                         <input type="radio" name="tie-breaker" className="mt-1" checked={page.rule.tieBreaker === t.id} onChange={() => go({ tb: t.id })} data-testid={`radio-tie-breaker-${t.id}`} />
@@ -115,13 +117,13 @@ export function RuleFamily() {
               <Section title="How it scores" testId="section-family-parts">
                 <dl className="space-y-2 p-4 text-sm">
                   <div><dt className="font-medium">Main part: {page.main.title}</dt><dd className="text-muted-foreground">{page.main.sentence}</dd></div>
-                  <div><dt className="font-medium">It reads the line as</dt><dd className="text-muted-foreground" data-testid="text-family-reads">{page.reads.join(", ")}</dd></div>
+                  <div><dt className="font-medium">It reads the {word.one} as</dt><dd className="text-muted-foreground" data-testid="text-family-reads">{page.reads.join(", ")}</dd></div>
                 </dl>
               </Section>
             </div>
             <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
               <GoalCard rule={page.rule} example={example} />
-              <p className="mt-2 text-xs text-muted-foreground">In a game, your own lines also show their rarity in bits (each bit = twice as rare) and their chance: how rarely a random line is that good.</p>
+              <p className="mt-2 text-xs text-muted-foreground">In a game, your own {word.many} also show their rarity in bits (each bit = twice as rare) and their chance: how rarely a random {word.one} is that good.</p>
             </div>
           </div>
         </>)}

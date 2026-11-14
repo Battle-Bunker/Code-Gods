@@ -4,8 +4,8 @@
  * bid handicap), your row marked. The list is the chart's table view.
  */
 import { useMemo } from "react";
-import { useGame, useLeaderboard, useStandingsHistory } from "@/sdk";
-import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, TOTALS_NOTE } from "@/core/words";
+import { objectWord, useGame, useLeaderboard, useStandingsHistory } from "@/sdk";
+import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { LineChart, slotColour } from "@/components/charts";
 import { raceSeries } from "./chart-model";
@@ -45,7 +45,7 @@ export function RacePane() {
         ))}
       </ol>
       <div className="space-y-1 border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-leaderboard-note">
-        <p>{totalNote(TOTALS_NOTE, standings.rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
+        <p>{totalNote(totalsSumNote(objectWord(header?.variant).one), standings.rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
         <LineByLine testId="button-line-by-line-race" />
       </div>
     </div>
