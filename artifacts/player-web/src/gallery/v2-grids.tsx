@@ -8,8 +8,9 @@
  *    and the expanded face.
  */
 import type { ReactNode } from "react";
-import { applyCall, evaluateObject, isInvalid, levelOf, objectLadder, rng, walkStep, type RuleFamily } from "@workspace/v2-core";
+import { applyCall, evaluateObject, isInvalid, rng, walkStep, type RuleFamily, type Score } from "@workspace/v2-core";
 import { grid4, gridType, type GridState } from "@workspace/v2-grid";
+import { pickExamples, valueFor } from "./values";
 import { annotate, bitsLine, CompactFace, defaultRep, ExpandedFace, GoalCard, MoveLine, ObjectChip, RepView, type RuleRef } from "@workspace/v2-views";
 
 type Family = RuleFamily<GridState, unknown>;
@@ -18,26 +19,21 @@ const ruleOf = (family: Family): RuleRef<GridState, unknown> => ({ type: gridTyp
 /** A hand-written board for the board-only views: every representation has something to show on it. */
 const SHOWN: GridState = gridType.decode("3113/0480/2222/9003");
 
-/** Boards from a seeded walk: the best, a middling and a low level the family reached. */
+/** Boards from a seeded walk: the best, a middling and a low one by the rule's bits (its first tie-breaker's value function). */
 function exampleBoards(family: Family): GridState[] {
   const r = rng(`gallery:${family.id}`);
   const params = family.dealable(grid4)[0];
-  const ladder = objectLadder(gridType, family, params, grid4);
-  const byLevel = new Map<number, GridState>();
+  const value = valueFor(grid4.id, family.id, params, family.tieBreakers[0]?.id);
+  const met: { state: GridState; score: Score }[] = [];
   let s = gridType.origin(grid4);
-  for (let i = 0; i < 4000 && byLevel.size < 8; i++) {
+  for (let i = 0; i < 4000; i++) {
     s = walkStep(gridType, grid4, s, r);
     const score = evaluateObject(gridType, family, params, s, grid4).score;
-    if (score === null) continue;
-    const l = levelOf(score, ladder);
-    if (!byLevel.has(l)) byLevel.set(l, s);
+    if (score !== null) met.push({ state: s, score });
   }
-  const levels = [...byLevel.keys()].sort((a, b) => b - a);
-  const pick = [levels[0], levels[Math.floor(levels.length / 2)], levels[levels.length - 1]].filter((x, i, a) => x !== undefined && a.indexOf(x) === i);
-  const boards = pick.map(l => byLevel.get(l!)!);
+  const boards = pickExamples(met, value);
   return boards.length ? boards : [SHOWN];
 }
-
 
 /** The board after a call, by a grid mutator (an invalid call leaves it as it was). */
 function after(s: GridState, mutator: string, args: Record<string, string>): { state: GridState; what: string } {

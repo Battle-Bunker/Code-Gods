@@ -13,10 +13,10 @@
  */
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { evaluateObject, levelOf, objectLadder, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
+import { evaluateObject, q, rng, walkStep, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
 import { divisibilityLadder, fromMC, lineQ, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, bitsLine, CompactFace, ExpandedFace, GoalCard, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
-import { valueFor } from "./values";
+import { pickExamples, valueFor } from "./values";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 import { GridsSection } from "./v2-grids";
@@ -39,23 +39,19 @@ const CURATED: Readonly<Record<string, { params?: unknown; lines: readonly LineS
   "crossing-check": { params: { k: 1, q: 4 }, lines: [mc(2, 1), mc(1, 2), mc(-1, 5), mc(0, 4)] },
 };
 
-/** For a family nobody curated: lines from a seeded walk, the best, a middling and a low one, and a WORST if met. */
+/** For a family nobody curated: lines from a seeded walk, the best, a middling and a low one by bits, and a WORST if met. */
 function autoLines(family: Family, params: unknown): LineState[] {
   const r = rng(`gallery:${family.id}`);
-  const ladder = objectLadder(lineType, family, params, lineQ);
-  const byLevel = new Map<number, LineState>();
+  const value = valueFor(lineQ.id, family.id, params, family.tieBreakers[0]?.id);
+  const met: { state: LineState; score: Score }[] = [];
   let worst: LineState | null = null;
   let s = mc(1, 1);
-  for (let i = 0; i < 3000 && (byLevel.size < 6 || !worst); i++) {
+  for (let i = 0; i < 3000; i++) {
     s = walkStep(lineType, lineQ, s, r);
     const score = evaluateObject(lineType, family, params, s, lineQ).score;
-    if (score === null) { worst ??= s; continue; }
-    const l = levelOf(score, ladder);
-    if (!byLevel.has(l)) byLevel.set(l, s);
+    if (score === null) worst ??= s; else met.push({ state: s, score });
   }
-  const levels = [...byLevel.keys()].sort((a, b) => b - a);
-  const pick = [levels[0], levels[Math.floor(levels.length / 2)], levels[levels.length - 1]].filter((x, i, a) => x !== undefined && a.indexOf(x) === i);
-  const lines = [...pick.map(l => byLevel.get(l!)!), ...(worst ? [worst] : [])];
+  const lines = [...pickExamples(met, value), ...(worst ? [worst] : [])];
   return lines.length ? lines : [mc(1, 1)];
 }
 

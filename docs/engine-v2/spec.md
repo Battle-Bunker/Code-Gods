@@ -19,8 +19,8 @@ worth under the walk's stationary law.
 2. **The object is the line** (or a tuple of lines, a variant parameter). Its canonical state is exact (integers);
    every written form is a representation computed from it, with rational elements.
 3. **Representations name elements**: coordinates (written by mutators), derived quantities and dynamic elements made
-   from a rule's parameters. A rule is a **ladder of two layers**: a main layer in school-textbook terms, then one
-   tie-breaker chosen from the family's alternatives, which counts once the main layer is at its top; every layer a graded quantity, never a yes/no test. Rules compute each layer
+   from a rule's parameters. A rule has **two layers**: a main layer in school-textbook terms, then one
+   tie-breaker chosen from the family's alternatives, which orders lines the main layer ties; every layer a graded quantity, never a yes/no test. Rules compute each layer
    from elements through an evaluation context that records every term, and their annotation is built from those same
    recorded terms, so the picture and the score cannot disagree.
 4. **Mutators belong to representations and are priced by their code length** (which mutator, where, the argument),
@@ -28,11 +28,10 @@ worth under the walk's stationary law.
    price list (owner decision 11): each object type has a gravitational centre, the state that is cheapest to write, and
    moving away from it costs more than coming back. The price list is a probability law over calls, and it drives both
    what agents pay and the walk.
-5. **Value is the stationary law of the walk.** For each rule (family, parameters, variant), an offline estimator
-   samples states inside each rung of the rule's score ladder, perturbs them with one walk step, builds the
-   rung-to-rung matrix and takes its stationary vector. A rung's value is minus log2 of the stationary mass at least that
-   good. Runs stop at a 2% error or a compute budget; results are fitted to curves and snapped; the artefact is a
-   committed JSON file the server looks values up in. Unconverged or too-coarse rules go on the backlog and are not dealt.
+5. **Value is the stationary law of the walk.** For each rule (family, parameters, tie-breaker, variant), a state's
+   value is minus log2 of the stationary mass of the states whose score is at least as good (owner decision 23, §7.0).
+   It is computed offline, exactly where a sum allows and by direct draws from the law elsewhere, into a value
+   function: certified knots in a committed JSON file the server looks values up in.
 6. **Points** are as before: own bits times the sum of the other players' bits, per object, summed over objects.
 7. **Everything else is new and small**: new Convex tables, an append-only event log that replays by folding, and
    per-viewer value documents. How the existing app moves onto v2 data is `docs/engine-v2/integration-plan.md`.
@@ -62,7 +61,7 @@ fails on such an import. `@workspace/ui-kit` (generic components) may be used by
 |---|---|---|
 | `lib/v2-core` (`@workspace/v2-core`) | exact rationals `Q`; integer and rational codes (§2.3); the seeded generator; the contracts as types: object type, variant, representation, element, evaluation context, rule family, ladder, mutator, call, price; the generic walk step (§5.4) | nothing |
 | `lib/v2-linear` | the linear-equation object type (§12): state, domains, representations, mutators, rule families, variants | v2-core |
-| `lib/v2-valuation` | the stationary-law estimator, curve fitting, artefact format and lookup, the `calibrate` command line, committed artefacts under `artefacts/` | v2-core (and object-type packages, by registry) |
+| `lib/v2-valuation` | value functions (exact sums and direct draws), their record format and lookup, the `values` command line, committed records under `values/` | v2-core (and object-type packages, by registry) |
 | `lib/v2-sandbox` | a copy of `lib/game-runtime` (CPython WASI and QuickJS) with the synchronous host channel (§6.5) | — |
 | `lib/v2-agents` | the agent host: offers, priced queries, quotes, call parsing, act charge; the guest libraries for Python and TypeScript (thin: transport and a rational helper, no rule logic); the example agents | v2-core, v2-sandbox |
 | `lib/v2-economy` | power, capacity, energy, offer selection, act charge (copied and cleaned from `game-core/energy.ts` and `docs/energy-model.md`) | v2-core |
@@ -177,7 +176,7 @@ mixedInt(0) = 1,   mixedInt(±n) = 2 + mixedPos(n)
 Its Kraft sum is exactly 1, so it is normalisable on the unbounded domains (and on the triples of the Q domain, a
 subset). A large prime is dear and a large smooth number cheap: 23 costs 15.6 bits and 24 costs 8.6; 47 costs 27.6 and 48
 costs 9.6. A number's energy is roughly its shortest arithmetic description. `φ(line)` is mixedInt(m) + mixedInt(c) on Z
-and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q. Measured (`pnpm --filter @workspace/v2-valuation law`): on `line-z` the
+and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q. Measured (by the walk-law report, `lib/v2-valuation/src/law.ts`, since deleted): on `line-z` the
 line's largest number is at most 2, 20 and 162 for 50%, 90% and 99% of the stationary mass (on `line-q` 1, 12 and 81),
 and 24 is about 200 times commoner than 23. The constant STEP sets how strong gravity is: the earlier Elias-gamma
 ("digits") code made size cost only logarithmically (#347's doubling code), and a steps-only code would make size cost
@@ -271,11 +270,10 @@ interface ElementReply { ref: ElementRef; value: ElementValue; bits: number }
 
 ### 4.1 Families, layers, parameters, the card
 
-A rule is a **ladder of layers** (owner decisions 12–14). The main layer is what a 12-year-old following a standard
-linear-equations course can read (gradient, intercepts, substitution, a table of values); each later layer is a
-tie-breaker that only counts once every earlier layer is at its top, and may be more advanced. Every layer is a graded
-quantity with a direction (a distance, a count, a size) and many attainable values, never a yes/no test: "binary
-decisions are worthless for extending the ladder".
+A rule is **layers** (owner decisions 12–14). The main layer is what a 12-year-old following a standard
+linear-equations course can read (gradient, intercepts, substitution, a table of values); the tie-breaker orders lines
+the main layer ties, and may be more advanced. Every layer is a graded quantity with a direction (a distance, a count,
+a size) and many attainable values, never a yes/no test: "binary decisions are worthless".
 
 ```ts
 export interface Layer<P> {
@@ -284,9 +282,6 @@ export interface Layer<P> {
   sentence(params: P): string;                           // the card's sentence for this layer
   readonly rep: string;                                  // the representation the layer is read in (its compact view)
   readonly sense: "min" | "max";                         // smaller is better (a distance) or bigger is better
-  readonly measure: "distance" | "count" | "size";       // which curve calibration fits (§7.4)
-  thresholds(params: P, variant: Variant): readonly Q[]; // rung thresholds, easiest first; the last is the layer's top
-  rungLabel(threshold: Q, params: P): string;            // "gradient to a prime within 1/4"
 }
 
 export interface RuleFamily<S, P> {
@@ -306,20 +301,17 @@ type TieBreaker = string | null;                         // a dealt rule's choic
 
 - **A family offers several tie-breakers; a dealt rule uses one** (decision 14 and its clarification: "I will want
   several secondary rule candidates within each family"). A dealt rule is `{ family, params, tieBreaker }`: the main
-  layer plus that tie-breaker, never a third layer. Each (family, params, tie-breaker, variant) has its own artefact, and
-  `ruleKey` = object type and version + variant and its hash + family + canonical params + `tb=<id>` identifies it (§7.6).
+  layer plus that tie-breaker, never a third layer. Each (family, params, tie-breaker, variant) has its own value function, and
+  `ruleKey` = object type and version + variant and its hash + family + canonical params + `tb=<id>` identifies it (§7.6, `lib/v2-valuation/src/keys.ts`).
   The deal picks the tie-breaker as it picks parameters (W3-3 decides the distribution; uniform over converged ones).
 - **Won by bid** (owner decision 18): a bid names a family only; the dealer draws the winner's parameters and tie-breaker
   from that family's converged rules in the room's pool, records `wonByBid` and the `handicap` on `v2Rules`, and the
   standings carry the handicap and the net total (integration plan §5.9).
-- **Continuity is checked, not trusted.** Calibration counts the distinct values each dealt layer takes among the samples
-  among all samples (on the joint ladder the tie-breaker grades every main level, so it counts everywhere); a layer with fewer
-  than `minLevels` (default 6) makes the rule **too coarse**, and it goes on the backlog (§7.5) whatever its values.
+- **Every layer is graded** (decision 13): a utility must not be binary, though it may be discrete by nature (a
+  smallest prime factor, a run length).
 - **Ordering and value: value follows the order.** Scores compare as plain lexicographic tuples (coordinator's call (f):
-  no gating), so the tie-breaker orders lines at every main level, and value follows that order (the coordinator,
-  14 November): the ladder that values a rule is the **joint ladder** of (main level, tie-breaker level) pairs in
-  lexicographic order (§4.4), so improving the tie-breaker at any main level raises bits, and a line never holds fewer
-  bits than one it beats.
+  no gating), so the tie-breaker orders lines at every main value, and the value function is monotone in that order
+  (§7.0): improving the tie-breaker raises bits, and a line never holds fewer bits than one it beats.
 
 ### 4.2 Evaluation: score and annotation from the same terms
 
@@ -347,13 +339,10 @@ export interface Evaluation {
 - **Undefined, per component.** An undefined primary makes the score WORST (`null`), below everything. An undefined
   secondary is a `null` component that ranks last in its own component only (a line that meets the primary but has no
   intercept triangle still beats one that misses the primary).
-- **Saturation.** The main layer saturates at its top when a tie-breaker is dealt: a "bigger is better" layer past its top threshold
-  scores as its top. Beyond its top a layer only opens the next one, so a state past an earlier top neither outranks nor
-  skips the rungs of the layers after it.
-- Scores compare lexicographically; `compareScores(a, b)` and `meets(score, threshold)` are in v2-core.
-- A family evaluates one line when `sites = 1`. For variants with k lines a family is evaluated per line and the object's
-  score is `[Σ_lines level(line score)]` followed by the per-line primary components sorted best first (§12.6).
-  Calibration is per variant, so the k-line score has its own artefact (`objectLadder`).
+- **No saturation** (owner decision 23). Each component is the layer's utility as it is.
+- Scores compare lexicographically; `compareScores(a, b)` is in v2-core.
+- A family evaluates one line when `sites = 1`. For variants with k lines a family is evaluated per line; the object's
+  score is null for now (per-line bits summed is provisional and comes next, §4.4).
 
 ### 4.3 Marks
 
@@ -375,22 +364,13 @@ Example: Prime Gradient on `y = 4x − 3` reads `si.m` (4), makes dynamic elemen
 `cart.ghost(g=5)` (the lines of gradient 3 and 5 through the same y-intercept), records `d3 = 1`, `d5 = 1`, the primary
 `near = 1` and the secondary `prime = 3`, and marks `focus si.m` and the two ghosts as candidates with their distances.
 
-### 4.4 The ladder
+### 4.4 No ladder
 
-A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). For a one-layer rule the rungs are
-the main layer's thresholds. For a dealt rule (main layer plus tie-breaker) `ruleLadder` builds the **joint ladder**: for
-each main level i from 0 (anything) to the main top, the main rung i (`layer: 0`, `main: i`) followed by tie-breaker rungs
-(`layer: 1`, `main: i`, score `[main threshold i, tie threshold]`). Below the main top the tie-breaker is coarsened to
-`COARSE_TIE_RUNGS = 3` evenly spaced thresholds (never one: the tie-breaker still grades every main level); at the main
-top all of its thresholds stand. A state's joint level is the last rung (main level, tie level) it meets in that
-lexicographic order (`jointLevelOf`): its main level, then its tie-breaker among the rungs at that main level. The
-coarsening keeps the ladder calibratable: each main level adds at most four rungs whose samples come from that level's
-own chain, while the top, where the tie-breaker carries the rule's rare bits, keeps every step. `layerLadders` gives each
-layer's own single-component ladder, which the card shows as "main part: step 5 of 8, tie-breaker: step 2 of 3". A state's **level**
-is the index of the highest rung whose score it meets or beats (`ruleLadder`, `levelOf`). Ladders are what make
-infinite score sets calibratable: a distance layer on rational lines declares thresholds such as `8, 4, 2, 1, 1/2,
-1/4, 1/8, 0`. The calibration reports rungs that no sample reached at their level. The ladder is also what the goal
-card shows as "steps to the top", and its layers are what the views call "main part" and "tie-breaker".
+There is no ladder (owner decision 23): no thresholds, rungs, levels, caps or saturation. A dealt rule's score is its
+layers' utilities, compared lexicographically (§4.2, `scoreOf`), and a state's value is the rule's value function at
+that score (§7.0). The card and the views speak of the main part and the tie-breaker and their values, never of steps.
+A multi-line object (line-z4) has no object score yet (`ObjectEvaluation.score` is null): per-line bits summed is the
+provisional plan, and it comes next.
 
 ## 5. The mutator contract
 
@@ -618,7 +598,7 @@ def agent(offer):
 
 A rule's layers are **utilities**: each maps a state to a value in a totally ordered set (a number, bigger better; a
 distance enters negated). A dealt rule's **utility** is the pair (primary, secondary), compared lexicographically, with
-no thresholds and no saturation (`Evaluation.utility`; an undefined primary makes it null, the worst; an undefined
+no thresholds and no saturation (`Evaluation.score`; an undefined primary makes it null, the worst; an undefined
 secondary ranks last in its place). A state's value is the survival of the stationary law at its actual utility:
 
 ```
@@ -667,206 +647,79 @@ unconfined product law on line-z (1.0·10^−4 on line-q). It matters only for v
 with c a multiple of lcm(1..16) lie past the cap. The cycle diagnostic is about prices, and a refusal has none, so the
 cycle gate (lib/v2-linear/test/potential.test.ts) is unaffected by the boundary.
 
-The old rung values are this function at the old thresholds (checked: `test/value.test.ts`). Server, agents and views
-switch to value lookups; the rung machinery of §4.4 and §7.1–7.8 is deleted when they have (decision 23, PR 2).
+When value functions replaced the rung tables, the old rung values were checked to be this function at the old
+thresholds; the rung machinery (thresholds, ladders, the restricted-walk estimator, caps, the too-hard backlog and the
+schema-5 artefacts) is deleted (decision 23, PR 2) and lives on `archive/engine-v1` and in git history.
 
 ### 7.1 What a value is
 
-For a rule r with ladder rungs t_0 < t_1 < … < t_n on a variant, let π be the stationary law of the variant's walk
-(§5.4), L_i the states at level i and U_i = ∪_{j ≥ i} L_j. The **value** of rung i is
+For a rule r on a variant, let π be the stationary law of the variant's walk (§5.4). The **value** of a state s is
 
 ```
-V_i = −log2 π(U_i)          (V_0 = 0; V_i non-decreasing in i)
+V(s) = −log2 π{ x : score(x) ≥ score(s) }          (lexicographic; the worst score is worth 0)
 ```
 
-and a state's bits for the rule are V at its level, or, where a snapped curve exists, the curve at its score (§7.4). π
-exists because prices confine (§5.3). Energy E(s) = −log2 π(s) is the "inverse PageRank" of decision 10; V is the free
-energy of an upper set.
+π exists because prices confine (§5.3). Energy E(s) = −log2 π(s) is the "inverse PageRank" of decision 10; V is the
+free energy of the upper set of s's score.
 
 ### 7.2 Exact values (normative; owner decision 19)
 
-Every price list is an exact potential (§5.3), so the stationary law is π ∝ 2^−φ and a rung's value
-V_k = −log2 π(level ≥ k) is a sum over states. On `line-z` (one whole-number line), π(m, c) = p(m)·p(c) with
-p(n) = 2^−mixedInt(n), whose Kraft sum is exactly 1, and `lib/v2-valuation/src/exact.ts` sums it:
+Every price list is an exact potential (§5.3), so the stationary law is π ∝ 2^−φ and a value is a sum over states. On
+`line-z` (one whole-number line), π(m, c) = p(m)·p(c) with p(n) = 2^−mixedInt(n), whose Kraft sum is exactly 1, and
+the value function's exact oracles (`lib/v2-valuation/src/value.ts`) sum it:
 
-- **Enumeration with a rigorous bound.** `integersWithin(B)` lists every integer whose code is at most B bits. For any
-  sum over the lines inside a budget, the mass outside it is known, so each rung gets a certified interval
-  [−log2(M_k + T), −log2 M_k]. A rung is **exact** when half its interval is within max(2% of V_k, 0.03 bits). Its value
-  is the interval's midpoint and its error is the half-width.
-- **The rule author's contract** (`lib/v2-linear/src/sums.ts`, `lineSums` by family id). A family declares how its level
-  sets are summed:
-  - `separable`: each dealt layer depends on m alone or on c alone. The law is then a product of two 1D laws, summed
-    within 44 bits (outside mass 2^−27.7), exact up to about 25 bits. This is checked on 400 random lines at run time.
-  - `band`: for every m, ranges of c holding every line whose main layer is at level `fromMain` or above (a linear
-    substitution such as c = T − km ± d, or a parametrised set such as c a multiple of t when 2|m| = t²). It is summed
-    over m and c within 40 bits; ranges too wide to enumerate add their mass to the bound. The contract is checked against
-    brute force for every band in `test/sums.test.ts`. A family may declare several bands (`bands`); each rung takes the
-    tightest interval. A band of **points** is evaluated at any size, so only m beyond the budget is outside. With
-    `points: "same"` (the same c for every m, e.g. Prime Staircase's primes) that remainder is bounded by T(m) times the
-    points' mass. With `points: "one-per-m"` (c fixed by m where the main layer is exact, e.g. c = T(1 − m) or c = T − km)
-    it is bounded by T(m) times the most one c can weigh.
-  - **Nothing declared (the generic fallback):** every line with φ(m) + φ(c) ≤ 28. This certifies rungs up to about
-    8 bits only.
-- **Where a rung is not exact**, the simulation below fills it if it converges. The rule is then **hybrid**, and
-  wherever both exist the two must agree within max(3σ, 2%, 0.05 bits), or the rule is flagged. When every rung is
-  exact the simulation does not run, and the artefact's status is `exact`. Continuity (decision 13) is then checked on
-  exact values: each dealt layer must take at least `minLevels` distinct values among the lines with φ ≤ 20.
-- Rational and multi-line variants have no exact law yet (their normaliser runs over primitive triples). They are
-  simulated, as before.
-
-### 7.2b The simulation (where no exact sum certifies a rung)
-
-Inputs: the object type, the variant, the rule, a seed, and `ValuationConfig` (`lib/v2-valuation/src/estimate.ts`):
-
-```ts
-interface ValuationConfig {
-  computeBudget: number;      // walk steps in total; default 32,000,000 (the owner's "default compute investment"; ~40 s per rule)
-  targetRelError: number;     // 0.02
-  absFloorBits: number;       // 0.03: a 2% error in a probability (log2 1.02 = 0.029), the target for rungs below 1.5 bits
-  replicates: number;         // 8 independent replicates
-  burnIn: number;             // moves before sampling in each chain; default 2,000
-  thin: number;               // moves between samples; default 10
-  perturbations: number;      // one-step free-walk perturbations of each sample; default 4
-  proposalSteps: number;      // K: a chain's moves and the perturbations are 1 … K free walk steps, uniformly; default 6
-  initialSamples: number;     // samples per chain in the first pass; default 64, doubled per pass
-  minLevels: number;          // 6: fewer distinct values in a dealt layer where it counts makes the rule too coarse (§4.1)
-}
-```
-
-1. **Seeds, per replicate.** When the object type offers `enumerate(variant)` (small states near the centre: on `line-z`
-   every y = mx + c with |m| ≤ 40, |c| ≤ 120), every enumerated state is levelled once, and each replicate starts the
-   climb to a rung at a random enumerated state already on it: thin rungs (a run of six primes, an exact area) are found
-   by enumeration, not by a random climb. Otherwise each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs,
-   alternating a single walk step filtered to keep the level and a kernel proposal (1 … K walk steps, uniformly) kept
-   only if the level did not drop, until each U_i is reached or 20 × burnIn proposals pass. The ladder is calibrated up to
-   the last rung every replicate reached; the rungs above are dropped and the artefact says so (a rule with no reachable
-   rung is `unreachable`). Replicates do not share seeds: replicates that shared a start would share its slowly
-   forgotten bias, and their spread would understate the error.
-2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i starts at its seed,
-   makes `burnIn` moves that are not sampled (so a seed from enumeration, typically far out, is forgotten before
-   sampling: step 6's equilibration check tests that it was), and then moves by 1 … K free
-   walk steps at a time (uniformly) and keeps the end only if it is still in U_i (U_0's chain keeps every end: it is the free walk).
-   P^K has the walk's stationary law, and K-step moves connect thin upper sets that single moves cannot (with shift and
-   tilt alone, no single move stays on m = c). Under detailed balance the chain's law is exactly π restricted to U_i;
-   otherwise it is the standard approximation, whose error sits at the chain's own boundary, and step 6 measures it.
-3. **Perturb.** Every sample, from every chain, is perturbed `perturbations` times by the perturbation kernel (1 … K free
-   walk steps, uniformly; it has the walk's stationary law, so step 4's identity holds, #347 §1.4.3, and unlike a single
-   step it joins levels that only a pair of moves connects, such as |c| along m = c), and each landing level is counted
-   in the row of the sample's own level, kept per chain: `C[k][l][j]`. (A sample of chain U_k at level l
-   is a draw from π restricted to L_l, whichever chain produced it.)
-4. **The level matrix and its stationary vector.** Row l is pooled from chains U_0 … U_k for the smallest k whose counts
-   at level l (over all replicates) reach 64 × perturbations and, below the top, include 16 upward transitions (the
-   small rates that stitch rare levels to the rest): the free chain where it can, restricted chains only where
-   they must, so each row carries as little restriction error as the samples allow. T[l][j] is the row normalised. The
-   level masses w are its stationary vector (wT = w, Σw = 1, by Gaussian elimination on (Tᵀ − I) with the normalisation
-   row), computed only when the sampled levels form one communicating class. Then V_i = −log2 Σ_{j ≥ i} w_j. The full
-   matrix is used: transitions that skip rungs and transitions down count.
-5. **Point estimate, error bars, convergence.** The point estimate uses the counts of all replicates pooled (the
-   eigenvector of a noisy matrix, read through a logarithm, is biased, and pooling keeps the noise small); the error is
-   the delete-one jackknife over replicates. The run is **converged** when, for every non-empty rung i ≥ 1,
-   error_i ≤ max(targetRelError × V_i, absFloorBits). If not, every chain is extended to twice its samples (burn-in and
-   earlier samples are kept), until converged or the next doubling would pass `computeBudget`; then it stops as
-   **unconverged** with its best estimate.
-6. **Diagnostics** (always reported, never used as the value):
-   - **splitting estimate:** V_i^split = −Σ_{k < i} log2 (fraction of U_k's samples that lie in U_{k+1}); it agrees with
-     step 4 under detailed balance; a gap larger than three combined errors flags the run;
-   - **direct check:** for rungs with π(U_i) > 1/64, the free chain's fraction of samples in U_i; it is exact whatever the
-     price list, and a gap larger than three combined errors flags the run;
-   - **equilibration:** for each chain U_i below the top, its rate into U_{i+1} in the second half of its samples (the
-     latest doubling) minus that in the first half, per replicate; the mean over replicates and that mean over its
-     standard error across them (`drift` in the artefact). Replicates are independent, so the error bar carries each
-     chain's autocorrelation. A drift of more than 4 standard errors and more than 2 points of rate flags the run: the
-     chain had not forgotten its seed. It is tested on a negative control (Prime Gradient with no burn-in drifts on its
-     upper rungs and is flagged) and on the reversible price list (no drift);
-   - **reversibility:** the share of level flow that circulates, Σ_{i<j} |w_i T_ij − w_j T_ji| / Σ_{i<j} (w_i T_ij + w_j T_ji)
-     (0 under detailed balance up to noise; #347's cycle test, on levels);
-   - **mixing:** the integrated autocorrelation time of the free chain's level, in walk steps (feeds `birthMixSteps`, §2.4);
-   - the pooled level matrix itself.
-
-   A test (`lib/v2-valuation/test/estimate.test.ts`) checks the estimator against a price list with an exact answer
-   (shift and tilt only: detailed balance holds and π ∝ 2^−φ).
+- **Enumeration with a rigorous bound.** `integersWithin(B)` (`exact.ts`) lists every integer whose code is at most B
+  bits. For any sum over the lines inside a budget the mass outside it is known, so each knot gets a certified interval.
+- **The rule author's contract** (`lib/v2-linear/src/sums.ts`, `lineSums` by family id). A family declares how its
+  upper sets are summed:
+  - `separable`: each dealt layer depends on m alone or on c alone. The law of the score is then a product of two 1D
+    laws. This is checked on random lines at run time.
+  - `bands`: for every m, ranges of c holding every line whose primary utility is at least the band's `atLeast` (a
+    linear substitution such as c = T − km ± d, or a parametrised set such as c a multiple of t when 2|m| = t²). The
+    contract is checked against brute force for every band in `test/sums.test.ts`. A family may declare several bands;
+    each knot takes the tightest interval. A band of **points** is evaluated at any size, so only m beyond the budget is
+    outside. With `points: "same"` (the same c for every m, e.g. Prime Staircase's primes) that remainder is bounded by
+    T(m) times the points' mass; with `points: "one-per-m"` (c fixed by m where the main layer is exact, e.g.
+    c = T(1 − m) or c = T − km) by T(m) times the most one c can weigh.
+  - **Nothing declared (the generic fallback):** an enumeration of the cheapest lines, valid everywhere but certain only
+    for common scores.
+- Grids: a family that declares disjoint units (`lib/v2-grid/src/sums.ts`) has the exact joint law of its terms by
+  convolution (`gridJointLaw`, `exact-grid.ts`); the others are sampled from π directly (`value-grid.ts`).
+- Rational and multi-line variants have no exact law yet: their knots come from direct draws (§7.0).
 
 ### 7.3 Determinism and seeds
 
 All randomness comes from `v2-core/rng.ts`: a 32-bit counter-based generator (SplitMix32 for derivation, sfc32 for
-streams; integer operations only, so every JavaScript engine gives the same sequence). A run's stream for (replicate,
-rung, doubling) is derived from `hash(seed, ruleKey, replicate, rung, doubling)`. The default seed of a committed
-artefact is `"v2"`. Re-running with the same seed, config and code reproduces the artefact exactly (a test runs a small
-budget twice and compares). Floating-point arithmetic happens only in step 4 and in fitting; stored numbers are rounded
-to 1/10,000 bit.
+streams; integer operations only, so every JavaScript engine gives the same sequence). A value function's draws are
+derived from its seed (default `"v2"`), the family, the tie-breaker and the tilt. Re-running with the same seed, config
+and code reproduces the record exactly. Stored bits are rounded to 1/10,000 bit (certified bounds outward).
 
-### 7.4 Curves and snapping
+### 7.4–7.5 (deleted)
 
-After a converged run the estimator fits V against the **primary layer's** rung thresholds t (secondary rungs keep their
-step values; single-line objects only):
+Curves, snapping, caps and the too-hard backlog belonged to the rung tables and are gone (decision 23): a value
+function is defined at every score, and a lookup past the best knot is extrapolated and marked `beyond` (§7.0).
 
-- **Distance layers** (score `−d`): V(d) = α − β·log2(d + δ), δ ∈ {1/16, 1/8, 1/4, 1/2, 1, 2}; **count and size
-  layers** (score `n`): V(n) = α + β·n + γ·n². Weighted least squares with weights 1/error².
-- A fit is **accepted** when every rung's residual is within twice its error and the curve is non-decreasing over the
-  ladder's range. **Snapping** rounds α, β, γ to the nearest 1/256 and keeps the rounded curve if it is still accepted.
-- With a snapped curve the server uses the curve at the state's own primary score (clamped between the values of the
-  state's rung and the next), which gives continuous values between rungs; without one it uses the rung's step value.
-- A curve may instead be marked `analytic` with a reference to a proof (a markdown file under `docs/engine-v2/proofs/`),
-  in which case the empirical run is its test: the analytic curve must lie within the run's error bars.
+### 7.6 The value record
 
-### 7.5 The too-hard backlog
-
-A rule (family, parameters, tie-breaker, variant) is dealt with its ladder **capped** (coordinator's call (g),
-provisional): the artefact's `cap` is the last rung through which every non-empty rung met the error target, and a line
-above the cap scores as the cap. Above the converged cap (`convergedCap`), a tail of tie-breaker rungs at the main top may be valued by a curve
-through the converged ones there (`tail`, at least four points within twice their errors, one more span of thresholds at
-most, never decreasing); `cap` is then the last fitted rung. It is **not dealable** (`dealable: false`) when it is
-**unreachable** at its first rung, **too coarse** (a dealt layer takes fewer than `minLevels` distinct values, §4.1),
-fewer than six rungs converge below the cap, or its dealt top is worth under 4 bits. A rule that misses only its rarest rungs is therefore dealt, capped; the splitting, direct and
-equilibration flags stay in the artefact as diagnostics. `calibrate --write` regenerates the rows of the rules it
-calibrated in `docs/engine-v2/too-hard-backlog.md`, with the reasons, and `recap` recomputes every artefact's cap and the
-whole file from the committed figures; a person or a later session decides whether to
-change the ladder, the parameters or the family, or to raise the budget for it explicitly (an artefact records the
-budget it used).
-
-### 7.6 The artefact
-
-One JSON file per rule key, committed under `lib/v2-valuation/artefacts/<variant>/<family>/<params-hash>-<tie-breaker>.json`:
-
-```json
-{ "schema": 2, "ruleKey": "...", "objectType": "line", "objectTypeVersion": 1, "variant": "line-z", "variantHash": "...",
-  "family": "prime-gradient", "params": {}, "tieBreaker": "prime", "seed": "v2", "config": { ... }, "status": "converged",
-  "reasons": [], "rungs": [ { "score": null, "label": "anything", "layer": -1, "bits": 0, "error": 0 },
-    { "score": ["-2"], "label": "...", "layer": 0, "bits": 0.41, "error": 0.006 }, ...,
-    { "score": ["0", "5"], "label": "the prime at least 5", "layer": 1, "bits": 4.1, "error": 0.08 }, ... ],
-  "primarySense": "min",
-  "curve": { "model": "log-distance", "alpha": 3.25, "beta": 0.75, "delta": 0.5, "snapped": true },
-  "diagnostics": { "reversibility": 0.03, "mixingSteps": 44, "steps": 12110645, "samplesPerChain": 4096, "distinctLevels": [21, 9], "examples": ["...per rung, a line from that rung's chain"], "split": [...], "direct": [...], "levelMatrix": [[...]] },
-  "contentHash": "..." }
-```
-
-`contentHash` is a hash of everything else; the game header records it for every dealt rule (§9). `calibrate --all`
-regenerates every artefact of every dealable rule; a test checks that each committed artefact's `contentHash` matches
-its contents and that every rule in each variant's dealable grid has a converged artefact.
+One JSON file per rule key, committed under `lib/v2-valuation/values/<variant>/<family>/<params-hash>-<tie-breaker>.json`
+(schema 6: `ruleKey`, the variant and its hash, family, params, tie-breaker, seed, config, the knots, the tail and a
+`contentHash` of everything else), written by `pnpm --filter @workspace/v2-valuation values`. The engine bundles them
+(`artifacts/engine/convex/v2/values.gen.ts`, `scripts/gen-v2-values.mjs`, `--check` in CI); the game header records each
+dealt rule's `contentHash` (§9).
 
 ### 7.7 Values at run time
 
-When an object's state changes, the server evaluates each player's rule on it (§4.2), finds the level from the ladder,
-and looks up bits from the artefact (curve or step), at most the cap's (§7.5). This is a few element computations per player: no sampling at run
-time. Values are stored per (object, player) (§10).
+When an object's state changes, the server evaluates each player's rule on it (§4.2) and looks up bits in the rule's
+value function at that score (`valueLookup`). This is a few element computations per player: no sampling at run time.
+Values are stored per (object, player) (§10).
 
 ### 7.8 Resolution: enough bits on a line
 
 #347 measured rule tops of 2 to 5 bits on one integer line. The owner (decision 12): that means the rules are not
-creative enough, not that the object is too small. The answer is the ladder of layers (§4.1): the joint ladder (§4.4)
-grades the secondary at every primary level and in full at the primary's top, so its rungs stack above it, and a layer
-about size or factor structure climbs into the
-rare states the confining code makes rare (§2.5). The other levers remain, all configuration:
-
-1. **Tie-breakers.** Every family has a main layer and alternative tie-breakers; a dealt rule uses the main layer and one
-   of them (no third layer, decision 14). The calibration prints bits per rung of the whole ladder, so the reach of each
-   tie-breaker is visible.
-2. **Ladders on rational scores.** Distance layers on the `Q` domain have values all the way down to d = 0.
-3. **Rarer parameters.** A dealable grid may include rarer targets; each artefact tells the dealer its rule's top.
-4. **Lines per object.** A k-line variant sums per-line levels (§4.2), so tops grow roughly k-fold.
-
-The default is one line per object (call (c)); the beginner pool is chosen from the calibration report in
-`v2-linear/presets.ts` (spec PR 5).
+creative enough, not that the object is too small. The answer is layers (§4.1): the tie-breaker orders the lines at
+every main value, and a layer about size or factor structure climbs into the rare states the confining code makes rare
+(§2.5). The other levers remain, all configuration: alternative tie-breakers (decision 14), rational scores, rarer
+parameters, and lines per object.
 
 ## 8. Points from bits
 
@@ -1065,7 +918,6 @@ them. **The beginner pool** is the curator's exact-only pool (`docs/engine-v2/la
 an exact sum can value (owner decision 19 and the owner's instruction that families are chosen so), the owner's two
 examples kept. It is `beginnerPool` in `lib/v2-linear/src/presets.ts`, dealt by `lines-beginner` on `line-z`,
 `lines-rational` on `line-q` and `lines-four` on `line-z4`. Each family's summation plan is in `sums.ts` (§7.2). A
-tie-breaker about a prime's size has one rung per prime, up to 31 (37 for a crossing's largest prime factor). A
 family's first tie-breaker is its default:
 
 | Family | Main layer (rep) | Tie-breakers (alternatives) | Sum |

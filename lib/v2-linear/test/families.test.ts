@@ -48,9 +48,9 @@ test("the owner's other three, and the two layered examples of decision 12", () 
 /** A test family: primary |m| (bigger is better), secondary: c, undefined when c is 0. */
 const toy: RuleFamily<LineState, object> = {
   id: "toy", title: "toy", card: () => "", params: [], dealable: () => [{}], depends: ["si"],
-  main: { id: "big", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size" },
+  main: { id: "big", title: "", sentence: () => "", rep: "si", sense: "max" },
   tieBreakers: [
-    { id: "c", title: "", sentence: () => "", rep: "si", sense: "max", measure: "size" },
+    { id: "c", title: "", sentence: () => "", rep: "si", sense: "max" },
   ],
   evaluate(ctx) {
     const m = ctx.read({ rep: "si", name: "m" }), c = ctx.read({ rep: "si", name: "c" });

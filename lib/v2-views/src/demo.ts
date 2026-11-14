@@ -16,11 +16,11 @@ function nearestMinute(t: Q): bigint {
 type NoParams = Record<string, never>;
 const main: Layer<NoParams> = {
   id: "gap", title: "runs out at a whole minute", sentence: () => "Make it run out at a whole minute.", rep: "cart",
-  sense: "min", measure: "distance",
+  sense: "min",
 };
 const prime: Layer<NoParams> = {
   id: "pgap", title: "that minute is a prime", sentence: () => "Tie-breaker: a prime minute is even better.", rep: "cart",
-  sense: "min", measure: "distance",
+  sense: "min",
 };
 
 export const emptyTank: RuleFamily<LineState, NoParams> = {

@@ -1,8 +1,8 @@
 # Number codes and mixed costing (owner decision 17, 14 November 2026)
 
 The owner: "Use mixed costing now. I like that." This file states the price list v2 uses for the line and what it does
-to the stationary law and to rule values. Numbers come from `pnpm --filter @workspace/v2-valuation law` and `calibrate`
-(seed "v2", default budget 32M walk steps per rule); every artefact is committed under `lib/v2-valuation/artefacts/`.
+to the stationary law and to rule values. Numbers came from the since-deleted `law` and `calibrate` commands
+(seed "v2", default budget 32M walk steps per rule); every artefact was committed under `lib/v2-valuation/artefacts/` (deleted with the rung tables, decision 23; value functions are under `values/`).
 
 ## The price list
 
@@ -36,7 +36,7 @@ random play. That is what makes prime-seeking rules valuable.
 
 Value follows the order (spec §4.4): a dealt rule is valued on the joint ladder of (main level, tie-breaker level)
 pairs in lexicographic order. The tie-breaker has three rungs at each main level below the top and all of its rungs at
-the top. Every artefact under `lib/v2-valuation/artefacts/` was regenerated with seed "v2" at the default budget (32M walk
+the top. Every artefact under `lib/v2-valuation/artefacts/` (since deleted) was regenerated with seed "v2" at the default budget (32M walk
 steps): 72 rules (13 families, each with each of its tie-breakers, on `line-z` and `line-q`), 38 s each on average
 (four running at once on four cores).
 

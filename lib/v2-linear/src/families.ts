@@ -32,14 +32,14 @@ function card<P>(f: { main: L<P>; tieBreakers: readonly L<P>[] }, p: P, tb: TieB
 
 const pg = {
   main: { id: "near", title: "gradient close to a prime", sentence: () => "Make the gradient as close as possible to a prime number.",
-    rep: "si", sense: "min", measure: "distance" } as L<object>,
+    rep: "si", sense: "min" } as L<object>,
   tieBreakers: [
     { id: "prime", title: "the size of that prime", sentence: () => "Tie-breaker: the bigger that prime, the better.",
-      rep: "si", sense: "max", measure: "size" },
+      rep: "si", sense: "max" },
     { id: "c-spf", title: "the y-intercept's smallest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's smallest prime factor, the better.",
-      rep: "si", sense: "max", measure: "size" },
+      rep: "si", sense: "max" },
     { id: "c-gpf", title: "the y-intercept's largest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's largest prime factor, the better.",
-      rep: "si", sense: "max", measure: "size" },
+      rep: "si", sense: "max" },
   ] as L<object>[],
 };
 export const primeGradient: RuleFamily<LineState, object> = {
@@ -72,12 +72,12 @@ export const primeGradient: RuleFamily<LineState, object> = {
 type A = { A: number };
 const ta = {
   main: { id: "area", title: "triangle area close to A", sentence: (p: A) => `The line and the two axes make a triangle; make its area as close as possible to ${p.A}.`,
-    rep: "tri", sense: "min", measure: "distance" } as L<A>,
+    rep: "tri", sense: "min" } as L<A>,
   tieBreakers: [
     { id: "legs", title: "legs nearly whole", sentence: () => "Tie-breaker: the triangle's legs should be whole numbers, or fractions with bottom numbers as small as possible.",
-      rep: "tri", sense: "min", measure: "distance" },
+      rep: "tri", sense: "min" },
     { id: "even", title: "legs nearly equal", sentence: () => "Tie-breaker: make the two legs as close to equal as possible.",
-      rep: "tri", sense: "min", measure: "distance" },
+      rep: "tri", sense: "min" },
   ] as L<A>[],
 };
 export const triangleArea: RuleFamily<LineState, A> = {
@@ -102,12 +102,12 @@ export const triangleArea: RuleFamily<LineState, A> = {
 
 const mc = {
   main: { id: "gap", title: "gradient close to the y-intercept", sentence: () => "Make the gradient and the y-intercept as close as possible to each other.",
-    rep: "si", sense: "min", measure: "distance" } as L<object>,
+    rep: "si", sense: "min" } as L<object>,
   tieBreakers: [
     { id: "size", title: "they meet at a big number", sentence: () => "Tie-breaker: the bigger the y-intercept (ignoring its sign), the better.",
-      rep: "si", sense: "max", measure: "size" },
+      rep: "si", sense: "max" },
     { id: "meetPrime", title: "they meet at a prime", sentence: () => "Tie-breaker: make the y-intercept as close as possible to a prime.",
-      rep: "si", sense: "min", measure: "distance" },
+      rep: "si", sense: "min" },
   ] as L<object>[],
 };
 export const mMeetsC: RuleFamily<LineState, object> = {
@@ -136,12 +136,12 @@ export const mMeetsC: RuleFamily<LineState, object> = {
 type KQ = { k: number; q: number };
 const cc = {
   main: { id: "gap", title: "y(k) close to x(q)", sentence: (p: KQ) => `Make y(${p.k}) and x(${p.q}) as close as possible: y(${p.k}) is the height at x = ${p.k}, x(${p.q}) is where the line reaches height ${p.q}.`,
-    rep: "mach", sense: "min", measure: "distance" } as L<KQ>,
+    rep: "mach", sense: "min" } as L<KQ>,
   tieBreakers: [
     { id: "size", title: "they cross at a big number", sentence: (p: KQ) => `Tie-breaker: the bigger x(${p.q}) is (ignoring its sign), the better.`,
-      rep: "mach", sense: "max", measure: "size" },
+      rep: "mach", sense: "max" },
     { id: "whole", title: "x(q) nearly whole", sentence: (p: KQ) => `Tie-breaker: x(${p.q}) should be a whole number, or a fraction with as small a bottom number as possible.`,
-      rep: "mach", sense: "min", measure: "distance" },
+      rep: "mach", sense: "min" },
   ] as L<KQ>[],
 };
 export const crossingCheck: RuleFamily<LineState, KQ> = {
@@ -169,12 +169,12 @@ export const crossingCheck: RuleFamily<LineState, KQ> = {
 
 const wi = {
   main: { id: "frac", title: "y-intercept close to a whole number", sentence: () => "Make the y-intercept as close as possible to a whole number.",
-    rep: "si", sense: "min", measure: "distance" } as L<object>,
+    rep: "si", sense: "min" } as L<object>,
   tieBreakers: [
     { id: "spf", title: "smallest prime factor of that whole number", sentence: () => "Tie-breaker: the bigger the smallest prime factor of that whole number, the better.",
-      rep: "si", sense: "max", measure: "size" },
+      rep: "si", sense: "max" },
     { id: "omega", title: "prime factors of that whole number", sentence: () => "Tie-breaker: the more prime factors that whole number has (counting repeats), the better.",
-      rep: "si", sense: "max", measure: "count" },
+      rep: "si", sense: "max" },
   ] as L<object>[],
 };
 export const wholeIntercept: RuleFamily<LineState, object> = {

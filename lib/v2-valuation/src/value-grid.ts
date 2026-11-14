@@ -5,7 +5,7 @@
  * - A family that declares units (lib/v2-grid sums.ts) has its whole utility distribution exactly: the convolution of
  *   its units' laws (exact-grid.ts), so every attainable score is a knot with lo = hi.
  * - Any other family is sampled by plain draws from π (each cell independently), so every weight is 1 and a score's
- *   survival interval is binomial, calibrated by construction. Importance sampling (grid-draws.ts) is not used here: its
+ *   survival interval is binomial, calibrated by construction. Importance sampling (the deleted grid-draws.ts) is not used here: its
  *   intervals failed calibration against the exact families (grids.md §5.2: per-cell proposals miss whole regions at rare
  *   scores, and no constant inflation fixes that). Scores rarer than the draws reach take the marked extrapolated tail.
  */

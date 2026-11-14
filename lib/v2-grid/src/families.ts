@@ -13,10 +13,10 @@ type Ctx = EvalContext<GridState>;
 type L<P> = Layer<P>;
 
 function distance<P>(id: string, title: string, sentence: (p: P) => string, rep: string): L<P> {
-  return { id, title, sentence, rep, sense: "min", measure: "distance" };
+  return { id, title, sentence, rep, sense: "min" };
 }
-function more<P>(id: string, title: string, sentence: string, rep: string, measure: "count" | "size" = "size"): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "max", measure };
+function more<P>(id: string, title: string, sentence: string, rep: string | "size" = "size"): L<P> {
+  return { id, title, sentence: () => sentence, rep, sense: "max" };
 }
 
 interface Shape<P> { readonly main: L<P>; readonly tieBreakers: readonly L<P>[] }
@@ -50,8 +50,8 @@ function totalOf(ctx: Ctx, id: string, label: string, cells: { v: number[]; refs
 }
 
 /** Tie-breakers several families share; each family sets their rungs so that its dealt top is in the band. */
-const primesTie = <P,>(): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells", "count");
-const zerosTie = <P,>(): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells", "count");
+const primesTie = <P,>(): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells");
+const zerosTie = <P,>(): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells");
 
 // ---------------------------------------------------------------- shared readers
 
@@ -100,7 +100,7 @@ export function magicEighteen(n: number): RuleFamily<GridState, T> {
     tieBreakers: [
       more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
       primesTie(),
-      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells", "count"),
+      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
     ],
   };
   return family<T>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, [{ T: 18 }], (ctx, p) => {
@@ -124,7 +124,7 @@ export function oppositeNines(n: number): RuleFamily<GridState, T> {
     tieBreakers: [
       more("top-half", "the top half's total", "The top half of the board should add up to as much as possible.", "cells"),
       primesTie(),
-      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells", "count"),
+      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
     ],
   };
   return family<T>("opposite-nines", "Opposite Nines", ["turn", "cells"], shape, [{ T: 9 }], (ctx, p) => {
@@ -193,9 +193,9 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
   const bx = boxes(n);
   const shape: Shape<None> = {
     main: more<None>("strangers", "touching strangers in the corner boxes",
-      "Touching numbers in the same corner box should be strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart (like 2 and 5).", "boxes", "count"),
+      "Touching numbers in the same corner box should be strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart (like 2 and 5).", "boxes"),
     tieBreakers: [
-      more("ones", "1s beside a bigger number in their box", "As many 1s as possible should touch a number bigger than 1 in their box (count each touch).", "cells", "count"),
+      more("ones", "1s beside a bigger number in their box", "As many 1s as possible should touch a number bigger than 1 in their box (count each touch).", "cells"),
       primesTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
     ],
@@ -312,10 +312,10 @@ export function boxTotals(n: number): RuleFamily<GridState, T> {
 
 export function primeCells(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
-    main: more<None>("prime-count", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells", "count"),
+    main: more<None>("prime-count", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells"),
     tieBreakers: [
       more("prime-total", "the primes' total", "Those primes should add up to as much as possible.", "cells"),
-      more("sevens", "7s on the board", "As many cells as possible should hold a 7.", "cells", "count"),
+      more("sevens", "7s on the board", "As many cells as possible should hold a 7.", "cells"),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
     ],
   };

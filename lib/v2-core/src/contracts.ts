@@ -198,8 +198,6 @@ export interface Layer<P> {
   readonly rep: string;
   /** min: smaller is better (a distance); max: bigger is better (a count, a size). */
   readonly sense: "min" | "max";
-  /** distance and count/size tell calibration which curve to fit (§7.4). */
-  readonly measure: "distance" | "count" | "size";
   /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.

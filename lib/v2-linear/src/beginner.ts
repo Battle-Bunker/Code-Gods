@@ -13,11 +13,11 @@ type L<P> = Layer<P>;
 
 /** A distance layer: smaller is better. */
 function distance<P>(id: string, title: string, sentence: string, rep: string): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "min", measure: "distance" };
+  return { id, title, sentence: () => sentence, rep, sense: "min" };
 }
 /** A count or size layer: bigger is better. */
-function more<P>(id: string, title: string, sentence: string, rep: string, measure: "count" | "size" = "size"): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "max", measure };
+function more<P>(id: string, title: string, sentence: string, rep: string | "size" = "size"): L<P> {
+  return { id, title, sentence: () => sentence, rep, sense: "max" };
 }
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
@@ -51,7 +51,7 @@ function family<P extends object>(id: string, title: string, depends: string[], 
 // ---------------------------------------------------------------- 1. Prime Staircase
 
 const staircase: Shape<object> = {
-  main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq", "count"),
+  main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq"),
   // One secondary (the curator's §10.5): a run of six fixes the step at a multiple of 30, so the others order almost
   // nothing at the top.
   tieBreakers: [
@@ -84,7 +84,7 @@ const squareShape: Shape<object> = {
   tieBreakers: [
     more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri"),
     more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri"),
-    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri", "count"),
+    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri"),
   ],
 };
 export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {
@@ -112,7 +112,7 @@ const treasureShape: Shape<KT> = {
     sentence: p => `When x is ${p.k}, y should be as close as possible to ${p.T}.` },
   tieBreakers: [
     ...factorTies<KT>("m", "the gradient"),
-    more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table", "count"),
+    more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table"),
   ],
 };
 export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
@@ -224,7 +224,7 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
 
 const ladderShape: Shape<object> = {
-  main: more("ladder", "a run of n dividing y(n)", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table", "count"),
+  main: more("ladder", "a run of n dividing y(n)", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table"),
   tieBreakers: [
     ...factorTies<object>("m", "the gradient"),
     more("steep", "the gradient steep", "The gradient should be as steep as possible.", "si"),

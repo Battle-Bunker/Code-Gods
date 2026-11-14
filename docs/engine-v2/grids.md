@@ -180,7 +180,7 @@ continuity (decision 13) is read off the law: each dealt layer must take at leas
 
 ### 5.2 Sampled: direct draws from π, importance sampling for the rare rungs
 
-`lib/v2-valuation/src/sample-grid.ts`. The law is known exactly and its cells are independent, so no walk is needed
+`lib/v2-valuation/src/sample-grid.ts` (deleted with the rung tables, decision 23; on `archive/engine-v1` and in git history; value functions draw from π directly, `value-grid.ts`). The law is known exactly and its cells are independent, so no walk is needed
 and nothing is stitched (the restricted-walk estimator was biased by 6–8 bits at the top on lines, invisibly to its
 jackknife: analytic-calibration.md §1).
 
@@ -198,7 +198,7 @@ jackknife: analytic-calibration.md §1).
 
 **Validation** (decision 22: mandatory before an empirical value is dealt). Every grid rule that has an exact value is
 also sampled, and every rung is compared with the exact sum in units of the sampler's own standard error
-(`pnpm --filter @workspace/v2-valuation grid-validate`; two pairings in test/sample-grid.test.ts):
+(`grid-validate` and test/sample-grid.test.ts, both deleted with the rung tables; the value functions' check is `pnpm --filter @workspace/v2-valuation grid-value-validate`):
 
 | Pairing | Rungs | Converged through (bits there) | Worst \|z\|, converged rungs | Worst \|z\|, all rungs | Exact top | Sampled top | Boards |
 |---|--:|--:|--:|--:|--:|--:|--:|
