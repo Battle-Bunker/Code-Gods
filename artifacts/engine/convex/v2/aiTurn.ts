@@ -12,15 +12,15 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, internalQuery, type ActionCtx } from "../_generated/server";
 import { AI_PRINCIPAL } from "./access";
-import { budgetOf, providerFor, tokensOf } from "./ai";
+import { OpFailure } from "@workspace/v2-affordances";
+import { providerFor, spendWithin } from "./ai";
 
 export const AI_TURN_MS = 20_000;
-export const MAX_TURNS = 8;
+/** Turns that ran (a paused game's skipped turns do not count): about ten minutes of play. */
+export const MAX_TURNS = 30;
 
 const INFO = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: Id<"v2Members"> }, Info | null>("v2/aiTurn:info");
 const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
-const USAGE = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: Id<"v2Members"> }, { tokens: number; usd: number } | null>("v2/ai:usageOf");
-const RECORD = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; tokens: number; usd: number }>("v2/ai:record");
 const TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
 
 type Info = { phase: string; roomId: string; name: string; card: string; energy: number; agents: number; worldSeconds: number };
@@ -60,26 +60,26 @@ export const turn = internalAction({
   handler: async (ctx, { gameId, memberId, n }) => {
     const seat = await ctx.runQuery(INFO, { gameId, memberId });
     if (!seat || seat.phase === "ended") return;
-    const next = () => n + 1 < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS, TURN, { gameId, memberId, n: n + 1 }) : null;
-    if (seat.phase === "paused") { await next(); return; }
+    const schedule = (k: number) => k < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS, TURN, { gameId, memberId, n: k }) : null;
+    if (seat.phase === "paused") { await schedule(n); return; }   // a paused turn does not count
     const delegate = { userId: `${AI_PRINCIPAL}${memberId}`, roomId: seat.roomId, grant: "act", via: "assistant" };
     const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope: { gameId } });
     // Server operations only, and nothing that spends the AI budget itself.
     const tools = assistantTools(caller.ctx).filter(t => { const a = affordanceForTool(t.name); return a?.runs === "server" && a.spends !== "aiBudget"; });
-    let budget;
-    try { budget = budgetOf(await ctx.runQuery(USAGE, { gameId, memberId })); } catch { return; }   // allowance used up: no more turns
     const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
       `You have ${Math.round(seat.energy)} ⚡ in your own store and ${seat.agents} agent(s). Act, then stop.`;
     try {
-      const run = await runAssistant({
+      await spendWithin(ctx, gameId, memberId, budget => runAssistant({
         provider: providerFor(), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools }),
         messages: [{ role: "user", content: briefing }], tools, maxSteps: 6, budget,
         perform: (name, args) => perform(ctx, delegate, gameId, name, args),
-      });
-      await ctx.runMutation(RECORD, { gameId, memberId, tokens: tokensOf(run.usage), usd: run.usd });
+      }));
     } catch (e) {
+      // The allowance used up, or no model on this deployment: this seat stops for the game. Anything else is logged
+      // and the next turn tries again.
+      if (e instanceof OpFailure) { console.warn(`v2 AI player ${memberId} stops: ${e.message}`); return; }
       console.error(`v2 AI turn failed (${memberId}): ${(e as Error).message}`);
     }
-    await next();
+    await schedule(n + 1);
   },
 });

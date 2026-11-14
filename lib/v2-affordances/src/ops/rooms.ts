@@ -102,7 +102,7 @@ export const roomOps = [
   }),
   affordance({
     id: "seats.addAi", title: "Add an AI player", group: "owner", scope: "room",
-    description: "Seats a model-backed AI player that negotiates and writes its own agents. It spends the owner's AI budget each turn.",
+    description: "Seats a model-backed AI player that negotiates and writes its own agents. Each AI player has its own model allowance for the game.",
     tooltip: "Seat an AI player (uses your AI budget).", keywords: ["ai player", "add bot", "computer player"],
     params: obj({ template: z.string().max(64).optional().describe("An AI template id; omit for the default."), requestId: requestId.optional() }),
     result: z.object({ memberId: id }),
