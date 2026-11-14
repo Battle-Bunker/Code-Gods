@@ -190,7 +190,6 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `agent.summon` | Summon an agent | language, source, name, share | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
 | `agent.replace` | Replace an agent's code | agentId, language, source | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
 | `agent.leaveAlone` | Leave objects alone | agentId, numbers | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
-| `agent.hold` | Settle and hold objects | agentId, numbers, target | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
 | `agent.putBack` | Put back an earlier version | agentId, version | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
 | `agent.destroy` | Destroy an agent | agentId | server · game | seated | planning, live, paused | destructive; confirm modal |
 | `power.allocate` | Split power between agents | shares | server · game | seated | planning, live, paused | write |

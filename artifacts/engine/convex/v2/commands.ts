@@ -10,7 +10,7 @@ import { outcome } from "./failure";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { resolveContext, userById, type Scope } from "./access";
 import { ownAgent, reprogram, summonAgent } from "./agents.ts";
-import { setHold, setLeave } from "@workspace/v2-agents/pure";
+import { setLeave } from "@workspace/v2-agents/pure";
 
 const scopeV = v.object({ roomId: v.optional(v.string()), gameId: v.optional(v.string()), replay: v.optional(v.boolean()) });
 const languageV = v.union(v.literal("typescript"), v.literal("python"));
@@ -30,19 +30,11 @@ export const summon = internalMutation({
 });
 
 export const reprogramAgent = internalMutation({
-  args: { userId: v.string(), scope: scopeV, turnId: v.optional(v.string()), agentId: v.string(), language: v.optional(languageV), source: v.optional(v.string()), version: v.optional(v.number()), leave: v.optional(v.array(v.number())),
-    hold: v.optional(v.object({ numbers: v.array(v.number()), target: v.union(v.null(), v.string(), v.object({ m: v.number(), c: v.number() })) })) },
+  args: { userId: v.string(), scope: scopeV, turnId: v.optional(v.string()), agentId: v.string(), language: v.optional(languageV), source: v.optional(v.string()), version: v.optional(v.number()), leave: v.optional(v.array(v.number())) },
   handler: (ctx, { turnId, ...a }) => outcome(async () => {
     await assertTurnRuns(ctx, turnId);
     const { game, player } = await seat(ctx, a.userId, a.scope);
     const agent = await ownAgent(ctx, player, a.agentId);
-    if (a.hold !== undefined) {
-      // agent.hold: the running program with only TARGET and SETTLE changed (priced as that edit).
-      const p = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").first();
-      const source = p ? setHold(p.source, a.hold) : null;
-      if (!p || source === null) throw new OpFailure("That agent's code has no hold settings (TARGET, SETTLE) to set.", "Edit its code in Agent code, or replace it with a starter (Simple, Thorough, Bold), which has them.");
-      return await reprogram(ctx, game, player, agent, { language: p.language, source, kind: "replace" });
-    }
     if (a.leave !== undefined) {
       // agent.leaveAlone: the running program with only its leave-alone list changed (priced as that edit).
       const p = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").first();

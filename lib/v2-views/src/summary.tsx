@@ -11,7 +11,7 @@ import { contributors } from "./contributors.ts";
 import { CompactFace, partLine } from "./faces.tsx";
 import { fmtBits, fmtEnergy, fmtNum, pointsText, scoreFormula } from "./format.ts";
 import { chipRep, repText, RepView } from "./rep-view.tsx";
-import { holdHere, moves } from "./moves.ts";
+import { moves } from "./moves.ts";
 import { nounOf } from "./refs.ts";
 
 export interface SummaryObject<S> {
@@ -39,16 +39,6 @@ export interface SummaryTug<S = unknown> {
   readonly best?: { readonly state: S; readonly points: number };
 }
 
-/** A deal held on an object: the state it was held at, who held it, and the player's points before the hold and at the end. */
-export interface SummaryHold<S = unknown> {
-  readonly number: number;
-  readonly state: S;
-  /** Who held it, by name ("you" for the player). */
-  readonly by: readonly string[];
-  readonly before: number;
-  readonly after: number;
-}
-
 export interface SummaryInput<S> {
   readonly rule: RuleRef<S, unknown>;
   /** The rule's value function (bits of a utility), for the suggested move's new bits. */
@@ -59,26 +49,20 @@ export interface SummaryInput<S> {
   readonly total: number;
   /** The next game deals another rule (a rotation): the advice is the lesson, this game's object its example. */
   readonly rotates?: boolean;
-  /** The player's agents' language, for the settings the advice writes. */
-  readonly language?: "typescript" | "python";
   /** Set when the act log was read only in part: how many moves the costs come from. */
   readonly movesRead?: number | null;
-  /** The deals held this game (settled at a state and kept there). */
-  readonly holds?: readonly SummaryHold<S>[];
 }
 
 export interface Summary<S = unknown> {
   readonly noun: string;
   /** One thing to try next game, and the object it is about (when it is about one). */
-  readonly next: { readonly text: string; readonly number: number | null; /** A state to hold, drawn when too long to write. */ readonly state?: S };
+  readonly next: { readonly text: string; readonly number: number | null };
   /** The best that scored: the main part's chain ("● y-intercept 23 · on 23") and the score's arithmetic. */
   readonly earned: readonly { readonly number: number; readonly id?: string; readonly state: S; readonly points: number; readonly chain: string; readonly formula: string }[];
   readonly earnedNote: string;
   /** Each tug-of-war, dearest first: what happened, with whom, at what cost. */
   readonly costs: readonly { readonly number: number; readonly text: string }[];
   readonly costNote: string | null;
-  /** Each held deal, said: what was held, by whom, what it earned against before the hold (a board drawn: `state`). */
-  readonly held: readonly { readonly number: number; readonly text: string; readonly state?: S }[];
 }
 
 const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
@@ -87,11 +71,6 @@ const names = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "anoth
 /** "You and Ada", "You, Ada and Bo". */
 const youAnd = (list: readonly string[]) => (list.length <= 1 ? `You and ${list[0] ?? "another player"}` : `You, ${names(list)}`);
 
-/** A state as one short line of text ("y = 2x + 7"), or null when it is too long to read so (a board's sixteen digits). */
-function written<S>(rule: RuleRef<S, unknown>, state: S): string | null {
-  const t = repText(rule.type, state, chipRep(rule.type, state));
-  return t.length <= 28 ? t : null;
-}
 
 /** How many objects make the "what earned" list. */
 const BEST = 3;
@@ -118,29 +97,15 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
 
-  // One thing to try. What pays on a contested line (docs/engine-v2/rule-compatibility.md) is settling it at a state
-  // both sides like and holding it, not keeping off it: with people, agree it; with practice partners (who do not
-  // talk), the state the pull passed through that was worth most to you, to hold next time.
+  // One thing to try. A contested line costs both sides every pull: keep your agents off it (LEAVE), or with people,
+  // agree in chat which of you moves it.
   let next: Summary<S>["next"];
   const top = tugs[0];
-  // The starters can hold a line (TARGET and SETTLE); not yet a board.
-  const canHold = holdHere(rule.type, (input.objects[0]?.state ?? rule.type.origin(rule.variant)) as S, 0) !== null;
-  const code = (s: string) => (canHold ? s : "");
   if (top && input.rotates) {
-    // The next game deals another rule: this line may mean nothing to it, so the lesson, with this game's example.
-    const shown = top.best ? written(rule, top.best.state) : null;
-    next = { number: top.number, text: top.practice
-      ? `Next game, when your agent and another player's pull the same ${noun} back and forth, hold it at a ${noun} your rule likes${code(": set TARGET and SETTLE in your agent's code")}.${top.best ? ` This game, ${noun} ${top.number}${shown ? ` at ${shown}` : " as drawn"} was worth ${pointsText(top.best.points)} to you.` : ""}`
-      : `Next game, when you and another player pull the same ${noun} back and forth, tell each other what your rules want, settle it at a ${noun} that suits you both, and both hold it${code(": TARGET and SETTLE in your agent's code")}.`,
-      ...(top.practice && top.best && written(rule, top.best.state) === null ? { state: top.best.state } : {}) };
+    // The next game deals another rule: this line may mean nothing to it, so the lesson, with this game's cost.
+    next = { number: top.number, text: `Next game, when your agent and another player's pull the same ${noun} back and forth, it costs you both: leave that ${noun} alone (LEAVE in your agent's code)${top.practice ? "" : ", or agree in chat which of you moves it"}. This game, ${noun} ${top.number} cost you ${fmtEnergy(top.mySpend)}.` };
   } else if (top) {
-    const at = `${noun} ${top.number}`;
-    next = { number: top.number, text: !top.practice
-      ? `Next game, tell each other what your rules want and settle ${at} at a ${noun} that suits you both; then both hold it.${holdHere(rule.type, top.best?.state ?? input.objects[0]?.state ?? (rule.type.origin(rule.variant) as S), top.number) ? ` In your agent's code: SETTLE = [${top.number}] and TARGET = the ${noun} you agree.` : ""}`
-      : top.best
-        ? `Next game, hold ${at} ${(w => (w ? `at ${w}` : "like this"))(written(rule, top.best.state))}: it was worth ${pointsText(top.best.points)} to you there.${(h => (h ? ` In your agent's code: ${h.code}.` : ""))(holdHere(rule.type, top.best.state, top.number, input.language))}`
-        : `Next game, settle ${at} at a ${noun} your rule likes and hold it there.`,
-      ...(top.practice && top.best && written(rule, top.best.state) === null ? { state: top.best.state } : {}) };
+    next = { number: top.number, text: `Next game, ${noun} ${top.number} cost you ${fmtEnergy(top.mySpend)} in a tug-of-war: leave it alone (LEAVE = [${top.number}] in your agent's code)${top.practice ? "" : ", or agree in chat which of you moves it"}.` };
   } else {
     const wanted = [...input.objects].sort((a, b) => b.want - a.want)[0];
     const m = wanted ? moves(rule, wanted.state, input.value ?? null, { k: 1 })[0] : undefined;
@@ -148,17 +113,7 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
       ? { number: wanted.number, text: `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.` }
       : { number: null, text: `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.` };
   }
-  // Held deals: what was held, by whom, and what it earned for the player against before the hold.
-  const held = (input.holds ?? []).map(h => {
-    const w = written(rule, h.state);
-    const way = h.after >= h.before ? "up from" : "down from";
-    return {
-      number: h.number,
-      text: `${Noun} ${h.number}, held ${w ? `at ${w}` : "as drawn"} by ${names(h.by)}: ${pointsText(h.after)} for you at the end, ${way} ${pointsText(h.before)} before the hold.`,
-      ...(w ? {} : { state: h.state }),
-    };
-  });
-  return { noun, next, earned, earnedNote, costs, costNote, held };
+  return { noun, next, earned, earnedNote, costs, costNote };
 }
 
 export interface GameSummaryProps<S> {
@@ -180,21 +135,7 @@ export function GameSummary<S>({ summary, rule, value, onOpen }: GameSummaryProp
       <div className="v2v-summary-next" data-testid="text-summary-next">
         <h4 className="v2v-summary-next-title">Try next game</h4>
         <p>{summary.next.text}</p>
-        {summary.next.state !== undefined && (
-          <div className="v2v-summary-held"><RepView type={rule.type} state={summary.next.state} rep={rule.family.main.rep} size="compact" /></div>
-        )}
       </div>
-      {summary.held.length > 0 && (<>
-        <h4 className="v2v-summary-title">Deals held</h4>
-        <ol className="v2v-summary-list">
-          {summary.held.map(h => (
-            <li key={h.number} data-testid={`summary-held-${h.number}`}>
-              {h.text}
-              {h.state !== undefined && <div className="v2v-summary-held"><RepView type={rule.type} state={h.state} rep={rule.family.main.rep} size="compact" /></div>}
-            </li>
-          ))}
-        </ol>
-      </>)}
       <h4 className="v2v-summary-title">What earned your points</h4>
       {summary.earned.length > 0 && (
         <ol className="v2v-summary-earned">

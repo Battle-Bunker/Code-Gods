@@ -79,11 +79,6 @@ export const seedGame = internalMutation({
     moves: v.optional(v.number()),
     /** Tugs-of-war in each member's v2Tugs (default none), on the first objects. */
     tugs: v.optional(v.number()),
-    /**
-     * A deal held on a line, by number: the owner's agent set to hold it where it is (TARGET and SETTLE), the owner's
-     * move that brought it there (from half the points) and the next seat's that brought it back.
-     */
-    held: v.optional(v.number()),
   },
   handler: async (ctx, a) => {
     fixtures();
@@ -169,13 +164,6 @@ export const seedGame = internalMutation({
       const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
       const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
       const snap = { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points };
-      // The owner's agent carries the starters' settle-and-hold settings (off), so its hold control is offered.
-      if (ownerAgent) {
-        const held = `const TARGET = null;\nconst SETTLE = [];\n${source}`;
-        await ctx.db.patch(ownerAgent, { source: held });
-        const program = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", ownerAgent).eq("version", 0)).unique();
-        if (program) await ctx.db.patch(program._id, { source: held });
-      }
       for (let i = 0; i < 4; i++) {
         const mine = i % 2 === 0;
         await ctx.db.insert("v2Moves", {
@@ -186,32 +174,6 @@ export const seedGame = internalMutation({
       }
     }
 
-    if (a.held !== undefined && members.length > 1) {
-      const owner = rules[0]!.memberId, other = rules[1]!.memberId, objectId = objects[a.held - 1]!;
-      const value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", owner)).unique())!;
-      const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
-      const line = (lineType.decode(state) as LineState).lines[0]!;
-      if (slope(line).d !== 1n || intercept(line).d !== 1n) throw new ConvexError(`line ${a.held} is not whole-number: no TARGET for it`);
-      const m = Number(slope(line).n), c = Number(intercept(line).n);
-      const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
-      if (ownerAgent) {
-        const agent = (await ctx.db.get(ownerAgent))!;
-        const knobs = `const TARGET = { m: ${m}, c: ${c} };\nconst SETTLE = [${a.held}];\n`;
-        const held = knobs + agent.source.replace(/^const (TARGET|SETTLE) = .*\n/gm, "");
-        await ctx.db.patch(ownerAgent, { source: held });
-        const program = await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", ownerAgent).eq("version", 0)).unique();
-        if (program) await ctx.db.patch(program._id, { source: held });
-      }
-      const snap = { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points };
-      const half = { ...snap, points: value.points / 2 };
-      for (const [i, mine] of [[0, true], [1, false]] as const) {
-        await ctx.db.insert("v2Moves", {
-          gameId, memberId: owner, seq: 200 + i, worldSeconds: 30 + i * 20, objectId, number: a.held, mine, by: mine ? owner : other,
-          ...(mine && ownerAgent ? { agentId: ownerAgent } : {}),
-          calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }], rep: "si", stateBefore: state, stateAfter: state, before: i === 0 ? half : snap, after: snap, ...(mine ? { charge: 2 } : {}),
-        });
-      }
-    }
 
     // Scoreboard, history, digests, the record's first event, the clock.
     const ranked = [...rules].map(({ memberId }) => ({ memberId, total: pts.get(memberId) ?? 0 })).sort((x, y) => y.total - x.total);

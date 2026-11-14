@@ -1,12 +1,10 @@
 /**
- * Advice that names a deal ("hold grid 12 here", "leave line 3 alone") opens the forge with its control filled in:
- * the player reads it, sees the price, and presses Save (persona walk: "hold grid 12? don't know how"). The summary,
- * One line and anything else call `requestForge`; the forge's controls take the request once.
+ * Advice that names a deal ("leave line 3 alone") opens the forge with its control filled in: the player reads it,
+ * sees the price, and presses Save. One line and anything else call `requestForge`; the control takes the request once.
  */
-import type { HoldTarget } from "@workspace/v2-agents/pure";
 
-/** A hold or leave request with no numbers (and a hold with no target) only brings the control into view, focused (the palette). */
-export type ForgeRequest = { kind: "hold"; numbers: number[]; target?: Exclude<HoldTarget, null> } | { kind: "leave"; numbers: number[] };
+/** A leave request with no numbers only brings the control into view, focused (the palette). */
+export type ForgeRequest = { kind: "leave"; numbers: number[] };
 
 let pending: ForgeRequest | null = null;
 const listeners = new Set<() => void>();

@@ -7,8 +7,7 @@ import { useAffordance } from "@workspace/v2-affordances/react";
 import { readLeave, setLeave } from "@workspace/v2-agents/pure";
 import { failureText } from "@/site/components/action";
 import { editPrice, type Language } from "./forge-model";
-import { leaveLine, listWords, parseNumbers } from "./leave-alone";
-import { missingKnobs } from "./hold";
+import { leaveLine, listWords, parseNumbers, missingLeave } from "./leave-alone";
 import { onForgeRequest, takeForgeRequest } from "./forge-request";
 
 export function LeaveAlone({ agentId, name, language, source, one, many }: {
@@ -35,7 +34,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
     return onForgeRequest(take);
   }, [source]);
   if (op.hidden) return null;
-  if (now === null) return <p ref={box as React.RefObject<HTMLParagraphElement>} className="border-t pt-2 text-xs text-muted-foreground" data-testid="leave-alone-missing">{missingKnobs(name, "leave")}</p>;
+  if (now === null) return <p ref={box as React.RefObject<HTMLParagraphElement>} className="border-t pt-2 text-xs text-muted-foreground" data-testid="leave-alone-missing">{missingLeave(name)}</p>;
   const parsed = parseNumbers(text, one);
   const next = "numbers" in parsed ? parsed.numbers : null;
   const changed = next !== null && next.join(",") !== now.join(",");

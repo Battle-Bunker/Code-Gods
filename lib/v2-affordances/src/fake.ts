@@ -381,13 +381,6 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     agent.versions.push({ language: a.language, source: a.source });
     return { version: agent.versions.length - 1, price: FAKE_PRESET.summonPrice };
   },
-  "agent.hold": (e, a) => {
-    const agent = agentOf(e, a.agentId), last = agent.versions.at(-1)!;
-    if (!/TARGET\s*=/.test(last.source)) throw new OpFailure("That agent's code has no hold settings (TARGET, SETTLE) to set.");
-    spend(e, FAKE_PRESET.summonPrice);
-    agent.versions.push({ language: last.language, source: `${last.source}\n// hold ${JSON.stringify(a.target)} ${a.numbers.join(",")}` });
-    return { version: agent.versions.length - 1, price: FAKE_PRESET.summonPrice };
-  },
   "agent.leaveAlone": (e, a) => {
     const agent = agentOf(e, a.agentId), last = agent.versions.at(-1)!;
     if (!/LEAVE\s*=\s*\[/.test(last.source)) throw new OpFailure("That agent's code has no leave-alone list (LEAVE) to set.");

@@ -266,14 +266,3 @@ export function useOthersAt(objectId: string | null | undefined, calls: readonly
     return last.current && last.current.objectId === objectId ? last.current.map : undefined;
   }, [live, objectId]);
 }
-/** Several agents' code versions (one subscription each, shared with the forge's), in the order asked; none in a replay. */
-export function useAgentProgramsOf(agentIds: readonly string[]) {
-  const replay = useReplaySource();
-  return useLiveValues(api.v2.play.agentPrograms, useMemo(() => (replay ? [] : agentIds.map(agentId => ({ agentId }))), [agentIds.join("|"), !replay])); // eslint-disable-line react-hooks/exhaustive-deps
-}
-/** The viewer's own moves on each of a few objects, by number (one subscription each, ≤ 50 rows); none in a replay. */
-export function useObjectMovesOf(numbers: readonly number[]) {
-  const { gameId, seated } = useGameScope();
-  const replay = useReplaySource();
-  return useLiveValues(api.v2.play.objectMoves, useMemo(() => (replay || !gameId || !seated ? [] : numbers.map(number => ({ gameId, number }))), [numbers.join("|"), !replay, gameId, seated])); // eslint-disable-line react-hooks/exhaustive-deps
-}

@@ -51,20 +51,18 @@ test("what cost: each tug-of-war with whom and the energy your agent burnt, dear
   assert.match(s.costNote ?? "", /38\.36 ⚡ in all/);
 });
 
-test("one thing to try next game: talk to whoever pulled hardest against you, about that line", () => {
-  // What pays (rule-compatibility.md): settling a contested line at a state both like and holding it, not keeping off.
-  assert.match(summarise(base).next.text, /^Next game, tell each other what your rules want and settle line 4 at a line that suits you both; then both hold it\./);
+test("one thing to try next game: leave the line that cost you most alone, or agree who moves it (no settling or holding)", () => {
+  assert.equal(summarise(base).next.text, "Next game, line 4 cost you 28.86 ⚡ in a tug-of-war: leave it alone (LEAVE = [4] in your agent's code), or agree in chat which of you moves it.");
   assert.equal(summarise(base).next.number, 4);
   // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
   const calm = summarise({ ...base, tugs: [] });
   assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ ⚡( for [\d.]+ bits for you)?\.$/, calm.next);
-  // Practice partners do not read chat: the advice is about your own agent instead.
+  // Practice partners do not read chat: only your own agent's part.
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
-  // Practice partners do not talk: the state the pull passed through that was worth most to you, to hold next time.
-  const held = summarise({ ...base, tugs: base.tugs.map((t, i) => ({ ...t, practice: true, ...(i === 0 ? { best: { state: mc(3, 23), points: 41.5 } } : {}) })) });
-  assert.equal(held.next.text, "Next game, hold line 4 at y = 3x + 23: it was worth 41.50 points to you there. In your agent's code: TARGET = { m: 3, c: 23 }; SETTLE = [4].");
-  assert.equal(practice.next.text, "Next game, settle line 4 at a line your rule likes and hold it there.");
+  assert.equal(practice.next.text, "Next game, line 4 cost you 28.86 ⚡ in a tug-of-war: leave it alone (LEAVE = [4] in your agent's code).");
+  for (const n of [summarise(base), practice]) assert.doesNotMatch(n.next.text, /settle|hold|TARGET|SETTLE/i);
 });
+
 
 test("the component: three short sections, no steps, the noun of the object type; a grid says grid", () => {
   const html = renderToStaticMarkup(<GameSummary summary={summarise(base)} rule={rule} onOpen={() => {}} />);
@@ -81,16 +79,6 @@ test("the component: three short sections, no steps, the noun of the object type
   const gs = summarise({ rule: g, objects: [{ number: 2, state: { cells: [3, 1, 1, 3, 0, 4, 8, 0, 2, 2, 2, 2, 9, 0, 0, 3] }, points: 9, bits: 3, want: 3 }], tugs: [], total: 9 });
   const gt = text(renderToStaticMarkup(<GameSummary summary={gs} rule={g} />));
   assert.match(gt, /Grid 2/);
-  // A held board is drawn in the advice, not written as sixteen digits.
-  const board = { cells: [5, 3, 2, 9, 3, 7, 3, 5, 5, 2, 4, 7, 9, 5, 1, 2] };
-  const hold = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
-  assert.match(hold.next.text, /^Next game, hold grid 22 like this: it was worth 783\.27 points to you there\./);
-  const hh = renderToStaticMarkup(<GameSummary summary={hold} rule={g} />);
-  assert.match(hh, /data-testid="text-summary-next"[\s\S]*class="v2v-grid"/, "the board drawn in the advice");
-  assert.doesNotMatch(text(hh), /5 3 2 9 \//);
-  // A board is held the same way (#538): its TARGET is its sixteen digits, row by row.
-  const gr = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
-  assert.match(gr.next.text, /In your agent's code: TARGET = "5329373552479512"; SETTLE = \[22\]\.$/, gr.next.text);
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
@@ -101,47 +89,18 @@ test("nothing scored and no tug: the summary still says one thing to try", () =>
   assert.ok(s.next.text.length > 10);
 });
 
-test("the hold advice names the agent's settings for that line", () => {
-  const held = summarise({ ...base, tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
-  assert.equal(held.next.text, "Next game, hold line 24 at y = 2x + 7: it was worth 79.50 points to you there. In your agent's code: TARGET = { m: 2, c: 7 }; SETTLE = [24].");
-  const people = summarise(base);
-  assert.match(people.next.text, /then both hold it\. In your agent's code: SETTLE = \[4\] and TARGET = the line you agree\.$/);
-});
 
 test("in a rotation (the next game deals another rule) the advice is the lesson, with this game's line as its example", () => {
   const practice = summarise({ ...base, rotates: true, tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
-  assert.equal(practice.next.text, "Next game, when your agent and another player's pull the same line back and forth, hold it at a line your rule likes: set TARGET and SETTLE in your agent's code. This game, line 24 at y = 2x + 7 was worth 79.50 points to you.");
+  assert.equal(practice.next.text, "Next game, when your agent and another player's pull the same line back and forth, it costs you both: leave that line alone (LEAVE in your agent's code). This game, line 24 cost you 22.46 ⚡.");
   const people = summarise({ ...base, rotates: true });
-  assert.equal(people.next.text, "Next game, when you and another player pull the same line back and forth, tell each other what your rules want, settle it at a line that suits you both, and both hold it: TARGET and SETTLE in your agent's code.");
+  assert.equal(people.next.text, "Next game, when your agent and another player's pull the same line back and forth, it costs you both: leave that line alone (LEAVE in your agent's code), or agree in chat which of you moves it. This game, line 4 cost you 28.86 ⚡.");
 });
+
 
 test("a partial act log says so: the costs are from the moves read", () => {
   const s = summarise({ ...base, movesRead: 1000 });
   assert.match(s.costNote ?? "", /from your last 1,000 moves/);
 });
 
-test("the hold advice writes the settings in the agent's own language", () => {
-  const held = summarise({ ...base, language: "python", tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
-  assert.match(held.next.text, /In your agent's code: TARGET = \{"m": 2, "c": 7\}; SETTLE = \[24\]\.$/);
-});
 
-test("held deals: which were held, by whom, and what they earned against before the hold; a board drawn", () => {
-  const s = summarise({ ...base, holds: [
-    { number: 8, state: mc(2, 7), by: ["you", "Ada"], before: 3.1, after: 22.4 },
-    { number: 5, state: mc(1, 3), by: ["you"], before: 9, after: 4.5 },
-  ] });
-  assert.deepEqual(s.held.map(h => h.text), [
-    "Line 8, held at y = 2x + 7 by you and Ada: 22.40 points for you at the end, up from 3.10 points before the hold.",
-    "Line 5, held at y = x + 3 by you: 4.50 points for you at the end, down from 9.00 points before the hold.",
-  ]);
-  const t = text(renderToStaticMarkup(<GameSummary summary={s} rule={rule} />));
-  assert.match(t, /Deals held/);
-  assert.match(t, /Line 8, held at y = 2x \+ 7 by you and Ada/);
-  assert.doesNotMatch(text(renderToStaticMarkup(<GameSummary summary={summarise(base)} rule={rule} />)), /Deals held/, "no section without a hold");
-  const g: RuleRef<unknown, unknown> = { type: gridType as never, family: gridType.families[0] as never, params: gridType.families[0]!.dealable(grid4)[0], variant: grid4 };
-  const board = { cells: [9, 7, 7, 9, 8, 5, 5, 8, 7, 9, 9, 7, 9, 7, 7, 9] };
-  const gs = summarise({ rule: g, objects: [], tugs: [], total: 0, holds: [{ number: 3, state: board, by: ["you", "Bo"], before: 1, after: 2 }] });
-  assert.equal(gs.held[0]!.text, "Grid 3, held as drawn by you and Bo: 2.00 points for you at the end, up from 1.00 point before the hold.");
-  assert.deepEqual(gs.held[0]!.state, board);
-  assert.match(renderToStaticMarkup(<GameSummary summary={gs} rule={g} />), /data-testid="summary-held-3"[\s\S]*data-rep=/);
-});

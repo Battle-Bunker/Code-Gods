@@ -76,8 +76,8 @@ function performerFor(e: PaletteEntry, host: PaletteHost): Performer {
     return { kind: "form", page };
   }
   // The forge's own controls (playtest round 7: the palette said only "use its controls on the screen"): open them, focused.
-  if ((id === "agent.leaveAlone" || id === "agent.hold") && panes) {
-    return { kind: "submit", run: () => requestForge(id === "agent.hold" ? { kind: "hold", numbers: [] } : { kind: "leave", numbers: [] }, p => panes.open(p)) };
+  if (id === "agent.leaveAlone" && panes) {
+    return { kind: "submit", run: () => requestForge({ kind: "leave", numbers: [] }, p => panes.open(p)) };
   }
   if (!e.needsInput) return { kind: "submit", run: () => run(host, id, {}) };
   const sole = soleParam(id);

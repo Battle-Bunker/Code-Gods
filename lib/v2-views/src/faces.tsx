@@ -12,7 +12,7 @@ import { useMemo, useState, type ReactElement } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
 import { BITS_HELP, chanceText, fmtBits, fmtEnergy, scoreFormula } from "./format.ts";
-import { holdHere, moves, type Move } from "./moves.ts";
+import { moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
 import { ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
@@ -176,15 +176,11 @@ export interface MovesListProps<S> {
   readonly others?: OthersAt<S>;
   /** "Propose this in chat" on each candidate. */
   readonly onPropose?: (m: Move<S>) => void;
-  /** "Hold it here" on each candidate: the agent's hold control, filled in with the candidate's state. */
-  readonly onHold?: (m: Move<S>) => void;
-  /** Whether a candidate can be held (the agent's settings can name it); default every one. */
-  readonly holdable?: (m: Move<S>) => boolean;
 }
 
 type Order = "points" | "rarity";
 
-export function MovesList<S>({ list, noun, bits, others, onPropose, onHold, holdable }: MovesListProps<S>): ReactElement {
+export function MovesList<S>({ list, noun, bits, others, onPropose }: MovesListProps<S>): ReactElement {
   const [order, setOrder] = useState<Order>("points");
   if (!list.length) return <p className="v2v-next" data-kind="none">No single move makes this {noun} rarer for your rule.</p>;
   const rows = list.map((m, i) => {
@@ -220,10 +216,9 @@ export function MovesList<S>({ list, noun, bits, others, onPropose, onHold, hold
             {m.bits !== null && (others
               ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs) : `your ${fmtBits(m.bits)} × others' …`}</span>
               : <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>)}
-            {((onPropose && theirs !== null) || (onHold && (holdable?.(m) ?? true))) && (
+            {onPropose && theirs !== null && (
               <span className="v2v-move-acts">
-                {onPropose && theirs !== null && <button type="button" data-testid="button-propose" data-rank={j} onClick={() => onPropose(m)}>Propose this in chat</button>}
-                {onHold && (holdable?.(m) ?? true) && <button type="button" data-testid="button-hold-move" data-rank={j} onClick={() => onHold(m)}>Hold it here</button>}
+                <button type="button" data-testid="button-propose" data-rank={j} onClick={() => onPropose(m)}>Propose this in chat</button>
               </span>
             )}
           </li>
@@ -310,13 +305,9 @@ export interface ExpandedFaceProps<S, P> {
   readonly compare?: string | null;
   readonly onActive?: (rep: string) => void;
   readonly onCompare?: (rep: string | null) => void;
-  /** The line is contested (a tug-of-war): "Hold it here" comes first, with the settings that hold it (its number). */
-  readonly hold?: { readonly number: number; readonly language?: "typescript" | "python"; /** Sets it up: the app opens the agent's hold control, filled in. */ readonly onHold?: () => void };
   /** The others' total bits now and at each candidate: the candidates then show points and order by them. */
   readonly others?: OthersAt<S>;
   readonly onPropose?: (m: Move<S>) => void;
-  readonly onHoldMove?: (m: Move<S>) => void;
-  readonly holdable?: (m: Move<S>) => boolean;
   /** The candidates, when the app computed them already (to read the others' totals at them); else the face finds them. */
   readonly moves?: readonly Move<S>[];
 }
@@ -396,22 +387,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
-        {props.improvement !== false && (() => {
-          const hold = props.hold ? holdHere(rule.type, state, props.hold.number, props.hold.language) : null;
-          const moves = <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} onPropose={props.onPropose} onHold={props.onHoldMove} holdable={props.holdable} />;
-          return hold
-            ? <div className="v2v-moves-col">
-                <div className="v2v-hold" data-testid="hold-it-here">
-                  <h4 className="v2v-moves-title">Hold it here</h4>
-                  <p>{hold.why}</p>
-                  {props.hold!.onHold
-                    ? <button type="button" className="v2v-hold-go" data-testid="button-hold-it-here" onClick={props.hold!.onHold}>Hold it here: set up my agent</button>
-                    : <p className="v2v-hold-code">In your agent's code: <code>{hold.code}</code></p>}
-                </div>
-                {moves}
-              </div>
-            : moves;
-        })()}
+        {props.improvement !== false && <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} onPropose={props.onPropose} />}
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>

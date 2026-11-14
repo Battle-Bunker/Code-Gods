@@ -265,11 +265,11 @@
 }
 
 .v2v-exp-body { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 8px 16px; align-items: start; }
-.v2v-exp-body > :not(.v2v-moves):not(.v2v-moves-col):not(.v2v-next) { grid-column: 1; }
-.v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next, .v2v-exp-body > .v2v-moves-col { grid-column: 2; grid-row: 1 / span 3; }
+.v2v-exp-body > :not(.v2v-moves):not(.v2v-next) { grid-column: 1; }
+.v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next { grid-column: 2; grid-row: 1 / span 3; }
 @container (max-width: 620px) {
   .v2v-exp-body { grid-template-columns: 1fr; }
-  .v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next, .v2v-exp-body > .v2v-moves-col, .v2v-exp-body > :not(.v2v-moves) { grid-column: auto; grid-row: auto; }
+  .v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next, .v2v-exp-body > :not(.v2v-moves) { grid-column: auto; grid-row: auto; }
 }
 
 .v2v-parts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -395,13 +395,7 @@
 .v2v-move-reason { grid-column: 1 / -1; font-size: 11px; color: var(--v2v-muted); font-style: italic; }
 .v2v-plane .inset-label { font-size: 9px; fill: var(--v2v-ink); }
 .v2v-rep[data-size="expanded"] .v2v-plane .inset-label { font-size: 10px; }
-.v2v-summary-held { margin-top: 6px; }
 /* Hold it here: on a contested line, the settle-and-hold settings before any move. */
-.v2v-moves-col { display: grid; gap: 8px; align-content: start; }
-.v2v-hold { padding: 8px 10px; border: 2px solid var(--v2v-main); border-radius: 8px; background: var(--v2v-main-bg); }
-.v2v-hold p { margin: 2px 0; font-size: 13px; }
-.v2v-hold-code code { font-size: 12px; overflow-wrap: anywhere; }
-.v2v-hold-go { margin-top: 4px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--v2v-main); background: var(--v2v-main); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
 
 /* Candidates with the others' totals (playtest round 8): the ordering toggle, the "↑ both" mark, propose and hold. */
 .v2v-move-order { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px; }
