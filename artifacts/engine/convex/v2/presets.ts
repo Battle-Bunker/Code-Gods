@@ -78,6 +78,8 @@ export const PRESETS: readonly Preset[] = [
   // representation when the kids have to deal with rationals in another representation anyway"); line-z stays a variant in code
   // and in the collapse check (docs/engine-v2/landscape-analysis.md §4, first run). Several lines per object stays
   // provisional and undealt (coordinator's call 5), so "lines-four" is not offered either.
+  // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
+  fromPool("lines-lenses"),
   GRIDS,
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
 ];

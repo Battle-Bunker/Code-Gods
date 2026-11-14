@@ -2,7 +2,7 @@
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { decodeLine, encodeLine, inDomain, lineBits, lineParams, normalise, type LineState } from "./line.ts";
 import { representations } from "./representations.ts";
-import { mutators } from "./mutators.ts";
+import { allMutators, lensMutators, mutators } from "./mutators.ts";
 import { families } from "./families.ts";
 
 const ALL_MUTATORS = mutators.map(m => m.id);
@@ -15,6 +15,15 @@ export const lineQ: Variant = {
   id: "line-q", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q", heightCap: 1_000_000 },
 };
+/**
+ * line-q with the five lens mutators (lenses-and-mutators.md §5: a turn, a swap, a lean, a zoom, a fold) beside the nine.
+ * Dealt only by the lines-lenses preset until its collapse and balance checks are done; line-q is unchanged. Same params,
+ * so the same law π ∝ 2^−φ: it reads line-q's values.
+ */
+export const lineQLenses: Variant = {
+  id: "line-q-lenses", objectType: "line", mutators: [...ALL_MUTATORS, ...lensMutators.map(m => m.id)], birthMixSteps: 64, valuesOf: "line-q",
+  params: { domain: "Q", linesPerObject: 1, argDomain: "Q", heightCap: 1_000_000 },
+};
 export const lineZ4: Variant = {
   id: "line-z4", objectType: "line", mutators: ALL_MUTATORS, birthMixSteps: 64,
   params: { domain: "Z", linesPerObject: 4, argDomain: "Z", heightCap: 1_000_000 },
@@ -23,7 +32,7 @@ export const lineZ4: Variant = {
 export const lineType: ObjectType<LineState> = {
   id: "line",
   version: 1,
-  variants: [lineZ, lineQ, lineZ4],
+  variants: [lineZ, lineQ, lineZ4, lineQLenses],
   canonical(state, variant) {
     const p = lineParams(variant);
     if (state.lines.length !== p.linesPerObject) return { invalid: `this board has ${p.linesPerObject} line(s) per object` };
@@ -59,6 +68,6 @@ export const lineType: ObjectType<LineState> = {
     }
   },
   representations,
-  mutators,
+  mutators: allMutators,
   families: [...families],
 };

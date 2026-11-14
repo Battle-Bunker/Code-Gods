@@ -19,6 +19,12 @@ export interface Variant {
   /** Walk steps between births (§2.4). */
   readonly birthMixSteps: number;
   readonly params: Readonly<Record<string, unknown>>;
+  /**
+   * The variant whose value functions this one uses. The law π ∝ 2^−φ depends on the type and its params, not on the
+   * mutators offered (every price list is an exact potential, owner decision 19), so a variant that differs from another
+   * only in its menu shares that variant's values (and their keys) instead of a duplicate set.
+   */
+  readonly valuesOf?: string;
 }
 
 export interface ObjectType<S> {

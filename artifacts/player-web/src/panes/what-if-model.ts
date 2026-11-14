@@ -13,11 +13,14 @@ import type { GameRule } from "../sdk/rule.ts";
 
 /**
  * One argument: a number (`fractions`: whether it may be a fraction; a stretch factor may be one even on a
- * whole-number board) or one of a few words. `start` is its cheapest value, the form's first.
+ * whole-number board; `words`: words it also takes, a turn's "origin"), one of a few words, or free text (a mirror line
+ * "a,b,c"). `start` is its cheapest value, the form's first. `optional`: the move has another shape without it (a fold
+ * in a crease takes x0 and s, a fold in a mirror line takes mirror), so it is left out of the call when empty.
  */
 export type ArgField =
-  | { name: string; kind: "number"; fractions: boolean; start: string }
-  | { name: string; kind: "choice"; choices: string[]; start: string };
+  | { name: string; kind: "number"; fractions: boolean; start: string; words?: string[]; optional?: true }
+  | { name: string; kind: "choice"; choices: string[]; start: string; optional?: true }
+  | { name: string; kind: "text"; start: string; optional?: true };
 export interface MutatorChoice {
   id: string;
   /** The representation the move is made through (its first), and that representation's short title. */
@@ -31,6 +34,8 @@ export interface MutatorChoice {
 /** A typed number with a true minus sign or a hyphen, as the wire wants it. */
 export const wireNumber = (text: string) => text.trim().replace(/[−–]/g, "-");
 const shown = (v: Q | string) => (typeof v === "string" ? v : Qn.toWire(v).replace("-", "−"));
+/** More words than this and an argument is typed, not picked. */
+const MAX_CHOICES = 12;
 
 /** The board's moves, in the line type's order, each with its arguments. */
 export function mutatorChoices(variant: Variant): MutatorChoice[] {
@@ -39,25 +44,51 @@ export function mutatorChoices(variant: Variant): MutatorChoice[] {
     const rep = m.reps.find(r => type.representations.some(x => x.id === r)) ?? m.reps[0]!;
     // Every argument costing at most 12 bits, cheapest first: enough to tell numbers from words and to see fractions.
     const combos = [...(m.args(variant).enumerate?.(12) ?? [])] as Record<string, Q | string>[];
-    const args = Object.keys(combos[0] ?? {}).map((name): ArgField => {
-      const values = combos.map(c => c[name]!);
-      const start = shown(values[0]!);
+    const first = combos[0] ?? {};
+    const names = [...new Set(combos.flatMap(c => Object.keys(c)))];
+    const args = names.map((name): ArgField => {
+      const values = combos.filter(c => name in c).map(c => c[name]!);
+      const start = name in first ? shown(first[name]!) : "";
+      const optional = combos.some(c => !(name in c)) ? { optional: true as const } : {};
       const words = [...new Set(values.filter((v): v is string => typeof v === "string"))];
-      return words.length ? { name, kind: "choice", choices: words, start }
-        : { name, kind: "number", fractions: values.some(v => typeof v !== "string" && v.d !== 1n), start };
+      const numbers = values.filter((v): v is Q => typeof v !== "string");
+      if (!numbers.length && words.length) return words.length <= MAX_CHOICES ? { name, kind: "choice", choices: words, start, ...optional } : { name, kind: "text", start, ...optional };
+      const fractions = numbers.some(v => v.d !== 1n);
+      return words.length ? { name, kind: "number", fractions, start, words, ...optional } : { name, kind: "number", fractions, start, ...optional };
     });
     const known = type.representations.some(x => x.id === rep);
     return { id: m.id, rep, repTitle: known ? representation(type, rep).title.split(":")[0]!.trim() : "other moves", title: m.title, args };
   });
 }
 
-/** Why a typed number is not one this argument takes, or null when it is. */
-export function argError(text: string, fractions: boolean): string | null {
+/** Why a typed number is not one this argument takes, or null when it is (`words`: words it takes instead of a number). */
+export function argError(text: string, fractions: boolean, words: readonly string[] = []): string | null {
   const t = wireNumber(text);
+  if (words.includes(t)) return null;
   let x: Q | null;
   try { x = t ? Qn.parse(t) : null; } catch { x = null; }
-  if (!x) return fractions ? "Type a number, like 2, −3 or 1/2." : "Type a number, like 2 or −3.";
+  const or = words.length ? ` or ${words.join(", ")}` : "";
+  if (!x) return fractions ? `Type a number, like 2, −3 or 1/2${or}.` : `Type a number, like 2 or −3${or}.`;
   if (!fractions && x.d !== 1n) return "This board takes whole numbers here.";
+  return null;
+}
+
+/** The call's wire arguments from the form: numbers as the wire writes them, empty optional arguments left out. */
+export function wireArgs(fields: readonly ArgField[], typed: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(fields.flatMap(a => {
+    const t = typed[a.name] ?? "";
+    if (a.optional && t.trim() === "") return [];
+    return [[a.name, a.kind === "number" ? wireNumber(t) : t.trim()]];
+  }));
+}
+
+/** The first argument the form cannot send as typed, with why. */
+export function formError(fields: readonly ArgField[], typed: Readonly<Record<string, string>>): readonly [string, string] | null {
+  for (const a of fields) {
+    const t = typed[a.name] ?? "";
+    if (a.optional && t.trim() === "") continue;
+    if (a.kind === "number") { const e = argError(t, a.fractions, a.words); if (e) return [a.name, e]; }
+  }
   return null;
 }
 

@@ -10,7 +10,7 @@ import { ObjectChip } from "@workspace/v2-views";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
-import { argError, mutatorChoices, standing, whatIf, wireNumber, type MutatorChoice } from "./what-if-model";
+import { formError, mutatorChoices, standing, whatIf, wireArgs, type MutatorChoice } from "./what-if-model";
 
 const field = "h-9 min-w-0 border bg-background px-2 text-sm";
 
@@ -34,13 +34,13 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
   const [args, setArgs] = useState<Record<string, string>>(() => defaults(choice));
   const [site, setSite] = useState(0);
   const pick = (next: string) => { const c = choices.find(x => x.id === next)!; setId(next); setArgs(defaults(c)); };
-  const bad = choice.args.flatMap(a => (a.kind === "number" ? [[a.name, argError(args[a.name] ?? "", a.fractions)] as const] : [])).find(([, e]) => e) ?? null;
+  const bad = formError(choice.args, args);
   const bits = my.bits;
   // The line as it is now, worked out once per line rather than once per keystroke.
   const before = useMemo(() => { try { return standing(rule, state, bits, want); } catch { return undefined; } }, [rule, state, bits, want]);
   const out = useMemo(() => {
     if (bad) return null;
-    const wire = Object.fromEntries(choice.args.map(a => [a.name, a.kind === "number" ? wireNumber(args[a.name] ?? "") : args[a.name] ?? ""]));
+    const wire = wireArgs(choice.args, args);
     return whatIf({ rule, state, call: { mutator: choice.id, site, args: wire }, value: bits, want }, before);
   }, [rule, state, choice, args, site, bits, want, bad?.[1], before]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = [...new Set(choices.map(c => c.repTitle))];
@@ -73,7 +73,7 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
                 {a.choices.map(v => <option key={v} value={v}>{v}</option>)}
               </select>
             ) : (
-              <input value={args[a.name] ?? ""} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={`${field} w-24`} inputMode="text"
+              <input value={args[a.name] ?? ""} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={`${field} w-24`} inputMode="text" placeholder={a.optional ? "or leave empty" : undefined}
                 aria-invalid={bad?.[0] === a.name || undefined} data-testid={`input-what-if-${a.name}`} />
             )}
           </label>

@@ -1,10 +1,11 @@
 /** The line's nine mutators (spec §12.4). Prices are the call's code length; v2-core adds "which", "where" and the surcharge. */
 import {
-  amountCode, amountSize, choiceBits, factorCode, factorSize, gcd, Qn, q, sampleAmount, sampleDisplacement, sampleFactor, sampleStepsInt,
-  sampleStepsRat, stepsIntBits, stepsRatBits,
+  amountCode, amountSize, choiceBits, factorCode, factorSize, gcd, mixedIntBits, mixedPosBits, nonzeroRatBits, Qn, q, ratBits, sampleAmount,
+  sampleDisplacement, sampleFactor, sampleMixedInt, sampleNonzeroRat, sampleRat, sampleStepsInt, sampleStepsRat, stepsIntBits, stepsRatBits,
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
-import { fromMC, inDomain, intercept, isVertical, lineParams, normalise, slope, type Domain, type Line, type LineState } from "./line.ts";
+import { isqrt as isqrtBig } from "./numbers.ts";
+import { decodeLine, describeLine, encodeLine, fromMC, inDomain, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
 
 export type Args = Readonly<Record<string, Q | string>>;
 
@@ -308,3 +309,242 @@ export const stretch: M = {
 };
 
 export const mutators: readonly M[] = [shift, tilt, step, pivot, slide, mirror, nudge, move, stretch];
+
+// ---------------------------------------------------------------- the lens mutators (lenses-and-mutators.md §5)
+//
+// Five moves through other lenses on the line (owner decisions 25 and 28): a turn about a pin of the line or about the
+// origin, a swap of two numbers of the equation, a lean (the tilt's twin that keeps the x-intercept), a zoom about the
+// origin, and a fold in a crease through a pin or in any mirror line paid for in full. Representation moves (turn, swap,
+// fold) are priced as choices and digits, never by the unit path; the lean adds an amount and is priced by its size; the
+// zoom is a factor, priced by its digits. Each has an inverse of the same mutator at the same fee, so every price list
+// stays an exact potential (owner decision 19). They are offered only by the line-q-lenses variant until its collapse
+// and balance checks are done.
+
+type Pt = readonly [Q, Q];
+/** Two distinct points of a line. */
+function twoPoints(l: Line): [Pt, Pt] {
+  if (l.b !== 0n) return [[q(0), q(-l.c, l.b)], [q(1), q(-l.a - l.c, l.b)]];
+  const x = q(-l.c, l.a);
+  return [[x, q(0)], [x, q(1)]];
+}
+/** The line through two distinct points. */
+function throughPoints(p: Pt, r: Pt): Line | Invalid {
+  const dx = Qn.sub(r[0], p[0]), dy = Qn.sub(r[1], p[1]);
+  // dy·x − dx·y + (dx·py − dy·px) = 0
+  return fromRational(dy, Qn.neg(dx), Qn.sub(Qn.mul(dx, p[1]), Qn.mul(dy, p[0])));
+}
+/** The reflection of a line in the mirror A·x + B·y + C = 0. */
+function reflectLine(l: Line, A: Q, B: Q, C: Q): Line | Invalid {
+  const n2 = Qn.add(Qn.mul(A, A), Qn.mul(B, B));
+  const two = q(2);
+  const reflect = (p: Pt): Pt => {
+    const s = Qn.div(Qn.add(Qn.add(Qn.mul(A, p[0]), Qn.mul(B, p[1])), C), n2);
+    return [Qn.sub(p[0], Qn.mul(two, Qn.mul(A, s))), Qn.sub(p[1], Qn.mul(two, Qn.mul(B, s)))];
+  };
+  const [p, r] = twoPoints(l);
+  return throughPoints(reflect(p), reflect(r));
+}
+/** A rational with no sign: "1/2" for ½. */
+const unsigned = (x: Q) => w(Qn.abs(x));
+const pinWords = (x0: Q) => `its point at x = ${w(x0)}`;
+
+/** A turn's centre: the origin, or the pin of the line at x = x0 (1 bit, then x0 by steps). */
+const centre = (d: Domain): Field => {
+  const pos = position(d);
+  return {
+    values: max => (max >= 1 ? ["origin", ...pos.values(max - 1)] : []),
+    bits: x => (x === "origin" ? 1 : 1 + pos.bits(x)),
+    sample: rng => (rng.bit() ? "origin" : pos.sample(rng)),
+    decode: x => (x === "origin" ? "origin" : pos.decode(x)),
+  };
+};
+/** A turn: a quarter turn either way (1 + 1 bit), or the angle whose tangent is t ≠ 0, a fraction priced by its digits. */
+const QUARTERS = ["left", "right"] as const;
+const turnField: Field = {
+  values: max => [...(max >= 2 ? QUARTERS : []), ...rationalsUpTo("Q", t => 1 + nonzeroRatBits(t), max)],
+  bits: t => (typeof t === "string" ? 2 : 1 + nonzeroRatBits(t)),
+  sample: rng => (rng.bit() ? QUARTERS[rng.bit()]! : sampleNonzeroRat(rng)),
+  decode: t => {
+    if (t === "left" || t === "right") return t;
+    const x = toQ(t);
+    if (x.n === 0n) throw new RangeError("must not be 0 (a turn of nothing)");
+    return x;
+  },
+};
+const turnWords = (t: Q | string): string =>
+  typeof t === "string" ? `a quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`
+    : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of a ${unsigned(t)} gradient`;
+
+export const turn: M = {
+  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line about a point", perSite: true,
+  describe: a => `turn the line ${turnWords(a.turn!)} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
+  args: v => fields(baseBits(v, true), { centre: centre(argD(v)), turn: turnField }),
+  apply: (state, site, a, v) => {
+    const l = state.lines[site]!;
+    const t = a.turn!;
+    if (a.centre === "origin") {
+      // Turn the normal (a, b) by θ; the distance from the origin stays. A quarter turn sends (a, b) to (−b, a).
+      if (typeof t === "string") { const s = t === "left" ? 1n : -1n; return replace(state, site, normalise(-l.b * s, l.a * s, l.c), v); }
+      // tan θ = p/q with cos θ = q/r, sin θ = p/r: rational only when p² + q² = r² (a Pythagorean angle).
+      const p = t.n, d = t.d, r2 = p * p + d * d, r = isqrtBig(r2);
+      if (r * r !== r2) return { invalid: `about the origin a line can only turn by a Pythagorean angle (3/4, 4/3, 5/12, …), not ${unsigned(t)}` };
+      return replace(state, site, normalise(l.a * d - l.b * p, l.a * p + l.b * d, l.c * r), v);
+    }
+    // About the pin at x = x0: only the direction turns, so any rational tangent keeps the line rational.
+    if (isVertical(l)) return VERTICAL;
+    const x0 = Qa(a, "centre"), m = slope(l), y0 = yAt(l, x0);
+    let m2: Q;
+    if (typeof t === "string") {
+      if (Qn.isZero(m)) return { invalid: "a quarter turn about a point would stand a level line upright; turn it about the origin instead" };
+      m2 = Qn.neg(Qn.inv(m));
+    } else {
+      const den = Qn.sub(Qn.ONE, Qn.mul(m, t));
+      if (Qn.isZero(den)) return { invalid: "that turn would stand the line upright (vertical), with no point at x = x0 to turn back about" };
+      m2 = Qn.div(Qn.add(m, t), den);
+    }
+    return replace(state, site, fromMC(m2, Qn.sub(y0, Qn.mul(m2, x0))), v);
+  },
+  inverse: { kind: "mutator", id: "rot.turn", args: a => ({ centre: a.centre!, turn: typeof a.turn === "string" ? (a.turn === "left" ? "right" : "left") : Qn.neg(a.turn!) }) },
+};
+
+const PAIRS = ["m-c", "b-c"] as const;
+export const swap: M = {
+  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation", perSite: true,
+  describe: a => (S(a, "pair") === "m-c" ? "swap the gradient and the y-intercept (y = mx + c becomes y = cx + m)" : "swap b and c in ax + by + c = 0"),
+  args: v => fields(baseBits(v, true), { pair: oneOf(PAIRS) }),
+  apply: (state, site, a, v) => {
+    const { a: A, b: B, c: C } = state.lines[site]!;
+    // m ↔ c is a ↔ c in ax + by + c = 0 (−a/b ↔ −c/b): the lines cross at x = 1 and a + b + c stays.
+    return replace(state, site, S(a, "pair") === "m-c" ? normalise(C, B, A) : normalise(A, C, B), v);
+  },
+  inverse: { kind: "self" },
+};
+
+export const lean: M = {
+  id: "basis.lean", reps: ["crossing", "cart"], title: "lean the line, keeping where it crosses the x-axis", perSite: true,
+  describe: a => `lean the line ${w(Qn.abs(k(a)))} ${Qn.sign(k(a)) > 0 ? "further left" : "further right"} for every 1 up, keeping its x-axis crossing`,
+  args: v => fields(baseBits(v, true), {}, amount(argD(v))),
+  apply: (state, site, a, v) => {
+    const l = state.lines[site]!;
+    if (l.a === 0n) return { invalid: "a level line never crosses the x-axis, so it has nothing to lean about" };
+    // The run per unit rise, −b/a, goes down by k: (a, b + a·k, c).
+    return replace(state, site, fromRational(q(l.a), Qn.add(q(l.b), Qn.mul(q(l.a), k(a))), q(l.c)), v);
+  },
+  inverse: { kind: "mutator", id: "basis.lean", args: a => ({ k: Qn.neg(k(a)) }) },
+};
+
+export const zoom: M = {
+  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom in or out from the origin", perSite: true,
+  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin (both crossings × ${w(Qa(a, "f"))}, same gradient)`,
+  args: v => fields(baseBits(v, true), {}, factor),
+  apply: (state, site, a, v) => {
+    const l = state.lines[site]!;
+    if (l.c === 0n) return { invalid: "a line through the origin looks the same at every zoom" };
+    return replace(state, site, fromRational(q(l.a), q(l.b), Qn.mul(q(l.c), Qa(a, "f"))), v);
+  },
+  inverse: { kind: "mutator", id: "basis.zoom", args: a => ({ f: Qn.inv(Qa(a, "f")) }) },
+};
+
+/** Positive whole numbers whose mixed code is at most maxBits (mixedPosBits), smallest first. */
+function smoothUpTo(maxBits: number): bigint[] {
+  const budget = maxBits - mixedPosBits(1n);
+  const out: bigint[] = [];
+  const primes = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n, 43n, 47n, 53n, 59n, 61n, 67n, 71n, 73n, 79n, 83n, 89n, 97n];
+  const walk = (n: bigint, from: number, left: number) => {
+    out.push(n);
+    for (let i = from; i < primes.length; i++) { const cost = Number(primes[i]!) / 2; if (cost > left + 1e-9) break; walk(n * primes[i]!, i, left - cost); }
+  };
+  if (budget >= -1e-9) walk(1n, 0, budget);
+  return out.sort((x, y) => (x < y ? -1 : 1));
+}
+/** A mirror line's price: its read length on fraction lines, φ = mixed(a) + mixed(b) + mixed(c), paid from scratch. */
+const mirrorBits = (M: Line) => mixedIntBits(M.a) + mixedIntBits(M.b) + mixedIntBits(M.c);
+function parseMirror(x: unknown): Line {
+  if (typeof x !== "string") throw new TypeError("mirror must be a line a,b,c (a·x + b·y + c = 0)");
+  const parts = x.split(",").map(s => s.trim());
+  if (parts.length !== 3 || !parts.every(s => /^-?\d+$/.test(s))) throw new RangeError(`mirror must be a line a,b,c (a·x + b·y + c = 0), not ${x}`);
+  const n = normalise(BigInt(parts[0]!), BigInt(parts[1]!), BigInt(parts[2]!));
+  if ("invalid" in n) throw new RangeError(n.invalid);
+  return n;
+}
+
+/** The fold's argument: a crease {x0, s} through the line's point at x = x0 with gradient s, or a mirror line {mirror}. */
+function foldArgs(v: Variant): ArgCode<Args> {
+  const pos = position(argD(v));
+  const creaseBits = (a: Args) => 1 + pos.bits(a.x0!) + ratBits(Qa(a, "s"));
+  const isMirror = (a: Args) => typeof a.mirror === "string";
+  const bits = (a: Args) => (isMirror(a) ? 1 + mirrorBits(decodeLine(S(a, "mirror"))) : creaseBits(a));
+  return {
+    bits,
+    sample: rng => {
+      if (rng.bit()) {
+        const x0 = pos.sample(rng), s = sampleRat(rng);
+        return x0 === null || s === null ? null : ({ x0, s } as Args);
+      }
+      const A = sampleMixedInt(rng), B = sampleMixedInt(rng), C = sampleMixedInt(rng);
+      const n = normalise(A, B, C);
+      // A triple that is not a line's own canonical form is the code's leftover mass.
+      return "invalid" in n || n.a !== A || n.b !== B || n.c !== C ? null : ({ mirror: encodeLine(n) } as Args);
+    },
+    encode: (a): Record<string, string> => (isMirror(a) ? { mirror: S(a, "mirror") } : { x0: Qn.toWire(Qa(a, "x0")), s: Qn.toWire(Qa(a, "s")) }),
+    decode: (wire): Args => {
+      if (typeof wire !== "object" || wire === null) throw new TypeError("arguments must be an object");
+      const rec = wire as Record<string, unknown>, keys = Object.keys(rec).sort().join(",");
+      if (keys === "mirror") return { mirror: encodeLine(parseMirror(rec.mirror)) };
+      if (keys !== "s,x0") throw new RangeError("give either a crease (x0 and its gradient s) or a mirror line (mirror: a,b,c)");
+      let x0: Q, s: Q;
+      try { x0 = pos.decode(rec.x0) as Q; } catch (e) { throw new RangeError(`x0 ${(e as Error).message}`); }
+      try { s = toQ(rec.s); } catch (e) { throw new RangeError(`s ${(e as Error).message}`); }
+      return { x0, s };
+    },
+    enumerate: maxBits => {
+      const out: Args[] = [];
+      const ss = [q(0), ...rationalsUpTo("Q", ratBits, maxBits)];
+      for (const x0 of pos.values(maxBits - 1)) for (const s of ss) { const a = { x0, s }; if (creaseBits(a) <= maxBits + 1e-9) out.push(a); }
+      // Mirror lines: integers by their mixed code, three at a time, canonical triples only.
+      const room = maxBits - 1;
+      const ints: { n: bigint; bits: number }[] = [{ n: 0n, bits: 1 }];
+      for (const n of smoothUpTo(room - 2 - 2)) { const b = mixedIntBits(n); if (b <= room) ints.push({ n, bits: b }, { n: -n, bits: b }); }
+      for (const A of ints) for (const B of ints) {
+        if (A.bits + B.bits + 1 > room + 1e-9) continue;
+        for (const C of ints) {
+          if (A.bits + B.bits + C.bits > room + 1e-9) continue;
+          const n = normalise(A.n, B.n, C.n);
+          if ("invalid" in n || n.a !== A.n || n.b !== B.n || n.c !== C.n) continue;
+          out.push({ mirror: encodeLine(n) });
+        }
+      }
+      return out.map(a => ({ a, b: bits(a) })).sort((x, y) => x.b - y.b).map(x => x.a);
+    },
+  };
+}
+
+export const fold: M = {
+  id: "fold", reps: ["cart"], title: "fold the line in a mirror", perSite: true,
+  describe: a => {
+    if (typeof a.mirror === "string") return `reflect the line in the mirror ${describeLine(decodeLine(S(a, "mirror")))}`;
+    const s = Qa(a, "s");
+    return `fold the line in a ${Qn.isZero(s) ? "level crease" : `crease of gradient ${w(s)}`} through ${pinWords(Qa(a, "x0"))}`;
+  },
+  args: foldArgs,
+  apply: (state, site, a, v) => {
+    const l = state.lines[site]!;
+    if (typeof a.mirror === "string") {
+      const M = decodeLine(S(a, "mirror"));
+      return replace(state, site, reflectLine(l, q(M.a), q(M.b), q(M.c)), v);
+    }
+    if (isVertical(l)) return VERTICAL;
+    // The crease s·x − y + (y0 − s·x0) = 0 through the pin (x0, y0).
+    const x0 = Qa(a, "x0"), s = Qa(a, "s"), y0 = yAt(l, x0);
+    const r = reflectLine(l, s, q(-1), Qn.sub(y0, Qn.mul(s, x0)));
+    // A vertical result has no point at x = x0 to fold back about: refused, so the fold stays its own inverse.
+    if (!("invalid" in r) && isVertical(r)) return { invalid: "that fold would stand the line upright (vertical), with no point at x = x0 to fold back about" };
+    return replace(state, site, r, v);
+  },
+  inverse: { kind: "self" },
+};
+
+/** The five lens mutators, offered by line-q-lenses. */
+export const lensMutators: readonly M[] = [turn, swap, lean, zoom, fold];
+/** Every mutator of the line type. */
+export const allMutators: readonly M[] = [...mutators, ...lensMutators];

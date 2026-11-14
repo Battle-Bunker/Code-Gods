@@ -7,7 +7,7 @@
 import { tieBreakersOn, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { divisibilityLadder, exactChange, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
 import { primeGradient } from "./families.ts";
-import { lineQ, lineZ, lineZ4 } from "./type.ts";
+import { lineQ, lineQLenses, lineZ, lineZ4 } from "./type.ts";
 
 export interface PoolRule {
   readonly family: string;
@@ -41,6 +41,8 @@ export const presets: readonly Preset[] = [
   { id: "lines-beginner", title: "Lines · beginner", variant: "line-q", rules: beginnerRules(lineQ) },
   { id: "lines-whole", title: "Lines · whole numbers (easier)", variant: "line-z", rules: beginnerRules(lineZ) },
   { id: "lines-four", title: "Lines · four lines", variant: "line-z4", rules: beginnerRules(lineZ4) },
+  // A trial (lenses-and-mutators.md §5): the beginner pool on line-q with five more ways to move a line. Not the default.
+  { id: "lines-lenses", title: "Lines · more ways to move (trial)", variant: "line-q-lenses", rules: beginnerRules(lineQLenses) },
 ];
 
 export function preset(id: string): Preset {
