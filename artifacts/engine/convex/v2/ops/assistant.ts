@@ -5,7 +5,8 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import type { MutationCtx } from "../../_generated/server";
 import { providerFor } from "../ai";
-import { busyTurn, cancelTurn, drainQueue, enqueue, prefsOf, RANK, scheduleAutopilot, threadFor, type Grant } from "../assistant";
+import { prefsOf, type Grant } from "../assistant";
+import { busyTurn, cancelTurn, drainQueue, enqueue, RANK, scheduleAutopilot, threadFor } from "../assistantCore";
 import { callerOf, defineOp, inRoom } from "./define";
 
 type Env = Parameters<typeof inRoom<"mutation">>[0];

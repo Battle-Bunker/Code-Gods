@@ -8,11 +8,9 @@ import { anthropicProvider, Budget, ChatError, DEFAULT_MODEL, findModel, mockPro
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, type ActionCtx } from "../_generated/server";
+import { internalQuery, type ActionCtx } from "../_generated/server";
 import { resolveContext, userById } from "./access";
-
-/** Per member per game: tokens (input plus output) and dollars. Copied from v1's defaults (300,000 tokens). */
-export const ALLOWANCE = { tokens: 300_000, usd: 2 } as const;
+import type { SpendKey } from "./spend";
 
 /** The deployment's provider, or a refusal when none is configured. */
 export function providerFor(): ChatProvider {
@@ -23,41 +21,18 @@ export function providerFor(): ChatProvider {
   return anthropicProvider({ apiKey, model: model.id, prices: model.prices });
 }
 
-/** The allowance left to a member in a game, as a budget for one run. */
-export function budgetOf(used: { tokens: number; usd: number } | null): Budget {
-  const tokens = ALLOWANCE.tokens - (used?.tokens ?? 0), usd = ALLOWANCE.usd - (used?.usd ?? 0);
-  if (tokens <= 0 || usd <= 0) throw new OpFailure("Your AI allowance for this game is used up.");
-  return new Budget({ tokens, usd });
-}
-
-export const usageOf = internalQuery({
-  args: { gameId: v.optional(v.id("v2Games")), memberId: v.id("v2Members") },
-  handler: async (ctx, { gameId, memberId }) => {
-    const row = await ctx.db.query("v2AiUsage").withIndex("by_member_game", q => q.eq("memberId", memberId).eq("gameId", gameId)).unique();
-    return row ? { tokens: row.tokens, usd: row.usd } : null;
-  },
-});
-
-export const record = internalMutation({
-  args: { gameId: v.optional(v.id("v2Games")), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() },
-  handler: async (ctx, a) => {
-    const row = await ctx.db.query("v2AiUsage").withIndex("by_member_game", q => q.eq("memberId", a.memberId).eq("gameId", a.gameId)).unique();
-    if (row) await ctx.db.patch(row._id, { tokens: row.tokens + a.tokens, usd: row.usd + a.usd, calls: row.calls + a.calls });
-    else await ctx.db.insert("v2AiUsage", { ...(a.gameId ? { gameId: a.gameId } : {}), memberId: a.memberId, tokens: a.tokens, usd: a.usd, calls: a.calls });
-  },
-});
-
-const USAGE = makeFunctionReference<"query", { gameId?: Id<"v2Games">; memberId: Id<"v2Members"> }, { tokens: number; usd: number } | null>("v2/ai:usageOf");
-const RECORD = makeFunctionReference<"mutation", { gameId?: Id<"v2Games">; memberId: Id<"v2Members">; tokens: number; usd: number; calls: number }>("v2/ai:record");
+const LIMITS = makeFunctionReference<"query", SpendKey, { tokens: number; usd: number; calls: number } | { refused: string }>("v2/spend:limitsOf");
+const RECORD = makeFunctionReference<"mutation", SpendKey & { tokens: number; usd: number; calls: number }>("v2/spend:record");
 
 /**
- * Runs model calls for a member within what is left of their allowance, and records what was spent whatever happens
- * (a billed failure included), so the allowance holds across runs. A model failure reaches the caller as an
- * OpFailure with its words; "allowance used up" is an OpFailure before any call.
+ * Runs model calls for a member within what every rule leaves, and records what was spent whatever happens (a billed
+ * failure included). A refusal ("quota used up", "not an admin's room") is an OpFailure before any call; a model
+ * failure reaches the caller as an OpFailure with its words.
  */
-export async function spendWithin<T>(ctx: ActionCtx, gameId: Id<"v2Games"> | undefined, memberId: Id<"v2Members">, run: (budget: Budget) => Promise<T>): Promise<T> {
-  const key = { ...(gameId ? { gameId } : {}), memberId };
-  const budget = budgetOf(await ctx.runQuery(USAGE, key));
+export async function spendWithin<T>(ctx: ActionCtx, key: SpendKey, run: (budget: Budget) => Promise<T>): Promise<T> {
+  const limits = await ctx.runQuery(LIMITS, key);
+  if ("refused" in limits) throw new OpFailure(limits.refused);
+  const budget = new Budget(limits);
   try {
     return await run(budget);
   } catch (e) {
@@ -77,6 +52,6 @@ export const pitchContext = internalQuery({
     if (!r.game || !r.member || !r.player) return null;
     const rule = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", r.game!._id).eq("memberId", r.member!._id)).unique();
     const players = r.game.roster.filter(p => p.memberId !== r.member!._id && (!to?.length || to.includes(p.memberId))).map(p => ({ name: p.name }));
-    return { gameId: r.game._id as Id<"v2Games">, memberId: r.member._id as Id<"v2Members">, card: rule?.card ?? "", players };
+    return { roomId: r.game.roomId as Id<"v2Rooms">, gameId: r.game._id as Id<"v2Games">, memberId: r.member._id as Id<"v2Members">, card: rule?.card ?? "", players };
   },
 });

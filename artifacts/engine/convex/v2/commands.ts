@@ -4,7 +4,8 @@
  * pay and write. Internal: reached only through the ops.
  */
 import { OpFailure } from "@workspace/v2-affordances";
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
+import { outcome } from "./failure";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { resolveContext, userById, type Scope } from "./access";
 import { ownAgent, reprogram, summonAgent } from "./agents.ts";
@@ -17,17 +18,6 @@ async function seat(ctx: MutationCtx, userId: string, scope: Scope) {
   if (!r.game || !r.player) throw new OpFailure("Only players with a seat in this game can do this.");
   return { game: r.game, player: r.player };
 }
-/**
- * A domain failure crosses back to the action as a ConvexError carrying its words (the writes roll back); the action
- * turns it into the operation's failed outcome (`failureOf`).
- */
-export async function outcome<T>(f: () => Promise<T>): Promise<T> {
-  try { return await f(); } catch (e) {
-    if (e instanceof OpFailure) throw new ConvexError({ message: e.message, ...(e.fix ? { fix: e.fix } : {}) });
-    throw e;
-  }
-}
-
 export const summon = internalMutation({
   args: { userId: v.string(), scope: scopeV, language: languageV, source: v.string(), name: v.optional(v.string()), share: v.optional(v.number()) },
   handler: (ctx, a) => outcome(async () => {
@@ -49,9 +39,3 @@ export const reprogramAgent = internalMutation({
     return await reprogram(ctx, game, player, agent, { language: a.language!, source: a.source!, kind: "replace" });
   }),
 });
-
-/** The OpFailure a transactional half reported, or the error itself. */
-export function failureOf(e: unknown): unknown {
-  const d = e instanceof ConvexError ? e.data as { message?: unknown; fix?: unknown } : null;
-  return d && typeof d.message === "string" ? new OpFailure(d.message, typeof d.fix === "string" ? d.fix : undefined) : e;
-}

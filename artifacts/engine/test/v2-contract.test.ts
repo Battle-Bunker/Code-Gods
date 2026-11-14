@@ -140,10 +140,10 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   // An action resolves its caller through a query and returns its failure as a value (a summon dearer than the store).
   const dear = await perform(ada, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = 1\n  ".repeat(900)}return None\n` }, { gameId }, "action");
   assert.equal(dear.error.code, "failed", JSON.stringify(dear));
-  // pitch.draft: one model call (the offline mock on local deployments), counted against the caller's allowance.
+  // pitch.draft spends AI tokens: only in a room whose owner is an administrator (v2-assistant.test.ts drafts one there).
   const pitch = await perform(ada, "pitch.draft", { aim: "protect lines with a prime gradient" }, { gameId }, "action");
-  assert.equal(pitch.ok, true, JSON.stringify(pitch));
-  assert.ok(pitch.result.draft.length > 0);
+  assert.equal(pitch.error?.code, "failed", JSON.stringify(pitch));
+  assert.match(pitch.error.message, /run by an administrator/);
 
   // The internal twin acts for a human, narrowed by the credential's grant and bound room.
   const asAda = await admin.query("v2/ops/room:getAs", { args: {}, roomId: opsRoom, delegate: { userId: ada.userId, roomId: opsRoom, grant: "read", via: "mcp" } });

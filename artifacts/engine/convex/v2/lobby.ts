@@ -1,8 +1,9 @@
 /** Rooms, seats and the start: creating and joining a room, seats and settings, the deal (integration plan §4.3). */
-import { restartAutopilots } from "./assistant";
+import { v } from "convex/values";
+import { restartAutopilots } from "./assistantCore";
 import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, userById } from "./access";
 import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, offers, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
@@ -12,7 +13,7 @@ import { makeFunctionReference } from "convex/server";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 const AI_TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
-const CLOSE_BIDDING = makeFunctionReference<"mutation", { roomId: Id<"v2Rooms">; deadline: number }>("v2/bids:closeAtDeadline");
+const CLOSE_BIDDING = makeFunctionReference<"mutation", { roomId: Id<"v2Rooms">; deadline: number }>("v2/lobby:closeAtDeadline");
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** A short join code nobody else holds (6 characters of an unambiguous alphabet: 2^30). */
@@ -280,3 +281,12 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   await ctx.scheduler.runAt(game.planningEndsAt!, PLANNING_ENDS, { gameId });
   return gameId;
 }
+
+/** The bid phase's deadline: the deal happens with whatever bids there are. */
+export const closeAtDeadline = internalMutation({
+  args: { roomId: v.id("v2Rooms"), deadline: v.number() },
+  handler: async (ctx, { roomId, deadline }) => {
+    const room = await ctx.db.get(roomId);
+    if (room) await closeBidding(ctx, room, deadline);
+  },
+});

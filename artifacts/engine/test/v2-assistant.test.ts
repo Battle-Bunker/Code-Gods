@@ -3,21 +3,24 @@
  * starts a turn whose tool calls run through the directory as the human's delegate, a server operation and a view
  * operation alike, and the spend counts against the human's allowance; read-only mode offers read tools only; a
  * message sent while a turn runs waits and starts the next turn; a Stop holds what waits; autopilot plays while the
- * game runs; a conversation is its human's only; the assistant cannot drive its own conversation.
+ * game runs; a conversation is its human's only; the assistant cannot drive its own conversation. The spending rules
+ * (v2/ai.ts): AI only in an administrator's room, the owner's per-game quotas (0 turns it off), set also mid-game.
  *
  * What would break: a tool call that bypasses the directory or the human's rights, an unrecorded spend, a write in
  * read-only mode, a lost or reordered queued message, another human reading the transcript.
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { admin, humans, perform, type Human } from "./v2-helpers.ts";
+import { admin, admins, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, roomId: string, gameId: string, adaMember: string;
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify(steps)}`;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 before(async () => {
-  [ada, bo] = await humans("Assist Ada", "Assist Bo");
+  // AI spends only in a room whose owner is an administrator (v2/ai.ts): Ada is one, Bo is not.
+  [ada] = await admins("Assist Ada");
+  [bo] = await humans("Assist Bo");
   const created = await perform(ada!, "room.create", { name: "Assistant room" });
   roomId = created.result.roomId;
   await perform(bo!, "room.join", { code: created.result.code });
@@ -105,32 +108,65 @@ test("read-only mode offers read tools only; owner rights need consent", { timeo
 });
 
 test("a message sent while a turn runs waits and goes next; a Stop holds what waits", { timeout: 90_000 }, async () => {
-  // agent.check runs the sandbox: long enough for a second message to arrive while it runs.
-  const slow = (n: number) => mock(Array.from({ length: n }, () => ({ tools: [{ name: "agent_check", input: { language: "python", source: "def agent(offer):\n  return []\n" } }] })));
-  const first = await perform(ada!, "assistant.send", { text: slow(3) }, { roomId });
+  // agent.check on a program that loops runs the sandbox to its step limit (about 0.6 s a call), so a turn of several
+  // such calls is still running when the next messages arrive.
+  const slow = (n: number) => mock(Array.from({ length: n }, () => ({ tools: [{ name: "agent_check", input: { language: "python", source: "def agent(offer):\n  while True:\n    pass\n" } }] })));
+  const first = await perform(ada!, "assistant.send", { text: slow(4) }, { roomId });
   const second = await perform(ada!, "assistant.send", { text: mock([{ text: "second answered" }]) }, { roomId });
   assert.equal(second.result.queued, true, "it waits while the first runs");
-  const third = await perform(ada!, "assistant.send", { text: "third" }, { roomId });
-  await perform(ada!, "assistant.editQueued", { queueId: second.result.queueId, text: mock([{ text: "second, edited" }]) }, { roomId });
-  await perform(ada!, "assistant.removeQueued", { queueId: third.result.queueId }, { roomId });
   await settled(ada!, first.result.turnId);
   for (let i = 0; ; i++) {
-    const said = await messages(ada!, first.result.threadId);
-    if (said.at(-1)?.text === "second, edited") break;
-    assert.ok(i < 80, "the waiting message started the next turn, as edited");
+    if ((await messages(ada!, first.result.threadId)).at(-1)?.text === "second answered") break;
+    assert.ok(i < 80, "the waiting message started the next turn");
     await sleep(250);
   }
-  assert.ok(!(await messages(ada!, first.result.threadId)).some((m: any) => m.text === "third"), "the removed one never went");
 
-  const busy = await perform(ada!, "assistant.send", { text: slow(6) }, { roomId });
-  const waiting = await perform(ada!, "assistant.send", { text: mock([{ text: "after the stop" }]) }, { roomId });
+  const busy = await perform(ada!, "assistant.send", { text: slow(8) }, { roomId });
+  const later = await perform(ada!, "assistant.send", { text: "before the edit" }, { roomId });
+  const gone = await perform(ada!, "assistant.send", { text: "never sent" }, { roomId });
   assert.equal((await perform(ada!, "assistant.cancel", {}, { roomId })).result.status, "stopping");
   assert.equal((await settled(ada!, busy.result.turnId)).status, "cancelled");
   const held = (await ada!.query("v2/assistant:status", { roomId })).queued;
-  assert.deepEqual(held.map((q: any) => [q.queueId, q.held]), [[waiting.result.queueId, true]], "held, not sent");
+  assert.deepEqual(held.map((q: any) => [q.queueId, q.held]), [[later.result.queueId, true], [gone.result.queueId, true]], "held, not sent");
+  // What is held can be edited or withdrawn before it is sent.
+  await perform(ada!, "assistant.editQueued", { queueId: later.result.queueId, text: mock([{ text: "edited and sent" }]) }, { roomId });
+  await perform(ada!, "assistant.removeQueued", { queueId: gone.result.queueId }, { roomId });
   const resumed = await perform(ada!, "assistant.sendQueued", {}, { roomId });
   assert.equal((await settled(ada!, resumed.result.turnId)).status, "done");
-  assert.equal((await messages(ada!, busy.result.threadId)).at(-1).text, "after the stop");
+  const said = await messages(ada!, busy.result.threadId);
+  assert.equal(said.at(-1).text, "edited and sent");
+  assert.ok(!said.some((m: any) => m.text.includes("never sent")), "the removed one never went");
+});
+
+test("a pitch draft is the player's assistant spend; the owner's quotas hold, set mid-game; AI only in an admin's room", { timeout: 60_000 }, async () => {
+  const before = (await ada!.query("v2/assistant:status", { roomId })).allowance.usedTokens;
+  const pitch = await perform(ada!, "pitch.draft", { aim: "protect gentle slopes" }, { gameId }, "action");
+  assert.equal(pitch.ok, true, JSON.stringify(pitch));
+  assert.ok((await ada!.query("v2/assistant:status", { roomId })).allowance.usedTokens > before, "counted against Ada's assistant quota");
+
+  assert.equal((await perform(bo!, "room.aiQuotas", { assistant: 0 }, { roomId })).error?.code, "refused", "only the owner");
+  assert.deepEqual((await perform(ada!, "room.aiQuotas", { assistant: 0 }, { roomId })).result, { ai: 300_000, assistant: 0 });
+  assert.deepEqual(await ada!.query("v2/rooms:aiQuotas", { roomId }), { ai: 300_000, assistant: 0 });
+  assert.deepEqual((await perform(ada!, "room.aiQuotas", {}, { roomId })).result, { ai: 300_000, assistant: 0 }, "neither given: a read");
+  assert.match((await ada!.query("v2/assistant:status", { roomId })).off, /quota is 0/, "the pane can say the assistant is off");
+  const off = await perform(ada!, "pitch.draft", {}, { gameId }, "action");
+  assert.match(off.error?.message ?? "", /quota is 0 tokens per game/, JSON.stringify(off));
+  const sent = await perform(ada!, "assistant.send", { text: mock([{ text: "hi" }]) }, { roomId });
+  const turn = await settled(ada!, sent.result.turnId);
+  assert.deepEqual([turn.status, /quota is 0/.test(turn.error)], ["failed", true], JSON.stringify(turn));
+  // A quota below what is used stops the assistant too; raising it lets it run again.
+  await perform(ada!, "room.aiQuotas", { assistant: 1 }, { roomId });
+  assert.match((await perform(ada!, "pitch.draft", {}, { gameId }, "action")).error?.message ?? "", /used up/);
+  await perform(ada!, "room.aiQuotas", { assistant: 300_000 }, { roomId });
+  assert.equal((await perform(ada!, "pitch.draft", {}, { gameId }, "action")).ok, true);
+
+  // Bo's own room: Bo is no administrator, so the assistant spends nothing there.
+  const own = (await perform(bo!, "room.create", { name: "Bo's room" })).result.roomId;
+  assert.match((await bo!.query("v2/assistant:status", { roomId: own })).off, /run by an administrator/);
+  const plain = await perform(bo!, "assistant.send", { text: "hello" }, { roomId: own });
+  const refused = await settled(bo!, plain.result.turnId);
+  assert.equal(refused.status, "failed");
+  assert.match(refused.error, /run by an administrator/);
 });
 
 test("autopilot chosen before a game plays once its world runs", { timeout: 90_000 }, async () => {

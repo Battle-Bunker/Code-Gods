@@ -15,10 +15,11 @@ Code: `artifacts/engine/convex/v2/`.
 | Loop | `loop.ts` (world start, commit, scoreboard, pause, resume, end, watchdog), `tick.ts` (Node: births, offers, `runAct`) | one lease per live game; the commit owns every write |
 | Agents and energy | `agents.ts`, `commands.ts`, `checkNode.ts`, `runtime.ts` (Node: inline sandboxes) | lib/v2-economy accounts: energy moves with power |
 | Values | `world.ts`, `reads.ts` | n_i from the artefact, π_i = n_i · Σ_{j≠i} n_j; human reads through the agents' own EngineHost |
-| Model calls | `ai.ts` (provider, allowance per member per game, `spendWithin`), `perform.ts` (a delegate's affordance call) | AI_MOCK=1 uses lib/v2-ai's offline mock |
+| Model calls | `ai.ts` (provider, `spendWithin`), `spend.ts` (who may spend how much), `perform.ts` (a delegate's affordance call) | AI only in rooms an administrator owns; the owner's per-game token quotas (`room.aiQuotas`: AI players together, each player's assistant; 0 = off); USD ceilings per game and per UTC day; call-rate limits. AI_MOCK=1 uses lib/v2-ai's offline mock |
 | AI players | `aiTurn.ts` | a turn every 20 s as `member:<id>`, ≤ 30 turns a game |
-| In-client assistant | `assistant.ts` (queue, threads, autopilot, the pane's reads), `assistantRun.ts` (one action per turn), `assistantTables.ts` | acts as the human's delegate (`via: "assistant"`, their chosen grant, lowered to a passing connection's); read-only mode offers read tools only; never its own `assistant.*` |
-| Stored panels | `panels.ts`, `panelCompile.ts` (Node), `panelShapes.ts`, `ops/panel.ts` | per human across rooms, `sdk: 2` |
+| In-client assistant | `assistant.ts` (the pane's reads), `assistantCore.ts` (queue, turns, autopilot), `assistantRun.ts` (one action per turn), `assistantTables.ts` | acts as the human's delegate (`via: "assistant"`, their chosen grant, lowered to a passing connection's); read-only mode offers read tools only; never its own `assistant.*` |
+| Stored panels | `panels.ts` (the app's reads), `panelStore.ts`, `panelCompile.ts` (Node), `panelShapes.ts`, `ops/panel.ts` | per human across rooms, `sdk: 2` |
+| Page-query modules | `rooms`, `games`, `play`, `spectate`, `layout`, `replays`, `bids`, `assistant`, `panels` | keep them light: a module that loads `@workspace/v2-affordances`' index, the lobby or a model package costs a page query about 30 ms (measured: 38–43 ms against 7–13 ms), so writes and helpers that throw `OpFailure` live in a sibling module |
 | Fixtures | `testing.ts` (TEST_FIXTURES=1 only) | `seedUser`, `seedRoom`, `seedGame` (a live line game with rules, values, agents, moves, standings), `memberFor`, `setBidding` |
 | Presets | `presets.ts` | a stand-in until W1-5's `lib/v2-linear/presets.ts` |
 | R8 rows | `test/v2-query-budgets.ts` | every live query, `pending` until M1's `v2-query-cost.test.ts` measures them |
@@ -45,6 +46,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/assistant:transcript` | `threadId, paginationOpts` (≤ 30) | the thread's human: messages newest first |
 | `v2/assistant:turn` | `turnId` | the turn's human: outcome and tool calls (activity chips) |
 | `v2/panels:list`, `code` | `{}`, `slug, version?` | signed in: the caller's own panels |
+| `v2/rooms:aiQuotas` | `roomId` | member: the owner's per-game token quotas `{ai, assistant}` |
 
 Values: `rarityBits` is the player's n_i, `want` is Σ_{j≠i} n_j and `points` = n_i · want (spec §8). States travel as
 the object type's wire (`line-z`: `a,b,c` per line, `;` between lines). Scores are `(string | null)[] | null`.

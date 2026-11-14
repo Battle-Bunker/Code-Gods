@@ -6,14 +6,14 @@ import type { Id } from "../../_generated/dataModel";
 import { providerFor, spendWithin } from "../ai";
 import { callerOf, defineOp } from "./define";
 
-type Context = { gameId: Id<"v2Games">; memberId: Id<"v2Members">; card: string; players: { name: string }[] } | null;
+type Context = { roomId: Id<"v2Rooms">; gameId: Id<"v2Games">; memberId: Id<"v2Members">; card: string; players: { name: string }[] } | null;
 const CONTEXT = makeFunctionReference<"query", Record<string, unknown>, Context>("v2/ai:pitchContext");
 
 export const { op: draft, as: draftAs } = defineOp("pitch.draft", "action", async (env, a) => {
   const c = callerOf(env);
   const context = await env.ctx.runQuery(CONTEXT, { userId: c.userId!, scope: c.scope, ...(a.to ? { to: a.to } : {}) });
   if (!context) throw new OpFailure("Only players with a seat in this game can do this.");
-  const out = await spendWithin(env.ctx, context.gameId, context.memberId, budget =>
+  const out = await spendWithin(env.ctx, { roomId: context.roomId, gameId: context.gameId, memberId: context.memberId, pool: "assistant" }, budget =>
     pitchDraft({ provider: providerFor(), myCard: context.card, players: context.players, ...(a.aim ? { aim: a.aim } : {}), budget }));
   return { draft: out.draft };
 });

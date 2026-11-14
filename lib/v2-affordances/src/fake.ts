@@ -26,6 +26,8 @@ interface FakeRoom {
   chat: { from: string; text: string; at: number }[]; gameId: string | null; games: string[];
   /** The open bid phase: each human's sealed bids (family → percent) and who is done. */
   bid: { bids: Record<string, Record<string, number>>; done: string[]; deadline: number } | null;
+  /** The owner's per-game token quotas (absent: the defaults). */
+  aiQuotas?: { ai: number; assistant: number };
 }
 export interface FakeState {
   users: Record<string, { name: string; admin?: boolean }>;
@@ -367,6 +369,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     if (total <= 0) throw new OpFailure("Give at least one agent a share.");
     for (const [agentId, share] of Object.entries(a.shares)) agentOf(e, agentId).share = share / total;
     return ok;
+  },
+  "room.aiQuotas": (e, a) => {
+    const room = e.state.rooms[e.roomId ?? ""];
+    if (!room) throw new OpFailure("No room in view.");
+    room.aiQuotas = { ai: a.ai ?? room.aiQuotas?.ai ?? 300_000, assistant: a.assistant ?? room.aiQuotas?.assistant ?? 300_000 };
+    return room.aiQuotas;
   },
   "assistant.send": (e, a) => {
     const as = assistantOf(e);
