@@ -321,9 +321,11 @@ Nines and Crosswise Threes pair the same cells differently; Magic Eighteen and e
 - **Agents**: priced host reads (a representation, or one element) exactly as for lines; starters Simple, Thorough and
   Bold per family that play for points (own bits times others' bits), coordinated with the agents session; an example per
   family × tie-breaker in Python and TypeScript. An agent's score is the engine's utilities (decision 23: nothing
-  saturates), and `rarity` and `worth` come from the rule's value function. Every starter but Naive has the LEAVE list
-  for deals. A board's agent reads 16 cells, so it costs more to summon than a line's (a Simple starter's median is
-  about 490 ⚡ against 337 ⚡); the grid presets start with 900 ⚡ instead of 600, so a starter takes about the same
+  saturates), and `rarity` and `worth` come from the rule's value function. Every starter but Naive has the deal knobs
+  the line starters have: LEAVE (boards left alone), PROTECT (on those boards only moves that keep the others as well
+  off, via `fair`) and TARGET/SETTLE (an agreed board, its 16 digits row by row: `settle` moves at most 4 cells a turn
+  towards it, then holds it). A board's agent reads 16 cells, so it costs more to summon than a line's (a Simple starter's median is
+  about 490 ⚡ against 337 ⚡); the grid presets start with 900 ⚡ instead of 600 (`GRIDS_BEGINNER_ECONOMY`, lib/v2-economy), so a starter takes about the same
   share (`test/unit/v2-object-types.test.ts` holds the two shares within 15% of each other).
 - **Server**: a `grids-beginner` preset on `grid-4-d10` and its deal (bids included), with the server and app sessions.
 

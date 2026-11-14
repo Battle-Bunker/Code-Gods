@@ -26,6 +26,13 @@ export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
   opportunitiesPerSecond: 25,
 });
 
+/**
+ * `Grids · beginner`: the lines' economy with 900 starting energy. A board's agent reads 16 cells, not y = mx + c, so
+ * it is longer and dearer to summon; 900 lets a grid starter take about the share of the starting energy a line starter
+ * takes of 600 (artifacts/engine test/unit/v2-object-types.test.ts holds the two shares close).
+ */
+export const GRIDS_BEGINNER_ECONOMY: Economy = Object.freeze({ ...LINES_BEGINNER_ECONOMY, startingEnergy: 900 });
+
 /** The bounds a room's economy must keep. */
 export const ECONOMY_LIMITS = Object.freeze({
   powerPerSecond: Object.freeze({ min: 0, max: 1_000_000 }),

@@ -11,7 +11,7 @@
  * as y = mx + c, try changes in the agent's own head (thinking costs no energy, only time), keep the plans that make
  * the line best for the rule, and pay for the cheapest of them.
  */
-import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
+import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
@@ -347,6 +347,8 @@ export function scoreSource(family: string, tieBreaker: string | null, language:
 
 /** Starting energy of the beginner economy (v2-economy's Lines · beginner; grids have none of their own yet); every shipped agent fits. */
 export const BEGINNER_STARTING_ENERGY = LINES_BEGINNER_ECONOMY.startingEnergy;
+/** Starting energy of the beginner grid economy (Grids · beginner); every shipped grid agent fits. */
+export const GRID_BEGINNER_STARTING_ENERGY = GRIDS_BEGINNER_ECONOMY.startingEnergy;
 
 /** Families and tie-breakers of the line type that have no shipped agents yet (each needs a catalogue entry). */
 export function undescribed(): string[] {

@@ -18,6 +18,9 @@ const FAR = 2;      // how far one change may go
 const QUOTES = 4;  // at most this many plans are priced (each price is a host call)
 const RESERVE = 300;  // below this much ⚡, only pay for changes that add points (see the end)
 const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
+const TARGET = null;   // a board every player agreed on, its 16 digits row by row, e.g. "9779855879979779": boards go there and stay
+const SETTLE = [];     // the boards to settle at TARGET, e.g. [2, 5]; [] means every board
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
 // (such a move is not allowed, and an unchanged board is never better).
@@ -29,6 +32,7 @@ function edit(b, cells, f) {
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this board alone
+  if (TARGET && (!SETTLE.length || SETTLE.includes(offer.object))) return settle(offer, TARGET);   // a deal: bring the board to TARGET, then hold it
   // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
   // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
   contested(offer, 3);
@@ -48,6 +52,8 @@ function agent(offer) {
     if (better(s, top)) { top = s; plans = [plan]; }               // a new best
     else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
   }
+  // A promise: on these boards, only moves that leave the other players at least as well off.
+  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));
   const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
   if (!plan) return null;           // nothing better (or nothing allowed): skip
   const cost = price(offer, plan), e = energy(offer);

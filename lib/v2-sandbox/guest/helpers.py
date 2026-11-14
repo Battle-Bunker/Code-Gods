@@ -32,7 +32,9 @@
 #   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
 #   pushback(offer)              how many times lately someone else's move took back points your agent had just won
 #                                on this line (a tug-of-war).
-#   settle(offer, target)        the moves that bring a line to target ({"m": .., "c": ..}), or None when it is there.
+#   settle(offer, target)        the moves that bring a line to target ({"m": .., "c": ..}), or a board to target
+#                                (its 16 digits row by row, e.g. "9779855879979779"; at most 4 cells a turn), or
+#                                None when it is there (hold it).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
@@ -184,7 +186,21 @@ def worth(offer):
 
 
 def settle(offer, target):
-    # A line only: the moves that bring y = mx + c to y = target["m"] x + target["c"], or None when it is there (hold it).
+    if isinstance(target, str):
+        # A board: its cells towards the agreed digits, row by row, at most 4 cells a turn; None when it is there.
+        try:
+            cells = offer.view("cells")
+        except HostError:
+            return None
+        names, plan = list(cells.keys())[:len(target)], []
+        for i, name in enumerate(names):
+            if len(plan) >= 4:
+                break
+            k = int(target[i]) - int(cells[name])
+            if k != 0:
+                plan.append(call("cells.add", cell=name, k=k))
+        return plan or None
+    # A line: the moves that bring y = mx + c to y = target["m"] x + target["c"], or None when it is there (hold it).
     try:
         at = offer.view("si")
     except HostError:
