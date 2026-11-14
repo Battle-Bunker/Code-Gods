@@ -58,8 +58,9 @@ function DeviceBody() {
         <p className="text-muted-foreground mt-3">Approve only if you started this and the code matches your client.</p>
         {isLoading || !isAuthenticated ? null
         : result ? (
-          <div className="mt-8 border border-primary bg-primary/5 p-5 flex gap-3 items-start" data-testid={`status-${result}`}>
-            <Check className="h-5 w-5 text-primary mt-0.5" />
+          <div className="mt-8 border border-foreground/30 bg-muted/40 p-5 flex gap-3 items-start" data-testid={`status-${result}`}>
+            {/* A result is news, not an error: neutral, never the red the app keeps for failures (round 9). */}
+            <Check className="h-5 w-5 text-foreground mt-0.5" />
             <div className="space-y-2">
               <p className="font-medium">{result === "approved" ? "Access approved" : "Request denied"}</p>
               <p className="text-sm text-muted-foreground">{result === "approved" ? "Return to your client; it receives its credential now." : "No access was granted. You can close this tab."}</p>

@@ -5,29 +5,13 @@
  */
 import { useEffect, useState } from "react";
 import type { Header } from "@/sdk/types";
-import { clock } from "./words";
+import { timerText } from "./timer-text";
+export { OVERDUE_MS, timerText } from "./timer-text";
 
 export function useNow(ms = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
   return now;
-}
-
-/** null while planning counts down (the planning line under the header is the one countdown then). */
-export function timerText(h: Header, now: number): { label: string; value: string; note: string; tip: string } | null {
-  switch (h.phase) {
-    case "planning": {
-      const left = h.planningEndsAt ? (h.planningEndsAt - now) / 1000 : h.planningSeconds;
-      return left > 0 ? null : { label: "Planning", value: "starting", note: "the world starts in a moment", tip: "Planning is over; the world starts as soon as the engine is ready." };
-    }
-    case "live": {
-      const left = h.endsAt ? Math.max(0, (h.endsAt - now) / 1000) : h.worldSeconds;
-      return { label: "Game ends in", value: clock(Math.ceil(left)), note: "", tip: "A fixed-length game: it ends after exactly this much more world time." };
-    }
-    // World time stands still while paused: no countdown (the end moves out by the pause's length).
-    case "paused": return { label: "Game", value: "paused", note: "", tip: "World time stands still while the game is paused." };
-    case "ended": return { label: "Game over", value: "0:00", note: "", tip: "This game has ended. Nothing changes any more." };
-  }
 }
 
 export function GameTimer({ header }: { header: Header }) {
