@@ -15,7 +15,7 @@ import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
 import { SPEC_ECONOMY, type RuleRef } from "./host.ts";
-import { findVariant, valueLookup, type ValueFunction } from "@workspace/v2-valuation";
+import { findVariant, valueLookup, valuesVariant, type ValueFunction } from "@workspace/v2-valuation";
 import type { Sandboxes } from "./sandboxes.ts";
 
 export interface HarnessPlayer {
@@ -101,7 +101,7 @@ type ValueFile = { family: string; params: unknown; tieBreaker: string } & Pick<
 /** The committed value function for a dealt rule (owner decision 23), or null. */
 export function findValues(variant: string, rule: HarnessPlayer["rule"]): ValueFile | null {
   // A variant that differs from another only in its menu reads that variant's values (Variant.valuesOf).
-  try { variant = findVariant(variant).variant.valuesOf ?? variant; } catch { /* an unregistered id: look it up as given */ }
+  try { const f = findVariant(variant); variant = valuesVariant(f.type as ObjectType<unknown>, f.variant).id; } catch (e) { if (!/^Unknown variant/.test((e as Error).message)) throw e; }
   const dir = join(VALUES, variant, rule.family);
   if (!existsSync(dir)) return null;
   for (const f of readdirSync(dir)) {

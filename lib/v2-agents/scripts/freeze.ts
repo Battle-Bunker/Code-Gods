@@ -62,7 +62,7 @@ const LENS = SHORTCUT.replace("  return climb(offer, sc.map(", `  const one = Q.
     const run = Q.div(one, m), xi = Q.neg(Q.div(c, m));
     for (const k of [1, -1, Q.of(1, 2), Q.of(-1, 2)]) { const r2 = Q.sub(run, Q.from(k)); if (!Q.eq(r2, zero)) { const m2 = Q.div(one, r2); sc.push([move("basis.lean", { k }), m2, Q.neg(Q.mul(m2, xi))]); } }
   }
-  if (!Q.eq(c, zero)) for (const f of [2, 3, -1, Q.of(1, 2), Q.of(1, 3)]) sc.push([move("basis.zoom", { f }), m, Q.mul(c, Q.from(f))]);
+  if (!Q.eq(c, zero)) for (const f of [2, 3, -2, Q.of(1, 2), Q.of(1, 3)]) sc.push([move("basis.zoom", { f }), m, Q.mul(c, Q.from(f))]);
   return climb(offer, sc.map(`);
 if (LENS === SHORTCUT) throw new Error("the shortcut climber's last line moved");
 const ROUNDING = "  tries.push(...rounding(m, c));";
@@ -109,7 +109,7 @@ const LENS_MOVES = [
   ...["left", "right", "3/4", "-3/4", "4/3", "-4/3"].map(turn => ({ mutator: "rot.turn", site: 0, args: { centre: "origin", turn } })),
   ...["0", "1", "-1"].map(x0 => ({ mutator: "fold", site: 0, args: { x0, s: "0" } })),
   ...["1", "-1", "1/2", "-1/2"].map(k => ({ mutator: "basis.lean", site: 0, args: { k } })),
-  ...["2", "3", "-1", "1/2", "1/3"].map(f => ({ mutator: "basis.zoom", site: 0, args: { f } })),
+  ...["2", "3", "-2", "1/2", "1/3"].map(f => ({ mutator: "basis.zoom", site: 0, args: { f } })),
 ];
 const moves = (s: LineState, set: string) => (set === "steps" ? [...steps(3), ...rounding(s)] : set === "shortcuts" ? [...steps(3), ...rounding(s), ...SHORTCUTS]
   : set === "lenses" ? [...steps(3), ...rounding(s), ...SHORTCUTS, ...LENS_MOVES] : [...steps(10), ...rounding(s)]);

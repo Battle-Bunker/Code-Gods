@@ -371,13 +371,14 @@ const turnField: Field = {
     return x;
   },
 };
-const turnWords = (t: Q | string): string =>
-  typeof t === "string" ? `a quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`
+// About a pin, a quarter turn either way gives the same line (the perpendicular through the pin), so no direction is said.
+const turnWords = (t: Q | string, aboutPin: boolean): string =>
+  typeof t === "string" ? (aboutPin ? "a quarter turn" : `a quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`)
     : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of a ${unsigned(t)} gradient`;
 
 export const turn: M = {
   id: "rot.turn", reps: ["cart", "norm"], title: "turn the line about a point", perSite: true,
-  describe: a => `turn the line ${turnWords(a.turn!)} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
+  describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
   args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;

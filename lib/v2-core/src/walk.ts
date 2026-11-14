@@ -14,6 +14,13 @@ export function variantMutators<S>(type: ObjectType<S>, variant: Variant): reado
       if (!m) throw new Error(`Variant ${variant.id} offers unknown mutator ${id}`);
       return m;
     });
+    if (variant.which) {
+      // The which code must be complete over the offered mutators, or the walk's draw and the prices disagree.
+      const ids = Object.keys(variant.which);
+      if (ids.length !== variant.mutators.length || !variant.mutators.every(id => id in variant.which!)) throw new Error(`${variant.id}'s which code must price exactly its mutators`);
+      const kraft = ids.reduce((t, id) => t + 2 ** -variant.which![id]!, 0);
+      if (Math.abs(kraft - 1) > 1e-9) throw new Error(`${variant.id}'s which code has Kraft sum ${kraft}, not 1`);
+    }
     resolved.set(variant, ms);
   }
   return ms;
