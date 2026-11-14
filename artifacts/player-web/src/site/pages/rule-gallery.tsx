@@ -2,7 +2,7 @@
  * The rule gallery (`/rule-gallery`) and one rule's page (`/rule-gallery/:family`), integration plan §1.1: generated
  * from the v2 rule families of the line type and the deployed presets (site/lib/rule-gallery.ts), with no room, game
  * or server read. The gallery lists the rules a board deals; a rule's page shows its card for the chosen numbers and
- * tie-breaker, its parts, the views it reads and the goal card's worked example with its steps to the top.
+ * tie-breaker, its parts, the views it reads and the goal card's worked example with its rarity in bits.
  */
 import { useEffect, useMemo } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
@@ -55,7 +55,7 @@ export function RuleGallery() {
         <header className="space-y-3">
           <h1 className="font-display text-4xl md:text-5xl leading-none">Rule gallery</h1>
           <p className="max-w-[70ch] text-sm text-muted-foreground">
-            Every secret rule a game can deal you. Pick a board, then open a rule to see a worked example and the steps to the top.
+            Every secret rule a game can deal you. Pick a board, then open a rule to see a worked example and how rare each line is by chance.
           </p>
           <BoardPicker board={setup.board} onPick={b => navigate(ruleGalleryPath(gallerySearch({ board: b, params: 0, tb: null })), { replace: true })} />
         </header>

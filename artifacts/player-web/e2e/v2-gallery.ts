@@ -2,7 +2,7 @@
  * The rule gallery, the room's setup picker and settings, and the what-if pane, in the browser against the LIVE local
  * engine (`pnpm --filter @workspace/engine dev`), at desktop (1440×900) and phone (390×844):
  *   /rule-gallery lists the rules of a board; a rule's page follows its numbers and tie-breaker in the URL and shows the
- *   goal card's steps to the top → a new room's owner picks a setup (no Lab group for a player) and changes the
+ *   goal card's worked example → a new room's owner picks a setup (no Lab group for a player) and changes the
  *   settings; the next game starts with them (its header says so) → during the live game, One line's "Try a change"
  *   opens What if, which shows the line after a change, your rarity with its chance and the price, and explains a bad number.
  * Every page is checked for sideways scrolling at both sizes.
@@ -73,6 +73,7 @@ try {
     // ---- the rule gallery
     await page.getByTestId("link-rule-gallery").click();
     await page.getByTestId("page-rule-gallery").waitFor();
+    await assertNoSteps(page, `${label}: the rule gallery`);
     const beginner = page.getByTestId("section-beginner");
     assert.ok(await beginner.locator("[data-testid^=tile-]").count() >= 4, "the beginner rules are listed");
     await noSideways(page, `${label} gallery`);
