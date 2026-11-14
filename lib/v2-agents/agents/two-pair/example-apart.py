@@ -10,15 +10,16 @@
 def score(b, p):
     # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
     main = 0
-    for x in BOXES:   # each box: the best way to pair its four numbers
-        w, y, z, u = (b[i] for i in x)
-        main -= min(abs(w - y) + abs(z - u), abs(w - z) + abs(y - u), abs(w - u) + abs(y - z)) + (2 if w == y == z == u else 0)   # four of a kind: two cells must move by 1 to make two different pairs
+    for x in BOXES:
+        w, y, z, u = sorted(b[i] for i in x)   # the box's four numbers, smallest first
+        main -= y - w + u - z + (2 if w == u else 0)   # pair the two smallest and the two biggest; four of a kind: two cells must move by 1
     apart = sum(max(b[i] for i in x) - min(b[i] for i in x) for x in BOXES)   # each box: biggest minus smallest
     return [main, apart]   # main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: pairs further apart in each box are better
 
 
 FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
+LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 
 
@@ -32,6 +33,8 @@ def edit(b, cells, f):
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this board alone
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)

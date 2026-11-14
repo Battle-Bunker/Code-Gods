@@ -19,7 +19,7 @@ def score(b, p):
                 main += 1
             if (u == 1 and w > 1) or (w == 1 and u > 1):   # a 1 touching a bigger number
                 ones += 1
-    return [min(main, 9), len([x for x in b if x in (2, 3, 5, 7)])]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 
 
 FAR = 2      # how far one change may go

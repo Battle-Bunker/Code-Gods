@@ -320,7 +320,11 @@ Nines and Crosswise Threes pair the same cells differently; Magic Eighteen and e
   depends on side by side. Marks: focus on cells and derived elements, notes ("3 short"), candidates.
 - **Agents**: priced host reads (a representation, or one element) exactly as for lines; starters Simple, Thorough and
   Bold per family that play for points (own bits times others' bits), coordinated with the agents session; an example per
-  family × tie-breaker in Python and TypeScript.
+  family × tie-breaker in Python and TypeScript. An agent's score is the engine's utilities (decision 23: nothing
+  saturates), and `rarity` and `worth` come from the rule's value function. Every starter but Naive has the LEAVE list
+  for deals. A board's agent reads 16 cells, so it costs more to summon than a line's (a Simple starter's median is
+  about 490 ⚡ against 337 ⚡); the grid presets start with 900 ⚡ instead of 600, so a starter takes about the same
+  share (`test/unit/v2-object-types.test.ts` holds the two shares within 15% of each other).
 - **Server**: a `grids-beginner` preset on `grid-4-d10` and its deal (bids included), with the server and app sessions.
 
 ## 7.1 The first walk through a grid game (14 November)

@@ -62,3 +62,15 @@ test("Grids · beginner deals every grid family, each a main layer plus one tie-
   }
   assert.ok(presetOf("grids-beginner-bidding").bid);
 });
+
+test("a grid player can summon a grid starter and keep about as large a share of the starting energy as a line player", async () => {
+  const { presetOf } = await import("../../convex/v2/presets.ts");
+  const { shippedAgents, summonBits } = await import("@workspace/v2-agents");
+  const share = (preset: string, family: (f: string) => boolean) => {
+    const prices = shippedAgents().filter(a => a.kind === "simple" && family(a.family)).map(a => summonBits(a.language, a.source).energy).sort((a, b) => a - b);
+    return prices[prices.length >> 1]! / presetOf(preset).startingEnergy;
+  };
+  const grid = new Set(typeOf("grid-4-d10").families.map(f => f.id));
+  const line = share("lines-beginner", f => !grid.has(f)), board = share("grids-beginner", f => grid.has(f));
+  assert.ok(board <= line * 1.15, `a grid Simple starter takes ${(100 * board).toFixed(0)}% of the starting energy, a line one ${(100 * line).toFixed(0)}%`);
+});

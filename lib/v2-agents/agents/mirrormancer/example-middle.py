@@ -12,13 +12,16 @@ def score(b, p):
     main = 0
     for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap
         main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])
-    return [min(main, -1), b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
+    return [main, b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: bigger middle columns are better
 
 
 FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-LINE = ["row" + str(i) for i in range(4)] + ["col" + str(i) for i in range(4)]   # rows then columns: their names
-LINES = [[4 * i + j for j in range(4)] for i in range(4)] + [[i + 4 * j for j in range(4)] for i in range(4)]   # and their cells
+LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+LINE, LINES = [], []   # the rows and columns: their names, and their cells
+for i in range(4):
+    LINE += ["row" + str(i), "col" + str(i)]
+    LINES += [[4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]]
 
 
 def edit(b, cells, f):
@@ -31,6 +34,8 @@ def edit(b, cells, f):
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this board alone
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)

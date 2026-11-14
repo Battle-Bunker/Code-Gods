@@ -19,11 +19,12 @@ def score(b, p):
                 main += 1
             if (u == 1 and w > 1) or (w == 1 and u > 1):   # a 1 touching a bigger number
                 ones += 1
-    return [min(main, 9), ones]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more 1s touching a bigger number in their box is better
+    return [main, ones]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more 1s touching a bigger number in their box is better
 
 
 FAR = 5      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
+LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 
 
@@ -37,6 +38,8 @@ def edit(b, cells, f):
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this board alone
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)
