@@ -5,6 +5,7 @@
  */
 import type { ObjectType } from "@workspace/v2-core";
 import { lineType } from "@workspace/v2-linear";
+import { GRID_CATALOGUE } from "./grid-catalogue.ts";
 import { exampleFor } from "./starters.ts";
 
 /** The helpers every act's prelude defines, in both languages (lib/v2-sandbox/guest/helpers.{js,py}). */
@@ -58,7 +59,8 @@ function argNames(code: { decode(w: unknown): unknown }): string {
       const missing = /missing argument (\w+)/.exec(msg), choice = /^(\w+) must be one of (.+)$/.exec(msg);
       if (missing) { names.push(missing[1]!); probe[missing[1]!] = "2"; }
       else if (choice) {
-        const label = `${choice[1]}: ${choice[2]!.split(", ").join(" | ")}`, at = names.indexOf(choice[1]!);
+        const all = choice[2]!.split(", "), shown = all.length > 8 ? [all[0], all[1], "…", all[all.length - 1]] : all;   // r0c0 | r0c1 | … | r3c3
+        const label = `${choice[1]}: ${shown.join(" | ")}`, at = names.indexOf(choice[1]!);
         if (at < 0) names.push(label); else names[at] = label;
         probe[choice[1]!] = choice[2]!.split(", ")[0]!;
       }
@@ -68,21 +70,67 @@ function argNames(code: { decode(w: unknown): unknown }): string {
   return names.join(", ");
 }
 
-/** The primer for a type (default: the line). */
+/** What the primer says that depends on the object type: the piece's name, the game in a sentence, prices, the example. */
+interface PrimerWords {
+  readonly title: string;
+  /** One piece, and several. */
+  readonly one: string;
+  readonly many: string;
+  readonly game: string;
+  /** How changes are priced, beyond what every type shares. */
+  readonly prices: string;
+  readonly deal: string;
+  /** How the TypeScript example differs from the Python one. */
+  readonly typescript: string;
+  /** The example's family and tie-breaker (null: none written yet). */
+  readonly example: () => readonly [string, string] | null;
+  /** The helpers' examples and words for this type, where they differ from the line's (HELPERS). */
+  readonly helpers?: Readonly<Record<string, Partial<(typeof HELPERS)[number]>>>;
+}
+
+const WORDS: Readonly<Record<string, PrimerWords>> = {
+  line: {
+    title: "lines", one: "line", many: "lines",
+    game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines, made of a main part and a tie-breaker (for example \"make the gradient close to a prime; tie-breaker: the bigger that prime, the better\").",
+    prices: "Adding and turning are priced by steps (a bigger k costs more); multiplying (mach.stretch) by digits. Numbers made of small primes are cheap (24), big primes dear (23).",
+    deal: "\"I leave line 4's y-intercept alone if you keep its gradient prime\"",
+    typescript: "the same shape with Q for arithmetic",
+    example: () => ["m-meets-c", "meetPrime"],
+  },
+  grid: {
+    title: "grids", one: "board", many: "boards",
+    game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards, made of a main part and a tie-breaker (for example \"each corner box of four cells should add up to 12; tie-breaker: the board's four corners as big as possible\").",
+    prices: "Amounts are priced by steps (a bigger k costs more), and a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
+    deal: "\"I leave board 4's top row alone if you keep its corners big\"",
+    typescript: "the same shape, with plain numbers (a view's numbers are Q: Q.toNumber reads them)",
+    helpers: {
+      look: { ts: `look(offer, "cells")`, py: `look(offer, "cells")`, says: "the board in one view; its numbers by name (v.r0c0, or v[\"r0c0\"]). Costs a small read, once per view per turn" },
+      peek: { ts: `peek(offer, "tally", "row0")`, py: `peek(offer, "tally", "row0")`, says: "one number of a view" },
+      move: { ts: `move("cells.add", { cell: "r0c1", k: 2 })`, py: `move("cells.add", cell="r0c1", k=2)` },
+    },
+    example: () => { const e = GRID_CATALOGUE[0]; return e ? [e.family, Object.keys(e.tieBreakers)[0]!] : null; },
+  },
+};
+
+/** The primer for an object type (default: the line). */
 export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as ObjectType<S>): string {
+  const w = WORDS[type.id];
+  if (!w) throw new Error(`no primer words for the object type ${type.id}`);
+  const { one, many } = w;
   // The example without its header (the primer says what the header would): its code and its comments only.
-  const ex = exampleFor("m-meets-c", "meetPrime", "python")!.source.replace(/^(#[^\n]*\n)+\n*/, "");
-  return `WRITING AGENTS (engine v2: lines)
+  const which = w.example();
+  const ex = which ? exampleFor(which[0], which[1], "python")?.source.replace(/^(#[^\n]*\n)+\n*/, "") : undefined;
+  return `WRITING AGENTS (engine v2: ${w.title})
 
-THE GAME. The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines, made of a main part and a tie-breaker (for example "make the gradient close to a prime; tie-breaker: the bigger that prime, the better"). A line's score on a rule is its rarity: lines that random play rarely makes that good are worth more points. The player's job is to understand their rule, negotiate with the others, and tell you what their agent should do; your job is to write that agent and explain it in plain words.
+THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player's job is to understand their rule, negotiate with the others, and tell you what their agent should do; your job is to write that agent and explain it in plain words.
 
-WORDS. To the player say points, rarity in bits (each bit = twice as rare), ⚡ energy, power, main part, tie-breaker, line, view. Never "object" or "representation". A line scores the player's bits × the other players' bits on it added together; a total adds up all the lines.
+WORDS. To the player say points, rarity in bits (each bit = twice as rare), ⚡ energy, power, main part, tie-breaker, ${one}, view. Never "object" or "representation". A ${one} scores the player's bits × the other players' bits on it added together; a total adds up all the ${many}.
 
-AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one line, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
+AN AGENT. A program in Python or TypeScript that defines agent(offer). Each turn it is offered one ${one}, may look at it and price changes, and returns a plan (a list of moves) or None / null to skip. If any move in a plan is not allowed, the whole turn fails and nothing changes.
 
 WHAT COSTS ⚡.
 - Looking: each view read costs a little, once per turn (looking again is free; reading everything never costs more than one full look). Looking is about 32 times cheaper than changing.
-- Changing: each move is priced by the view it is made through: which move (a few ⚡), how big its numbers are, and a surcharge when the new line takes more to write down. Adding and turning are priced by steps (a bigger k costs more); multiplying (mach.stretch) by digits. Numbers made of small primes are cheap (24), big primes dear (23). A turn's changes cost W + 0.05·W², so a few small moves per turn beat one huge plan.
+- Changing: each move is priced by the view it is made through: which move (a few ⚡), how big its numbers are, and a surcharge when the new ${one} takes more to write down. ${w.prices} A turn's changes cost W + 0.05·W², so a few small moves per turn beat one huge plan.
 - Thinking is free but capped: about half a million steps and 64 calls to the game (looks, goal, prices) per turn. So: look once, try many changes in your own code, price only the best few, and make the cheapest. The same change often costs different amounts through different views; choosing the view is the skill.
 - Summoning costs ⚡ by the program's length; comments are free, so explain in comments.
 
@@ -93,15 +141,15 @@ MOVES (move(name, args)):
 ${moves(type)}
 
 HELPERS (the same names in both languages):
-${HELPERS.map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
+${HELPERS.map(h => ({ ...h, says: h.says.replace(/\bline\b/g, one), ...w.helpers?.[h.name] })).map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
 Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rationals: Q.add, Q.sub, Q.mul, Q.div, Q.abs, Q.cmp, Q.eq) and Python's Fraction.
 
-PLAYING FOR POINTS. A player's points on a line are their rarity there times the other players' rarity there, added up. So a line only they like scores nothing, and a move that spoils a line for the others lowers their own points too; a tug-of-war (moving a line back and forth with another player) burns ⚡ on both sides and scores nothing. A good agent only makes changes that make the line better for its rule, keeps each move's price well under its energy, and leaves a line when another player keeps taking its gains back (contested(offer, 3) does this and leaves its owner a note); the shipped starters do these three things, and "Naive" is a teaching example that does none of them. worth(offer) and rarity(offer, score) let an agent go further: skip a line where the others' rarity is 0 (it scores nothing yet), or a change that does not lift its rarity to a new level. Deals made in chat ("I leave line 4's y-intercept alone if you keep its gradient prime") are honoured by changing the agent: skip that line (offer.object is its number) or only make the moves agreed.
+PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up. So a ${one} only they like scores nothing, and a move that spoils a ${one} for the others lowers their own points too; a tug-of-war (moving a ${one} back and forth with another player) burns ⚡ on both sides and scores nothing. A good agent only makes changes that make the ${one} better for its rule, keeps each move's price well under its energy, and leaves a ${one} when another player keeps taking its gains back (contested(offer, 3) does this and leaves its owner a note); the shipped starters do these three things, and "Naive" is a teaching example that does none of them. worth(offer) and rarity(offer, score) let an agent go further: skip a ${one} where the others' rarity is 0 (it scores nothing yet), or a change that does not lift its rarity to a new level. Deals made in chat (${w.deal}) are honoured by changing the agent: skip that ${one} (offer.object is its number) or only make the moves agreed.
 
-STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample lines and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
-
-EXAMPLE (Python; the TypeScript is the same shape with Q for arithmetic):
-${ex}
+STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
+${ex ? `
+EXAMPLE (Python; the TypeScript is ${w.typescript}):
+${ex}` : ""}
 RULES OF THE SANDBOX. Deterministic: random is seeded per turn, the clock is frozen. No files, network or extra modules. Python names may not start with _.`;
 }
 

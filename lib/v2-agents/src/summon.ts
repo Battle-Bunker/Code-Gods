@@ -21,12 +21,14 @@ import type { Language } from "@workspace/v2-sandbox";
 /** Energy per bit of program (an economy constant; v2-economy may own it). */
 export const SUMMON_ENERGY_PER_BIT = 1 / 6;
 
-const HELPERS = ["look", "peek", "goal", "progress", "move", "price", "cheapest", "energy", "prime", "square", "near", "whole", "root", "factors", "better", "call", "agent", "offer"];
+const HELPERS = ["look", "peek", "goal", "progress", "move", "price", "cheapest", "energy", "prime", "square", "near", "whole", "root", "factors", "better", "call", "agent", "offer",
+  "worth", "rarity", "recent", "pushback", "note", "contested", "mine", "others", "points"];
 const OFFER = ["view", "element", "myRule", "my_rule", "myScore", "my_score", "quote", "budget", "params", "tieBreaker", "tie_breaker", "card", "layers", "level", "top", "main", "tiebreak", "score", "terms", "valid", "charge", "total", "reason", "m", "c"];
 const JS_WORDS = [
   ...HELPERS, ...OFFER, "Q", "of", "from", "add", "sub", "mul", "div", "neg", "abs", "cmp", "eq", "isZero", "isInteger", "toNumber", "toString", "n", "d",
   "function", "return", "const", "let", "var", "if", "else", "for", "while", "of", "in", "break", "continue", "null", "undefined", "true", "false",
   "new", "typeof", "Math", "min", "max", "floor", "ceil", "round", "length", "push", "slice", "map", "filter", "sort", "Number", "BigInt", "String",
+  "every", "some", "includes", "reduce", "Object", "keys",
   "JSON", "Array", "Infinity",
   "=", "==", "===", "!=", "!==", "<", "<=", ">", ">=", "+", "-", "*", "/", "%", "**", "&&", "||", "!", "?", "??", "=>", "+=", "-=", "*=", "++", "--",
   ".", ",", "(", ")", "[", "]", ":", "...",
@@ -34,7 +36,7 @@ const JS_WORDS = [
 const PY_WORDS = [
   ...HELPERS, ...OFFER, "Fraction", "numerator", "denominator", "Undefined",
   "def", "return", "if", "elif", "else", "for", "while", "in", "not", "and", "or", "is", "None", "True", "False", "break", "continue", "lambda", "pass",
-  "abs", "min", "max", "len", "range", "int", "str", "float", "list", "sorted", "sum", "round", "append", "key",
+  "abs", "min", "max", "len", "range", "int", "str", "float", "list", "sorted", "sum", "round", "append", "key", "all", "any", "count", "keys",
   "=", "==", "!=", "<", "<=", ">", ">=", "+", "-", "*", "/", "//", "%", "**", "+=", "-=", "*=",
   ".", ",", "(", ")", "[", "]",
 ];

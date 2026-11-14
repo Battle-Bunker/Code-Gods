@@ -477,6 +477,9 @@ importers:
       '@workspace/v2-economy':
         specifier: workspace:*
         version: link:../v2-economy
+      '@workspace/v2-grid':
+        specifier: workspace:*
+        version: link:../v2-grid
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
