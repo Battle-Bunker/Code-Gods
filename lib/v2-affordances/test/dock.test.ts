@@ -75,3 +75,9 @@ test("a view stored before the dock existed still reduces, and a no-op stays a n
   const r = applyView(old as ViewState, "view.closePane", { pane: "feed" }, live);
   assert.deepEqual(r.view.dock, {});
 });
+
+test("a pane opened for the human never covers the assistant's conversation while another group can take it", () => {
+  const v: ViewState = { ...EMPTY_VIEW, panes: [{ pane: "assistant", place: "right" }], dock: { planning: parseDock("row(overview 26, my-card 34, forge|*assistant 40)") } };
+  const r = applyView(v, "view.openPane", { pane: "rules" }, { ...live, context: "planning" });
+  assert.equal(formatDock(r.view.dock.planning!), "row(overview 26, my-card|*rules 34, forge|*assistant 40)");
+});

@@ -104,7 +104,8 @@ try {
     await mine.getByTestId(`button-panel-open-${slug}`).click();
     const pane = page.getByTestId(`pane-panel:${slug}`);
     await pane.waitFor({ timeout: 20_000 });
-    await pane.locator("h2").getByText("My stats").waitFor({ timeout: 20_000 });
+    // Its title is its header: in the pane on a phone, its tab in the desktop dock.
+    await page.locator(`[data-testid="pane-panel:${slug}"] h2, [data-testid="tab-panel:${slug}"] h2`).getByText("My stats").waitFor({ timeout: 20_000 });
     await pane.locator(`[data-testid=panel-frame-${slug}][data-frame-state=ready]`).waitFor({ timeout: 30_000 });
     const frame = pane.frameLocator("iframe");
     await frame.getByTestId("example-phase").getByText("The game is planning.").waitFor({ timeout: 30_000 });
@@ -124,7 +125,10 @@ try {
     await pane.scrollIntoViewIfNeeded();
     await shot(page, `panels-${label}-live`);
 
-    // A second version swaps in the running frame; rolling back makes version 3 with version 1's code.
+    // A second version swaps in the running frame; rolling back makes version 3 with version 1's code. On a desktop the
+    // live screen keeps the lines in front, so "Your panels" (opened in planning) is a tab: bring it forward.
+    const front = async (id: string) => { const tab = page.getByTestId(`tab-${id}`); if (await tab.count()) await tab.locator("h2").click(); };
+    await front("my-panels");
     await mine.scrollIntoViewIfNeeded();
     await mine.getByTestId(`button-panel-edit-${slug}`).click();
     await source.waitFor();
@@ -140,6 +144,7 @@ try {
     await frame.getByTestId("example-phase").getByText(/^The game is (live|ended)\.$/).waitFor({ timeout: 30_000 });
 
     // Off and on: the pane says it is off, then runs again.
+    await front(`panel:${slug}`);
     await mine.getByTestId(`button-panel-toggle-${slug}`).click();
     await pane.getByTestId("stored-panel-off").waitFor({ timeout: 20_000 });
     await mine.getByTestId(`button-panel-toggle-${slug}`).click();
