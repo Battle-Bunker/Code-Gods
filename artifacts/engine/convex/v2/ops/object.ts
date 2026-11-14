@@ -25,7 +25,7 @@ export const { op: quote, as: quoteAs } = defineOp("object.quote", "query", asyn
   const calls = a.calls.map(c => ({ mutator: c.mutator, site: c.site ?? 0, args: c.args }));
   const q = ask(host, { op: "quote", calls });
   const priced = host.price(calls);
-  const after = priced.valid ? ask(await hostFor(env.ctx, game, member, encode(priced.result as never)), { op: "myScore" }) : null;
+  const after = priced.valid ? ask(await hostFor(env.ctx, game, member, encode(priced.result, game.variant)), { op: "myScore" }) : null;
   return { valid: q.valid, ...(q.reason ? { reason: q.reason } : {}), bits: q.bits, total: q.total, charge: q.charge,
     after: after ? { score: after.score, level: after.level, top: after.top, terms: after.terms } : null };
 });
@@ -35,5 +35,5 @@ export const { op: score, as: scoreAs } = defineOp("object.score", "query", asyn
   const { object, state } = await objectIn(env.ctx, game, a.objectId);
   const s = ask(await hostFor(env.ctx, game, member, state), { op: "myScore" });
   const value = await env.ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
-  return { score: s.score, level: s.level, top: s.top, terms: s.terms, rarityBits: value?.rarityBits ?? 0, points: value?.points ?? 0 };
+  return { score: s.score, level: s.level, top: s.top, terms: s.terms, number: object.number, rarityBits: value?.rarityBits ?? 0, points: value?.points ?? 0 };
 });

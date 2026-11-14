@@ -1,6 +1,31 @@
-/** The line's representations (spec §12.3). Implemented: si, gen, cart, tri, seq, mach. Still to come: int, table, peg. */
-import { Qn, q, ref, type ArgValues, type ElementDecl, type ElementValue, type Point, type Q, type Representation } from "@workspace/v2-core";
+/** The line's representations (spec §12.3): si, gen, cart, tri, seq, mach, table, crossing, norm. Still to come: int, peg (the pegboard scene). */
+import { Qn, q, ref, type ArgValues, type ElementDecl, type ElementRef, type ElementValue, type Point, type Q, type Representation, type SceneData } from "@workspace/v2-core";
 import { intercept, isVertical, slope, xAt, yAt, type Line, type LineState } from "./line.ts";
+import { distanceToWhole, nearestInteger } from "./numbers.ts";
+
+/** Text and the representation's own elements in reading order: "y = ", {el: "m"}, "x + ", {el: "c"}. */
+export type EquationTemplate = Extract<SceneData, { kind: "equation" }>["template"];
+/**
+ * An equation scene that is worked out (the crossing: 0 = 3x − 7, 3x = 7, x = 7/3): `steps` are the lines after the
+ * template, and `caption` a line of words under them ("nearest whole number 2, off by ⅓"). Both optional, so every
+ * equation scene is one; v2-views' equation renderer draws them. (They belong in v2-core's SceneData once its owner
+ * takes them; until then they ride on the equation kind.)
+ */
+export type EquationScene = Extract<SceneData, { kind: "equation" }> & {
+  readonly steps?: readonly EquationTemplate[];
+  readonly caption?: EquationTemplate;
+};
+/**
+ * A row under a table's values, one cell per column (null: nothing there). `check: "whole"` ticks whole numbers and
+ * marks the first cell from the left that is not one: a run of multiples and where it stops.
+ */
+export interface TableRow {
+  readonly label: string;
+  readonly cells: readonly (ElementRef | null)[];
+  readonly check?: "whole";
+}
+/** A table scene with the label of its value row ("y") and rows under the values; both optional. */
+export type TableScene = Extract<SceneData, { kind: "table" }> & { readonly valueLabel?: string; readonly rows?: readonly TableRow[] };
 
 const num = (x: Q): ElementValue => ({ kind: "number", q: x });
 const pt = (x: Q, y: Q): ElementValue => ({ kind: "point", x, y });
@@ -165,12 +190,48 @@ export const mach: Representation<LineState> = {
 
 // ---------------------------------------------------------------- table: a table of values
 
+/** x = 0 … 12: Divisibility Ladder reads a run up to 12 (its rungs go to 11), so the first miss is in the table. */
+const TABLE_XS = Array.from({ length: 13 }, (_, x) => x);
 export const table: Representation<LineState> = {
   id: "table", title: "table of values", scene: "table", perSite: true,
   elements: [
     el("y", "y when x is k", "number", "dynamic", nonVertical((l, a) => num(yAt(l, arg(a, "x")))), { params: [{ name: "x", domain: "Z" }], meaning: "valueAt" }),
+    el("q", "y ÷ x", "number", "dynamic",
+      nonVertical((l, a) => { const x = arg(a, "x"); return Qn.isZero(x) ? undef("y ÷ x has no value at x = 0: nothing can be divided by 0") : num(Qn.div(yAt(l, x), x)); }),
+      { params: [{ name: "x", domain: "Z" }] }),
   ],
-  layout: (_s, site) => ({ kind: "table", columns: [0, 1, 2, 3, 4, 5].map(x => ({ header: `x = ${x}`, el: ref("table", "y", { x }, site) })) }),
+  layout: (_s, site): TableScene => ({
+    kind: "table",
+    valueLabel: "y",
+    columns: TABLE_XS.map(x => ({ header: `x = ${x}`, el: ref("table", "y", { x }, site) })),
+    // Drawn when a rule cites one of its cells (a run of multiples): other rules read the table as plain values.
+    rows: [{ label: "y ÷ x", check: "whole", cells: TABLE_XS.map(x => (x === 0 ? null : ref("table", "q", { x }, site))) }],
+  }),
+};
+
+// ---------------------------------------------------------------- crossing: where the line crosses the x-axis (solve y = 0)
+
+const FLAT = "a flat line (gradient 0) never crosses the x-axis, or lies right along it";
+/** Where a·x + b·y + c = 0 meets y = 0, or null for a flat line. A vertical line crosses too, at x = −c/a. */
+const crossingOr = (f: (x0: Q) => ElementValue): Fn => l => (l.a === 0n ? undef(FLAT) : f(q(-l.c, l.a)));
+
+export const crossing: Representation<LineState> = {
+  id: "crossing", title: "where it crosses the x-axis: solve y = 0", scene: "equation", perSite: true,
+  elements: [
+    el("m", "gradient", "number", "derived", nonVertical(l => num(slope(l))), { meaning: "gradient" }),
+    el("c", "y-intercept", "number", "derived", nonVertical(l => num(intercept(l))), { meaning: "yIntercept" }),
+    el("rhs", "the y-intercept moved across the equals sign (−c)", "number", "derived", nonVertical(l => num(Qn.neg(intercept(l))))),
+    el("x0", "where it crosses the x-axis", "number", "derived", crossingOr(num), { meaning: "xIntercept" }),
+    el("near", "nearest whole number", "number", "derived", crossingOr(x => num(q(nearestInteger(x))))),
+    el("off", "off by", "number", "derived", crossingOr(x => num(distanceToWhole(x)))),
+  ],
+  // 0 = 3x − 7, then 3x = 7, then x = 7/3; under it the nearest whole number and how far off it is.
+  layout: (): EquationScene => ({
+    kind: "equation",
+    template: ["0 = ", { el: "m" }, "x + ", { el: "c" }],
+    steps: [[{ el: "m" }, "x = ", { el: "rhs" }], ["x = ", { el: "x0" }]],
+    caption: ["nearest whole number ", { el: "near" }, ", off by ", { el: "off" }],
+  }),
 };
 
 // ---------------------------------------------------------------- norm: the line seen from the origin
@@ -189,34 +250,4 @@ export const norm: Representation<LineState> = {
   }),
 };
 
-// ---------------------------------------------------------------- coins: a·x + b·y = N as paying N with coins a and b
-
-/** Counting stops here: a line whose ways to pay cannot be counted quickly has none we report. */
-const MAX_COIN_STEPS = 100_000n;
-const NOT_COINS = "the line reads as coins only when a and b (in a·x + b·y = N) are both positive";
-/** The ways to pay N with coins worth a and b: whole x, y ≥ 0 with a·x + b·y = N. */
-export function waysToPay(l: Line): { x: bigint; y: bigint }[] | null {
-  const a = l.a, b = l.b, N = -l.c;
-  if (!(a > 0n && b > 0n)) return null;
-  if (N < 0n) return [];
-  if (N / a > MAX_COIN_STEPS) return null;
-  const out: { x: bigint; y: bigint }[] = [];
-  for (let x = 0n; a * x <= N; x++) if ((N - a * x) % b === 0n) out.push({ x, y: (N - a * x) / b });
-  return out;
-}
-const coinsOr = (f: (w: { x: bigint; y: bigint }[], l: Line) => ElementValue): Fn => l => {
-  const w = waysToPay(l);
-  return w === null ? undef(NOT_COINS) : f(w, l);
-};
-export const coins: Representation<LineState> = {
-  id: "coins", title: "exact change: a·x + b·y = N", scene: "pegboard", perSite: true,
-  elements: [
-    el("bill", "the bill N", "number", "derived", coinsOr((_w, l) => num(q(-l.c)))),
-    el("ways", "ways to pay", "number", "derived", coinsOr(w => num(q(w.length)))),
-    el("smallestPile", "the smaller pile, in the way where it is smallest", "number", "derived",
-      coinsOr(w => (w.length ? num(q(w.reduce((m, { x, y }) => { const s = x < y ? x : y; return s < m ? s : m; }, w[0]!.x < w[0]!.y ? w[0]!.x : w[0]!.y))) : undef("there is no way to pay")))),
-  ],
-  layout: (_s, site) => ({ kind: "pegboard", window: [0, 12], on: ref("cart", "line", undefined, site) }),
-};
-
-export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, norm, coins];
+export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, crossing, norm];

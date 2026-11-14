@@ -31,7 +31,7 @@ test("equation text: signs fold into operators, implied 1s and zero terms drop",
 });
 
 function corpus(): LineState[] {
-  const fixed = [mc(-3, 10), mc(4, -3), mc(1, 5), mc(2, 1), mc(0, 3), mc(3, 0), mc(-1, 4), mc(q(1, 2), q(11, 2)), abc(1, 0, -3), abc(2, 3, -12)];
+  const fixed = [mc(-3, 10), mc(4, -3), mc(1, 5), mc(2, 1), mc(0, 3), mc(3, 0), mc(-1, 4), mc(q(1, 2), q(11, 2)), abc(1, 0, -3), abc(2, 3, -12), mc(3, -7), mc(6, 6), mc(5, 60)];
   const g = rng("render-corpus");
   let s = mc(1, 1);
   const walked: LineState[] = [];

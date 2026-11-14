@@ -28,6 +28,8 @@ const ruleOf = (family: Family, params: unknown): RuleRef<LineState, unknown> =>
 /** Hand-picked lines per family: one at the top, one near, one far, one the rule cannot score. */
 const CURATED: Readonly<Record<string, { params?: unknown; lines: readonly LineState[] }>> = {
   "empty-tank-demo": { lines: [mc(-3, 10), mc(-3, 9), mc(-2, 7), mc(2, -6)] },
+  "whole-crossing": { lines: [mc(3, -7), mc(-2, 5), mc(4, -12), mc(0, 4)] },
+  "divisibility-ladder": { lines: [mc(6, 6), mc(7, 60), mc(2, 1), mc(3, 0)] },
   "prime-gradient": { lines: [mc(4, -3), mc(5, 1), mc(q(5, 2), 1), abc(1, 0, -3)] },
   "triangle-area": { params: { A: 8 }, lines: [mc(-1, 4), mc(2, -6), mc(-3, 10), mc(3, 0)] },
   "m-meets-c": { lines: [mc(1, 5), mc(3, 3), mc(-2, 1), mc(q(1, 2), -1)] },

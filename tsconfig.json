@@ -13,6 +13,9 @@
       "path": "./lib/v2-linear"
     },
     {
+      "path": "./lib/v2-grid"
+    },
+    {
       "path": "./lib/v2-valuation"
     },
     {

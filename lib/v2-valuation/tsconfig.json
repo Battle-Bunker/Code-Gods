@@ -10,5 +10,5 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "references": [{ "path": "../v2-core" }, { "path": "../v2-linear" }]
+  "references": [{ "path": "../v2-core" }, { "path": "../v2-linear" }, { "path": "../v2-grid" }]
 }

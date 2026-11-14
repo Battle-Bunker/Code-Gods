@@ -11,16 +11,16 @@
  */
 import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type Rng, type RuleFamily, type Rung } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
-import { lineType } from "@workspace/v2-linear";
 import { CATALOGUE } from "@workspace/v2-agents/pure";
-import { findVariant, ruleKey, rungBits } from "@workspace/v2-valuation";
+import { findVariant, objectTypes, ruleKey, rungBits } from "@workspace/v2-valuation";
 import { artefactFor, dealable } from "./artefacts.ts";
 import type { Preset } from "./presets.ts";
 
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its artefact. */
 export interface DealtRule { family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string }
 
-const FAMILIES = new Map<string, RuleFamily<unknown, unknown>>(lineType.families.map(f => [f.id, f as unknown as RuleFamily<unknown, unknown>]));
+/** Every object type's families, by id (ids are unique across types: test/unit/v2-deal.test.ts checks it). */
+const FAMILIES = new Map<string, RuleFamily<unknown, unknown>>(objectTypes.flatMap(t => t.families).map(f => [f.id, f as unknown as RuleFamily<unknown, unknown>]));
 export function familyOf(id: string): RuleFamily<unknown, unknown> {
   const f = FAMILIES.get(id);
   if (!f) throw new Error(`Unknown rule family ${id}`);
