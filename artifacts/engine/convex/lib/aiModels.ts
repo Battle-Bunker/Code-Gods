@@ -10,8 +10,8 @@ export const AI_MODEL_CATALOG = Object.freeze([
 ]);
 export type AIModel = (typeof AI_MODEL_CATALOG)[number];
 /**
- * Players that call no model (ai/turn.ts builtinProvider), free and always available: "example-agent" summons its rule's
- * example agent once (game-utilities starterAgents, the one the forge pre-fills for a new player) and leaves it alone.
+ * Players that call no model, free and always available: "example-agent" summons its rule's
+ * example agent once (the one the forge pre-fills for a new player) and leaves it alone.
  * A practice game seats them (aiTemplates PRACTICE_TEMPLATE_ID), so a player who only summons the example meets equals.
  */
 export const BUILTIN_AI_MODELS = Object.freeze([Object.freeze({ id: "example-agent", label: "Example agent (no model)", provider: "builtin" as const, inputUsdPerMillion: 0, outputUsdPerMillion: 0 })]);
@@ -35,12 +35,5 @@ export const GAME_USD = 2, DAILY_HOST_USD = 5, CALLS_PER_MINUTE = 6;
 export const ASSISTANT_GAME_USD = 2, DAILY_ASSISTANT_USD = 5, ASSISTANT_CALLS_PER_MINUTE = 8, ASSISTANT_ROOM_CALLS_PER_MINUTE = 30;
 export const PROMPT_MAX = 10_000;
 export const mockEnabled = () => process.env.AI_MOCK === "1";
-/**
- * The in-client assistant uses the mock only under AI_MOCK=1 without ASSISTANT_LIVE=1, so a local deployment can
- * run the assistant against a real provider while AI seats stay mocked (scripts/assistant-provider.mjs).
- * Production sets neither, so it is unaffected.
- */
-export const assistantMockEnabled = (env: Record<string, string | undefined> = process.env) =>
-  env.AI_MOCK === "1" && env.ASSISTANT_LIVE !== "1";
 export const providerConfigured = (provider: string) =>
   !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();

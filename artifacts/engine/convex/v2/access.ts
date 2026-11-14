@@ -36,6 +36,9 @@ export async function userById(ctx: QueryCtx, userId: string): Promise<User | nu
   return user ? { userId: user.subject, name: user.name, admin: isAdminUser(user, process.env) } : null;
 }
 
+/** A room code as people type it: any case, spaces and dashes ignored. */
+export const normaliseCode = (code: string) => code.toUpperCase().replace(/[-\s]/g, "");
+
 export async function roomById(ctx: QueryCtx, roomId: string): Promise<Doc<"v2Rooms"> | null> {
   const id = ctx.db.normalizeId("v2Rooms", roomId);
   return id ? await ctx.db.get(id) : null;

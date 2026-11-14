@@ -72,11 +72,6 @@
   },
   "dependencies": {
     "@workspace/engine": "workspace:*",
-    "@workspace/game-core": "workspace:*",
-    "@workspace/game-types": "workspace:*",
-    "@workspace/game-utilities": "workspace:*",
-    "@workspace/object-views": "workspace:*",
-    "@workspace/player-client": "workspace:*",
     "@workspace/ui-kit": "workspace:*",
     "@workspace/v2-affordances": "workspace:*",
     "@workspace/v2-agents": "workspace:*",

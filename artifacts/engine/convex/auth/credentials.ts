@@ -19,12 +19,14 @@ export const list = query({
     const now = Date.now();
     const rows = await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", viewer.subject)).order("desc").take(200);
     const active = rows.filter(row => row.revokedAt === undefined && row.expiresAt > now);
-    return await Promise.all(active.map(async row => {
-      const roomId = row.roomId ? ctx.db.normalizeId("rooms", row.roomId) : null;
+    const listed = await Promise.all(active.map(async row => {
+      const roomId = row.roomId ? ctx.db.normalizeId("v2Rooms", row.roomId) : null;
       const room = roomId ? await ctx.db.get(roomId) : null;
+      // A credential bound to a room that is gone (an old engine's room) authenticates nothing: not an active connection.
+      if (row.roomId && !room) return null;
       return {
         /** permission "account": an app acting as you in every room (no roomId). */
-        credentialId: row._id, roomId: row.roomId ?? null, roomCode: room?.shortCode ?? null, permission: row.permission,
+        credentialId: row._id, roomId: row.roomId ?? null, roomCode: room?.code ?? null, permission: row.permission,
         /** device (device flow), oauth (an MCP connection; label = its client's self-reported name) or assistant. */
         kind: row.kind ?? "device", ...(row.clientId ? { clientId: row.clientId } : {}),
         /** Self-reported by the app that requested it: NOT a verified identity. */
@@ -32,6 +34,7 @@ export const list = query({
         createdAt: row.createdAt, expiresAt: row.expiresAt, lastUsedAt: row.lastUsedAt ?? null,
       };
     }));
+    return listed.filter(row => row !== null);
   },
 });
 

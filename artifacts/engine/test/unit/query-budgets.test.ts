@@ -1,7 +1,7 @@
-// The query-cost gate's table (test/query-budgets.ts) lists every query a page subscribes to (read-architecture R8,
+// The query-cost gate's tables (test/query-budgets.ts, test/v2-query-budgets.ts) list every query a page subscribes to (read-architecture R8,
 // R9: "when a page gains a component, it gains a query that obeys R1-R5 and an entry in the R8 budget table").
 // What would break: a component subscribes to a new query (useQuery, useLive, useQueries, watchQuery, onUpdate, or the
-// SDK's QUERY_REFS) that test/game-query-cost.test.ts never measures.
+// SDK's QUERY_REFS) that has no row in them.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -10,7 +10,7 @@ import { BUDGETS, identifierOf } from "../query-budgets.ts";
 import { V2_BUDGETS } from "../v2-query-budgets.ts";
 
 const REPO = join(import.meta.dirname, "../../../..");
-const ROOTS = ["artifacts/player-web/src", "lib/player-client/src"];
+const ROOTS = ["artifacts/player-web/src", "lib/v2-client/src"];
 
 function* sources(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {

@@ -14,61 +14,40 @@ derive expectations by hand; exercise real code and don't assert on mocks; run t
 
 | Behaviour | Layer | Where | Run |
 |---|---|---|---|
-| Pure rules: scoring, settings, mutators, preludes, utility families, calibration, pricing | unit, `node --test` | `lib/game-core`, `lib/game-types`, `lib/game-utilities`, `lib/object-views`, `lib/ai-player` | `pnpm --filter <pkg> test` |
-| Sandboxes: determinism, limits, hostile input, Python ≡ old host | unit and integration | `lib/game-runtime/test` | `pnpm --filter @workspace/game-runtime test` |
-| Engine pure helpers (`convex/lib/*`: spawn planning, clocks) | unit, `node --test`, no backend | `artifacts/engine/test/unit` | `pnpm --filter @workspace/engine test:unit` |
-| Engine functions: rules, disclosure, permissions, receipts, ticks, AI seats | integration against the **live local Convex backend** | `artifacts/engine/test/game-*.test.ts` | start `pnpm --filter @workspace/engine dev` and wait for `[dev] READY` (it uploads the Python runtime, building it if needed, and seeds the system setups), then `pnpm --filter @workspace/engine test:game` |
-| Schema migrations (`convex/migrations.ts`, the @convex-dev/migrations component): legacy rows become the new shape, a second run changes nothing (CLAUDE.md "Schema migrations") | integration against the live local backend | `artifacts/engine/test/game-schema-migrations.test.ts` (legacy rows written by a `convex/testing.ts` fixture; `runAll` with `reset: true`) | part of `test:game` |
-| Query cost (R8 of `docs/convex-read-architecture.md`): every query a page subscribes to fits its documents, bytes and time budget in a 1,000-object game, a cold one stays cached across tick commits, a signed-out caller is refused | integration against the live local backend; numbers from the backend's execution log (`test/execution-log.ts`) | `artifacts/engine/test/game-query-cost.test.ts`, budget table `test/query-budgets.ts` (a new page query needs a row: `test/unit/query-budgets.test.ts` checks) | part of `test:game` |
-| Agent interface: `POST /mcp` (both protocol eras), tool permissions, idempotent tool commands, disclosure through every read tool, MCP OAuth | integration against the live local backend over HTTP | `artifacts/engine/test/mcp.test.ts` | with the dev engine running, `pnpm --filter @workspace/engine test:mcp` |
+| Pure rules: lines, rules and their scores, valuation, views, the economy, the client's helpers | unit, `node --test` | `lib/v2-core`, `lib/v2-linear`, `lib/v2-valuation`, `lib/v2-views`, `lib/v2-economy`, `lib/v2-client`, `lib/ui-kit` | `pnpm --filter <pkg> test` (root `pnpm run test:v2` runs the main ones) |
+| Operations: the affordance directory (every surface's buttons, palette, assistant tools) | unit, `node --test` | `lib/v2-affordances/test` | `pnpm --filter @workspace/v2-affordances test` |
+| Sandboxes and agents: determinism, limits, hostile input, the example agents in both languages | unit and integration | `lib/v2-sandbox/test`, `lib/v2-agents/test` | build the Python bundle once (`pnpm --filter @workspace/v2-sandbox setup:python && pnpm --filter @workspace/v2-sandbox build:python`), then `pnpm --filter <pkg> test` |
+| Engine pure helpers and v2 pure modules (deal, presets, artefacts), the query-cost table's coverage | unit, `node --test`, no backend | `artifacts/engine/test/unit` | `pnpm --filter @workspace/engine test:unit` |
+| Engine v2 functions: the lobby, the contract of every operation, permissions, disclosure | integration against the **live local Convex backend** | `artifacts/engine/test/v2-*.test.ts` (helpers: `test/v2-helpers.ts`) | start `pnpm --filter @workspace/engine dev` and wait for `[dev] READY`, then `pnpm --filter @workspace/engine test:v2` |
+| The deployed-build signal (`convex/version.ts`) | integration against the live local backend | `artifacts/engine/test/version.test.ts` | with the dev engine running, `pnpm --filter @workspace/engine test:version` |
+| Query cost (R8 of `docs/convex-read-architecture.md`): every query a page subscribes to has a row | unit | budget tables `test/v2-query-budgets.ts` (v2) and `test/query-budgets.ts` (shared: auth, version, AI templates); `test/unit/query-budgets.test.ts` and `test/unit/v2-query-budgets.test.ts` check them | part of `test:unit` |
 | Auth: Google sign-in via Better Auth (the test-only "fake" provider locally), device flow, credentials, player JWTs, static routes | integration (it starts its own backend; stop the dev engine first, since the checkout has one local deployment) | `artifacts/engine/test/auth.test.ts` | `pnpm --filter @workspace/engine test:auth` |
-| Player CLI, assistant, token middleware | unit + live | `lib/player-client/test` | `pnpm --filter @workspace/player-client test` (reuses `CG_TEST_SITE_URL`) |
-| Claude artifact client (`clients/claude-artifact`): view model, error codes, commandId/receipt retry, manifest ⊆ registry, build | unit, `node --test`, no backend | `clients/claude-artifact/core.test.js` | `pnpm run test:artifact` |
-| Claude artifact page in a browser against a stand-in runtime (`dev/claude-stub.js`), and `probe.html` | browser smoke (Playwright, about 10 s) | `clients/claude-artifact/smoke.mjs` | `pnpm run smoke:artifact` |
-| The app's pure logic (`artifacts/player-web/src`: routes, next steps, palette commands, settings form rules, time, device approval, the dock's models) | unit, `node --test` | `artifacts/player-web/test` | `pnpm --filter @workspace/player-web test` |
-| The app's site pages (home, room, configure, the game's spectator view and replay, /connect, /device, admin) | browser e2e (Playwright) | `artifacts/player-web/e2e/site-smoke.ts` | `pnpm --filter @workspace/player-web e2e:site` |
-| The app on another origin in account mode (sign-in, consent, create → play, sign out) | browser e2e (Playwright) | `artifacts/player-web/e2e/account-mode.ts` | `pnpm --filter @workspace/player-web e2e:account` |
-| Several player apps, panels and HMR, assistant, static hosting | multi-client browser e2e (slow: about 20 minutes) | `artifacts/player-web/e2e/multi-client.ts` | commit first (the apps are worktrees of HEAD), then `pnpm --filter @workspace/player-web e2e` |
+| The app's pure logic (`artifacts/player-web/src`: routes, next steps, palette commands, time, device approval, the dock's models) | unit, `node --test` | `artifacts/player-web/test` | `pnpm --filter @workspace/player-web test` |
+| The app's site (rooms, practice partners, a live line game, one line, planning) at desktop and phone | browser e2e (Playwright) | `artifacts/player-web/e2e/v2-site.ts` | `pnpm --filter @workspace/player-web e2e:site` |
+| The v2 views' look | browser screenshots (Playwright) | `artifacts/player-web/e2e/v2-views.ts` | `pnpm --filter @workspace/player-web e2e:v2-views` |
 
 **Choosing a layer.** A rule belongs in a unit test of the library that owns it. A Convex function is tested
 through its public API with real identities; mock nothing inside the engine. Browser e2e is only for behaviour
-that needs a browser: HMR, rendering, multi-app isolation. Never add an e2e check for something an engine test
-can catch.
-
-**The assistant against a real provider** (opt-in, costs money). The engine suites script the mock provider, so
-they never need a key. To check what only a real model shows (streaming, real tool-use blocks, usage within the
-reservation, history replay), run `pnpm --filter @workspace/engine assistant:live` (needs
-`CODE_GODS_ANTHROPIC_API_KEY` in the shell; AI seats stay mocked), then `pnpm --filter @workspace/engine
-test:assistant-live` (about USD 0.15; `CG_ASSISTANT_MODEL=gpt-4.1-mini` for OpenAI, about USD 0.01; it skips while
-mocked), then `assistant:mock`. When an estimate or price changes, add the live run's numbers to the recorded samples
-in `lib/ai-player/test/chat-cost.test.ts`. Restarting `dev` also returns
-the assistant to the mock. Never print the key; `assistant:status` reports the mode without it. Test fixes with the
-mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live runs short and few.
+that needs a browser: rendering, layout, focus. Never add an e2e check for something an engine test can catch.
 
 ## Repo rules
 
 - **Disclosure is a contract.** Any new player-facing query or event field gets a disclosure assertion:
-  another god's per-object scores, descriptor, agent source, seeds and `endAtWorld` must never appear. Extend
-  `test/game-disclosure.test.ts` rather than grepping UI text.
+  another player's rule, per-object values, agent source and seeds must never appear. Assert it in the v2 engine
+  suite (`test/v2-contract.test.ts`) rather than grepping UI text.
 - **Real identities, real auth.** Engine tests act as seeded users through real JWT paths or admin
-  impersonation (`test/game-helpers.ts`). Never weaken `convex/auth/access.ts` for a test.
-- **Fixtures stay gated.** Test-only Convex functions (`convex/testing.ts`, `convex/auth/testing.ts`) are internal
+  impersonation (`test/v2-helpers.ts`). Never weaken `convex/auth/access.ts` for a test.
+- **Fixtures stay gated.** Test-only Convex functions (`convex/v2/testing.ts`, `convex/auth/testing.ts`) are internal
   functions and refuse to run unless `DEV` or `TEST_FIXTURES` is set. Don't add test-only
   branches to production functions.
-- **Hand-derived expectations.** Scoring expectations come from game-core's documented formulas on literal
-  inputs, or from hand-checked fixtures, never from the engine's own projection code.
-- **A reused local deployment lies to you.** The setups suite asserts on catalogue search order and on how a copy's
-  name is deduplicated, and earlier runs leave their own setups behind ("Annotated basics's copy", "Classic's copy"),
-  which outrank the system ones. Two failures in `test/game-setups.test.ts` ("a system setup by name, best first";
-  "duplicate: …'s copy, deduplicated") mean the deployment is dirty, not that the code is broken. Wipe it and start
-  again: stop `dev`, `rm -rf artifacts/engine/.convex/local`, start `dev`, wait for `[dev] READY`, `deploy-static`.
-- **Time.** Don't sleep a fixed time to wait for a tick; poll for the observable outcome with a bound
-  (`waitFor` in `game-helpers.ts`, `until` in the e2e). Games under test set a long `halfLifeSeconds` unless the
-  test is about the lifetime.
-- **Economy-aware fixtures.** Agent sources in tests must be affordable. A 128-character string rotate costs
-  about 273 bits per act; prefer `swapChars`, `add`, or a small `slide`.
-- **A bug fix starts with a failing test** at the cheapest layer that reproduces it. The multi-client e2e found
-  three engine bugs; each fix should also gain a fast test.
+- **Hand-derived expectations.** Scoring expectations come from the spec's documented formulas
+  (`docs/engine-v2/spec.md`) on literal inputs, or from hand-checked fixtures, never from the engine's own code.
+- **A reused local deployment lies to you.** Earlier runs leave their rooms and games behind; a test that counts
+  rows must scope them to its own fresh users. When a deployment is dirty beyond that, wipe it and start again: stop
+  `dev`, `rm -rf artifacts/engine/.convex/local`, start `dev`, wait for `[dev] READY`, `deploy-static`.
+- **Time.** Don't sleep a fixed time to wait for a tick; poll for the observable outcome with a bound.
+- **A bug fix starts with a failing test** at the cheapest layer that reproduces it; a bug an e2e found also gains
+  a fast test.
 - **Before finishing**, run your change's selective set once, when it is ready to merge (the `selective-testing`
   skill picks it from the paths you changed), plus the root `pnpm run typecheck`. Report each suite by name with pass
   counts, including failures you didn't cause. While you work, run only the file you are writing.

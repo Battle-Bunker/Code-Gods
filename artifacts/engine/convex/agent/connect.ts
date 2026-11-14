@@ -6,7 +6,7 @@
  *   mutation agent/connect:deny    ({request})
  *
  * The client may name a `room` (a hint): it is preselected and, when the human is not in it yet, the page offers
- * to join it first (rooms.join). Every request is the human's decision: nothing is approved without a click.
+ * to join it first (the room.join affordance). Every request is the human's decision: nothing is approved without a click.
  *
  * Like device approval: the human must be a member of the chosen room; the permission may be lowered from
  * the requested scope, never raised; an owner grant needs the room's CURRENT owner and explicit consent
@@ -24,12 +24,13 @@
  * without a click.
  */
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { mutation, query, type QueryCtx } from "../_generated/server";
 import { requireViewer, type Grant, type Permission, type Viewer } from "../auth/access";
 import { sha256Hex } from "../auth/crypto";
 import { grantV } from "../auth/tables";
-import { findRoom, memberOf } from "../lib/rooms";
+import { findRoom } from "../auth/rooms";
+import { memberOf } from "../v2/access";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 const grant = grantV;
@@ -57,15 +58,15 @@ export const pending = query({
     const request = await requestFor(ctx, key);
     if (!request || (request.subject && request.subject !== viewer.subject)) return null;
     const status = request.status === "pending" && request.expiresAt <= Date.now() ? "expired" as const : request.status;
-    const memberships = await ctx.db.query("members").withIndex("by_god", q => q.eq("godId", viewer.subject)).take(200);
+    const memberships = await ctx.db.query("v2Members").withIndex("by_user", q => q.eq("userId", viewer.subject)).take(200);
     const rooms = (await Promise.all(memberships.map(async m => {
       const room = await ctx.db.get(m.roomId);
-      return room ? { roomId: room._id as string, shortCode: room.shortCode, isOwner: room.ownerId === viewer.subject, createdAt: room.createdAt } : null;
+      return room ? { roomId: room._id as string, shortCode: room.code, isOwner: room.ownerId === viewer.subject, createdAt: room.createdAt } : null;
     }))).filter(r => r !== null).sort((a, b) => b.createdAt - a.createdAt);
     // The room the client asked for (`room` on /oauth/authorize): preselected, and joinable from the page.
     const hinted = request.roomHint ? await findRoom(ctx, request.roomHint) : null;
     const hint = hinted ? {
-      roomId: hinted._id as string, shortCode: hinted.shortCode, isOwner: hinted.ownerId === viewer.subject,
+      roomId: hinted._id as string, shortCode: hinted.code, isOwner: hinted.ownerId === viewer.subject,
       member: !!(await memberOf(ctx, hinted._id, viewer.subject)),
     } : null;
     return {
@@ -105,7 +106,7 @@ export const approve = mutation({
     const asked = requested as Permission;
     if (RANK[args.permission] > RANK[asked]) fail("FORBIDDEN", `The client asked for ${asked}: you may lower the permission, not raise it`);
     if (!args.roomId) return fail("BAD_REQUEST", "Choose a room");
-    const roomId = ctx.db.normalizeId("rooms", args.roomId);
+    const roomId = ctx.db.normalizeId("v2Rooms", args.roomId);
     const room = roomId ? await ctx.db.get(roomId) : null;
     if (!room || !(await memberOf(ctx, room._id, viewer.subject))) return fail("FORBIDDEN", "Join this room first");
     if (args.permission === "owner") {

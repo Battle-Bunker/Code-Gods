@@ -25,7 +25,7 @@ export type Language = "python" | "typescript" | "javascript";
 export interface SandboxOptions {
   language: Language;
   execution?: "inline" | "worker";
-  /** The CPython bundle's bytes or path (Python only; default: lib/game-runtime/dist/python-runtime.bin.gz). */
+  /** The CPython bundle's bytes or path (Python only; default: lib/v2-sandbox/dist/python-runtime.bin.gz). */
   pythonBundle?: string | Uint8Array;
 }
 

@@ -117,19 +117,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # ---- the pinned runtime bundle (Python), as in deploy.yml ----
-      - uses: actions/cache@v4
-        id: cpython
-        with:
-          path: .cache/code-gods
-          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
-      - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python
-      - run: pnpm --filter @workspace/game-runtime build:python
-      - name: Worker build is current
-        working-directory: lib/game-runtime
-        run: node scripts/build-worker.mjs --check
-
       # ---- the preview (the only two steps that see the preview deploy key) ----
       # --preview-name creates the preview, or reuses the existing one and its data. --cmd runs once the preview
       # exists and BEFORE the functions are pushed: it gives a new preview its secrets (preview-setup.mjs --env-only).
@@ -148,7 +135,7 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
         run: node .github/scripts/preview.mjs credentials "$NAME"   # → CONVEX_SELF_HOSTED_URL / _ADMIN_KEY for the steps below
 
-      - name: Set up the preview (keys, migrations, runtime, calibration tables, setups, static site, health check)
+      - name: Set up the preview (keys, migrations, static site, health check)
         id: setup
         working-directory: artifacts/engine
         env:

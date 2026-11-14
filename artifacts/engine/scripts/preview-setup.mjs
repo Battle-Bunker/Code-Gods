@@ -26,9 +26,8 @@
  *      PREVIEW_SIGN_IN_CODE (the passphrase of the preview sign-in; removed when absent), and ANTHROPIC_API_KEY /
  *      OPENAI_API_KEY when PREVIEW_ANTHROPIC_API_KEY / PREVIEW_OPENAI_API_KEY are given.
  *   2. BETTER_AUTH_JWKS on the first run (rotateKeys), then a second push so auth.config.ts inlines both key sets.
- *   3. functions version, calibration tables, system setups, the older one-off migrations, the schema migrations
- *      (waited for), the hold-rarity warm-up, the Python runtime bundle, the static site (built with
- *      VITE_PREVIEW_SIGN_IN=1 when the passphrase is set, so the app's Sign in button opens the preview sign-in).
+ *   3. functions version, the schema migrations (waited for), the static site (built with VITE_PREVIEW_SIGN_IN=1
+ *      when the passphrase is set, so the app's Sign in button opens the preview sign-in).
  *   4. a health check; prints `site=<url>` (and writes `site_url` to GITHUB_OUTPUT).
  */
 import { spawnSync } from "node:child_process";
@@ -129,14 +128,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   step("Push again (auth.config.ts inlines the key sets)");
   run("npx", ["convex", "deploy", "--typecheck", "disable"], "convex deploy");   // typechecked by the first push
 
-  step("Version, calibration tables, setups, migrations, runtime bundle");
+  step("Version, migrations");
   const sha = (process.env.PREVIEW_SHA ?? process.env.GITHUB_SHA ?? "preview").slice(0, 12);
   run("npx", ["convex", "run", "version:record", JSON.stringify({ site: "functions", build: sha })], "version:record");
-  run("node", ["scripts/upload-calibration.mjs"], "upload-calibration");
-  for (const fn of ["setups:ensureSeeded", "migrations/node:setupsV2", "migrations:aiSeatNames", "migrations:assistantPerGame"]) run("npx", ["convex", "run", fn], fn);
   run("node", ["scripts/run-migrations.mjs"], "schema migrations");
-  run("npx", ["convex", "run", "engine/holdData:scheduleWarm"], "hold-rarity warm-up");
-  run("node", ["scripts/upload-runtime.mjs"], "upload-runtime");
 
   step("Static site");
   run("node", ["scripts/deploy-static.mjs", ...(process.env.PREVIEW_STATIC_ARGS ? process.env.PREVIEW_STATIC_ARGS.split(" ") : [])], "deploy-static",

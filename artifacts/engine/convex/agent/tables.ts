@@ -2,12 +2,11 @@ import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import { grantV } from "../auth/tables";
 
-const permission = v.union(v.literal("read"), v.literal("act"), v.literal("owner"));
 const grant = grantV;
 
 /**
  * The agent interface (owned by convex/agent; docs/surface-architecture.md §4): MCP OAuth clients and
- * authorization requests, retired refresh tokens (reuse detection), and background command jobs. As in
+ * authorization requests and retired refresh tokens (reuse detection). As in
  * convex/auth, secrets are never stored: only sha256 hashes of request keys, codes and refresh tokens.
  */
 export const agentTables = {
@@ -52,14 +51,4 @@ export const agentTables = {
   /** Refresh tokens already rotated out: presenting one again revokes its credential (OAuth 2.1 reuse detection). */
   oauthRetiredRefresh: defineTable({ hash: v.string(), credentialId: v.id("credentials"), retiredAt: v.number() })
     .index("by_hash", ["hash"]).index("by_credential", ["credentialId"]).index("by_retired", ["retiredAt"]),
-
-  /**
-   * Summon/validate tool calls run as scheduled actions so they finish even when the caller stops waiting
-   * (`waitMs`). A job row records a run that ended without a receipt (a host failure: retry the identical call).
-   */
-  agentJobs: defineTable({
-    credentialId: v.string(), roomId: v.string(), subject: v.string(), commandId: v.string(),
-    status: v.union(v.literal("running"), v.literal("failed")), error: v.optional(v.object({ code: v.string(), message: v.string() })),
-    createdAt: v.number(),
-  }).index("by_command", ["roomId", "subject", "commandId"]).index("by_created", ["createdAt"]),
 };

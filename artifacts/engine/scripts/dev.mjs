@@ -19,11 +19,8 @@
  * What it does: (1) starts the fake OIDC server; (2) `convex dev --once` creates/pushes the local
  * deployment; (3) sets the deployment env vars below; (4) generates Better Auth's static JWKS once
  * (`convex run auth/betterAuth:rotateKeys`); (5) runs `convex dev` (watch), whose first push re-evaluates
- * auth.config.ts with both JWKS; (6) once that push has finished, uploads the runtime bundle (Python)
- * (scripts/upload-runtime.mjs: built first if missing or stale, skipped if the deployment has it) and the
- * calibration tables (scripts/upload-calibration.mjs; unchanged files are skipped) to the local deployment's
- * file storage, and seeds the system setups (`setups:ensureSeeded`, idempotent, as every deploy does), then
- * prints "[dev] READY".
+ * auth.config.ts with both JWKS; (6) once that push has finished, starts the schema migrations (as every deploy
+ * does), then prints "[dev] READY".
  *
  * Deployment env vars set here (LOCAL ONLY; production must not set FAKE_OIDC_URL,
  * AI_MOCK or TEST_FIXTURES):
@@ -33,7 +30,7 @@
  *   FAKE_OIDC_URL   → the fake OIDC server (enables Better Auth's provider "fake" with fixtures on)
  *   ADMIN_EMAILS    admin@example.test (the fake "admin") and unverified@example.test (never verified)
  *   SEASON_SALT, AI_MOCK=1, TEST_FIXTURES=1 (enables convex/auth/testing.ts)
- * and removed: ASSISTANT_LIVE, ANTHROPIC_API_KEY, OPENAI_API_KEY (scripts/assistant-provider.mjs; the assistant starts mocked),
+ * and removed: ASSISTANT_LIVE, ANTHROPIC_API_KEY, OPENAI_API_KEY (provider keys never reach the local deployment),
  *   and DEV (a leftover DEV=1 turns test fixtures on behind TEST_FIXTURES' back; convex/auth/identity.ts fixturesOn)
  */
 import "./local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
@@ -45,8 +42,6 @@ import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startFakeOidc } from "./fake-oidc.mjs";
 import { generateJwtKey } from "./gen-jwt-key.mjs";
-import { convexRunner, uploadCalibration } from "./upload-calibration.mjs";
-import { uploadRuntime } from "./upload-runtime.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const cloudPort = process.env.CONVEX_LOCAL_CLOUD_PORT ?? "3210";
@@ -93,8 +88,7 @@ const newSecret = !current("BETTER_AUTH_SECRET");
 if (newSecret) vars.BETTER_AUTH_SECRET = randomBytes(32).toString("base64url");
 setEnv(vars);
 console.log(`[dev] env: ${Object.keys(vars).join(", ")}`);
-// Back to the mock assistant on every start (scripts/assistant-provider.mjs `live` sets these), so the
-// mock-scripted suites (test/game-assistant.test.ts) never reach a real provider and spend money by accident.
+// Provider keys go on every start, so no local suite reaches a real model provider and spends money by accident.
 // DEV goes too: TEST_FIXTURES is the one switch for fixtures here, and a stray DEV=1 would keep them on when a
 // test turns TEST_FIXTURES off (test/auth.test.ts "the fake provider does not exist once test fixtures are off").
 for (const name of ["ASSISTANT_LIVE", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DEV"]) {
@@ -113,6 +107,14 @@ if (newSecret || !current("BETTER_AUTH_JWKS")) {
   console.log("[dev] env: BETTER_AUTH_JWKS");
 }
 
+/** `npx convex run <fn>` without blocking the watcher's output. */
+const runConvex = fn => new Promise((resolveRun, rejectRun) => {
+  const run = spawn("npx", ["convex", "run", fn], { cwd: root, env, stdio: ["ignore", "ignore", "pipe"] });
+  let stderr = "";
+  run.stderr.on("data", chunk => { stderr += chunk; });
+  run.on("exit", code => (code === 0 ? resolveRun() : rejectRun(new Error(stderr.trim() || `exit ${code}`))));
+});
+
 // 4. Watch mode. Its first push re-evaluates auth.config.ts with both JWKS.
 const child = spawn("npx", ["convex", "dev", ...ports, ...process.argv.slice(2)], { cwd: root, env, stdio: ["inherit", "pipe", "pipe"] });
 let ready = false;
@@ -121,20 +123,10 @@ const watch = (stream, out) => stream.on("data", chunk => {
   // The CLI logs progress on stderr; the first "functions ready" after the env change is the signal.
   if (!ready && /Convex functions ready/.test(String(chunk))) {
     ready = true;
-    // 5. The runtime bundle (Python) and the calibration tables → file storage (each skips what is already there),
-    //    and the system setups (game-core SEED_SETUPS), which deploys seed with the same idempotent mutation.
-    const runner = convexRunner([], root, env), log = line => console.log(`[dev] ${line}`);
-    Promise.all([
-      uploadRuntime(runner, { log })
-        .catch(error => console.error(`[dev] uploading a runtime bundle failed: ${error.message}`)),
-      uploadCalibration(runner, { log })
-        .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`)),
-      runner("setups:ensureSeeded").then(() => log("Seeded the system setups."))
-        .catch(error => console.error(`[dev] seeding the system setups failed (setup tests will fail): ${error.message}`)),
-      // A local deployment migrates its stored rows as every deploy does (CLAUDE.md "Schema migrations").
-      runner("migrations:runAll").then(() => log("Started the schema migrations (migrations:status)."))
-        .catch(error => console.error(`[dev] starting the schema migrations failed: ${error.message}`)),
-    ]).finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
+    // 5. A local deployment migrates its stored rows as every deploy does (CLAUDE.md "Schema migrations").
+    runConvex("migrations:runAll").then(() => console.log("[dev] Started the schema migrations (migrations:status)."))
+      .catch(error => console.error(`[dev] starting the schema migrations failed: ${error.message}`))
+      .finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
   }
 });
 watch(child.stdout, process.stdout);
