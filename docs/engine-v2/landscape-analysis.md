@@ -398,3 +398,59 @@ What it says:
   (§4 expected 85–96%), but the coarse closed-form check does not recognise their family.
 - **Grids pass 1–4 apart from one cheap table in three at β = 0.02** (three tables are noisy); disclosure fails on
   grids too.
+
+### Thresholds set 14 Nov
+
+The coordinator set the thresholds, and the owner's decision 30 replaced test 1: unbounded hills are wanted, and
+collapse is prevented by adversaries and diversity of goals. The constants are in `src/collapse.ts`.
+
+- **Test 1: no unopposed joint rise.** For each dealt table, a direction is one call repeated 8 times: every call up to
+  12 bits, plus the shortcut climber's moves on lines. The table fails when, from at least 25% of the distinct births,
+  two seated rules each gain at least 2 bits by step 4 and more by step 8, and no third seated rule falls by at least
+  half the smaller gain. That third rule would be the adversary. Single-rule ramps are now reported as information
+  only.
+- **Test 4: dynamics.** Idle acts are information. The test fails on any of three conditions:
+  - (a) under the plain starters, fewer than 25% of the objects change in the last minute;
+  - (b) a shortcut search (the climber in `scripts/climbers.ts`, shared with `scripts/freeze.ts`) finds no improving
+    move on more than half the final objects;
+  - (c) the gains made after the midpoint are at most 2% of the game's, for every climber.
+
+  Every table now runs under unique objects.
+- **Test 5: disclosure.** The others' sums carry the server's noise: 8 bits, keyed on the state
+  (`convex/v2/disclose.ts`, #608). Exact sums appear only as a comparison row.
+
+The re-run covers line-q at β 0.05 for tests 1, 4 and 5, with 3 games for each kind of climber. The pool is now 43
+rules dealt by `lines-beginner`.
+
+| Row | 1 no unopposed joint rise | 4 dynamics | 5 disclosure |
+|---|---|---|---|
+| line-q, β 0.05 | FAIL: 4 of 8 tables have an unopposed direction (often a repeated pivot or `seq.step`); 1 more is opposed by an adversary. Information: 1 of 43 single rules ramps | FAIL (a). Plain starters: idle 96%, 15% of objects change in the last minute, 29% of gains come after the midpoint. Shortcut climber: idle 89%, 27% change, 38% after the midpoint, 46% of objects frozen. Objects 10 → 22–24 | PASS: σ = 8, median above 3,000 probes; 39 of 40 tables unidentified |
+| exact sums (σ = 0), not counted | – | – | FAIL: median 1 probe |
+| 24 objects, 0.1 births/s, not counted | – | FAIL (a). Plain: idle 96%, 12% change, 9% of gains after the midpoint. Shortcut: idle 84%, 28% change, 13% after the midpoint, 32% frozen. Objects 24 → 43–56 | – |
+
+### The 247k table and an adversary (`scripts/adversary.ts`)
+
+The table is Prime Landing/big-prime, Square Area/spf and Whole Crossing/k-spf, on line-q with 10 objects and 0.05
+births a second. Every seat is a shortcut climber. β is 0.05, and each table played 2 games.
+
+| Table | Game | Points gained per seat | Table total | Shortcut moves' share of gains | Best line | Lines with \|m\| ≤ 3, \|c\| ≥ 300 |
+|---|--:|---|--:|--:|---|--:|
+| the 247k table | 0 | Prime Landing 64,778; Square Area 74,329; Whole Crossing 102,029 | 241,136 | 121% | **y = −2x + 734** | 2 of 28 |
+| | 1 | 7,682; 76,074; 78,179 | 161,935 | 113% | y = 2x + 842 | 1 of 26 |
+| Treasure/m-spf in Square Area's seat | 0 | Prime Landing 9,168; Treasure 4,907; Whole Crossing 8,313 | 22,388 | 58% | y = −x + 47 | 0 of 28 |
+| | 1 | 26,136; 5,678; 24,524 | 56,338 | 81% | y = −x + 229 | 0 of 28 |
+
+- **The case reproduces.** Shortcut moves (stretch, pivot, mirror) bring more than all of the table's gains. The other
+  moves lose points on balance.
+- **The pool has no real adversary for this direction.** Every rule of the pool was measured as c/(−m) and the root
+  grow (|m| ≤ 3, 20 ≤ c ≤ 800).
+  - The most adverse is the Treasure family, all five tie-breakers alike. It loses 0.6 bits for each doubling of c/m,
+    and its mean bits fall from 5.8 to 0.5.
+  - The seated climbers gain 9.8 bits for each doubling: Prime Landing's mean bits go from 9.6 to 47.8, and Whole
+    Crossing's from 2.4 to 35.6.
+  - So Treasure falls about 16 times more slowly than the climbers rise. It is not a comparable adversary.
+- **Treasure in the seat still changes the game.** Table totals fall 4 to 10 times, and no line reaches |c| ≥ 300.
+  Part of that drop is simply the loss of a rule that was climbing with the others.
+- **What the adversary needs.** Its bits must fall by about 10 bits for each doubling of c/(−m) or of the root
+  √(c²/2|m|), so that a joint climb along that direction costs it about as much as the others gain. That is a family
+  for the rule-design session.

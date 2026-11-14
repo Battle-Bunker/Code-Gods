@@ -4,7 +4,7 @@
  * for the owner to set. Analysis only: nothing here changes game behaviour.
  */
 
-/** Test 1, no ramp: a rule fails when its top lies at the window's edge, grows from W to 2W, and its tail tracks read length. */
+/** Single-rule ramps (information since 14 November; was test 1): a rule ramps when its top lies at the window's edge, grows from W to 2W, and its tail tracks read length. */
 export const RAMP = Object.freeze({
   /** The top is "at the edge" when reaching it costs more than this share of the window's energy. */
   edgeShare: 0.9,
@@ -14,6 +14,28 @@ export const RAMP = Object.freeze({
   corr: 0.9,
   tailBits: 10,
 });
+/**
+ * Test 1 (since 14 November 2026, owner decision 30: unbounded hills are wanted; collapse is prevented by adversaries
+ * and diversity of goals): no direction along which a basic strategy raises several seated rules' bits together
+ * without an adversary at the table. A direction is one call repeated (`repeats` times; a single call is its first
+ * step). Along it, from a start state, rules "rise together" when at least two seated rules gain at least `rise` bits by
+ * the midpoint of the repeats and gain more by the end; an adversary is another seated rule whose bits fall by at least
+ * `adversary` × the smaller of those gains. A table fails when some direction raises rules together without an
+ * adversary from at least `starts` of the start states. Single-rule ramps (RAMP) are reported as information.
+ */
+export const TOGETHER = Object.freeze({ repeats: 8, rise: 2, adversary: 0.5, starts: 0.25 });
+/** Along one path from one start: did ≥ 2 rules rise together, and did another fall comparably (an adversary)? */
+export function riseTogether(start: readonly number[], mid: readonly number[], end: readonly number[]): { together: boolean; adversary: boolean } {
+  const gainMid = mid.map((x, i) => x - start[i]!), gainEnd = end.map((x, i) => x - start[i]!);
+  const rising = start.map((_, i) => i).filter(i => gainMid[i]! >= TOGETHER.rise && gainEnd[i]! > gainMid[i]!);
+  if (rising.length < 2) return { together: false, adversary: false };
+  const least = Math.min(...rising.map(i => gainEnd[i]!));
+  const adversary = start.some((_, i) => !rising.includes(i) && -gainEnd[i]! >= TOGETHER.adversary * least);
+  return { together: true, adversary };
+}
+/** A table fails test 1 when a direction raises rules together, unopposed, from at least TOGETHER.starts of the starts. */
+export const togetherFails = (unopposedStarts: number, starts: number): boolean => starts > 0 && unopposedStarts >= TOGETHER.starts * starts;
+
 /** Test 2, no cheap optimum: a B-evaluation search with full rule knowledge against a reference search. */
 export const CHEAP = Object.freeze({
   /** B, the searcher's evaluations. */
@@ -26,17 +48,39 @@ export const CHEAP = Object.freeze({
 /** Test 3, no single answer: the best N distinct states keep less than `keep` of N × the best, or are not one closed form. */
 export const SINGLE = Object.freeze({ n: 24, keep: 0.7 });
 /** Test 4, no convergence in play (over the last `window` seconds of a game). */
-export const CONVERGE = Object.freeze({ window: 100, familyShare: 0.5, movingPerMinute: 0.1 });
-/** Test 5, disclosure: median probes until the others' rules are identified must exceed this floor. */
-export const DISCLOSE = Object.freeze({ floor: 200 });
+/**
+ * Test 4, dynamics (thresholds set by the coordinator, 14 November 2026). Idle acts by plain starters are information,
+ * not failure. The variant fails when any of these holds:
+ *   (a) in the last `lastSeconds` of play, fewer than `movingPerMinute` of the objects change a minute under the plain
+ *       starters;
+ *   (b) a climber that also uses the representation shortcuts (stretch, pivot, mirror, fractional amounts) finds no
+ *       improving move on more than `frozenShare` of the objects at the end;
+ *   (c) the table's gains from play stop rising before the midpoint for every climber: after it they add no more than
+ *       `stallShare` of the game's gains.
+ */
+export const DYNAMICS = Object.freeze({ lastSeconds: 60, movingPerMinute: 0.25, frozenShare: 0.5, stallShare: 0.02 });
+/**
+ * Test 5, disclosure: median probes until the others' rules are identified must exceed `floor`, with the others' sums
+ * blurred as the server blurs them (`sigma` bits of keyed Gaussian noise per state; convex/v2/disclose.ts, #608).
+ */
+export const DISCLOSE = Object.freeze({ floor: 200, sigma: 8 });
 
 export const rampFails = (m: { topCostShare: number; growth: number; corr: number }): boolean =>
   m.topCostShare > RAMP.edgeShare && m.growth > RAMP.growth && m.corr > RAMP.corr;
 export const tableCheap = (searched: number, reference: number): boolean => reference <= 0 || searched >= CHEAP.reach * reference;
 export const cheapFails = (failedTables: number, tables: number): boolean => tables > 0 && failedTables > CHEAP.tablesShare * tables;
 export const singleFails = (m: { keep: number; closedForm: boolean }): boolean => m.keep >= SINGLE.keep && m.closedForm;
-export const convergeFails = (m: { familyShare: number; movingPerMinute: number }): boolean =>
-  m.familyShare > CONVERGE.familyShare || m.movingPerMinute < CONVERGE.movingPerMinute;
+/** Has the table stopped gaining? Gains after the midpoint are at most stallShare of the whole game's. */
+export const stalled = (m: { gainedByMid: number; gainedByEnd: number }): boolean =>
+  m.gainedByEnd - m.gainedByMid <= DYNAMICS.stallShare * Math.max(Math.abs(m.gainedByEnd), 1);
+/** Which of (a), (b), (c) fail; the test fails when any does. */
+export function dynamicsFailures(m: { movingPerMinute: number; frozenShare: number; stalledEvery: boolean }): string[] {
+  const out: string[] = [];
+  if (m.movingPerMinute < DYNAMICS.movingPerMinute) out.push("a");
+  if (m.frozenShare > DYNAMICS.frozenShare) out.push("b");
+  if (m.stalledEvery) out.push("c");
+  return out;
+}
 export const discloseFails = (medianProbes: number): boolean => !(medianProbes > DISCLOSE.floor);
 
 /**

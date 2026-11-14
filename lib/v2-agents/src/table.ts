@@ -86,6 +86,8 @@ export interface TableAct<S> {
   readonly seat: number;
   readonly outcome: ActRecord["outcome"];
   readonly committed: boolean;
+  /** The line's state before the act and after it. */
+  readonly before: S;
   readonly state: S;
   readonly objects: number;
 }
@@ -260,7 +262,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
-    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", state: verdict === "committed" ? state : lines[object]!, objects: lines.length });
+    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length });
     if (verdict !== "committed") return;
     const from = type.encode(lines[object]!), to = type.encode(state), last = lastMove.get(object);
     if (last && last.by !== i && last.from === to) stats[i]!.flips++;
