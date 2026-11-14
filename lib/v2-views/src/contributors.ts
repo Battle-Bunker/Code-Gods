@@ -217,7 +217,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     ? from.flatMap(r => {
       const k = refKey({ ...r, site: undefined });
       const note = e.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && refKey({ ...m.ref, site: undefined }) === k);
-      return note ? [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: note.text }] : [];
+      if (note) return [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: note.text }];
+      // A unit at its target carries the rule's focus mark instead of a note.
+      const onTarget = e.marks.some(m => m.kind === "focus" && refKey({ ...m.ref, site: undefined }) === k);
+      return onTarget ? [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: "on target" }] : [];
     })
     : [];
   // Listed by short names ("row 1") only where they tell the units apart; units that would need their full labels
