@@ -4,7 +4,9 @@ Status: proposals and measurements only. Nothing here changes the dealt rule poo
 `lib/v2-agents/scripts/line-rules-v3.ts`, run from `lib/v2-agents`:
 
 - the first pass: `node --experimental-strip-types scripts/line-rules-v3.ts --part all` (about 25 minutes);
-- the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour).
+- the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour);
+- adversaries, contests, unfreezing and the flatter law: `--part adversary`, `--moves mutators --part contest`,
+  `--pool rational --moves mutators --part unfreeze`, `--part flatlaw` (minutes each).
 
 It follows [landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here. Part A is the
 second round, done after the owner's questions about rational lines; Part B is the first round, merged earlier as #607,
@@ -56,6 +58,12 @@ merged as #607.
 3. Something that moves the landscape under the seats (drifting targets, redrawn twists, births and deaths) so that a
    frozen table is not a fixed point.
 4. The law's heavy mass at 0 and ±1.
+
+**Since then** (§A7–A9): the owner kept "bigger is better" hills (decision 30) and asked for adversaries. Five
+adversary cards (Smooth Crossing, Smooth Intercept, Steep and Tall, Smooth Gradient, Smooth Square) went to the spec lead.
+With any one of them seated, the largest crossing a climber reached stayed under 100, against 2,117 without. A
+dealt target that is redrawn every 50 s is the one change that kept the whole board moving (79–88% of objects moving
+late, against 4–8%). A flatter law at 0 and ±1 fixes the 27% vertical births but not the degenerate tops.
 
 The audit of all 46 current tie-breakers against the "tied" rule is §A3: 6 are tied, 22 read the anchor alone, 18 are
 independent, and all 24 ramps are among the untied ones.
@@ -315,7 +323,8 @@ Test by test:
 fixed, a hill climber stops at a local maximum of its own objective. Only conflict between seats over the same object
 keeps it moving. Entanglement raises conflict, but seats still settle on a state no one can improve alone.
 
-**For the owner** (no rule is changed here):
+**For the owner** (no rule is changed here). *Answered since:* item 1 by decision 30 (unbounded hills wanted, with
+adversaries: §A7); item 2 is with the two- and three-line sessions; item 3 is measured in §A8; item 4 in §A9.
 
 1. **Maximised relations or compared relations.** "As big a common factor as possible" is a slow ramp with no top;
    "the common factor equals the dealt k", "n is a multiple of q" or "as close to coprime as possible" has a top and no
@@ -338,6 +347,102 @@ keeps it moving. Entanglement raises conflict, but seats still settle on a state
 **Cards for the spec lead.** The tied secondaries above can replace the anchor-only and independent ones of the
 restored families (§A3): for example Prime Landing's next-prime and Whole Intercept's gcd-den-m. They should be dealt only
 alongside the collapse check (§A5), because they still ramp slowly.
+
+
+## A7. Adversaries for the big-prime hills (owner decision 30)
+
+Decision 30 keeps "bigger is better": "I absolutely want bigger is better mechanics so there are unbounded hills to
+climb. We just need to make sure there are adversaries to ongoing expensive climb of those hills." The spec lead's
+tension matrix (`tension-matrix.md`) found no adversary in the dealt pool to the stretch case (y = −2x + 734, the
+crossing and the area's root both the prime 367). These five cards went to the spec lead. Each is one sentence, has a
+tied tie-breaker and an unbounded hill of its own, and pulls an anchor the climbers use toward the opposite kind of
+number. Run with `--part adversary` and `--part contest`.
+
+| Card | Primary (kid text) | Tied tie-breaker | Adversary to |
+|---|---|---|---|
+| **Smooth Crossing** | the x-axis crossing as close as possible to a number made only by multiplying 2s, 3s, 5s and 7s | that number and the whole number nearest the y-intercept share as many prime factors as possible | Whole Crossing/k-spf, k-gpf; the stretch case |
+| **Smooth Intercept** | the y-intercept as close as possible to such a number | that number and the whole number nearest the crossing share as many prime factors as possible | Prime Landing/big-prime, Whole Intercept/spf |
+| **Steep and Tall** | the gradient and the y-intercept both positive and both as big as possible (the smaller counts) | their whole parts share as many prime factors as possible | every big-crossing rule: the crossing becomes −c/m, small and negative |
+| **Smooth Gradient** | the gradient as close as possible to such a number | that number and the whole number nearest the y-intercept share as many prime factors as possible | Prime Gradient; big-crossing rules through steepness |
+| **Smooth Square** | Square Area's own main | the square's root and the whole number nearest the crossing share as many prime factors as possible | Square Area/spf, lpf (same anchor, opposite pull) |
+
+**Bits along the climbs** (bits at p ≈ 11, then p ≈ 1,471, and the gain per doubling):
+
+| Rule | On y = −2x + 2p (p prime: the stretch case) | On its own hill | Per doubling on its own hill |
+|---|---|---|---|
+| Whole Crossing/spf (climber) | 10.1 → 32.8 (my ladder caps near 33) | – | ≥ 3.2 |
+| Square Area/spf (climber) | 13.3 → 27.0 (capped) | – | ≥ 1.9 |
+| Smooth Crossing | 2.0 → 2.0 | 6.6 → 17.9 (y = −2x + 2^(k+1)) | 1.6 |
+| Smooth Intercept | 0.5 | 6.6 → 17.9 (the same path) | 1.6 |
+| Steep and Tall | 0.8 | 8.2 → 21.8 (y = 2^k·x + 2^k) | 1.9 |
+| Smooth Gradient | 5.2 | 8.9 → 24.2 (y = 2^k·x + 2^k) | 2.2 |
+| Smooth Square | 7.0 | 8.6 → 20.5 (y = −2x + 2^(k+1)) | 1.7 |
+
+**Contest in simulation** (greedy seats, mutator moves, 24 objects, 300 s, two seeds; climbers are Whole Crossing/spf,
+Square Area/spf and Whole Intercept/spf):
+
+| Seats | Largest \|crossing\| at the end | Whole Crossing/spf bits | Square Area/spf bits |
+|---|---|---|---|
+| climbers alone | **2,117 and 194** | 205, 153 | 208, 221 |
+| + Smooth Crossing | 47, 73 | 94, 114 | 118, 117 |
+| + Steep and Tall | 97, 97 | 73, 77 | 92, 87 |
+| + Smooth Square | 49, 97 | 120, 86 | 178, 130 |
+| two climbers + Smooth Crossing + Steep and Tall | 49, 80 | 127, 120 | 156, 155 |
+
+- **An adversary seated stops the long climb.** The largest crossing stays under 100 in all eight adversary runs, against
+  2,117 in one of the two climber-only runs. The climbers keep about half their bits.
+- **What it costs the adversaries.** No "prefers small or smooth" rule can be worth much where the law already puts its
+  mass, because small, smooth numbers are common. These adversaries' bits come from their own unbounded hills (powers
+  of 2) and are 0.5–7 on the climbers' lines. They contest by pulling the same anchor the other way, not by scoring
+  high where the climbers are.
+- **What it does not do.** The greedy seats then trade the same few objects back and forth every second (the "bits
+  destroyed" counts run to thousands), while the board and the table total are flat after 50 s. That is contest without
+  progress (§A8).
+
+## A8. What unfreezes play (proposal for the owner, with measurements)
+
+The coordinator asked which of opposing seats, drifting targets, redrawn twists, or births and deaths unfreezes play.
+Measured on the rational pool (Whole Intercept/gcd-den-m, Farey Pair/mediant-x, Target Gradient/gcd-tops), mutator
+moves, two seeds, `--part unfreeze`:
+
+| Variant | F at 50 s steps | Objects moved in the last 100 s |
+|---|---|---|
+| fixed rules | 4,535 → 4,555, then flat; 4,713 → 4,863, then flat | 8%, 4% |
+| **Target Gradient's T redrawn every 50 s** (5/3, 3/4, −2/5, 7/2, 1/3, −3/2) | 4,535 → 4,652 → 3,183 → 5,625 → 3,031 → 5,783 | **88%, 79%** |
+| a death and a birth every 10 s (the table's least valuable object replaced) | rises to 6,887 and 6,142, then slowly drifts | 8%, 8% |
+| opposing seats (§A7) | flat after 50 s; seats trade the same objects | 4–8% |
+
+- **A drifting dealt target is the only one that keeps the whole board moving.** Every redraw sends the seats climbing
+  again. The cost: one value table per target value (decision 20: a cache keyed by parameter), and a card that says
+  "the target changes every so often", which a 12-year-old reads easily. A target drawn from a known list keeps it fair.
+- **Births and deaths** keep the total changing, but only the newborns move; the rest of the board stays put. They cost
+  nothing in calibration (births already come from the law), and are a simple, readable rule.
+- **Opposing seats** produce contest (§A7), but between greedy seats it degenerates into trading one object back and
+  forth. Real players who talk may do better; the measurement cannot say.
+- **Redrawn per-object twists** were not simulated separately. They behave like a drifting target on one object at a time,
+  at the same calibration cost.
+- The owner has said hard local maxima that need strategy are acceptable, so this is an option, not a need.
+
+## A9. A flatter law at 0 and ±1 (proposal; measured by reweighting draws)
+
+Each coordinate with |n| ≤ 1 is charged δ more bits, and the rest is renormalised (`--part flatlaw`):
+
+| δ | Vertical lines in the law | Bounded rules' tops (window 24) |
+|---|---|---|
+| 0 (today) | 27.2% | 1.3–8.1 bits, at y = x + 1, y = 7x + 7, y = 1, y = 2x + 2 |
+| 2 | 12.8% | +0 to +1.8 bits, at the same lines |
+| 4 | 4.3% | +0 to +3.5 bits, at the same lines |
+| 6 | 1.2% | +0.4 to +5.3 bits, at the same lines |
+
+- A flatter law fixes the vertical-line births (27% of newborn lines are vertical today).
+- It does not move the degenerate tops, because b = 1 is itself a "1": every non-vertical whole line pays alike, and the
+  cheapest member of a coincidence set stays the cheapest.
+- What it would take: add δ to mixedIntBits at 0 and ±1, and recompute its normaliser. That changes births, every
+  surcharge and every value table.
+
+**Limits of A7–A9.** Vertical lines score worst on every rule here that reads m or c (the general form would give some
+of them a value, e.g. Ruler's distance). The seats are greedy and selfish. The ladder caps near 33 bits, so the climbers'
+gains past p ≈ 47 are understated.
 
 
 ---
