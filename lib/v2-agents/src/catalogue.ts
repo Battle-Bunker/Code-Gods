@@ -323,4 +323,86 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       steep: { ts: "Q.abs(Q.sub(m, 1))", py: "abs(m - 1)", says: "a gradient far from 1 is better", lenses: ["shift", "tilt", "turnAtT"], steps: 4, tryThis: "remove the \"turn\" line: can it get steep without losing T?" },
     },
   },
+  {
+    family: "whole-crossing",
+    mainSays: "how far the line's x-axis crossing is from a whole number (closer is better)",
+    main: {
+      ts: [
+        "if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score",
+        "const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis",
+        "const k = whole(x);                             // the whole number nearest the crossing",
+        `const main = ${neg("Q.abs(Q.sub(x, k))")};`,
+        "const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)",
+      ],
+      py: [
+        "if m == 0:                                      # a flat line never crosses: the worst score",
+        "    return None",
+        "x = -c / m                                      # where y = mx + c crosses the x-axis",
+        "k = whole(x)                                    # the whole number nearest the crossing",
+        "main = -abs(x - k)",
+        "fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)",
+      ],
+    },
+    tieBreakers: {
+      "k-spf": {
+        ts: "fk[0] ?? 1", py: "fk[0] if fk else 1", says: "that whole number's smallest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 12 so it can reach crossings further out.",
+      },
+      "k-gpf": {
+        ts: "fk.at(-1) ?? 1", py: "fk[-1] if fk else 1", says: "that whole number's largest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 6, tryThis: "remove the \"tilt\" line: moving the line up and down alone walks the crossing in steps of 1/m.",
+      },
+      "m-spf": {
+        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 10 so the gradient can jump to a bigger prime.",
+      },
+    },
+  },
+  {
+    family: "divisibility-ladder",
+    mainSays: "how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)",
+    mainWithTie: { ts: "Math.min(main, 11)", py: "min(main, 11)" },   // a run of 11 is the top; 12 counts the same
+    main: {
+      ts: [
+        "if (Q.isZero(c)) return null;                   // through (0, 0): the rule wants a line that is not",
+        "let main = 0;",
+        "for (let n = 1; n <= 12; n++) {                 // the run of n dividing y(n)",
+        "  const y = Q.add(Q.mul(m, n), c);",
+        "  if (!Q.isInteger(y) || !Q.isInteger(Q.div(y, n))) break;",
+        "  main++;",
+        "}",
+        "const fm = factors(m) ?? [];                    // the gradient's prime factors ([] for 0, 1, -1)",
+      ],
+      py: [
+        "if c == 0:                                      # through (0, 0): the rule wants a line that is not",
+        "    return None",
+        "main = 0",
+        "for n in range(1, 13):                          # the run of n dividing y(n)",
+        "    y = m * n + c",
+        "    if y.denominator != 1 or y.numerator % n != 0:",
+        "        break",
+        "    main += 1",
+        "fm = factors(m) or []                           # the gradient's prime factors ([] for 0, 1, -1)",
+      ],
+    },
+    tieBreakers: {
+      "m-spf": {
+        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 12: the run needs c a multiple of 27720, so big jumps help.",
+      },
+      "m-gpf": {
+        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 12: the run needs c a multiple of 27720, so big jumps help.",
+      },
+      steep: {
+        ts: "Q.abs(m)", py: "abs(m)", says: "a steeper gradient is better",
+        lenses: ["shift", "tilt"], steps: 6, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
+      },
+      "m-prime": {
+        pre: { ts: ["const mp = near(m, prime);"], py: ["mp = near(m, prime)"] },
+        ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime is better",
+        lenses: ["shift", "tilt"], steps: 4, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
+      },
+    },
+  },
 ];
