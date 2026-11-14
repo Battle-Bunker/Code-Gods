@@ -56,7 +56,7 @@ test("the briefing says what each deal needs now, with the edit and its price", 
   assert.match(text, /if \(\[2, 9, 4\]\.includes\(offer\.object\)\) return null;/);
   assert.match(text, /if offer\.object in \(2, 9, 4\): return None/);
   assert.match(text, /agent_replace/);
-  assert.match(text, /if it has a LEAVE list, add 2, 9, 4 to it/);
+  assert.match(text, /if it has a PROTECT list, add 2, 9, 4 to it/);
   assert.equal(skipsLines("const LEAVE = [2, 9, 4];\nfunction agent(offer) {\n  if (LEAVE.includes(offer.object)) return null;\n}", [2, 9, 4]), true, "a starter's LEAVE list keeps it");
   assert.match(text, /about 20 ⚡\) or retract it in chat/);
   assert.match(text, /Bo's agents lowered your points on line 9/);

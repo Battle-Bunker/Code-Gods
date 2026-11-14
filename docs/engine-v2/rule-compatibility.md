@@ -145,3 +145,23 @@ earlier runs (Prime Landing/big-prime, Treasure/prime-terms, Whole Crossing/k-sp
 - **What would make keeping deals pay:** tables where shared states exist but greedy play does not find them, i.e.
   partial compatibility where coordination (agreeing which shared target to build) matters. The pool has few such
   pairs.
+
+## Cooperating agents against naive ones (server economy, 300 s, 2 games; table totals)
+
+The agents' host now answers `othersAfter(plan)`: the other players' rarity on the line, added up, now and after a
+candidate plan (the total only, never each player's; a small read). The helper `fair(offer, plan)` and the starters'
+`PROTECT = []` list build on it: on protected lines a starter only makes moves that keep the others at least as well
+off.
+
+| Table | Naive | Starters | Protect every line (`fair`) | Own points never fall (rarity × others' total after the move ≥ before) |
+|---|--:|--:|--:|--:|
+| Mixed (conflicted) | 8,257 | 6,357 | 7,153 | **10,977** |
+| Compatible | **43,947** | 41,902 | 25,047 | 27,524 |
+
+- **Never lowering the others is too strict.** It gives up moves that raise the mover far more than they cost the
+  others, and it loses on both tables.
+- **"My points must not fall" beats naive on the conflicted table by a third, in total and per seat.** That is the
+  rule the scoring rewards: a move that spoils a line for the others lowers the mover's own points. It loses on the
+  compatible table, where climbing often passes through states that briefly lower the others.
+- **So no single rule wins everywhere yet.** Whether the starters adopt the points-never-fall rule depends on which
+  tables the server deals (owner's call).

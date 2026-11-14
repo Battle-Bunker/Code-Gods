@@ -196,6 +196,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length,
       value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
+      others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
     const changed = record.outcome === "committed" && record.after !== record.before;

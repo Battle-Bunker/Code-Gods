@@ -26,6 +26,7 @@ def score(m, c, p):
 FAR = 4      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 
 def agent(offer):
@@ -53,6 +54,9 @@ def agent(offer):
             top, plans = s, [plan]         # a new best
         elif plans and not better(top, s):
             plans.append(plan)             # as good as the best: the price decides
+    # A promise: on these lines, only moves that leave the other players at least as well off.
+    if offer.object in PROTECT:
+        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]
     if not plans:
         return None
     plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best

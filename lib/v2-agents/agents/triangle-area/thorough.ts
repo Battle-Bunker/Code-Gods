@@ -24,6 +24,7 @@ function score(m, c, p, tie) {
 const FAR = 5;      // how far one change may go
 const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
+const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone
@@ -50,6 +51,8 @@ function agent(offer) {
     if (better(s, top)) { top = s; plans = [plan]; }               // a new best
     else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
   }
+  // A promise: on these lines, only moves that leave the other players at least as well off.
+  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));
   if (!plans.length) return null;
   const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
   return plan;

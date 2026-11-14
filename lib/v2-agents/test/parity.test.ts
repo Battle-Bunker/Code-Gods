@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import { fromMC, lineType, lineZ, lineQ } from "@workspace/v2-linear";
 import { q, type Q } from "@workspace/v2-core";
 import { EngineHost, runAct, sandboxes, type RuleRef } from "../src/index.ts";
+import { findValues } from "../src/harness.ts";
 import type { Language } from "@workspace/v2-sandbox";
 
 const boxes = sandboxes();
@@ -135,4 +136,27 @@ test("price() of the plan cheapest() just returned is answered without a second 
     assert.equal(record.outcome, "committed", record.reason);
     assert.equal(record.transcript.filter(e => e.request.op === "quote").length, 2, `${language}: two plans, two quotes`);
   }
+});
+
+test("fair: true when a plan keeps the others' rarity, added up; the same in both languages; a small read each time", async () => {
+  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
+  const vf = findValues("line-z", other)!;
+  const gradientOff = { lines: [fromMC(q(7), q(3))] };   // m = 7 is prime: the other player's rule likes it
+  const ts = `function agent(offer) { return [move("probe", { r: [fair(offer, [move("si.shift", { k: 1 })]), fair(offer, [move("si.tilt", { k: 1 })]), fair(offer, [move("nope", {})])].join("|") })]; }`;
+  const py = `def agent(offer):\n    r = [fair(offer, [move("si.shift", k=1)]), fair(offer, [move("si.tilt", k=1)]), fair(offer, [move("nope")])]\n    return [move("probe", r="|".join(str(x).lower() for x in r))]\n`;
+  const out = [];
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineZ, state: gradientOff, rule: { family: "m-meets-c", params: {} }, energy: 10, others: [{ rule: other, values: vf }] });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, readBits: res.readBits });
+  }
+  assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
+  // Shifting keeps the gradient 7 (prime): fair. Tilting to 8 loses the prime: not fair. A move that is not allowed: fair (it changes nothing).
+  assert.equal(out[0]!.r, "true|false|true");
+  assert.ok(out[0]!.readBits >= 3 * 6, "each othersAfter is a small read");
+  // Without the others' rules the game does not say, and fair is true.
+  const plain = new EngineHost({ type: lineType, variant: lineZ, state: gradientOff, rule: { family: "m-meets-c", params: {} }, energy: 10 });
+  const res = await (await boxes.get("typescript")).act({ source: ts, offer: { object: 0 }, seed: "1", host: plain });
+  assert.equal(res.ok && (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, "true|true|true");
 });

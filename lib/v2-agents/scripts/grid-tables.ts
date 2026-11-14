@@ -25,7 +25,7 @@ const value = rules.map(rule => {
   return (s: GridState) => {
     const key = s.cells.join("");
     let b = cache.get(key);
-    if (b === undefined) { const e = evaluateSite(gridType, f, rule.params, s, grid4, 0, rule.tieBreaker); b = look(e.utility ?? e.score).bits; cache.set(key, b); }
+    if (b === undefined) { const e = evaluateSite(gridType, f, rule.params, s, grid4, 0, rule.tieBreaker); b = look(e.score).bits; cache.set(key, b); }
     return b;
   };
 });
