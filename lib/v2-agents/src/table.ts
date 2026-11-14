@@ -323,7 +323,10 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
           const program = { language: args.language as Program["language"], source: String(args.source ?? "") };
           const samples = [0, 1, 2, 3].map(() => { const j = checks.below(lines.length); return { objectId: String(j), state: lines[j]! }; });
           const rep = await check(await sandbox(program.language), { type, variant, rule: seat.rule, program, samples, energy: settledOwn(i).balance });
-          return { verdict: rep.verdict, summary: rep.summary, price: rep.price, sample: rep.sample };
+          // With agentId: what agent.replace with this program would cost (only the change, or the whole price in another language).
+          const x = args.agentId === undefined ? null : agentArg(i, args);
+          const editPrice = x === null ? null : program.language === x.program.language ? editBits(program.language, x.program.source, program.source).energy : rep.price;
+          return { verdict: rep.verdict, summary: rep.summary, price: rep.price, editPrice, sample: rep.sample };
         }
         case "agent.summon": {
           const program = { language: args.language as Program["language"], source: String(args.source ?? "") };
