@@ -49,6 +49,8 @@ export const lower = (a: Grant, b: Grant | undefined): Grant => b !== undefined 
 /** Opens a turn on `text` and schedules its run, at the human's grant, lowered to `cap` (a delegate's own). */
 export async function startTurn(ctx: MutationCtx, room: Doc<"v2Rooms">, userId: string, threadId: Id<"v2AssistantThreads">, text: string, trigger?: "autopilot", cap?: Grant) {
   const prefs = await prefsOf(ctx, room._id, userId), now = Date.now();
+  // The human asking (not an autopilot tick) lifts a Stop's hold on autopilot.
+  if (!trigger && prefs?.stopped) await ctx.db.patch(prefs._id, { stopped: false });
   const turnId = await ctx.db.insert("v2AssistantTurns", {
     threadId, roomId: room._id, userId, ...(room.gameId ? { gameId: room.gameId } : {}), status: "running", ...(trigger ? { trigger } : {}),
     grant: lower(prefs?.grant ?? "act", cap), mode: prefs?.mode ?? "onRequest", steps: 0, tokens: 0, usd: 0, createdAt: now,
@@ -141,6 +143,9 @@ export const finish = internalMutation({
 export async function cancelTurn(ctx: MutationCtx, roomId: Id<"v2Rooms">, userId: string) {
   const turn = await busyTurn(ctx, roomId, userId);
   await holdQueue(ctx, roomId, userId);
+  // Stop means stop: autopilot starts nothing more until the human asks again (startTurn, assistant.setMode).
+  const prefs = await prefsOf(ctx, roomId, userId);
+  if (prefs && !prefs.stopped) await ctx.db.patch(prefs._id, { stopped: true });
   if (!turn) return "idle" as const;
   if (turn.status === "running") await ctx.db.patch(turn._id, { status: "cancelling" });
   return "stopping" as const;
@@ -158,6 +163,7 @@ export const autopilotTick = internalMutation({
     if (!member) return;
     const again = (ms: number = LIMITS.autopilotMs) => scheduleAutopilot(ctx, roomId, userId, chain, ms);
     if (game.phase !== "live") return await again(LIMITS.waitMs);   // planning or paused: look again soon
+    if (prefs.stopped) return await again();   // after a Stop, nothing until the human asks again
     // Refused (a quota, a ceiling, the rate limit, not an administrator's room): no turn now; it asks again next tick,
     // since the owner may raise a quota mid-game.
     if ("refused" in await limitsIn(ctx, { roomId, gameId: game._id, memberId: member._id, pool: "assistant" })) return await again();

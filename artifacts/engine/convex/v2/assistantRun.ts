@@ -73,7 +73,7 @@ export const run = internalAction({
     const abort = new AbortController();
     let index = 0, result: RunResult | null = null, error: string | undefined, status: "done" | "failed" | "cancelled" | "budget" = "done";
     try {
-      const delegate: Delegate = { userId: input.userId, roomId: input.roomId, grant: grantFor(input.grant, input.mode), via: "assistant" };
+      const delegate: Delegate = { userId: input.userId, roomId: input.roomId, grant: grantFor(input.grant, input.mode), via: "assistant", turnId };
       const scope = input.gameId ? { gameId: input.gameId as string } : {};
       const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope });
       const tools = assistantTools(caller.ctx);

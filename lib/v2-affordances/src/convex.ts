@@ -19,7 +19,7 @@ import {
 } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { AFFORDANCES, opKind, type ServerAffordanceId } from "./directory.ts";
-import { runOp, type Handler, type OpOutcome, type ReceiptStore } from "./server.ts";
+import { OpFailure, runOp, type Handler, type OpOutcome, type ReceiptStore } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
 import { applyView, type ViewState } from "./layout.ts";
 
@@ -31,7 +31,8 @@ export type CtxOf<DM extends GenericDataModel, K extends OpKind> =
 /** What the app sends besides the args: the room or game in view. */
 export interface OpScope { roomId?: string; gameId?: string; replay?: boolean }
 /** The human an assistant or a credential acts for (the twin's caller). */
-export interface Delegate { userId: string; roomId: string | null; grant?: Grant; via: "assistant" | "mcp" | "cli" }
+/** `turnId`: the in-client assistant's turn; a write is refused once that turn is no longer running (a Stop). */
+export interface Delegate { userId: string; roomId: string | null; grant?: Grant; via: "assistant" | "mcp" | "cli"; turnId?: string }
 /** The caller as the server resolved it. `callerKey` keys receipts (user id, or credential id). */
 export interface Caller { ctx: AffordanceContext; callerKey: string; userId: string | null }
 
@@ -58,6 +59,7 @@ const delegateArg = v.object({
   userId: v.string(), roomId: v.union(v.string(), v.null()),
   grant: v.optional(v.union(v.literal("read"), v.literal("act"), v.literal("owner"))),
   via: v.union(v.literal("assistant"), v.literal("mcp"), v.literal("cli")),
+  turnId: v.optional(v.string()),
 });
 
 export function makeDefineOp<DM extends GenericDataModel>(host: OpHost<DM>) {
@@ -67,7 +69,12 @@ export function makeDefineOp<DM extends GenericDataModel>(host: OpHost<DM>) {
     if (kind !== opKind(a)) throw new Error(`defineOp: ${id} is declared as a Convex ${opKind(a)}, not a ${kind}`);
     const run = async (ctx: CtxOf<DM, K>, who: { session: true } | { delegate: Delegate }, input: OpScope & { args: unknown }) => {
       const { args, ...scope } = input;
-      const caller = await host.resolve(ctx as GenericQueryCtx<DM>, who, scope);
+      let caller: Caller;
+      // A caller refused before the operation (a stopped assistant turn) gets a refusal, as for anything else.
+      try { caller = await host.resolve(ctx as GenericQueryCtx<DM>, who, scope); } catch (e) {
+        if (!(e instanceof OpFailure)) throw e;
+        return { ok: false, error: { code: "refused", message: e.message, ...(e.fix ? { fix: e.fix } : {}) } } satisfies OpOutcome;
+      }
       const out = await runOp(a, handler as never, args, {
         ctx: caller.ctx, via: "delegate" in who ? who.delegate.via : "app", callerKey: caller.callerKey,
         env: { ctx, caller, scope }, receipts: kind === "query" ? undefined : host.receipts?.(ctx as GenericMutationCtx<DM>),

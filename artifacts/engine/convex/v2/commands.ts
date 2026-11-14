@@ -3,6 +3,7 @@
  * (ops/agent.ts) has checked the caller through `defineOp`; these resolve the seat again in their own transaction and
  * pay and write. Internal: reached only through the ops.
  */
+import { assertTurnRuns } from "./turnFence";
 import { OpFailure } from "@workspace/v2-affordances";
 import { v } from "convex/values";
 import { outcome } from "./failure";
@@ -19,16 +20,18 @@ async function seat(ctx: MutationCtx, userId: string, scope: Scope) {
   return { game: r.game, player: r.player };
 }
 export const summon = internalMutation({
-  args: { userId: v.string(), scope: scopeV, language: languageV, source: v.string(), name: v.optional(v.string()), share: v.optional(v.number()) },
-  handler: (ctx, a) => outcome(async () => {
+  args: { userId: v.string(), scope: scopeV, turnId: v.optional(v.string()), language: languageV, source: v.string(), name: v.optional(v.string()), share: v.optional(v.number()) },
+  handler: (ctx, { turnId, ...a }) => outcome(async () => {
+    await assertTurnRuns(ctx, turnId);
     const { game, player } = await seat(ctx, a.userId, a.scope);
     return await summonAgent(ctx, game, player, a);
   }),
 });
 
 export const reprogramAgent = internalMutation({
-  args: { userId: v.string(), scope: scopeV, agentId: v.string(), language: v.optional(languageV), source: v.optional(v.string()), version: v.optional(v.number()) },
-  handler: (ctx, a) => outcome(async () => {
+  args: { userId: v.string(), scope: scopeV, turnId: v.optional(v.string()), agentId: v.string(), language: v.optional(languageV), source: v.optional(v.string()), version: v.optional(v.number()) },
+  handler: (ctx, { turnId, ...a }) => outcome(async () => {
+    await assertTurnRuns(ctx, turnId);
     const { game, player } = await seat(ctx, a.userId, a.scope);
     const agent = await ownAgent(ctx, player, a.agentId);
     if (a.version !== undefined) {

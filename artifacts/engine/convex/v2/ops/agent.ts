@@ -35,17 +35,17 @@ export const { op: check, as: checkAs } = defineOp("agent.check", "action", asyn
 
 export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", async (env, a) => {
   const c = callerOf(env);
-  return await guarded(() => env.ctx.runMutation(SUMMON, { userId: c.userId!, scope: c.scope, language: a.language, source: a.source, ...(a.name ? { name: a.name } : {}), ...(a.share !== undefined ? { share: a.share } : {}) }));
+  return await guarded(() => env.ctx.runMutation(SUMMON, { userId: c.userId!, scope: c.scope, ...(c.turnId ? { turnId: c.turnId } : {}), language: a.language, source: a.source, ...(a.name ? { name: a.name } : {}), ...(a.share !== undefined ? { share: a.share } : {}) }));
 });
 
 export const { op: replace, as: replaceAs } = defineOp("agent.replace", "action", async (env, a) => {
   const c = callerOf(env);
-  return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, agentId: a.agentId, language: a.language, source: a.source }));
+  return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, ...(c.turnId ? { turnId: c.turnId } : {}), agentId: a.agentId, language: a.language, source: a.source }));
 });
 
 export const { op: putBack, as: putBackAs } = defineOp("agent.putBack", "action", async (env, a) => {
   const c = callerOf(env);
-  return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, agentId: a.agentId, version: a.version }));
+  return await guarded(() => env.ctx.runMutation(REPROGRAM, { userId: c.userId!, scope: c.scope, ...(c.turnId ? { turnId: c.turnId } : {}), agentId: a.agentId, version: a.version }));
 });
 
 export const { op: destroy, as: destroyAs } = defineOp("agent.destroy", "mutation", async (env, a) => {
