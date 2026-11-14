@@ -9,13 +9,15 @@ import { DIRECTORY, refusal, type AffordanceId, type AffordanceOf, type Director
 import type { AffordanceContext, AnyAffordance } from "./types.ts";
 
 export type OpErrorCode = "unknown" | "invalid_args" | "refused" | "failed";
-export interface OpError { code: OpErrorCode; message: string; fix?: string }
+/** `data`: numbers a failure gives a surface so it can offer its own fix (a summon's shortfall: summon.ts). */
+export interface OpError { code: OpErrorCode; message: string; fix?: string; data?: Record<string, unknown> }
 export type OpOutcome<T = unknown> = { ok: true; result: T; replayed?: true } | { ok: false; error: OpError };
 
 /** A domain failure a handler reports to the caller ("That agent is not yours."), as opposed to a bug. */
 export class OpFailure extends Error {
   readonly fix?: string;
-  constructor(message: string, fix?: string) { super(message); if (fix) this.fix = fix; }
+  readonly data?: Record<string, unknown>;
+  constructor(message: string, fix?: string, data?: Record<string, unknown>) { super(message); if (fix) this.fix = fix; if (data) this.data = data; }
 }
 
 /** Completed writes, keyed by caller, affordance and requestId, so a retry is answered and never applied twice. */
@@ -65,7 +67,7 @@ export async function runOp<E>(a: AnyAffordance, handler: (env: E, args: never) 
     outcome = { ok: true, result: checked.data };
   } catch (e) {
     if (!(e instanceof OpFailure)) throw e;
-    outcome = { ok: false, error: { code: "failed", message: e.message, ...(e.fix ? { fix: e.fix } : {}) } };
+    outcome = { ok: false, error: { code: "failed", message: e.message, ...(e.fix ? { fix: e.fix } : {}), ...(e.data ? { data: e.data } : {}) } };
   }
   // Only a completed write is a receipt. A domain failure is rolled back by the host (the fake restores its state; a
   // Convex mutation throws), so a retry runs again on whatever the world is then.
