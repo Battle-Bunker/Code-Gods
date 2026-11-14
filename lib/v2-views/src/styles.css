@@ -265,11 +265,11 @@
 }
 
 .v2v-exp-body { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 8px 16px; align-items: start; }
-.v2v-exp-body > :not(.v2v-moves):not(.v2v-next) { grid-column: 1; }
-.v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next { grid-column: 2; grid-row: 1 / span 3; }
+.v2v-exp-body > :not(.v2v-moves):not(.v2v-moves-col):not(.v2v-next) { grid-column: 1; }
+.v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next, .v2v-exp-body > .v2v-moves-col { grid-column: 2; grid-row: 1 / span 3; }
 @container (max-width: 620px) {
   .v2v-exp-body { grid-template-columns: 1fr; }
-  .v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next, .v2v-exp-body > :not(.v2v-moves) { grid-column: auto; grid-row: auto; }
+  .v2v-exp-body > .v2v-moves, .v2v-exp-body > .v2v-next, .v2v-exp-body > .v2v-moves-col, .v2v-exp-body > :not(.v2v-moves) { grid-column: auto; grid-row: auto; }
 }
 
 .v2v-parts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -395,15 +395,22 @@
 .v2v-move-reason { grid-column: 1 / -1; font-size: 11px; color: var(--v2v-muted); font-style: italic; }
 .v2v-plane .inset-label { font-size: 9px; fill: var(--v2v-ink); }
 .v2v-rep[data-size="expanded"] .v2v-plane .inset-label { font-size: 10px; }
-/* Hold it here: on a contested line, the settle-and-hold settings before any move. */
+/* The moves column: the candidate moves, then the last moves on the object. */
+.v2v-moves-col { display: grid; gap: 8px; align-content: start; }
 
-/* Candidates with the others' totals (playtest round 8): the ordering toggle, the "↑ both" mark, propose and hold. */
+/* Candidates with the others' totals (playtest round 8): the ordering toggle, the "↑ both" mark, the climb from here. */
 .v2v-move-order { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px; }
 .v2v-move-order button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--v2v-rule); background: var(--v2v-card); color: var(--v2v-ink); font: inherit; cursor: pointer; }
 .v2v-move-order button[aria-pressed="true"] { background: var(--v2v-ink); border-color: var(--v2v-ink); color: var(--v2v-paper); font-weight: 600; }
 .v2v-move-now { color: var(--v2v-muted); }
 .v2v-move-option[data-both] { border-color: var(--v2v-cand); background: var(--v2v-cand-bg); }
 .v2v-move-both { color: var(--v2v-cand); font-style: normal; }
-.v2v-move-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-.v2v-move-acts button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--v2v-main); background: transparent; color: var(--v2v-main); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
-.v2v-move-acts button:first-child { background: var(--v2v-main); color: #fff; }
+.v2v-move-option[data-unavailable] { opacity: 0.6; border-style: dotted; }
+.v2v-move-delta { font-weight: 600; color: var(--v2v-ink); }
+.v2v-climb { margin: 0 0 6px; padding: 6px 9px; border-left: 3px solid var(--v2v-cand); background: var(--v2v-cand-bg); font-size: 13px; }
+.v2v-climb[data-kind="stuck"] { border-left-color: var(--v2v-focus); background: var(--v2v-focus-bg); }
+.v2v-climb-history ol { margin: 4px 0; padding-left: 18px; font-size: 12px; }
+.v2v-climb-history [data-dir="1"] { color: var(--v2v-cand); }
+.v2v-climb-history [data-dir="-1"] { color: var(--v2v-focus); }
+.v2v-climb-verdict { margin: 2px 0 0; font-size: 12px; color: var(--v2v-muted); }
+.v2v-climb-history[data-kind="undoing"] .v2v-climb-verdict { color: var(--v2v-focus); font-weight: 600; }

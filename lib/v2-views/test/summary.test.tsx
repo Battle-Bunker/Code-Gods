@@ -51,19 +51,6 @@ test("what cost: each tug-of-war with whom and the energy your agent burnt, dear
   assert.match(s.costNote ?? "", /38\.36 ⚡ in all/);
 });
 
-test("one thing to try next game: leave the line that cost you most alone, or agree who moves it (no settling or holding)", () => {
-  assert.equal(summarise(base).next.text, "Next game, line 4 cost you 28.86 ⚡ in a tug-of-war: leave it alone (LEAVE = [4] in your agent's code), or agree in chat which of you moves it.");
-  assert.equal(summarise(base).next.number, 4);
-  // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
-  const calm = summarise({ ...base, tugs: [] });
-  assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ ⚡( for [\d.]+ bits for you)?\.$/, calm.next);
-  // Practice partners do not read chat: only your own agent's part.
-  const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
-  assert.equal(practice.next.text, "Next game, line 4 cost you 28.86 ⚡ in a tug-of-war: leave it alone (LEAVE = [4] in your agent's code).");
-  for (const n of [summarise(base), practice]) assert.doesNotMatch(n.next.text, /settle|hold|TARGET|SETTLE/i);
-});
-
-
 test("the component: three short sections, no steps, the noun of the object type; a grid says grid", () => {
   const html = renderToStaticMarkup(<GameSummary summary={summarise(base)} rule={rule} onOpen={() => {}} />);
   const t = text(html);
@@ -82,6 +69,33 @@ test("the component: three short sections, no steps, the noun of the object type
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
+test("one thing to try next game: on a contested line, climb with the moves that raise both; no destination to hold", () => {
+  const people = summarise(base);
+  assert.equal(people.next.number, 4);
+  assert.equal(people.next.text, "Next game, when you and another player pull the same line back and forth, look on the line for the moves marked ↑ both: they raise the points for you both, so climb with those and tell each other in chat. This game it was line 4.");
+  const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
+  assert.match(practice.next.text, /^Next game, when your agent and another player's pull the same line back and forth, have it take the moves marked ↑ both on the line/);
+  assert.equal(summarise({ ...base, rotates: true }).next.text.endsWith("This game it was line 4."), false, "in a rotation: the lesson only");
+  for (const s of [people, practice]) assert.doesNotMatch(s.next.text, /TARGET|SETTLE|hold it|settle/i);
+  // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
+  const calm = summarise({ ...base, tugs: [] });
+  assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ ⚡( for [\d.]+ bits for you)?\.$/, calm.next);
+});
+
+test("contested lines: each said as climbed together or undone, under its own heading", () => {
+  const step = (by: string, b: [number, number], w: [number, number]) => ({ by, before: { rarityBits: b[0], want: w[0], points: b[0] * w[0] }, after: { rarityBits: b[1], want: w[1], points: b[1] * w[1] } });
+  const s = summarise({ ...base, climbs: [
+    { number: 4, moves: [step("you", [2, 3], [4, 3]), step("Ada", [3, 2], [3, 4]), step("you", [2, 3], [4, 3]), step("Ada", [3, 2], [3, 4])] },
+    { number: 7, moves: [step("you", [2, 2.5], [3, 3.5]), step("Bo", [2.5, 3], [3.5, 4])] },
+    { number: 9, moves: [step("you", [1, 2], [1, 1])] },
+  ] });
+  assert.deepEqual(s.contested.map(c => [c.number, c.kind]), [[4, "undoing"], [7, "together"]], "a line only your agents moved is not contested");
+  const t = text(renderToStaticMarkup(<GameSummary summary={s} rule={rule} />));
+  assert.match(t, /Contested lines Line 4: you and Ada undid each other's moves \(4 moves\)/);
+  assert.match(t, /Line 7: you and Bo climbed together, every move raising the points: your points 6\.00 → 12\.00 points\./);
+  assert.doesNotMatch(text(renderToStaticMarkup(<GameSummary summary={summarise(base)} rule={rule} />)), /Contested lines/);
+});
+
 test("nothing scored and no tug: the summary still says one thing to try", () => {
   const s = summarise({ ...base, objects: base.objects.map(o => ({ ...o, points: 0 })), tugs: [], total: 0 });
   assert.equal(s.earned.length, 0);
@@ -89,18 +103,8 @@ test("nothing scored and no tug: the summary still says one thing to try", () =>
   assert.ok(s.next.text.length > 10);
 });
 
-
-test("in a rotation (the next game deals another rule) the advice is the lesson, with this game's line as its example", () => {
-  const practice = summarise({ ...base, rotates: true, tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
-  assert.equal(practice.next.text, "Next game, when your agent and another player's pull the same line back and forth, it costs you both: leave that line alone (LEAVE in your agent's code). This game, line 24 cost you 22.46 ⚡.");
-  const people = summarise({ ...base, rotates: true });
-  assert.equal(people.next.text, "Next game, when your agent and another player's pull the same line back and forth, it costs you both: leave that line alone (LEAVE in your agent's code), or agree in chat which of you moves it. This game, line 4 cost you 28.86 ⚡.");
-});
-
-
 test("a partial act log says so: the costs are from the moves read", () => {
   const s = summarise({ ...base, movesRead: 1000 });
   assert.match(s.costNote ?? "", /from your last 1,000 moves/);
 });
-
 

@@ -119,4 +119,3 @@ test("contributors never throw, and say no steps, on a walk of lines under every
     }
   }
 });
-

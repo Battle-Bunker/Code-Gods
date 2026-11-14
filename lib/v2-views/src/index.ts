@@ -11,3 +11,4 @@ export * from "./contributors.ts";
 export * from "./moves.ts";
 export * from "./summary.tsx";
 export * from "./example.ts";
+export * from "./climb.tsx";

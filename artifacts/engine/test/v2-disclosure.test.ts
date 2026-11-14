@@ -52,7 +52,8 @@ test("the others' total after a candidate move: only the sum, from the live stat
   const r = await bo!.query("v2/play:othersAt", { objectId, calls: [shift, { mutator: "no.such", site: 0, args: {} }] });
   assert.deepEqual(Object.keys(r).sort(), ["after", "state"]);
   assert.equal(r.state, now.state, "applied to the object's live state");
-  assert.deepEqual(Object.keys(r.after[0]).sort(), ["state", "want"], "a total, nothing per player");
+  assert.deepEqual(Object.keys(r.after[0]).sort(), ["state", "taken", "want"], "a total, nothing per player");
+  assert.equal(r.after[0].taken, null, "no other object is there");
   assert.notEqual(r.after[0].state, now.state);
   assert.equal(r.after[1], null, "an invalid call answers nothing");
   // A move that changes nothing: the others' total is the stored want.
@@ -61,5 +62,11 @@ test("the others' total after a candidate move: only the sum, from the live stat
   const adaRule = await ada!.query("v2/play:myRule", { gameId });
   for (const secret of [adaRule.ruleKey, adaRule.card, adaRule.family]) assert.ok(!JSON.stringify(r).includes(secret));
   await assert.rejects(bo!.query("v2/play:othersAt", { objectId, calls: Array(5).fill(shift) }), /at most 4/);
+  // Objects are unique: once another object holds the candidate's state, the candidate says which.
+  const other = await bo!.query("v2/play:object", { objectId: objects[1]! });
+  await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: r.after[0].state });
+  const again = await bo!.query("v2/play:othersAt", { objectId, calls: [shift] });
+  assert.equal(again.after[0].taken, other.number);
+  await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: other.state });
 });
 

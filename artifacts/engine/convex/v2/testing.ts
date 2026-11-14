@@ -8,7 +8,7 @@
  * commit computes them; points follow spec §8.
  */
 import { rng } from "@workspace/v2-core";
-import { fromMC, intercept, lineType, lineZ, slope, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, lineZ, type LineState } from "@workspace/v2-linear";
 import { dealablePool, offers as offersOf, ruleView } from "./deal";
 import { valueObjects, valueOf as valueAt } from "./world";
 import { ConvexError, v } from "convex/values";
@@ -73,12 +73,14 @@ export const seedRoom = internalMutation({
 export const seedGame = internalMutation({
   args: {
     ...roomArgs, objects: v.optional(v.number()), phase: v.optional(v.union(v.literal("planning"), v.literal("live"), v.literal("paused"), v.literal("ended"))), seed: v.optional(v.string()),
-    /** A line the owner's agent and the next seat's pulled back and forth (a tug-of-war in the owner's act log), by number. */
+    /** A line the owner's agent and the next seat's pulled back and forth, each move undoing the last, by number. */
     contested: v.optional(v.number()),
     /** Moves in each member's act log (default 3). */
     moves: v.optional(v.number()),
     /** Tugs-of-war in each member's v2Tugs (default none), on the first objects. */
     tugs: v.optional(v.number()),
+    /** A line the owner's agent and the next seat's climbed together (every move raised both sides), by number. */
+    climbed: v.optional(v.number()),
   },
   handler: async (ctx, a) => {
     fixtures();
@@ -157,23 +159,29 @@ export const seedGame = internalMutation({
       await ctx.db.insert("v2Tugs", { gameId, memberId, objectId: objects[i]!, number: i + 1, moves: 12, flips: 2 + (i % 9), lastMine: true, mySpend: 40, others, from: i, to: i + 30, best: { state: "fixture", points: 3 } });
     }
 
-    // A tug-of-war on one line in the owner's act log: the owner's agent and the next seat's, alternating (foldTugs).
-    if (a.contested !== undefined && members.length > 1) {
-      const owner = rules[0]!.memberId, other = rules[1]!.memberId, objectId = objects[a.contested - 1]!;
+    // Moves on a line by the owner's agent and the next seat's, alternating, as the owner's act log has them: on
+    // `contested` each move undoes the last (the mover's bits up, the other side's down, then back); on `climbed` every
+    // move raises both the owner's bits and the others' total (a climb together).
+    const alternate = async (number: number, together: boolean, seq0: number) => {
+      const owner = rules[0]!.memberId, other = rules[1]!.memberId, objectId = objects[number - 1]!;
       const value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", owner)).unique())!;
       const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
       const ownerAgent = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", owner)).first())?._id;
-      const snap = { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points };
+      const at = (bits: number, want: number) => ({ score: value.score, rarityBits: bits, want, points: bits * want });
+      let bits = value.rarityBits, want = value.want;
       for (let i = 0; i < 4; i++) {
         const mine = i % 2 === 0;
+        const before = at(bits, want);
+        if (together) { bits += 0.5; want += 0.5; } else if (mine) { bits += 1; want -= 1; } else { bits -= 1; want += 1; }
         await ctx.db.insert("v2Moves", {
-          gameId, memberId: owner, seq: 100 + i, worldSeconds: 12 + i, objectId, number: a.contested, mine, by: mine ? owner : other,
+          gameId, memberId: owner, seq: seq0 + i, worldSeconds: 12 + i, objectId, number, mine, by: mine ? owner : other,
           ...(mine && ownerAgent ? { agentId: ownerAgent } : {}),
-          calls: [{ mutator: "si.shift", site: 0, args: { k: mine ? "1" : "-1" } }], rep: "si", stateBefore: state, stateAfter: state, before: snap, after: snap, charge: 2,
+          calls: [{ mutator: "si.shift", site: 0, args: { k: mine ? "1" : "-1" } }], rep: "si", stateBefore: state, stateAfter: state, before, after: at(bits, want), charge: 2,
         });
       }
-    }
-
+    };
+    if (a.contested !== undefined && members.length > 1) await alternate(a.contested, false, 100);
+    if (a.climbed !== undefined && members.length > 1) await alternate(a.climbed, true, 200);
 
     // Scoreboard, history, digests, the record's first event, the clock.
     const ranked = [...rules].map(({ memberId }) => ({ memberId, total: pts.get(memberId) ?? 0 })).sort((x, y) => y.total - x.total);
@@ -426,5 +434,16 @@ export const buildReplay = internalMutation({
   handler: async (ctx, { gameId }) => {
     fixtures();
     await ctx.scheduler.runAfter(0, makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replayBuild:build"), { gameId });
+  },
+});
+
+/** Puts an object in a state (a test of a move onto a state another object holds). */
+export const setObjectState = internalMutation({
+  args: { gameId: v.id("v2Games"), number: v.number(), state: v.string() },
+  handler: async (ctx, { gameId, number, state }) => {
+    fixtures();
+    const object = (await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", gameId).eq("number", number)).unique())!;
+    const row = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique())!;
+    await ctx.db.patch(row._id, { state, version: row.version + 1 });
   },
 });

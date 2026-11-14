@@ -210,27 +210,61 @@ export const MAX_CANDIDATES = 4;
  * The others' total bits on an object after each candidate move (playtest round 8: a player may see the others' TOTAL
  * before and after a candidate, never one player's rule or bits). The server applies each call to the object's live
  * state itself, so only states one move from where the object is can be asked about, not any state at all; at most four
- * per read. Reads the object, its state, the caller's seat and the seated players' rules (≤ 16, cold): it re-runs only
- * when this object moves. An invalid call answers null.
+ * per read. Reads the object, its state, the caller's seat, the seated players' rules (≤ 16, cold) and, per candidate,
+ * whether another object holds its state (objects are unique; ≤ 4 index reads of ≤ 2 rows): it re-runs when this object moves or
+ * another object moves onto or off a candidate's state. An invalid call answers null.
  */
 export const othersAt = query({
   args: { objectId: v.string(), calls: v.array(callV) },
-  returns: v.object({ state: v.string(), after: v.array(v.union(v.object({ state: v.string(), want: v.number() }), v.null())) }),
+  returns: v.object({ state: v.string(), after: v.array(v.union(v.object({ state: v.string(), want: v.number(), taken: v.union(v.number(), v.null()) }), v.null())) }),
   handler: async (ctx, { objectId, calls }) => {
     const { object, state } = await objectAndState(ctx, objectId);
     if (calls.length > MAX_CANDIDATES) fail("BAD_REQUEST", `Ask for at most ${MAX_CANDIDATES} moves`);
     const { game, member } = await requireSeat(ctx, object.gameId);
     const seats = await seatRules(ctx, game);
     const now = decode(state.state, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
-    return {
-      state: state.state,
-      after: calls.map(call => {
-        const r = applyCall(type, variant, now, call);
-        if (isInvalid(r)) return null;
-        const want = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
-        return { state: encode(r.result, game.variant), want };
-      }),
-    };
+    const after = [];
+    for (const call of calls) {
+      const r = applyCall(type, variant, now, call);
+      if (isInvalid(r)) { after.push(null); continue; }
+      const wire = encode(r.result, game.variant);
+      const want = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
+      // Objects are unique: a candidate onto a state another object holds is not available (its number says which).
+      const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
+      const holder = holders.find(h => h.objectId !== object._id);
+      const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
+      after.push({ state: wire, want, taken });
+    }
+    return { state: state.state, after };
   },
 });
 
+/** The newest moves on one object an `objectMoves` read answers (one index page). */
+export const MAX_OBJECT_MOVES = 50;
+
+/**
+ * The caller's own act-log rows for one object, by its number, newest first (≤ 50): who moved it lately and whether
+ * each move went up or down for the caller (bits) and for the others (their total), so the face shows the climb and the
+ * end summary says whether the players climbed together or undid each other, without paging the whole act log. One v2Objects row by number and one index page of v2Moves.
+ */
+export const objectMoves = query({
+  args: { gameId: v.string(), number: v.number() },
+  returns: v.array(v.object({
+    seq: v.number(), number: v.number(), worldSeconds: v.number(), stateAfter: v.string(), mine: v.boolean(),
+    before: v.object({ rarityBits: v.number(), want: v.number(), points: v.number() }), after: v.object({ rarityBits: v.number(), want: v.number(), points: v.number() }),
+    by: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
+  })),
+  handler: async (ctx, { gameId, number }) => {
+    const { game, member } = await requireSeat(ctx, gameId);
+    const object = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id).eq("number", number)).unique();
+    if (!object) return [];
+    const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_object", q => q.eq("gameId", game._id).eq("memberId", member._id).eq("objectId", object._id))
+      .order("desc").take(MAX_OBJECT_MOVES);
+    return rows.map(m => ({
+      seq: m.seq, number: m.number, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, mine: m.mine,
+      before: { rarityBits: m.before.rarityBits, want: m.before.want, points: m.before.points },
+      after: { rarityBits: m.after.rarityBits, want: m.after.want, points: m.after.points },
+      by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
+    }));
+  },
+});

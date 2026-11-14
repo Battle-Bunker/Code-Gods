@@ -97,24 +97,25 @@ function Frame({ f }: { f: string }): ReactElement {
             <CompactFace rule={ADA} state={NOW} value={va} next={ghost} rep="cart" />
             <p>Now {text(NOW)}: you {joint.now.a.toFixed(2)} bits × Bo {joint.now.b.toFixed(2)} bits = <b>{(joint.now.a * joint.now.b).toFixed(2)}</b></p>
             <p>At <b>{text(joint.s)}</b>: you {joint.a.toFixed(2)} bits × Bo {joint.b.toFixed(2)} bits = <b>{joint.p.toFixed(2)}</b>, for {joint.price.toFixed(2)} ⚡ to get there.</p>
-            <span className="sr-btn">Propose: settle line {LINE} at {text(joint.s)} and hold it</span>
+            <span className="sr-btn">Propose: we both take the moves marked ↑ both on line {LINE}</span>
           </div>
           <ExpandedFace rule={ADA} state={NOW} value={va} />
         </div>
       );
     }
-    case "propose": {
-      return (
-        <div className="sr-cols">
-          <div className="sr-card sr-chat">
-            <h3>Chat</h3>
-            <div className="sr-msg" data-mine=""><b>You → Bo</b>Proposal: settle line {LINE} at {text(joint.s)} and both hold it. For me it is {joint.a.toFixed(2)} bits there, for you {joint.b.toFixed(2)}.</div>
-            <div className="sr-msg"><b>Bo</b>Deal.<div><span className="sr-btn">Accepted ✓</span></div></div>
-            <div className="sr-msg" data-mine=""><b>Your agent</b>Holding line {LINE} at {text(joint.s)} as agreed.</div>
-          </div>
+    case "propose": return (
+      <div className="sr-cols">
+        <div className="sr-card sr-chat">
+          <h3>Chat</h3>
+          <div className="sr-msg" data-mine=""><b>You → Bo</b>Line {LINE}: some moves raise the points for both of us; mine are marked ↑ both. Shall we both take those, a step at a time?</div>
+          <div className="sr-msg"><b>Bo</b>Deal.</div>
         </div>
-      );
-    }
+        <div className="sr-card">
+          <h3>Then each agent climbs</h3>
+          <p className="sr-muted">No destination is agreed or held (owner, 14 November: agents are hill climbers). Each side takes the moves that raise the points for both, one step at a time.</p>
+        </div>
+      </div>
+    );
     default: return (
       <div className="sr-cols">
         <div className="sr-card sr-chat">
