@@ -2,14 +2,17 @@
 // Graded families (line-families.mjs) under the reference law 2^−φ on primitive rational lines of height ≤ H:
 // levels attained per part (primary, secondary, tertiary) and bits per rung.
 //
-//   node docs/engine-v2/scripts/layered-graded.mjs [--height 100] [--only id,id] [--markdown out.md] [--json out.json]
+//   node docs/engine-v2/scripts/layered-graded.mjs [--height 100] [--law digits|mixed] [--only id,id] [--markdown out.md] [--json out.json]
 //   … --pairs id,id,…   also: for each pair, the line that serves both best (largest smaller share of top bits)
 import { writeFileSync } from "node:fs";
-import { FAMILIES, gcd, levels, lineCtx, rungLabels } from "./line-families.mjs";
+import { FAMILIES, LAWS, gcd, levels, lineCtx, rungLabels } from "./line-families.mjs";
 
 const args = process.argv.slice(2);
 const opt = (n, d) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
 const H = Number(opt("height", "100"));
+const LAW = opt("law", "digits"); // "digits" (the old law) or "mixed" (owner decision 17)
+const intLen = LAWS[LAW];
+if (!intLen) throw new Error(`unknown law ${LAW}`);
 const only = opt("only", "") ? new Set(opt("only").split(",")) : null;
 const pairIds = opt("pairs", "") ? opt("pairs").split(",") : null;
 const fams = pairIds
@@ -17,8 +20,6 @@ const fams = pairIds
   : FAMILIES.filter((f) => !only || only.has(f.id) || [...only].some((o) => f.id.startsWith(o)));
 const lines = pairIds ? [] : null;
 
-const gammaLen = (n) => 2 * Math.floor(Math.log2(n)) + 1;
-const intLen = (n) => gammaLen((n >= 0 ? 2 * n : -2 * n - 1) + 1);
 
 const acc = fams.map((f) => ({ mass: new Float64Array(rungLabels(f).length + 1), hit: f.parts.map((p) => new Set()) }));
 let Z = 0;
@@ -44,7 +45,7 @@ for (let B = 0; B <= H; B++)
   }
 console.error(`H = ${H}: Z = ${Z.toFixed(4)}, ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 
-const out = [`## Graded families under the reference law (H = ${H})\n`, "| family | source | parts: levels attained, effective (≥ 0.25 bit) / declared | bits per rung (P | S | T) | top |", "|---|---|---|---|--:|"];
+const out = [`## Graded families under the reference law (${LAW} code, H = ${H})\n`, "| family | source | parts: levels attained, effective (≥ 0.25 bit) / declared | bits per rung (P | S | T) | top |", "|---|---|---|---|--:|"];
 const json = {};
 fams.forEach((f, i) => {
   const a = acc[i];

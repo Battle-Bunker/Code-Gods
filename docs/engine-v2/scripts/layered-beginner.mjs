@@ -5,14 +5,16 @@
 // all lines, since ungated it orders lines at every P level), its bits per level among lines at P's top, and the joint
 // top (P and S both at their top rungs).
 //
-//   node docs/engine-v2/scripts/layered-beginner.mjs [--height 100] [--markdown out.md]
+//   node docs/engine-v2/scripts/layered-beginner.mjs [--height 100] [--law digits|mixed] [--markdown out.md]
 import { writeFileSync } from "node:fs";
-import { BEGINNER, gcd, lineCtx, pairLevels } from "./line-families.mjs";
+import { BEGINNER, LAWS, gcd, lineCtx, pairLevels } from "./line-families.mjs";
 
 const args = process.argv.slice(2);
 const opt = (n, d) => (args.includes(`--${n}`) ? args[args.indexOf(`--${n}`) + 1] : d);
 const H = Number(opt("height", "100"));
-const intLen = (n) => 2 * Math.floor(Math.log2((n >= 0 ? 2 * n : -2 * n - 1) + 1)) + 1;
+const LAW = opt("law", "digits"); // "digits" (the old law) or "mixed" (owner decision 17)
+const intLen = LAWS[LAW];
+if (!intLen) throw new Error(`unknown law ${LAW}`);
 
 const acc = BEGINNER.map((f) => ({
   p: new Float64Array(f.P.rungs.length + 1),
@@ -63,7 +65,7 @@ const effective = (bits) => {
   return n;
 };
 const fmt = (b) => b.map((x) => (x == null ? "—" : x.toFixed(1))).join(" ");
-const out = [`## Beginner families, ungated (P, S), reference law at height ${H}\n`];
+const out = [`## Beginner families, ungated (P, S), reference law (${LAW} code) at height ${H}\n`];
 const json = {};
 BEGINNER.forEach((f, i) => {
   const a = acc[i];

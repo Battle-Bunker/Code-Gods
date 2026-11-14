@@ -85,6 +85,25 @@ const twoSquares = (n) => {
   return r;
 };
 
+// ---------- the reference law's number codes ----------
+// "digits": the spec's first code, int(n) = gamma(zigzag(n) + 1) (§2.3; the old law, §3 and §7).
+// "mixed": owner decision 17 (number-codes.md; v2-core's mixedIntBits): a whole number written by its factorisation,
+// each prime p costing p/2 bits, so mixedInt(0) = 1 and mixedInt(±n) = 2 + ½·Σ e·p + log2 Z, with log2 Z ≈ 2.10.
+const LOG2_Z = PRIMES.filter((p) => p <= 10_000).reduce((a, p) => a - Math.log2(1 - 2 ** (-0.5 * p)), 0);
+const sopfr = (n) => {
+  let w = 0;
+  while (n > 1 && n < SIEVE_N) {
+    const p = spfTab[n];
+    w += p;
+    n /= p;
+  }
+  return w + (n > 1 ? n : 0);
+};
+export const LAWS = {
+  digits: (n) => 2 * Math.floor(Math.log2((n >= 0 ? 2 * n : -2 * n - 1) + 1)) + 1,
+  mixed: (n) => (n === 0 ? 1 : 2 + 0.5 * sopfr(Math.abs(n)) + LOG2_Z),
+};
+
 // ---------- exact rationals as [n, d] (numbers; magnitudes stay far below 2^53) ----------
 export function rat(n, d) {
   if (d < 0) {
@@ -1052,7 +1071,7 @@ export const BEGINNER = [
     card: "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.",
     P: part("P", "run of different primes from y(0)", "primes", staircase, runCount(6)),
     S: [
-      ["first-prime", "The first prime should be as big as possible.", "growth pattern", part("S", "y(0)", "size", (L) => val(L.c), sizes([3, 5, 7, 11, 17, 29, 47, 71, 101]))],
+      ["first-prime", "The first prime should be as big as possible.", "growth pattern", part("S", "y(0)", "size", (L) => val(L.c), sizes([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]))],
       ["near-miss", "The first term that is not prime should be as close as possible to a prime.", "growth pattern, number line", part("S", "distance of the first non-prime term from a prime", "units", (L) => -distPrime(rat(Math.abs(firstNonRun(L)[0]), firstNonRun(L)[1])), dist("8", "4", "2", "1", "1/2", "1/4", "1/8"))],
       ["step-30", "The step should be as close as possible to a multiple of 30.", "slope-intercept (m)", part("S", "distance of m from a multiple of 30", "units", (L) => -Math.abs(val(L.m) - 30 * Math.round(val(L.m) / 30)), dist("12", "8", "6", "4", "2", "1", 0))],
       ["twin-end", "The last prime of the run should be as close as possible to another prime.", "number line", part("S", "gap from the last prime to the nearest prime", "units", (L) => -(staircase(L) ? primeGap(lastOfRun(L)) : 99), dist("14", "10", "8", "6", "4", "2"))],
@@ -1132,7 +1151,8 @@ export const BEGINNER = [
     card: "The y-intercept should be as close as possible to a prime number.",
     P: part("P", "distance of c from the nearest prime", "units", (L) => (L.nv ? -distPrime(L.c) : null), dist("4", "2", "1", "1/2", "1/4", "1/8", 0)),
     S: [
-      ["big-prime", "That prime should be as big as possible.", "number line", part("S", "the nearest integer's smallest prime factor", "prime", (L) => Math.max(...nearInt(L.c).near.map(spfOf)), sizes([2, 3, 5, 7, 11, 17, 29, 47, 71, 97]))],
+      // every prime a rung: under mixed costing a prime p costs p/2 bits, so consecutive primes are 1–3 bits apart
+      ["big-prime", "That prime should be as big as possible.", "number line", part("S", "the nearest integer's smallest prime factor", "prime", (L) => Math.max(...nearInt(L.c).near.map(spfOf)), sizes([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]))],
       ["prime-gradient", "The gradient should be as close as possible to a prime too.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
       ["whole-crossing", "The x-intercept should be as close as possible to a whole number.", "plane", part("S", "distance of the x-intercept from whole", "units", (L) => (L.A === 0 ? -1 : -nearInt(rat(-L.C, L.A)).dist), dist("1/2", "1/4", "1/8", "1/16", 0))],
       ["twin", "The prime should be as close as possible to another prime (twins are two apart).", "number line", part("S", "gap to the next nearest prime", "units", (L) => -primeGap(Math.max(2, Math.round(val(L.c)))), dist("10", "6", "4", "2"))],
