@@ -199,3 +199,40 @@ test("hurt and pays: contested when another player's move lowered my points; a p
   assert.deepEqual(hit!.r.slice(3), [String(7 * shift >= 24), String(7 * tilt >= 24), "false", "false"], "pays: rarity 7 at score 2 times the others' total after, against 24 now; a score of nothing pays nothing; a move not allowed never pays");
   assert.notEqual(hit!.r[3], hit!.r[4], "the test distinguishes a plan that pays from one that does not");
 });
+
+test("climb: the step that raises my points most (rarity × the others' total), best for my rule first; null when none does; without values, my rule's best; the same in both languages", async () => {
+  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
+  const others = [{ rule: other, values: findValues("line-z", other)! }];
+  const at = { lines: [fromMC(q(7), q(3))] };   // m = 7 is prime: the other player's rule likes it, so tilting lowers the others
+  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: 0, primary: 0 } };
+  // Scores are given: the shift reaches 1 (3 bits), the tilt 2 (7 bits) but lowers the others, a third option is not allowed.
+  const ts = `function agent(offer) {
+  const sh = [move("si.shift", { k: 1 })], ti = [move("si.tilt", { k: 1 })], no = [move("nope", {})];
+  const pick = climb(offer, [[sh, [1]], [ti, [2]], [no, [9]]], [0]);
+  const one = climb(offer, [[sh, [1]], [ti, [2]]], [0], 1);
+  return [move("probe", { r: [pick ? pick[0].mutator : "none", one ? one[0].mutator : "none", climb(offer, [[sh, null]], [0]) === null].join("|") })];
+}`;
+  const py = `def agent(offer):
+    sh, ti, no = [move("si.shift", k=1)], [move("si.tilt", k=1)], [move("nope")]
+    pick = climb(offer, [(sh, [1]), (ti, [2]), (no, [9])], [0])
+    one = climb(offer, [(sh, [1]), (ti, [2])], [0], 1)
+    r = [pick[0]["mutator"] if pick else "none", one[0]["mutator"] if one else "none", str(climb(offer, [(sh, None)], [0]) is None).lower()]
+    return [move("probe", r="|".join(r))]
+`;
+  const out: string[][] = [];
+  for (const withValues of [true, false]) for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others,
+      ...(withValues ? { values, value: { mine: 0.5, others: 1, points: 0.5 } } : {}) });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"));
+  }
+  assert.deepEqual(out[1], out[0], "Python and TypeScript differ (with values)");
+  assert.deepEqual(out[3], out[2], "Python and TypeScript differ (without values)");
+  // With values: rarity 7 × the others after the tilt against 3 × the others after the shift; weighing only the best one, the tilt.
+  const shift = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others });
+  const after = (k: "si.shift" | "si.tilt") => (shift.handle({ op: "othersAfter", calls: [{ mutator: k, site: 0, args: { k: "1" } }] } as never, { hostCallsLeft: 5 }) as { result: { after: number } }).result.after;
+  assert.equal(out[0]![0], 7 * after("si.tilt") > 3 * after("si.shift") ? "si.tilt" : "si.shift");
+  assert.deepEqual(out[0]!.slice(1), ["si.tilt", "true"], "most = 1 weighs only the rule's best; a step worth nothing to my rule (no score) is null");
+  assert.deepEqual(out[2], ["si.tilt", "si.tilt", "true"], "without values: the rule's best, or null when nothing beats now");
+});

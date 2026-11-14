@@ -34,6 +34,11 @@
 #                                on this line (a tug-of-war).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
+#   climb(offer, options, now, most)
+#                                the step that raises your points here most (your rarity × the others' rarity, added
+#                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
+#                                `most` options best for your rule (all when left out), a small read each. now is your
+#                                score here; without the game's values it takes the step best for your rule instead.
 #   hurt(offer)                  True when another player's recent move on this line lowered your points.
 #   pays(offer, plan, s)         True when the plan leaves your points on this line at least where they are: your rarity
 #                                at score s times the others' total after it (True when the game does not say; False
@@ -44,6 +49,7 @@
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
+import functools as _functools
 from math import isqrt as _isqrt
 
 
@@ -184,6 +190,33 @@ def worth(offer):
         return offer.worth()
     except HostError:
         return None
+
+
+def climb(offer, options, now, most=None):
+    options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
+    if most is not None:
+        options = options[:most]
+    w = worth(offer)
+    best = None
+    if w is None:   # the best step for your rule that beats now and is allowed
+        for plan, s in options:
+            if not better(s, now):
+                break
+            if price(offer, plan) is not None:
+                return _as_plan(plan)
+        return None
+    value = w.mine * w.others
+    for plan, s in options:
+        try:
+            o = offer.others_after(_as_plan(plan))
+        except HostError:
+            continue
+        if o.after is None:   # not allowed (e.g. another object is in that state)
+            continue
+        v = rarity(offer, s) * o.after
+        if v > value + 1e-9:
+            value, best = v, plan
+    return None if best is None else _as_plan(best)
 
 
 def hurt(offer):
