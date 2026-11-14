@@ -1164,3 +1164,16 @@ Welfare of each one-policy table: greedy 46212, payoff 88950, cooperator 59044, 
   destructive act would tell its owner exactly how much the others lost).
 - Not built: time-averaged scoring (the largest change: tick, scoreboard, results, replay), admin-only Lab setups.
 
+
+## 11. Spoiling after the rotated deal (2026-11-14)
+
+The rotated deal (docs/beginner-pool.md §6) removes the dealt rule's edge over a rotation; it does nothing to the
+style edge. Mixed tables, 3 players, 150 single games with rules and seats rotated (`docs/balance-results-2026-11-13/tables3-mixed.txt`):
+one `deny` among two cooperators wins 95%, among two `considerate` players 100%; one `considerate` among two greedy
+wins 0%. The rotation spreads these over the round unchanged, so careful play still loses on rank.
+
+The smallest principled change remains **breaking costs extra** (§5, draft #295): a change pays work for each bit of
+the object's total value it destroys; at ×3 the spoiler wins 13–25% at every table and the win-seekers' equilibrium
+becomes three greedy players with twice today's welfare. Its blocker, that it only works on the exact value, does not
+apply to the default setup, which already shows exact sums (Annotated basics, `peerNoiseBits` 0). Not shipped: #295
+must be rebased and its engine tests run, and it is a scoring change for the owner to decide.
