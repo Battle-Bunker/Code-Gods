@@ -37,7 +37,7 @@ export function powerSentence(power: number, shares: readonly number[]): string 
 export const shareText = (share: number, power: number): string => `Share of your power ${percent(share)} (${num(share * power)} ⚡ a second)`;
 
 const count = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
-/** "12 moves · 3 skipped · 1 failed · 84.0 ⚡ spent · +36.5 points gained". */
+/** "12 moves · 3 skipped · 1 failed · 84.00 ⚡ spent · +36.54 points from its moves": only its own moves, while a total also moves with other players' moves. */
 export function workText(e: { acts: number; skips: number; failures: number; spend: number; pointsGained: number }): string {
   const gained = Math.round(e.pointsGained * 10) / 10;
   return [
@@ -45,7 +45,7 @@ export function workText(e: { acts: number; skips: number; failures: number; spe
     `${e.skips.toLocaleString("en-US")} skipped`,
     `${e.failures.toLocaleString("en-US")} failed`,
     `${num(e.spend)} ⚡ spent`,
-    `${gained > 0 ? "+" : ""}${num(e.pointsGained)} points gained`,
+    `${gained > 0 ? "+" : ""}${num(e.pointsGained)} points from its moves`,
   ].join(" · ");
 }
 
