@@ -58,6 +58,8 @@ export interface RoomFacts {
   /** Players seated (humans, practice partners and AI players) and the preset's minimum. */
   players: number;
   minPlayers: number;
+  /** Whether the room's bid phase is open (a step of the start, before the game exists; integration plan §5.9). */
+  bidding?: boolean;
 }
 
 /** Everything availability depends on. Built by the app from its subscriptions, by the server from the game header. */

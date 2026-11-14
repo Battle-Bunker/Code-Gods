@@ -10,6 +10,7 @@ import { assistantTables } from "./assistant/tables";
 import { layoutTables } from "./layout/tables";
 import { codeTables } from "./code/tables";
 import { manifestTables } from "./manifest/tables";
+import { v2Tables } from "./v2/tables";
 
 /** A deployed site: the app's static build, or the functions (convex/version.ts). */
 export const versionSiteV = v.union(v.literal("app"), v.literal("functions"));
@@ -19,5 +20,5 @@ const versionTables = {
     .index("by_site", ["site", "deployedAt"]).index("by_site_build", ["site", "build"]),
 };
 
-/** One schema, several owners: auth/tables.ts (identity, devices, credentials), game/tables.ts, runtime/tables.ts, calibration/tables.ts, agent/tables.ts (MCP OAuth, jobs) panels/tables.ts, assistant/tables.ts, layout/tables.ts, code/tables.ts, manifest/tables.ts and versionTables above. */
-export default defineSchema({ ...authTables, ...gameTables, ...runtimeTables, ...calibrationTables, ...agentTables, ...panelTables, ...assistantTables, ...layoutTables, ...codeTables, ...manifestTables, ...versionTables });
+/** One schema, several owners: auth/tables.ts (identity, devices, credentials), game/tables.ts, runtime/tables.ts, calibration/tables.ts, agent/tables.ts (MCP OAuth, jobs) panels/tables.ts, assistant/tables.ts, layout/tables.ts, code/tables.ts, manifest/tables.ts, v2/tables.ts (engine v2) and versionTables above. */
+export default defineSchema({ ...authTables, ...gameTables, ...runtimeTables, ...calibrationTables, ...agentTables, ...panelTables, ...assistantTables, ...layoutTables, ...codeTables, ...manifestTables, ...versionTables, ...v2Tables });

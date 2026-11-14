@@ -20,6 +20,8 @@ interface FakeGame {
 interface FakeRoom {
   roomId: string; code: string; name: string; ownerId: string; preset: string; members: FakeMember[];
   chat: { from: string; text: string; at: number }[]; gameId: string | null; games: string[];
+  /** An open bid phase (integration plan §5.9): sealed bids and who is done, by user id. */
+  bidding?: { deadline: number; bids: Record<string, { family: string; percent: number }[]>; done: Record<string, boolean> };
 }
 export interface FakeState {
   users: Record<string, { name: string; admin?: boolean }>;
@@ -55,7 +57,7 @@ export function contextFor(s: FakeState, userId: string | null, roomId: string |
     },
     ...(opts.grant ? { grant: opts.grant } : {}),
   };
-  if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: FAKE_PRESET.minPlayers };
+  if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: FAKE_PRESET.minPlayers, bidding: !!room.bidding };
   if (game && userId) ctx.game = {
     phase: game.phase, energy: game.energy[userId], pauseUsed: !!game.pauseUsed[userId],
     agents: game.agents.filter(a => a.ownerId === userId).length,
@@ -149,6 +151,24 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "chat.send": (e, a) => { roomOf(e).chat.push({ from: nameOf(e.state, e.userId), text: a.text, at: e.state.now++ }); return ok; },
   "chat.list": (e, a) => page([...roomOf(e).chat].reverse(), a),
   "game.rotation": e => ({ seats: roomOf(e).members.filter(m => !m.spectator).map((m, i) => ({ memberId: m.memberId, name: m.name, family: FAMILIES[i % FAMILIES.length]! })) }),
+  "bid.state": e => {
+    const r = roomOf(e), b = r.bidding;
+    return {
+      open: !!b, deadline: b?.deadline ?? null,
+      families: FAMILIES.map(f => ({ family: f, title: f, card: `The ${f} rule.`, topRarityBits: 9 })),
+      mine: b?.bids[e.userId] ?? [], done: !!b?.done[e.userId],
+      players: r.members.filter(m => m.kind === "human" && !m.spectator).map(m => ({ memberId: m.memberId, name: m.name, done: !!b?.done[m.userId ?? ""] })),
+    };
+  },
+  "bid.place": (e, a) => {
+    const b = roomOf(e).bidding!;
+    if (!FAMILIES.includes(a.family)) throw new OpFailure(`${a.family} is not on offer.`);
+    b.bids[e.userId] = [...(b.bids[e.userId] ?? []).filter(x => x.family !== a.family), { family: a.family, percent: a.percent }];
+    return ok;
+  },
+  "bid.withdraw": (e, a) => { const b = roomOf(e).bidding!; b.bids[e.userId] = (b.bids[e.userId] ?? []).filter(x => x.family !== a.family); return ok; },
+  "bid.done": (e, a) => { roomOf(e).bidding!.done[e.userId] = a.done; return ok; },
+  "game.auction": e => ({ disclosure: "none" as const, wins: gameOf(e).seated.map(u => ({ memberId: u, family: null, handicapPercent: 0 })), bids: null }),
   "room.settings": (e, a) => { if (a.preset) roomOf(e).preset = a.preset; return ok; },
   "seats.fillPracticePartners": e => {
     const r = roomOf(e);
