@@ -32,9 +32,6 @@
 #   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
 #   pushback(offer)              how many times lately someone else's move took back points your agent had just won
 #                                on this line (a tug-of-war).
-#   settle(offer, target)        the moves that bring a line to target ({"m": .., "c": ..}), or a board to target
-#                                (its 16 digits row by row, e.g. "9779855879979779"; at most 4 cells a turn), or
-#                                None when it is there (hold it).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
 #   hurt(offer)                  True when another player's recent move on this line lowered your points.
@@ -187,42 +184,6 @@ def worth(offer):
         return offer.worth()
     except HostError:
         return None
-
-
-def settle(offer, target):
-    if isinstance(target, str):
-        # A board: its cells towards the agreed digits, row by row, at most 4 cells a turn; None when it is there.
-        try:
-            cells = offer.view("cells")
-        except HostError:
-            return None
-        names, plan = list(cells.keys())[:len(target)], []
-        for i, name in enumerate(names):
-            if len(plan) >= 4:
-                break
-            k = int(target[i]) - int(cells[name])
-            if k != 0:
-                plan.append(call("cells.add", cell=name, k=k))
-        return plan or None
-    # A line: the moves that bring y = mx + c to y = target["m"] x + target["c"], or None when it is there (hold it).
-    try:
-        at = offer.view("si")
-    except HostError:
-        return None
-    m0, c0 = at.m, at.c
-    if not isinstance(m0, Fraction) or not isinstance(c0, Fraction):
-        return None
-    plan = []
-    if c0 != target["c"]:
-        plan.append(call("si.shift", k=Fraction(target["c"]) - c0))
-    if m0 != target["m"]:
-        plan.append(call("si.tilt", k=Fraction(target["m"]) - m0))
-    if plan:
-        ms, cs = str(Fraction(target["m"])), str(Fraction(target["c"]))
-        mx = "" if ms == "0" else "x" if ms == "1" else "-x" if ms == "-1" else ms + "x"
-        eq = cs if not mx else mx if cs == "0" else mx + (" - " + cs[1:] if cs.startswith("-") else " + " + cs)
-        note(offer, "Holding line " + str(offer.object) + " at y = " + eq + " as agreed.")
-    return plan or None
 
 
 def hurt(offer):

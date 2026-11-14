@@ -4,7 +4,7 @@
 // time) and pays for the cheapest change to the best board for your rule. Your points on a board are your rarity
 // there times the other players' rarity there added up, so where another player's move lowered your points it only
 // makes changes that keep them (a tug-of-war burns energy on both sides). It notes a tug-of-war for you, so you can
-// make a deal: LEAVE, PROTECT and TARGET below are how you keep one.
+// make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
@@ -23,8 +23,6 @@ const FAR = 2;      // how far one change may go
 const QUOTES = 6;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
-const TARGET = null;   // a board every player agreed on, its 16 digits row by row, e.g. "9779855879979779": boards go there and stay
-const SETTLE = [];     // the boards to settle at TARGET, e.g. [2, 5]; [] means every board
 const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
@@ -37,7 +35,6 @@ function edit(b, cells, f) {
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this board alone
-  if (TARGET && (!SETTLE.length || SETTLE.includes(offer.object))) return settle(offer, TARGET);   // a deal: bring the board to TARGET, then hold it
   // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
   // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
   contested(offer, 3);

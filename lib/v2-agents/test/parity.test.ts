@@ -199,24 +199,3 @@ test("hurt and pays: contested when another player's move lowered my points; a p
   assert.deepEqual(hit!.r.slice(3), [String(7 * shift >= 24), String(7 * tilt >= 24), "false", "false"], "pays: rarity 7 at score 2 times the others' total after, against 24 now; a score of nothing pays nothing; a move not allowed never pays");
   assert.notEqual(hit!.r[3], hit!.r[4], "the test distinguishes a plan that pays from one that does not");
 });
-
-test("settle: the moves that bring a line to an agreed target, none when it is there; the same in both languages", async () => {
-  const out = [], notes: string[][] = [], moved = line(3, 10);
-  for (const [language, src] of [
-    ["typescript", `function agent(offer) { const p = settle(offer, { m: -1, c: 59 }); return p ?? [move("probe", { r: "there" })]; }`],
-    ["python", `def agent(offer):\n    p = settle(offer, {"m": -1, "c": 59})\n    return p if p else [move("probe", r="there")]\n`],
-  ] as const) {
-    for (const at of [moved, line(-1, 59)]) {
-      const host = new EngineHost({ type: lineType, ...at, rule: { family: "m-meets-c", params: {} }, energy: 100 });
-      const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
-      assert.equal(res.ok, true, res.ok ? "" : res.error);
-      if (res.ok) out.push(JSON.parse(res.calls));
-      if (res.ok && at === moved) notes.push(host.notes);
-    }
-  }
-  assert.deepEqual(notes, [["Holding line 0 at y = -x + 59 as agreed."], ["Holding line 0 at y = -x + 59 as agreed."]], "the owner is told, in the same words in both languages");
-  assert.deepEqual(out.slice(2), out.slice(0, 2), "Python and TypeScript differ");
-  assert.deepEqual(out[0].map((c: { mutator: string; args: { k: string } }) => [c.mutator, c.args.k]), [["si.shift", "49"], ["si.tilt", "-4"]]);
-  assert.deepEqual(out[1].map((c: { mutator: string }) => c.mutator), ["probe"], "already there: no move");
-  assert.equal(new Set(out.map(o => JSON.stringify(o))).size, 2);
-});

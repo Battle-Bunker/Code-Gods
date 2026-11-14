@@ -32,9 +32,9 @@ test("never more than the new program's full price; more change costs more", () 
   const all = editBits("typescript", simple, other);
   assert.ok(all.bits <= summonBits("typescript", other).bits + 1e-9);
   const one = editBits("typescript", simple, keepOff(simple)).bits;
-  const two = editBits("typescript", simple, keepOff(simple).replace("const FAR = 3;", "const FAR = 5;")).bits;
+  const two = editBits("typescript", simple, keepOff(simple).replace("const FAR = 2;", "const FAR = 5;")).bits;
   assert.ok(two > one, "a second change adds to the price");
-  assert.ok(editBits("typescript", simple, simple.replace("const FAR = 3;", "const FAR = 4;")).bits > 0);
+  assert.ok(editBits("typescript", simple, simple.replace("const FAR = 2;", "const FAR = 4;")).bits > 0);
   assert.equal(editBits("typescript", "", simple).bits, summonBits("typescript", simple).bits, "from nothing: the summon price");
 });
 

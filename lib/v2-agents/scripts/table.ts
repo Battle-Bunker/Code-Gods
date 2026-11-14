@@ -9,7 +9,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { anthropicProvider, Budget, mockProvider, MODELS, targetIn, type ChatProvider } from "@workspace/v2-ai";
+import { anthropicProvider, Budget, mockProvider, MODELS, type ChatProvider } from "@workspace/v2-ai";
 import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { gridPresets, gridType, grid4 } from "@workspace/v2-grid";
 import { lineType, lineZ, presets } from "@workspace/v2-linear";
@@ -93,12 +93,10 @@ for (const [name, reports] of Object.entries(results)) {
     lines.push(`| ${name} | ${kind} | ${ss.length} | ${mean(ss.map(s => s.gained)).toFixed(0)} | ${Math.min(...ss.map(s => s.gained)).toFixed(0)} | ${mean(ss.map(s => s.reversalEnergy)).toFixed(0)} | ${ss.reduce((t, s) => t + s.replaced, 0)} / ${ss.reduce((t, s) => t + s.summoned, 0)} (${ss.reduce((t, s) => t + s.spent.edits + s.spent.summons, 0).toFixed(0)}) | ${ss.reduce((t, s) => t + s.messages, 0)} | ${ss.reduce((t, s) => t + s.proposals, 0)} | ${kind === "model" ? deals.length : "–"} | ${kind === "model" ? deals.filter(d => d.kept).length : "–"} | ${kind === "model" ? `${reports.filter(r => r.deals.some(d => d.kept)).length} of ${reports.length}` : "–"} | ${kind === "model" ? ["enacted", "pending", "retracted"].map(k => ss.reduce((t, s) => t + s.commitments[k as "enacted"], 0)).join(" / ") : "–"} |`);
   }
 }
-// Whole tables: points gained by all seats together per game, the poorest seat, and settle deals (a deal whose
-// proposal names a state: "y = -x + 59" or a board's digits).
-const totals = [`| Table | Table gained per game (mean) | Each game | Lowest seat-game | Settle deals accepted / kept |`, `|---|--:|---|--:|--:|`];
+// Whole tables: points gained by all seats together per game, and the poorest seat.
+const totals = [`| Table | Table gained per game (mean) | Each game | Lowest seat-game |`, `|---|--:|---|--:|`];
 for (const [name, reports] of Object.entries(results)) {
-  const settles = reports.flatMap(r => r.deals.filter(d => targetIn(d.text)));
-  totals.push(`| ${name} | ${mean(reports.map(r => r.seats.reduce((t, s) => t + s.gained, 0))).toFixed(0)} | ${reports.map(r => r.seats.reduce((t, s) => t + s.gained, 0).toFixed(0)).join(", ")} | ${Math.min(...reports.flatMap(r => r.seats.map(s => s.gained))).toFixed(0)} | ${settles.length} / ${settles.filter(d => d.kept).length} |`);
+  totals.push(`| ${name} | ${mean(reports.map(r => r.seats.reduce((t, s) => t + s.gained, 0))).toFixed(0)} | ${reports.map(r => r.seats.reduce((t, s) => t + s.gained, 0).toFixed(0)).join(", ")} | ${Math.min(...reports.flatMap(r => r.seats.map(s => s.gained))).toFixed(0)} |`);
 }
 const chat = Object.values(results).flat().flatMap(r => r.chat);
 // Starter prices in seconds of full power (the owner sets the level from these).

@@ -76,6 +76,15 @@ export interface HostInput<S> {
    * added up, before and after a plan). The agent never sees them, only the total.
    */
   readonly others?: readonly { readonly rule: RuleRef; readonly values: GameValues }[];
+  /** Owner decision 24 (objects are unique): whether another object already holds this state (as the type encodes it).
+   *  A plan whose result is held is not allowed, so quotes, cheapest() and othersAfter skip it. */
+  readonly occupied?: (encoded: string) => boolean;
+  /**
+   * Disclosure noise on the others' sum while a game is live (v1's public-log design §5.2): the noise at a state (as the
+   * type encodes it), a keyed function of the state alone, so repeats cannot average it away. `othersAfter` reports
+   * max(0, exact + noise); 0 or absent is exact.
+   */
+  readonly disclosed?: (encoded: string) => number;
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
@@ -188,7 +197,8 @@ export class EngineHost<S> implements AgentHost {
       case "othersAfter": {
         if (!this.others?.length) return err("this game does not say what lines are worth to the others");
         const priced = this.price(request.calls);
-        const total = (s: S) => this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, s, this.variant, o.tieBreaker).score).bits, 0);
+        const exact = (s: S) => this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, s, this.variant, o.tieBreaker).score).bits, 0);
+        const total = (s: S) => Math.max(0, exact(s) + (this.input.disclosed?.(this.type.encode(s)) ?? 0));
         // The others' totals and nothing else: a failure scoring another player's rule must not name it in its message.
         let before: number, after: number | null;
         try { before = total(this.state); after = priced.valid ? total(priced.result) : null; }
@@ -311,6 +321,7 @@ export class EngineHost<S> implements AgentHost {
     if (!parsed.length) return { valid: false, reason: "a plan needs at least one move" };
     const applied = applyCalls(this.type, this.variant, this.state, parsed);
     if (isInvalid(applied)) return { valid: false, reason: applied.invalid };
+    if (this.input.occupied?.(this.type.encode(applied.result))) return { valid: false, reason: "another object is already in that state" };
     return { valid: true, prices: [...applied.prices], total: applied.total, result: applied.result };
   }
 

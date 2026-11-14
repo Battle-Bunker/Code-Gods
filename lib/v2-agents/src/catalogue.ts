@@ -100,14 +100,14 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       "c-spf": {
         pre: { ts: ["const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fc[0] ?? 1", py: "fc[0] if fc else 1", says: "the y-intercept's smallest prime factor big is better",
-        lenses: ["tilt", "shift"], steps: 8, tryThis: "change FAR = 8 to 16 so it can reach a y-intercept with a bigger smallest factor.",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach a y-intercept with a bigger smallest factor?",
       },
       "c-gpf": {
         pre: { ts: ["const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fc.at(-1) ?? 1", py: "fc[-1] if fc else 1", says: "the y-intercept's largest prime factor big is better",
-        lenses: ["tilt", "shift"], steps: 8, tryThis: "change FAR = 8 to 16 so it can reach a y-intercept with a bigger prime in it.",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach a y-intercept with a bigger prime in it?",
       },
-      prime: { ts: "nearest", py: "nearest", says: "a bigger prime is better", lenses: ["tilt"], steps: 8, tryThis: "change FAR = 8 to 12 so it can jump past wider gaps between primes." },
+      prime: { ts: "nearest", py: "nearest", says: "a bigger prime is better", lenses: ["tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
     },
   },
   {
@@ -132,11 +132,11 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       legs: {
         ts: "-(legX.d + legY.d - 2n)", py: "-(legX.denominator + legY.denominator - 2)", says: "legs that are whole numbers are best",
-        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter and see if it finds whole legs sooner.",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 3, tryThis: "add the \"stretch\" lens from the Thorough starter and see if it finds whole legs sooner.",
       },
       even: {
         ts: neg("Q.abs(Q.sub(legX, legY))"), py: "-abs(legX - legY)", says: "legs of equal length are best",
-        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "change FAR = 4 to 2: smaller changes cost less, but does it still get there?",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 3, tryThis: "change FAR = 3 to 2: smaller changes cost less, but does it still get there?",
       },
     },
   },
@@ -152,7 +152,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       meetPrime: {
         pre: { ts: ["const cp = near(c, prime);", "if (cp === null) return null;"], py: ["cp = near(c, prime)", "if cp is None:", "    return None"] },
         ts: neg("Q.abs(Q.sub(c, cp))"), py: "-abs(c - cp)", says: "meeting at a prime is best",
-        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 3, tryThis: "change FAR = 3 to 6 and watch the price of each move.",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
       },
     },
   },
@@ -177,11 +177,11 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       size: {
         ts: "Q.abs(x)", py: "abs(x)", says: "a bigger x(q) is better",
-        lenses: ["shift", "tilt", "turnAtK"], steps: 4, tryThis: "remove the \"turn\" line and see whether it still finds bigger crossings.",
+        lenses: ["shift", "tilt", "turnAtK"], steps: 3, tryThis: "remove the \"turn\" line and see whether it still finds bigger crossings.",
       },
       whole: {
         ts: "-(x.d - 1n)", py: "-(x.denominator - 1)", says: "x(q) a whole number is best",
-        lenses: ["shift", "tilt", "turnAtK"], steps: 4, tryThis: "change FAR = 4 to 2 to make every move cheaper.",
+        lenses: ["shift", "tilt", "turnAtK"], steps: 3, tryThis: "change FAR = 3 to 2 to make every move cheaper.",
       },
     },
   },
@@ -195,7 +195,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       spf: {
         ts: "f.length ? f[0] : 1", py: "f[0] if f else 1", says: "a bigger smallest prime factor is better (a big prime is best)",
-        lenses: ["shift"], steps: 8, tryThis: "change FAR = 8 to 3 and see how often it gets stuck.",
+        lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2 and see how often it gets stuck.",
       },
       omega: {
         ts: "f.length", py: "len(f)", says: "more prime factors are better",
@@ -230,15 +230,15 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       omega: {
         ts: "f.length", py: "len(f)", says: "more prime factors in the root are better",
-        lenses: ["shift", "tilt", "turnAtMinusOne", "stretch"], steps: 3, tryThis: "change FAR = 3 to 5 so it can reach bigger squares.",
+        lenses: ["shift", "tilt", "turnAtMinusOne", "stretch"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach bigger squares?",
       },
       lpf: {
         ts: "f.at(-1) ?? 1", py: "f[-1] if f else 1", says: "a root whose largest prime factor is big is better",
-        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter.",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 3, tryThis: "add the \"stretch\" lens from the Thorough starter.",
       },
       spf: {
         ts: "f[0] ?? 1", py: "f[0] if f else 1", says: "a root whose smallest prime factor is big is better",
-        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter.",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 3, tryThis: "add the \"stretch\" lens from the Thorough starter.",
       },
     },
   },
@@ -274,7 +274,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       "first-prime": {
         ts: "run.length ? run[0] : 0", py: "run[0] if run else 0", says: "a bigger first prime is better",
-        lenses: ["shift", "step"], steps: 6, tryThis: "change FAR = 6 to 10 so it can jump to bigger primes.",
+        lenses: ["shift", "step"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump to bigger primes?",
       },
     },
   },
@@ -289,12 +289,12 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       "m-spf": {
         pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["turnAtK", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = k keeps the treasure and only changes the gradient.",
+        lenses: ["turnAtK", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.",
       },
       "m-gpf": {
         pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["turnAtK", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = k keeps the treasure and only changes the gradient.",
+        lenses: ["turnAtK", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.",
       },
       "prime-terms": {
         pre: {
@@ -302,7 +302,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
           py: ["primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)"],
         },
         ts: "primes.size", py: "len(primes)", says: "more different primes among y(1) ... y(8) is better",
-        lenses: ["shift", "tilt", "turnAtK"], steps: 6, tryThis: "change FAR = 6 to 30: a step of 30 through (2, 37) gives many primes.",
+        lenses: ["shift", "tilt", "turnAtK"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
       },
     },
   },
@@ -317,14 +317,14 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       "m-spf": {
         pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 8, tryThis: "change FAR = 8 to 16: tilting never moves the y-intercept, so the landing stays.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
       },
       "m-gpf": {
         pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 8, tryThis: "change FAR = 8 to 16: tilting never moves the y-intercept, so the landing stays.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
       },
-      "big-prime": { ts: "landing", py: "landing", says: "a bigger prime is better", lenses: ["shift"], steps: 8, tryThis: "change FAR = 8 to 12 so it can jump past wider gaps between primes." },
+      "big-prime": { ts: "landing", py: "landing", says: "a bigger prime is better", lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
     },
   },
   {
@@ -347,14 +347,14 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       "m-spf": {
         pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["turnAtT", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = T keeps the unchanged number and only changes the gradient.",
+        lenses: ["turnAtT", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = T keeps the unchanged number and only changes the gradient.",
       },
       "m-gpf": {
         pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
         ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["turnAtT", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = T keeps the unchanged number and only changes the gradient.",
+        lenses: ["turnAtT", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = T keeps the unchanged number and only changes the gradient.",
       },
-      steep: { ts: "Q.abs(Q.sub(m, 1))", py: "abs(m - 1)", says: "a gradient far from 1 is better", lenses: ["shift", "tilt", "turnAtT"], steps: 4, tryThis: "remove the \"turn\" line: can it get steep without losing T?" },
+      steep: { ts: "Q.abs(Q.sub(m, 1))", py: "abs(m - 1)", says: "a gradient far from 1 is better", lenses: ["shift", "tilt", "turnAtT"], steps: 3, tryThis: "remove the \"turn\" line: can it get steep without losing T?" },
     },
   },
   {
@@ -380,15 +380,15 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       "k-spf": {
         ts: "fk[0] ?? 1", py: "fk[0] if fk else 1", says: "that whole number's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 12 so it can reach crossings further out.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach crossings further out?",
       },
       "k-gpf": {
         ts: "fk.at(-1) ?? 1", py: "fk[-1] if fk else 1", says: "that whole number's largest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 6, tryThis: "remove the \"tilt\" line: moving the line up and down alone walks the crossing in steps of 1/m.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"tilt\" line: moving the line up and down alone walks the crossing in steps of 1/m.",
       },
       "m-spf": {
         ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 10 so the gradient can jump to a bigger prime.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
       },
     },
   },
@@ -421,20 +421,20 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     tieBreakers: {
       "m-spf": {
         ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 12: the run needs c a multiple of 27720, so big jumps help.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
       },
       "m-gpf": {
         ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 6, tryThis: "change FAR = 6 to 12: the run needs c a multiple of 27720, so big jumps help.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
       },
       steep: {
         ts: "Q.abs(m)", py: "abs(m)", says: "a steeper gradient is better",
-        lenses: ["shift", "tilt"], steps: 6, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
       },
       "m-prime": {
         pre: { ts: ["const mp = near(m, prime);"], py: ["mp = near(m, prime)"] },
         ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to a prime is better",
-        lenses: ["shift", "tilt"], steps: 4, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"shift\" line: tilting alone keeps c, and with it the run.",
       },
     },
   },

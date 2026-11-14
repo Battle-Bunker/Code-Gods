@@ -171,3 +171,39 @@ gains more evenly costs total points. At the states themselves, for 24 lines:
 
 The fairest mix was found by multiplicative weights over the game-scale states, rounded to 24 lines; it is
 approximate. How evenly a table should share its gains is a design question for the owner, not a defect.
+
+## Climbers under unique objects (2026-11-14): totals and dynamics
+
+The runs above were made before objects were unique. The settle results in them were the game collapsing to a fixed
+point, which the owner has ruled a bug (CLAUDE.md, "The game is a metastable ecosystem").
+
+These runs are scripted, with no model spend: 300 s, 3 games each. No two lines may hold the same state, and a quote
+onto a held state is refused, so agents take their next-best move. Four kinds of agent:
+- **Naive.**
+- **Selfish:** greedy on its own rule.
+- **Shipped Simple:** greedy, but on a contested line only moves that keep its own points.
+- **Points climber:** each act, the move that most raises its own rarity × the others' total, read through `othersAfter`.
+
+Table points gained (mean of 3), with the share of acts in the last minute that made no move:
+
+| Table | Naive | Selfish | Shipped Simple | Points climber |
+|---|--:|--:|--:|--:|
+| Compatible (Prime Landing/m-spf, Treasure/m-spf, Prime Gradient) | 35,879 · 91% | 27,879 · 90% | 30,719 · 93% | **49,828** · 90% |
+| Mixed (Prime Landing, Treasure, Whole Crossing) | 7,949 · 73% | 8,087 · 71% | 8,678 · 91% | **13,786** · 86% |
+| Conflicting (Prime Landing, Square Area, Whole Crossing) | 20,707 · 61% | **20,731** · 63% | 11,269 · 90% | 11,446 · 91% |
+| 4 seats (Mixed + Prime Gradient) | 17,657 · 71% | 20,155 · 74% | 23,110 · 87% | **24,715** · 64% |
+
+**Dynamics.**
+- **The boards freeze.** On every table and for every kind of agent, most late acts find no move worth making: 61–93%.
+  The agents reach local optima within the 300 s game and stop, so the board converges. Only births (0.1 a second)
+  bring fresh objects.
+- **No one strategy dominates.**
+  - Climbing for points wins three tables of four, by 1.4× to 1.7× naive.
+  - It loses on the conflicting table, where refusing moves that lower one's own points stalls the climb early.
+  - Selfish and naive play do best there.
+- **Search.** These climbers search only 12 neighbouring moves an act (shift or tilt by up to 3), so they find local
+  optima, not the table's best joint state.
+
+**A defect to report.** A board that stops moving within one game is the static end state the owner wants to avoid.
+The likely mechanisms: the whole-number neighbourhoods are small, nothing perturbs a line once it sits at a local
+optimum, and births are slow. Changing any of these is the owner's call.

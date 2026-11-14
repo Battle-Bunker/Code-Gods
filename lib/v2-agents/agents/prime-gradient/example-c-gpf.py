@@ -7,7 +7,7 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 8 to 16 so it can reach a y-intercept with a bigger prime in it.
+# Try this: change FAR = 3 to 2: shorter steps cost less; does it still reach a y-intercept with a bigger prime in it?
 
 
 def score(m, c, p):
@@ -20,19 +20,15 @@ def score(m, c, p):
     return [main, fc[-1] if fc else 1]   # main: how far the gradient is from the nearest prime (closer is better); tie-breaker: the y-intercept's largest prime factor big is better
 
 
-FAR = 8      # how far one change may go
+FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
-TARGET = None   # a line every player agreed on, e.g. {"m": -1, "c": 59} for y = -x + 59: lines go there and stay
-SETTLE = []     # the lines to settle at TARGET, e.g. [2, 5]; [] means every line
 
 
 def agent(offer):
     if offer.object in LEAVE:   # a deal: leave this line alone
         return None
-    if TARGET is not None and (not SETTLE or offer.object in SETTLE):   # a deal: bring the line to TARGET, then hold it
-        return settle(offer, TARGET)
     # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
     contested(offer, 3)
