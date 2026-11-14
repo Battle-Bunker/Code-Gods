@@ -4,8 +4,8 @@ import { internalQuery } from "../_generated/server";
 import { resolveContext, userById } from "./access";
 
 export const context = internalQuery({
-  args: { userId: v.string(), scope: v.any() },
-  handler: async (ctx, { userId, scope }) => {
+  args: { userId: v.string(), scope: v.any(), agentId: v.optional(v.string()) },
+  handler: async (ctx, { userId, scope, agentId }) => {
     const r = await resolveContext(ctx, await userById(ctx, userId), scope);
     if (!r.game || !r.member || !r.player) return null;
     const rule = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", r.game!._id).eq("memberId", r.member!._id)).unique())!;
@@ -15,6 +15,12 @@ export const context = internalQuery({
       const st = await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", o._id)).unique();
       if (st) samples.push({ objectId: o._id as string, state: st.state });
     }
-    return { variant: r.game.variant, seed: r.game.seed, energy: r.player.energy, rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, samples };
+    // The agent whose program this would replace (the caller's own, live), for the edit price.
+    const id = agentId ? ctx.db.normalizeId("v2Agents", agentId) : null, agent = id ? await ctx.db.get(id) : null;
+    if (agentId && (!agent || agent.memberId !== r.member._id || agent.gameId !== r.game._id || agent.destroyedAt !== undefined)) return { refused: "That agent is not yours." };
+    return {
+      variant: r.game.variant, seed: r.game.seed, energy: r.player.energy, rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker }, samples,
+      current: agent ? { language: agent.language, source: agent.source } : null,
+    };
   },
 });
