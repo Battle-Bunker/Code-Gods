@@ -325,6 +325,15 @@ try {
     assert.match(back ?? "", /\/rooms\/[A-Z0-9]+$/, "the way back to the room");
     await page.goto(`${SITE}${back}`);
     await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+    if (label === "desktop") {
+      // The owner deals the last game again (game.rematch: same rules and seed) and is taken to the new game.
+      const ended = page.url();
+      await page.getByTestId("button-rematch").click();
+      await page.getByTestId("button-rematch-confirm-ok").click();   // confirm: "summary"
+      await page.waitForURL(/\/games\//, { timeout: 30_000 });
+      assert.notEqual(page.url(), ended);
+      console.log(`${label}: rematch dealt: ${page.url().split("/").at(-1)}`);
+    }
     assert.deepEqual(errors, [], `${label}: no page errors`);
     await context.close();
   }

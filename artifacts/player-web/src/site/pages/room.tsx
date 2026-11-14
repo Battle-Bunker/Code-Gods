@@ -117,13 +117,17 @@ function PastGames({ room }: { room: Room }) {
     <Section title="Past games" count={history.results.length} collapsible defaultOpen testId="section-past-games">
       {!history.results.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : (
         <ul className="divide-y">
-          {history.results.map(g => (
+          {history.results.map((g, i) => (
             <li key={g.gameId} className="px-4 py-2.5 text-sm flex flex-wrap gap-x-4">
               <Link href={gamePath(room.code, g.gameId)} className="underline underline-offset-4" data-testid={`link-past-game-${g.gameId}`}>Game {g.number}</Link>
               <span className="text-muted-foreground">{g.winner ? `won by ${names.get(g.winner) ?? "a player who left"}` : "no winner"}{g.endedAt ? ` · ${new Date(g.endedAt).toLocaleString()}` : ""}</span>
               {g.endedAt !== null && (
                 <AffordanceButton id="replay.open" args={{ gameId: g.gameId }} label="Watch the replay" busyLabel="Opening…" tone="link" testId={`button-replay-${g.gameId}`}
                   onDone={() => navigate(gamePath(room.code, g.gameId))} />
+              )}
+              {/* The last game dealt again (game.rematch): the same rules and seed, to compare what the players changed. */}
+              {i === 0 && g.endedAt !== null && !room.game && room.members.find(m => m.me)?.owner && (
+                <AffordanceButton id="game.rematch" args={{}} label="Rematch: the same deal" busyLabel="Dealing…" tone="link" testId="button-rematch" />
               )}
             </li>
           ))}

@@ -17,7 +17,7 @@ import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { pagedFrom, useReplaySource } from "./replay";
 import { bitsOf, ruleRefOf, valueOf, type GameRule, type ValueOf } from "./rule";
 import type { Score } from "@workspace/v2-core";
-import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint } from "./types";
+import type { Agent, Header, Move, MyRuleRow, ObjectSort, PlayObject, StandingsPoint, Tug } from "./types";
 import { sharedRanks } from "@/core/words";
 
 /** The room in view: members (≤ 16), owner, preset, current and last game, an open bid phase. */
@@ -109,13 +109,24 @@ export function useMyObjects(objectIds: readonly string[]): (PlayObject | undefi
 }
 
 /** Moves that concern the viewer, newest first (the act log). */
-export function useMoves(pageSize = 30) {
+export function useMoves(pageSize = 30, { replayOnly = false }: { replayOnly?: boolean } = {}) {
   const { gameId, seated } = useGameScope();
   const replay = useReplaySource();
-  const live = useLivePaged(api.v2.play.moves, gameId && seated && !replay ? { gameId } : "skip", pageSize);
+  const live = useLivePaged(api.v2.play.moves, gameId && seated && !replay && !replayOnly ? { gameId } : "skip", pageSize);
   const frame = replay?.frame, member = replay?.member;
   const replayed = useMemo(() => (frame && member ? pagedFrom<Move>(frame.moves(member)) : null), [frame, member]);
   return (replayed ?? live) as typeof live;
+}
+
+/**
+ * The viewer's tugs-of-war over the whole game, as the tick folds them (≤ 20, most-flipped first). Null in a replay,
+ * where the summary folds the frame's moves instead; undefined while loading.
+ */
+export function useTugs(): Tug[] | null | undefined {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  const live = useLiveValue(api.v2.play.tugs, gameId && seated && !replay ? { gameId } : "skip");
+  return replay ? null : live;
 }
 
 /** The viewer's live agents (≤ 20). Undefined while loading, which never means none. */
