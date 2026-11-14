@@ -27,12 +27,11 @@ export const callV = v.object({ mutator: v.string(), site: v.number(), args: v.r
 export const overridesV = v.object({
   planningSeconds: v.optional(v.number()), worldSeconds: v.optional(v.number()), startingEnergy: v.optional(v.number()),
 });
-/** One rung of a dealt rule's ladder, with its calibrated ✨ rarity and the layer it belongs to (layered rules). */
-export const rungV = v.object({ level: v.number(), label: v.string(), rarityBits: v.number(), layer: v.optional(v.string()) });
 /** A player's view of an object at one moment (a move's before and after). */
-export const valueSnapV = v.object({ score: scoreWireV, level: v.number(), rarityBits: v.number(), want: v.number(), points: v.number() });
+/** A player's value of a state: the utility (as its wire), its worth in bits, the others' worth and the points. */
+export const valueSnapV = v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number() });
 export const bidV = v.object({ family: v.string(), percent: v.number() });
-/** A family on offer in the bid phase, as a player judges it: its card and the top of its ladder in ✨ rarity. */
+/** A family on offer in the bid phase, as a player judges it: its card and the most ✨ bits its rules reach. */
 export const offerV = v.object({ family: v.string(), title: v.string(), card: v.string(), top: v.number() });
 
 export const eventKindV = v.union(
@@ -119,7 +118,7 @@ export const v2Tables = {
     totals: v.record(v.string(), v.number()),
   }).index("by_game", ["gameId"]),
 
-  /** A player's dealt rule (private to that player): `{family, params, layers}`, its card and its ladder. */
+  /** A player's dealt rule (private to that player): `{family, params, layers}` and its card (its value: values.ts). */
   v2Rules: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"),
     family: v.string(), params: v.any(),
@@ -127,7 +126,7 @@ export const v2Tables = {
     layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), ruleKey: v.string(), contentHash: v.string(),
     title: v.string(), card: v.string(), depends: v.array(v.string()),
     /** The main layer's representation (the compact face's view). */
-    primary: v.string(), ladder: v.array(rungV),
+    primary: v.string(),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
   }).index("by_game_member", ["gameId", "memberId"]),
@@ -148,12 +147,12 @@ export const v2Tables = {
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), state: v.string(), version: v.number(), changedAt: v.number(),
   }).index("by_object", ["objectId"]),
   /**
-   * One player's value of one object (spec §7.7, §8): score, level, own rarity n_i (bits), the others' sum
+   * One player's value of one object (spec §7.7, §8; decision 23): utility, own worth n_i (bits), the others' sum
    * Σ_{j≠i} n_j (`want`) and points π_i = n_i · want. Private to that player during a live game.
    */
   v2ObjectValues: defineTable({
     objectId: v.id("v2Objects"), gameId: v.id("v2Games"), memberId: v.id("v2Members"), number: v.number(),
-    score: scoreWireV, level: v.number(), rarityBits: v.number(), want: v.number(), points: v.number(),
+    score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(),
     version: v.number(), changedAt: v.number(),
   }).index("by_object_member", ["objectId", "memberId"])
     .index("by_game_member_points", ["gameId", "memberId", "points"])

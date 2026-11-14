@@ -3,12 +3,14 @@
  * the app (W5) and the contract tests run against real queries before the lobby and the tick exist. Local deployments
  * only (TEST_FIXTURES=1, set by scripts/dev.mjs); every function here refuses elsewhere.
  *
- * The game is real where it is cheap: states are lines of `line-z` (v2-linear), each player's score and level are their
- * rule evaluated on the state (v2-core). Rarities are placeholders (1.5 bits per level) until values come from the
- * committed artefacts (W3-4); points follow spec §8 from them.
+ * The game is real where it is cheap: states are lines of `line-z` (v2-linear), each seat holds a real dealable rule of
+ * the beginner pool, and every value is that rule's utility and its bits from the value function (world.ts), as the
+ * commit computes them; points follow spec §8.
  */
-import { evaluateObject, levelOf, objectLadder, rng, ruleLayers, scoreToWire, type RuleFamily } from "@workspace/v2-core";
-import { families, fromMC, lineType, lineZ, type LineState } from "@workspace/v2-linear";
+import { rng } from "@workspace/v2-core";
+import { fromMC, lineType, lineZ, type LineState } from "@workspace/v2-linear";
+import { dealablePool, offers as offersOf, ruleView } from "./deal";
+import { valueOf as valueAt } from "./world";
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -22,8 +24,6 @@ const fixtures = () => {
   if (!fixturesOn(process.env)) throw new ConvexError({ code: "FORBIDDEN", message: "v2 fixtures need TEST_FIXTURES=1" });
 };
 
-const RARITY_PER_LEVEL = 1.5;
-const family = (i: number) => families[i % families.length]! as unknown as RuleFamily<LineState, unknown>;
 
 async function userName(ctx: MutationCtx, userId: string) {
   return (await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", userId)).unique())?.name ?? userId;
@@ -92,18 +92,14 @@ export const seedGame = internalMutation({
     await ctx.db.patch(roomId, { games: 1, lastGameId: gameId, ...(phase === "ended" ? {} : { gameId }), revision: 1 });
 
     // Rules and accounts.
-    const rules = members.map((memberId, i) => {
-      const f = family(i), params = f.dealable(lineZ)[0]!;
-      // The family's first tie-breaker, as the dealer's default.
-      const layers = ruleLayers(f), tb = layers[1]?.id ?? null;
-      return { memberId, f, params, tb, layers, ladder: objectLadder(lineType, f, params, lineZ, tb) };
-    });
-    for (const { memberId, f, params, tb, layers, ladder } of rules) {
-      const ruleKey = `line@1/${lineZ.id}/${f.id}/${tb ?? "none"}/${JSON.stringify(params)}`;
+    // Real dealable rules (each with a value function), a different family per seat where the pool allows.
+    const pool = dealablePool(preset), families = [...new Set(pool.map(r => r.family))];
+    const rules = members.map((memberId, i) => ({ memberId, dealt: pool.find(r => r.family === families[i % families.length])! }));
+    for (const { memberId, dealt } of rules) {
+      const view = ruleView(dealt);
       await ctx.db.insert("v2Rules", {
-        gameId, memberId, family: f.id, params, layers: layers.map(l => l.id), tieBreaker: tb, ruleKey, contentHash: "fixture",
-        title: f.title, card: f.card(params, tb), depends: [...f.depends], primary: f.main.rep,
-        ladder: ladder.map((rung, level) => ({ level, label: rung.label, rarityBits: level * RARITY_PER_LEVEL, ...(rung.layer >= 0 ? { layer: layers[rung.layer]!.id } : {}) })),
+        gameId, memberId, family: dealt.family, params: dealt.params, layers: view.layers, tieBreaker: dealt.tieBreaker, ruleKey: dealt.ruleKey,
+        contentHash: dealt.contentHash, title: view.title, card: view.card, depends: view.depends, primary: view.primary,
       });
       const m = (await ctx.db.get(memberId))!;
       await ctx.db.insert("v2Players", {
@@ -121,11 +117,7 @@ export const seedGame = internalMutation({
       const objectId = await ctx.db.insert("v2Objects", { gameId, number: i + 1, bornAt: i });
       objects.push(objectId);
       await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version: 1, changedAt: i });
-      const evals = rules.map(({ f, params, tb, ladder }) => {
-        const score = evaluateObject(lineType, f, params, state, lineZ, tb).score;
-        const level = levelOf(score, ladder);
-        return { score: scoreToWire(score), level, rarityBits: level * RARITY_PER_LEVEL };
-      });
+      const evals = rules.map(({ dealt }) => valueAt(state, lineZ.id, dealt));
       const total = evals.reduce((s, e) => s + e.rarityBits, 0);
       for (const [k, { memberId }] of rules.entries()) {
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;
@@ -144,7 +136,7 @@ export const seedGame = internalMutation({
       for (let s = 0; s < Math.min(3, n); s++) {
         const objectId = objects[(k + s) % n]!, value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique())!;
         const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!.state;
-        const snap = { score: value.score, level: value.level, rarityBits: value.rarityBits, want: value.want, points: value.points };
+        const snap = { score: value.score, rarityBits: value.rarityBits, want: value.want, points: value.points };
         await ctx.db.insert("v2Moves", {
           gameId, memberId, seq: s, worldSeconds: s * 2, objectId, number: value.number, agentId, mine: true,
           calls: [{ mutator: "si.tilt", site: 0, args: { k: "1" } }], rep: "si", stateBefore: state, stateAfter: state, before: snap, after: snap, charge: 1.5,
@@ -161,7 +153,8 @@ export const seedGame = internalMutation({
     for (const { memberId } of rules) await ctx.db.insert("v2Digests", { gameId, memberId, packed: packed.get(memberId) ?? [], version: 1 });
     await ctx.db.insert("v2Events", { gameId, seq: 0, kind: "gameStarted", data: { fixture: true, variant: lineZ.id, seed } });
     await ctx.db.insert("v2Clocks", { gameId, tick: 0, worldSeconds: 20, lastTickAt: now, objects: n, agents: members.length, commits: 0, events: 1 });
-    return { roomId, gameId, members, objects };
+    // Each member's dealt family, so a test can check a player is shown their own rule.
+    return { roomId, gameId, members, objects, families: rules.map(r => r.dealt.family) };
   },
 });
 
@@ -203,12 +196,7 @@ export const setBidding = internalMutation({
   handler: async (ctx, { roomId, open, seconds }) => {
     fixtures();
     const room = (await ctx.db.get(roomId))!;
-    const offers = presetOf(room.preset).families.flatMap(id => {
-      const f = lineType.families.find(x => x.id === id) as RuleFamily<LineState, unknown> | undefined;
-      if (!f) return [];
-      const params = f.dealable(lineZ)[0]!;
-      return [{ family: f.id, title: f.title, card: f.card(params, null), top: (objectLadder(lineType, f, params, lineZ).length - 1) * RARITY_PER_LEVEL }];
-    });
+    const offers = offersOf(dealablePool(presetOf(room.preset)));
     await ctx.db.patch(roomId, open ? { bidding: { deadline: Date.now() + (seconds ?? 45) * 1000, pricing: presetOf(room.preset).bid?.pricing ?? "first", families: offers } } : { bidding: undefined });
   },
 });
@@ -239,7 +227,7 @@ export const valueOf = internalQuery({
     const object = (await ctx.db.get(objectId))!, game = (await ctx.db.get(object.gameId))!;
     const member = (await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", game.roomId).eq("userId", userId)).first())!;
     const v = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", member._id)).unique())!;
-    return { score: v.score, level: v.level, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version };
+    return { score: v.score, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version };
   },
 });
 

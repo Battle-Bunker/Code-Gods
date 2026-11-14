@@ -29,7 +29,7 @@ test("nothing Bo is told names Ada's rule, and every value he gets is his own", 
   await q("v2/rooms:get", { roomId });
   await q("v2/play:moves", { gameId, paginationOpts: page });
   for (const sort of ["points", "rarity", "want", "born", "recent"]) await q("v2/play:objectIds", { gameId, sort, paginationOpts: page });
-  for (const id of ["game.get", "game.standings", "rule.explain", "rule.ladder", "agents.list"]) await op(id, {});
+  for (const id of ["game.get", "game.standings", "rule.explain", "rule.values", "agents.list"]) await op(id, {});
   await op("objects.list", { sort: "points", limit: 50 });
   await op("moves.list", { limit: 50 });
   for (const objectId of objects) {

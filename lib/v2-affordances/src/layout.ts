@@ -17,7 +17,7 @@ export interface ViewState {
   panes: { pane: string; place: Place }[];
   /** The representation compact faces use, per rule family, "*" for every object. Replaces per-device pins. */
   pins: Record<string, string>;
-  objects: { sort: "points" | "level" | "recent"; filter: { mine?: boolean; minLevel?: number } };
+  objects: { sort: "points" | "rarity" | "recent"; filter: { mine?: boolean; minBits?: number } };
   /**
    * The object whose expanded face is open, and the representations it shows side by side (one when switched; none:
    * every representation the viewer's rule depends on, the expanded face's default).
@@ -76,7 +76,7 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.compareRepresentations": (v, a) => ({ ...v, focus: { objectId: a.objectId, reps: [...new Set(a.reps)] }, panes: openPane(v, "object") }),
   "view.openObject": (v, a) => ({ ...v, focus: { objectId: a.objectId, reps: v.focus?.objectId === a.objectId ? v.focus.reps : [] }, panes: openPane(v, "object") }),
   "view.sortObjects": (v, a) => ({ ...v, objects: { ...v.objects, sort: a.sort } }),
-  "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minLevel !== undefined ? { minLevel: a.minLevel } : {}) } } }),
+  "view.filterObjects": (v, a) => ({ ...v, objects: { ...v.objects, filter: { ...(a.mine !== undefined ? { mine: a.mine } : {}), ...(a.minBits !== undefined ? { minBits: a.minBits } : {}) } } }),
   "view.showGlossary": (v, a) => ({ ...v, glossary: a.term ?? "" }),
   "replay.open": (v, a) => ({ ...v, replay: { gameId: a.gameId, cursor: { seq: 0 }, playing: false, speed: 1 }, panes: openPane(v, "replay") }),
   "replay.play": v => ({ ...v, replay: { ...replayOf(v), playing: true } }),

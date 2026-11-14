@@ -4,6 +4,7 @@
  * (cases copied from v1's deal-rotation test). What would break: an unconverged or too-coarse rule reaching a player;
  * a deal that is not reproducible from its seed; a rotation that repeats a rule for a player within a round.
  */
+import { topBits, valueRecord } from "../../convex/v2/values.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -41,14 +42,19 @@ test("a fresh deal is reproducible from its seed and spreads the pool over the s
   assert.throws(() => freshDeal([], 3, "s"), /dealable/);
 });
 
-test("a dealt rule's card and ladder come from its family and artefact", () => {
+test("a dealt rule's card comes from its family, and every dealt rule has a value function (decision 23)", () => {
   const [rule] = dealablePool(beginner);
   const view = ruleView(rule!);
   assert.equal(view.layers.length, 2);
   assert.equal(view.layers[1], rule!.tieBreaker);
   assert.ok(view.card.length > 0);
-  assert.equal(view.ladder[0]!.rarityBits, 0);
-  for (let i = 1; i < view.ladder.length; i++) assert.ok(view.ladder[i]!.rarityBits >= view.ladder[i - 1]!.rarityBits, "rarity grows up the ladder");
+  for (const r of dealablePool(beginner)) {
+    const vf = valueRecord(r.ruleKey);
+    assert.ok(vf && vf.contentHash === r.contentHash, `${r.ruleKey} is dealt with its value function`);
+    assert.equal(vf.knots[0]!.bits, 0, "the worst score is worth nothing");
+    for (let i = 1; i < vf.knots.length; i++) assert.ok(vf.knots[i]!.bits >= vf.knots[i - 1]!.bits, "worth never falls as the score improves");
+    assert.ok(topBits(vf) > 0);
+  }
 });
 
 const KEY = "deal-key";

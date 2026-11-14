@@ -5,7 +5,7 @@
  */
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, rungV, scoreWireV, valueSnapV } from "./tables";
+import { bidV, callV, languageV, memberKindV, offerV, overridesV, phaseV, scoreWireV, valueSnapV } from "./tables";
 
 export const roomPhaseV = v.union(v.literal("lobby"), phaseV);
 
@@ -57,7 +57,10 @@ export const standingsHistoryV = v.array(v.object({ seq: v.number(), worldSecond
 /** `v2/play:myRule`: the caller's private rule. */
 export const myRuleV = v.object({
   family: v.string(), title: v.string(), params: v.any(), layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), card: v.string(),
-  depends: v.array(v.string()), primary: v.string(), ladder: v.array(rungV), ruleKey: v.string(),
+  depends: v.array(v.string()), primary: v.string(), ruleKey: v.string(),
+  /** The rule's value function (decision 23), as `valueLookup` takes it: what any utility is worth, in bits. */
+  value: v.object({ knots: v.array(v.object({ u: scoreWireV, bits: v.number(), lo: v.number(), hi: v.number() })), tail: v.any() }),
+  contentHash: v.string(),
   bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()),
 });
 /** `v2/play:me`: the caller's account (hot, one document). */
@@ -76,7 +79,7 @@ export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v
 export const playObjectV = v.object({
   objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(),
   state: v.string(), version: v.number(), changedAt: v.number(),
-  value: v.union(v.object({ score: scoreWireV, level: v.number(), rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
+  value: v.union(v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
 });
 export const agentRowV = v.object({
   agentId: v.id("v2Agents"), name: v.string(), language: languageV, version: v.number(), share: v.number(), createdAt: v.number(),

@@ -1,22 +1,15 @@
 /**
- * Values and points (spec §7.7, §8), pure: each player's rule evaluated on a state, its level on the artefact's ladder,
- * the level's ✨ rarity n_i in bits, and π_i = n_i · Σ_{j≠i} n_j. Used by the commit (loop.ts) and the read
- * affordances, so a value has one definition.
+ * Values and points (spec §7.7, §8; owner decision 23), pure: each player's rule evaluated on a state, its utility (the
+ * plain lexicographic score), the utility's ✨ worth n_i in bits from the rule's value function, and
+ * π_i = n_i · Σ_{j≠i} n_j. Used by the commit (loop.ts) and the read affordances, so a value has one definition.
  */
-import { evaluateObject, levelOf, scoreToWire, type ObjectType, type Rung } from "@workspace/v2-core";
+import { evaluateObject, scoreToWire, type ObjectType } from "@workspace/v2-core";
 import { findVariant } from "@workspace/v2-valuation";
-import { artefactFor, rarityOf } from "./artefacts.ts";
-import { artefactLadder, familyOf, type DealtRule } from "./deal.ts";
+import { familyOf, type DealtRule } from "./deal.ts";
+import { worthOf } from "./values.ts";
 
 export interface SeatRule { memberId: string; rule: DealtRule }
-export interface Value { memberId: string; score: (string | null)[] | null; level: number; rarityBits: number; want: number; points: number }
-
-const ladders = new Map<string, Rung[]>();
-const ladderOf = (rule: DealtRule) => {
-  let l = ladders.get(rule.ruleKey);
-  if (!l) ladders.set(rule.ruleKey, l = artefactLadder(rule));
-  return l;
-};
+export interface Value { memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number }
 
 export const variantOf = (id: string) => findVariant(id).variant;
 /** The object type a variant belongs to (lines, grids): every state, birth and host of a game goes through it. */
@@ -24,13 +17,12 @@ export const typeOf = (variantId: string): ObjectType<unknown> => findVariant(va
 export const decode = (wire: string, variantId: string): unknown => typeOf(variantId).decode(wire);
 export const encode = (state: unknown, variantId: string): string => typeOf(variantId).encode(state);
 
-/** One player's score, level and rarity of a state. */
+/** One player's utility (as its wire) and its worth in bits. */
 export function valueOf(state: unknown, variantId: string, rule: DealtRule) {
   const family = familyOf(rule.family);
-  const score = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).score;
-  const a = artefactFor(rule.ruleKey);
-  if (!a) throw new Error(`No artefact for ${rule.ruleKey}`);
-  return { score: scoreToWire(score), level: levelOf(score, ladderOf(rule)), rarityBits: rarityOf(a, score) };
+  // One-site variants only: a multi-site object's utility comes with decision 23's PR 2 (no such rule is dealt yet).
+  const utility = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).utility ?? null;
+  return { score: scoreToWire(utility), rarityBits: worthOf(rule.ruleKey, utility).bits };
 }
 
 /** Every seated player's value of a state, with want (the others' rarity) and points. */
