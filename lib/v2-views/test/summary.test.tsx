@@ -51,7 +51,10 @@ test("one thing to try next game: talk to whoever pulled hardest against you, ab
   assert.match(summarise(base).next, /^Talk to Ada about line 4 before your agents pull it: you both want it\.$/);
   // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
   const calm = summarise({ ...base, tugs: [] });
-  assert.match(calm.next, /^Line 4 is the one the others want most \(7\.55 bits\)\. .+ would make it rarer for you: [\d.]+ ⚡( for [\d.]+ bits)?\.$/, calm.next);
+  assert.match(calm.next, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ ⚡( for [\d.]+ bits for you)?\.$/, calm.next);
+  // Practice partners do not read chat: the advice is about your own agent instead.
+  const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
+  assert.match(practice.next, /^Next game, tell your agent to leave line 4 to Ada: it cost you 28\.86 ⚡, and practice partners do not read chat\.$/, practice.next);
 });
 
 test("the component: three short sections, no steps, the noun of the object type; a grid says grid", () => {

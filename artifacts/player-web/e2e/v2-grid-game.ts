@@ -252,7 +252,7 @@ try {
     const summed = await summary.innerText();
     assert.match(summed, /What earned your points/);
     assert.match(summed, /What cost you/);
-    assert.match(summed, /(Talk to .+ about grid \d+|is the one the others want most|Open your secret goal)/, summed);
+    assert.match(summed, /(Talk to .+ about grid \d+|tell your agent to leave grid \d+|is the one the others want most|Open your secret goal)/, summed);
     await summary.screenshot({ path: path.join(shots, `grid-${label}-summary.png`) });
     await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.

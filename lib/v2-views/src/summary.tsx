@@ -30,6 +30,8 @@ export interface SummaryTug {
   readonly flips: number;
   /** The energy the player's agents spent on it. */
   readonly mySpend: number;
+  /** Every other side is a practice partner (they do not read chat). */
+  readonly practice?: boolean;
 }
 
 export interface SummaryInput<S> {
@@ -83,12 +85,13 @@ export function summarise<S>(input: SummaryInput<S>): Summary {
   // One thing to try: the dearest tug-of-war's other side, by name; else the most wanted object made rarer for you.
   let next: string;
   const top = tugs[0];
-  if (top) next = `Talk to ${top.withNames[0] ?? "the other player"} about ${noun} ${top.number} before your agents pull it: you both want it.`;
+  if (top && top.practice) next = `Next game, tell your agent to leave ${noun} ${top.number} to ${names(top.withNames)}: it cost you ${fmtEnergy(top.mySpend)}, and practice partners do not read chat.`;
+  else if (top) next = `Talk to ${top.withNames[0] ?? "the other player"} about ${noun} ${top.number} before your agents pull it: you both want it.`;
   else {
     const wanted = [...input.objects].sort((a, b) => b.want - a.want)[0];
     const m = wanted ? moves(rule, wanted.state, input.value ?? null, { k: 1 })[0] : undefined;
     next = wanted && m
-      ? `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). ${cap(m.words)} would make it rarer for you: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)}` : ""}.`
+      ? `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.`
       : `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.`;
   }
   return { noun, earned, earnedNote, costs, costNote, next };
