@@ -18,6 +18,12 @@
 #   near(x, test)                the whole number nearest to x that passes the test, e.g. near(m, prime).
 #                                The test gets a plain whole number. On a tie the smaller one; None if none
 #                                within 10,000.
+#   whole(x)                     the whole number nearest to x (a half rounds up).
+#   root(n)                      the whole square root of n, rounded down (root(50) is 7).
+#   factors(n)                   the prime factors of n, smallest first, with repeats: factors(12) is [2, 2, 3];
+#                                [] for 0, 1 and -1. (Past 10,000 a leftover factor counts as prime.)
+#   better(a, b)                 is score a better than score b? Scores are lists of parts compared in order, bigger
+#                                is better; None is the worst score and a None part is the worst part.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -96,6 +102,8 @@ def prime(n):
     for p in _WITNESSES:
         if x % p == 0:
             return x == p
+    if x < 1681:                       # no prime factor up to 41, below 41 squared
+        return True
     d, s = x - 1, 0
     while d % 2 == 0:
         d //= 2
@@ -121,14 +129,58 @@ def square(n):
     return r * r == x
 
 
+def whole(x):
+    return int((Fraction(x) + Fraction(1, 2)) // 1)
+
+
+def root(n):
+    x = _whole(n)
+    if x is None or x < 0:
+        return None
+    return _isqrt(x)
+
+
+def factors(n):
+    x = _whole(n)
+    if x is None:
+        return None
+    x = abs(x)
+    out, d = [], 2
+    while d * d <= x and d <= 10000:
+        while x % d == 0:
+            out.append(d)
+            x //= d
+        d += 1 if d == 2 else 2
+    if x > 1:
+        out.append(x)
+    return out
+
+
+def better(a, b):
+    if a is None:
+        return False
+    if b is None:
+        return True
+    for x, y in zip(a, b):
+        if x is None and y is None:
+            continue
+        if x is None:
+            return False
+        if y is None:
+            return True
+        if Fraction(x) != Fraction(y):
+            return Fraction(x) > Fraction(y)
+    return len(a) > len(b)
+
+
 def near(x, test):
     v = Fraction(x)
     floor = v.numerator // v.denominator
     ceil = floor if floor == v else floor + 1
+    low_first = v - floor <= ceil - v      # the nearer side is the same at every distance
     for d in range(10001):
         lo, hi = floor - d, ceil + d
-        order = (lo, hi) if v - lo <= hi - v else (hi, lo)
-        for n in order:
+        for n in ((lo, hi) if low_first else (hi, lo)):
             if test(n):
                 return n
     return None
