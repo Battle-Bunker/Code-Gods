@@ -83,3 +83,43 @@ test("an agent may declare its own name that a helper has (the helpers are confi
   assert.equal(record.outcome, "committed", record.reason);
   assert.deepEqual(record.calls[0]!.args, { k: "1" });
 });
+
+test("the points helpers: worth, rarity, recent, pushback and contested agree in both languages; notes are capped", async () => {
+  const value = { mine: 4, others: 6, points: 24 };
+  // My gain taken back (1), my gain taken back again (2); a drop with no gain of mine before it is not counted.
+  const history = [
+    { mine: false, pointsBefore: 5, pointsAfter: 2 }, { mine: true, pointsBefore: 2, pointsAfter: 9 }, { mine: false, pointsBefore: 9, pointsAfter: 3 },
+    { mine: true, pointsBefore: 3, pointsAfter: 8 }, { mine: false, pointsBefore: 8, pointsAfter: 12 }, { mine: false, pointsBefore: 12, pointsAfter: 1 },
+  ];
+  const rungs = [{ score: null, bits: 0 }, { score: ["1"], bits: 3 }, { score: ["2"], bits: 7 }];
+  const ts = `function agent(offer) {
+  const w = worth(offer), r = [rarity(offer, null), rarity(offer, [1]), rarity(offer, [Q.from(5, 2)]), rarity(offer, [9])];
+  const out = [w.mine, w.others, w.points, ...r, recent(offer).length, pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")];
+  return [move("probe", { r: out.join("|") })];
+}`;
+  const py = `def agent(offer):
+    w = worth(offer)
+    r = [rarity(offer, None), rarity(offer, [1]), rarity(offer, [Fraction(5, 2)]), rarity(offer, [9])]
+    out = [w.mine, w.others, w.points, *r, len(recent(offer)), pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")]
+    return [move("probe", r="|".join(str(x).lower() for x in out))]
+`;
+  const out = [];
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, energy: 10, value, history, rungs });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, notes: host.notes, readBits: res.readBits });
+  }
+  assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
+  assert.deepEqual(out[0]!.r.split("|"), ["4", "6", "24", "0", "3", "7", "7", "6", "2", "false", "true", "true", "true", "false"]);
+  assert.deepEqual(out[0]!.notes, ["Leaving line 0: another player keeps pulling it back. Talk to them?", "two", "x"], "at most 3 notes, trimmed");
+});
+
+test("without the game's values an agent still runs (worth is null, rarity 0, recent empty), and its notes reach the act record", async () => {
+  const src = `function agent(offer) { note(offer, [worth(offer), rarity(offer, [1]), recent(offer).length, contested(offer, 1)].join("|")); return null; }`;
+  const { record } = await runAct(await boxes.get("typescript"), {
+    type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, program: { language: "typescript", source: src }, seed: "1", energy: 10,
+  });
+  assert.equal(record.outcome, "skipped", record.reason);
+  assert.deepEqual(record.notes, ["|0|0|false"]);
+});

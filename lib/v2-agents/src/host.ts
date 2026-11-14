@@ -48,7 +48,23 @@ export interface HostInput<S> {
   /** The agent's energy, as `budget()` reports it. */
   readonly energy: number;
   readonly economy?: Economy;
+  /** What the offered line is worth to the player now (spec §8, what they see): n_i, Σ n_j and π_i, in bits. */
+  readonly value?: { readonly mine: number; readonly others: number; readonly points: number };
+  /** The latest moves on the offered line the player may see, newest last (theirs, and others' that changed their points). */
+  readonly history?: readonly { readonly mine: boolean; readonly pointsBefore: number; readonly pointsAfter: number }[];
+  /**
+   * The player's rule's ladder with each rung's rarity (their own calibration: the artefact's rungs, with `layer` and
+   * `main` for a joint ladder), rung 0 first. Prices `rarity(score)`; `worth()` is only answered with it.
+   */
+  readonly rungs?: readonly { readonly score: readonly (string | null)[] | null; readonly bits: number; readonly layer?: number; readonly main?: number }[];
 }
+
+/** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
+export const WORTH_BITS = 6;
+/** Read bits charged per move `recent()` returns. */
+export const RECENT_BITS_PER_MOVE = 2;
+/** Notes an act may leave its owner, and their length. */
+export const NOTES_PER_ACT = 3, NOTE_CHARS = 200;
 
 /** The energy an act's changes cost (§6.1): W + β·W². */
 export const changeCharge = (w: number, e: Economy = SPEC_ECONOMY): number => w + e.beta * w * w;
@@ -87,6 +103,9 @@ export class EngineHost<S> implements AgentHost {
   readonly tieBreaker: TieBreaker;
   readonly energy: number;
   readonly economy: Economy;
+  /** Notes the agent left its owner this act. */
+  readonly notes: string[] = [];
+  private readonly input: HostInput<S>;
   /** Read bits charged so far this act, in total and by representation id. */
   readBits = 0;
   readonly readsByRep = new Map<string, number>();
@@ -107,6 +126,7 @@ export class EngineHost<S> implements AgentHost {
     this.tieBreaker = layers[1]?.id ?? null;
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
+    this.input = input;
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
   }
@@ -129,7 +149,39 @@ export class EngineHost<S> implements AgentHost {
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
       case "budget": return ok({ energy: this.energy, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
+      case "worth": {
+        const v = this.input.rungs?.length ? this.input.value : undefined;   // worth comes with rarity, or not at all
+        return v ? ok({ mine: v.mine, others: v.others, points: v.points }, this.charged("worth", WORTH_BITS)) : err("this game does not say what lines are worth to agents");
+      }
+      case "rarity": {
+        const rungs = this.input.rungs;
+        if (!rungs?.length) return err("this game does not say what scores are worth");
+        const s = request.score;
+        if (s !== null && (!Array.isArray(s) || s.length > 4 || s.some(x => x !== null && typeof x !== "string"))) return err("a score is a list of parts, or null");
+        const score = s === null ? null : s.map(x => (x === null ? null : Qn.parse(x)));
+        const ladder = rungs.map(g => ({ score: g.score === null ? null : g.score.map(x => (x === null ? null : Qn.parse(x))), label: "", layer: g.layer ?? 0, ...(g.main !== undefined ? { main: g.main } : {}) }));
+        return ok({ bits: rungs[levelOf(score, ladder)]!.bits }, 0);
+      }
+      case "recent": {
+        const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter }));
+        return ok({ moves }, this.charged("recent", RECENT_BITS_PER_MOVE * moves.length));
+      }
+      case "note": {
+        const text = typeof request.text === "string" ? request.text.trim().slice(0, NOTE_CHARS) : "";
+        if (!text) return err("a note needs some text");
+        if (this.notes.length >= NOTES_PER_ACT) return ok({ kept: false }, 0);
+        this.notes.push(text);
+        return ok({ kept: true }, 0);
+      }
     }
+  }
+
+  private readonly once = new Set<string>();
+  /** Charge a summary read once per act (a repeat is free, like a repeated view). */
+  private charged(what: string, bits: number): number {
+    if (this.once.has(what)) return 0;
+    this.once.add(what);
+    return this.attribute(what, bits);
   }
 
   private site(site: number): string | null {

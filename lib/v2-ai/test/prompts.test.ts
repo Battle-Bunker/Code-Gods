@@ -48,3 +48,20 @@ test("pitchDraft returns the mock's text, from one call with no tools", async ()
   assert.match(seen!.prompt, /untrusted/);
   assert.ok(out.usd > 0);
 });
+
+test("the AI seat plays for points: the scoring identity, a turn loop of real tools, deals, and child-safe chat", () => {
+  const live: AffordanceContext = { ...ctx, context: "live", game: { phase: "live", energy: 100, pauseUsed: false, agents: 1 } };
+  const liveTools = assistantTools(live);
+  const prompt = aiSeatSystemPrompt({ name: "Robo", rule: RULE, affordances: liveTools });
+  assert.match(prompt, /times the other players' rarity/);
+  assert.match(prompt, /a line only you like scores nothing/);
+  assert.match(prompt, /tug-of-war/);
+  // Every tool the turn loop names exists in the seat's context.
+  for (const name of ["game_standings", "objects_list", "moves_list", "chat_send", "agent_replace"]) {
+    assert.ok(prompt.includes(name), name);
+    assert.ok(liveTools.some(t => t.name === name), `${name} is a tool in a live game`);
+  }
+  assert.match(prompt, /children/);
+  assert.match(prompt, /Never lie about your rule/);
+  assert.match(prompt, /at most one message per turn/);
+});
