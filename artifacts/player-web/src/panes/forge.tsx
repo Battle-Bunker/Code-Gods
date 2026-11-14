@@ -1,9 +1,9 @@
 /**
  * "Agent code": write, check, summon and replace agents (integration plan §1.3–1.4, ux-lessons §1.3–1.9, §3).
  *
- * The editor opens holding the example for the player's own dealt rule; "Summon my first agent" summons it in one
+ * The editor opens holding the Simple starter for the player's own dealt rule; "Summon my first agent" summons it in one
  * press, without a check first, at the first-agent share. With an agent in the editor a changed draft is offered as
- * Replace first ("Summon beside it" is secondary). "Other starting points" (Simple, Thorough, Bold) sit beside the
+ * Replace first ("Summon beside it" is secondary). "Other starting points" (Simple, Thorough, Bold, and the example as "See how a rule is climbed") sit beside the
  * next step, as a Replace of the agent in the editor. "Put the previous version back" is one press, with the frozen
  * before/after comparison. Check runs one act in the sandbox and never blocks Summon.
  */

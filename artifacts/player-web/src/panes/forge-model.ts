@@ -10,18 +10,27 @@ export const FIRST_SHARE = 0.7;
 
 export type Language = ShippedLanguage;
 
-/** The program the forge opens with for a dealt rule: the example for its tie-breaker, else the Simple starter. */
+/**
+ * The program the forge opens with for a dealt rule (the coordinator's call (a), lines and grids): the points-aware
+ * Simple starter, else the tie-breaker's example. The example stays among the other starting points.
+ */
 export function openingProgram(family: string, tieBreaker: string | null, language: Language): ShippedAgent | null {
   try {
-    return (tieBreaker ? exampleFor(family, tieBreaker, language) : null) ?? startersFor(family, language, tieBreaker)[0] ?? null;
+    return startersFor(family, language, tieBreaker)[0] ?? (tieBreaker ? exampleFor(family, tieBreaker, language) : null) ?? null;
   } catch {
     return null;   // a family this build has no agents for
   }
 }
 
-/** "Other starting points" (ux-lessons 3.4): Simple, Thorough, Bold for the family (a grid family's are written for the dealt tie-breaker). */
+/**
+ * "Other starting points" (ux-lessons 3.4): Simple, Thorough, Bold for the family (a grid family's are written for the
+ * dealt tie-breaker), then the tie-breaker's example, offered as "See how a rule is climbed".
+ */
 export function otherStartingPoints(family: string, language: Language, tieBreaker: string | null = null): ShippedAgent[] {
-  try { return startersFor(family, language, tieBreaker); } catch { return []; }
+  try {
+    const example = tieBreaker ? exampleFor(family, tieBreaker, language) : null;
+    return [...startersFor(family, language, tieBreaker), ...(example ? [{ ...example, title: "See how a rule is climbed" }] : [])];
+  } catch { return []; }
 }
 
 /** The summon (or replace) price of a program, in ⚡. */
