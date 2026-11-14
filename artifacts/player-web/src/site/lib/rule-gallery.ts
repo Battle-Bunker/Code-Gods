@@ -9,7 +9,7 @@ import { ruleKey } from "@workspace/v2-valuation";
 import { representation, tieBreakersOn, type RuleFamily, type Variant } from "@workspace/v2-core";
 import { beginnerFamilies, lineType, type LineState } from "@workspace/v2-linear";
 import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
-import type { LineRule } from "../../sdk/rule.ts";
+import type { GameRule } from "../../sdk/rule.ts";
 
 export const BOARDS: readonly { id: string; title: string; blurb: string }[] = [
   { id: "line-z", title: "Whole-number lines", blurb: "One line per object, y = mx + c with whole numbers." },
@@ -88,7 +88,7 @@ export interface FamilyPage {
   params: { index: number; label: string }[];
   tieBreakers: { id: string; title: string; sentence: string }[];
   main: { title: string; sentence: string };
-  rule: LineRule;
+  rule: GameRule;
   card: string;
   /** The representations the rule reads, by their short titles. */
   reads: string[];

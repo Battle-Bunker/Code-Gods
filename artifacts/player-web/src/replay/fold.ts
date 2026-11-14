@@ -13,7 +13,8 @@
  * at or before that time, then `plus` more.
  */
 import type { ReplayCursor } from "@workspace/v2-affordances";
-import { DEFAULT_REP, familyOf } from "../sdk/rule.ts";
+import { familyOf } from "../sdk/rule.ts";
+import { defaultRepOf } from "../sdk/object-types.ts";
 import type { Agent, Digest, Move, MyRuleRow, ObjectSort, PlayObject, Standings, StandingsPoint } from "../sdk/types.ts";
 
 /** The file version this page reads (engine replays.ts STORED_REPLAY_VERSION). */
@@ -73,11 +74,11 @@ function push<T>(map: Map<string, T[]>, key: string, item: T) {
   else map.set(key, [item]);
 }
 
-function ruleRow(r: RawRule): MyRuleRow {
+function ruleRow(r: RawRule, variant: string | undefined): MyRuleRow {
   const f = familyOf(r.family);
   return {
     family: r.family, title: f?.title ?? r.family, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card,
-    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? DEFAULT_REP, ladder: r.ladder, ruleKey: r.ruleKey, bid: null, handicap: r.handicap ?? null,
+    depends: f ? [...f.depends] : [], primary: f?.main.rep ?? defaultRepOf(variant), ladder: r.ladder, ruleKey: r.ruleKey, bid: null, handicap: r.handicap ?? null,
   };
 }
 
@@ -87,8 +88,8 @@ export function indexReplay(file: unknown): ReplayIndex {
   if (!f || typeof f !== "object") throw new Error("The download is not a stored replay.");
   if (f.version !== STORED_REPLAY_VERSION) throw new Error(`The stored replay is version ${String(f.version)}; this page reads version ${STORED_REPLAY_VERSION}.`);
   if (!Array.isArray(f.events) || !f.game) throw new Error("The download is not a stored replay.");
-  const game = f.game as { gameId: string; roster: { memberId: string; name: string }[]; settings?: { worldSeconds?: number } };
-  const rules = new Map((f.rules ?? []).map(r => [r.memberId, ruleRow(r)]));
+  const game = f.game as { gameId: string; variant?: string; roster: { memberId: string; name: string }[]; settings?: { worldSeconds?: number } };
+  const rules = new Map((f.rules ?? []).map(r => [r.memberId, ruleRow(r, game.variant)]));
   const handicap = (m: string) => rules.get(m)?.handicap ?? 0;
   const nameOf = new Map(game.roster.map(m => [m.memberId, m.name]));
 

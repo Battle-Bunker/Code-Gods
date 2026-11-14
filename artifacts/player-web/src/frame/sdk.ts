@@ -14,7 +14,8 @@ import type { MyRuleRow } from "../sdk/types";
 
 export { definePanel, PANEL_SDK, type PanelDefinition, type PanelManifest } from "../sdk/panel";
 export { useGameScope, type GameScope } from "../sdk/game";
-export { decodeState, familyOf, ruleRefOf, rungRarities, variantOf, DEFAULT_REP, type LineRule } from "../sdk/rule";
+export { decodeState, familyOf, ruleRefOf, rungRarities, variantOf, type GameRule } from "../sdk/rule";
+export { defaultRepOf, objectTypeOf, objectWord } from "../sdk/object-types";
 export type * from "../sdk/types";
 export type { MyRule } from "../sdk/hooks";
 

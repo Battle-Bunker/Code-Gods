@@ -8,8 +8,8 @@
  *
  * Player words only (ux 2.1): points, bits, ⚡ energy, "line"; never "grid", "object" or "payoff".
  */
-import { lineType } from "@workspace/v2-linear";
 import type { Variant } from "@workspace/v2-core";
+import { objectTypeOf } from "../sdk/object-types.ts";
 
 /** The viewer's value of the line on one side of the move (the row's `before` / `after`). */
 export interface MoveSnap {
@@ -48,7 +48,7 @@ export function moveWho(row: { mine: boolean; agentId: string | null }, agentNam
  */
 export function callWords(calls: readonly { mutator: string; site: number; args: Readonly<Record<string, string>> }[], variant: Variant): string | null {
   const words = calls.map(c => {
-    const m = lineType.mutators.find(x => x.id === c.mutator);
+    const m = objectTypeOf(variant.id).mutators.find(x => x.id === c.mutator);
     if (!m) return null;
     try { return m.describe(m.args(variant).decode(c.args)); } catch { return m.title; }
   }).filter((w): w is string => !!w);
