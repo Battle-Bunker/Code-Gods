@@ -114,11 +114,15 @@ const page = <T>(rows: T[], args: { cursor?: string | null; limit: number }) => 
   const next = from + args.limit;
   return { page: rows.slice(from, next), nextCursor: next < rows.length ? String(next) : null };
 };
-const levelOf = (g: FakeGame, userId: string, o: { m: number; c: number }) => {
+/** The stand-in rule: score −|m − target| (one layer), worth 1.5 bits for each step closer than 6, never negative. */
+const distanceOf = (g: FakeGame, userId: string, o: { m: number; c: number }) => {
   const want = (FAMILIES.indexOf(g.rules[userId] ?? "") + 1) || 1;
-  return Math.max(0, 6 - Math.min(6, Math.abs(o.m - want)));
+  return Math.abs(o.m - want);
 };
-const ladder = () => [0, 1, 2, 3, 4, 5, 6].map(level => ({ level, label: `d ≤ ${6 - level}`, rarityBits: level * 1.5 }));
+const bitsAt = (d: number) => Math.max(0, 1.5 * (6 - d));
+const bitsOf = (g: FakeGame, userId: string, o: { m: number; c: number }) => bitsAt(distanceOf(g, userId, o));
+/** The value curve's knots, worst to best. */
+const knots = () => [6, 5, 4, 3, 2, 1, 0].map(d => ({ score: [String(-d)], bits: bitsAt(d) }));
 const nameOf = (s: FakeState, userId: string) => s.users[userId]?.name ?? userId;
 /** A user's member id in the game's room (the id surfaces show), falling back to the user id. */
 const memberOf = (e: FakeEnv, userId: string) => {
@@ -233,7 +237,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const r = roomOf(e), b = r.bid!;
     return {
       deadline: b.deadline, pricing: "first",
-      families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, top: 6 })),
+      families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, top: bitsAt(0) })),
       mine: Object.entries(b.bids[e.userId] ?? {}).map(([family, percent]) => ({ family, percent })),
       done: r.members.filter(m => m.userId && b.done.includes(m.userId)).map(m => ({ memberId: m.memberId, name: m.name })),
     };
@@ -280,7 +284,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "game.standings": e => {
     const g = gameOf(e);
     const pts = g.seated.map(u => {
-      const points = Object.values(g.objects).reduce((t, o) => t + levelOf(g, u, o), 0), handicap = g.auction?.wins[u]?.handicap ?? 0;
+      const points = Object.values(g.objects).reduce((t, o) => t + bitsOf(g, u, o), 0), handicap = g.auction?.wins[u]?.handicap ?? 0;
       return { memberId: memberOf(e, u), name: nameOf(e.state, u), points, handicap, net: points - handicap / 100 * Math.abs(points) };
     });
     return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })) };
@@ -295,15 +299,19 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "rule.explain": e => {
     const family = gameOf(e).rules[e.userId]!;
     const won = gameOf(e).auction?.wins[e.userId];
-    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], ladder: ladder(), wonByBid: won ? { handicap: won.handicap } : null };
+    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], wonByBid: won ? { handicap: won.handicap } : null };
   },
-  "rule.ladder": () => ({ rungs: ladder() }),
-  "rule.rarity": (_e, a) => ({ level: a.level, rarityBits: a.level * 1.5 }),
+  "rule.values": () => ({ points: knots() }),
+  "rule.worth": (_e, a) => {
+    const first = a.score?.[0];
+    const bits = first == null ? 0 : bitsAt(Math.abs(Number(first.split("/")[0]) / Number(first.split("/")[1] ?? 1)));
+    return { bits, lo: bits, hi: bits };
+  },
   "objects.list": (e, a) => {
     const g = gameOf(e);
-    const rows = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), level: levelOf(g, e.userId, o), points: levelOf(g, e.userId, o) }));
+    const rows = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), bits: bitsOf(g, e.userId, o), points: bitsOf(g, e.userId, o) }));
     const key = a.sort;
-    if (key !== "recent") rows.sort((x, y) => y[key] - x[key]);
+    if (key !== "recent") rows.sort((x, y) => key === "rarity" ? y.bits - x.bits : y.points - x.points);
     return page(rows, a);
   },
   "object.read": (e, a) => ({ rep: a.rep, site: a.site ?? 0, ...readRep(objectOf(e, a.objectId), a.rep) }),
@@ -329,12 +337,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
       if (c.mutator === "si.shift") o.c += k; else o.m += k;
       bits.push(3.17 + intBits(k));
     }
-    const total = bits.reduce((s, b) => s + b, 0), g = gameOf(e), level = levelOf(g, e.userId, o);
-    return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-Math.abs(6 - level))], level, top: 6, terms: [] } };
+    const total = bits.reduce((s, b) => s + b, 0), g = gameOf(e), d = distanceOf(g, e.userId, o);
+    return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };
   },
   "object.score": (e, a) => {
-    const g = gameOf(e), level = levelOf(g, e.userId, objectOf(e, a.objectId));
-    return { score: [String(level - 6)], level, top: 6, terms: [], number: numberOf(g, a.objectId), rarityBits: level * 1.5, points: level };
+    const g = gameOf(e), o = objectOf(e, a.objectId), d = distanceOf(g, e.userId, o);
+    return { score: [String(-d)], terms: [], number: numberOf(g, a.objectId), bits: bitsAt(d), points: bitsAt(d) };
   },
   "moves.list": (_e, a) => page([], a),
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
