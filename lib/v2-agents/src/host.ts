@@ -16,15 +16,17 @@
  *  - The first `quote` of an act charges the representation the first quoted mutator belongs to, as if viewed.
  */
 import {
-  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, levelOf, objectLadder, Qn, ratBits, representation,
-  type Call, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
+  applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, layerLadders, levelOf, objectLadder, Qn, ratBits,
+  representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest } from "@workspace/v2-sandbox";
 
-/** A rule as dealt: a family of the object type and its parameters. */
+/** A rule as dealt: a family of the object type, its parameters and its tie-breaker. */
 export interface RuleRef {
   readonly family: string;
   readonly params: Readonly<Record<string, unknown>>;
+  /** The dealt tie-breaker's id, null for the main layer alone; absent: the family's first (v2-core `ruleLayers`). */
+  readonly tieBreaker?: TieBreaker;
 }
 
 /**
@@ -80,6 +82,8 @@ export class EngineHost<S> implements AgentHost {
   readonly state: S;
   readonly family: RuleFamily<S, unknown>;
   readonly params: unknown;
+  /** The dealt tie-breaker (null: the main layer alone). */
+  readonly tieBreaker: TieBreaker;
   readonly energy: number;
   readonly economy: Economy;
   /** Read bits charged so far this act, in total and by representation id. */
@@ -98,6 +102,8 @@ export class EngineHost<S> implements AgentHost {
     if (!family) throw new Error(`${input.type.id} has no rule family ${input.rule.family}`);
     this.family = family as RuleFamily<S, unknown>;
     this.params = input.rule.params;
+    const layers = ruleLayers(this.family, input.rule.tieBreaker);
+    this.tieBreaker = layers[1]?.id ?? null;
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.sites = input.type.sites(input.state, input.variant);
@@ -115,7 +121,10 @@ export class EngineHost<S> implements AgentHost {
     switch (request.op) {
       case "view": return this.view(request.rep, request.site ?? 0);
       case "element": return this.element(request.ref);
-      case "myRule": return ok({ family: this.family.id, params: this.params, card: this.family.card(this.params) }, 0);
+      case "myRule": return ok({
+        family: this.family.id, params: this.params, tieBreaker: this.tieBreaker, card: this.family.card(this.params, this.tieBreaker),
+        layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id, title: l.title, sense: l.sense })),
+      }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
       case "budget": return ok({ energy: this.energy, readPrice: 1 / this.economy.kappa, beta: this.economy.beta, hostCallsLeft: context.hostCallsLeft }, 0);
@@ -186,16 +195,22 @@ export class EngineHost<S> implements AgentHost {
   private score(): HostReply {
     let bits = 0;
     for (const rep of this.family.depends) for (let s = 0; s < this.sites; s++) bits += this.chargeView(rep, s);
-    const e = evaluateObject(this.type, this.family, this.params, this.state, this.variant);
-    const ladder = objectLadder(this.type, this.family, this.params, this.variant);
+    const e = evaluateObject(this.type, this.family, this.params, this.state, this.variant, this.tieBreaker);
+    const ladder = objectLadder(this.type, this.family, this.params, this.variant, this.tieBreaker);
+    // Each layer on its own ladder ("main part: step 5 of 7"), summed over the lines.
+    const layers = layerLadders(this.family, this.params, this.variant, this.tieBreaker).map((rungs, j) => ({
+      id: ruleLayers(this.family, this.tieBreaker)[j]!.id,
+      level: e.sites.reduce((t, ev) => t + levelOf(ev.score === null ? null : [ev.score[j] ?? null], rungs), 0),
+      top: (rungs.length - 1) * e.sites.length,
+    }));
     const multi = e.sites.length > 1;
     const terms = e.sites.flatMap((ev, i) => ev.terms.map(t => ({
       id: multi ? `L${i + 1}:${t.id}` : t.id,
       value: "undefined" in t.value ? null : Qn.toWire(t.value),
     })));
     return ok({
-      score: e.score === null ? null : e.score.map(Qn.toWire),
-      level: levelOf(e.score, ladder), top: ladder.length - 1, terms,
+      score: e.score === null ? null : e.score.map(x => (x === null ? null : Qn.toWire(x))),
+      level: levelOf(e.score, ladder), top: ladder.length - 1, layers, terms,
     }, bits);
   }
 

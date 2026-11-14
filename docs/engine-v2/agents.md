@@ -9,7 +9,7 @@ libraries). Spec: [spec.md](spec.md) §6.
 import { runAct, sandboxes } from "@workspace/v2-agents";
 const pool = sandboxes("worker");                      // one sandbox per language, started on first use
 const { record, state } = await runAct(await pool.get(program.language), {
-  type: lineType, variant, state, rule: { family, params },   // the acting agent's player's rule
+  type: lineType, variant, state, rule: { family, params, tieBreaker },   // the player's dealt rule (tieBreaker: an id, or null)
   program: { language: "python" | "typescript" | "javascript", source },
   seed, energy,                                        // the agent's energy, as budget() reports it
   object, liveObjects,                                 // the offer: log2(liveObjects) read bits
@@ -46,8 +46,8 @@ Every act's prelude defines these, with the same names and behaviour in both lan
 |---|---|---|
 | `look(offer, view)` | what the line looks like in one view: `look(offer, "si").m` is the gradient | 1, costs a little ⚡ once per act |
 | `peek(offer, view, name, args)` | one number of a view: `peek(offer, "seq", "term", {n: 3})` | 1 |
-| `goal(offer)` | your rule: `family`, `params`, `card` (its sentence) | 1, free |
-| `progress(offer)` | how well the line does on your rule now: `level`, `top`, `main`, `tiebreak` (bigger is better) | 1, costs reading your rule's views |
+| `goal(offer)` | your rule: `family`, `params`, `tieBreaker`, `card` (its sentences), `layers` (id, title, sense) | 1, free |
+| `progress(offer)` | how well the line does on your rule now: `main`, `tiebreak` (the score's parts, bigger is better), `layers` (each part's own `level` and `top`), and `level`, `top` on the whole ladder | 1, costs reading your rule's views |
 | `move(mutator, args)` | one change: `move("si.tilt", {k: 1})`, Python `move("si.tilt", k=1)`. A plan is a list of moves | 0 |
 | `price(offer, plan)` | the ⚡ the plan would cost, or null/None if it is not allowed; nothing changes | 1; free, except that an act's first price costs a look at the move's view if the agent has not looked yet |
 | `cheapest(offer, plans)` | the cheapest allowed plan, as a list of moves (null/None if none): the same change through different views costs different amounts | 1 per plan |
