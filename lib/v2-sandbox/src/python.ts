@@ -13,7 +13,7 @@
  * 10,000 steps the guest reads the clock, and the host ends the act there if its time cap has passed (a real-time
  * check at deterministic points). A single long native step is the worker's hard wall's job (sandbox.ts).
  */
-import { readFileSync } from "node:fs";
+import { GUEST_FILES } from "./guest.gen.ts";
 import { Wasi, CapabilityTrap, TimeTrap } from "./wasi.ts";
 import { OVERSIZE_REPLY } from "./channel.ts";
 import { SandboxError, LIMITS, stepLimit, timeLimit } from "./limits.ts";
@@ -27,7 +27,7 @@ const ENTROPY_SALT = 0x5DEECE66Dn;
 const utf8 = new TextEncoder();
 
 /** This package's trusted guest (python/guest.py), run into __main__ at bootstrap; the bundle's own guest files are not run. */
-const GUEST = readFileSync(new URL("../python/guest.py", import.meta.url), "utf8");
+const GUEST = GUEST_FILES["python/guest.py"]!;
 
 const Compile = (m: string) => new SandboxError("COMPILE", m);
 const Config = (m: string) => new SandboxError("CONFIG", m);

@@ -1,5 +1,5 @@
 # Square Area · Bold
-# Main part: triangle area close to a square number. Tie-breaker: whichever you were dealt (prime factors of that square's root; smallest prime factor of that root).
+# Main part: area close to a square number. Tie-breaker: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Try this: change FAR = 6 to 3: smaller jumps, cheaper moves.
@@ -16,10 +16,12 @@ def score(m, c, p, tie):
     main = -abs(area - sq)
     f = factors(root(sq))                           # the prime factors of that square's root
     # main: how far the triangle's area is from a square number (closer is better)
-    if tie == "factors":   # more prime factors in the root are better
-        return [main, len(f)]
-    if tie == "rootSpf":   # a root whose smallest prime factor is big is better
+    if tie == "spf":   # a root whose smallest prime factor is big is better
         return [main, f[0] if f else 1]
+    if tie == "lpf":   # a root whose largest prime factor is big is better
+        return [main, f[-1] if f else 1]
+    if tie == "omega":   # more prime factors in the root are better
+        return [main, len(f)]
     return [main]
 
 

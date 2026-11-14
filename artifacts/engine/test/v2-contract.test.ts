@@ -69,7 +69,7 @@ test("every live query answers a seated player within its validator", async () =
   assert.equal((await ada.query("v2/spectate:objectIds", { gameId, paginationOpts: page })).page.length, 12);
   assert.equal((await ada.query("v2/spectate:object", { objectId: objects[0] })).number, 1);
   assert.equal(await ada.query("v2/layout:current", { roomId }), null);
-  assert.deepEqual(await ada.query("v2/replays:stored", { gameId }), { stored: false, url: null });
+  assert.deepEqual(await ada.query("v2/replays:stored", { gameId }), { stored: false });
   assert.equal((await ada.query("v2/bids:state", { roomId })).open, false);
   await admin.mutation("v2/testing:setBidding", { roomId, open: true });
   const bids = await ada.query("v2/bids:state", { roomId });
@@ -137,9 +137,9 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   try { await perform(ada, "seats.removeAi", { memberId: "x" }, { roomId: opsRoom }); assert.fail("a stub fails"); } catch (e) {
     assert.equal((e as { data?: { error?: { code?: string } } }).data?.error?.code, "failed");
   }
-  // An action resolves its caller through a query and returns its failure as a value.
-  const check = await perform(ada, "agent.check", { language: "typescript", source: "export function agent() { return null; }" }, { gameId }, "action");
-  assert.equal(check.error.code, "failed");
+  // An action resolves its caller through a query and returns its failure as a value (pitch.draft is built in M3).
+  const pitch = await perform(ada, "pitch.draft", {}, { gameId }, "action");
+  assert.equal(pitch.error.code, "failed");
 
   // The internal twin acts for a human, narrowed by the credential's grant and bound room.
   const asAda = await admin.query("v2/ops/room:getAs", { args: {}, roomId: opsRoom, delegate: { userId: ada.userId, roomId: opsRoom, grant: "read", via: "mcp" } });
@@ -162,4 +162,17 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   const listed = await perform(cy, "objects.list", { sort: "points", limit: 5 }, { gameId }, "query");
   assert.equal(listed.result.page.length, 5);
   assert.ok(listed.result.nextCursor);
+});
+
+test("account: connected assistants are listed and revoked by their human only", async () => {
+  await admin.mutation("v2/testing:seedAccountCredential", { userId: ada.userId });
+  const listed = await perform(ada, "account.connections", {}, {}, "query");
+  assert.equal(listed.ok, true, JSON.stringify(listed));
+  const [first] = listed.result.connections;
+  assert.ok(first && first.roomId === null);
+  try { await perform(bo, "account.revokeConnection", { connectionId: first.connectionId }); assert.fail("not Bo's"); } catch (e) {
+    assert.equal((e as any).data?.error?.code, "failed");
+  }
+  assert.equal((await perform(ada, "account.revokeConnection", { connectionId: first.connectionId })).ok, true);
+  assert.ok(!(await perform(ada, "account.connections", {}, {}, "query")).result.connections.some((c: any) => c.connectionId === first.connectionId));
 });

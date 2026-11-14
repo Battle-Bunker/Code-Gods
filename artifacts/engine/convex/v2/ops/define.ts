@@ -7,7 +7,7 @@
  * `scoped(env)` gives a handler the room, game, member and player its context was derived from, read again in the
  * handler's own transaction.
  */
-import { makeDefineOp, type Caller, type OpHost, type Delegate, type OpEnv, type OpKind, type OpScope } from "@workspace/v2-affordances/convex";
+import { makeDefineOp, type Caller, type Delegate, type OpHost, type OpEnv, type OpKind, type OpScope } from "@workspace/v2-affordances/convex";
 import { OpFailure, type OpOutcome, type ReceiptStore } from "@workspace/v2-affordances";
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
@@ -71,8 +71,7 @@ const RESOLVE = makeFunctionReference<"query", { who: Who; scope: OpScope }, V2C
 const RECEIPT_GET = makeFunctionReference<"query", { key: string }, OpOutcome | null>("v2/ops/define:receiptGet");
 const RECEIPT_PUT = makeFunctionReference<"mutation", { key: string; outcome: OpOutcome }, null>("v2/ops/define:receiptPut");
 
-/** How a v2 operation resolves its caller and keeps receipts (shared with the view operations, ops/view.ts). */
-export const OP_HOST: OpHost<DataModel> = {
+export const host: OpHost<DataModel> = {
   resolve: async (ctx, who, scope) =>
     "db" in ctx ? resolveIn(ctx as QueryCtx, who, scope) : ctx.runQuery(RESOLVE, { who, scope }),
   receipts: ctx => "db" in ctx ? receiptsIn(ctx as MutationCtx) : {
@@ -80,7 +79,7 @@ export const OP_HOST: OpHost<DataModel> = {
     put: async (key, outcome) => { await ctx.runMutation(RECEIPT_PUT, { key, outcome }); },
   },
 };
-export const defineOp = makeDefineOp<DataModel>(OP_HOST);
+export const defineOp = makeDefineOp<DataModel>(host);
 
 export const callerOf = (env: { caller: Caller }) => env.caller as V2Caller;
 

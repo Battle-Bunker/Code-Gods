@@ -72,7 +72,7 @@ test("every helper gives the same answers in both languages", async () => {
   assert.equal(out[1], out[0]);
   const calls = JSON.parse(out[0]!).calls as { mutator: string; args: Record<string, string> }[];
   assert.deepEqual(calls.map(c => c.mutator), ["si.shift", "probe"], "the one-move plan is cheaper than the two-move one; the made-up mutator is not allowed");
-  assert.deepEqual(calls[1]!.args.r.split("|").slice(6), ["1/2", "16/3", "100", "true", "true", "false", "false", "true", "false", "2", "9", "true", "false", "false", "false", "3", "9"]);
+  assert.deepEqual(calls[1]!.args.r.split("|").slice(6), ["1/2", "16/3", "100", "true", "true", "false", "false", "true", "false", "2", "9", "true", "false", "false", "false", "3", "9", "2", "199996164", "0"]);
 });
 
 test("an agent may declare its own name that a helper has (the helpers are configurable globals)", async () => {

@@ -9,8 +9,10 @@
  * then the next game is dealt afresh. A deal made with winning bids never
  * rotates and never continues a rotation.
  */
-import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type RuleFamily, type Rung } from "@workspace/v2-core";
-import { families as lineFamilies } from "@workspace/v2-linear";
+import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type Rng, type RuleFamily, type Rung } from "@workspace/v2-core";
+import type { BidDealer } from "@workspace/v2-economy";
+import { lineType } from "@workspace/v2-linear";
+import { CATALOGUE } from "@workspace/v2-agents/pure";
 import { findVariant, ruleKey } from "@workspace/v2-valuation";
 import { artefactFor, dealable } from "./artefacts.ts";
 import type { Preset } from "./presets.ts";
@@ -18,26 +20,32 @@ import type { Preset } from "./presets.ts";
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its artefact. */
 export interface DealtRule { family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string }
 
-const FAMILIES = new Map<string, RuleFamily<unknown, unknown>>(lineFamilies.map(f => [f.id, f as unknown as RuleFamily<unknown, unknown>]));
+const FAMILIES = new Map<string, RuleFamily<unknown, unknown>>(lineType.families.map(f => [f.id, f as unknown as RuleFamily<unknown, unknown>]));
 export function familyOf(id: string): RuleFamily<unknown, unknown> {
   const f = FAMILIES.get(id);
   if (!f) throw new Error(`Unknown rule family ${id}`);
   return f;
 }
 
-/** Every rule the preset may deal: its families × dealable parameters × tie-breakers, converged artefacts only. */
+const pools = new Map<string, DealtRule[]>();
+/**
+ * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a converged artefact (spec §7.5)
+ * and shipped starters (a player, or a practice partner, must be able to summon one: integration plan §5.2).
+ */
 export function dealablePool(preset: Preset): DealtRule[] {
+  let pool = pools.get(preset.id);
+  if (!pool) pools.set(preset.id, pool = buildPool(preset));
+  return pool;
+}
+function buildPool(preset: Preset): DealtRule[] {
   const { type, variant } = findVariant(preset.variant);
   const out: DealtRule[] = [];
-  for (const id of preset.families) {
-    const f = FAMILIES.get(id);
-    if (!f) continue;
-    for (const params of f.dealable(variant)) {
-      for (const tb of f.tieBreakers.map(t => t.id)) {
-        const key = ruleKey(type, variant, f.id, params, tb);
-        const a = artefactFor(key);
-        if (dealable(a)) out.push({ family: f.id, params, tieBreaker: tb, ruleKey: key, contentHash: a.contentHash });
-      }
+  for (const r of preset.pool) {
+    if (!FAMILIES.has(r.family) || !CATALOGUE.some(e => e.family === r.family)) continue;
+    for (const tb of r.tieBreakers) {
+      const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
+      const a = artefactFor(key);
+      if (dealable(a)) out.push({ family: r.family, params: r.params, tieBreaker: tb, ruleKey: key, contentHash: a.contentHash });
     }
   }
   return out;
@@ -53,13 +61,49 @@ export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
  * the pool lasts (the pool is reused from its start when there are more seats than rules).
  */
 export function freshDeal(pool: readonly DealtRule[], seats: number, seed: string): DealtRule[] {
+  return dealFrom(pool, seats, dealRng(seed));
+}
+/** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
+export const dealRng = (seed: string): Rng => rng(seed, "deal");
+/** A fresh deal drawn from `r`. */
+export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng): DealtRule[] {
   if (pool.length === 0) throw new Error("No rule of this preset has a converged artefact: nothing can be dealt");
-  const r = rng(seed, "deal"), order = [...pool];
+  const order = [...pool];
   for (let i = order.length - 1; i > 0; i--) {
     const j = r.below(i + 1);
     [order[i], order[j]] = [order[j]!, order[i]!];
   }
   return Array.from({ length: seats }, (_, i) => order[i % order.length]!);
+}
+
+/**
+ * The dealer as the bid mechanism reaches it (lib/v2-economy dealWithBids): a winner is dealt one of their family's
+ * dealable rules; everybody else is dealt fresh from the rules of the families nobody won, from the same stream, so
+ * a phase with no bids deals exactly what the plain deal would.
+ */
+export function bidDealer(pool: readonly DealtRule[]): BidDealer<DealtRule> {
+  return {
+    dealFamily(family, r) {
+      const rules = pool.filter(x => x.family === family);
+      if (!rules.length) throw new Error(`No dealable rule of ${family}`);
+      return rules[r.below(rules.length)]!;
+    },
+    dealRest(count, excluded, r) {
+      const left = pool.filter(x => !excluded.includes(x.family));
+      return dealFrom(left, count, r);
+    },
+  };
+}
+
+/** The families on offer in a bid phase: each with its card and its ladder's top (✨ bits, rounded). */
+export function offers(pool: readonly DealtRule[]) {
+  const out: { family: string; title: string; card: string; top: number }[] = [];
+  for (const id of [...new Set(pool.map(r => r.family))]) {
+    const rules = pool.filter(r => r.family === id), f = familyOf(id);
+    const top = Math.max(...rules.map(r => Math.max(0, ...(artefactFor(r.ruleKey)?.rungs.map(x => x.bits ?? 0) ?? [0]))));
+    out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top) });
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- rotation

@@ -61,6 +61,8 @@ export const v2Tables = {
     /** The human's user id (Better Auth subject); absent for practice partners and AI players. */
     userId: v.optional(v.string()),
     aiTemplate: v.optional(v.string()),
+    /** Joined while a game ran (so watching it); seated again when it ends. */
+    seatNext: v.optional(v.boolean()),
   }).index("by_room", ["roomId", "joinedAt"]).index("by_user", ["userId", "joinedAt"]).index("by_room_user", ["roomId", "userId"]),
 
   v2Chat: defineTable({ roomId: v.id("v2Rooms"), memberId: v.optional(v.id("v2Members")), from: v.string(), text: v.string(), at: v.number() })
@@ -103,10 +105,15 @@ export const v2Tables = {
     objects: v.number(), agents: v.number(), commits: v.number(), events: v.number(),
   }).index("by_game", ["gameId"]),
 
-  /** The loop's private state: lease, watchdog, the next birth and offer, failures. */
+  /**
+   * The loop's private state: the lease (only the tick chain holding `leaseId` may commit; empty while not live), the
+   * counters that number objects, acts, moves, events and scoreboards, and the world time of the last scoreboard.
+   */
   v2Engine: defineTable({
-    gameId: v.id("v2Games"), leaseId: v.string(), leaseUntil: v.number(), failures: v.number(),
-    nextBirthAt: v.number(), nextObject: v.number(), moves: v.number(), loop: v.any(),
+    gameId: v.id("v2Games"), leaseId: v.string(), tick: v.number(), objects: v.number(), acts: v.number(), moves: v.number(),
+    events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
+    /** Each player's running points total (hot, so it lives here and not on any document a query reads). */
+    totals: v.record(v.string(), v.number()),
   }).index("by_game", ["gameId"]),
 
   /** A player's dealt rule (private to that player): `{family, params, layers}`, its card and its ladder. */
@@ -126,6 +133,8 @@ export const v2Tables = {
   v2Players: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), userId: v.optional(v.string()), kind: memberKindV,
     energy: v.number(), power: v.number(), ready: v.boolean(), pauseUsed: v.boolean(), agents: v.number(),
+    /** The own store's balance is as of this world second; Σ of the agents' power shares. */
+    settledAt: v.number(), allocated: v.number(),
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
 
   /** An object's cold part. */
@@ -154,11 +163,15 @@ export const v2Tables = {
   v2Agents: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), name: v.string(), language: languageV,
     sourceHash: v.string(), version: v.number(), share: v.number(), createdAt: v.number(), destroyedAt: v.optional(v.number()),
+    /** The current program (also in v2AgentPrograms), read by the tick without another lookup. */
+    source: v.string(),
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
   /** An agent's hot part. */
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),
     failures: v.number(), spend: v.number(), pointsGained: v.number(), lastActAt: v.optional(v.number()),
+    /** The balance is as of this world second. */
+    settledAt: v.number(),
   }).index("by_agent", ["agentId"]),
   /** Every program an agent has run (the put-back comparison). */
   v2AgentPrograms: defineTable({
@@ -192,8 +205,12 @@ export const v2Tables = {
   v2Events: defineTable({ gameId: v.id("v2Games"), seq: v.number(), kind: eventKindV, data: v.any() })
     .index("by_game_seq", ["gameId", "seq"]).index("by_game_kind", ["gameId", "kind", "seq"]),
 
-  /** A human's dock layout in one room, including client affordances' state (representation pins). */
-  v2Layouts: defineTable({ userId: v.string(), roomId: v.id("v2Rooms"), layout: v.any(), revision: v.number() })
+  /**
+   * A human's dock layout in one room (the app's), and their view state: what the directory's view operations change
+   * (panes, representation pins, the object in focus, the replay cursor; lib/v2-affordances layout.ts), so an
+   * assistant acting for them changes what every one of their clients shows. `roomId` absent: outside any room.
+   */
+  v2Layouts: defineTable({ userId: v.string(), roomId: v.optional(v.id("v2Rooms")), layout: v.any(), view: v.optional(v.any()), revision: v.number() })
     .index("by_user_room", ["userId", "roomId"]),
 
   /** A human's sealed bids in the room's open bid phase (private to them). */
