@@ -89,8 +89,8 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
         ))}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <button type="submit" disabled={!!locked || busy || !changed || !checked.ok} className="bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50" data-testid="button-save-settings">
-          {busy ? "Saving…" : "Save settings"}
+        <button type="submit" disabled={!!locked || busy || !changed || !checked.ok} className={`px-4 py-2 text-sm font-medium disabled:opacity-50 ${changed ? "bg-primary text-primary-foreground" : "border text-muted-foreground"}`} data-testid="button-save-settings">
+          {busy ? "Saving…" : changed ? "Save settings" : "No changes to save"}
         </button>
         {custom && (
           <button type="button" disabled={!!locked || busy} onClick={() => void send({}, `Back to ${preset.title}'s own settings`)} className="border px-4 py-2 text-sm disabled:opacity-50" data-testid="button-reset-settings">

@@ -22,7 +22,7 @@ function AgentRow({ agent, power }: { agent: Agent; power: number | undefined })
     <li className="space-y-1 px-4 py-3" data-testid={`row-agent-${agent.agentId}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <span className="text-sm font-medium">{agent.name} <span className="text-xs font-normal text-muted-foreground">{agent.language}</span></span>
-        <AffordanceButton id="agent.destroy" args={{ agentId: agent.agentId }} label="Destroy" busyLabel="Destroying…" tone="danger"
+        <AffordanceButton id="agent.destroy" args={{ agentId: agent.agentId }} label="Destroy" busyLabel="Destroying…" tone="quiet"
           className="px-2 py-1 text-xs" testId={`button-destroy-${agent.agentId}`} confirmText={destroyConfirm(agent.name, e?.energy)} />
       </div>
       <p className="text-xs text-muted-foreground" data-testid={`text-agent-share-${agent.agentId}`}>{power === undefined ? `Share of your power ${percent(agent.share)}` : shareText(agent.share, power)}</p>

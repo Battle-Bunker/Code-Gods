@@ -26,7 +26,7 @@ function StackedDock({ panes }: { panes: string[] }) {
     <div ref={scroller} className="h-full overflow-y-auto overflow-x-hidden" data-testid="dock-stacked">
       {/* A phone stacks the panes; a long pane (the act log) must never trap the scroll, so each pane is shorter than
           the screen and a row of the panes' names jumps to any of them. */}
-      <nav className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b bg-background/95 px-2 py-1.5" aria-label="Jump to a pane" data-testid="dock-jump">
+      <nav className="sticky top-0 z-10 flex flex-wrap gap-1 border-b bg-background/95 px-2 py-1.5" aria-label="Jump to a pane" data-testid="dock-jump">
         {panes.map(p => (
           <button key={p} type="button" className="shrink-0 border px-2 py-0.5 text-xs" data-testid={`button-jump-${p}`} onClick={() => jump(p)}>{name(p)}</button>
         ))}

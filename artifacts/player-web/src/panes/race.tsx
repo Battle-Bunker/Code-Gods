@@ -4,7 +4,7 @@
  * bid handicap), your row marked. The list is the chart's table view.
  */
 import { useMemo } from "react";
-import { objectWord, useGame, useLeaderboard, useStandingsHistory } from "@/sdk";
+import { objectWord, useGame, useLeaderboard, useReplaySource, useStandingsHistory } from "@/sdk";
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { LineChart, slotColour } from "@/components/charts";
@@ -26,9 +26,19 @@ function RaceChart() {
 export function RacePane() {
   const header = useGame();
   const standings = useLeaderboard();
+  const replay = useReplaySource();
   if (!standings) return <p className="p-4 text-sm text-muted-foreground" data-testid="race-empty">The first scores appear once the world runs.</p>;
   const slotOf = (id: string) => header?.roster.findIndex(m => m.memberId === id) ?? -1;
   const tied = standings.rows.some(r => isTied(standings.rows, r));
+  // Once the game has ended, the final standings are Results' (a persona walk met the same table three times).
+  if (header?.phase === "ended" && !replay) {
+    return (
+      <div>
+        <RaceChart />
+        <p className="px-4 py-2 text-xs text-muted-foreground" data-testid="race-ended-note">The final standings are in Results.</p>
+      </div>
+    );
+  }
   return (
     <div>
       <RaceChart />
