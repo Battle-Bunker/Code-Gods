@@ -177,10 +177,6 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(lengthLine({ planningSeconds: 75, halfLifeSeconds: 300, durationMode: "fixed" }), "75 s planning, then a 5 min game");
   assert.equal(lengthLine({ planningSeconds: 0, halfLifeSeconds: 300, durationMode: "fixed" }), "a 5 min game");
   assert.deepEqual(stepChoices("durationMode", "fixed").map(v => choiceLabel("durationMode", v)), ["Fixed duration", "Half-life"]);
-  // Paid observation: two worded choices, and the same words in the review and in a diff.
-  assert.deepEqual(stepChoices("observation", "free").map(v => choiceLabel("observation", v)), ["Free", "Boards free", "Paid", "Agents only"]);
-  assert.equal(formatValue("observation", "paid"), "Paid");
-  assert.ok(fieldsOf("energy").includes("observation"), "whether looking costs energy is asked with the energy settings");
   assert.deepEqual(stepChoices("scoreIntervalSeconds", 45), [5, 10, 20, 30, 45, 60], "a custom value joins the presets");
   assert.deepEqual(stepChoices("interactionRateHz", 25).map(v => choiceLabel("interactionRateHz", v)), ["Slow (25/s)", "Normal (100/s)", "Fast (300/s)", "Max (1,000/s)"]);
   assert.deepEqual([30, 60, 90].map(v => choiceLabel("planningSeconds", v)), ["30 s", "1 min", "90 s"]);
@@ -235,17 +231,8 @@ test("the bid phase on the form: bidding time in whole seconds up to 10 minutes,
   assert.equal(bidLine({ bidSeconds: 30 }), "30 s, first price");
 });
 
-test("the room's details list says how the world is looked at, beside how changes are priced", () => {
-  // What would break: a player joining a room where looking costs energy reads the details and is not told.
-  assert.equal(ROOM_DETAILS[ROOM_DETAILS.indexOf("costModel") + 1], "observation");
-  assert.equal(`${LABELS.observation}: ${formatValue("observation", "paid")}`, "Looking at the world: Paid");
-  assert.equal(formatValue("observation", "free"), "Free");
-  // Every seed setup stores a mode, so the row is never missing.
-  for (const id of ["grid-annotated-basics", "grid-classic"]) assert.match(formatValue("observation", seedSetupSettings(id).observation), /^(Free|Boards free|Paid|Agents only)$/, id);
-});
-
 test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {
-  assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "observation"], "asked, then more");
+  assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel"], "asked, then more");
   assert.equal(LABELS.costModel, "Change pricing");
   const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
   assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");

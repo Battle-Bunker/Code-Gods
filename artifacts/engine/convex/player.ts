@@ -20,16 +20,6 @@ import { OBJECT_SORTS, type ObjectSort } from "@workspace/player-client/objects-
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
-import { lookPriceOf, paidLive, toldEvent } from "./lib/knowledge";
-
-/**
- * Paid observation (lib/knowledge.ts): the batches as a seated god of a paid live game is told them (births, phases and
- * its own agents' events). Any other viewer or game: the batches as they are.
- */
-function toldBatches<B extends { events: readonly { t: string; ownerId?: string }[] }>(game: Pick<Doc<"games">, "settings" | "phase">, index: number, godId: string, batches: readonly B[]): readonly B[] {
-  if (index < 0 || !paidLive(game)) return batches;
-  return batches.map(b => ({ ...b, events: b.events.filter(e => toldEvent(e, godId)) }));
-}
 
 /*
  * Each projection is a function of (ctx, viewer, args). The public query resolves the viewer from ctx.auth;
@@ -125,7 +115,7 @@ export const gameAs = internalQuery({
 });
 export async function gameViewFor(ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId: string }) {
   const { room, game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
-  return { ...await publicGameView(ctx, game!, room, viewer.subject), current: !isHistoric(room, game!), seated: index >= 0 };
+  return { ...await publicGameView(ctx, game!, room), current: !isHistoric(room, game!), seated: index >= 0 };
 }
 
 /**
@@ -150,7 +140,7 @@ export const eventsFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: s
     // The newest batches include the latest; a cursor read looks the latest up.
     const latestCursor = after === undefined ? batches.at(-1)?.seq ?? -1 : await latestBatchSeq(ctx, game._id);
     return {
-      gameId: game._id, events: projectBatches(toldBatches(game, index, viewer.subject, batches), viewer.subject, index, game.phase !== "ended"),
+      gameId: game._id, events: projectBatches(batches, viewer.subject, index, game.phase !== "ended"),
       nextCursor: batches.at(-1)?.seq ?? after ?? latestCursor, latestCursor,
       gap: after !== undefined && batches.length > 0 && batches[0].seq > after + 1,
     };
@@ -168,7 +158,7 @@ export const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: 
     const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game!._id).gt("seq", after)).take(limit);
-    return { gameId: game!._id, events: projectBatches(toldBatches(game!, index, viewer.subject, batches), viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game!._id) };
+    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game!._id) };
 };
 
 /** The replay API's version (docs/replay-design.md §3): bump it when the shape of player.replay changes. 2: transparent. */
@@ -230,7 +220,9 @@ export async function replayPage(ctx: QueryCtx, room: Doc<"rooms">, stored: Doc<
   // batch returns nextCursor = the last whole batch and eventOffset = the events of the cut one already served.
   const batches: (Doc<"tickBatches"> & { from: number })[] = [];
   let events = 0, eventOffset: number | undefined;
-  for await (const b of ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after))) {
+  for await (const stored of ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after))) {
+    // A stored `look` (paid observation, deleted in D1) is never served, and never counted or indexed.
+    const b = { ...stored, events: stored.events.filter(e => e.t !== "look") };
     const from = !batches.length && b.seq === after + 1 ? Math.max(0, Math.floor(args.eventOffset ?? 0)) : 0;
     const left = b.events.length - from;
     if (batches.length && events + left > maxEvents) break;
@@ -314,7 +306,7 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
       return closed ? range.lte("seq", args.upTo!) : range;
     }).take(limit);
     const nextCursor = batches.at(-1)?.seq ?? after;
-    return { gameId: game._id, objects: trajectoriesOf(toldBatches(game, index, viewer.subject, batches), index, game.phase !== "ended"), nextCursor, latestCursor: (await latest()) ?? nextCursor };
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor, latestCursor: (await latest()) ?? nextCursor };
 };
 
 // ------------------------------------------------------------------------------------------------
@@ -382,13 +374,9 @@ async function viewPage(ctx: QueryCtx, gameId: Id<"games">, godId: string, q: { 
   return { rows, next: last && more ? { key: keyOf(last, sort), at: last._creationTime } : null, sort };
 }
 
-/**
- * One row as its god sees the object: the observation's object shape (lib/projection.ts personalObject). Under paid
- * observation the row is the object as the god was last told it, at world time `knownAt` (lib/knowledge.ts).
- */
+/** One row as its god sees the object: the observation's object shape (lib/projection.ts personalObject). */
 function objectViewOf(r: Doc<"objectViews">) {
   return {
-    ...(r.learnedAt !== undefined ? { knownAt: r.learnedAt } : {}),
     id: r.objectId as string, value: r.value, version: r.version,
     mutations: r.version, createdAt: r.createdAt, lastMutatedAt: r.lastMutatedAt ?? null,
     own: { ordinal: r.ordinal, rewardBits: r.rewardBits, ...(r.penaltyBits !== undefined ? { penaltyBits: r.penaltyBits } : {}), netBits: r.netBits },
@@ -419,15 +407,7 @@ export const object = query({
     const viewer = await requireViewer(ctx);
     const id = ctx.db.normalizeId("objects", objectId);
     const row = id && await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", id).eq("godId", viewer.subject)).first();
-    if (!row) return null;
-    if (row.learnedAt === undefined) return objectViewOf(row);
-    // Paid observation: the row is what the god was last told. That the object has changed since (how often, and when
-    // last) is public, as its existence is; what it changed to is not. One more document: the object's own.
-    const current = await ctx.db.get(row.objectId);
-    return {
-      ...objectViewOf(row),
-      ...(current ? { mutations: current.version, lastMutatedAt: current.lastMutatedAt ?? null, changesSince: Math.max(0, current.version - (row.toldVersion ?? row.version)) } : {}),
-    };
+    return row ? objectViewOf(row) : null;
   },
 });
 
@@ -440,22 +420,6 @@ export const objectsTop = query({
     const rows = await ctx.db.query("objectViews").withIndex(index, q => (q as any).eq("gameId", gameId).eq("godId", viewer.subject))
       .order(dir ?? order).take(Math.max(1, Math.min(20, Math.floor(n)))) as Doc<"objectViews">[];
     return rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 }));
-  },
-});
-
-/** The most stale objects counted: past it the count reads "99+". */
-export const STALE_MAX = 99;
-
-/**
- * Paid observation: how many objects have changed since the viewer was last told them (at most STALE_MAX, then `more`):
- * why to look. One index page of the viewer's own rows; that an object changed is public (lib/knowledge.ts).
- */
-export const staleCount = query({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    const viewer = await requireViewer(ctx);
-    const rows = await ctx.db.query("objectViews").withIndex("by_game_god_stale", q => q.eq("gameId", gameId).eq("godId", viewer.subject).eq("stale", true)).take(STALE_MAX + 1);
-    return { count: Math.min(rows.length, STALE_MAX), more: rows.length > STALE_MAX };
   },
 });
 
@@ -613,7 +577,6 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
   const objectId = args.objectId ? ctx.db.normalizeId("objects", args.objectId) : null;
   if (args.objectId && !objectId) return fail("BAD_REQUEST", "Not an object id");
   const from = args.fromWorld ?? -Infinity;
-  if (paidLive(game)) return knownSeries(ctx, game, index, viewer.subject, { objectId, from, cursor: args.cursor ?? null, limit });
   const rowsOf = objectId
     ? ctx.db.query("objectEvents").withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", objectId).gte("world", from))
     : ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", game._id).gte("world", from));
@@ -649,38 +612,6 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
 }
 
 /**
- * Paid observation (lib/knowledge.ts): a seated god's series of a live game is its own knowledge over time (knowledgeLog:
- * one row per telling that brought something new), in the series' columns: the object as told at `world`, its own bits,
- * the others' sum as disclosed and the payoff. "Before" is the god's previous telling of the object when that was the
- * version just before (in this page), else unknown (null); `seq` is 0 and `mine` false (a telling is not an event).
- * One index page of the god's own rows: what it paid to learn is what its analysis has.
- */
-async function knownSeries(ctx: QueryCtx, game: Doc<"games">, index: number, godId: string, q: { objectId: Id<"objects"> | null; from: number; cursor: string | null; limit: number }) {
-  const { objectId } = q;
-  const rowsOf = objectId
-    ? ctx.db.query("knowledgeLog").withIndex("by_game_god_object_world", r => r.eq("gameId", game._id).eq("godId", godId).eq("objectId", objectId).gte("world", q.from))
-    : ctx.db.query("knowledgeLog").withIndex("by_game_god_world", r => r.eq("gameId", game._id).eq("godId", godId).gte("world", q.from));
-  const page = await rowsOf.paginate({ cursor: q.cursor, numItems: q.limit });
-  const last = new Map<string, Doc<"knowledgeLog">>();
-  const c = {
-    world: [] as number[], seq: [] as number[], objectId: [] as string[], kind: [] as ("spawn" | "transform")[], version: [] as number[],
-    before: [] as (Wire | null)[], value: [] as Wire[], ownBefore: [] as (number | null)[], othersBefore: [] as (number | null)[],
-    own: [] as number[], others: [] as number[], payoff: [] as number[], mine: [] as boolean[],
-  };
-  for (const row of page.page) {
-    const prior = last.get(row.objectId), was = prior && prior.version === row.version - 1 ? prior : null;
-    last.set(row.objectId, row);
-    c.world.push(row.world); c.seq.push(0); c.objectId.push(row.objectId); c.kind.push(row.version === 0 ? "spawn" : "transform"); c.version.push(row.version);
-    c.before.push(was?.value ?? null); c.value.push(row.value); c.ownBefore.push(was?.own ?? null); c.othersBefore.push(was?.others ?? null);
-    c.own.push(row.own); c.others.push(row.others); c.payoff.push(row.payoff); c.mine.push(false);
-  }
-  return {
-    gameId: game._id, phase: game.phase, live: true, self: { godId, index }, others: game.roster.length - 1,
-    partial: false, rows: page.page.length, columns: c, cursor: page.continueCursor, done: false, pageDone: page.isDone,
-  };
-}
-
-/**
  * A public board page holds at most BOARD_PAGE objects (default and maximum): with one objectEvents read each, within
  * R2's 100 documents. The agent tools' internal twin reads up to BOARD_PAGE_INTERNAL inside Convex.
  */
@@ -710,26 +641,20 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
   const atCursor = split > 0 ? Number(args.cursor!.slice(0, split)) : undefined;
   if (args.cursor && (atCursor === undefined || !Number.isFinite(atCursor))) return fail("BAD_REQUEST", "Not a board cursor: pass the previous page's cursor");
   if (atCursor !== undefined && args.world !== undefined && args.world !== atCursor) return fail("BAD_REQUEST", "This cursor is of the board at another world time");
-  // Paid observation (lib/knowledge.ts): a seated god's board of a live game is its knowledge, each object as last told,
-  // whatever moment is asked for. So a world time is refused outright, past, present or future (never by comparing it
-  // with the clock, which moves with the tick), and a later page (its cursor carries the first page's world) is still
-  // the knowledge: the per-object history below is never read for such a game.
-  const known = paidLive(game);
-  if (known && args.world !== undefined) return fail("FORBIDDEN", "This game charges for looking: while it is live there is no board at a chosen world time. Ask without `world` for the board as you have been told it; look to refresh it.");
-  const world = known ? nowWorld : atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
+  const world = atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
   const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? max)));
   const page = await ctx.db.query("objectViews")
     .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
     .paginate({ cursor: atCursor !== undefined ? args.cursor!.slice(split + 1) : null, numItems: limit });
   const live = game.phase !== "ended";
-  const objects = current || known
-    ? page.page.map(r => ({ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.lastMutatedAt ?? r.createdAt, ...(r.learnedAt !== undefined ? { knownAt: r.learnedAt } : {}),
+  const objects = current
+    ? page.page.map(r => ({ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.lastMutatedAt ?? r.createdAt,
       own: r.netBits, others: r.peerNetBits, payoff: r.payoff }))
     : (await Promise.all(page.page.map(r => ctx.db.query("objectEvents")
       .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", r.objectId).lte("world", world)).order("desc").first())))
       .flatMap(e => (e ? [{ objectId: e.objectId as string, value: e.value, version: e.version, changedAt: e.world, ...viewAt(e.net, index, live ? e.noise ?? 0 : 0) }] : []));
   return {
-    gameId: game._id, world, partial: !current && !known && await partialSeries(ctx, game._id),
+    gameId: game._id, world, partial: !current && await partialSeries(ctx, game._id),
     objects, cursor: `${world}|${page.continueCursor}`, done: page.isDone,
   };
 }

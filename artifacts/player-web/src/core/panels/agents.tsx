@@ -344,22 +344,20 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
   const dockNow = useDock();
   const goalPaneShown = dockNow.maximised !== paneId && Object.values(dockNow.layout.panes).some(p => p.kind === "panel" && p.panelId === "my-card");
   const openObject = useOpenObject();
-  const paidLooks = !ended && economy?.observation !== undefined && economy.observation !== "free";
   const recent = useEvents({ hz: 1, limit: 50 });
-  const remembered = usePreviousVersion(game?.gameId, all, agentsLoading, paidLooks ? undefined : recent, world);
+  const remembered = usePreviousVersion(game?.gameId, all, agentsLoading, recent, world);
   const versions = useMemo(() => {
     const out = new Map<string, { text: string | null; caveat?: boolean; label?: string; onRevert?: () => void; busy?: boolean; status?: string }>();
     // Only the agent the replace made, in this game (never a twin with the same code): usePreviousVersion.
     const target = remembered && !ended && !can.seenAs ? all.find(a => a.id === remembered.agentId) : undefined;
     if (!remembered || !target) return out;
     const previous = remembered.previous;
-    // Where looking costs energy the earnings are not counted (score-lines.tsx), so nothing is compared there: the button alone.
-    const compared = paidLooks ? null : versionComparison(previous.before, previous.since, { estimate: acts.estimate, restored: previous.restored });
+    const compared = versionComparison(previous.before, previous.since, { estimate: acts.estimate, restored: previous.restored });
     out.set(target.id, {
       busy: !!runnerState.busy,
       // Only while that put-back is in flight; a busy or unanswered one leaves the button (and its notice) again.
       ...(runnerState.busy === "replace" && runnerState.replace?.putBack && runnerState.replace.agentId === target.id ? { status: PUTTING_BACK } : {}),
-      text: paidLooks ? null : compared ?? (previous.restored ? "The previous version is back. Once it has made a few moves, this line says how it is doing."
+      text: compared ?? (previous.restored ? "The previous version is back. Once it has made a few moves, this line says how it is doing."
         : "This is your new version. Once it has made a few moves, this line compares it with the one before."),
       caveat: compared !== null,
       // A put-back is offered for a new version, not for a version that was itself put back.
@@ -378,7 +376,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remembered, runnerState.busy, runnerState.replace, all, acts.estimate, ended, paidLooks, can.seenAs, can.can.destroy.ok, commands]);
+  }, [remembered, runnerState.busy, runnerState.replace, all, acts.estimate, ended, can.seenAs, can.can.destroy.ok, commands]);
   // "See it in My agents" (the forge): that agent's row comes into view inside the pane, with a short ring.
   const reveal = runnerState.reveal;
   const [rung, setRung] = useState<string | null>(null);

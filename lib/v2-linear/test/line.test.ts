@@ -34,3 +34,10 @@ test("wire round trip, read length and descriptions", () => {
 test("only the canonical wire form decodes", () => {
   for (const bad of ["1,,0", "1, 0,0", "1,0", "a,1,0", "2,1,0x1"]) assert.throws(() => lineType.decode(bad), bad);
 });
+
+test("largestPrimeFactor and primesBetween", async () => {
+  const { largestPrimeFactor, primesBetween } = await import("../src/index.ts");
+  assert.deepEqual([0n, 1n, -1n, 2n, 12n, 49n, 97n, -60n].map(largestPrimeFactor), [1n, 1n, 1n, 2n, 3n, 7n, 97n, 5n]);
+  assert.deepEqual(primesBetween(2, 31), [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31]);
+  assert.deepEqual(primesBetween(24, 28), []);
+});

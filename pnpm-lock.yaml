@@ -621,6 +621,9 @@ importers:
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../v2-core
+      '@workspace/v2-economy':
+        specifier: workspace:*
+        version: link:../v2-economy
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear

@@ -136,7 +136,7 @@ test("the provider is asked for the decision schema in the game's agent language
   assert.equal(schema.additionalProperties,false);
   assert.deepEqual(schema.required,["actions"]);
   const variants=schema.properties.actions.items.anyOf;
-  assert.deepEqual(variants.map((v:any)=>v.properties.type.const).sort(),["allocatePower","chat","destroy","look","pause","ready","summon","validate"]);
+  assert.deepEqual(variants.map((v:any)=>v.properties.type.const).sort(),["allocatePower","chat","destroy","pause","ready","summon","validate"]);
   for(const v of variants) { assert.equal(v.additionalProperties,false); assert.deepEqual([...v.required].sort(),Object.keys(v.properties).sort()); }
   const summon=variants.find((v:any)=>v.properties.type.const==="summon");
   assert.deepEqual(summon.properties.language.enum,["python","typescript"]);

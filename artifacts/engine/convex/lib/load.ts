@@ -6,27 +6,6 @@ import { sandboxViews } from "../runtime/readiness";
 import { observation, type ObservationInput } from "./projection";
 import { membersOf, recentChat } from "./rooms";
 import { withClock } from "../game/state";
-import { paidLive } from "./knowledge";
-
-/**
- * Paid observation (lib/knowledge.ts): the whole-world observation of a seated god of a paid live game is its own
- * knowledge, every object as last told (its objectViews rows), and its score as of the last published scoreboard.
- * Bounded by the game's object limit, as the world read it replaces.
- */
-async function knowledgeOf(ctx: QueryCtx, gameId: Id<"games">, godId: string): Promise<{ views: NonNullable<ObservationInput["views"]>; score: number }> {
-  const [rows, totals] = await Promise.all([
-    ctx.db.query("objectViews").withIndex("by_game_god_created", q => q.eq("gameId", gameId).eq("godId", godId)).take(2100),
-    ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).first(),
-  ]);
-  return {
-    views: rows.map(r => ({
-      id: r.objectId as string, value: r.value, peerNetBits: r.peerNetBits, peerCare: r.peerCare, payoff: r.payoff,
-      own: { ordinal: r.ordinal, rewardBits: r.rewardBits, ...(r.penaltyBits !== undefined ? { penaltyBits: r.penaltyBits } : {}), netBits: r.netBits },
-      ...(r.learnedAt !== undefined ? { knownAt: r.learnedAt } : {}),
-    })),
-    score: totals?.score ?? 0,
-  };
-}
 
 /**
  * The observation's recent own transformations: those in the game's latest 16 batches (ticks; about the last 16 s), at
@@ -100,10 +79,9 @@ export async function buildObservation(ctx: QueryCtx, room: Doc<"rooms">, godId:
   const game = header && await withClock(ctx, header);
   const deity = game ? await deityOf(ctx, game._id, godId) : null;
   const seated = game && deity ? game : null;
-  const told = !!seated && !narrow && paidLive(seated);
   const [objects, read, agents, chat] = await Promise.all([
-    seated && !narrow && !told ? objectsOf(ctx, seated._id) : Promise.resolve([]),
-    seated && narrow ? narrow.objects(seated) : told ? knowledgeOf(ctx, seated._id, godId) : Promise.resolve(undefined),
+    seated && !narrow ? objectsOf(ctx, seated._id) : Promise.resolve([]),
+    seated && narrow ? narrow.objects(seated) : Promise.resolve(undefined),
     seated ? ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", seated._id).eq("ownerId", godId)).take(narrow?.agents ?? 200) : Promise.resolve([]),
     recentChat(ctx, room._id, narrow?.chat),
   ]);

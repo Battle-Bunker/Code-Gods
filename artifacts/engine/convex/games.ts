@@ -25,16 +25,7 @@ import { objectsOf } from "./lib/load";
 import { activeGameRef, gameRecord, gameSetup, objectInstance, publicGame, rosterEntry, type Standing } from "./lib/projection";
 import { withClock } from "./game/state";
 import { publicSalienceOf } from "./game/readModel";
-import { paidLive } from "./lib/knowledge";
 import { findGame, getCatalog, isHistoric, recentChat, requireHistoricReaderAs } from "./lib/rooms";
-
-/**
- * Paid observation (lib/knowledge.ts): whether `viewerId` is a seated god of a live paid game, who sees objects only
- * through its own knowledge (player.*). The public object queries below give such a viewer nothing; a viewer without a
- * seat (a spectator) sees the world as before.
- */
-export const toldOnly = (game: Pick<Doc<"games">, "settings" | "phase" | "roster">, viewerId: string | undefined): boolean =>
-  viewerId !== undefined && paidLive(game) && game.roster.some(m => m.id === viewerId);
 
 /** The game a signed-in viewer may read, by id, GUID or short code, with its room (null once the room is deleted). */
 export async function readable(ctx: QueryCtx, code: string) {
@@ -54,9 +45,8 @@ export async function readable(ctx: QueryCtx, code: string) {
  * newer live game: the dock's view of an ended game (player.game). Reads every object: the spectator page reads the
  * narrow queries below instead.
  */
-export async function publicGameView(ctx: QueryCtx, header: Doc<"games">, room: Doc<"rooms"> | null, viewerId?: string) {
-  // Paid observation (lib/knowledge.ts): a seated god of a live game reads its own knowledge (player.*), never the world.
-  const [game, objects] = await Promise.all([withClock(ctx, header), toldOnly(header, viewerId) ? Promise.resolve([]) : objectsOf(ctx, header._id)]);
+export async function publicGameView(ctx: QueryCtx, header: Doc<"games">, room: Doc<"rooms"> | null) {
+  const [game, objects] = await Promise.all([withClock(ctx, header), objectsOf(ctx, header._id)]);
   const ended = game.phase === "ended";
   const active = room?.activeGameId ? await ctx.db.get(room.activeGameId) : null;
   const chat = room ? await recentChat(ctx, room._id, 100, game.createdAt, game.endedAt ?? Infinity) : [];
@@ -178,8 +168,7 @@ export const OBJECT_PAGE_MAX = 50;
 export const objectIds = query({
   args: { gameId: v.id("games"), paginationOpts: paginationOptsValidator },
   handler: async (ctx, { gameId, paginationOpts }) => {
-    const { game, viewer } = await readable(ctx, gameId);
-    if (toldOnly(game, viewer.subject)) return { page: [], isDone: true, continueCursor: "" };
+    await readable(ctx, gameId);
     const page = await ctx.db.query("objects").withIndex("by_game_salience", q => q.eq("gameId", gameId)).order("desc")
       .paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(OBJECT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
     return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.publicSalience })) };
@@ -193,8 +182,7 @@ export const object = query({
     const id = ctx.db.normalizeId("objects", objectId);
     const o = id ? await ctx.db.get(id) : null;
     if (!o) { await requireViewer(ctx); return null; }
-    const { game, viewer } = await readable(ctx, o.gameId);
-    if (toldOnly(game, viewer.subject)) return null;
+    const { game } = await readable(ctx, o.gameId);
     // Exact once the game has ended, before game/readModel.ts finalizeObjects reaches this object too.
     const live = game.phase !== "ended";
     return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience : publicSalienceOf(o, false) };

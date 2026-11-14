@@ -13,7 +13,7 @@
 import { OBJECT_FILTERS, OBJECT_PAGE_MAX, OBJECT_SORTS } from "@workspace/player-client/objects-page";
 
 export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "player.objectsPage" | "rooms.get"
-  | "player.objectIds" | "player.object" | "player.objectsTop" | "player.objectRank" | "player.totals" | "player.staleCount"
+  | "player.objectIds" | "player.object" | "player.objectsTop" | "player.objectRank" | "player.totals"
   | "dock.state" | "dock.agents" | "dock.transformations" | "dock.agentSeries" | "games.standings" | "games.standingsHistory" | "rooms.chat";
 
 const int = (value: unknown, min: number, max: number, fallback: number) =>
@@ -57,7 +57,6 @@ export const BRIDGE_QUERIES: Record<QueryName, (args: Record<string, unknown>, r
   },
   "player.objectRank": args => { const objectId = id(args.objectId); return objectId ? { objectId } : null; },
   "player.totals": args => { const gameId = id(args.gameId); return gameId ? { gameId } : null; },
-  "player.staleCount": args => { const gameId = id(args.gameId); return gameId ? { gameId } : null; },
   "dock.state": (_args, roomId) => ({ roomId }),
   "dock.agents": (_args, roomId) => ({ roomId }),
   "dock.transformations": (args, roomId) => ({ roomId, ...(args.limit !== undefined ? { limit: int(args.limit, 1, 90, 90) } : {}) }),

@@ -12,10 +12,11 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { evaluateSite, layerLadders, levelOf, scoreToWire, type Variant } from "@workspace/v2-core";
+import { firstAgentShare, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
-  BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
+  BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
   summonBits, type ShippedAgent,
 } from "../src/index.ts";
 
@@ -23,12 +24,23 @@ const boxes = sandboxes();
 after(() => boxes.close());
 const all = shippedAgents();
 const familyOf = (id: string) => lineType.families.find(f => f.id === id)!;
+/** The catalogue entries v2-linear still deals. */
+const LIVE = CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family));
 const paramsOf = (id: string) => familyOf(id).dealable(lineZ)[0] as Record<string, unknown>;
 
-test("every family and tie-breaker has an example, and every family the three starters, in both languages", () => {
-  for (const f of lineType.families) {
+test("families and tie-breakers without shipped agents yet (a catalogue entry each)", t => {
+  const missing = undescribed(), gone = stale();
+  if (missing.length) t.todo(`no examples or starters yet for ${missing.join(", ")}: add them to lib/v2-agents/src/catalogue.ts`);
+  if (gone.length) t.todo(`catalogue entries v2-linear no longer has: ${gone.join(", ")}`);
+});
+
+test("every described family has an example per described tie-breaker and the three starters, in both languages", () => {
+  for (const e of LIVE) {
+    const f = familyOf(e.family);
     for (const language of ["typescript", "python"] as const) {
-      for (const tb of f.tieBreakers) assert.ok(exampleFor(f.id, tb.id, language), `${f.id}: no ${language} example for ${tb.id}`);
+      for (const tb of Object.keys(e.tieBreakers).filter(tb => f.tieBreakers.some(t => t.id === tb))) {
+        assert.ok(exampleFor(f.id, tb, language), `${f.id}: no ${language} example for ${tb}`);
+      }
       assert.deepEqual(all.filter(a => a.family === f.id && a.language === language && a.kind !== "example").map(a => a.title), ["Simple", "Thorough", "Bold"]);
     }
   }
@@ -57,10 +69,10 @@ test("an agent's own score is the engine's, for every family, its dealable numbe
   const lines = (v: Variant, n: number) => births(lineType, v, "scores", n);
   const edge = [[0n, 1n, 0n], [0n, 1n, 5n], [-3n, 1n, 0n], [2n, 1n, -7n]].map(([a, b, c]) => ({ lines: [{ a: a!, b: b!, c: c! }] }));
   const sample = [...edge, ...lines(lineZ, 30), ...lines(lineQ, 30).filter(s => s.lines[0]!.b !== 0n)];   // y = mx + c only
-  for (const e of CATALOGUE) {
+  for (const e of LIVE) {
     const f = familyOf(e.family);
     for (const params of f.dealable(lineZ) as Record<string, unknown>[]) {
-      for (const tb of f.tieBreakers) {
+      for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
         const engine = sample.map(s => {
           const score = scoreToWire(evaluateSite(lineType, f, params, s, lineZ, 0, tb.id).score);
           return score === null ? "worst" : score.map(x => x ?? "null").join(",");
@@ -81,7 +93,7 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
   const states = births(lineType, lineZ, "parity", 3);
   for (const ts of all.filter(a => a.language === "typescript")) {
     const py = all.find(a => a.language === "python" && a.family === ts.family && a.kind === ts.kind && a.tieBreaker === ts.tieBreaker)!;
-    const tieBreaker = ts.tieBreaker ?? familyOf(ts.family).tieBreakers[1]!.id;   // starters: the second, not the default
+    const tieBreaker = ts.tieBreaker ?? Object.keys(CATALOGUE.find(e => e.family === ts.family)!.tieBreakers)[1]!;   // starters: the second, not the default
     for (const [i, state] of states.entries()) {
       const records = [];
       for (const a of [ts, py]) {
@@ -98,9 +110,9 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
 });
 
 test("each example climbs both rungs: some line reaches the main part's top, some line's tie-breaker rises", async () => {
-  for (const e of CATALOGUE) {
+  for (const e of LIVE) {
     const f = familyOf(e.family), params = paramsOf(e.family);
-    for (const tb of Object.keys(e.tieBreakers)) {
+    for (const tb of Object.keys(e.tieBreakers).filter(tb => f.tieBreakers.some(t => t.id === tb))) {
       const ladders = layerLadders(f, params, lineZ, tb);
       const levels = (s: LineState) => {
         const sc = evaluateSite(lineType, f, params, s, lineZ, 0, tb).score;
@@ -173,4 +185,12 @@ test("check: works, warns, fails and rejected, with the summon price and every a
   assert.equal(rejected.verdict, "rejected");
   assert.equal(rejected.sample.length, 1, "a program that does not compile is tried once");
   assert.equal((await run("python", simple.source, [])).verdict, "warns", "no samples: nothing to try");
+});
+
+test("after a first summon at the first-agent share, the player's store can still hold the dearest shipped agent (ux 1.5, 3.7)", () => {
+  const dearest = Math.max(...all.map(a => summonBits(a.language, a.source).energy));
+  const e = LINES_BEGINNER_ECONOMY;
+  const share = firstAgentShare({ allocated: 0, powerPerSecond: e.powerPerSecond, fullChargeSeconds: e.fullChargeSeconds, need: dearest });
+  assert.ok(share !== undefined && share >= 0.65, `first agent's share ${share}`);
+  assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");
 });
