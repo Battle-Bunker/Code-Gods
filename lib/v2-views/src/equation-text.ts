@@ -2,10 +2,11 @@
  * An equation as a person writes it, as text (no JSX, so the server can use it too): the template's elements resolved,
  * signs folded into operators ("+ −3" reads "− 3"), a coefficient of ±1 carried by its variable ("−x"), a term whose
  * number is 0 left out ("y = 59x", never "+ 0"), and a lone variable said solved ("x = 3"). render/equation.tsx draws the
- * same pieces, so the drawn equation and its text always agree. One writer for every equation a player reads (playtest
+ * same pieces, so the drawn equation and its text agree, except that the text says a lone variable solved (the general
+ * form's view still draws "x − 3 = 0"; a chip says "x = 3"). One writer for every equation a player reads (playtest
  * round 10: "y = −1x + 12", "y = 59x + 0").
  */
-import { Qn, ref, type ElementRef, type ElementValue } from "@workspace/v2-core";
+import { Qn, ref, type ElementRef, type ElementValue, type Q } from "@workspace/v2-core";
 import type { EquationScene, EquationTemplate } from "@workspace/v2-linear";
 import { fmtQ, fmtValue, MINUS } from "./format.ts";
 
@@ -64,14 +65,15 @@ function tidy(ps: Piece[]): Piece[] {
     for (const m of t.matchAll(/(=)|([+−])|([^\s=+−]+)/g)) toks.push(m[1] ? { k: "eq" } : m[2] ? { k: "op", op: m[2] as "+" } : { k: "word", text: m[3]! });
   }
   // Sides, each a list of signed terms.
-  type Term = { sign: "+" | typeof MINUS; tok: Tok };
+  // `joined`: an operator came before it (a term of a sum); without one, a token is written straight after the last.
+  type Term = { sign: "+" | typeof MINUS; tok: Tok; joined: boolean };
   const sides: Term[][] = [[]];
-  let sign: Term["sign"] = "+";
+  let sign: Term["sign"] = "+", joined = false;
   for (const t of toks) {
-    if (t.k === "eq") { sides.push([]); sign = "+"; continue; }
-    if (t.k === "op") { sign = t.op === MINUS ? (sign === MINUS ? "+" : MINUS) : sign; continue; }
-    sides[sides.length - 1]!.push({ sign, tok: t });
-    sign = "+";
+    if (t.k === "eq") { sides.push([]); sign = "+"; joined = false; continue; }
+    if (t.k === "op") { sign = t.op === MINUS ? (sign === MINUS ? "+" : MINUS) : sign; joined = true; continue; }
+    sides[sides.length - 1]!.push({ sign, tok: t, joined });
+    sign = "+"; joined = false;
   }
   const out: Piece[] = [];
   const text = (s: string) => { const l = out[out.length - 1]; if (l?.kind === "text") l.text += s; else out.push({ kind: "text", text: s }); };
@@ -82,7 +84,7 @@ function tidy(ps: Piece[]): Piece[] {
     terms.forEach((t, j) => {
       // The sign: an element's own leading minus, or the one before it.
       const neg = (t.sign === MINUS) !== (t.tok.k === "el" && t.tok.p.op === MINUS);
-      if (j > 0) text(neg ? ` ${MINUS} ` : " + ");
+      if (j > 0) text(t.joined || neg ? (neg ? ` ${MINUS} ` : " + ") : " ");
       if (t.tok.k === "el") {
         const p = t.tok.p, variable = t.tok.variable;
         // A coefficient written as a number before its variable, unless it is 1 (then the variable carries it).
@@ -111,10 +113,17 @@ export function solvedText(ps: Piece[]): string | null {
   if (vars.length !== 1) return null;
   const withVar = els.find(p => p.variable || ps[ps.indexOf(p) + 1]?.kind === "text" && /^[a-z]/i.test((ps[ps.indexOf(p) + 1] as { text: string }).text));
   const consts = els.filter(p => p !== withVar);
-  if (!/= 0$/.test(lineText(ps)) || consts.length > 1) return null;
-  const num = (p: Extract<Piece, { kind: "el" }>) => (p.v.kind === "number" ? p.v.q : null);
-  const a = withVar ? num(withVar) : Qn.ONE, c = consts[0] ? num(consts[0]) : Qn.ZERO;
-  if (!a || !c || Qn.isZero(a)) return null;
+  if (!/= 0$/.test(lineText(ps)) || consts.length > 1 || els.some(p => p.v.kind !== "number")) return null;
+  // Each number as written: its magnitude, and the sign shown before it (its own "−", or "− " after the term before).
+  const shown = (p: Extract<Piece, { kind: "el" }>) => {
+    const before = ps[ps.indexOf(p) - 1];
+    const neg = p.op === MINUS || (before?.kind === "text" && before.text.endsWith(`${MINUS} `));
+    const mag = Qn.abs((p.v as { q: Q }).q);
+    return neg ? Qn.neg(mag) : mag;
+  };
+  const a = withVar ? (withVar.mag === "" ? (withVar.op === MINUS ? Qn.neg(Qn.ONE) : Qn.ONE) : shown(withVar)) : Qn.ONE;
+  const c = consts[0] ? shown(consts[0]) : Qn.ZERO;
+  if (Qn.isZero(a)) return null;
   return `${vars[0]} = ${fmtQ(Qn.div(Qn.neg(c), a))}`;
 }
 
@@ -160,10 +169,4 @@ export function text(scene: Eq, values: (r: ElementRef) => ElementValue, rep: st
   const w = worked(scene, rep, values);
   if ("undefined" in w) return w.undefined;
   return w.lines.map(lineText).join(", so ") + (w.caption ? ` (${captionText(w.caption)})` : "");
-}
-
-
-/** One equation scene's text, from an object type's representation (the server's `object.read` writes this). */
-export function equationText(scene: EquationScene, values: (r: ElementRef) => ElementValue, rep: string): string {
-  return text(scene, values, rep);
 }

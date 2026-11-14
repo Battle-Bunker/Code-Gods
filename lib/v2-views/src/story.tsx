@@ -9,7 +9,7 @@ import { changesBetween } from "./contributors.ts";
 import { ExpandedFace } from "./faces.tsx";
 import { chanceText, fmtBits, fmtNum, fmtValue } from "./format.ts";
 import { nounOf } from "./refs.ts";
-import { chipRep, labelOf, repText, shownRefs, valuesOf } from "./rep-view.tsx";
+import { chipRep, expresses, labelOf, repText, shownRefs, valuesOf } from "./rep-view.tsx";
 
 export interface GoalCardProps<S, P> {
   readonly rule: RuleRef<S, P>;
@@ -73,8 +73,9 @@ export interface MoveLineProps<S, P> {
 
 /** The written form of a line in the representation that changed, or its equation. */
 function form<S>(type: ObjectType<S>, state: S, rep: string): string {
-  // The form asked for when it can write this state, else one that can ("x = 3" for a vertical line, never its reason).
-  return repText(type, state, chipRep(type, state, rep));
+  // The form asked for when it can write this state (a worked one too: the crossing's "0 = 3x − 7, so …"), else one that
+  // can ("x = 3" for a vertical line, never its reason sentence).
+  return repText(type, state, representation(type, rep).scene === "equation" && expresses(type, state, rep) ? rep : chipRep(type, state, rep));
 }
 
 /** Changed elements listed at most this many; the rest counted. */

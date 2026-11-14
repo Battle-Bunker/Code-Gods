@@ -102,7 +102,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
   const main = a?.sites[0]?.parts[0];
   return shell(<>
     <div className="shrink-0" data-testid={`marks-line-${number}`} data-rep={rep}>
-      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} value={value ?? undefined} /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
+      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} value={value ?? undefined} toScore /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
     </div>
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">

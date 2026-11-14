@@ -3,7 +3,7 @@ import { defineOp, inGame, seated } from "./define";
 import { ask, hostFor, objectIn } from "../reads.ts";
 import { decode, encode, scopeOf, typeOf, valueOf } from "../world.ts";
 import { elementValue, representation } from "@workspace/v2-core";
-import { equationText } from "@workspace/v2-views/equation-text";
+import { text as equationText } from "@workspace/v2-views/equation-text";
 import { disclosed } from "../disclose.ts";
 import type { Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";

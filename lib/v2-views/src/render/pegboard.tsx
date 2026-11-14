@@ -34,7 +34,8 @@ function Scene({ p }: { p: RenderProps<Peg> }) {
   const ways = p.values(ref(p.rep, "ways", undefined, p.scene.on.site));
   const n = hi - lo, step = (W - 2 * PAD) / n;
   const sx = (x: number) => PAD + (x - lo) * step, sy = (y: number) => W - PAD - (y - lo) * step;
-  const pegs = line.kind === "segment" ? pegsOn(line, lo, hi) : [];
+  // Lit pegs are ways to pay: none on a line that is not a coin line (a and b not both positive).
+  const pegs = line.kind === "segment" && ways.kind !== "undefined" ? pegsOn(line, lo, hi) : [];
   const on = new Set(pegs.map(g => `${g.x},${g.y}`));
   // The line across the board: where it meets the window's edges.
   let seg: { x1: number; y1: number; x2: number; y2: number } | null = null;

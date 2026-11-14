@@ -80,7 +80,9 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
   }
   // A view that cannot show this object (a vertical line has no y = mx + c) names it first ("x = 3"), so a reader knows
   // what it is before reading why the view has nothing to draw.
-  const named = expresses(type, state, repId, site) ? null : repText(type, state, chipRep(type, state, undefined, site), site);
+  const chip = chipRep(type, state, undefined, site);
+  const worked = scene.kind === "equation" && !isSingleLine(scene as never);
+  const named = expresses(type, state, repId, site) || worked || chip === repId || !expresses(type, state, chip, site) ? null : repText(type, state, chip, site);
   return (
     <div className="v2v-rep" data-size={size} data-rep={repId} data-scene={rep.scene} aria-label={props.label ?? rep.title}>
       {named && <div className="v2v-undef-what" data-testid="text-rep-object">{named}</div>}

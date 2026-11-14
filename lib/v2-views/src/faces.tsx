@@ -14,7 +14,7 @@ import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.t
 import { BITS_HELP, chanceText, fmtBits, fmtEnergy, fmtNum, pointsText, scoreFormula } from "./format.ts";
 import { moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
-import { expresses, ObjectChip, RepView } from "./rep-view.tsx";
+import { ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
 
 /** The elements each part reads, for the views' identity badges. */
@@ -57,6 +57,8 @@ export interface CompactFaceProps<S, P> {
   readonly before?: S;
   /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
   readonly next?: boolean | Move<S> | null;
+  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>". */
+  readonly toScore?: boolean;
 }
 
 /** The rule's primary representation at 160 × 100 with its marks, the bits, one line per part, and the next move. */
@@ -66,15 +68,13 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const e = a.sites[site]!.evaluation;
   const parts = a.sites[site]!.parts;
   const rep = props.rep ?? props.rule.family.main.rep;
-  const next = useMemo(
-    () => (props.next === true ? (a.score === null && !props.value ? null : moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null) : props.next || null),
-    [props.next, props.rule, props.state, props.value, a.score],
-  );
-  // Not scoring (a vertical line for a rule that reads its y-intercept): the cheapest move that makes it score.
-  const toScore = useMemo(
-    () => (a.score === null ? moves(props.rule, props.state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null : null),
-    [a.score, props.rule, props.state, props.value],
-  );
+  // The next move (asked for), or, not scoring and asked for (`toScore`), the cheapest move that makes it score: one
+  // search either way, only when the caller wants a hint.
+  const next = useMemo(() => {
+    if (props.next !== true && !(props.toScore && a.score === null)) return props.next || null;
+    if (a.score === null) return moves(props.rule, props.state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null;
+    return props.next === true ? moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null : null;
+  }, [props.next, props.toScore, props.rule, props.state, props.value, a.score]);
   const bits = bitsLine(a);
   return (
     <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
@@ -82,11 +82,9 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
         before={props.before} next={next ? next.after : undefined} />
       {bits && <div className="v2v-face-foot"><span className="v2v-rarity" data-worst={a.score === null ? "" : undefined} title={BITS_HELP}>{bits}</span></div>}
       {a.worst
-        // The view has already said it when it cannot draw this object ("a vertical line has no gradient …").
-        ? (expresses(props.rule.type, props.state, rep, site) ? <div className="v2v-face-why">{a.worst}</div> : null)
+        ? <div className="v2v-face-why">{a.worst}</div>
         : parts.map(p => <div key={p.term} className="v2v-face-part" data-role={p.role} title={p.sentence}>{partLine(p)}</div>)}
-      {next && <div className="v2v-face-next" title={next.words} data-testid={a.score === null ? "text-to-score" : undefined}>{a.score === null ? "To score" : "next"}: {next.words}{next.bits !== null ? ` → ${fmtBits(next.bits)}` : ""}</div>}
-      {toScore && !next && <div className="v2v-face-next" data-testid="text-to-score" title={toScore.words}>To score: {toScore.words}{toScore.text.length <= 28 && !toScore.words.includes(toScore.text) ? ` → ${toScore.text}` : ""}</div>}
+      {next && <div className="v2v-face-next" title={next.words} data-testid={a.score === null ? "text-to-score" : undefined}>{a.score === null ? "To score" : "next"}: {next.words}{a.score === null && next.text.length <= 28 && !next.words.includes(next.text) ? ` → ${next.text}` : ""}{next.bits !== null ? ` → ${fmtBits(next.bits)}` : ""}</div>}
     </div>
   );
 }
