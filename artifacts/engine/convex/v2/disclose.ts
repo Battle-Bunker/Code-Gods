@@ -52,6 +52,9 @@ export function shownAt(v: { rarityBits: number; want: number }, noise: number):
   return { shownWant, shownPoints: v.rarityBits * Math.max(0, shownWant) };
 }
 
+/** The σ a game's live reads carry (0 when it has no key: exact). */
+export const peerNoiseBitsOf = (game: Pick<NoiseGame, "noiseKey" | "settings">) => (game.noiseKey ? sigmaOf(game) : 0);
+
 /** Whether reads disclose the noisy values (the game is not over). */
 export const disclosesNoise = (game: Pick<NoiseGame, "phase">) => game.phase !== "ended";
 

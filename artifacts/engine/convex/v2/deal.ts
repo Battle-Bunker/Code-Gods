@@ -10,7 +10,8 @@
  * rotates and never continues a rotation.
  *
  * Practice games (one human, every other seat a practice partner; the coordinator's call (b), provisional) are dealt
- * so the human is not the odd one out (`practiceDeal`), by the agents session's pair verdicts, and never rotate.
+ * so the human is not the odd one out (`practiceDeal`), by the agents session's pair verdicts; the games after it rotate
+ * those rules like any room's (playtest round 9: v1's rotation).
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";

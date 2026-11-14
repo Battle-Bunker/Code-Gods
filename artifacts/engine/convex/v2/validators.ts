@@ -47,6 +47,8 @@ export const headerV = v.object({
   /** The caller's seat in this game, or null for a spectator. */
   me: v.union(v.id("v2Members"), v.null()),
   summary: v.union(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() }), v.null()),
+  /** σ, in bits, of the noise on every others' sum shown while live (disclose.ts); 0: exact. */
+  peerNoiseBits: v.number(),
 });
 export const standingsV = v.object({
   seq: v.number(), worldSeconds: v.number(),

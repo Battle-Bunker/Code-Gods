@@ -146,8 +146,9 @@ async function dealHistory(ctx: QueryCtx, roomId: Id<"v2Rooms">): Promise<PastDe
 /** The rotated deal the next game would get, or null when it would be dealt fresh. */
 export async function rotationFor(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: readonly Doc<"v2Members">[]) {
   const preset = presetOf(room.preset), pool = dealablePool(preset), dealKey = dealKeyOf(preset, pool);
-  // A practice game is dealt afresh each time (practiceDeal), so it never rotates.
-  const rotated = isPracticeGame(seats.map(s => s.kind)) ? null : rotatedDeal(seats.map(s => s._id), dealKey, await dealHistory(ctx, room._id));
+  // Rules rotate round the same seats in every room, a practice room too (v1's rotation; playtest round 9): its first
+  // game is the practice deal (practiceDeal), and the games after pass those rules on.
+  const rotated = rotatedDeal(seats.map(s => s._id), dealKey, await dealHistory(ctx, room._id));
   const byKey = new Map(pool.map(r => [r.ruleKey, r]));
   const rules = rotated?.rules.map(k => byKey.get(k));
   return { pool, dealKey, rotated: rules && rules.every(r => r) ? { rules: rules as DealtRule[], round: rotated!.round, of: rotated!.of } : null };
