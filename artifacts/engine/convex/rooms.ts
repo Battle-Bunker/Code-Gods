@@ -168,7 +168,7 @@ export const leave = mutation({
 });
 
 /**
- * Play or watch the next game (docs/unify-apps-plan.md §2): a member sets it for themselves, the owner for any human
+ * Play or watch the next game (archive/engine-v1:docs/unify-apps-plan.md §2): a member sets it for themselves, the owner for any human
  * member (`godId`); AI seats always play. It never changes a running game's roster ("applies after this game ends") and
  * is refused while the next game is preparing (its deal is fixed). A spectator has no ready state.
  */

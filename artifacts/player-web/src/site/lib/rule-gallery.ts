@@ -5,7 +5,7 @@
  *   families  the richly annotated families (game-utilities LENSES) the setup's board can deal
  *   params    one draw of a family: each param a named, typed field (game-utilities params.ts: a colour picker, a symbol
  *             picker, a number, a choice) whose values are its type's domain on this board, within the family's support
- *   tiers     a family with tiers (docs/layered-rules-design.md) has one more, optional field, "To score even higher":
+ *   tiers     a family with tiers (archive/engine-v1:docs/layered-rules-design.md) has one more, optional field, "To score even higher":
  *             "none" (the base rule, whose params carry no `tiers` key) or one of its gated tiers (`family.tiered(ctx, 1)`)
  *
  * The family page keeps everything in GET params (the gallery keeps its board there; a tile's params ride on its link): the type args by their own names (size, symbols, colours; objectType

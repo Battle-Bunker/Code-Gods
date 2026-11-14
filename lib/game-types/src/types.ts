@@ -1,5 +1,5 @@
 /**
- * The object-type contract (docs/clean-implementation-plan.md §2, docs/research/grid/architecture.md).
+ * The object-type contract (archive/engine-v1:docs/clean-implementation-plan.md §2, docs/research/grid/architecture.md).
  *
  * An object type is a type constructor over runtime parameters: Int(min, max), string(maxLength),
  * Grid(size, symbols, colours). Applying it to arguments gives an Instantiation. Everything else a
@@ -139,7 +139,7 @@ export interface HelperDoc {
  * Python and JS preludes both define:
  *   __decode(wire)        wire value -> the kid-API object (Grid with .cells/.rows..., or the int / str itself)
  *   __encode_calls(calls) list of mutator calls -> ASCII JSON string (see MutatorCallWire)
- * plus the read helpers (kid API, lib/grid-lab/docs/kid-api.md) and one constructor per available mutator.
+ * plus the read helpers (kid API, archive/engine-v1:lib/grid-lab/docs/kid-api.md) and one constructor per available mutator.
  * Private names are `_UPPER` in Python and `__UPPER` in JS; public names never shadow builtins.
  */
 export interface PreludeParts {

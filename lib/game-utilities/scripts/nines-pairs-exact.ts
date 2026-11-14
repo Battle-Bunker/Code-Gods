@@ -1,5 +1,5 @@
 /**
- * 🙃 Opposite Nines' expert pairs, exactly (docs/layered-rules-measurements/expert-pairs.md). At the base's top every
+ * 🙃 Opposite Nines' expert pairs, exactly (archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md). At the base's top every
  * opposite pair adds up to 9, so the first 8 cells fix the board: all 10⁸ top boards are counted, and for each pair
  * (lines x, squares x′) the law of the tuple [lines, squares] there is exact.
  *

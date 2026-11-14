@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { runInNewContext } from "node:vm";
 import ts from "typescript";
 import { GRID, INT, OBJECT_TYPES, STRING, availableMutators, instanceInfo, seededRng, sha256, withCommitClause, type Instantiation } from "../src/index.ts";
-import { buildFixture } from "./parity-fixture.ts";
 
 const JS_GLOBALS = new Set([...Object.getOwnPropertyNames(globalThis), "escape", "unescape", "print", "name", "length", "self", "window"]);
 
@@ -121,17 +119,6 @@ test("dts type-checks kid cards, and only offers the room's helpers", () => {
   assert.ok(errs.some(e => /suit/.test(e)) && errs.some(e => /isPicture/.test(e)) && errs.some(e => /mix/.test(e)), errs.join("\n"));
   assert.deepEqual(diagnostics(INT.prelude(INT.instantiate({})).dts, `const d: number[] = digits(LOWEST); fromDigits(d); __decode(3);`), []);
   assert.deepEqual(diagnostics(STRING.prelude(STRING.instantiate({})).dts, `const n: number = MAX_LENGTH; __decode("x");`), []);
-});
-
-test("parity fixture (consumed by test/parity.py)", () => {
-  const fixture = buildFixture();
-  assert.ok(fixture.cases.length >= 12 && fixture.cases.every(c => c.grids.length === 5));
-  const keys = new Set(fixture.cases.map(c => c.key));
-  for (const s of ["base10", "base12", "base16", "cards"]) for (const c of ["rgb", "rgby", "rainbow6"])
-    assert.ok([...keys].some(k => k.includes(`,${s},${c})`)), `covers ${s} × ${c}`);
-  const dir = new URL("./fixtures/", import.meta.url);
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(new URL("prelude-parity.json", dir), JSON.stringify(fixture));
 });
 
 // The derived fields (pricing vocabulary, hash) are computed on first read (prelude.ts withDerived, so describing an

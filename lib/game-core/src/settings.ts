@@ -1,5 +1,5 @@
 /**
- * Room/game settings (docs/clean-implementation-plan.md §§1, 4.3–4.4).
+ * Room/game settings (archive/engine-v1:docs/clean-implementation-plan.md §§1, 4.3–4.4).
  *
  * The object type is a type constructor applied to runtime arguments: `objectType` names it and
  * `typeArgs` are its arguments (Int → {min, max}, string → {maxLength}, Grid → {size, symbols, colours}).
@@ -68,11 +68,11 @@ export function fairSummonBits(language: Language, cost: number, structure: numb
 /** Resource limit: at most this many live agents per god. */
 export const MAX_AGENTS_PER_GOD = 200;
 
-/** How a tiered rule's ★ tiers compose with its base (docs/layered-rules-design.md); absent means gated. */
+/** How a tiered rule's ★ tiers compose with its base (archive/engine-v1:docs/layered-rules-design.md); absent means gated. */
 export const RULE_TIER_COMPOSITIONS = ["plain", "unlock", "uncapped"] as const;
 export type RuleTierCompose = (typeof RULE_TIER_COMPOSITIONS)[number];
 /**
- * Tiered rules (docs/layered-rules-design.md): every dealt rule is a base rule plus `depth` ★ tiers (1 or 2). `compose`
+ * Tiered rules (archive/engine-v1:docs/layered-rules-design.md): every dealt rule is a base rule plus `depth` ★ tiers (1 or 2). `compose`
  * is for experiments: absent, a tier counts only once the base is well along (gated); "plain" has no gate; "unlock"
  * shows the tier's points only once the gate is passed; "uncapped" is gated with tier values of unequal reach.
  */
@@ -145,7 +145,7 @@ export interface GameSettings {
   ruleTiers?: RuleTiers;
   /**
    * The reference prior that rarity is measured against (calibration tables are keyed by it). "uniform" is
-   * the spawn prior; later seasons may use an empirical mixture (lib/grid-lab/docs/explore/priors.md).
+   * the spawn prior; later seasons may use an empirical mixture (archive/engine-v1:lib/grid-lab/docs/explore/priors.md).
    */
   priorId: string;
   /**
@@ -614,7 +614,7 @@ export function assertObjectValue(
 
 /**
  * Tuned defaults per object type, layered over DEFAULT_SETTINGS: type-wide (`all`), computed from the
- * instantiation (`of`), then per instantiation key (`byKey`). Sources (lib/grid-lab/docs):
+ * instantiation (`of`), then per instantiation key (`byKey`). Sources (archive/engine-v1:lib/grid-lab/docs):
  * - experiments.md (held-out seeds): hits per object per second is the lever that matters, about 0.4–0.7;
  *   more objects and faster spawns get there.
  * - explore/gridtypes.md (2,344 games): the beginner board Grid(4,base10,rgb) also excludes five rules that
@@ -815,7 +815,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
-  // Tiered rules (docs/layered-rules-design.md). The order above is the learning order, with the twins of Annotated
+  // Tiered rules (archive/engine-v1:docs/layered-rules-design.md). The order above is the learning order, with the twins of Annotated
   // basics (the same board with one setting changed, such as paid looks) sitting together right after it; any other
   // new seed goes at the end.
   seed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along",
@@ -874,7 +874,7 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
     const bidding = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BIDDING_SEED_ID)!.settings;
     return lab(seedId, name, summary, bidding.objectType, { ...bidding.typeArgs }, { ...bidding, ...patch });
   }),
-  // Tiered rules' other compositions and balance policy (docs/tiered-rules.md; measured in docs/layered-rules-measurements/).
+  // Tiered rules' other compositions and balance policy (docs/tiered-rules.md; measured in archive/engine-v1:docs/layered-rules-measurements/).
   lab("lab-tiers-plain", "Lab · tiers without a gate", "Tiered rules, but the ★ bonus counts from the first move instead of opening at a gate",
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "plain" })),
   lab("lab-tiers-unlock", "Lab · unlocking tiers", "Tiered rules, but once unlocked the ★ bonus outranks the rest of the base; rarity near the top is a rough estimate (sampled tables)",

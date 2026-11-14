@@ -1,5 +1,5 @@
 /**
- * ✌️ Two Pair's link tiers, exactly (docs/layered-rules-measurements/two-pair.md). At the base's top every box holds two
+ * ✌️ Two Pair's link tiers, exactly (archive/engine-v1:docs/layered-rules-measurements/two-pair.md). At the base's top every box holds two
  * different pairs, and a link depends only on which two numbers each box holds, so the tier's law on the top boards is
  * a count over 45⁴ choices of four number pairs (each with 6 arrangements, which cancel). The count itself is
  * `twoPairTopCounts` in scripts/tiered-profile.ts, which is also what `--check` compares the shipped tables against;

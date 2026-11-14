@@ -26,7 +26,7 @@ export interface StepRoom {
   shortCode: string;
   ownerId: string;
   ownerName: string;
-  /** `spectator`: watches the next game (docs/unify-apps-plan.md §2); only players count toward the minimum. */
+  /** `spectator`: watches the next game (archive/engine-v1:docs/unify-apps-plan.md §2); only players count toward the minimum. */
   members: readonly { id: string; kind: string; spectator?: boolean }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
   /** A start waiting for rule tables computed on demand (rooms.get `preparing`). */

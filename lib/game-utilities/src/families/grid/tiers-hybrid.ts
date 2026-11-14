@@ -88,7 +88,7 @@ export function hybridBest<P extends Params>(familyId: string, spec: GridTiers<P
   return law ? wireOf(gridSpec(ctx), ctx)(law.best) : null;
 }
 
-/** The liveness check of a tiered draw on this shape (docs/layered-rules-design.md §2.3), or null without a law. */
+/** The liveness check of a tiered draw on this shape (archive/engine-v1:docs/layered-rules-design.md §2.3), or null without a law. */
 export function tierLiveness<P extends Params>(familyId: string, spec: GridTiers<P>, p: P, ctx: FamilyContext,
   band?: { readonly min: number; readonly max: number }): Liveness | null {
   const law = hybridLawOf(familyId, spec, p, ctx);

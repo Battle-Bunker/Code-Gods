@@ -1,5 +1,5 @@
 /**
- * A general sweep of candidate tier values through a family's own card (docs/layered-rules-measurements/two-pair.md,
+ * A general sweep of candidate tier values through a family's own card (archive/engine-v1:docs/layered-rules-measurements/two-pair.md,
  * expert-pairs.md): the liveness of each value, or pair of values, on the base's top, as one markdown table row each.
  *
  *   node --experimental-strip-types scripts/tier-sweep.ts <family> '<json list of tier lists>' [--band 6,26] [--shape 4,base10]

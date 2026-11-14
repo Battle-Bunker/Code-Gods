@@ -1,5 +1,5 @@
 /**
- * 🫅 Kings and Subjects (the owner's "kings and subjects"; the design's Royal Court, docs/layered-rules-design.md §5.1).
+ * 🫅 Kings and Subjects (the owner's "kings and subjects"; the design's Royal Court, archive/engine-v1:docs/layered-rules-design.md §5.1).
  * The family id is `kings_and_subjects`: `royal_court` is the cards family 👑 Royal Court (geometry.ts).
  *
  * A 2×2 box is a COURT when its single biggest number (the king) equals the other three (the subjects) added up, like
@@ -8,7 +8,7 @@
  *
  * The base is graded by closeness: `[courts, −total gap]`, where a box's gap is how far its king is from the sum of its
  * subjects, and a box without a king deducts NO_KING (twice the number of symbols: more than any king's gap, so
- * crowning a king always helps). Measured on 4×4 digits (docs/layered-rules-measurements/royal-court.md): DIFF 0.0,
+ * crowning a king always helps). Measured on 4×4 digits (archive/engine-v1:docs/layered-rules-measurements/royal-court.md): DIFF 0.0,
  * K 3.0, against DIFF 16.8 for "2 points for a court, 1 for one away" (greedy traps on 17% of starts).
  *
  * `squares: "corners"` is the dealt base: the boxes that tile the board (four corner boxes on 4×4), disjoint units with
@@ -66,7 +66,7 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
 };
 
 /**
- * Tiers on the corner base (measured on 4×4 digits: docs/layered-rules-measurements/royal-court.md, reproduced by
+ * Tiers on the corner base (measured on 4×4 digits: archive/engine-v1:docs/layered-rules-measurements/royal-court.md, reproduced by
  * scripts/royal-court-sweep.ts; test/royal-court.test.ts re-runs the liveness check of every dealt value).
  *
  * - Gate: the base's greedy ten-move level of its first component. One-cell greedy holds 3.99 courts of 4 after ten
@@ -88,11 +88,11 @@ const COURT_DEALT: readonly TierValue[] = [
 ];
 // Same-number roads of 2 and 3 are not dealt at all, Lab included: their best tier is so rare (about 21 and 24 to 26 bits
 // over the base) that the hybrid law misses it by up to 5 bits at the shipped budget
-// (docs/layered-rules-measurements/kings-and-subjects.md).
+// (archive/engine-v1:docs/layered-rules-measurements/kings-and-subjects.md).
 const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 }];
 /**
  * Expert (two tiers: pairs of kings, then same-number roads among boards equal on pairs), on 4×4 digits against a band
- * of 6 to 26 bits for the two together (docs/layered-rules-measurements/expert-pairs.md). With every pair of kings
+ * of 6 to 26 bits for the two together (archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md). With every pair of kings
  * scoring, one road of four equal subjects is the most that fits.
  */
 const COURT_PAIRS: readonly (readonly [TierValue, TierValue])[] = [2, 3].map(x => [{ id: "pairs", x }, { id: "sameRoads", y: 4 }] as const);

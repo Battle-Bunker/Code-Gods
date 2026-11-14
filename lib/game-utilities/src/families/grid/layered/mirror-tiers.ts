@@ -1,5 +1,5 @@
 /**
- * Mirrormancer's tiers (docs/layered-rules-design.md §5.2; measurements in docs/layered-rules-measurements/mirror-tiers.md).
+ * Mirrormancer's tiers (archive/engine-v1:docs/layered-rules-design.md §5.2; measurements in archive/engine-v1:docs/layered-rules-measurements/mirror-tiers.md).
  *
  * The base is today's Mirrormancer: its rows (or columns) are disjoint units scoring [is a mirror, matching pairs], so
  * it has an exact law and an exact sampler of boards given the base (src/tiers/hybrid.ts).
@@ -108,7 +108,7 @@ const MIRROR_DEALT: readonly TierValue[] = [
  * Expert (two tiers: holding, then halves among boards equal on holding), on 4×4 digits. Exact at the base's top: four
  * different mirrors holding two ys are four of the 18 mirrors `y a a y` and `a y y a`; a half of x with two different
  * numbers among them is a = x − y, so at most 2 of the four score, and 4!·C(16, 2) = 2,880 of the 10⁸ top boards hold
- * both: 15.1 bits (the hybrid law reads 15.0 to 15.2; docs/layered-rules-measurements/expert-pairs.md). Dealt with
+ * both: 15.1 bits (the hybrid law reads 15.0 to 15.2; archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md). Dealt with
  * y = 0 and x ≤ 9 only: the two values fold separately (every y to 0, x to 18 − x), and no one relabelling of the
  * digits does both, so only pairs that are their own canonical form share nothing they should not.
  */

@@ -1,5 +1,5 @@
 /**
- * The app's URL scheme (docs/unify-apps-plan.md §1.2), under the app's own base path (Vite's `base`: "/" when the
+ * The app's URL scheme (archive/engine-v1:docs/unify-apps-plan.md §1.2), under the app's own base path (Vite's `base`: "/" when the
  * engine serves it and on a player's dev server, anything else behind a proxy). Nothing here assumes a fixed prefix.
  *
  *   {base}                               your rooms

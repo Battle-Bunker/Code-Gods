@@ -256,7 +256,7 @@ function describe(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): I
 export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   id: "Grid", label: "Grid", emoji: "🟥", kid: "A square board of cells, each with a symbol on it (and a colour, unless it is numbers only)",
   params: PARAMS,
-  // Beginner board (lib/grid-lab/docs/explore/gridtypes.md); bigger boards via the settings presets.
+  // Beginner board (archive/engine-v1:lib/grid-lab/docs/explore/gridtypes.md); bigger boards via the settings presets.
   defaults: Object.freeze({ size: 4, symbols: "base10", colours: "rgb" }),
   classes: CLASSES.filter(c => c.slot === "symbols" || c.slot === "colours"),
   instantiate,

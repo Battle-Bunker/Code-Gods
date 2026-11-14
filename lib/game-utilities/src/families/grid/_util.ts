@@ -1,5 +1,5 @@
 /**
- * Shared helpers for the grid families (ported from lib/grid-lab/gridlab/{core,rules/_util,rules/cards}.py).
+ * Shared helpers for the grid families (ported from archive/engine-v1:lib/grid-lab/gridlab/{core,rules/_util,rules/cards}.py).
  *
  * Typed families (src/params.ts) store a colour param as the colour's name and a symbol param as the glyph the board
  * prints, and declare every param by name and type (`params`); the code below converts a name to the carrier index it

@@ -230,7 +230,7 @@ bits only, so in a replay `own.ordinal` and `own.rewardBits` carry the net bits.
 
 **The replay bar (PR after #125, the owner's report "I can't find a timeline scrubber"):** the room page then kept the
 live dock after "Game over" and nothing on it led to the replay. Since the one-app unification
-(docs/unify-apps-plan.md) a game's page, `/rooms/:room/games/:game`, *is* its replay once the game has ended: a player
+(archive/engine-v1:docs/unify-apps-plan.md) a game's page, `/rooms/:room/games/:game`, *is* its replay once the game has ended: a player
 watching the end stays on the URL and the dock turns into the replay. The room page never shows a game; its past
 games link each one. Then:
 

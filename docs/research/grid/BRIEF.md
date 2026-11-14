@@ -11,7 +11,7 @@ that sometimes ALIGN (two gods both gain from the same edit) and sometimes CONFL
 improvement destroys another's). Read for context, briefly:
 - lib/game-utilities/README.md (design principles of utility families)
 - lib/game-utilities/src/families/int.ts (how a family is written: sampled params, summary, code)
-- docs/research/integer-value-brainstorm.md and docs/research/coalition-brainstorm.md (previous brainstorms)
+- archive/engine-v1:docs/research/integer-value-brainstorm.md and docs/research/coalition-brainstorm.md (previous brainstorms)
 
 ## The new object type: Grid (aimed at kids / beginners; must be VISUAL)
 A grid object is an N×N array of cells. Each cell holds a (symbol, colour) pair.

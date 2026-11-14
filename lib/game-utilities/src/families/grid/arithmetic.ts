@@ -1,4 +1,4 @@
-/** Arithmetic & number-pattern lens rules (lib/grid-lab/gridlab/rules/arithmetic.py, cards from rules/cards.py). */
+/** Arithmetic & number-pattern lens rules (archive/engine-v1:lib/grid-lab/gridlab/rules/arithmetic.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import { boolParam, choiceParam, colourParam, intParam } from "../../params.ts";
 import {
@@ -346,7 +346,7 @@ const divisibility = gridFamily<DivP>({
 export { roundHalfEven };
 
 // ================================================================================================
-// Not shortlisted (new cards, checked against grid-lab by test/gridlab_parity.py)
+// Not shortlisted (new cards)
 // ================================================================================================
 
 /** The card constant for the colour a rule is about. */

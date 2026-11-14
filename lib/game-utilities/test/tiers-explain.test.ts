@@ -1,5 +1,5 @@
 /**
- * Annotations of tiered draws (src/explain/tier-lenses.ts; docs/layered-rules-design.md §4): a tiered draw is explained
+ * Annotations of tiered draws (src/explain/tier-lenses.ts; archive/engine-v1:docs/layered-rules-design.md §4): a tiered draw is explained
  * by its base's lens plus one tier lens per interaction, with no per-family code. For 🙃 Opposite Nines on 4×4 digits
  * (ordinal [nines, −distance, tier], the tier counting once nines ≥ the gate) every board's units add up to the card
  * program's own ordinal on all three components, a board below the gate has no tier units, and the board can point at

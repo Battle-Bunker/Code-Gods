@@ -1,5 +1,5 @@
 /**
- * ✌️ Two Pair's tiers (src/families/grid/layered/pair-tiers.ts; docs/layered-rules-measurements/two-pair.md): the
+ * ✌️ Two Pair's tiers (src/families/grid/layered/pair-tiers.ts; archive/engine-v1:docs/layered-rules-measurements/two-pair.md): the
  * tiered ordinal on hand-checked boards, the gate, the base left exactly as shipped, the disjoint-unit base, the
  * symmetries the shared tables rely on, the Python card against the host, and the liveness of every dealt value.
  */

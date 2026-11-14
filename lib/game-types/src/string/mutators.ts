@@ -1,6 +1,6 @@
 /**
  * string mutators (ASCII text, 128 characters, 7 bits each), designed on the Grid principles
- * (lib/grid-lab/docs/mutators.md §1). M = maxLength. A span is [start, end) with 0 ≤ start < end ≤ M,
+ * (archive/engine-v1:lib/grid-lab/docs/mutators.md §1). M = maxLength. A span is [start, end) with 0 ≤ start < end ≤ M,
  * clipped to the text; a span starting at or past the end of the text cannot apply (the act fails).
  *
  * The act charge never reads these D and E terms: applyCalls prices each call by its elementary decomposition (docs/energy-model.md §4).

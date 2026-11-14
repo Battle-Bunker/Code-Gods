@@ -215,7 +215,6 @@ flowchart LR
 | `lib/player-client` | Protocol, typed function catalogue, tool registry, browser SDK and the `pnpm player` CLI |
 | `lib/ai-player` | AI seats and the assistant's model providers |
 | `lib/object-views`, `lib/ui-kit` | Shared views (boards, goal cards) and UI building blocks |
-| `lib/grid-lab` | A Python research simulator used to design and check the Grid rules |
 
 Design documents live in [docs/](docs/). Start with [docs/convex-migration-plan.md](docs/convex-migration-plan.md)
 (architecture), [docs/surface-architecture.md](docs/surface-architecture.md) (assistants and clients),

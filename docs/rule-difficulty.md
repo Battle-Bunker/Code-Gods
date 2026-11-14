@@ -755,7 +755,7 @@ The brainstorm proposed "an improving move on at least 99% of random boards". It
 
 The thresholds of §5 make rules comparably simple. They do not make a game fair: on the beginner pool the dealt rule
 decides most single games. Measured with the coordination model (`lib/game-utilities/scripts/coordination.ts`,
-docs/beginner-pool.md §5 and §6, raw tables in `docs/balance-results-2026-11-13/`), 3 players, every god playing the
+docs/beginner-pool.md §5 and §6, raw tables in `archive/engine-v1:docs/balance-results-2026-11-13/`), 3 players, every god playing the
 same style, win share by dealt rule (fair 33%), lowest to highest:
 
 | Deal and scoring | greedy | considerate | deny (spoiler) |

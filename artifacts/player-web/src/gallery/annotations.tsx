@@ -46,7 +46,7 @@ export const SHOWCASE = [
  * Tiered draws (docs/tiered-rules.md): the ★ tier's own line on the goal board, on two boards each — the base's
  * exemplar, which maxes the base and so opens the tier but scores none of it (the "Nearest:" line), and the goal
  * card's own example, which scores it. ✌️ Two Pair's linked boxes are the tier a one-cell climber never reaches and
- * ↙️ Crosswise Threes' lines the one it reaches most (docs/layered-rules-measurements/README.md).
+ * ↙️ Crosswise Threes' lines the one it reaches most (archive/engine-v1:docs/layered-rules-measurements/README.md).
  */
 const TIERED = ["two_pair", "crosswise_threes"] as const;
 

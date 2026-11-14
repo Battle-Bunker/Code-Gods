@@ -1,4 +1,4 @@
-/** The three seed rules (lib/grid-lab/gridlab/rules/seeds.py, cards from rules/cards.py). */
+/** The three seed rules (archive/engine-v1:lib/grid-lab/gridlab/rules/seeds.py, cards from rules/cards.py). */
 import type { GridSpec } from "./_util.ts";
 import { exactSurvival, multinomial } from "../../analytic.ts";
 import { tierPoints } from "../../tuples.ts";

@@ -1,5 +1,5 @@
 /**
- * The measurements behind 🫅 Kings and Subjects' tiers (docs/layered-rules-measurements/royal-court.md): the base's
+ * The measurements behind 🫅 Kings and Subjects' tiers (archive/engine-v1:docs/layered-rules-measurements/royal-court.md): the base's
  * exact top and its greedy ten-move level (the gate), then the liveness of every candidate tier value on the corner
  * base, and what a base-only and a tier-aware one-cell greedy agent reach of a tier's top.
  *

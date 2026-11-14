@@ -1,6 +1,6 @@
 /**
- * The two energy accounts (docs/clean-implementation-plan.md §4.3; reference: the "agent_energy"
- * economy of lib/grid-lab/gridlab/sim.py on branch claude/gridlab-agent-energy).
+ * The two energy accounts (archive/engine-v1:docs/clean-implementation-plan.md §4.3; reference: the "agent_energy"
+ * economy of archive/engine-v1:lib/grid-lab/gridlab/sim.py on branch claude/gridlab-agent-energy).
  *
  * Power (docs/energy-model.md §6): each deity has a fixed budget of settings.powerPerSecond bits per WORLD second. It
  *        gives each of its agents a share s (Σ s ≤ 1, re-allocated at will); the unallocated rest is its own income.
