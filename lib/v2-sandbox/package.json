@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/v2-sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "dependencies": {
+    "quickjs-emscripten": "0.31.0",
+    "typescript": "5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}
