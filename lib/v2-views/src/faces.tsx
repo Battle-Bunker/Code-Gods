@@ -222,7 +222,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
       )}
       {others && nowPoints !== null && best && (climbs
         ? <p className="v2v-climb" data-testid="text-climb">The climb from here: “{best.m.words}” takes your points from {about}{pointsText(nowPoints)} to {about}{pointsText(best.points!)}{best.both ? ", and raises the others' bits too" : ""}.</p>
-        : <p className="v2v-climb" data-testid="text-climb" data-kind="stuck">Stuck here: no single move raises your points above {about}{pointsText(nowPoints)}. A bigger change, or the others' moves, may open a way up.</p>)}
+        : <p className="v2v-climb" data-testid="text-climb" data-kind="stuck">Stuck here: no single move raises your points above {about}{pointsText(nowPoints)}. Each move by the others changes the landscape: look again after they move.</p>)}
       <ol>
         {sorted.map(({ m, i, taken, theirs, points, both }) => (
           <li key={i} className="v2v-move-option" data-first={i === 0 ? "" : undefined} data-both={both ? "" : undefined}

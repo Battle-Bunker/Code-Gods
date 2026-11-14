@@ -70,3 +70,13 @@ test("the others' total after a candidate move: only the sum, from the live stat
   await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: other.state });
 });
 
+
+test("one object's moves are the caller's own act-log rows for it, newest first, with bits and the others' total", async () => {
+  const all = await bo!.query("v2/play:moves", { gameId, paginationOpts: page });
+  const first = all.page[0];
+  if (!first) return;
+  const rows = await bo!.query("v2/play:objectMoves", { gameId, number: first.number });
+  assert.deepEqual(rows.map((r: { seq: number }) => r.seq), all.page.filter((m: { number: number }) => m.number === first.number).map((m: { seq: number }) => m.seq));
+  assert.deepEqual(Object.keys(rows[0].after).sort(), ["points", "rarityBits", "want"], "the caller's bits and the others' total, nothing per player");
+  assert.deepEqual(await bo!.query("v2/play:objectMoves", { gameId, number: 9999 }), []);
+});
