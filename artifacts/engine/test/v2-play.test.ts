@@ -21,7 +21,8 @@ before(async () => {
   roomId = created.result.roomId;
   await perform(bo!, "room.join", { code: created.result.code });
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
-  await perform(ada!, "room.settings", { overrides: { planningSeconds: 600, worldSeconds: 600 } }, { roomId });
+  // Starting energy with room for the planning test's summons, replaces and put-backs (each priced by its program).
+  await perform(ada!, "room.settings", { overrides: { planningSeconds: 600, worldSeconds: 600, startingEnergy: 1200 } }, { roomId });
   gameId = (await perform(ada!, "game.start", {}, { roomId })).result.gameId;
 });
 
@@ -48,8 +49,9 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal(after.agents, 1);
   const agentId = summoned.result.agentId;
 
-  const tooDear = await perform(bo!, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = 1\n  ".repeat(600)}return None\n` }, scope(), "action");
+  const tooDear = await perform(bo!, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = 1\n  ".repeat(2000)}return None\n` }, scope(), "action");
   assert.equal(tooDear.error.code, "failed", "a program dearer than the store is refused");
+  assert.ok(tooDear.error.data.price > tooDear.error.data.store, JSON.stringify(tooDear.error.data));
 
   const replaced = await perform(ada!, "agent.replace", { agentId, language: "typescript", source: tiny }, scope(), "action");
   assert.deepEqual(replaced.result.version, 1);
