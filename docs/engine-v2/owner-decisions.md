@@ -83,6 +83,13 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     attached to the simulation method just because we thought of it first and decided on it before thinking of the
     chained analytical approach." (The study: [analytic-calibration.md](analytic-calibration.md).)
 
+20. On exact scoring (relayed by the coordinator, 14 November): "Development of exact scoring for specific rules should
+    never block anything else. That's mere configuration of optional additional utility functions. We can keep
+    augmenting our repertoire of available utility functions in background parallel threads indefinitely without this
+    work even being part of any dependency tree." (So a family lands with whatever valuation it has, exact, hybrid or
+    capped; an exact sum arrives later in its own PR and changes only artefact numbers; a family with a usable ladder
+    is never held back as undealable because its exact sum is not written yet.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
