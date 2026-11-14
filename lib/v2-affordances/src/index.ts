@@ -4,3 +4,5 @@ export * from "./directory.ts";
 export * from "./surfaces.ts";
 export * from "./parity.ts";
 export * from "./doc.ts";
+export * from "./server.ts";
+export * from "./mcp.ts";

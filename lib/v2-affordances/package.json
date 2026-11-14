@@ -4,14 +4,19 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./convex": "./src/convex.ts",
+    "./fake": "./src/fake.ts",
+    "./scan": "./src/scan.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
-    "gen:doc": "UPDATE_DOC=1 node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/doc.test.ts"
+    "gen:doc": "UPDATE_DOC=1 node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/doc.test.ts",
+    "cli": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/cli.ts"
   },
   "dependencies": {
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "convex": "1.48.0"
   },
   "devDependencies": {
     "@types/node": "catalog:"

@@ -73,7 +73,8 @@ export interface AffordanceContext {
 /** Whether an affordance can run now; `hidden` rows are never listed (they cannot apply to this viewer). */
 export type Availability = { ok: true } | { ok: false; reason: string; fix?: string; hidden?: boolean };
 
-export interface Affordance<Id extends string = string, I extends z.ZodObject = z.ZodObject, O extends z.ZodType = z.ZodType> {
+export type Runs = "server" | "client";
+export interface Affordance<Id extends string = string, I extends z.ZodObject = z.ZodObject, O extends z.ZodType = z.ZodType, R extends Runs = Runs> {
   /** `namespace.verb`, e.g. "agent.summon", "object.read", "view.pinRepresentation". */
   id: Id;
   /** ≤ 60 characters, verb first: "Summon an agent". */
@@ -98,7 +99,7 @@ export interface Affordance<Id extends string = string, I extends z.ZodObject = 
   spends?: "energy" | "aiBudget";
   confirm: Confirm;
   /** server: one Convex function (`defineOp`); client: a view operation on the human's layout. */
-  runs: "server" | "client";
+  runs: R;
   /**
    * What it acts in besides its params: the room or the game in view (the app passes its id) or bound (an MCP or CLI
    * credential is bound to one room, whose current game is the game). `none`: global (home, account).
