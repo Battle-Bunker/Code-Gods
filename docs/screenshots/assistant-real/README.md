@@ -51,3 +51,30 @@ Total spend: 56 model calls, 1.27 M tokens, **USD 0.65**: Haiku 0.035, Opus 0.61
 - `05-lines-opus-second-summon.png`: Opus: two agents at 50/50, with the player's own store at 0 ⚡.
 - `06-grids-deal-and-dock.png`: grids: the deal as `LEAVE = [3]`, "sample lines", and the dock arranged during
   planning.
+
+## Re-walk after W3's #530 (2026-11-15)
+
+The same local setup, on develop after #530 (cache-weighted allowance, a stopped request withdrawn, `AI_MODEL` as a
+deployment setting). One lines game ran on Claude Haiku 5.5: the rule, summon now, the deal, the dock, a quick stop,
+then autopilot. A second lines game ran on the default model: summon now, then a second summon. Spend: about USD 0.65.
+
+| Finding from the first walk | Now |
+|---|---|
+| The allowance ran out after four requests | 6% after one request; 21 calls in the Haiku game without running out. Fixed |
+| Haiku asked before summoning when told not to | It summoned at 70% with no question. Fixed |
+| Autopilot carried out the request that was stopped | After Stop, autopilot ran 6 turns and "changed nothing" (07). Fixed |
+| The default model gave away all the player's power | The second summon paid from the store and left a 40/40 split with 20% kept. Fixed |
+| The deal | It tried `agent.leaveAlone` first, was refused (the agent's own code has no LEAVE), then edited the code; 25.70 ⚡. Worked |
+
+Still open:
+
+- **The app (W5):** when the world started, the assistant's pane was behind a tab: the live defaults joined the
+  planning arrangement in front of it.
+- **The app or the prompt:** in planning, "open the act log" opens a pane that shows only once the world runs. The reply
+  says it "opened them by pane name without checking the layout" (08). Opening a live-only pane in planning should say
+  when it will show.
+- **Agents:** "Closest First is about 326 ⚡ in debt": an agent's energy still goes negative.
+- **The prompt:** replies on the default model are still long, with lists, where a short answer was asked for.
+
+- `07-rewalk-stop-then-autopilot.png`: Stop at 1.5 s: "Stopped." Autopilot then changed nothing.
+- `08-rewalk-dock-in-planning.png`: the dock request in planning: the panes it opened are not on this screen yet.
