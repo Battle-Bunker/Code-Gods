@@ -403,9 +403,13 @@ whole number, peg or point the primary measures closeness to) and a number from 
    0, and Ruler's distance down with it. *Collateral carried by:* coef.swap (keeps m × c, wrecks Prime Staircase 97%),
    rot.turn (moves m × c and the y-intercept together).
 2. **Whole Hypotenuse** (the normal form). *Primary:* "Draw the slope triangle of your gradient p/q: q along, p up.
-   Make its sloping side, √(p² + q²), as close as possible to a whole number." (Pythagoras, school year 8–9.)
-   *Secondaries:* (a) the y-intercept as close as possible to a multiple of that whole number; (b) the greatest common
-   factor of that whole number and the nearest whole number to the y-intercept, the bigger the better. *Keeper:* orbit.turn by a Pythagorean
+   Make p² + q² as close as possible to a square number: the gap |p² + q² − k²| to the nearest square k², as small as
+   possible." (Pythagoras, school year 8–9; the gap 0 means a whole sloping side. A flat line, p = 0, is undefined:
+   its gap is a trivial 0 at the law's cheapest line.) The gap is a whole number, so it does
+   not shrink with size: "√(p² + q²) nearly whole" would be a hidden ramp, since √(n² + 1) ≈ n + 1/(2n) gets closer as n
+   grows (the rule-design session's climbers walked a coefficient to 20,736 on that kind of rule).
+   *Secondaries:* (a) the y-intercept as close as possible to a multiple of k; (b) the greatest common factor of k and
+   the nearest whole number to the y-intercept, the bigger the better. *Keeper:* orbit.turn by a Pythagorean
    angle and rot.turn by a Pythagorean tangent both keep a Pythagorean gradient Pythagorean and multiply the hypotenuse
    (Gaussian integers multiply): a multiplicative climb, not a ramp in one number. *Entangles:* Prime Gradient, Pell-like
    rules, Pythagorean Area.
@@ -424,7 +428,8 @@ whole number, peg or point the primary measures closeness to) and a number from 
    and mirror.any in general (35% mean destroy).
 4. **Swap Twins** (the reciprocal chart). *Primary:* "Your line y = mx + c and its swap y = cx + m always cross at
    x = 1. Together with the y-axis they make a thin triangle with corners (0, c), (0, m) and (1, m + c). Make its area,
-   |m − c| ÷ 2, as close as possible to a whole number." *Secondaries:* (a) the greatest common factor of the whole
+   |m − c| ÷ 2, as close as possible to a whole number, but not 0." (m = c, area 0, sits on the law's cheapest lines and
+   would make the top degenerate: it is undefined, the worst score.) *Secondaries:* (a) the greatest common factor of the whole
    area and ⌊m + c⌋ (the crossing height), the bigger the better; (b) ⌊c⌋ as close as possible to a multiple of the whole
    area. *Keeper:* coef.swap keeps the area
    and the crossing exactly; it is this god's own move, and it wrecks Prime Staircase (97%).
@@ -445,10 +450,13 @@ whole number, peg or point the primary measures closeness to) and a number from 
    shows, and its own move is the gentlest in the game (6% destroy).
    *Tensions:* it pulls c toward m's anchor in the tree, so c stays small and simple, against Prime Landing's big prime
    c. *Collateral carried by:* sb.step (gentle) and si.tilt.
-7. **Pole Star** (the dual point; second pool, advanced). *Primary:* "Make 1 ÷ (your line's distance from the origin)²,
-   that is (a² + b²) ÷ c², as close as possible to a whole number." *Secondary:* the greatest common factor of that whole
-   number and c² (the pole's denominator squared), the bigger the better: it ties the pole's grid to the primary's
-   anchor. *Keeper:* pole.slide by whole steps keeps the pole on pegs; zoom moves the distance.
+7. **Pole Star** (the dual point; second pool, advanced). *Primary:* "1 ÷ (your line's distance from the origin)² is
+   (a² + b²) ÷ c². Make a² + b² as close as possible to a multiple of c²: the gap to the nearest multiple, as small as
+   possible." (A whole-number gap, for the same reason as Whole Hypotenuse: a fractional "nearly whole" is a ramp.
+   Lines with c = 0 or ±1 are undefined, since c = ±1 makes the gap 0 for free; even so, small c makes the gap easy, so
+   this family needs measuring before it is trusted.) *Secondary:* the greatest common factor of k (that multiple's
+   quotient) and c, the bigger the better: it ties the pole's grid to the primary's anchor. *Keeper:* pole.slide by
+   whole steps keeps the pole on pegs; zoom moves the distance.
    *Entangles:* Ruler (the same distance, the other way up) — a natural rival pair, since Ruler wants the line far and
    Pole Star rewards particular near distances.
    *Tensions:* Ruler (the line far away) directly; any big-c rule, since a big c shrinks (a² + b²)/c². *Collateral carried
