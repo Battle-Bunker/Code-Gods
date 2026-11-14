@@ -11,6 +11,7 @@
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
+import { assertNoSteps } from "./no-steps.ts";
 import { spawnSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -88,11 +89,13 @@ try {
     await page.waitForURL(/params=2/);
     await page.getByTestId("radio-tie-breaker-even").check();
     await card.getByText(/legs as close to equal/).waitFor();
-    await page.getByTestId("goal-card").getByText(/Steps to the top/).first().waitFor();
-    // Each step's rarity from the server's calibration (v2/gallery:family), for a rule a setup deals: bits and
-    // "1 in N by chance". (No setup deals the triangle family above, so its page keeps the note instead.)
+    await page.getByTestId("goal-card").waitFor();
+    await assertNoSteps(page, `${label}: a rule's gallery page`);
+    // Rarity from the server's value function (v2/gallery:family), for a rule a setup deals: bits and "1 in N by
+    // chance". (No setup deals the triangle family above, so its page keeps the note instead.)
     await page.goto(`${SITE}/rule-gallery/prime-landing`);
     await page.getByTestId("goal-card").getByText(/1 in [\d,.]+( (thousand|million|billion))? by chance/).first().waitFor({ timeout: 15_000 });
+    await assertNoSteps(page, `${label}: a dealt rule's gallery page`);
     await page.goBack();
     await page.getByTestId("text-family-card").getByText(/legs as close to equal/).waitFor();
     await noSideways(page, `${label} rule page`);
@@ -150,6 +153,7 @@ try {
     await page.getByTestId("button-open-what-if").click();
     const whatIf = page.getByTestId("pane-what-if");
     await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 });
+    await assertNoSteps(page, `${label}: the game with What if`);
     // Owner decision 23: no steps; the rarity says its chance.
     assert.doesNotMatch(await whatIf.getByTestId("what-if-result").innerText(), /\bstep\b/i);
     if (await whatIf.getByTestId("text-what-if-rarity").count()) {
