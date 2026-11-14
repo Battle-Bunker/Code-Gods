@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { lineType } from "@workspace/v2-linear";
 import { gridType } from "@workspace/v2-grid";
-import { holdChanged, holdLine, lineText, targetOf } from "../src/panes/hold.ts";
+import { holdChanged, holdLine, missingKnobs, lineText, targetOf } from "../src/panes/hold.ts";
 
 test("an object's state as a target: a whole-number line's m and c, a board's 16 digits", () => {
   const l = lineType.decode(lineType.encode(lineType.decode("2,1,-59") as never) as never);   // whatever the wire form is
@@ -28,4 +28,9 @@ test("a hold read back from the code is not a change, whatever its key order", (
   assert.equal(holdChanged({ numbers: [2, 5], target: { m: -1, c: 59 } }, { target: { m: -1, c: 59 }, numbers: [2, 5] } as never), false);
   assert.equal(holdChanged({ numbers: [2], target: "9779855879979779" }, { numbers: [2], target: null }), true);
   assert.equal(holdChanged({ numbers: [], target: null }, null), true);
+});
+
+test("an agent whose code lacks the knobs says so where the control would be (annotations, #559)", () => {
+  assert.match(missingKnobs("Closest first", "hold"), /^Closest first's code has no hold settings \(TARGET, SETTLE\), so there is nothing here to set\. Replace it with a starter/);
+  assert.match(missingKnobs("Closest first", "leave"), /no leave-alone list \(LEAVE\)/);
 });

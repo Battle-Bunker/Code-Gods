@@ -15,6 +15,10 @@ export const energyWords = energyText;
 export function energyExact(x: number): string | null {
   return x < 0 && x > -50 ? `Exactly ${num(x)} ⚡: it spends energy as fast as it earns it, so it hovers around 0.` : null;
 }
+/** Agent debt (docs/energy-model.md §7.2), in the server's words. */
+export const DEBT_TEXT = "An agent may borrow up to one full store of energy to finish a change; its own income repays the debt within a full-charge time, and while it owes it gets no new opportunities. If you lower its power or remove it, the debt moves with the power to your own store.";
+/** "Owes 326.40 ⚡, borrowed to finish a change." for a real debt (50 ⚡ or more); null otherwise. */
+export const debtText = (x: number): string | null => (x <= -50 ? `Owes ${num(-x)} ⚡, borrowed to finish a change.` : null);
 /** Beside "about 0 ⚡": the agent is working, not broken. */
 export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
 
@@ -53,6 +57,7 @@ export function workText(e: { acts: number; skips: number; failures: number; spe
 export function destroyConfirm(name: string, energy: number | undefined): string {
   const held = energy === undefined ? null : Math.round(energy);
   const back = held === null ? "The ⚡ it holds come back to you."
+    : held <= -1 ? `It owes ${(-held).toLocaleString("en-US")} ⚡: that debt moves to your own store.`
     : held >= 1 ? `The ${held.toLocaleString("en-US")} ⚡ it holds ${held === 1 ? "comes" : "come"} back to you.`
     : "It holds no ⚡ now, so none comes back.";
   return `${name} stops for good and makes no more moves. ${back}`;
