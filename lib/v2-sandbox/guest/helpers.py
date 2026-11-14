@@ -278,7 +278,7 @@ def contested(offer, times):
     if pushback(offer) < times:
         return False
     noun = offer.my_rule().object   # "line", "grid": the game's own word (free)
-    note(offer, f"Tug-of-war on {noun} {offer.object}: another player keeps pulling it back. Make a deal with them, then add {offer.object} to LEAVE in your agent.")
+    note(offer, f"Tug-of-war on {noun} {offer.object}: another player keeps pulling it back. Make a deal with them; to keep your agent off it, add {offer.object} to \"leaves these {noun}s alone\" under your agent.")
     return True
 
 
