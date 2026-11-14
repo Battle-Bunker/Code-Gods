@@ -424,8 +424,8 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
 
 /**
  * Proposals and deals read from the chat by v2-ai's `findDeals` (the heuristic the seats' commitments use), with seats
- * as indexes. A deal is kept when, from its acceptance to the end, neither side made a move on a named line (any line, for
- * a deal over every line) that lowered the other's points there.
+ * as indexes. A deal is kept when, from its acceptance to the end, neither side made a move on a named line that lowered
+ * the other's points there.
  */
 export function deals(
   chat: readonly { by: number; text: string; at: number }[],
@@ -437,7 +437,7 @@ export function deals(
     proposals: found.proposals,
     deals: found.deals.map(d => {
       const by = Number(d.proposer), w = Number(d.accepter);
-      const broken = log.some(e => e.at >= d.at && (d.every || d.lines.includes(e.object))
+      const broken = log.some(e => e.at >= d.at && d.lines.includes(e.object)
         && ((e.by === by && e.after[w]! < e.before[w]!) || (e.by === w && e.after[by]! < e.before[by]!)));
       return { by, with: w, lines: d.lines, at: d.at, kept: !broken, text: d.proposal, reply: d.reply };
     }),

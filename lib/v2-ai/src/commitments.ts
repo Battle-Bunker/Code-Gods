@@ -13,9 +13,6 @@
  */
 import { toolName } from "@workspace/v2-affordances";
 
-/** A settle deal's state: a line y = mx + c, or a board's digits row by row. */
-export type Target = { readonly m: number; readonly c: number } | { readonly board: string };
-
 export interface ChatRow { readonly from: string; readonly text: string; readonly at: number }
 /** A committed move: who made it, on which line, when, and which players' points it lowered. */
 export interface MoveRow { readonly by: string; readonly line: number; readonly at: number; readonly lowered: readonly string[] }
@@ -27,18 +24,10 @@ export interface Deal {
   readonly at: number;
   readonly proposal: string;
   readonly reply: string;
-  /** A settle deal: the state both sides bring the lines to and hold ("settle lines 3 and 7 at y = -x + 59"). */
-  readonly target?: Target;
-  /** A settle deal over every line ("settle every line at y = -x + 59"): `lines` is empty. */
-  readonly every?: true;
 }
 export interface Commitment {
   readonly partner: string;
   readonly lines: readonly number[];
-  /** A settle deal's target state. */
-  readonly target?: Target;
-  /** A settle deal over every line. */
-  readonly every?: true;
   readonly at: number;
   /** pending: the agents' code does not keep it yet; enacted: every agent skips the lines; retracted in chat. */
   readonly status: "pending" | "enacted" | "retracted";
@@ -48,7 +37,7 @@ export interface Commitment {
   readonly partnerBreaks: readonly { readonly line: number; readonly at: number }[];
 }
 
-const PROPOSAL = /\b(deal|if you|i'?ll|i will|let'?s|agree|leave|keep|won'?t|in return|swap|trade|settle|hold)\b/i;
+const PROPOSAL = /\b(deal|if you|i'?ll|i will|let'?s|agree|leave|keep|won'?t|in return|swap|trade|protect)\b/i;
 const ACCEPT = /\b(deal|yes|agreed?|ok(ay)?|sure|sounds good|accept(ed)?|happy to|works for me)\b/i;
 const REFUSE = /\b(no deal|not a deal|can'?t agree|won'?t agree|decline|no thanks)\b/i;
 const RETRACT = /\b(retract|withdraw|cancel|call(ing)? off|no longer|end(ing)? (our|the|my) deal|break(ing)? (our|the|my) deal|deal is off)\b/i;
@@ -56,40 +45,6 @@ const RETRACT = /\b(retract|withdraw|cancel|call(ing)? off|no longer|end(ing)? (
 /** The line (or board) numbers a message names: "line 4", "lines 2, 7 and 9", "boards 2 and 5". */
 export const linesIn = (text: string): number[] =>
   [...text.matchAll(/\b(?:lines?|boards?)\s*#?\s*(\d+(?:\s*(?:,|and|&|or)\s*#?\s*\d+)*)/gi)].flatMap(m => m[1]!.match(/\d+/g)!.map(Number));
-/** Whether a message is about every line or board ("every line", "all lines", "all the boards"). */
-const EVERY = /\b(every|each|all(\s+the)?|all\s+\d+)\s+(lines?|boards?)\b/i;
-
-/** A target state a message names: "y = -x + 59", "y = 3x - 2", "y = 7" (whole numbers), or a board's 16 digits. */
-export function targetIn(text: string): Target | undefined {
-  const b = /(?<!\d)\d{16}(?!\d)/.exec(text);
-  if (b) return { board: b[0] };
-  const t = /\by\s*=\s*(-?\s*\d*)\s*x\s*([+-])\s*(\d+)\b|\by\s*=\s*(-?\s*\d*)\s*x\b|\by\s*=\s*(-?\d+)\b(?!\s*x)/i.exec(text.replace(/[−–]/g, "-"));
-  if (!t) return undefined;
-  const coef = (s: string) => { const x = s.replace(/\s/g, ""); return x === "" ? 1 : x === "-" ? -1 : Number(x); };
-  if (t[1] !== undefined) return { m: coef(t[1]), c: (t[2] === "-" ? -1 : 1) * Number(t[3]) };
-  if (t[4] !== undefined) return { m: coef(t[4]), c: 0 };
-  return { m: 0, c: Number(t[5]) };
-}
-
-/**
- * Whether a program settles these lines at this target: its TARGET is the target, and SETTLE is empty or holds them
- * (empty, for a deal over every line).
- */
-export function settlesAt(source: string, lines: readonly number[], target: Target, every = false): boolean {
-  const code = source.replace(/\/\/[^\n]*|#[^\n]*/g, "");
-  if ("board" in target) {
-    const t = /\bTARGET\s*=\s*["'](\d+)["']/.exec(code);
-    if (!t || t[1] !== target.board) return false;
-  } else {
-    const t = /\bTARGET\s*=\s*\{[^}]*["']?m["']?\s*:\s*(-?\d+)[^}]*["']?c["']?\s*:\s*(-?\d+)[^}]*\}/.exec(code);
-    if (!t || Number(t[1]) !== target.m || Number(t[2]) !== target.c) return false;
-  }
-  const s = /\bSETTLE\s*=\s*\[([\d\s,]*)\]/.exec(code);
-  if (!s) return false;
-  const listed = (s[1]!.match(/\d+/g) ?? []).map(Number);
-  return listed.length === 0 || (!every && lines.every(l => listed.includes(l)));
-}
-
 /** A reply that only asks back ("…instead. Deal?") is a counter-offer, not an acceptance. */
 const accepts = (text: string) => ACCEPT.test(text.replace(/\bdeal\s*\?/gi, "")) && !REFUSE.test(text);
 
@@ -98,14 +53,14 @@ export function findDeals(chat: readonly ChatRow[], window = 40): { deals: Deal[
   const deals: Deal[] = [], proposals: number[] = [];
   const taken = new Set<number>();
   chat.forEach((m, k) => {
-    const named = linesIn(m.text), target = targetIn(m.text), every = !named.length && !!target && EVERY.test(m.text);
-    if (taken.has(k) || (!named.length && !every) || !PROPOSAL.test(m.text) || REFUSE.test(m.text) || RETRACT.test(m.text)) return;   // an acceptance is not a proposal of its own
+    const named = linesIn(m.text);
+    if (taken.has(k) || !named.length || !PROPOSAL.test(m.text) || REFUSE.test(m.text) || RETRACT.test(m.text)) return;   // an acceptance is not a proposal of its own
     proposals.push(k);
     const j = chat.findIndex((x, d) => d > k && !taken.has(d) && x.from !== m.from && x.at <= m.at + window && accepts(x.text)
-      && (every || linesIn(x.text).length === 0 || linesIn(x.text).some(l => named.includes(l))));
+      && (linesIn(x.text).length === 0 || linesIn(x.text).some(l => named.includes(l))));
     if (j < 0) return;
     taken.add(j);
-    deals.push({ proposer: m.from, accepter: chat[j]!.from, lines: named, at: chat[j]!.at, proposal: m.text, reply: chat[j]!.text, ...(target ? { target } : {}), ...(every ? { every } : {}) });
+    deals.push({ proposer: m.from, accepter: chat[j]!.from, lines: named, at: chat[j]!.at, proposal: m.text, reply: chat[j]!.text });
   });
   return { deals, proposals };
 }
@@ -143,39 +98,27 @@ export function commitmentsOf(me: string, chat: readonly ChatRow[], moves: reado
   return findDeals(chat, window).deals.filter(d => d.proposer === me || d.accepter === me).map(d => {
     const partner = d.proposer === me ? d.accepter : d.proposer;
     const retraction = chat.find(m => m.at >= d.at && (m.from === me || m.from === partner) && m.text !== d.reply && RETRACT.test(m.text)
-      && (linesIn(m.text).some(l => d.lines.includes(l)) || (d.every && EVERY.test(m.text)) || m.text.includes(partner) || m.text.includes(me)));
+      && (linesIn(m.text).some(l => d.lines.includes(l)) || m.text.includes(partner) || m.text.includes(me)));
     const until = retraction?.at ?? Infinity;
-    const breaks = (by: string, of: string) => moves.filter(x => x.by === by && x.at >= d.at && x.at < until && (d.every || d.lines.includes(x.line)) && x.lowered.includes(of))
+    const breaks = (by: string, of: string) => moves.filter(x => x.by === by && x.at >= d.at && x.at < until && d.lines.includes(x.line) && x.lowered.includes(of))
       .map(x => ({ line: x.line, at: x.at }));
-    const enacted = programs.length > 0 && programs.every(p => (d.target ? settlesAt(p, d.lines, d.target, d.every) : skipsLines(p, d.lines)));
-    return { partner, lines: d.lines, at: d.at, ...(d.target ? { target: d.target } : {}), ...(d.every ? { every: d.every } : {}), status: retraction ? "retracted" : enacted ? "enacted" : "pending", myBreaks: breaks(me, partner), partnerBreaks: breaks(partner, me) };
+    const enacted = programs.length > 0 && programs.every(p => skipsLines(p, d.lines));
+    return { partner, lines: d.lines, at: d.at, status: retraction ? "retracted" : enacted ? "enacted" : "pending", myBreaks: breaks(me, partner), partnerBreaks: breaks(partner, me) };
   });
 }
 
 const list = (ls: readonly number[], noun = "line") => (ls.length === 1 ? `${noun} ${ls[0]}` : `${noun}s ${ls.slice(0, -1).join(", ")} and ${ls.at(-1)}`);
-/** A target in the player's words and as the starters' TARGET value. */
-const stateOf = (t: Target) => {
-  if ("board" in t) return { words: t.board, code: JSON.stringify(t.board) };
-  return { words: `y = ${t.m === 1 ? "" : t.m === -1 ? "-" : t.m}x ${t.c < 0 ? "-" : "+"} ${Math.abs(t.c)}`, code: `{ m: ${t.m}, c: ${t.c} }` };
-};
 
 /** The part of a turn's message that lists the player's deals and what each needs from it now. */
 export function commitmentBriefing(commitments: readonly Commitment[]): string {
   if (!commitments.length) return "YOUR DEALS: none yet.";
   const rows = commitments.map(c => {
-    const noun = c.target && "board" in c.target ? "board" : "line";
-    const which = c.every ? `every ${noun}` : list(c.lines, noun);
-    const head = `- With ${c.partner}, ${which} (agreed at ${Math.round(c.at)} s): `;
+    const head = `- With ${c.partner}, ${list(c.lines)} (agreed at ${Math.round(c.at)} s): `;
     const theirs = c.partnerBreaks.length
       ? ` ${c.partner}'s agents lowered your points on ${list([...new Set(c.partnerBreaks.map(b => b.line))])} since (${c.partnerBreaks.length} moves): say so once, kindly.`
       : ` ${c.partner} has kept it so far.`;
     if (c.status === "retracted") return `${head}retracted.`;
     const ids = c.lines.join(", ");
-    if (c.target) {
-      const s = stateOf(c.target), them = !c.every && c.lines.length === 1 ? "it" : "them";
-      if (c.status === "enacted") return `${head}your agents hold ${which} at ${s.words}: kept.${theirs}`;
-      return `${head}PENDING: settle ${which} at ${s.words} and hold ${them}. This turn, set TARGET = ${s.code} and SETTLE = [${c.every ? "" : ids}] in your agent (read it with ${toolName("agent.programs")}, ${toolName("agent.check")}, ${toolName("agent.replace")}: an edit costs only the change) or retract it in chat.${theirs}`;
-    }
     if (c.status === "enacted") return `${head}your agents skip ${c.lines.length === 1 ? "it" : "them"}: kept.${theirs}`;
     return `${head}PENDING: your agents' code does not skip ${c.lines.length === 1 ? "it" : "them"} yet${c.myBreaks.length ? `, and they moved ${list([...new Set(c.myBreaks.map(b => b.line))])} against ${c.partner} since` : ""}. `
       + `This turn, enact it (read the code with ${toolName("agent.programs")}; if it has a PROTECT list, add ${ids} to it (it then only makes moves there that keep the others as well off), or to LEAVE to stay off entirely; otherwise add at the top of agent(offer) if ([${ids}].includes(offer.object)) return null; in TypeScript or if offer.object in (${ids}${c.lines.length === 1 ? "," : ""}): return None in Python; ${toolName("agent.check")}, then ${toolName("agent.replace")}: an edit costs only the change, about 20 ⚡) or retract it in chat.${theirs}`;
