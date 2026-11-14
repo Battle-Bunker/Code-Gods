@@ -17,7 +17,7 @@ Measurements: `node docs/engine-v2/scripts/layered-ladders.mjs` (about five minu
 few seconds for 20 and 50). Its full output, every rung of every family, is
 [scripts/layered-ladders-results.md](scripts/layered-ladders-results.md). §3 says what it measures and what it does not.
 
-> **Read §8 and §7 first.** §8 (ungated rules, several secondaries per family, finer primaries) supersedes §7.5's first pool. After this document first merged, the owner required graded rungs only, two-rung beginner rules
+> **Read §9, §8 and §7 first.** §9 re-measures the pools under mixed costing (owner decision 17, the current v2 law); §8 (ungated rules, several secondaries per family, finer primaries) supersedes §7.5's first pool. After this document first merged, the owner required graded rungs only, two-rung beginner rules
 > with school-level primaries, and cards that state a graded quantity. §7 applies those rules to all five brainstorm
 > documents, measures them with one method, and gives the current pools and spec changes. §0–§6 are the first pass and
 > are superseded wherever they differ.
@@ -1361,3 +1361,186 @@ six effective: 2.4 2.4 4.9 6.1 8.4 8.7 8.8 10.1.
   asked for, and it comes from not gating.
 - The pair table of §7.5 was computed for the gated rules. For the ungated pools it should be recomputed per dealt
   pairing, which is left for the run under mixed costing.
+
+---
+
+## 9. The pools under mixed costing (owner decision 17)
+
+Status: current. It re-measures §8's beginner pool, and every graded ladder of §7, under the price list the spec
+session fixed in #380 ([number-codes.md](number-codes.md)). Everything before this section is under the old digits law.
+
+**The law.** π(line) ∝ 2^−φ with φ = Σ mixedInt over the primitive triple (`line-q`). Here mixedInt(0) = 1 and
+mixedInt(±n) = 2 + ½·Σ e·p + log2 Z, with log2 Z ≈ 2.10. A whole number is written by its factorisation, each prime p
+costing p/2 bits: 23 costs 15.6 bits, 24 costs 8.6, 47 costs 27.6, 48 costs 9.6. The spec session reports that the
+real walk is this law to within small currents (reversibility 0.00–0.07 on levels), so the reference law is now a
+close stand-in for the walk, not only a symmetric-price idealisation. The scripts take `--law mixed`
+(`LAWS.mixed` in `line-families.mjs` is v2-core's `mixedIntBits`).
+
+**Limits.**
+- Large smooth numbers are cheap under this code, so the box of height 100 holds less of the law's mass than it did
+  (its normaliser is 0.18, against 0.29 under the digits code).
+- Rungs present at both heights moved by about 1 bit or less from 100 to 200. Jumps in the "joint top" column at
+  height 200 (Prime Staircase near miss, Exact Change big piles) are new far rungs that only the larger box reaches.
+  The dealt caps below use rungs present at both heights.
+- The estimator adapter of §7.4 targets the RuleFamily contract before #380 (main layer + tie-breakers now) and was
+  not ported. These are reference-law numbers.
+
+### 9.1 What mixed costing did
+
+As predicted: **families that climb through primes gained, families that climb through smooth numbers lost.**
+
+| Family (§7 ladders, height 100) | Old top (digits) | Mixed top | Change |
+|---|--:|--:|--:|
+| Prime-Factor Line (m and c, spf ≥ 97) | 29.2 | 104.8 | +75.6 |
+| Twin Coefficients | 30.2 | 80.8 | +50.6 |
+| Twin Sum | 30.6 | 80.2 | +49.6 |
+| Stepping Coefficients | 27.5 | 68.5 | +41.0 |
+| Euclid's Long Way | 25.2 | 57.3 | +32.0 |
+| Prime-Factor Intercept / Whole Intercept (spf) | 15.2 | 53.3 | +38.0 |
+| Prime Staircase (first prime) | 28.6 | 51.3 | +22.7 |
+| Square Terms | 31.2 | 29.8 | −1.4 |
+| m Meets c | 30.1 | 25.3 | −4.8 |
+| Pell Gradient | 27.2 | 20.3 | −7.0 |
+| Ruler | 18.6 | 14.2 | −4.4 |
+| Prime Hypotenuse | 22.0 | 15.4 | −6.6 |
+
+Those tops are the ladders' last rungs, which ask for primes near 100. Each prime p now costs p/2 bits, so the dealt
+top of a prime-size ladder should be a prime in the twenties to forties ("primes like 23 or 47, not 9973", in the
+coordinator's words). With every prime listed as a rung, consecutive rungs are 1 to 3 bits apart. The full table for all
+78 ladders is [scripts/layered-graded-results-mixed.md](scripts/layered-graded-results-mixed.md).
+
+### 9.2 The beginner pool under mixed costing
+
+Joint tops are at the dealt cap, the last rung present at both heights; bits are the reference law (mixed code) at
+height 100. Ladders for prime sizes now list every prime, so they climb smoothly. The full per-rung output is
+[scripts/layered-beginner-results-mixed.md](scripts/layered-beginner-results-mixed.md).
+
+| Family | Primary levels (effective) | Dealable secondaries: joint top at the cap (bits) |
+|---|--:|---|
+| **Prime Landing** (owner's example 1) | 5 | big prime: 23.7 at ≥ 37, 29.0 at ≥ 47, 14 effective levels, steps 0.8–2.8; prime gradient 9.4; next prime 6.1 |
+| **Prime Staircase** | 6 | first prime 22.8 at ≥ 13 (then an inherent wall: six primes from 17 up cost 42); last prime 20.8; near miss 21.3; step back 18.3 |
+| **Ruler** | 6 | whole gradient 27.1 (newly dealable: never exact together, as 1 + m² is never a square); prime gradient 23.1; far 14.2; square area 12.2 |
+| **Exact Change (6 ways)** | 6 | big piles 16.3 at ≥ 1 (20.8 at ≥ 2); big bill 16.1; prime coins 14.0 |
+| **Treasure (2, 37)** | 8 | prime terms 16.8; prime gradient 15.8; square start 13.4 |
+| **Same on Both Rulers (T = 6)** | 6 | steep 15.8; prime start 12.3; whole values 11.4; whole lamp 8.9 |
+| **Pythagorean Area (A = 6)** | 7 | slanted square 13.8; prime height 11.6; simple slope 11.5 (now dealable); whole legs 10.5 |
+| **Square Area** (owner's example 2) | 5 | root factors 13.0; big root 11.1; slanted square 10.5; prime root 8.2 |
+
+**Reading it.**
+- The owner's first example, with the prime target of §8, is now the deepest beginner family: a smooth prime ladder to
+  29 bits.
+- The owner's second example (Square Area: root factors) climbs through smooth numbers and drops from 17.2 to 13.0
+  bits. Under mixed costing, a root with many factors is the cheap direction, not a rare one. A secondary that climbs
+  by primes would restore it; "the square's root as close as possible to a prime" is the existing candidate (8.2 bits).
+  A stronger one is a design task for the next round.
+- Tops now span 13 to 29 bits across the eight. A room's dealer should pair each primary with the secondary whose joint
+  top falls in the room's band. For a band of 15–25 bits that is:
+  - Prime Landing × big prime (capped at ≥ 31: 20.9);
+  - Prime Staircase × first prime (22.8);
+  - Ruler × prime gradient (23.1);
+  - Exact Change × big piles (16.3 at ≥ 1, 20.8 at ≥ 2);
+  - Treasure × prime terms (16.8);
+  - Same on Both Rulers × steep (15.8);
+  - Pythagorean Area × slanted square (13.8), just below the band;
+  - Square Area × root factors (13.0), below the band until it gets a prime-climbing secondary.
+
+### 9.3 Changes for the spec (in addition to §7.6)
+
+1. **Dealt caps for prime ladders under mixed costing:** list every prime as a rung, and cap at the prime whose joint
+   top falls in the room's band (in the twenties to forties).
+2. **The continuity check of #380** (fewer than 6 distinct values where a layer counts is too coarse) agrees with this
+   catalogue's "effective levels". Every beginner primary in §9.2 passes. Secondaries marked *not dealt* in §8 fail it
+   and should not be dealable.
+3. **Square Area needs a prime-climbing tie-breaker** under mixed costing, or it falls below the band.
+
+### 9.4 Brainstorm D, added after the cut-off
+
+[Brainstorm D](rule-brainstorm/d-number-theory.md) (number-theoretic ladders with proved reach, 16 families) reported
+after §7 merged. Its families merge into the table of §7.2 as follows:
+
+| D family | Merges with (§7.2) | Note |
+|---|---|---|
+| Prime Parade | Prime Staircase (K1, A15, C PT) | same primary |
+| Root Hunter | Pell Gradient (A8) | D proves 6.64 bits per digit of √2 |
+| Euclid's Staircase | Euclid's Long Way (A10) | D proves 2.33 bits per step |
+| Pythagoras' Corner, Congruent Corner | Pythagorean Area / Ladder (A4, B) | Congruent Corner's primary is yes/no: needs grading |
+| Square Steps | Square Terms (A16, K8, C ST) | bounded at 6 squares |
+| Pharaoh's Gradient | Egyptian Line (A12) | greedy expansion length |
+| ABC Line | Twin Sum (A26) family: the line through (1, 1) | secondary C/rad(abc) |
+| Circle Kiss | Tangent Circle / Ruler (A28, C RU) | its primary is a 3-level step (irrational, rational, whole): needs grading |
+| Cyclic Decimal | Long Division (C LD) | |
+| Prime Feedback | Cunningham Machine (A20) | seed 1 |
+| Amicable Line | Perfect Line (A13) | sporadic tops |
+| Rectangle Field | Whole Crossing / Pick's Pegs (C WC, A30) | divisors of the area |
+| **Coin Line** | new (Exact Change's opposite: no way to pay) | measured below |
+| **Divisibility Ladder** | new (Divisibility Treasure's run form) | measured below |
+| **Parabola Chord** | new (Parabola Kiss's two-crossing form) | measured below |
+
+**Graded and measured here** (two parts each, height 100, both laws; levels attained / effective):
+
+| Family | Parts (graded) | Mixed: levels; top | Digits: top |
+|---|---|---|--:|
+| Coin Line | ways to pay c → min; \|c − (ab − a − b)\| → min | P 5/2, S 7/7; 10.8 | 10.0 |
+| Divisibility Ladder | longest run of n with n \| y(n) (c ≠ 0) → max | 5/5; 10.8 (box-limited at k = 6) | 13.2 |
+| Parabola Chord | distance of m² + 4c from a square → min; crossings' distance from primes → min | P 8/2, S 6/3; 7.7 | 8.2 |
+
+**Reconciling with D's 40–80 bits.** D measures under the old digits law with a height cap of 10^6, and its depth comes
+from "larger" last components reached at very large coefficients. Inside a box of height 100 the same families top out
+near 8–13 bits, like the others. Mixed costing changes which far rungs are cheap:
+
+- Divisibility Ladder's rungs need c to be a multiple of lcm(1..k). These are smooth numbers, so they are now
+  **cheap**: lcm(1..16) = 720720 costs about 29 bits. That is below D's 41-bit top, and the ladder is shallower than D
+  measured.
+- D's prime-sieve rungs (prime coins in Coin Line, twin primes in Parabola Chord, prime hypotenuses in Pythagoras'
+  Corner) are now **dearer** than D measured, as in §9.1.
+
+D's structural finding is right under both laws, and this catalogue follows it: a tie-break earns bits only when it is
+cheaper than the primary's next step, so a deep ladder is a cheap whole-number condition, then a sieve, then "larger".
+But D's tops need re-measuring under mixed costing and graded rungs. Several of D's rungs are still yes/no (Congruent
+Corner's primary, Circle Kiss's three-level primary, Square Steps' and Cyclic Decimal's indicator secondaries), so they
+fail the owner's graded-rung rule as written.
+
+### 9.5 The last pass: Square Area's prime-climbing secondaries, and D in the second pool
+
+Mixed code, height 100. "Joint top" is the value where the primary and the secondary are both at their top rungs.
+"Effective" counts levels that add at least ¼ bit. The full output is in
+[scripts/layered-second-results-mixed.md](scripts/layered-second-results-mixed.md) and
+[scripts/layered-beginner-results-mixed.md](scripts/layered-beginner-results-mixed.md).
+
+**Square Area (owner's example 2) gets its reach back.** Under mixed costing its root-factors secondary climbs through
+cheap smooth numbers (13.0 bits). Three prime-climbing candidates are added to the family:
+
+| Secondary (card) | Lens | Effective / levels | Bits per level with the primary at its top | Joint top |
+|---|---|---|---|--:|
+| That square's root's smallest prime factor should be as big as possible. | factor tree | 13 / 15 | 7.1 8.5 10.0 11.4 13.2 14.5 16.4 17.7 19.9 22.6 24.1 26.8 28.6 30.0 32.3 (spf ≥ 2 … 47) | 32.3 |
+| That square's root's biggest prime factor should be as big as possible. | factor tree | 13 / 15 | 7.1 7.7 8.9 10.3 12.4 13.8 15.9 17.2 19.4 22.6 24.1 26.8 28.6 30.0 32.3 | 32.3 |
+| Both legs should be as close as possible to primes (distances added). | intercept triangle | 5 / 6 | 6.6 6.9 7.6 17.0 (a wall at exact primes) | 17.0 |
+
+Capped at a root with smallest prime factor ≥ 23 (19.9 bits) or ≥ 29 (22.6 bits), Square Area sits in the band again.
+It does so in steps of 1.3 to 2.7 bits, the smoothest ladder of the beginner pool. Its first secondary for dealing
+should now be the smallest prime factor of the root. Root factors stays as an alternative for rooms with a lower band.
+
+**Brainstorm D in the second pool**, regraded as one primary plus several secondaries. Where D's primary was coarse
+once graded, a stronger graded quantity of the same family became the primary:
+
+| Family | Primary (card) | Primary levels (effective) | Secondaries: joint top (bits); not dealt in italics |
+|---|---|--:|---|
+| **Coin Line** (D §9) | "Reading the line as a·x + b·y = c (coins worth a and b), c should be as close as possible to a·b − a − b, the biggest amount those coins cannot pay." | 7 | c as big as possible 22.8 (9 effective); coins as close as possible to primes 10.9; *no way to pay c 10.8 (earns nothing: the Frobenius number is never payable)* |
+| **Parabola Chord** (D §16) | "The line cuts y = x² twice: both crossing x-values should be as close as possible to primes." | 6 | chord as wide as possible 24.2 (9 effective); gradient as close as possible to a prime 12.9; *m² + 4c near a square 7.7 (earns nothing: prime crossings are whole)* |
+| **Divisibility Ladder** (D §11) | "(Not through the origin.) y(1) should be a multiple of 1, y(2) of 2, …: the run should be as long as possible." | 5 | gradient as close as possible to a prime 14.6; the first failure as close as possible to a multiple 10.8; *smallest y-intercept: box-limited* |
+| **Pythagoras' Corner** (D §6, regraded) | "The legs should be as close as possible to whole numbers and the slanted side squared as close as possible to a square (distances added)." | 7 | slanted side as long as possible 16.8; slanted side as close as possible to a prime 13.7; *legs sharing a small factor 13.7 (earns nothing: 3-4-5 is already primitive)* |
+
+The second pool of §7.5 gains these four. Coin Line and Parabola Chord are its smoothest new ladders.
+
+**D's finding against these measurements.** D: "a tie-break earns bits only if cheaper than the next primary step".
+Under ungated scoring the same rule shows up as follows: a secondary earns nothing at the top when the primary's top
+already settles it. Three cases measured above are exact instances:
+
+- the Frobenius number is never payable, so "no way to pay" adds nothing;
+- prime crossings are whole, so "m² + 4c near a square" adds nothing;
+- 3-4-5 is already primitive, so "legs sharing a small factor" adds nothing.
+
+Below the primary's top, though, an ungated secondary still orders lines and earns bits. D's recipe for depth holds for
+the joint top: a cheap whole-number condition, then a multiplicative sieve, then "larger" last. Coin Line × big bill and
+Parabola Chord × wide chord are that recipe as two rungs: the primary is the condition and sieve, the secondary is
+"larger".

@@ -43,6 +43,10 @@ budget`, `call(mutator, args, site?)` (Python: `call(mutator, site=0, **args)`),
 `fractions.Fraction`, and `HostError`, raised for an `{ ok: false }` reply. Uncaught, it fails the act. Both encode
 requests the same way (key order, rationals as "p/q"), so the same agent in either language makes the same requests.
 
+Then `guest/helpers.js` and `guest/helpers.py` (same names, same behaviour; the parity test is in `lib/v2-agents`)
+add the plain-words helpers agents are written with: `look`, `peek`, `goal`, `progress`, `move`, `price`, `cheapest`,
+`energy`, `prime`, `square`, `near`, `whole`, `root`, `factors`, `better`. They are listed in `docs/engine-v2/agents.md`.
+
 ## Limits
 
 | | |

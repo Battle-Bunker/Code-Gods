@@ -1,4 +1,7 @@
 /**
+ * NOTE: written against the RuleFamily contract before #380 (ladder + curve); the contract is now main layer +
+ * tieBreakers, so this no longer runs as is. Kept as the record of layered-line-rules.md §7.4's cross-check.
+ *
  * The graded families of line-families.mjs, valued by the v2 estimator (lib/v2-valuation, spec §7) on the spec's
  * priced walk, variant line-q: the "one method" behind docs/engine-v2/layered-line-rules.md §7.
  *

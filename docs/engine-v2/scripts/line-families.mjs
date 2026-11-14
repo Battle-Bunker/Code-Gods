@@ -85,6 +85,25 @@ const twoSquares = (n) => {
   return r;
 };
 
+// ---------- the reference law's number codes ----------
+// "digits": the spec's first code, int(n) = gamma(zigzag(n) + 1) (§2.3; the old law, §3 and §7).
+// "mixed": owner decision 17 (number-codes.md; v2-core's mixedIntBits): a whole number written by its factorisation,
+// each prime p costing p/2 bits, so mixedInt(0) = 1 and mixedInt(±n) = 2 + ½·Σ e·p + log2 Z, with log2 Z ≈ 2.10.
+const LOG2_Z = PRIMES.filter((p) => p <= 10_000).reduce((a, p) => a - Math.log2(1 - 2 ** (-0.5 * p)), 0);
+const sopfr = (n) => {
+  let w = 0;
+  while (n > 1 && n < SIEVE_N) {
+    const p = spfTab[n];
+    w += p;
+    n /= p;
+  }
+  return w + (n > 1 ? n : 0);
+};
+export const LAWS = {
+  digits: (n) => 2 * Math.floor(Math.log2((n >= 0 ? 2 * n : -2 * n - 1) + 1)) + 1,
+  mixed: (n) => (n === 0 ? 1 : 2 + 0.5 * sopfr(Math.abs(n)) + LOG2_Z),
+};
+
 // ---------- exact rationals as [n, d] (numbers; magnitudes stay far below 2^53) ----------
 export function rat(n, d) {
   if (d < 0) {
@@ -1010,6 +1029,47 @@ function areaBelow(L) {
   return s;
 }
 
+const runCount = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
+// D: number-theoretic ladders (rule-brainstorm/d-number-theory.md), the three new ideas, graded
+ext({ id: "d-coin-line", name: "Coin Line", source: "D §9", lens: "general form as coins (Frobenius)", curriculum: "stretch: whole-number solutions of ax + by = c",
+  cards: ["Reading the line as a·x + b·y = c (coins worth a and b), the number of ways to pay c exactly should be as small as possible (none is best).", "c should be as close as possible to the biggest amount those coins cannot pay, a·b − a − b."],
+  parts: [
+    part("P", "ways to pay c", "ways", (L) => {
+      const w = ways(L);
+      return w && -L.C > 0 ? -w.length : null;
+    }, dist("4", "3", "2", "1", 0)),
+    part("S", "|c − (ab − a − b)|", "units", (L) => -Math.abs(-L.C - (L.A * L.B - L.A - L.B)), dist("32", "16", "8", "4", "2", "1", 0)),
+  ] });
+ext({ id: "d-divisibility-ladder", name: "Divisibility Ladder", source: "D §11", lens: "table", curriculum: "core: multiples; table of values",
+  cards: ["(The line must not pass through the origin.) y(1) should be a multiple of 1, y(2) of 2, y(3) of 3, and so on: the run of n for which y(n) is a multiple of n should be as long as possible."],
+  parts: [
+    part("P", "longest k with n | y(n) for n = 1..k", "steps", (L) => {
+      if (!L.nv || L.C === 0) return null; // through the origin every y(n) = m·n passes for free
+      let k = 0;
+      for (let n = 1; n <= 16; n++) {
+        const y = yAt(L, n);
+        if (y[1] === 1 && y[0] % n === 0) k = n;
+        else break;
+      }
+      return k;
+    }, runCount(16)),
+  ] });
+ext({ id: "d-parabola-chord", name: "Parabola Chord", source: "D §16", lens: "a curve on the plane", curriculum: "stretch: plotting y = x²",
+  cards: ["Where the line cuts y = x², m² + 4c should be as close as possible to a square number (then both crossing points are pegs when m is whole).", "The two crossing x-values should each be as close as possible to a prime (distances added)."],
+  parts: [
+    part("P", "distance of m² + 4c from a square", "units", (L) => {
+      if (!L.nv) return null;
+      const D = add(mul(L.m, L.m), mul([4, 1], L.c));
+      return val(D) < 0 ? -1e9 : -nearSquare(D).dist;
+    }, dist("8", "4", "2", "1", "1/2", "1/4", "1/8", 0)),
+    part("S", "distance of the crossings from primes", "units", (L) => {
+      const D = val(add(mul(L.m, L.m), mul([4, 1], L.c)));
+      if (D < 0) return -1e9;
+      const r = Math.sqrt(D), m = val(L.m);
+      return -[(m + r) / 2, (m - r) / 2].reduce((a, x) => a + distPrime(rat(Math.round(Math.abs(x) * 64), 64)), 0);
+    }, dist("8", "4", "2", "1", "1/2", 0)),
+  ] });
+
 // --------------------------------------------------------------------------------------------------------------
 // Levels
 // --------------------------------------------------------------------------------------------------------------
@@ -1045,14 +1105,14 @@ const firstNonRun = (L) => {
   const n = staircase(L);
   return yAt(L, n);
 };
-const runCount = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
+const runCountUnused = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
 export const BEGINNER = [
   {
     id: "prime-staircase", name: "Prime Staircase", source: "K1 (A15, C PT)", topic: "core: sequences (the nth term); primes under 50",
     card: "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.",
     P: part("P", "run of different primes from y(0)", "primes", staircase, runCount(6)),
     S: [
-      ["first-prime", "The first prime should be as big as possible.", "growth pattern", part("S", "y(0)", "size", (L) => val(L.c), sizes([3, 5, 7, 11, 17, 29, 47, 71, 101]))],
+      ["first-prime", "The first prime should be as big as possible.", "growth pattern", part("S", "y(0)", "size", (L) => val(L.c), sizes([3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]))],
       ["near-miss", "The first term that is not prime should be as close as possible to a prime.", "growth pattern, number line", part("S", "distance of the first non-prime term from a prime", "units", (L) => -distPrime(rat(Math.abs(firstNonRun(L)[0]), firstNonRun(L)[1])), dist("8", "4", "2", "1", "1/2", "1/4", "1/8"))],
       ["step-30", "The step should be as close as possible to a multiple of 30.", "slope-intercept (m)", part("S", "distance of m from a multiple of 30", "units", (L) => -Math.abs(val(L.m) - 30 * Math.round(val(L.m) / 30)), dist("12", "8", "6", "4", "2", "1", 0))],
       ["twin-end", "The last prime of the run should be as close as possible to another prime.", "number line", part("S", "gap from the last prime to the nearest prime", "units", (L) => -(staircase(L) ? primeGap(lastOfRun(L)) : 99), dist("14", "10", "8", "6", "4", "2"))],
@@ -1069,6 +1129,16 @@ export const BEGINNER = [
       ["big-root", "That square's root should be as big as possible.", "intercept triangle", part("S", "the root", "size", (L) => nearSquare(L.area).k, sizes([2, 3, 4, 6, 8, 12, 16, 24, 32]))],
       ["slanted-square", "The slanted side, squared, should be as close as possible to a square number (Pythagoras).", "intercept triangle", part("S", "distance from h² to a square", "units²", (L) => -nearSquare(L.hyp2).dist, dist("16", "8", "4", "2", "1", "1/2", 0))],
       ["prime-root", "That square's root should be as close as possible to a prime.", "number line", part("S", "distance of the root from a prime", "units", (L) => -nearPrimeInt(Math.max(0, nearSquare(L.area).k)), dist("4", "2", "1", 0))],
+      // prime-climbing candidates (mixed costing makes big primes dear, so these climb where root factors no longer do)
+      ["root-spf", "That square's root's smallest prime factor should be as big as possible.", "factor tree", part("S", "spf of the root", "prime", (L) => {
+        const k = nearSquare(L.area).k;
+        return k < 2 ? 1 : spfOf(k);
+      }, sizes([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]))],
+      ["root-gpf", "That square's root's biggest prime factor should be as big as possible.", "factor tree", part("S", "largest prime factor of the root", "prime", (L) => {
+        const k = nearSquare(L.area).k;
+        return k < 2 ? 1 : Math.max(...factor(k));
+      }, sizes([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]))],
+      ["prime-legs", "Both legs should be as close as possible to primes (distances added).", "intercept triangle", part("S", "distance of the legs from primes", "units", (L) => -(distPrime(L.legX) + distPrime(L.legY)), dist("4", "2", "1", "1/2", "1/4", 0))],
     ],
   },
   {
@@ -1132,7 +1202,8 @@ export const BEGINNER = [
     card: "The y-intercept should be as close as possible to a prime number.",
     P: part("P", "distance of c from the nearest prime", "units", (L) => (L.nv ? -distPrime(L.c) : null), dist("4", "2", "1", "1/2", "1/4", "1/8", 0)),
     S: [
-      ["big-prime", "That prime should be as big as possible.", "number line", part("S", "the nearest integer's smallest prime factor", "prime", (L) => Math.max(...nearInt(L.c).near.map(spfOf)), sizes([2, 3, 5, 7, 11, 17, 29, 47, 71, 97]))],
+      // every prime a rung: under mixed costing a prime p costs p/2 bits, so consecutive primes are 1–3 bits apart
+      ["big-prime", "That prime should be as big as possible.", "number line", part("S", "the nearest integer's smallest prime factor", "prime", (L) => Math.max(...nearInt(L.c).near.map(spfOf)), sizes([2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]))],
       ["prime-gradient", "The gradient should be as close as possible to a prime too.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
       ["whole-crossing", "The x-intercept should be as close as possible to a whole number.", "plane", part("S", "distance of the x-intercept from whole", "units", (L) => (L.A === 0 ? -1 : -nearInt(rat(-L.C, L.A)).dist), dist("1/2", "1/4", "1/8", "1/16", 0))],
       ["twin", "The prime should be as close as possible to another prime (twins are two apart).", "number line", part("S", "gap to the next nearest prime", "units", (L) => -primeGap(Math.max(2, Math.round(val(L.c)))), dist("10", "6", "4", "2"))],
@@ -1166,6 +1237,73 @@ export const BEGINNER = [
       ["whole-legs", "Both legs should be as close as possible to whole numbers (distances added).", "intercept triangle", part("S", "distance of the legs from whole", "units", (L) => -(nearInt(L.legX).dist + nearInt(L.legY).dist), dist("1/2", "1/4", "1/8", "1/16", 0))],
       ["prime-height", "The y-intercept should be as close as possible to a prime (ignoring sign).", "slope-intercept", part("S", "distance of |c| from a prime", "units", (L) => -distPrime(rat(Math.abs(L.c[0]), L.c[1])), dist("4", "2", "1", "1/2", 0))],
       ["simple-slope", "The gradient's fraction should have a bottom number as small as possible.", "rise over run", part("S", "bottom of m", "size", (L) => -L.m[1], atLeast([-12, -8, -6, -4, -3, -2, -1], undefined))],
+    ],
+  },
+];
+// The second-pool families from brainstorm D, regraded: one primary and several candidate secondaries (doc §9.5).
+export const SECOND = [
+  {
+    id: "coin-line", name: "Coin Line", source: "D §9 (E §13, B §1.3)", topic: "stretch: whole-number solutions of ax + by = c",
+    card: "Reading the line as a·x + b·y = c (coins worth a and b), c should be as close as possible to a·b − a − b, the biggest amount those coins cannot pay.",
+    P: part("P", "|c − (ab − a − b)|", "units", (L) => (L.A > 0 && L.B > 0 && -L.C > 0 ? -Math.abs(-L.C - (L.A * L.B - L.A - L.B)) : null), dist("32", "16", "8", "4", "2", "1", 0)),
+    S: [
+      ["no-way", "The number of ways to pay c exactly should be as small as possible (none is best).", "pegboard", part("S", "ways to pay c", "ways", (L) => -ways(L).length, dist("4", "3", "2", "1", 0))],
+      ["prime-coins", "Both coin values should be as close as possible to primes (distances added).", "general form", part("S", "distance of a and b from primes", "units", (L) => -(nearPrimeInt(L.A) + nearPrimeInt(L.B)), dist("4", "3", "2", "1", 0))],
+      ["big-bill", "The unpayable amount c should be as big as possible.", "general form", part("S", "c", "size", (L) => -L.C, sizes([5, 7, 11, 17, 23, 31, 43, 59, 71]))],
+    ],
+  },
+  {
+    id: "parabola-chord", name: "Parabola Chord", source: "D §16 (A31)", topic: "stretch: plotting y = x²",
+    card: "The line cuts y = x² twice: both crossing x-values should be as close as possible to primes (distances added).",
+    P: part("P", "distance of the crossings from primes", "units", (L) => {
+      if (!L.nv) return null;
+      const D = val(add(mul(L.m, L.m), mul([4, 1], L.c)));
+      if (D < 0) return null;
+      const r = Math.sqrt(D), m = val(L.m);
+      return -[(m + r) / 2, (m - r) / 2].reduce((a, x) => a + distPrime(rat(Math.round(Math.abs(x) * 64), 64)), 0);
+    }, dist("8", "4", "2", "1", "1/2", "1/4", 0)),
+    S: [
+      ["whole-crossings", "m² + 4c should be as close as possible to a square number (the crossings whole).", "slope-intercept", part("S", "distance of m² + 4c from a square", "units", (L) => -nearSquare(add(mul(L.m, L.m), mul([4, 1], L.c))).dist, dist("8", "4", "2", "1", "1/2", "1/4", 0))],
+      ["prime-gradient", "The gradient (the two crossings added) should be as close as possible to a prime.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
+      ["wide-chord", "The chord should be as wide as possible (the crossings far apart).", "plane", part("S", "√(m² + 4c)", "size", (L) => {
+        const D = val(add(mul(L.m, L.m), mul([4, 1], L.c)));
+        return D < 0 ? 0 : Math.sqrt(D);
+      }, sizes([1, 2, 3, 4, 6, 8, 12, 16, 24]))],
+    ],
+  },
+  {
+    id: "divisibility-ladder", name: "Divisibility Ladder", source: "D §11 (A18)", topic: "core: multiples; table of values",
+    card: "(The line must not pass through the origin.) y(1) should be a multiple of 1, y(2) of 2, y(3) of 3, and so on: the run should be as long as possible.",
+    P: part("P", "longest k with n | y(n) for n = 1..k", "steps", (L) => {
+      if (!L.nv || L.C === 0) return null;
+      let k = 0;
+      for (let n = 1; n <= 16; n++) {
+        const y = yAt(L, n);
+        if (y[1] === 1 && y[0] % n === 0) k = n;
+        else break;
+      }
+      return k;
+    }, runCount(6)),
+    S: [
+      ["near-next", "The first y(n) that fails should be as close as possible to a multiple of n.", "table", part("S", "distance of y(n)/n from whole at the first failure", "units", (L) => {
+        for (let n = 1; n <= 16; n++) {
+          const y = yAt(L, n);
+          if (!(y[1] === 1 && y[0] % n === 0)) return -nearInt(rat(y[0], y[1] * n)).dist;
+        }
+        return 0;
+      }, dist("1/2", "1/4", "1/8", "1/16", "1/32", 0))],
+      ["prime-gradient", "The gradient should be as close as possible to a prime.", "slope-intercept", part("S", "distance of m from a prime", "units", (L) => -distPrime(L.m), dist("4", "2", "1", "1/2", "1/4", 0))],
+      ["small-start", "The y-intercept should be as small as possible (ignoring sign) for that run.", "slope-intercept", part("S", "|c|", "size", (L) => -Math.abs(val(L.c)), atLeast([-96, -60, -36, -24, -12, -6, -2], undefined))],
+    ],
+  },
+  {
+    id: "pythagoras-corner", name: "Pythagoras' Corner", source: "D §6 (A4, B §1.5), regraded", topic: "stretch: Pythagoras; intercepts",
+    card: "The triangle's legs should be as close as possible to whole numbers, and its slanted side squared as close as possible to a square number (distances added).",
+    P: part("P", "legs' distance from whole + h²'s distance from a square (capped at 1)", "units", (L) => (L.tri ? -(nearInt(L.legX).dist + nearInt(L.legY).dist + Math.min(1, nearSquare(L.hyp2).dist)) : null), dist("2", "1", "1/2", "1/4", "1/8", "1/16", 0)),
+    S: [
+      ["prime-hypotenuse", "The slanted side should be as close as possible to a prime.", "intercept triangle", part("S", "distance of h from a prime", "units", (L) => -distPrime(rat(Math.round(Math.sqrt(val(L.hyp2)) * 64), 64)), dist("4", "2", "1", "1/2", 0))],
+      ["primitive", "The two legs should share as small a common factor as possible.", "factor tree", part("S", "gcd of the rounded legs", "size", (L) => -gcd(Math.round(val(L.legX)), Math.round(val(L.legY))), atLeast([-12, -6, -4, -3, -2, -1], undefined))],
+      ["big-triangle", "The slanted side should be as long as possible.", "intercept triangle", part("S", "h", "size", (L) => Math.sqrt(val(L.hyp2)), sizes([5, 10, 13, 17, 25, 29, 37, 41, 53]))],
     ],
   },
 ];

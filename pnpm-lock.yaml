@@ -179,6 +179,18 @@ importers:
       '@workspace/player-client':
         specifier: workspace:*
         version: link:../../lib/player-client
+      '@workspace/v2-affordances':
+        specifier: workspace:*
+        version: link:../../lib/v2-affordances
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../../lib/v2-core
+      '@workspace/v2-linear':
+        specifier: workspace:*
+        version: link:../../lib/v2-linear
+      '@workspace/v2-valuation':
+        specifier: workspace:*
+        version: link:../../lib/v2-valuation
       better-auth:
         specifier: 1.6.33
         version: 1.6.33(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -595,7 +607,29 @@ importers:
         specifier: 'catalog:'
         version: 19.1.0
 
+  lib/v2-agents:
+    dependencies:
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../v2-core
+      '@workspace/v2-linear':
+        specifier: workspace:*
+        version: link:../v2-linear
+      '@workspace/v2-sandbox':
+        specifier: workspace:*
+        version: link:../v2-sandbox
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
+
   lib/v2-core: {}
+
+  lib/v2-economy:
+    dependencies:
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../v2-core
 
   lib/v2-linear:
     dependencies:

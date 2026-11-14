@@ -1,0 +1,81 @@
+Z = 0.28386; lines: box 64 and whole lines to 600
+
+== Prime Parade: primary = primes in a row from y(0) (count)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                         5/6/6             9    35.2        3.85          9.70   10
+   + primes going backwards (count)                                     16/25/34           49    35.2        0.03          6.00   (10, 1)
+   + primes of the run with a twin (count)                               9/13/20           32    35.2        0.06          8.68   (10, 6)
+   + last prime of the run (size)                                       26/57/115        1011    35.2        0.00          5.82   (10, 2089)
+   + sum of the run: distance to the nearest prime                       9/12/14           39    35.2        0.00          9.42   (10, -3)
+
+== Divisibility Ladder: primary = n = 1, 2, 3, ... with y(n) a multiple of n (count)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                         4/4/5             6    19.2        2.33          6.53   7
+   + prime quotients y(n)/n (count)                                     13/14/21           28    32.5        0.59          5.99   (7, 6)
+   + x-intercept: distance to the nearest whole number                 125/468/1830     156453    20.3        0.00          5.36   (7, 0)
+   + factors of the y-intercept (count)                                 10/14/20           49    19.2        0.06          1.81   (7, 24)
+   + gradient: distance to the nearest prime                            12/16/20           60    21.7        0.00          4.07   (7, 0)
+
+== Square Steps: primary = square numbers among y(0)..y(12) (count)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                         5/6/6             6    15.2        1.52          8.17   6
+   + squares in neighbouring columns (longest run)                       8/10/11           12    15.2        0.17          8.15   (6, 3)
+   + squares with a prime root (count)                                  15/19/20           23    15.2        0.08          5.80   (6, 5)
+   + largest square in the table (size)                                 51/74/113         367    33.2        0.00          7.91   (6, 7225)
+   + common factor of the squares (smallest)                            33/46/69          210    15.2        0.00          8.08   (6, -1)
+
+== Whole Corner: primary = the two intercept distances: total distance to whole numbers
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                       725/6935/59933    150715     3.9        0.00          0.35   0
+   + factors of (nearest whole legs multiplied) (count)               1063/9322/76841    278424    21.2        0.00          1.65   (0, 135)
+   + common factor of the nearest whole legs (smallest)                797/7432/63561    168255     4.8        0.00          0.34   (0, -1)
+   + triangle area: distance to the nearest square number             1556/12945/105145   432696     7.2        0.00          2.78   (0, 0)
+   + hypotenuse squared: distance to the nearest square number        1457/12367/102054   320535    15.7        0.00         11.18   (0, 0)
+
+== Pythagoras' Corner: primary = hypotenuse squared: distance to the nearest square number
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                      1379/11876/99054    316864    15.7        0.00          0.48   0
+   + the two legs: total distance to whole numbers                    1457/12367/102054   320535    15.7        0.00          0.48   (0, 0)
+   + the nearest whole hypotenuse (size)                              1752/13863/109160   464791    20.2        0.00          1.71   (0, 25)
+   + the nearest whole hypotenuse: distance to a prime                1559/12757/103498   390346    16.2        0.00          0.40   (0, 0)
+   + area: distance to the nearest whole number                       1675/13630/108751   445393    15.7        0.00          0.38   (0, 0)
+
+== Euclid's Staircase: primary = square sizes cut from the rise-by-run rectangle (count)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                         5/6/8             8    22.2        2.71          5.02   8
+   + cut sizes that match their mirror position (count)                  9/13/19           19    22.2        0.83          2.72   (8, 6)
+   + larger of rise and run: distance to a prime                        13/23/29           35    22.2        0.31          2.58   (8, -2)
+   + squares cut in total (count)                                       40/91/196         732    22.2        0.00          3.03   (8, 9)
+   + cross-difference of gradient and y-intercept: distance to 1       704/3448/15399     15892    35.2        0.00          8.83   (8, -1)
+
+== Root Hunter: primary = leading digits of the gradient agreeing with root 2 (count)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                         2/3/4             4    24.2        6.54          7.70   4
+   + top squared against twice bottom squared (difference)              29/103/378         378    24.2        0.00          7.62   (4, -2)
+   + denominator of the gradient (smallest)                             19/45/105         105    24.2        0.00          7.54   (4, -41)
+   + digits of the y-intercept that also agree with root 2 (count)       6/12/18           18    37.2        0.88          8.45   (4, 4)
+   + cross-difference of gradient and y-intercept: distance to 1       284/1248/5215       5346    37.2        0.00         10.00   (4, -1)
+
+== Cyclic Decimal: primary = repeating block of the gradient (length)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                         3/9/16           16    12.2        0.40          2.10   60
+   + denominator of the gradient (smallest)                              9/22/51           51    12.2        0.04          1.57   (60, -61)
+   + repeating block of the y-intercept (length)                         6/22/44           44    13.2        0.11          1.38   (60, 60)
+   + y(1): distance to the nearest whole number                         36/171/788         788    16.0        0.00          2.35   (60, 0)
+   + numerator of the gradient (smallest)                               42/261/971         971    13.2        0.00          1.52   (60, -1)
+
+== Amicable Line: primary = factor sums of m and c against each other (total difference)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                        27/65/144        1668    15.2        0.00          4.17   0
+   + the smaller of the two numbers (size)                             100/403/1468     101768    39.2        0.00         12.83   (0, 496)
+   + difference of the two numbers (size)                               92/381/1490     117630    36.2        0.00         21.01   (0, 64)
+   + factors of the two numbers in total (fewest)                       82/271/748       18381    15.2        0.00          4.08   (0, -8)
+   + the two numbers: total distance to primes                          78/217/575       12886    15.2        0.00          4.08   (0, -2)
+
+== ABC Line: primary = a + b against c (difference)
+   rule                                                              levels at H=16/32/64   all   top V   median step  largest step   best score
+   primary alone                                                        32/64/128         601     8.3        0.00          2.25   0
+   + c divided by the product of the different primes in a, b, c (size)   1067/7829/57243    271489    43.2        0.00          9.82   (0, 9/2)
+   + a, b, c: total distance to perfect powers                         226/584/2114      19327    18.2        0.00          9.22   (0, 0)
+   + c (size)                                                          380/1535/6130     270300    43.2        0.00          1.40   (0, 600)
+   + different primes in a, b, c (fewest)                              117/275/611        2967     9.2        0.00          1.69   (0, -1)

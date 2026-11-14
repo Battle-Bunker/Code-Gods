@@ -46,12 +46,22 @@ export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScor
 export interface ViewReply { rep: string; site: number; elements: Record<string, ElementValueWire>; bits: number }
 export interface ElementReply { ref: ElementRef; value: ElementValueWire; bits: number }
 /** §6.2 */
-export interface RuleReply { family: string; params: Record<string, unknown>; card: string }
+export interface RuleReply {
+  family: string;
+  params: Record<string, unknown>;
+  /** The dealt tie-breaker's id, or null for the main layer alone. */
+  tieBreaker: string | null;
+  card: string;
+  /** The dealt layers in order (main part, then tie-breaker); sense "min": smaller is better. */
+  layers: { id: string; title: string; sense: "min" | "max" }[];
+}
 export interface ScoreReply {
   /** null: WORST. A null component: that layer is undefined for this state (v2-core's layered ladders). */
   score: (QWire | null)[] | null;
   level: number;
   top: number;
+  /** Each dealt layer on its own ladder: "main part: step 5 of 7". */
+  layers: { id: string; level: number; top: number }[];
   terms: { id: string; value: QWire | null }[];
 }
 /** §6.3: `bits` here are the calls' prices, in order; `charge` what committing them would cost in energy. */
