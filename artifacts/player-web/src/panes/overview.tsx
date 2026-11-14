@@ -2,6 +2,7 @@
  * "Where am I": what is happening, how you are doing and the one thing to do next. Explains "your points now" before
  * the first agent exists (ux-lessons 2.4: walkers asked "11 points and I haven't done anything?").
  */
+import { fixedLength } from "@/core/timer-text";
 import { summonFirst } from "@/panes/first-summon";
 import { objectWord, useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
@@ -38,7 +39,7 @@ export function OverviewPane() {
           <dd data-testid="text-overview-points">
             {pointsText(mine?.net ?? 0)}{mine && standings ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
             {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-overview-tied" /> <span className="text-xs text-muted-foreground">{TIE_NOTE}</span></>}
-            {standings && countedNote(standings.worldSeconds, header.worldSeconds) && <span className="block text-xs text-muted-foreground" data-testid="text-overview-counted">{countedNote(standings.worldSeconds, header.worldSeconds)}</span>}
+            {standings && countedNote(standings.worldSeconds, fixedLength(header)) && <span className="block text-xs text-muted-foreground" data-testid="text-overview-counted">{countedNote(standings.worldSeconds, fixedLength(header))}</span>}
           </dd>
           {me && <><dt className="text-muted-foreground">Your power</dt><dd>{powerText(me.power)}</dd></>}
         </dl>

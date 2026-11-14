@@ -78,9 +78,9 @@ try {
     assert.ok(await beginner.locator("[data-testid^=tile-]").count() >= 4, "the beginner rules are listed");
     await noSideways(page, `${label} gallery`);
     await shot(page, `gallery-${label}`);
-    await page.getByTestId("button-board-line-q").click();
-    await page.waitForURL(/board=line-q/);
+    // Fraction lines are the default board (#597): the URL names only another board.
     await page.getByTestId("button-board-line-z").click();
+    await page.waitForURL(/board=line-z/);
     await page.getByTestId("link-family-triangle-area").click();
     // A line rule's page offers only line boards (round 6: "Grids" was offered on a line-only rule).
     await page.getByTestId("board-picker").waitFor();
@@ -131,6 +131,15 @@ try {
     await next.getByTestId("input-setting-planningSeconds").fill("5");
     await next.getByTestId("input-setting-worldMinutes").fill("1.5");
     await next.getByTestId("input-setting-startingEnergy").fill("777");
+    // v1's end and noise settings: a hidden random end (its half-life), totals every 5 s, others' sums blurred by 4 bits.
+    await next.getByTestId("select-setting-durationMode").selectOption("halfLife");
+    await next.getByText("Half-life (minutes)").waitFor();
+    await next.getByTestId("input-setting-scoreIntervalSeconds").fill("5");
+    await next.getByTestId("select-setting-peerNoiseBits").selectOption("4");
+    await next.getByTestId("button-save-settings").click();
+    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · ends at a hidden moment, half of games within 1\.5 min · 777 ⚡ to start · others' sums blurred \(4 bits\) · totals every 5 s/).waitFor({ timeout: 15_000 });
+    // Back to a public end, so the steps below play a game of known length.
+    await next.getByTestId("select-setting-durationMode").selectOption("fixed");
     await next.getByTestId("button-save-settings").click();
     await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · 1\.5 min game · 777 ⚡ to start/).waitFor({ timeout: 15_000 });
     await next.getByTestId("button-reset-settings").waitFor();
@@ -143,7 +152,8 @@ try {
     await page.waitForURL(/\/games\//, { timeout: 30_000 });
     const gameId = page.url().split("/").at(-1)!.split("?")[0]!;
     const h = await header(page, gameId);
-    assert.deepEqual({ planning: h.planningSeconds, world: h.worldSeconds, energy: h.startingEnergy, preset: h.preset }, { planning: 5, world: 90, energy: 777, preset: "lines-beginner" });
+    assert.deepEqual({ planning: h.planningSeconds, world: h.worldSeconds, energy: h.startingEnergy, preset: h.preset, mode: h.durationMode, interval: h.scoreIntervalSeconds, noise: h.peerNoiseBits },
+      { planning: 5, world: 90, energy: 777, preset: "lines-beginner", mode: "fixed", interval: 5, noise: 4 });
     console.log(`${label}: the game started with 5 s planning, 90 s of world, 777 ⚡`);
 
     // ---- What if, during the live game

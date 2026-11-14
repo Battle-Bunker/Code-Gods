@@ -15,6 +15,7 @@ export function RulesPane() {
     title: preset.title, minPlayers: preset.minPlayers,
     planningSeconds: header.planningSeconds, worldSeconds: header.worldSeconds, startingEnergy: header.startingEnergy,
     powerPerSecond: preset.economy.powerPerSecond, fullChargeSeconds: preset.economy.fullChargeSeconds, bid: preset.bid ?? null,
+    durationMode: header.durationMode, scoreIntervalSeconds: header.scoreIntervalSeconds, peerNoiseBits: header.peerNoiseBits,
   };
   return (
     <div className="space-y-4 p-4" data-testid="rules">

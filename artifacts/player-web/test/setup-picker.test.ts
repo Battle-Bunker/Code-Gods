@@ -41,28 +41,52 @@ test("each setup says in words what it plays", () => {
 });
 
 test("the form starts from the overrides, else the preset's own values, with the game length in minutes", () => {
-  assert.deepEqual(formOf(beginner, {}), { planningSeconds: "60", worldMinutes: "5", startingEnergy: String(beginner.startingEnergy) });
-  assert.deepEqual(formOf(beginner, { worldSeconds: 90, planningSeconds: 20 }), { planningSeconds: "20", worldMinutes: "1.5", startingEnergy: String(beginner.startingEnergy) });
+  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseBits: "8" };
+  assert.deepEqual(formOf(beginner, {}), { planningSeconds: "60", worldMinutes: "5", startingEnergy: String(beginner.startingEnergy), ...rest });
+  assert.deepEqual(formOf(beginner, { worldSeconds: 90, planningSeconds: 20 }), { planningSeconds: "20", worldMinutes: "1.5", startingEnergy: String(beginner.startingEnergy), ...rest });
 });
 
 test("only the values that differ from the preset are sent, minutes as seconds", () => {
-  assert.deepEqual(overridesOf({ planningSeconds: "60", worldMinutes: "5", startingEnergy: String(beginner.startingEnergy) }, beginner), { ok: true, overrides: {} });
-  assert.deepEqual(overridesOf({ planningSeconds: "15", worldMinutes: "2.5", startingEnergy: "1000" }, beginner),
+  assert.deepEqual(overridesOf({ ...formOf(beginner, {}) }, beginner), { ok: true, overrides: {} });
+  assert.deepEqual(overridesOf({ ...formOf(beginner, {}), planningSeconds: "15", worldMinutes: "2.5", startingEnergy: "1000" }, beginner),
     { ok: true, overrides: { planningSeconds: 15, worldSeconds: 150, startingEnergy: 1000 } });
 });
 
 test("values the server would refuse are explained in words instead of sent", () => {
-  const out = overridesOf({ planningSeconds: "2", worldMinutes: "200", startingEnergy: "-5" }, beginner);
+  const out = overridesOf({ ...formOf(beginner, {}), planningSeconds: "2", worldMinutes: "200", startingEnergy: "-5" }, beginner);
   assert.equal(out.ok, false);
   const errors = (out as { errors: Record<string, string> }).errors;
   assert.match(errors.planningSeconds!, /5 to 900/);
   assert.match(errors.worldMinutes!, /half a minute to 120 minutes/);
   assert.match(errors.startingEnergy!, /0 or more/);
-  assert.equal(overridesOf({ planningSeconds: "ten", worldMinutes: "5", startingEnergy: "1" }, beginner).ok, false);
-  assert.equal(overridesOf({ planningSeconds: "7.5", worldMinutes: "5", startingEnergy: "1" }, beginner).ok, false, "whole seconds only");
+  assert.equal(overridesOf({ ...formOf(beginner, {}), planningSeconds: "ten", startingEnergy: "1" }, beginner).ok, false);
+  assert.equal(overridesOf({ ...formOf(beginner, {}), planningSeconds: "7.5", startingEnergy: "1" }, beginner).ok, false, "whole seconds only");
 });
 
 test("the next game's summary uses the overrides", () => {
-  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} ⚡ to start.`);
+  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} ⚡ to start · others' sums blurred (8 bits) · totals every 10 s.`);
   assert.match(nextGameSummary(presetOf("lines-beginner-bidding"), {}), /45 s of bidding first/);
+});
+
+test("how the game ends, how often totals are counted and the noise on the others' sums are settings too (v1's)", () => {
+  const f = formOf(beginner, {});
+  assert.deepEqual([f.durationMode, f.scoreIntervalSeconds, f.peerNoiseBits], ["fixed", "10", "8"], "the preset's mode; v1's defaults");
+  assert.deepEqual(overridesOf({ ...f, durationMode: "halfLife", scoreIntervalSeconds: "30", peerNoiseBits: "0" }, beginner),
+    { ok: true, overrides: { durationMode: "halfLife", scoreIntervalSeconds: 30, peerNoiseBits: 0 } });
+  assert.deepEqual(overridesOf(f, beginner), { ok: true, overrides: {} }, "defaults are not sent");
+  const bad = overridesOf({ ...f, scoreIntervalSeconds: "0" }, beginner);
+  assert.match((bad as { errors: Record<string, string> }).errors.scoreIntervalSeconds!, /1 to 3,600 whole seconds/);
+  assert.equal(overridesOf({ ...f, peerNoiseBits: "3" }, beginner).ok, false, "only 0, 2, 4, 8 or 16 bits");
+});
+
+test("a half-life game's summary says its end is hidden, with the half-life", () => {
+  assert.match(nextGameSummary(beginner, { durationMode: "halfLife" }), /ends at a hidden moment, half of games within 5 min/);
+  assert.doesNotMatch(nextGameSummary(beginner, { durationMode: "halfLife" }), /5 min game/);
+  assert.match(nextGameSummary(beginner, { peerNoiseBits: 0, scoreIntervalSeconds: 30 }), /others' sums exact · totals every 30 s/);
+});
+
+test("the app's default noise is the engine's", async () => {
+  const { DEFAULT_PEER_NOISE_BITS } = await import("@workspace/engine/convex/v2/disclose.ts");
+  const { DEFAULT_NOISE_BITS } = await import("../src/site/lib/setup-picker.ts");
+  assert.equal(DEFAULT_NOISE_BITS, DEFAULT_PEER_NOISE_BITS);
 });
