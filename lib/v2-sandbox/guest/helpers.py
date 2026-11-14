@@ -43,10 +43,6 @@
 #                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
 #                                `most` options best for your rule (all when left out), a small read each. now is your
 #                                score here; without the game's values it takes the step best for your rule instead.
-#   hurt(offer)                  True when another player's recent move on this line lowered your points.
-#   pays(offer, plan, s)         True when the plan leaves your points on this line at least where they are: your rarity
-#                                at score s times the others' total after it (True when the game does not say; False
-#                                for a plan the game does not allow).
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -244,21 +240,6 @@ def climb(offer, options, now, most=None):
         if v > value + 1e-9:
             value, best = v, plan
     return None if best is None else _as_plan(best)
-
-
-def hurt(offer):
-    return any(not m.mine and m.points_after < m.points_before for m in recent(offer))
-
-
-def pays(offer, plan, s):
-    w = worth(offer)
-    if w is None:
-        return True
-    try:
-        o = offer.others_after(_as_plan(plan))
-        return o.after is not None and rarity(offer, s) * o.after >= w.mine * w.others
-    except HostError:
-        return True
 
 
 def fair(offer, plan):

@@ -161,45 +161,6 @@ test("fair: true when a plan keeps the others' rarity, added up; the same in bot
   assert.equal(res.ok && (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, "true|true|true");
 });
 
-test("hurt and pays: contested when another player's move lowered my points; a plan pays when my rarity times the others' total after it keeps my points; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
-  const vf = findValues("line-z", other)!;
-  const at = { lines: [fromMC(q(7), q(3))] };   // m = 7 is prime: the other player's rule likes it, so tilting to 8 lowers the others
-  const value = { mine: 4, others: 6, points: 24 };   // my points now: 24
-  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: 0, primary: 0 } };
-  const ts = `function agent(offer) {
-  const sh = [move("si.shift", { k: 1 })], ti = [move("si.tilt", { k: 1 })];
-  const r = [hurt(offer), offer.othersAfter(sh).after, offer.othersAfter(ti).after, pays(offer, sh, [2]), pays(offer, ti, [2]), pays(offer, sh, null), pays(offer, [move("nope", {})], [2])];
-  return [move("probe", { r: r.join("|") })];
-}`;
-  const py = `def agent(offer):
-    sh, ti = [move("si.shift", k=1)], [move("si.tilt", k=1)]
-    r = [hurt(offer), offer.others_after(sh).after, offer.others_after(ti).after, pays(offer, sh, [2]), pays(offer, ti, [2]), pays(offer, sh, None), pays(offer, [move("nope")], [2])]
-    return [move("probe", r="|".join(str(x).lower() for x in r))]
-`;
-  const runs: { history: { mine: boolean; pointsBefore: number; pointsAfter: number }[]; r: string[] }[] = [];
-  for (const history of [[{ mine: true, pointsBefore: 2, pointsAfter: 9 }, { mine: false, pointsBefore: 9, pointsAfter: 3 }], [{ mine: false, pointsBefore: 3, pointsAfter: 9 }]]) {
-    const out: string[] = [];
-    for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-      const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, value, history, values, others: [{ rule: other, values: vf }] });
-      const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
-      assert.equal(res.ok, true, res.ok ? "" : res.error);
-      if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
-    }
-    const [tsOut, pyOut] = out.map(x => x.split("|"));
-    // Python prints floats with a trailing .0; compare numerically.
-    assert.deepEqual(pyOut!.map(x => (Number.isNaN(Number(x)) ? x : Number(x))), tsOut!.map(x => (Number.isNaN(Number(x)) ? x : Number(x))), "Python and TypeScript differ");
-    runs.push({ history, r: tsOut! });
-  }
-  const [hit, calm] = runs;
-  assert.equal(hit!.r[0], "true", "another player's move lowered my points: contested");
-  assert.equal(calm!.r[0], "false", "another player's move raised my points: not contested");
-  const shift = Number(hit!.r[1]), tilt = Number(hit!.r[2]);
-  assert.ok(tilt < shift, "tilting off the prime gradient lowers the others");
-  assert.deepEqual(hit!.r.slice(3), [String(7 * shift >= 24), String(7 * tilt >= 24), "false", "false"], "pays: rarity 7 at score 2 times the others' total after, against 24 now; a score of nothing pays nothing; a move not allowed never pays");
-  assert.notEqual(hit!.r[3], hit!.r[4], "the test distinguishes a plan that pays from one that does not");
-});
-
 test("climb: the step that raises my points most (rarity × the others' total), best for my rule first; null when none does; without values, my rule's best; the same in both languages", async () => {
   const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
   const others = [{ rule: other, values: findValues("line-z", other)! }];
