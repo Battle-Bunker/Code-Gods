@@ -198,6 +198,22 @@ try {
     await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
     await page.keyboard.press("Escape");
     await page.getByTestId("text-bits-help").waitFor({ state: "detached" });
+    if (label === "desktop") {
+      // A deal one press from the object it is about (persona walk: "hold grid 12? don't know how"): the forge opens with
+      // the hold control filled in at this object's state; the player reads the price and saves.
+      const n = /(\d+)/.exec(await line.locator("span.font-semibold").first().innerText())![1]!;
+      const here = line.getByTestId("button-hold-here");
+      if (await here.count()) {
+        await here.click();
+        const hold = page.getByTestId("hold");
+        await hold.waitFor({ timeout: 15_000 });
+        assert.equal(await hold.getByTestId("input-hold-numbers").inputValue(), n, "filled in with this object's number");
+        await hold.getByTestId("text-hold").getByText(new RegExp(`will hold (line|grid) ${n} at .* for [\\d.]+ ⚡`)).waitFor();
+        await hold.getByTestId("button-hold").click();
+        await hold.getByTestId("text-hold-done").getByText(new RegExp(`holds (line|grid) ${n} at `)).waitFor({ timeout: 30_000 });
+        console.log(`${label}: ${(await hold.getByTestId("text-hold-done").innerText()).trim()}`);
+      } else console.log(`${label}: this object's state is not a whole-number target: no "Hold it here"`);
+    }
     if (label === "phone") await line.screenshot({ path: path.join(shots, "score-words-phone-one-line.png") });
     if (label === "desktop") {
       // Plan §5.3: pointing at the y-intercept in slope-intercept form lights it on the plane (same meaning).
@@ -220,7 +236,7 @@ try {
     assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
     // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /\d+(\.\d+)? (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |undefined|cannot/i, `the main part says where the number is: ${main}`);
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |undefined|cannot/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {

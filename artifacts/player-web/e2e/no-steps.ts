@@ -13,9 +13,9 @@ export async function assertNoSteps(page: { locator(selector: string): { innerTe
   assert.equal(m, null, `${label}: no steps (decision 23), found "${m ? text.slice(Math.max(0, m.index - 40), m.index + 40).replace(/\s+/g, " ") : ""}"`);
 }
 
-/** A grid game speaks of grids (ux-lessons 2.8): fails when any visible text says "line" or "lines". */
+/** A grid game speaks of grids (ux-lessons 2.8): fails when any visible text says "line" or "lines" (but for "the fold line"). */
 export async function assertNoLineWord(page: { locator(selector: string): { innerText(): Promise<string> } }, label: string): Promise<void> {
   const text = await page.locator("body").innerText();
-  const m = /\blines?\b/i.exec(text);
+  const m = /(?<!fold )\blines?\b/i.exec(text);   // "the fold line" is Crosswise Threes' word (as in v2-views' grid-faces test)
   assert.equal(m, null, `${label}: a grid game says grid, found "${m ? text.slice(Math.max(0, m.index - 50), m.index + 40).replace(/\s+/g, " ") : ""}"`);
 }

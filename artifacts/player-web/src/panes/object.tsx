@@ -18,6 +18,8 @@ import { bitsText, pointsText } from "@/core/words";
 import { BitsHelp } from "@/core/score-help";
 import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
+import { requestForge } from "./forge-request";
+import { targetOf } from "./hold";
 
 const failed = (title: string) => (e: unknown) => toast({ title, description: e instanceof Error ? e.message : String(e), variant: "destructive" });
 
@@ -68,6 +70,16 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}
       </button>
+      {/* A deal, one press from the line it is about: the forge opens with its control filled in, to read and save. */}
+      {(agents?.length ?? 0) > 0 && !replaying && header?.phase !== "ended" && (() => {
+        const target = targetOf(state, rule.type.id);
+        return (<>
+          {target !== null && <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-hold-here"
+            onClick={() => void requestForge({ kind: "hold", numbers: [o.number], target }, openPane)}>Hold this {word.one} here</button>}
+          <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-leave-here"
+            onClick={() => void requestForge({ kind: "leave", numbers: [o.number] }, openPane)}>Leave this {word.one} alone</button>
+        </>);
+      })()}
       {pinned !== active && pin.available && (
         <button type="button" className="text-xs underline underline-offset-4" data-testid="button-pin-representation"
           onClick={() => void pin.run({ rep: active, family: rule.family.id }).catch(failed(`${word.Many} did not change`))}>

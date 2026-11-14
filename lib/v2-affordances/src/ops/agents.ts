@@ -72,6 +72,23 @@ export const agentOps = [
     available: ctx => { const a = hasAgents(ctx); return a.ok ? energyCheck(ctx) : a; },
   }),
   affordance({
+    id: "agent.hold", title: "Settle and hold objects", group: "agents", scope: "game",
+    description: "Sets where an agent settles objects and holds them (a deal that pays: every player agrees where a line or board "
+      + "should be): its code's TARGET (a line's y = mx + c as {m, c}, a board's 16 digits row by row) and SETTLE (the objects' "
+      + "numbers; [] means every object). Only those two lines change, priced as that edit. target null stops holding.",
+    tooltip: "Settle some objects at an agreed state and keep them there.", keywords: ["hold", "settle", "target", "deal", "agree", "keep it here"],
+    params: obj({
+      agentId: id,
+      numbers: z.array(z.number().int().positive()).max(64).describe("The objects' numbers, e.g. [3, 19]; [] for every object."),
+      target: z.union([z.object({ m: z.number().int(), c: z.number().int() }), z.string().regex(/^\d{16}$/), z.null()])
+        .describe("A line's {m, c} for y = mx + c, a board's 16 digits row by row, or null to stop holding."),
+      requestId: requestId.optional(),
+    }),
+    result: z.object({ version: z.number().int(), price: z.number() }),
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server", action: true,
+    available: ctx => { const a = hasAgents(ctx); return a.ok ? energyCheck(ctx) : a; },
+  }),
+  affordance({
     id: "agent.putBack", title: "Put back an earlier version", group: "agents", scope: "game",
     description: "Replaces an agent's program with one of its earlier versions, at that version's summon price.",
     tooltip: "Go back to an earlier version.", keywords: ["revert", "undo", "put back", "rollback"],
