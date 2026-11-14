@@ -564,6 +564,19 @@ importers:
         specifier: 'catalog:'
         version: 19.1.0(react@19.1.0)
 
+  lib/v2-sandbox:
+    dependencies:
+      quickjs-emscripten:
+        specifier: 0.31.0
+        version: 0.31.0
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
+
 packages:
 
   '@anthropic-ai/sdk@0.133.0':

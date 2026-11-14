@@ -23,6 +23,9 @@
     },
     {
       "path": "./lib/game-utilities"
+    },
+    {
+      "path": "./lib/v2-sandbox"
     }
   ]
 }

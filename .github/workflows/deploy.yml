@@ -139,6 +139,7 @@ jobs:
         run: pnpm --filter @workspace/game-runtime setup:python
       - run: pnpm --filter @workspace/game-runtime build:python
       - run: pnpm --filter @workspace/game-runtime test
+      - run: pnpm --filter @workspace/v2-sandbox test
 
   # The one name the rest of the workflow (and `previous-gate.mjs`) relies on: success only when every part succeeded.
   # Skipped (not failed) when `lookup` proved the gate already passed on this tree.
