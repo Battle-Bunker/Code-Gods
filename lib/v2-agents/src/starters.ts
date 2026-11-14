@@ -140,11 +140,14 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ...(kind === "naive" ? [] : [
       "const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
       "const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
+      "const TARGET = null;   // a line every player agreed on, e.g. { m: -1, c: 59 } for y = -x + 59: lines go there and stay",
+      "const SETTLE = [];     // the lines to settle at TARGET, e.g. [2, 5]; [] means every line",
     ]),
     "",
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
       "  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone",
+      "  if (TARGET && (!SETTLE.length || SETTLE.includes(offer.object))) return settle(offer, TARGET);   // a deal: bring the line to TARGET, then hold it",
       "  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
       "  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
       "  contested(offer, 3);",
@@ -217,6 +220,8 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ...(kind === "naive" ? [] : [
       "LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
       "PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
+      "TARGET = None   # a line every player agreed on, e.g. {\"m\": -1, \"c\": 59} for y = -x + 59: lines go there and stay",
+      "SETTLE = []     # the lines to settle at TARGET, e.g. [2, 5]; [] means every line",
     ]),
     "",
     "",
@@ -224,6 +229,8 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     ...(kind === "naive" ? [] : [
       "    if offer.object in LEAVE:   # a deal: leave this line alone",
       "        return None",
+      "    if TARGET is not None and (not SETTLE or offer.object in SETTLE):   # a deal: bring the line to TARGET, then hold it",
+      "        return settle(offer, TARGET)",
       "    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
       "    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
       "    contested(offer, 3)",

@@ -63,3 +63,18 @@ test("the briefing says what each deal needs now, with the edit and its price", 
   assert.match(commitmentBriefing(commitmentsOf("Ada", chat, [], [kept])), /your agents skip them: kept\. Bo has kept it so far\./);
   assert.equal(commitmentBriefing([]), "YOUR DEALS: none yet.");
 });
+
+test("a settle deal: its target is read from the chat, it is enacted by TARGET and SETTLE, and the briefing says so", () => {
+  const chat: ChatRow[] = [
+    { from: "Ada", text: "Settle lines 3 and 7 at y = -x + 59 and hold them? Deal?", at: 20 },
+    { from: "Bo", text: "Deal.", at: 40 },
+  ];
+  const [d] = findDeals(chat).deals;
+  assert.deepEqual(d!.target, { m: -1, c: 59 });
+  const before = "const TARGET = null;\nconst SETTLE = [];\nfunction agent(offer) {}";
+  const after = "const TARGET = { m: -1, c: 59 };\nconst SETTLE = [3, 7];\nfunction agent(offer) {}";
+  assert.equal(commitmentsOf("Ada", chat, [], [before])[0]!.status, "pending");
+  assert.equal(commitmentsOf("Ada", chat, [], [after])[0]!.status, "enacted");
+  assert.equal(commitmentsOf("Ada", chat, [], [after.replace("c: 59", "c: 58")])[0]!.status, "pending", "another target does not keep it");
+  assert.match(commitmentBriefing(commitmentsOf("Ada", chat, [], [before])), /settle lines 3 and 7 at y = -x \+ 59 and hold them\. This turn, set TARGET = \{ m: -1, c: 59 \} and SETTLE = \[3, 7\]/);
+});

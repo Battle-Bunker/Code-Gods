@@ -160,3 +160,21 @@ test("fair: true when a plan keeps the others' rarity, added up; the same in bot
   const res = await (await boxes.get("typescript")).act({ source: ts, offer: { object: 0 }, seed: "1", host: plain });
   assert.equal(res.ok && (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, "true|true|true");
 });
+
+test("settle: the moves that bring a line to an agreed target, none when it is there; the same in both languages", async () => {
+  const out = [];
+  for (const [language, src] of [
+    ["typescript", `function agent(offer) { const p = settle(offer, { m: -1, c: 59 }); return p ?? [move("probe", { r: "there" })]; }`],
+    ["python", `def agent(offer):\n    p = settle(offer, {"m": -1, "c": 59})\n    return p if p else [move("probe", r="there")]\n`],
+  ] as const) {
+    for (const at of [line(3, 10), line(-1, 59)]) {
+      const host = new EngineHost({ type: lineType, ...at, rule: { family: "m-meets-c", params: {} }, energy: 100 });
+      const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+      assert.equal(res.ok, true, res.ok ? "" : res.error);
+      if (res.ok) out.push(JSON.parse(res.calls));
+    }
+  }
+  assert.deepEqual(out.slice(2), out.slice(0, 2), "Python and TypeScript differ");
+  assert.deepEqual(out[0].map((c: { mutator: string; args: { k: string } }) => [c.mutator, c.args.k]), [["si.shift", "49"], ["si.tilt", "-4"]]);
+  assert.deepEqual(out[1].map((c: { mutator: string }) => c.mutator), ["probe"], "already there: no move");
+});
