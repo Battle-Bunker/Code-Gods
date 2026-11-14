@@ -62,11 +62,15 @@ export interface MyRule {
  * Whether the others' numbers are deliberately blurred now (v1's peerNoiseBits, restored): while the game runs, outside a
  * replay, when the room blurs them. Then every figure built on the others' bits is an estimate; the final count is exact.
  */
+/** Whether the game blurs the others' sums: the server's default is 8 bits (W3 #608), so unless the header says 0. */
+export const blursOthers = (header: unknown): boolean => {
+  const noise = (header as { peerNoiseBits?: unknown } | null | undefined)?.peerNoiseBits;
+  return typeof noise === "number" ? noise > 0 : true;
+};
 export function useOthersBlurred(): boolean {
   const header = useGame();
   const replay = useReplaySource();
-  const noise = (header as { peerNoiseBits?: unknown } | undefined)?.peerNoiseBits;
-  return !replay && !!header && header.phase !== "ended" && typeof noise === "number" && noise > 0;
+  return !replay && !!header && header.phase !== "ended" && blursOthers(header);
 }
 
 /** The viewer's private rule: family, parameters, card, value function, the primary representation. */

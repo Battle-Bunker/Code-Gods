@@ -74,7 +74,7 @@ async function allocate(page: Page, shares: Record<string, number>) {
 
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 /** A line's score as every pane writes it (src/core/words.ts scoreFormula), 2 decimal places. */
-const FORMULA = /your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
+const FORMULA = /your [\d,]+\.\d\d bits? × others' (about )?−?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
 const SCORE_SENTENCE = "You score on a line when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the lines.";
 const clock = (t0: number) => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 

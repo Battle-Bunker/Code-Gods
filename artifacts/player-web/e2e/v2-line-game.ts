@@ -68,7 +68,7 @@ async function shorten(page: Page, code: string) {
 
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 /** A line's score as every pane writes it (src/core/words.ts scoreFormula), 2 decimal places. */
-const FORMULA = /your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
+const FORMULA = /your [\d,]+\.\d\d bits? × others' (about )?−?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
 const SCORE_SENTENCE = "You score on a line when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the lines.";
 const clock = (t0: number) => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 
@@ -137,8 +137,12 @@ try {
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
     // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
     await feed.locator("[data-testid^=row-move-] p").first().getByText(/^\d+:\d\d left/).waitFor({ timeout: 60_000 });
-    const mine = feed.locator("[data-testid=feed] > ol > li > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
-    await mine.waitFor({ timeout: 60_000 });
+    // Its own row, or inside a tug-of-war entry (contested lines fold their moves under "Show the N moves").
+    const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
+    await mine.waitFor({ state: "attached", timeout: 60_000 });
+    const folded = mine.locator("xpath=ancestor::details[1]");
+    if (await folded.count() && (await folded.getAttribute("open")) === null) await folded.locator("summary").click();
+    await mine.waitFor();
     const sentence = await mine.innerText();
     // While the game runs another player's move is unattributed (v1's public log): no name, no agent, no calls.
     const logText = await feed.innerText();
@@ -146,6 +150,8 @@ try {
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
+    // Live, the others' sums are blurred (W3 #608, v1 peerNoiseBits): the figure is written as an estimate.
+    assert.match(sentence, /others' about −?[\d,]+\.\d\d bits? ≈/, `${label}: live, the others' bits are an estimate: ${sentence}`);
     assert.doesNotMatch(sentence, /payoff|object|✨/i);
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
