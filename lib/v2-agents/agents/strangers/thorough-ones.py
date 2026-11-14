@@ -20,12 +20,13 @@ def score(b, p):
                 main += 1
             if (u == 1 and w > 1) or (w == 1 and u > 1):   # a 1 touching a bigger number
                 ones += 1
-    return [min(main, 9), ones]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more 1s touching a bigger number in their box is better
+    return [main, ones]   # main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: more 1s touching a bigger number in their box is better
 
 
 FAR = 2      # how far one change may go
 QUOTES = 6  # at most this many plans are priced (each price is a host call)
 RESERVE = 300  # below this much ⚡, only pay for changes that add points (see the end)
+LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 
 
@@ -39,6 +40,8 @@ def edit(b, cells, f):
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this board alone
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)
@@ -71,7 +74,7 @@ def agent(offer):
     if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns
         return None
     # Your points on a board are your rarity there times the other players' rarity there, added up. So what this
-    # change is worth is the bits it gains you (+1: a better board is a step towards the next rung) times the
+    # change is worth is the bits it gains you (+1: a small gain still counts for something) times the
     # others' bits (+1: a board nobody else wants yet is worth a little). Below RESERVE ⚡ it only pays for a change
     # worth at least 1 point per ⚡ (when the game does not say what boards are worth, worth is None: it pays).
     w = worth(offer)

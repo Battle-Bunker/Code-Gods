@@ -12,7 +12,7 @@ def score(b, p):
     main = 0
     for i in range(8):   # cell i and its opposite, 15 - i
         main -= abs(b[i] + b[15 - i] - p["T"])
-    return [min(main, -10), sum(b[:8])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
+    return [main, sum(b[:8])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
 
 
 FAR = 2      # how far one change may go

@@ -4,15 +4,13 @@
  *  - every grid family has an example per tie-breaker and the four starters, or is listed as missing (a todo);
  *  - an agent's own idea of the score is the engine's on sampled boards, in both languages;
  *  - both languages make the same moves on newborn boards, with and without what the board is worth, and none fails;
- *  - each example climbs (the main part never falls and rises on some board; the tie-breaker rises on some board, or
- *    the main part, which decides first with no saturation (owner decision 23), is short of its best on every board, or a
- *    board reached the best knot itself);
+ *  - each example climbs (no move lowers the main part; some raise it; some raise the tie-breaker);
  *  - the starters play for points: they keep their energy where a change adds too few points per ⚡ (nobody else
  *    values the board), where Naive pays regardless.
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { applyCalls, compareScores, evaluateSite, isInvalid, scoreFromWire, scoreToWire } from "@workspace/v2-core";
+import { applyCalls, evaluateSite, isInvalid, Qn, scoreToWire, type Score } from "@workspace/v2-core";
 import { grid4, gridType, type GridState } from "@workspace/v2-grid";
 import type { HostReply, HostRequest, Language } from "@workspace/v2-sandbox";
 import {
@@ -32,7 +30,7 @@ const program = (a: ShippedAgent) => ({ language: a.language, source: a.source }
 /** What a rule's boards are worth: its committed value function (owner decision 23). */
 const worthOf = (rule: { family: string; params: Record<string, unknown>; tieBreaker: string }) => {
   const v = valuer(gridType, grid4, rule);
-  if (!v.values) throw new Error(`${rule.family}/${rule.tieBreaker}: no committed value function`);
+  assert.ok(v.values, `${rule.family}/${rule.tieBreaker}: no committed value function`);
   return v;
 };
 
@@ -105,9 +103,10 @@ test("host: worth and rarity on a board come from the rule's value function", ()
   const v = worthOf(rule);
   const h = new EngineHost({ type: gridType, variant: grid4, state: board, rule, energy: 50, values: v.values, value: { mine: v.bits(board), others: 5, points: 5 * v.bits(board) } });
   assert.equal(ask(h, { op: "worth" }).result.others, 5);
-  const best = v.values!.knots.at(-1)!;
-  assert.equal(ask(h, { op: "rarity", score: best.u }).result.bits, v.top, "the best knot's score is worth the rule's top");
   assert.equal(ask(h, { op: "rarity", score: ["-28", "16"] }).result.bits, v.bits(board));
+  const best = ask(h, { op: "rarity", score: ["0", "36"] }).result.bits;
+  assert.equal(best, v.worth(["0", "36"].map(Qn.parse)).bits);
+  assert.ok(best > v.bits(board), "every box at T with the corners full is rarer than this board");
 });
 
 // ---------------------------------------------------------------- the shipped agents
@@ -147,7 +146,7 @@ async function agentScores(language: Language, family: string, params: Record<st
   return (JSON.parse(res.ok ? res.calls : "[]")[0].args.r as string).split(";");
 }
 
-test("a grid agent's own score is the engine's on sampled boards, for every described family and tie-breaker, in both languages", async () => {
+test("a grid agent's own score is the engine's utilities on sampled boards, for every described family and tie-breaker, in both languages", async () => {
   const edge = [Array(16).fill(0), Array(16).fill(9), [7, 0, 0, 5, 3, 2, 9, 9, 0, 0, 3, 3, 2, 7, 3, 3]].map(cells => ({ cells }));
   const sample = [...edge, ...births(gridType, grid4, "scores", 40)];
   for (const e of DESCRIBED) {
@@ -186,36 +185,32 @@ test("both languages make the same moves on newborn boards, with and without wha
 });
 
 
-test("each grid example climbs: the main part never falls and rises on some board; then the tie-breaker rises", async () => {
+test("each grid example climbs: no move lowers the main part, some raise it, some raise the tie-breaker", async () => {
   const stuck: string[] = [];
   for (const e of DESCRIBED) {
     const f = familyOf(e.family), params = paramsOf(e.family);
     for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.id)) {
-      // The main part's best: its utility at the value function's best knot.
-      const best = scoreFromWire(worthOf({ family: e.family, params, tieBreaker: tb }).values!.knots.at(-1)!.u)!;
-      const parts = (s: GridState) => {
-        const sc = evaluateSite(gridType, f, params, s, grid4, 0, tb).score;
-        return [sc?.[0] ?? null, sc?.[1] ?? null] as const;
-      };
+      const utility = (s: GridState): Score => evaluateSite(gridType, f, params, s, grid4, 0, tb).score;
       const a = exampleFor(e.family, tb, "typescript")!;
-      let mainUp = false, tieUp = false, mainBest = false, atTop = false;
+      let mainUp = false, tieUp = false;
       for (const start of births(gridType, grid4, `climb-${e.family}`, 3)) {
         let s = start;
         for (let t = 0; t < 25; t++) {
           const { record, state } = await runAct(await boxes.get("typescript"), { type: gridType, variant: grid4, state: s, rule: { family: e.family, params, tieBreaker: tb }, program: program(a), seed: String(t), energy: 1000 });
           assert.notEqual(record.outcome, "failed", record.reason);
           if (record.outcome === "skipped") break;
+          const u0 = utility(s), u1 = utility(state);
           s = state;
+          assert.ok(u1 !== null || u0 === null, `${e.family}/${tb}: a scored board lost its score on ${gridType.encode(start)}`);
+          if (u0 === null || u1 === null) continue;
+          const main = Qn.cmp(u1[0]!, u0[0]!);
+          assert.ok(main >= 0, `${e.family}/${tb}: the main part fell on ${gridType.encode(start)}`);
+          if (main > 0) mainUp = true;
+          if (Qn.cmp(u1[1]!, u0[1]!) > 0) tieUp = true;
         }
-        const [m0, t0] = parts(start), [m1, t1] = parts(s);
-        assert.ok(compareScores([m1], [m0]) >= 0, `${e.family}/${tb}: the main part fell on ${gridType.encode(start)}`);
-        if (compareScores([m1], [m0]) > 0) mainUp = true;
-        if (compareScores([m1], [best[0]!]) >= 0) mainBest = true;
-        if (compareScores([t1], [t0]) > 0) tieUp = true;
-        if (compareScores([m1, t1], best) >= 0) atTop = true;   // the best knot itself: nothing left to climb
       }
-      if (!mainUp) stuck.push(`${e.family}/${tb}: no board's main part rose`);
-      if (!tieUp && mainBest && !atTop) stuck.push(`${e.family}/${tb}: no board's tie-breaker rose, though a main part reached its best`);
+      if (!mainUp) stuck.push(`${e.family}/${tb}: no move raised the main part`);
+      if (!tieUp) stuck.push(`${e.family}/${tb}: no move raised the tie-breaker`);
     }
   }
   assert.deepEqual(stuck, []);

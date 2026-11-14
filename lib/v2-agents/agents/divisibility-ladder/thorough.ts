@@ -33,8 +33,10 @@ function score(m, c, p, tie) {
 const FAR = 5;      // how far one change may go
 const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
 const SPEND = 0.25;    // never spend more than a quarter of your energy on one move
+const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 function agent(offer) {
+  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone
   // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
   // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
   contested(offer, 3);

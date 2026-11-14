@@ -13,12 +13,13 @@ def score(b, p):
     main = 0
     for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap
         main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])
-    return [min(main, -1), len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far each row is from reading the same backwards, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 
 
 FAR = 3      # how far one change may go
 QUOTES = 6  # at most this many plans are priced (each price is a host call)
 RESERVE = 300  # below this much ⚡, only pay for changes that add points (see the end)
+LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 
 def edit(b, cells, f):
@@ -31,6 +32,8 @@ def edit(b, cells, f):
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this board alone
+        return None
     # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
     contested(offer, 3)
@@ -60,7 +63,7 @@ def agent(offer):
     if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns
         return None
     # Your points on a board are your rarity there times the other players' rarity there, added up. So what this
-    # change is worth is the bits it gains you (+1: a better board is a step towards the next rung) times the
+    # change is worth is the bits it gains you (+1: a small gain still counts for something) times the
     # others' bits (+1: a board nobody else wants yet is worth a little). Below RESERVE ⚡ it only pays for a change
     # worth at least 1 point per ⚡ (when the game does not say what boards are worth, worth is None: it pays).
     w = worth(offer)

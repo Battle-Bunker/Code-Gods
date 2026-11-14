@@ -10,9 +10,9 @@
 def score(b, p):
     # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
     main = 0
-    for x in BOXES:   # each box: the best way to pair its four numbers
-        w, y, z, u = (b[i] for i in x)
-        main -= min(abs(w - y) + abs(z - u), abs(w - z) + abs(y - u), abs(w - u) + abs(y - z)) + (2 if w == y == z == u else 0)   # four of a kind: two cells must move by 1 to make two different pairs
+    for x in BOXES:
+        w, y, z, u = sorted(b[i] for i in x)   # the box's four numbers, smallest first
+        main -= y - w + u - z + (2 if w == u else 0)   # pair the two smallest and the two biggest; four of a kind: two cells must move by 1
     apart = sum(max(b[i] for i in x) - min(b[i] for i in x) for x in BOXES)   # each box: biggest minus smallest
     return [main, apart]   # main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: pairs further apart in each box are better
 

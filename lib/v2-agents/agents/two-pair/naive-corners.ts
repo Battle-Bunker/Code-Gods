@@ -9,9 +9,9 @@
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
 function score(b, p) {
   let main = 0;
-  for (const x of BOXES) {                        // each box: the best way to pair its four numbers
-    const [w, y, z, u] = x.map(i => b[i]);
-    main -= Math.min(Math.abs(w - y) + Math.abs(z - u), Math.abs(w - z) + Math.abs(y - u), Math.abs(w - u) + Math.abs(y - z)) + (w === y && y === z && z === u ? 2 : 0);   // four of a kind: two cells must move by 1 to make two different pairs
+  for (const x of BOXES) {
+    const [w, y, z, u] = x.map(i => b[i]).sort((s, t) => s - t);   // the box's four numbers, smallest first
+    main -= y - w + u - z + (w === u ? 2 : 0);   // pair the two smallest and the two biggest; four of a kind: two cells must move by 1
   }
   return [main, b[0] + b[3] + b[12] + b[15]];   // main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: bigger corners of the board are better
 }

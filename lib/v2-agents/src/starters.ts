@@ -137,10 +137,12 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
       "const SPEND = 0.25;    // never spend more than a quarter of your energy on one move",
+      "const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
     ]),
     "",
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
+      "  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone",
       "  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
       "  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
       "  contested(offer, 3);",
@@ -212,11 +214,14 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
       "SPEND = 0.25    # never spend more than a quarter of your energy on one move",
+      "LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
     ]),
     "",
     "",
     "def agent(offer):",
     ...(kind === "naive" ? [] : [
+      "    if offer.object in LEAVE:   # a deal: leave this line alone",
+      "        return None",
       "    # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both",
       "    # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)",
       "    contested(offer, 3)",

@@ -113,7 +113,7 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
   }
   assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
   assert.deepEqual(out[0]!.r.split("|"), ["4", "6", "24", "0", "3", "7", "7", "6", "2", "false", "true", "true", "true", "false"]);
-  assert.deepEqual(out[0]!.notes, ["Tug-of-war on line 0: another player keeps pulling it back. Make a deal with them?", "two", "x"], "at most 3 notes, trimmed");
+  assert.deepEqual(out[0]!.notes, ["Tug-of-war on line 0: another player keeps pulling it back. Make a deal with them, then add 0 to LEAVE in your agent.", "two", "x"], "at most 3 notes, trimmed");
 });
 
 test("without the game's values an agent still runs (worth is null, rarity 0, recent empty), and its notes reach the act record", async () => {
