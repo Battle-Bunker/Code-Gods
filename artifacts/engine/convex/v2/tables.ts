@@ -196,6 +196,8 @@ export const v2Tables = {
   v2Moves: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), seq: v.number(), worldSeconds: v.number(),
     objectId: v.id("v2Objects"), number: v.number(), agentId: v.optional(v.id("v2Agents")), mine: v.boolean(),
+    /** The player whose agent made the move (on every row: whose line-pulling it was). */
+    by: v.optional(v.id("v2Members")),
     calls: v.array(callV), rep: v.string(), stateBefore: v.string(), stateAfter: v.string(),
     before: valueSnapV, after: valueSnapV, charge: v.optional(v.number()),
   }).index("by_game_member_seq", ["gameId", "memberId", "seq"]),

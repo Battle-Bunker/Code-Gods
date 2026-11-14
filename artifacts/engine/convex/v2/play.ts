@@ -147,6 +147,7 @@ export const moves = query({
       page: page.page.map(m => ({
         seq: m.seq, worldSeconds: m.worldSeconds, objectId: m.objectId, number: m.number, agentId: m.agentId ?? null, mine: m.mine,
         calls: m.calls, rep: m.rep, stateBefore: m.stateBefore, stateAfter: m.stateAfter, before: m.before, after: m.after, charge: m.charge ?? null,
+        by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
       })),
     };
   },

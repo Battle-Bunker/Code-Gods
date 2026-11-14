@@ -52,4 +52,11 @@ export const accountOps = [
     }), result: ok,
     contexts: SIGNED_IN, caller: "signedIn", effect: "write", confirm: "modal", runs: "server", surfaces: CONSENT,
   }),
+  affordance({
+    id: "account.denyConnection", title: "Deny a connection", group: "account", scope: "none",
+    description: "Refuses a pending connection request (an OAuth request or a device code): the app gets no access. A human's own click only.",
+    tooltip: "Refuse this app's request.", keywords: ["deny", "refuse", "reject connection"],
+    params: obj({ request: id.describe("A device code, or an OAuth request id."), requestId: requestId.optional() }), result: ok,
+    contexts: SIGNED_IN, caller: "signedIn", effect: "write", confirm: "none", runs: "server", surfaces: CONSENT,
+  }),
 ] as const;
