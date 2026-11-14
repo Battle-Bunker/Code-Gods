@@ -292,7 +292,7 @@ export interface Mutator<S, A> {
   readonly id: string;                                   // "si.shift"
   readonly reps: readonly string[];                      // the representations it belongs to ("si", "cart")
   readonly title: string; describe(args: A): string;     // "move the line up 2"
-  readonly args: ArgCode<A>;                             // prices and samples the argument (§2.3 codes, composed)
+  args(variant: Variant): ArgCode<A>;                     // prices and samples the argument (§2.3 codes); integer or rational per variant
   readonly perSite: boolean;                             // true: the call names a line
   apply(state: S, site: number, args: A, variant: Variant): S | Invalid;   // canonical result, or why not
   readonly inverse:
@@ -503,47 +503,58 @@ energy of an upper set.
 
 ### 7.2 The estimator (normative)
 
-Inputs: the object type, the variant, the rule, a seed, and `ValuationConfig`:
+Inputs: the object type, the variant, the rule, a seed, and `ValuationConfig` (`lib/v2-valuation/src/estimate.ts`):
 
 ```ts
 interface ValuationConfig {
-  computeBudget: number;      // walk steps in total, all replicates and rungs; default 4,000,000 (the owner's "default compute investment")
+  computeBudget: number;      // walk steps in total; default 16,000,000 (the owner's "default compute investment"; ~15 s per rule)
   targetRelError: number;     // 0.02
-  absFloorBits: number;       // 0.02: the error target for rungs whose value is below 1 bit
-  replicates: number;         // 8 independent estimates
-  burnIn: number;             // steps before sampling in each chain; default 2,000
-  thin: number;               // steps between samples; default 10
-  perturbations: number;      // free-walk steps drawn from each sample; default 4
+  absFloorBits: number;       // 0.03: a 2% error in a probability (log2 1.02 = 0.029), the target for rungs below 1.5 bits
+  replicates: number;         // 8 independent replicates
+  burnIn: number;             // moves before sampling in each chain; default 2,000
+  thin: number;               // moves between samples; default 10
+  perturbations: number;      // one-step free-walk perturbations of each sample; default 4
+  proposalSteps: number;      // K: free walk steps per move of a chain; default 4
+  initialSamples: number;     // samples per chain in the first pass; default 64, doubled per pass
 }
 ```
 
-1. **Seeds for each upper set.** From `origin(variant)`, run the free walk for `burnIn` steps. For i = 1 … n find a state
-   in U_i by a seeded climb: walk steps that do not lower the level are accepted, others refused, until U_i is reached or
-   20 × burnIn steps pass (then the rung is reported unreachable and the run is `unconverged`). Families may supply
-   `exemplars(params, variant)` to seed a rung directly; the climb is the default.
-2. **Sample each upper set within the stationary law.** For each replicate and each i, run the **restricted walk** on U_i:
-   the walk of §5.4, where a step that would leave U_i stays put. When the price list satisfies detailed balance its
-   stationary law is exactly π restricted to U_i; otherwise it is the standard approximation, and step 6 measures the bias.
-   Every `thin` steps after `burnIn`, record the sample's level.
-3. **Perturb.** For each sample whose level is exactly i (a draw from π restricted to L_i), take `perturbations` free
-   walk steps from it (each from the sample, not chained) and count the level each lands in: `C[i][j] += 1`.
-4. **The level matrix and its stationary vector.** T[i][j] = C[i][j] / Σ_j C[i][j]. The level masses w are the stationary
-   vector of T (wT = w, Σw = 1), solved by Gaussian elimination on (Tᵀ − I) with the normalisation row, in doubles. Then
-   V_i = −log2 Σ_{j ≥ i} w_j. This uses the full matrix: transitions that skip rungs and transitions down count.
-5. **Error bars and convergence.** Each replicate yields its own V; the estimate is their mean and the error its standard
-   error. The run is **converged** when, for every rung i ≥ 1, error_i ≤ max(targetRelError × V_i, absFloorBits). If not,
-   the number of samples per chain doubles and the run repeats with fresh derived seeds, until converged or the next
-   doubling would exceed `computeBudget`; then it stops as **unconverged** with its best estimate.
+1. **Seeds, per replicate.** Each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs: walk
+   steps that do not lower the level are accepted, others refused, until each U_i is reached or 20 × burnIn steps pass
+   (then the run is `unreachable`). Replicates do not share seeds: replicates that shared a start would share its slowly
+   forgotten bias, and their spread would understate the error.
+2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i moves by K free
+   walk steps at a time and keeps the end only if it is still in U_i (U_0's chain keeps every end: it is the free walk).
+   P^K has the walk's stationary law, and K-step moves connect thin upper sets that single moves cannot (with shift and
+   tilt alone, no single move stays on m = c). Under detailed balance the chain's law is exactly π restricted to U_i;
+   otherwise it is the standard approximation, whose error sits at the chain's own boundary, and step 6 measures it.
+3. **Perturb.** Every sample, from every chain, is perturbed by `perturbations` single free walk steps, and each landing
+   level is counted in the row of the sample's own level, kept per chain: `C[k][l][j]`. (A sample of chain U_k at level l
+   is a draw from π restricted to L_l, whichever chain produced it.)
+4. **The level matrix and its stationary vector.** Row l is pooled from chains U_0 … U_k for the smallest k whose counts
+   at level l (over all replicates) reach 64 × perturbations: the free chain where it can, restricted chains only where
+   they must, so each row carries as little restriction error as the samples allow. T[l][j] is the row normalised. The
+   level masses w are its stationary vector (wT = w, Σw = 1, by Gaussian elimination on (Tᵀ − I) with the normalisation
+   row), computed only when the sampled levels form one communicating class. Then V_i = −log2 Σ_{j ≥ i} w_j. The full
+   matrix is used: transitions that skip rungs and transitions down count.
+5. **Point estimate, error bars, convergence.** The point estimate uses the counts of all replicates pooled (the
+   eigenvector of a noisy matrix, read through a logarithm, is biased, and pooling keeps the noise small); the error is
+   the delete-one jackknife over replicates. The run is **converged** when, for every non-empty rung i ≥ 1,
+   error_i ≤ max(targetRelError × V_i, absFloorBits). If not, every chain is extended to twice its samples (burn-in and
+   earlier samples are kept), until converged or the next doubling would pass `computeBudget`; then it stops as
+   **unconverged** with its best estimate.
 6. **Diagnostics** (always reported, never used as the value):
    - **splitting estimate:** V_i^split = −Σ_{k < i} log2 (fraction of U_k's samples that lie in U_{k+1}); it agrees with
-     step 4 under detailed balance, and a gap larger than three combined errors flags bias from step 2;
+     step 4 under detailed balance; a gap larger than three combined errors flags the run;
+   - **direct check:** for rungs with π(U_i) > 1/64, the free chain's fraction of samples in U_i; it is exact whatever the
+     price list, and a gap larger than three combined errors flags the run;
    - **reversibility:** the share of level flow that circulates, Σ_{i<j} |w_i T_ij − w_j T_ji| / Σ_{i<j} (w_i T_ij + w_j T_ji)
-     (0 under detailed balance; #347's cycle test, on levels);
-   - **direct check:** for rungs with π(U_i) > 1/64, the fraction of free-walk samples (the U_0 chain) in U_i; it must
-     agree with V_i within three errors;
-   - **mixing:** the integrated autocorrelation time of the level in the U_0 chain (feeds `birthMixSteps`, §2.4).
+     (0 under detailed balance up to noise; #347's cycle test, on levels);
+   - **mixing:** the integrated autocorrelation time of the free chain's level, in walk steps (feeds `birthMixSteps`, §2.4);
+   - the pooled level matrix itself.
 
-The estimator is generic: it needs only `ObjectType`, `Variant`, `RuleFamily` and the walk.
+   A test (`lib/v2-valuation/test/estimate.test.ts`) checks the estimator against a price list with an exact answer
+   (shift and tilt only: detailed balance holds and π ∝ 2^−φ).
 
 ### 7.3 Determinism and seeds
 
@@ -581,9 +592,9 @@ One JSON file per rule key, committed under `lib/v2-valuation/artefacts/<variant
 ```json
 { "schema": 1, "ruleKey": "...", "objectType": "line", "objectTypeVersion": 1, "variant": "line-z", "variantHash": "...",
   "family": "prime-gradient", "params": {}, "seed": "v2", "config": { ... }, "status": "converged",
-  "rungs": [ { "score": null, "bits": 0, "error": 0 }, { "score": ["-2"], "bits": 0.41, "error": 0.006 }, ... ],
-  "curve": { "model": "log-distance", "alpha": 3.25, "beta": 0.75, "delta": "1/2", "snapped": true },
-  "diagnostics": { "splitGapBits": 0.01, "reversibility": 0.04, "directCheck": "ok", "mixingSteps": 37, "steps": 1048576 },
+  "reasons": [], "rungs": [ { "score": null, "label": "anything", "bits": 0, "error": 0 }, { "score": ["-2"], "label": "...", "bits": 0.41, "error": 0.006 }, ... ],
+  "curve": { "model": "log-distance", "alpha": 3.25, "beta": 0.75, "delta": 0.5, "snapped": true },
+  "diagnostics": { "reversibility": 0.03, "mixingSteps": 44, "steps": 12110645, "samplesPerChain": 4096, "split": [...], "direct": [...], "levelMatrix": [[...]] },
   "contentHash": "..." }
 ```
 
@@ -792,7 +803,7 @@ Twelve, the owner's four first. Every distance rule's ladder on Z is `d ≤ 13, 
 | 1 | `prime-gradient` (owner) | Make the gradient as close as possible to a prime number. | si; cart | — | min dist(m, nearest prime); primes are positive | focus si.m; candidates: `cart.ghost(p)` for the primes p either side, labelled with their distances; note the nearer |
 | 2 | `triangle-area` (owner) | The line and the two axes make a triangle; make its area as close as possible to A. | tri; cart, si | A ∈ {4, 6, 8, 12, 18} | min \|tri.area − A\| | focus legs; note area; measure area → A |
 | 3 | `m-meets-c` (owner) | Make the gradient and the y-intercept as close as possible to each other. | si; cart | — | min \|m − c\| | focus si.m, si.c; on the plane, the point at x = −1 and its height (= c − m) |
-| 4 | `crossing-check` (owner) | Make y(k) and x(q) as close as possible. | mach; table | k ∈ {1, 2, 3}, q ∈ {2, 4, 6} | min \|mach.out(k) − mach.reverse(q)\| | both machine runs, their gap |
+| 4 | `crossing-check` (owner) | Make y(k) and x(q) as close as possible. | mach; cart | k ∈ {1, 2, 3}, q ∈ {2, 4, 6} | min \|mach.out(k) − mach.reverse(q)\| | both machine runs, their gap |
 | 5 | `y-intercept-prime` | Make the y-intercept as close as possible to a prime. | cart; si | — | min dist(yInt, nearest prime) | the brief's example: nearby primes as ticks on the y axis with distances |
 | 6 | `treasure` | When x is k, y should be T. | table; cart | (k, T) ∈ {(2, 7), (3, 11), (4, 5), (−2, 9)} | min \|y(k) − T\| | table column k; the point (k, T) on the plane |
 | 7 | `sequence-contains` | One of the first ten pattern terms should be T. | seq; table | T ∈ {12, 20, 30, 50} | min over n ≤ 10 of \|term(n) − T\| | the nearest term highlighted |
@@ -803,7 +814,7 @@ Twelve, the owner's four first. Every distance rule's ladder on Z is `d ≤ 13, 
 | 12 | `intercept-sum` | The x-intercept plus the y-intercept should be as close as possible to S. | int; cart | S ∈ {4, 7, 10} | min \|p + q − S\| | the two intercepts on the axes |
 
 Prime Gradient adds a tie-break component on the Q domain (the denominator of m: smaller is better) so exact primes are
-preferred to near ones of equal distance.
+preferred to near ones of equal distance (with families 5–12, PR 5; the first cut scores distance only).
 
 ### 12.6 Variants and multi-line scoring
 

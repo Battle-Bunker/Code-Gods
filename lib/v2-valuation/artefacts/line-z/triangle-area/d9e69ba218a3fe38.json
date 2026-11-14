@@ -1,0 +1,202 @@
+{
+ "schema": 1,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/triangle-area/{\"A\":4}",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "triangle-area",
+ "params": {
+  "A": 4
+ },
+ "seed": "v2",
+ "config": {
+  "computeBudget": 16000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 4,
+  "initialSamples": 64
+ },
+ "status": "unconverged",
+ "reasons": [
+  "not within 2% after 12116318 steps (budget 16000000)"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-13"
+   ],
+   "label": "the area within 13",
+   "bits": 2.2448,
+   "error": 0.0248
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "the area within 8",
+   "bits": 2.2861,
+   "error": 0.0255
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "the area within 5",
+   "bits": 2.2911,
+   "error": 0.0259
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "the area within 3",
+   "bits": 4.2163,
+   "error": 0.0523
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "the area within 2",
+   "bits": 4.6236,
+   "error": 0.0582
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "the area within 1",
+   "bits": 5.7472,
+   "error": 0.075
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "the area exactly",
+   "bits": 10.1064,
+   "error": 0.2139
+  }
+ ],
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0188,
+  "mixingSteps": 41.2308,
+  "steps": 12116318,
+  "samplesPerChain": 4096,
+  "split": [
+   0,
+   2.2629,
+   2.3073,
+   2.3123,
+   4.1834,
+   4.5424,
+   5.6787,
+   9.9778
+  ],
+  "direct": [
+   0,
+   2.2629,
+   2.3015,
+   2.3049,
+   4.2086,
+   4.5497,
+   5.68,
+   null
+  ],
+  "levelMatrix": [
+   [
+    100670,
+    142,
+    6,
+    2309,
+    67,
+    288,
+    262,
+    8
+   ],
+   [
+    139,
+    473,
+    11,
+    54,
+    16,
+    7,
+    17,
+    3
+   ],
+   [
+    37,
+    58,
+    308,
+    47,
+    16,
+    7,
+    10,
+    1
+   ],
+   [
+    2239,
+    64,
+    11,
+    16406,
+    260,
+    304,
+    124,
+    16
+   ],
+   [
+    67,
+    12,
+    1,
+    239,
+    1003,
+    124,
+    39,
+    7
+   ],
+   [
+    307,
+    14,
+    2,
+    307,
+    174,
+    2039,
+    187,
+    18
+   ],
+   [
+    280,
+    20,
+    2,
+    121,
+    46,
+    194,
+    1770,
+    3
+   ],
+   [
+    35,
+    24,
+    0,
+    85,
+    57,
+    117,
+    34,
+    400
+   ]
+  ]
+ },
+ "contentHash": "3e8cf3e2b243e56f"
+}

@@ -23,6 +23,15 @@
     },
     {
       "path": "./lib/game-utilities"
+    },
+    {
+      "path": "./lib/v2-core"
+    },
+    {
+      "path": "./lib/v2-linear"
+    },
+    {
+      "path": "./lib/v2-valuation"
     }
   ]
 }
