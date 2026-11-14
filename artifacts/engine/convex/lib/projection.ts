@@ -71,7 +71,8 @@ export function gameRecord(game: ClockedGame, objects: readonly Obj[]) {
     worldSeconds: game.worldSeconds, objectCount: objects.length,
     scoring: SCORING, seasonCommitment: game.seasonCommitment,
     // The rotation it belongs to (lib/dealRotation.ts): the results add up the round's games so far.
-    rotation: game.rotation ?? null,
+    // A game ended before its world ran was never played: no part of a rotation (lib/dealRotation.ts skips it too).
+    rotation: game.worldSeconds > 0 ? game.rotation ?? null : null,
   };
 }
 export type GameRecord = ReturnType<typeof gameRecord>;

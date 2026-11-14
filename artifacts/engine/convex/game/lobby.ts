@@ -19,15 +19,14 @@ import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
-import { scoreV } from "./tables";
+import { gameRotationV, scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
 import { scheduleFill } from "./objectViews";
 import { dealKeyOf } from "../lib/dealRotation";
 import { clockDoc } from "./state";
 /** A passed-on deal's card line (owner.ts Rotation). */
 const rotationV = v.object({ round: v.number(), of: v.number(), from: v.string() });
-/** A game's rotation (games.rotation). */
-export const gameRotationV = v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) });
+
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;

@@ -24,4 +24,5 @@ test("the results of a rotation's game: whose rule you get next, and the totals 
   assert.match(rotationStatus(g3, [g3, g2, g1], "a")!.line, /^Game 3 of 3: everyone has now held each rule once/);
   assert.equal(rotationStatus(g3, [g3, g2], "a")!.totals, null, "an earlier game missing from the history: no totals");
   assert.equal(rotationStatus({ id: "x", leaderboard: board(1, 2, 3) }, [], "a"), null);
+  assert.match(rotationStatus(g1, [g2, g1], "b", false)!.line, /^Game 1 of 3 in a rotation, where/, "an older game makes no promise about the next one");
 });

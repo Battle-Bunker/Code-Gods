@@ -5,9 +5,10 @@
  */
 import { boardFacts, buildExampleAgent, mutatorNames, type ExampleLanguage } from "@workspace/game-utilities/example-agents";
 import type { Command, Observation } from "@workspace/player-client";
+import { BUILTIN_AI_MODELS } from "./aiModels";
 
 export function builtinCommand(model: string, observation: Observation): Command | null {
-  if (model !== "example-agent") return null;
+  if (model !== BUILTIN_AI_MODELS[0].id) return null;
   const card = observation.self.utility, instance = observation.instance;
   if (!card || !instance || observation.seated === false || observation.agents.length > 0) return null;
   if (observation.phase !== "planning" && observation.phase !== "running") return null;

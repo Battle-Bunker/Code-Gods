@@ -29,6 +29,8 @@ const aiAgentSnapshot = v.object({
   id: v.string(), name: v.string(), provider: v.union(v.literal("anthropic"), v.literal("openai"), v.literal("builtin")), model: v.string(),
   prompt: v.string(), revision: v.number(),
 });
+/** A game's rotation (games.rotation, lib/dealRotation.ts): its round of `of`, the round's first seat order, its earlier games. */
+export const gameRotationV = v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) });
 const rosterEntry = v.object({ id: v.string(), name: v.string(), kind });
 const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
 /** `restarts`: how often the watchdog restarted the loop (a tick action died or never started); absent reads as 0. */
@@ -190,7 +192,7 @@ export const gameTables = {
       /** `rotation`: a passed-on deal's card line (lib/dealRotation.ts), only when the room plays again with the same players. */
       deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()), rotation: v.optional(v.object({ round: v.number(), of: v.number(), from: v.string() })) })),
       /** The game's rotation (games.rotation), carried to the start's second half. */
-      rotation: v.optional(v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) })),
+      rotation: v.optional(gameRotationV),
       dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
       /** PRIVATE: the whole auction of a deal made with bids (bidding.ts AuctionRecord), for the game's replay. */
       auction: v.optional(v.any()),
@@ -308,7 +310,7 @@ export const gameTables = {
      * order (the rules pass along it) and the round's earlier games, oldest first. Absent: dealt with bids, or a game
      * from before rotations (both read as "no rotation"; nothing to backfill).
      */
-    rotation: v.optional(v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) })),
+    rotation: v.optional(gameRotationV),
     /**
      * The ended game's whole replay log in file storage (convex/replays.ts), written once after the end; the replay
      * page fetches it in one read. Optional: a game ended before it existed gets one from migrations:backfillReplays,

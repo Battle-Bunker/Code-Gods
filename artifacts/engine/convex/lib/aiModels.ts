@@ -14,7 +14,7 @@ export type AIModel = (typeof AI_MODEL_CATALOG)[number];
  * example agent once (game-utilities starterAgents, the one the forge pre-fills for a new player) and leaves it alone.
  * A practice game seats them (aiTemplates PRACTICE_TEMPLATE_ID), so a player who only summons the example meets equals.
  */
-export const BUILTIN_AI_MODELS = Object.freeze([Object.freeze({ id: "example-agent", label: "Example agent", provider: "builtin" as const })]);
+export const BUILTIN_AI_MODELS = Object.freeze([Object.freeze({ id: "example-agent", label: "Example agent (no model)", provider: "builtin" as const, inputUsdPerMillion: 0, outputUsdPerMillion: 0 })]);
 export const isBuiltinModel = (provider: string, model: string) => BUILTIN_AI_MODELS.some(m => m.provider === provider && m.id === model);
 export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
 export function findModel(provider: string, model: string): AIModel | undefined {

@@ -35,12 +35,14 @@ export interface RotationStatus {
  * first seat order each game, so each player always gets the rule of the player before them. Null for a game with no
  * rotation (dealt with bids, or older than rotations).
  */
-export function rotationStatus(game: RotationGame, history: readonly RotationGame[], me?: string): RotationStatus | null {
+export function rotationStatus(game: RotationGame, history: readonly RotationGame[], me?: string, latest = true): RotationStatus | null {
   const r = game.rotation;
   if (!r || r.of < 2) return null;
   const nameOf = (id: string) => game.leaderboard.find(row => row.deityId === id)?.name ?? "another player";
   const k = me ? r.order.indexOf(me) : -1;
-  const line = r.round < r.of
+  // Only the room's latest game can say what the next game deals; an older one just says where it stood.
+  const line = !latest ? `Game ${r.round} of ${r.of} in a rotation, where the rules passed one player along each game.`
+    : r.round < r.of
     ? `Game ${r.round} of ${r.of} in this rotation. ${k >= 0 ? `Play again with the same players and you get ${nameOf(r.order[(k - 1 + r.of) % r.of]!)}'s rule` : "Play again with the same players and the rules pass one player along"}, until everyone has held each rule once.`
     : `Game ${r.of} of ${r.of}: everyone has now held each rule once. One game is not the verdict: the totals over the rotation are.`;
   const earlier = r.gameIds.map(id => history.find(g => g.id === id));

@@ -7,7 +7,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { requireViewer } from "./auth/access";
-import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, PROMPT_MAX, findModel, isBuiltinModel, mockEnabled, providerConfigured } from "./lib/aiModels";
+import { AI_MODEL_CATALOG, BUILTIN_AI_MODELS, DEFAULT_AGENT_MODEL, PROMPT_MAX, findModel, isBuiltinModel, mockEnabled, providerConfigured } from "./lib/aiModels";
 /** The template a practice game seats (no model: lib/aiModels.ts BUILTIN_AI_MODELS). */
 export const PRACTICE_TEMPLATE_ID = "practice-example";
 import { fail } from "./lib/errors";
@@ -64,7 +64,8 @@ export const adminList = query({
     const rows = await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).take(500);
     return {
       agents: rows.sort((a, b) => a.createdAt - b.createdAt).map(view),
-      models: AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })),
+      // The built-in players (no model, always available) beside the priced models, so their templates read as offered.
+      models: [...AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })), ...BUILTIN_AI_MODELS.map(m => ({ ...m, configured: true }))],
     };
   },
 });

@@ -8,7 +8,8 @@ import { rotationStatus, type RotationGame } from "@/site/lib/rotation";
 const points = (x: number) => x.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 export function RotationNote({ game, history, me }: { game: RotationGame | undefined; history: readonly RotationGame[] | undefined; me?: string }) {
-  const s = game ? rotationStatus(game, history ?? [], me) : null;
+  // `history` is newest first: only the latest game says whose rule comes next.
+  const s = game ? rotationStatus(game, history ?? [], me, !history?.length || history[0]!.id === game.id) : null;
   if (!s) return null;
   return (
     <div className="space-y-1 border-l-2 border-[hsl(var(--accent))] pl-3" data-testid="section-rotation">
