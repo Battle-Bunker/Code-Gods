@@ -77,28 +77,28 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 
 ### 1.1 Accounts, site and access
 
-- [ ] **=** Sign-in (Better Auth, Google, the local "fake" provider), sign-in gate on every path, error boundary per page (M2).
-- [ ] **=** Avatar menu, connected apps sheet, credentials list and revoke (M2).
+- [x] **=** Sign-in (Better Auth, Google, the local "fake" provider), sign-in gate on every path, error boundary per page (M2).
+- [x] **=** Avatar menu, connected apps sheet, credentials list and revoke (M2).
 - [ ] **=** Device flow (`/device`) and MCP/OAuth connect (`/connect`) (M3; the tools behind them are R, §1.7).
-- [ ] **=** Auto-update (`version.current`) and static hosting (M2).
-- [ ] **R** Command palette (ui-kit) and site commands: generated from the affordance directory (§2.5) instead of the
+- [x] **=** Auto-update (`version.current`) and static hosting (M2).
+- [x] **R** Command palette (ui-kit) and site commands: generated from the affordance directory (§2.5) instead of the
   per-function catalogue and the two hand-written bind tables (M2, completed M3).
 - [ ] **=** Admin rights by verified e-mail; AI player library `/admin/agents` (shared `aiTemplates` table) (M3).
 - [ ] **R** Rule gallery `/rule-gallery[/:family]`: pages generated from the v2 object-type registry: card sentence, the
   goal card's worked example, the ladder, the dealable parameters; no server (M3).
-- [ ] **D** Home: your rooms, create, join (v2 rooms only once D2 lands) (M2).
+- [x] **D** Home: your rooms, create, join (v2 rooms only once D2 lands) (M2).
 
 ### 1.2 Rooms, seats and setups
 
-- [ ] **D** Room page (`site/pages/room.tsx`, 286): code, owner, next-step button, players, chat, next game, past games
+- [x] **D** Room page (`site/pages/room.tsx`, 286): code, owner, next-step button, players, chat, next game, past games
   (M2). "Invitations" are short codes: unchanged.
-- [ ] **D** Join by code, leave, spectate toggle, ready (M2).
-- [ ] **D** Creating a room seats the creator (ux 1.1) (M2).
-- [ ] **D** Practice partners for every owner: one press fills empty seats; the partner summons its rule's starter
+- [x] **D** Join by code, leave, spectate toggle, ready (M2).
+- [x] **D** Creating a room seats the creator (ux 1.1) (M2).
+- [x] **D** Practice partners for every owner: one press fills empty seats; the partner summons its rule's starter
   agent once (ux 1.1, 1.2) (M2: needed for the first scripted e2e; the practice partner is the M1 scripted agent).
 - [ ] **D** Model-backed AI seats, admin only, with quotas (M3).
 - [ ] **D** Public chat (M2) and chat history (M3).
-- [ ] **D** Owner controls: start, "Start the world now" with its visible answer (ux 1.7), end the game, resume (M2).
+- [x] **D** Owner controls: start, "Start the world now" with its visible answer (ux 1.7), end the game, resume (M2).
 - [ ] **R** Setups and settings. Today: `configure.tsx` (698) + `settings-form.ts` (371) edit a large `GameSettings`,
   users save setups (`gameSetups`), Lab setups for admins. v2: a room picks a **preset** (deployed code, decision 7):
   `Lines · beginner` (line-z, the beginner family pool, 60 s planning, 5 min, 600 starting energy), `Lines · rational`
@@ -107,35 +107,35 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
   The configure page keeps its layout and loses most of its fields (M3). User-saved setups: **×** deferred; presets are
   enough while the engine is moving (guess: nobody but the owner saved setups).
 - [ ] **D** Setup picker with the Lab group for admins (M3).
-- [ ] **R** Bid phase before the deal: handicap-percent bids on rule families, highest bid wins the family exclusively,
+- [x] **R** Bid phase before the deal: handicap-percent bids on rule families, highest bid wins the family exclusively,
   sealed, disclosure by preset; on v2 rule families, through the affordance directory (decision 18, §5.9) (M3).
 - [x] **D** Past games list and the replay link (M3): "Watch the replay" in the past games and the results.
 
 ### 1.3 Planning and the first agent
 
-- [ ] **D** Planning phase: 60 s, the planning line in the header, "Start the world now" (M2).
-- [ ] **R** "Summon my first agent": opens the forge holding the player's rule's **starter** (W2 ships a Simple and a
+- [x] **D** Planning phase: 60 s, the planning line in the header, "Start the world now" (M2).
+- [x] **R** "Summon my first agent": opens the forge holding the player's rule's **starter** (W2 ships a Simple and a
   Thorough starter for every dealable family, in TypeScript and Python, each with one "Try this:" comment; ux 1.3, 3.1);
   summons in one press without a check first (M2).
 - [ ] **D** Every starter payable from starting energy during planning; the god's store can still pay for the dearest
   starter after the first summon. Both are tests over the real summon prices of the real starters (ux 1.4, 1.5) (M2).
-- [ ] **D** First agent's power share ≈ 70% with the explaining sentence (ux 3.7) (M2).
-- [ ] **D** After an accepted summon nothing offers "Summon my first agent" (ux 1.8); the summon message says what
+- [x] **D** First agent's power share ≈ 70% with the explaining sentence (ux 3.7) (M2).
+- [x] **D** After an accepted summon nothing offers "Summon my first agent" (ux 1.8); the summon message says what
   happened and links to My agents (ux 1.9) (M2).
 
 ### 1.4 The forge (agent code)
 
-- [ ] **D** Code editor with language choice (TypeScript, Python), examples and "Other starting points" as Replace (ux
+- [x] **D** Code editor with language choice (TypeScript, Python), examples and "Other starting points" as Replace (ux
   3.4) (M2 summon/replace; M3 the rest).
-- [ ] **R** Check (today "validate", 10–100 s under load, never solved: ux 7.4). v2: `check` compiles, prices the
+- [x] **R** Check (today "validate", 10–100 s under load, never solved: ux 7.4). v2: `check` compiles, prices the
   program, and runs **one act** against a sample object in the sandbox with the host channel and the act's normal step
   budget; it reports the queries made, their read bits, the calls returned and their quoted price. It never blocks
   Summon (ux 1.3). Target: under 3 s on an idle deployment (guess; measured in M3).
-- [ ] **D** Replace as one command: same agent, name, share and stored energy; price from the god's store; the message
+- [x] **D** Replace as one command: same agent, name, share and stored energy; price from the god's store; the message
   says so (ux 3.2, 3.3) (M2).
-- [ ] **D** Put back the previous version in one press, with the frozen before/after comparison ("Before your change:
+- [x] **D** Put back the previous version in one press, with the frozen before/after comparison ("Before your change:
   +21 points a move. Since: +1") (ux 3.5). Data: per program version stats (`v2AgentPrograms`, §4.2) (M3).
-- [ ] **D** Destroy, with what comes back (ux 3.8) (M2).
+- [x] **D** Destroy, with what comes back (ux 3.8) (M2).
 - [ ] **R** The "board facts" and mutator names the starters print come from v2-linear (mutator titles, element
   labels), not game-utilities (M2).
 
@@ -143,48 +143,48 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 
 - [ ] **D** Power, power shares (allocatePower), energy accrual, capacity, debt capped at a full store, re-allocation
   loses nothing (`lib/v2-economy`, copied and cleaned from `game-core/energy.ts`) (M1 server, M2 UI).
-- [ ] **D** My agents pane (`agents.tsx` 425, `energy-capacity.ts` 214, `agent-labels.ts` 125): energy "about 0 ⚡"
+- [x] **D** My agents pane (`agents.tsx` 425, `energy-capacity.ts` 214, `agent-labels.ts` 125): energy "about 0 ⚡"
   wording, full-store wording, acts, spend, skips, failures (ux 3.9) (M2).
 - [ ] **R** Act cost display: v2's act charge is `R/κ + W + βW²` (spec §6.1); the agents pane's "breakdown" shows reads and
   changes in those terms, in ⚡ (M2).
-- [ ] **D** Header: phase pill, clocks, own energy, own total always visible, on the phone too (ux 2.5) (M2).
+- [x] **D** Header: phase pill, clocks, own energy, own total always visible, on the phone too (ux 2.5) (M2).
 
 ### 1.6 Seeing objects and scores
 
-- [ ] **R** Objects pane (`objects.tsx` 434): virtualised rows; each row a **compact face** (§3) instead of a grid
+- [x] **R** Objects pane (`objects.tsx` 434): virtualised rows; each row a **compact face** (§3) instead of a grid
   thumbnail; the payoff rectangle (width = your ✨ rarity, height = how much the others want it, area = your points;
   ux 2.8) unchanged; sort by points, rarity, want, newest; the noun is "line" (ux 2.8) (M2).
-- [ ] **R** The object popover: the **expanded face** with every representation the rule depends on, switching and
+- [x] **R** The object popover: the **expanded face** with every representation the rule depends on, switching and
   comparing (§3) (M2).
-- [ ] **R** "Why?" on a row (`object-why.ts`): from the annotation's terms and the ladder: "rung 5 of 8: the tank empties
+- [x] **R** "Why?" on a row (`object-why.ts`): from the annotation's terms and the ladder: "rung 5 of 8: the tank empties
   1/3 of a minute after minute 3" (M2).
-- [ ] **R** Act log, "What just changed" (`feed.tsx` 103, `score-line.ts` 390, `score-lines.tsx` 147): one line per move
+- [x] **R** Act log, "What just changed" (`feed.tsx` 103, `score-line.ts` 390, `score-lines.tsx` 147): one line per move
   of the player's own agent: which representation changed and how ("gradient 3 → 5"), rule score before → after in
   plain words, ✨ rarity before → after with its reason, points before → after with the want, both values when the want
   changed, and "because the others want this line less now" when points move against the score (ux 2.2, 2.3). Data:
   `v2Moves` rows written by the tick (§2.3) (M2).
-- [ ] **R** Goal card (`goal-card.tsx` 80, my-card pane): card sentence, the worked example as an annotated compact face
+- [x] **R** Goal card (`goal-card.tsx` 80, my-card pane): card sentence, the worked example as an annotated compact face
   with "point at a part to see why", the ladder as "steps to the top" with ✨ rarity per rung, the parts named "(main
   part, tie-breaker)" (ux 2.6) (M2).
-- [ ] **D** "Your points now" explained before the first agent exists (ux 2.4) (M2).
+- [x] **D** "Your points now" explained before the first agent exists (ux 2.4) (M2).
 - [ ] **R** What-if pane (`what-if.tsx` 73): pick a mutator and an argument, see the resulting line, its rule score and
   rarity, and the call's price, all computed in the browser with v2-linear; no server (M3).
-- [ ] **D** Others-care scatter (`others-care.tsx` 75): from a per-player digest written by the tick (M3).
-- [ ] **D** Bits over time, renamed "Your points over time" (`bits-over-time.tsx` 41): from the standings history (M3).
-- [ ] **D** Leaderboard and race (`race.tsx` 76): standings and standings history (M2 standings, M3 race).
-- [ ] **D** Overview, "Where am I" (`overview.tsx` 95): next step, totals (M2).
-- [ ] **D** Rules pane (`rules.tsx` 62): the room's preset and economy in words (M3).
-- [ ] **D** Observation is free and exact (ux 2.7); no noise anywhere in v2 (spec §8) (M2).
+- [x] **D** Others-care scatter (`others-care.tsx` 75): from a per-player digest written by the tick (M3).
+- [x] **D** Bits over time, renamed "Your points over time" (`bits-over-time.tsx` 41): from the standings history (M3).
+- [x] **D** Leaderboard and race (`race.tsx` 76): standings and standings history (M2 standings, M3 race).
+- [x] **D** Overview, "Where am I" (`overview.tsx` 95): next step, totals (M2).
+- [x] **D** Rules pane (`rules.tsx` 62): the room's preset and economy in words (M3).
+- [x] **D** Observation is free and exact (ux 2.7); no noise anywhere in v2 (spec §8) (M2).
 
 ### 1.7 After the game, AI and tools
 
-- [ ] **D** Results (`results.tsx` 144): "You finished 1st of 3 with N points", best line, charts with the "points rise and
+- [x] **D** Results (`results.tsx` 144): "You finished 1st of 3 with N points", best line, charts with the "points rise and
   fall" caption and no negative padding (ux 2.9) (M2 headline, M3 charts).
 - [ ] **D** Rule rotation across replays and running totals per seat (`lib/dealRotation.ts`, rotation note) (M3).
 - [x] **R** Replay (`core/replay/*`, 983 lines; now `artifacts/player-web/src/replay/*`, W5-5): the controller folds `v2Events` (spec §9.2) and answers the sdk2 hooks
   at the playhead, so every pane works in replay unchanged; after the end every player's rule is open, so the expanded
   face can show **any** player's annotation (new), and replay events show points changes (never solved, ux 7.6) (M3).
-- [ ] **R** In-client assistant (`core/chat/*`, 1,153 lines): pane, queue, modes and chips stay; its tools are
+- [x] **R** In-client assistant (`core/chat/*`, 1,153 lines): pane, queue, modes and chips stay; its tools are
   generated from the affordance directory (§2.5, §4.4): explain my rule, read a line in a representation, write and
   check my agent, summon and replace, propose a pitch to another player (spec PR 12) (M3).
 - [ ] **R** MCP server, OAuth, CLI (`pnpm player`): same transport and auth; tools, dispatch and CLI subcommands generated
@@ -194,11 +194,11 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
   in v2 games (the frame says so); the example panels are rewritten for v2 (M3).
 - [ ] **D** Spectators (`game-panels.tsx` 224): standings, objects (states only, drawn in a default representation
   since a spectator holds no rule), chat (M3).
-- [ ] **D** Phone layout: stacked panes, ≤ 45% list height, short code box, stacked primary buttons, status lines brought
+- [x] **D** Phone layout: stacked panes, ≤ 45% list height, short code box, stacked primary buttons, status lines brought
   into view (ux §5); the expanded face stacks representations as tabs below 768 px (M2, walked in M3).
-- [ ] **D** Failure isolation: per-pane boundaries, no retries, the play screen routed on the header it already has (ux
+- [x] **D** Failure isolation: per-pane boundaries, no retries, the play screen routed on the header it already has (ux
   §4) (M2).
-- [ ] **D** Dock: layouts per room (copied table), presets per phase, pane search, "which pane it replaced" (ux 5.4) (M2).
+- [x] **D** Dock: layouts per room (copied table), presets per phase, pane search, "which pane it replaced" (ux 5.4) (M2).
 
 ### 1.8 Dropped or deferred, with the recommendation
 
