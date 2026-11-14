@@ -3,8 +3,8 @@
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
-// a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
-// changes that keep them.
+// a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that
+// raises your points most (your rarity times the other players').
 // Try this: add the "swap" line from the Two Pair corners example and compare what it spends.
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
@@ -42,16 +42,9 @@ function agent(offer) {
     for (let i = 0; i < 16; i++) tries.push([move("cells.add", { cell: NAME[i], k }), edit(b, [i], j => k)]);   // add k to one cell
     for (let i = 0; i < 8; i++) tries.push([move("turn.balance", { pair: "pair" + i, k }), edit(b, [i, 15 - i], j => (j ? -k : k))]);   // move k from a cell to its opposite, a half turn away (their total is kept)
   }
-  let top = score(b, p), plans = [];
-  for (const [plan, b2] of tries) {
-    const s = score(b2, p);
-    if (better(s, top)) { top = s; plans = [plan]; }               // a new best
-    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
-  }
-  // A promise: on these boards, only moves that leave the other players at least as well off.
-  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));
-  // Contested (another player's move lowered your points here): only moves that keep your own points.
-  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));
-  if (!plans.length) return null;   // nothing better (or nothing that keeps your points): skip
-  return cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
+  let options = tries.map(([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches
+  // A promise: on these boards, only steps that leave the other players at least as well off.
+  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
+  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
+  return climb(offer, options, score(b, p), QUOTES);
 }

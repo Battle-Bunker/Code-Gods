@@ -3,8 +3,8 @@
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
-# a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
-# changes that keep them.
+# a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that
+# raises your points most (your rarity times the other players').
 # Try this: remove the "line" line: can it raise the middle without a whole row at once?
 
 
@@ -54,19 +54,9 @@ def agent(offer):
             tries.append((move("cells.add", cell=NAME[i], k=k), edit(b, [i], lambda j: k)))
         for i in range(8):   # add k to every cell of a row or column
             tries.append((move("tally.add", line=LINE[i], k=k), edit(b, LINES[i], lambda j: k)))
-    top, plans = score(b, p), []
-    for plan, b2 in tries:
-        s = score(b2, p)
-        if better(s, top):
-            top, plans = s, [plan]         # a new best
-        elif plans and not better(top, s):
-            plans.append(plan)             # as good as the best: the price decides
-    # A promise: on these boards, only moves that leave the other players at least as well off.
+    options = [(plan, score(b2, p)) for plan, b2 in tries]   # each step and the score it reaches
+    # A promise: on these boards, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
-        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]
-    # Contested (another player's move lowered your points here): only moves that keep your own points.
-    if hurt(offer):
-        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]
-    if not plans:   # nothing better (or nothing that keeps your points): skip
-        return None
-    return cheapest(offer, plans[:QUOTES])   # the cheapest of the best
+        options = [(plan, s) for plan, s in options if fair(offer, plan)]
+    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
+    return climb(offer, options, score(b, p), QUOTES)
