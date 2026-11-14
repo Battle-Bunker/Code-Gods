@@ -45,6 +45,18 @@ test("expanded face: a line the rule cannot score says why and offers what bring
   assert.match(t, /Next step: /);
 });
 
+test("expanded face: a controlled switcher shows the representation and the comparison it is given", () => {
+  // Catches: the app's stored choice (view.showRepresentation / compareRepresentations) ignored for the face's own state.
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} active="mach" compare="gen" onActive={() => {}} onCompare={() => {}} />);
+  assert.match(html, /aria-selected="true"[^>]*>function machine</);
+  assert.match(html, /aria-label="general form"/);
+  assert.match(html, /<option value="gen" selected="">/);
+  // Uncontrolled, it opens on the rule's primary with nothing compared.
+  const own = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} />);
+  assert.match(own, /aria-selected="true"[^>]*>line on the plane</);
+  assert.doesNotMatch(own, /aria-label="general form"/);
+});
+
 test("move line: the change, the step before → after, the rarity with its reason, points with the want", async () => {
   const { MoveLine } = await import("../src/index.ts");
   const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"

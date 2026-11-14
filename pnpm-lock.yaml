@@ -252,6 +252,9 @@ importers:
       '@workspace/v2-affordances':
         specifier: workspace:*
         version: link:../../lib/v2-affordances
+      '@workspace/v2-agents':
+        specifier: workspace:*
+        version: link:../../lib/v2-agents
       '@workspace/v2-client':
         specifier: workspace:*
         version: link:../../lib/v2-client

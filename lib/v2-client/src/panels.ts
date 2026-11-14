@@ -107,7 +107,8 @@ export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane:
   if (shown.some(p => p.pane === pane)) return { ops: place ? [...ops, { id: "view.movePane", args: { pane, place } }] : ops, replaced: null };
   let replaced: string | null = null;
   if (shown.length >= MAX_PANES) {
-    replaced = shown[0]!.pane === "object" && shown.length > 1 ? shown[1]!.pane : shown[0]!.pane;
+    // The oldest pane goes, but never the one line's own pane, nor the list a line is opened from.
+    replaced = (shown.find(p => p.pane !== "object" && !(pane === "object" && p.pane === "objects")) ?? shown[0]!).pane;
     ops.push({ id: "view.closePane", args: { pane: replaced } });
   }
   ops.push({ id: "view.openPane", args: { pane, ...(place ? { place } : {}) } });

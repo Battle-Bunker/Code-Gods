@@ -15,7 +15,8 @@ const listeners = new Set<(pane: string) => void>();
 export function onReveal(fn: (pane: string) => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
 
 export interface PaneOps {
-  open(pane: string, place?: Place): Promise<void>;
+  /** False when the screen did not change (the player was told why). */
+  open(pane: string, place?: Place): Promise<boolean>;
   close(pane: string): Promise<void>;
 }
 
@@ -31,9 +32,10 @@ export function usePaneOps(phase: GamePhase): PaneOps {
   }, [rt]);
   const open = useCallback(async (pane: string, place?: Place) => {
     const plan = openPlan(view, phase, pane, place);
-    if (!await runOps(plan.ops)) return;
+    if (!await runOps(plan.ops)) return false;
     if (plan.replaced) toast({ title: `Opened ${paneTitle(pane)}`, description: `It replaced ${paneTitle(plan.replaced)} (at most five panes at once). Open it again from a pane's menu.` });
     requestAnimationFrame(() => { for (const l of listeners) l(pane); });
+    return true;
   }, [view, phase, runOps]);
   const close = useCallback(async (pane: string) => { await runOps(closePlan(view, phase, pane)); }, [view, phase, runOps]);
   return useMemo(() => ({ open, close }), [open, close]);
