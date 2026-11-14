@@ -107,6 +107,8 @@ const spend = (e: FakeEnv, price: number) => {
   if ((g.energy[e.userId] ?? 0) < price) throw new OpFailure(`That costs ${price} energy; you have ${g.energy[e.userId] ?? 0}.`);
   g.energy[e.userId]! -= price;
 };
+/** The fee of a unit si.shift or si.tilt on a one-line Z board: log2 19 (v2-core amountCode(log2 9, 1, false).rate). */
+const UNIT_FEE = Math.log2(19);
 /** Bits to write an integer: sign, then Elias-gamma of |n| + 1 (a stand-in for v2-core's codes). */
 const intBits = (n: number) => 1 + 2 * Math.floor(Math.log2(Math.abs(n) + 1)) + 1;
 const page = <T>(rows: T[], args: { cursor?: string | null; limit: number }) => {
@@ -343,7 +345,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
       if (!Number.isInteger(k) || k === 0 || (c.mutator !== "si.shift" && c.mutator !== "si.tilt"))
         return { valid: false, reason: `The fake server prices only si.shift and si.tilt with a nonzero integer k.`, bits, total: 0, charge: 0, after: null };
       if (c.mutator === "si.shift") o.c += k; else o.m += k;
-      bits.push(3.17 + intBits(k));
+      bits.push(UNIT_FEE * Math.abs(k));   // far moves are dear: a move by k costs k unit moves (v2-core amountCode)
     }
     const total = bits.reduce((s, b) => s + b, 0), g = gameOf(e), d = distanceOf(g, e.userId, o);
     return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };

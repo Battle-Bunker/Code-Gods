@@ -106,21 +106,23 @@ read of `tally` costs the bits of its eight totals, capped (as for lines) at the
 ## 4. Mutators and their handling fees
 
 Nine mutators, so "which" is log2 9 = 3.17 bits, as on the line. Positions are choices (their log2 is the handling fee
-of the move: it is the same in both directions). Amounts are priced by steps (decision 17): a nonzero k costs
-1 + ½(|k| − 1) + 1.77 bits (±1: 2.77). Every call also pays the confining surcharge max(0, φ(after) − φ(before)), which
+of the move: it is the same in both directions). Amounts are priced in proportion to their size, against the rest of
+the call (far moves are dear, spec §12.4): with o the bits of which + the call's choices, k costs log2(1 + 2^(o+1))·|k| − o,
+so the call's whole fee is log2(1 + 2^(o+1))·|k| and a move of k costs exactly |k| moves of 1 (cells.add: 8.18 bits a
+unit; tally.add, turn.balance, steps.tilt: 7.18; boxes.add: 6.19). Every call also pays the confining surcharge max(0, φ(after) − φ(before)), which
 here is half the growth of the total. A result past the cap or below 0 is refused, in both directions alike.
 
 | Id | Rep | Arguments (bits) | Effect | Inverse | Price of the cheapest call |
 |---|---|---|---|---|---|
-| `cells.add` | cells | cell: choice of 16 (4); k: steps | cell += k | `cells.add(cell, −k)` | 9.94 (+½ when k = 1) |
+| `cells.add` | cells | cell: choice of 16 (4); k: amount | cell += k | `cells.add(cell, −k)` | 8.18 a unit (+½ when k = 1) |
 | `cells.swap` | cells | a, b: two choices of 16 (8; a = b is refused) | swap them | self | 11.17, no surcharge |
-| `tally.add` | tally | line: choice of 8 rows and columns (3); k: steps | every cell of the line += k | `tally.add(line, −k)` | 8.94 (+2 when k = 1) |
-| `tally.rotate` | tally | line (3); j: choice of 3 (1.58) | the line's cells move j places along, the last coming round to the front | `tally.rotate(line, 4 − j)` (same price) | 7.75, no surcharge |
+| `tally.add` | tally | line: choice of 8 rows and columns (3); k: amount | every cell of the line += k | `tally.add(line, −k)` | 7.18 a unit (+2 when k = 1) |
+| `tally.rotate` | tally | line (3); j: choice of 3 (1.58) | the line's cells move j places along, the last coming round to the front | `tally.rotate(line, 4 − j)` (same price; j is a choice, not a size, so that its inverse 4 − j costs the same) | 7.75, no surcharge |
 | `turn.spin` | turn | one of 7 turns and flips (2.81) | the whole board turned a quarter, half or three quarters, or flipped (two axes, two diagonals) | the opposite turn; flips are their own | 5.98, no surcharge |
-| `turn.balance` | turn | pair: choice of 8 (3); k: steps | the pair's top-half cell += k, its opposite −= k (the pair's total is kept) | `turn.balance(pair, −k)` | 8.94, no surcharge |
+| `turn.balance` | turn | pair: choice of 8 (3); k: amount | the pair's top-half cell += k, its opposite −= k (the pair's total is kept) | `turn.balance(pair, −k)` | 7.18 a unit, no surcharge |
 | `mirror.reverse` | mirror | line (3) | a row or column written backwards | self | 6.17, no surcharge |
-| `steps.tilt` | steps | line (3); k: steps | the line's cells += 0, k, 2k, 3k (every step along it grows by k) | `steps.tilt(line, −k)` | 8.94 (+3 when k = 1) |
-| `boxes.add` | boxes | box: choice of 4 (2); k: steps | every cell of the box += k | `boxes.add(box, −k)` | 7.94 (+2 when k = 1) |
+| `steps.tilt` | steps | line (3); k: amount | the line's cells += 0, k, 2k, 3k (every step along it grows by k) | `steps.tilt(line, −k)` | 7.18 a unit (+3 when k = 1) |
+| `boxes.add` | boxes | box: choice of 4 (2); k: amount | every cell of the box += k | `boxes.add(box, −k)` | 6.19 a unit (+2 when k = 1) |
 
 The cycle test is the hard gate it is on the line: lib/v2-grid's potential test proposes every call from a corpus of
 boards on every variant and fails on any one-way move or any pair of opposite moves whose weights differ.

@@ -11,12 +11,12 @@ to the stationary law and to rule values. Numbers came from the since-deleted `l
   `mixedPos(n) = ½ Σ e·p + log2 Z` (log2 Z ≈ 2.10), `mixedInt(0) = 1`, `mixedInt(±n) = 2 + mixedPos(n)`. Kraft sum 1, so
   the law is normalisable on the unbounded variants. 23 costs 15.6 bits, 24 costs 8.6; 47 costs 27.6, 48 costs 9.6.
   φ(line) = mixedInt(m) + mixedInt(c) on `line-z`, mixedInt over the primitive triple (a, b, c) on `line-q`.
-- **Additive moves, by steps** (cost proportional to the amount added): shift, tilt, step, slide, pivot (its anchor and
-  its turn), nudge and intercept moves. A nonzero integer k costs 1 + ½(|k| − 1) + 1.77 bits (±1: 2.77, ±4: 4.27,
-  ±10: 7.27); a nonzero rational p/q costs 1 + ½(|p| − 1) + ½(q − 1) + 3.54; a value that may be 0 adds 1 bit.
-- **Multiplicative moves, by digits**: `mach.stretch(f)` costs the gamma code of f (×2: 4 bits, ×½: 4 bits, ×6: 7 bits),
-  and its inverse ×1/f costs the same, so it is always available. The reciprocal (`cart.mirror` in y = x) is a choice of
-  4 (2 bits).
+- **Far moves are dear** (owner design, 2026-11-14; spec §12.4): every move's size (an amount added in shift, tilt,
+  step, pivot, nudge and intercept moves; a slide's (u, v); a factor's digits) is priced against the rest of the call, so
+  the call's whole fee is rate·size and a move of size n costs exactly n unit moves. An amount p/q has size |p| + q − 1, a
+  slide σ(u) + σ(v), a factor log2(|p|·q). On line-z a unit shift or tilt costs 4.25 bits (was 5.94), a shift by 4
+  costs 17.0 (was 7.44), ×2 costs 5.39 (was 8.17) and ×6 costs 13.9 (was 10.17). A pivot's anchor x0 is a choice, still
+  by steps: 1 + ½(|x0| − 1) + 1.77 bits, and 1 bit for 0. The inverse of every move costs the same.
 - Every call also pays log2 9 (which mutator) and the **confining surcharge** max(0, φ(after) − φ(before)) (decision 11).
 
 Under this list the walk is close to detailed balance (reversibility 0.00–0.07 on levels), so the stationary law is close

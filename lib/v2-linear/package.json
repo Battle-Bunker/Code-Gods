@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@workspace/v2-economy": "workspace:*"
   }
 }
