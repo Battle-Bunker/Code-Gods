@@ -99,7 +99,7 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
   // 1. Cross-entropy adaptation towards the top rung (grid-draws.ts).
   const mixture = new GridMixture(variant, family.id, ["grid-sample", seed, family.id, JSON.stringify(params), String(tieBreaker), variant.id]);
   mixture.adapt(levelOfBoard, (a, b) => a - b, { ...DRAW_CONFIG, roundSamples: cfg.roundSamples, rho: cfg.rho, alpha: cfg.alpha, floor: cfg.floor,
-    maxRounds: Math.min(cfg.maxRounds, Math.floor(cfg.budget / 4 / cfg.roundSamples)) }, top);
+    maxRounds: Math.min(cfg.maxRounds, Math.ceil(cfg.budget / 4 / cfg.roundSamples)) }, top);
 
   // 2. Estimation from the defensive mixture of every proposal.
   const K = mixture.proposals.length;

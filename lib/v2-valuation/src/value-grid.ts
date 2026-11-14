@@ -41,7 +41,7 @@ export function gridValueFunction<P>(type: ObjectType<GridState>, family: RuleFa
     const draws: { u: Score; w: number }[] = [];
     for (let i = 0; i < n; i++) draws.push({ u: utility(draw()), w: 1 });
     sampled = { draws: n, accepted: n, ess: n };
-    oracles.push(sampledOracle("direct and importance-sampled draws", draws));
+    oracles.push(sampledOracle("plain draws from π", draws));
   }
   const { knots, candidates } = knotsFrom(oracles, cfg);
   const body = {
