@@ -22,3 +22,10 @@ test("nothing when there is no round or this game is not in it", () => {
   assert.equal(rotationSummary(null, "me", "g2"), null);
   assert.equal(rotationSummary(round, "me", "g9"), null);
 });
+
+test("the first game of a round says so, without a totals table that only repeats the final standings", () => {
+  // Catches (playtest round 5): Results showed the same standings twice after game 1 of a rotation.
+  const s = rotationSummary({ ...round, round: 1, games: [{ gameId: "g1", number: 1 }] }, "me", "g1")!;
+  assert.equal(s.heading, "Game 1 of 3 in this rotation: every player gets each rule once.");
+  assert.deepEqual(s.rows, []);
+});

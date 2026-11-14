@@ -46,6 +46,8 @@ export interface RotationRound {
  */
 export function rotationSummary(r: RotationRound | null | undefined, me: string | null, gameId: string) {
   if (!r || !r.games.some(g => g.gameId === gameId)) return null;
+  // After the first game the running totals are this game's standings, shown just below: no second table.
+  if (r.round === 1 && r.of > 1) return { heading: `Game 1 of ${r.of} in this rotation: every player gets each rule once.`, rows: [] };
   const heading = r.round >= r.of
     ? "The rotation is over: every player has had each rule once. Final totals:"
     : `Game ${r.round} of ${r.of} in this rotation: every player gets each rule once. Totals so far:`;

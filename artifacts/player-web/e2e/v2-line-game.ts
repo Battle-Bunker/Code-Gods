@@ -154,7 +154,14 @@ try {
     // From the total to the line-by-line list in one step (the header's button): Lines, sorted by your points.
     const sortSelect = page.getByTestId("select-lines-sort");
     if (await sortSelect.count()) await sortSelect.selectOption("recent");
+    // The button reads in full, never clipped (round 5: "See it line by").
+    assert.ok(await page.getByTestId("button-line-by-line-bar").evaluate((b: HTMLElement) => b.scrollWidth <= b.clientWidth + 1), `${label}: "See it line by line" is not clipped`);
     await page.getByTestId("button-line-by-line-bar").click();
+    // Its note pops up at the bottom, never over the header and the timer (round 5, on a phone).
+    const note = page.getByText("Lines, best for you first").first();
+    await note.waitFor({ timeout: 10_000 });
+    const nb = await note.boundingBox();
+    assert.ok(nb && nb.y > viewport.height / 2, `${label}: the note sits in the lower half (top at ${nb?.y})`);
     await page.getByTestId("pane-objects").waitFor();
     await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible", timeout: 10_000 });
     assert.equal(await page.getByTestId("select-lines-sort").inputValue(), "points", "Lines sorted by your points");
@@ -240,6 +247,22 @@ try {
     console.log(`${label}: natural end at ${clock(t0)}: ${(await results.getByText(/You finished/).first().innerText()).slice(0, 120)}`);
     // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.
     await results.getByTestId("results-rotation").getByText(/^Game 1 of 3 in this rotation/).waitFor({ timeout: 10_000 });
+    // After game 1 the running totals are these standings: shown once (round 5 showed both tables).
+    assert.equal(await results.getByTestId("results-rotation").locator("ol").count(), 0, "no running-totals table after the first game");
+    if (label === "phone") {
+      // Jumped to, Results starts below the row of pane names (round 5: the headline was hidden under it).
+      await page.getByTestId("button-jump-results").click();
+      // Until the smooth scroll has settled.
+      let head = await results.getByTestId("text-results-headline").boundingBox();
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(150);
+        const now = await results.getByTestId("text-results-headline").boundingBox();
+        if (now && head && Math.abs(now.y - head.y) < 0.5) break;
+        head = now;
+      }
+      const navBox = await page.getByTestId("dock-jump").boundingBox();
+      assert.ok(navBox && head && head.y >= navBox.y + navBox.height - 1, `phone: the Results headline is below the pane names (${head?.y} vs ${navBox && navBox.y + navBox.height})`);
+    }
     await shot(page, `game-${label}-end`);
     // The standings once, in Results (a persona walk met the same table three times), and the way back to the room.
     assert.equal(await page.getByTestId("leaderboard").count(), 0, "no second standings table once the game has ended");

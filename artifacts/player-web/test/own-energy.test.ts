@@ -17,3 +17,10 @@ test("a store within a hundredth of full counts as full; no income never claims 
   assert.equal(ownEnergy({ energy: 575.996, capacity: 576, ownPerSecond: 19.2 }).full, true);
   assert.equal(ownEnergy({ energy: 0, capacity: 0, ownPerSecond: 0 }).full, false);
 });
+
+test("energy above the store's cap says so (grid games start at 900 ⚡ above a 576 ⚡ store)", () => {
+  // Catches (playtest round 5): a player saw 900 at the start, then "576 (full)" forever, with no word why.
+  const above = ownEnergy({ energy: 900, capacity: 576, ownPerSecond: 19.2 });
+  assert.equal(above.text, "900.00 ⚡ (more than your store holds: 576.00 ⚡; it won't refill above that)");
+  assert.equal(above.full, true);
+});

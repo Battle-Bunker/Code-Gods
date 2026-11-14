@@ -77,7 +77,7 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
   return (
     <section className="space-y-1" data-testid="results-rotation">
       <p className="text-muted-foreground">{summary.heading}</p>
-      <ol className="divide-y border-y">
+      {summary.rows.length > 0 && <ol className="divide-y border-y">
         {summary.rows.map(r => (
           <li key={r.memberId} className={`flex items-center gap-3 py-1.5 ${r.mine ? "font-medium" : ""}`}>
             <span className="w-10 tabular-nums text-muted-foreground">{ordinal(r.rank)}</span>
@@ -85,7 +85,7 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
             <span className="tabular-nums">{pointsText(r.net)}</span>
           </li>
         ))}
-      </ol>
+      </ol>}
     </section>
   );
 }
