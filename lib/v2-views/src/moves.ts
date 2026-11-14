@@ -12,6 +12,8 @@ import type { RuleRef } from "./annotate.ts";
 import { changesBetween, contributors } from "./contributors.ts";
 import { candidateArgs, DEFAULT_BUDGET, type ImproveBudget } from "./improve.ts";
 import { chipRep, repText } from "./rep-view.tsx";
+import { fmtBits } from "./format.ts";
+import { nounOf } from "./refs.ts";
 
 export interface Move<S> {
   readonly call: Call;
@@ -157,4 +159,19 @@ export function holdHere<S>(type: ObjectType<S>, state: S, number: number, langu
         : `TARGET = { m: ${lit(m.q.n, m.q.d)}, c: ${lit(c.q.n, c.q.d)} }; SETTLE = [${number}]`,
     };
   } catch { return null; }
+}
+
+/**
+ * A proposal to another player, in words a child can read (playtest round 8): settle this object at a state and both
+ * hold it, with each side's bits there (the others' as their total; no one's rule). A line is written as its equation;
+ * a board too long for one line is drawn in four short rows under the question.
+ */
+export function proposalText<S>(type: ObjectType<S>, number: number, state: S, mine: number, theirs: number): string {
+  const noun = nounOf(type);
+  const t = repText(type, state, chipRep(type, state));
+  const cells = (state as { cells?: unknown }).cells;
+  const where = t.length <= 28 || !Array.isArray(cells)
+    ? `at ${t} and both hold it?`
+    : `like this and both hold it?\n${Array.from({ length: Math.ceil(cells.length / 4) }, (_, r) => cells.slice(r * 4, r * 4 + 4).join(" ")).join("\n")}`;
+  return `Shall we settle ${noun} ${number} ${where}${where.includes("\n") ? "\n" : " "}There I get ${fmtBits(mine)} and the rest of you ${fmtBits(theirs)} together.`;
 }

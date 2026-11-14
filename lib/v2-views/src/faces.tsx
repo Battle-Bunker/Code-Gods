@@ -11,7 +11,7 @@ import type { Contributor } from "./contributors.ts";
 import { useMemo, useState, type ReactElement } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
-import { BITS_HELP, chanceText, fmtBits, fmtEnergy } from "./format.ts";
+import { BITS_HELP, chanceText, fmtBits, fmtEnergy, scoreFormula } from "./format.ts";
 import { holdHere, moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
 import { ObjectChip, RepView } from "./rep-view.tsx";
@@ -157,23 +157,81 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
 const RESULT_MAX = 28;
 const cap1 = (t: string) => t[0]!.toUpperCase() + t.slice(1);
 
-export function MovesList<S>({ list, noun }: { list: readonly Move<S>[]; noun: string }): ReactElement {
+/**
+ * The others' total bits at a candidate (playtest round 8: the sum over every other player, never one player's rule),
+ * read by the app from the server; null while it loads.
+ */
+export interface OthersAt<S> {
+  /** Their total now. */
+  readonly now: number | null;
+  readonly at: (after: S) => number | null;
+}
+
+export interface MovesListProps<S> {
+  readonly list: readonly Move<S>[];
+  readonly noun: string;
+  /** Your bits now (to mark candidates that raise both). */
+  readonly bits?: number | null;
+  /** With the others' totals, each candidate shows the points it would earn, and the list can be ordered by them. */
+  readonly others?: OthersAt<S>;
+  /** "Propose this in chat" on each candidate. */
+  readonly onPropose?: (m: Move<S>) => void;
+  /** "Hold it here" on each candidate: the agent's hold control, filled in with the candidate's state. */
+  readonly onHold?: (m: Move<S>) => void;
+  /** Whether a candidate can be held (the agent's settings can name it); default every one. */
+  readonly holdable?: (m: Move<S>) => boolean;
+}
+
+type Order = "points" | "rarity";
+
+export function MovesList<S>({ list, noun, bits, others, onPropose, onHold, holdable }: MovesListProps<S>): ReactElement {
+  const [order, setOrder] = useState<Order>("points");
   if (!list.length) return <p className="v2v-next" data-kind="none">No single move makes this {noun} rarer for your rule.</p>;
+  const rows = list.map((m, i) => {
+    const theirs = others ? others.at(m.after) : null;
+    const points = m.bits !== null && theirs !== null ? m.bits * theirs : null;
+    const both = m.bits !== null && bits != null && theirs !== null && others?.now != null && m.bits > bits && theirs > others.now;
+    return { m, i, theirs, points, both };
+  });
+  const sorted = others
+    ? [...rows].sort((a, b) => order === "points" ? (b.points ?? -1) - (a.points ?? -1) || a.i - b.i : (b.m.bits ?? -1) - (a.m.bits ?? -1) || a.i - b.i)
+    : rows;
   return (
     <div className="v2v-moves">
       <h4 className="v2v-moves-title">What would make it rarer</h4>
+      {others && (
+        <div className="v2v-move-order" role="group" aria-label="Order the candidates">
+          {(["points", "rarity"] as const).map(o => (
+            <button key={o} type="button" aria-pressed={order === o} data-testid={`button-order-${o}`} onClick={() => setOrder(o)}>
+              {o === "points" ? "Best for points" : "Best for my rarity"}
+            </button>
+          ))}
+          {others.now !== null && <span className="v2v-move-now">The others now: {fmtBits(others.now)} together</span>}
+        </div>
+      )}
       <ol>
-        {list.map((m, i) => (
-          <li key={i} className="v2v-move-option" data-first={i === 0 ? "" : undefined}>
+        {sorted.map(({ m, i, theirs, points, both }, j) => (
+          <li key={i} className="v2v-move-option" data-first={i === 0 ? "" : undefined} data-both={both ? "" : undefined}
+            {...(points !== null ? { "data-points": String(points) } : {})}>
             <span className="v2v-move-words">{m.words[0]!.toUpperCase() + m.words.slice(1)}{!m.words.includes(m.text) && m.text.length <= RESULT_MAX && <span className="v2v-move-result"> → {m.text}</span>}</span>
             <span className="v2v-move-price">{fmtEnergy(m.price.total)}</span>
-            <span className="v2v-move-reason">{cap1(m.reason)}</span>
+            <span className="v2v-move-reason">{cap1(m.reason)}{both && <b className="v2v-move-both" title="More bits for you and for the others"> · ↑ both of you</b>}</span>
             <span className="v2v-move-changes">{m.changes.join(" · ")}</span>
-            {m.bits !== null && <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>}
+            {m.bits !== null && (others
+              ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs) : `your ${fmtBits(m.bits)} × others' …`}</span>
+              : <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>)}
+            {((onPropose && theirs !== null) || (onHold && (holdable?.(m) ?? true))) && (
+              <span className="v2v-move-acts">
+                {onPropose && theirs !== null && <button type="button" data-testid="button-propose" data-rank={j} onClick={() => onPropose(m)}>Propose this in chat</button>}
+                {onHold && (holdable?.(m) ?? true) && <button type="button" data-testid="button-hold-move" data-rank={j} onClick={() => onHold(m)}>Hold it here</button>}
+              </span>
+            )}
           </li>
         ))}
       </ol>
-      <p className="v2v-moves-hint">The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it.</p>
+      <p className="v2v-moves-hint">{others
+        ? "Points = your bits × the others' bits together. A candidate marked ↑ both makes it rarer for you and for them: one to propose."
+        : "The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it."}</p>
     </div>
   );
 }
@@ -254,6 +312,13 @@ export interface ExpandedFaceProps<S, P> {
   readonly onCompare?: (rep: string | null) => void;
   /** The line is contested (a tug-of-war): "Hold it here" comes first, with the settings that hold it (its number). */
   readonly hold?: { readonly number: number; readonly language?: "typescript" | "python"; /** Sets it up: the app opens the agent's hold control, filled in. */ readonly onHold?: () => void };
+  /** The others' total bits now and at each candidate: the candidates then show points and order by them. */
+  readonly others?: OthersAt<S>;
+  readonly onPropose?: (m: Move<S>) => void;
+  readonly onHoldMove?: (m: Move<S>) => void;
+  readonly holdable?: (m: Move<S>) => boolean;
+  /** The candidates, when the app computed them already (to read the others' totals at them); else the face finds them. */
+  readonly moves?: readonly Move<S>[];
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -261,8 +326,8 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const site = props.site ?? 0;
   const a = useMemo(() => annotate(rule, state, { value: props.value }), [rule, state, props.value]);
   const list = useMemo(
-    () => (props.improvement === false ? [] : moves(rule, state, props.value, { k: 3 })),
-    [rule, state, props.improvement, props.value],
+    () => (props.improvement === false ? [] : props.moves ?? moves(rule, state, props.value, { k: props.others ? 4 : 3 })),
+    [rule, state, props.improvement, props.value, !!props.others, props.moves],
   );
   const sa = a.sites[site]!;
   const e = sa.evaluation;
@@ -333,7 +398,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
         {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
         {props.improvement !== false && (() => {
           const hold = props.hold ? holdHere(rule.type, state, props.hold.number, props.hold.language) : null;
-          const moves = <MovesList list={list} noun={a.noun} />;
+          const moves = <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} onPropose={props.onPropose} onHold={props.onHoldMove} holdable={props.holdable} />;
           return hold
             ? <div className="v2v-moves-col">
                 <div className="v2v-hold" data-testid="hold-it-here">

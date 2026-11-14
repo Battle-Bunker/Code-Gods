@@ -241,10 +241,11 @@ try {
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
       // The price and new bits arrive after the move's words (read at once, the text was only "−1 in every cell of row 4").
-      await options.first().getByText(/→ [\d,]+\.\d\d bits?/).waitFor({ timeout: 15_000 });
+      // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
+      await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
-      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+( [a-z]+| × 10[⁰¹²³⁴⁵⁶⁷⁸⁹]+)? by chance\)/, `a move has its new bits: ${first}`);
+      assert.match(first, /→ your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
     // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).
     // Tap selects a part (nothing depends on hover): only its marks are drawn, and the chip clears it.

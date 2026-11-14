@@ -8,6 +8,10 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { valueRecord } from "./values";
+import { seatRules } from "./loop";
+import { decode, encode, typeOf, valuesOf, variantOf } from "./world";
+import { callV } from "./tables";
+import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
@@ -198,3 +202,63 @@ export const digest = query({
   },
 });
 
+
+/** At most this many candidate moves per read (the face lists a few candidates). */
+export const MAX_CANDIDATES = 4;
+
+/**
+ * The others' total bits on an object after each candidate move (playtest round 8: a player may see the others' TOTAL
+ * before and after a candidate, never one player's rule or bits). The server applies each call to the object's live
+ * state itself, so only states one move from where the object is can be asked about, not any state at all; at most four
+ * per read. Reads the object, its state, the caller's seat and the seated players' rules (≤ 16, cold): it re-runs only
+ * when this object moves. An invalid call answers null.
+ */
+export const othersAt = query({
+  args: { objectId: v.string(), calls: v.array(callV) },
+  returns: v.object({ state: v.string(), after: v.array(v.union(v.object({ state: v.string(), want: v.number() }), v.null())) }),
+  handler: async (ctx, { objectId, calls }) => {
+    const { object, state } = await objectAndState(ctx, objectId);
+    if (calls.length > MAX_CANDIDATES) fail("BAD_REQUEST", `Ask for at most ${MAX_CANDIDATES} moves`);
+    const { game, member } = await requireSeat(ctx, object.gameId);
+    const seats = await seatRules(ctx, game);
+    const now = decode(state.state, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
+    return {
+      state: state.state,
+      after: calls.map(call => {
+        const r = applyCall(type, variant, now, call);
+        if (isInvalid(r)) return null;
+        const want = valuesOf(r.result, game.variant, seats).find(x => x.memberId === member._id)?.want ?? 0;
+        return { state: encode(r.result, game.variant), want };
+      }),
+    };
+  },
+});
+
+/** The newest moves on one object an `objectMoves` read answers (one index page; a hold is found among them). */
+export const MAX_OBJECT_MOVES = 50;
+
+/**
+ * The caller's own act-log rows for one object, by its number, newest first (≤ 50): the end summary finds a held deal
+ * in them (when the object first reached the agent's TARGET, who put it back there, the caller's points before and
+ * after) without paging the whole act log. One v2Objects row by number and one index page of v2Moves.
+ */
+export const objectMoves = query({
+  args: { gameId: v.string(), number: v.number() },
+  returns: v.array(v.object({
+    seq: v.number(), number: v.number(), worldSeconds: v.number(), stateAfter: v.string(), mine: v.boolean(),
+    before: v.object({ points: v.number() }), after: v.object({ points: v.number() }),
+    by: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
+  })),
+  handler: async (ctx, { gameId, number }) => {
+    const { game, member } = await requireSeat(ctx, gameId);
+    const object = await ctx.db.query("v2Objects").withIndex("by_game", q => q.eq("gameId", game._id).eq("number", number)).unique();
+    if (!object) return [];
+    const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_object", q => q.eq("gameId", game._id).eq("memberId", member._id).eq("objectId", object._id))
+      .order("desc").take(MAX_OBJECT_MOVES);
+    return rows.map(m => ({
+      seq: m.seq, number: m.number, worldSeconds: m.worldSeconds, stateAfter: m.stateAfter, mine: m.mine,
+      before: { points: m.before.points }, after: { points: m.after.points },
+      by: m.by ? { memberId: m.by, name: game.roster.find(r => r.memberId === m.by)?.name ?? "A player" } : null,
+    }));
+  },
+});

@@ -100,3 +100,21 @@ Measures:
 - **Did anyone feel cheated:** for example, a lie in B, or a card shown by mistake in A?
 
 A ships if it reaches agreement where B doesn't, or reaches it faster, without the "cheated" answers.
+
+## Shipped instead, playtest round 8: the others' total at candidates
+
+The coordinator allowed something narrower than a shown card: a player may see the others' **total** bits on an object
+before and after a candidate move, never one player's rule.
+- **The candidates.** Each candidate in "What would make it rarer" shows your bits × others' total = points, ordered
+  "Best for points" or "Best for my rarity". A candidate that raises both is marked "↑ both of you".
+- **The read.** `v2/play:othersAt` takes the candidates' calls (at most four) and applies them to the object's live state
+  on the server. A player can ask only about states one move from where the object is, never any state.
+- **One tap from a candidate:**
+  - "Propose this in chat" writes a plain proposal into the chat box ("Shall we settle line 8 at y = 2x + 7 and both
+    hold it? There I get … bits and the rest of you … bits together."). A board is written in four rows, and the chat
+    draws it as a board.
+  - "Hold it here" fills in the agent's hold control with that candidate.
+- **The end summary.** "Deals held" names each held object, who held it, and your points before the hold and at the end.
+- **Tests.** `e2e:candidates`; screenshots are in `docs/screenshots/candidates/`.
+
+The proposal above (cards, "what suits us both") is still the owner's to decide.

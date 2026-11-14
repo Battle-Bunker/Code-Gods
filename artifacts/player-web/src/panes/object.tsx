@@ -8,9 +8,9 @@
 import { useMemo } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { ExpandedFace, ObjectChip, shortTitle } from "@workspace/v2-views";
+import { ExpandedFace, moves as candidatesOf, ObjectChip, proposalText, shortTitle, type Move } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
-import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyRule } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyRule, useOthersAt } from "@/sdk";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { useReplaying, useView } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
@@ -20,6 +20,10 @@ import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
 import { requestForge } from "./forge-request";
 import { targetOf } from "./hold";
+import { requestChat } from "./chat-draft";
+
+/** How many candidates the face lists when it shows the others' totals at them (the server reads at most four). */
+const CANDIDATES = 4;
 
 const failed = (title: string) => (e: unknown) => toast({ title, description: e instanceof Error ? e.message : String(e), variant: "destructive" });
 
@@ -40,6 +44,12 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const openPane = useOpenPane(replaying ? "replay" : header?.phase ?? "live");
   const state = useMemo(() => (o ? decodeState(o.state, header?.variant) : null), [o?.state, header?.variant]); // eslint-disable-line react-hooks/exhaustive-deps
   const word = objectWord(header?.variant);
+  // The candidates, and the others' total bits at each (one live read for the object's few candidate states).
+  const rule0 = seated ? my?.rule ?? null : null, value0 = my?.bits ?? undefined;
+  const candidates = useMemo(() => (rule0 && state ? candidatesOf(rule0, state, value0, { k: CANDIDATES }) : []), [rule0, state, value0]);
+  const calls = useMemo(() => candidates.map(m => m.call as { mutator: string; site: number; args: Record<string, string> }), [candidates]);
+  // After the end too (the state is frozen): what each candidate would have earned. Proposing and holding are live only.
+  const others = useOthersAt(replaying ? null : objectId, calls);
   if (!o || !state) return <p className="p-4 text-sm text-muted-foreground">Loading this {word.one}…</p>;
   const rule = my?.rule ?? null;
   if (!seated || !rule) {
@@ -60,6 +70,15 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const holdAction = (agents?.length ?? 0) > 0 && !replaying && header?.phase !== "ended" && holdTarget !== null
     ? () => void requestForge({ kind: "hold", numbers: [o.number], target: holdTarget }, openPane)
     : undefined;
+  const live = (agents?.length ?? 0) > 0 && !replaying && header?.phase !== "ended";
+  const othersAt = others && v ? { now: v.want, at: (after: unknown) => others.get(rule.type.encode(after)) ?? null } : undefined;
+  const propose = othersAt && !replaying && header?.phase !== "ended"
+    ? (m: Move<unknown>) => void requestChat(proposalText(rule.type, o.number, m.after, m.bits ?? 0, othersAt.at(m.after) ?? 0), openPane)
+    : undefined;
+  const holdMove = live
+    ? (m: Move<unknown>) => { const t = targetOf(m.after, rule.type.id); if (t !== null) void requestForge({ kind: "hold", numbers: [o.number], target: t }, openPane); }
+    : undefined;
+  const holdable = (m: Move<unknown>) => targetOf(m.after, rule.type.id) !== null;
   return (
     <div className="space-y-3 p-3" data-testid="line-expanded" data-line={o.number}>
       <div className="space-y-1 text-sm">
@@ -71,7 +90,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {})}</p>}
       </div>
       {/* "Hold it here" on a contested line sets the agent up, as the button below does. */}
-      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared} hold={contested ? { number: o.number, language: agents?.[0]?.language === "python" ? "python" : "typescript", ...(holdAction ? { onHold: holdAction } : {}) } : undefined}
+      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
+        moves={candidates} others={othersAt} onPropose={propose} onHoldMove={holdMove} holdable={holdable} hold={contested ? { number: o.number, language: agents?.[0]?.language === "python" ? "python" : "typescript", ...(holdAction ? { onHold: holdAction } : {}) } : undefined}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}

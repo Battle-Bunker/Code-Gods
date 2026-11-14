@@ -44,3 +44,30 @@ test("nothing Bo is told names Ada's rule, and every value Bo gets is Bo's own",
   const text = JSON.stringify(told);
   for (const secret of [adaRule.ruleKey, adaRule.card, adaRule.family]) assert.ok(!text.includes(secret), `Bo was told ${secret}`);
 });
+
+test("the others' total after a candidate move: only the sum, from the live state (never any state), at most 4, seated players only", async () => {
+  const objectId = objects[0]!;
+  const now = await bo!.query("v2/play:object", { objectId });
+  const shift = { mutator: "si.shift", site: 0, args: { k: "1" } }, none = { mutator: "si.shift", site: 0, args: { k: "0" } };
+  const r = await bo!.query("v2/play:othersAt", { objectId, calls: [shift, { mutator: "no.such", site: 0, args: {} }] });
+  assert.deepEqual(Object.keys(r).sort(), ["after", "state"]);
+  assert.equal(r.state, now.state, "applied to the object's live state");
+  assert.deepEqual(Object.keys(r.after[0]).sort(), ["state", "want"], "a total, nothing per player");
+  assert.notEqual(r.after[0].state, now.state);
+  assert.equal(r.after[1], null, "an invalid call answers nothing");
+  // A move that changes nothing: the others' total is the stored want.
+  const same = (await bo!.query("v2/play:othersAt", { objectId, calls: [none] })).after[0];
+  if (same && same.state === now.state) assert.ok(Math.abs(same.want - now.value.want) < 1e-9, "at the current state it is the stored want");
+  const adaRule = await ada!.query("v2/play:myRule", { gameId });
+  for (const secret of [adaRule.ruleKey, adaRule.card, adaRule.family]) assert.ok(!JSON.stringify(r).includes(secret));
+  await assert.rejects(bo!.query("v2/play:othersAt", { objectId, calls: Array(5).fill(shift) }), /at most 4/);
+});
+
+test("one object's moves are the caller's own act-log rows for it, newest first", async () => {
+  const all = await bo!.query("v2/play:moves", { gameId, paginationOpts: page });
+  const first = all.page[0];
+  if (!first) return;
+  const rows = await bo!.query("v2/play:objectMoves", { gameId, number: first.number });
+  assert.deepEqual(rows.map((r: { seq: number }) => r.seq), all.page.filter((m: { number: number }) => m.number === first.number).map((m: { seq: number }) => m.seq));
+  assert.deepEqual(await bo!.query("v2/play:objectMoves", { gameId, number: 9999 }), []);
+});
