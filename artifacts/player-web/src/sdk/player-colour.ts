@@ -45,3 +45,16 @@ export function viewerIndex(roster: readonly string[] | undefined | null, s: { s
   const id = s.replay ? s.replayViewerId : s.selfId;
   return id && roster ? roster.indexOf(id) : -1;
 }
+
+/**
+ * A chart's value range: the data's extent, padded by `pad` of its span, but never padded across zero (a chart of
+ * points that are all 0 or more had an axis label of "-271", which read as a negative score). Equal ends widen by 1.
+ */
+export function chartExtent(values: readonly number[], pad = 0): [number, number] {
+  const finite = values.filter(Number.isFinite);
+  if (!finite.length) return [0, 1];
+  let lo = Math.min(...finite), hi = Math.max(...finite);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const p = (hi - lo) * pad;
+  return [lo >= 0 ? Math.max(0, lo - p) : lo - p, hi <= 0 ? Math.min(0, hi + p) : hi + p];
+}

@@ -100,7 +100,7 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
       )}
       {isOwner && manifest?.aiFunding.configured === false && <p className="border-t px-4 py-2 text-xs text-muted-foreground">AI players are not set up on this server.</p>}
       {isOwner && manifest?.aiFunding.configured !== false && !room.aiEnabled && !g && open > 0 && (
-        <p className="border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-ai-unavailable">AI players are not available in this room: invite people to fill the seats.</p>
+        <p className="border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-ai-unavailable">Practice partners can fill the empty seats, or invite people. (AI players with their own language model are not available in this room.)</p>
       )}
     </Section>
   );

@@ -39,3 +39,12 @@ test("the accent colour is the person at the screen, also in a replay seen as an
   assert.equal(viewerIndex(roster, { selfId: "cy", replay: true, replayViewerId: undefined }), -1);
   assert.equal(viewerIndex(undefined, { selfId: "bo", replay: false }), -1);
 });
+
+test("a chart's range is padded but never across zero", async () => {
+  const { chartExtent } = await import("../src/sdk/player-colour.ts");
+  assert.deepEqual(chartExtent([0, 100], 0.08), [0, 108], "all points 0 or more: no negative axis label");
+  assert.deepEqual(chartExtent([-100, 0], 0.08), [-108, 0]);
+  assert.deepEqual(chartExtent([-50, 50], 0.1), [-60, 60], "a range across zero pads both ends");
+  assert.deepEqual(chartExtent([5, 5]), [4, 6]);
+  assert.deepEqual(chartExtent([]), [0, 1]);
+});

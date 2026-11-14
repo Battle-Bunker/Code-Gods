@@ -19,6 +19,8 @@ import { useWide } from "./use-wide";
 import { Link } from "./navigation";
 import { planningLine } from "./planning-line";
 import { firstSummonLabel } from "./panels/first-agent";
+import { headerPoints } from "./panels/score-line";
+import { useMyTotals } from "@/sdk/hooks";
 import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useAffordances } from "@/core/use-affordances";
@@ -64,6 +66,8 @@ export function Header() {
   const self = s.obs?.self;
   const live = s.obs?.phase === "planning" || s.obs?.phase === "running" || s.obs?.phase === "paused";
   const roomCode = s.obs?.roomShortCode ?? s.room?.shortCode;
+  const totals = useMyTotals(s.seated && live ? s.obs?.gameId : undefined);
+  const points = s.seated && live && s.obs?.phase !== "planning" ? headerPoints(totals?.score) : null;
   return (
     <header className="flex h-11 shrink-0 items-center gap-3 border-b border-[hsl(var(--card-border))] bg-background px-3 md:gap-4 md:px-4">
       <div className="flex min-w-0 items-center gap-2">
@@ -73,6 +77,8 @@ export function Header() {
       </div>
       <span data-testid="text-phase" className="shrink-0 bg-primary px-2 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground">{phasePill(s, now)}</span>
       {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={owedText(self.energy) ? "Your energy is overdrawn: you cannot summon until your income has covered it" : `Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, until it is full at ${bits(self.capacity)} ⚡` : ""}`} data-testid="text-energy">{owedText(self.energy) ?? `⚡ ${bits(self.energy)} energy`}</span>}
+      {/* Your points, always in view (also on a phone, where the panes that show them can be far down). */}
+      {points && <span className="shrink-0 font-mono text-xs font-semibold tabular-nums" title="Your points now: what the leaderboard ranks" data-testid="text-header-points">{points}</span>}
       <span data-testid="status-connection" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title={s.obs ? "Live" : "Connecting to the engine"}>
         <span aria-hidden className={`h-2 w-2 ${s.obs ? "bg-[hsl(var(--accent))]" : "beat bg-muted-foreground"}`} />
         <span className={s.obs ? "sr-only" : ""}>{s.obs ? "live" : "connecting"}</span>

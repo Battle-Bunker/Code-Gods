@@ -68,7 +68,7 @@ export function ruleScoreText(score: RuleScore): string {
 }
 
 /**
- * "your rule score +1 (4 → 5)", "your rule score stayed 5", "your rule score (primary, secondary) (0, 4) → (1, 3)" for
+ * "your rule score +1 (4 → 5)", "your rule score stayed 5", "your rule score (main part, tie-breaker) (0, 4) → (1, 3)" for
  * a rule with parts (the part names once, so "(6, −8)" is not jargon), or null when either side is unknown.
  */
 export function ruleScoreChange(before: RuleScore, after: RuleScore): string | null {
@@ -79,8 +79,9 @@ export function ruleScoreChange(before: RuleScore, after: RuleScore): string | n
   const a = ruleScoreText(before), b = ruleScoreText(after), parts = partNames(after);
   return a === b ? `your rule score${parts} stayed ${b}` : `your rule score${parts} ${a} → ${b}`;
 }
-/** The names of a rule score's parts, said once: " (primary, secondary)"; nothing for a plain number. */
-const PART_NAMES = ["primary", "secondary", "tertiary"];
+/** The names of a rule score's parts, said once: " (main part, tie-breaker)"; nothing for a plain number. */
+// Plain words (a walker stumbled on "primary, secondary"): the first part decides, the next only breaks a tie.
+const PART_NAMES = ["main part", "tie-breaker", "second tie-breaker"];
 const partNames = (score: RuleScore): string =>
   typeof score === "object" && score && score.length > 1 && score.length <= PART_NAMES.length ? ` (${PART_NAMES.slice(0, score.length).join(", ")})` : "";
 
@@ -148,8 +149,14 @@ export function zeroPointsReason(ownAfter: number | undefined, othersAfter: numb
  * differently because of this figure (a player saw +41.6 once and +0.4 another time for the same step). The bands:
  * what shows as 0.0 none, below 1 "barely", 8 and above "a lot", between them the bare figure; below 0 they would rather not have it.
  */
-export function othersWantClause(others: number | undefined, noun = "object"): string | null {
+export function othersWantClause(others: number | undefined, noun = "object", before?: number): string | null {
   if (typeof others !== "number" || !Number.isFinite(others)) return null;
+  // What it was, when that shows differently: the "before" points are the old rarity × the OLD want (two walkers
+  // checked "14.5 = 4.5 × 2.4" against the new figure and found it did not add up).
+  const was = typeof before === "number" && Number.isFinite(before) && amount(before) !== amount(others) ? ` (was ${amount(before)})` : "";
+  return wantWords(others, noun) + was;
+}
+function wantWords(others: number, noun: string): string {
   // What shows as 0.0 is none.
   if (Math.abs(others) < 0.05) return `the others do not want this ${noun}`;
   if (others < 0) return `the others would rather not have this ${noun}: ${amount(others)}`;
@@ -216,12 +223,12 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
     ? `: ✨ rarity ${rare(rarityBefore)} → ${rare(rarityAfter)} (${rarityAfter > rarityBefore ? "fewer" : "more"} random ${noun}s score this well)` : "";
   const plain = ruleScoreChange(ruleBefore, ruleAfter);
   const rule = plain ? plain + rarity : plain;
-  const others = othersWantClause(othersAfter, noun);
+  const others = othersWantClause(othersAfter, noun, othersBefore);
   if (isKnown(pointsBefore) && isKnown(pointsAfter)) {
     const delta = pointsAfter - pointsBefore, moved = signed(delta) !== "+0";
     const way = ruleDirection(ruleBefore, ruleAfter);
     if (moved && way !== null && Math.sign(delta) !== way) {
-      const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", primary first" : ""}${rarity})`;
+      const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", main part first" : ""}${rarity})`;
       const change = `but this ${noun}'s points ${delta > 0 ? "rose" : "fell"} ${signed(Math.abs(delta)).slice(1)} (${amount(pointsBefore)} → ${amount(pointsAfter)})`;
       const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun, estimate });
       return cause ? `${head}: ${told}, ${change} because ${cause}.`
@@ -371,3 +378,13 @@ export function accumulateFirstMoves(acc: FirstMoves | undefined, events: readon
 
 /** Under "Your points now" until the player has an agent, on every screen: why there are points already, and what an agent is for. */
 export const pointsBeforeAgent = (noun = "object"): string => `Every ${noun} already gives everyone some points; your agent's job is to raise yours.`;
+
+/**
+ * The header's points, always in view (a phone walker never found their total during the game): "229 points", or
+ * null before the game has a total for the player.
+ */
+export function headerPoints(score: number | undefined | null): string | null {
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  const n = Math.round(score);
+  return `${(n === 0 ? 0 : n).toLocaleString("en-US")} point${n === 1 ? "" : "s"}`;
+}

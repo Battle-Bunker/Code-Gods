@@ -6,7 +6,7 @@
 import { useRef } from "react";
 import { useDock, useDockStore } from "@/dock/store";
 import { dimensionVar, productText } from "@workspace/object-views";
-import { LineChart, Obj, Table, useGame, useLeaderboard, useMyCard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
+import { LineChart, Obj, Table, useDockState, useGame, useLeaderboard, useMyCard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
 import { Link } from "@/core/navigation";
 import { finishPlace, liveResultRows } from "./results-rank";
@@ -34,6 +34,8 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const me = game?.self.godId;
   const room = useRoomInfo();
   const myCard = useMyCard();
+  // The game's own word for its objects ("grid" on a Grid board), as every other line says it ("what object?", a walker asked).
+  const noun = useDockState()?.instance?.objectType === "Grid" ? "grid" : "object";
 
   const record = params.gameId ? past?.find(g => g.id === params.gameId || g.shortCode === params.gameId) : phase === "ended" ? undefined : past?.[0];
   const live = !params.gameId && phase === "ended";
@@ -66,7 +68,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const won = auctionLines(auction, id => rows.find(r => r.id === id)?.name ?? "A player", ruleName);
   const note = mine ? handicapNote(mine.total, handicap, fmt) : null;
   const why = mine
-    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} points${note ? ` (${note})` : ""}.${live && best[0] ? ` At the end, your best object gave you ${fmt(best[0].payoff)} points${worst[0] && worst[0].payoff < 0 ? `; your worst took ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
+    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} points${note ? ` (${note})` : ""}.${live && best[0] ? ` At the end, your best ${noun} gave you ${fmt(best[0].payoff)} points${worst[0] && worst[0].payoff < 0 ? `; your worst took ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
   return (
     // The pane scrolls inside itself; the padding lets its last element scroll clear of the pane's bottom edge (the
@@ -90,7 +92,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
       )}
       {params.section !== "standings" && live && best.length > 0 && (
         <button type="button" data-testid="button-results-why" onClick={() => whySection.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
-          className="ml-3 text-sm underline underline-offset-2 text-muted-foreground hover:text-foreground">Why: your best and worst objects ↓</button>
+          className="ml-3 text-sm underline underline-offset-2 text-muted-foreground hover:text-foreground">Why: your best and worst {noun}s ↓</button>
       )}
       {params.section !== "mine" && (
         <Section title="Final standings">
@@ -115,11 +117,11 @@ export default function Results({ params, phase }: PanelProps<"results">) {
         // The pane scrolls inside itself (the dock's frame), and the panes below it cut this section at the fold with
         // nothing to say so: the link above brings it into view, and the sentences come before the chart.
         <div ref={whySection} data-testid="section-results-why" className="scroll-mt-2">
-        <Section title="Why: your best and worst objects">
+        <Section title={`Why: your best and worst ${noun}s`}>
           {/* The chart first, at its own modest height (it scales down to the pane), then the objects it is about. */}
           {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points" format={fmt}
             series={chart} />}
-          <p className="text-xs text-muted-foreground" data-testid="text-results-formula">The lines are these objects' points over the game: they rise and fall as the board changes, so a peak can be higher than the end. Each object's points: your ✨ rarity × how much the others want it. Your total is every object's points added up.</p>
+          <p className="text-xs text-muted-foreground" data-testid="text-results-formula">The lines are these {noun}s' points over the game: they rise and fall as the board changes, so a peak can be higher than the end. Each {noun}'s points: your ✨ rarity × how much the others want it. Your total is every {noun}'s points added up.</p>
           <ul className="space-y-1 text-xs">
             {[...best, ...worst].map(o => ({ o, line: productText(o.own.netBits, o.peerCare, o.payoff) })).map(({ o, line }) => (
               <li key={o.id} className="flex items-center gap-2">
