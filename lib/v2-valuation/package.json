@@ -10,7 +10,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "values": "node --max-old-space-size=8000 --experimental-strip-types src/values-cli.ts",
     "sampler-check": "node --max-old-space-size=3500 --experimental-strip-types src/sampler-check.ts",
-    "grid-value-validate": "node --max-old-space-size=8000 --experimental-strip-types src/grid-value-validate.ts"
+    "grid-value-validate": "node --max-old-space-size=8000 --experimental-strip-types src/grid-value-validate.ts",
+    "uniqueness": "node --max-old-space-size=4000 --experimental-strip-types src/uniqueness-cli.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",

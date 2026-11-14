@@ -206,9 +206,13 @@ grids when their cells are). A strategy cannot thrive by finding one good state 
   | Rare-state bits shift | −0.20 | −0.37 | −0.72 | −1.03 | −1.64 | −2.13 |
 
   The order of states is unchanged; the offset is nearly constant over rare states and matters in large games.
-  Values today are computed under the one-object law (§7.0). The correction is provisional and not built: subtract
-  log2(1/(1 − E[M_N])) from the value of knots rarer than the crowded region (bits ≥ log2 N + 2), from a per-variant
-  table of E[M_N].
+  **The correction** (`lib/v2-valuation/src/uniqueness.ts`, provisional): value functions stay computed under the
+  one-object law (§7.0). A game of N objects looks values up through `withUniqueness(lookup, table, N)`, which lowers
+  bits b by shift(N)·ramp(b), with shift(N) = log2(1/(1 − E[M_N])) and the ramp rising from 0 at log2 N over max(2,
+  2·shift) bits. The ramp keeps the corrected value monotone in the score and leaves the crowded region alone. The
+  per-variant tables of E[M_N] (N = 2 … 1,000; `pnpm --filter @workspace/v2-valuation uniqueness`) are bundled with
+  the value functions (`UNIQUENESS` in values.gen.ts). Σπ² is 0.068 on line-z, 0.012 on line-q and 1.5·10^−12 on
+  grid-4-d10. So line-q shifts by 0.10 bits at 10 objects, 0.23 at 40 and 0.86 at 1,000, and grids need no correction.
 - **Identity, not near-duplicates.** "Unique" is exact equality of the canonical state. A stronger notion (lines that
   differ only slightly, the same primary utility) would be arbitrary per rule, would distort the law more, and would
   forbid legitimate neighbours that hill climbing needs. Recommended: identity only.
