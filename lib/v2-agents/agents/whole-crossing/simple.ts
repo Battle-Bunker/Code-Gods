@@ -1,8 +1,8 @@
 // Whole Crossing · Simple
 // Main part: the x-axis crossing close to a whole number. Tie-breaker: whichever you were dealt (that whole number's smallest prime factor; that whole number's largest prime factor; the gradient's smallest prime factor).
-// What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
-// no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
-// Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
+// What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
+// no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
+// the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
 // back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
@@ -43,17 +43,9 @@ function agent(offer) {
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
   }
-  let top = score(m, c, p, tie), plans = [];
-  for (const [plan, m2, c2] of tries) {
-    const s = score(m2, c2, p, tie);
-    if (better(s, top)) { top = s; plans = [plan]; }               // a new best
-    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
-  }
-  // A promise: on these lines, only moves that leave the other players at least as well off.
-  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));
-  // Contested (another player's move lowered your points here): only moves that raise your own points.
-  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));
-  if (!plans.length) return null;
-  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
-  return plan;
+  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
+  // A promise: on these lines, only steps that leave the other players at least as well off.
+  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
+  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
+  return climb(offer, options, score(m, c, p, tie), QUOTES);
 }

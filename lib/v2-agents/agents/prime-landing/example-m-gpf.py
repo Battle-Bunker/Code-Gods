@@ -1,8 +1,8 @@
 # Prime Landing · Example: the gradient's largest prime factor
 # Main part: the y-intercept close to a prime. Tie-breaker: the gradient's largest prime factor.
-# What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
-# no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
-# Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
+# What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
+# no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
+# the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
 # back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
@@ -41,20 +41,9 @@ def agent(offer):
             continue
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
-    top, plans = score(m, c, p), []
-    for plan, m2, c2 in tries:
-        s = score(m2, c2, p)
-        if better(s, top):
-            top, plans = s, [plan]         # a new best
-        elif plans and not better(top, s):
-            plans.append(plan)             # as good as the best: the price decides
-    # A promise: on these lines, only moves that leave the other players at least as well off.
+    options = [(plan, score(m2, c2, p)) for plan, m2, c2 in tries]   # each step and the score it reaches
+    # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
-        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]
-    # Contested (another player's move lowered your points here): only moves that raise your own points.
-    if hurt(offer):
-        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]
-    if not plans:
-        return None
-    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best
-    return plan
+        options = [(plan, s) for plan, s in options if fair(offer, plan)]
+    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.
+    return climb(offer, options, score(m, c, p), QUOTES)

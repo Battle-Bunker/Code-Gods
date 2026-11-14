@@ -35,11 +35,11 @@ export interface ShippedAgent {
 
 const KINDS: Record<Exclude<AgentKind, "example">, { title: string; summary: string; tryThis: string; far: number; quotes: number }> = {
   simple: {
-    title: "Simple", summary: "Moves the line up, down, steeper or flatter by a little, and pays for the cheapest of the best.",
+    title: "Simple", summary: "Moves the line up, down, steeper or flatter by a little: the step that raises your points most.",
     tryThis: "add the seq.step line from the Thorough starter: a third way to change the line.", far: 2, quotes: 8,
   },
   thorough: {
-    title: "Thorough", summary: "Tries every way it knows to change the line, prices more plans, and pays for the cheapest of the best.",
+    title: "Thorough", summary: "Tries every way it knows to change the line and weighs more steps: the one that raises your points most.",
     tryThis: "change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.", far: 3, quotes: 20,
   },
   bold: {
@@ -56,25 +56,13 @@ const KINDS: Record<Exclude<AgentKind, "example">, { title: string; summary: str
 /** The lines every points-aware agent ends with, in plain words (TypeScript, then Python). */
 const POINTS = {
   ts: [
-    "  // A promise: on these lines, only moves that leave the other players at least as well off.",
-    "  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));",
-    "  // Contested (another player's move lowered your points here): only moves that raise your own points.",
-    "  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));",
-    "  if (!plans.length) return null;",
-    "  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
-    "  return plan;",
+    "  // A promise: on these lines, only steps that leave the other players at least as well off.",
+    "  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));",
   ],
   py: [
-    "    # A promise: on these lines, only moves that leave the other players at least as well off.",
+    "    # A promise: on these lines, only steps that leave the other players at least as well off.",
     "    if offer.object in PROTECT:",
-    "        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]",
-    "    # Contested (another player's move lowered your points here): only moves that raise your own points.",
-    "    if hurt(offer):",
-    "        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]",
-    "    if not plans:",
-    "        return None",
-    "    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
-    "    return plan",
+    "        options = [(plan, s) for plan, s in options if fair(offer, plan)]",
   ],
 };
 
@@ -90,9 +78,9 @@ const entryOf = (id: string): FamilyEntry => {
 };
 
 const HOW = [
-  "What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs",
-  "no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.",
-  "Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line",
+  "What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs",
+  "no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times",
+  "the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line",
   "back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal",
   "with that player and put the line in LEAVE to keep it.",
   "Changing it later costs only what you change. To summon another agent, first move power from your agents to your",
@@ -180,13 +168,20 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   }
   out.push(
     "  }",
-    `  let top = score(m, c, ${args}), plans = [];`,
-    "  for (const [plan, m2, c2] of tries) {",
-    `    const s = score(m2, c2, ${args});`,
-    "    if (better(s, top)) { top = s; plans = [plan]; }               // a new best",
-    "    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides",
-    "  }",
-    ...(kind === "naive" ? ["  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip"] : POINTS.ts),
+    ...(kind === "naive" ? [
+      `  let top = score(m, c, ${args}), plans = [];`,
+      "  for (const [plan, m2, c2] of tries) {",
+      `    const s = score(m2, c2, ${args});`,
+      "    if (better(s, top)) { top = s; plans = [plan]; }               // a new best",
+      "    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides",
+      "  }",
+      "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
+    ] : [
+      `  let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, ${args})]);   // each step and the score it reaches`,
+      ...POINTS.ts,
+      "  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.",
+      `  return climb(offer, options, score(m, c, ${args}), QUOTES);`,
+    ]),
     "}",
   );
   return out;
@@ -260,14 +255,21 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     }
   }
   out.push(
-    `    top, plans = score(m, c, ${args}), []`,
-    "    for plan, m2, c2 in tries:",
-    `        s = score(m2, c2, ${args})`,
-    "        if better(s, top):",
-    "            top, plans = s, [plan]         # a new best",
-    "        elif plans and not better(top, s):",
-    "            plans.append(plan)             # as good as the best: the price decides",
-    ...(kind === "naive" ? ["    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip"] : POINTS.py),
+    ...(kind === "naive" ? [
+      `    top, plans = score(m, c, ${args}), []`,
+      "    for plan, m2, c2 in tries:",
+      `        s = score(m2, c2, ${args})`,
+      "        if better(s, top):",
+      "            top, plans = s, [plan]         # a new best",
+      "        elif plans and not better(top, s):",
+      "            plans.append(plan)             # as good as the best: the price decides",
+      "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
+    ] : [
+      `    options = [(plan, score(m2, c2, ${args})) for plan, m2, c2 in tries]   # each step and the score it reaches`,
+      ...POINTS.py,
+      "    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.",
+      `    return climb(offer, options, score(m, c, ${args}), QUOTES)`,
+    ]),
   );
   return out;
 }
