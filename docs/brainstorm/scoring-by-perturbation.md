@@ -2,7 +2,7 @@
 
 Status: design and analysis only. Nothing in the engine changes. Every number below is printed by
 `docs/brainstorm/scripts/scoring_by_perturbation.py` (numpy only, deterministic, about 13 minutes;
-`... lines` and `... grid` run the two halves).
+`... lines`, `... grid` and `... stationary` run the three parts; the last takes seconds).
 
 The owner's question (docs/brainstorm/linear-equations-brief.md §1): linear equations are an infinite set, so a
 uniform measure does not exist. Should the value of a state become "the expectation that cost-weighted perturbations
@@ -13,37 +13,266 @@ state?
 
 1. **The uniform measure can go. A measure cannot.** If a value is a function of the rule score, rises with it, and
    means the same thing under every rule, then it is minus log2 of the probability of doing at least as well under
-   *some* reference law (§1.3). The only free choice is the law.
-2. **The law the owner is reaching for exists: where random play takes an object.** Read each mutation's price in bits
-   as minus log2 of its probability under a random policy. A random mutation sequence then has probability 2^−(its
-   price), the sequences form a prefix-free code, and the states they end at carry a probability law with no uniform
-   measure anywhere in its definition (§3). It is well defined on the integers, the rationals and every other countable
-   set.
-3. **On today's types that law is the uniform law, for every budget and every price list.** The priced random walk on
-   a grid is symmetric, so uniform boards stay uniform however long they are walked (§3.3, checked to 1e-14). Today's
-   bits are therefore already "rarity under random play". Nothing is recalibrated, and no stored game changes.
-4. **The local quantity in the owner's wording is the slope of that value, not a replacement for it.** For a level set
-   of the rule score, today's bits equal log2(1 + out/in), where out and in are the chances that one random move takes
-   a state out of the set and into it (§4.2, checked). Averaged over the set, "up versus down under perturbation" *is*
-   rarity. At one state it measures how sharp the place is, not how high: the top of a low hill and the top of the
-   highest one get the same local value (§4.3). The engine already ships the local term where it belongs: hold rarity.
-5. **An infinite type needs one size, as a grid does.** No law on an infinite set is left unchanged by the mutators,
-   so the reference law must name a start (the type's origin, y = x) and a spread (the budget B, in bits). B is to a
-   line what "4×4, digits 0–9" is to a grid. It is not a tuning constant inside the scoring; it is the type's size
-   argument (§3.6).
+   *some* reference law (§2.3). The only free choice is the law.
+2. **The law to use is where priced random play comes to rest** (§1; the owner's direction of 14 November). Let random
+   play make each mutation with probability 2^−price. Its stationary law π gives every state an **energy**
+   E(s) = −log2 π(s), and a rule level the **value** −log2 π{score at least this good}. There is no birth state and no
+   budget. This is PageRank without teleportation, read upside down: a common state is a popular page, and value is
+   minus the logarithm of rank mass.
+3. **Energy is read off the price list: a move's price minus its undo's price is the energy it climbs** (§1.2). That
+   holds exactly when the price list passes Kolmogorov's cycle test, and then no eigenvector is needed. When every
+   undo costs what the move cost, energy is flat, π is uniform and the value is today's rarity. So today's bits are
+   already this value on the shipped grid cost models (§4.3), and nothing shipped is recalibrated.
+4. **Only the lopsided part of a price reaches value.** The even part of a price list (how far, which mutator, which
+   cell) sets how fast play moves, never where it rests. This is a theorem, and it answers "should mutator costing
+   decisions matter to value": they matter exactly as far as a move and its undo are priced differently.
+5. **The owner's stitching procedure is correct, and it is how rare levels are measured** (§1.4). Sample states inside
+   each utility level, perturb them, count where they land: the level masses are the stationary vector of that
+   level-to-level matrix (the "eigenvector math"), and when the price list passes the cycle test the ratio of two
+   levels' masses is simply the ratio of the two flows between them. Checked: exact on the 325-line board; on the
+   4×4 grid it measures a level of probability 10^−8 (26.6 bits) to ±0.12 bits from 360,000 samples, none of which
+   ever has to find that level by a blind walk.
+6. **On an infinite type the resting law exists only if prices confine** (§1.5). Even-priced ±k moves on the integers
+   never come to rest. The principled confinement: *arriving at a state that takes more bits to read costs those
+   extra bits*. Then E(s) is the state's read length, π = 2^−(read length) is normalisable by Kraft, and the grid is
+   the special case where every board takes the same 53.2 bits to read.
+7. **The local "up versus down" at one state is the slope of this value, not the value** (§5): it measures how sharp
+   a place is, not how high. It is the right annotation, and hold rarity already is that term.
 
-**Recommendation (§10).** Keep the rule and change one word:
+**Recommendation (§11).** One sentence, unchanged in form:
 
-> An object's bits for a rule are minus log2 of the probability that **random play** would have made it at least this
-> good.
+> An object's bits for a rule are minus log2 of the probability that **random play at rest** holds an object at least
+> this good.
 
-"Random play" is the type's spawn law. On the shipped types it is the uniform draw, as today. On an infinite type it
-is the origin after a random mutation sequence whose price has mean B bits, each mutation drawn with probability
-2^−price. Points stay own bits × the others' bits, and hold rarity stays as it is.
+with two rules behind it: *a state's energy is the bits it takes to read it*, and *a move's price minus its undo's
+price is the energy it climbs* (a unit test on every price list). Points stay own bits × the others' bits, and hold
+rarity stays as it is. The budgeted "achievement from a birth state" of §4 is the same construction with teleportation
+(§1.6); it is kept as analysis and as the fallback where a type's prices do not confine.
 
-## 1. What today's value is, and what the game relies on
+## 1. The centre: energy as the resting law of priced random play
 
-### 1.1 The definition
+The owner (14 November): sample states at each utility level, perturb them with a given amount of energy, accumulate
+the probability of reaching one level from another, and stitch a map from utility to "objective energy levels in
+terms of rareness (maybe with eigenvector math) ... something like inverse PageRank ... Is there some deep
+relationship between energy and information and PageRank we can exploit in a principled way?" And, against a value
+measured from a birth state within a budget: "we will want to map the energy level of utility scores that are
+unreachable in practice by random walks from random states."
+
+There is such a relationship, it is exact, and it is short.
+
+### 1.1 Definitions
+
+Random play is the Markov chain that, at each step, makes move a with probability 2^−W(a) (W the move's price in
+bits) and otherwise leaves the object as it is. A price list is a legal one when these probabilities sum to at most 1
+at every state (Kraft), which the shipped distance model guarantees by construction.
+
+```
+π              the stationary law of random play                         (πP = π)
+E(s) = −log2 π(s)                                                         the energy of a state
+V(u) = −log2 π{ s : U(s) ≥ u }  =  −log2 Σ_{U(s) ≥ u} 2^−E(s)             the value of a level: a free energy
+```
+
+V is non-decreasing in u by construction (the set shrinks), whatever the shape of E; the mass of a single level
+need not be monotone in u, and nothing needs it to be (Prime Gradient on the 325-line board: the top level and the
+next both hold 75 lines).
+
+### 1.2 Energy, information and PageRank: the precise statements
+
+1. **Gibbs.** π(s) = 2^−E(s) is a Boltzmann law at temperature 1 with energy in bits. The value of a level is the free
+   energy of its upper set, which splits as V = (mean energy of the set) − (its entropy in bits): a level is valuable
+   when its states are individually unlikely *and* few. With flat energy V = log2(all states) − log2(states at least
+   this good): Boltzmann's entropy, and today's rarity.
+2. **Detailed balance: energy is local.** If π(s)·P(s → s′) = π(s′)·P(s′ → s) for every pair, then
+
+   ```
+   E(s′) − E(s)  =  W(s → s′) − W(s′ → s).
+   ```
+
+   A move's price minus its undo's price is the energy difference. No global computation is needed to know a
+   state's energy: add up price differences along any route from a reference state.
+3. **Kolmogorov's criterion: when a price list has such an energy.** It does exactly when, around every closed loop
+   of moves, the prices one way round add up to the prices the other way round. Equivalently, "price minus undo
+   price" is the difference of a function of the state. This is a consistency condition on a price list, checkable
+   as a unit test, and it is the condition under which *the route does not matter*: however many lenses reach s′
+   from s, they all agree on how much energy was climbed.
+4. **When it fails**, π still exists (on a finite type it is the Perron vector of P), but probability circulates:
+   there are net currents round the loops that fail the test, energy differences can no longer be read from prices,
+   and π must be computed globally. That is the situation PageRank was invented for (the web's links are one-way),
+   and it is the only situation in which the eigenvector is needed at the level of states.
+5. **Kac's lemma: value is blind search time.** For any set A, the mean number of steps of random play between two
+   visits to A is exactly 1/π(A). So 2^V is the number of random moves a blind agent makes per visit to "at least this
+   good", and V bits of value are V doublings of that work. Checked on the 325-line board: "m Meets c" returns every
+   24.392 moves and 1/π = 24.392 (4.608 bits). Reaching the set for the first time from elsewhere takes longer (42
+   moves there): Kac counts returns, and the difference is the set's clumping, which hold rarity prices.
+6. **PageRank.** PageRank is the stationary law of a random surfer; its damping factor is a restart: with
+   probability 1 − d the surfer jumps to a page drawn from a fixed law. Random play with a restart at the birth law
+   has as its stationary law exactly the budgeted law μ_B of §3 and §4, with d = ρ. So "achievement from a birth state
+   within budget B" *is* PageRank with teleportation, B is the damping, the birth law is the personalisation vector,
+   and the owner's proposal is the limit d → 1. Teleportation exists in PageRank for the same reason a budget appears
+   in §4: to force a resting law where the bare walk has none (§1.5).
+
+**Where the analogy stops.**
+
+- PageRank is interesting because the web is *not* reversible. Mutators mostly are (every move has an undo), and for
+  a reversible walk the stationary law is a local quantity (on an undirected graph PageRank without damping is just
+  the degree). The deep fact here is not the eigenvector; it is detailed balance, which makes energy readable from
+  prices.
+- This energy is not the game's energy currency. E is where random play rests; the currency is what a move costs.
+  They meet in statement 2 (a difference of E is a difference of two prices) and in statement 5 (2^V moves, each
+  costing on average the entropy of the move law, are what blind play spends per visit).
+- Popular is cheap: value is the *inverse* of rank, and it belongs to upper sets, not to states.
+
+### 1.3 What it gives on finite types (exact numbers)
+
+**The beginner grid.** Under set-v1, distance-v1, dial-v1 and log-v1 every undo costs what the move cost. Energy is
+flat (53.2 bits for a 4×4 board of digits, which is also its full read), and V is today's static bits: nothing
+changes (§4.3, checked).
+
+**The 325-line whole-number board** of the content proposal (PR #346: y = mx + c, m in −6..6, c in −12..12, seven
+mutator families with its prices). Exact linear algebra on the 325 × 325 matrix:
+
+| Price list | Energy range (uniform: 8.34) | Net current, share of all flow | Prime Gradient top | m Meets c top |
+|---|---|---|---|---|
+| plain rarity (uniform) | 8.34 | — | 2.12 | 4.64 |
+| shift, tilt, step, slide, mirror: every undo costs the same | 8.34 to 8.34 | 0 | 2.12 | 4.64 |
+| … plus pivot, which pays log2(pegs on the line) to say which peg | 7.56 to 9.01 | 4.1% | 2.14 | 4.39 |
+| … plus stretch ×k, which has no undo: all seven | 7.89 to 8.62 | 8.1% | 2.17 | 4.61 |
+
+- With the five even-priced families the resting law is exactly uniform: on that board the owner's proposal *is*
+  plain rarity.
+- `pivot` breaks the cycle test in an instructive way: turning from a line with n pegs to one with n′ costs log2 n
+  one way and log2 n′ back. Lines with many pegs become common (y = 0 and y = x sit at 7.56 bits) and steep lines
+  near the edge rare (y = x + 12 at 9.01). That lowers "m Meets c" by a quarter of a bit: its perfect lines pass
+  through (−1, 0) and hold many pegs.
+- `stretch` sends mass to the horizontal lines y = ±6, ±12 (multiples reached and never divided back).
+- The tops move by at most 0.25 bits against plain rarity, and with all seven families none of the first eight levels
+  of either rule moves by more than 0.05. So on this board the choice between
+  "uniform" and "the resting law of the proposed price list" is nearly invisible in points, and it is a choice about
+  principle: either accept currents, or make the list pass the test (pivot paying the same both ways, for instance by
+  charging log2 of the larger peg count; stretch offered with its inverse).
+
+### 1.4 The owner's stitching procedure: what is true, and its conditions
+
+Group states by rule level L_0, L_1, … and let
+
+```
+T[i, j] = P( one step of random play from a state of L_i lands in L_j ),   the start drawn from π restricted to L_i.
+```
+
+1. **The level masses are the stationary law of T**, always: Σ_i π(L_i)·T[i, j] = π(L_j). The grouped process is not
+   a Markov chain, but its stationary flows are exact. This is the "eigenvector math", and it is a small problem: one
+   row per utility level, not per state.
+2. **With detailed balance no eigenvector is needed**: π(L_i)·T[i, j] = π(L_j)·T[j, i] for every pair, so
+   π(L_j)/π(L_i) = T[i, j]/T[j, i], and a chain of adjacent levels gives every mass. This is the flux identity of §5.2
+   level by level.
+3. **The same holds for any perturbation built from the moves**: several moves, or a budget of energy, in place of
+   one. The budget is then an efficiency setting (bigger perturbations join more distant levels, at rarer rates),
+   not part of the definition of value.
+4. **The samples inside a level must be distributed as π restricted to that level.** "Random samples of states that
+   achieve each level" is not enough if they come from somewhere else (the agents' boards, a greedy search). With
+   flat energy that means uniform within the level. Ways to get them: where the level can be sampled directly, do
+   so (the grid check below); otherwise a walk that refuses to leave the set keeps π restricted to it when the price list
+   passes the cycle test, which is exactly the shipped splitting estimator (`mc-ams`, on upper sets, which are better
+   connected than single levels).
+5. **Unreachable levels are measured.** No sample has to travel from a typical state to a rare level; each level only
+   has to see its neighbours. Thirty bits are thirty ratios near ½ or a handful of ratios near 2^−4.
+
+Checks:
+
+- *Exact, 325-line board, "m Meets c", 19 levels.* With the five even-priced families: the eigenvector of T, the
+  adjacent-ratio ladder and exact enumeration agree (4.6439 bits at the top). With all seven families the eigenvector
+  of T is still exact (4.6083), but the adjacent-ratio ladder is wrong by up to 0.52 bits (currents, and moves that
+  skip levels), and T built from samples *uniform* within each level, the natural mistake, is wrong by up to 0.07.
+- *Sampled, 4×4 grid, Opposite Nines*, levels = number of pairs adding to 9. 40,000 boards drawn uniformly inside each
+  level, one random priced move each, adjacent ratios only:
+
+  | pairs at 9 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+  |---|---|---|---|---|---|---|---|---|
+  | exact bits | 0.812 | 2.420 | 4.714 | 7.637 | 11.178 | 15.383 | 20.386 | 26.575 |
+  | stitched | 0.827 | 2.436 | 4.729 | 7.663 | 11.279 | 15.467 | 20.440 | 26.622 |
+  | one standard error | 0.032 | 0.044 | 0.053 | 0.062 | 0.071 | 0.081 | 0.094 | 0.115 |
+
+  The top has probability 10^−8; 360,000 blind boards would contain it 0.004 times on average. The error grows like
+  the square root of the number of levels crossed, and the seed fixes the result.
+
+So the owner's objection to the budgeted value is about estimation, and it is answered by the estimator: under any
+law that gives every state positive probability (the resting law, or the budgeted one), a level that blind walks never
+reach still has a definite value and is measured by stitching. What the budget cannot avoid is depending on the birth
+state and on B; the resting law depends on neither.
+
+### 1.5 Infinite types: prices must confine, and then energy is a description length
+
+Random play has a resting law only if it is positive recurrent. Even-priced moves on an infinite lattice are not
+(§4.4): add ±k at the same price both ways and the walk spreads for ever, π is the flat counting measure, and no
+level has a probability.
+
+Detailed balance says what to change. For π to be normalisable some moves must cost more than their undo, and the
+sum of 2^−E over all states must be finite. Any prefix-free code for states gives such an E, by Kraft. The natural
+one is already in the game: **the bits it takes to read the state in full.** So:
+
+> **A move pays its base price plus the bits by which the state's read length grows.**
+> W(s → s′) = base(s, s′) + max(0, φ(s′) − φ(s)), with base the same both ways and φ the read length.
+
+Then W(s → s′) − W(s′ → s) = φ(s′) − φ(s) for every move of every lens, the cycle test passes, and
+
+```
+E(s) = φ(s) + constant,        π(s) ∝ 2^−φ(s).
+```
+
+- The base prices (how far, which lens) drop out of π completely. Checked on a box of 361 lines with lift, tilt and
+  slide all surcharged: E equals φ to 10^−5 bits. Sell slide *without* the surcharge and the list fails the cycle
+  test: E departs from φ by up to 10.7 bits under the slider code and 3.6 under the doubling code (slide becomes a free ride
+  to long constants).
+- On a finite type whose states all read alike (a grid: log2 of the number of boards) the surcharge is always zero,
+  so this is the shipped pricing and the shipped value.
+- It also settles what a full read of an unbounded number costs, which the read meter needs anyway.
+
+**A concrete list for lines y = mx + c with integer m and c**, φ(m, c) = len(m) + len(c), two candidate codes for an
+integer:
+
+| Code for an integer n | Normalisable because | Entropy of a line | "m close to c": \|m − c\| = 0, ≤ 1, ≤ 3 | "gradient near a prime": distance 0, ≤ 1, ≤ 2 | E of y = x + 1, y = 5x + 5, y = 7x − 21, y = 23x + 23 |
+|---|---|---|---|---|---|
+| slider code: 1 + 1.585·\|n\| (the Kraft root the game uses for ±k) | Σ 3^−\|n\| = 2 | 4.4 bits | 1.68, 0.54, 0.08 | 3.71, 2.00, 0.42 | 5.2, 17.9, 46.4, 74.9 |
+| doubling code: 1.20 + 2·log2(\|n\| + 1) (two bits per doubling, as log-v1) | Σ (\|n\| + 1)^−2 = 2.29 | about 7 bits | 2.17, 1.17, 0.62 | 3.23, 1.90, 0.48 | 6.4, 12.7, 17.3, 20.7 |
+
+Under the slider code the argument of a move that takes a coefficient one further from zero costs 3.17 bits, and one
+nearer 1.585. Under the
+doubling code the surcharge is 2 bits per doubling of size. For rationals p/q in lowest terms, φ = len(p) + len(q)
+with the same codes is summable by the same bound (the sum over coprime pairs is below the product of the two sums),
+so π is normalisable there too.
+
+Compare §8.1: plain rarity on a lattice gives the top of "m close to c" anything from 3.5 to 7.7 bits as the bound N
+goes from 5 to 100, and the budgeted law 2.9 to 4.3 as B goes from 8 to 128. The resting law has no N and no B. What
+it has instead is the code for a number, which is a statement the game must make in any case to price a read.
+
+### 1.6 How several lenses enter
+
+Lenses add transition probability between the same pairs of states.
+
+- If every lens prices a move and its undo by the same energy difference (even base prices plus the read-length
+  surcharge), detailed balance survives any number of lenses, and **value does not depend on the lens set at all**.
+  A cheaper route through another representation then changes what a player *pays*, never what the state is
+  *worth*. That is the cleanest form of the owner's wish: lens choice is pure skill, and "it's totally fine for a
+  state shift to cost much more with one mutator than another".
+- If a lens prices its undo differently from the others (pivot's peg count, stretch without division, slide without
+  the surcharge), value depends on the lens set through the currents it creates (§1.3: up to a quarter of a bit on
+  the 325-line board; §1.5: ten bits on unbounded lines).
+- Under the budgeted law of §4 a new lens always moves values (§4.5), because a walk that has not come to rest still
+  remembers which routes were short. That is one more reason to prefer the resting law.
+
+### 1.7 Deterministic computation
+
+- Small boards: exact linear algebra. 325 lines: a 325 × 325 solve, milliseconds. The pegboard's 6,460 lines: a sparse
+  solve of the same kind.
+- Price lists that pass the cycle test need no solve at all: E is the read length, and a rule's table is a sum of
+  2^−E over its upper sets (closed form for independent coordinates, as in the table above).
+- Large or infinite types: the shipped seeded splitting estimator, with the walk's acceptance weighted by 2^−ΔE
+  (Metropolis on the read length); error bars as in §1.4, about 0.1 bits at 27 bits for 360,000 samples.
+- Clients and replays still only look up a table (§7.1).
+
+## 2. What today's value is, and what the game relies on
+
+### 2.1 The definition
 
 For a rule r with utility U_r (a tuple compared lexicographically), an object type with spawn law μ (uniform on every
 shipped type), and a state x:
@@ -60,7 +289,7 @@ n_r(x) = s_r(x) + hold_r(U_r(x), m)                           payoff bits   (doc
 - A player's total is the sum of π over live objects. A defence goal subtracts a penalty term; nothing below depends
   on it.
 
-### 1.2 The properties the game uses
+### 2.2 The properties the game uses
 
 | Property | Where it is used |
 |---|---|
@@ -72,7 +301,7 @@ n_r(x) = s_r(x) + hold_r(U_r(x), m)                           payoff bits   (doc
 | **Not additive** | bits of two rules on one object do not add (rules conflict, SYN in rule-difficulty.md §2.4); bits of independent parts of one rule do add (8 pairs of Opposite Nines: 8 × 3.32) |
 | **Bounded on finite types** | every rule has a top; the table's slope extrapolates above it |
 
-### 1.3 Why a calibrated value must be a rarity
+### 2.3 Why a calibrated value must be a rarity
 
 Let v_r be any value with the first two properties: v_r(x) depends on x through u = U_r(x), is non-decreasing in u,
 and is calibrated against a reference object X (P(v_r(X) ≥ b) = 2^−b at attained values b). Take a level u where v_r
@@ -86,7 +315,7 @@ Where v_r does not strictly increase it is the rarity of a coarser score. So "co
 on the score" together force the form. A design may choose the law of X. It may not avoid having one. Every candidate
 below is judged by which law it uses, or by which of the two properties it gives up.
 
-## 2. Priced mutators as a random policy
+## 3. Priced mutators as a random policy
 
 One object type, countable state space 𝒳, a set of moves a (a mutator with its arguments), each with a price W(a) in
 bits and an effect x ↦ a(x) (a move that cannot apply leaves x as it is, as in `noise.ts`).
@@ -119,7 +348,7 @@ bits and an effect x ↦ a(x) (a move that cannot apply leaves x as it is, as in
   K_E needs no budget because energy prices are not Kraft-tight: Σ_a 2^−(W+βW²) < 1 already (0.27 on the beginner
   board, 0.59 for the three line mutators below).
 
-**The example used throughout** (§7): lines y = mx + c with integer m and c, origin y = x, three mutators chosen with
+**The example used throughout** (§8): lines y = mx + c with integer m and c, origin y = x, three mutators chosen with
 probability 1/3 each (1.585 bits):
 
 | Mutator | Effect | Representation it belongs to | Argument bits |
@@ -132,18 +361,21 @@ probability 1/3 each (1.585 bits):
 The two rules are from the brief: **"m close to c"** (score −\|m − c\|) and **"gradient near a prime"** (score minus
 the distance from m to the nearest prime).
 
-## 3. Candidate (a): achievement, the rarity of the score under random play
+## 4. Candidate (a): achievement, the rarity of the score under random play on a budget
 
-### 3.1 Definition
+This is the resting law of §1 with teleportation: B → ∞ gives §1 where a resting law exists (theorem 1), and theorem 2
+says when it does not.
+
+### 4.1 Definition
 
 ```
 A_B(x) = −log2 μ_B{ y : U(y) ≥ U(x) }
 ```
 
-with μ_B the end law of §2 started from the object's birth law ν. In words: minus log2 of the probability that a
+with μ_B the end law of §3 started from the object's birth law ν. In words: minus log2 of the probability that a
 random mutation sequence with a budget of mean B bits, started where objects are born, ends at least as good.
 
-### 3.2 It is a description-length prior, and it is well defined on infinite sets
+### 4.2 It is a description-length prior, and it is well defined on infinite sets
 
 μ_B(x) = (1 − ρ) · Σ over sequences from the start that end at x of 2^−(1+s)·price. This is the algorithmic
 probability of x in a language whose programs are mutation sequences: every way of writing x counts, weighted by
@@ -153,7 +385,7 @@ probability of x in a language whose programs are mutation sequences: every way 
   on 𝒳 whenever ρ < 1, whatever the size of 𝒳. No counting of states enters. Lines with integer, rational or real
   -algebraic coefficients are all fine; what is needed is that each state's moves have a Kraft sum of at most 1.
 - **Bounded by the cheapest route.** Keeping one sequence of the sum, −log2 μ_B(x) ≤ (1 + s)·W_min(x) + log2 1/(1 − ρ),
-  with W_min the cheapest price of any route from the start to x. Many routes make it smaller. Measured (§7.3): the
+  with W_min the cheapest price of any route from the start to x. Many routes make it smaller. Measured (§8.3): the
   line y = 5x + 5 has −log2 μ = 10.0 against a cheapest route of 11.1 bits; y = 23x + 23 has 25.1 against 39.6.
 - **One mutator on the integers, in closed form.** For "tilt" alone the end law is geometric, μ_B(x) = b·r^−|x| for
   x ≠ 0, with r the larger root of 2a·z² − (1 + 3a²)·z + 2a = 0, a = 2^−(1+s)·1.585. A far state is worth log2 r bits
@@ -161,7 +393,7 @@ probability of x in a language whose programs are mutation sequences: every way 
   The rate tends to 0 as B grows, which is theorem 2 below seen in one line: with an unlimited budget every finite set
   of integers has probability 0.
 
-### 3.3 Theorem 1: on today's types it is today's value
+### 4.3 Theorem 1: on today's types it is today's value
 
 *If the one-move kernel is symmetric (the chance of going from x to y in one move equals the chance of y to x) and
 objects are born uniform, then μ_B is uniform for every B, so A_B(x) is today's static bits exactly.*
@@ -194,7 +426,7 @@ Consequences:
   budget would move those tables. That is a real difference of meaning, not an error: under multiply-v1, zeros are
   common.
 
-### 3.4 Theorem 2: on an infinite type a start and a spread are unavoidable
+### 4.4 Theorem 2: on an infinite type a start and a spread are unavoidable
 
 *If the mutator walk on an infinite 𝒳 can reach every state from every state and has no stationary probability law
 (it is transient or null recurrent, which holds for every symmetric walk on an infinite lattice), then μ_B(F) → 0 as
@@ -206,10 +438,13 @@ of the owner's remark that absolute rareness does not generalise. The same theor
 size: a start and a finite budget. They cannot be removed by a cleverer formula, because without them there is no law
 at all.
 
-### 3.5 A cheaper path through another representation lowers a state's value. Is that what we want?
+### 4.5 A cheaper path through another representation lowers a state's value. Is that what we want?
+
+This holds for the budgeted law. Under the resting law of §1 with a price list that passes the cycle test, a new lens
+does not move value at all (§1.6).
 
 Adding a mutator adds sequences. States that the new mutator reaches cheaply gain probability, and since the total is
-1 every other state loses a little (the "which mutator" code is one choice longer). Measured at B = 32 (§7.3):
+1 every other state loses a little (the "which mutator" code is one choice longer). Measured at B = 32 (§8.3):
 
 | Line | With slide: −log2 μ | cheapest route | Without slide: −log2 μ | cheapest route |
 |---|---|---|---|---|
@@ -237,17 +472,17 @@ This is what the owner asked for, and it has a cost that should be seen:
   and every new mutator would silently reprice the game. Under (a) a new mutator changes values in a stated way: by
   the probability it adds.
 
-### 3.6 Properties
+### 4.6 Properties
 
 | Question | Answer for (a) |
 |---|---|
 | A function of the state alone? | Yes, through the rule score. |
 | Comparable across rules and types? | Yes: calibrated against each type's own random play, as today each type has its own uniform law. |
 | Own × others? | Unchanged: bits are bits. |
-| Sensitive to the mutators and prices? | On symmetric finite types not at all (theorem 1). On infinite types completely: the law is made of them. Measured in §7.3: dropping one mutator moves single states by up to 10 bits and rule tops by 0.1; moving the origin from y = x to y = 0 moves the tops by 0.7 and 1.2 bits. |
+| Sensitive to the mutators and prices? | On symmetric finite types not at all (theorem 1). On infinite types completely: the law is made of them. Measured in §8.3: dropping one mutator moves single states by up to 10 bits and rule tops by 0.1; moving the origin from y = x to y = 0 moves the tops by 0.7 and 1.2 bits. |
 | What the budget means | The mean price, in bits, of the random play that makes a newborn object: the type's size. |
 
-**Choosing B without a magic number.** Three defensible rules, for the owner to choose between (§11):
+**Choosing B without a magic number.** Three defensible rules (a decision only if the budgeted law is used):
 
 1. *B is the instantiation's size argument*, as N and the base are for Grid(N, base): `Line(B = 32)`. Chosen like a
    board size, by what the room should feel like. Honest, simple, and exactly as arbitrary as "4×4".
@@ -258,15 +493,15 @@ This is what the owner asked for, and it has a cost that should be seen:
 3. *B is the smallest power of two at which a game's objects are born distinct more often than not.* Derived from the
    object count (not computed here).
 
-Whichever is chosen, §7 shows that B matters the way a board size does: the top of "m close to c" is worth 2.9, 3.3
+Whichever is chosen, §8 shows that B matters the way a board size does: the top of "m close to c" is worth 2.9, 3.3
 and 4.3 bits at B = 8, 32 and 128, and the top of "gradient near a prime" 2.8, 2.1 and 2.0. The two rules' order
 changes with B, exactly as it changes with the bound N of a uniform lattice (3.5 against 1.9 at N = 5; 7.7 against
 3.0 at N = 100). A scale has to be chosen once under either scheme. The difference is that B is a statement about
 play ("this much random work"), and the same B means the same thing for every mutator set.
 
-## 4. Candidate (b): local improvability
+## 5. Candidate (b): local improvability
 
-### 4.1 Definitions
+### 5.1 Definitions
 
 From the state x itself, with no birth law:
 
@@ -278,7 +513,7 @@ H_B(x)  = −log2 P( a budget-B sequence from x ends at least as good )         
 
 All three are functions of the state alone, exist on infinite types, and need no origin. That is their appeal.
 
-### 4.2 What it measures: the slope of rarity (the flux identity)
+### 5.2 What it measures: the slope of rarity (the flux identity)
 
 *Let the one-move kernel be symmetric and π uniform (or, generally, reversible with respect to π). For a level set
 A = {U ≥ u}, write out = P(one move leaves A | inside A) and in = P(one move enters A | outside A), both averaged
@@ -299,14 +534,14 @@ knocks things out of "at least this good" to how fast it brings things in.** Tod
 gives *ratios* of level-set measures (how many more bits one level is worth than another) even where no probability
 law exists. What it cannot give without a start and a budget is the level of the first rung.
 
-### 4.3 Where it fails as a value
+### 5.3 Where it fails as a value
 
 The identity is about averages over a level set. The value of a *state* computed from its own neighbourhood is a
 different thing.
 
 1. **It measures sharpness, not height.** Take two states with the same local picture (the same scores within the
    reach of budget B, up to a shift): they get the same L_B and H_B, whatever their scores. With rule 2 flipped
-   ("\|gradient\| far from every prime", §7.5) the lines with m = 26, 93 and 120 sit at the middle of prime gaps of
+   ("\|gradient\| far from every prime", §8.5) the lines with m = 26, 93 and 120 sit at the middle of prime gaps of
    width 6, 8 and 14, with scores 3, 4 and 7, and m = 9 sits between 7 and 11 with score 2. One move raises the score
    with probability 0, 6e-13, 0 and 3e-9, so the one-move values are ∞, 39, ∞ and 27 bits: not in the order of the
    scores, and all "nearly unbeatable". Their hold-from-the-state bits at B = 32 are 1.48, 1.76, 1.76 and 1.43: the
@@ -316,7 +551,7 @@ different thing.
    board, and every board where one-cell greedy stalls (Spread of Three stalls on 14.8% of starts,
    docs/beginner-pool.md §3), has L_1 = ∞.
 3. **It is not a function of the score.** Two boards with the same score have different local values, and a better
-   score can have a lower one (§8.2: a board with no pair, each 1 away, has one-move value 0.52; a random board
+   score can have a lower one (§9.2: a board with no pair, each 1 away, has one-move value 0.52; a random board
    with a better score has 0.09). So it cannot be calibrated, and
    own × others would multiply quantities with no common meaning.
 4. **Plateaus.** On a wide flat region both probabilities are 0 at small budgets: 0/0. H_B is 0 there, which says "no
@@ -326,7 +561,7 @@ different thing.
    amount for exactly this (about 1 to 6 bits), and coordination-incentives.md shows fragile, spoilable value is the
    game's sore point, not something to pay more for.
 
-### 4.4 Does a multi-scale version repair it?
+### 5.4 Does a multi-scale version repair it?
 
 - **Integrating L_B over budgets** needs a weight for each scale. Any weight is a choice with no principle behind it,
   and at every finite scale failure 1 remains: a hill wider than the largest budget is still invisible.
@@ -334,7 +569,7 @@ different thing.
   P(ends higher) → π{U > U(x)} and L_∞(x) = log2 [π{U < u} / π{U > u}]: the log odds of the state's *rank*, which
   for a rare state is today's bits to within the bits of its own level. The repaired local value is the global rarity
   it set out to replace. On an infinite type the limit does not exist (theorem 2).
-- §8.2 shows the convergence on the grid: at B = 32 (about 5 moves) the log odds are about a third of today's bits,
+- §9.2 shows the convergence on the grid: at B = 32 (about 5 moves) the log odds are about a third of today's bits,
   and at B = 256 (about 40 moves) still under a half.
 
 **Verdict.** As a value, (b) fails comparability, monotonicity and robustness to gaming, and its repair is (a). As an
@@ -342,9 +577,9 @@ different thing.
 is the annotation every rule family already wants ("what the nearest improvement is"), and it is the quantity a
 learner's agent should compute. It belongs in the annotation layer and in hold rarity, not in the score.
 
-## 5. Candidate (c): three constructions that keep to perturbations
+## 6. Candidate (c): three constructions that keep to perturbations
 
-### 5.1 Reach: the probability of ever being this good (a hitting probability)
+### 6.1 Reach: the probability of ever being this good (a hitting probability)
 
 R_B(u) = −log2 h_B{U ≥ u}. Because an exponential budget has no memory,
 
@@ -364,7 +599,7 @@ family: *end* counts time spent at the level, *reach* counts getting there once,
   tends to 0 for every level: with enough random play everything is reached. It therefore *needs* B more than (a)
   does. On the two-pair grid board the top is 6.64 bits today, 4.17 by reach at B = 32 and 2.60 at B = 128.
 
-### 5.2 Route price: bits to say how to make it, in energy
+### 6.2 Route price: bits to say how to make it, in energy
 
 K_E(A) is the soft minimum, over every route from the start into A, of the route's energy price. It is the candidate
 closest to "depending only on cost-weighted perturbations": no budget, no law of states, only prices.
@@ -382,7 +617,7 @@ closest to "depending only on cost-weighted perturbations": no budget, no law of
 - So K_E is budget-free only by taking the budget from β and from the origin. It removes the letter B, not the
   choice.
 
-### 5.3 Matching budget: the energy a random agent needs to match you
+### 6.3 Matching budget: the energy a random agent needs to match you
 
 V(u) = the budget B at which random play reaches the level with probability ½. It is a value in energy units, and
 value ÷ energy spent reads "how many times cheaper than random play you were", which is the right sentence for a
@@ -390,13 +625,13 @@ learner's agent.
 
 - On a finite type log2 V = today's bits + a constant − (a hold-like term), so its logarithm is the current value.
 - On a transient walk the level may never be reached with probability ½, and V is infinite; the line walk with a
-  multiplying mutator is transient (§7.4).
+  multiplying mutator is transient (§8.4).
 - It is a quantile, so "½" is a number someone chose.
 
 It is a good *statistic* to show ("your agent matched 2,000 bits of random play with 180"), computed from the same
 tables as (a). It is not a better score.
 
-### 5.4 Summary of the candidates
+### 6.4 Summary of the candidates
 
 | | (a) end, random play | (b) local, from the state | (c1) reach | (c2) route price | (c3) matching budget |
 |---|---|---|---|---|---|
@@ -408,9 +643,9 @@ tables as (a). It is not a better score.
 | Free parameter | B (the type's size) and the origin | B, and a weight per scale | B and the origin | β and the origin | a quantile |
 | Own × others | unchanged | meaningless | uncalibrated product | energy × energy | via (a) |
 
-## 6. Computation
+## 7. Computation
 
-### 6.1 What runs where
+### 7.1 What runs where
 
 Nothing changes in the split that exists today, and that split is what gives reproducibility:
 
@@ -418,14 +653,14 @@ Nothing changes in the split that exists today, and that split is what gives rep
   Python), find it among [score, bits] levels, interpolate, extrapolate with the stored slope above the top. No
   probability is ever computed in a browser or a sandbox. An unbounded rule on an infinite type ("maximise the
   triangle's area") is covered by the slope that tables already carry: the tail of μ_B is geometric in the number of
-  steps, so bits grow linearly in the distance a score requires, at the rate of §3.2.
+  steps, so bits grow linearly in the distance a score requires, at the rate of §4.2.
 - **Tables are made once, in one implementation** (TypeScript, offline for shipped families, on demand in the engine
   as hold tables are), from a seeded generator keyed by the table key. Two machines never have to agree on a floating
   point sum; they agree on a stored table.
 - **The key already has the slot.** `PriorRef {id, version}` is part of every table key. A random-play prior is
   `{id: "random-play", version: hash(mutator declarations, cost model, origin, B)}`.
 
-### 6.2 Per rule family and per state
+### 7.2 Per rule family and per state
 
 | | Precomputed per (family, parameters, instantiation, prior) | Per state |
 |---|---|---|
@@ -433,7 +668,7 @@ Nothing changes in the split that exists today, and that split is what gives rep
 | (c2) from a birth law | the same | the same |
 | (b) | nothing can be precomputed: it is a function of the state | one move: every single call scored (288 score evaluations on the beginner board); at budget B: a simulation per state, per client, which is where determinism would be lost |
 
-### 6.3 Making the table for an infinite type
+### 7.3 Making the table for an infinite type
 
 Three methods, in the order to try them:
 
@@ -443,7 +678,7 @@ Three methods, in the order to try them:
    B = 128 (100 s) in numpy, and geometric tails mean each doubling of the box squares ε. Levels rarer than ε are
    reported as an interval, never as a guess.
 2. **Closed forms for structured families.** A rule that reads one coordinate moved by one slider ("gradient near a
-   prime" under tilt alone) has the geometric law of §3.2: the table is a sum of a geometric series over the level
+   prime" under tilt alone) has the geometric law of §4.2: the table is a sum of a geometric series over the level
    set. Independent coordinates multiply. Analytic survival functions already exist as a concept
    (`lib/game-utilities/src/analytic`).
 3. **Importance splitting on sequences, for everything else and for 30-bit levels.** The shipped estimator
@@ -451,27 +686,27 @@ Three methods, in the order to try them:
    it unchanged. For random play the particle is a *mutation sequence*; sampling is running the policy; the invariant
    move is "cut the sequence at a random point and redraw the rest from the policy" (it resamples a suffix from its
    conditional law). The level function is the score of the end state. Numbers of any size are handled, because a
-   sequence is replayed, not tabulated. This is the method that also covers heavy-tailed mutators (§7.4), where a
+   sequence is replayed, not tabulated. This is the method that also covers heavy-tailed mutators (§8.4), where a
    box cannot work. Cost: the same order as today's tables (seconds per table); determinism: the seed comes from the
    key, as today.
 
 For small finite types nothing is needed: theorem 1 says the existing tables are the answer.
 
-### 6.4 Thirty-bit levels
+### 7.4 Thirty-bit levels
 
 Splitting reaches 30 bits routinely today because each stage only has to estimate a conditional probability near ½.
 That is unchanged. What is new on an infinite type is that the *top* may not exist (unbounded rules), so the table
 ends at the target depth (`targetBits`) and the slope takes over. For geometric tails the exact slope is known (the
-root r of §3.2 for one slider; the largest root of the corresponding characteristic equation in general), so the
+root r of §4.2 for one slider; the largest root of the corresponding characteristic equation in general), so the
 extrapolation can be exact rather than fitted.
 
-## 7. Worked example: lines with integer coefficients
+## 8. Worked example: lines with integer coefficients
 
-Set-up as in §2: origin y = x, mutators lift, tilt and slide, 1.585 bits to say which, 1.585 bits per step. B = 8, 32
+Set-up as in §3: origin y = x, mutators lift, tilt and slide, 1.585 bits to say which, 1.585 bits per step. B = 8, 32
 and 128 bits are 1.6, 7.6 and 31.9 moves on average, and the birth law then holds 4.2, 7.3 and 10.3 bits of entropy
 (the beginner grid holds 53.2).
 
-### 7.1 Candidate (a) against plain rarity on a bounded lattice
+### 8.1 Candidate (a) against plain rarity on a bounded lattice
 
 "Lattice N" is the obvious alternative: draw m and c uniformly from −N … N and measure rarity.
 
@@ -503,24 +738,24 @@ What the tables show:
   slowly (0.4 to 1 bit per quadrupling of B), and B has a meaning.
 - **The lattice treats y = 23x + 23 and y = x + 1 alike only because both happen to lie inside it.** At N = 20 the
   first is not a state at all. Under (a) every line is a state, and the two have the same *rule* value (the same
-  score) while their single-state description lengths differ by 20 bits (§7.3).
+  score) while their single-state description lengths differ by 20 bits (§8.3).
 - **A line holds few bits.** Two small integers are a 7 to 10 bit object, and a rule's top is worth 2 to 4 bits, where
   the beginner grid's tops are 15 to 27. This is a property of the object, not of the scoring: the lattice says the
   same. Points are products of bits, so with ladders this short most objects tie. The line type needs more to say
   (rational coefficients, a line with a marked point, two lines per object) or rules with long tie-break ladders;
   that is for §3A and §3B of the brief, but the scoring cannot conjure bits the object does not hold.
 
-### 7.2 The birth law is concentrated near the origin, and that is the point
+### 8.2 The birth law is concentrated near the origin, and that is the point
 
 At B = 32 the origin itself keeps probability 2^−2.82 = 14%: one newborn line in seven is still y = x. (The engine
 redraws a spawn that collides with a live object, so the births seen in a game are the law conditioned on being new.)
 Simple lines are common and complicated ones rare, by a law the mutators define. A learner's intuition that y = x + 1
 is "nothing special" and y = 23x + 23 "took some doing" is what the measure says.
 
-### 7.3 Single states: description length, cheapest route, route price
+### 8.3 Single states: description length, cheapest route, route price
 
 B = 32. "Cheapest route" is the smallest total W from y = x; "energy" prices each move W + 0.05·W²; K_E is the
-budget-free route price of §5.2.
+budget-free route price of §6.2.
 
 | Line | −log2 μ | cheapest route, bits | cheapest route, energy | K_E | no slide: −log2 μ | cheapest route | K_E |
 |---|---|---|---|---|---|---|---|
@@ -544,7 +779,7 @@ budget-free route price of §5.2.
   y = 0 is itself a top state of the first rule and two tilts from a prime gradient. The origin is the more delicate
   choice of the two.
 
-### 7.4 A multiplying mutator makes the law heavy-tailed
+### 8.4 A multiplying mutator makes the law heavy-tailed
 
 Adding "stretch by k" with the code the Int design proposes (2.185 bits per doubling, mutation-cost-design.md):
 
@@ -557,12 +792,12 @@ Adding "stretch by k" with the code the Int design proposes (2.185 bits per doub
 At B = 128 more than half of all newborn lines have a coefficient beyond 256. That is the law telling the truth about
 the prices: when multiplying is cheap, big numbers are cheap. Two consequences:
 
-- the box method of §6.3 cannot make these tables (the intervals above are honest and useless); sequences must be
+- the box method of §7.3 cannot make these tables (the intervals above are honest and useless); sequences must be
   sampled, which handles any size of number;
 - a rule that rewards size ("maximise the triangle's area") is worth few bits once a multiplier is offered. Whether
   to offer one, and at what code, is a mutator decision (§3B) whose effect on value is now visible in advance.
 
-### 7.5 Reach, hold and the local quantities
+### 8.5 Reach, hold and the local quantities
 
 Tops, from y = x:
 
@@ -575,7 +810,7 @@ Reach is 0 bits for every level at or below the origin's own score, so from a si
 level per rule here. "m close to c" loses 2.3 of its 3.3 bits to hold: the level m = c is easy to pass through and
 hard to stay on, because every move leaves it.
 
-Local quantities of §4.1 at single lines (one move; then budgets 8 and 32 from the line; last column the value (a)
+Local quantities of §5.1 at single lines (one move; then budgets 8 and 32 from the line; last column the value (a)
 at B = 32 for comparison):
 
 | Rule | Line | score | one move: P(up), P(down), L_1 | B = 8: L_B, H_B | B = 32: L_B, H_B | (a) |
@@ -601,18 +836,18 @@ at B = 32 for comparison):
 - Every top is infinite, and so is every local maximum of the flipped rule, whatever its score.
 - H_B barely moves with the score: it measures how easily the place is left.
 - The intervals in the last column are levels rarer than the mass outside the box (2e-6 at B = 32): the box proves
-  "at least 19 bits" and no more, which is what §6.3 method 3 is for.
+  "at least 19 bits" and no more, which is what §7.3 method 3 is for.
 
-## 8. The beginner grid
+## 9. The beginner grid
 
 Board: 4×4 digits, distance-v1 (a number moved by k costs 4 + 1.585·\|k\| bits). Rules: Opposite Nines (8 half-turn
 pairs, score (pairs adding to 9, −total deviation)) and Magic Eighteen on rows (score (rows adding to 18, −total
 deviation)). Today's static bits are computed exactly here (the pairs and the rows are independent): tops 26.58 and
 15.60. The shipped tables for these two families are Monte Carlo estimates and give 26.43 and 14.79.
 
-### 8.1 Candidate (a), (c1), (c2)
+### 9.1 Candidate (a), (c1), (c2)
 
-- **(a)** equals today's bits at every level, for every B (theorem 1; §3.3).
+- **(a)** equals today's bits at every level, for every B (theorem 1; §4.3).
 - **(c2)**, from the uniform birth law, is lower by at most 0.45 bits (the sum of 2^−energy over one-number moves is
   0.269).
 - **(c1) reach** is lower by a hold-like term that grows with B. Exact, on the two-pair board:
@@ -630,7 +865,7 @@ deviation)). Today's static bits are computed exactly here (the pairs and the ro
   A third to a half of the bits go, and more at larger budgets: reach forgives everything that random play would
   stumble on eventually.
 
-### 8.2 Candidate (b)
+### 9.2 Candidate (b)
 
 One move is exact (all 288 single moves scored). The budgeted columns are 200,000 seeded walks from the board; B = 32
 and 256 bits are about 5 and 40 moves. "H" is −log2 P(the walk ends at least as good).
@@ -665,7 +900,7 @@ and 256 bits are about 5 and 40 moves. "H" is −log2 P(the walk ends at least a
 - **The worse board can have the higher value**: under Opposite Nines the one-move value of "no pair, each 1 away"
   (0.52) is above the random board's (0.09), though its score is lower.
 
-### 8.3 What would change for players
+### 9.3 What would change for players
 
 | Candidate | On the beginner grid |
 |---|---|
@@ -674,7 +909,7 @@ and 256 bits are about 5 and 40 moves. "H" is −log2 P(the walk ends at least a
 | (c1) reach | Every rule's ladder compressed by a third or more, differently per rule (brittle rules lose most), so the pool's balance (beginner-pool.md §5) would have to be measured again. Hold rarity would be double counted and would have to go. |
 | (b) | The number on an object would stop following the goal card: a better score could show fewer "bits", every finished object would read infinite, and two players' numbers could not be multiplied. Greedy play would chase fragile boards. |
 
-## 9. Migration
+## 10. Migration
 
 - **Coexistence per object type: yes, by construction.** The prior is already per table key. Grid, Int, string and
   cards keep `uniform`; a line type declares `random-play` with its origin and B. A room has one object type, so no
@@ -683,7 +918,7 @@ and 256 bits are about 5 and 40 moves. "H" is −log2 P(the walk ends at least a
   cases (multiply-v1 rooms, Int) keep the uniform law they were shipped with; moving them to random play would be a
   separate decision with its own tables.
 - **New for an infinite type:** a spawn function that runs the policy from the origin (it replaces "uniform" in the
-  type's interface, where `spawn` is documented as the uniform prior); the sequence-space splitting estimator of §6.3;
+  type's interface, where `spawn` is documented as the uniform prior); the sequence-space splitting estimator of §7.3;
   hold tables as today (the noise is already the priced policy); the read-price rule (a complete look costs less than
   the smallest change) checked for the new type.
 - **Stored games and replays: nothing breaks.** A replay folds the per-object net bits recorded in the event log and
@@ -693,69 +928,81 @@ and 256 bits are about 5 and 40 moves. "H" is −log2 P(the walk ends at least a
   redefined, the balance measurements of docs/beginner-pool.md and docs/coordination-incentives.md re-run, and bits
   recorded in old logs would no longer be comparable with new ones (a new log schema would have to mark the change).
 
-## 10. Recommendation
+## 11. Recommendation
 
-**Adopt candidate (a) with the random-play law as the spawn law of every type, and say so in one sentence:**
+**Value is the rarity of the score under the resting law of priced random play:**
 
-> An object's bits for a rule are minus log2 of the probability that random play would have made it at least this
-> good.
+> An object's bits for a rule are minus log2 of the probability that random play at rest holds an object at least
+> this good.
 
-1. For the shipped types this is a restatement: random play rests at the uniform law. Change nothing.
-2. For lines and every later infinite type: declare an origin and a size B; spawn objects by running the priced
-   random policy from the origin on an exponential budget of mean B; calibrate rules against that law with the
-   existing table machinery. Mutator prices then define value, which is what the owner asked for, and a new mutator's
-   effect on value is the probability it adds.
-3. Keep hold rarity as the one perturbation term in the score, and keep own × others.
-4. Give the local quantity its proper job: the annotation "this share of your possible moves improve, this share
-   spoil", and the statistic "your agent did this for 1/k of what random play needs" (§5.3).
+1. **Two rules define the law.** A state's energy is the bits it takes to read it. A move's price minus its undo's
+   price is the energy it climbs (Kolmogorov's cycle test, added to the invariants every cost model must pass,
+   mutation-cost-design.md §5.5).
+2. **Shipped types: change nothing.** Their states all read alike and their undo prices are even, so the resting law
+   is uniform and the value is today's static bits (§4.3). The exceptions are multiply-v1 and Int's multiply, which
+   have no undo; they keep the uniform law they shipped with.
+3. **Lines and later infinite types:** choose the code for a number once (it prices reads too), add the read-length
+   surcharge to every mutator, and the reference law is π = 2^−(read length) with no origin, no budget and no
+   dependence on the lens set (§1.5, §1.6). Spawn objects from π.
+4. **Measure rare levels by stitching** (§1.4), which is the shipped splitting estimator; use the level-matrix
+   eigenvector only where a price list is allowed to fail the cycle test.
+5. **Keep hold rarity** as the perturbation term in the score, keep own × others, and give the local "up versus
+   down" its job as annotation and as the statistic "your agent did this for 1/k of what blind play needs" (Kac:
+   blind play needs 2^bits moves per visit).
+6. **Keep the budgeted law of §4 as the fallback** for a type whose prices are deliberately not confining; it is the
+   same construction with teleportation and costs an origin and a B.
 
-**The strongest objection.** On the types that exist, the recommendation changes nothing, so it does not deliver the
-owner's wish that "the practical relevance of our mutator costing decisions" be integrated into value there; and on
-the new type it replaces one arbitrary bound (the lattice's N) with two declared choices (the origin and B) that move
-rule tops by a bit each. Both halves are true. The reply to the first is theorem 1: on a finite symmetric type no
-state-function of this kind *can* feel the prices, so the only honest price-sensitive terms are finite-horizon ones,
-and hold rarity is that term; if the owner wants prices to weigh more on the grid, the lever is hold's horizon m, not
-a new value. The reply to the second is theorem 2: a start and a spread are forced by the mathematics, and what can be
-chosen is whether they are stated in units of play (B bits of random work from the simplest line) or of geometry
-(a box). The first survives a change of mutators; the second does not.
+**The strongest objection.** With a price list that passes the cycle test, the resting law is whatever read length
+was declared: π = 2^−φ, and the mutators' prices, lenses and distances drop out of value entirely. So the proposal
+does not let "the practical relevance of our mutator costing decisions" shape value; it proves that only the
+difference between a move and its undo can, and then recommends making that difference a declared code. On the grid
+this changes nothing at all. A reader may fairly say the random walk has been reduced to a way of saying "choose a
+prior over states". The reply: that is what the mathematics allows. The alternatives are (i) let prices be lopsided
+on purpose and take π from the eigenvector, which makes pricing shape value, at the cost of currents, a value that
+moves whenever a mutator is added, and estimators that need the full eigenproblem (§1.3 shows the effect is a
+quarter of a bit on the 325-line board, so little is gained); or (ii) the budgeted law, where even prices do shape
+value through path lengths, at the cost of an origin and a budget that each move rule tops by a bit (§8). Both are
+worked out here and both are available. The route by which prices *should* reach points is the one already in the
+game: energy spent, and hold rarity's horizon.
 
 A second objection, about the object rather than the scoring: integer lines hold too few bits for own × others to
-separate players (§7.1). No scoring fixes that.
+separate players (§1.3, §1.5, §8.1: tops of 2 to 5 bits against the grid's 15 to 27). No scoring fixes that.
 
 **Experiments that would settle what is open** (none needs engine changes):
 
-1. *Origin and B sensitivity on a real rule pool.* Once §3A proposes ten or so line rules, compute their tops and
-   ladders under y = x and y = 0 and B = 16 … 512. Accept the type only if the rules' order by top bits is stable
-   across neighbouring choices; otherwise the pool is being ranked by the origin.
-2. *The sequence-space estimator against the exact box*, on the three-slider walk where both work (target: within
-   the 0.1-bit tolerance today's Monte Carlo tables meet), then on the walk with stretch, where only it works.
-3. *Does the quiet reward teach lens-switching?* The coordination model (docs/coordination-incentives.md) with a line
-   type and two scripted agents, one that uses slide and one that does not, at equal power: the gap in points per
-   game is the size of the incentive under (a). If it is small, consider a lens-specific *discount* on moves, never a
-   lens-specific value.
-4. *Hold rarity on lines.* Whether m = players − 1 moves of noise separate brittle line rules (an exact equality such
-   as m = c) from robust ones (an inequality), as it separates lattices from lines on the grid.
-5. *Budget anchor.* Compute rule tops with B set by rule 2 of §3.6 (one player's energy per object) for the default
-   economy; if tops land near the beginner band without further tuning, prefer that rule, because it has no number
-   in it.
-6. *Richer objects.* Repeat §7.1 for rational coefficients and for "a line and a point", to find the smallest object
-   whose rule tops reach 15 bits.
+1. *The code for a number.* Compute the proposed line pool's tops and ladders under the slider code and the doubling
+   code (§1.5). Prefer the one under which the pool's order by top bits matches the order on the 325-line board,
+   where plain rarity is available as a check.
+2. *Cycle test on the proposed price lists* (PR #346's seven and twelve families): list the loops that fail, and the
+   smallest change to each family that passes (pivot, turn, drag and stretch are the candidates). Then decide per
+   family whether the lopsidedness is wanted.
+3. *Stitching against exact values* on the pegboard (6,460 lines, exact solve available) with a non-uniform π, to
+   validate the Metropolis-weighted splitting estimator before it is trusted on an infinite type.
+4. *Does a surcharge teach?* The read-length surcharge makes "towards simpler numbers" cheaper than "away". Play-test
+   whether learners read that as natural (long numbers are dear) or as a hidden tax.
+5. *Hold rarity on lines.* Whether m = players − 1 moves of noise separate brittle line rules (an exact equality
+   such as m = c) from robust ones, as it separates lattices from lines on the grid.
+6. *Richer objects.* Repeat §1.5's table for rational coefficients and for two-line objects, to find the smallest
+   object whose rule tops reach 15 bits.
 
-## 11. Decisions for the owner
+## 12. Decisions for the owner
 
-1. **Accept that value stays a rarity, with random play as the reference law** (and that the local "up versus down"
-   becomes an annotation and a statistic, not the score)? Recommended: yes.
-2. **How B is fixed for an infinite type**: a size argument of the instantiation (simplest), one player's energy per
-   object (no number, tables per room), or the distinct-births rule (§3.6). Recommended: the size argument now, with
-   experiment 5 deciding whether the energy rule can replace it.
-3. **The origin of the line type**: y = x (the identity; one move from "m close to c") or y = 0 (itself a top state of
-   that rule). Recommended: y = x, to be confirmed by experiment 1 on the real pool.
-4. **Whether lens-switching should earn more than saved energy.** Under the recommendation it does not (§3.5).
-   Recommended: keep it so; revisit after experiment 3.
-5. **Whether to offer a multiplying mutator on lines at all**, given that it makes big numbers common and rules about
-   size nearly worthless (§7.4). This belongs to §3B; the scoring only makes the consequence visible.
-6. **Whether prices should weigh more on the existing grid.** If yes, the principled lever is the horizon of hold
-   rarity. Recommended: leave as is.
-7. **The line object needs more bits** (§7.1) before any scoring can rank players on it: richer coefficients, a
-   compound object, or longer tie-break ladders. A decision for §3A and §3B, flagged here because it bounds what
-   scoring can do.
+1. **Value = rarity under the resting law of priced random play** (energy E = −log2 π; no birth state, no budget),
+   with the local "up versus down" as annotation only? Recommended: yes.
+2. **Must every price list pass the cycle test** ("a move's price minus its undo's price is the energy it climbs")?
+   Recommended: yes, as a unit-tested invariant; then value never depends on the lens set and no eigenvector is
+   needed. The alternative is to allow lopsided prices on purpose and take π from the eigenvector.
+3. **On the finite line boards of PR #346: uniform rarity, or the resting law of the proposed price list?** They differ
+   by at most a quarter of a bit on the 325-line board. Recommended: make the list pass the test (then the two
+   coincide), or keep uniform and accept that pivot and stretch are lopsided moves.
+4. **On unbounded lines: the code for a number** (slider code or doubling code, §1.5). It sets read prices and value
+   together. Recommended: the doubling code if numbers are meant to range widely, the slider code if the type should
+   stay near small numbers; settle by experiment 1.
+5. **Whether lens-switching should earn more than saved energy.** Under the recommendation it earns exactly the
+   saved energy and value is lens-independent (§1.6). Recommended: keep it so.
+6. **Whether to offer a multiplying mutator on lines**, and if so with its inverse: without one it has no undo, fails
+   the cycle test and, under the budgeted law, makes the law heavy-tailed (§8.4).
+7. **Whether prices should weigh more on the existing grid.** The principled lever is hold rarity's horizon.
+   Recommended: leave as is.
+8. **The line object needs more bits** before any scoring can rank players on it: richer coefficients, a compound
+   object, or longer tie-break ladders. A decision for §3A and §3B, flagged here because it bounds what scoring can do.

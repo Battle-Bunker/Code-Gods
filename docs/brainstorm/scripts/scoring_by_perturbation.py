@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Numbers for docs/brainstorm/scoring-by-perturbation.md (design analysis; nothing here is engine code).
 
-    python3 docs/brainstorm/scripts/scoring_by_perturbation.py            # everything (about 13 minutes)
+    python3 docs/brainstorm/scripts/scoring_by_perturbation.py            # everything (about 13 minutes; part 3 alone takes seconds)
     python3 docs/brainstorm/scripts/scoring_by_perturbation.py lines      # part 1 only
     python3 docs/brainstorm/scripts/scoring_by_perturbation.py grid       # part 2 only
+    python3 docs/brainstorm/scripts/scoring_by_perturbation.py stationary # part 3 only (under a minute)
 
 Needs numpy only. Deterministic: the dynamic programmes are exact up to float rounding and a stated truncation
 bound; the one Monte Carlo table (grid, a budgeted walk from a state) uses a fixed seed.
@@ -632,9 +633,227 @@ def part_grid():
             print(f"     {label:>26} | ({n0}, {d0:3d}) | {table[(n0, -d0)]:5.2f} | " + " | ".join(cells))
 
 
+# ------------------------------------------------------------------------------------------------
+# Part 3: the stationary law (the owner's direction of 14 Nov: energy = -log2 pi, "inverse PageRank")
+# ------------------------------------------------------------------------------------------------
+
+def stationary(P):
+    """The stationary law of a row-stochastic matrix (left Perron vector), by a linear solve."""
+    n = P.shape[0]
+    A = np.vstack([P.T - np.eye(n), np.ones((1, n))])
+    b = np.zeros(n + 1)
+    b[-1] = 1.0
+    return np.linalg.lstsq(A, b, rcond=None)[0]
+
+
+W_BOARD = [(m, c) for m in range(-6, 7) for c in range(-12, 13)]        # the whole-number board of PR #346: 325 lines
+W_INDEX = {s: i for i, s in enumerate(W_BOARD)}
+SLIDE2 = 2.543                                                           # Kraft root of the two-dimensional slide code
+
+
+def w_board_kernel(families, which_bits=math.log2(7)):
+    """One priced random move on the 325-line board; a move is made with probability 2^-W, otherwise the line stays.
+
+    The seven families and their prices are those of docs/brainstorm/linear-equations-content.md (PR #346) 4.2.
+    A move that would leave the board fails. `pivot` turns the line about one of its n pegs with whole x in -6..6
+    and |y| <= 6, and pays log2 n to say which.
+    """
+    n = len(W_BOARD)
+    P = np.zeros((n, n))
+
+    def add(i, target, w):
+        j = W_INDEX.get(target)
+        if j is not None and j != i:
+            P[i, j] += 2.0 ** -w
+
+    for i, (m, c) in enumerate(W_BOARD):
+        pegs = [x for x in range(-6, 7) if abs(m * x + c) <= 6]
+        for k in range(1, 40):
+            for sg in (1, -1):
+                kk = sg * k
+                w = which_bits + LAM * k
+                if "shift" in families:
+                    add(i, (m, c + kk), w)
+                if "tilt" in families:
+                    add(i, (m + kk, c), w)
+                if "step" in families:
+                    add(i, (m + kk, c - kk), w)
+                if "pivot" in families:
+                    for x0 in pegs:
+                        add(i, (m + kk, c - kk * x0), w + math.log2(len(pegs)))
+        if "slide" in families:
+            for u in range(-14, 15):
+                for v in range(-30, 31):
+                    if (u, v) != (0, 0):
+                        add(i, (m, c + v - m * u), which_bits + SLIDE2 * (abs(u) + abs(v)))
+        if "mirror" in families:
+            for target in ((-m, -c), (-m, c), (m, -c)):
+                add(i, target, which_bits + LAM)
+        if "stretch" in families:
+            for k in (2, 3, 4):
+                for sg in (1, -1):
+                    add(i, (sg * k * m, sg * k * c), which_bits + LAMX * math.log2(k))
+    assert P.sum(1).max() <= 1 + 1e-9
+    P[np.arange(n), np.arange(n)] += 1 - P.sum(1)
+    return P
+
+
+def part_stationary():
+    print("\n" + "=" * 100)
+    print("PART 3. The stationary law pi of priced random play: energy E = -log2 pi, value = -log2 pi{score >= level}.")
+    print("=" * 100)
+    m_arr = np.array([s[0] for s in W_BOARD])
+    c_arr = np.array([s[1] for s in W_BOARD])
+    u_prime = make_u_prime(64)
+    scores = {"Prime Gradient": u_prime(m_arr, c_arr), "m Meets c": -np.abs(m_arr - c_arr)}
+    uniform_bits = math.log2(len(W_BOARD))
+
+    # ---- 3.1 the 325-line board, exact ---------------------------------------------------------------
+    print(f"\n3.1  The whole-number board (m in -6..6, c in -12..12; 325 lines; uniform energy {uniform_bits:.2f} bits), exact.")
+    sets = [("shift, tilt, step, slide, mirror (every move's undo costs the same)", ("shift", "tilt", "step", "slide", "mirror")),
+            ("... plus pivot (pays log2 of the line's peg count)", ("shift", "tilt", "step", "slide", "mirror", "pivot")),
+            ("... plus stretch: all seven families of PR #346", ("shift", "tilt", "step", "slide", "mirror", "pivot", "stretch"))]
+    kept = {}
+    for label, fams in sets:
+        P = w_board_kernel(fams)
+        pi = stationary(P)
+        kept[fams] = (P, pi)
+        E = -np.log2(pi)
+        flux = pi[:, None] * P
+        current = np.abs(flux - flux.T).sum() / 2 / (flux.sum() - np.trace(flux))
+        tops = ", ".join(f"{name} {bits(float(pi[sc >= 0].sum())):.2f} (uniform {bits(float((sc >= 0).mean())):.2f})" for name, sc in scores.items())
+        print(f"\n     {label}")
+        print(f"       energy E: min {E.min():.2f}, max {E.max():.2f} bits; share of the probability flow that is a net current: {current:.4f}")
+        print(f"       lowest energy: " + ", ".join(f"y = {W_BOARD[i][0]}x + {W_BOARD[i][1]} ({E[i]:.2f})" for i in np.argsort(E)[:4])
+              + "; highest: " + ", ".join(f"y = {W_BOARD[i][0]}x + {W_BOARD[i][1]} ({E[i]:.2f})" for i in np.argsort(E)[-3:]))
+        print(f"       rule tops, bits under pi: {tops}")
+    print("\n     Every level of the two rules, all seven families: score | lines | bits under pi | bits under the uniform law")
+    P7, pi7 = kept[sets[2][1]]
+    for name, sc in scores.items():
+        row = []
+        for level in sorted(set(sc.tolist()), reverse=True)[:8]:
+            row.append(f"{level}: {int((sc == level).sum())} lines, {bits(float(pi7[sc >= level].sum())):.2f} | {bits(float((sc >= level).mean())):.2f}")
+        print(f"       {name}: " + "; ".join(row))
+
+    # ---- 3.2 Kac's lemma -----------------------------------------------------------------------------
+    print("\n3.2  Kac's lemma on that board (all seven families): mean number of random moves between visits = 1 / pi(set).")
+    for name, sc in scores.items():
+        A = sc >= 0
+        Q = P7[np.ix_(~A, ~A)]
+        h = np.linalg.solve(np.eye(Q.shape[0]) - Q, np.ones(Q.shape[0]))       # mean moves to reach A from outside
+        back = 1 + (pi7[A] / pi7[A].sum()) @ (P7[np.ix_(A, ~A)] @ h)
+        typical = float((pi7[~A] / pi7[~A].sum()) @ h)
+        print(f"       {name}: mean return {back:.3f} moves, 1/pi = {1 / pi7[A].sum():.3f}, log2 = {math.log2(back):.3f} bits;"
+              f" mean moves to first reach it from a stationary line outside: {typical:.1f}")
+    print("       (a move is attempted at each step; a step that fails or is not drawn leaves the line where it is)")
+
+    # ---- 3.3 stitching levels ------------------------------------------------------------------------
+    print("\n3.3  Stitching levels (the owner's procedure), exact on the board. T[i, j] = P(a move from level i lands in level j),")
+    print("     the start drawn from pi restricted to level i. The level masses are the stationary law of T.")
+    sc = scores["m Meets c"]
+    levels = sorted(set(sc.tolist()), reverse=True)
+    for label, fams in (sets[0], sets[2]):
+        P, pi = kept[fams]
+        mass = np.array([pi[sc == l].sum() for l in levels])
+        T = np.array([[(pi[sc == a] / pi[sc == a].sum()) @ P[np.ix_(sc == a, sc == b)].sum(1) for b in levels] for a in levels])
+        Tu = np.array([[P[np.ix_(sc == a, sc == b)].sum(1).mean() for b in levels] for a in levels])   # samples uniform within a level
+        piT, piTu = stationary(T), stationary(Tu)
+        ladder = [1.0]
+        for i in range(len(levels) - 1):                       # adjacent ratios only: mass[i+1] / mass[i] = T[i, i+1] / T[i+1, i]
+            ladder.append(ladder[-1] * T[i, i + 1] / T[i + 1, i])
+        ladder = np.array(ladder) / sum(ladder)
+        print(f"\n     {label}")
+        print(f"       top level: exact {bits(mass[0]):.4f} bits | eigenvector of T {bits(piT[0]):.4f} | adjacent flux ratios only {bits(ladder[0]):.4f}"
+              f" | eigenvector of T built from samples uniform within each level {bits(piTu[0]):.4f}")
+        print(f"       largest error over all {len(levels)} levels, bits: eigenvector {np.abs(np.log2(piT / mass)).max():.1e};"
+              f" adjacent ratios {np.abs(np.log2(ladder / mass)).max():.3f}; uniform-within-level samples {np.abs(np.log2(piTu / mass)).max():.3f}")
+
+    # ---- 3.4 stitching a level no blind walk reaches: Opposite Nines on the 4x4 grid -----------------
+    print("\n3.4  Stitching by sampling on the 4x4 grid, Opposite Nines, levels = number of pairs adding to 9 (0..8).")
+    print("     40,000 boards drawn uniformly inside each level, one random priced move each; ratios of adjacent levels only.")
+    rng = np.random.default_rng(346)
+    n_s = 40000
+    up, down = np.zeros(9), np.zeros(9)
+    for lvl in range(9):
+        b = np.zeros((n_s, 16), dtype=int)
+        order = np.argsort(rng.random((n_s, 8)), axis=1)                  # which pairs are at 9
+        at9 = np.zeros((n_s, 8), dtype=bool)
+        np.put_along_axis(at9, order[:, :lvl], True, axis=1)
+        a = rng.integers(0, 10, (n_s, 8))
+        off = rng.integers(1, 10, (n_s, 8))                               # partner != 9 - a, uniform over the other nine
+        partner = np.where(at9, 9 - a, (9 - a + off) % 10)
+        b[:, :8], b[:, :7:-1] = a, partner
+        cell = rng.integers(0, 16, n_s)
+        k = rng.geometric(2 / 3, n_s) * (rng.integers(0, 2, n_s) * 2 - 1)
+        v = b[np.arange(n_s), cell] + k
+        ok = (v >= 0) & (v <= 9)
+        b[np.arange(n_s)[ok], cell[ok]] = v[ok]
+        after = score_nines(b)[0]
+        up[lvl], down[lvl] = (after == lvl + 1).sum(), (after == lvl - 1).sum()
+    logm, var = [0.0], [0.0]
+    for lvl in range(8):
+        logm.append(logm[-1] + math.log2(up[lvl] / down[lvl + 1]))
+        var.append(var[-1] + (1 / up[lvl] + 1 / down[lvl + 1]) / math.log(2) ** 2)
+    logm = np.array(logm)
+    norm = math.log2(np.sum(2.0 ** logm))
+    print("     pairs at 9 | exact bits of 'at least this many' | stitched | one standard error (bits)")
+    for lvl in range(9):
+        exact = bits(sum(math.comb(8, j) * 0.1 ** j * 0.9 ** (8 - j) for j in range(lvl, 9)))
+        est = -math.log2(np.sum(2.0 ** (logm[lvl:] - norm)))
+        print(f"       {lvl} | {exact:6.3f} | {est:6.3f} | {math.sqrt(var[lvl]):.3f}")
+    print(f"     (the top has probability {0.1 ** 8:.0e}: {n_s * 9:,} blind boards would hold it {n_s * 9 * 0.1 ** 8:.4f} times on average)")
+
+    # ---- 3.5 confining prices on the unbounded lines --------------------------------------------------
+    print("\n3.5  Unbounded lines with confining prices: a move pays its base price plus the bits by which the description")
+    print("     phi of the line grows; phi(m, c) = len(m) + len(c). Then pi = 2^-phi whatever the mutators.")
+    R = 9
+    box = [(m, c) for m in range(-R, R + 1) for c in range(-R, R + 1)]
+    idx = {s: i for i, s in enumerate(box)}
+    codes = {"slider code, len(n) = 1 + 1.585 |n|": lambda n: 1 + LAM * abs(n),
+             "doubling code, len(n) = 1.20 + 2 log2(|n| + 1)": lambda n: math.log2(2 * (math.pi ** 2 / 6) - 1) + 2 * math.log2(abs(n) + 1)}
+    for label, ln in codes.items():
+        phi = np.array([ln(m) + ln(c) for m, c in box])
+        results = []
+        for surcharge_on_slide in (True, False):
+            P = np.zeros((len(box), len(box)))
+            for i, (m, c) in enumerate(box):
+                for k in range(1, 40):
+                    for sg in (1, -1):
+                        for fam, t in (("lift", (m, c + sg * k)), ("tilt", (m + sg * k, c)), ("slide", (m, c - m * sg * k))):
+                            j = idx.get(t)
+                            if j is not None and j != i:
+                                extra = max(0.0, phi[j] - phi[i]) if (fam != "slide" or surcharge_on_slide) else 0.0
+                                P[i, j] += 2.0 ** -(LAM + LAM * k + extra)
+            P[np.arange(len(box)), np.arange(len(box))] += 1 - P.sum(1)
+            pi = stationary(P)
+            target = 2.0 ** -phi / np.sum(2.0 ** -phi)
+            results.append(np.abs(np.log2(pi / target)).max())
+        print(f"     {label}: on the box |m|, |c| <= {R}, largest |E - phi| = {results[0]:.1e} bits with the surcharge on every"
+              f" mutator; {results[1]:.2f} bits when slide is sold without it (the price list then fails the cycle test)")
+    print("\n     Values on the unbounded integer lines under pi = 2^-phi (sums over |m|, |c| <= 3000):")
+    N = 3000
+    n = np.arange(-N, N + 1)
+    up_ = make_u_prime(N)
+    dist = -up_(n, n)
+    for label, ln in codes.items():
+        p1 = np.array([2.0 ** -ln(int(x)) for x in n])
+        p1 /= p1.sum()
+        ent = -2 * float(np.sum(p1[p1 > 0] * np.log2(p1[p1 > 0])))
+        gap = lambda d: float(p1[abs(d):] @ p1[:2 * N + 1 - abs(d)])          # P(m - c = d) for independent m and c
+        close = [bits(sum(gap(d) for d in range(-dd, dd + 1))) for dd in (0, 1, 3, 5)]
+        prime = [bits(float(p1[dist <= dd].sum())) for dd in (0, 1, 2)]
+        E = lambda m, c: -math.log2(p1[N + m]) - math.log2(p1[N + c])
+        print(f"     {label}: entropy of a line {ent:.2f} bits")
+        print(f"       'm close to c': |m - c| = 0: {close[0]:.2f}; <= 1: {close[1]:.2f}; <= 3: {close[2]:.2f}; <= 5: {close[3]:.2f}")
+        print(f"       'gradient near a prime': distance 0: {prime[0]:.2f}; <= 1: {prime[1]:.2f}; <= 2: {prime[2]:.2f}")
+        print("       energy of single lines: " + ", ".join(f"y = {m}x + {c}: {E(m, c):.2f}" for m, c in [(0, 0), (1, 0), (1, 1), (5, 5), (7, -21), (23, 23)]))
+
+
 if __name__ == "__main__":
     what = sys.argv[1] if len(sys.argv) > 1 else "all"
     if what in ("all", "lines"):
         part_lines()
     if what in ("all", "grid"):
         part_grid()
+    if what in ("all", "stationary"):
+        part_stationary()
