@@ -19,7 +19,7 @@ const waitFor = async <T>(f: () => Promise<T | null | undefined | false>, label:
 
 before(async () => {
   [ada, bo, cy] = await humans("Bid Ada", "Bid Bo", "Bid Cy");
-  const created = await perform(ada!, "room.create", { name: "Bid room", preset: "lines-beginner-bidding" });
+  const created = await perform(ada!, "room.create", { name: "Bid room", preset: "test-every-family-bidding" });
   roomId = created.result.roomId;
   await perform(bo!, "room.join", { code: created.result.code });
   await perform(cy!, "room.join", { code: created.result.code });

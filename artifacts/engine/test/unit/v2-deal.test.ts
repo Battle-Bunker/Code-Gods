@@ -85,7 +85,10 @@ test("rotation: a new seat order mid-round still gives everyone each rule once",
 test("bids: no bids gives the plain deal byte for byte; a win is exclusive and from its family", async () => {
   const { dealWithBids } = await import("@workspace/v2-economy");
   const { bidDealer, dealRng } = await import("../../convex/v2/deal.ts");
-  const pool = dealablePool(beginner), families = [...new Set(pool.map(r => r.family))], seats = ["a", "b", "c"];
+  // The dealer only reads `family`: a second copy of the pool under other family names gives the auction a choice
+  // whatever W1's pool converges to today.
+  const real = dealablePool(beginner), pool = [...real, ...real.map(r => ({ ...r, family: `${r.family}-copy` }))];
+  const families = [...new Set(pool.map(r => r.family))], seats = ["a", "b", "c"];
   for (const seed of ["s1", "s2", "s3"]) {
     const plain = freshDeal(pool, 3, seed);
     assert.deepEqual(dealWithBids(seats, families, [], dealRng(seed), bidDealer(pool)).deal, plain, seed);
