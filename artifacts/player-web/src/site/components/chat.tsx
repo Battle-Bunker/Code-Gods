@@ -9,29 +9,12 @@ import { api } from "@workspace/engine/convex/_generated/api";
 import { useLivePaged } from "@/sdk/live";
 import { EmptyState } from "@/site/components/page-parts";
 import { failureText } from "@/site/components/action";
-import { boardsIn, onChatDraft, takeChatDraft } from "@/panes/chat-draft";
-
-/** A message's text, with any board in it (a proposal's four rows of four digits) drawn as a small board. */
-function MessageText({ text }: { text: string }) {
-  return (<>{boardsIn(text).map((part, i) => "board" in part
-    ? <span key={i} className="my-1 inline-grid grid-cols-4 gap-px rounded border bg-border font-mono text-sm" data-testid="chat-board" aria-label={`A board: ${part.board.map(r => r.join(" ")).join(", ")}`}>
-        {part.board.flat().map((d, j) => <span key={j} className="flex h-6 w-6 items-center justify-center bg-background">{d}</span>)}
-      </span>
-    : <p key={i} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-foreground/90">{part.text}</p>)}</>);
-}
-
 export function RoomChat({ roomId, height = "h-[300px]" }: { roomId: string; height?: string }) {
   const page = useLivePaged(api.v2.rooms.chat, { roomId }, 50);
   const send = useAffordance("chat.send");
   const messages = [...page.results].reverse();
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
-  // A proposal from a line or board (its "Propose this in chat") arrives written in the box, to read and send.
-  useEffect(() => {
-    const take = () => { const d = takeChatDraft(); if (d !== null) { setText(d.slice(0, 500)); requestAnimationFrame(() => input.current?.focus()); } };
-    take();
-    return onChatDraft(take);
-  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
@@ -63,7 +46,7 @@ export function RoomChat({ roomId, height = "h-[300px]" }: { roomId: string; hei
             {c.memberId ? (<>
               <span className="font-medium">{c.from}</span>
               <span className="text-xs text-muted-foreground ml-2">{new Date(c.at).toLocaleTimeString()}</span>
-              <MessageText text={c.text} />
+              <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-foreground/90">{c.text}</p>
             </>) : <span>{c.text}</span>}
           </div>
         ))}

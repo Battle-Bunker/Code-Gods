@@ -8,10 +8,10 @@ import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
 import { useMemo } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
+import { ANOTHER, GameSummary, summarise, type SummaryClimb, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
-import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
+import { decodeState, objectWord, useGame, useObjectMovesOf, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
 import { BLURRED_ENDED_NOTE, isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
@@ -98,6 +98,8 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
  * game's panes already share: Lines' skeleton by your points and its objects, the act log's tug-of-wars, your rule.
  */
 
+/** How many contested objects the summary reads the moves of at most. */
+const CONTESTED_MAX = 10;
 
 function EndSummary({ total }: { total: number }) {
   const header = useGame();
@@ -111,6 +113,9 @@ function EndSummary({ total }: { total: number }) {
   const done = serverTugs !== undefined;
   const top = useMemo(() => ids.results.slice(0, 5).map(r => r.objectId), [ids.results]);
   const objects = useMyObjects(top);
+  // Each contested object's own moves (one small read each, never the whole act log): climbed together or undone?
+  const contestedNumbers = useMemo(() => (serverTugs ?? []).map(t => t.number).slice(0, CONTESTED_MAX), [serverTugs]);
+  const contestedMoves = useObjectMovesOf(contestedNumbers);
   const summary = useMemo(() => {
     if (!my || !header) return null;
     const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, id: o.objectId, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
@@ -128,8 +133,12 @@ function EndSummary({ total }: { total: number }) {
       : [])));
     // In a rotation that goes on, the next game deals another rule: the advice is the lesson, not this game's line.
     const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
-    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null });
-  }, [my, header, objects, serverTugs, moves.results, total, round]);
+    const climbs: SummaryClimb[] = contestedNumbers.flatMap((number, i) => {
+      const rows = contestedMoves[i];
+      return rows ? [{ number, moves: [...rows].reverse().map(m => ({ by: m.mine ? "you" : m.by?.name ?? ANOTHER, before: m.before, after: m.after })) }] : [];
+    });
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null, climbs });
+  }, [my, header, objects, serverTugs, moves.results, total, round, contestedNumbers, contestedMoves]);
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(header?.phase ?? "ended");
   const onOpen = async (id: string | undefined) => {

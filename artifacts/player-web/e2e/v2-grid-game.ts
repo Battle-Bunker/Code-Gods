@@ -218,6 +218,8 @@ try {
     // One grid is read on the ended game: the 30 s world ends about now, and the change of phase remounts the panes
     // (opened just before it, its buttons detached under the click).
     await page.getByTestId("text-phase").getByText(/ended/i).waitFor({ timeout: 60_000 });
+    // The end brings the results forward; the header's button brings Grids back.
+    if (!await page.locator("[data-testid^=row-line-]").first().isVisible()) await page.getByTestId("button-line-by-line-bar").click();
     await page.locator("[data-testid^=row-line-]").first().click();
     const line = page.getByTestId("pane-object");
     await line.locator(".v2v-grid, [data-scene=grid]").first().waitFor({ state: "attached", timeout: 20_000 });
@@ -251,7 +253,7 @@ try {
       await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
-      assert.match(first, /→ your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
+      assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this grid rarer/).waitFor();
     await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
     await line.screenshot({ path: path.join(shots, `grid-${label}-parts.png`) });
@@ -273,7 +275,7 @@ try {
     const summed = await summary.innerText();
     assert.match(summed, /What earned your points/i);
     assert.match(summed, /What cost you/);
-    assert.match(summed, /(leave it alone|leave that grid alone|is the one the others want most|Open your secret goal)/, summed);
+    assert.match(summed, /(moves marked ↑ both|is the one the others want most|Open your secret goal)/, summed);
     await summary.screenshot({ path: path.join(shots, `grid-${label}-summary.png`) });
     await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.

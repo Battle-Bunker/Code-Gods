@@ -101,20 +101,23 @@ Measures:
 
 A ships if it reaches agreement where B doesn't, or reaches it faster, without the "cheated" answers.
 
-## Shipped instead, playtest round 8: the others' total at candidates
+## Shipped instead: the climb (playtest round 8, then the owner's correction)
 
-The coordinator allowed something narrower than a shown card: a player may see the others' **total** bits on an object
-before and after a candidate move, never one player's rule.
-- **The candidates.** Each candidate in "What would make it rarer" shows your bits × others' total = points, ordered
-  "Best for points" or "Best for my rarity". A candidate that raises both is marked "↑ both of you".
-- **The read.** `v2/play:othersAt` takes the candidates' calls (at most four) and applies them to the object's live state
-  on the server. A player can ask only about states one move from where the object is, never any state.
-- **One tap from a candidate:**
-  - "Propose this in chat" writes a plain proposal into the chat box ("Shall we settle line 8 at y = 2x + 7 and both
-    hold it? There I get … bits and the rest of you … bits together."). A board is written in four rows, and the chat
-    draws it as a board.
-  - "Hold it here" fills in the agent's hold control with that candidate.
-- **The end summary.** "Deals held" names each held object, who held it, and your points before the hold and at the end.
-- **Tests.** `e2e:candidates`; screenshots are in `docs/screenshots/candidates/`.
+The owner, 14 November: "Agents should always be dynamic hill climbers. Objects must be unique so you can't thrive by
+finding one optimal object state and replicating it and anyway it's really expensive to move objects a long way in a
+single turn now, by design, so all strategies should be incremental hill climbing towards profitable combined states."
+So no destination state is agreed or held: the settle-and-hold parts of this proposal (§2's one-tap "settle at … and
+hold", TARGET/SETTLE on acceptance) are superseded. What ships shows the climb, with the others' **total** only (never
+one player's rule):
+- **Each candidate move** in "What would make it rarer": your bits × others' total = points and the change from now,
+  "Best for points" first (or "Best for my rarity"); a move that raises both is marked "↑ both of you".
+  `v2/play:othersAt` applies the candidates' calls (≤ 4) to the live state on the server.
+- **The climb from here**: the best move for the points, or "Stuck here" when no single move raises them.
+- **Unique objects**: a candidate onto a state another object holds shows "Not available: line N is already like this".
+- **The last moves on the object** (`v2/play:objectMoves`, ≤ 50 of your own rows): each mover, ↑/↓ for you and for the
+  others, and whether the moves climbed together or undo each other ("Stuck: these moves undo each other").
+- **The end summary**, per contested object: climbed together, undid each other, or mixed, with your points before and
+  after.
+- **Tests.** `e2e:climb`; screenshots in `docs/screenshots/climb/`.
 
-The proposal above (cards, "what suits us both") is still the owner's to decide.
+Whether players may show their rule cards (A/B/C above) is still the owner's to decide.

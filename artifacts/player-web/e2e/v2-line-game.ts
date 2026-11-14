@@ -243,7 +243,7 @@ try {
       await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
-      assert.match(first, /→ your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
+      assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
     // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).
     // Tap selects a part (nothing depends on hover): only its marks are drawn, and the chip clears it.
@@ -270,7 +270,7 @@ try {
     const said = await summary.innerText();
     assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(leave it alone|leave that line alone|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(moves marked ↑ both|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();

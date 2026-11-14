@@ -8,10 +8,10 @@
  * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
 import type { Contributor } from "./contributors.ts";
-import { useMemo, useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement, type ReactNode } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
-import { BITS_HELP, chanceText, fmtBits, fmtEnergy, scoreFormula } from "./format.ts";
+import { BITS_HELP, chanceText, fmtBits, fmtEnergy, fmtNum, pointsText, scoreFormula } from "./format.ts";
 import { moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
 import { ObjectChip, RepView } from "./rep-view.tsx";
@@ -159,7 +159,8 @@ const cap1 = (t: string) => t[0]!.toUpperCase() + t.slice(1);
 
 /**
  * The others' total bits at a candidate (playtest round 8: the sum over every other player, never one player's rule),
- * read by the app from the server; null while it loads.
+ * read by the app from the server; null while it loads. `taken` names the object that already holds a candidate's
+ * state: objects are unique, so that move is not available.
  */
 export interface OthersAt<S> {
   /** Their total now. */
@@ -167,38 +168,50 @@ export interface OthersAt<S> {
   readonly at: (after: S) => number | null;
   /** Live, with the others' numbers blurred (peerNoiseBits): the points are estimates, written with "about" and ≈. */
   readonly approx?: boolean;
+  readonly taken?: (after: S) => number | null;
 }
 
 export interface MovesListProps<S> {
   readonly list: readonly Move<S>[];
   readonly noun: string;
-  /** Your bits now (to mark candidates that raise both). */
+  /** Your bits now (the points now, and the candidates that raise both). */
   readonly bits?: number | null;
-  /** With the others' totals, each candidate shows the points it would earn, and the list can be ordered by them. */
+  /** With the others' totals, each candidate shows the points it would earn, and the list climbs: best for points first. */
   readonly others?: OthersAt<S>;
-  /** "Propose this in chat" on each candidate. */
-  readonly onPropose?: (m: Move<S>) => void;
 }
 
 type Order = "points" | "rarity";
+const signed = (n: number) => `${n >= 0 ? "+" : "−"}${fmtNum(Math.abs(n))}`;
 
-export function MovesList<S>({ list, noun, bits, others, onPropose }: MovesListProps<S>): ReactElement {
+/**
+ * The candidate moves from here (owner, 14 November: agents are hill climbers; every strategy is incremental climbing
+ * towards a state that pays both sides). With the others' totals, each move says the points it would earn and the change
+ * from now, the best climb for the points comes first, a move that raises both sides is marked, and "stuck" says when no
+ * single move raises the points.
+ */
+export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): ReactElement {
   const [order, setOrder] = useState<Order>("points");
   if (!list.length) return <p className="v2v-next" data-kind="none">No single move makes this {noun} rarer for your rule.</p>;
+  const nowPoints = others?.now != null && bits != null ? bits * others.now : null;
+  // Live, the others' numbers are blurred (peerNoiseBits): every points figure here is an estimate.
+  const about = others?.approx ? "about " : "";
   const rows = list.map((m, i) => {
-    const theirs = others ? others.at(m.after) : null;
+    const taken = others?.taken?.(m.after) ?? null;
+    const theirs = others && taken === null ? others.at(m.after) : null;
     const points = m.bits !== null && theirs !== null ? m.bits * theirs : null;
     const both = m.bits !== null && bits != null && theirs !== null && others?.now != null && m.bits > bits && theirs > others.now;
-    return { m, i, theirs, points, both };
+    return { m, i, taken, theirs, points, both };
   });
-  const sorted = others
-    ? [...rows].sort((a, b) => order === "points" ? (b.points ?? -1) - (a.points ?? -1) || a.i - b.i : (b.m.bits ?? -1) - (a.m.bits ?? -1) || a.i - b.i)
-    : rows;
+  const rank = (r: (typeof rows)[number]) => (r.taken !== null ? -2 : order === "points" ? r.points ?? -1 : r.m.bits ?? -1);
+  const sorted = others ? [...rows].sort((a, b) => rank(b) - rank(a) || a.i - b.i) : rows;
+  // The climb is about points whichever order the list is in: the available move with the most points.
+  const best = rows.filter(r => r.taken === null && r.points !== null).sort((a, b) => b.points! - a.points! || a.i - b.i)[0];
+  const climbs = best && nowPoints !== null && best.points! > nowPoints + 1e-9;
   return (
     <div className="v2v-moves">
       <h4 className="v2v-moves-title">What would make it rarer</h4>
       {others && (
-        <div className="v2v-move-order" role="group" aria-label="Order the candidates">
+        <div className="v2v-move-order" role="group" aria-label="Order the moves">
           {(["points", "rarity"] as const).map(o => (
             <button key={o} type="button" aria-pressed={order === o} data-testid={`button-order-${o}`} onClick={() => setOrder(o)}>
               {o === "points" ? "Best for points" : "Best for my rarity"}
@@ -207,27 +220,27 @@ export function MovesList<S>({ list, noun, bits, others, onPropose }: MovesListP
           {others.now !== null && <span className="v2v-move-now">The others now: {others.approx ? "about " : ""}{fmtBits(others.now)} together</span>}
         </div>
       )}
+      {others && nowPoints !== null && best && (climbs
+        ? <p className="v2v-climb" data-testid="text-climb">The climb from here: “{best.m.words}” takes your points from {about}{pointsText(nowPoints)} to {about}{pointsText(best.points!)}{best.both ? ", and raises the others' bits too" : ""}.</p>
+        : <p className="v2v-climb" data-testid="text-climb" data-kind="stuck">Stuck here: no single move raises your points above {about}{pointsText(nowPoints)}. Each move by the others changes the landscape: look again after they move.</p>)}
       <ol>
-        {sorted.map(({ m, i, theirs, points, both }, j) => (
+        {sorted.map(({ m, i, taken, theirs, points, both }) => (
           <li key={i} className="v2v-move-option" data-first={i === 0 ? "" : undefined} data-both={both ? "" : undefined}
-            {...(points !== null ? { "data-points": String(points) } : {})}>
+            data-unavailable={taken !== null ? "" : undefined} {...(points !== null ? { "data-points": String(points) } : {})}>
             <span className="v2v-move-words">{m.words[0]!.toUpperCase() + m.words.slice(1)}{!m.words.includes(m.text) && m.text.length <= RESULT_MAX && <span className="v2v-move-result"> → {m.text}</span>}</span>
             <span className="v2v-move-price">{fmtEnergy(m.price.total)}</span>
             <span className="v2v-move-reason">{cap1(m.reason)}{both && <b className="v2v-move-both" title="More bits for you and for the others"> · ↑ both of you</b>}</span>
             <span className="v2v-move-changes">{m.changes.join(" · ")}</span>
-            {m.bits !== null && (others
-              ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs, others.approx) : `your ${fmtBits(m.bits)} × others' …`}</span>
-              : <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>)}
-            {onPropose && theirs !== null && (
-              <span className="v2v-move-acts">
-                <button type="button" data-testid="button-propose" data-rank={j} onClick={() => onPropose(m)}>Propose this in chat</button>
-              </span>
-            )}
+            {taken !== null
+              ? <span className="v2v-move-bits" data-testid="text-move-unavailable">Not available: {noun} {taken} is already like this, and no two {noun}s may be the same.</span>
+              : m.bits !== null && (others
+                ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs, others.approx) : `your ${fmtBits(m.bits)} × others' …`}{points !== null && nowPoints !== null && <b className="v2v-move-delta"> ({about}{signed(points - nowPoints)} from now)</b>}</span>
+                : <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>)}
           </li>
         ))}
       </ol>
       <p className="v2v-moves-hint">{others
-        ? "Points = your bits × the others' bits together. A candidate marked ↑ both makes it rarer for you and for them: one to propose."
+        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked ↑ both raises them for you and for the others, so nobody has a reason to undo it."
         : "The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it."}</p>
     </div>
   );
@@ -307,9 +320,10 @@ export interface ExpandedFaceProps<S, P> {
   readonly compare?: string | null;
   readonly onActive?: (rep: string) => void;
   readonly onCompare?: (rep: string | null) => void;
-  /** The others' total bits now and at each candidate: the candidates then show points and order by them. */
+  /** The others' total bits now and at each candidate: the candidates then show points and climb by them. */
   readonly others?: OthersAt<S>;
-  readonly onPropose?: (m: Move<S>) => void;
+  /** What happened on the object lately (the app's ClimbHistory), shown under the moves. */
+  readonly climb?: ReactNode;
   /** The candidates, when the app computed them already (to read the others' totals at them); else the face finds them. */
   readonly moves?: readonly Move<S>[];
 }
@@ -389,7 +403,9 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
-        {props.improvement !== false && <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} onPropose={props.onPropose} />}
+        {props.improvement !== false && (props.climb
+          ? <div className="v2v-moves-col"><MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />{props.climb}</div>
+          : <MovesList list={list} noun={a.noun} bits={a.bits} others={props.others} />)}
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>

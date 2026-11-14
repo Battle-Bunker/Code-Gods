@@ -130,10 +130,3 @@ test("grid expanded face: the parts' units listed under each part, its ruler dra
   assert.doesNotMatch(t, /→ \d \d \d \d \/ /, "a move does not repeat the whole board after its words");
   assert.match(renderToStaticMarkup(<ExpandedFace rule={magic} state={B} value={VALUE} />), /class="v2v-ruler" data-role="main"/);
 });
-
-test("a board proposal draws the board in four short rows, never sixteen digits in a run", async () => {
-  const { proposalText } = await import("../src/index.ts");
-  const p = proposalText(gridType, 3, board("9779", "8558", "7997", "9779"), 4.2, 6.1);
-  assert.match(p, /^Shall we settle grid 3 like this and both hold it\?\n9 7 7 9\n8 5 5 8\n7 9 9 7\n9 7 7 9\nThere I get 4\.2\d? bits and the rest of you 6\.1\d? bits together\.$/, p);
-  assert.doesNotMatch(p, /\d{5}/);
-});

@@ -9,9 +9,9 @@ import type { Score } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { contributors } from "./contributors.ts";
 import { CompactFace, partLine } from "./faces.tsx";
-import { fmtBits, fmtEnergy, fmtNum, pointsText, scoreFormula } from "./format.ts";
-import { chipRep, repText, RepView } from "./rep-view.tsx";
+import { fmtBits, fmtEnergy, fmtNum, scoreFormula } from "./format.ts";
 import { moves } from "./moves.ts";
+import { climbOf, climbSentence, type ClimbKind, type ClimbMove } from "./climb.tsx";
 import { nounOf } from "./refs.ts";
 
 export interface SummaryObject<S> {
@@ -35,8 +35,12 @@ export interface SummaryTug<S = unknown> {
   readonly mySpend: number;
   /** Every other side is a practice partner (they do not read chat). */
   readonly practice?: boolean;
-  /** The state the pull passed through that was worth most to the player, and its points then. */
-  readonly best?: { readonly state: S; readonly points: number };
+}
+
+/** A contested object's moves (the player's own act-log rows on it, oldest first): did the players climb together? */
+export interface SummaryClimb {
+  readonly number: number;
+  readonly moves: readonly ClimbMove[];
 }
 
 export interface SummaryInput<S> {
@@ -51,6 +55,8 @@ export interface SummaryInput<S> {
   readonly rotates?: boolean;
   /** Set when the act log was read only in part: how many moves the costs come from. */
   readonly movesRead?: number | null;
+  /** The contested objects' moves (≤ 10): each is said as climbed together or undone. */
+  readonly climbs?: readonly SummaryClimb[];
 }
 
 export interface Summary<S = unknown> {
@@ -63,6 +69,8 @@ export interface Summary<S = unknown> {
   /** Each tug-of-war, dearest first: what happened, with whom, at what cost. */
   readonly costs: readonly { readonly number: number; readonly text: string }[];
   readonly costNote: string | null;
+  /** Each contested object: climbed together, undid each other, or mixed. */
+  readonly contested: readonly { readonly number: number; readonly kind: ClimbKind; readonly text: string }[];
 }
 
 const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
@@ -70,7 +78,6 @@ const cap = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 const names = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "another player" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
 /** "You and Ada", "You, Ada and Bo". */
 const youAnd = (list: readonly string[]) => (list.length <= 1 ? `You and ${list[0] ?? "another player"}` : `You, ${names(list)}`);
-
 
 /** How many objects make the "what earned" list. */
 const BEST = 3;
@@ -97,15 +104,17 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
 
-  // One thing to try. A contested line costs both sides every pull: keep your agents off it (LEAVE), or with people,
-  // agree in chat which of you moves it.
+  // One thing to try. Agents are hill climbers (owner, 14 November): on a contested line what pays is a step that raises
+  // the points for both sides (↑ both on the line's moves), which nobody has a reason to undo, not a pull back and forth.
   let next: Summary<S>["next"];
   const top = tugs[0];
-  if (top && input.rotates) {
-    // The next game deals another rule: this line may mean nothing to it, so the lesson, with this game's cost.
-    next = { number: top.number, text: `Next game, when your agent and another player's pull the same ${noun} back and forth, it costs you both: leave that ${noun} alone (LEAVE in your agent's code)${top.practice ? "" : ", or agree in chat which of you moves it"}. This game, ${noun} ${top.number} cost you ${fmtEnergy(top.mySpend)}.` };
-  } else if (top) {
-    next = { number: top.number, text: `Next game, ${noun} ${top.number} cost you ${fmtEnergy(top.mySpend)} in a tug-of-war: leave it alone (LEAVE = [${top.number}] in your agent's code)${top.practice ? "" : ", or agree in chat which of you moves it"}.` };
+  if (top) {
+    const lesson = top.practice
+      ? `when your agent and another player's pull the same ${noun} back and forth, have it take the moves marked ↑ both on the ${noun}: they raise the points for you and for them, so theirs has no reason to undo them`
+      : `when you and another player pull the same ${noun} back and forth, look on the ${noun} for the moves marked ↑ both: they raise the points for you both, so climb with those and tell each other in chat`;
+    next = { number: top.number, text: input.rotates
+      ? `Next game, ${lesson}.`
+      : `Next game, ${lesson}. This game it was ${noun} ${top.number}.` };
   } else {
     const wanted = [...input.objects].sort((a, b) => b.want - a.want)[0];
     const m = wanted ? moves(rule, wanted.state, input.value ?? null, { k: 1 })[0] : undefined;
@@ -113,7 +122,12 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
       ? { number: wanted.number, text: `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.` }
       : { number: null, text: `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.` };
   }
-  return { noun, next, earned, earnedNote, costs, costNote };
+  // Each contested object: whether the players climbed together or undid each other.
+  const contested = (input.climbs ?? []).flatMap(c => {
+    const climb = climbOf(c.moves);
+    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number) }];
+  });
+  return { noun, next, earned, earnedNote, costs, costNote, contested };
 }
 
 export interface GameSummaryProps<S> {
@@ -136,6 +150,12 @@ export function GameSummary<S>({ summary, rule, value, onOpen }: GameSummaryProp
         <h4 className="v2v-summary-next-title">Try next game</h4>
         <p>{summary.next.text}</p>
       </div>
+      {summary.contested.length > 0 && (<>
+        <h4 className="v2v-summary-title">Contested {summary.noun}s</h4>
+        <ol className="v2v-summary-list">
+          {summary.contested.map(c => <li key={c.number} data-testid={`summary-climb-${c.number}`} data-kind={c.kind}>{c.text}</li>)}
+        </ol>
+      </>)}
       <h4 className="v2v-summary-title">What earned your points</h4>
       {summary.earned.length > 0 && (
         <ol className="v2v-summary-earned">

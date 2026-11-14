@@ -148,30 +148,37 @@ test("a triangle too thin to see is drawn stretched in a labelled inset: its leg
   }
 });
 
-
-
-test("candidates with the others' total: yours × others' = points, ordered by points or by your rarity, both-raising marked", async () => {
-  const { moves, proposalText } = await import("../src/index.ts");
+test("the climb: each move's points with the others' total and the change from now, best for points first, ↑ both marked, unavailable when another line holds it", async () => {
+  const { moves } = await import("../src/index.ts");
   const s = mc(-3, 10);
   const list = moves(tank, s, VALUE, { k: 4 });
   assert.ok(list.length >= 2, `${list.length} moves`);
   // The others' total at each candidate (the server's sum; here made up): the last one suits them best.
   const others = new Map(list.map((m, i) => [lineType.encode(m.after), 2 + i * 3] as const));
-  const atState = (x: LineState) => others.get(lineType.encode(x)) ?? null;
-  const at = (m: (typeof list)[number]) => atState(m.after);
-  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} others={{ now: 2.5, at: atState }} onPropose={() => {}} />);
+  const at = (x: LineState) => others.get(lineType.encode(x)) ?? null;
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} others={{ now: 2.5, at }} />);
   const t = text(html);
   assert.match(t, /Best for points/);
   assert.match(t, /Best for my rarity/);
-  assert.match(t, /your [\d.]+ bits × others' [\d.]+ bits [=≈] [\d.,]+ points/);
-  // Ordered by points by default: the first listed has the largest product.
-  const firstProduct = Math.max(...list.map(m => (m.bits ?? 0) * at(m)!));
+  assert.match(t, /your [\d.]+ bits × others' [\d.]+ bits [=≈] [\d.,]+ points \([+−][\d.,]+ from now\)/);
   const shown = [...html.matchAll(/data-points="([\d.]+)"/g)].map(x => Number(x[1]));
-  assert.ok(Math.abs(shown[0]! - firstProduct) < 1e-6, `first by points: ${shown}`);
   assert.deepEqual([...shown].sort((a, b) => b - a), shown, "descending points");
   assert.match(html, /data-both=""/, "a candidate raising both is marked");
-  assert.equal((html.match(/data-testid="button-propose"/g) ?? []).length, list.length, "propose on each");
-  // The proposal reads plainly, names the line and its state, and both sides' bits there.
-  const p = proposalText(lineType, 8, list[0]!.after, list[0]!.bits!, at(list[0]!)!);
-  assert.match(p, /^Shall we settle line 8 at y = .+ and both hold it\? There I get [\d.]+ bits and the rest of you [\d.]+ bits together\.$/, p);
+  assert.match(t, /The climb from here: “.+” takes your points from [\d.,]+ points? to [\d.,]+ points/);
+  assert.doesNotMatch(html, /button-propose|button-hold/, "no destination: no propose, no hold");
+  // Another line already holds the best candidate's state: it is not available, with the reason, and drops to the end.
+  const bestKey = [...others.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+  const taken = (x: LineState) => (lineType.encode(x) === bestKey ? 5 : null);
+  const h2 = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} others={{ now: 2.5, at, taken }} />);
+  assert.match(text(h2), /Not available: line 5 is already like this, and no two lines may be the same\./);
+  assert.match(h2, /data-unavailable=""[^]*<\/ol>/);
+  assert.ok(h2.lastIndexOf("data-unavailable") > h2.lastIndexOf("data-points"), "the unavailable one is listed last");
+});
+
+test("stuck: when no move raises the points from here, the face says so", async () => {
+  const { moves } = await import("../src/index.ts");
+  const s = mc(-3, 10);
+  const list = moves(tank, s, VALUE, { k: 4 });
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} moves={list} others={{ now: 1000, at: () => 0.01 }} />);
+  assert.match(text(html), /Stuck here: no single move raises your points above/);
 });

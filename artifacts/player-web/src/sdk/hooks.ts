@@ -262,18 +262,35 @@ export function useAgentCount(): number | undefined {
 
 /**
  * The others' total bits on an object after each candidate move (at most four calls, applied by the server to the live
- * state), live, keyed by the state after the move (its wire). Only the sum over the other players: never one player's
+ * state), live, keyed by the state after the move (its wire), with the object already holding a candidate's state. Only the sum over the other players: never one player's
  * rule or bits. While a new set of candidates loads (the object moved), the last answer stays, so the list does not
  * flicker; none in a replay or for no candidates.
  */
-export function useOthersAt(objectId: string | null | undefined, calls: readonly { mutator: string; site: number; args: Record<string, string> }[]): ReadonlyMap<string, number> | undefined {
+export function useOthersAt(objectId: string | null | undefined, calls: readonly { mutator: string; site: number; args: Record<string, string> }[]): OthersAtMaps | undefined {
   const replay = useReplaySource();
   const key = JSON.stringify(calls);
   const args = useMemo(() => (objectId && !replay && calls.length ? { objectId, calls: calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })) } : "skip" as const), [objectId, !replay, key]); // eslint-disable-line react-hooks/exhaustive-deps
   const live = useLiveValue(api.v2.play.othersAt, args);
-  const last = useRef<{ objectId: string; map: ReadonlyMap<string, number> } | null>(null);
+  const last = useRef<{ objectId: string; maps: OthersAtMaps } | null>(null);
   return useMemo(() => {
-    if (live) last.current = { objectId: objectId!, map: new Map(live.after.flatMap(a => (a ? [[a.state, a.want] as const] : []))) };
-    return last.current && last.current.objectId === objectId ? last.current.map : undefined;
+    if (live) {
+      const rows = live.after.flatMap(a => (a ? [a] : []));
+      last.current = { objectId: objectId!, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } };
+    }
+    return last.current && last.current.objectId === objectId ? last.current.maps : undefined;
   }, [live, objectId]);
+}
+/** The others' totals after each candidate, and the object (by number) already holding a candidate's state, by state. */
+export interface OthersAtMaps { want: ReadonlyMap<string, number>; taken: ReadonlyMap<string, number> }
+/** The viewer's own moves on each of a few objects, by number (one subscription each, ≤ 50 rows); none in a replay. */
+export function useObjectMovesOf(numbers: readonly number[]) {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  return useLiveValues(api.v2.play.objectMoves, useMemo(() => (replay || !gameId || !seated ? [] : numbers.map(number => ({ gameId, number }))), [numbers.join("|"), !replay, gameId, seated])); // eslint-disable-line react-hooks/exhaustive-deps
+}
+/** The viewer's own moves on one object, by number (≤ 50, newest first); none in a replay or without a number. */
+export function useObjectMoves(number: number | null | undefined) {
+  const { gameId, seated } = useGameScope();
+  const replay = useReplaySource();
+  return useLiveValue(api.v2.play.objectMoves, gameId && seated && !replay && number != null ? { gameId, number } : "skip");
 }

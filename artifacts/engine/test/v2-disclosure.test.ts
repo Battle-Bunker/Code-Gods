@@ -52,7 +52,8 @@ test("the others' total after a candidate move: only the sum, from the live stat
   const r = await bo!.query("v2/play:othersAt", { objectId, calls: [shift, { mutator: "no.such", site: 0, args: {} }] });
   assert.deepEqual(Object.keys(r).sort(), ["after", "state"]);
   assert.equal(r.state, now.state, "applied to the object's live state");
-  assert.deepEqual(Object.keys(r.after[0]).sort(), ["state", "want"], "a total, nothing per player");
+  assert.deepEqual(Object.keys(r.after[0]).sort(), ["state", "taken", "want"], "a total, nothing per player");
+  assert.equal(r.after[0].taken, null, "no other object is there");
   assert.notEqual(r.after[0].state, now.state);
   assert.equal(r.after[1], null, "an invalid call answers nothing");
   // A move that changes nothing: the others' total is the stored want.
@@ -61,5 +62,29 @@ test("the others' total after a candidate move: only the sum, from the live stat
   const adaRule = await ada!.query("v2/play:myRule", { gameId });
   for (const secret of [adaRule.ruleKey, adaRule.card, adaRule.family]) assert.ok(!JSON.stringify(r).includes(secret));
   await assert.rejects(bo!.query("v2/play:othersAt", { objectId, calls: Array(5).fill(shift) }), /at most 4/);
+  // Objects are unique: once another object holds the candidate's state, the candidate says which.
+  const other = await bo!.query("v2/play:object", { objectId: objects[1]! });
+  await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: r.after[0].state });
+  const again = await bo!.query("v2/play:othersAt", { objectId, calls: [shift] });
+  assert.equal(again.after[0].taken, other.number);
+  await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: other.state });
 });
 
+
+test("one object's moves are the caller's own act-log rows for it, newest first, with bits and the others' total", async () => {
+  const all = await bo!.query("v2/play:moves", { gameId, paginationOpts: page });
+  const first = all.page[0];
+  if (!first) return;
+  const rows = await bo!.query("v2/play:objectMoves", { gameId, number: first.number });
+  assert.deepEqual(rows.map((r: { seq: number }) => r.seq), all.page.filter((m: { number: number }) => m.number === first.number).map((m: { seq: number }) => m.seq));
+  assert.deepEqual(Object.keys(rows[0].after).sort(), ["points", "rarityBits", "want"], "the caller's bits and the others' total, nothing per player");
+  assert.deepEqual(await bo!.query("v2/play:objectMoves", { gameId, number: 9999 }), []);
+});
+
+test("live, another player's move on an object is unattributed; only the player's own moves carry a name", async () => {
+  const live = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId], objects: 4, contested: 1 });
+  const rows = await ada!.query("v2/play:objectMoves", { gameId: live.gameId, number: 1 });
+  assert.ok(rows.some((r: { mine: boolean }) => !r.mine), "the seed's other player moved it");
+  for (const r of rows) if (!r.mine) assert.equal(r.by, null, `seq ${r.seq}: ${JSON.stringify(r.by)}`);
+  assert.ok(!JSON.stringify(rows).includes("Disc Bo"), "Bo is not named");
+});
