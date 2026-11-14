@@ -189,7 +189,8 @@ export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
 export async function pauseGame(ctx: MutationCtx, game: Doc<"v2Games">, by: Id<"v2Members">) {
   const engine = await engineOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
-  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by });
+  // No countdown while paused: the end is set again on resume from the world time left.
+  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, endsAt: undefined });
   await appendEvent(ctx, game._id, "phase", { phase: "paused", by });
 }
 

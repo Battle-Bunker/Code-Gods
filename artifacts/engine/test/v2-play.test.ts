@@ -113,10 +113,12 @@ test("pause once, resume by the owner, end by the owner", async () => {
   await perform(late!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code });
   assert.equal((await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late").spectator, true, "joining mid-game: watching");
   assert.equal((await perform(bo!, "game.pause", {}, scope())).ok, true);
-  assert.equal((await ada!.query("v2/games:header", { gameId })).phase, "paused");
+  const paused = await ada!.query("v2/games:header", { gameId });
+  assert.deepEqual([paused.phase, paused.endsAt], ["paused", null], "no countdown while paused");
   assert.equal((await perform(bo!, "game.resume", {}, scope())).error.code, "refused", "only the owner resumes");
   await perform(ada!, "game.resume", {}, scope());
-  assert.equal((await ada!.query("v2/games:header", { gameId })).phase, "live");
+  const resumed = await ada!.query("v2/games:header", { gameId });
+  assert.ok(resumed.phase === "live" && resumed.endsAt > Date.now(), "the end is set again on resume");
   assert.equal((await perform(bo!, "game.pause", {}, scope())).error.code, "refused", "one pause each");
   await new Promise(r => setTimeout(r, 4000));
   const moves = await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } });
