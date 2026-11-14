@@ -11,12 +11,12 @@
  * An act's failures that are the agent's (COMPILE, EXECUTION, LIMIT) are results, with the transcript and the read
  * bits so far, so the engine can charge them; CONFIG and UNAVAILABLE are thrown.
  */
-import { readFileSync } from "node:fs";
 import { Worker } from "node:worker_threads";
 import { Channel, type AgentHost, type TranscriptEntry } from "./channel.ts";
 import { SandboxError, LIMITS, actLimits, parseSeed, timeLimit, type ActLimits, type ErrorCode } from "./limits.ts";
 import { transpile } from "./compile.ts";
 import { loadBundle } from "./bundle.ts";
+import { GUEST_FILES } from "./guest.gen.ts";
 import type { Engine, ExecuteRequest } from "./engine.ts";
 import type { PythonSnapshot } from "./python.ts";
 
@@ -61,7 +61,7 @@ export const PREPARE_MS = 5000;
 /** The guest library (transport, values) and then the plain-words helpers (look, price, cheapest, ...). */
 const guest = (...files: string[]) => {
   let text: string | undefined;
-  return () => (text ??= files.map(f => readFileSync(new URL(`../guest/${f}`, import.meta.url), "utf8")).join("\n"));
+  return () => (text ??= files.map(f => GUEST_FILES[`guest/${f}`]!).join("\n"));
 };
 const PRELUDES = {
   python: guest("codegods.py", "helpers.py"),

@@ -103,10 +103,13 @@ export const v2Tables = {
     objects: v.number(), agents: v.number(), commits: v.number(), events: v.number(),
   }).index("by_game", ["gameId"]),
 
-  /** The loop's private state: lease, watchdog, the next birth and offer, failures. */
+  /**
+   * The loop's private state: the lease (only the tick chain holding `leaseId` may commit; empty while not live), the
+   * counters that number objects, acts, moves, events and scoreboards, and the world time of the last scoreboard.
+   */
   v2Engine: defineTable({
-    gameId: v.id("v2Games"), leaseId: v.string(), leaseUntil: v.number(), failures: v.number(),
-    nextBirthAt: v.number(), nextObject: v.number(), moves: v.number(), loop: v.any(),
+    gameId: v.id("v2Games"), leaseId: v.string(), tick: v.number(), objects: v.number(), acts: v.number(), moves: v.number(),
+    events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
   }).index("by_game", ["gameId"]),
 
   /** A player's dealt rule (private to that player): `{family, params, layers}`, its card and its ladder. */
@@ -126,6 +129,8 @@ export const v2Tables = {
   v2Players: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), userId: v.optional(v.string()), kind: memberKindV,
     energy: v.number(), power: v.number(), ready: v.boolean(), pauseUsed: v.boolean(), agents: v.number(),
+    /** The own store's balance is as of this world second; Σ of the agents' power shares; the running points total. */
+    settledAt: v.number(), allocated: v.number(), total: v.number(),
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
 
   /** An object's cold part. */
@@ -154,11 +159,15 @@ export const v2Tables = {
   v2Agents: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), name: v.string(), language: languageV,
     sourceHash: v.string(), version: v.number(), share: v.number(), createdAt: v.number(), destroyedAt: v.optional(v.number()),
+    /** The current program (also in v2AgentPrograms), read by the tick without another lookup. */
+    source: v.string(),
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
   /** An agent's hot part. */
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),
     failures: v.number(), spend: v.number(), pointsGained: v.number(), lastActAt: v.optional(v.number()),
+    /** The balance is as of this world second. */
+    settledAt: v.number(),
   }).index("by_agent", ["agentId"]),
   /** Every program an agent has run (the put-back comparison). */
   v2AgentPrograms: defineTable({

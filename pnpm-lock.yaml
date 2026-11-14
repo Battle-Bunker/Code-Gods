@@ -182,6 +182,9 @@ importers:
       '@workspace/v2-affordances':
         specifier: workspace:*
         version: link:../../lib/v2-affordances
+      '@workspace/v2-agents':
+        specifier: workspace:*
+        version: link:../../lib/v2-agents
       '@workspace/v2-core':
         specifier: workspace:*
         version: link:../../lib/v2-core
@@ -191,6 +194,9 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../../lib/v2-linear
+      '@workspace/v2-sandbox':
+        specifier: workspace:*
+        version: link:../../lib/v2-sandbox
       '@workspace/v2-valuation':
         specifier: workspace:*
         version: link:../../lib/v2-valuation

@@ -106,7 +106,8 @@ export const seedGame = internalMutation({
       const m = (await ctx.db.get(memberId))!;
       await ctx.db.insert("v2Players", {
         gameId, memberId, ...(m.userId ? { userId: m.userId } : {}), kind: m.kind,
-        energy: preset.startingEnergy, power: 1, ready: false, pauseUsed: false, agents: 1,
+        energy: preset.startingEnergy, power: preset.economy.powerPerSecond, ready: false, pauseUsed: false, agents: 1,
+        settledAt: 0, allocated: 0.5, total: 0,
       });
     }
 
@@ -133,10 +134,10 @@ export const seedGame = internalMutation({
     }
 
     // Agents, programs, moves.
-    const source = "export function agent(offer) {\n  // Try this: tilt towards your target.\n  return [call(\"si.tilt\", { k: 1 })];\n}\n";
+    const source = "function agent(offer) {\n  // Try this: tilt towards your target.\n  return [call(\"si.tilt\", { k: 1 })];\n}\n";
     for (const [k, { memberId }] of rules.entries()) {
-      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 1, createdAt: now });
-      await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2 });
+      const agentId = await ctx.db.insert("v2Agents", { gameId, memberId, name: "Simple", language: "typescript", sourceHash: "fixture", version: 0, share: 0.5, createdAt: now, source });
+      await ctx.db.insert("v2AgentEnergy", { agentId, gameId, energy: 10, acts: 3, skips: 1, failures: 0, spend: 4.5, pointsGained: 2, settledAt: 0 });
       await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: "typescript", source, sourceHash: "fixture", price: 12, summonedAt: now, acts: 3, pointsGained: 2 });
       for (let s = 0; s < Math.min(3, n); s++) {
         const objectId = objects[(k + s) % n]!, value = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique())!;
@@ -207,5 +208,23 @@ export const setBidding = internalMutation({
       return [{ family: f.id, title: f.title, card: f.card(params, null), top: (objectLadder(lineType, f, params, lineZ).length - 1) * RARITY_PER_LEVEL }];
     });
     await ctx.db.patch(roomId, open ? { bidding: { deadline: Date.now() + (seconds ?? 45) * 1000, pricing: presetOf(room.preset).bid?.pricing ?? "first", families: offers } } : { bidding: undefined });
+  },
+});
+
+/** A page of a game's record (spec §9.1), in order from `after` (exclusive). */
+export const events = internalQuery({
+  args: { gameId: v.id("v2Games"), after: v.number() },
+  handler: async (ctx, { gameId, after }) => {
+    fixtures();
+    return await ctx.db.query("v2Events").withIndex("by_game_seq", q => q.eq("gameId", gameId).gt("seq", after)).take(200);
+  },
+});
+
+/** One program version of an agent (re-execution reads the source an act ran). */
+export const program = internalQuery({
+  args: { agentId: v.id("v2Agents"), version: v.number() },
+  handler: async (ctx, { agentId, version }) => {
+    fixtures();
+    return await ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agentId).eq("version", version)).unique();
   },
 });
