@@ -57,5 +57,5 @@ test("the tables of a player's draws are the engine's own; unknown draws fail", 
   assert.equal(table.key, probe.key);
   assert.equal(table.instance, INSTANCE);
   assert.ok(table.levels.length > 1);
-  await assert.rejects(admin.action(internal.calibration.node.tablesOf, { settings, draws: [{ familyId: "seed3_green_ones", params: {} }] }));
+  await assert.rejects(admin.action(internal.calibration.node.tablesOf, { settings, draws: [{ familyId: "no_such_family", params: {} }] }));
 });

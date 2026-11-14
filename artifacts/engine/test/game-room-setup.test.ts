@@ -160,9 +160,9 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
 
 test("a room stored on the removed Int type still opens, and starting it says the type is gone", { timeout: 60_000 }, async () => {
   // Catches: the observation, the rules text or the start crashing on a room created before D1 removed Int and string.
-  const [host] = await gods("Int Room Host");
+  const [host, ada, bo] = await gods("Int Room Host", "Int Room Ada", "Int Room Bo");
   await touch(host);
-  const { roomId } = await roomWith([host]);
+  const { roomId } = await roomWith([host, ada, bo]);
   const legacy = { ...seedSetupSettings("grid-annotated-basics"), objectType: "Int", typeArgs: { min: 0, max: 1000 } };
   await admin.mutation(internal.testing.makeLegacy, { roomId, settings: legacy });
   const observation = await host.c.query(api.player.observation, { roomId });

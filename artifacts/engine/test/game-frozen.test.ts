@@ -107,7 +107,12 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   const result = (tool: string) => JSON.parse(turn.calls.find((c: any) => c.tool === tool).resultJson).data;
   const observed = result("get_observation");
   assert.equal(observed.phase, "ended");
-  assert.equal(observed.objects.length, 4, "the assistant sees the final objects");
+  // A tool result is cut to its byte bound: Grid values are large, so the page holds the best few objects, in payoff
+  // order, and the count says how many there are.
+  assert.equal(observed.objectCount, 4, "the assistant sees how many final objects there are");
+  const best = [...end.objects].sort((x, y) => y.payoff - x.payoff).map(o => o.id);
+  assert.ok(observed.objects.length >= 1, "and at least the best one");
+  assert.deepEqual(observed.objects.map((o: any) => o.id), best.slice(0, observed.objects.length), "the best first");
   assert.equal(observed.agents.length, 1, "and the player's agents");
   assert.ok(result("get_my_utility"), "and the player's card");
   const [briefing] = JSON.parse(turn.messages.find((m: any) => m.role === "assistant").text).context as string[];
