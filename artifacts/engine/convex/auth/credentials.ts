@@ -7,7 +7,7 @@
  */
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { requireViewer } from "./access";
+import { credentialRoom, requireViewer } from "./access";
 
 const LAST_USED_RESOLUTION_MS = 60_000;
 
@@ -20,11 +20,10 @@ export const list = query({
     const rows = await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", viewer.subject)).order("desc").take(200);
     const active = rows.filter(row => row.revokedAt === undefined && row.expiresAt > now);
     return await Promise.all(active.map(async row => {
-      const roomId = row.roomId ? ctx.db.normalizeId("rooms", row.roomId) : null;
-      const room = roomId ? await ctx.db.get(roomId) : null;
+      const room = row.roomId ? await credentialRoom(ctx, row.roomId) : null;
       return {
         /** permission "account": an app acting as you in every room (no roomId). */
-        credentialId: row._id, roomId: row.roomId ?? null, roomCode: room?.shortCode ?? null, permission: row.permission,
+        credentialId: row._id, roomId: row.roomId ?? null, roomCode: room?.code ?? null, permission: row.permission,
         /** device (device flow), oauth (an MCP connection; label = its client's self-reported name) or assistant. */
         kind: row.kind ?? "device", ...(row.clientId ? { clientId: row.clientId } : {}),
         /** Self-reported by the app that requested it: NOT a verified identity. */

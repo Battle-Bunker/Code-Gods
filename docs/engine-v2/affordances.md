@@ -107,8 +107,14 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 - `@workspace/v2-affordances/fake` implements every server affordance in memory (`FAKE_HANDLERS`, `createFake`,
   `contextFor`), the reference for what each handler takes and answers. The CLI runs against it until the server
   exists: `pnpm --filter @workspace/v2-affordances cli help`.
-- MCP: when v2 rooms exist, `/mcp` routes a v2 room's credential to `mcpDispatch` with the credential's context and a
-  `perform` that runs `as` with the credential as delegate. The transport, OAuth and `initialize` stay as they are.
+- MCP: `/mcp` serves a credential bound to a v2 room from the directory (`agent/mcpV2.ts`). Its context is resolved by
+  `v2/ops/define:resolveCaller` with the credential as delegate, only for `tools/list` and `tools/call`; its tools are
+  `mcpTools(context)`; a call is `callTool`, whose `perform` runs the affordance's `as` twin by its kind (view
+  operations: `view:applyAs`) with `delegate {userId, roomId, grant, via: "mcp"}`. A tool beyond the grant gets the
+  "needs the act permission" hint. The transport, OAuth and `initialize` are shared with v1. A credential's room is
+  resolved by `auth/access.ts credentialRoom` (v1 `rooms` or `v2Rooms`) everywhere: authentication, OAuth code
+  redemption and refresh, and the credentials list. Approving a connection for a v2 room is `account.approveConnection`
+  (W3's handler; the consent screen is W5's).
 - A new operation is declared in the directory first (in the PR that implements it, or its own); W6 reviews it.
 
 ## 4. For W5 (the app)
