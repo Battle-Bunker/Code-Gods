@@ -29,6 +29,7 @@ function perTurn(scripts: MockStep[][]): ChatProvider {
 
 test("model seats play through the directory's tools on the server's economy: the power manoeuvre, a cheap edit, a deal", async () => {
   const simple = startersFor("treasure", "typescript").find(x => x.kind === "simple")!.source;
+  const naiveSource = startersFor("treasure", "typescript").find(x => x.kind === "naive")!.source;   // cheaper: the store can pay it
   const edited = simple.replace("function agent(offer) {", "function agent(offer) {\n  if ([2].includes(offer.object)) return null;   // the deal with Bo");
   const ada: MockStep[][] = [[
     { tools: [t("game.get"), t("game.standings"), t("rule.explain"), t("rule.values"), t("objects.list", { sort: "rarity", limit: 3 }), t("object.score", { objectId: "2" }), t("object.read", { objectId: "2", rep: "si" }), t("moves.list")] },
@@ -37,7 +38,7 @@ test("model seats play through the directory's tools on the server's economy: th
     { text: "Kept the deal in code." },
   ], [
     // Twenty seconds on, the agent holds the energy and the store cannot pay a summon: pull power back, summon, share it out.
-    { tools: [t("power.allocate", { shares: { "a0-0": 0.1 } }), t("agent.summon", { language: "typescript", source: simple, share: 0.3 }), t("power.allocate", { shares: { "a0-0": 0.5, "a0-1": 0.5 } })] },
+    { tools: [t("power.allocate", { shares: { "a0-0": 0.1 } }), t("agent.summon", { language: "typescript", source: naiveSource, share: 0.3 }), t("power.allocate", { shares: { "a0-0": 0.5, "a0-1": 0.5 } })] },
     { text: "Added an agent." },
   ]];
   const bo: MockStep[][] = [[{ tools: [t("chat.list")] }, { text: "Waiting." }], [{ tools: [t("chat.send", { text: "Deal! Line 2 it is." })] }, { text: "Accepted." }]];
