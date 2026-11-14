@@ -4,7 +4,7 @@ import { restartAutopilots } from "./assistantCore";
 import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { MAX_MEMBERS, normaliseCode, userById } from "./access";
+import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
 import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
@@ -239,6 +239,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
   const preset = presetOf(room.preset);
   const seats = (await membersOf(ctx, room._id)).filter(m => !m.spectator);
   if (seats.length < preset.minPlayers) throw new OpFailure(`Needs ${preset.minPlayers} players; ${seats.length} seated.`, "seats.fillPracticePartners");
+  // v1's cap (archive owner.ts): at most eight players; more room members can watch.
+  if (seats.length > MAX_PLAYERS) throw new OpFailure(`At most ${MAX_PLAYERS} players can play; ${seats.length} are seated.`, "room.setSpectator");
   const seed = again?.seed ?? crypto.randomUUID(), now = Date.now();
   let { rules, dealKey, rotation } = again ? { rules: seats.map(m => again.rules.get(m._id)!), dealKey: again.dealKey, rotation: null } : await nextDeal(ctx, room, seats, seed);
   if (rules.some(r => !r) || (again && again.rules.size !== seats.length)) throw new OpFailure("A rematch needs the same seated players as the last game.", "game.start");

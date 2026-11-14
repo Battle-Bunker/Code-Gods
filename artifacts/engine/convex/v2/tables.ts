@@ -104,6 +104,8 @@ export const v2Tables = {
       /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
       scoreIntervalSeconds: v.optional(v.number()),
     }),
+    /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
+    parked: v.optional(v.boolean()),
     /** PRIVATE: the world second the game ends at (drawn at the start in halfLife mode); absent: settings.worldSeconds. */
     endAtWorld: v.optional(v.number()),
     /** PRIVATE: the key of the game's disclosure noise (disclose.ts). Never returned while live. */
@@ -123,7 +125,11 @@ export const v2Tables = {
     rotation: v.optional(v.object({ round: v.number(), of: v.number() })),
     summary: v.optional(v.object({ winner: v.union(v.id("v2Members"), v.null()), objects: v.number(), acts: v.number() })),
     replayFile: v.optional(v.id("_storage")),
-  }).index("by_room_phase", ["roomId", "phase", "number"]).index("by_room", ["roomId", "number"]).index("by_code", ["code"]),
+  }).index("by_room_phase", ["roomId", "phase", "number"]).index("by_room", ["roomId", "number"]).index("by_code", ["code"])
+    .index("by_parked", ["parked"]),
+
+  /** When a human last acted (activity.ts: idle parking); one row, key "global". */
+  v2Activity: defineTable({ key: v.string(), lastHumanActivityAt: v.number() }).index("by_key", ["key"]),
 
   /** Hot: world time and counts, written by every commit; no public query reads it (clients interpolate). */
   v2Clocks: defineTable({

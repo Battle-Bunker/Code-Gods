@@ -56,6 +56,8 @@ export const headerV = v.object({
   durationMode: v.union(v.literal("fixed"), v.literal("halfLife")),
   /** World seconds between published standings. */
   scoreIntervalSeconds: v.number(),
+  /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
+  parked: v.boolean(),
 });
 export const standingsV = v.object({
   seq: v.number(), worldSeconds: v.number(),

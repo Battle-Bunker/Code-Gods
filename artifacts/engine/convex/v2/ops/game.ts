@@ -1,6 +1,7 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
 import { membersOf, openBidding, rematchDeal, rotationFor, startGame } from "../lobby";
 import { presetOf } from "../presets";
+import { touchActivity } from "../activity";
 import { OpFailure } from "@workspace/v2-affordances";
 import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
 import { defineOp, inGame, inRoom, seated } from "./define";
@@ -32,6 +33,7 @@ export const { op: rotation, as: rotationAs } = defineOp("game.rotation", "query
 /** Deals and starts planning; on a preset with a bid phase, opens the phase instead (the deal follows it). */
 export const { op: start, as: startAs } = defineOp("game.start", "mutation", async env => {
   const { room } = inRoom(env);
+  await touchActivity(env.ctx);   // human activity: keeps the engine awake (activity.ts)
   if (presetOf(room.preset).bid) {
     await openBidding(env.ctx, room);
     return { gameId: null, bidPhase: true };
@@ -41,6 +43,7 @@ export const { op: start, as: startAs } = defineOp("game.start", "mutation", asy
 /** Deals the room's last game again: the same rule to each player and the same seed (lobby.ts `rematchDeal`). */
 export const { op: rematch, as: rematchAs } = defineOp("game.rematch", "mutation", async env => {
   const { room } = inRoom(env);
+  await touchActivity(env.ctx);
   return { gameId: await startGame(env.ctx, room, undefined, await rematchDeal(env.ctx, room)) };
 });
 export const { op: startWorldNow, as: startWorldNowAs } = defineOp("game.startWorldNow", "mutation", async env => {
@@ -49,7 +52,10 @@ export const { op: startWorldNow, as: startWorldNowAs } = defineOp("game.startWo
 });
 
 export const { op: resume, as: resumeAs } = defineOp("game.resume", "mutation", async env => {
-  await resumeGame(env.ctx, inGame(env).game);
+  // Human activity resumes an idle-parked game (activity.ts); an owner's pause is resumed here.
+  await touchActivity(env.ctx);
+  const game = (await env.ctx.db.get(inGame(env).game._id))!;
+  if (game.phase === "paused") await resumeGame(env.ctx, game);
   return { ok: true as const };
 });
 

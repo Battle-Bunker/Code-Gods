@@ -139,6 +139,7 @@ export const roomOps = [
       if (r?.bidOpen) return { ok: false, reason: "The bid phase is open; the deal follows when it closes." };
       if (r && r.players < r.minPlayers)
         return { ok: false, reason: `Needs ${r.minPlayers} players; ${r.players} seated.`, fix: "seats.fillPracticePartners" };
+      if (r && r.players > 8) return { ok: false, reason: `At most 8 players can play; ${r.players} seated.`, fix: "room.setSpectator" };
       return { ok: true };
     },
   }),

@@ -5,6 +5,7 @@ import { memberOf, roomById } from "../access";
 import type { MutationCtx } from "../../_generated/server";
 import { oauthRequest } from "../oauth";
 import { callerOf, defineOp } from "./define";
+import { touchActivity } from "../activity";
 
 export const { op: whoami, as: whoamiAs } = defineOp("account.whoami", "query", async env => {
   const caller = callerOf(env);
@@ -107,4 +108,10 @@ export const { op: denyConnection, as: denyConnectionAs } = defineOp("account.de
   if (!device || device.status !== "pending" || device.expiresAt <= now) throw new OpFailure("Invalid or expired connection request.");
   await ctx.db.patch(device._id, { status: "denied" });
   return { ok: true as const };
+});
+
+/** Human activity (activity.ts): keeps the engine awake for 30 minutes and resumes idle-parked games. */
+export const { op: touch, as: touchAs } = defineOp("account.touch", "mutation", async env => {
+  if (callerOf(env).ctx.grant === "read") throw new OpFailure("A read-only connection cannot wake the engine.", "Act in your signed-in browser.");
+  return await touchActivity(env.ctx);
 });

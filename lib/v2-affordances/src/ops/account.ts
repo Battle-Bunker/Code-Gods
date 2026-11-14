@@ -31,6 +31,13 @@ export const accountOps = [
     contexts: SIGNED_IN, caller: "signedIn", effect: "destructive", confirm: "modal", runs: "server",
   }),
   affordance({
+    id: "account.touch", title: "I'm here", group: "account", scope: "none",
+    description: "Human activity: keeps the engine awake for 30 minutes and resumes games parked because nobody had acted for 30 minutes. The app calls it on real interaction (at most about once a minute); an assistant acting for the human may too, never a read-only one. AI turns, autopilot and subscriptions never count.",
+    tooltip: "Wake the engine.", keywords: ["wake", "resume parked", "activity", "touch", "keep awake"],
+    params: obj({ requestId: requestId.optional() }), result: z.object({ resumed: z.number().int() }),
+    contexts: SIGNED_IN, caller: "signedIn", effect: "write", confirm: "none", runs: "server",
+  }),
+  affordance({
     id: "account.signIn", title: "Sign in", group: "account", scope: "none",
     description: "Starts signing in with Google (or the test-only provider). A human's own click only.",
     tooltip: "Sign in to play.", keywords: ["sign in", "log in", "login"],
