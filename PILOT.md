@@ -36,7 +36,8 @@ pnpm --filter @workspace/engine deploy-static --prod                      # buil
 ```
 
 Also set `ADMIN_EMAILS` (verified Google emails) and the provider keys
-(`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) with `npx convex env set --prod`. Never set
+(`ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`) with `npx convex env set --prod`; `AI_MODEL` picks the model
+(a lib/v2-ai `MODELS` id; unset, the default). Never set
 `FAKE_OIDC_URL`, `AI_MOCK`, `TEST_FIXTURES` or `DEV` in production.
 Without `SEASON_SALT` the engine refuses to run games in production. Never share the salt
 during the season; game records carry its sha256 commitment. `BETTER_AUTH_SECRET` also encrypts the

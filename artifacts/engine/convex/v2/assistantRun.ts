@@ -6,7 +6,7 @@
  */
 import { assistantTools, affordanceForTool, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
-import { assistantSystemPrompt, mergeTurns, runAssistant, textOf, type ChatMessage, type RunResult } from "@workspace/v2-ai";
+import { assistantSystemPrompt, runAssistant, textOf, type ChatMessage, type RunResult } from "@workspace/v2-ai";
 import { startersFor } from "@workspace/v2-agents/pure";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
@@ -16,6 +16,7 @@ import { memberOf, ruleOf } from "./access";
 import { providerFor, spendWithin } from "./ai";
 import { LIMITS, type Grant, type Mode } from "./assistant";
 import { performAs } from "./perform";
+import { historyOf } from "./assistantHistory";
 
 type Input = {
   roomId: string; userId: string; gameId: Id<"v2Games"> | null; memberId: Id<"v2Members">; name: string; grant: Grant; mode: Mode;
@@ -44,18 +45,6 @@ function stored(messages: readonly ChatMessage[]) {
       : m.content.map(b => b.type === "tool_result" && b.content.length > RESULT_CHARS ? { ...b, content: `${b.content.slice(0, RESULT_CHARS)}… (cut)` } : b)) });
 }
 
-/** The history a turn replays, oldest first: whole exchanges, from a human message on. */
-function historyOf(rows: Doc<"v2AssistantMessages">[]): ChatMessage[] {
-  const first = rows.findIndex(r => r.role === "user");
-  const out: ChatMessage[] = [];
-  for (const r of first < 0 ? [] : rows.slice(first)) {
-    if (r.role === "user") out.push({ role: "user", content: r.text });
-    else if (r.contentJson) out.push({ role: r.role === "assistant" ? "assistant" : "user", content: JSON.parse(r.contentJson) } as ChatMessage);
-  }
-  // A turn that failed left a message unanswered: two of the human's in a row are one.
-  return mergeTurns(out);
-}
-
 export const turnInput = internalQuery({
   args: { turnId: v.id("v2AssistantTurns") },
   handler: async (ctx, { turnId }) => {
@@ -65,9 +54,11 @@ export const turnInput = internalQuery({
     if (!room || !member) return null;
     const rows = (await ctx.db.query("v2AssistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId)).order("desc").take(LIMITS.historyMessages)).reverse();
     const rule = turn.gameId ? await ruleOf(ctx, turn.gameId, member._id) : null;
+    const stopped = new Set<string>();
+    for (const id of new Set(rows.map(r => r.turnId))) if (id !== turn._id && (await ctx.db.get(id))?.status === "cancelled") stopped.add(id);
     return {
       roomId: turn.roomId as string, userId: turn.userId, gameId: turn.gameId ?? null, memberId: member._id, name: member.name,
-      grant: turn.grant, mode: turn.mode, trigger: turn.trigger ?? null, history: historyOf(rows),
+      grant: turn.grant, mode: turn.mode, trigger: turn.trigger ?? null, history: historyOf(rows, stopped),
       rule: rule ? { card: rule.card, family: rule.family, tieBreaker: rule.tieBreaker } : null,
     };
   },
