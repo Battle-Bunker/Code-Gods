@@ -10,7 +10,7 @@ import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
 import { failureText } from "@/site/components/action";
 import { useNow } from "@/core/game-timer";
-import { clock, rarityText } from "@/core/words";
+import { bitsText, clock } from "@/core/words";
 import { ErrorLine } from "@/site/components/page-parts";
 import { errMsg } from "@/site/lib/errors";
 
@@ -27,7 +27,7 @@ function FamilyRow({ family, title, card, top, mine, busy, onBid, onWithdraw }: 
   const valid = Number.isFinite(percent) && percent >= 1 && percent <= 100;
   return (
     <li className="space-y-2 px-4 py-3" data-testid={`bid-family-${family}`}>
-      <p className="font-medium">{title} <span className="text-xs font-normal text-muted-foreground">top of its ladder {rarityText(top)}</span></p>
+      <p className="font-medium">{title} <span className="text-xs font-normal text-muted-foreground">top of its ladder {bitsText(top)}</span></p>
       <p className="text-sm text-muted-foreground">{card}</p>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {mine ? <span data-testid={`text-my-bid-${family}`}>Your bid: {mine}% off your final total.</span> : <span className="text-muted-foreground">No bid.</span>}

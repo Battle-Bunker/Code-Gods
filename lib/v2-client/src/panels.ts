@@ -2,7 +2,7 @@
  * The game screen's panes (integration plan §1.6, §3.3): pure metadata the dock, the palette and the assistant share.
  * A pane is opened, moved and closed with the view affordances (`view.openPane`, `view.movePane`, `view.closePane`),
  * which keep the open panes in the human's view state (`ViewState.panes`), so an assistant can arrange the screen for
- * them and every client of theirs follows. Player words only: points, ✨ rarity, ⚡ energy, power, "line".
+ * them and every client of theirs follows. Player words only: points, rarity in bits, ⚡ energy, power, "line".
  */
 import type { Place, ViewState } from "@workspace/v2-affordances";
 
@@ -38,13 +38,13 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   "my-card": def({ id: "my-card", title: "Your secret goal", blurb: "Your rule in plain words, a worked example and the steps to the top.", phases: ALL, keywords: ["rule", "goal", "card", "ladder"] }),
   objects: def({ id: "objects", title: "Lines", blurb: "Which lines earn you points, and why.", phases: WORLD, keywords: ["objects", "lines", "points", "rarity"] }),
   object: def({ id: "object", title: "One line", blurb: "One line in every representation your rule reads, with why it scores.", phases: WORLD, keywords: ["expanded", "representations", "compare"] }),
-  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change on a line and see its new step, ✨ rarity and points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"] }),
+  "what-if": def({ id: "what-if", title: "What if", blurb: "Try a change on a line and see its new step, rarity in bits and points, without making it.", phases: WORLD, keywords: ["what if", "try", "preview", "price", "change", "quote"] }),
   feed: def({ id: "feed", title: "What just changed", blurb: "Every move that changed your points, and why.", phases: WORLD, keywords: ["act log", "moves", "why", "feed"] }),
   agents: def({ id: "agents", title: "My agents", blurb: "Your agents, their energy, and what they spent it on.", phases: PLAY, keywords: ["energy", "power", "share"] }),
   forge: def({ id: "forge", title: "Agent code", blurb: "Write, check, summon and replace your agents.", phases: ["planning", "live", "paused"], keywords: ["code", "summon", "replace", "editor"] }),
   race: def({ id: "race", title: "Leaderboard", blurb: "Who's winning, and is anyone catching up.", phases: WORLD, keywords: ["standings", "scores", "race"] }),
   "public-chat": def({ id: "public-chat", title: "Public chat", blurb: "Everything said to everyone.", phases: ALL, keywords: ["talk", "message", "pitch"] }),
-  "others-care": def({ id: "others-care", title: "What others care about", blurb: "Every line by your ✨ rarity and how much the others want it: who cares about what.", phases: WORLD, keywords: ["others", "want", "deals", "scatter"] }),
+  "others-care": def({ id: "others-care", title: "What others care about", blurb: "Every line by your bits and the others' bits: who cares about what.", phases: WORLD, keywords: ["others", "want", "deals", "scatter"] }),
   "points-over-time": def({ id: "points-over-time", title: "Your points over time", blurb: "Your points at every scoreboard, rising and falling.", phases: WORLD, keywords: ["history", "chart", "points", "trend"] }),
   rules: def({ id: "rules", title: "How to play", blurb: "The game in 90 seconds, with this game's settings.", phases: ALL, keywords: ["rules", "help", "how", "settings", "energy", "power"] }),
   assistant: def({ id: "assistant", title: "Your assistant", blurb: "Ask your assistant for help, or let it play for you.", phases: ALL, keywords: ["assistant", "ask", "help", "autopilot", "ai"] }),

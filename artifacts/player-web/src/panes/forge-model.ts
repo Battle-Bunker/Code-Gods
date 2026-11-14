@@ -3,7 +3,7 @@
  * summon or a replace message says, and the frozen before/after comparison of a put-back. Pure, unit-tested.
  */
 import { exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
-import { energyText, powerText } from "../core/words.ts";
+import { energyText, num, powerText } from "../core/words.ts";
 
 /** The first agent's share of power (ux-lessons 3.7: close to 75%, leaving room to replace it with any starter). */
 export const FIRST_SHARE = 0.7;
@@ -62,6 +62,6 @@ export const replacedText = (name: string) =>
  */
 export function comparisonText(before: { acts: number; pointsGained: number } | undefined, since: { acts: number; pointsGained: number }): string | null {
   if (!before || before.acts === 0 || since.acts === 0) return null;
-  const per = (x: { acts: number; pointsGained: number }) => { const v = x.pointsGained / x.acts; return `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)} points a move`; };
+  const per = (x: { acts: number; pointsGained: number }) => { const v = x.pointsGained / x.acts; return `${v >= 0 ? "+" : "−"}${num(Math.abs(v))} points a move`; };
   return `Before your change: ${per(before)}. Since: ${per(since)}.${since.acts < 10 ? " Early moves are a rough guide." : ""}`;
 }

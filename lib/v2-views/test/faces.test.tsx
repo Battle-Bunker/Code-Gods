@@ -30,7 +30,10 @@ test("expanded face: every depended representation, both parts with their steps,
   assert.equal((html.match(/class="v2v-panel"/g) ?? []).length, 3);
   assert.match(t, /main part step 5 of 8/);
   assert.match(t, /tie-breaker step 4 of 4/);
-  assert.match(t, /✨ 4\.6 step 23 of 36/);
+  assert.match(t, /4\.60 bits step 23 of 36/);
+  // The ladder: beside each step its bits and its chance (2^4.6 ≈ 24.3), and what a bit means.
+  assert.match(t, /this line 4\.60 bits 1 in 24 by chance/);
+  assert.match(t, /Each bit = twice as rare\./);
   assert.match(t, /Next step: .*⚡\): step \d+ of 36\./);
   assert.match(t, /Steps to the top/);
   assert.match(t, /your rule's main view/);
@@ -63,11 +66,11 @@ test("move line: the change, the step before → after, the rarity with its reas
   const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
     rarities={RARITIES} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
   assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\. Up: step 23 → 36 of 36 ?\./);
-  assert.match(t, /✨ rarity 4\.6 → 7\.2 \(fewer random lines score this well\)\./);
-  assert.match(t, /Points on this line 8\.2 → 16\.3 \(the others want it 2\.4\)\./);
+  assert.match(t, /Rarity 4\.60 → 7\.20 bits \(fewer random lines score this well\)\./);
+  assert.match(t, /Points on this line 8\.20 → 16\.30 \(the others want it 2\.40\)\./);
   const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" rarities={RARITIES}
     points={{ before: 8.2, after: 7.9, want: 1.1, wantBefore: 2.4 }} />));
-  assert.match(t2, /the others want it 1\.1, was 2\.4\): because the others want this line less now/);
+  assert.match(t2, /the others want it 1\.10, was 2\.40\): because the others want this line less now/);
 });
 
 test("compact face: says 'step n of N', each part's step, the reason when not scoring, and the next move", () => {

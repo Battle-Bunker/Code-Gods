@@ -4,7 +4,7 @@
  * (390×844):
  *   create a room → "Play a practice game" (one press: practice partners fill the seats, the game starts) →
  *   "Summon my first agent" in one press (no check first) → "Start the world now" → a move of your agent appears in the
- *   act log as a full sentence with ✨ rarity and points before → after → the Lines rows draw compact faces with marks
+ *   act log as a full sentence with your bits and points before → after (yours × others' = points) → "See it line by line" opens Lines by points → the Lines rows draw compact faces with marks
  *   → one line opens with every representation the rule reads (desktop: pointing at an element lights the same
  *   meaning in another representation) → the goal card shows the ladder and the next step → the game ends on its own
  *   and the results lead with "You finished …".
@@ -64,6 +64,9 @@ async function shorten(page: Page, code: string) {
 }
 
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
+/** A line's score as every pane writes it (src/core/words.ts scoreFormula), 2 decimal places. */
+const FORMULA = /your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
+const SCORE_SENTENCE = "You score on a line when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the lines.";
 const clock = (t0: number) => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 
 const browser = await chromium.launch();
@@ -79,6 +82,12 @@ try {
     await page.waitForURL(/\/games\//, { timeout: 30_000 });
     console.log(`${label}: seated and playing at ${clock(t0)}`);
 
+    // "Where am I", before the first agent: how a score is made, in one sentence, and the step to the line-by-line list.
+    const overview = page.getByTestId("pane-overview");
+    await overview.getByText(SCORE_SENTENCE).waitFor({ timeout: 20_000 });
+    await overview.getByTestId("button-line-by-line-overview").waitFor();
+    if (label === "phone") await overview.screenshot({ path: path.join(shots, "score-words-phone-where-am-i.png") });
+
     // The planning line's button summons in one press (ux-lessons 1.3); it is the first a walker presses.
     await page.getByTestId("button-summon-first").click();
     const status = page.getByTestId("text-forge-status");
@@ -93,28 +102,56 @@ try {
 
     const feed = page.getByTestId("pane-feed");
     // The first scoring move (a move can also leave the step and the points where they were).
-    const mine = feed.getByText(/^Your agent .* changed a line.*✨ rarity/).first();
+    const mine = feed.getByText(/^Your agent .* changed a line.*Your rarity/).first();
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();
-    assert.match(sentence, /✨ rarity [\d.]+ → [\d.]+|✨ rarity [\d.]+/, `the move says the ✨ rarity: ${sentence}`);
+    assert.match(sentence, /Your rarity [\d.,]+ → [\d.,]+ bits?/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
-    assert.doesNotMatch(sentence, /\bbits?\b|payoff|object/i);
+    assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
+    assert.doesNotMatch(sentence, /payoff|object|✨/i);
+    assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
-    // The goal card: the ladder and the next step (before one line's pane takes the oldest pane's place).
+    // The goal card: the ladder, each step's chance and the next step (before one line's pane takes the oldest pane's place).
     const goal = page.getByTestId("pane-my-card");
     await goal.getByText(/Steps to the top/).first().waitFor();
+    await goal.getByText(/^1 in [\d.,]+( [a-z]+)? by chance$/).first().waitFor({ timeout: 10_000 });
     await goal.getByText(/Next step:/).first().waitFor({ timeout: 5000 }).catch(() => {});   // absent only at the top of the ladder
+    if (label === "phone") {
+      await goal.screenshot({ path: path.join(shots, "score-words-phone-goal-card.png") });
+      const ladder = goal.locator(".v2v-ladder").first();
+      await ladder.scrollIntoViewIfNeeded();
+      await ladder.screenshot({ path: path.join(shots, "score-words-phone-goal-ladder.png") });
+    }
     await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
     await shot(page, `game-${label}-live`);
+
     if (label === "phone") {
       // A long act log never traps the phone's scroll: the row of pane names jumps to Lines.
       await page.getByTestId("button-jump-objects").click();
       await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible" });
     }
+    // From the total to the line-by-line list in one step (the header's button): Lines, sorted by your points.
+    const sortSelect = page.getByTestId("select-lines-sort");
+    if (await sortSelect.count()) await sortSelect.selectOption("recent");
+    await page.getByTestId("button-line-by-line-bar").click();
+    await page.getByTestId("pane-objects").waitFor();
+    await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(await page.getByTestId("select-lines-sort").inputValue(), "points", "Lines sorted by your points");
+    const why = page.locator("[data-testid^=text-why-line-]").first();
+    assert.match(await why.innerText(), FORMULA, "a Lines row says yours × others' = points");
+    if (label === "phone") await page.locator("[data-testid^=row-line-]").first().screenshot({ path: path.join(shots, "score-words-phone-lines-row.png") });
+
     await page.locator("[data-testid^=row-line-]").first().click();
     const line = page.getByTestId("pane-object");
     await line.getByText("slope-intercept").first().waitFor({ timeout: 20_000 });
+    assert.match(await line.getByTestId("text-line-formula").innerText(), FORMULA, "One line says yours × others' = points");
+    // What a bit is, on tap (a phone has no hover).
+    await line.getByTestId("button-bits-help-line").click();
+    await page.getByTestId("text-bits-help").getByText(/Each bit = twice as rare\./).waitFor();
+    await page.keyboard.press("Escape");
+    await page.getByTestId("text-bits-help").waitFor({ state: "detached" });
+    if (label === "phone") await line.screenshot({ path: path.join(shots, "score-words-phone-one-line.png") });
     if (label === "desktop") {
       // Plan §5.3: pointing at the y-intercept in slope-intercept form lights it on the plane (same meaning).
       // The plane is drawn when the rule reads it; otherwise compare with it (a view affordance, like a player would).
@@ -132,6 +169,9 @@ try {
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     const results = page.getByTestId("pane-results");
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
+    // The results say what a total is, and step to the line-by-line list.
+    await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();
+    await results.getByTestId("button-line-by-line-results").waitFor();
     console.log(`${label}: natural end at ${clock(t0)}: ${(await results.getByText(/You finished/).first().innerText()).slice(0, 120)}`);
     // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.
     await results.getByTestId("results-rotation").getByText(/^Game 1 of 3 in this rotation/).waitFor({ timeout: 10_000 });

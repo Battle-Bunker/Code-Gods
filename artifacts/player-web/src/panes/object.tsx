@@ -14,7 +14,8 @@ import { representation } from "@workspace/v2-core";
 import { decodeState, useGame, useGameScope, useMyObject, useMyRule } from "@/sdk";
 import { useReplaying, useView } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
-import { pointsText, rarityText } from "@/core/words";
+import { bitsText, pointsText } from "@/core/words";
+import { BitsHelp } from "@/core/score-help";
 import { toast } from "@/hooks/use-toast";
 import { activeOp, compareOp, switcherOf, whyLine, type SwitchOp } from "./lines";
 
@@ -52,9 +53,10 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       <div className="space-y-1 text-sm">
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-semibold">Line {o.number}</span>
-          {v && <span data-testid="text-line-points">{rarityText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
+          {v && <span data-testid="text-line-points">{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
+          {v && <BitsHelp testId="button-bits-help-line" />}
         </p>
-        {v && <p className="text-xs text-muted-foreground">{whyLine({ rarity: v.rarityBits, want: v.want, points: v.points }, {})}</p>}
+        {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {})}</p>}
       </div>
       <ExpandedFace rule={rule} state={state} rarities={my!.rarities} active={active} compare={compared}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />

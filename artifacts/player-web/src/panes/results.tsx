@@ -6,7 +6,8 @@
 import { Play } from "lucide-react";
 import { useGame, useLeaderboard, useRotationRound } from "@/sdk";
 import { AffordanceButton } from "@/site/components/action";
-import { ordinal, pointsText } from "@/core/words";
+import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, TOTALS_NOTE } from "@/core/words";
+import { LineByLine, TiedMark } from "@/core/score-help";
 import { resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
 
@@ -16,6 +17,7 @@ export function ResultsPane() {
   const round = useRotationRound();
   if (!header || standings === undefined) return null;
   const rows = standings ? [...standings.rows].sort((a, b) => a.rank - b.rank) : [];
+  const tied = rows.some(r => isTied(rows, r));
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
@@ -32,12 +34,19 @@ export function ResultsPane() {
           {rows.map(r => (
             <li key={r.memberId} className={`flex items-center gap-3 py-2 ${r.memberId === header.me ? "font-medium" : ""}`} data-testid={`row-result-${r.memberId}`}>
               <span className="w-10 tabular-nums text-muted-foreground">{ordinal(r.rank)}</span>
+              {tied && <span className="w-9 shrink-0">{isTied(rows, r) && <TiedMark testId={`text-result-tied-${r.memberId}`} />}</span>}
               <span className="flex-1 truncate">{r.name}{r.memberId === header.me ? " (you)" : ""}</span>
               <span className="tabular-nums">{pointsText(r.net)}</span>
               {r.handicap > 0 && <span className="text-xs text-muted-foreground" title="The bid this player won costs this share of their total.">−{r.handicap}%</span>}
             </li>
           ))}
         </ol>
+      )}
+      {rows.length > 0 && (
+        <div className="space-y-1 text-xs text-muted-foreground" data-testid="text-results-note">
+          <p>{totalNote(TOTALS_NOTE, rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
+          <LineByLine testId="button-line-by-line-results" />
+        </div>
       )}
     </div>
   );

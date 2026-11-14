@@ -58,7 +58,7 @@ export interface Annotation {
   readonly level: number;
   readonly top: number;
   readonly ladder: readonly Rung[];
-  /** ✨ rarity of the level reached and of the next, when the caller passed the rule's rung rarities. */
+  /** Rarity in bits of the level reached and of the next, when the caller passed the rule's rung rarities. */
   readonly rarity: number | null;
   readonly nextRarity: number | null;
   /** WORST: the reason (an undefined term's sentence). */
@@ -118,7 +118,7 @@ function annotateSite<S, P>(rule: RuleRef<S, P>, e: Evaluation, site: number, st
 const argText = (r: ElementRef) => (r.args && Object.keys(r.args).length ? ` (${Object.entries(r.args).map(([k, v]) => `${k} = ${v.replace("-", "−")}`).join(", ")})` : "");
 
 export interface AnnotateOptions {
-  /** ✨ rarity per rung of the object ladder (from the rule's artefact, v2Rules), index = level. */
+  /** Rarity in bits per rung of the object ladder (from the rule's artefact, v2Rules), index = level. */
   readonly rarities?: readonly number[];
 }
 

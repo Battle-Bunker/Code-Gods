@@ -1,6 +1,6 @@
 /**
  * What if (the `what-if` pane, integration plan §1.6): pick a change and its numbers, and see the line it would make,
- * your rule's step, ✨ rarity and points after it, and what an agent would spend on it, without changing anything. It
+ * your rule's step, rarity in bits and points after it, and what an agent would spend on it, without changing anything. It
  * works on the line in focus (`view.focus`, set by Lines, One line, the palette or an assistant) and is worked out in
  * the browser by the same engine host as the server's `rep.mutators`, `object.quote` and `object.score`
  * (./what-if-model.ts); the line and its value are the shared live subscriptions the other panes use.
@@ -10,7 +10,7 @@ import { ObjectChip } from "@workspace/v2-views";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import { decodeState, useGameScope, useMyObject, useMyRule, type LineRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
-import { energyText, one, pointsText, rarityText } from "@/core/words";
+import { bitsText, energyText, pointsText } from "@/core/words";
 import { argError, mutatorChoices, standing, whatIf, wireNumber, type MutatorChoice } from "./what-if-model";
 
 const field = "h-9 min-w-0 border bg-background px-2 text-sm";
@@ -86,10 +86,10 @@ function Tryout({ rule, my, state, want, sites }: { rule: LineRule; my: MyRule; 
             <p data-testid="text-what-if-after">It would {out.what}: <ObjectChip type={lineType} state={out.after} sites={sites} /></p>
             <dl className="space-y-1">
               <Delta label="Your rule" from={out.from.level} to={out.to.level} fmt={l => `step ${l} of ${out.to.top}`} testId="text-what-if-step" />
-              <Delta label="✨ rarity" from={out.from.rarity} to={out.to.rarity} fmt={x => rarityText(x).replace("✨ ", "")} testId="text-what-if-rarity" />
+              <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={bitsText} testId="text-what-if-rarity" />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId="text-what-if-points" />
             </dl>
-            {want !== null && <p className="text-xs text-muted-foreground">Points assume the others want this line as much as now ({one(want)}): their rules are secret, so nobody can tell how much they would want it after.</p>}
+            {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this line stay as they are now ({bitsText(want)}): their rules are secret, so nobody can tell how much they would want it after.</p>}
             <p className="text-xs text-muted-foreground" data-testid="text-what-if-charge">An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
           </div>
         ) : null}

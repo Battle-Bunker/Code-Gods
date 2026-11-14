@@ -121,7 +121,7 @@ export function RuleFamily() {
             </div>
             <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
               <GoalCard rule={page.rule} example={example} />
-              <p className="mt-2 text-xs text-muted-foreground">In a game, each step also shows its ✨ rarity: how rarely a random line scores that well.</p>
+              <p className="mt-2 text-xs text-muted-foreground">In a game, each step also shows its rarity in bits (each bit = twice as rare) and its chance: how rarely a random line scores that well.</p>
             </div>
           </div>
         </>)}

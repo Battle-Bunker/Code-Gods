@@ -6,7 +6,7 @@ import type { ReactElement } from "react";
 import { representation, type ObjectType } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
 import { ExpandedFace, levelText } from "./faces.tsx";
-import { fmtRarity } from "./format.ts";
+import { fmtBits, fmtNum } from "./format.ts";
 import { chipRep, repText } from "./rep-view.tsx";
 
 export interface GoalCardProps<S, P> {
@@ -51,15 +51,13 @@ export interface MoveLineProps<S, P> {
   readonly points?: MovePoints;
 }
 
-const one = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
-
 /** The written form of a line in the representation that changed, or its equation. */
 function form<S>(type: ObjectType<S>, state: S, rep: string): string {
   return repText(type, state, representation(type, rep).scene === "equation" ? rep : chipRep(type, state, rep));
 }
 
 /**
- * One act log line (ux-lessons 2.2–2.3): the change, the rule's step before → after, ✨ rarity before → after with its
+ * One act log line (ux-lessons 2.2–2.3): the change, the rule's step before → after, rarity in bits before → after with its
  * reason, and the points with the want (both values when it changed; "because …" when points move against the score).
  */
 export function MoveLine<S, P>(props: MoveLineProps<S, P>): ReactElement {
@@ -72,13 +70,13 @@ export function MoveLine<S, P>(props: MoveLineProps<S, P>): ReactElement {
     ? `Still ${levelText(a1)}`
     : `${up ? "Up" : "Down"}: step ${a0.level} → ${a1.level} of ${a1.top}`;
   const rarity = a0.rarity !== null && a1.rarity !== null && a0.rarity !== a1.rarity
-    ? `${fmtRarity(a0.rarity).replace("✨", "✨ rarity")} → ${one(a1.rarity)} (${a1.rarity > a0.rarity ? "fewer" : "more"} random lines score this well)`
+    ? `Rarity ${fmtNum(a0.rarity)} → ${fmtBits(a1.rarity)} (${a1.rarity > a0.rarity ? "fewer" : "more"} random lines score this well)`
     : null;
   let points: string | null = null;
   if (props.points) {
     const p = props.points;
-    const want = p.wantBefore !== undefined && p.wantBefore !== p.want ? `${one(p.want)}, was ${one(p.wantBefore)}` : one(p.want);
-    points = `Points on this line ${one(p.before)} → ${one(p.after)} (the others want it ${want})`;
+    const want = p.wantBefore !== undefined && fmtNum(p.wantBefore) !== fmtNum(p.want) ? `${fmtNum(p.want)}, was ${fmtNum(p.wantBefore)}` : fmtNum(p.want);
+    points = `Points on this line ${fmtNum(p.before)} → ${fmtNum(p.after)} (the others want it ${want})`;
     // Points fell while the rule score did not, or the others' want fell too: say why (ux-lessons 2.3).
     const wantFell = p.wantBefore !== undefined && p.want < p.wantBefore;
     if (p.after < p.before && (!down || wantFell)) points += ": because the others want this line less now";
