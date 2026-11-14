@@ -1,106 +1,63 @@
 /**
- * The rule gallery's model (src/site/lib/rule-gallery.ts): which annotated families a setup offers, the param
- * fields a tile shows, and the GET-param round trip that carries a tile's choices to its family page.
- * What would break: a tile for a family its board cannot deal, a field offering a param combination outside the
- * family's support (a description of a rule no game can deal), or a link that opens the family page with other params
- * or another board than the tile showed.
+ * The rule gallery's model (integration plan §1.1): pages generated from the v2 rule families and the line type, with
+ * the board, parameters and tie-breaker in the URL. What would break: a family missing from the gallery or shown on a
+ * board that never deals it, a family page whose choices are not the family's dealable ones, a link that does not
+ * open the same rule again, a bad URL crashing the page instead of falling back.
  */
-import test from "node:test";
+import { test } from "node:test";
 import assert from "node:assert/strict";
-import { LENSES, family, context } from "@workspace/game-utilities";
-import { instantiate } from "@workspace/game-types";
-import {
-  RESERVED_PARAMS, optionKey, galleryFamilies, gallerySearch, paramFields, rawParamsOf, setupFields, paramsFromSearch, randomParams, setupFromSearch, withParam, DEFAULT_SETUP,
-} from "../src/site/lib/rule-gallery.ts";
+import { beginnerFamilies, lineType, lineZ } from "@workspace/v2-linear";
+import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
 
-const inSupport = (familyId: string, inst: ReturnType<typeof instantiate>, p: unknown) =>
-  family(familyId).support(context(inst)).some(s => JSON.stringify(s) === JSON.stringify(p));
-
-test("the setup comes from GET params, falling back to the beginner board for anything missing or invalid", () => {
-  assert.deepEqual(setupFromSearch(""), DEFAULT_SETUP);
-  assert.deepEqual(DEFAULT_SETUP, { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" } });
-  assert.deepEqual(setupFromSearch("?size=6&symbols=cards&colours=rainbow6"), { objectType: "Grid", typeArgs: { size: 6, symbols: "cards", colours: "rainbow6" } });
-  assert.deepEqual(setupFromSearch("?size=3"), DEFAULT_SETUP, "3×3 is retired");
-  assert.deepEqual(setupFromSearch("?size=99&colours=rgby"), DEFAULT_SETUP, "an unplayable board falls back whole");
-  assert.deepEqual(setupFromSearch("?objectType=Int&min=0&max=9999"), DEFAULT_SETUP, "an object type that no longer exists falls back");
+test("the gallery lists every family the board deals, the beginner pool first, and nothing it does not deal", () => {
+  const g = galleryFamilies("line-z");
+  assert.deepEqual(g.beginner.map(e => e.id), beginnerFamilies.filter(f => f.dealable(lineZ).length).map(f => f.id));
+  const all = [...g.beginner, ...g.more].map(e => e.id).sort();
+  assert.deepEqual(all, lineType.families.filter(f => f.dealable(lineZ).length).map(f => f.id).sort());
+  const tri = g.more.find(e => e.id === "triangle-area")!;
+  assert.equal(tri.title, "Triangle Area");
+  assert.match(tri.sentence, /triangle/);
+  assert.equal(tri.choices, 5, "five areas to deal: 4, 6, 8, 12, 18");
 });
 
-test("the gallery lists exactly the annotated families each board can deal, in the lens order", () => {
-  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
-  assert.deepEqual(galleryFamilies(inst), LENSES.map(l => l.familyId));
+test("a beginner family says which presets deal it on that board", () => {
+  const g = galleryFamilies("line-z");
+  const e = g.beginner[0]!;
+  assert.ok(e.presets.includes("Lines · beginner"), e.presets.join(", "));
+  assert.ok(!e.presets.includes("Lines · rational"), "rational deals on fraction lines, not this board");
 });
 
-test("a tile's fields are the family's named, typed params with the values its support allows; changing one snaps to the support", () => {
-  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
-  const fields = paramFields("parity_painter", inst);
-  assert.deepEqual(fields.map(f => [f.key, f.kind]), [["even_or_red", "colour"], ["odd_or_black", "colour"], ["split", "choice"]]);
-  const even = fields.find(f => f.key === "even_or_red")!;
-  assert.equal(even.label, "Colour for even numbers");
-  // A colour picker: the board's colours by name, each with its swatch (never "0/1/2").
-  assert.deepEqual(even.options.map(o => o.value), ["red", "green", "blue"]);
-  assert.ok(even.options.every(o => o.swatch && o.label === o.value));
-  // even = odd is outside the support: setting even to the current odd colour keeps it and moves odd.
-  const next = withParam("parity_painter", inst, { even_or_red: "red", odd_or_black: "green", split: "parity" }, "even_or_red", "green");
-  assert.equal(next.even_or_red, "green");
-  assert.notEqual(next.odd_or_black, "green");
-  assert.ok(inSupport("parity_painter", inst, next));
-  const magic = paramFields("magic_accountant", inst);
-  assert.deepEqual(magic.map(f => [f.key, f.kind, f.label]), [["axis", "choice", "Lines that count"], ["target", "int", "Magic number"]]);
-  assert.deepEqual(magic[0].options.map(o => o.label), ["rows", "columns"]);
-  assert.deepEqual(withParam("magic_accountant", inst, { axis: "rows", target: 18 }, "axis", "cols").axis, "cols");
-  for (const id of galleryFamilies(inst)) assert.ok(inSupport(id, inst, randomParams(id, inst, 7)), `${id}: random params are in the support`);
-  for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(f.label && f.options.length, `${id}.${f.key}`);
-  // Picture Frame: a labelled colour picker and a labelled symbol picker (cards name the card), both dealt.
-  const frame = paramFields("picture_frame", instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" }));
-  assert.deepEqual(frame.map(f => [f.key, f.kind, f.label]), [["colour", "colour", "Your colour"], ["symbol", "symbol", "Your card"]]);
-  assert.equal(frame[1].options.length, 52);
-  assert.equal(frame[1].options.find(o => o.value === "10♥")!.label, "10♥ (ten of hearts)");
+test("every board the gallery offers is a variant of the line type", () => {
+  for (const b of BOARDS) assert.ok(lineType.variants.some(v => v.id === b.id), b.id);
 });
 
-test("a tile's link carries the board and every param, and the family page reads them back exactly", () => {
-  const setup = { objectType: "Grid", typeArgs: { size: 5, symbols: "cards", colours: "rgby" } };
-  const inst = instantiate(setup.objectType, setup.typeArgs);
-  for (const id of galleryFamilies(inst)) {
-    const p = randomParams(id, inst, 3);
-    const search = gallerySearch(setup, p);
-    assert.deepEqual(setupFromSearch(search), setup, id);
-    assert.deepEqual(paramsFromSearch(id, inst, search), p, id);
-  }
-  assert.equal(gallerySearch(setup, { diag: true }), "?size=5&symbols=cards&colours=rgby&diag=true");
-  assert.equal(gallerySearch(setup, { diag: true }, "typescript"), "?size=5&symbols=cards&colours=rgby&diag=true&lang=typescript");
-  assert.equal(gallerySearch({ objectType: "Grid", typeArgs: setup.typeArgs }, {}), "?size=5&symbols=cards&colours=rgby", "Grid is the default type");
+test("a family page offers the family's dealable parameters and tie-breakers, and its card follows the choice", () => {
+  const p = familyPage("triangle-area", setupFromSearch("?board=line-z&params=2&tb=even"))!;
+  assert.deepEqual(p.params.map(c => c.label), ["A = 4", "A = 6", "A = 8", "A = 12", "A = 18"]);
+  assert.equal(p.setup.params, 2);
+  assert.deepEqual(p.rule.params, { A: 8 });
+  assert.equal(p.rule.tieBreaker, "even");
+  assert.deepEqual(p.tieBreakers.map(t => t.id), ["legs", "even"]);
+  assert.match(p.card, /area as close as possible to 8\. Tie-breaker: make the two legs as close to equal/);
+  assert.deepEqual(p.reads, ["the triangle with the axes", "the line on the plane", "slope-intercept"]);
 });
 
-test("params missing or outside the support on a family page are completed from the support", () => {
-  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
-  const p = paramsFromSearch("magic_accountant", inst, "?axis=cols");
-  assert.equal(p.axis, "cols");
-  assert.ok(inSupport("magic_accountant", inst, p));
-  assert.ok(inSupport("magic_accountant", inst, paramsFromSearch("magic_accountant", inst, "?target=99999")));
-  assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), {}, "a param the family no longer has is ignored");
+test("a family without parameters says so; one with none to deal on this board has no page", () => {
+  const p = familyPage("m-meets-c", setupFromSearch(""))!;
+  assert.deepEqual(p.params, [{ index: 0, label: "Nothing to choose: this rule has no numbers of its own." }]);
+  assert.equal(familyPage("no-such-family", setupFromSearch("")), null);
 });
 
-test("no annotated family has a param named like a board arg or the language, so links never overwrite the board", () => {
-  for (const args of [{ size: 4, symbols: "base10", colours: "rgb" }, { size: 7, symbols: "cards", colours: "rainbow6" }]) {
-    const inst = instantiate("Grid", args);
-    for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(!RESERVED_PARAMS.includes(f.key), `${id}.${f.key}`);
-  }
-  assert.ok(RESERVED_PARAMS.includes("size") && RESERVED_PARAMS.includes("colours") && RESERVED_PARAMS.includes("lang"));
-  assert.deepEqual(rawParamsOf("?size=4&X=1&lang=typescript&axis=rows"), { X: "1", axis: "rows" });
+test("an unknown board, a parameter past the end or an unknown tie-breaker falls back to the first", () => {
+  const p = familyPage("triangle-area", setupFromSearch("?board=grid&params=99&tb=zzz"))!;
+  assert.equal(p.setup.board, "line-z");
+  assert.equal(p.setup.params, 0);
+  assert.equal(p.rule.tieBreaker, "legs");
 });
 
-test("a valid board the presets do not list still shows its own values in the setup selects", () => {
-  const fields = setupFields({ objectType: "Grid", typeArgs: { size: 3, symbols: "base10", colours: "rgb" } });
-  assert.ok(fields.find(f => f.id === "size")!.options.some(o => o.value === 3), "the retired 3×3 is no preset, but the page shows it");
-});
-
-test("an option's key is the scalar itself or a list's JSON, and a family without params draws {}", () => {
-  assert.equal(optionKey(null), "");
-  assert.equal(optionKey("red"), "red");
-  assert.equal(optionKey(7), "7");
-  assert.equal(optionKey([2, 3, 5]), "[2,3,5]");
-  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
-  assert.deepEqual(paramFields("opposite_nines", inst), []);
-  assert.deepEqual(paramsFromSearch("opposite_nines", inst, "?tiers=lines.x18"), {}, "a link from before D1 (★ tiers) opens the base rule");
-  assert.deepEqual(randomParams("opposite_nines", inst, 5), {});
+test("the URL of a choice opens the same rule again", () => {
+  const s = { board: "line-q", params: 3, tb: "even" };
+  assert.equal(gallerySearch(s), "?board=line-q&params=3&tb=even");
+  assert.deepEqual(setupFromSearch(gallerySearch(s)), s);
+  assert.equal(gallerySearch({ board: "line-z", params: 0, tb: null }), "");
 });

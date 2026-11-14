@@ -58,9 +58,9 @@ export const ROUTE_PATTERNS = {
   ruleFamily: "/rule-gallery/:family",
 } as const;
 
-/** A replay's position parameters (src/core/replay/model.ts): they belong to one game's page, never carried elsewhere. */
-const PAGE_PARAMS = ["e", "t", "speed", "play", "as"];
-/** The query string carried across navigation: the page's own parameters (?panels=off), without a replay's position. */
+/** `?replay` opens an ended game's replay (core/play.tsx): it belongs to one game's page, never carried elsewhere. */
+const PAGE_PARAMS = ["replay"];
+/** The query string carried across navigation: the page's own parameters (?panels=off), without `?replay`. */
 export function carriedSearch(search: string): string {
   const q = new URLSearchParams(search);
   for (const k of PAGE_PARAMS) q.delete(k);

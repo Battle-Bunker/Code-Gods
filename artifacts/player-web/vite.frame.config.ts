@@ -1,11 +1,10 @@
 /**
- * The stored-panel frame: a second build of the SDK with the bridge transport, as one classic IIFE script
- * (panel-runtime.js, plus panel-frame.css) and the frame document panel-frame.html with its own CSP. Written
- * next to the app's build (dist/public, served at /). The dev server builds the same thing in
- * memory (vite.config.ts, framePlugin).
+ * The stored-panel frame: the panel runtime with the v2 `@sdk` over the bridge (src/frame/runtime.tsx) as one classic
+ * IIFE script (panel-runtime.js, plus panel-frame.css), and the frame document panel-frame.html with its own CSP
+ * (vite/csp.ts). Written next to the app's build (dist/public, served at the app's base). The dev server builds the
+ * same thing in memory (vite.config.ts, framePlugin).
  *
  * A classic script, not a module: the frame's origin is opaque, so a module script would need CORS.
- * No calibration tables are bundled (the engine serves them); the host sends the player's own over the bridge.
  */
 import path from "path";
 import react from "@vitejs/plugin-react";
@@ -33,11 +32,7 @@ export default defineConfig(({ mode }) => ({
   ],
   define: { "process.env.NODE_ENV": JSON.stringify(mode === "development" ? "development" : "production") },
   resolve: {
-    alias: [
-      { find: "@sdk-transport", replacement: path.resolve(dir, "src/frame/transport.ts") },
-      { find: "@sdk", replacement: path.resolve(dir, "src/sdk/index.ts") },
-      { find: "@", replacement: path.resolve(dir, "src") },
-    ],
+    alias: [{ find: "@", replacement: path.resolve(dir, "src") }],
     dedupe: ["react", "react-dom"],
   },
   build: {

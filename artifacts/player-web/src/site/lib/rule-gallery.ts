@@ -1,154 +1,118 @@
 /**
- * The rule gallery's model (pages site/pages/rule-gallery.tsx and rule-family.tsx): pure library data, no server.
- *
- *   setup     the rule-determining settings: an object type and its type args (Grid: size, symbols, colours)
- *   families  the richly annotated families (game-utilities LENSES) the setup's board can deal
- *   params    one draw of a family: each param a named, typed field (game-utilities params.ts: a colour picker, a symbol
- *             picker, a number, a choice) whose values are its type's domain on this board, within the family's support
- *
- * The family page keeps everything in GET params (the gallery keeps its board there; a tile's params ride on its link): the type args by their own names (size, symbols, colours; objectType
- * only when it is not Grid), every family param by its name and `lang` for TypeScript source, so a tile's link opens its family page on exactly
- * the board and params the tile showed. Unit tested in test/rule-gallery.test.ts.
+ * The rule gallery's pure part (integration plan §1.1; unit-tested): pages generated from the v2 rule families of the
+ * line type (lib/v2-linear) and the deployed presets, with no server. The gallery lists the families a board deals,
+ * the beginner pool first; a family's page offers its dealable parameters and tie-breakers, and its card, worked
+ * example and ladder follow the choice. The choice lives in the URL (`?board=&params=&tb=`), so a link opens the same
+ * rule again; anything unknown in it falls back to the first choice.
  */
-import { OBJECT_TYPES, instantiate, objectType, seededRng, type Instantiation, type TypeArgs } from "@workspace/game-types";
-import {
-  LENSES, applicable, context, family, isPlayableInstantiation, playableInstantiations, type ParamJson, type ParamKind, type ParamOption, type Params,
-} from "@workspace/game-utilities";
+import { representation, tieBreakersOn, type RuleFamily, type Variant } from "@workspace/v2-core";
+import { beginnerFamilies, lineType, type LineState } from "@workspace/v2-linear";
+import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
+import type { LineRule } from "../../sdk/rule.ts";
 
-export interface GallerySetup { objectType: string; typeArgs: TypeArgs }
-/** A field's value: a scalar or a list (a preset, a set). */
-export type GalleryValue = ParamJson;
+export const BOARDS: readonly { id: string; title: string; blurb: string }[] = [
+  { id: "line-z", title: "Whole-number lines", blurb: "One line per object, y = mx + c with whole numbers." },
+  { id: "line-q", title: "Fraction lines", blurb: "One line per object; numbers may be fractions." },
+  { id: "line-z4", title: "Four lines", blurb: "Four whole-number lines per object, each scored." },
+];
+const DEFAULT_BOARD = BOARDS[0]!.id;
 
-const DEFAULT_TYPE = "Grid";
-export const DEFAULT_SETUP: GallerySetup = Object.freeze({ objectType: DEFAULT_TYPE, typeArgs: Object.freeze({ ...objectType(DEFAULT_TYPE).defaults }) });
+type Family = RuleFamily<LineState, unknown>;
+const variantOf = (id: string): Variant => lineType.variants.find(v => v.id === id)!;
+const BEGINNER = new Set<string>(beginnerFamilies.map(f => f.id));
 
-/** The object types the setup form offers (every type the game supports). */
-export const galleryObjectTypes = (): { id: string; label: string; emoji: string }[] =>
-  OBJECT_TYPES.map(t => ({ id: t.id, label: t.label, emoji: t.emoji }));
-
-/**
- * The setup form's fields for a setup: each type param with the values some playable board has, plus the setup's own
- * value when it is a valid board the presets do not list (a retired 3×3), so a select always shows what the page uses.
- */
-export function setupFields(setup: GallerySetup): { id: string; label: string; options: { value: string | number; label: string }[] }[] {
-  const t = objectType(setup.objectType), boards = playableInstantiations(setup.objectType);
-  return t.params.map(p => {
-    const values = [...new Set([...boards.map(b => b.args[p.id]), ...(setup.typeArgs[p.id] !== undefined ? [setup.typeArgs[p.id]] : [])])];
-    const label = (v: string | number) => (p.kind === "component" ? p.options.find(o => o.id === v)?.label ?? String(v) : String(v));
-    return { id: p.id, label: p.label, options: values.map(value => ({ value, label: label(value) })) };
-  });
+export interface GalleryEntry {
+  id: string;
+  title: string;
+  /** The main part's sentence, for the family's first dealable parameters. */
+  sentence: string;
+  /** How many parameter sets the board deals. */
+  choices: number;
+  tieBreakers: number;
+  /** The presets that deal this family on this board, by title. */
+  presets: string[];
 }
 
-/** The instantiation of a setup (throws on an invalid one). */
-export const instOf = (setup: GallerySetup): Instantiation => instantiate(setup.objectType, setup.typeArgs);
+function entry(f: Family, v: Variant): GalleryEntry {
+  const ps = f.dealable(v);
+  return {
+    id: f.id, title: f.title, sentence: f.main.sentence(ps[0]), choices: ps.length, tieBreakers: tieBreakersOn(f, v).length,
+    presets: PRESETS.filter(p => p.variant === v.id && p.families.includes(f.id)).map(p => p.title),
+  };
+}
 
-/** The setup in a query string; anything missing takes the type's default, and an unplayable board the beginner board. */
+/** The families the board deals: the curator's beginner pool, then the rest. */
+export function galleryFamilies(boardId: string): { beginner: GalleryEntry[]; more: GalleryEntry[] } {
+  const v = variantOf(BOARDS.some(b => b.id === boardId) ? boardId : DEFAULT_BOARD);
+  const dealt = (lineType.families as readonly Family[]).filter(f => f.dealable(v).length > 0);
+  return {
+    beginner: dealt.filter(f => BEGINNER.has(f.id)).map(f => entry(f, v)),
+    more: dealt.filter(f => !BEGINNER.has(f.id)).map(f => entry(f, v)),
+  };
+}
+
+export interface GallerySetup {
+  board: string;
+  /** Index into the family's dealable parameter sets on the board. */
+  params: number;
+  /** The tie-breaker's id; null for the family's first. */
+  tb: string | null;
+}
+
 export function setupFromSearch(search: string): GallerySetup {
   const q = new URLSearchParams(search);
-  const typeId = q.get("objectType") ?? DEFAULT_TYPE;
-  let t;
-  try { t = objectType(typeId); } catch { return DEFAULT_SETUP; }
-  const args: Record<string, string | number> = { ...t.defaults };
-  for (const p of t.params) {
-    const raw = q.get(p.id);
-    if (raw !== null) args[p.id] = p.kind === "int" ? Number(raw) : raw;
-  }
-  try {
-    const inst = instantiate(typeId, args);
-    return isPlayableInstantiation(inst) ? { objectType: typeId, typeArgs: { ...inst.args } } : DEFAULT_SETUP;
-  } catch { return DEFAULT_SETUP; }
+  const board = q.get("board") ?? DEFAULT_BOARD;
+  const n = Number(q.get("params") ?? 0);
+  return { board: BOARDS.some(b => b.id === board) ? board : DEFAULT_BOARD, params: Number.isSafeInteger(n) && n >= 0 ? n : 0, tb: q.get("tb") || null };
 }
 
-/** The annotated families this board can deal, in the lens registry's order. */
-export function galleryFamilies(inst: Instantiation): string[] {
-  return LENSES.map(l => l.familyId).filter(id => {
-    const f = family(id);
-    return f.role === "reward" && applicable(f, inst).ok;
-  });
-}
-
-/** The draws the gallery offers: the family's support. */
-const draws = (familyId: string, inst: Instantiation): readonly Params[] => family(familyId).support(context(inst)) as readonly Params[];
-
-/** A value as one short string: an option's key in a select and its form in a link. A scalar is itself, anything else its JSON. */
-export function optionKey(value: GalleryValue | undefined): string {
-  if (value === null || value === undefined) return "";
-  return typeof value === "object" ? JSON.stringify(value) : String(value);
-}
-/** The key of a draw's value for a field. */
-export const currentKey = (params: Params, key: string): string => optionKey(params[key] as GalleryValue | undefined);
-const same = (a: unknown, b: unknown) => optionKey(a as GalleryValue) === optionKey(b as GalleryValue);
-
-/** One picker on a tile: the param's name, label and type, and the values it can take on this board (support order). */
-export interface GalleryField {
-  readonly key: string;
-  readonly label: string;
-  readonly kind: ParamKind;
-  readonly options: readonly (Omit<ParamOption, "value"> & { readonly value: GalleryValue })[];
-}
-
-/** A tile's fields: each declared param of the family with the values of its domain that its draws use. */
-export function paramFields(familyId: string, inst: Instantiation): GalleryField[] {
-  const f = family(familyId), ctx = context(inst), all = draws(familyId, inst);
-  // Whole values are compared (as JSON).
-  const used = (key: string) => new Set(all.filter(p => p[key] !== undefined).map(p => JSON.stringify(p[key])));
-  return f.params(ctx).map((field): GalleryField => {
-    const u = used(field.key);
-    return { key: field.key, label: field.label, kind: field.kind, options: field.options.filter(o => u.has(JSON.stringify(o.value))) };
-  });
-}
-
-/** The offered draw that agrees with `wanted` on the most keys (`must` keys exactly), the first on a tie. */
-function closest(familyId: string, inst: Instantiation, wanted: Record<string, unknown>, must: readonly string[] = []): Params {
-  const all = draws(familyId, inst);
-  let best: Params | undefined, bestScore = -Infinity;
-  for (const p of all) {
-    if (must.some(k => !same(p[k], wanted[k]))) continue;
-    let score = 0;
-    for (const k of Object.keys(p)) if (same(p[k], wanted[k])) score += 1;
-    if (score > bestScore) { best = p; bestScore = score; }
-  }
-  return { ...(best ?? all[0]) };
-}
-
-/** The params after one field changes: that field's value, the rest kept where the draws allow. */
-export function withParam(familyId: string, inst: Instantiation, params: Params, key: string, value: GalleryValue): Params {
-  return closest(familyId, inst, { ...params, [key]: value }, [key]);
-}
-
-/** A random draw of the family's params (its own sampler), repeatable by seed. */
-export const randomParams = (familyId: string, inst: Instantiation, seed: number | string): Params =>
-  ({ ...family(familyId).sample(seededRng(seed), context(inst)) });
-
-/** The GET params the board and language use: a family param must never share one of these names (tested). */
-export const RESERVED_PARAMS = ["objectType", "lang", ...new Set(OBJECT_TYPES.flatMap(t => t.params.map(p => p.id)))];
-
-/** The family params a query string carries as typed (everything but the board and language), for a board that cannot use them. */
-export function rawParamsOf(search: string): Record<string, string> {
-  return Object.fromEntries([...new URLSearchParams(search)].filter(([k]) => !RESERVED_PARAMS.includes(k)));
-}
-
-/** A fresh random seed (the gallery's random params and example objects). */
-export const freshSeed = () => Math.floor(Math.random() * 2 ** 31);
-
-/** The query string of a setup, (optionally) a family's params, and the source language when it is not Python. */
-export function gallerySearch(setup: GallerySetup, params: Params = {}, language: "python" | "typescript" = "python"): string {
+/** The query string of a choice ("" for the defaults). */
+export function gallerySearch(s: GallerySetup): string {
   const q = new URLSearchParams();
-  if (setup.objectType !== DEFAULT_TYPE) q.set("objectType", setup.objectType);
-  for (const p of objectType(setup.objectType).params) if (setup.typeArgs[p.id] !== undefined) q.set(p.id, String(setup.typeArgs[p.id]));
-  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) q.set(k, optionKey(v));
-  if (language !== "python") q.set("lang", language);
-  const s = q.toString();
-  return s ? `?${s}` : "";
+  if (s.board !== DEFAULT_BOARD) q.set("board", s.board);
+  if (s.params) q.set("params", String(s.params));
+  if (s.tb) q.set("tb", s.tb);
+  return q.size ? `?${q}` : "";
 }
 
-/** A family's params from a query string: each named param matched against its offered values, the rest completed. */
-export function paramsFromSearch(familyId: string, inst: Instantiation, search: string): Params {
-  const q = new URLSearchParams(search), wanted: Record<string, unknown> = {}, given: string[] = [];
-  for (const { key, options } of paramFields(familyId, inst)) {
-    const raw = q.get(key);
-    const match = raw === null ? undefined : options.find(o => optionKey(o.value) === raw);
-    if (match !== undefined) { wanted[key] = match.value; given.push(key); }
-  }
-  return closest(familyId, inst, wanted, given);
+const paramLabel = (p: unknown): string => {
+  const entries = Object.entries((p ?? {}) as Record<string, unknown>);
+  return entries.length ? entries.map(([k, x]) => `${k} = ${String(x)}`).join(", ") : "Nothing to choose: this rule has no numbers of its own.";
+};
+
+export interface FamilyPage {
+  family: Family;
+  /** The setup as used (unknown values replaced by the first choice). */
+  setup: GallerySetup;
+  params: { index: number; label: string }[];
+  tieBreakers: { id: string; title: string; sentence: string }[];
+  main: { title: string; sentence: string };
+  rule: LineRule;
+  card: string;
+  /** The representations the rule reads, by their short titles. */
+  reads: string[];
+  presets: string[];
+}
+
+/** One family's page on the setup's board, or null when the board deals no such family. */
+export function familyPage(familyId: string, setup: GallerySetup): FamilyPage | null {
+  const f = (lineType.families as readonly Family[]).find(x => x.id === familyId);
+  const v = variantOf(setup.board);
+  const dealable = f?.dealable(v) ?? [];
+  if (!f || !dealable.length) return null;
+  const index = setup.params < dealable.length ? setup.params : 0;
+  const params = dealable[index];
+  const tbs = tieBreakersOn(f, v);
+  const tb = tbs.find(t => t.id === setup.tb)?.id ?? tbs[0]?.id ?? null;
+  return {
+    family: f,
+    setup: { board: v.id, params: index, tb: setup.tb && tb === setup.tb ? tb : null },
+    params: dealable.map((p, i) => ({ index: i, label: paramLabel(p) })),
+    tieBreakers: tbs.map(t => ({ id: t.id, title: t.title, sentence: t.sentence(params).replace(/^Tie-breaker: /, "") })),
+    main: { title: f.main.title, sentence: f.main.sentence(params) },
+    rule: { type: lineType, family: f, params, variant: v, tieBreaker: tb },
+    card: f.card(params, tb),
+    reads: f.depends.map(r => representation(lineType, r).title.split(":")[0]!.trim()),
+    presets: entry(f, v).presets,
+  };
 }
