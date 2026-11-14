@@ -69,7 +69,7 @@ export function ForgePane() {
   const programs = useAgentPrograms(agent?.agentId);
   const current = programs?.[0];
   const opening = useMemo(() => (rule ? openingProgram(rule.row.family, rule.row.tieBreaker, language) : null), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
-  const others = useMemo(() => (rule ? otherStartingPoints(rule.row.family, language) : []), [rule?.row.family, language]); // eslint-disable-line react-hooks/exhaustive-deps
+  const others = useMemo(() => (rule ? otherStartingPoints(rule.row.family, language, rule.row.tieBreaker) : []), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
   // The agent's own code; until its program arrives (right after a summon), the code just summoned, never a blank box.
   const base = agent ? current?.source ?? ran ?? "" : opening?.source ?? "";
   const source = draft ?? base;

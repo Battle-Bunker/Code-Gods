@@ -13,15 +13,15 @@ export type Language = ShippedLanguage;
 /** The program the forge opens with for a dealt rule: the example for its tie-breaker, else the Simple starter. */
 export function openingProgram(family: string, tieBreaker: string | null, language: Language): ShippedAgent | null {
   try {
-    return (tieBreaker ? exampleFor(family, tieBreaker, language) : null) ?? startersFor(family, language)[0] ?? null;
+    return (tieBreaker ? exampleFor(family, tieBreaker, language) : null) ?? startersFor(family, language, tieBreaker)[0] ?? null;
   } catch {
     return null;   // a family this build has no agents for
   }
 }
 
-/** "Other starting points" (ux-lessons 3.4): Simple, Thorough, Bold for the family. */
-export function otherStartingPoints(family: string, language: Language): ShippedAgent[] {
-  try { return startersFor(family, language); } catch { return []; }
+/** "Other starting points" (ux-lessons 3.4): Simple, Thorough, Bold for the family (a grid family's are written for the dealt tie-breaker). */
+export function otherStartingPoints(family: string, language: Language, tieBreaker: string | null = null): ShippedAgent[] {
+  try { return startersFor(family, language, tieBreaker); } catch { return []; }
 }
 
 /** The summon (or replace) price of a program, in ⚡. */

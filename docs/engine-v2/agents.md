@@ -255,17 +255,27 @@ example).
 - **`hasStarters(family)`** (pure) says whether a family of any type has shipped agents; the deal should use it in
   place of `CATALOGUE.some(...)`, which knows lines only. **`gridUndescribed()`** lists grid families with none, and
   `test/grid.test.ts` reports them as a todo, so a new family in v2-grid shows up as missing rather than silently.
-- **Only Box Totals is described so far**, as the pattern: the grid pool is being revised (owner decision 22) and the
-  rest wait for the final family list.
+- **Described:** the beginner pool's eight families (Mirrormancer, Magic Eighteen, Opposite Nines, Two Pair, Spread
+  of Three, Strangers, Leapfrog, Crosswise Threes) and Box Totals from the second pool; Steady Steps and Prime Cells
+  are todos.
+- **Starters are written per tie-breaker.** `startersFor(family, language, tieBreaker)`: for a grid family pass the
+  dealt tie-breaker. A board's scores take more code than a line's, and a starter scoring all three tie-breakers costs
+  more than the starting energy (up to about 720 ⚡); without a tie-breaker `startersFor` still returns those
+  (they read the dealt one themselves; tested to run, not shipped). Server and app callers should pass
+  `rule.tieBreaker`. Line starters ignore the argument.
+- **Tug-of-wars** are handled as the line starters now do: `contested(offer, 3)` leaves the owner a note to make a
+  deal, and the agent carries on.
 - **Playing for points.** The grid starters (Simple, Thorough, Bold) find the cheapest change to the best board, as
   the examples do; below `RESERVE` (300 ⚡) they pay only for a change worth a point per ⚡: (the bits it gains + 1)
   × (the others' bits + 1), read with `worth` and `rarity` (the +1s: a better board is a step towards the next rung; a
   board nobody else wants yet is worth a little). Above the reserve they climb: energy left idle is lost to the store's
   cap, and a game where every agent waits for the others never starts. When the game does not say what boards are
   worth they climb. This is the smallest additive design on the points reads that exist (`worth`, `rarity`, `recent`);
-  nothing from the line starters' own points work had landed when it was written, so the two are to be unified.
-- **Prices and steps are tight.** Every grid agent costs at most 600 ⚡ to summon (Bold 597, TypeScript), and the
-  heaviest use about 320,000 of the 500,000 steps an act may take: a board has many more possible moves than a line.
+  the line starters do not weigh points this way (they climb, note tug-of-wars and keep a quarter-of-energy cap), so
+  the two are to be unified.
+- **Prices and steps are tight.** Every grid agent costs at most 600 ⚡ to summon (the dearest, Magic Eighteen's Bold,
+  588 in TypeScript), and every one fits the 500,000 steps an act may take: a board has many more possible moves than
+  a line, so pair moves look 2 steps either way and Simple 2.
   The summon vocabulary now counts the points helpers (`worth`, `rarity`, `recent`, `pushback`, `note`, `contested`)
   and a few built-ins (`every`, `some`, `includes`, `reduce`, `Object.keys`; Python `all`, `any`, `count`, `keys`) as
   words, as it already did the older helpers; line agents got a little cheaper with it.
@@ -277,7 +287,7 @@ pnpm --filter @workspace/v2-agents harness -- --rule m-meets-c/size             
 pnpm --filter @workspace/v2-agents harness -- --rule m-meets-c/size --rule prime-gradient/prime --agent bold
 pnpm --filter @workspace/v2-agents harness -- --rule triangle-area/legs --source my-agent.py --budget 300
 pnpm --filter @workspace/v2-agents harness -- --pool docs/engine-v2/agent-harness-results.md
-pnpm --filter @workspace/v2-agents harness -- --variant grid-4-d10 --pool grids.md   # the grid: solo, then three players per kind of agent
+pnpm --filter @workspace/v2-agents harness -- --variant grid-4-d10 --stand-in --pool grids.md   # the grid; --stand-in: 1 bit a rung where no artefact
 ```
 
 Players take turns on shared newborn lines with a fixed energy budget each (no births, power or accrual). It prints,

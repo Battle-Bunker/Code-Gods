@@ -6,6 +6,7 @@
  *   --source file.py|file.ts   run this program instead (every player)
  *   --language typescript|python   (default typescript)
  *   --budget 500  --lines 8  --seed s1  --variant line-z (or grid-4-d10: the grid; "lines" are then boards)
+ *   --stand-in                 value a rule with no calibrated artefact at one bit a rung of its ladder
  *   --pool [file.md]           every family and tie-breaker, solo, with each shipped agent, and some three-player
  *                              tables; prints Markdown (or writes it to the file)
  */
@@ -22,7 +23,7 @@ const { values } = parseArgs({
   options: {
     rule: { type: "string", multiple: true }, agent: { type: "string", default: "example" }, source: { type: "string" },
     language: { type: "string", default: "typescript" }, budget: { type: "string", default: "500" }, lines: { type: "string", default: "8" },
-    seed: { type: "string", default: "s1" }, variant: { type: "string", default: "line-z" }, pool: { type: "string" },
+    seed: { type: "string", default: "s1" }, variant: { type: "string", default: "line-z" }, pool: { type: "string" }, "stand-in": { type: "boolean", default: false },
   },
   allowPositionals: true,
 });
@@ -44,7 +45,7 @@ function player(spec: string, kind: AgentKind, name = spec): HarnessPlayer {
   if (values.source) {
     program = { language: (values.source.endsWith(".py") ? "python" : "typescript") as Language, source: readFileSync(values.source, "utf8") };
   } else {
-    const a = kind === "example" ? exampleFor(family, tb, language) : startersFor(family, language).find(x => x.kind === kind);
+    const a = kind === "example" ? exampleFor(family, tb, language) : startersFor(family, language, tb).find(x => x.kind === kind);
     if (!a) throw new Error(`no ${kind} agent for ${spec}`);
     program = { language: a.language, source: a.source };
   }
@@ -69,7 +70,7 @@ async function pool(): Promise<string> {
   for (const f of type.families.filter(x => hasStarters(x.id))) for (const tb of f.tieBreakers) for (const kind of ["example", "simple", "thorough", "bold"] as const) {
     const spec = `${f.id}/${tb.id}`;
     if (!exampleFor(f.id, tb.id, "typescript")) continue;   // no agents written for this tie-breaker yet (starters.ts undescribed())
-    const r = await runHarness(boxes, { type, variant, players: [player(spec, kind)], budget, lines, seed: values.seed! });
+    const r = await runHarness(boxes, { type, variant, players: [player(spec, kind)], budget, lines, seed: values.seed!, standIn: values["stand-in"] });
     const x = r.rules[0]!, s = r.spend[0]!;
     const status = r.artefacts[x.rule] && r.artefacts[x.rule] !== "converged" ? ` (${r.artefacts[x.rule]})` : "";
     out.push(`| ${spec}${status} | ${kind} | ${s.acts.committed} / ${s.acts.skipped} | ${f1(s.spent)} | ${f1(x.levels.start[0]!)} → ${f1(x.levels.end[0]!)} / ${x.levels.top[0]} | ` +
@@ -78,15 +79,20 @@ async function pool(): Promise<string> {
       `${byView(s.reads)} | ${byView(s.changes)} |`);
   }
   if (type.id === "grid") {
-    // Points: three players on shared boards, each table with every player on the same kind of agent, so the
-    // points-aware starters can be compared with Naive (one table per kind; the rules are the described ones).
-    const rules = type.families.filter(x => hasStarters(x.id)).flatMap(f => f.tieBreakers.filter(t => exampleFor(f.id, t.id, "typescript")).map(t => `${f.id}/${t.id}`)).slice(0, 3);
+    // Points: three players on shared boards, every player on the same kind of agent in each table, so the
+    // points-aware starters can be compared with Naive and the examples.
+    const tables = [
+      ["mirrormancer/middle", "magic-eighteen/first-column", "opposite-nines/top-half"],
+      ["two-pair/corners", "strangers/primes", "leapfrog/zeros"],
+      ["spread-of-three/corners", "crosswise-threes/fold-line", "magic-eighteen/odd"],
+    ];
+    for (const t of tables) for (const s of t) if (!exampleFor(s.split("/")[0]!, s.split("/")[1]!, "typescript")) throw new Error(`the grid tables name ${s}, which has no shipped agents`);
     out.push("", "## Three players on shared boards, by agent", "",
       "Each table is three players with different rules acting on the same boards, every player running the same kind of",
       "shipped agent; every rule is measured on every board, and points are π_i = n_i · Σ_{j≠i} n_j per board, summed.", "");
-    for (const kind of ["example", "simple", "thorough", "bold", "naive"] as const) {
-      const r = await runHarness(boxes, { type, variant, players: rules.map((s, i) => player(s, kind, `P${i + 1}`)), budget, lines, seed: values.seed! });
-      out.push(`### ${kind}: ${rules.join(" · ")}`, "", formatReport(r), "");
+    for (const specs of tables) for (const kind of ["example", "simple", "thorough", "bold", "naive"] as const) {
+      const r = await runHarness(boxes, { type, variant, players: specs.map((s, i) => player(s, kind, `P${i + 1}`)), budget, lines, seed: values.seed!, standIn: values["stand-in"] });
+      out.push(`### ${kind}: ${specs.join(" · ")}`, "", formatReport(r), "");
     }
     return out.join("\n");
   }
@@ -99,7 +105,7 @@ async function pool(): Promise<string> {
     ["square-area/omega", "triangle-area/even", "crossing-check/whole"],
   ];
   for (const specs of tables) {
-    const r = await runHarness(boxes, { type, variant, players: specs.map((s, i) => player(s, "example", `P${i + 1}`)), budget, lines, seed: values.seed! });
+    const r = await runHarness(boxes, { type, variant, players: specs.map((s, i) => player(s, "example", `P${i + 1}`)), budget, lines, seed: values.seed!, standIn: values["stand-in"] });
     out.push(`### ${specs.join(" · ")}`, "", formatReport(r), "");
   }
   return out.join("\n");
@@ -112,7 +118,7 @@ try {
   } else {
     if (!values.rule?.length) throw new Error("give --rule family/tieBreaker (repeat for several players) or --pool");
     const players = values.rule.map((s, i) => player(s, values.agent as AgentKind, values.rule!.length > 1 ? `P${i + 1}` : s));
-    const r = await runHarness(boxes, { type, variant, players, budget, lines, seed: values.seed! });
+    const r = await runHarness(boxes, { type, variant, players, budget, lines, seed: values.seed!, standIn: values["stand-in"] });
     console.log(formatReport(r));
   }
 } finally {

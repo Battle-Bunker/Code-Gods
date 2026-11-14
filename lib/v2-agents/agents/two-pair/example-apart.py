@@ -1,0 +1,66 @@
+# Two Pair · Example: how far apart each box's pairs are
+# Main part: every corner box holds two different pairs. Tie-breaker: how far apart each box's pairs are.
+# What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
+# time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
+# (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
+# a note, so you can make a deal with that player. It never spends more than a quarter of its energy on one move.
+# Try this: change FAR = 2 to 3 so a pair can jump further (it thinks longer: mind the step limit).
+
+
+def score(b, p):
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    main = 0
+    for x in BOXES:   # each box: the best way to pair its four numbers
+        w, y, z, u = (b[i] for i in x)
+        main -= min(abs(w - y) + abs(z - u), abs(w - z) + abs(y - u), abs(w - u) + abs(y - z)) + (2 if w == y == z == u else 0)   # four of a kind: two cells must move by 1 to make two different pairs
+    apart = sum(max(b[i] for i in x) - min(b[i] for i in x) for x in BOXES)   # each box: biggest minus smallest
+    return [main, apart]   # main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: pairs further apart in each box are better
+
+
+FAR = 2      # how far one change may go
+QUOTES = 8  # at most this many plans are priced (each price is a host call)
+BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
+
+
+def edit(b, cells, f):
+    # The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
+    # (such a move is not allowed, and an unchanged board is never better).
+    out = list(b)
+    for j in range(len(cells)):
+        out[cells[j]] += f(j)
+    return out if all(0 <= x <= 9 for x in out) else b
+
+
+def agent(offer):
+    # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
+    # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
+    contested(offer, 3)
+    v = look(offer, "cells")   # the board
+    rule = goal(offer)         # your rule (free)
+    p = rule.params
+    NAME = list(v.keys())[:16]   # the cells' names, r0c0 ... r3c3, row by row
+    b = [int(v[n]) for n in NAME]   # their 16 numbers
+    add = lambda i, k: move("cells.add", cell=NAME[i], k=k)   # the move that adds k to cell i
+    tries = []                 # (plan, board after): changes tried in the agent's own head
+    for k in range(-FAR, FAR + 1):
+        if k == 0:
+            continue
+        for i in range(16):   # add k to one cell
+            tries.append((add(i, k), edit(b, [i], lambda j: k)))
+        for i in range(16):   # add k to two cells at once
+            for i2 in range(i + 1, 16):
+                tries.append(([add(i, k), add(i2, k)], edit(b, [i, i2], lambda j: k)))
+    top, plans = score(b, p), []
+    for plan, b2 in tries:
+        s = score(b2, p)
+        if better(s, top):
+            top, plans = s, [plan]         # a new best
+        elif plans and not better(top, s):
+            plans.append(plan)             # as good as the best: the price decides
+    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best
+    if plan is None:           # nothing better (or nothing allowed): skip
+        return None
+    cost, e = price(offer, plan), energy(offer)
+    if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns
+        return None
+    return plan

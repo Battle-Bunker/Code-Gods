@@ -118,12 +118,166 @@ const primesTie = (lenses: readonly GridLensId[], tryThis: string, steps = 3): G
 const zerosTie = (lenses: readonly GridLensId[], tryThis: string, steps = 3): GridTieBreakerEntry =>
   ({ ts: "b.filter(x => x === 0).length", py: "b.count(0)", says: "more 0s is better", lenses, steps, tryThis });
 const CORNERS = { ts: "b[0] + b[3] + b[12] + b[15]", py: "b[0] + b[3] + b[12] + b[15]" };
+const FIRST_COLUMN = { ts: "b[0] + b[4] + b[8] + b[12]", py: "b[0] + b[4] + b[8] + b[12]" };
+const oddTie = (lenses: readonly GridLensId[], tryThis: string, steps = 2): GridTieBreakerEntry =>
+  ({ ts: "b.filter(x => x % 2).length", py: "len([x for x in b if x % 2])", says: "more odd numbers is better", lenses, steps, tryThis });
 
 /**
- * One family for now, the pattern for the rest: the grid pool is being revised (owner decision 22), and each family of
- * lib/v2-grid without an entry here shows as "no shipped agents yet" in the starters test (gridUndescribed()).
+ * The beginner pool's eight families (owner decision 22), then the second pool's Box Totals. Each family of lib/v2-grid
+ * without an entry here shows as "no shipped agents yet" in the grid test (gridUndescribed()).
  */
 export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
+  {
+    family: "mirrormancer", simple: ["twin"],
+    mainSays: "how far each row is from reading the same backwards, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] - b[r + 3]) + Math.abs(b[r + 1] - b[r + 2]);   // each row: its ends' gap and its middle's gap"],
+      py: ["main = 0", "for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap", "    main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])"],
+    },
+    tieBreakers: {
+      middle: { ts: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", py: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", says: "bigger middle columns are better", lenses: ["add", "line"], steps: 3, tryThis: "remove the \"line\" line: can it raise the middle without a whole row at once?" },
+      primes: primesTie(["add", "twin"], "change FAR = 2 to 3 so two cells can jump to a prime together (it thinks longer: mind the step limit).", 2),
+      zeros: zerosTie(["add", "twin"], "add the \"line\" line from the Mirrormancer middle example: a whole row can drop at once.", 2),
+    },
+  },
+  {
+    family: "magic-eighteen", simple: ["line"],
+    mainSays: "how far the rows' totals are from T, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "for (let r = 0; r < 16; r += 4) main -= Math.abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p.T);   // each row: how far its total is from T"],
+      py: ["main = 0", "for r in range(0, 16, 4):   # each row: how far its total is from T", "    main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p[\"T\"])"],
+    },
+    tieBreakers: {
+      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line", "swap"], steps: 3, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },
+      primes: primesTie(["add", "line", "trade"], "change FAR = 2 to 1: moving 1 from cell to cell is cheapest, but does it still find primes?", 2),
+      odd: oddTie(["add", "line", "trade"], "remove the \"line\" line: can it fix the rows one cell at a time just as cheaply?"),
+    },
+  },
+  {
+    family: "opposite-nines", simple: ["balance"],
+    mainSays: "how far each cell and its opposite are from adding up to T, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i"],
+      py: ["main = 0", "for i in range(8):   # cell i and its opposite, 15 - i", "    main -= abs(b[i] + b[15 - i] - p[\"T\"])"],
+    },
+    tieBreakers: {
+      "top-half": { ts: "b.slice(0, 8).reduce((t, x) => t + x, 0)", py: "sum(b[:8])", says: "a bigger top half is better", lenses: ["add", "balance"], steps: 4, tryThis: "change FAR = 4 to 9: one balance move can carry a whole pair's total to the top." },
+      primes: { ts: PRIMES_TS, py: PRIMES_PY, says: "more cells holding 2, 3, 5 or 7 is better", lenses: ["add", "balance"], steps: 4, tryThis: "add the \"swap\" line from the Two Pair corners example and compare what it spends." },
+      odd: oddTie(["add", "balance"], "change FAR = 3 to 1: one step makes an even number odd.", 3),
+    },
+  },
+  {
+    family: "two-pair", simple: ["swap"], needs: ["boxes"],
+    mainSays: "how far each corner box is from holding two different pairs, added up (closer is better)",
+    main: {
+      ts: [
+        "let main = 0;",
+        "for (const x of BOXES) {                        // each box: the best way to pair its four numbers",
+        "  const [w, y, z, u] = x.map(i => b[i]);",
+        "  main -= Math.min(Math.abs(w - y) + Math.abs(z - u), Math.abs(w - z) + Math.abs(y - u), Math.abs(w - u) + Math.abs(y - z)) + (w === y && y === z && z === u ? 2 : 0);   // four of a kind: two cells must move by 1 to make two different pairs",
+        "}",
+      ],
+      py: [
+        "main = 0",
+        "for x in BOXES:   # each box: the best way to pair its four numbers",
+        "    w, y, z, u = (b[i] for i in x)",
+        "    main -= min(abs(w - y) + abs(z - u), abs(w - z) + abs(y - u), abs(w - u) + abs(y - z)) + (2 if w == y == z == u else 0)   # four of a kind: two cells must move by 1 to make two different pairs",
+      ],
+    },
+    tieBreakers: {
+      apart: {
+        pre: {
+          ts: ["let apart = 0;", "for (const x of BOXES) { const v = x.map(i => b[i]); apart += Math.max(...v) - Math.min(...v); }   // each box: biggest minus smallest"],
+          py: ["apart = sum(max(b[i] for i in x) - min(b[i] for i in x) for x in BOXES)   # each box: biggest minus smallest"],
+        },
+        ts: "apart", py: "apart", says: "pairs further apart in each box are better", lenses: ["add", "twin"], steps: 2, tryThis: "change FAR = 2 to 3 so a pair can jump further (it thinks longer: mind the step limit).",
+      },
+      primes: primesTie(["add", "swap"], "add the \"trade\" line from the Thorough starter: moving an amount keeps a box's total."),
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 3, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
+    },
+  },
+  {
+    family: "spread-of-three", simple: ["swap"],
+    mainSays: "how far each 2×2 square's spread is from 3, added up (closer is better)",
+    main: {
+      ts: [
+        "let main = 0;",
+        "for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {    // each 2×2 square, by its top-left cell (they overlap)",
+        "  const v = [b[i], b[i + 1], b[i + 4], b[i + 5]];",
+        "  main -= Math.abs(Math.max(...v) - Math.min(...v) - 3);   // its spread: biggest minus smallest",
+        "}",
+      ],
+      py: [
+        "main = 0",
+        "for i in [0, 1, 2, 4, 5, 6, 8, 9, 10]:   # each 2×2 square, by its top-left cell (they overlap)",
+        "    v = [b[i], b[i + 1], b[i + 4], b[i + 5]]",
+        "    main -= abs(max(v) - min(v) - 3)   # its spread: biggest minus smallest",
+      ],
+    },
+    tieBreakers: {
+      primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single steps find primes without spoiling a square?", 2),
+      zeros: zerosTie(["add", "twin"], "change FAR = 2 to 3: a 3 next to a 0 is a spread of 3 (it thinks longer: mind the step limit).", 2),
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 3, tryThis: "remove the \"swap\" line: a corner is in only one square, so can single steps raise it?" },
+    },
+  },
+  {
+    family: "strangers", simple: [], needs: ["boxes"],
+    mainSays: "how many touching pairs in the corner boxes are strangers (more is better)",
+    main: {
+      ts: [
+        "const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor",
+        "let main = 0, ones = 0;",
+        "for (const x of BOXES) for (const [i, j] of [[0, 1], [2, 3], [0, 2], [1, 3]]) {   // each box's four touching pairs",
+        "  const u = b[x[i]], w = b[x[j]];",
+        "  if (u > 1 && w > 1 && gcd(u, w) === 1 && Math.abs(u - w) >= 2) main++;   // strangers: like 2 and 5",
+        "  if ((u === 1 && w > 1) || (w === 1 && u > 1)) ones++;                    // a 1 touching a bigger number",
+        "}",
+      ],
+      py: [
+        "def gcd(x, y):   # the greatest common divisor",
+        "    return gcd(y, x % y) if y else x",
+        "main, ones = 0, 0",
+        "for x in BOXES:",
+        "    for i, j in [[0, 1], [2, 3], [0, 2], [1, 3]]:   # each box's four touching pairs",
+        "        u, w = b[x[i]], b[x[j]]",
+        "        if u > 1 and w > 1 and gcd(u, w) == 1 and abs(u - w) >= 2:   # strangers: like 2 and 5",
+        "            main += 1",
+        "        if (u == 1 and w > 1) or (w == 1 and u > 1):   # a 1 touching a bigger number",
+        "            ones += 1",
+      ],
+    },
+    tieBreakers: {
+      ones: { ts: "ones", py: "ones", says: "more 1s touching a bigger number in their box is better", lenses: ["add", "swap"], steps: 5, tryThis: "change FAR = 5 to 2: smaller steps, cheaper moves, but can it still find strangers?" },
+      primes: primesTie(["add", "swap"], "remove the \"swap\" line: can single steps find primes that stay strangers?"),
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 3, tryThis: "change FAR = 3 to 5: bigger jumps to big corners." },
+    },
+  },
+  {
+    family: "leapfrog", simple: ["line"],
+    mainSays: "how far each number and the number two cells along its row are from one apart, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "for (const i of [0, 1, 4, 5, 8, 9, 12, 13]) main -= Math.abs(Math.abs(b[i] - b[i + 2]) - 1);   // cell i and the cell two along"],
+      py: ["main = 0", "for i in [0, 1, 4, 5, 8, 9, 12, 13]:   # cell i and the cell two along", "    main -= abs(abs(b[i] - b[i + 2]) - 1)"],
+    },
+    tieBreakers: {
+      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line"], steps: 3, tryThis: "remove the \"line\" line: adding to a whole row keeps its leaps, can single cells do as well?" },
+      primes: primesTie(["add", "trade"], "change FAR = 2 to 3 so a trade can reach a prime further away (it thinks longer: mind the step limit).", 2),
+      zeros: zerosTie(["add", "line", "twin"], "remove the \"line\" line: is lowering two cells at a time enough?", 2),
+    },
+  },
+  {
+    family: "crosswise-threes", simple: ["swap"],
+    mainSays: "how far each number and the number it folds onto are from 3 apart, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "for (const [i, j] of [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]) main -= Math.abs(Math.abs(b[i] - b[j]) - 3);   // each cell and its fold partner"],
+      py: ["main = 0", "for i, j in [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]:   # each cell and its fold partner", "    main -= abs(abs(b[i] - b[j]) - 3)"],
+    },
+    tieBreakers: {
+      "fold-line": { ts: "b[3] + b[6] + b[9] + b[12]", py: "b[3] + b[6] + b[9] + b[12]", says: "a bigger fold line (top-right to bottom-left) is better", lenses: ["add", "swap"], steps: 3, tryThis: "change FAR = 3 to 5: the fold line has no partner, so it can jump freely." },
+      primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single steps find primes that stay 3 apart?", 2),
+      zeros: zerosTie(["add", "trade"], "change FAR = 2 to 3: a 0 folds onto a 3 (it thinks longer: mind the step limit).", 2),
+    },
+  },
   {
     family: "box-totals", simple: ["box"], needs: ["boxes"],
     mainSays: "how far the corner boxes' totals are from T, added up (closer is better)",
