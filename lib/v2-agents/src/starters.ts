@@ -11,6 +11,7 @@
  * as y = mx + c, try changes in the agent's own head (thinking costs no energy, only time), keep the plans that make
  * the line best for the rule, and pay for the cheapest of them.
  */
+import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import { CATALOGUE, LENSES, type FamilyEntry, type Lens, type LensId } from "./catalogue.ts";
@@ -267,5 +268,5 @@ export function scoreSource(family: string, tieBreaker: string | null, language:
   return (language === "typescript" ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)).join("\n") + "\n";
 }
 
-/** Starting energy of the beginner preset (integration plan §1.2: Lines · beginner, 600); every shipped agent fits. */
-export const BEGINNER_STARTING_ENERGY = 600;
+/** Starting energy of the beginner economy (v2-economy's Lines · beginner); every shipped agent fits. */
+export const BEGINNER_STARTING_ENERGY = LINES_BEGINNER_ECONOMY.startingEnergy;

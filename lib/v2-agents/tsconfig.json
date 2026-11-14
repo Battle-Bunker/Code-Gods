@@ -8,9 +8,29 @@
     "erasableSyntaxOnly": true,
     "outDir": "dist",
     "rootDir": "src",
-    "lib": ["es2022", "dom"],
-    "types": ["node"]
+    "lib": [
+      "es2022",
+      "dom"
+    ],
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src"],
-  "references": [{ "path": "../v2-core" }, { "path": "../v2-linear" }, { "path": "../v2-sandbox" }]
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../v2-core"
+    },
+    {
+      "path": "../v2-linear"
+    },
+    {
+      "path": "../v2-sandbox"
+    },
+    {
+      "path": "../v2-economy"
+    }
+  ]
 }

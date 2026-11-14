@@ -13,7 +13,7 @@ const { record, state } = await runAct(await pool.get(program.language), {
   program: { language: "python" | "typescript" | "javascript", source },
   seed, energy,                                        // the agent's energy, as budget() reports it
   object, liveObjects,                                 // the offer: log2(liveObjects) read bits
-  limits, economy,                                     // optional: sandbox limits; { kappa, beta } (default spec 32, 0.05)
+  limits, economy,                                     // optional: sandbox limits; { kappa, beta } (default v2-economy's KAPPA, BETA)
 });
 ```
 
@@ -122,9 +122,9 @@ Prices of the shipped agents when this page was written:
 | square-area | Thorough | 580 | 533 |
 | square-area | Bold | 506 | 458 |
 
-After a first summon (about 400 ⚡) the god keeps about 200 ⚡ of the 600; replacing with the dearest starter (581 ⚡)
-needs about 380 ⚡ of accrual. ux-lessons §1.5's test ("the store can still pay for the dearest starter") belongs with
-the economy (W3), which knows the accrual; these prices are its input.
+The beginner economy (v2-economy `LINES_BEGINNER_ECONOMY`: 600 ⚡ to start, power 64 a second, a 30 s store) pays
+for any of them in planning, and a test checks ux-lessons §1.5 and §3.7 on the real prices: after a first summon at
+v2-economy's `firstAgentShare` (about 70% of power), the player's own store can still hold the dearest shipped agent.
 
 **`check(sandbox, { type, variant, rule, program, samples, energy })`** returns the `agent.check` affordance's
 result (`verdict`, `summary`, `price`, `sample`) plus `acts`, each sample's `ActRecord`. It runs one act per sample
@@ -160,6 +160,11 @@ the same as a function. The pool run is in [agent-harness-results.md](agent-harn
 - On shared lines rules interfere: with Prime Gradient/prime tilting the same lines, m Meets c's main part fell from
   2.6 to 1.8 while its tie-breaker rose. The table is the material for negotiation.
 
-## Still to come from W2
+## The primer for the AI assistant
 
-The assistant's primer. This page will list it when it lands.
+`AGENT_PRIMER` (or `agentPrimer(type)`) from `@workspace/v2-agents` (`src/primer.ts`) is the text the embedded and
+remote assistants load to write and explain v2 agents: the game in one paragraph, the player's words, what costs ⚡
+(looks, moves priced by the view they are made through, steps and digits, W + 0.05·W², free but capped thinking,
+summon by length), every view and move (read from the object type), the helpers (`HELPERS`, checked against both guest
+libraries), the starting points and an example. About 7,000 characters; a test keeps it under 9,000 and true to the
+code. W6's assistant skill for writing agents loads it in place of v1's `PRIMER_AGENTS`.
