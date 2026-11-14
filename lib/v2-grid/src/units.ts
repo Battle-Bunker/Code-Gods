@@ -64,8 +64,8 @@ export const boxEdges = (box: readonly number[]): [number, number][] => [[box[0]
 export const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 /** Strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart. */
 export const strangers = (a: number, b: number): boolean => a > 1 && b > 1 && gcd(a, b) === 1 && Math.abs(a - b) >= 2;
-/** How far four numbers are from making two pairs: the best pairing's two gaps, plus 1 for four of a kind (one number, not two pairs). */
+/** How far four numbers are from making two different pairs: the best pairing's two gaps, plus 2 for four of a kind (two cells must move by 1). */
 export const twoPairGap = (a: number, b: number, c: number, d: number): number => {
   const g = Math.min(Math.abs(a - b) + Math.abs(c - d), Math.abs(a - c) + Math.abs(b - d), Math.abs(a - d) + Math.abs(b - c));
-  return g + (a === b && b === c && c === d ? 1 : 0);
+  return g + (a === b && b === c && c === d ? 2 : 0);
 };

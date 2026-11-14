@@ -12703,7 +12703,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "60b735f45f0f8ca3",
+  "contentHash": "449adce317cba260",
   "rungs": [
    {
     "score": null,
@@ -12740,7 +12740,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the pairs' distance at least 16",
     "layer": 1,
     "main": 0,
-    "bits": 0
+    "bits": 0.0001
    },
    {
     "score": [
@@ -12749,7 +12749,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all",
     "layer": 0,
     "main": 1,
-    "bits": 0.2034
+    "bits": 0.2054
    },
    {
     "score": [
@@ -12759,7 +12759,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 1,
-    "bits": 0.2034
+    "bits": 0.2054
    },
    {
     "score": [
@@ -12769,7 +12769,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 1,
-    "bits": 0.2054
+    "bits": 0.2095
    },
    {
     "score": [
@@ -12779,7 +12779,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 1,
-    "bits": 0.2358
+    "bits": 0.2423
    },
    {
     "score": [
@@ -12788,7 +12788,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all",
     "layer": 0,
     "main": 2,
-    "bits": 0.7901
+    "bits": 0.7998
    },
    {
     "score": [
@@ -12798,7 +12798,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 2,
-    "bits": 0.7902
+    "bits": 0.8002
    },
    {
     "score": [
@@ -12808,7 +12808,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 2,
-    "bits": 0.9973
+    "bits": 1.0166
    },
    {
     "score": [
@@ -12818,7 +12818,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 2,
-    "bits": 1.3342
+    "bits": 1.3553
    },
    {
     "score": [
@@ -12827,7 +12827,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all",
     "layer": 0,
     "main": 3,
-    "bits": 2.2952
+    "bits": 2.3296
    },
    {
     "score": [
@@ -12837,7 +12837,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 3,
-    "bits": 2.3
+    "bits": 2.3392
    },
    {
     "score": [
@@ -12847,7 +12847,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 3,
-    "bits": 2.9509
+    "bits": 2.9936
    },
    {
     "score": [
@@ -12857,7 +12857,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 3,
-    "bits": 3.2966
+    "bits": 3.3458
    },
    {
     "score": [
@@ -12866,7 +12866,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all",
     "layer": 0,
     "main": 4,
-    "bits": 3.6823
+    "bits": 3.7439
    },
    {
     "score": [
@@ -12876,7 +12876,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 4,
-    "bits": 3.7496
+    "bits": 3.8106
    },
    {
     "score": [
@@ -12886,7 +12886,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 4,
-    "bits": 5.0254
+    "bits": 5.0893
    },
    {
     "score": [
@@ -12896,7 +12896,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 4,
-    "bits": 5.4516
+    "bits": 5.5304
    },
    {
     "score": [
@@ -12905,7 +12905,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all",
     "layer": 0,
     "main": 5,
-    "bits": 5.8322
+    "bits": 5.9319
    },
    {
     "score": [
@@ -12915,7 +12915,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 5,
-    "bits": 6.0106
+    "bits": 6.0905
    },
    {
     "score": [
@@ -12925,7 +12925,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 5,
-    "bits": 7.0589
+    "bits": 7.1546
    },
    {
     "score": [
@@ -12935,7 +12935,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 5,
-    "bits": 7.2391
+    "bits": 7.3447
    },
    {
     "score": [
@@ -12944,7 +12944,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all",
     "layer": 0,
     "main": 6,
-    "bits": 7.3534
+    "bits": 7.467
    },
    {
     "score": [
@@ -12954,7 +12954,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 6,
-    "bits": 7.6857
+    "bits": 7.7603
    },
    {
     "score": [
@@ -12964,7 +12964,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 6,
-    "bits": 8.9998
+    "bits": 9.0915
    },
    {
     "score": [
@@ -12974,7 +12974,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 6,
-    "bits": 9.201
+    "bits": 9.3033
    },
    {
     "score": [
@@ -12983,7 +12983,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all",
     "layer": 0,
     "main": 7,
-    "bits": 9.3205
+    "bits": 9.4307
    },
    {
     "score": [
@@ -12993,7 +12993,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 7,
-    "bits": 9.8541
+    "bits": 9.9107
    },
    {
     "score": [
@@ -13003,7 +13003,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 7,
-    "bits": 11.5347
+    "bits": 11.5967
    },
    {
     "score": [
@@ -13013,7 +13013,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 7,
-    "bits": 11.7875
+    "bits": 11.8576
    },
    {
     "score": [
@@ -13022,7 +13022,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all",
     "layer": 0,
     "main": 8,
-    "bits": 11.9323
+    "bits": 12.0087
    },
    {
     "score": [
@@ -13032,7 +13032,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; the pairs' distance at least 8",
     "layer": 1,
     "main": 8,
-    "bits": 12.7001
+    "bits": 12.7282
    },
    {
     "score": [
@@ -13042,7 +13042,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; the pairs' distance at least 14",
     "layer": 1,
     "main": 8,
-    "bits": 14.9864
+    "bits": 14.9905
    },
    {
     "score": [
@@ -13052,7 +13052,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; the pairs' distance at least 16",
     "layer": 1,
     "main": 8,
-    "bits": 15.3896
+    "bits": 15.3909
    },
    {
     "score": [
@@ -13138,7 +13138,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "9bb67fe6c42737bd",
+  "contentHash": "0cbbe39166a951fa",
   "rungs": [
    {
     "score": null,
@@ -13155,7 +13155,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the corners at least 8",
     "layer": 1,
     "main": 0,
-    "bits": 0.0665
+    "bits": 0.0673
    },
    {
     "score": [
@@ -13165,7 +13165,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the corners at least 12",
     "layer": 1,
     "main": 0,
-    "bits": 0.1241
+    "bits": 0.1255
    },
    {
     "score": [
@@ -13175,7 +13175,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the corners at least 14",
     "layer": 1,
     "main": 0,
-    "bits": 0.1494
+    "bits": 0.151
    },
    {
     "score": [
@@ -13184,7 +13184,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all",
     "layer": 0,
     "main": 1,
-    "bits": 0.2034
+    "bits": 0.2054
    },
    {
     "score": [
@@ -13194,7 +13194,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 8",
     "layer": 1,
     "main": 1,
-    "bits": 0.4121
+    "bits": 0.4174
    },
    {
     "score": [
@@ -13204,7 +13204,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 12",
     "layer": 1,
     "main": 1,
-    "bits": 0.5953
+    "bits": 0.603
    },
    {
     "score": [
@@ -13214,7 +13214,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; the corners at least 14",
     "layer": 1,
     "main": 1,
-    "bits": 0.67
+    "bits": 0.6786
    },
    {
     "score": [
@@ -13223,7 +13223,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all",
     "layer": 0,
     "main": 2,
-    "bits": 0.7901
+    "bits": 0.7998
    },
    {
     "score": [
@@ -13233,7 +13233,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 8",
     "layer": 1,
     "main": 2,
-    "bits": 1.3285
+    "bits": 1.3465
    },
    {
     "score": [
@@ -13243,7 +13243,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 12",
     "layer": 1,
     "main": 2,
-    "bits": 1.8442
+    "bits": 1.8706
    },
    {
     "score": [
@@ -13253,7 +13253,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; the corners at least 14",
     "layer": 1,
     "main": 2,
-    "bits": 2.0463
+    "bits": 2.0762
    },
    {
     "score": [
@@ -13262,7 +13262,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all",
     "layer": 0,
     "main": 3,
-    "bits": 2.2952
+    "bits": 2.3296
    },
    {
     "score": [
@@ -13272,7 +13272,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 8",
     "layer": 1,
     "main": 3,
-    "bits": 2.9205
+    "bits": 2.9649
    },
    {
     "score": [
@@ -13282,7 +13282,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 12",
     "layer": 1,
     "main": 3,
-    "bits": 3.4146
+    "bits": 3.4688
    },
    {
     "score": [
@@ -13292,7 +13292,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; the corners at least 14",
     "layer": 1,
     "main": 3,
-    "bits": 3.559
+    "bits": 3.6168
    },
    {
     "score": [
@@ -13301,7 +13301,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all",
     "layer": 0,
     "main": 4,
-    "bits": 3.6823
+    "bits": 3.7439
    },
    {
     "score": [
@@ -13311,7 +13311,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 8",
     "layer": 1,
     "main": 4,
-    "bits": 4.6742
+    "bits": 4.7407
    },
    {
     "score": [
@@ -13321,7 +13321,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 12",
     "layer": 1,
     "main": 4,
-    "bits": 5.4542
+    "bits": 5.5376
    },
    {
     "score": [
@@ -13331,7 +13331,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; the corners at least 14",
     "layer": 1,
     "main": 4,
-    "bits": 5.6688
+    "bits": 5.7603
    },
    {
     "score": [
@@ -13340,7 +13340,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all",
     "layer": 0,
     "main": 5,
-    "bits": 5.8322
+    "bits": 5.9319
    },
    {
     "score": [
@@ -13350,7 +13350,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 8",
     "layer": 1,
     "main": 5,
-    "bits": 6.7142
+    "bits": 6.8081
    },
    {
     "score": [
@@ -13360,7 +13360,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 12",
     "layer": 1,
     "main": 5,
-    "bits": 7.1932
+    "bits": 7.2989
    },
    {
     "score": [
@@ -13370,7 +13370,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; the corners at least 14",
     "layer": 1,
     "main": 5,
-    "bits": 7.2912
+    "bits": 7.4012
    },
    {
     "score": [
@@ -13379,7 +13379,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all",
     "layer": 0,
     "main": 6,
-    "bits": 7.3534
+    "bits": 7.467
    },
    {
     "score": [
@@ -13389,7 +13389,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 8",
     "layer": 1,
     "main": 6,
-    "bits": 8.4924
+    "bits": 8.5835
    },
    {
     "score": [
@@ -13399,7 +13399,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 12",
     "layer": 1,
     "main": 6,
-    "bits": 9.1161
+    "bits": 9.2175
    },
    {
     "score": [
@@ -13409,7 +13409,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; the corners at least 14",
     "layer": 1,
     "main": 6,
-    "bits": 9.2427
+    "bits": 9.349
    },
    {
     "score": [
@@ -13418,7 +13418,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all",
     "layer": 0,
     "main": 7,
-    "bits": 9.3205
+    "bits": 9.4307
    },
    {
     "score": [
@@ -13428,7 +13428,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 8",
     "layer": 1,
     "main": 7,
-    "bits": 10.772
+    "bits": 10.8419
    },
    {
     "score": [
@@ -13438,7 +13438,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 12",
     "layer": 1,
     "main": 7,
-    "bits": 11.6348
+    "bits": 11.705
    },
    {
     "score": [
@@ -13448,7 +13448,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; the corners at least 14",
     "layer": 1,
     "main": 7,
-    "bits": 11.8195
+    "bits": 11.8927
    },
    {
     "score": [
@@ -13457,7 +13457,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all",
     "layer": 0,
     "main": 8,
-    "bits": 11.9323
+    "bits": 12.0087
    },
    {
     "score": [
@@ -13467,7 +13467,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 8",
     "layer": 1,
     "main": 8,
-    "bits": 13.7487
+    "bits": 13.7816
    },
    {
     "score": [
@@ -13477,7 +13477,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 12",
     "layer": 1,
     "main": 8,
-    "bits": 15.0664
+    "bits": 15.0762
    },
    {
     "score": [
@@ -13487,7 +13487,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; the corners at least 14",
     "layer": 1,
     "main": 8,
-    "bits": 15.407
+    "bits": 15.4105
    },
    {
     "score": [
@@ -13573,7 +13573,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "bf29d6f6e2063eff",
+  "contentHash": "11dae2eaa201f332",
   "rungs": [
    {
     "score": null,
@@ -13590,7 +13590,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime numbers at least 4",
     "layer": 1,
     "main": 0,
-    "bits": 0.0349
+    "bits": 0.0356
    },
    {
     "score": [
@@ -13600,7 +13600,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime numbers at least 8",
     "layer": 1,
     "main": 0,
-    "bits": 0.1789
+    "bits": 0.1807
    },
    {
     "score": [
@@ -13610,7 +13610,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime numbers at least 10",
     "layer": 1,
     "main": 0,
-    "bits": 0.2007
+    "bits": 0.2026
    },
    {
     "score": [
@@ -13619,7 +13619,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all",
     "layer": 0,
     "main": 1,
-    "bits": 0.2034
+    "bits": 0.2054
    },
    {
     "score": [
@@ -13629,7 +13629,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; prime numbers at least 4",
     "layer": 1,
     "main": 1,
-    "bits": 0.2771
+    "bits": 0.2807
    },
    {
     "score": [
@@ -13639,7 +13639,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; prime numbers at least 8",
     "layer": 1,
     "main": 1,
-    "bits": 0.6933
+    "bits": 0.7019
    },
    {
     "score": [
@@ -13649,7 +13649,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 16 in all; prime numbers at least 10",
     "layer": 1,
     "main": 1,
-    "bits": 0.7774
+    "bits": 0.7868
    },
    {
     "score": [
@@ -13658,7 +13658,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all",
     "layer": 0,
     "main": 2,
-    "bits": 0.7901
+    "bits": 0.7998
    },
    {
     "score": [
@@ -13668,7 +13668,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; prime numbers at least 4",
     "layer": 1,
     "main": 2,
-    "bits": 0.9312
+    "bits": 0.9426
    },
    {
     "score": [
@@ -13678,7 +13678,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; prime numbers at least 8",
     "layer": 1,
     "main": 2,
-    "bits": 1.9557
+    "bits": 1.9825
    },
    {
     "score": [
@@ -13688,7 +13688,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 12 in all; prime numbers at least 10",
     "layer": 1,
     "main": 2,
-    "bits": 2.2444
+    "bits": 2.2775
    },
    {
     "score": [
@@ -13697,7 +13697,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all",
     "layer": 0,
     "main": 3,
-    "bits": 2.2952
+    "bits": 2.3296
    },
    {
     "score": [
@@ -13707,7 +13707,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; prime numbers at least 4",
     "layer": 1,
     "main": 3,
-    "bits": 2.4419
+    "bits": 2.4764
    },
    {
     "score": [
@@ -13717,7 +13717,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; prime numbers at least 8",
     "layer": 1,
     "main": 3,
-    "bits": 3.3945
+    "bits": 3.4463
    },
    {
     "score": [
@@ -13727,7 +13727,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 8 in all; prime numbers at least 10",
     "layer": 1,
     "main": 3,
-    "bits": 3.6393
+    "bits": 3.6995
    },
    {
     "score": [
@@ -13736,7 +13736,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all",
     "layer": 0,
     "main": 4,
-    "bits": 3.6823
+    "bits": 3.7439
    },
    {
     "score": [
@@ -13746,7 +13746,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; prime numbers at least 4",
     "layer": 1,
     "main": 4,
-    "bits": 3.9036
+    "bits": 3.9601
    },
    {
     "score": [
@@ -13756,7 +13756,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; prime numbers at least 8",
     "layer": 1,
     "main": 4,
-    "bits": 5.3177
+    "bits": 5.3944
    },
    {
     "score": [
@@ -13766,7 +13766,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 6 in all; prime numbers at least 10",
     "layer": 1,
     "main": 4,
-    "bits": 5.7495
+    "bits": 5.8457
    },
    {
     "score": [
@@ -13775,7 +13775,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all",
     "layer": 0,
     "main": 5,
-    "bits": 5.8322
+    "bits": 5.9319
    },
    {
     "score": [
@@ -13785,7 +13785,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; prime numbers at least 4",
     "layer": 1,
     "main": 5,
-    "bits": 6.0573
+    "bits": 6.1461
    },
    {
     "score": [
@@ -13795,7 +13795,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; prime numbers at least 8",
     "layer": 1,
     "main": 5,
-    "bits": 7.0781
+    "bits": 7.1792
    },
    {
     "score": [
@@ -13805,7 +13805,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 4 in all; prime numbers at least 10",
     "layer": 1,
     "main": 5,
-    "bits": 7.3119
+    "bits": 7.424
    },
    {
     "score": [
@@ -13814,7 +13814,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all",
     "layer": 0,
     "main": 6,
-    "bits": 7.3534
+    "bits": 7.467
    },
    {
     "score": [
@@ -13824,7 +13824,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; prime numbers at least 4",
     "layer": 1,
     "main": 6,
-    "bits": 7.6608
+    "bits": 7.7526
    },
    {
     "score": [
@@ -13834,7 +13834,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; prime numbers at least 8",
     "layer": 1,
     "main": 6,
-    "bits": 8.9387
+    "bits": 9.0348
    },
    {
     "score": [
@@ -13844,7 +13844,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 3 in all; prime numbers at least 10",
     "layer": 1,
     "main": 6,
-    "bits": 9.2603
+    "bits": 9.369
    },
    {
     "score": [
@@ -13853,7 +13853,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all",
     "layer": 0,
     "main": 7,
-    "bits": 9.3205
+    "bits": 9.4307
    },
    {
     "score": [
@@ -13863,7 +13863,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; prime numbers at least 4",
     "layer": 1,
     "main": 7,
-    "bits": 9.7291
+    "bits": 9.8124
    },
    {
     "score": [
@@ -13873,7 +13873,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; prime numbers at least 8",
     "layer": 1,
     "main": 7,
-    "bits": 11.3504
+    "bits": 11.4194
    },
    {
     "score": [
@@ -13883,7 +13883,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 2 in all; prime numbers at least 10",
     "layer": 1,
     "main": 7,
-    "bits": 11.8327
+    "bits": 11.9093
    },
    {
     "score": [
@@ -13892,7 +13892,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all",
     "layer": 0,
     "main": 8,
-    "bits": 11.9323
+    "bits": 12.0087
    },
    {
     "score": [
@@ -13902,7 +13902,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; prime numbers at least 4",
     "layer": 1,
     "main": 8,
-    "bits": 12.413
+    "bits": 12.4757
    },
    {
     "score": [
@@ -13912,7 +13912,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; prime numbers at least 8",
     "layer": 1,
     "main": 8,
-    "bits": 14.4952
+    "bits": 14.5221
    },
    {
     "score": [
@@ -13922,7 +13922,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the boxes' gaps from two pairs off by at most 1 in all; prime numbers at least 10",
     "layer": 1,
     "main": 8,
-    "bits": 15.3883
+    "bits": 15.3993
    },
    {
     "score": [

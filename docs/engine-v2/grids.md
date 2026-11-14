@@ -233,7 +233,7 @@ also sampled, and every rung is compared with the exact sum in units of the samp
 | prime-cells + sevens | 42 | 42 (24.7) | 2.84 | 2.84 | 24.66 | 24.57 ± 0.05 | 0.1M |
 | prime-cells + corners | 42 | 42 (21.8) | 2.44 | 2.44 | 21.81 | 21.89 ± 0.06 | 0.1M |
 
-What it says (seed "validate", 3.2M boards a pairing at most):
+What it says (seed "validate", 3.2M boards a pairing at most; the Two Pair rows were measured before four of a kind was moved from 1 to 2 steps off, which changes its values but not the comparison):
 - **The method is unbiased.** On the 1,030 rungs that converged, every sampled value is within 4 of its own
   standard errors of the exact one (worst 3.97, Leapfrog + primes; four pairings have a rung past 3). That is a little
   more than independent normal errors would give, so the standard error of importance weights is slightly optimistic,
@@ -267,7 +267,7 @@ Each family's ladder ends where its dealt tops sit in the 15–25 bit band; the 
 | 1 | **Mirrormancer** (mirror, rows) | "Every row should read the same backwards, like 3 1 1 3." Σ rows (\|a − d\| + \|b − c\|), capped at 1 | middle columns big · primes · 0s | exact | middle 23.9 · primes 24.5 · 0s 22.6 |
 | 2 | **Magic Eighteen** (tally, rows) | "Every row should add up to 18." Σ rows \|total − 18\|, capped at 4 (exact 0 is 26 bits) | first column big · primes · odd numbers | exact | first column 23.7 · primes 24.0 · odd 24.5 |
 | 3 | **Opposite Nines** (turn, half-turn pairs) | "Every cell and its opposite should add up to 9." Σ pairs \|a + b − 9\|, capped at 10 | top half big · primes · odd numbers | exact | top half 23.0 · primes 24.6 · odd 24.8 |
-| 4 | **Two Pair** (boxes, corner boxes) | "Each corner box should hold two different pairs, like 3 3 8 8." Σ boxes (best pairing's gaps, +1 for four of a kind) | the pairs far apart · primes · corners big | exact | apart 23.9 · primes 24.7 · corners 23.6 |
+| 4 | **Two Pair** (boxes, corner boxes) | "Each corner box should hold two different pairs, like 3 3 8 8." Σ boxes (best pairing's gaps, +2 for four of a kind) | the pairs far apart · primes · corners big | exact | apart 23.9 · primes 24.7 · corners 23.6 |
 | 5 | **Spread of Three** (windows, overlapping) | "Every 2×2 square should spread by exactly 3." Σ squares \|spread − 3\| (exactly 3 everywhere: 13 bits) | primes · 0s · corners big | **sampled** | primes 16.8 · 0s 17.9 · corners 14.0 (primes and corners capped) |
 | 6 | **Strangers** (boxes, corner boxes) | "Touching numbers in a corner box should be strangers (both > 1, no common divisor, 2 or more apart)." count, capped at 9 of 16 | 1s beside bigger numbers · primes · corners big | exact | 1s 22.3 · primes 23.4 · corners 22.9 |
 | 7 | **Leapfrog** (leaps, rows) | "Each number and the number two cells along should be one apart, like 4 _ 5." Σ \|\|a − b\| − 1\| | first column big · primes · 0s | exact | first column 23.5 · primes 23.6 · 0s 23.6 |

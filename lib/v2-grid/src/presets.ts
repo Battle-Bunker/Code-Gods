@@ -5,12 +5,15 @@
 import { tieBreakersOn } from "@workspace/v2-core";
 import { gridType, grid4 } from "./type.ts";
 import { beginnerGridFamilies } from "./families.ts";
+import { gridParams } from "./grid.ts";
+
+const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f.id));
 
 export interface GridPoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
 
 export const gridPresets = [
   {
     id: "grids-beginner", title: "Grids · beginner", variant: grid4.id,
-    rules: beginnerGridFamilies(4).map(b => gridType.families.find(f => f.id === b.id)!).flatMap(f => f.dealable(grid4).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, grid4).map(t => t.id) }))) as readonly GridPoolRule[],
+    rules: gridType.families.filter(f => BEGINNER.has(f.id)).flatMap(f => f.dealable(grid4).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, grid4).map(t => t.id) }))) as readonly GridPoolRule[],
   },
 ] as const;

@@ -31,8 +31,3 @@ export const gridSums: Readonly<Record<string, GridSums>> = {
   "prime-cells": { units: cells },
 };
 
-/**
- * For families with no exact sum, pairs of cells the sampler's proposals should model jointly (v2-valuation
- * sample-grid.ts), because the rule ties them together. Only efficiency depends on them, never correctness.
- */
-export const gridSampleBlocks: Readonly<Record<string, (v: Variant) => readonly (readonly number[])[]>> = {};

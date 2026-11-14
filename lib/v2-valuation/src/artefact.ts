@@ -212,7 +212,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
   });
   const allExact = exact.every(x => x !== null);
   // 2. A grid rule with no exact sum is sampled directly from its exact product law (owner decision 22): no walk.
-  if (!allExact && type.id === "grid") return calibrateSampled(type, variant, family, params, tb, tieBreaker, seed, config, fullLadder);
+  if (!allExact && type.id === "grid" && !gridSums[family.id]) return calibrateSampled(type, variant, family, params, tb, tieBreaker, seed, config, fullLadder);
   // 3. The simulation only where an exact value is missing: it fills those rungs where it converges (the hybrid).
   const est = allExact ? null : estimate({ type, variant, family, params, seed, config, tieBreaker: tb });
   // The rungs recorded: the whole ladder when exact; else as far as either source reaches (the simulation truncates at a
@@ -280,7 +280,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
 /** A grid rule valued by the sampler (sample-grid.ts): every rung sampled, capped where the error target is missed. */
 function calibrateSampled<S, P>(type: ObjectType<S>, variant: Variant, family: RuleFamily<S, P>, params: P, tb: TieBreaker, tieBreaker: string,
   seed: string, config: ValuationConfig, ladder: readonly ReturnType<typeof objectLadder>[number][]): { artefact: Artefact; estimate: null } {
-  const s = sampleGridLadder(type as never, family as never, params, variant, tb, seed);
+  const s = sampleGridLadder(type as never, family as never, params, variant, tb, seed, { targetRelError: config.targetRelError, absFloorBits: config.absFloorBits });
   const reasons: string[] = [];
   s.distinct.forEach((d, j) => {
     if (d < config.minLevels) reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values, fewer than ${config.minLevels}: too coarse to extend the ladder`);

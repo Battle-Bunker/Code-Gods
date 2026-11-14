@@ -25,8 +25,9 @@
  * also sampled, and the two must agree within the sampler's own interval on every rung (test/sample-grid.test.ts; the
  * table is in grids.md §5).
  */
-import { evaluateObject, levelOf, objectLadder, rng, type ObjectType, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { cellProbability, gridParams, gridSampleBlocks, gridSums, type GridState } from "@workspace/v2-grid";
+import { CONTINUITY_BITS } from "./exact-grid.ts";
+import { evaluateObject, levelOf, objectLadder, rng, type ObjectType, type Score, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
+import { cellProbability, gridParams, gridSums, type GridState } from "@workspace/v2-grid";
 
 export interface SampleConfig {
   /** Boards per adaptation round. */
@@ -72,7 +73,10 @@ export interface SampledLadder {
   readonly evaluations: number;
   /** The last rung through which every rung met the error target. */
   readonly convergedThrough: number;
-  /** Distinct values each dealt layer took among the boards drawn from π itself (the continuity check, decision 13). */
+  /**
+   * Distinct values each dealt layer takes with estimated probability at least 2^−CONTINUITY_BITS (the continuity check,
+   * decision 13; the same criterion as the exact sums').
+   */
   readonly distinct: readonly number[];
 }
 
@@ -86,19 +90,19 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
   const logP = Array.from({ length: S }, (_, v) => Math.log(cellProbability(v, variant)));
   const r = rng("grid-sample", seed, family.id, JSON.stringify(params), String(tieBreaker), variant.id);
   let evaluations = 0;
-  const seen: Set<string>[] = [];
-  let fromPi = true;
+  let lastScore: ReturnType<typeof evaluateObject>["score"] = null;
   const levelOfBoard = (x: number[]): number => {
     evaluations++;
-    const score = evaluateObject(type, family, params, { cells: x }, variant, tieBreaker).score;
-    if (fromPi && score) score.forEach((c, j) => (seen[j] ??= new Set()).add(c === null ? "null" : `${c.n}/${c.d}`));
-    return levelOf(score, ladder);
+    lastScore = evaluateObject(type, family, params, { cells: x }, variant, tieBreaker).score;
+    return levelOf(lastScore, ladder);
   };
+  // Per dealt layer: each value's summed importance weight in the estimation sample.
+  const mass: Map<string, number>[] = [];
 
   // Blocks: disjoint groups of at most four cells covering the board.
   // Blocks of more than two cells are split into cells: a table of 10^4 joint values cannot be fitted from a few hundred
   // elite boards (measured: the weights degenerate), while a pair's 100 can.
-  const declared = (gridSums[family.id]?.units(variant) ?? gridSampleBlocks[family.id]?.(variant) ?? []).filter(b => b.length <= 2);
+  const declared = (gridSums[family.id]?.units(variant) ?? []).filter(b => b.length <= 2);
   const covered = new Set(declared.flat());
   const blocks: number[][] = [...declared.map(b => [...b]), ...Array.from({ length: cells }, (_, i) => i).filter(i => !covered.has(i)).map(i => [i])];
   const sizes = blocks.map(b => S ** b.length);
@@ -135,7 +139,6 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
   let q = pi, best = -1, stale = 0;
   for (let round = 0; round < cfg.maxRounds && evaluations < cfg.budget / 4; round++) {
     const xs = Array.from({ length: cfg.roundSamples }, () => draw(q));
-    fromPi = round === 0;
     const ls = xs.map(levelOfBoard);
     const sorted = [...ls].sort((a, b) => b - a);
     const gamma = Math.min(top, sorted[Math.max(0, Math.floor(cfg.rho * ls.length) - 1)]!);
@@ -158,7 +161,6 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
     if (gamma > best) { best = gamma; stale = 0; } else if (++stale >= 5) break;
   }
 
-  fromPi = false;
   // 2. Estimation from the defensive mixture of every proposal.
   const K = proposals.length;
   // Mixture weights: half on the last proposal, half evenly over every proposal (π included, so no rung is starved).
@@ -196,6 +198,7 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
       const w = Math.exp(lp - lmix);
       const L = levelOfBoard(x);
       sumW[L]! += w; sumW2[L]! += w * w; hits[L]!++;
+      (lastScore as Score)?.forEach((c, j) => { const m = (mass[j] ??= new Map()), k = c === null ? "null" : `${c.n}/${c.d}`; m.set(k, (m.get(k) ?? 0) + w); });
       n++;
     }
     rungs = summarise();
@@ -205,5 +208,5 @@ export function sampleGridLadder<P>(type: ObjectType<GridState>, family: RuleFam
   }
   let convergedThrough = 0;
   for (let k = 1; k <= top; k++) { if (!converged(rungs[k]!)) break; convergedThrough = k; }
-  return { rungs, proposals: K, evaluations, convergedThrough, distinct: seen.map(x => x.size) };
+  return { rungs, proposals: K, evaluations, convergedThrough, distinct: mass.map(m => [...m.values()].filter(w => w / n >= 2 ** -CONTINUITY_BITS).length) };
 }
