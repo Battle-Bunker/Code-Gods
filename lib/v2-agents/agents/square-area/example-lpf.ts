@@ -1,5 +1,5 @@
-// Square Area · Example: smallest prime factor of that root
-// Main part: triangle area close to a square number. Tie-breaker: smallest prime factor of that root.
+// Square Area · Example: that square's root's largest prime factor
+// Main part: area close to a square number. Tie-breaker: that square's root's largest prime factor.
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Try this: add the "stretch" lens from the Thorough starter.
@@ -12,7 +12,7 @@ function score(m, c, p) {
   if (sq === null) return null;                   // none within 10,000: hopeless
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   const f = factors(root(sq));                    // the prime factors of that square's root
-  return [main, f.length ? f[0] : 1];   // main: how far the triangle's area is from a square number (closer is better); tie-breaker: a root whose smallest prime factor is big is better
+  return [main, f.at(-1) ?? 1];   // main: how far the triangle's area is from a square number (closer is better); tie-breaker: a root whose largest prime factor is big is better
 }
 
 const FAR = 4;      // how far one change may go

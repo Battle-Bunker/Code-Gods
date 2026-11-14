@@ -1,5 +1,5 @@
 // Square Area · Bold
-// Main part: triangle area close to a square number. Tie-breaker: whichever you were dealt (prime factors of that square's root; smallest prime factor of that root).
+// Main part: area close to a square number. Tie-breaker: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Try this: change FAR = 6 to 3: smaller jumps, cheaper moves.
@@ -13,8 +13,9 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   const f = factors(root(sq));                    // the prime factors of that square's root
   // main: how far the triangle's area is from a square number (closer is better)
-  if (tie === "factors") return [main, f.length];   // more prime factors in the root are better
-  if (tie === "rootSpf") return [main, f.length ? f[0] : 1];   // a root whose smallest prime factor is big is better
+  if (tie === "spf") return [main, f[0] ?? 1];   // a root whose smallest prime factor is big is better
+  if (tie === "lpf") return [main, f.at(-1) ?? 1];   // a root whose largest prime factor is big is better
+  if (tie === "omega") return [main, f.length];   // more prime factors in the root are better
   return [main];
 }
 

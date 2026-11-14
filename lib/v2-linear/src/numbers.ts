@@ -69,6 +69,22 @@ export function smallestPrimeFactor(n: bigint): bigint {
   return m;
 }
 
+/** The largest prime factor of |n| (a cofactor with no factor below the limit counts as prime); 1 for 0 and ±1. */
+export function largestPrimeFactor(n: bigint): bigint {
+  let m = n < 0n ? -n : n;
+  if (m < 2n) return 1n;
+  let big = 1n;
+  for (let d = 2n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { big = d; m /= d; }
+  return m > 1n ? m : big;
+}
+
+/** Every prime p with lo ≤ p ≤ hi: a prime-size ladder with one rung per prime (the curator's delta, #385). */
+export function primesBetween(lo: number, hi: number): number[] {
+  const out: number[] = [];
+  for (let n = Math.max(2, lo); n <= hi; n++) if (isPrime(BigInt(n))) out.push(n);
+  return out;
+}
+
 /** Ω(n): prime factors of |n| counted with multiplicity (a cofactor with no factor below the limit counts once); 0 for 0 and ±1. */
 export function primeFactorCount(n: bigint): number {
   let m = n < 0n ? -n : n;
@@ -77,3 +93,11 @@ export function primeFactorCount(n: bigint): number {
   for (let d = 2n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { m /= d; k++; }
   return m > 1n ? k + 1 : k;
 }
+
+/** Distance from x to the nearest prime (primes are positive, so anything at or below 2 is measured to 2). */
+export function distanceToPrime(x: Q): Q {
+  return Qn.abs(Qn.sub(x, q(nearbyPrimes(x)[0]!)));
+}
+
+/** Distance from x to the nearest whole number. */
+export const distanceToWhole = (x: Q): Q => Qn.abs(Qn.sub(x, q(nearestInteger(x))));

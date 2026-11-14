@@ -20,8 +20,11 @@ test("format: true minus, vulgar fractions, mixed numbers", () => {
 
 test("Prime Gradient: main part and tie-breaker, values are the scored terms, steps on their own ladders", () => {
   const a = annotate(rule(primeGradient, {}), mc(4, -3));
-  assert.equal(a.level, 6);           // Z ladder 13, 8, 5, 3, 2, 1, 0: a gap of 1 meets six steps
-  assert.equal(a.top, 7 + 8);         // then eight steps of the tie-breaker (the prime's size)
+  // Joint ladder: Z distances 13, 8, 5, 3, 2, 1, 0 (seven main steps), three coarse tie-breaker steps (primes 7, 13, 23)
+  // at each main level below the top and all ten (primes 3 … 31) at it. A gap of 1 is main step 6; the prime 3 or 5
+  // meets no coarse step: 1 + 3 + 5·4 = step 24.
+  assert.equal(a.level, 24);
+  assert.equal(a.top, 3 + 6 * 4 + 1 + 10);
   const [p, tie] = a.sites[0]!.parts;
   assert.equal(a.sites[0]!.parts.length, 2);
   assert.equal(p!.name, "main part");
@@ -49,11 +52,13 @@ test("WORST: the undefined sentence is the reason, level 0", () => {
 
 test("two parts: main part and tie-breaker each on their own ladder, marks split by term (storyboard §3.4)", () => {
   const r = rule(emptyTank, {}, lineQ);
-  const a = annotate(r, mc(-3, 10), { rarities: [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8, 7.5, 8.1, 8.9, 9.6] });
-  assert.equal(a.level, 5);           // T = 10/3, nearest minute 3, gap 1/3: step 5 of the main part's 8
-  assert.equal(a.top, 8 + 4);         // then the tie-breaker's four steps
-  assert.equal(a.rarity, 3.4);
-  assert.equal(a.nextRarity, 4.6);
+  const a = annotate(r, mc(-3, 10), { rarities: Array.from({ length: 37 }, (_, i) => i / 10) });
+  // T = 10/3, nearest minute 3, gap 1/3: main step 5 of 8, and 3 is prime: the tie-breaker's top. On the joint ladder
+  // (three coarse tie-breaker steps at each main level below the top, all four at it) that is 1 + 3 + 4·4 + 3 = step 23.
+  assert.equal(a.level, 23);
+  assert.equal(a.top, 3 + 7 * 4 + 1 + 4);
+  assert.equal(a.rarity, 2.3);
+  assert.equal(a.nextRarity, 2.4);
   const [main, tie] = a.sites[0]!.parts;
   assert.equal(main!.name, "main part");
   assert.equal(fmtQ(main!.value as Q), "⅓");
@@ -106,7 +111,7 @@ test("nearest improvement: really raises the level, at the price it quotes", () 
   const after = annotate(r, imp.result as LineState);
   assert.equal(after.level, imp.levelAfter);
   assert.ok(imp.price.total > 0);
-  assert.match(imp.sentence, /⚡\): step \d+ of 12\.$/);
+  assert.match(imp.sentence, /⚡\): step \d+ of 36\.$/);
 
   for (const [f, p, st] of [
     [primeGradient, {}, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],

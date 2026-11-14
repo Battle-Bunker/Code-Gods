@@ -5,7 +5,8 @@
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef, type Variant } from "@workspace/v2-core";
 import { lineParams, type LineState } from "./line.ts";
-import { nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { nearbyPrimes, nearestInteger, primeFactorCount, primesBetween, smallestPrimeFactor } from "./numbers.ts";
+import { beginnerFamilies } from "./beginner.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -19,7 +20,8 @@ const atLeast = (what: string) => (t: Q) => `${what} at least ${Qn.toWire(t)}`;
 const atMost = (what: string) => (t: Q) => (Qn.isZero(t) ? `${what} 0` : `${what} at most ${Qn.toWire(t)}`);
 const qs = (xs: readonly number[]) => xs.map(x => q(x));
 const SIZES = qs([1, 2, 3, 4, 6, 8, 12, 16, 24]);
-const PRIMES = qs([3, 5, 7, 11, 13, 17, 19, 23]);
+/** Prime-size ladders: one rung per prime up to 31 (curator, #385), within reach of the default budget. */
+const PRIMES = qs(primesBetween(3, 31));
 const COUNTS = qs([1, 2, 3, 4, 5, 6]);
 const BOTTOMS = qs([12, 8, 6, 4, 3, 2, 1, 0]);
 
@@ -180,7 +182,7 @@ const wi = {
     rep: "si", sense: "min", measure: "distance", thresholds: () => [q(1, 3), q(1, 4), q(1, 6), q(1, 8), q(1, 12), q(1, 16), q(0)], rungLabel: within("c to a whole number") } as L<object>,
   tieBreakers: [
     { id: "spf", title: "smallest prime factor of that whole number", sentence: () => "Tie-breaker: the bigger the smallest prime factor of that whole number, the better.",
-      rep: "si", sense: "max", measure: "size", thresholds: () => qs([2, 3, 5, 7, 11, 13, 17, 19]), rungLabel: atLeast("its smallest prime factor") },
+      rep: "si", sense: "max", measure: "size", thresholds: () => qs(primesBetween(2, 31)), rungLabel: atLeast("its smallest prime factor") },
     { id: "omega", title: "prime factors of that whole number", sentence: () => "Tie-breaker: the more prime factors that whole number has (counting repeats), the better.",
       rep: "si", sense: "max", measure: "count", thresholds: () => COUNTS, rungLabel: atLeast("its prime factors") },
   ] as L<object>[],
@@ -204,32 +206,6 @@ export const wholeIntercept: RuleFamily<LineState, object> = {
   },
 };
 
-// ---------------------------------------------------------------- 6. Square Area (owner decision 12, second example)
-
-const sa = {
-  main: { id: "square", title: "triangle area close to a square number", sentence: () => "The line and the axes make a triangle; make its area as close as possible to a square number.",
-    rep: "tri", sense: "min", measure: "distance", thresholds: (_p: object, v: Variant) => distances(v), rungLabel: within("the area to a square") } as L<object>,
-  tieBreakers: [
-    { id: "factors", title: "prime factors of that square's root", sentence: () => "Tie-breaker: the more prime factors the square's root has (counting repeats), the better.",
-      rep: "tri", sense: "max", measure: "count", thresholds: () => COUNTS, rungLabel: atLeast("prime factors of the root") },
-    { id: "rootSpf", title: "smallest prime factor of that root", sentence: () => "Tie-breaker: the bigger the smallest prime factor of the square's root, the better.",
-      rep: "tri", sense: "max", measure: "size", thresholds: () => qs([2, 3, 5, 7, 11, 13, 17]), rungLabel: atLeast("the root's smallest prime factor") },
-  ] as L<object>[],
-};
-export const squareArea: RuleFamily<LineState, object> = {
-  id: "square-area", title: "Square Area", card: (p, tb) => card(sa, p, tb),
-  params: [], dealable: () => [{}], depends: ["tri", "cart"], ...sa,
-  evaluate(ctx) {
-    const area = ref("tri", "area");
-    const av = ctx.read(area);
-    const a = num(av);
-    if (a === null) return allUndefined(ctx, sa, av, area);
-    const r = nearestSquareRoot(a);
-    ctx.term("square", `distance from the area to ${r * r}`, gap(a, q(r * r)), [area]);
-    ctx.term("factors", `prime factors of ${r}`, q(primeFactorCount(r)), [area]);
-    ctx.term("rootSpf", `smallest prime factor of ${r}`, q(smallestPrimeFactor(r)), [area]);
-    ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${r * r} = ${r}²` });
-  },
-};
-
-export const families = [primeGradient, triangleArea, mMeetsC, crossingCheck, wholeIntercept, squareArea] as const;
+/** The owner's first examples and Whole Intercept: a second tier beside the beginner pool (beginner.ts). */
+export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck, wholeIntercept] as const;
+export const families = [...ownerFamilies, ...beginnerFamilies] as const;

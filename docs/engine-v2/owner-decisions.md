@@ -73,6 +73,9 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     absolute value of the amount added"; multiplicative moves by digits, about the code length of the factor; so large
     composites are cheap, large primes are dear, and a number's energy is roughly its shortest arithmetic description.)
 
+18. On the bid phase: "I want that still in the rebuilt app." (Integration plan §5.9 ports bidding onto v2 rule
+    families in M3: a bid names a family; the dealer draws the winner's parameters and tie-breaker.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** Mutator price lists are NOT required to satisfy detailed balance; value is
@@ -91,9 +94,10 @@ existing code. The specification that follows from them is [spec.md](spec.md).
   import from the old rule/object/annotation/calibration libraries (copy and clean what is good).
 
 - **(f) No gating** (14 November, after decision 14's clarification): a score is a plain lexicographic tuple; the
-  secondary orders lines at every primary level. The ladder that values a rule still puts the secondary's rungs at the
-  primary's top (spec §4.4): ordering is lexicographic everywhere, and bits are earned by the secondary once the primary
-  is met. See spec §4.2 for the one place this matters (saturation of a "bigger is better" primary).
+  secondary orders lines at every primary level. Value follows the order (the coordinator, 14 November: "the joint
+  ladder is the set of (main level, tie-breaker level) pairs in lexicographic order, so improving the tie-breaker at any
+  main level raises bits"): spec §4.4's joint ladder, the tie-breaker coarsened below the main top (never to one level)
+  and in full at it. See spec §4.2 for the one place the order matters (saturation of a "bigger is better" primary).
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

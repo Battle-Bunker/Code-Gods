@@ -105,3 +105,19 @@ test("every mutator's argument sampler draws each argument with probability 2^âˆ
     }
   }
 });
+
+test("enumerate lists every argument up to a price, cheapest first, and agrees with bits", () => {
+  for (const v of [lineZ, lineQ]) for (const m of mutators) {
+    const code = m.args(v);
+    const listed = [...code.enumerate!(8)];
+    let last = 0;
+    for (const a of listed) { const b = code.bits(a); assert.ok(b <= 8 + 1e-9 && b >= last - 1e-9, `${m.id}`); last = b; }
+    // Everything the sampler draws at a price within the bound is listed.
+    const keys = new Set(listed.map(a => JSON.stringify(code.encode(a))));
+    const r = rng("enum", v.id, m.id);
+    for (let i = 0; i < 2000; i++) {
+      const a = code.sample(r);
+      if (a !== null && code.bits(a) <= 8) assert.ok(keys.has(JSON.stringify(code.encode(a))), `${v.id} ${m.id} ${JSON.stringify(code.encode(a))}`);
+    }
+  }
+});

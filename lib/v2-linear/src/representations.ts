@@ -152,6 +152,10 @@ export const mach: Representation<LineState> = {
       nonVertical((l, a) => (l.a === 0n ? undef("a flat machine (× 0) gives the same output for every input, so it cannot be run backwards") : num(xAt(l, arg(a, "q"))))),
       { params: [{ name: "q", domain: "Q" }] }),
     el("twice", "q through the machine twice", "number", "dynamic", nonVertical((l, a) => num(yAt(l, yAt(l, arg(a, "q"))))), { params: [{ name: "q", domain: "Q" }] }),
+    el("fixed", "the number the machine leaves unchanged", "number", "derived",
+      nonVertical(l => (Qn.eq(slope(l), Qn.ONE) ? undef("a machine that multiplies by 1 changes every number by the same amount") : num(Qn.div(intercept(l), Qn.sub(Qn.ONE, slope(l))))))),
+    el("lamp", "the lamp's height m/(m − 1) (the nomogram)", "number", "derived",
+      nonVertical(l => (Qn.eq(slope(l), Qn.ONE) ? undef("with a gradient of 1 the lamp is infinitely high") : num(Qn.div(slope(l), Qn.sub(slope(l), Qn.ONE)))))),
   ],
   layout: (_s, site) => ({
     kind: "machine", stages: [{ label: "×", el: "times" }, { label: "+", el: "plus" }],
@@ -159,4 +163,60 @@ export const mach: Representation<LineState> = {
   }),
 };
 
-export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach];
+// ---------------------------------------------------------------- table: a table of values
+
+export const table: Representation<LineState> = {
+  id: "table", title: "table of values", scene: "table", perSite: true,
+  elements: [
+    el("y", "y when x is k", "number", "dynamic", nonVertical((l, a) => num(yAt(l, arg(a, "x")))), { params: [{ name: "x", domain: "Z" }], meaning: "valueAt" }),
+  ],
+  layout: (_s, site) => ({ kind: "table", columns: [0, 1, 2, 3, 4, 5].map(x => ({ header: `x = ${x}`, el: ref("table", "y", { x }, site) })) }),
+};
+
+// ---------------------------------------------------------------- norm: the line seen from the origin
+
+/** The squared distance from (0, 0) to a·x + b·y + c = 0, and the foot of the perpendicular. */
+const h2 = (l: Line): bigint => l.a * l.a + l.b * l.b;
+export const norm: Representation<LineState> = {
+  id: "norm", title: "the line seen from the origin", scene: "plane", perSite: true,
+  elements: [
+    el("dist2", "distance from (0, 0), squared", "number", "derived", l => num(q(l.c * l.c, h2(l)))),
+    el("foot", "the foot of the perpendicular from (0, 0)", "point", "derived", l => pt(q(-l.a * l.c, h2(l)), q(-l.b * l.c, h2(l)))),
+  ],
+  layout: (_s, site) => ({
+    kind: "plane", window: [q(-WINDOW), q(-WINDOW), q(WINDOW), q(WINDOW)],
+    items: [{ draw: "line", el: ref("cart", "line", undefined, site) }, { draw: "point", el: ref("norm", "foot", undefined, site) }],
+  }),
+};
+
+// ---------------------------------------------------------------- coins: a·x + b·y = N as paying N with coins a and b
+
+/** Counting stops here: a line whose ways to pay cannot be counted quickly has none we report. */
+const MAX_COIN_STEPS = 100_000n;
+const NOT_COINS = "the line reads as coins only when a and b (in a·x + b·y = N) are both positive";
+/** The ways to pay N with coins worth a and b: whole x, y ≥ 0 with a·x + b·y = N. */
+export function waysToPay(l: Line): { x: bigint; y: bigint }[] | null {
+  const a = l.a, b = l.b, N = -l.c;
+  if (!(a > 0n && b > 0n)) return null;
+  if (N < 0n) return [];
+  if (N / a > MAX_COIN_STEPS) return null;
+  const out: { x: bigint; y: bigint }[] = [];
+  for (let x = 0n; a * x <= N; x++) if ((N - a * x) % b === 0n) out.push({ x, y: (N - a * x) / b });
+  return out;
+}
+const coinsOr = (f: (w: { x: bigint; y: bigint }[], l: Line) => ElementValue): Fn => l => {
+  const w = waysToPay(l);
+  return w === null ? undef(NOT_COINS) : f(w, l);
+};
+export const coins: Representation<LineState> = {
+  id: "coins", title: "exact change: a·x + b·y = N", scene: "pegboard", perSite: true,
+  elements: [
+    el("bill", "the bill N", "number", "derived", coinsOr((_w, l) => num(q(-l.c)))),
+    el("ways", "ways to pay", "number", "derived", coinsOr(w => num(q(w.length)))),
+    el("smallestPile", "the smaller pile, in the way where it is smallest", "number", "derived",
+      coinsOr(w => (w.length ? num(q(w.reduce((m, { x, y }) => { const s = x < y ? x : y; return s < m ? s : m; }, w[0]!.x < w[0]!.y ? w[0]!.x : w[0]!.y))) : undef("there is no way to pay")))),
+  ],
+  layout: (_s, site) => ({ kind: "pegboard", window: [0, 12], on: ref("cart", "line", undefined, site) }),
+};
+
+export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, norm, coins];

@@ -216,12 +216,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       ],
     },
     tieBreakers: {
-      factors: {
+      omega: {
         ts: "f.length", py: "len(f)", says: "more prime factors in the root are better",
         lenses: ["shift", "tilt", "turnAtMinusOne", "stretch"], steps: 3, tryThis: "change FAR = 3 to 5 so it can reach bigger squares.",
       },
-      rootSpf: {
-        ts: "f.length ? f[0] : 1", py: "f[0] if f else 1", says: "a root whose smallest prime factor is big is better",
+      lpf: {
+        ts: "f.at(-1) ?? 1", py: "f[-1] if f else 1", says: "a root whose largest prime factor is big is better",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter.",
+      },
+      spf: {
+        ts: "f[0] ?? 1", py: "f[0] if f else 1", says: "a root whose smallest prime factor is big is better",
         lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter.",
       },
     },
