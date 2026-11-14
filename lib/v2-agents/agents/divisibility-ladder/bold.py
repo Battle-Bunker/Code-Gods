@@ -49,8 +49,9 @@ def agent(offer):
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
-    if m == None:              # a vertical line has no y = mx + c: skip
-        return None
+    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
+    if m == None:
+        return climb(offer, [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tips(offer)], None, QUOTES)
     tries = []                 # (plan, m after, c after): changes tried in the agent's own head
     for k in range(-FAR, FAR + 1):
         if k == 0:
@@ -60,7 +61,7 @@ def agent(offer):
         for j in range(-FAR, FAR + 1):                         # both at once
             if j != 0:
                 tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
-    tries += rounding(m, c)   # on a line with fractions: to a whole number, by one part, or stretched
+    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
