@@ -46,21 +46,24 @@ test("what earned the points: the best lines first, each said through its rule's
 test("what cost: each tug-of-war with whom and the energy your agent burnt, dearest first", () => {
   const s = summarise(base);
   assert.equal(s.costs.length, 2);
-  assert.equal(s.costs[0]!.text, "You and Ada pulled line 4 back and forth (6 pulls; 28.86 ⚡ of yours).");
+  assert.equal(s.costs[0]!.text, "You and Ada pulled line 4 back and forth (6 pulls, 28.86 ⚡).");
   assert.match(s.costs[1]!.text, /You and Ada and Bo|You, Ada and Bo/);
   assert.match(s.costNote ?? "", /38\.36 ⚡ in all/);
 });
 
 test("one thing to try next game: talk to whoever pulled hardest against you, about that line", () => {
-  // What happened, then the concrete lever (talking pays only where the other side reads chat).
-  assert.equal(summarise(base).next.text, "Next game, add line 4 to your agent's leave-alone list, or agree a state for it with Ada in chat.");
+  // What pays (rule-compatibility.md): settling a contested line at a state both like and holding it, not keeping off.
+  assert.equal(summarise(base).next.text, "Next game, tell each other what your rules want and settle line 4 at a line that suits you both; then both hold it.");
   assert.equal(summarise(base).next.number, 4);
   // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
   const calm = summarise({ ...base, tugs: [] });
   assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ ⚡( for [\d.]+ bits for you)?\.$/, calm.next);
   // Practice partners do not read chat: the advice is about your own agent instead.
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
-  assert.equal(practice.next.text, "Next game, add line 4 to your agent's leave-alone list.");
+  // Practice partners do not talk: the state the pull passed through that was worth most to you, to hold next time.
+  const held = summarise({ ...base, tugs: base.tugs.map((t, i) => ({ ...t, practice: true, ...(i === 0 ? { best: { state: mc(3, 23), points: 41.5 } } : {}) })) });
+  assert.equal(held.next.text, "Next game, hold line 4 at y = 3x + 23: it was worth 41.50 points to you there.");
+  assert.equal(practice.next.text, "Next game, settle line 4 at a line your rule likes and hold it there.");
 });
 
 test("the component: three short sections, no steps, the noun of the object type; a grid says grid", () => {
@@ -78,6 +81,13 @@ test("the component: three short sections, no steps, the noun of the object type
   const gs = summarise({ rule: g, objects: [{ number: 2, state: { cells: [3, 1, 1, 3, 0, 4, 8, 0, 2, 2, 2, 2, 9, 0, 0, 3] }, points: 9, bits: 3, want: 3 }], tugs: [], total: 9 });
   const gt = text(renderToStaticMarkup(<GameSummary summary={gs} rule={g} />));
   assert.match(gt, /Grid 2/);
+  // A held board is drawn in the advice, not written as sixteen digits.
+  const board = { cells: [5, 3, 2, 9, 3, 7, 3, 5, 5, 2, 4, 7, 9, 5, 1, 2] };
+  const hold = summarise({ rule: g, objects: [], tugs: [{ number: 22, withNames: ["Practice partner 1"], flips: 3, mySpend: 9, practice: true, best: { state: board, points: 783.27 } }], total: 0 });
+  assert.equal(hold.next.text, "Next game, hold grid 22 like this: it was worth 783.27 points to you there.");
+  const hh = renderToStaticMarkup(<GameSummary summary={hold} rule={g} />);
+  assert.match(hh, /data-testid="text-summary-next"[\s\S]*class="v2v-grid"/, "the board drawn in the advice");
+  assert.doesNotMatch(text(hh), /5 3 2 9 \//);
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 

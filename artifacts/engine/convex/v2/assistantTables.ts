@@ -52,5 +52,7 @@ export const assistantTables = {
   /** The human's choice per room, kept across its games: mode and grant; `chain` retires stale autopilot ticks. */
   v2AssistantPrefs: defineTable({
     roomId: v.id("v2Rooms"), userId: v.string(), mode: modeV, grant: grantV, chain: v.number(),
+    /** Set by a Stop: autopilot starts nothing until the human asks again (a message, or choosing autopilot). */
+    stopped: v.optional(v.boolean()),
   }).index("by_room_user", ["roomId", "userId"]),
 };

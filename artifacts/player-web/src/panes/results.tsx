@@ -105,11 +105,14 @@ function EndSummary({ total }: { total: number }) {
   const summary = useMemo(() => {
     if (!my || !header) return null;
     const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, id: o.objectId, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
-    const tugs: SummaryTug[] = foldTugs(moves.results).flatMap(i => (i.kind === "tug"
+    const tugs: SummaryTug<unknown>[] = foldTugs(moves.results).flatMap(i => (i.kind === "tug"
       ? [(() => {
         const others = [...new Map(i.moves.filter(m => !m.mine && m.by).map(m => [m.by!.memberId, m.by!.name])).entries()];
         const practice = others.length > 0 && others.every(([id]) => header.roster.find(r => r.memberId === id)?.kind === "practice");
-        return { number: i.number, withNames: others.map(([, n]) => n), flips: i.flips, mySpend: i.mySpend, practice };
+        // The state the pull passed through that was worth most to you (each move's snapshot is yours).
+        const top = [...i.moves].filter(m => m.after && m.stateAfter).sort((x, y) => (y.after!.points ?? 0) - (x.after!.points ?? 0))[0];
+        const best = top ? { state: decodeState(top.stateAfter, header.variant), points: top.after!.points ?? 0 } : undefined;
+        return { number: i.number, withNames: others.map(([, n]) => n), flips: i.flips, mySpend: i.mySpend, practice, ...(best ? { best } : {}) };
       })()]
       : []));
     return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total });

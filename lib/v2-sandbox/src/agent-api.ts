@@ -52,6 +52,8 @@ export interface ViewReply { rep: string; site: number; elements: Record<string,
 export interface ElementReply { ref: ElementRef; value: ElementValueWire; bits: number }
 /** §6.2 */
 export interface RuleReply {
+  /** What the rule scores, in the game's own word ("line", "grid"); "line" when a host does not say. */
+  object?: string;
   family: string;
   params: Record<string, unknown>;
   /** The dealt tie-breaker's id, or null for the main layer alone. */

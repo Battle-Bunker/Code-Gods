@@ -188,7 +188,7 @@ class Offer:
     def my_rule(self):
         r = _ask({"op": "myRule"})
         return Record({
-            "family": r["family"], "params": r["params"], "tieBreaker": r.get("tieBreaker"), "card": r["card"],
+            "object": r.get("object", "line"), "family": r["family"], "params": r["params"], "tieBreaker": r.get("tieBreaker"), "card": r["card"],
             "layers": [Record(dict(l)) for l in r.get("layers", [])],
         })
 

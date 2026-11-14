@@ -232,7 +232,7 @@ try {
     const said = await summary.innerText();
     assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(add line \d+ to your agent's leave-alone list|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(settle line \d+ at|hold line \d+ at|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();

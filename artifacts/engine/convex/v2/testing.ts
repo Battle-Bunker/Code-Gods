@@ -358,3 +358,9 @@ export const legacyCounts = internalQuery({
     };
   },
 });
+
+/** A human's assistant preferences in a room (the autopilot chain, a Stop's hold). */
+export const assistantPrefs = internalQuery({
+  args: { roomId: v.id("v2Rooms"), userId: v.string() },
+  handler: async (ctx, { roomId, userId }) => await ctx.db.query("v2AssistantPrefs").withIndex("by_room_user", q => q.eq("roomId", roomId).eq("userId", userId)).unique(),
+});

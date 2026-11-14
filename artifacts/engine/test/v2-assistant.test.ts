@@ -191,3 +191,46 @@ test("autopilot chosen before a game plays once its world runs", { timeout: 90_0
   await perform(bo!, "assistant.setMode", { mode: "onRequest" }, { roomId });
   await perform(ada!, "game.end", {}, { gameId });
 });
+
+test("Stop means stop: nothing the stopped turn, its queue or autopilot would do is written until the human asks again", { timeout: 120_000 }, async () => {
+  gameId = (await perform(ada!, "game.start", {}, { roomId })).result.gameId;
+  await perform(ada!, "game.ready", { ready: true }, { gameId });
+  await perform(bo!, "game.ready", { ready: true }, { gameId });
+  assert.equal((await perform(bo!, "assistant.setMode", { mode: "autopilot" }, { roomId })).ok, true);
+  const agents = async () => (await bo!.query("v2/play:agents", { gameId })).length;
+  const slowThenSummon = mock([
+    ...Array.from({ length: 6 }, () => ({ tools: [{ name: "agent_check", input: { language: "python", source: "def agent(offer):\n  while True:\n    pass\n" } }] })),
+    { tools: [{ name: "agent_summon", input: { language: "typescript", source: "function agent(offer) {\n  return null;\n}\n", name: "Unwanted" } }] },
+  ]);
+  await sleep(1500);   // autopilot's first tick (at once) runs its turn; wait for it to end
+  for (let i = 0; (await bo!.query("v2/assistant:status", { roomId })).turn?.status === "running"; i++) { assert.ok(i < 120); await sleep(250); }
+  const busy = await perform(bo!, "assistant.send", { text: slowThenSummon }, { roomId });
+  const queued = await perform(bo!, "assistant.send", { text: mock([{ tools: [{ name: "agent_summon", input: { language: "typescript", source: "function agent(offer) {\n  return null;\n}\n", name: "Queued" } }] }]) }, { roomId });
+  await sleep(800);
+  assert.equal((await perform(bo!, "assistant.cancel", {}, { roomId })).ok, true);
+  const turnId = busy.result.turnId ?? (await bo!.query("v2/assistant:status", { roomId })).turn.turnId;
+  assert.equal((await settled(bo!, turnId)).status, "cancelled");
+  assert.ok(queued.result.queued, "the second waited");
+
+  // The fence: an operation carrying the stopped turn's id is refused in its own transaction, a mutation op and an
+  // action op's write alike, so a call in flight when Stop landed cannot write after it.
+  const delegate = { userId: bo!.userId, roomId, grant: "act", via: "assistant", turnId };
+  assert.equal((await admin.mutation("v2/ops/chat:sendAs", { args: { text: "after the stop" }, roomId, delegate })).error?.message, "Stopped by the player.");
+  const summon = await admin.action("v2/ops/agent:summonAs", { args: { language: "typescript", source: "function agent(offer) {\n  return null;\n}\n" }, gameId, delegate });
+  assert.equal(summon.error?.message, "Stopped by the player.", JSON.stringify(summon));
+
+  // Autopilot's next tick starts nothing while the Stop holds.
+  const prefs = await admin.query("v2/testing:assistantPrefs", { roomId, userId: bo!.userId });
+  assert.equal(prefs.stopped, true);
+  await admin.mutation("v2/assistantCore:autopilotTick", { roomId, userId: bo!.userId, chain: prefs.chain });
+  await sleep(2000);
+  const status = await bo!.query("v2/assistant:status", { roomId });
+  assert.equal(status.turn.turnId, turnId, "no turn after the stopped one");
+  assert.equal(await agents(), 0, "nothing was summoned: not by the stopped turn, its queue or autopilot");
+
+  // Asking again lifts the hold.
+  await perform(bo!, "assistant.setMode", { mode: "autopilot" }, { roomId });
+  assert.equal((await admin.query("v2/testing:assistantPrefs", { roomId, userId: bo!.userId })).stopped, false);
+  await perform(bo!, "assistant.setMode", { mode: "onRequest" }, { roomId });
+  await perform(ada!, "game.end", {}, { gameId });
+});
