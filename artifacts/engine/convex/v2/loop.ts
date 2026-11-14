@@ -6,7 +6,7 @@
  *
  * Copied and cleaned in spirit from v1's engine/loop.ts (lease, commit pattern); nothing is imported from it.
  */
-import { agentIncome, chargeAct, energyCapacity, settle, type Account } from "@workspace/v2-economy";
+import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
 import { births } from "@workspace/v2-agents/pure";
 import { lineType } from "@workspace/v2-linear";
 import { makeFunctionReference } from "convex/server";
@@ -277,7 +277,7 @@ export const statesOf = internalQuery({
 });
 
 const actV = v.object({
-  n: v.number(), agentId: v.id("v2Agents"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(), version: v.number(),
+  n: v.number(), verdict: v.string(), agentId: v.id("v2Agents"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(), version: v.number(),
   seed: v.string(), energy: v.number(), liveObjects: v.number(), programVersion: v.number(), record: v.any(),
 });
 
@@ -313,22 +313,26 @@ export const commit = internalMutation({
       const agent = await ctx.db.get(act.agentId);
       const energy = await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", act.agentId)).unique();
       if (!agent || agent.destroyedAt !== undefined || !energy) continue;   // destroyed since the tick read it
-      const record = act.record as { outcome: string; after: string; before: string; charge: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string };
+      const record = act.record as { outcome: string; after: string; before: string; charge: number; readBits: number; calls: { mutator: string; site: number; args: Record<string, string>; rep: string }[]; reason?: string };
       const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", act.objectId)).unique())!;
-      const stale = st.version !== act.version;
-      const income = agentIncome(agent.share === 0 ? 0 : P.powerPerSecond, agent.share);
-      const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, energyCapacity(income, P.fullChargeSeconds));
-      const committed = record.outcome === "committed" && !stale && record.after !== record.before;
-      const charged = chargeAct(account, record.charge);
+      const income = agentIncome(P.powerPerSecond, agent.share), capacity = energyCapacity(income, P.fullChargeSeconds);
+      const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, capacity);
+      // What happened (spec §6.1, docs/energy-model.md §7.2): a change commits only on the state it was made on, and
+      // only if paying for it leaves the agent owing at most its capacity; otherwise it pays for its reads alone.
+      const verdict = act.verdict as "committed" | "stale" | "unaffordable" | "skipped" | "failed";
+      const committed = verdict === "committed" && st.version === act.version;
+      const outcome = verdict === "committed" && !committed ? "stale" : verdict;
+      const charge = committed || outcome === "skipped" || outcome === "failed" ? record.charge : readCharge(record.readBits);
+      const charged = chargeAct(account, charge);
       const n = act.n;
       await ctx.db.patch(energy._id, {
-        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + record.charge, lastActAt: world,
-        ...(record.outcome === "skipped" ? { skips: energy.skips + 1 } : record.outcome === "failed" ? { failures: energy.failures + 1 } : {}),
+        energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + charge, lastActAt: world,
+        ...(outcome === "skipped" ? { skips: energy.skips + 1 } : outcome === "failed" ? { failures: energy.failures + 1 } : {}),
       });
       await appendEvent(ctx, game._id, "act", {
         n, tick: engine.tick, worldSeconds: world, objectId: act.objectId, number: act.number, agentId: act.agentId, memberId: act.memberId,
         seed: act.seed, energy: act.energy, liveObjects: act.liveObjects, program: { version: act.programVersion, language: agent.language },
-        ...record, ...(stale ? { outcome: "stale", after: record.before } : {}),
+        ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
       });
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world);
@@ -345,7 +349,7 @@ export const commit = internalMutation({
         if (!mine && Math.abs(val.points - was.points) <= CONCERN) continue;
         await ctx.db.insert("v2Moves", {
           gameId: game._id, memberId: val.memberId as Id<"v2Members">, seq, worldSeconds: world, objectId: act.objectId, number: act.number,
-          ...(mine ? { agentId: act.agentId, charge: record.charge } : {}), mine,
+          ...(mine ? { agentId: act.agentId, charge } : {}), mine,
           calls: record.calls.map(c => ({ mutator: c.mutator, site: c.site, args: c.args })), rep: record.calls[0]?.rep ?? "",
           stateBefore: record.before, stateAfter: record.after,
           before: { score: was.score, level: was.level, rarityBits: was.rarityBits, want: was.want, points: was.points },

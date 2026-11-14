@@ -10,6 +10,6 @@ export const current = query({
   handler: async (ctx, { roomId }) => {
     const { user, room } = await requireMember(ctx, roomId);
     const row = await ctx.db.query("v2Layouts").withIndex("by_user_room", q => q.eq("userId", user.userId).eq("roomId", room._id)).unique();
-    return row ? { layout: row.layout, revision: row.revision } : null;
+    return row ? { layout: row.layout, view: row.view ?? null, revision: row.revision } : null;
   },
 });
