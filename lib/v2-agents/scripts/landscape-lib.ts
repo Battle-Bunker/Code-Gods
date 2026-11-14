@@ -283,9 +283,12 @@ export function anneal(space: Space, r: Reach, f: (x: number[]) => number, evals
 /**
  * H4: probes until the other two players' rules are identified from their disclosed summed bits (exact when sigma = 0).
  * Probes are births; a pair counts as identified when its posterior reaches 0.95. Returns the probes each trial needed.
+ * With `keyOf`, the noise is the server's (convex/v2/disclose.ts): a keyed function of the state alone, Gaussian with
+ * deviation sigma, so a state that recurs shows the same noise and cannot be averaged; without it, a fresh draw a probe.
  */
-export function identify<S>(rules: readonly Rule[], bits: (r: Rule) => (s: S) => number, probes: readonly S[], trials: number, sigma: number, seed: string, cap = 3000): { need: number[]; unidentified: number } {
+export function identify<S>(rules: readonly Rule[], bits: (r: Rule) => (s: S) => number, probes: readonly S[], trials: number, sigma: number, seed: string, cap = 3000, keyOf?: (s: S) => string): { need: number[]; unidentified: number } {
   const r = rng("ident", seed);
+  const noiseAt = (k: number, trial: number) => (!sigma ? 0 : keyOf ? sigma * gauss(rng("disclose", seed, trial, keyOf(probes[k]!))) : sigma * gauss(r));
   const cache = rules.map(rule => { const b = bits(rule); return probes.map(p => b(p)); });
   const need: number[] = []; let unidentified = 0;
   for (let trial = 0; trial < trials; trial++) {
@@ -303,7 +306,7 @@ export function identify<S>(rules: readonly Rule[], bits: (r: Rule) => (s: S) =>
     let n = 0, done = false;
     for (const k of order) {
       n++;
-      const obs = cache[ti]![k]! + cache[tj]![k]! + (sigma ? sigma * gauss(r) : 0);
+      const obs = cache[ti]![k]! + cache[tj]![k]! + noiseAt(k, trial);   // each trial is its own game: its own key
       for (let c = 0; c < cand.length; c++) {
         const [i, j] = cand[c]!, pred = cache[i]![k]! + cache[j]![k]!;
         logp[c]! += sigma ? -((obs - pred) ** 2) / (2 * sigma * sigma) : Math.abs(obs - pred) < 1e-9 ? 0 : -Infinity;

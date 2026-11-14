@@ -1,6 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { failureCount, oneClosedForm, rampFails, singleFails, tableCheap } from "../src/collapse.ts";
+import { dynamicsFailures, failureCount, oneClosedForm, rampFails, riseTogether, singleFails, stalled, tableCheap, togetherFails } from "../src/collapse.ts";
+
+test("rules rise together when two gain by the midpoint and more by the end; a third falling as much is an adversary", () => {
+  assert.deepEqual(riseTogether([0, 0, 10], [3, 3, 10], [6, 5, 10]), { together: true, adversary: false });
+  assert.deepEqual(riseTogether([0, 0, 10], [3, 3, 8], [6, 5, 7]), { together: true, adversary: true });
+  assert.deepEqual(riseTogether([0, 0, 10], [3, 1, 10], [6, 5, 10]), { together: false, adversary: false });   // one rose too little by the midpoint
+  assert.deepEqual(riseTogether([0, 0, 10], [3, 3, 10], [3, 5, 10]), { together: false, adversary: false });   // one stopped rising
+  assert.equal(togetherFails(5, 20), true);
+  assert.equal(togetherFails(4, 20), false);
+});
+
+test("dynamics fails on a still board, a frozen board for the shortcut climber, or gains that stop by the midpoint", () => {
+  assert.deepEqual(dynamicsFailures({ movingPerMinute: 0.3, frozenShare: 0.4, stalledEvery: false }), []);
+  assert.deepEqual(dynamicsFailures({ movingPerMinute: 0.2, frozenShare: 0.6, stalledEvery: true }), ["a", "b", "c"]);
+  assert.equal(stalled({ gainedByMid: 1000, gainedByEnd: 1010 }), true);
+  assert.equal(stalled({ gainedByMid: 1000, gainedByEnd: 1100 }), false);
+});
 
 test("a rule ramps only when all three conditions hold", () => {
   assert.equal(rampFails({ topCostShare: 0.98, growth: 0.8, corr: 0.99 }), true);
