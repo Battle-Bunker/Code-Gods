@@ -31,7 +31,7 @@ import { useReplaying } from "./affordance-runtime";
 import { GameTimer, useNow } from "./game-timer";
 import { navigate } from "./navigation";
 import { planningLine, SUMMON_FIRST } from "./planning-line";
-import { energyText, exactEnergy, isTied, ordinal, pointsText, SCORE_SENTENCE, totalNote, TOTAL_NOTE } from "./words";
+import { isTied, ownEnergy, ordinal, pointsText, SCORE_SENTENCE, totalNote, TOTAL_NOTE } from "./words";
 import { LineByLine, TiedMark } from "./score-help";
 
 const PHASE = { planning: "Planning", live: "Running", paused: "Paused", ended: "Ended" } as const;
@@ -53,7 +53,7 @@ function GameBar({ header }: { header: Header }) {
           {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>
         <LineByLine testId="button-line-by-line-bar" />
-        {me && <span data-testid="text-my-energy" title={`Your own energy: ${exactEnergy(me.energy)}. Summons and replacements are paid from it.`}>Energy <span className="font-semibold tabular-nums">{energyText(me.energy)}</span></span>}
+        {me && (() => { const e = ownEnergy(me); return <span data-testid="text-my-energy" data-full={e.full || undefined} title={e.title}>Energy <span className="font-semibold tabular-nums">{e.text}</span></span>; })()}
       </>) : <span className="text-muted-foreground" data-testid="text-watching">You're watching this game.</span>}
     </div>
   );

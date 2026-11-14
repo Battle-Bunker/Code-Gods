@@ -85,6 +85,7 @@
     "zod": "catalog:",
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
+    "@workspace/v2-valuation": "workspace:*",
     "@workspace/v2-views": "workspace:*",
     "convex": "1.48.0",
     "dockview-react": "^8.8.2"

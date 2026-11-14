@@ -77,3 +77,16 @@ export function sharedRanks<R extends { net: number; rank: number }>(rows: reado
 export const isTied = <R extends { rank: number }>(rows: readonly R[], row: R) => rows.some(r => r !== row && r.rank === row.rank);
 /** Beside a shared place. */
 export const TIE_NOTE = "Equal totals share a place.";
+
+/**
+ * Your own energy in the header: the figure, "(full)" once the store holds all it can (it then stops rising, which a
+ * walker read as frozen), and a tooltip that says how it fills.
+ */
+export function ownEnergy(m: { energy: number; capacity: number; ownPerSecond: number }): { text: string; full: boolean; title: string } {
+  const full = m.capacity > 0 && m.energy >= m.capacity - 0.01;
+  const seconds = m.ownPerSecond > 0 ? Math.round(m.capacity / m.ownPerSecond) : 0;
+  const title = full
+    ? `Your store is full: it holds ${seconds} seconds of your income (${powerText(m.ownPerSecond)}), so it stops rising. Spend it on a summon or a replacement, or give more of your power to your agents.`
+    : `Your own energy: ${exactEnergy(m.energy)}. It rises by ${powerText(m.ownPerSecond)}, up to ${exactEnergy(m.capacity)}. Summons and replacements are paid from it.`;
+  return { text: `${energyText(m.energy)}${full ? " (full)" : ""}`, full, title };
+}

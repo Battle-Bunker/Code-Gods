@@ -6,7 +6,11 @@
  */
 import { clock, num } from "../core/words.ts";
 
-export interface TugMove { seq: number; objectId: string; number: number; mine: boolean; worldSeconds: number; charge: number | null }
+export interface TugMove {
+  seq: number; objectId: string; number: number; mine: boolean; worldSeconds: number; charge: number | null;
+  /** Whose agent moved the line (null on rows written before the server said). */
+  by?: { memberId: string; name: string } | null;
+}
 export type FeedItem<M extends TugMove> =
   | { kind: "move"; move: M }
   | { kind: "tug"; objectId: string; number: number; moves: M[]; flips: number; mySpend: number; from: number; to: number };
@@ -47,10 +51,17 @@ export function foldTugs<M extends TugMove>(moves: readonly M[]): FeedItem<M>[] 
   return out;
 }
 
+/** "Ada", "Ada and Bo", "Ada, Bo and Cy". */
+const names = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
+
 export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>): string {
-  return `Tug-of-war on line ${t.number}: your agent and another player's agent moved it back and forth ${t.moves.length} times ` +
+  // The other side, by name when the moves say who moved (older rows do not).
+  const others = [...new Set(t.moves.filter(m => !m.mine && m.by).map(m => m.by!.name))];
+  const theirAgents = others.length === 0 ? "another player's agent" : others.length === 1 ? `${others[0]}'s agent` : `the agents of ${names(others)}`;
+  const them = others.length ? names(others) : "them";
+  return `Tug-of-war on line ${t.number}: your agent and ${theirAgents} moved it back and forth ${t.moves.length} times ` +
     `(${clock(t.from)} to ${clock(t.to)}). Your agent spent ${num(t.mySpend)} ⚡ on it, and theirs spent energy too, so neither of ` +
-    "you is getting anywhere. Talk to them in chat about this line.";
+    `you is getting anywhere. Talk to ${them} in chat about this line.`;
 }
 
 /** The lines in a tug-of-war now (from the folded act log): their rows say so. */
