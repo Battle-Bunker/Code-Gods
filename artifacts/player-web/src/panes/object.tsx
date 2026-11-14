@@ -10,7 +10,7 @@ import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { ExpandedFace, ObjectChip, shortTitle } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
-import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyObject, useMyRule } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyRule } from "@/sdk";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { useReplaying, useView } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
@@ -28,6 +28,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const my = useMyRule();
   // A contested line (a tug-of-war in the act log) offers "Hold it here" first: the shared act-log subscription, folded.
   const moves = useMoves();
+  const agents = useMyAgents();
   const contested = useMemo(() => contestedLines(foldTugs(moves.results)).has(objectId), [moves.results, objectId]);
   const show = useAffordance("view.showRepresentation");
   const compare = useAffordance("view.compareRepresentations");
@@ -62,7 +63,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
         </p>
         {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {})}</p>}
       </div>
-      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared} hold={contested ? { number: o.number } : undefined}
+      <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared} hold={contested ? { number: o.number, language: agents?.[0]?.language === "python" ? "python" : "typescript" } : undefined}
         onActive={rep => void run(activeOp(objectId, rep, compared))} onCompare={rep => void run(compareOp(objectId, active, rep))} />
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>
         Try a change on this {word.one}

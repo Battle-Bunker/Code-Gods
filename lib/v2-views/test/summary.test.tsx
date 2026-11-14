@@ -119,3 +119,8 @@ test("a partial act log says so: the costs are from the moves read", () => {
   const s = summarise({ ...base, movesRead: 1000 });
   assert.match(s.costNote ?? "", /from your last 1,000 moves/);
 });
+
+test("the hold advice writes the settings in the agent's own language", () => {
+  const held = summarise({ ...base, language: "python", tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
+  assert.match(held.next.text, /In your agent's code: TARGET = \{"m": 2, "c": 7\}; SETTLE = \[24\]\.$/);
+});

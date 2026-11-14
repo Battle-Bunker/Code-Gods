@@ -253,7 +253,7 @@ export interface ExpandedFaceProps<S, P> {
   readonly onActive?: (rep: string) => void;
   readonly onCompare?: (rep: string | null) => void;
   /** The line is contested (a tug-of-war): "Hold it here" comes first, with the settings that hold it (its number). */
-  readonly hold?: { readonly number: number };
+  readonly hold?: { readonly number: number; readonly language?: "typescript" | "python" };
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -332,7 +332,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
         {props.improvement !== false && (() => {
-          const hold = props.hold ? holdHere(rule.type, state, props.hold.number) : null;
+          const hold = props.hold ? holdHere(rule.type, state, props.hold.number, props.hold.language) : null;
           const moves = <MovesList list={list} noun={a.noun} />;
           return hold
             ? <div className="v2v-moves-col">

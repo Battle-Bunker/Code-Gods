@@ -49,6 +49,8 @@ export interface SummaryInput<S> {
   readonly total: number;
   /** The next game deals another rule (a rotation): the advice is the lesson, this game's object its example. */
   readonly rotates?: boolean;
+  /** The player's agents' language, for the settings the advice writes. */
+  readonly language?: "typescript" | "python";
   /** Set when the act log was read only in part: how many moves the costs come from. */
   readonly movesRead?: number | null;
 }
@@ -122,7 +124,7 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
     next = { number: top.number, text: !top.practice
       ? `Next game, tell each other what your rules want and settle ${at} at a ${noun} that suits you both; then both hold it.${holdHere(rule.type, top.best?.state ?? input.objects[0]?.state ?? (rule.type.origin(rule.variant) as S), top.number) ? ` In your agent's code: SETTLE = [${top.number}] and TARGET = the ${noun} you agree.` : ""}`
       : top.best
-        ? `Next game, hold ${at} ${(w => (w ? `at ${w}` : "like this"))(written(rule, top.best.state))}: it was worth ${pointsText(top.best.points)} to you there.${(h => (h ? ` In your agent's code: ${h.code}.` : ""))(holdHere(rule.type, top.best.state, top.number))}`
+        ? `Next game, hold ${at} ${(w => (w ? `at ${w}` : "like this"))(written(rule, top.best.state))}: it was worth ${pointsText(top.best.points)} to you there.${(h => (h ? ` In your agent's code: ${h.code}.` : ""))(holdHere(rule.type, top.best.state, top.number, input.language))}`
         : `Next game, settle ${at} at a ${noun} your rule likes and hold it there.`,
       ...(top.practice && top.best && written(rule, top.best.state) === null ? { state: top.best.state } : {}) };
   } else {
