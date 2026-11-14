@@ -26,7 +26,7 @@ test("call (g): the cap is the last rung through which every rung converged; lin
   const { dealtLadder, bitsFor, MIN_DEALABLE_RUNGS } = await import("../src/artefact.ts");
   const { DEFAULT_CONFIG } = await import("../src/estimate.ts");
   const { evaluateObject } = await import("@workspace/v2-core");
-  const { lineType, lineZ, primeLanding } = await import("@workspace/v2-linear");
+  const { lineType, lineZ, primeStaircase } = await import("@workspace/v2-linear");
   const rung = (bits: number, error: number, extra: object = {}) => ({ bits, error, layer: 0, score: null, ...extra });
   const cap = (rungs: object[], status = "unconverged") => dealtLadder({ status, rungs: rungs as never, config: DEFAULT_CONFIG }, null);
   const rungs = [rung(0, 0), ...[1, 2, 3, 4, 5, 6, 7].map(b => rung(b, 0.01)), rung(9, 2), rung(12, 0.1)];
@@ -38,12 +38,13 @@ test("call (g): the cap is the last rung through which every rung converged; lin
   assert.equal(cap(rungs.slice(0, MIN_DEALABLE_RUNGS)).dealable, false);
   assert.equal(cap(rungs, "too-coarse").dealable, false);
   assert.equal(cap([rung(0, 0), ...[1, 2, 3, 4, 5, 6, 7].map(b => rung(b / 4, 0.01))]).dealable, false);
-  // The committed Prime Landing + big-prime artefact on line-z is capped below its top: y = 31 scores as the cap.
+  // The committed Prime Staircase + first-prime artefact on line-z is capped below its top (a hybrid: exact low rungs,
+  // simulated above, neither to the top): y = 30x + 7 (7, 37, 67, 97, 127, 157) scores as the cap.
   const { readFileSync, readdirSync } = await import("node:fs");
-  const dir = new URL("../artefacts/line-z/prime-landing/", import.meta.url);
-  const a = JSON.parse(readFileSync(new URL(readdirSync(dir).find(f => f.endsWith("-big-prime.json"))!, dir), "utf8"));
+  const dir = new URL("../artefacts/line-z/prime-staircase/", import.meta.url);
+  const a = JSON.parse(readFileSync(new URL(readdirSync(dir).find(f => f.endsWith("-first-prime.json"))!, dir), "utf8"));
   assert.ok(a.dealable && a.cap < a.rungs.length - 1);
-  const top = evaluateObject(lineType, primeLanding, {}, { lines: [{ a: 0n, b: 1n, c: -31n }] }, lineZ, "big-prime").score;
+  const top = evaluateObject(lineType, primeStaircase, {}, { lines: [{ a: -30n, b: 1n, c: -7n }] }, lineZ, "first-prime").score;
   const { rungBits } = await import("../src/artefact.ts");
   assert.equal(bitsFor(a, top), rungBits(a, a.cap));
 });

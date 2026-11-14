@@ -1,12 +1,12 @@
 /**
  * The act log's sentence for one move (integration plan §2.3, §3.4; ux-lessons 2.2, 2.3), pure so it is unit tested.
  * Everything comes from one `v2Moves` row: who moved the line, the line before → after (written by the caller with
- * v2-views in the representation that changed), the step on the viewer's ladder before → after, ✨ rarity before →
- * after with its reason, and this line's points before → after with how much the others want it (both values when
- * that changed). When the points move against the step, the sentence names the factor that moved (points = your ✨
- * rarity × how much the others want the line); nothing is guessed when neither explains it.
+ * v2-views in the representation that changed), the step on the viewer's ladder before → after, your rarity in bits
+ * before → after with its reason, and this line's points before → after with the score's formula ("your 6.80 bits ×
+ * others' 2.40 bits = 16.32 points", the others' bits before when they changed). When the points move against the
+ * step, the sentence names the factor that moved; nothing is guessed when neither explains it.
  *
- * Player words only (ux 2.1): points, ✨ rarity, ⚡ energy, "line"; never "grid", "object", "bits" or "payoff".
+ * Player words only (ux 2.1): points, bits, ⚡ energy, "line"; never "grid", "object" or "payoff".
  */
 import { lineType } from "@workspace/v2-linear";
 import type { Variant } from "@workspace/v2-core";
@@ -33,9 +33,8 @@ export interface MoveSentenceInput {
   readonly top?: number | null;
 }
 
-export { one } from "../core/words.ts";
-import { one } from "../core/words.ts";
-const same = (a: number, b: number) => one(a) === one(b);
+import { bitsText, num, onlyYouNote, scoreFormula } from "../core/words.ts";
+const same = (a: number, b: number) => num(a) === num(b);
 
 /** Who moved it: "Your agent Tank-1", "Your agent" (a destroyed or not yet listed agent), "Another player's agent". */
 export function moveWho(row: { mine: boolean; agentId: string | null }, agentName?: string | null): string {
@@ -74,23 +73,16 @@ export function stepDirection(before: MoveSnap, after: MoveSnap): -1 | 0 | 1 {
   return Math.sign(l(after) - l(before)) as -1 | 0 | 1;
 }
 
-/** "✨ rarity 3.4 → 6.8 (fewer random lines score this well)", or null when it shows the same. */
+/** "Your rarity 3.40 → 6.80 bits (fewer random lines score this well)", or null when it shows the same. */
 export function rarityText(before: number, after: number): string | null {
   if (same(before, after)) return null;
-  return `✨ rarity ${one(before)} → ${one(after)} (${after > before ? "fewer" : "more"} random lines score this well)`;
-}
-
-/** How much the others want the line, with what it was when that shows differently: "the others want it 2.1, was 2.4". */
-export function wantText(want: number, wantBefore?: number): string {
-  const was = wantBefore !== undefined && !same(want, wantBefore) ? `, was ${one(wantBefore)}` : "";
-  if (Math.abs(want) < 0.05) return `the others do not want it${was}`;
-  if (want < 0) return `the others would rather not have it: ${one(want)}${was}`;
-  return `the others want it ${one(want)}${was}`;
+  return `Your rarity ${num(before)} → ${bitsText(after)} (${after > before ? "fewer" : "more"} random lines score this well)`;
 }
 
 /**
  * Why the points moved the way they did, when that disagrees with the step (or the step stayed): the factor whose own
- * change pushed them that way. Points = ✨ rarity × want, so the move splits into rarity₀ × Δwant and Δrarity × want₁.
+ * change pushed them that way. Points = your bits × the others' bits, so the move splits into yours₀ × Δothers and
+ * Δyours × others₁.
  */
 export function pointsCause(before: MoveSnap, after: MoveSnap): string | null {
   const way = Math.sign(after.points - before.points);
@@ -102,27 +94,31 @@ export function pointsCause(before: MoveSnap, after: MoveSnap): string | null {
   return causes.length ? causes.join(" and ") : null;
 }
 
-/** "Points on this line 8.2 → 16.3 (the others want it 2.4)", with the reason when they moved against the step. */
+/**
+ * "Points on this line 8.16 → 16.32: your 6.80 bits × others' 2.40 bits = 16.32 points", the others' bits before when
+ * they changed, the reason when the points moved against the step, and why a line only you care about scores nothing.
+ */
 export function pointsText(before: MoveSnap, after: MoveSnap): string {
+  const formula = scoreFormula(after.rarityBits, after.want);
+  const was = same(before.want, after.want) ? "" : ` (others' bits were ${num(before.want)})`;
   if (same(before.points, 0) && same(after.points, 0)) {
-    const why = Math.abs(after.want) < 0.05 ? ": the others do not want it" : same(after.rarityBits, 0) ? ": it is not rare by your rule yet" : "";
-    return `No points on this line yet${why}`;
+    const why = onlyYouNote(after.rarityBits, after.want) ?? (same(after.rarityBits, 0) ? "It is not rare by your rule yet." : "");
+    return `No points on this line yet: ${formula}${was}.${why ? ` ${why}` : ""}`;
   }
-  const want = wantText(after.want, before.want);
-  if (same(before.points, after.points)) return `Points on this line stayed ${one(after.points)} (${want})`;
-  const head = `Points on this line ${one(before.points)} → ${one(after.points)} (${want})`;
+  if (same(before.points, after.points)) return `Points on this line stayed ${num(after.points)}: ${formula}${was}`;
+  const head = `Points on this line ${num(before.points)} → ${num(after.points)}`;
   const step = stepDirection(before, after), way = Math.sign(after.points - before.points);
-  if (step === way) return head;
+  if (step === way) return `${head}: ${formula}${was}`;
   const cause = pointsCause(before, after);
-  if (cause) return `${head}, because ${cause}`;
+  if (cause) return `${head}, because ${cause}: ${formula}${was}`;
   // Against the step and neither factor explains it from these figures: say the rule, never a guessed cause.
-  return `${head}. A line's points are your ✨ rarity on it × how much the others want it, not the step alone`;
+  return `${head}: ${formula}${was}. A line's points are your bits × the others' bits, not the step alone`;
 }
 
 /**
  * The whole sentence: "Your agent Tank-1 changed a line: y = −3x + 10 → y = −3x + 9 (move the line down 1). Up: step
- * 5 → 8 of 8. ✨ rarity 3.4 → 6.8 (fewer random lines score this well). Points on this line 8.2 → 16.3 (the others
- * want it 2.4)."
+ * 5 → 8 of 8. Your rarity 3.40 → 6.80 bits (fewer random lines score this well). Points on this line 8.16 → 16.32:
+ * your 6.80 bits × others' 2.40 bits = 16.32 points."
  */
 export function moveSentence(i: MoveSentenceInput): string {
   const change = i.change ? `: ${i.change.before} → ${i.change.after}` : "";
@@ -131,7 +127,7 @@ export function moveSentence(i: MoveSentenceInput): string {
     `${i.who} changed a line${change}${what}.`,
     `${stepText(i.before, i.after, i.top)}.`,
     rarityText(i.before.rarityBits, i.after.rarityBits),
-    `${pointsText(i.before, i.after)}.`,
+    pointsText(i.before, i.after),
   ];
   return parts.filter(Boolean).map(p => (p!.endsWith(".") ? p : `${p}.`)).join(" ");
 }

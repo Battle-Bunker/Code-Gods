@@ -61,14 +61,14 @@ export const playOps = [
   }),
   affordance({
     id: "rule.ladder", title: "Show my rule's ladder", group: "play", scope: "game",
-    description: "The rungs of the caller's rule score, worst to best, each with its ✨ rarity: how many bits an object on that rung is worth.",
+    description: "The rungs of the caller's rule score, worst to best, each with its rarity in bits (each bit = twice as rare): how many bits an object on that rung is worth.",
     tooltip: "The levels your rule scores and how rare each is.", keywords: ["ladder", "levels", "rungs", "rarity"],
     params: none, result: z.object({ rungs: z.array(rung) }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
     id: "rule.rarity", title: "Look up a level's rarity", group: "play", scope: "game",
-    description: "The calibrated ✨ rarity of one level of the caller's rule: minus log2 of the stationary mass of states at least that good.",
+    description: "The calibrated rarity, in bits, of one level of the caller's rule: minus log2 of the stationary mass of states at least that good.",
     tooltip: "How rare a level is.", keywords: ["rarity", "bits", "how rare", "value"],
     params: obj({ level: z.number().int().min(0).max(64) }), result: z.object({ level: z.number().int(), rarityBits: z.number() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
@@ -116,7 +116,7 @@ export const playOps = [
   }),
   affordance({
     id: "object.score", title: "Score an object under my rule", group: "objects", scope: "game",
-    description: "The caller's rule evaluated on one object: score tuple, level, the recorded terms, its ✨ rarity and the caller's points from it.",
+    description: "The caller's rule evaluated on one object: score tuple, level, the recorded terms, its rarity in bits and the caller's points from it (the caller's bits × the other players' bits on it added together).",
     tooltip: "How your rule rates this object.", keywords: ["score", "my points", "level", "evaluate"],
     params: obj({ objectId: id }), result: score.extend({ rarityBits: z.number(), points: z.number() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",

@@ -627,7 +627,34 @@ and a state's bits for the rule are V at its level, or, where a snapped curve ex
 exists because prices confine (§5.3). Energy E(s) = −log2 π(s) is the "inverse PageRank" of decision 10; V is the free
 energy of an upper set.
 
-### 7.2 The estimator (normative)
+### 7.2 Exact values (normative; owner decision 19)
+
+Every price list is an exact potential (§5.3), so the stationary law is π ∝ 2^−φ and a rung's value
+V_k = −log2 π(level ≥ k) is a sum over states. On `line-z` (one whole-number line), π(m, c) = p(m)·p(c) with
+p(n) = 2^−mixedInt(n), whose Kraft sum is exactly 1, and `lib/v2-valuation/src/exact.ts` sums it:
+
+- **Enumeration with a rigorous bound.** `integersWithin(B)` lists every integer whose code is at most B bits. For any
+  sum over the lines inside a budget, the mass outside it is known, so each rung gets a certified interval
+  [−log2(M_k + T), −log2 M_k]. A rung is **exact** when half its interval is within max(2% of V_k, 0.03 bits). Its value
+  is the interval's midpoint and its error is the half-width.
+- **The rule author's contract** (`lib/v2-linear/src/sums.ts`, `lineSums` by family id). A family declares how its level
+  sets are summed:
+  - `separable`: each dealt layer depends on m alone or on c alone. The law is then a product of two 1D laws, summed
+    within 44 bits (outside mass 2^−27.7), exact up to about 25 bits. This is checked on 400 random lines at run time.
+  - `band`: for every m, ranges of c holding every line whose main layer is at level `fromMain` or above (a linear
+    substitution such as c = T − km ± d, or a parametrised set such as c a multiple of t when 2|m| = t²). It is summed
+    over m and c within 40 bits; ranges too wide to enumerate add their mass to the bound. The contract is checked against
+    brute force for every band in `test/sums.test.ts`.
+  - **Nothing declared (the generic fallback):** every line with φ(m) + φ(c) ≤ 28. This certifies rungs up to about
+    8 bits only.
+- **Where a rung is not exact**, the simulation below fills it if it converges. The rule is then **hybrid**, and
+  wherever both exist the two must agree within max(3σ, 2%, 0.05 bits), or the rule is flagged. When every rung is
+  exact the simulation does not run, and the artefact's status is `exact`. Continuity (decision 13) is then checked on
+  exact values: each dealt layer must take at least `minLevels` distinct values among the lines with φ ≤ 20.
+- Rational and multi-line variants have no exact law yet (their normaliser runs over primitive triples). They are
+  simulated, as before.
+
+### 7.2b The simulation (where no exact sum certifies a rung)
 
 Inputs: the object type, the variant, the rule, a seed, and `ValuationConfig` (`lib/v2-valuation/src/estimate.ts`):
 

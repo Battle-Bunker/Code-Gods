@@ -6,3 +6,4 @@ export * from "./families.ts";
 export * from "./beginner.ts";
 export * from "./type.ts";
 export * from "./presets.ts";
+export * from "./sums.ts";

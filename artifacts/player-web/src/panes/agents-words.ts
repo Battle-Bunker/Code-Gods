@@ -4,7 +4,7 @@
  * replacing. Energy a little below zero is an agent spending as fast as it earns: "about 0 ⚡", the exact figure in
  * the tooltip. A destroy confirmation says what comes back.
  */
-import { energyText, one } from "../core/words.ts";
+import { energyText, num } from "../core/words.ts";
 
 /** A share from 0 to 1 as a percentage: "70%", "12.5%". */
 export const percent = (share: number): string => `${Math.round((Number.isFinite(share) ? share : 0) * 1000) / 10}%`;
@@ -13,7 +13,7 @@ export const percent = (share: number): string => `${Math.round((Number.isFinite
 export const energyWords = energyText;
 /** The tooltip under "about 0 ⚡": the exact figure and what it means; null when the figure is shown as it is. */
 export function energyExact(x: number): string | null {
-  return x < 0 && x > -50 ? `Exactly ${one(x)} ⚡: it spends energy as fast as it earns it, so it hovers around 0.` : null;
+  return x < 0 && x > -50 ? `Exactly ${num(x)} ⚡: it spends energy as fast as it earns it, so it hovers around 0.` : null;
 }
 /** Beside "about 0 ⚡": the agent is working, not broken. */
 export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
@@ -24,17 +24,17 @@ export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
  * another."
  */
 export function powerSentence(power: number, shares: readonly number[]): string {
-  const head = `Your power is the energy you earn each second: ${one(power)} ⚡ a second.`;
+  const head = `Your power is the energy you earn each second: ${num(power)} ⚡ a second.`;
   const given = Math.min(1, Math.max(0, shares.reduce((n, s) => n + s, 0)));
   if (shares.length === 0) return `${head} It all goes to your own energy until you summon an agent, which then gets a share of it to spend on moves.`;
   const kept = power * (1 - given);
   const agents = shares.length === 1 ? "your agent, which spends" : "your agents, which spend";
   if (given >= 1) return `${head} All of it goes to ${agents} it on moves; you keep none, so your own energy stays where it is.`;
-  return `${head} ${percent(given)} of it goes to ${agents} it on moves; you keep ${one(kept)} ⚡ a second, saved up for replacing ${shares.length === 1 ? "it" : "one"} or adding another.`;
+  return `${head} ${percent(given)} of it goes to ${agents} it on moves; you keep ${num(kept)} ⚡ a second, saved up for replacing ${shares.length === 1 ? "it" : "one"} or adding another.`;
 }
 
 /** "Share of your power 70% (17.5 ⚡ a second)". */
-export const shareText = (share: number, power: number): string => `Share of your power ${percent(share)} (${one(share * power)} ⚡ a second)`;
+export const shareText = (share: number, power: number): string => `Share of your power ${percent(share)} (${num(share * power)} ⚡ a second)`;
 
 const count = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
 /** "12 moves · 3 skipped · 1 failed · 84.0 ⚡ spent · +36.5 points gained". */
@@ -44,8 +44,8 @@ export function workText(e: { acts: number; skips: number; failures: number; spe
     count(e.acts, "move"),
     `${e.skips.toLocaleString("en-US")} skipped`,
     `${e.failures.toLocaleString("en-US")} failed`,
-    `${one(e.spend)} ⚡ spent`,
-    `${gained > 0 ? "+" : ""}${one(e.pointsGained)} points gained`,
+    `${num(e.spend)} ⚡ spent`,
+    `${gained > 0 ? "+" : ""}${num(e.pointsGained)} points gained`,
   ].join(" · ");
 }
 

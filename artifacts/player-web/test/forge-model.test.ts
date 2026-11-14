@@ -26,9 +26,9 @@ test("Replace comes first for a changed draft of a running agent (ux 3.2)", () =
 });
 
 test("messages say what happened in plain words (ux 1.9, 3.3, 3.6, 3.7, 3.5)", () => {
-  assert.match(summonedText({ name: "Simple", share: FIRST_SHARE, power: 2 }), /70% of it now goes to this agent.*you keep 0\.6 ⚡ a second/);
+  assert.match(summonedText({ name: "Simple", share: FIRST_SHARE, power: 2 }), /70% of it now goes to this agent.*you keep 0\.60 ⚡ a second/);
   assert.match(replacedText("Simple"), /keeps its stored ⚡ and its share of your power; the price came from your own energy/);
   assert.equal(affordLine({ price: 50, energy: 10, justRan: true }), null, "no stale price after a summon");
   assert.match(affordLine({ price: 50, energy: 10, justRan: false })!, /wait for your energy to grow/);
-  assert.equal(comparisonText({ acts: 10, pointsGained: 210 }, { acts: 3, pointsGained: 3 }), "Before your change: +21.0 points a move. Since: +1.0 points a move. Early moves are a rough guide.");
+  assert.equal(comparisonText({ acts: 10, pointsGained: 210 }, { acts: 3, pointsGained: 3 }), "Before your change: +21.00 points a move. Since: +1.00 points a move. Early moves are a rough guide.");
 });

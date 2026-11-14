@@ -238,6 +238,8 @@
 .v2v-ladder-n { width: 1.4em; text-align: right; font-weight: 650; }
 .v2v-ladder-label { flex: 1; }
 .v2v-ladder-here { font-size: 11px; color: var(--v2v-focus); font-weight: 650; }
+.v2v-ladder-odds { display: flex; flex-direction: column; align-items: flex-end; text-align: right; line-height: 1.25; }
+.v2v-chance { font-size: 11px; color: var(--v2v-muted); white-space: nowrap; }
 .v2v-ladder-note { margin: 4px 0 0; color: var(--v2v-muted); }
 
 /* ------------------------------------------------------------ goal card, move line */

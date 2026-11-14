@@ -8,7 +8,8 @@ import { mixedIntBits } from "@workspace/v2-core";
 import { lineType, lineZ, mMeetsC, primeGradient, primeLanding, wholeIntercept } from "@workspace/v2-linear";
 import { estimate, irreducible } from "../src/estimate.ts";
 import { stationary } from "../src/linalg.ts";
-import { calibrate, bitsFor } from "../src/artefact.ts";
+import { bitsFor, type Artefact } from "../src/artefact.ts";
+import { readFileSync, readdirSync } from "node:fs";
 import { evaluateObject } from "@workspace/v2-core";
 
 const reversible = { ...lineZ, id: "line-z-shift-tilt", mutators: ["si.shift", "si.tilt"] };
@@ -50,15 +51,18 @@ test("on a reversible price list the estimate matches the exact values within th
   assert.ok(!e.reasons.some(r => /not equilibrated/.test(r)), e.reasons.join("; "));
 });
 
-test("the same seed gives the same artefact; values are non-decreasing up the ladder; lookup follows the ladder", () => {
+test("the simulation is deterministic in its seed", () => {
   const cfg = { computeBudget: 400_000, replicates: 4, burnIn: 200 };
-  const a = calibrate(lineType, lineZ, primeGradient, {}, { config: cfg }).artefact;
-  const b = calibrate(lineType, lineZ, primeGradient, {}, { config: cfg }).artefact;
-  assert.equal(a.contentHash, b.contentHash);
-  const c = calibrate(lineType, lineZ, primeGradient, {}, { seed: "other", config: cfg }).artefact;
-  assert.notEqual(a.contentHash, c.contentHash);
+  const run = (seed: string) => estimate({ type: lineType, variant: lineZ, family: primeGradient, params: {}, seed, config: cfg }).rungs.map(r => r.bits);
+  assert.deepEqual(run("v2"), run("v2"));
+  assert.notDeepEqual(run("v2"), run("other"));
+});
+
+test("the committed exact artefact: values non-decreasing up the joint ladder, lookup follows the ladder", () => {
+  const dir = new URL("../artefacts/line-z/prime-gradient/", import.meta.url);
+  const a = JSON.parse(readFileSync(new URL(readdirSync(dir).find(f => f.endsWith("-prime.json"))!, dir), "utf8")) as Artefact;
+  assert.equal(a.status, "exact");
   for (let i = 1; i < a.rungs.length; i++) assert.ok(a.rungs[i]!.bits >= a.rungs[i - 1]!.bits - 1e-9);
-  // The lookup on the whole ladder (this small budget caps it low; the cap has its own test in artefacts.test.ts).
   const whole = { ...a, cap: a.rungs.length - 1 };
   const at = (m: number, cc: number) => bitsFor(whole, evaluateObject(lineType, primeGradient, {}, { lines: [{ a: BigInt(-m), b: 1n, c: BigInt(-cc) }] }, lineZ).score);
   const rungOf = (label: string) => a.rungs.find(r => r.label === label)!.bits;
@@ -72,10 +76,9 @@ test("the same seed gives the same artefact; values are non-decreasing up the la
   // Value follows the order: a better tie-breaker at the same main level is a higher rung, so never fewer bits.
   assert.equal(at(18, 0), rungOf("gradient to a prime within 1; the prime at least 17"));
   assert.ok(at(18, 0) >= at(4, 0));
-  // At this small budget the rarest rungs (primes 29, 31) are not reached by every replicate: the rungs below still have
-  // their own finite errors, and the artefact says how far up the ladder the target was met.
-  assert.ok(a.rungs.slice(1, 10).every(r => Number.isFinite(r.error)), a.rungs.slice(1, 10).map(r => r.error).join(" "));
-  assert.ok(a.diagnostics.convergedThrough < a.rungs.length - 1);
+  // Exact to the top: every rung certified within 2% (half its interval), the top a prime gradient of at least 31.
+  assert.ok(a.rungs.every(r => r.source === "exact" && r.error <= Math.max(0.02 * r.bits, 0.03)));
+  assert.equal(a.cap, a.rungs.length - 1);
 });
 
 test("a layer with too few distinct values where it counts makes the rule too coarse (owner decision 13)", () => {

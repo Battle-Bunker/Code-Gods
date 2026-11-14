@@ -126,7 +126,7 @@ export function LineChart({ series, height = 180, label, testId }: { series: rea
 const KIND_SLOT = Object.fromEntries(CARE_KINDS.map(k => [k.kind, k.slot])) as Record<CareKind, number | null>;
 
 /**
- * Every line as a dot: across, your ✨ rarity; up, how much the others want it. Lines on the same spot share one dot,
+ * Every line as a dot: across, your bits; up, the others' bits added together. Lines on the same spot share one dot,
  * bigger by their number (the read-out lists them).
  */
 export function CareScatter({ points, height = 220 }: { points: readonly CarePoint[]; height?: number }) {
@@ -150,7 +150,7 @@ export function CareScatter({ points, height = 220 }: { points: readonly CarePoi
   return (
     <div ref={ref} className="relative w-full" data-testid="care-scatter">
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" className="block touch-pan-y select-none"
-        aria-label={`${points.length} lines: across, your ✨ rarity; up, how much the others want it`} onPointerLeave={() => setHover(null)}>
+        aria-label={`${points.length} lines: across, your bits; up, the others' bits added together`} onPointerLeave={() => setHover(null)}>
         {yTicks.map(t => (
           <g key={`y${t}`}>
             <line x1={left} x2={width - right} y1={sy(t)} y2={sy(t)} stroke={GRID} strokeWidth={1} shapeRendering="crispEdges" />
@@ -159,8 +159,8 @@ export function CareScatter({ points, height = 220 }: { points: readonly CarePoi
         ))}
         <line x1={left} x2={left} y1={top} y2={height - bottom} stroke={GRID} strokeWidth={1} shapeRendering="crispEdges" />
         {xTicks.map(t => <text key={`x${t}`} x={sx(t)} y={height - bottom + 14} textAnchor="middle" className={TICK}>{axisNumber(t)}</text>)}
-        <text x={(left + width - right) / 2} y={height - 4} textAnchor="middle" className="fill-muted-foreground text-[11px]">your ✨ rarity →</text>
-        <text x={left + 4} y={top - 2} className="fill-muted-foreground text-[11px]">↑ how much the others want it</text>
+        <text x={(left + width - right) / 2} y={height - 4} textAnchor="middle" className="fill-muted-foreground text-[11px]">your bits →</text>
+        <text x={left + 4} y={top - 2} className="fill-muted-foreground text-[11px]">↑ others' bits</text>
         {groups.map(g => (
           <g key={g.key} data-kind={g.p.kind} data-lines={g.list.map(p => p.number).join(" ")}
             onPointerEnter={() => setHover(g.key)} onClick={() => setHover(g.key)}>

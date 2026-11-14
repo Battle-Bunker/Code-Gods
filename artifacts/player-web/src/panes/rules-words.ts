@@ -1,7 +1,7 @@
 /**
  * How to play, in about 90 seconds of reading (integration plan §1.6 "Rules pane"; the v1 primer rewritten for lines).
- * Pure, from this game's settings (the header) and its preset: player words only (ux-lessons 2.1): points, ✨ rarity,
- * ⚡ energy, power, "line"; never "object", "grid", "bits" or "payoff".
+ * Pure, from this game's settings (the header) and its preset: player words only (ux-lessons 2.1): points, rarity in bits,
+ * ⚡ energy, power, "line"; never "object", "grid" or "payoff".
  */
 import { energyText, powerText } from "../core/words.ts";
 
@@ -31,12 +31,12 @@ export function rulesParagraphs(r: RulesInput): string[] {
   return [
     "Code Gods is a game about a shared world and secret wishes.",
     "The world is a crowd of straight lines. Every player has a secret goal card: a short rule that gives every line a score. "
-      + "The better a line scores by your rule, the rarer that is among random lines, counted in ✨ rarity.",
+      + "The better a line scores by your rule, the rarer that is among random lines, counted in bits: each bit = twice as rare.",
     "You never move a line yourself. You summon agents: small programs that make moves on lines, like tilting or shifting one. "
       + `Summoning an agent and every move it makes cost ⚡ energy. You start with ${energyText(r.startingEnergy)}. `
       + `Your power is the energy you earn each second: ${powerText(r.powerPerSecond)}, shared out among your agents. `
       + `Each store of energy, yours and each agent's, is full after ${duration(r.fullChargeSeconds)} of its power and then stops growing: use it or share it out.`,
-    "Here is the twist. Your points from a line are your ✨ rarity for it times how much the others want it: their ✨ rarities "
+    "Here is the twist. You score on a line when it's rare for you and rare for someone else at the same time: your bits for it × the others' bits "
       + "for it, added up. So a line only you want gives you 0 points, and a line you all care about gives the most. "
       + "You never see anyone else's rule, only that total. So talk: say what you want in the public chat, find overlaps, strike deals.",
     (r.bid

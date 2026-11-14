@@ -3,14 +3,14 @@
  * standings (the server's ranks, which equal totals share): "You finished 1st of 3 with 412.5 points." for a seated
  * player, "Ada won with 412.5 points." for a spectator.
  */
-import { ordinal, pointsText as points, sharedRanks } from "../core/words.ts";
+import { isTied, ordinal, pointsText as points, sharedRanks } from "../core/words.ts";
 
 export interface StandingRow { memberId: string; name: string; net: number; handicap: number; rank: number }
 
 
 /** "1st", or "tied for 1st" when another row shares the rank. */
 export function finishPlace(rows: readonly StandingRow[], row: StandingRow): string {
-  return `${rows.some(r => r !== row && r.rank === row.rank) ? "tied for " : ""}${ordinal(row.rank)}`;
+  return `${isTied(rows, row) ? "tied for " : ""}${ordinal(row.rank)}`;
 }
 
 /** "Ada", "Ada and Bo", "Ada, Bo and Cy". */

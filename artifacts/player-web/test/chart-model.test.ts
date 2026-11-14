@@ -71,8 +71,8 @@ test("the caption always says points rise and fall, and names a peak above the l
   assert.match(flat, /^Points rise and fall/);
   assert.doesNotMatch(flat, /highest/);
   const peak = riseAndFall([{ x: 0, y: 0 }, { x: 130, y: 249 }, { x: 300, y: 127 }], { you: true, ended: true });
-  assert.match(peak, /Your highest was 249\.0 points at 2:10; you ended with 127\.0 points\.$/);
-  assert.match(riseAndFall([{ x: 0, y: 9 }, { x: 5, y: 1 }], { you: true, ended: false }), /you have 1\.0 point now\.$/);
+  assert.match(peak, /Your highest was 249\.00 points at 2:10; you ended with 127\.00 points\.$/);
+  assert.match(riseAndFall([{ x: 0, y: 9 }, { x: 5, y: 1 }], { you: true, ended: false }), /you have 1.00 point now\.$/);
   for (const s of [flat, peak]) assert.doesNotMatch(s, /\b(bits|payoff|object|grid)\b/i);
 });
 
@@ -83,7 +83,8 @@ test("the others-care scatter reads the packed digest, and the corners say who c
   assert.deepEqual(careCounts(pts), { both: 1, others: 1, mine: 1, none: 1 });
   assert.equal(careKind(-1, 2), "others", "a stray negative counts as no rarity");
   assert.deepEqual(carePoints(null), []);
-  assert.equal(careTitle(pts[0]!), "Line 1: your ✨ rarity 3.0 × how much the others want it 4.0 = 12.0 points");
+  assert.equal(careTitle(pts[0]!), "Line 1: your 3.00 bits × others' 4.00 bits = 12.00 points");
+  assert.equal(careTitle(pts[2]!), "Line 3: your 2.00 bits × others' 0.00 bits = 0.00 points. Only you care about this line, so it scores nothing yet: it needs someone else to find it rare too.");
 });
 
 const BEGINNER: RulesInput = {
@@ -93,9 +94,9 @@ const BEGINNER: RulesInput = {
 
 test("the rules say the game on lines in player words, with this game's values", () => {
   const text = rulesParagraphs(BEGINNER).join("\n");
-  for (const want of ["✨ rarity", "⚡ energy", "600.0 ⚡", "64.0 ⚡ a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
+  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "⚡ energy", "600.00 ⚡", "64.00 ⚡ a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
     assert.ok(text.includes(want), want);
-  assert.doesNotMatch(text, /\b(bits|payoff|objects?|grids?)\b/i);
+  assert.doesNotMatch(text, /\b(payoff|objects?|grids?)\b/i);
   assert.doesNotMatch(text, /bidding/, "no bid phase in this preset");
   const bid = rulesParagraphs({ ...BEGINNER, bid: { seconds: 45 } }).join("\n");
   assert.match(bid, /First comes 45 seconds of bidding.*Then 1 minute of planning/);

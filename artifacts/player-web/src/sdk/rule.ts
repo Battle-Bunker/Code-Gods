@@ -25,7 +25,7 @@ export function ruleRefOf(row: MyRuleRow, variantId: string): LineRule | null {
   return { type: lineType, family, params: row.params, variant: variantOf(variantId), tieBreaker: row.tieBreaker };
 }
 
-/** The ✨ rarity of each rung of the dealt ladder (index = level), as the server calibrated them. */
+/** The rarity in bits of each rung of the dealt ladder (index = level), as the server calibrated them. */
 export const rungRarities = (row: MyRuleRow): number[] => row.ladder.map(r => r.rarityBits);
 
 /** A state on the wire (`a,b,c;…`) as the line type holds it. */

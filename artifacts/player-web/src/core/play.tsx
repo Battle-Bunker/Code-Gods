@@ -31,7 +31,8 @@ import { useReplaying } from "./affordance-runtime";
 import { GameTimer, useNow } from "./game-timer";
 import { navigate } from "./navigation";
 import { planningLine, SUMMON_FIRST } from "./planning-line";
-import { energyText, exactEnergy, ordinal, pointsText } from "./words";
+import { energyText, exactEnergy, isTied, ordinal, pointsText, SCORE_SENTENCE, totalNote, TOTAL_NOTE } from "./words";
+import { LineByLine, TiedMark } from "./score-help";
 
 const PHASE = { planning: "Planning", live: "Running", paused: "Paused", ended: "Ended" } as const;
 
@@ -47,9 +48,11 @@ function GameBar({ header }: { header: Header }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 text-sm" data-testid="game-bar">
       <span className="border px-2 py-0.5 text-xs font-medium uppercase tracking-wide" data-testid="text-phase">{replay ? "Replay" : PHASE[header.phase]}</span>
       {seat ? (<>
-        <span data-testid="text-my-total" title="Points: the sum over every line of the player's ✨ rarity times how much the others want it.">
+        <span data-testid="text-my-total" title={`${SCORE_SENTENCE} ${totalNote(TOTAL_NOTE, (mine?.handicap ?? 0) > 0)}`}>
           {who}: <span className="font-semibold tabular-nums">{pointsText(mine?.net ?? 0)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
+          {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>
+        <LineByLine testId="button-line-by-line-bar" />
         {me && <span data-testid="text-my-energy" title={`Your own energy: ${exactEnergy(me.energy)}. Summons and replacements are paid from it.`}>Energy <span className="font-semibold tabular-nums">{energyText(me.energy)}</span></span>}
       </>) : <span className="text-muted-foreground" data-testid="text-watching">You're watching this game.</span>}
     </div>

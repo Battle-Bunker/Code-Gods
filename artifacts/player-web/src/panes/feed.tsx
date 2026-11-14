@@ -7,8 +7,8 @@ import { useMemo } from "react";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import { chipRep, repText } from "@workspace/v2-views";
 import { decodeState, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
-import { clock } from "@/core/words";
-import { callWords, moveSentence, moveWho, one } from "./move-line";
+import { clock, num } from "@/core/words";
+import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 
 /** The line's written form in the representation the move changed (an equation that expresses it, else the first that does). */
@@ -29,7 +29,7 @@ function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap
   return (
     <li className={`space-y-0.5 px-4 py-2 ${move.mine ? "" : "text-muted-foreground"}`} data-testid={`row-move-${move.seq}`} data-mine={move.mine || undefined}>
       <p className="text-xs text-muted-foreground tabular-nums">
-        {clock(move.worldSeconds)}{move.mine && move.charge !== null ? ` · this move cost ${one(move.charge)} ⚡` : ""}
+        {clock(move.worldSeconds)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} ⚡` : ""}
       </p>
       <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
     </li>
@@ -67,7 +67,7 @@ export function FeedPane() {
       <p className="p-4 text-sm text-muted-foreground" data-testid="feed-empty">
         {header.phase === "planning" ? "Nothing has moved yet: the world starts after planning. " : "Nothing has changed your points yet. "}
         Each time your agent moves a line, or another player's move changes your points on a line, it appears here: what changed, the step on
-        your goal, the ✨ rarity, and why your points moved.
+        your goal, your rarity in bits, and why your points moved: your bits × the others' bits.
       </p>
     );
   }

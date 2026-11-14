@@ -4,7 +4,7 @@
  * `object.quote` and `object.score` answer with (lib/v2-agents EngineHost). Nothing is sent and nothing changes.
  *
  * Points after the move assume the others want the line as much as now: their rules are secret, so their want after a
- * move is unknowable. Both sides of a move use the same ✨ rarities (the dealt ladder), so before and after compare.
+ * move is unknowable. Both sides of a move use the same rarities in bits (the dealt ladder), so before and after compare.
  */
 import { EngineHost } from "@workspace/v2-agents/pure";
 import { Qn, representation, variantMutators, type Q, type Variant } from "@workspace/v2-core";
@@ -64,7 +64,7 @@ export interface Standing {
   /** The rule's step and its top (the joint ladder, as the goal card counts it). */
   level: number;
   top: number;
-  /** ✨ rarity at that step, as the server calibrated the dealt ladder (null when unknown). */
+  /** rarity in bits at that step, as the server calibrated the dealt ladder (null when unknown). */
   rarity: number | null;
   /** rarity × the others' want (null without a want). */
   points: number | null;
@@ -77,7 +77,7 @@ export interface WhatIfInput {
   rule: LineRule;
   state: LineState;
   call: { mutator: string; site?: number; args: Record<string, string> };
-  /** ✨ rarity per step of the dealt ladder (index = step). */
+  /** rarity in bits per step of the dealt ladder (index = step). */
   rarities: readonly number[];
   /** How much the others want this line now (null for a spectator, or before any value). */
   want: number | null;
@@ -87,7 +87,7 @@ const CONTEXT = { hostCallsLeft: 64 } as never;
 const hostOn = (rule: LineRule, state: LineState) =>
   new EngineHost({ type: lineType, variant: rule.variant, state, rule: { family: rule.family.id, params: rule.params as Record<string, unknown>, tieBreaker: rule.tieBreaker ?? undefined }, energy: 0 });
 
-/** The rule's verdict on a line: its step, ✨ rarity and points (the "before" of every move tried on it). */
+/** The rule's verdict on a line: its step, rarity in bits and points (the "before" of every move tried on it). */
 export function standing(rule: LineRule, state: LineState, rarities: readonly number[], want: number | null): Standing {
   const r = hostOn(rule, state).handle({ op: "myScore" } as never, CONTEXT);
   if (!r.ok) throw new Error(r.error);

@@ -11,7 +11,7 @@
  *  - room: a lone owner is offered a practice game against practice partners (ux-lessons 1.1–1.2), never "not available";
  *  - a seeded live line game: your points and energy in the game bar (ux 2.5); the default panes; Lines rows with a
  *    compact face; opening a line shows every representation the rule depends on, and the Lines pane stays;
- *    the act log speaks in points and ✨ rarity, never bits; no horizontal page scroll;
+ *    the act log speaks in points and bits (yours × others' = points), 2 decimal places; no horizontal page scroll;
  *  - a seeded planning game: the planning line counts down, and the owner sees "Start the world now".
  * Screenshots go to SHOTS_DIR (default e2e/shots, gitignored).
  */
@@ -107,7 +107,9 @@ try {
       await page.getByTestId("pane-feed").getByText(/Your agent/).first().waitFor();
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
-      assert.doesNotMatch(feed, /\bbits?\b|payoff|object/i, "the act log speaks in player words");
+      assert.doesNotMatch(feed, /payoff|object|✨/i, "the act log speaks in player words");
+      assert.match(feed, /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/, "the act log shows how a line scores");
+      assert.doesNotMatch(feed, /\d\.\d (bits?|points?|⚡)/, "every measure has 2 decimal places");
       await noHorizontalScroll(page, `${label} game`);
       await shot(page, `v2-game-${label}`);
       await row.click();
