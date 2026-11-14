@@ -11,6 +11,8 @@ export function parseNumbers(text: string, one: string): { numbers: number[] } |
   for (const p of parts) {
     const n = Number(p.replace(/^#/, ""));
     if (!Number.isInteger(n) || n < 1) return { error: `"${p}" is not a ${one} number: type numbers like 3, 19.` };
+    // A board typed in the numbers box (round 8b: "245364645353636354" was taken as one grid number).
+    if (n > 999) return { error: `"${p}" is not a ${one} number${/^\d{12,}$/.test(p) ? ": it looks like a board, which goes in the board box" : ""}: type numbers like 3, 19.` };
     numbers.push(n);
   }
   return { numbers: [...new Set(numbers)].sort((a, b) => a - b) };

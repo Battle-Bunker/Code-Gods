@@ -17,3 +17,10 @@ test("the sentence names the objects in the game's noun, and the price of the on
   assert.equal(leaveLine({ agent: "Simple", now: [3], next: [3], price: 0, one: "grid", many: "grids" }), "Simple leaves grid 3 alone.");
   assert.equal(leaveLine({ agent: "Simple", now: [], next: [], price: 0, one: "grid", many: "grids" }), "Simple leaves no grids alone.");
 });
+
+test("a board typed in the numbers box is refused, saying where it goes (round 8b: taken as one grid number)", () => {
+  const r = parseNumbers("245364645353636354", "grid");
+  assert.ok("error" in r);
+  assert.match(r.error, /^"245364645353636354" is not a grid number: it looks like a board, which goes in the board box/);
+  assert.ok("error" in parseNumbers("1000", "line"), "no game has a line 1000");
+});
