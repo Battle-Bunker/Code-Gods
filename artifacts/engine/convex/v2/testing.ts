@@ -293,3 +293,28 @@ export const clock = internalQuery({
     return await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
   },
 });
+
+/** A pending device request for a v2 room (the device flow's request half), and how a test reads it back. */
+export const seedDevice = internalMutation({
+  args: { roomId: v.string(), userCodeHash: v.string(), permission: v.union(v.literal("read"), v.literal("act"), v.literal("owner")) },
+  handler: async (ctx, a) => {
+    fixtures();
+    return await ctx.db.insert("devices", {
+      deviceSecretHash: crypto.randomUUID(), userCodeHash: a.userCodeHash, challenge: "c".repeat(43), roomId: a.roomId, permission: a.permission,
+      label: "v2 test device", status: "pending", expiresAt: Date.now() + 300_000,
+    });
+  },
+});
+export const device = internalQuery({
+  args: { deviceId: v.id("devices") },
+  handler: async (ctx, { deviceId }) => { fixtures(); return await ctx.db.get(deviceId); },
+});
+
+/** A member's AI usage in a game (the AI seat test reads that its turns ran and were counted). */
+export const aiUsage = internalQuery({
+  args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
+  handler: async (ctx, { gameId, memberId }) => {
+    fixtures();
+    return await ctx.db.query("v2AiUsage").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
+  },
+});

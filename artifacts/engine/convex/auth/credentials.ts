@@ -7,7 +7,7 @@
  */
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { requireViewer } from "./access";
+import { credentialRoom, requireViewer } from "./access";
 
 const LAST_USED_RESOLUTION_MS = 60_000;
 
@@ -19,11 +19,8 @@ export const list = query({
     const now = Date.now();
     const rows = await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", viewer.subject)).order("desc").take(200);
     const active = rows.filter(row => row.revokedAt === undefined && row.expiresAt > now);
-    const listed = await Promise.all(active.map(async row => {
-      const roomId = row.roomId ? ctx.db.normalizeId("v2Rooms", row.roomId) : null;
-      const room = roomId ? await ctx.db.get(roomId) : null;
-      // A credential bound to a room that is gone (an old engine's room) authenticates nothing: not an active connection.
-      if (row.roomId && !room) return null;
+    return await Promise.all(active.map(async row => {
+      const room = row.roomId ? await credentialRoom(ctx, row.roomId) : null;
       return {
         /** permission "account": an app acting as you in every room (no roomId). */
         credentialId: row._id, roomId: row.roomId ?? null, roomCode: room?.code ?? null, permission: row.permission,
@@ -34,7 +31,6 @@ export const list = query({
         createdAt: row.createdAt, expiresAt: row.expiresAt, lastUsedAt: row.lastUsedAt ?? null,
       };
     }));
-    return listed.filter(row => row !== null);
   },
 });
 

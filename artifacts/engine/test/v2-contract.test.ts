@@ -137,9 +137,13 @@ test("operations run through defineOp: results, receipts, refusals, delegates an
   try { await perform(ada, "seats.removeAi", { memberId: "x" }, { roomId: opsRoom }); assert.fail("a stub fails"); } catch (e) {
     assert.equal((e as { data?: { error?: { code?: string } } }).data?.error?.code, "failed");
   }
-  // An action resolves its caller through a query and returns its failure as a value (pitch.draft is built in M3).
-  const pitch = await perform(ada, "pitch.draft", {}, { gameId }, "action");
-  assert.equal(pitch.error.code, "failed");
+  // An action resolves its caller through a query and returns its failure as a value (a summon dearer than the store).
+  const dear = await perform(ada, "agent.summon", { language: "python", source: `def agent(offer):\n  ${"x = 1\n  ".repeat(900)}return None\n` }, { gameId }, "action");
+  assert.equal(dear.error.code, "failed", JSON.stringify(dear));
+  // pitch.draft: one model call (the offline mock on local deployments), counted against the caller's allowance.
+  const pitch = await perform(ada, "pitch.draft", { aim: "protect lines with a prime gradient" }, { gameId }, "action");
+  assert.equal(pitch.ok, true, JSON.stringify(pitch));
+  assert.ok(pitch.result.draft.length > 0);
 
   // The internal twin acts for a human, narrowed by the credential's grant and bound room.
   const asAda = await admin.query("v2/ops/room:getAs", { args: {}, roomId: opsRoom, delegate: { userId: ada.userId, roomId: opsRoom, grant: "read", via: "mcp" } });
@@ -175,4 +179,19 @@ test("account: connected assistants are listed and revoked by their human only",
   }
   assert.equal((await perform(ada, "account.revokeConnection", { connectionId: first.connectionId })).ok, true);
   assert.ok(!(await perform(ada, "account.connections", {}, {}, "query")).result.connections.some((c: any) => c.connectionId === first.connectionId));
+});
+
+test("account.approveConnection: a member approves a device for a v2 room, lowered never raised, never by a delegate", async () => {
+  const { createHash } = await import("node:crypto");
+  const code = "ABCD" + String(Math.floor(Math.random() * 9000) + 1000);
+  const deviceId = await admin.mutation("v2/testing:seedDevice", { roomId, userCodeHash: createHash("sha256").update(code).digest("hex"), permission: "act" });
+  const fails = async (p: Promise<unknown>) => { try { await p; return "no error"; } catch (e) { return (e as any).data?.error?.code ?? "untyped"; } };
+  const [stranger] = await humans("Contract Stranger");
+  assert.equal(await fails(perform(stranger!, "account.approveConnection", { request: code, grant: "act" })), "failed", "not a member");
+  assert.equal(await fails(perform(bo, "account.approveConnection", { request: code, grant: "owner" })), "failed", "not raised");
+  const asDelegate = await admin.mutation("v2/ops/account:approveConnectionAs", { args: { request: code, grant: "read" }, delegate: { userId: bo.userId, roomId, grant: "act", via: "mcp" } });
+  assert.equal(asDelegate.error.code, "refused", "consent is the human's own click");
+  assert.equal((await perform(bo, "account.approveConnection", { request: `${code.slice(0, 4)}-${code.slice(4)}`, grant: "read" })).ok, true);
+  const row = await admin.query("v2/testing:device", { deviceId });
+  assert.deepEqual([row.status, row.subject, row.permission], ["approved", bo.userId, "read"]);
 });

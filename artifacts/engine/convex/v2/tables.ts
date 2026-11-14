@@ -216,6 +216,12 @@ export const v2Tables = {
   /** A human's sealed bids in the room's open bid phase (private to them). */
   v2RoomBids: defineTable({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), bids: v.array(bidV), done: v.boolean() })
     .index("by_room_member", ["roomId", "memberId"]),
+  /**
+   * AI spending per (game, member): a human's assistant and pitch drafts, or an AI player's turns, each held to the
+   * game's allowance (convex/v2/ai.ts). Tokens are the provider's input plus output tokens; usd at catalogue prices.
+   */
+  v2AiUsage: defineTable({ gameId: v.id("v2Games"), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() })
+    .index("by_game_member", ["gameId", "memberId"]),
   /** A game's auction: every bid, the order of wins and each winner's handicap (disclosed per preset). */
   v2Auctions: defineTable({
     gameId: v.id("v2Games"), pricing: v.union(v.literal("first"), v.literal("second")),

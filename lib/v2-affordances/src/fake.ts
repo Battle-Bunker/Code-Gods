@@ -370,7 +370,11 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     delete e.state.connections[a.connectionId];
     return ok;
   },
-  "account.approveConnection": (e, a) => { e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: e.roomId, grant: a.grant }; return ok; },
+  "account.approveConnection": (e, a) => {
+    if (a.grant === "account") throw new OpFailure("The fake server connects one room at a time.");
+    e.state.connections[a.request] = { userId: e.userId, client: "remote assistant", roomId: a.room ?? e.roomId, grant: a.grant };
+    return ok;
+  },
 };
 
 /** A fake deployment: perform any server affordance as a user, through the same `runOp` path `defineOp` uses. */
