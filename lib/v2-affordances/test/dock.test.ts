@@ -83,3 +83,16 @@ test("a pane opened for the human never covers the assistant's conversation whil
   const r = applyView(v, "view.openPane", { pane: "rules" }, { ...live, context: "planning" });
   assert.equal(formatDock(r.view.dock.planning!), "row(overview 26, my-card|*rules 34, forge|*assistant 40)");
 });
+
+test("the assistant's conversation stays in front: opened at a place, or after an assistant arranges the dock", () => {
+  // Catches (real-assistant walk): opened from a pane's menu it joined behind the tab there, and an assistant's own
+  // "Arrange the dock" put another tab over the conversation it was still answering in.
+  const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, live).view;
+  assert.equal(formatDock(opened.dock.live!), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race|*assistant 50) 30)");
+  const delegated: AffordanceContext = { ...live, grant: "act" };
+  const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(feed 50, *race|assistant 50) 30)" }, delegated).view;
+  assert.equal(formatDock(arranged.dock.live!), "row(objects 70, column(feed 50, race|*assistant 50) 30)");
+  // The human's own arrangement is the human's: a tab they bring forward stays forward.
+  const human = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(feed 50, *race|assistant 50) 30)" }, live).view;
+  assert.equal(formatDock(human.dock.live!), "row(objects 70, column(feed 50, race|assistant 50) 30)");
+});
