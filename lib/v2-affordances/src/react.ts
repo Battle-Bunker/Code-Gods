@@ -20,7 +20,9 @@ export interface AffordanceRuntime {
 export class AffordanceError extends Error {
   readonly code: OpError["code"];
   readonly fix?: string;
-  constructor(e: OpError) { super(e.message); this.name = "AffordanceError"; this.code = e.code; if (e.fix) this.fix = e.fix; }
+  /** The numbers the failure carries (a summon's shortfall: price, store, secondsToPay, payNow), for the button's own offer. */
+  readonly data?: Record<string, unknown>;
+  constructor(e: OpError) { super(e.message); this.name = "AffordanceError"; this.code = e.code; if (e.fix) this.fix = e.fix; if (e.data) this.data = e.data; }
 }
 
 export interface AffordanceHandle<Id extends AffordanceId> {
