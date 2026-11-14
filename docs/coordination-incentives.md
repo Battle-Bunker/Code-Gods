@@ -1165,7 +1165,7 @@ Welfare of each one-policy table: greedy 46212, payoff 88950, cooperator 59044, 
 - Not built: time-averaged scoring (the largest change: tick, scoreboard, results, replay), admin-only Lab setups.
 
 
-## 11. Spoiling after the rotated deal (2026-11-14)
+## 9. Spoiling after the rotated deal (2026-11-14)
 
 The rotated deal (docs/beginner-pool.md §6) removes the dealt rule's edge over a rotation; it does nothing to the
 style edge. Mixed tables, 3 players, 150 single games with rules and seats rotated (`docs/balance-results-2026-11-13/tables3-mixed.txt`):
