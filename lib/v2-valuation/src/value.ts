@@ -15,7 +15,7 @@
  * laws for the rare tail, weighted by p/q and self-normalised. Each knot takes the tightest certified interval.
  */
 import {
-  canonicalJson, compareScores, evaluateObject, hashHex, mixedIntBits, mixedIntLog2Norm, q, rng, ruleLayers, scoreFromWire, scoreToWire,
+  canonicalJson, compareScores, evaluateObject, hashHex, mixedIntBits, mixedIntLog2Norm, q, rng, ruleLayers, scoreFromWire, scoreToWire, STEP,
   tieBreakerId, type ObjectType, type Q, type RuleFamily, type Score, type TieBreaker, type Variant,
 } from "@workspace/v2-core";
 import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
@@ -198,10 +198,12 @@ export const VALUE_CONFIG: ValueConfig = {
 };
 
 export interface ValueTail {
-  /** How a score better than the best knot is extrapolated. */
-  readonly method: "secondary" | "primary" | "flat";
-  /** Bits per unit of the utility extrapolated along (≥ 0). */
-  readonly slope: number;
+  /**
+   * How a score better than the best knot is extrapolated: bits per unit (≥ 0) of the secondary utility at the best
+   * knot's primary, and of the primary utility; each a straight line through the last knots (0: flat).
+   */
+  readonly secondary: number;
+  readonly primary: number;
 }
 
 export interface ValueFunction {
@@ -230,6 +232,9 @@ export interface ValueFunction {
 }
 
 const r4 = (x: number) => (Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : x);
+/** Certified bounds round outward: lo down, hi up. */
+const r4down = (x: number) => (Number.isFinite(x) ? Math.floor(x * 1e4) / 1e4 : x);
+const r4up = (x: number) => (Number.isFinite(x) ? Math.ceil(x * 1e4) / 1e4 : x);
 
 /** Knots from oracles: each candidate takes the tightest certified interval; monotone; thinned. */
 export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "delta" | "relTarget" | "absFloor" | "minSupport" | "sampledRel" | "sampledAbs">): { knots: ValueKnot[]; candidates: number } {
@@ -252,43 +257,53 @@ export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "de
     }
     if (best) chosen.push(best);
   }
-  // Monotone: walking from the worst up, a better score is worth at least as much.
-  chosen.reverse();
+  // Exact intervals are certain and monotone of themselves; a sampled estimate must fit between its exact neighbours,
+  // or it is dropped (a ±2σ estimate never moves a certified bound).
+  const betterHi: number[] = [], worseLo: number[] = [];
+  let h = Infinity;
+  chosen.forEach((k, i) => { betterHi[i] = h; if (k.source === "exact") h = Math.min(h, k.hi); });
+  let l = 0;
+  for (let i = chosen.length - 1; i >= 0; i--) { worseLo[i] = l; if (chosen[i]!.source === "exact") l = Math.max(l, chosen[i]!.lo); }
+  const fits = chosen.filter((k, i) => k.source === "exact" || (k.bits <= betterHi[i]! && k.bits >= worseLo[i]!));
+  // Monotone: walking from the worst up, a better score is worth at least as much. Lower bounds carry only from exact
+  // knots (a certified floor); estimates carry as estimates.
+  fits.reverse();
   let floorBits = 0, floorLo = 0;
-  for (const k of chosen) {
-    k.bits = Math.max(k.bits, floorBits); k.lo = Math.max(k.lo, floorLo); k.hi = Math.max(k.hi, k.bits);
-    floorBits = k.bits; floorLo = k.lo;
+  for (const k of fits) {
+    k.bits = Math.max(k.bits, floorBits);
+    if (k.source === "exact") { k.lo = Math.max(k.lo, floorLo); floorLo = k.lo; }
+    k.hi = Math.max(k.hi, k.bits); k.lo = Math.min(k.lo, k.bits);
+    floorBits = k.bits;
   }
-  chosen.reverse();
-  const kept = thin(chosen, cfg.delta).reverse();
+  fits.reverse();
+  const kept = thin(fits, cfg.delta).reverse();
+  // The worst score is always a knot (0 bits), even when no oracle had anything to say.
+  if (!kept.length || kept[0]!.u !== null) kept.unshift({ u: null, bits: 0, lo: 0, hi: 0, source: "exact" });
   return {
-    knots: kept.map(k => ({ u: scoreToWire(k.u), bits: r4(k.bits), lo: r4(k.lo), hi: r4(k.hi), source: k.source })),
+    knots: kept.map(k => ({ u: scoreToWire(k.u), bits: r4(k.bits), lo: r4down(k.lo), hi: r4up(k.hi), source: k.source })),
     candidates: cands.length,
   };
 }
 
-/** The tail rule: a straight line through the last knots, along the secondary or the primary utility. */
+/** The tail rule: straight lines through the last knots, along the secondary utility and along the primary. */
 function tailOf(knots: readonly ValueKnot[]): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
   const best = parsed[parsed.length - 1];
-  if (!best) return { method: "flat", slope: 0 };
+  if (!best) return { secondary: 0, primary: 0 };
   const num = (x: Q) => Number(x.n) / Number(x.d);
   const fit = (pts: { x: number; y: number }[]) => {
     if (pts.length < 2) return 0;
     const mx = pts.reduce((a, p) => a + p.x, 0) / pts.length, my = pts.reduce((a, p) => a + p.y, 0) / pts.length;
     let sxx = 0, sxy = 0;
     for (const p of pts) { sxx += (p.x - mx) ** 2; sxy += (p.x - mx) * (p.y - my); }
-    return sxx > 0 ? Math.max(0, sxy / sxx) : 0;
+    return sxx > 0 && Number.isFinite(sxy / sxx) ? Math.max(0, sxy / sxx) : 0;
   };
   const b = best.u!;
-  if (b.length > 1 && b[1] !== null) {
-    const same = parsed.filter(k => compareScores([k.u![0]!], [b[0]!]) === 0 && k.u!.length > 1 && k.u![1] !== null).slice(-6);
-    if (same.length >= 2) return { method: "secondary", slope: fit(same.map(k => ({ x: num(k.u![1]!), y: k.bits }))) };
-  }
+  const same = b.length > 1 && b[1] !== null
+    ? parsed.filter(k => compareScores([k.u![0]!], [b[0]!]) === 0 && k.u!.length > 1 && k.u![1] !== null).slice(-6) : [];
   const firsts: { x: number; y: number }[] = [];
   for (const k of parsed) if (!firsts.length || firsts[firsts.length - 1]!.x !== num(k.u![0]!)) firsts.push({ x: num(k.u![0]!), y: k.bits });
-  if (firsts.length >= 2) return { method: "primary", slope: fit(firsts.slice(-6)) };
-  return { method: "flat", slope: 0 };
+  return { secondary: fit(same.map(k => ({ x: num(k.u![1]!), y: k.bits }))), primary: fit(firsts.slice(-6)) };
 }
 
 export interface Lookup {
@@ -317,9 +332,9 @@ export function valueLookup(vf: Pick<ValueFunction, "knots" | "tail">): (u: Scor
     // Beyond the best knot: extrapolate along the tail rule; never below the best knot.
     let bits = k.bits;
     const s = k.s;
-    if (s !== null && vf.tail.slope > 0) {
-      if (vf.tail.method === "secondary" && compareScores([u[0]!], [s[0]!]) === 0 && u[1] && s[1]) bits += vf.tail.slope * (num(u[1]) - num(s[1]));
-      else if (vf.tail.method === "primary" && u[0] && s[0]) bits += vf.tail.slope * (num(u[0]) - num(s[0]));
+    if (s !== null && u[0] && s[0]) {
+      if (compareScores([u[0]], [s[0]]) === 0) { if (u[1] && s[1]) bits += vf.tail.secondary * (num(u[1]) - num(s[1])); }
+      else bits += vf.tail.primary * (num(u[0]) - num(s[0]));
     }
     return { bits: Math.max(bits, k.bits), lo: k.lo, hi: Infinity, at: "beyond" };
   };
@@ -333,21 +348,48 @@ function utilityOf<P>(family: RuleFamily<LineState, P>, params: P, variant: Vari
   return e.utility === undefined ? e.score : e.utility;
 }
 
+const capCache = new Map<bigint, number>();
+/**
+ * P(|n| ≤ cap) under p(n) = 2^−mixedInt(n): the board refuses numbers past its height cap, so the walk's law is p
+ * conditioned on every coordinate within the cap, and the exact sums divide by this per coordinate. By a sieve.
+ */
+export function capMass(cap: bigint): number {
+  const hit = capCache.get(cap);
+  if (hit !== undefined) return hit;
+  const N = Number(cap);
+  if (!Number.isSafeInteger(N) || N > 50_000_000) throw new RangeError(`a height cap of ${cap} is too large to sum`);
+  const spf = new Uint32Array(N + 1);
+  for (let i = 2; i <= N; i++) if (spf[i] === 0) for (let j = i; j <= N; j += i) if (spf[j] === 0) spf[j] = i;
+  const base = mixedIntBits(1n);   // 2 + log2 Z: the bits of ±1
+  const fw = new Float64Array(N + 1);   // STEP · Σ e·p, by the smallest prime factor
+  let sum = 0;
+  for (let n = 1; n <= N; n++) {
+    if (n > 1) fw[n] = fw[n / spf[n]!]! + STEP * spf[n]!;
+    sum += 2 ** -(base + fw[n]!);
+  }
+  const mass = 2 ** -mixedIntBits(0n) + 2 * sum;
+  capCache.set(cap, mass);
+  return mass;
+}
+
 /** Exact oracles for a rule on one whole-number line per object: its declared plan, and the cheapest lines. */
 export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, cfg: ValueConfig): Oracle[] {
   const lp = lineParams(variant);
   if (lp.domain !== "Z" || lp.linesPerObject !== 1) return [];
   const plan = lineSums[family.id] as LineSums<P> | undefined;
   const line = (m: bigint, c: bigint): LineState => ({ lines: [fromMC(q(m), q(c))] });
+  // The law is conditioned on |m|, |c| ≤ the height cap: enumerations keep in-cap numbers, and masses are per Z1 = P(in cap).
+  const cap = lp.heightCap, Z1 = capMass(cap);
+  const within = (budget: number) => integersWithin(budget).filter(n => (n.n < 0n ? -n.n : n.n) <= cap);
   const out: Oracle[] = [];
   // 1. The generic enumeration of every line with φ(m) + φ(c) ≤ triangleBits.
   {
-    const ints = integersWithin(cfg.triangleBits);
+    const ints = within(cfg.triangleBits);
     const entries = new MassMap();
     let inside = 0;
     for (const m of ints) for (const c of ints) {
       if (m.bits + c.bits > cfg.triangleBits) break;
-      const w = 2 ** -(m.bits + c.bits);
+      const w = 2 ** -(m.bits + c.bits) / (Z1 * Z1);
       inside += w;
       entries.add(utilityOf(family, params, variant, tb, line(m.n, c.n)), w);
     }
@@ -357,7 +399,7 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
   const layers = ruleLayers(family, tb).map(l => l.id);
   const on = layers.map(id => plan?.separable?.[id]);
   if (on.every(x => x !== undefined)) {
-    const ints = integersWithin(cfg.separableBits);
+    const ints = within(cfg.separableBits).map(n => ({ n: n.n, bits: n.bits + Math.log2(Z1) }));   // the capped 1D law
     const T = Math.max(0, 1 - ints.reduce((a, n) => a + 2 ** -n.bits, 0));
     const REF = 7n;
     const at = (coord: "m" | "c", n: bigint) => utilityOf(family, params, variant, tb, coord === "m" ? line(n, REF) : line(REF, n));
@@ -374,41 +416,46 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
     }
   }
   // 3. Bands: every line at or above a main utility lies in the band's ranges.
-  for (const band of plan?.bands ?? []) out.push(bandOracle(family, params, variant, tb, band, cfg));
+  for (const band of plan?.bands ?? []) out.push(bandOracle(family, params, variant, tb, band, cfg, cap, Z1));
   return out;
 }
 
-function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, band: Band<P>, cfg: ValueConfig): Oracle {
+function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, band: Band<P>, cfg: ValueConfig,
+  cap: bigint, Z1: number): Oracle {
   const main = family.main;
   const t = main.thresholds(params, variant)[band.fromMain(params) - 1];
   if (!t) throw new Error(`${family.id}: the band starts at main level ${band.fromMain(params)}, which the main layer does not have`);
   const atLeast: Q = main.sense === "max" ? t : { n: -t.n, d: t.d };
-  const ints = integersWithin(cfg.bandBits);
+  const abs = (x: bigint) => (x < 0n ? -x : x);
+  // The capped 1D law: in-cap numbers, each mass divided by Z1 (its bits raised by log2 Z1).
+  const lz = Math.log2(Z1);
+  const ints = integersWithin(cfg.bandBits).filter(n => abs(n.n) <= cap).map(n => ({ n: n.n, bits: n.bits + lz }));
   const byValue = [...ints].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
   const prefix = [0];
   for (const x of byValue) prefix.push(prefix[prefix.length - 1]! + 2 ** -x.bits);
   const T1 = Math.max(0, 1 - prefix[prefix.length - 1]!);
   const lower = (v: bigint) => { let a = 0, b = byValue.length; while (a < b) { const h = (a + b) >> 1; if (byValue[h]!.n < v) a = h + 1; else b = h; } return a; };
-  const one = mixedIntBits(1n);
+  const one = mixedIntBits(1n) + lz;   // bits(t·k) = bits(t) + bits(k) − bits(1), all three on the capped law
   const entries = new MassMap();
   let slack = 0, pointMass = 0;
   const add = (pm: number, m: bigint, c: bigint, bits: number) =>
     entries.add(utilityOf(family, params, variant, tb, { lines: [fromMC(q(m), q(c))] }), pm * 2 ** -bits);
-  if (band.points === "same") for (const r of band.ranges(0n, params)) pointMass += 2 ** -mixedIntBits(r.lo);
+  const capped = (n: bigint) => mixedIntBits(n) + lz;
+  if (band.points === "same") for (const r of band.ranges(0n, params)) if (abs(r.lo) <= cap) pointMass += 2 ** -capped(r.lo);
   if (band.points === "one-per-m") pointMass = 2 ** -Math.min(...ints.map(x => x.bits));
   for (const m of ints) {
     const pm = 2 ** -m.bits;
     const seen = new Set<bigint>();
     for (const r of band.ranges(m.n, params)) {
-      if (band.points) { if (!seen.has(r.lo)) { seen.add(r.lo); add(pm, m.n, r.lo, mixedIntBits(r.lo)); } continue; }
+      if (band.points) { if (!seen.has(r.lo) && abs(r.lo) <= cap) { seen.add(r.lo); add(pm, m.n, r.lo, capped(r.lo)); } continue; }
       if (r.step) {
-        const tBits = mixedIntBits(r.step);
+        const tBits = capped(r.step);
         for (const k of ints) {
           if (k.n !== 0n && tBits + k.bits - one > cfg.bandBits) { if (k.bits > cfg.bandBits - tBits + one) break; continue; }
           const c = r.step * k.n;
-          if (c < r.lo || c > r.hi || seen.has(c)) continue;
+          if (c < r.lo || c > r.hi || abs(c) > cap || seen.has(c)) continue;
           seen.add(c);
-          add(pm, m.n, c, k.n === 0n ? mixedIntBits(0n) : tBits + k.bits - one);
+          add(pm, m.n, c, k.n === 0n ? capped(0n) : tBits + k.bits - one);
         }
         continue;
       }

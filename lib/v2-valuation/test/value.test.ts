@@ -30,7 +30,7 @@ test("brute force: on a finite law, every state's bits are −log2 of the mass o
   for (const seed of ["a", "b", "c"]) {
     const { states, truth } = finiteLaw(seed, 300);
     const { knots } = knotsFrom([massOracle("all", states, 0)], tight);
-    const look = valueLookup({ knots, tail: { method: "flat", slope: 0 } });
+    const look = valueLookup({ knots, tail: { secondary: 0, primary: 0 } });
     for (const s of states) {
       const v = look(s.u);
       assert.equal(v.at, "knot");
@@ -44,7 +44,7 @@ test("thinned knots: a lookup between knots is bracketed by them and within delt
   const delta = 0.3;
   const { knots } = knotsFrom([massOracle("all", states, 0)], { ...tight, delta });
   assert.ok(knots.length < 2000);
-  const look = valueLookup({ knots, tail: { method: "flat", slope: 0 } });
+  const look = valueLookup({ knots, tail: { secondary: 0, primary: 0 } });
   let prev = -1;
   for (const s of [...states].sort((a, b) => compareScores(a.u, b.u))) {
     const v = look(s.u), t = truth(s.u);
@@ -119,7 +119,7 @@ test("old rung values are the value function at the old thresholds (exact famili
 test("a lookup beyond the best knot is extrapolated upward and never below the best knot's certified floor", () => {
   const { states } = finiteLaw("tail", 400);
   const { knots } = knotsFrom([massOracle("all", states, 0)], tight);
-  const look = valueLookup({ knots, tail: { method: "secondary", slope: 0.5 } });
+  const look = valueLookup({ knots, tail: { secondary: 0.5, primary: 0.5 } });
   const best = knots[knots.length - 1]!;
   const beyond = look([parse(best.u![0]!), q(1000)]);
   assert.equal(beyond.at, "beyond");
@@ -127,4 +127,20 @@ test("a lookup beyond the best knot is extrapolated upward and never below the b
   // A sampled oracle with no draws above a score certifies nothing there.
   const so = sampledOracle("draws", [{ u: [q(0), q(1)], w: 1 }]);
   assert.equal(so.survival([q(0), q(2)]).support, 0);
+});
+
+test("a sampled estimate never moves an exact knot's certified interval; no oracle still gives the worst knot", () => {
+  const { states, truth } = finiteLaw("clamp", 300);
+  // An exact oracle valid only for the better half of primaries, and a biased "sampled" oracle that is 1 bit too high.
+  const exact = massOracle("upper", states, 0, u => u !== null && u[0]!.n >= -2n);
+  const biased = sampledOracle("biased", states.map(s => ({ u: s.u, w: s.w })));
+  const lying = { ...biased, survival: (u: Score) => { const s = biased.survival(u); return { ...s, lo: s.lo / 2.1, hi: s.hi / 1.9, estimate: s.estimate / 2 }; } };
+  const { knots } = knotsFrom([exact, lying], tight);
+  for (const k of knots) if (k.source === "exact" && k.u !== null) {
+    const t = truth(scoreFromKnot(k.u));
+    assert.ok(t >= k.lo - 2e-4 && t <= k.hi + 2e-4, `${JSON.stringify(k.u)}: ${t} outside [${k.lo}, ${k.hi}]`);
+  }
+  const none = knotsFrom([], tight).knots;
+  assert.deepEqual(none.map(k => [k.u, k.bits]), [[null, 0]]);
+  assert.equal(valueLookup({ knots: none, tail: { secondary: 0, primary: 0 } })([q(0), q(1)]).at, "beyond");
 });

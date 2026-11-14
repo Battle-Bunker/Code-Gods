@@ -224,7 +224,7 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
   ctx.term("k-gpf", `largest prime factor of ${Qn.toWire(k)}`, gpfQ(k), [kRef]);
   // A vertical line crosses at x0 but has no gradient: its m-spf is undefined (it ranks last), not its crossing.
   const mv = ctx.read(mRef), m = num(mv);
-  ctx.term("m-spf", "the gradient's smallest prime factor", m === null ? mv : spfQ(m), [mRef]);
+  ctx.term("m-spf", "the gradient's smallest prime factor", m === null ? undef(mv) : spfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
   // The nearest whole number on the x-axis, so the plane can draw the target (marks only).
