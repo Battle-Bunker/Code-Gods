@@ -80,6 +80,8 @@ try {
     if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
     if (label === "phone") await page.getByTestId("button-forge-show-code").click().catch(() => {});
+    // On a desktop the live screen keeps the lines in front; the agent code (opened in planning) is a tab: bring it forward.
+    else if (await page.getByTestId("tab-forge").count()) await page.getByTestId("tab-forge").locator("h2").click();
     // Summon beside it until the own store cannot pay: then the forge offers the pull-back.
     const pull = page.getByTestId("button-pull-back");
     for (let i = 0; i < 4 && !(await pull.count()); i++) {

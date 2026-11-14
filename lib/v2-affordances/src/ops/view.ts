@@ -6,6 +6,7 @@
 import { z } from "zod/v4";
 import { affordance, id, obj, rep } from "../define.ts";
 import { CONTEXTS, IN_GAME, IN_ROOM } from "../types.ts";
+import { DOCK_KINDS, DOCK_LIMITS } from "../dock.ts";
 
 const GAME = [...IN_GAME, "ended", "replay"] as const;
 const pane = z.string().min(1).max(60).describe('A pane id, e.g. "objects", "agents", "forge", "rules", "my-panels", or "panel:<slug>" for one of the human\'s stored panels.');
@@ -15,7 +16,7 @@ const done = z.object({ ok: z.literal(true), layoutVersion: z.number().int() });
 export const viewOps = [
   affordance({
     id: "view.openPane", title: "Open a pane", group: "view", scope: "room",
-    description: "Opens a pane on the human's screen (and every client they have open), optionally at a place.",
+    description: "Opens a pane on the human's screen (and every client they have open), in front; given a place, it joins that place behind the tab shown there (open it again without a place to bring it to the front). An open pane given a place moves there.",
     tooltip: "Show a pane.", keywords: ["open", "show", "panel", "window"],
     params: obj({ pane, place: place.optional() }), result: done,
     contexts: IN_ROOM, caller: "member", effect: "write", confirm: "none", runs: "client",
@@ -31,6 +32,20 @@ export const viewOps = [
     description: "Moves an open pane to another place on the human's screen.", tooltip: "Rearrange the screen.", keywords: ["move", "dock", "arrange", "layout"],
     params: obj({ pane, place }), result: done,
     contexts: IN_ROOM, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.arrangeDock", title: "Arrange the dock", group: "view", scope: "room",
+    description: "Lays out one game screen's panes on the human's desktop (kept for the room on every device; phones stack panes). "
+      + "Text: row(...) side by side, column(...) stacked, a number after a child is its weight (a share), "
+      + "a|b is one group with tabs a and b, * marks the tab shown, e.g. row(column(my-card 50, agents 50) 30, objects 40, feed|*race 30). "
+      + "Open panes it leaves out join behind a tab at their place; closed panes it names show there once opened. Empty text restores the default.",
+    tooltip: "Lay out the screen.", keywords: ["arrange", "layout", "dock", "resize", "split", "tabs", "columns"],
+    params: obj({
+      dock: z.string().max(DOCK_LIMITS.text).describe("The arrangement in the text form above, or empty for the default."),
+      phase: z.enum(DOCK_KINDS).optional().describe("Which screen's arrangement: planning, live (also when paused), ended or replay; omit for the screen in view."),
+    }),
+    result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "view.pinRepresentation", title: "Show objects in a representation", group: "view", scope: "room",
