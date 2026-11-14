@@ -542,7 +542,6 @@ for (const [S, P] of [
     `S = ${S}, P = ${P}`,
     (L) => {
       if (!L.tri) return null;
-      const p = val(L.p), qq = val(L.c);
       const s = rat(L.p[0] * L.c[1] + L.c[0] * L.p[1], L.p[1] * L.c[1]);
       const d = Math.abs(s[0] - S * s[1]) / s[1];
       if (d !== 0) return [R(d), 0];
