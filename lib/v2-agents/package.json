@@ -1,0 +1,20 @@
+{
+  "name": "@workspace/v2-agents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-linear": "workspace:*",
+    "@workspace/v2-sandbox": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}
