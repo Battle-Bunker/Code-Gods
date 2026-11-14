@@ -1,10 +1,9 @@
 // Spread of Three · Simple
 // Main part: every 2×2 square spreads by 3. Tie-breaker: prime numbers on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
-// time) and pays for the cheapest change to the best board for your rule. Your points on a board are your rarity
-// there times the other players' rarity there added up, so where another player's move lowered your points it only
-// makes changes that keep them (a tug-of-war burns energy on both sides). It notes a tug-of-war for you, so you can
-// make a deal: LEAVE and PROTECT below are how you keep one.
+// time) and takes the change that raises your points most. Your points on a board are your rarity there times the
+// other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
+// lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: add the "trade" line from the Thorough starter: moving an amount from one cell to another keeps their total.
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
@@ -45,16 +44,9 @@ function agent(offer) {
     for (let i = 0; i < 16; i++) tries.push([move("cells.add", { cell: NAME[i], k }), edit(b, [i], j => k)]);   // add k to one cell
   }
   for (let i = 0; i < 16; i++) for (let i2 = i + 1; i2 < 16; i2++) { const d = b[i2] - b[i]; tries.push([move("cells.swap", { a: NAME[i], b: NAME[i2] }), edit(b, [i, i2], j => (j ? -d : d))]); }   // swap two cells (the same as moving their difference from one to the other)
-  let top = score(b, p), plans = [];
-  for (const [plan, b2] of tries) {
-    const s = score(b2, p);
-    if (better(s, top)) { top = s; plans = [plan]; }               // a new best
-    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides
-  }
-  // A promise: on these boards, only moves that leave the other players at least as well off.
-  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));
-  // Contested (another player's move lowered your points here): only moves that keep your own points.
-  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));
-  if (!plans.length) return null;   // nothing better (or nothing that keeps your points): skip
-  return cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
+  let options = tries.map(([plan, b2]) => [plan, score(b2, p)]);   // each step and the score it reaches
+  // A promise: on these boards, only steps that leave the other players at least as well off.
+  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
+  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
+  return climb(offer, options, score(b, p), QUOTES);
 }

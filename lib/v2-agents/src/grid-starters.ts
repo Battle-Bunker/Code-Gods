@@ -4,13 +4,12 @@
  *
  *  - an EXAMPLE for every family and each of its tie-breakers: reads the board, tries the moves that can raise that
  *    tie-breaker in its own head, and pays for the cheapest change to the best board it found;
- *  - SIMPLE, THOROUGH and BOLD starters per family, for whichever tie-breaker is dealt, that play for the owner's
+ *  - SIMPLE, THOROUGH and BOLD starters per family, for whichever tie-breaker is dealt, that climb for the owner's
  *    POINTS (a board scores the owner's rarity there times the other players' rarity there added up, spec §8), with
- *    the line starters' policy (lib/v2-agents starters.ts): each climbs to the best board it can reach and pays for the
- *    cheapest change there, except that on a contested board (another player's recent move lowered the owner's points
- *    there: `hurt`) it only makes changes that keep the owner's points (`pays`), and on PROTECT boards only changes
- *    that keep the others as well off (`fair`). Measured on lines: as good as greedy on compatible tables, a third
- *    better on conflicted ones (docs/engine-v2/rule-compatibility.md);
+ *    the line starters' policy (lib/v2-agents starters.ts): each act scores every step it tries and `climb` takes the
+ *    one that most raises rarity × the others' rarity after it (weighing the QUOTES best for the owner's rule); on
+ *    PROTECT boards only steps that keep the others as well off (`fair`). The owner: "hill climb a combined landscape
+ *    that improves several rules at once";
  *  - NAIVE (for learning): the example's search on the starters' moves, with none of the care.
  *
  * Every program has exactly one "Try this:" comment (ux-lessons §3.1).
@@ -39,7 +38,7 @@ export const isGridTypeFamily = (id: string): boolean => gridType.families.some(
 type StarterKind = Exclude<AgentKind, "example">;
 const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: string; far: number; quotes: number }> = {
   simple: {
-    title: "Simple", summary: "Nudges the numbers a little at a time towards your rule. Where another player keeps undoing it, it only makes changes that keep your points.",
+    title: "Simple", summary: "Nudges the numbers a little at a time, taking the change that raises your points most: good for your rule and for the other players too.",
     tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 1, quotes: 4,
   },
   thorough: {
@@ -61,15 +60,14 @@ const HOW_EXAMPLE = [
   "What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only",
   "time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war",
   "(another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you",
-  "a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes",
-  "changes that keep them.",
+  "a note, so you can make a deal with that player. Of the changes that are best for your rule, it takes the one that",
+  "raises your points most (your rarity times the other players').",
 ];
 const HOW_POINTS = [
   "What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only",
-  "time) and pays for the cheapest change to the best board for your rule. Your points on a board are your rarity",
-  "there times the other players' rarity there added up, so where another player's move lowered your points it only",
-  "makes changes that keep them (a tug-of-war burns energy on both sides). It notes a tug-of-war for you, so you can",
-  "make a deal: LEAVE and PROTECT below are how you keep one.",
+  "time) and takes the change that raises your points most. Your points on a board are your rarity there times the",
+  "other players' rarity there added up, so a change that suits your rule but spoils the board for the others can",
+  "lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.",
 ];
 const HOW_NAIVE = [
   "What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every",
@@ -152,21 +150,20 @@ function tablesTs(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
 }
 
 type Ending = "naive" | "points";
-const CLIMB_TS = (args: string, end: Ending) => [
+const CLIMB_TS = (args: string, end: Ending) => end === "naive" ? [
   `  let top = score(b, ${args}), plans = [];`,
   "  for (const [plan, b2] of tries) {",
   `    const s = score(b2, ${args});`,
   "    if (better(s, top)) { top = s; plans = [plan]; }               // a new best",
   "    else if (plans.length && !better(top, s)) plans.push(plan);   // as good as the best: the price decides",
   "  }",
-  ...(end === "naive" ? ["  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip"] : [
-    "  // A promise: on these boards, only moves that leave the other players at least as well off.",
-    "  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));",
-    "  // Contested (another player's move lowered your points here): only moves that keep your own points.",
-    "  if (hurt(offer)) plans = plans.slice(0, QUOTES).filter(plan => pays(offer, plan, top));",
-    "  if (!plans.length) return null;   // nothing better (or nothing that keeps your points): skip",
-    "  return cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
-  ]),
+  "  return plans.length ? cheapest(offer, plans.slice(0, QUOTES)) : null;   // the cheapest of the best, or skip",
+] : [
+  `  let options = tries.map(([plan, b2]) => [plan, score(b2, ${args})]);   // each step and the score it reaches`,
+  "  // A promise: on these boards, only steps that leave the other players at least as well off.",
+  "  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));",
+  "  // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.",
+  `  return climb(offer, options, score(b, ${args}), QUOTES);`,
 ];
 
 function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null, far: number, quotes: number): string[] {
@@ -249,7 +246,7 @@ function tablesPy(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
   return out;
 }
 
-const CLIMB_PY = (args: string, end: Ending) => [
+const CLIMB_PY = (args: string, end: Ending) => end === "naive" ? [
   `    top, plans = score(b, ${args}), []`,
   "    for plan, b2 in tries:",
   `        s = score(b2, ${args})`,
@@ -257,17 +254,14 @@ const CLIMB_PY = (args: string, end: Ending) => [
   "            top, plans = s, [plan]         # a new best",
   "        elif plans and not better(top, s):",
   "            plans.append(plan)             # as good as the best: the price decides",
-  ...(end === "naive" ? ["    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip"] : [
-    "    # A promise: on these boards, only moves that leave the other players at least as well off.",
-    "    if offer.object in PROTECT:",
-    "        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]",
-    "    # Contested (another player's move lowered your points here): only moves that keep your own points.",
-    "    if hurt(offer):",
-    "        plans = [plan for plan in plans[:QUOTES] if pays(offer, plan, top)]",
-    "    if not plans:   # nothing better (or nothing that keeps your points): skip",
-    "        return None",
-    "    return cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
-  ]),
+  "    return cheapest(offer, plans[:QUOTES]) if plans else None   # the cheapest of the best, or skip",
+] : [
+  `    options = [(plan, score(b2, ${args})) for plan, b2 in tries]   # each step and the score it reaches`,
+  "    # A promise: on these boards, only steps that leave the other players at least as well off.",
+  "    if offer.object in PROTECT:",
+  "        options = [(plan, s) for plan, s in options if fair(offer, plan)]",
+  "    # The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or None.",
+  `    return climb(offer, options, score(b, ${args}), QUOTES)`,
 ];
 
 function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null, far: number, quotes: number): string[] {

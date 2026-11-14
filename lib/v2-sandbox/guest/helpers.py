@@ -293,6 +293,10 @@ def better(a, b):
             return False
         if y is None:
             return True
+        if type(x) is int and type(y) is int:   # the common case, without fractions
+            if x != y:
+                return x > y
+            continue
         if Fraction(x) != Fraction(y):
             return Fraction(x) > Fraction(y)
     return len(a) > len(b)

@@ -216,38 +216,29 @@ test("each grid example climbs: no move lowers the main part, some raise it, som
   assert.deepEqual(stuck, []);
 });
 
-test("contested (another player's move lowered my points): the starters make only moves that keep their own points; uncontested they climb", async () => {
-  // A board perfect for both Magic Eighteen (every row adds up to 18) and Opposite Nines (every cell and its opposite
-  // add up to 9): Magic Eighteen can only chase its tie-breaker (a bigger first column), which breaks the other
-  // player's pairs and so lowers my own points (my rarity times theirs) unless my rarity rises enough.
-  const theirs: GridState = { cells: [9, 0, 9, 0, 1, 8, 1, 8, 1, 8, 1, 8, 9, 0, 9, 0] };
+test("the starters climb for points: every step they take raises their owner's points (rarity × the others'), in both languages", async () => {
   const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
   const opp = { family: "opposite-nines", params: paramsOf("opposite-nines"), tieBreaker: "odd" };
   const mine = worthOf(rule), them = worthOf(opp);
   const points = (s: GridState) => mine.bits(s) * them.bits(s);
-  const value = { mine: mine.bits(theirs), others: them.bits(theirs), points: points(theirs) };
   const others = [{ rule: opp, values: them.values! }];
-  const hurtBy = [{ mine: true, pointsBefore: 1, pointsAfter: value.points }, { mine: false, pointsBefore: value.points + 5, pointsAfter: value.points }];
-  const run = async (a: ShippedAgent, history: typeof hurtBy) => {
-    const { record, state } = await runAct(await boxes.get(a.language), {
-      type: gridType, variant: grid4, state: theirs, rule, program: program(a), seed: "1", energy: 600, values: mine.values, value, history, others,
-    });
-    assert.notEqual(record.outcome, "failed", `${a.title} (${a.language}): ${record.reason}`);
-    return { outcome: record.outcome, after: points(state) };
-  };
+  // A board good for both rules (rows of 18, opposite pairs of 9) and newborn boards.
+  const boards: GridState[] = [{ cells: [9, 0, 9, 0, 1, 8, 1, 8, 1, 8, 1, 8, 9, 0, 9, 0] }, ...births(gridType, grid4, "climb-points", 4)];
   for (const language of ["typescript", "python"] as const) {
-    const [simple, thorough, bold] = startersFor("magic-eighteen", language, "first-column");
-    for (const a of [thorough!, bold!]) {
-      // These move an amount between two cells of a row, so they can raise the first column and keep every row at 18.
-      const what = `${a.title} (${language})`;
-      const calm = await run(a, []);
-      assert.equal(calm.outcome, "committed", `${what}: uncontested, it climbs`);
-      assert.ok(calm.after < value.points, `${what}: uncontested, its climb lowers my own points here (the test bites)`);
+    let moved = 0;
+    for (const a of startersFor("magic-eighteen", language, "first-column").filter(x => x.kind !== "naive")) {
+      for (const [i, start] of boards.entries()) {
+        const value = { mine: mine.bits(start), others: them.bits(start), points: points(start) };
+        const { record, state } = await runAct(await boxes.get(language), {
+          type: gridType, variant: grid4, state: start, rule, program: program(a), seed: String(i), energy: 600, values: mine.values, value, others,
+        });
+        assert.notEqual(record.outcome, "failed", `${a.title} (${language}): ${record.reason}`);
+        if (record.outcome !== "committed") continue;
+        moved++;
+        assert.ok(points(state) > points(start) - 1e-9, `${a.title} (${language}) lowered its owner's points on ${gridType.encode(start)}: ${points(start)} → ${points(state)}`);
+      }
     }
-    for (const a of [simple!, thorough!, bold!]) {
-      const contested = await run(a, hurtBy);
-      if (contested.outcome === "committed") assert.ok(contested.after >= value.points - 1e-9, `${a.title} (${language}): contested, a move that lowers my points`);
-    }
+    assert.ok(moved > 0, `${language}: no starter moved (the test would prove nothing)`);
   }
 });
 
