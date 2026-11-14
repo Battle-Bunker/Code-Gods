@@ -2,8 +2,8 @@
 # Main part: every corner box adds up to the target. Tie-breaker: the board's four corners.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
-# (another player pulling the board back again and again) scores nothing for either of you: it walks away from one
-# and leaves you a note so you can talk to that player. It never spends more than a quarter of its energy on one move.
+# (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
+# a note, so you can make a deal with that player. It never spends more than a quarter of its energy on one move.
 # Try this: remove the "swap" line: can it fill the corners without rearranging?
 
 
@@ -17,7 +17,6 @@ def score(b, p):
 
 FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-SPEND = 0.25    # never spend more than a quarter of your energy on one move
 BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 
 
@@ -31,10 +30,9 @@ def edit(b, cells, f):
 
 
 def agent(offer):
-    # A tug-of-war (another player taking back your gains on this board, 3 times lately) only burns energy on
-    # both sides: leave the board, with a note telling your owner to talk to that player.
-    if contested(offer, 3):
-        return None
+    # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
+    # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
+    contested(offer, 3)
     v = look(offer, "cells")   # the board
     rule = goal(offer)         # your rule (free)
     p = rule.params
@@ -63,6 +61,6 @@ def agent(offer):
     if plan is None:           # nothing better (or nothing allowed): skip
         return None
     cost, e = price(offer, plan), energy(offer)
-    if cost > e * SPEND:   # too dear: keep the energy for more turns
+    if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns
         return None
     return plan

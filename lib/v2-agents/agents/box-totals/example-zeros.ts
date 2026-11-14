@@ -2,8 +2,8 @@
 // Main part: every corner box adds up to the target. Tie-breaker: 0s on the board.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
-// (another player pulling the board back again and again) scores nothing for either of you: it walks away from one
-// and leaves you a note so you can talk to that player. It never spends more than a quarter of its energy on one move.
+// (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
+// a note, so you can make a deal with that player. It never spends more than a quarter of its energy on one move.
 // Try this: remove the "box" line: is fixing one cell at a time as cheap?
 
 // How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
@@ -15,7 +15,6 @@ function score(b, p) {
 
 const FAR = 2;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const SPEND = 0.25;    // never spend more than a quarter of your energy on one move
 const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9
@@ -27,9 +26,9 @@ function edit(b, cells, f) {
 }
 
 function agent(offer) {
-  // A tug-of-war (another player taking back your gains on this board, 3 times lately) only burns energy on
-  // both sides: leave the board, with a note telling your owner to talk to that player.
-  if (contested(offer, 3)) return null;
+  // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both
+  // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)
+  contested(offer, 3);
   const v = look(offer, "cells");   // the board
   const { params: p } = goal(offer);   // your rule's numbers (free)
   const NAME = Object.keys(v).slice(0, 16);   // the cells' names, r0c0 ... r3c3, row by row
@@ -51,6 +50,6 @@ function agent(offer) {
   const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
   if (!plan) return null;           // nothing better (or nothing allowed): skip
   const cost = price(offer, plan), e = energy(offer);
-  if (cost > e * SPEND) return null;   // too dear: keep the energy for more turns
+  if (cost > e / 4) return null;   // too dear (more than a quarter of its energy on one move): keep the energy for more turns
   return plan;
 }
