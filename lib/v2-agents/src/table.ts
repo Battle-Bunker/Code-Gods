@@ -195,7 +195,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length,
-      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : { rungs: vals[i]!.rungs }),
+      value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
     const changed = record.outcome === "committed" && record.after !== record.before;
@@ -269,7 +269,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
           family: family.id, params: seat.rule.params, layers: ruleLayers(family, seat.rule.tieBreaker).map(l => l.title),
           card: family.card(seat.rule.params, seat.rule.tieBreaker), depends: [...((family as { depends?: readonly string[] }).depends ?? [])], wonByBid: null,
         };
-        case "rule.values": return { points: v.rungs.map(g => ({ score: g.score, bits: g.bits })) };
+        case "rule.values": return { points: (v.values?.knots ?? []).map(k => ({ score: k.u, bits: k.bits })) };
         case "rule.worth": {
           const w = v.worth(args.score === null ? null : (args.score as (string | null)[]).map(x => (x === null ? null : Qn.parse(x))));
           return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };

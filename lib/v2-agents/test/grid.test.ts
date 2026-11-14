@@ -153,7 +153,7 @@ test("a grid agent's own score is the engine's utilities on sampled boards, for 
     const f = familyOf(e.family);
     for (const params of f.dealable(grid4) as Record<string, unknown>[]) {
       for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
-        const engine = sample.map(s => scoreToWire(evaluateSite(gridType, f, params, s, grid4, 0, tb.id).utility)!.join(","));
+        const engine = sample.map(s => scoreToWire(evaluateSite(gridType, f, params, s, grid4, 0, tb.id).score)!.join(","));
         for (const language of ["typescript", "python"] as const) {
           assert.deepEqual(await agentScores(language, e.family, params, tb.id, tb.id, sample), engine, `${e.family}/${tb.id} example, ${language}`);
           assert.deepEqual(await agentScores(language, e.family, params, null, tb.id, sample), engine, `${e.family}/${tb.id} starters, ${language}`);
@@ -190,7 +190,7 @@ test("each grid example climbs: no move lowers the main part, some raise it, som
   for (const e of DESCRIBED) {
     const f = familyOf(e.family), params = paramsOf(e.family);
     for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.id)) {
-      const utility = (s: GridState): Score => evaluateSite(gridType, f, params, s, grid4, 0, tb).utility ?? null;
+      const utility = (s: GridState): Score => evaluateSite(gridType, f, params, s, grid4, 0, tb).score;
       const a = exampleFor(e.family, tb, "typescript")!;
       let mainUp = false, tieUp = false;
       for (const start of births(gridType, grid4, `climb-${e.family}`, 3)) {

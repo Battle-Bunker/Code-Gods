@@ -20,7 +20,7 @@ import {
 } from "@workspace/v2-core";
 import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
 import { integersWithin } from "./exact.ts";
-import { ruleKey } from "./estimate.ts";
+import { ruleKey } from "./keys.ts";
 
 // ---------------------------------------------------------------- survival oracles
 
@@ -213,7 +213,7 @@ export interface ValueTail {
 }
 
 export interface ValueFunction {
-  /** 6: value functions (owner decision 23). Schema 5 (rung tables) is deleted in PR 2. */
+  /** 6: value functions (owner decision 23). */
   readonly schema: 6;
   readonly kind: "value-function";
   readonly ruleKey: string;
@@ -349,10 +349,9 @@ export function valueLookup(vf: Pick<ValueFunction, "knots" | "tail">): (u: Scor
 
 // ---------------------------------------------------------------- lines: the oracles a line rule has
 
-/** The utility of a one-line state. */
+/** The score (utilities) of a one-line state. */
 function utilityOf<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, state: LineState): Score {
-  const e = evaluateObject(lineType, family, params, state, variant, tb);
-  return e.utility === undefined ? e.score : e.utility;
+  return evaluateObject(lineType, family, params, state, variant, tb).score;
 }
 
 const capCache = new Map<bigint, number>();
@@ -429,10 +428,7 @@ export function exactLineOracles<P>(family: RuleFamily<LineState, P>, params: P,
 
 function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tb: TieBreaker, band: Band<P>, cfg: ValueConfig,
   cap: bigint, Z1: number): Oracle {
-  const main = family.main;
-  const t = main.thresholds(params, variant)[band.fromMain(params) - 1];
-  if (!t) throw new Error(`${family.id}: the band starts at main level ${band.fromMain(params)}, which the main layer does not have`);
-  const atLeast: Q = main.sense === "max" ? t : { n: -t.n, d: t.d };
+  const atLeast: Q = band.atLeast(params);
   const abs = (x: bigint) => (x < 0n ? -x : x);
   // The capped 1D law: in-cap numbers, each mass divided by Z1 (its bits raised by log2 Z1).
   const lz = Math.log2(Z1);
@@ -497,8 +493,7 @@ export function sampledDraws<S, P>(type: ObjectType<S>, law: Law<S>, family: Rul
       let mix = 0;
       cfg.tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - d.coords * norms[k]!); });
       const w = cfg.tilts.length / mix;
-      const e = evaluateObject(type, family, params, d.state, variant, tb);
-      draws.push({ u: e.utility === undefined ? e.score : e.utility, w });
+      draws.push({ u: evaluateObject(type, family, params, d.state, variant, tb).score, w });
     }
   });
   return { draws, total };

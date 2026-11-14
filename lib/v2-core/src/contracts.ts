@@ -172,31 +172,17 @@ export interface ScoreComponent {
 }
 
 export interface Evaluation {
-  readonly score: Score;
   /**
    * The rule's utilities, compared lexicographically, bigger better (owner decision 23): the main layer's then the dealt
    * tie-breaker's, each negated for "min", with no saturation; null when the main layer is undefined. This is what a
-   * value function (lib/v2-valuation value.ts) is keyed by. `score` (saturated, for the threshold ladders) goes in PR 2.
+   * value function (lib/v2-valuation value.ts) is keyed by.
    */
-  readonly utility: Score;
+  readonly score: Score;
   /** The terms that make the score, in order: the main layer, then the dealt tie-breaker (views: main part, tie-breaker). */
   readonly components: readonly ScoreComponent[];
   readonly terms: readonly Term[];
   readonly marks: readonly Mark[];
   readonly reads: readonly ElementRef[];
-}
-
-export interface Rung {
-  /** Threshold: a state meets the rung when its score meets or beats this on the threshold's components. */
-  readonly score: Score;
-  readonly label: string;
-  /** The layer this rung belongs to (−1 for the bottom rung, "anything"). */
-  readonly layer: number;
-  /**
-   * On a joint ladder (main layer and tie-breaker, spec §4.4): the main level this rung sits at (0 = below the main
-   * layer's first threshold). Absent on a one-layer ladder.
-   */
-  readonly main?: number;
 }
 
 /**
@@ -212,12 +198,6 @@ export interface Layer<P> {
   readonly rep: string;
   /** min: smaller is better (a distance); max: bigger is better (a count, a size). */
   readonly sense: "min" | "max";
-  /** distance and count/size tell calibration which curve to fit (§7.4). */
-  readonly measure: "distance" | "count" | "size";
-  /** The rung thresholds, from the easiest to the top. The last is the layer's top. */
-  thresholds(params: P, variant: Variant): readonly Q[];
-  /** Words for a rung: "within 1/4 of a prime". */
-  rungLabel(threshold: Q, params: P): string;
   /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.

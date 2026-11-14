@@ -2,7 +2,7 @@
  * The rule gallery's pure part (integration plan §1.1; unit-tested): pages generated from the v2 rule families of each
  * object type the app draws (lines: lib/v2-linear; grids: lib/v2-grid) and the deployed presets, with no server. The gallery lists the families a board deals,
  * the beginner pool first; a family's page offers its dealable parameters and tie-breakers, and its card, worked
- * example and ladder follow the choice. The choice lives in the URL (`?board=&params=&tb=`), so a link opens the same
+ * example and value follow the choice. The choice lives in the URL (`?board=&params=&tb=`), so a link opens the same
  * rule again; anything unknown in it falls back to the first choice.
  */
 import { representation, tieBreakersOn, type ObjectType, type RuleFamily, type Variant } from "@workspace/v2-core";

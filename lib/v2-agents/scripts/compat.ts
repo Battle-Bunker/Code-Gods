@@ -26,14 +26,14 @@ const bits = rules.map(rule => {
   if (!vf) throw new Error(`no value function for ${rule.family}/${rule.tieBreaker}`);
   const look = valueLookup(vf), f = lineType.families.find(x => x.id === rule.family)!;
   const out = new Float64Array(lines.length);
-  lines.forEach((l, k) => { const e = evaluateSite(lineType, f, rule.params, l.s, lineZ, 0, rule.tieBreaker); out[k] = look(e.utility ?? e.score).bits; });
+  lines.forEach((l, k) => { const e = evaluateSite(lineType, f, rule.params, l.s, lineZ, 0, rule.tieBreaker); out[k] = look(e.score).bits; });
   return out;
 });
 const best = bits.map(b => Math.max(...b));
 // Each rule's main part (its first utility) on every line, and its best on the grid: can both mains be at their best at once?
 const mains = rules.map(rule => {
   const f = lineType.families.find(x => x.id === rule.family)!;
-  return lines.map(l => { const e = evaluateSite(lineType, f, rule.params, l.s, lineZ, 0, rule.tieBreaker); const u = e.utility ?? e.score; return u === null || u[0] === null ? -Infinity : Number(u[0]!.n) / Number(u[0]!.d); });
+  return lines.map(l => { const e = evaluateSite(lineType, f, rule.params, l.s, lineZ, 0, rule.tieBreaker); const u = e.score; return u === null || u[0] === null ? -Infinity : Number(u[0]!.n) / Number(u[0]!.d); });
 });
 const bestMain = mains.map(m => Math.max(...m));
 const name = (i: number) => `${rules[i]!.family}/${rules[i]!.tieBreaker}`;

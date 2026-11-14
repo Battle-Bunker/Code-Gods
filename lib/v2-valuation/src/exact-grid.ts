@@ -1,35 +1,21 @@
 /**
- * Exact rung values for grid rules (docs/engine-v2/grids.md §5). Every grid price list is an exact potential, so the
+ * The exact law of a grid rule's terms (docs/engine-v2/grids.md §5), for its value function (value-grid.ts). Every grid price list is an exact potential, so the
  * walk's law is π(board) = Π cells p(v): the cells are independent. A family declares (lib/v2-grid's gridSums) disjoint
  * units of cells over which each of its layers adds up. The pair (main term, tie-breaker term) is then a sum of
  * independent pairs, one per unit, and its law is the convolution of the units' laws.
  *
  * No rule logic is duplicated: a unit's contribution is read by evaluating the rule itself on the reference board (the
  * empty board) with only that unit changed, and the declared additivity is checked on boards drawn from π before use.
- * On a bounded board the values are exact (no outside mass): lo = hi.
+ * On a bounded board the law is exact (no outside mass).
  */
-import { evaluateSite, levelOf, objectLadder, Qn, q, rng, ruleLayers, scoreOf, type ObjectType, type Q, type RuleFamily, type TieBreaker, type Undef, type Variant } from "@workspace/v2-core";
+import { evaluateSite, Qn, q, rng, ruleLayers, type ObjectType, type Q, type RuleFamily, type TieBreaker, type Undef, type Variant } from "@workspace/v2-core";
 import { cellProbability, gridParams, gridSums, type GridState } from "@workspace/v2-grid";
-
-export interface ExactGridLadder {
-  readonly lo: readonly number[];
-  readonly hi: readonly number[];
-  readonly method: readonly "convolution"[];
-  /**
-   * Distinct values each dealt layer takes among outcomes of probability at least 2^−CONTINUITY_BITS (the continuity
-   * check, decision 13): values only astronomically rare boards reach do not count, as the line path counts only its
-   * cheapest lines.
-   */
-  readonly distinct: readonly number[];
-}
 
 const W = Qn.toWire;
 const isUndef = (v: Q | Undef): v is Undef => typeof (v as Undef).undefined === "string";
 
 /** How many boards the additivity check draws from π, and as many again uniformly (big numbers included). */
 export const ADDITIVITY_CHECKS = 400;
-/** A layer value counts towards continuity when its probability is at least 2^−this (about the band's top). */
-export const CONTINUITY_BITS = 25;
 
 /** Every layer's term per unit configuration, kept across a family's tie-breakers (the main layer's are shared). */
 const unitCache = new WeakMap<object, Map<string, Map<string, Q[]>>>();
@@ -126,20 +112,4 @@ export function gridJointLaw<P>(type: ObjectType<GridState>, family: RuleFamily<
   }
 
   return { layers, entries: [...joint.values()].map(({ c, w }) => ({ terms: c, w })) };
-}
-
-export function exactGridLadder<P>(type: ObjectType<GridState>, family: RuleFamily<GridState, P>, params: P, variant: Variant, tieBreaker: TieBreaker): ExactGridLadder {
-  const { layers, entries } = gridJointLaw(type, family, params, variant, tieBreaker);
-  const ladder = objectLadder(type, family, params, variant, tieBreaker);
-  const mass = new Array<number>(ladder.length).fill(0);
-  const marginal = layers.map(() => new Map<string, number>());
-  for (const { terms: c, w } of entries) {
-    c.forEach((x, j) => marginal[j]!.set(W(x), (marginal[j]!.get(W(x)) ?? 0) + w));
-    const { score } = scoreOf(family, params, variant, tieBreaker, id => c[layers.indexOf(id)]!);
-    mass[levelOf(score, ladder)]! += w;
-  }
-  const v: number[] = [];
-  let acc = 0;
-  for (let k = ladder.length - 1; k >= 0; k--) { acc += mass[k]!; v[k] = k === 0 ? 0 : -Math.log2(Math.min(1, acc)); }
-  return { lo: v, hi: v, method: v.map(() => "convolution" as const), distinct: marginal.map(m => [...m.values()].filter(w => w >= 2 ** -CONTINUITY_BITS).length) };
 }

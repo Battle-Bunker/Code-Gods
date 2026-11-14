@@ -5,11 +5,6 @@
  */
 import { Qn, q, ref, type EvalContext, type Layer, type Q, type RuleFamily } from "@workspace/v2-core";
 import { isPrime, nearbyPrimes, type LineState } from "@workspace/v2-linear";
-import { fmtQ } from "./format.ts";
-
-const Q_STEPS = [q(8), q(4), q(2), q(1), q(1, 2), q(1, 4), q(1, 8), q(0)];
-const PRIME_STEPS = [q(3), q(2), q(1), q(0)];
-const label = (near: string, exact: string) => (d: Q) => (Qn.isZero(d) ? exact : `${near} ${fmtQ(d)}`);
 
 /** The nearest whole minute at or after the first: 1 below 1, else the nearer integer, ties to the smaller. */
 function nearestMinute(t: Q): bigint {
@@ -21,11 +16,11 @@ function nearestMinute(t: Q): bigint {
 type NoParams = Record<string, never>;
 const main: Layer<NoParams> = {
   id: "gap", title: "runs out at a whole minute", sentence: () => "Make it run out at a whole minute.", rep: "cart",
-  sense: "min", measure: "distance", thresholds: () => Q_STEPS, rungLabel: label("runs out within", "runs out at a whole minute"),
+  sense: "min",
 };
 const prime: Layer<NoParams> = {
   id: "pgap", title: "that minute is a prime", sentence: () => "Tie-breaker: a prime minute is even better.", rep: "cart",
-  sense: "min", measure: "distance", thresholds: () => PRIME_STEPS, rungLabel: label("that minute is within", "that minute is a prime"),
+  sense: "min",
 };
 
 export const emptyTank: RuleFamily<LineState, NoParams> = {

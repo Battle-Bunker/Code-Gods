@@ -91,7 +91,8 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
     { mine: false, pointsBefore: 5, pointsAfter: 2 }, { mine: true, pointsBefore: 2, pointsAfter: 9 }, { mine: false, pointsBefore: 9, pointsAfter: 3 },
     { mine: true, pointsBefore: 3, pointsAfter: 8 }, { mine: false, pointsBefore: 8, pointsAfter: 12 }, { mine: false, pointsBefore: 12, pointsAfter: 1 },
   ];
-  const rungs = [{ score: null, bits: 0 }, { score: ["1"], bits: 3 }, { score: ["2"], bits: 7 }];
+  // A flat-tailed value function: 0 bits for WORST, 3 at a score of 1, 7 at 2 and beyond.
+  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: 0, primary: 0 } };
   const ts = `function agent(offer) {
   const w = worth(offer), r = [rarity(offer, null), rarity(offer, [1]), rarity(offer, [Q.from(5, 2)]), rarity(offer, [9])];
   const out = [w.mine, w.others, w.points, ...r, recent(offer).length, pushback(offer), contested(offer, 3), contested(offer, 2), note(offer, "  two  "), note(offer, "x"), note(offer, "y")];
@@ -105,7 +106,7 @@ test("the points helpers: worth, rarity, recent, pushback and contested agree in
 `;
   const out = [];
   for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
-    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, energy: 10, value, history, rungs });
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, energy: 10, value, history, values });
     const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
     assert.equal(res.ok, true, res.ok ? "" : res.error);
     if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, notes: host.notes, readBits: res.readBits });

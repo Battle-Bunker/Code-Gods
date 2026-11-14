@@ -12,15 +12,11 @@ import { boxEdges, boxes, corners, folds, leaps, pairs, rows, windows } from "./
 type Ctx = EvalContext<GridState>;
 type L<P> = Layer<P>;
 
-const ns = (...xs: number[]): Q[] => xs.map(x => q(x));
-const within = (what: string) => (t: Q) => (t.n === 0n ? `${what} exactly` : `${what} off by at most ${t.n} in all`);
-const atLeast = (what: string) => (t: Q) => `${what} at least ${t.n}`;
-
-function distance<P>(id: string, title: string, sentence: (p: P) => string, rep: string, thresholds: readonly number[], what: string): L<P> {
-  return { id, title, sentence, rep, sense: "min", measure: "distance", thresholds: () => ns(...thresholds), rungLabel: within(what) };
+function distance<P>(id: string, title: string, sentence: (p: P) => string, rep: string): L<P> {
+  return { id, title, sentence, rep, sense: "min" };
 }
-function more<P>(id: string, title: string, sentence: string, rep: string, thresholds: readonly number[], what: string, measure: "count" | "size" = "size"): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "max", measure, thresholds: () => ns(...thresholds), rungLabel: atLeast(what) };
+function more<P>(id: string, title: string, sentence: string, rep: string | "size" = "size"): L<P> {
+  return { id, title, sentence: () => sentence, rep, sense: "max" };
 }
 
 interface Shape<P> { readonly main: L<P>; readonly tieBreakers: readonly L<P>[] }
@@ -54,8 +50,8 @@ function totalOf(ctx: Ctx, id: string, label: string, cells: { v: number[]; refs
 }
 
 /** Tie-breakers several families share; each family sets their rungs so that its dealt top is in the band. */
-const primesTie = <P,>(ts: readonly number[]): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells", ts, "prime numbers", "count");
-const zerosTie = <P,>(ts: readonly number[]): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells", ts, "0s", "count");
+const primesTie = <P,>(): L<P> => more("primes", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells");
+const zerosTie = <P,>(): L<P> => more("zeros", "0s on the board", "As many cells as possible should hold 0.", "cells");
 
 // ---------------------------------------------------------------- shared readers
 
@@ -78,11 +74,11 @@ type None = Record<string, never>;
 export function mirrormancer(n: number): RuleFamily<GridState, None> {
   const middle = rows(n).flatMap((_, r) => Array.from({ length: n - 2 }, (_, j) => at(n, r, j + 1)));
   const shape: Shape<None> = {
-    main: distance<None>("mirror", "every row reads the same backwards", () => "Every row should read the same backwards, like 3 1 1 3.", "mirror", [16, 12, 8, 6, 4, 3, 2, 1], "the rows' mirror gaps"),
+    main: distance<None>("mirror", "every row reads the same backwards", () => "Every row should read the same backwards, like 3 1 1 3.", "mirror"),
     tieBreakers: [
-      more("middle", "the middle columns' total", "The middle two columns should add up to as much as possible.", "cells", [8, 12, 16, 20, 24, 28], "the middle columns"),
-      primesTie([4, 6, 8, 9, 10, 11]),
-      zerosTie([6, 8, 10, 11, 12, 13, 14]),
+      more("middle", "the middle columns' total", "The middle two columns should add up to as much as possible.", "cells"),
+      primesTie(),
+      zerosTie(),
     ],
   };
   return family<None>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, [{}], ctx => {
@@ -100,11 +96,11 @@ export function mirrormancer(n: number): RuleFamily<GridState, None> {
 
 export function magicEighteen(n: number): RuleFamily<GridState, T> {
   const shape: Shape<T> = {
-    main: distance<T>("rows", "every row adds up to the target", p => `Every row should add up to ${p.T}.`, "tally", [32, 24, 16, 12, 8, 6, 4], "the rows' totals"),
+    main: distance<T>("rows", "every row adds up to the target", p => `Every row should add up to ${p.T}.`, "tally"),
     tieBreakers: [
-      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells", [16, 20, 24, 26, 28, 30], "the first column"),
-      primesTie([5, 6, 8, 10, 11, 12]),
-      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells", [6, 8, 10, 11, 12, 13], "odd numbers", "count"),
+      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
+      primesTie(),
+      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
     ],
   };
   return family<T>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, [{ T: 18 }], (ctx, p) => {
@@ -124,11 +120,11 @@ export function oppositeNines(n: number): RuleFamily<GridState, T> {
   const ps = pairs(n);
   const shape: Shape<T> = {
     main: distance<T>("pairs", "every cell and its opposite add up to the target",
-      p => `Every cell and its opposite (where a half turn of the board takes it) should add up to ${p.T}.`, "turn", [32, 24, 20, 16, 14, 12, 10], "the pairs' totals"),
+      p => `Every cell and its opposite (where a half turn of the board takes it) should add up to ${p.T}.`, "turn"),
     tieBreakers: [
-      more("top-half", "the top half's total", "The top half of the board should add up to as much as possible.", "cells", [24, 30, 36, 42, 46, 50], "the top half"),
-      primesTie([6, 8, 10, 11, 12, 13]),
-      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells", [6, 8, 10, 11, 12, 13], "odd numbers", "count"),
+      more("top-half", "the top half's total", "The top half of the board should add up to as much as possible.", "cells"),
+      primesTie(),
+      more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
     ],
   };
   return family<T>("opposite-nines", "Opposite Nines", ["turn", "cells"], shape, [{ T: 9 }], (ctx, p) => {
@@ -148,11 +144,11 @@ export function twoPair(n: number): RuleFamily<GridState, None> {
   const bx = boxes(n);
   const shape: Shape<None> = {
     main: distance<None>("two-pair", "every corner box holds two different pairs",
-      () => "Each corner box of four cells should hold two different pairs, like 3 3 8 8 in any order.", "boxes", [16, 12, 8, 6, 4, 3, 2, 1, 0], "the boxes' gaps from two pairs"),
+      () => "Each corner box of four cells should hold two different pairs, like 3 3 8 8 in any order.", "boxes"),
     tieBreakers: [
-      more("apart", "how far apart each box's pairs are", "In each box the two pairs should be as far apart as possible (biggest minus smallest, added up).", "cells", [4, 8, 12, 14, 16, 18], "the pairs' distance"),
-      primesTie([2, 4, 6, 8, 10, 12]),
-      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [6, 8, 10, 12, 14, 16], "the corners"),
+      more("apart", "how far apart each box's pairs are", "In each box the two pairs should be as far apart as possible (biggest minus smallest, added up).", "cells"),
+      primesTie(),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
     ],
   };
   return family<None>("two-pair", "Two Pair", ["boxes", "cells"], shape, [{}], ctx => {
@@ -173,11 +169,11 @@ export function spreadOfThree(n: number): RuleFamily<GridState, None> {
   const ws = windows(n);
   const shape: Shape<None> = {
     main: distance<None>("spread", "every 2×2 square spreads by 3",
-      () => "Every 2×2 square should have a spread of exactly 3: its biggest number 3 more than its smallest. The squares overlap.", "windows", [24, 18, 14, 10, 8, 6, 4, 3, 2, 1, 0], "the squares' spreads from 3"),
+      () => "Every 2×2 square should have a spread of exactly 3: its biggest number 3 more than its smallest. The squares overlap.", "windows"),
     tieBreakers: [
-      primesTie([4, 6, 7, 8, 9, 10]),
-      zerosTie([2, 4, 5, 6, 7, 8, 9]),
-      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [4, 6, 8, 10, 11, 12], "the corners"),
+      primesTie(),
+      zerosTie(),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
     ],
   };
   return family<None>("spread-of-three", "Spread of Three", ["windows", "cells"], shape, [{}], ctx => {
@@ -197,12 +193,11 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
   const bx = boxes(n);
   const shape: Shape<None> = {
     main: more<None>("strangers", "touching strangers in the corner boxes",
-      "Touching numbers in the same corner box should be strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart (like 2 and 5).", "boxes",
-      [2, 4, 5, 6, 7, 8, 9], "pairs of strangers", "count"),
+      "Touching numbers in the same corner box should be strangers: both bigger than 1, no common divisor bigger than 1, and at least 2 apart (like 2 and 5).", "boxes"),
     tieBreakers: [
-      more("ones", "1s beside a bigger number in their box", "As many 1s as possible should touch a number bigger than 1 in their box (count each touch).", "cells", [1, 2, 3, 4, 5, 6], "1s beside bigger numbers", "count"),
-      primesTie([10, 11, 12, 13, 14, 15]),
-      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [8, 12, 16, 20, 24, 28], "the corners"),
+      more("ones", "1s beside a bigger number in their box", "As many 1s as possible should touch a number bigger than 1 in their box (count each touch).", "cells"),
+      primesTie(),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
     ],
   };
   return family<None>("strangers", "Strangers", ["boxes", "cells"], shape, [{}], ctx => {
@@ -223,11 +218,11 @@ export function leapfrog(n: number): RuleFamily<GridState, None> {
   const lp = leaps(n);
   const shape: Shape<None> = {
     main: distance<None>("leap", "each number one apart from the number two cells along",
-      () => "In every row, each number and the number two cells along (leaping over the one between) should be one apart, like 4 _ 5.", "leaps", [12, 10, 8, 6, 5, 4, 3, 2, 1, 0], "the leaps from one apart"),
+      () => "In every row, each number and the number two cells along (leaping over the one between) should be one apart, like 4 _ 5.", "leaps"),
     tieBreakers: [
-      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells", [6, 8, 10, 12, 14, 16], "the first column"),
-      primesTie([3, 4, 6, 8, 10, 11]),
-      zerosTie([2, 3, 4, 5, 6, 7, 8]),
+      more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
+      primesTie(),
+      zerosTie(),
     ],
   };
   return family<None>("leapfrog", "Leapfrog", ["leaps", "cells"], shape, [{}], ctx => {
@@ -247,11 +242,11 @@ export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
   const fp = folds(n);
   const shape: Shape<None> = {
     main: distance<None>("crosswise", "folded cells three apart",
-      () => "Fold the board along the diagonal from the top-right corner: each number and the number it lands on should be 3 apart, like 2 and 5.", "fold", [12, 10, 8, 6, 5, 4, 3, 2, 1, 0], "the folded pairs from 3 apart"),
+      () => "Fold the board along the diagonal from the top-right corner: each number and the number it lands on should be 3 apart, like 2 and 5.", "fold"),
     tieBreakers: [
-      more("fold-line", "the fold line's total", "The cells on the fold line should add up to as much as possible.", "fold", [4, 8, 12, 16, 18, 20], "the fold line"),
-      primesTie([4, 6, 8, 9, 10, 11]),
-      zerosTie([2, 3, 4, 5, 6, 7, 8]),
+      more("fold-line", "the fold line's total", "The cells on the fold line should add up to as much as possible.", "fold"),
+      primesTie(),
+      zerosTie(),
     ],
   };
   return family<None>("crosswise-threes", "Crosswise Threes", ["fold", "cells"], shape, [{}], ctx => {
@@ -271,11 +266,11 @@ export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
 export function steadySteps(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
     main: distance<None>("steady", "every row goes up or down in equal steps",
-      () => "Along every row the numbers should go up (or down) in equal steps, like 1 3 5 7.", "steps", [16, 12, 10, 8, 6, 5, 4, 3], "the rows' uneven steps"),
+      () => "Along every row the numbers should go up (or down) in equal steps, like 1 3 5 7.", "steps"),
     tieBreakers: [
-      more("climb", "how far the rows climb", "Each row should climb (or fall) as far as possible from its first number to its last.", "cells", [2, 4, 6, 8, 10, 12, 14], "the rows' climb"),
-      more("start", "the first column's total", "The rows should start as high as possible (the first column's total).", "cells", [4, 6, 8, 10, 12, 14], "the first column"),
-      primesTie([4, 5, 6, 7, 8, 9, 10]),
+      more("climb", "how far the rows climb", "Each row should climb (or fall) as far as possible from its first number to its last.", "cells"),
+      more("start", "the first column's total", "The rows should start as high as possible (the first column's total).", "cells"),
+      primesTie(),
     ],
   };
   return family<None>("steady-steps", "Steady Steps", ["steps", "cells"], shape, [{}], ctx => {
@@ -295,10 +290,10 @@ export function steadySteps(n: number): RuleFamily<GridState, None> {
 
 export function boxTotals(n: number): RuleFamily<GridState, T> {
   const shape: Shape<T> = {
-    main: distance<T>("boxes", "every corner box adds up to the target", p => `Each corner box of four cells should add up to ${p.T}.`, "boxes", [16, 12, 8, 6, 4, 3, 2, 1, 0], "the boxes' totals"),
+    main: distance<T>("boxes", "every corner box adds up to the target", p => `Each corner box of four cells should add up to ${p.T}.`, "boxes"),
     tieBreakers: [
-      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [12, 16, 20, 22, 24, 26], "the corners"),
-      primesTie([5, 6, 8, 10, 11, 12]), zerosTie([1, 2, 3, 4, 5, 6]),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
+      primesTie(), zerosTie(),
     ],
   };
   return family<T>("box-totals", "Box Totals", ["boxes", "cells"], shape, [{ T: 12 }], (ctx, p) => {
@@ -317,11 +312,11 @@ export function boxTotals(n: number): RuleFamily<GridState, T> {
 
 export function primeCells(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
-    main: more<None>("prime-count", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells", [4, 6, 7, 8, 9, 10, 11, 12, 13], "prime numbers", "count"),
+    main: more<None>("prime-count", "prime numbers on the board", "As many cells as possible should hold a prime number (2, 3, 5 or 7).", "cells"),
     tieBreakers: [
-      more("prime-total", "the primes' total", "Those primes should add up to as much as possible.", "cells", [35, 40, 45, 50, 55, 60, 65], "the primes' total"),
-      more("sevens", "7s on the board", "As many cells as possible should hold a 7.", "cells", [1, 2, 3, 4, 5, 6], "7s", "count"),
-      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells", [8, 12, 16, 20, 22, 24], "the corners"),
+      more("prime-total", "the primes' total", "Those primes should add up to as much as possible.", "cells"),
+      more("sevens", "7s on the board", "As many cells as possible should hold a 7.", "cells"),
+      more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
     ],
   };
   return family<None>("prime-cells", "Prime Cells", ["cells"], shape, [{}], ctx => {

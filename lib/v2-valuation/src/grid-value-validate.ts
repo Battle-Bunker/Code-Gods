@@ -31,8 +31,8 @@ for (const f of gridType.families) {
   for (const tb of tieBreakersOn(f, grid4)) {
     const p = f.dealable(grid4)[0];
     const { entries } = gridJointLaw(gridType, f, p, grid4, tb.id);
-    const exact = massOracle("exact", entries.map(e => ({ u: scoreOf(f, p, grid4, tb.id, id => e.terms[id === f.main.id ? 0 : 1]!).utility, w: e.w })), 0);
-    const utility = (cells: number[]): Score => { const e = evaluateObject(gridType, f, p, { cells }, grid4, tb.id); return e.utility === undefined ? e.score : e.utility; };
+    const exact = massOracle("exact", entries.map(e => ({ u: scoreOf(f, tb.id, id => e.terms[id === f.main.id ? 0 : 1]!).score, w: e.w })), 0);
+    const utility = (cells: number[]): Score => evaluateObject(gridType, f, p, { cells }, grid4, tb.id).score;
     const zs: number[] = [];
     if (REPLICATES > 0) {
       // Five fixed scores: the first exact candidates (best first) whose survival reaches each target.

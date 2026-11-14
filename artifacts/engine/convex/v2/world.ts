@@ -20,8 +20,8 @@ export const encode = (state: unknown, variantId: string): string => typeOf(vari
 /** One player's utility (as its wire) and its worth in bits. */
 export function valueOf(state: unknown, variantId: string, rule: DealtRule) {
   const family = familyOf(rule.family);
-  // One-site variants only: a multi-site object's utility comes with decision 23's PR 2 (no such rule is dealt yet).
-  const utility = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).utility ?? null;
+  // One-site variants only: a multi-site object has no score yet (per-line bits summed comes next; none is dealt).
+  const utility = evaluateObject(typeOf(variantId), family as never, rule.params, state, variantOf(variantId), rule.tieBreaker).score;
   return { score: scoreToWire(utility), rarityBits: worthOf(rule.ruleKey, utility).bits };
 }
 

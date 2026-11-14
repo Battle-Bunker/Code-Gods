@@ -4,7 +4,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluateObject, levelOf, objectLadder } from "@workspace/v2-core";
+import { readdirSync, readFileSync } from "node:fs";
+import { evaluateObject, ruleLayers, type Score } from "@workspace/v2-core";
+import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import { activeOp, compareOp, digestScale, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
 import { workedExample } from "../src/panes/worked-example.ts";
@@ -70,17 +72,32 @@ test("the expanded face's switcher lives in the human's view: none shown → the
   assert.deepEqual(compareOp("o1", "si", null), { id: "view.showRepresentation", args: { objectId: "o1", rep: "si" } });
 });
 
-test("worked example: every family gets a line that scores for it, below the top when one was found, the same each time", () => {
+/** The committed value function of a dealt rule (lib/v2-valuation/values), as bits at a score; null when none. */
+function committedBits(variant: string, family: string, tieBreaker: string): ((u: Score) => number) | null {
+  const dir = new URL(`../../../lib/v2-valuation/values/${variant}/${family}/`, import.meta.url);
+  let files: string[];
+  try { files = readdirSync(dir); } catch { return null; }
+  const vf = files.map(f => JSON.parse(readFileSync(new URL(f, dir), "utf8")) as ValueFunction).find(v => v.tieBreaker === tieBreaker);
+  if (!vf) return null;
+  const look = valueLookup(vf);
+  return u => look(u).bits;
+}
+
+test("worked example: every family gets a line worth some bits, below the best found, the same each time", () => {
   const variant = lineType.variants[0]!;
   for (const family of lineType.families) {
     const params = family.dealable(variant)[0];
     const rule = { type: lineType, family, params, variant };
-    const line = workedExample<LineState, unknown>(rule);
-    assert.deepEqual(lineType.encode(workedExample<LineState, unknown>(rule)), lineType.encode(line), family.id);
+    const tb = ruleLayers(family, undefined)[1]?.id ?? "none";
+    const value = committedBits(variant.id, family.id, tb);
+    const line = workedExample<LineState, unknown>(rule, value);
+    assert.deepEqual(lineType.encode(workedExample<LineState, unknown>(rule, value)), lineType.encode(line), family.id);
+    // Without a value function the example still scores: a middling one of the scores the walk met.
+    assert.notEqual(evaluateObject(lineType, family, params, workedExample<LineState, unknown>(rule), variant).score, null, `${family.id}: scores without bits`);
     if (family.examples) continue;
     const score = evaluateObject(lineType, family, params, line, variant).score;
     assert.notEqual(score, null, `${family.id}: the example scores`);
-    const ladder = objectLadder(lineType, family, params, variant);
-    assert.ok(levelOf(score, ladder) >= 1, `${family.id}: on the ladder`);
+    assert.ok(value, `${family.id}: a committed value function`);
+    assert.ok(value!(score) > 0, `${family.id}: the example is worth some bits`);
   }
 });

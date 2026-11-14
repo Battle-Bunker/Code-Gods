@@ -1,17 +1,19 @@
 /**
- * How the exact valuation sums a line rule's level sets (owner decision 19, spec §7; analytic-calibration.md).
+ * How the exact valuation sums a line rule's value function (owner decision 19, spec §7; analytic-calibration.md).
  *
  * On whole-number lines y = mx + c the stationary law is exactly π(m, c) = p(m)·p(c), p(n) = 2^−mixedInt(n), so a rung's
- * value is a sum over lines. A family declares here how its level sets can be summed, or nothing (the generic fallback,
- * an enumeration of the cheapest lines, then certifies only the low rungs):
+ * value is a sum over lines. A family declares here how its sets of lines at least as good as a score can be summed, or
+nothing (the generic fallback, an enumeration of the cheapest lines):
  *
  * - `separable`: the layer's term depends on m alone or on c alone. When every dealt layer is separable the law of
  *   the score is a product of two 1D laws: exact to the top.
- * - `bands`: for each band, every line whose main layer is at level `fromMain` or above (1 = the main layer's first threshold) has its
- *   c in the ranges given for its m. This is a contract: the valuation trusts it and test/sums.test.ts checks it
- *   against brute force for every family that declares one. The ranges may be wide (the valuation intersects them
- *   with the integers it enumerates) and may cover lines below fromMain (they are counted at their own level).
+ * - `bands`: for each band, every line whose main layer's utility (its score's primary: minus the distance for a
+ *   distance) is `atLeast` or more has its c in the ranges given for its m. This is a contract: the valuation trusts it
+ *   and test/sums.test.ts checks it against brute force for every family that declares one. The ranges may be wide (the
+ *   valuation intersects them with the integers it enumerates) and may cover worse lines (they are counted at their own
+ *   score).
  */
+import { q, type Q } from "@workspace/v2-core";
 import { isqrt } from "./numbers.ts";
 
 /** c from lo to hi inclusive, or only its multiples of `step` when given. */
@@ -24,14 +26,15 @@ export interface CRange { readonly lo: bigint; readonly hi: bigint; readonly ste
  * T(m) times the dearest point's largest possible mass.
  */
 export interface Band<P> {
-  fromMain(p: P): number;
+  /** The primary utility from which the band holds. */
+  atLeast(p: P): Q;
   ranges(m: bigint, p: P): readonly CRange[];
   readonly points?: "same" | "one-per-m";
 }
 
 export interface LineSums<P> {
   readonly separable?: Readonly<Record<string, "m" | "c">>;
-  /** One or more bands; each rung takes the tightest interval any of them gives. */
+  /** One or more bands; each score takes the tightest interval any of them gives. */
   readonly bands?: readonly Band<P>[];
 }
 
@@ -57,40 +60,40 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   "prime-landing": { separable: { landing: "c", "big-prime": "c", "m-spf": "m", "m-gpf": "m" } },
   // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
   "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },
-  "m-meets-c": { bands: [{ fromMain: () => 6, ranges: m => [{ lo: m - 1n, hi: m + 1n }] }] },          // |m − c| ≤ 1
+  "m-meets-c": { bands: [{ atLeast: () => q(-1), ranges: m => [{ lo: m - 1n, hi: m + 1n }] }] },        // |m − c| ≤ 1
   "treasure": { bands: [
-    { fromMain: () => 4, ranges: (m, p: { k: number; T: number }) => {                         // |c + km − T| ≤ 4
+    { atLeast: () => q(-4), ranges: (m, p: { k: number; T: number }) => {                     // |c + km − T| ≤ 4
       const c0 = BigInt(p.T) - BigInt(p.k) * m;
       return [{ lo: c0 - 4n, hi: c0 + 4n }];
     } },
-    // y(k) = T exactly (the main layer's last threshold): c = T − km, one c for each m, summed at any size.
-    { fromMain: () => 7, points: "one-per-m", ranges: (m, p: { k: number; T: number }) => {
+    // y(k) = T exactly (distance 0): c = T − km, one c for each m, summed at any size.
+    { atLeast: () => q(0), points: "one-per-m", ranges: (m, p: { k: number; T: number }) => {
       const c0 = BigInt(p.T) - BigInt(p.k) * m;
       return [{ lo: c0, hi: c0 }];
     } },
   ] },
-  "triangle-area": { bands: [{ fromMain: () => 5, ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) }] },   // within 2
+  "triangle-area": { bands: [{ atLeast: () => q(-2), ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) }] },   // within 2
   "same-on-both-rulers": { bands: [
-    { fromMain: () => 4, ranges: (m, p: { T: number }) => {                                    // |c/(1 − m) − T| ≤ 2
+    { atLeast: () => q(-2), ranges: (m, p: { T: number }) => {                                 // |c/(1 − m) − T| ≤ 2
       if (m === 1n) return [];
       const k = 1n - m, a = BigInt(p.T - 2) * k, b = BigInt(p.T + 2) * k;
       return [{ lo: a < b ? a : b, hi: a < b ? b : a }];
     } },
-    // The unchanged number exactly T (the main layer's last threshold): c = T(1 − m), one c for each m.
-    { fromMain: () => 8, points: "one-per-m", ranges: (m, p: { T: number }) => {
+    // The unchanged number exactly T (distance 0): c = T(1 − m), one c for each m.
+    { atLeast: () => q(0), points: "one-per-m", ranges: (m, p: { T: number }) => {
       if (m === 1n) return [];
       const c0 = BigInt(p.T) * (1n - m);
       return [{ lo: c0, hi: c0 }];
     } },
   ] },
-  "square-area": { bands: [{ fromMain: (_p: object) => 9, ranges: m => {                        // the area exactly a square
+  "square-area": { bands: [{ atLeast: (_p: object) => q(0), ranges: m => {                      // the area exactly a square
     // c²/(2|m|) = r² needs 2|m| = t² and c a multiple of t.
     if (m === 0n) return [];
     const t = isqrt(2n * abs(m));
     return t * t === 2n * abs(m) ? [{ lo: -BIG, hi: BIG, step: t }] : [];
   } }] },
   // The x-axis crossing −c/m is whole exactly when m divides c.
-  "whole-crossing": { bands: [{ fromMain: () => 7, ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) }] },
-  // A run of one or more different primes from y(0) needs c prime: every rung above the first is a sum over the primes.
-  "prime-staircase": { bands: [{ fromMain: () => 1, points: "same", ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) }] },
+  "whole-crossing": { bands: [{ atLeast: () => q(0), ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) }] },
+  // A run of one or more different primes from y(0) needs c prime: every score from a run of 1 is a sum over the primes.
+  "prime-staircase": { bands: [{ atLeast: () => q(1), points: "same", ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) }] },
 };

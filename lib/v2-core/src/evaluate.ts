@@ -4,7 +4,7 @@
  */
 import type {
   ElementDecl, ElementRef, ElementValue, EvalContext, Evaluation, Mark, ObjectType, Representation, RuleFamily,
-  Layer, Rung, Score, ScoreComponent, Term, TermId, TieBreaker, Undef, Variant,
+  Layer, Score, ScoreComponent, Term, TermId, TieBreaker, Undef, Variant,
 } from "./contracts.ts";
 import { cmp, from, neg, parse, toWire, type Q } from "./q.ts";
 
@@ -77,7 +77,7 @@ export function elementValue<S>(type: ObjectType<S>, state: S, r: ElementRef, si
   return decl.value(state, r.site ?? site, args);
 }
 
-// ---------------------------------------------------------------- scores and ladders
+// ---------------------------------------------------------------- scores
 
 /** null components rank last in their component. */
 function cmpComponent(a: Q | null, b: Q | null): -1 | 0 | 1 {
@@ -96,46 +96,6 @@ export function compareScores(a: Score, b: Score): -1 | 0 | 1 {
     if (c !== 0) return c;
   }
   return a.length === b.length ? 0 : a.length > b.length ? 1 : -1;
-}
-
-/** Whether a score meets a rung's threshold, compared on the threshold's components. */
-export function meets(score: Score, threshold: Score): boolean {
-  if (threshold === null) return true;
-  if (score === null) return false;
-  for (let i = 0; i < threshold.length; i++) {
-    if (i >= score.length) return false;
-    const c = cmpComponent(score[i]!, threshold[i]!);
-    if (c !== 0) return c > 0;
-  }
-  return true;
-}
-
-/** The index of the highest rung met. Rung 0 must be WORST (everything). */
-export function levelOf(score: Score, rungs: readonly Rung[]): number {
-  if (rungs.length === 0 || rungs[0]!.score !== null) throw new Error("A ladder starts with the WORST rung");
-  if (rungs.some(r => r.main !== undefined)) return jointLevelOf(score, rungs);
-  let level = 0;
-  for (let i = 1; i < rungs.length; i++) if (meets(score, rungs[i]!.score)) level = i;
-  return level;
-}
-
-/**
- * The level on a joint ladder: the pair (main level, tie-breaker level) in lexicographic order. The main level is the
- * number of main thresholds met; at that main level the tie-breaker's rungs count; every rung of a lower main level is
- * met. Rungs are listed in that order, so the level is the last rung met.
- */
-function jointLevelOf(score: Score, rungs: readonly Rung[]): number {
-  if (score === null) return 0;
-  let main = 0;
-  for (const r of rungs) if (r.layer === 0 && r.score && cmpComponent(score[0] ?? null, r.score[0]!) >= 0) main = Math.max(main, r.main!);
-  let level = 0;
-  for (let i = 1; i < rungs.length; i++) {
-    const r = rungs[i]!;
-    const ok = r.layer === 0 ? r.main! <= main
-      : r.main! < main || (r.main === main && score.length > 1 && cmpComponent(score[1] ?? null, r.score![1]!) >= 0);
-    if (ok) level = i;
-  }
-  return level;
 }
 
 export function scoreToWire(s: Score): (string | null)[] | null {
@@ -166,55 +126,6 @@ export function tieBreakersOn<P>(family: RuleFamily<any, P>, variant: Variant): 
 export function tieBreakerId(family: RuleFamily<any, any>, tieBreaker?: TieBreaker): string {
   const ls = ruleLayers(family, tieBreaker);
   return ls.length > 1 ? ls[1]!.id : "none";
-}
-
-function layerRungs<P>(layer: Layer<P>, params: P, variant: Variant, prefix: readonly Q[], index: number): Rung[] {
-  const ts = layer.thresholds(params, variant);
-  if (ts.length === 0) throw new Error(`layer ${layer.id} has no thresholds`);
-  return ts.map(t => ({ score: [...prefix, layer.sense === "max" ? t : neg(t)], label: layer.rungLabel(t, params), layer: index }));
-}
-const topOf = <P,>(layer: Layer<P>, params: P, variant: Variant): Q => {
-  const ts = layer.thresholds(params, variant);
-  const t = ts[ts.length - 1]!;
-  return layer.sense === "max" ? t : neg(t);
-};
-
-/** How many of the tie-breaker's rungs a main level below the top keeps: evenly spaced, to keep calibration tractable. */
-export const COARSE_TIE_RUNGS = 3;
-
-/**
- * The ladder of one line (spec §4.4). One layer: rung 0 is everything, then the main layer's thresholds. With a
- * tie-breaker the ladder is joint: the pairs (main level, tie-breaker level) in lexicographic order, so a better
- * tie-breaker raises a line's level at every main level, by a little low on the ladder and by more near the top. At the
- * main layer's top the tie-breaker has all its rungs; below the top, COARSE_TIE_RUNGS of them, evenly spaced.
- */
-export function ruleLadder<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly Rung[] {
-  const layers = ruleLayers(family, tieBreaker);
-  const main = layers[0]!;
-  const mainRungs = layerRungs(main, params, variant, [], 0);
-  if (layers.length === 1) return [{ score: null, label: "anything", layer: -1 }, ...mainRungs];
-  if (layers.length > 2) throw new Error(`${family.id}: a dealt rule has a main layer and at most one tie-breaker (owner decision 14)`);
-  const tie = layers[1]!;
-  const tieTs = tie.thresholds(params, variant);
-  const coarse = tieTs.length <= COARSE_TIE_RUNGS ? tieTs
-    : Array.from({ length: COARSE_TIE_RUNGS }, (_, k) => tieTs[Math.floor(((k + 1) * tieTs.length) / (COARSE_TIE_RUNGS + 1))]!);
-  const tieScore = (t: Q) => (tie.sense === "max" ? t : neg(t));
-  const rungs: Rung[] = [{ score: null, label: "anything", layer: -1, main: 0 }];
-  const n = mainRungs.length;
-  for (let i = 0; i <= n; i++) {
-    if (i > 0) rungs.push({ ...mainRungs[i - 1]!, main: i });
-    const mainScore = i > 0 ? mainRungs[i - 1]!.score![0]! : null;
-    const mainLabel = i > 0 ? mainRungs[i - 1]!.label : "anything";
-    for (const t of i === n ? tieTs : coarse) {
-      rungs.push({ score: [mainScore, tieScore(t)], label: `${mainLabel}; ${tie.rungLabel(t, params)}`, layer: 1, main: i });
-    }
-  }
-  return rungs;
-}
-
-/** One single-component ladder per layer of the dealt rule: what a card shows as "main part: step 5 of 8". */
-export function layerLadders<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly (readonly Rung[])[] {
-  return ruleLayers(family, tieBreaker).map((layer, j) => [{ score: null, label: "anything", layer: -1 }, ...layerRungs(layer, params, variant, [], j)]);
 }
 
 // ---------------------------------------------------------------- evaluation
@@ -263,82 +174,51 @@ class Context<S> implements EvalContext<S> {
 }
 
 /**
- * Evaluate a rule on one site of a state. The score is made of the layers' terms, in ladder order: an undefined
- * primary makes it WORST; an undefined later layer ranks last in its own component; every layer but the last dealt one
- * saturates at its top.
+ * Evaluate a rule on one site of a state. The score is made of the layers' terms (scoreOf): an undefined primary makes
+ * it WORST; an undefined later layer ranks last in its own component.
  */
 export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, site = 0, tieBreaker?: TieBreaker): Evaluation {
   const sites = type.sites(state, variant);
   const ctx = new Context<S>(type, family as RuleFamily<S, unknown>, state, site, variant, sites);
   family.evaluate(ctx, params);
   for (const l of [family.main, ...family.tieBreakers]) if (!ctx.terms.has(l.id)) throw new Error(`${family.id} did not record layer ${l.id}`);
-  const { score, components, utility } = scoreOf(family, params, variant, tieBreaker, id => ctx.terms.get(id)!.value);
-  return { score, utility, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
+  const { score, components } = scoreOf(family, tieBreaker, id => ctx.terms.get(id)!.value);
+  return { score, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
 }
 
 /**
- * A dealt rule's score from its layers' term values (by layer id): the main layer, then the dealt tie-breaker, each
- * negated for "min"; an undefined main layer makes it WORST; the main layer saturates at its top when a tie-breaker
- * follows. evaluateSite makes every score this way, and exact sums that know a rule's terms use it too.
+ * A dealt rule's score from its layers' term values (by layer id): the utilities of the main layer, then the dealt
+ * tie-breaker, each negated for "min", compared lexicographically with no saturation (owner decision 23); an undefined
+ * main layer makes it WORST. evaluateSite makes every score this way, and exact sums that know a rule's terms use it too.
  */
-export function scoreOf<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker: TieBreaker | undefined,
-  value: (layerId: string) => Q | Undef): { score: Score; utility: Score; components: ScoreComponent[] } {
+export function scoreOf<P>(family: RuleFamily<any, P>, tieBreaker: TieBreaker | undefined,
+  value: (layerId: string) => Q | Undef): { score: Score; components: ScoreComponent[] } {
   const layers = ruleLayers(family, tieBreaker);
-  const score: (Q | null)[] = [], utility: (Q | null)[] = [];
+  const score: (Q | null)[] = [];
   const components: ScoreComponent[] = [];
   let worst = false;
   layers.forEach((layer, j) => {
     const v = value(layer.id);
     components.push({ term: layer.id, sense: layer.sense });
-    if (isUndef(v)) { if (j === 0) worst = true; score.push(null); utility.push(null); return; }
-    let c = layer.sense === "max" ? v : neg(v);
-    utility.push(c);
-    // The main layer saturates at its top when a tie-breaker follows: beyond its top it only opens the tie-breaker, so
-    // a state past it must not outrank, or skip the rungs of, the tie-breaker.
-    if (j < layers.length - 1) {
-      const top = topOf(layer, params, variant);
-      if (cmp(c, top) > 0) c = top;
-    }
-    score.push(c);
+    if (isUndef(v)) { if (j === 0) worst = true; score.push(null); return; }
+    score.push(layer.sense === "max" ? v : neg(v));
   });
-  return { score: worst ? null : score, utility: worst ? null : utility, components };
+  return { score: worst ? null : score, components };
 }
 
 export interface ObjectEvaluation {
+  /**
+   * One site: that site's score. Several sites (line-z4): null for now. Per-line bits summed is the provisional plan for
+   * a multi-line object's value, and it comes next.
+   */
   readonly score: Score;
-  /** The site's utilities (Evaluation.utility) on a one-site object; several sites: undefined until PR 2. */
-  readonly utility?: Score;
   /** One evaluation per site (line). */
   readonly sites: readonly Evaluation[];
 }
 
-/**
- * Evaluate a rule on a whole object (spec §4.2, §12.6). One site: that site's score. Several: the sum of the sites'
- * levels on the line ladder, then the sites' primary components, best first. Its ladder is `objectLadder`.
- */
+/** Evaluate a rule on a whole object (spec §4.2, §12.6): every site, and the object's score (ObjectEvaluation.score). */
 export function evaluateObject<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, tieBreaker?: TieBreaker): ObjectEvaluation {
   const k = type.sites(state, variant);
   const sites = Array.from({ length: k }, (_, i) => evaluateSite(type, family, params, state, variant, i, tieBreaker));
-  if (k === 1) return { score: sites[0]!.score, utility: sites[0]!.utility, sites };
-  const ladder = ruleLadder(family, params, variant, tieBreaker);
-  let total = 0n;
-  for (const e of sites) total += BigInt(levelOf(e.score, ladder));
-  const ranked = sites.map(e => e.score).sort((a, b) => compareScores(b, a));
-  const tail: (Q | null)[] = [];
-  for (const s of ranked) if (s !== null) tail.push(s[0]!);
-  return { score: [{ n: total, d: 1n }, ...tail], sites };
-}
-
-/**
- * The ladder an object's score is calibrated and looked up on: the line ladder when the object has one site; with k
- * sites, every total of per-line levels from 1 to k × (the line ladder's top).
- */
-export function objectLadder<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly Rung[] {
-  const ladder = ruleLadder(family, params, variant, tieBreaker);
-  const k = type.sites(type.origin(variant), variant);
-  if (k === 1) return ladder;
-  const top = ladder.length - 1;
-  return [{ score: null, label: "anything", layer: -1 }, ...Array.from({ length: k * top }, (_, i) => ({
-    score: [{ n: BigInt(i + 1), d: 1n }], label: `${i + 1} of ${k * top} steps over the ${k} lines`, layer: 0,
-  }))];
+  return { score: k === 1 ? sites[0]!.score : null, sites };
 }

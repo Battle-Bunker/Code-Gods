@@ -28,11 +28,10 @@ export interface ActInput<S> {
   readonly liveObjects?: number;
   readonly limits?: Partial<ActLimits>;
   readonly economy?: Economy;
-  /** What the offered line is worth to the player now, its recent visible moves and the rule's rung rarities (host.ts). */
+  /** What the offered line is worth to the player now, its recent visible moves and the rule's value function (host.ts). */
   readonly value?: HostInput<S>["value"];
   readonly history?: HostInput<S>["history"];
   readonly values?: HostInput<S>["values"];
-  readonly rungs?: HostInput<S>["rungs"];
 }
 
 export type Outcome = "committed" | "skipped" | "failed";
@@ -77,7 +76,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const economy = input.economy ?? SPEC_ECONOMY;
   const host = new EngineHost({
     type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy,
-    value: input.value, history: input.history, values: input.values, rungs: input.rungs,
+    value: input.value, history: input.history, values: input.values,
   });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));
   const result = await sandbox.act({ source: input.program.source, offer: { object: input.object ?? 0 }, seed: input.seed, host, limits: input.limits });

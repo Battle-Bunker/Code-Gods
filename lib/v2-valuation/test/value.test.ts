@@ -5,9 +5,8 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { compareScores, q, rng, ruleLadder, scoreToWire, type Q, type Score } from "@workspace/v2-core";
-import { lineZ, primeLanding, wholeCrossing } from "@workspace/v2-linear";
+import { compareScores, q, rng, scoreToWire, type Q, type Score } from "@workspace/v2-core";
+import { lineZ, primeLanding } from "@workspace/v2-linear";
 import { knotsFrom, lineValueFunction, massOracle, sampledOracle, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 
 /** A finite law over random scores (some components null), every state's true value by brute force. */
@@ -81,40 +80,6 @@ test("direct draws agree with the exact sums (Prime Landing + m-spf on line-z, s
 
 const scoreFromKnot = (u: (string | null)[]): Score => u.map(x => (x === null ? null : parse(x)));
 const parse = (w: string): Q => { const [n, d] = w.split("/"); return { n: BigInt(n!), d: BigInt(d ?? "1") }; };
-
-/**
- * The continuous value at each old threshold is the old rung value (owner decision 23, check 7), where the old rung is a
- * set of the new order: a main rung "main ≥ t" is S(t, worst tie-breaker); a tie rung at the main layer's top, when that
- * top is the best a main utility can be (a distance's 0), is S(top, t).
- */
-test("old rung values are the value function at the old thresholds (exact families on line-z)", () => {
-  const cases = [{ family: primeLanding, tb: "big-prime" }, { family: wholeCrossing, tb: "k-spf" }];
-  for (const { family, tb } of cases) {
-    const p = family.dealable(lineZ)[0]!;
-    const vf = lineValueFunction(family as never, p, lineZ, { tieBreaker: tb, config: { drawsPerTilt: 0, delta: 0 } });
-    const look = valueLookup(vf);
-    const dir = new URL(`../artefacts/line-z/${family.id}/`, import.meta.url);
-    const old = JSON.parse(readFileSync(new URL(readdirSync(dir).find(f => f.endsWith(`-${tb}.json`))!, dir), "utf8"));
-    const ladder = ruleLadder(family as never, p, lineZ, tb);
-    const top = ladder.filter(r => r.layer === 0).at(-1)!.score![0]!;
-    let checked = 0;
-    ladder.forEach((r, i) => {
-      const rung = old.rungs[i];
-      if (!rung || rung.source !== "exact" || r.score === null || !Number.isFinite(rung.bits)) return;
-      const atTop = r.layer === 1 && compareScores([r.score[0]!], [top]) === 0;
-      if (r.layer === 0) {
-        const v = look([r.score[0]!, null]);
-        assert.ok(Math.abs(v.bits - rung.bits) <= Math.max(0.02 * rung.bits, 0.03), `${family.id} ${r.label}: ${v.bits} against ${rung.bits}`);
-        checked++;
-      } else if (atTop && family.main.sense === "min" && r.score[0]!.n === 0n) {
-        const v = look(r.score);
-        assert.ok(Math.abs(v.bits - rung.bits) <= Math.max(0.02 * rung.bits, 0.03), `${family.id} ${r.label}: ${v.bits} against ${rung.bits}`);
-        checked++;
-      }
-    });
-    assert.ok(checked >= 8, `${family.id}: ${checked} rungs compared`);
-  }
-});
 
 test("a lookup beyond the best knot is extrapolated upward and never below the best knot's certified floor", () => {
   const { states } = finiteLaw("tail", 400);
