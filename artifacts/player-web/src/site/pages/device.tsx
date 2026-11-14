@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation } from "convex/react";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { Link } from "wouter";
 import { Page } from "@/site/components/layout";
 import { ErrorLine } from "@/site/components/page-parts";
@@ -20,6 +20,12 @@ const countdown = (ms: number) => { const s = Math.max(0, Math.round(ms / 1000))
  * self-reported requester, the countdown, and for owner access the warning and consent), Approve and Deny.
  */
 export default function Device() {
+  useEffect(() => { document.title = "Approve a device · Code Gods"; }, []);
+  // The affordances (approve, deny) need the runtime <Page> provides, so the body is rendered inside it.
+  return <Page crumbs={[{ label: "Approve a device" }]}><DeviceBody /></Page>;
+}
+
+function DeviceBody() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const initial = new URLSearchParams(window.location.search).get("code") ?? "";
   const [code, setCode] = useState(normal(initial));
@@ -29,13 +35,12 @@ export default function Device() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [now, setNow] = useState(Date.now());
-  const approve = useMutation(api.auth.device.approve);
-  const deny = useMutation(api.auth.device.deny);
+  const approve = useAffordance("account.approveConnection");
+  const deny = useAffordance("account.denyConnection");
   const reviewing = isAuthenticated && !!reviewedCode && reviewedCode === normal(code) && !result;
   const details = useLive(api.auth.device.pending, reviewing ? { userCode: reviewedCode } : "skip");
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, []);
   useEffect(() => { setOwnerConsent(false); }, [code, user?.id]);
-  useEffect(() => { document.title = "Approve a device · Code Gods"; }, []);
   const d = reviewing ? details.data : undefined;
   const expires = d ? d.expiresAt : NaN;
   const ownerBlocker = d ? ownerApprovalBlocker(d.status, expires, now, d.canApprove) : null;
@@ -44,11 +49,10 @@ export default function Device() {
   const decide = (action: "approved" | "denied") => {
     if (!d || !canDecide || (action === "approved" && !canApprove)) return;
     setPending(true); setError(null);
-    const call = action === "approved" ? approve({ userCode: d.userCode, ...(d.permission === "owner" ? { ownerConsent: true } : {}) }) : deny({ userCode: d.userCode });
+    const call = action === "approved" ? approve.run({ request: d.userCode, grant: d.permission as "read" | "act" | "owner", ...(d.permission === "owner" ? { ownerConsent: true } : {}) }) : deny.run({ request: d.userCode });
     call.then(() => setResult(action), setError).finally(() => setPending(false));
   };
   return (
-    <Page crumbs={[{ label: "Approve a device" }]}>
       <div className="mx-auto max-w-lg px-4 py-14 rise">
         <h1 className="font-display text-5xl">Approve a device</h1>
         <p className="text-muted-foreground mt-3">Approve only if you started this and the code matches your client.</p>
@@ -105,7 +109,6 @@ export default function Device() {
           </form>
         )}
       </div>
-    </Page>
   );
 }
 
