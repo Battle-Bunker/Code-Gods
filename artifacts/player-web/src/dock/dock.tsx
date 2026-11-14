@@ -1,137 +1,68 @@
 /**
  * The game screen's dock: the panes the human has open (their view state's `panes`, or the phase's defaults: v2-client
- * `shownPanes`), each in its own frame with its own error boundary (ux-lessons 4.1: a failed pane takes down only
- * itself). Desktop (≥ 768 px): columns left, main, right and a bottom row. Phone: one column in reading order, no
- * inner scroller taller than the screen allows (ux-lessons 5.1). A pane's menu moves or closes it through the same view
- * affordances an assistant uses.
+ * `shownPanes`), each with its own error boundary. Desktop (≥ 768 px): dockview columns, rows and tabs laid out by the
+ * view state's arrangement (desktop.tsx, loaded only there). Phone: one column in reading order, no inner scroller
+ * taller than the screen allows (ux-lessons 5.1), with a row of the panes' names that jumps to any of them.
  */
-import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { MoreHorizontal, X } from "lucide-react";
-import { useAffordance } from "@workspace/v2-affordances/react";
-import { PANES, PANE_IDS, columns, isPaneId, paneTitle, readingOrder, shownPanes, storedSlugOf, type GamePhase, type OpenPane } from "@workspace/v2-client";
-import type { Place } from "@workspace/v2-affordances";
-import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from "react";
+import { readingOrder, shownPanes, storedSlugOf, type GamePhase } from "@workspace/v2-client";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
-import { api, useLive } from "@/site/lib/convex";
-import { onReveal, usePaneOps } from "./open-pane";
+import { onReveal } from "./open-pane";
+import { DockScopeContext, PaneBody, PaneHeader, usePaneName, type PaneComponents, type StoredPaneComponent } from "./pane-parts";
 
-export type PaneComponents = Partial<Record<string, () => ReactNode>>;
-/** A stored panel's pane (`panel:<slug>`). */
-export type StoredPaneComponent = (props: { slug: string }) => ReactNode;
+export type { PaneComponents, StoredPaneComponent } from "./pane-parts";
 
-/**
- * Pane names: a pane's definition's title, or a stored panel's own title from the viewer's panel list (one shared
- * subscription; a failed read shows the slug, never the dock's error).
- */
-function usePaneName(): (pane: string) => string {
-  const panels = useLive(api.v2.panels.list, {}).data;
-  return useCallback((pane: string) => {
-    const slug = storedSlugOf(pane);
-    return slug ? panels?.find(p => p.slug === slug)?.title ?? slug : paneTitle(pane);
-  }, [panels]);
-}
+const DesktopDock = lazy(() => import("./desktop"));
 
-function PaneError({ error, resetError }: ErrorFallbackProps) {
-  return (
-    <div className="p-4 text-sm space-y-2" data-testid="pane-error" role="alert">
-      <p className="text-destructive">This pane could not load: {error instanceof Error ? error.message : String(error)}</p>
-      <button type="button" className="underline underline-offset-4" onClick={resetError}>Try again</button>
-    </div>
-  );
-}
-
-const PLACES: { place: Place; label: string }[] = [
-  { place: "main", label: "Move to the middle" }, { place: "left", label: "Move to the left" },
-  { place: "right", label: "Move to the right" }, { place: "bottom", label: "Move to the bottom" },
-];
-
-function PaneMenu({ pane, phase, open }: { pane: string; phase: GamePhase; open: OpenPane[] }) {
-  const move = useAffordance("view.movePane");
-  const close = useAffordance("view.closePane");
-  const ops = usePaneOps(phase);
+function StackedDock({ panes }: { panes: string[] }) {
   const name = usePaneName();
-  const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object");
+  const scroller = useRef<HTMLDivElement>(null);
+  const jump = useCallback((pane: string) => {
+    scroller.current?.querySelector<HTMLElement>(`section[data-pane="${CSS.escape(pane)}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, []);
+  useEffect(() => onReveal(jump), [jump]);
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" className="p-1 text-muted-foreground hover:text-foreground" aria-label={`Options for ${name(pane)}`} data-testid={`button-pane-menu-${pane}`}><MoreHorizontal className="h-4 w-4" /></button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[14rem]">
-        {PLACES.map(p => <DropdownMenuItem key={p.place} disabled={!move.available} onSelect={() => void ops.open(pane, p.place)}>{p.label}</DropdownMenuItem>)}
-        <DropdownMenuItem disabled={!close.available} onSelect={() => void ops.close(pane)} data-testid={`button-close-pane-${pane}`}>Close</DropdownMenuItem>
-        {others.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Open another pane</DropdownMenuLabel></>}
-        {others.map(id => <DropdownMenuItem key={id} onSelect={() => void ops.open(id)} data-testid={`button-open-pane-${id}`}>{PANES[id].title}</DropdownMenuItem>)}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function PaneFrame({ pane, phase, open, body, grow }: { pane: string; phase: GamePhase; open: OpenPane[]; body: ReactNode; grow?: boolean }) {
-  const def = isPaneId(pane) ? PANES[pane] : null;
-  const close = useAffordance("view.closePane");
-  const ops = usePaneOps(phase);
-  const name = usePaneName();
-  return (
-    <section data-pane={pane} data-testid={`pane-${pane}`} aria-label={name(pane)}
-      className={`flex min-h-0 flex-col border border-[hsl(var(--card-border))] bg-card ${grow ? "flex-1" : ""}`}>
-      <header className="flex items-center gap-2 border-b border-[hsl(var(--card-border))] px-3 py-1.5">
-        <h2 className="flex-1 truncate text-sm font-semibold" title={def?.blurb}>{name(pane)}</h2>
-        <PaneMenu pane={pane} phase={phase} open={open} />
-        {pane === "object" && close.available && <button type="button" aria-label="Close" className="p-1 text-muted-foreground hover:text-foreground" onClick={() => void ops.close(pane)}><X className="h-4 w-4" /></button>}
-      </header>
-      <div className="min-h-0 flex-1 overflow-auto">
-        <ErrorBoundary FallbackComponent={PaneError} resetKey={pane}>{body}</ErrorBoundary>
+    <div ref={scroller} className="h-full overflow-y-auto overflow-x-hidden" data-testid="dock-stacked">
+      {/* A phone stacks the panes; a long pane (the act log) must never trap the scroll, so each pane is shorter than
+          the screen and a row of the panes' names jumps to any of them. */}
+      <nav className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b bg-background/95 px-2 py-1.5" aria-label="Jump to a pane" data-testid="dock-jump">
+        {panes.map(p => (
+          <button key={p} type="button" className="shrink-0 border px-2 py-0.5 text-xs" data-testid={`button-jump-${p}`} onClick={() => jump(p)}>{name(p)}</button>
+        ))}
+      </nav>
+      <div className="space-y-2 p-2">
+        {panes.map(p => (
+          <div key={p} className="max-h-[60dvh] min-h-[200px] flex scroll-mt-10">
+            <section data-pane={p} data-testid={`pane-${p}`} aria-label={name(p)} className="flex min-h-0 flex-1 flex-col border border-[hsl(var(--card-border))] bg-card">
+              <PaneHeader pane={p} className="border-b border-[hsl(var(--card-border))]" />
+              <PaneBody pane={p} />
+            </section>
+          </div>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }
 
 export function Dock({ phase, panes: components, stored: Stored }: { phase: GamePhase; panes: PaneComponents; stored?: StoredPaneComponent }) {
   const view = useView();
   const wide = useWide();
-  const open = shownPanes(view, phase);
-  const name = usePaneName();
-  const scroller = useRef<HTMLDivElement>(null);
-  useEffect(() => onReveal(pane => {
-    const el = scroller.current?.querySelector<HTMLElement>(`section[data-pane="${pane}"]`);
-    el?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }), []);
-  const body = (pane: string) => {
-    const slug = storedSlugOf(pane);
-    if (slug && Stored) return <Stored slug={slug} />;
-    const C = components[pane];
-    return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
-  };
-  const frame = (pane: string, grow?: boolean) => <PaneFrame key={pane} pane={pane} phase={phase} open={open} body={body(pane)} grow={grow} />;
-  if (!wide) {
-    return (
-      <div ref={scroller} className="h-full overflow-y-auto overflow-x-hidden" data-testid="dock-stacked">
-        {/* A phone stacks the panes; a long pane (the act log) must never trap the scroll, so each pane is shorter than
-            the screen and a row of the panes' names jumps to any of them. */}
-        <nav className="sticky top-0 z-10 flex gap-1 overflow-x-auto border-b bg-background/95 px-2 py-1.5" aria-label="Jump to a pane" data-testid="dock-jump">
-          {readingOrder(open).map(p => (
-            <button key={p} type="button" className="shrink-0 border px-2 py-0.5 text-xs" data-testid={`button-jump-${p}`}
-              onClick={() => scroller.current?.querySelector<HTMLElement>(`section[data-pane="${p}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" })}>
-              {name(p)}
-            </button>
-          ))}
-        </nav>
-        <div className="space-y-2 p-2">{readingOrder(open).map(p => <div key={p} className="max-h-[60dvh] min-h-[200px] flex scroll-mt-10">{frame(p, true)}</div>)}</div>
-      </div>
-    );
-  }
-  const c = columns(open);
-  const col = (panes: string[], cls: string) => panes.length > 0 && <div className={`flex min-h-0 flex-col gap-2 ${cls}`}>{panes.map(p => frame(p, true))}</div>;
+  const open = useMemo(() => shownPanes(view, phase), [view, phase]);
+  const scope = useMemo(() => ({
+    phase, open,
+    body: (pane: string) => {
+      const slug = storedSlugOf(pane);
+      if (slug && Stored) return <Stored slug={slug} />;
+      const C = components[pane];
+      return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
+    },
+  }), [phase, open, components, Stored]);
   return (
-    <div ref={scroller} className="flex h-full min-h-0 flex-col gap-2 p-2" data-testid="dock-desktop">
-      <div className="flex min-h-0 flex-[3] gap-2">
-        {col(c.left, "w-[26%] min-w-[260px]")}
-        {col(c.main, "min-w-0 flex-1")}
-        {col(c.right, "w-[30%] min-w-[280px]")}
-      </div>
-      {c.bottom.length > 0 && <div className="flex min-h-[180px] flex-[2] gap-2">{c.bottom.map(p => <div key={p} className="flex min-w-0 flex-1">{frame(p, true)}</div>)}</div>}
-    </div>
+    <DockScopeContext.Provider value={scope}>
+      {wide
+        ? <Suspense fallback={<div className="h-full" data-testid="dock-loading" />}><DesktopDock phase={phase} /></Suspense>
+        : <StackedDock panes={readingOrder(open)} />}
+    </DockScopeContext.Provider>
   );
 }

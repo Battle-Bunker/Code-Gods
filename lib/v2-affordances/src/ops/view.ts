@@ -6,6 +6,7 @@
 import { z } from "zod/v4";
 import { affordance, id, obj, rep } from "../define.ts";
 import { CONTEXTS, IN_GAME, IN_ROOM } from "../types.ts";
+import { DOCK_KINDS, DOCK_LIMITS } from "../dock.ts";
 
 const GAME = [...IN_GAME, "ended", "replay"] as const;
 const pane = z.string().min(1).max(60).describe('A pane id, e.g. "objects", "agents", "forge", "rules", "my-panels", or "panel:<slug>" for one of the human\'s stored panels.');
@@ -31,6 +32,20 @@ export const viewOps = [
     description: "Moves an open pane to another place on the human's screen.", tooltip: "Rearrange the screen.", keywords: ["move", "dock", "arrange", "layout"],
     params: obj({ pane, place }), result: done,
     contexts: IN_ROOM, caller: "member", effect: "write", confirm: "none", runs: "client",
+  }),
+  affordance({
+    id: "view.arrangeDock", title: "Arrange the dock", group: "view", scope: "room",
+    description: "Sets how the panes of one game screen are laid out on the human's desktop (kept for the room and every device; the phone stacks panes). "
+      + "Text form: row(...) side by side, column(...) one above the other, a number after a child is its weight (a share, not pixels), "
+      + "a|b is one group with tabs a and b, * marks the tab shown. Example: row(column(my-card 50, agents 50) 28, objects 42, column(feed 55, race|*public-chat 45) 30). "
+      + "Panes it leaves out keep their default place; panes it names that are not open are ignored. Empty text restores the screen's default arrangement.",
+    tooltip: "Lay out the screen.", keywords: ["arrange", "layout", "dock", "resize", "split", "tabs", "columns"],
+    params: obj({
+      dock: z.string().max(DOCK_LIMITS.text).describe("The arrangement in the text form above, or empty for the default."),
+      phase: z.enum(DOCK_KINDS).optional().describe("Which screen's arrangement: planning, live (also when paused), ended or replay; omit for the screen in view."),
+    }),
+    result: done,
+    contexts: GAME, caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "view.pinRepresentation", title: "Show objects in a representation", group: "view", scope: "room",

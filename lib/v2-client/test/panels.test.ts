@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EMPTY_VIEW } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, MAX_PANES, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf } from "../src/panels.ts";
+import { closePlan, columns, defaultPanes, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf } from "../src/panels.ts";
 
 test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
   // Catches: shownPanes dropping a stored panel's pane as an unknown id, so "Open as a pane" shows nothing.
@@ -11,7 +11,7 @@ test("a stored panel opens as a pane of its own in every phase, and keeps its sl
   assert.equal(storedSlugOf("objects"), null);
   assert.equal(storedSlugOf("panel:"), null);
   for (const phase of ["planning", "live", "ended", "replay"] as const) {
-    const own = { panes: [...defaultPanes(phase), { pane, place: "right" as const }].slice(-MAX_PANES) };
+    const own = { panes: [...defaultPanes(phase), { pane, place: "right" as const }] };
     assert.ok(shownPanes(own, phase).some(p => p.pane === pane), phase);
   }
   assert.equal(paneTitle(pane), "my-stats");
@@ -34,23 +34,24 @@ test("after the end the results are shown first even when not open", () => {
   assert.equal(shownPanes(own, "ended")[0]!.pane, "results");
 });
 
-test("opening a pane on an empty view keeps the defaults first", () => {
-  const plan = openPlan(EMPTY_VIEW, "planning", "public-chat");
-  assert.deepEqual(plan.ops.map(o => o.args.pane), [...defaultPanes("planning").map(p => p.pane), "public-chat"]);
-  assert.ok(plan.ops.every(o => o.id === "view.openPane"));
-  assert.equal(plan.replaced, null);
+test("opening a pane on an empty view keeps the defaults first, and the pane joins at its home", () => {
+  const ops = openPlan(EMPTY_VIEW, "planning", "public-chat");
+  assert.deepEqual(ops.map(o => o.args.pane), [...defaultPanes("planning").map(p => p.pane), "public-chat"]);
+  assert.ok(ops.every(o => o.id === "view.openPane"));
+  assert.deepEqual(ops.at(-1)!.args, { pane: "public-chat", place: "right" });
 });
 
-test("opening beyond the maximum replaces the oldest and says which (ux 5.4)", () => {
-  const full = { panes: defaultPanes("live") };
-  assert.equal(full.panes.length, MAX_PANES);
-  const plan = openPlan(full, "live", "public-chat");
-  assert.equal(plan.replaced, "objects");
-  assert.deepEqual(plan.ops.map(o => o.id), ["view.closePane", "view.openPane"]);
+test("opening a pane never closes another (round 1: One line evicted What just changed)", () => {
+  const full = { panes: [...defaultPanes("live"), { pane: "object", place: "main" as const }, { pane: "public-chat", place: "right" as const }] };
+  for (const pane of ["rules", "assistant", "others-care", "points-over-time"]) {
+    const ops = openPlan(full, "live", pane);
+    assert.deepEqual(ops.map(o => o.id), ["view.openPane"], pane);
+  }
+  assert.equal(shownPanes({ panes: [...full.panes, { pane: "rules", place: "main" }] }, "live").length, 8);
 });
 
-test("an open pane is not opened twice", () => {
-  assert.deepEqual(openPlan({ panes: [{ pane: "feed", place: "right" }] }, "live", "feed").ops, []);
+test("opening an open pane brings it to the front of its tab group, without opening it twice", () => {
+  assert.deepEqual(openPlan({ panes: [{ pane: "feed", place: "right" }] }, "live", "feed"), [{ id: "view.openPane", args: { pane: "feed" } }]);
 });
 
 test("the middle is never empty, and a phone reads main first", () => {
@@ -64,7 +65,6 @@ test("an arrangement made in planning meets the world's defaults when the world 
   const live = shownPanes(planning, "live").map(p => p.pane);
   assert.ok(live.includes("objects") && live.includes("feed"), "the lines and the act log appear");
   assert.ok(live.includes("forge"), "the player's own pane stays");
-  assert.ok(live.length <= MAX_PANES);
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
 
@@ -73,8 +73,7 @@ test("a pane an assistant opened on an empty view joins the phase's defaults ins
   const opened = { panes: [{ pane: "rules", place: "main" as const }] };
   assert.deepEqual(shownPanes(opened, "planning").map(p => p.pane), [...defaultPanes("planning").map(p => p.pane), "rules"]);
   const live = shownPanes(opened, "live");
-  assert.equal(live.length, MAX_PANES);
-  assert.equal(live.at(-1)!.pane, "rules", "the pane asked for stays");
+  assert.deepEqual(live.map(p => p.pane), [...defaultPanes("live").map(p => p.pane), "rules"], "the pane asked for joins the defaults");
   // A human's own arrangement that keeps one default is theirs as it is.
   const own = { panes: [{ pane: "my-card", place: "main" as const }, { pane: "rules", place: "left" as const }] };
   assert.deepEqual(shownPanes(own, "planning"), own.panes);
@@ -88,20 +87,28 @@ test("an arrangement made after a game's end meets the planning defaults when th
   assert.ok(planning.includes("assistant"), "the player's own pane stays");
 });
 
-test("more panes than the maximum, stored by another client or an assistant, show the newest", () => {
+test("every stored pane shows: nothing is dropped to make room", () => {
   const panes = ["objects", "my-card", "feed", "agents", "race", "rules"].map(pane => ({ pane, place: "main" as const }));
-  assert.deepEqual(shownPanes({ panes }, "live").map(p => p.pane), ["my-card", "feed", "agents", "race", "rules"]);
+  assert.deepEqual(shownPanes({ panes }, "live").map(p => p.pane), ["objects", "my-card", "feed", "agents", "race", "rules"]);
+});
+
+test("an arrangement made during a game meets the planning defaults when the next game starts", () => {
+  // Catches: the next game's planning without the agent code, from an arrangement made while the world ran.
+  const live = { panes: [...defaultPanes("live"), { pane: "public-chat", place: "right" as const }] };
+  const planning = shownPanes(live, "planning").map(p => p.pane);
+  for (const d of defaultPanes("planning")) assert.ok(planning.includes(d.pane), d.pane);
 });
 
 test("closing a default pane keeps the other defaults", () => {
   const ops = closePlan({ panes: [] }, "live", "race");
   assert.deepEqual(ops.at(-1), { id: "view.closePane", args: { pane: "race" } });
   assert.equal(ops.filter(o => o.id === "view.openPane").length, defaultPanes("live").length);
+  assert.deepEqual(closePlan({ panes: defaultPanes("live") }, "live", "race"), [{ id: "view.closePane", args: { pane: "race" } }], "stored panes are not closed and reopened (their dock place stays)");
 });
 
 test("moving an open pane is one move", () => {
   const view = { panes: defaultPanes("live") };
-  assert.deepEqual(openPlan(view, "live", "feed", "left").ops, [{ id: "view.movePane", args: { pane: "feed", place: "left" } }]);
+  assert.deepEqual(openPlan(view, "live", "feed", "left"), [{ id: "view.movePane", args: { pane: "feed", place: "left" } }]);
 });
 
 test("the others-care, points-over-time and rules panes are offered where they have something to show", () => {
@@ -131,14 +138,13 @@ test("in a replay the replay's own entry is never drawn, the replay's defaults s
 test("arranging panes in a replay keeps the replay open", () => {
   // Catches: keepShown closing the replay's entry (view.closePane "replay" ends the replay) when a pane is opened.
   const opened = { panes: [{ pane: "replay", place: "main" as const }] };
-  for (const ops of [openPlan(opened, "replay", "public-chat").ops, closePlan(opened, "replay", "race")]) {
+  for (const ops of [openPlan(opened, "replay", "public-chat"), closePlan(opened, "replay", "race")]) {
     assert.ok(!ops.some(o => o.args.pane === "replay"), JSON.stringify(ops));
   }
   const arranged = { panes: [{ pane: "replay", place: "main" as const }, ...defaultPanes("replay")] };
-  assert.deepEqual(openPlan(arranged, "replay", "feed").ops, [], "an arrangement equal to what is shown needs no ops");
+  assert.deepEqual(closePlan(arranged, "replay", "feed"), [{ id: "view.closePane", args: { pane: "feed" } }], "an arrangement equal to what is shown needs no other ops");
 });
 
-test("opening one line from a full screen keeps the list it was opened from", () => {
-  const plan = openPlan({ panes: defaultPanes("live") }, "live", "object");
-  assert.equal(plan.replaced, "my-card");
+test("opening one line keeps every pane", () => {
+  assert.deepEqual(openPlan({ panes: defaultPanes("live") }, "live", "object"), [{ id: "view.openPane", args: { pane: "object", place: "main" } }]);
 });

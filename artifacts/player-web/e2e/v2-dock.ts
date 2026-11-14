@@ -1,0 +1,187 @@
+/**
+ * The desktop dock gives every open pane a usable size (playtest round 1, item 1), against the LIVE local engine. At
+ * 1440×900 and 1280×720, in a practice game:
+ *   planning, live and ended: every pane of the default arrangement has a body at least 300 px wide and 220 px tall and
+ *   its key element (the goal card's rule, the lines' sort, the act log, the agents' power, the leaderboard's chart,
+ *   the results' "Watch the replay") lies wholly inside the pane, inside the window → opening One line keeps What just
+ *   changed and the lines in view → a dragged gutter is stored and comes back after a reload.
+ * At 390×844 the phone stays stacked, and the forge's "Open My agents" adds My agents to the stack (every other pane
+ * stays in the jump row) and scrolls to it (a persona walk saw it replace the stack with Lines).
+ *
+ *   pnpm --filter @workspace/player-web run e2e:dock        (SKIP_DEPLOY=1 reuses the uploaded build)
+ */
+import "../../engine/scripts/local-only.mjs";
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { ConvexHttpClient } from "convex/browser";
+
+const require = createRequire(import.meta.url);
+const { chromium } = require("playwright");
+type Page = any;
+type Box = { x: number; y: number; width: number; height: number };
+
+const SITE = process.env.CODE_GODS_SITE_URL ?? `http://127.0.0.1:${process.env.CONVEX_LOCAL_SITE_PORT ?? "3211"}`;
+const CLOUD = `http://127.0.0.1:${process.env.CONVEX_LOCAL_CLOUD_PORT ?? "3210"}`;
+const ROOT = path.resolve(import.meta.dirname, "../../..");
+const shots = process.env.SHOTS_DIR ?? path.join(import.meta.dirname, "shots");
+mkdirSync(shots, { recursive: true });
+
+if (!process.env.SKIP_DEPLOY) {
+  const deploy = spawnSync("pnpm", ["--filter", "@workspace/engine", "run", "deploy-static"], { cwd: ROOT, stdio: "inherit" });
+  assert.equal(deploy.status, 0, "deploy-static failed");
+}
+
+async function signIn(browser: any, who: string, viewport: { width: number; height: number }) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (e: Error) => errors.push(e.message));
+  await page.goto(`${SITE}/`);
+  await page.getByTestId("button-login").waitFor();
+  const url = await page.evaluate(async () => {
+    const r = await fetch("/api/auth/sign-in/oauth2", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ providerId: "fake", callbackURL: "/" }) });
+    return ((await r.json()) as { url: string }).url;
+  });
+  await page.goto(url);
+  await page.getByRole("link", { name: new RegExp(`\\(${who}\\)`) }).click();
+  await page.waitForURL(`${SITE}/`);
+  await page.getByTestId("button-avatar").waitFor();
+  return { context, page, errors };
+}
+
+/** A practice game in a new room, shortened through the owner's own session (room.settings). */
+async function practiceGame(page: Page, worldSeconds: number) {
+  await page.getByTestId("button-create-room").first().click();
+  await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+  const code = page.url().split("/").at(-1)!;
+  const token = await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token);
+  const client = new ConvexHttpClient(CLOUD);
+  client.setAuth(token);
+  const found = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
+  const out = await client.mutation("v2/ops/room:settings" as never, { args: { overrides: { planningSeconds: 60, worldSeconds } }, roomId: found.roomId } as never) as { ok: boolean; error?: { message: string } };
+  assert.ok(out.ok, `room.settings: ${out.error?.message}`);
+  await page.getByTestId("button-practice-game").click();
+  await page.waitForURL(/\/games\//, { timeout: 30_000 });
+}
+
+const inside = (inner: Box, outer: Box, slack = 1) =>
+  inner.x >= outer.x - slack && inner.y >= outer.y - slack && inner.x + inner.width <= outer.x + outer.width + slack && inner.y + inner.height <= outer.y + outer.height + slack;
+
+/** The key element of each pane: what a player must see without scrolling. */
+const KEY: Record<string, string> = {
+  overview: "[data-testid=text-next-step]",
+  "my-card": "[data-testid=text-rule-parts]",
+  forge: "[data-testid=select-forge-language]",
+  objects: "[data-testid=lines-sort]",
+  object: "[data-testid=text-line-points]",
+  feed: "[data-testid=feed] > *:first-child, [data-testid=feed-empty]",
+  agents: "[data-testid=text-own-power], [data-testid=agents-empty]",
+  race: "[data-testid=race-chart], [data-testid=race-empty]",
+  results: "[data-testid=button-watch-replay]",
+};
+
+/** Every pane named is on screen with a usable body, and its key element is wholly inside it. */
+async function usable(page: Page, panes: string[], what: string) {
+  const viewport = page.viewportSize() as { width: number; height: number };
+  const screen = { x: 0, y: 0, width: viewport.width, height: viewport.height };
+  for (const pane of panes) {
+    const section = page.getByTestId(`pane-${pane}`);
+    await section.waitFor({ timeout: 20_000 });
+    const box = await section.boundingBox() as Box;
+    assert.ok(box.width >= 300 && box.height >= 220, `${what}: ${pane}'s body is ${Math.round(box.width)}×${Math.round(box.height)} px`);
+    assert.ok(inside(box, screen), `${what}: ${pane} is inside the window (${JSON.stringify(box)})`);
+    const key = section.locator(KEY[pane]!).first();
+    await key.waitFor({ timeout: 30_000 });
+    const k = await key.boundingBox() as Box;
+    assert.ok(inside(k, box), `${what}: ${pane}'s key element (${KEY[pane]}) is cut: ${JSON.stringify(k)} in ${JSON.stringify(box)}`);
+  }
+}
+
+const dockText = (page: Page) => page.getByTestId("dock-desktop").getAttribute("data-dock") as Promise<string>;
+const weights = (text: string) => (text.match(/ \d+(\.\d+)?/g) ?? []).map(Number);
+
+const browser = await chromium.launch();
+try {
+  for (const [who, viewport] of [["alice", { width: 1440, height: 900 }], ["carol", { width: 1280, height: 720 }]] as const) {
+    const label = `${viewport.width}×${viewport.height}`;
+    const { context, page, errors } = await signIn(browser, who, viewport);
+    await practiceGame(page, 45);
+    await page.getByTestId("dock-desktop").waitFor();
+    await usable(page, ["overview", "my-card", "forge"], `${label} planning`);
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-planning.png`) });
+
+    await page.getByTestId("button-summon-first").click();
+    await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
+    const startNow = page.getByTestId("button-start-world");
+    if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
+    await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
+    await page.locator("[data-testid^=marks-line-]").first().waitFor({ timeout: 30_000 });
+    await usable(page, ["my-card", "objects", "feed", "agents", "race"], `${label} live`);
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-live.png`) });
+    console.log(`${label}: planning and live defaults usable: ${await dockText(page)}`);
+
+    // One line opens below the lines; nothing leaves the screen.
+    await page.locator("[data-testid^=row-line-]").first().click();
+    await usable(page, ["object", "objects", "feed", "my-card", "agents", "race"], `${label} one line`);
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-one-line.png`) });
+
+    // A dragged gutter is the human's arrangement: stored for the room, and back after a reload.
+    const before = await dockText(page);
+    const sash = page.locator(".dv-split-view-container.dv-horizontal > .dv-sash-container > .dv-sash").first();
+    const s = await sash.boundingBox() as Box;
+    await page.mouse.move(s.x + s.width / 2, s.y + s.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(s.x + s.width / 2 + 60, s.y + s.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForFunction((b: string) => document.querySelector("[data-testid=dock-desktop]")?.getAttribute("data-dock") !== b, before, { timeout: 10_000 });
+    const dragged = await dockText(page);
+    assert.ok(weights(dragged)[0]! > weights(before)[0]! + 2, `the left column grew: ${before} → ${dragged}`);
+    await page.waitForTimeout(1500);
+    await page.reload();
+    await page.getByTestId("pane-object").waitFor({ timeout: 30_000 });
+    const after = await dockText(page);
+    assert.equal(after, dragged, "the arrangement is stored and comes back after a reload");
+    console.log(`${label}: dragged and kept across a reload: ${after}`);
+
+    await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
+    await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
+    await usable(page, ["results", "my-card", "race"], `${label} ended`);
+    await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
+    assert.deepEqual(errors, [], `${label}: page errors`);
+    await context.close();
+  }
+
+  // The phone stays stacked; opening a pane from inside another adds it and scrolls to it.
+  {
+    const { context, page, errors } = await signIn(browser, "bob", { width: 390, height: 844 });
+    await practiceGame(page, 45);
+    await page.getByTestId("dock-stacked").waitFor();
+    assert.equal(await page.getByTestId("dock-desktop").count(), 0, "no desktop dock on a phone");
+    const jumps = async () => (await page.locator("[data-testid^=button-jump-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")!.slice("button-jump-".length))));
+    const first = await jumps();
+    assert.ok(first.includes("forge") && first.includes("my-card"), first.join());
+    await page.getByTestId("button-summon-first").click();
+    await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
+    const open = page.getByTestId("button-open-agents");
+    if (await open.count()) {
+      await open.click();
+      await page.getByTestId("pane-agents").waitFor();
+      const now = await jumps();
+      for (const p of first) assert.ok(now.includes(p), `${p} stays after opening My agents: ${now.join()}`);
+      assert.ok(now.includes("agents"), now.join());
+      await page.waitForTimeout(800);   // the smooth scroll
+      const box = await page.getByTestId("pane-agents").boundingBox() as Box;
+      assert.ok(box.y >= 0 && box.y < 844 / 2, `the phone scrolled to My agents (top at ${box.y})`);
+      console.log(`phone: Open My agents kept ${now.join(", ")} and scrolled to it`);
+    } else console.log("phone: SKIPPED Open My agents (the forge status offered no link)");
+    await page.screenshot({ path: path.join(shots, "dock-phone.png") });
+    assert.deepEqual(errors, [], "phone: page errors");
+    await context.close();
+  }
+  console.log("v2-dock: ok");
+} finally {
+  await browser.close();
+}

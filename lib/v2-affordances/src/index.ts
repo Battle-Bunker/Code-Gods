@@ -7,3 +7,4 @@ export * from "./doc.ts";
 export * from "./server.ts";
 export * from "./mcp.ts";
 export * from "./layout.ts";
+export * from "./dock.ts";

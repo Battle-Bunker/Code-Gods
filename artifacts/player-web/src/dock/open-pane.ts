@@ -1,12 +1,13 @@
 /**
  * Opening, moving and closing panes from the app (the next step's "Summon my first agent", a pane's menu, the
  * palette): the same view affordances an assistant uses, in the order v2-client's plans give, so the panes on screen
- * stay (the defaults are stored first when the human had none of their own), the oldest pane is replaced at the
- * maximum and the player is told which (ux-lessons 5.4). An opened pane is brought into view.
+ * stay (the defaults are stored first when the human had none of their own) and nothing is closed to make room: on a
+ * desktop an opened pane joins the dock in front of its tab group. An opened pane is brought into view (a phone
+ * scrolls to it).
  */
 import { useCallback, useMemo } from "react";
 import type { Place } from "@workspace/v2-affordances";
-import { closePlan, openPlan, paneTitle, type GamePhase, type ViewOp } from "@workspace/v2-client";
+import { closePlan, openPlan, type GamePhase, type ViewOp } from "@workspace/v2-client";
 import { useRuntime, useView } from "@/core/affordance-runtime";
 import { toast } from "@/hooks/use-toast";
 
@@ -31,9 +32,7 @@ export function usePaneOps(phase: GamePhase): PaneOps {
     return true;
   }, [rt]);
   const open = useCallback(async (pane: string, place?: Place) => {
-    const plan = openPlan(view, phase, pane, place);
-    if (!await runOps(plan.ops)) return false;
-    if (plan.replaced) toast({ title: `Opened ${paneTitle(pane)}`, description: `It replaced ${paneTitle(plan.replaced)} (at most five panes at once). Open it again from a pane's menu.` });
+    if (!await runOps(openPlan(view, phase, pane, place))) return false;
     requestAnimationFrame(() => { for (const l of listeners) l(pane); });
     return true;
   }, [view, phase, runOps]);
