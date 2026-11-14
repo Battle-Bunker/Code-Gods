@@ -12,20 +12,39 @@ want you to plot the path all the way to a working GUI app with all existing fun
 first followed by grids. Don't bother migrating integers and strings yet. I might want to abandon those in favour of
 richer and more technically specific types going forward."
 
+### Two further owner instructions this plan is built around (14 November 2026)
+
+To be recorded as decisions 15 and 16 in [owner-decisions.md](owner-decisions.md).
+
+15. "Keep a dedicated branch for wherever you reached on develop before starting on the new engine in preparation for
+    pushing this new work to develop that should throw away most of the code and any trace of the integers and strings
+    objects and the old engine and anything else older than that that we don't need anymore." Done by the coordinator:
+    branch **`archive/engine-v1`** at `1018e913` (the merge of #341). Consequence: the end state on `develop` holds no
+    old engine, no integer or string object types, and no migrations, settings, calibration tables, docs or tests that
+    only served them. Deletion is a deliverable with its own pull requests (§5.8) and a final inventory. Because the
+    archive keeps everything, this plan **deletes early** (as soon as a v2 replacement exists, or at once for what is
+    unused or dropped) instead of carrying adapters or frozen copies.
+16. "It's essential that we keep the architecture that ensures that every single operation is available to an AI
+    assistant whether embedded or via the remote AI assistant delegation protocol as well as via the searchable command
+    pallete. There should be a single dynamic directory of affordances available by context that generates each of
+    those interface surfaces DRYly." Consequence: §2.5 makes **one affordance directory** a core v2 contract, built
+    first (workstream W6), from which the assistant's tools, the MCP tools, the CLI, the palette and the UI's buttons
+    are generated, with a parity test.
+
 ## 0. The plan on one page
 
 1. **The app stays; its data source changes.** v2 games are played in today's app: the same site shell, room page,
-   dock, panes, phone layout, palette and assistant pane. The spec's separate `/v2` page tree (§1, PR 11) is replaced by
-   v2 **routes** (`/v2/rooms/:id`, `/v2/rooms/:id/games/:gameId`) that render the **same page components** with a v2
-   data source. At M5 the prefix goes and the routes become the only ones.
-2. **The seam is the SDK hook layer.** Panes read the engine only through `src/sdk/hooks.ts` (383 lines, ~25 hooks) and
-   commands through `src/core/game/runner.ts`. v2 gets `src/sdk2/`: the same hook names, v2-native types, over new
-   narrow v2 queries. A pane moves to v2 by changing its imports, plus edits where a field's meaning changed. The pane's
-   JSX, wording and UX fixes stay.
-3. **The old panes are frozen, not adapted.** Before the first pane moves, today's engine-coupled panes are copied
-   verbatim to `src/legacy/` and the v1 game screen points there. Nobody adapts v1 data to v2 shapes or the reverse;
-   `src/legacy/` gets no features and is deleted at M5. This costs one mechanical PR and saves every adapter in the
-   v1 direction.
+   dock, panes, phone layout, palette and assistant pane. The spec's separate `/v2` page tree (§1, PR 11) is dropped:
+   the existing routes and page components are moved onto v2 in place.
+2. **The seam is the SDK hook layer plus the affordance directory.** Panes read the engine only through
+   `src/sdk/hooks.ts` (383 lines, ~25 hooks); v2 replaces its insides with `src/sdk2/`: the same hook names, v2-native
+   types, over new narrow v2 queries. Every operation (a command, an owner action, a one-off read for a model, a view
+   change) goes through the affordance directory (§2.5); no button calls a Convex mutation directly. A pane moves to v2
+   by changing its imports, plus edits where a field's meaning changed. The pane's JSX, wording and UX fixes stay.
+3. **No legacy copy, no adapters in the v1 direction.** Panes are converted in place. The v1 game screen and the v1
+   engine leave `develop` as soon as the app plays lines (end of M2, deletion D2 in §5.8); until then the v1 app keeps
+   running untouched beside the v2 work. Grids return on v2 in M4, copied from `archive/engine-v1`. Production (`main`)
+   keeps v1 until the owner promotes `develop`.
 4. **Objects are drawn by `lib/v2-views`**, a new package of scene renderers (one per scene kind, never per rule), a
    marks layer driven by the rule's recorded terms (the general annotation system), and three object faces: **chip**
    (one line of text), **compact** (the primary representation, about 160 × 100) and **expanded** (every representation
@@ -34,15 +53,17 @@ richer and more technically specific types going forward."
 5. **The server is copied and cleaned into `artifacts/engine/convex/v2/`**, with `v2*` tables; auth, users,
    credentials, OAuth, AI templates and the sandbox's runtime assets are shared because they are infrastructure, not
    engine data.
-6. **Five workstreams** run in parallel after the core packages merge: W1 core, rules and valuation; W2 sandbox, agent
-   host and starter agents; W3 Convex v2 server; W4 views and annotations; W5 the app. Their interfaces are frozen in
-   small contract PRs (§5.1).
+6. **Six workstreams**: W6 the affordance directory (first: it shapes the server seam); W1 core, rules and valuation;
+   W2 sandbox, agent host and starter agents; W3 Convex v2 server; W4 views and annotations; W5 the app and the
+   deletions. Their interfaces are frozen in small contract PRs (§5.1).
 7. **Milestones:** M1 a line game end to end on the server with scripted agents; M2 the app shows and plays a line game
-   with the new annotation and representation views; M3 the full inventory on lines, persona walks passed, v2 the
-   default; M4 grids on the v2 contracts, beginner pool recalibrated, same UI; M5 the old engine removed.
-8. **Dropped or deferred:** integers and strings (owner), paid looks, bidding, tiers (replaced by v2 ladders), hold
-   rarity and defence goals (spec §8), disclosure noise, user-saved setups (replaced by deployed presets), the playing
-   card boards. Each with its reason in §1.
+   with the new annotation and representation views, and the v1 engine leaves `develop`; M3 the full inventory on
+   lines, persona walks passed; M4 grids on the v2 contracts, beginner pool recalibrated, same UI; M5 the v1 tables' stored
+   rows and definitions gone and the final inventory of what remains.
+8. **Deleted, not deferred** (everything stays on `archive/engine-v1`): integers and strings (owner), paid looks,
+   bidding, tiers (replaced by v2 ladders), hold rarity and defence goals (spec §8), disclosure noise, Lab setups and
+   user-saved setups (replaced by deployed presets), the playing-card and colour boards, `lib/grid-lab`. D1 deletes the
+   ones v1 can lose today (§5.8). Each with its reason in §1.8.
 
 ---
 
@@ -57,11 +78,12 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [ ] **=** Avatar menu, connected apps sheet, credentials list and revoke (M2).
 - [ ] **=** Device flow (`/device`) and MCP/OAuth connect (`/connect`) (M3; the tools behind them are R, §1.7).
 - [ ] **=** Auto-update (`version.current`) and static hosting (M2).
-- [ ] **=** Command palette (ui-kit) and site commands; v2 commands added to the catalogue (M2, completed M3).
+- [ ] **R** Command palette (ui-kit) and site commands: generated from the affordance directory (§2.5) instead of the
+  per-function catalogue and the two hand-written bind tables (M2, completed M3).
 - [ ] **=** Admin rights by verified e-mail; AI player library `/admin/agents` (shared `aiTemplates` table) (M3).
 - [ ] **R** Rule gallery `/rule-gallery[/:family]`: pages generated from the v2 object-type registry: card sentence, the
   goal card's worked example, the ladder, the dealable parameters; no server (M3).
-- [ ] **D** Home: your rooms, create, join. Lists v2 rooms beside v1 rooms until M5 (two skeleton queries) (M2).
+- [ ] **D** Home: your rooms, create, join (v2 rooms only once D2 lands) (M2).
 
 ### 1.2 Rooms, seats and setups
 
@@ -157,11 +179,11 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [ ] **R** Replay (`core/replay/*`, 983 lines): the controller folds `v2Events` (spec §9.2) and answers the sdk2 hooks
   at the playhead, so every pane works in replay unchanged; after the end every player's rule is open, so the expanded
   face can show **any** player's annotation (new), and replay events show points changes (never solved, ux 7.6) (M3).
-- [ ] **R** In-client assistant (`core/chat/*`, 1,153 lines): pane, queue, modes and chips stay; its tools are the v2
-  tool set (§4.4): explain my rule, read a line in a representation, write and check my agent, summon/replace, propose a
-  pitch to another player (spec PR 12) (M3).
-- [ ] **R** MCP server, OAuth, CLI (`pnpm player`): same transport and auth, v2 tools from a new `lib/v2-client`
-  (protocol, tool registry, CLI) (M3).
+- [ ] **R** In-client assistant (`core/chat/*`, 1,153 lines): pane, queue, modes and chips stay; its tools are
+  generated from the affordance directory (§2.5, §4.4): explain my rule, read a line in a representation, write and
+  check my agent, summon and replace, propose a pitch to another player (spec PR 12) (M3).
+- [ ] **R** MCP server, OAuth, CLI (`pnpm player`): same transport and auth; tools, dispatch and CLI subcommands generated
+  from the affordance directory (§2.5) (M2 generator, M3 complete).
 - [ ] **D** `run_code` and the code-output pane (code tables are generic); v2 datasets are the game's own events (M3).
 - [ ] **R** Stored panels and the panel SDK: the bridge exposes the sdk2 hooks as `@sdk` version 2; v1 panels do not load
   in v2 games (the frame says so); the example panels are rewritten for v2 (M3).
@@ -177,14 +199,15 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 
 | Feature | Decision | Why |
 |---|---|---|
-| Integer and string objects | **×** deferred (owner) | "I might want to abandon those in favour of richer and more technically specific types." Their renderers stay in `src/legacy/` until M5 and then go. |
-| Paid looks (`look`, `knowledge.ts`, `observer.ts`, stale boards, `knowledgeLog`) | **×** dropped | Walks: paid looks cost attention and sped nobody up (ux 2.7). v2 already prices what agents read (spec §6.2); human observation is free and exact. |
-| Bidding (`bidding.tsx` 302, `roomBids`, `gameAuctions`) | **×** deferred past M4 | It answers single-game fairness, which is undecided (design-explorations "Decisions waiting" 1). Rotation is the fairness mechanism kept. If revived, bids are on rule keys and handicaps are points multipliers; nothing in v2 blocks it. |
-| Tiers (★ bonus, gates, `card-tiers.ts`, `ruleTiers`) | **R** replaced by ladders | A v2 rule's score is a tuple of laddered components (main part, tie-breakers; rule brainstorm B §0). The ★ gate is a rung; the goal card's "steps to the top" is the ladder. No tier tables. |
+| Integer and string objects | **×** deleted in D1 (owner, decisions 15) | "I might want to abandon those in favour of richer and more technically specific types." A later richer type is a new v2 object-type package; the old code is on `archive/engine-v1`. |
+| Paid looks (`look`, `knowledge.ts`, `observer.ts`, stale boards, `knowledgeLog`) | **×** deleted in D1 | Walks: paid looks cost attention and sped nobody up (ux 2.7). v2 already prices what agents read (spec §6.2); human observation is free and exact. |
+| Bidding (`bidding.tsx` 302, `roomBids`, `gameAuctions`) | **×** deleted in D1 | It answers single-game fairness, which is undecided (design-explorations "Decisions waiting" 1). Rotation is the fairness mechanism kept. If the owner revives it, it is a new v2 deal mechanism (bids on rule keys, handicaps as points multipliers), entered through the affordance directory; the old code is archived. |
+| Tiers (★ bonus, gates, `card-tiers.ts`, `ruleTiers`) | **R** replaced by ladders; v1 tiers deleted in D1 | A v2 rule's score is a tuple of laddered components (main part, tie-breakers; rule brainstorm B §0). The ★ gate is a rung; the goal card's "steps to the top" is the ladder. No tier tables. |
 | Hold rarity, defence goals | **×** (spec §8) | Not in v2's first version. |
 | Disclosure noise (`peerNoiseBits`) | **×** | Already off on the beginner setup; it read as a bug (ux 2.7). |
-| Playing-card and glyph boards (Master 7×7 cards, colour boards) | **×** deferred past M4 | M4 ports the beginner digit grid only. Other grid variants are new variants of `v2-grid` when wanted. |
-| User-saved setups | **×** deferred | Presets in code (decision 7) until the engine settles. |
+| Playing-card, glyph and colour boards (First steps, Classic, Low income, Big board, Master, Annotated colours, Tiered rules) | **×** deleted in D1 | Only Annotated basics stays playable on v1 until D2; M4 ports the beginner digit grid only. Other grid variants are new `v2-grid` variants when wanted. |
+| User-saved setups, Lab setups | **×** deleted (Lab setups in D1, saved setups in D2) | Presets in code (decision 7); trial variants are admin-only presets. |
+| `lib/grid-lab` (Python research lab, imported by nothing) | **×** deleted in D1 | Its families were ported into game-utilities long ago; archived. |
 | `examinationRuns` cache, futility tracking, `futileActs` | **R** | v2's check is one act; futility is visible in the act log (skips) and needs no table. |
 | Calibration tables, `/api/calibration`, on-demand calibration | **R** | Committed artefacts (spec §7.6) imported by the server; the browser receives only the viewer's ladder with rung rarities. |
 
@@ -215,13 +238,14 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 
 ### 2.2 The v2 seam
 
-**Commands.** One action, `v2/commands.submit`, with a v2 envelope from `lib/v2-client/protocol.ts`:
-`{ protocol: "code-gods.v2", requestId, gameId, command }`, where `command` is one of `check {language, source}`,
-`summon {language, source, name, share?}`, `replace {agentId, language, source}`, `destroy {agentId}`,
-`allocatePower {shares}`, `ready`, `pause`, `chat {text}`. Receipts as today (`v2Receipts`, idempotent by requestId).
-Owner commands: `v2/owner.command {roomId, op}` with `op` one of `create`, `settings {preset, overrides}`, `start`,
-`startWorldNow`, `end`, `fillPracticePartners`, `addAi`, `removeAi`, `resume`. `check` is the only command that runs
-the sandbox before answering; it is the reason `submit` is an action.
+**Operations** are affordances (§2.5): each is declared once in `lib/v2-affordances`, implemented once on the server,
+and reached by every surface through generated code. The game commands (`check`, `summon`, `replace`, `destroy`,
+`allocatePower`, `ready`, `pause`, `chat`) are separate affordances, not variants of one `submit` envelope; each has its
+own Convex function (`check`, `summon` and `replace` are actions because they run the sandbox; the rest are mutations),
+its own receipt (`v2Receipts`, idempotent by `requestId`) and its own parity-tested entry. Owner operations
+(`room.create`, `room.settings`, `game.start`, `game.startWorldNow`, `game.end`, `game.resume`,
+`seats.fillPracticePartners`, `seats.addAi`, `seats.removeAi`) likewise. `check` is the only operation that runs the
+sandbox before answering.
 
 **Subscriptions** (every one requires sign-in, reads one document or one index page, and gets an R8 row):
 
@@ -263,24 +287,26 @@ charge?}`. The browser renders the line from the row and v2-views (the two state
 
 ### 2.4 The adapter strategy, module by module
 
-`src/sdk2/` implements the same hook names as `src/sdk/hooks.ts` where the concept survives (`useGame`, `useMyAgents`,
+`src/sdk/` is rewritten in place as the v2 SDK (called `sdk2` in this plan while both exist on a branch); it keeps the
+hook names of `src/sdk/hooks.ts` where the concept survives (`useGame`, `useMyAgents`,
 `useLeaderboard`, `useStandingsHistory`, `useChat`, `useRoomInfo`, `useActions`, `useDockState`, `useObjectIds`,
 `useMyObject`, `useMyTotals`, `useTransformations` → renamed `useMoves`), plus `useMyRule`, `useObjectState`,
 `useAnnotation(state)`; it drops `useEvaluator`, `useTrajectories`, `useObservation`, `useStaleCount`, `useMutators`.
-Types are v2-native, defined in `lib/v2-client/types.ts`. A `GameEngineContext` (`"v1" | "v2"`) set by the route picks
-`src/legacy/*` or the main panes.
+Types are v2-native, defined in `lib/v2-client/types.ts`. Operations come from `useAffordance(id)` (§2.5). There is no
+engine switch: a pane converted to v2 stops serving v1, and until D2 the v1 app runs from the code on `develop` as it is
+(the conversion PRs land on an integration branch, `claude/v2-app`, merged into `develop` together with D2; see §5.3).
 
 | Module (path, lines) | v2 treatment |
 |---|---|
-| Site shell, routing, sign-in (`core/app.tsx` 182, `core/routes.ts` 68, `site/lib/routes.ts` 49, `site/pages/sign-in.tsx`, `not-found.tsx`) | keep; add `/v2/...` patterns pointing at the same pages with `engine="v2"` |
-| Site layout (`site/components/layout.tsx` 334) | keep with adapter: room/owner actions go through a `useRoomActions(engine)` hook with v1 and v2 implementations (~80 lines each); remove the `setObjectRenderer("Grid")` toggle for v2 |
-| Home (`home.tsx` 74) | keep; second list from `v2/rooms.list` |
-| Room page (`room.tsx` 286, `next-step.ts` 137, `room-seats.ts` 61, `rotation-note.tsx` 27) | keep with adapter: `useRoomModel(engine)` returns the room, members, settings summary and next step; v2 implementation ~120 lines |
-| Configure (`configure.tsx` 698, `settings-form.ts` 371) | rewrite for v2 (~250 lines): preset picker plus the few overrides; v1 file to legacy |
-| Setup picker (`setup-picker.tsx` 154) | keep with adapter: options from `lib/v2-linear` presets (code, no query) |
-| Bidding (`bidding.tsx` 302, `site/lib/bidding.ts` 196) | legacy only (deferred) |
-| Game page router (`site/pages/game.tsx` 263) | keep with adapter: header from `v2/games.header`; picks Play, Spectate, Replay as today |
-| Dock (`dock/*`, ~1,800 lines: shell, store, layout-sync, desktop, stacked, adapter, headers, operations, history, panel-search) | keep; layout types from `lib/v2-client/layout.ts` (a copy of player-client's 507-line `layout.ts` and 215-line `panels.ts` with v2 panel ids); `layout.current/set` → `v2/layout.*` by engine |
+| Site shell, routing, sign-in (`core/app.tsx` 182, `core/routes.ts` 68, `site/lib/routes.ts` 49, `site/pages/sign-in.tsx`, `not-found.tsx`) | keep; routes unchanged, pages converted in place |
+| Site layout (`site/components/layout.tsx` 334) | keep with edits: room and owner actions become `useAffordance` calls (~80 changed lines); the `setObjectRenderer("Grid")` toggle goes |
+| Home (`home.tsx` 74) | keep, data from `v2/rooms.list` |
+| Room page (`room.tsx` 286, `next-step.ts` 137, `room-seats.ts` 61, `rotation-note.tsx` 27) | keep with edits: data from `v2/rooms.get`, actions from affordances (~120 changed lines) |
+| Configure (`configure.tsx` 698, `settings-form.ts` 371) | rewrite for v2 (~250 lines): preset picker plus the few overrides |
+| Setup picker (`setup-picker.tsx` 154) | keep with edits: options from `lib/v2-linear` presets (code, no query) |
+| Bidding (`bidding.tsx` 302, `site/lib/bidding.ts` 196) | deleted in D1 |
+| Game page router (`site/pages/game.tsx` 263) | keep with edits: header from `v2/games.header`; picks Play, Spectate, Replay as today |
+| Dock (`dock/*`, ~1,800 lines: shell, store, layout-sync, desktop, stacked, adapter, headers, operations, history, panel-search) | keep; layout types from `lib/v2-client/layout.ts` (a copy of player-client's 507-line `layout.ts` and 215-line `panels.ts` with v2 panel ids); `layout.current/set` → `v2/layout.*`; pane operations are affordances |
 | Header (`core/header.tsx` 206, timers, planning line) | keep, imports to sdk2 |
 | Overview (`overview.tsx` 95, `next-step.ts` 56) | keep, imports to sdk2 |
 | My agents (`agents.tsx` 425, `agent-labels.ts` 125, `energy-capacity.ts` 214, `power-share.ts` 27) | keep with edits: energy maths from `lib/v2-economy`, act cost breakdown in v2 terms (~60 changed lines) |
@@ -293,17 +319,121 @@ Types are v2-native, defined in `lib/v2-client/types.ts`. A `GameEngineContext` 
 | Results (`results.tsx` 144, `results-rank.ts` 21) | keep; noun and best-line face from v2-views |
 | Rules (`rules.tsx` 62) | keep with edits: preset and economy text |
 | Public chat, code output, timeline (`public-chat.tsx` 60, `code-output.tsx` 94, `timeline.tsx` 30) | keep |
-| Assistant pane (`core/chat/*` 1,153) | keep; tool detail views gain v2 tool names (`tool-detail.ts` 253) |
-| Palette (`core/palette/*` 581) | keep; v2 commands registered by engine |
+| Assistant pane (`core/chat/*` 1,153) | keep; its tool list and tool-detail views (`tool-detail.ts` 253) are generated from the affordance directory |
+| Palette (`core/palette/*` 581) | keep the UI; its entries are generated from the affordance directory (§2.5), replacing both hand-written bind tables |
 | Replay (`core/replay/*` 983, player-client `replay.ts` 637) | rewrite the reducer (~300, folding `v2Events`) and the controller's answers (~200); parts.tsx keeps its UI |
-| Stored panels (`shell/*` ~775, `frame/*` 267, `sdk/bridge-protocol.ts` 107) | keep; the bridge's `QUERY_REFS` becomes per engine; example panels rewritten |
-| Spectator (`game-panels.tsx` 224) | keep with adapter; rows → `<CompactFace>` without a rule |
-| SDK (`sdk/*` ~1,700) | v1 stays as is for legacy; new `sdk2/*` (~700) |
+| Stored panels (`shell/*` ~775, `frame/*` 267, `sdk/bridge-protocol.ts` 107) | keep; the bridge's `QUERY_REFS` point at v2 queries and its actions at affordances; example panels rewritten |
+| Spectator (`game-panels.tsx` 224) | keep with edits; rows → `<CompactFace>` without a rule |
+| SDK (`sdk/*` ~1,700) | rewritten in place (~700); `evaluator.ts`, `goal.tsx`, `trajectory-windows.ts`, `tables-key.ts` deleted |
 | `lib/object-views` (3,046) | not used by v2; `colour-science.ts`, `dimensions.ts`, `product.ts` and the wording of `rarity.ts` are copied into v2-views |
 | `lib/ui-kit` (1,024) | keep; its type imports from player-client move to its own `types.ts` (one PR) so v2 code can use it without importing player-client |
 
 Rough total: about 26k lines in player-web; about 17k kept as they are or with import edits, about 3k kept with
-targeted edits, about 2.5k rewritten, the rest (v1-only parts, ~3.5k) frozen in `src/legacy/` and deleted at M5.
+targeted edits, about 2.5k rewritten, the rest (v1-only parts, ~3.5k) deleted (D1 and D2).
+
+### 2.5 The affordance directory (owner decision 16)
+
+#### How it works today, and where it has drifted
+
+Today's architecture already aims at one source (`docs/surface-architecture.md` §4, `docs/ui-redesign.md` §2.1):
+
+- `lib/player-client/src/catalog.ts` (708 lines) has one entry per **public Convex function**: audience, human title and
+  tooltip, model description, the tools that reach it, a palette spec (label, group, keywords, surface, confirmation).
+  Its key type is derived from the generated `api`, so a function without an entry fails the typecheck.
+- `lib/player-client/src/tools.ts` (507) lists about 60 **tools** with zod input and output schemas, permission and
+  annotations, each naming the functions it reaches and borrowing its text from the catalogue. MCP (`/mcp`), the CLI
+  (`pnpm player tools|call`) and the in-client assistant all read this one list. Executors are hand-written in
+  `artifacts/engine/convex/agent/registry.ts` (452).
+- The palettes are built by `commandsFromCatalog` (ui-kit) from catalogue entries with a palette spec, bound to
+  performers by two hand-written tables (`core/palette/commands.ts`, `site/lib/commands.ts`).
+- `lib/player-client/test/catalog.test.ts` checks that every player or owner function has a tool and a palette
+  command, or a written `why` not.
+
+Where it drifted:
+
+1. **The unit is a Convex function, not an operation.** Nine game commands share `commands.submit`, so they have one
+   catalogue entry; their per-command text lives in tool `about` strings and palette performers.
+2. **About 70 entries are exempted by `why`**, most of them not plain subscriptions: bidding, the assistant's queue
+   edits, code objects, consent pages, admin data. Each is a capability one surface has and another lacks.
+3. **Buttons bypass it.** The app calls `useMutation` at 60 sites and `useAction` at 18 directly; the two palette bind
+   tables restate the performers; a button and its palette command can disagree on confirmation or availability.
+4. **Client-only operations are outside it.** 47 `ui.*` palette commands (open a pane, switch the grid renderer, sort,
+   filter, show the glossary) are not in the catalogue, so the assistant reaches only those that happen to have a
+   layout tool, and the MCP never.
+5. **Context is by role only.** `availabilityFor` knows visitor, signed-in, member, seated and owner, not the phase;
+   phases are restated in `panels.ts`, in tool executors' checks and in the panes.
+6. **Schemas are written twice**: zod in `tools.ts`, Convex validators in each function.
+
+#### The v2 contract
+
+A new package `lib/v2-affordances` (depends on v2-core only) holds **the directory**: every operation any surface can
+perform, declared once.
+
+```ts
+export type Context = "signedOut" | "home" | "room" | "planning" | "live" | "paused" | "ended" | "replay" | "admin";
+export type Caller = "anyone" | "signedIn" | "member" | "seated" | "owner" | "admin";
+export interface Affordance<I extends z.ZodType, O extends z.ZodType> {
+  id: string;                         // "agent.summon", "object.read", "view.pinRepresentation"
+  title: string;                      // ≤ 60, verb first: "Summon an agent"
+  description: string;                // ≤ 600, for a model: what it does, when, what comes back
+  tooltip: string;                    // ≤ 240, for a human
+  keywords: readonly string[];        // palette search text
+  group: "play" | "agents" | "view" | "room" | "owner" | "account" | "help";
+  params: I;                          // zod v4: JSON Schema for tools and the CLI, Convex validators (convex-helpers zod), form fields
+  result: O;                          // zod v4; game strings wrapped as untrusted
+  contexts: readonly Context[];       // where it is offered
+  caller: Caller;                     // who may call it
+  effect: "read" | "write" | "destructive";
+  spends?: "energy" | "aiBudget";     // shown before running; the assistant asks before spending
+  confirm: "none" | "inline" | "summary" | "modal";
+  runs: "server" | "client";          // server: a Convex function; client: a view operation (§ below)
+  available?(ctx: AffordanceContext, args?: Partial<z.input<I>>): Availability; // dynamic checks beyond context and caller
+  surfaces?: { except: readonly ("assistant" | "mcp" | "cli" | "palette")[]; because: Exemption };
+}
+export type Exemption = "consent";     // the only allowed exemption: OAuth and device approval must be a human's click
+```
+
+**Generated from it** (by functions in `lib/v2-affordances`, no hand-written lists):
+
+| Surface | Generated | How |
+|---|---|---|
+| Embedded assistant | its tool list (name = id with `.` → `_`, description, JSON Schema) | `toolsFor(context, caller)`; the assistant step calls the server executor, or for `runs: "client"` sends a client action the pane performs |
+| Remote delegation (MCP) | the `/mcp` tool list and dispatch | the same `toolsFor`, filtered by the credential's room and permission; client affordances act on the delegating human's layout (stored server-side, so every open client follows) |
+| CLI | `pnpm player <group> <verb> --param …` and `pnpm player call <id> '<json>'` | flags from the JSON Schema; help from title and description |
+| Command palette | every entry with its search text and confirmation | `paletteFor(context, caller)`; availability with reason and fix |
+| UI buttons | `useAffordance(id)` → `{ available, reason, confirm, run(args) }` | the button renders the reason when unavailable and the same confirmation the palette uses |
+| Server | one Convex function per server affordance, plus its internal twin taking a principal | `defineOp(affordance, handler)` in `convex/v2/ops/*.ts` validates args with the zod schema, checks caller and context from the game header, records the receipt, and returns the typed result |
+
+**Subscriptions are not affordances.** The live queries of §2.2 are data a pane renders (R6); each has a read
+affordance for models (`game.get`, `objects.list`, `object.read`, `moves.list` …) that answers the same question once,
+as R7 allows.
+
+**Client affordances** are view operations a human does with the mouse and an assistant should be able to do for them:
+`view.openPane`, `view.closePane`, `view.movePane`, `view.pinRepresentation {family, rep}`,
+`view.compareRepresentations {objectId, reps}`, `view.sortObjects`, `view.filterObjects`, `view.openObject
+{objectId}`, `view.showGlossary {term}`. Their state lives in the human's `v2Layouts` row (pane params), so a remote
+assistant changes what the human sees, and every client of that human follows. This replaces localStorage for
+representation pins.
+
+**The parity test** (`lib/v2-affordances/test/parity.test.ts` plus one in player-web and one in the engine):
+
+1. every affordance appears in the assistant tools, the MCP tools, the CLI and the palette for at least one context,
+   unless it declares the `consent` exemption;
+2. every server affordance has exactly one `defineOp` in `convex/v2/ops/` and every public v2 mutation or action is
+   one (a scan of the generated `api`);
+3. `artifacts/player-web/src` calls no v2 mutation or action except through `useAffordance` (a source scan);
+4. for each context, the sets offered to the assistant, MCP and palette are equal (same caller);
+5. text limits, unique ids, keywords present, destructive affordances confirm.
+
+**New v2 operations enter here first**, among them: `object.read {objectId, rep, site?}` and `object.element` (the
+human's free reads, the same answers an agent pays for), `object.quote {objectId, calls}`, `rule.explain`,
+`rule.ladder`, `agent.check`, `agent.summon`, `agent.replace`, `agent.putBack`, `agent.destroy`, `power.allocate`,
+`seats.fillPracticePartners`, `game.rotation` (read: who holds which rule next), `rule.rarity {level}` (the calibration
+lookup: ✨ rarity of a rung), `view.pinRepresentation`, `view.compareRepresentations`, `pitch.draft` (decision 9's
+negotiation aid).
+
+It is built first (W6, §5.1): W3's server seam is a set of `defineOp` handlers and W5's buttons are `useAffordance`
+calls, so neither can start its operations before the contract exists.
 
 ---
 
@@ -395,7 +525,7 @@ element produced a node and that `text()` mentions every coordinate.
 | `<CallPicker>` | the variant's mutators grouped by representation, with argument input and live price | what-if pane |
 
 **Primary versus parallel.** Compact contexts always show one representation: the rule's `primary`, unless the viewer
-pinned another in the switcher (kept in localStorage per family; a per-viewer convenience, not server data). The
+pinned another in the switcher (the `view.pinRepresentation` affordance, stored in the human's layout so an assistant can set it too). The
 expanded face shows the rule's `depends` in their order; the switcher reaches the rest. For a spectator or a replay
 viewer without a rule, the primary is the variant's first representation (`si` for lines, `cells` for grids).
 
@@ -507,27 +637,27 @@ Dropped with no v2 twin: `holdTables`, `examinationRuns`, `roomBids`, `gameAucti
 | Event log, replay | `lib/projection.ts` 431, `replays.ts` 115 | `events.ts` (~150, append and per-player filtering), `replays.ts` (~100, file at end, HTTP download) | spec §9 |
 | Practice partners | `ai/seats.ts` 297, `lib/builtinPlayer.ts` 27 | `seats.ts` (~200): a practice partner summons its rule's Simple starter once, with the first-agent share | copy and clean |
 | AI seats (model-backed) | `ai/turn.ts` 213, `lib/ai-player` | `aiTurn.ts` (~150) over `lib/v2-ai` (providers copied from ai-player, prompt rewritten) | M3 |
-| Assistant | `assistant.ts` 455, `assistant/*` ~1,800 | copied into `v2/assistant/*`; tools from `lib/v2-client/tools.ts` executed by `v2/agent/registry.ts` | M3 |
-| MCP and CLI | `agent/mcp.ts` 164, `agent/registry.ts` 452, `agent/node.ts` 151 | `/mcp` routes by token to v1 or v2 registry by the room the credential is scoped to; `v2/agent/registry.ts` (~300) | M3 |
-| Layout and panels | `layout.ts` 252, `panels.ts` 221 | copies over `v2Layouts`, `v2Panels` | M2 layout, M3 panels |
+| Assistant | `assistant.ts` 455, `assistant/*` ~1,800 | copied into `v2/assistant/*`; tools generated from the affordance directory, executed by the `defineOp` internal twins | M3 |
+| MCP and CLI | `agent/mcp.ts` 164, `agent/registry.ts` 452, `agent/node.ts` 151 | `/mcp` keeps its transport and OAuth; its tool list and dispatch are generated from the directory (W6-2); no hand-written registry | M2 (generator), M3 (complete) |
+| Layout and panels | `layout.ts` 252, `panels.ts` 221 | copies over `v2Layouts`, `v2Panels`; pane operations are client affordances | M2 layout, M3 panels |
 | Test fixtures | `testing.ts` 691 | `v2/testing.ts`: seed a room, deal fixed rules, set energy, insert states | W3's first PR |
 
-### 4.4 The tool set for agents, the assistant and MCP (M3)
+### 4.4 The assistant, MCP and CLI (M3)
 
-`lib/v2-client/tools.ts`, about 25 tools instead of about 60: `get_game` (header, standings, my rule, my energy),
-`list_objects` (paged, my values), `read_object` (a representation or element, free for humans), `explain_my_rule`
-(card, ladder, annotation of an object), `quote` (price of calls on a state), `check_agent`, `summon_agent`,
-`replace_agent`, `destroy_agent`, `allocate_power`, `chat`, `start_game`, `ready`, `list_moves`, panel tools (copied),
-`run_code` (copied), `draft_pitch` (a message to another player naming lines both rules like; the negotiation tool of
-decision 9). The assistant's prompt teaches the v2 vocabulary (points, ✨ rarity, ⚡ energy, power).
+They are generated from the affordance directory (§2.5); there is no separate tool registry. The v2 directory has about
+40 affordances at M3 instead of today's 60 tools plus 47 `ui.*` commands, because paid looks, bidding, setups, hold and
+inference tools go and view operations join. The executors are the `defineOp` internal twins, so
+`agent/registry.ts` (452) has no v2 counterpart. The assistant's prompt teaches the v2 vocabulary (points, ✨ rarity,
+⚡ energy, power) and lists the context's affordances.
 
-### 4.5 What is switched off when v2 becomes the default (end of M3)
+### 4.5 What is switched off, and when
 
-- "Create room" makes v2 rooms; creating a v1 room is an admin-only "Classic engine" option, kept for comparison.
-- The setup picker, configure page and bidding for v1 live only on v1 rooms.
-- Practice partners, AI seats, assistant and MCP keep serving live v1 games until they end; no new v1 games except by
-  admins.
-- Crons for v1 calibration prunes and examination caches keep running until M5 (cheap).
+- **D1 (now):** integer and string objects, paid looks, bidding, tiers, hold rarity, disclosure noise, Lab setups, the
+  older grid setups and `lib/grid-lab` leave `develop` (§5.8). Annotated basics stays playable on v1.
+- **D2 (end of M2):** the v1 engine, its Convex modules, the v1 game screen and the v1-only libraries leave `develop`;
+  v2 lines are the only game on `develop` and the dev deployment. Production (`main`) keeps v1 until the owner promotes.
+- **M4:** grids return on v2.
+- **M5:** the v1 tables' rows and definitions go, after the owner's sign-off.
 
 ---
 
@@ -539,11 +669,13 @@ decision 9). The assistant's prompt teaches the v2 vocabulary (points, ✨ rarit
 |---|---|---|
 | **W1 Core, rules, valuation** (the spec session) | `v2-core`, `v2-linear`, `v2-valuation`; later `v2-grid` | v2-core types (spec PR 2); line element names (PR 3); artefact JSON (PR 4); **presets and beginner pool** (`v2-linear/presets.ts`, new) |
 | **W2 Sandbox, agent host, starters** | `v2-sandbox`, `v2-agents`, starter agents per family, summon price | `runAct(input): ActRecord` and `check(program): CheckReport` (W2-2) |
-| **W3 Convex server** | `convex/v2/**`, `v2-economy`, `v2-client/protocol.ts` | **the v2 API contract** (W3-1): table schema, every query's args and return validator, the command envelope; fixtures in `v2/testing.ts` |
+| **W6 Affordances** | `lib/v2-affordances`, the generators, the parity tests, `useAffordance`, the MCP and CLI front ends | **the directory contract** (W6-1, §2.5) and the generators (W6-2) |
+| **W3 Convex server** | `convex/v2/**`, `v2-economy` | **the v2 API contract** (W3-1): table schema, every query's args and return validator, the operations' affordance entries with stub `defineOp` handlers; fixtures in `v2/testing.ts` |
 | **W4 Views** | `v2-views` | component props of §3.3 and `annotate()` (W4-1) |
-| **W5 App** | `player-web` (`sdk2`, routes, legacy freeze, pane moves, e2e), `v2-client` (layout, panels, tools, CLI) with W3 | — |
+| **W5 App and deletions** | `player-web` (`sdk2`, pane conversions, e2e), `v2-client` (layout, panels, types), the deletion PRs D1–D3 and the final inventory (§5.8) | — |
 
-Pairs: W1→W2 (agent host evaluates rules, prices calls), W1→W3 (deal, values), W1→W4 (contracts, element names),
+Pairs: W6→W3 and W6→W5 (every operation is declared in the directory before W3 implements it or W5 puts it on a button;
+W6 owns the generators, W3 the handlers, W5 the buttons), W1→W2 (agent host evaluates rules, prices calls), W1→W3 (deal, values), W1→W4 (contracts, element names),
 W2↔W3 (`runAct`, `check`: W2 owns the function, W3 calls it from an action and records its `ActRecord` as an `act`
 event), W3↔W5 (the API contract: W5 builds against W3-1's fixtures before the tick exists), W4↔W5 (props: W5 mounts W4's
 components and passes subscriptions' data in). W4 never touches Convex; W5 never computes a score.
@@ -557,7 +689,9 @@ components and passes subscriptions' data in). W4 never touches Convex; W5 never
 | W1-5 | W1 | spec PR 5 (line complete) **plus** `presets.ts` with the beginner pool chosen from the calibration report, `ArgCode.enumerate`, `RuleFamily.examples` | 2–4 |
 | W2-1 | W2 | spec PR 7: agent host, queries, quotes, act charge, guest libraries, three example agents | 3, 6 |
 | W2-2 | W2 | Simple and Thorough starters for every family in the beginner pool, both languages; summon price; `check`; the price tests of ux 1.4–1.5 | W2-1, W1-5 |
-| W3-1 | W3 | **API contract**: `convex/v2/schema.ts`, validators and stubbed queries over fixtures, envelope in `v2-client/protocol.ts`, import-boundary extended, R8 rows (marked pending) | 2 |
+| W6-1 | W6 | the directory contract (§2.5): types, `defineOp`, `useAffordance`'s interface, the parity test, import boundary | 2 |
+| W6-2 | W6 | generators: assistant and MCP tool lists, the CLI, palette entries, `useAffordance`; the MCP endpoint routes v2 rooms' credentials to the generated tools | W6-1 |
+| W3-1 | W3 | **API contract**: `convex/v2/schema.ts`, validators and stubbed queries over fixtures, every M1–M2 operation declared in the directory with a stub `defineOp`, import-boundary extended, R8 rows (marked pending) | 2, W6-1 |
 | W3-2 | W3 | v2-economy (spec PR 8) | 2 |
 | W3-3 | W3 | rooms, owner, lobby, deal, rotation, practice partners | W3-1, W1-5 |
 | W3-4 | W3 | loop and tick: births, offers, acts via `runAct`, values, moves, standings, events; commands | W3-2, W3-3, W2-2 |
@@ -582,23 +716,25 @@ needs at least six for rotation across three seats; spec §7.8's levers apply); 
 | W4-1 | W4 | `annotate`, `nearestImprovement`, parts and sentences, ladder view model; Node tests on a corpus | W1-5 |
 | W4-2 | W4 | scene renderers (`equation`, `plane`, `table`, `sequence`, `machine`, `pegboard`), marks layer, cross-highlight; the static-markup test | spec 3 |
 | W4-3 | W4 | `ObjectChip`, `CompactFace`, `ExpandedFace`, `RepSwitcher`, `PartsList`, `LadderView`, `GoalCard`, `MoveLine`; a gallery page (`src/gallery/v2.tsx`) with the §3.4 storyboards as fixtures | W4-1, W4-2 |
-| W5-1 | W5 | freeze: move v1-coupled panes and helpers to `src/legacy/`, route v1 games there; ui-kit loses its player-client type imports; no behaviour change (the existing e2e passes) | — (can start now) |
-| W5-2 | W5 | `v2-client` layout, panels, types; `src/sdk2/` over W3-1's contract; `/v2` routes; room page, home, game router, header, dock on v2 | W3-1, W5-1 |
-| W5-3 | W5 | panes on v2: overview, objects (compact faces), popover (expanded), my-card (goal card), act log (`move-line.ts`), agents, forge (summon, replace, destroy, starters), results headline, chat | W4-3, W5-2, W3-4 |
+| D1 | W5 | deletion of what v1 can lose today (§5.8); ui-kit loses its player-client type imports | — (can start now) |
+| W5-2 | W5 | on the integration branch `claude/v2-app` (with a `preview` deployment): `v2-client` layout, panels, types; `src/sdk` rewritten over W3-1's contract; room page, home, game router, header and dock on v2; buttons through `useAffordance` | W3-1, W6-2 |
+| W5-3 | W5 | on `claude/v2-app`: panes on v2: overview, objects (compact faces), popover (expanded), my-card (goal card), act log (`move-line.ts`), agents, forge (summon, replace, destroy, starters), results headline, chat | W4-3, W5-2, W3-4 |
+| D2 | W5 | `claude/v2-app` merges into `develop` together with the deletion of the v1 engine, its Convex modules and the v1-only libraries (§5.8) | W5-3 and M2's acceptance |
 
 **Acceptance (M2):** `e2e/v2-line-game.ts` (desktop 1440×900 and phone 390×844): create a v2 room, "Play a practice
 game", "Summon my first agent" in one press, a scoring move appears in the act log as a full sentence with rarity and
 points before → after, the objects row shows a compact face whose marks are present (by test id), the popover shows
 three representations and hovering `si.c` highlights `cart.yInt` and `table.y0`, the goal card shows the ladder and a
 nearest improvement, the game ends on the results headline; the browser's level equals the server's on every object
-the page showed. Existing `pnpm e2e` (multi-client, v1) still passes. Unit tests: `move-line` sentences for the ux 2.2
+the page showed. The parity test passes for every M2 operation. After D2: root typecheck and every remaining suite
+green with the v1 engine gone. Unit tests: `move-line` sentences for the ux 2.2
 and 2.3 cases; `annotate` against the terms; renderer markup.
 
 **Risks:** compact clutter at 160 × 100 (W4 decides by mark priority: focus and the nearest candidate only in compact);
 v2-linear's bundle size in the browser (expected small); hook-shape drift between `sdk` and `sdk2` making pane moves
 bigger than estimated.
 
-### 5.4 M3: the full inventory on lines, v2 the default
+### 5.4 M3: the full inventory on lines
 
 | PR | Workstream | Contents |
 |---|---|---|
@@ -606,15 +742,16 @@ bigger than estimated.
 | W5-5 | W5 + W3 | replay: `v2Events` file, reducer, controller, parts with points changes and any player's annotation |
 | W5-6 | W5 + W3 | forge put-back comparison (`v2AgentPrograms`), check report |
 | W3-5 | W3 | rotation and running totals on repeat games; model-backed AI seats; quotas |
-| W3-6 | W3 + W5 | `v2-client/tools.ts`, `v2/agent/registry.ts`, MCP routing, CLI (`pnpm player` with a v2 room credential) |
-| W3-7 | W3 + W5 | assistant on v2 (prompt, tools, pane tool details); stored panels with `@sdk` v2 and rewritten examples |
-| W5-7 | W5 | v2 is the default (§4.5); palette and catalogue complete; site smoke on v2 |
+| W3-6 | W3 + W6 | every remaining operation of §1 in the directory with its handler; the CLI as `pnpm player`; MCP tests ported |
+| W3-7 | W3 + W5 | assistant on v2 (prompt; tools generated from the directory; client affordances performed by the pane); stored panels with `@sdk` v2 and rewritten examples |
+| W5-7 | W5 | palette complete from the directory (no hand-written palette commands left); site smoke on v2 |
 | W5-8 | W5 | persona-walk round on v2 (two walks, desktop and phone), fixes, a second round |
 
 **Acceptance (M3):** every checklist item of §1 marked D or R ticked with a named test or walk; e2e suites ported to v2:
 `multi-client` (line games instead of Int/string/Grid, three clients, phone), `site-smoke`, `stored-panels`,
 `account-mode`, `objects-scroll`, `replay-shot`, `beginner-walk`, `three-humans-walk`; engine suites ported: lifecycle,
 rooms, energy, power, practice partner, rotation, replay, disclosure, query cost, MCP, assistant (mock), layout, panels.
+The parity test passes with no exemption but `consent`; the source scan finds no direct mutation call in the app.
 The testable statements of ux-lessons §1–§5 each have a test (the starter price bounds, no stale "Summon my first agent",
 energy wording, phone heights, per-pane failure isolation). Persona walks, non-admin, alone with practice partners, meet
 the round-9 bests or better: seated ≤ 10 s, first agent ≤ 30 s, first scoring move ≤ 45 s, score change explained ≤ 90 s on
@@ -622,16 +759,15 @@ desktop (the walker's explanation correct), natural end ≤ 420 s; and the walke
 showed them (new question).
 
 **Risks:** the never-solved list (ux §7: balance, power versus energy, rarity understanding) carries over; the walks will
-find v2-specific confusions (representations, "rung"); budget two walk rounds. MCP clients of v1 rooms keep working
-because routing is by credential scope.
+find v2-specific confusions (representations, "rung"); budget two walk rounds.
 
 ### 5.5 M4: grids on the v2 contracts
 
 | PR | Workstream | Contents |
 |---|---|---|
-| W1-G1 | W1 | `lib/v2-grid`: the digit grid object type (spec §13): state, `cells`, `lines`, `pairs`, `blocks` representations, mutators (distance pricing as Annotated basics' `distance-v1`, copied and cleaned), the eight beginner families from `docs/beginner-pool.md` copied and cleaned from `game-utilities/src/families/grid/*`, each as a laddered family with marks reproducing today's units (annotations-design §3) |
+| W1-G1 | W1 | `lib/v2-grid`: the digit grid object type (spec §13): state, `cells`, `lines`, `pairs`, `blocks` representations, mutators (distance pricing as Annotated basics' `distance-v1`, copied and cleaned), the eight beginner families from `docs/beginner-pool.md` copied and cleaned from `game-utilities/src/families/grid/*` on `archive/engine-v1`, each as a laddered family with marks reproducing today's units (annotations-design §3) |
 | W1-G2 | W1 | calibration of the beginner grid pool with v2-valuation; the cross-check that the uniform walk reproduces today's rarity within the error bars; too-hard backlog entries |
-| W4-G | W4 | the `grid` scene renderer (copied and cleaned from `object-views/grid-display.ts` 359, `glyph.tsx` 58, `explain/GoalBoard.tsx` 298 hover modes as marks interaction) |
+| W4-G | W4 | the `grid` scene renderer (copied and cleaned from `archive/engine-v1`'s `object-views/grid-display.ts` 359, `glyph.tsx` 58, `explain/GoalBoard.tsx` 298 hover modes as marks interaction) |
 | W2-G | W2 | grid starters (Simple, Thorough) per beginner family, both languages, priced within starting energy |
 | W3-G | W3 + W5 | `Grids · beginner` preset; e2e and a persona-walk pair on grids (the noun "grid" everywhere, ux 2.8) |
 
@@ -643,17 +779,18 @@ for each family are present as marks (a test per family on its example board).
 express (a `group` on marks, guess); value differences against today's tables where the old engine's pricing was not
 symmetric.
 
-### 5.6 M5: the old engine removed
+### 5.6 M5: the last of v1, and the final inventory
+
+By M5 the v1 code is long gone from `develop` (D1, D2). What remains is stored data and the record.
 
 | PR | Contents |
 |---|---|
-| R-1 | Owner sign-off: v2 replaces v1 (spec PR 14 is "owner"). Ask, and export the dev and production deployments (`npx convex export`) before anything is deleted. |
-| R-2 | Remove v1 routes, `src/legacy/`, `src/sdk/`, v1 site adapters; drop the `/v2` route prefix with redirects. |
-| R-3 | Delete v1 Convex modules; widen-migrate-narrow for the old tables per CLAUDE.md: a migration deletes the rows of every v1 table (an owner-approved, irreversible step), then a later PR removes the tables from the schema. |
-| R-4 | Delete `lib/game-types`, `game-utilities`, `game-core`, `object-views`, `grid-lab`, `player-client`, `ai-player`, `game-runtime` and their e2e and unit suites; rename `pnpm player` to the v2 CLI; update `docs/engine-api.md`, PILOT.md and CLAUDE.md. |
+| D3-a | Owner sign-off to delete v1's stored games (irreversible on the deployments; the code is archived, the data is not). Export the dev and production deployments (`npx convex export`) first. Production only after `main` has been promoted to v2. |
+| D3-b | Per CLAUDE.md's schema steps: the v1 tables are already widened to optional-everything in D2 (§5.8); a migration deletes their rows; after dev and production report it done, a later PR removes the tables and the migration's leftovers, and the legacy migrations (`setupsV2`, `aiSeatNames`, `assistantPerGame`, `dropHaskell*`, `backfill*`) and their workflow steps. |
+| D3-c | `docs/engine-v2/what-remains.md`: the final inventory of every package, Convex module, table, doc and test suite on `develop`, each with why it stays; every doc that only described v1 removed (moved to the archive by deletion); CLAUDE.md, PILOT.md, `docs/engine-api.md` and `.agents/memory/*` rewritten for v2; the `v2` prefixes on tables, packages and routes kept (renaming is churn; guess). |
 
-**Acceptance (M5):** root `pnpm run typecheck`, all suites and CI green with the libraries gone; deploy succeeds with
-the narrowed schema; one full persona-walk pair on the deployed dev app.
+**Acceptance (M5):** root `pnpm run typecheck`, every suite and CI green; the deploy succeeds with the narrowed schema;
+`what-remains.md` lists nothing that serves only v1; one persona-walk pair on the deployed dev app.
 
 ### 5.7 Changes to the spec's build plan (§14)
 
@@ -664,19 +801,91 @@ the narrowed schema; one full persona-walk pair on the deployed dev app.
 | 6 | unchanged; the summon-price code (`ts-ast-bits`, `astbits_guest`) is part of the copy |
 | 7 | unchanged; followed by **W2-2** (starters per family, `check`, price tests), which the spec did not have |
 | 8 | moves to W3 (W3-2) |
-| 9 | grows: annotation model (§3.1), faces, switcher, parts list, ladder, move line, goal card, gallery; may not import ui-kit until ui-kit drops its player-client imports (W5-1) |
+| 9 | grows: annotation model (§3.1), faces, switcher, parts list, ladder, move line, goal card, gallery; may not import ui-kit until ui-kit drops its player-client imports (D1) |
 | 10 | split into W3-1 (contract and fixtures, first), W3-3 (rooms, lobby, deal, rotation, practice), W3-4 (tick, commands); schema adds `v2Players`, `v2Moves`, `v2StandingsHistory`, `v2AgentPrograms`, `v2Digests`, `v2Members`, `v2Chat`, `v2Receipts`, `v2Layouts`, per-player sort indexes on `v2ObjectValues`, and card plus rung rarities on `v2Rules` |
-| 11 | replaced: no separate `/v2` page tree; the existing app on v2 data (W5-1 to W5-3), with `/v2` route prefixes until M5 |
-| 12 | becomes W3-6 and W3-7 (tools, MCP, CLI, assistant, stored panels) |
+| 11 | replaced: no separate `/v2` page tree; the existing app converted in place on `claude/v2-app` (W5-2, W5-3), merged with D2 |
+| 12 | becomes W6-1 and W6-2 (the affordance directory and its generators, **before** PR 10) and W3-6, W3-7 (every operation, assistant, stored panels) |
 | 13 | becomes M4 (W1-G1, W1-G2, W4-G, W2-G, W3-G) |
-| 14 | becomes M5 (R-1 to R-4) |
+| 14 | replaced by deletion as a deliverable: D1 now, D2 at the end of M2, D3 at M5 (§5.8), on decision 15 |
+| new | `lib/v2-affordances` in the package table of spec §1; spec §10 gains the operations of §2.5; spec §6 queries are also human affordances (`object.read` free for humans) |
+
+### 5.8 Deletion as a deliverable (decision 15)
+
+Everything deleted stays on `archive/engine-v1`. Stored data follows CLAUDE.md's schema steps: code stops writing a
+field or table, its definition is widened (never narrowed early), and rows are deleted by a migration only in D3, with
+the owner's sign-off. CLAUDE.md's "Engine v2" section still says v2 lives beside the old engine until it replaces it;
+decision 15 supersedes that, and the coordinator should update the sentence.
+
+**D1, now** (W5; needs nothing from v2; one pull request per bullet, each with the suites it touches green; Annotated
+basics stays playable on v1):
+
+- **Integers and strings**: their object types, codecs and mutators in game-types; their families in game-utilities;
+  `IntObject` and `StringObject` in object-views; the number and text editors in `object-editors.tsx` and
+  `object-editor-model.ts`; their setups and settings options; the Int and string games in `e2e/multi-client.ts`; their
+  docs and tests.
+- **Bidding**: `convex/bidding.ts`, `dealWithBids`, `bidding.tsx`, `site/lib/bidding.ts`, the bid tools and skill, Lab
+  bidding setups, `game-bidding` tests, `e2e/bidding-shots.ts`, `docs/bid-phase.md`, `.agents/memory/bid-phase.md`.
+- **Paid looks**: `game/looks.ts`, the `look` command and tool, `knowledge.ts`, `observer.ts`, stale-board fields'
+  writers, `game-paid-observation` tests, `e2e/paid-observation-shots.ts`, the setup, `.agents/memory/paid-observation.md`.
+- **Tiers**: `card-tiers.ts`, `ruleTiers`, `TIER_COMPOSITIONS`, the Tiered rules setup and Lab tier setups,
+  `docs/tiered-rules.md`, `docs/handover-tiered-rules.md` if present.
+- **Hold rarity and disclosure noise**: `engine/hold.ts`, `engine/holdData.ts`, hold work slots, `game-hold` tests,
+  `peerNoiseBits` and the noise fields' writers.
+- **Setups**: every Lab setup and every setup but Annotated basics (First steps, Classic, Low income, Big board, Master,
+  Annotated colours); the deep colour and glyph code goes in D2, not here (cheap boundary first).
+- **`lib/grid-lab`** (imported by nothing) and docs that only served removed features or superseded designs:
+  `docs/brainstorm/`, `docs/research/` items about removed features, `docs/clean-implementation-plan.md`,
+  `docs/unify-apps-plan.md`, handovers of finished work (`handover-*.md`), `docs/layered-rules-*`, balance results of v1
+  setups. Docs describing the v1 engine that still runs (`engine-api.md`, `energy-model.md`, `convex-read-architecture.md`)
+  stay until D2 or D3.
+- The coordinator may close the open variant drafts (#290–#293, #295, #299, #300, #324); their branches remain.
+
+**D2, at the end of M2** (with the merge of `claude/v2-app`):
+
+- Libraries: `game-types`, `game-utilities`, `game-core`, `object-views`, `player-client`, `ai-player`, `game-runtime`
+  (each already copied and cleaned where v2 needed it: v2-sandbox, v2-economy, v2-views, v2-client, v2-ai).
+- Convex v1 modules: `engine/*`, `calibration/*`, `owner.ts`, `game/*`, `player.ts`, `dock.ts`, `games.ts`, `rooms.ts`,
+  `setups*`, `manifest*`, `commands.ts`, `replays.ts`, `ai/*`, `agent/registry.ts`, `agent/node.ts`, `agent/rules.ts`,
+  `agent/series.ts`, v1 `assistant*`, `layout.ts`, `panels.ts`, `lib/*` v1 helpers, v1 `testing.ts` fixtures, crons for
+  v1 caches; shared modules (`auth/*`, `agent/oauth*`, `agent/connect.ts`, `activity.ts`, `aiTemplates.ts`, `version.ts`,
+  `lib/rooms.ts`'s `encodeUuid`) lose their imports of v1 libraries.
+- Schema: every v1 table's definition replaced by a self-contained loose definition (each field
+  `v.optional(v.any())`, indexes dropped): a pure widening, so the schema imports nothing of v1 and deploys over the
+  stored rows.
+- Tests and scripts: every v1 engine suite and unit test, v1 e2e scripts and shots, calibration and runtime upload
+  scripts that only v1 used, deploy-workflow steps for them.
+- The app: every v1-only file left after the conversion (`sdk/evaluator.ts`, `goal.tsx`, `score-line.ts`,
+  `object-why.ts` v1, `knowledge.ts`, galleries for glyphs and v1 annotations, `setObjectRenderer`).
+
+**D3, at M5**: §5.6.
+
+**What can be deleted now**, in one line: integers and strings, bidding, paid looks, tiers, hold rarity, disclosure
+noise, every setup but Annotated basics, `lib/grid-lab`, and the docs of all of these (D1).
 
 ---
 
 ## 6. The first wave: briefs for the sessions that start when the core packages merge
 
-W1 (the spec session) continues with spec PR 5 and the additions of §5.7. W2's sandbox spike (spec PR 6) can start
-before the core merges. The four briefs below start on the merge of spec PRs 2–4.
+W1 (the spec session) continues with spec PR 5 and the additions of §5.7. Three things can start **now**, before the core
+merges: W6 (the affordance directory: its contract needs only zod and the context vocabulary), W5's D1 deletions, and
+W2's sandbox spike (spec PR 6). W3 and W4 start on the merge of spec PRs 2–4.
+
+**W6, the affordance directory.** You build `lib/v2-affordances`, the single directory of every operation that the
+embedded assistant, the remote assistant (MCP), the CLI, the command palette and the app's buttons are generated from
+(owner decision 16, quoted in this plan's preamble). Read this plan §2.5 first, then `docs/surface-architecture.md` §4,
+`lib/player-client/src/catalog.ts`, `tools.ts`, `test/catalog.test.ts`, `lib/ui-kit/src/commands.ts`,
+`artifacts/player-web/src/core/palette/commands.ts`, `site/lib/commands.ts` and `artifacts/engine/convex/agent/{mcp,
+registry}.ts`, to keep what works (one catalogue, typed against the generated api, completeness tests) and fix the six
+drifts §2.5 lists. Deliver, in order, PRs into `develop`: (1) W6-1, the contract: the `Affordance` type, contexts and
+callers, `defineOp(affordance, handler)` for Convex (zod-validated args via convex-helpers, caller and context checks
+from the game header, receipts, an internal twin taking a principal), `useAffordance(id)`'s interface, and the parity
+test of §2.5 (five checks) running over an initially empty v2 directory plus two example affordances end to end; (2)
+W6-2, the generators: tool lists for the assistant and MCP (JSON Schema from zod), MCP dispatch for v2 rooms' credentials
+on the existing `/mcp` transport and OAuth, the CLI (`pnpm player call <id>` and generated subcommands), palette entries
+with search text and confirmation, `useAffordance` for React, and client affordances stored as layout pane params. Then
+review every operation W3 and W5 add. Nothing may import the old libraries; the `consent` exemption is the only one.
+
+
 
 **W2, agent host and starters.** You build `lib/v2-agents` (spec §6, PR 7) on top of `lib/v2-sandbox` (spec PR 6; build
 it first if it has not landed) and then the starters. Read spec §5–§6, owner decisions 6 and (d), ux-lessons §1 and §3,
@@ -692,11 +901,12 @@ after the first summon at the first-agent share the god's store still pays for t
 **W3, the Convex server.** You build `artifacts/engine/convex/v2/` and `lib/v2-economy`. Read CLAUDE.md (Convex read
 rules, engine v2 section), `docs/convex-read-architecture.md` §3, spec §6.1, §8–§10, and this plan §2.2, §2.3 and §4.
 First PR (W3-1, within a day, it unblocks W5): the v2 schema of §4.2, every query of §2.2 with its args and return
-validator returning fixture data from `convex/v2/testing.ts`, the command envelope in `lib/v2-client/protocol.ts`, the
+validator returning fixture data from `convex/v2/testing.ts`, every M1–M2 operation (§2.2, §2.5) declared in W6's
+directory with a stub `defineOp` handler (W6-1 must have landed; never a public mutation outside `defineOp`), the
 import-boundary test extended to `convex/v2/**`, R8 rows. Then W3-2 (v2-economy, spec PR 8 with the agent-count
 neutrality tests), W3-3 (rooms, owner commands, lobby, deal from presets refusing unconverged rules, rotation, practice
-partners), W3-4 (loop and tick with births, offers, `runAct` from W2, values, `v2Moves`, standings, events; commands
-summon, replace, destroy, allocatePower, check, ready, pause, chat). M1's acceptance tests (§5.2) are yours. Copy the
+partners), W3-4 (loop and tick with births, offers, `runAct` from W2, values, `v2Moves`, standings, events; the
+operations summon, replace, destroy, allocatePower, check, ready, pause, chat as `defineOp` handlers). M1's acceptance tests (§5.2) are yours. Copy the
 lease, watchdog and commit pattern from `engine/loop.ts`; do not import anything from the old engine.
 
 **W4, views and annotations.** You build `lib/v2-views` (spec §11, PR 9, enlarged by this plan §3). Read spec §3–§4 and
@@ -707,24 +917,28 @@ the renderer contract of §3.2 and the static-markup test over every representat
 of §3.3 and a gallery page reproducing the three storyboards of §3.4 at desktop and phone width, with screenshots in the
 PR. Player-facing words: points, ✨ rarity, ⚡ energy, power, "main part", "tie-breaker", the variant's noun ("line");
 never "bits" or "object". No Convex, no imports from object-views (copy `colour-science.ts`, `dimensions.ts`, `product.ts`
-if useful); depend on ui-kit only after W5-1 lands.
+if useful); depend on ui-kit only after D1 cuts its player-client imports.
 
-**W5, the app.** You move today's app onto v2 data without losing its UX work. Read ux-lessons (all), this plan §1–§3
-and §5.3, `docs/convex-read-architecture.md` §3 (R6: one shared live subscription per datum, no client caches), and the
-app: `artifacts/player-web/src/sdk/hooks.ts`, `core/panels/*`, `dock/*`, `site/pages/*`. Start now with W5-1 (needs
-nothing from v2): move every v1-coupled pane and helper listed in §2.4 to `src/legacy/` unchanged, route v1 games there,
-cut ui-kit's type imports from player-client; the existing e2e and unit suites must pass unchanged. Then W5-2 against
-W3-1's fixtures: `lib/v2-client` (layout and panels copied from player-client, v2 types), `src/sdk2/` with the hook
-names of §2.4, the `/v2` routes, room page, home, game router, header and dock on v2. Then W5-3 when W4-3 and W3-4 land:
-the panes, ending with the M2 e2e test of §5.3 on desktop and phone. Keep every sentence the walks fixed (ux §6); when a
-v1 sentence names grids, rewrite it for lines, not around it.
+**W5, the app and the deletions.** You move today's app onto v2 data without losing its UX work, and you delete what
+v2 replaces (owner decision 15: everything stays on `archive/engine-v1`). Read ux-lessons (all), this plan §1–§3, §5.3
+and §5.8, `docs/convex-read-architecture.md` §3 (R6: one shared live subscription per datum, no client caches), and the
+app: `artifacts/player-web/src/sdk/hooks.ts`, `core/panels/*`, `dock/*`, `site/pages/*`. Start now with D1 (needs
+nothing from v2): one pull request per bullet of §5.8's D1 list, each leaving Annotated basics playable and its suites
+green, and cut ui-kit's type imports from player-client. Then, on the integration branch `claude/v2-app` with a `preview`
+deployment so the owner can try it, W5-2 against W3-1's fixtures and W6-2's `useAffordance`: `lib/v2-client` (layout and
+panels copied and cleaned from player-client, v2 types), `src/sdk` rewritten in place with the hook names of §2.4,
+room page, home, game router, header and dock on v2, every button through `useAffordance`. Then W5-3 when W4-3 and W3-4
+land: the panes, ending with the M2 e2e test of §5.3 on desktop and phone, and D2 (merge `claude/v2-app` into `develop`
+with the v1 engine's deletion). Keep every sentence the walks fixed (ux §6); when a v1 sentence names grids, rewrite it
+for lines, not around it.
 
 ---
 
 ## 7. Open questions for the owner (none blocks the first wave)
 
-1. Deleting v1 stored games at M5 (R-3) is irreversible; the plan asks then, with an export first.
-2. Bidding and single-game fairness: deferred here; revive after M4 only if the owner wants it.
-3. User-saved setups: presets only until the engine settles (guess that nobody else used saved setups).
+1. Deleting v1's stored games from the deployments (D3-a) is irreversible; the plan asks then, with an export first.
+2. Between D2 and M4 `develop` has no grid game (lines only); the archive branch and production keep grids. Acceptable?
+   (Guess: yes, under decision 15.)
+3. Bidding and single-game fairness: deleted; a v2 deal mechanism only if the owner asks.
 4. Whether the beginner pool mixes story families (rule brainstorm B) with the spec's twelve: W1 decides from the
    calibration report and the first walks.
