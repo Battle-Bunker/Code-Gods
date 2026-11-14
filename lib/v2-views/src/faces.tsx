@@ -223,6 +223,14 @@ export interface ExpandedFaceProps<S, P> {
   readonly initialRep?: string;
   /** Whether the ladder starts unfolded (default true; a popover on a phone may fold it). */
   readonly ladderOpen?: boolean;
+  /**
+   * A controlled switcher (the app keeps it in the human's view state, so an assistant can switch it for them): the
+   * representation shown and the one compared beside it. Each falls back to the face's own state when absent.
+   */
+  readonly active?: string;
+  readonly compare?: string | null;
+  readonly onActive?: (rep: string) => void;
+  readonly onCompare?: (rep: string | null) => void;
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -236,8 +244,12 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
   const sa = a.sites[site]!;
   const e = sa.evaluation;
   const depends = rule.family.depends;
-  const [active, setActive] = useState(props.initialRep ?? rule.family.main.rep);
-  const [compare, setCompare] = useState<string | null>(null);
+  const [ownActive, setOwnActive] = useState(props.initialRep ?? rule.family.main.rep);
+  const [ownCompare, setOwnCompare] = useState<string | null>(null);
+  const active = props.active ?? ownActive;
+  const compare = props.compare !== undefined ? props.compare : ownCompare;
+  const setActive = (rep: string) => { setOwnActive(rep); props.onActive?.(rep); };
+  const setCompare = (rep: string | null) => { setOwnCompare(rep); props.onCompare?.(rep); };
   const [hl, setHl] = useState<string | null>(null);
   const [activePart, setActivePart] = useState<number | null>(null);
   const [hoverPart, setHoverPart] = useState<number | null>(null);
