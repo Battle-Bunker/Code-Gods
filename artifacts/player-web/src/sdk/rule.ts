@@ -30,6 +30,8 @@ export function ruleRefOf(row: MyRuleRow, variantId: string): GameRule | null {
 
 /** A rule's worth: its rarity in bits at any score (utility), with certified bounds (owner decision 23). */
 export type ValueOf = (u: Score) => Lookup;
+/** Just the bits of a value lookup: what the faces take. */
+export const bitsOf = (value: ValueOf | null): ((u: Score) => number) | null => (value ? (u: Score) => value(u).bits : null);
 
 /**
  * The value function's knots as a lookup (`v2/play:myRule`'s `value`, or the gallery's `points`, which carry no bounds

@@ -9,7 +9,7 @@ import { useMemo, useSyncExternalStore } from "react";
 import type * as App from "../sdk/hooks";
 import { bridge } from "./bridge-client";
 import type { HookName, PagedAnswer } from "./protocol";
-import { ruleRefOf, valueOf } from "../sdk/rule";
+import { bitsOf, ruleRefOf, valueOf } from "../sdk/rule";
 import type { MyRuleRow } from "../sdk/types";
 
 export { definePanel, PANEL_SDK, type PanelDefinition, type PanelManifest } from "../sdk/panel";
@@ -63,7 +63,11 @@ const EMPTY: never[] = [];
 export const useMyRule: Hook<"useMyRule"> = () => {
   const raw = value<{ row: MyRuleRow } | undefined>("useMyRule");
   const variant = useGame()?.variant;
-  return useMemo(() => (raw && variant ? { row: raw.row, rule: ruleRefOf(raw.row, variant), value: valueOf(raw.row.value?.knots, raw.row.value?.tail) } : undefined), [raw, variant]);
+  return useMemo(() => {
+    if (!raw || !variant) return undefined;
+    const value = valueOf(raw.row.value?.knots, raw.row.value?.tail);
+    return { row: raw.row, rule: ruleRefOf(raw.row, variant), value, bits: bitsOf(value) };
+  }, [raw, variant]);
 };
 
 export const useObjectIds: Hook<"useObjectIds"> = (sort, pageSize = 30) => usePaged("useObjectIds", [sort, pageSize]) as never;

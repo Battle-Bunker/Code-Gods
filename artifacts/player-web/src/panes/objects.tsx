@@ -11,6 +11,7 @@ import { bitsText, num, othersNote, pointsText, scoreFormula } from "@/core/word
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
+import type { Score } from "@workspace/v2-core";
 import { annotate, CompactFace, ObjectChip, type Annotation } from "@workspace/v2-views";
 import { decodeState, defaultRepOf, objectTypeOf, objectWord, useDigest, useGame, useGameScope, useMoves, useMyObject, useMyRule, useObjectIds, useReplaySource, useSpectatorObjectIds, type GameRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
@@ -78,8 +79,8 @@ function SortControl() {
   );
 }
 
-function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpen, variant }: {
-  objectId: string; number: number; rule: GameRule | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void; variant: string;
+function LineRow({ objectId, number, rule, value, rep, scale, focused, contested, onOpen, variant }: {
+  objectId: string; number: number; rule: GameRule | null; value: ((u: Score) => number) | null; rep: string; scale: PayoffScale; focused: boolean; contested: boolean; onOpen: (objectId: string) => void; variant: string;
 }) {
   const o = useMyObject(objectId);
   const word = objectWord(variant);
@@ -98,7 +99,7 @@ function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpe
   const main = a?.sites[0]?.parts[0];
   return shell(<>
     <div className="shrink-0" data-testid={`marks-line-${number}`} data-rep={rep}>
-      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
+      {rule ? <CompactFace rule={rule} state={state} annotation={a ?? undefined} rep={rep} value={value ?? undefined} /> : <ObjectChip type={objectTypeOf(variant)} state={state} />}
     </div>
     <div className="min-w-0 flex-1 space-y-1.5 text-xs">
       <p className="flex flex-wrap items-baseline gap-x-2">
@@ -157,7 +158,7 @@ function SeatedLines() {
         <PointsKey />
       </div>
       <VirtualRows rows={results} rowHeight={ROW_H} maxHeight={maxHeight} keyOf={r => r.objectId} onNearEnd={onNearEnd} testId="lines-list"
-        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
+        render={r => <LineRow objectId={r.objectId} number={r.number} rule={rule} value={my?.bits ?? null} rep={rep} scale={scale} focused={view.focus?.objectId === r.objectId} contested={contested.has(r.objectId)} onOpen={onOpen} variant={header?.variant ?? ""} />} />
     </div>
   );
 }

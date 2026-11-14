@@ -66,6 +66,15 @@ async function shorten(page: Page, code: string) {
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
 }
 
+/** Whether the server deals a grid setup (`v2/setups:presets` lists only setups whose rules have value functions). */
+async function gridsPlayable(page: Page): Promise<boolean> {
+  const token = await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token);
+  const client = new ConvexHttpClient(CLOUD);
+  client.setAuth(token);
+  const presets = await client.query("v2/setups:presets" as never, {} as never) as { id: string }[];
+  return presets.some(p => p.id === "grids-beginner");
+}
+
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 /** A line's score as every pane writes it (src/core/words.ts scoreFormula), 2 decimal places. */
 const FORMULA = /your [\d,]+\.\d\d bits? × others' [\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/;
@@ -82,6 +91,16 @@ try {
     const code = page.url().split("/").at(-1)!;
     await page.screenshot({ path: path.join(shots, `grid-${label}-room-before.png`), fullPage: true });
     // The owner picks the grid setup in the room (a radio in "Next game").
+    // Owner decision 23: a rule without a value function is never dealt, so the server withholds the grid setups until
+    // the grid value functions are generated. Until then this walk checks the withholding and stops (W3's grids suite
+    // does the same); it runs in full by itself once a grid setup is listed.
+    if (!(await gridsPlayable(page))) {
+      await page.getByTestId("radio-setup-grids-beginner").click();
+      await page.getByText(/The setup did not change/).first().waitFor({ timeout: 15_000 });
+      console.log(`${label}: the grid setups are withheld (no grid value functions on this deployment): the walk stops here`);
+      await context.close();
+      continue;
+    }
     const t1 = Date.now();
     await page.getByTestId("radio-setup-grids-beginner").click();
     await page.waitForFunction(() => (document.querySelector('[data-testid="radio-setup-grids-beginner"]') as HTMLInputElement | null)?.checked === true, null, { timeout: 15_000 });

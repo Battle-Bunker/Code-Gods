@@ -7,7 +7,6 @@
  */
 import { useMemo, useState } from "react";
 import { ObjectChip } from "@workspace/v2-views";
-import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
@@ -36,7 +35,7 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
   const [site, setSite] = useState(0);
   const pick = (next: string) => { const c = choices.find(x => x.id === next)!; setId(next); setArgs(defaults(c)); };
   const bad = choice.args.flatMap(a => (a.kind === "number" ? [[a.name, argError(args[a.name] ?? "", a.fractions)] as const] : [])).find(([, e]) => e) ?? null;
-  const bits = useMemo(() => (my.value ? (u: Score) => my.value!(u).bits : null), [my.value]);
+  const bits = my.bits;
   // The line as it is now, worked out once per line rather than once per keystroke.
   const before = useMemo(() => { try { return standing(rule, state, bits, want); } catch { return undefined; } }, [rule, state, bits, want]);
   const out = useMemo(() => {
