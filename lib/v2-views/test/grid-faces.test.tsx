@@ -103,6 +103,11 @@ test("grid contributors: each part says what every unit contributes, sits on a r
   assert.deepEqual(main.units.map(u => u.text), ["5 short", "7 short", "6 short", "14 short"], main.units.map(u => `${u.label} ${u.text}`).join(", "));
   assert.ok(main.units.every(u => /^row \d$/.test(u.label)), main.units.map(u => u.label).join(", "));
   assert.equal(main.distance, "off by 32");
+  // A unit already at its target is listed too, said as such (the rule marks it with focus, not a note).
+  const two = { ...rules.find(r => r.family.id === "two-pair")!, tieBreaker: undefined };
+  const boxes = contributors(two, B2).parts[0]!.units;
+  assert.equal(boxes.length, 4, boxes.map(u => `${u.label}: ${u.text}`).join(" · "));
+  assert.ok(boxes.some(u => u.text === "on target"), boxes.map(u => `${u.label}: ${u.text}`).join(" · "));
   // A sum of distances sits on a ruler whose strong mark is 0: perfect.
   assert.ok(main.ruler, "an off-by part has a ruler");
   assert.equal(main.ruler!.value, 32);
