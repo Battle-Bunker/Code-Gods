@@ -142,6 +142,16 @@ existing code. The specification that follows from them is [spec.md](spec.md).
   the artefact's `cap`, `convergedCap`, `tail` and `dealable` (spec §7.5): the fitted tail is built for tie-breaker
   rungs at the main top. The coordinator added the same day: a pairing whose dealt top is under 4 bits is not dealable.
 
+- **(h) The first summon opens with the Simple starter** (14 November, provisional; the owner is told and can reverse
+  it). A beginner's first summon opens with the points-aware Simple starter, not the Example, on lines and grids. The
+  Example stays in the forge as "see how a rule is climbed".
+- **(i) Practice deals do not leave the human out** (14 November, provisional; the owner is told and can reverse it).
+  In practice games only, the deal must not make the human the odd one out. The human's rule is compatible with at
+  least one practice partner's rule, by the agents session's compatibility table (rule-compatibility.md), and two
+  partners who share a preference the human's rule conflicts with are avoided. Real multi-player deals are unchanged,
+  pending the owner's decision on compatible dealing. (Playtest round 4: Opposite Nines scored 509 against about 4,100
+  when both partners' rules liked the same grids.)
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

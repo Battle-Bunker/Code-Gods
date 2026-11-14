@@ -224,10 +224,10 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
 
 const ladderShape: Shape<object> = {
-  main: more("ladder", "a run of n dividing y(n)", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table"),
+  main: more("ladder", "a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …", "y(1) should be a multiple of 1, y(2) a multiple of 2, y(3) of 3, and so on (the line not through (0, 0)): the run should be as long as possible.", "table"),
   tieBreakers: [
     ...factorTies<object>("m", "the gradient"),
-    more("steep", "the gradient steep", "The gradient should be as steep as possible.", "si"),
+    more("steep", "how steep the line is", "The gradient should be as steep as possible.", "si"),
     distance("m-prime", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
   ],
 };

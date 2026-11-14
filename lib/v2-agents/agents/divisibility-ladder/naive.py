@@ -1,5 +1,5 @@
 # Divisibility Ladder · Naive (for learning)
-# Main part: a run of n dividing y(n). Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; the gradient steep; the gradient close to a prime).
+# Main part: a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; how steep the line is; the gradient close to a prime).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
