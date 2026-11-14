@@ -9,11 +9,11 @@
  *   −log2 (M_k + T) ≤ V_k ≤ −log2 M_k        (rigorous, whatever the rule does outside the budget).
  * A rung is certified to the 2% target when T ≤ 0.02 · M_k.
  */
-import { compareScores, evaluateObject, mixedIntBits, objectLadder, levelOf, q, toWireQ, type Q, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
+import { compareScores, evaluateObject, mixedIntBits, objectLadder, levelOf, q, ruleLayers, toWireQ, type Q, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
 
 /** Compares two score components (null ranks last), as compareScores does. */
 const compareComponent = (a: Q | null, b: Q): number => compareScores([a], [b]);
-import { fromMC, lineParams, lineType, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineParams, lineSums, lineType, type LineState, type LineSums } from "@workspace/v2-linear";
 
 /** The exact sums enumerate single lines: a variant with several lines per object needs its own law (not built). */
 function oneLine(variant: Variant): void {
@@ -193,4 +193,101 @@ export function dominantRungs<P>(family: RuleFamily<LineState, P>, params: P, va
   }
   const base = out[0]!;
   return out.map(v => v - base);
+}
+
+// ---------------------------------------------------------------- the valuation's entry point (owner decision 19)
+
+/** Budgets: the 1D enumeration for separable laws and band sums, and the 2D one for the generic fallback. */
+export interface ExactConfig { readonly separableBits: number; readonly bandBits: number; readonly triangleBits: number; readonly wideRange: number }
+export const EXACT_CONFIG: ExactConfig = { separableBits: 44, bandBits: 40, triangleBits: 28, wideRange: 200 };
+
+export interface ExactLadder {
+  /** Per rung, the certified interval of V_k in bits. */
+  readonly lo: readonly number[];
+  readonly hi: readonly number[];
+  /** How each rung was summed. */
+  readonly method: readonly ("separable" | "band" | "enumeration")[];
+}
+
+/** Exact rung values for a rule on one whole-number line per object, by its family's plan (lineSums) or the fallback. */
+export function exactLadder<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker, cfg: ExactConfig = EXACT_CONFIG): ExactLadder {
+  oneLine(variant);
+  const plan = lineSums[family.id] as LineSums<P> | undefined;
+  const layers = ruleLayers(family, tieBreaker).map(l => l.id);
+  const on = layers.map(id => plan?.separable?.[id]);
+  if (on.every(x => x !== undefined)) {
+    const r = exactRungsSeparable(family, params, variant, tieBreaker, on as ("m" | "c")[], cfg.separableBits);
+    return { lo: r.lo, hi: r.hi, method: r.lo.map(() => "separable") };
+  }
+  const tri = exactRungs(family, params, variant, tieBreaker, cfg.triangleBits);
+  const lo = [...tri.lo], hi = [...tri.hi];
+  const method: ("separable" | "band" | "enumeration")[] = lo.map(() => "enumeration");
+  if (plan?.band) {
+    const b = bandRungs(family, params, variant, tieBreaker, plan.band, cfg);
+    for (let k = b.from; k < lo.length; k++) {
+      if (b.hi[k]! - b.lo[k]! < hi[k]! - lo[k]!) { lo[k] = b.lo[k]!; hi[k] = b.hi[k]!; method[k] = "band"; }
+    }
+  }
+  return { lo, hi, method };
+}
+
+/**
+ * The band sum: for every m within bandBits, the lines (m, c) with c in the plan's ranges and among the integers within
+ * bandBits; every line at main level ≥ fromMain inside that rectangle is among them (the plan's contract). Outside mass:
+ * T(m) + T(c) for the coefficients beyond the budget, plus the mass of any range too wide to enumerate (added, not
+ * summed: wideRange).
+ */
+function bandRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker,
+  band: NonNullable<LineSums<P>["band"]>, cfg: ExactConfig): { from: number; lo: number[]; hi: number[] } {
+  const ladder = objectLadder(lineType, family, params, variant, tieBreaker);
+  const fromMain = band.fromMain(params);
+  const from = ladder.findIndex(r => r.layer === 0 && r.main === fromMain);
+  if (from < 0) throw new Error(`${family.id}: the band starts at main level ${fromMain}, which the ladder does not have`);
+  const ints = integersWithin(cfg.bandBits);
+  const byValue = [...ints].sort((a, b) => (a.n < b.n ? -1 : a.n > b.n ? 1 : 0));
+  const prefix = [0];
+  for (const x of byValue) prefix.push(prefix[prefix.length - 1]! + 2 ** -x.bits);
+  const T1 = Math.max(0, 1 - prefix[prefix.length - 1]!);
+  const lower = (v: bigint) => { let a = 0, b = byValue.length; while (a < b) { const h = (a + b) >> 1; if (byValue[h]!.n < v) a = h + 1; else b = h; } return a; };
+  const mass = new Array<number>(ladder.length).fill(0);
+  let slack = 0;
+  for (const m of ints) {
+    const pm = 2 ** -m.bits;
+    const seen = new Set<number>();
+    for (const r of band.ranges(m.n, params)) {
+      const i0 = lower(r.lo), i1 = lower(r.hi + 1n);
+      if (!r.step && i1 - i0 > cfg.wideRange) { slack += pm * (prefix[i1]! - prefix[i0]!); continue; }
+      for (let i = i0; i < i1; i++) {
+        const c = byValue[i]!;
+        if (r.step && c.n % r.step !== 0n) continue;
+        if (seen.has(i)) continue;
+        seen.add(i);
+        const score = evaluateObject(lineType, family, params, { lines: [fromMC(q(m.n), q(c.n))] }, variant, tieBreaker).score;
+        mass[levelOf(score, ladder)]! += pm * 2 ** -c.bits;
+      }
+    }
+  }
+  const out = 2 * T1 + slack;
+  const lo: number[] = [], hi: number[] = [];
+  let acc = 0;
+  for (let k = ladder.length - 1; k >= 0; k--) {
+    acc += mass[k]!;
+    lo[k] = k === 0 ? 0 : -Math.log2(Math.min(1, acc + out));
+    hi[k] = k === 0 ? 0 : -Math.log2(acc);
+  }
+  return { from, lo, hi };
+}
+
+/** Distinct values each dealt layer takes among every line with φ(m) + φ(c) ≤ budget (the continuity check, decision 13). */
+export function distinctLayerValues<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker, budget: number): number[] {
+  const ints = integersWithin(budget);
+  const layers = ruleLayers(family, tieBreaker).length;
+  const seen = Array.from({ length: layers }, () => new Set<string>());
+  for (const m of ints) for (const c of ints) {
+    if (m.bits + c.bits > budget) break;
+    const s = evaluateObject(lineType, family, params, { lines: [fromMC(q(m.n), q(c.n))] }, variant, tieBreaker).score;
+    if (s === null) continue;
+    for (let j = 0; j < layers; j++) seen[j]!.add(s[j] === null || s[j] === undefined ? "undefined" : toWireQ(s[j]!));
+  }
+  return seen.map(x => x.size);
 }
