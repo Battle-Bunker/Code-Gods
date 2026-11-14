@@ -3,6 +3,7 @@
  * viewer, newest first, one sentence each (move-line.ts) from the `v2Moves` row, with the line before → after written
  * by v2-views in the representation that changed. Older pages load on request; every loaded page stays live.
  */
+import { fixedLength } from "@/core/timer-text";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred, usePublicLog, type LogEntry } from "@/sdk";
@@ -30,7 +31,7 @@ function lineText(state: unknown, rep: string, site: number, variant: string): s
 function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<string, string>; variant: string }) {
   const anonymous = useContext(AnonymousContext);
   const blurred = useOthersBlurred();
-  const length = useGame()?.worldSeconds ?? null;
+  const g = useGame(); const length = g ? fixedLength(g) : null;
   const notes = useContext(NotesContext).get(move.seq);
   // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
   const board = useMemo(() => {
@@ -69,7 +70,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
 /** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
 function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; variant: string; kinds: ReadonlyMap<string, string> }) {
   const anonymous = useContext(AnonymousContext);
-  const length = useGame()?.worldSeconds ?? null;
+  const g = useGame(); const length = g ? fixedLength(g) : null;
   // Its moves' notes show on the entry itself: the moves are folded away below.
   const notesBySeq = useContext(NotesContext);
   const tugNotes = [...new Set(tug.moves.flatMap(m => notesBySeq.get(m.seq) ?? []))];
@@ -174,7 +175,7 @@ function PublicLog() {
   return (
     <div data-testid="public-log">
       <VirtualRows rows={results} rowHeight={LOG_ROW_H} maxHeight={480} keyOf={r => String(r.seq)} onNearEnd={onNearEnd} testId="public-log-list"
-        render={r => <LogRowView r={r} variant={header.variant} approx={blurred} length={header.worldSeconds} />} />
+        render={r => <LogRowView r={r} variant={header.variant} approx={blurred} length={fixedLength(header)} />} />
     </div>
   );
 }

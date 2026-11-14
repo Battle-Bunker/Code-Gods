@@ -15,6 +15,12 @@ export interface RulesInput {
   /** An account holds at most its power times this many seconds. */
   fullChargeSeconds: number;
   bid?: { seconds: number } | null;
+  /** "halfLife": the world ends at a hidden random moment, `worldSeconds` its half-life (absent: fixed). */
+  durationMode?: "fixed" | "halfLife";
+  /** World seconds between counted totals (absent: 10). */
+  scoreIntervalSeconds?: number;
+  /** The noise on the others' sums while live, in bits (absent: 8; 0: exact). */
+  peerNoiseBits?: number;
 }
 
 /** "45 seconds", "1 minute", "5 minutes", "2 minutes 30 seconds". */
@@ -43,7 +49,10 @@ export function rulesParagraphs(r: RulesInput): string[] {
       ? `First comes ${duration(r.bid.seconds)} of bidding: you may give up a share of your final points to get the kind of rule you want. Then ${duration(r.planningSeconds)} of planning`
       : `Each game starts with ${duration(r.planningSeconds)} of planning`)
       + ", when you write and summon your first agent and nothing moves yet. "
-      + `Then the world runs for ${duration(r.worldSeconds)} and the game ends. Your final points are the points of every line alive then, added up: `
+      + (r.durationMode === "halfLife"
+        ? `Then the world runs, and it ends at a hidden random moment: half of games end within ${duration(r.worldSeconds)} of the world starting, and the clock shows a range, not an exact time. Your final points`
+        : `Then the world runs for ${duration(r.worldSeconds)} and the game ends. Your final points`)
+      + " are the points of every line alive then, added up: "
       + "the same figure as your points during the game, which rise and fall as the lines change.",
   ];
 }
@@ -55,9 +64,11 @@ export function rulesFacts(r: RulesInput): [string, string][] {
     ["Players", `${r.minPlayers} or more`],
     ...(r.bid ? [["Bidding", duration(r.bid.seconds)] as [string, string]] : []),
     ["Planning", duration(r.planningSeconds)],
-    ["The world runs", duration(r.worldSeconds)],
+    ["The world runs", r.durationMode === "halfLife" ? `a hidden random time (half-life ${duration(r.worldSeconds)})` : duration(r.worldSeconds)],
     ["Starting energy", energyText(r.startingEnergy)],
     ["Power", powerText(r.powerPerSecond)],
     ["Energy fills in", duration(r.fullChargeSeconds)],
+    ["Totals counted", `every ${duration(r.scoreIntervalSeconds ?? 10)}`],
+    ["Others' totals", (r.peerNoiseBits ?? 8) === 0 ? "exact" : `blurred while live (about ${r.peerNoiseBits ?? 8} bits)`],
   ];
 }

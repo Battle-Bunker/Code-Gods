@@ -11,7 +11,8 @@ import { PRESETS, presetOf, type Preset } from "@workspace/engine/convex/v2/pres
 import { Section } from "@/site/components/page-parts";
 import { failureText } from "@/site/components/action";
 import { useAuth } from "@/site/hooks/use-auth";
-import { formOf, nextGameSummary, overridesOf, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
+import { formOf, nextGameSummary, overridesOf, PEER_NOISE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
+import { SCORE_INTERVAL_OPTIONS } from "@workspace/engine/convex/v2/duration.ts";
 import { gallerySearch } from "@/site/lib/rule-gallery";
 import { ruleGalleryPath } from "@/site/lib/routes";
 import { toast } from "@/hooks/use-toast";
@@ -53,10 +54,14 @@ function SetupPicker({ room, admin, locked }: { room: Room; admin: boolean; lock
   );
 }
 
-const FIELDS: { key: FormField; label: string; hint: string }[] = [
+type TextField = Exclude<FormField, "durationMode" | "peerNoiseBits">;
+const fields = (mode: SettingsForm["durationMode"]): { key: TextField; label: string; hint: string; list?: string }[] => [
   { key: "planningSeconds", label: "Planning (seconds)", hint: "Time to read your rule and summon an agent before the world starts." },
-  { key: "worldMinutes", label: "Game length (minutes)", hint: "How long the world runs." },
+  mode === "halfLife"
+    ? { key: "worldMinutes", label: "Half-life (minutes)", hint: "Half of games end within this; the end is a hidden random moment." }
+    : { key: "worldMinutes", label: "Game length (minutes)", hint: "How long the world runs." },
   { key: "startingEnergy", label: "Starting energy (⚡)", hint: "What each player has to summon agents with." },
+  { key: "scoreIntervalSeconds", label: "Totals counted every (seconds)", hint: "How often the standings are counted and published.", list: "score-interval-options" },
 ];
 
 function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; locked: string | null }) {
@@ -79,14 +84,32 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
     <form className="space-y-3" onSubmit={e => { e.preventDefault(); if (checked.ok && changed && !locked) void send(checked.overrides, "Settings saved for the next game"); }} data-testid="form-room-settings">
       <p className="label-mono">Settings</p>
       <div className="grid gap-3 sm:grid-cols-3">
-        {FIELDS.map(f => (
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
+          <span>How the game ends</span>
+          <select value={form.durationMode} onChange={e => setForm({ ...form, durationMode: e.target.value as SettingsForm["durationMode"] })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-durationMode">
+            <option value="fixed">At its length (everyone sees the countdown)</option>
+            <option value="halfLife">At a hidden random moment</option>
+          </select>
+          <span className="text-xs text-muted-foreground">{form.durationMode === "halfLife" ? "The clock shows a range, not an exact time." : "The end is public."}</span>
+        </label>
+        {fields(form.durationMode).map(f => (
           <label key={f.key} className="flex min-w-0 flex-col gap-1 text-sm">
             <span>{f.label}</span>
-            <input value={form[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })} disabled={!!locked || busy} inputMode="decimal"
+            <input value={form[f.key]} onChange={e => setForm({ ...form, [f.key]: e.target.value })} disabled={!!locked || busy} inputMode="decimal" list={f.list}
               aria-invalid={!!errors[f.key] || undefined} className="h-9 border bg-background px-2" data-testid={`input-setting-${f.key}`} />
             <span className={`text-xs ${errors[f.key] ? "text-destructive" : "text-muted-foreground"}`} data-testid={errors[f.key] ? `error-setting-${f.key}` : undefined}>{errors[f.key] ?? f.hint}</span>
           </label>
         ))}
+        <datalist id="score-interval-options">{SCORE_INTERVAL_OPTIONS.map(n => <option key={n} value={n} />)}</datalist>
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
+          <span>Others' totals while live</span>
+          <select value={form.peerNoiseBits} onChange={e => setForm({ ...form, peerNoiseBits: e.target.value })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-peerNoiseBits">
+            {PEER_NOISE_OPTIONS.map(n => <option key={n} value={String(n)}>{n === 0 ? "Exact" : `Blurred by about ${n} bits`}</option>)}
+          </select>
+          <span className="text-xs text-muted-foreground">Exact after the game ends, whichever you pick.</span>
+        </label>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <button type="submit" disabled={!!locked || busy || !changed || !checked.ok} className={`px-4 py-2 text-sm font-medium disabled:opacity-50 ${changed ? "bg-primary text-primary-foreground" : "border text-muted-foreground"}`} data-testid="button-save-settings">
