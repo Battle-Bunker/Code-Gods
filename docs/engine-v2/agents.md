@@ -13,7 +13,7 @@ const { record, state } = await runAct(await pool.get(program.language), {
   program: { language: "python" | "typescript" | "javascript", source },
   seed, energy,                                        // the agent's energy, as budget() reports it
   object, liveObjects,                                 // the offer: log2(liveObjects) read bits
-  limits, economy,                                     // optional: sandbox limits; { kappa, beta } (default spec 32, 0.05)
+  limits, economy,                                     // optional: sandbox limits; { kappa, beta } (default v2-economy's KAPPA, BETA)
 });
 ```
 
@@ -122,9 +122,9 @@ Prices of the shipped agents when this page was written:
 | square-area | Thorough | 580 | 533 |
 | square-area | Bold | 506 | 458 |
 
-After a first summon (about 400 ⚡) the god keeps about 200 ⚡ of the 600; replacing with the dearest starter (581 ⚡)
-needs about 380 ⚡ of accrual. ux-lessons §1.5's test ("the store can still pay for the dearest starter") belongs with
-the economy (W3), which knows the accrual; these prices are its input.
+The beginner economy (v2-economy `LINES_BEGINNER_ECONOMY`: 600 ⚡ to start, power 64 a second, a 30 s store) pays
+for any of them in planning, and a test checks ux-lessons §1.5 and §3.7 on the real prices: after a first summon at
+v2-economy's `firstAgentShare` (about 70% of power), the player's own store can still hold the dearest shipped agent.
 
 **`check(sandbox, { type, variant, rule, program, samples, energy })`** returns the `agent.check` affordance's
 result (`verdict`, `summary`, `price`, `sample`) plus `acts`, each sample's `ActRecord`. It runs one act per sample

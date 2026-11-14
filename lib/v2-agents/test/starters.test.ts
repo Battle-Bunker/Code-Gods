@@ -12,6 +12,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { evaluateSite, layerLadders, levelOf, scoreToWire, type Variant } from "@workspace/v2-core";
+import { firstAgentShare, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
@@ -173,4 +174,12 @@ test("check: works, warns, fails and rejected, with the summon price and every a
   assert.equal(rejected.verdict, "rejected");
   assert.equal(rejected.sample.length, 1, "a program that does not compile is tried once");
   assert.equal((await run("python", simple.source, [])).verdict, "warns", "no samples: nothing to try");
+});
+
+test("after a first summon at the first-agent share, the player's store can still hold the dearest shipped agent (ux 1.5, 3.7)", () => {
+  const dearest = Math.max(...all.map(a => summonBits(a.language, a.source).energy));
+  const e = LINES_BEGINNER_ECONOMY;
+  const share = firstAgentShare({ allocated: 0, powerPerSecond: e.powerPerSecond, fullChargeSeconds: e.fullChargeSeconds, need: dearest });
+  assert.ok(share !== undefined && share >= 0.65, `first agent's share ${share}`);
+  assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");
 });
