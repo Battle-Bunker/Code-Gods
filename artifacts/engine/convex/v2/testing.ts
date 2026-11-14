@@ -240,3 +240,18 @@ export const valueOf = internalQuery({
     return { score: v.score, level: v.level, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version };
   },
 });
+
+/** Every agent of a game with its share and energy (the credit rule's test: no agent owes more than its capacity). */
+export const agentsOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const game = (await ctx.db.get(gameId))!;
+    const out = [];
+    for (const a of await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(320)) {
+      const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
+      out.push({ agentId: a._id, share: a.share, energy: e.energy, capacity: a.share * game.settings.economy.powerPerSecond * game.settings.economy.fullChargeSeconds });
+    }
+    return out;
+  },
+});

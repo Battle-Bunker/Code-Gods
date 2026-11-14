@@ -87,7 +87,7 @@ export const digestV = v.object({ version: v.number(), packed: v.array(v.number(
 /** Spectators: every object's shared state, no values. */
 export const spectateObjectV = v.object({ objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(), state: v.string(), version: v.number(), changedAt: v.number() });
 
-export const layoutV = v.union(v.object({ layout: v.any(), revision: v.number() }), v.null());
+export const layoutV = v.union(v.object({ layout: v.any(), view: v.union(v.any(), v.null()), revision: v.number() }), v.null());
 export const replayV = v.object({ stored: v.boolean(), url: v.union(v.string(), v.null()) });
 
 /** `v2/bids:state`: the open bid phase as the caller may see it (their own bids only). */

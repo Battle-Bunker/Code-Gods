@@ -7,7 +7,7 @@
  */
 import { births, runAct } from "@workspace/v2-agents";
 import { hash64, rng } from "@workspace/v2-core";
-import { agentIncome, energyCapacity, opportunities, pickByEnergy, settle } from "@workspace/v2-economy";
+import { actCredit, affordable, agentIncome, energyCapacity, opportunities, pickByEnergy, readCharge, settle } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
@@ -69,10 +69,16 @@ export const tick = internalAction({
           rule: { family: seat.rule.family, params: seat.rule.params as Record<string, unknown>, tieBreaker: seat.rule.tieBreaker },
           program: { language: agent.language, source: agent.source }, seed, energy, object: number - 1, liveObjects: snap.objects,
         });
-        balance.set(agent.agentId, energy - record.charge);
-        if (record.outcome === "committed") local.set(number, record.after);
+        // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
+        // does not commit and pays only its reads; a change that does not change the state is not a change.
+        const capacity = energyCapacity(agentIncome(econ.powerPerSecond, agent.share), econ.fullChargeSeconds);
+        const changed = record.outcome === "committed" && record.after !== record.before;
+        const verdict = !changed ? (record.outcome === "committed" ? "skipped" : record.outcome)
+          : affordable(energy, record.charge, actCredit(capacity)) ? "committed" : "unaffordable";
+        balance.set(agent.agentId, energy - (verdict === "unaffordable" ? readCharge(record.readBits) : record.charge));
+        if (verdict === "committed") local.set(number, record.after);
         acts.push({
-          n: snap.acts + i, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
+          n: snap.acts + i, verdict, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
           seed, energy, liveObjects: snap.objects, programVersion: agent.version, record,
         });
       }
@@ -84,11 +90,11 @@ export const tick = internalAction({
 });
 
 /** Acts on the same object within one tick chain: each later act saw the earlier one's result (version + 1). */
-function chainVersions<T extends { objectId: string; version: number; record: { outcome: string; before: string; after: string } }>(acts: T[]): T[] {
+function chainVersions<T extends { objectId: string; version: number; verdict: string }>(acts: T[]): T[] {
   const bumped = new Map<string, number>();
   return acts.map(a => {
     const version = a.version + (bumped.get(a.objectId) ?? 0);
-    if (a.record.outcome === "committed" && a.record.after !== a.record.before) bumped.set(a.objectId, (bumped.get(a.objectId) ?? 0) + 1);
+    if (a.verdict === "committed") bumped.set(a.objectId, (bumped.get(a.objectId) ?? 0) + 1);
     return { ...a, version };
   });
 }

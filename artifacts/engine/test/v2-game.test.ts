@@ -65,6 +65,10 @@ test("the standings are not zero and the game ended on its own at 60 world secon
   assert.equal((await host!.query("v2/rooms:get", { roomId })).game, null, "the room is free for the next game");
 });
 
+test("no agent owes more than its capacity (the credit rule)", async () => {
+  for (const a of await admin.query("v2/testing:agentsOf", { gameId })) assert.ok(a.energy >= -a.capacity - 1e-6, `${a.agentId}: ${a.energy} < -${a.capacity}`);
+});
+
 test("folding the record gives the final standings exactly", () => {
   const rarity = new Map<string, Map<string, number>>();   // object → member → bits
   for (const e of events) if (e.kind === "values") rarity.set(e.data.objectId, new Map(e.data.values.map((x: any) => [x.memberId, x.rarityBits])));
@@ -82,7 +86,8 @@ after(async () => { for (const s of sandboxes.values()) (await s).close(); });
 test("re-executing every act from its recorded inputs gives the same act", { timeout: 120_000 }, async () => {
   const rules = new Map(events[0].data.players.map((p: any) => [p.memberId, p]));
   const sources = new Map<string, string>();
-  const acts = events.filter(e => e.kind === "act" && e.data.outcome !== "stale");
+  // Acts the commit overrode (a stale state, an unaffordable change) carry `charged`; the rest are the agent's own record.
+  const acts = events.filter(e => e.kind === "act" && e.data.charged === undefined);
   assert.ok(acts.length > 10, `enough acts to mean something (${acts.length})`);
   for (const e of acts) {
     const d = e.data, key = `${d.agentId}:${d.program.version}`;

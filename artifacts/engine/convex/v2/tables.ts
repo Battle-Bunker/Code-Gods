@@ -205,8 +205,12 @@ export const v2Tables = {
   v2Events: defineTable({ gameId: v.id("v2Games"), seq: v.number(), kind: eventKindV, data: v.any() })
     .index("by_game_seq", ["gameId", "seq"]).index("by_game_kind", ["gameId", "kind", "seq"]),
 
-  /** A human's dock layout in one room, including client affordances' state (representation pins). */
-  v2Layouts: defineTable({ userId: v.string(), roomId: v.id("v2Rooms"), layout: v.any(), revision: v.number() })
+  /**
+   * A human's dock layout in one room (the app's), and their view state: what the directory's view operations change
+   * (panes, representation pins, the object in focus, the replay cursor; lib/v2-affordances layout.ts), so an
+   * assistant acting for them changes what every one of their clients shows. `roomId` absent: outside any room.
+   */
+  v2Layouts: defineTable({ userId: v.string(), roomId: v.optional(v.id("v2Rooms")), layout: v.any(), view: v.optional(v.any()), revision: v.number() })
     .index("by_user_room", ["userId", "roomId"]),
 
   /** A human's sealed bids in the room's open bid phase (private to them). */
