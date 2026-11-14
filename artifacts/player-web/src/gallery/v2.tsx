@@ -13,7 +13,7 @@
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { evaluateObject, levelOf, objectLadder, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
-import { fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
+import { divisibilityLadder, fromMC, lineQ, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, fmtBits as bitsText, CompactFace, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
@@ -145,6 +145,41 @@ function LineRow({ rule, state }: { rule: RuleRef<LineState, unknown>; state: Li
   );
 }
 
+// ------------------------------------------------------------------ 4. the plane's hard cases (annotations-design §6)
+
+/** Lines real games produce that a fixed window draws badly, under the rules that read them on the plane. */
+const HARD: readonly { title: string; family: Family; state: LineState; tb?: string }[] = [
+  { title: "y = 290x + 59 · Square Area", family: squareArea, state: mc(290, 59) },
+  { title: "y = 290x + 59 · Prime Landing", family: primeLanding, state: mc(290, 59) },
+  { title: "near-horizontal y = x/6 + 7/6 · Whole Crossing", family: wholeCrossing, state: mc(q(1, 6), q(7, 6)) },
+  { title: "far from the origin, c = 27,720 · Divisibility Ladder", family: divisibilityLadder, state: mc(27720, 27720) },
+  { title: "far from the origin, y = 5x + 27,720 · Prime Landing", family: primeLanding, state: mc(5, 27720) },
+  { title: "through the origin · Square Area", family: squareArea, state: mc(3, 0) },
+  { title: "near-vertical, x-intercept 90 · Whole Crossing", family: wholeCrossing, state: abc(1000, -1, -90001) },
+  { title: "Treasure y = 15x + 6", family: treasure, state: mc(15, 6) },
+  { title: "Prime Gradient y = 997x + 3", family: primeGradient, state: mc(997, 3) },
+];
+
+function Hard() {
+  return (
+    <section className="g-section" id="plot" data-section="plot">
+      <h2>The plane on hard lines</h2>
+      <p className="g-note">The window is fitted to what the rule reads (its marks, projected by meaning), with nice ticks; the labels that matter are placed at rest without overlap.</p>
+      {HARD.map(h => {
+        const rule: RuleRef<LineState, unknown> = { type: lineType, family: h.family, params: h.family.dealable(lineZ)[0], variant: lineZ, tieBreaker: h.tb };
+        return (
+          <div key={h.title} className="g-row" data-hard={h.title}>
+            <div className="g-small">
+              <Cell title={h.title}><CompactFace rule={rule} state={h.state} rep={h.family === squareArea ? "tri" : "cart"} /></Cell>
+            </div>
+            <Cell title="expanded" wide><ExpandedFace rule={rule} state={h.state} ladderOpen={false} improvement={false} initialRep={h.family === squareArea ? "tri" : "cart"} /></Cell>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
 // ------------------------------------------------------------------ 3. every dealable rule
 
 function Dealt() {
@@ -224,6 +259,7 @@ function Gallery() {
           </section>
         )}
         {show("dealt") && <Dealt />}
+        {section === "plot" && <Hard />}
       </main>
     </div>
   );

@@ -5,7 +5,7 @@
  */
 import type { ReactElement } from "react";
 import { elementDecl, elementValue, refKey, representation, type ElementRef, type ElementValue, type Mark, type ObjectType, type SceneData, type Term } from "@workspace/v2-core";
-import { marksForRep, meaningKey } from "./refs.ts";
+import { marksForRep, meaningKey, projectRef } from "./refs.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
 import { isSingleLine } from "./render/equation.tsx";
@@ -66,7 +66,9 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
     <div className="v2v-rep" data-size={size} data-rep={repId} data-scene={rep.scene} aria-label={props.label ?? rep.title}>
       {renderer.render({
         rep: repId, scene, values, size,
-        marks: marksForRep(repId, props.marks ?? []),
+        // A plane also draws the marks of other representations that project onto it by meaning.
+        marks: rep.scene === "plane" ? (props.marks ?? []) : marksForRep(repId, props.marks ?? []),
+        project: (r, reps) => projectRef(type, r, reps),
         terms: new Map((props.terms ?? []).map(t => [t.id, t])),
         before: props.before === undefined ? undefined : valuesOf(type, props.before, site),
         next: props.next === undefined ? undefined : valuesOf(type, props.next, site),

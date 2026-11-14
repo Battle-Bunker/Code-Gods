@@ -172,20 +172,73 @@ what it costs**. Each contributor that is below its top shows:
 Moves are generated from the same mutators the agent pays for (spec §5), so a child can paste the sentence to their
 assistant ("move line 7 down 2") and get exactly that.
 
-## 6. Scale
+## 6. Scale: the window is chosen from what the rule reads
 
-A contributor must always be legible. The plane picks its window from the **contributors**, not from a fixed ±12:
+The owner (14 November): "Choosing chart viewport params and which points to label proactively (without hover) is really
+important for UX for the Line object type … Find an appropriate charting library that helps with choosing the most
+interesting viewport params … and integrate with that library via including interesting points for the current
+player's scoring rule for the charting library to choose display params around."
 
-1. **Fit what the rule reads**: the window contains the origin, the line's intercepts and every cited point and target,
-   padded. Scales may differ between the axes; when they do, the view says so ("1 square across = 1, up = 50") and keeps
-   a small 1:1 slope glyph in the corner, so a steep line still looks steep.
-2. **Zoom inset** when a contributor is below 6 px after fitting (the triangle of y = 290x + 59 is 0.2 wide and 59
-   tall): a magnified inset of that contributor, joined to its place by a leader.
-3. **Numeric fallback**: when even an inset cannot show it (a lens value of 10⁶), the badge carries the number on a
-   leader to the axis edge ("c = 1,000,003 ↑"), and the reading strip is the explanation.
+### 6.1 What the libraries actually automate
 
-The same rule applies to tables (the columns shown are those the rule reads: 1 … run + 1 for the Divisibility Ladder,
-x = k for Treasure, not a fixed 0 … 5).
+No library picks "the most interesting viewport" by itself: every one fits a window to the data it is given, so the
+interesting points must come from the rule. What differs is what they do with them.
+
+| Library (licence) | Fit a window to given points | Nice ticks | Independent x/y scales, equal-aspect option | Labels placed without collisions | React / Node tests | Size (min+gz) |
+|---|---|---|---|---|---|---|
+| **d3-scale + d3-array** (ISC) | extent → domain, `nice()` | yes (`ticks`, `nice`) | yes; aspect is the caller's | no | pure functions; any renderer; runs in Node | ≈ 12 KB |
+| Observable Plot (ISC) | domain from every mark's data, `inset`, `nice` | yes (d3) | yes; `aspectRatio` | no (text marks are not de-overlapped; `tip` only keeps one tooltip in frame) | returns a DOM node: React needs a ref; Node needs jsdom; per-element interaction is post-processing | ≈ 70 KB + d3 |
+| Vega-Lite (BSD-3) | `zero: false`, `nice`, padding | yes | yes | axis-label overlap only; Vega's `label` transform de-overlaps text against marks (bitmap occupancy) | async view runtime, not React-native | ≈ 300 KB+ |
+| JSXGraph (MIT/LGPL) | `zoomElements([...])` fits the board to elements | yes | yes; `keepaspectratio` | `label.autoPosition` | imperative board, needs a DOM | ≈ 200 KB |
+| Mafs (MIT) | no (you set the `viewBox`) | yes | `preserveAspectRatio` | no | React-native | ≈ 40 KB |
+| function-plot (MIT) | no (domains given) | yes (d3) | yes | no | d3 DOM | ≈ 40 KB + d3 |
+| uPlot (MIT) | y auto-range for series | yes | yes | no | canvas | ≈ 20 KB |
+| Plotly (MIT) | `autorange` with padding | yes | yes; `scaleanchor` | annotations are not de-overlapped | heavy DOM | ≈ 1 MB |
+| d3fc-label-layout (MIT) | — | — | — | greedy, annealing and remove-overlaps strategies over label rectangles; no obstacles (the line), annealing is random | pure strategies but d3 v1 dependencies | ≈ 6 KB |
+
+**Choice: d3-scale (with d3-array) for the window and ticks; our own small placer for labels.** d3-scale is the
+fitting and tick engine that Observable Plot, Vega and Recharts themselves use, as pure functions: the window is
+computed in Node tests exactly as in the browser, and the drawing stays our React SVG, which every element's identity,
+pointer and keyboard behaviour needs (design §4, §8). Plot or Vega would add a second rendering model for the same
+fit. For labels, the only library that avoids the line itself is Vega's `label` transform, which cannot be used
+outside Vega's scene graph; d3fc-label-layout's greedy strategy is the right algorithm but knows no obstacles and pulls
+in d3 v1, so `lib/v2-views/src/plot/labels.ts` is that greedy candidate-position algorithm (eight positions per point,
+in growing rings, a leader when far) with the line, the axes and every point's mark as obstacles, deterministic.
+
+### 6.2 The contract: interesting points come from the rule
+
+No second source: the plane gathers its interesting points from the rule's own marks, **projected by meaning** onto the
+plane (`crossing.x0` → the x-intercept, `si.c` → the y-intercept, `table.y(x=2)` → the point at x = 2), with a
+priority each:
+
+| Priority | What | In the window | Label at rest |
+|---|---|---|---|
+| 1 | a focus or measure mark's element; the nearest candidate (the target); the triangle the rule reads | always | always, clear of each other, the line and the axes |
+| 2 | other candidates; the rule's short notes; the intercepts when the rule cites nothing on this plane | always | where there is room |
+| 3 | the representation's own landmarks: the origin, the intercepts | unless one would shrink what matters more than 8-fold on an axis and lie more than 30 units away | on hover/tap (titles) |
+
+Then (`plot/viewport.ts`): the extent of the points, padded; **one scale** for both axes while the narrower content
+still fills an eighth of its axis (a gradient then looks like itself); else **each axis its own scale**, niced to round numbers, and the
+picture says "Scales differ: across, one square is 0.05; up, one square is 20". An axis left outside the window is named
+at the edge ("x-axis ↓ (y = 0)"). A region thinner than 10 px is drawn as a schematic in a corner, "not to scale". A
+fraction with a bottom number above 16 is written "≈ 6.00", whole numbers from 10,000 are grouped, and a tick number
+under a label is left out. Tests: `lib/v2-views/test/plot.test.ts` checks every priority-1 point inside the window and
+every priority-1 label on screen and clear of the others in the compact and expanded boxes (the expanded SVG then scales
+to the card), on
+y = 290x + 59, a near-horizontal line, c = 27,720, lines through the origin, a near-vertical line, and each pool rule's
+top state; `e2e/annotations-lines.ts` measures the same in the browser at 390 and 1440 px on the gallery's hard cases (`v2-views.html?section=plot`).
+
+Before and after, y = 290x + 59 under Square Area (the fixed ±12 window made the triangle a sliver):
+
+![Before: fixed window](../screenshots/annotations-lines/plot-before-290x59.png)
+![After: fitted to the triangle the rule reads](../screenshots/annotations-lines/plot-after-290x59.png)
+![After, phone](../screenshots/annotations-lines/plot-after-290x59-390.jpg)
+![Far from the origin: y = 5x + 27,720 under Prime Landing](../screenshots/annotations-lines/plot-after-27720.png)
+
+### 6.3 Still to come
+
+The lens ruler of §4.5 (a magnified number line per contributor) for targets a window cannot separate (27,720 against
+the prime 27,733 is legible; 10⁶ against 10⁶ + 1 is not); the same fitting for tables (the columns the rule reads).
 
 ## 7. Other players
 
