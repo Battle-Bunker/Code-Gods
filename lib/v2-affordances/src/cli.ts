@@ -6,6 +6,7 @@
  *   pnpm player --fake --as u1 room create --name "Lines night"
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseCli } from "./surfaces.ts";
 import { defaultConfigPath, helpLines, LOCAL_SITE, runRemoteCli } from "./remote.ts";
@@ -24,7 +25,7 @@ export async function runCli(argv: readonly string[], state: FakeState, io: CliI
   }
   const rest = argv.slice(i);
   if (rest.length === 0 || rest[0] === "help") {
-    const lines = helpLines(rest.slice(1));
+    const lines = helpLines(rest.slice(1), true);
     if (!lines) { io.err(`No command ${rest.slice(1).join(" ")}`); return 2; }
     for (const l of lines) io.out(l);
     return 0;
@@ -42,16 +43,18 @@ export async function runCli(argv: readonly string[], state: FakeState, io: CliI
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const io = { out: (l: string) => console.log(l), err: (l: string) => console.error(l) };
-  const argv = process.argv.slice(2);
+  // `pnpm player` runs in this package's directory: relative paths are the caller's, from where they ran it.
+  const here = (p: string) => resolve(process.env.INIT_CWD ?? process.cwd(), p);
+  const argv = process.argv.slice(2).map((a, i, all) => i > 0 && /^--(config|state)$/.test(all[i - 1]!) ? here(a) : a);
   if (argv[0] === "--fake") {
     const at = argv.indexOf("--state");
-    const file = (at >= 0 ? argv[at + 1] : undefined) ?? ".v2-fake.json";
+    const file = (at >= 0 ? argv[at + 1] : undefined) ?? here(".v2-fake.json");
     const state: FakeState = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : emptyState();
     process.exitCode = await runCli(argv.slice(1), state, io);
     writeFileSync(file, JSON.stringify(state));
   } else {
     process.exitCode = await runRemoteCli(argv, {
-      io, fetch, configPath: defaultConfigPath(), defaultSite: process.env.CODE_GODS_ENGINE_URL?.replace(/\/+$/, "") || LOCAL_SITE,
+      io, fetch, configPath: process.env.CODE_GODS_CONFIG ? here(process.env.CODE_GODS_CONFIG) : defaultConfigPath(), defaultSite: process.env.CODE_GODS_ENGINE_URL || LOCAL_SITE,
       sleep: ms => new Promise(r => setTimeout(r, ms)),
     });
   }

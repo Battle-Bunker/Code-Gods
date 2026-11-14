@@ -87,8 +87,48 @@ test("disconnect revokes and forgets; a revoked credential is told to reconnect"
 
 test("--site selects the deployment; help lists the generated commands and the connection commands", async () => {
   const s = server(), { e, out, err } = env(s.fetch);
-  assert.equal(await runRemoteCli(["--site", "http://other.test/", "status"], e), 2);
-  assert.match(err.pop()!, /Not connected to http:\/\/other\.test\./);
+  assert.equal(await runRemoteCli(["--site", "https://other.test/", "status"], e), 2);
+  assert.match(err.pop()!, /Not connected to https:\/\/other\.test\./);
   assert.equal(await runRemoteCli(["help"], e), 0);
   assert.ok(out.some(l => l.startsWith("agent summon --language")) && out.some(l => l.startsWith("connect --room CODE")));
+});
+
+test("connecting again revokes the credential it replaces; a failed revoke keeps the credential to retry", async () => {
+  const s = server(), { e, err, configPath } = env(s.fetch);
+  await runRemoteCli(["connect", "--room", "LINES"], e);
+  await runRemoteCli(["connect", "--room", "OTHER"], e);
+  assert.equal(s.calls.filter(c => c.url.endsWith("/api/device/revoke")).length, 1, "the first credential was revoked");
+  const failing = ((url: string, init: RequestInit) => url.endsWith("/revoke")
+    ? Promise.resolve(new Response("{}", { status: 503 })) : s.fetch(url, init)) as unknown as typeof fetch;
+  assert.equal(await runRemoteCli(["disconnect"], { ...e, fetch: failing }), 1);
+  assert.match(err.pop()!, /Could not revoke the credential \(HTTP 503\); it is kept/);
+  assert.ok(JSON.parse(readFileSync(configPath, "utf8"))[SITE], "still saved");
+});
+
+test("sites: .convex.cloud maps to .convex.site, plain http only on loopback; bad answers are named", async () => {
+  const { normalizeSite } = await import("../src/remote.ts");
+  assert.equal(normalizeSite("https://happy-fox-1.convex.cloud/"), "https://happy-fox-1.convex.site");
+  assert.equal(normalizeSite("http://127.0.0.1:3211"), "http://127.0.0.1:3211");
+  assert.throws(() => normalizeSite("http://engine.example.com"), /use https/);
+  const s = server(), { e, err, configPath } = env(s.fetch);
+  await runRemoteCli(["connect", "--room", "LINES"], e);
+  const html = ((url: string, init: RequestInit) => url.endsWith("/mcp")
+    ? Promise.resolve(new Response("<html>", { status: 502 })) : s.fetch(url, init)) as unknown as typeof fetch;
+  assert.equal(await runRemoteCli(["status"], { ...e, fetch: html }), 1);
+  assert.equal(err.pop(), "https://cg.test/mcp answered HTTP 502 with no JSON: is this the engine's site URL?");
+  (await import("node:fs")).writeFileSync(configPath, "{trunc");
+  assert.equal(await runRemoteCli(["status"], e), 1);
+  assert.match(err.pop()!, /is not valid JSON; fix or delete it/);
+});
+
+test("tools prints runnable commands", async () => {
+  const s = server(), { e, out } = env(((url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body ?? "{}"));
+    if (url.endsWith("/mcp") && body.method === "tools/list")
+      return Promise.resolve(new Response(JSON.stringify({ result: { tools: [{ name: "view_pinRepresentation", title: "Show objects in a representation" }] } })));
+    return s.fetch(url, init);
+  }) as unknown as typeof fetch);
+  await runRemoteCli(["connect", "--room", "LINES"], e);
+  assert.equal(await runRemoteCli(["tools"], e), 0);
+  assert.equal(out.pop(), "view pin-representation  Show objects in a representation");
 });
