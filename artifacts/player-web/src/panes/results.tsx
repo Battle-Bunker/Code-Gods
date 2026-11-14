@@ -6,19 +6,19 @@
 import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
-import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useMyAgents, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
+import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useMyAgents, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
-import { mergeTugs } from "./summary-tugs";
+import { mergeTugs, tugsFromServer } from "./summary-tugs";
 
 export function ResultsPane() {
   const header = useGame();
@@ -96,26 +96,26 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
  * earned your points, what cost you, and one thing to try next game (lib/v2-views summary.tsx). It reads only what the
  * game's panes already share: Lines' skeleton by your points and its objects, the act log's tug-of-wars, your rule.
  */
-/** How many act-log moves the summary reads at most. */
-const MOVES_CAP = 1000;
 
 function EndSummary({ total }: { total: number }) {
   const header = useGame();
   const my = useMyRule();
   const ids = useObjectIds("points");
-  const moves = useMoves();
+  // Every tug-of-war of the game as the tick folds them (v2/play:tugs: paging the act log timed out, round 8/04); a
+  // replay folds its own frame's moves.
+  const serverTugs = useTugs();
+  const moves = useMoves(30, { replayOnly: true });
   const round = useRotationRound();
   const agents = useMyAgents();
-  // Every tug-of-war of the game, not only the newest page's (a walk read "no tug-of-war" beside a 99 ⚡ fight): the act
-  // log's own pages, read on to the start of the game, up to a cap.
-  const done = moves.status === "Exhausted" || moves.results.length >= MOVES_CAP;
-  useEffect(() => { if (moves.status === "CanLoadMore" && moves.results.length < MOVES_CAP) moves.loadMore(200); }, [moves.status, moves.results.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const done = serverTugs !== undefined;
   const top = useMemo(() => ids.results.slice(0, 5).map(r => r.objectId), [ids.results]);
   const objects = useMyObjects(top);
   const summary = useMemo(() => {
     if (!my || !header) return null;
     const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, id: o.objectId, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
-    const tugs: SummaryTug<unknown>[] = mergeTugs(foldTugs(moves.results).flatMap(i => (i.kind === "tug"
+    const tugs: SummaryTug<unknown>[] = serverTugs
+      ? tugsFromServer(serverTugs, id => header.roster.find(r => r.memberId === id)?.kind, st => decodeState(st, header.variant))
+      : mergeTugs(foldTugs(moves.results).flatMap(i => (i.kind === "tug"
       ? [(() => {
         const others = [...new Map(i.moves.filter(m => !m.mine && m.by).map(m => [m.by!.memberId, m.by!.name])).entries()];
         const practice = others.length > 0 && others.every(([id]) => header.roster.find(r => r.memberId === id)?.kind === "practice");
@@ -127,9 +127,8 @@ function EndSummary({ total }: { total: number }) {
       : [])));
     // In a rotation that goes on, the next game deals another rule: the advice is the lesson, not this game's line.
     const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
-    const partial = moves.status !== "Exhausted" ? moves.results.length : null;
-    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: partial, language: agents?.[0]?.language === "python" ? "python" : "typescript" });
-  }, [my, header, objects, moves.results, moves.status, total, round, agents]);
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null, language: agents?.[0]?.language === "python" ? "python" : "typescript" });
+  }, [my, header, objects, serverTugs, moves.results, total, round, agents]);
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(header?.phase ?? "ended");
   const onOpen = async (id: string | undefined) => {
