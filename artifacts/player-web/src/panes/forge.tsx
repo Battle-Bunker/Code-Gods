@@ -113,7 +113,7 @@ export function ForgePane() {
       const r = await runner.run("replace", () => replace.run({ agentId: agent.agentId, language, source: src }));
       if (!r) return false;
       setRan(src); setDraft(null);
-      setStatus({ tone: "ok", text: replacedText(agent.name), action: "agents" });
+      setStatus({ tone: "ok", text: replacedText(agent.name, r.price), action: "agents" });
       return null;
     } catch (e) { fail(e); return false; }
   };

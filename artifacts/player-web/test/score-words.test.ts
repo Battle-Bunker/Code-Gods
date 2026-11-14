@@ -5,7 +5,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { energyText, isTied, num, onlyYouNote, pointsText, powerText, scoreFormula, sharedRanks, TIE_NOTE, totalNote, TOTALS_NOTE } from "../src/core/words.ts";
+import { energyText, isTied, num, onlyYouNote, pointsText, powerText, scoreFormula, sharedRanks, TIE_NOTE, totalNote, totalsSumNote, totalSumNote } from "../src/core/words.ts";
 
 test("every measure a player reads has 2 decimal places, one path for bits, energy and points", () => {
   assert.equal(num(4.2449), "4.24");
@@ -47,8 +47,8 @@ test("a line only you care about says why it scores nothing", () => {
 
 test("a total is said to be the sum of the lines, less a won bid's share only when one applies", () => {
   // Catches: "the sum of your points on every line" beside a total that a 20% handicap made smaller.
-  assert.equal(totalNote(TOTALS_NOTE, false), "Each total is the sum of that player's points on every line.");
-  assert.equal(totalNote(TOTALS_NOTE, true), "Each total is the sum of that player's points on every line. A won bid's share (the −% beside a total) comes off that sum.");
+  assert.equal(totalNote(totalsSumNote(), false), "Each total is the sum of that player's points on every line.");
+  assert.equal(totalNote(totalsSumNote(), true), "Each total is the sum of that player's points on every line. A won bid's share (the −% beside a total) comes off that sum.");
 });
 
 test("equal shown totals share a place, the next place skips, and a shared place is marked tied", () => {
@@ -65,8 +65,8 @@ test("equal shown totals share a place, the next place skips, and a shared place
 });
 
 test("others' bits are said to be every other player's bits on the line added together; a total says when it was counted", async () => {
-  const { OTHERS_NOTE, countedNote } = await import("../src/core/words.ts");
-  assert.equal(OTHERS_NOTE, "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.");
+  const { othersNote, countedNote } = await import("../src/core/words.ts");
+  assert.equal(othersNote(), "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.");
   assert.equal(countedNote(40), "Totals are counted every few seconds; this one at 0:40, so a move's points join the total at the next count.");
   assert.equal(countedNote(null), null);
 });
@@ -75,4 +75,15 @@ test("a rule won by bid says so during the game, with what comes off the total",
   const { bidNote } = await import("../src/core/words.ts");
   assert.equal(bidNote({ bid: 10, handicap: 10, title: "Prime Landing" }), "You won Prime Landing in the bid: 10% comes off your total at the end of the game.");
   assert.equal(bidNote({ bid: null, handicap: null, title: "Prime Landing" }), null);
+});
+
+test("every note speaks the game's own noun (ux-lessons 2.8): a grid game never says line", async () => {
+  const { othersNote } = await import("../src/core/words.ts");
+  const { partsNote, whyLine } = await import("../src/panes/lines.ts");
+  const grid = [
+    totalSumNote("grid"), totalsSumNote("grid"), othersNote("grid"), onlyYouNote(2, 0, "grid")!,
+    partsNote(2, "grid", "grids")!, whyLine({ rarity: 2, want: 0 }, { worst: "no run" }, "grid"),
+  ];
+  for (const t of grid) { assert.match(t, /\bgrids?\b/); assert.doesNotMatch(t, /\blines?\b/, t); }
+  assert.equal(totalSumNote("grid"), "Your total is the sum of your points on every grid.");
 });

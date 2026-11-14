@@ -515,3 +515,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
    inside Radix's positioning wrapper, which must not take the clicks meant for what shows through it (a row's Look button). */
 [data-radix-popper-content-wrapper]:has(> [data-clear-above]){pointer-events:none!important}
 [data-clear-above]{pointer-events:auto}
+
+/* One line on a phone (playtest round 3): the representation tabs take one scrolling row, so the board comes first
+   rather than nine wrapped chips. */
+@media (max-width: 767px) {
+  [data-testid="line-expanded"] .v2v-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+  [data-testid="line-expanded"] .v2v-tab { flex: none; }
+}
