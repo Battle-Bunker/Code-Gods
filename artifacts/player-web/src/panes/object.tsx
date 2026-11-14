@@ -48,7 +48,8 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const rule0 = seated ? my?.rule ?? null : null, value0 = my?.bits ?? undefined;
   const candidates = useMemo(() => (rule0 && state ? candidatesOf(rule0, state, value0, { k: CANDIDATES }) : []), [rule0, state, value0]);
   const calls = useMemo(() => candidates.map(m => m.call as { mutator: string; site: number; args: Record<string, string> }), [candidates]);
-  const others = useOthersAt(replaying || header?.phase === "ended" ? null : objectId, calls);
+  // After the end too (the state is frozen): what each candidate would have earned. Proposing and holding are live only.
+  const others = useOthersAt(replaying ? null : objectId, calls);
   if (!o || !state) return <p className="p-4 text-sm text-muted-foreground">Loading this {word.one}…</p>;
   const rule = my?.rule ?? null;
   if (!seated || !rule) {
