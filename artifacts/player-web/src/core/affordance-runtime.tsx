@@ -20,6 +20,7 @@ import { AffordanceProvider, type AffordanceRuntime } from "@workspace/v2-afford
 import { VIEW_OP_PATH, opPath, outcomeOf } from "@workspace/v2-affordances/convex";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
+import { storedViewOf } from "./stored-view";
 
 export interface RuntimeScope { roomId?: string; gameId?: string; replay?: boolean }
 
@@ -43,8 +44,7 @@ export function useView(): ViewState {
  * defaults) rather than tearing the screen down (ux-lessons 4.2); the next value the subscription delivers replaces it.
  */
 function useStoredView(roomId: string | undefined): ViewState {
-  const row = useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data;
-  return ((row?.layout as { view?: ViewState } | null | undefined)?.view) ?? EMPTY_VIEW;
+  return storedViewOf(useLive(api.v2.layout.current, roomId ? { roomId } : "skip").data);
 }
 
 export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }: {

@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "@workspace/engine/convex/_generated/api";
+import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
 import { ruleRefOf, rungRarities, type LineRule } from "./rule";
@@ -119,6 +120,26 @@ export function useChat(pageSize = 50) {
 export function useDigest() {
   const { gameId, seated } = useGameScope();
   return useLiveValue(api.v2.play.digest, gameId && seated ? { gameId } : "skip");
+}
+
+// ------------------------------------------------------------------ the in-client assistant (the viewer's own rows only)
+
+/** The viewer's assistant in this room: mode, grant, this game's allowance, the latest turn, what waits. */
+export function useAssistantStatus() {
+  return useLiveValue(api.v2.assistant.status, { roomId: useGameScope().roomId as Id<"v2Rooms"> });
+}
+/** The viewer's conversations in the game in view (the room's current game before one), newest first (≤ 20). */
+export function useAssistantThreads() {
+  const { roomId, gameId } = useGameScope();
+  return useLiveValue(api.v2.assistant.threads, { roomId: roomId as Id<"v2Rooms">, ...(gameId ? { gameId: gameId as Id<"v2Games"> } : {}) });
+}
+/** One conversation's messages, newest first, paged (≤ 30 a page); every loaded page stays live. */
+export function useAssistantTranscript(threadId: string | null | undefined, pageSize = 30) {
+  return useLivePaged(api.v2.assistant.transcript, threadId ? { threadId: threadId as Id<"v2AssistantThreads"> } : "skip", pageSize);
+}
+/** One turn: its status and its tool calls (the activity chips), live while it runs. */
+export function useAssistantTurn(turnId: string | null | undefined) {
+  return useLiveValue(api.v2.assistant.turn, turnId ? { turnId: turnId as Id<"v2AssistantTurns"> } : "skip");
 }
 
 // ------------------------------------------------------------------ an accepted summon counts at once (ux-lessons 1.8)

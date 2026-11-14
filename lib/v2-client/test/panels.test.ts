@@ -48,6 +48,31 @@ test("an arrangement made in planning meets the world's defaults when the world 
   assert.ok(!shownPanes(planning, "ended").some(p => p.pane === "forge"), "no forge after the end");
 });
 
+test("a pane an assistant opened on an empty view joins the phase's defaults instead of replacing them", () => {
+  // Catches: the assistant's view_openPane (stored on the server from the empty view) leaving only that pane on screen.
+  const opened = { panes: [{ pane: "rules", place: "main" as const }] };
+  assert.deepEqual(shownPanes(opened, "planning").map(p => p.pane), [...defaultPanes("planning").map(p => p.pane), "rules"]);
+  const live = shownPanes(opened, "live");
+  assert.equal(live.length, MAX_PANES);
+  assert.equal(live.at(-1)!.pane, "rules", "the pane asked for stays");
+  // A human's own arrangement that keeps one default is theirs as it is.
+  const own = { panes: [{ pane: "my-card", place: "main" as const }, { pane: "rules", place: "left" as const }] };
+  assert.deepEqual(shownPanes(own, "planning"), own.panes);
+});
+
+test("an arrangement made after a game's end meets the planning defaults when the next game starts", () => {
+  // Catches: the next game's planning without the agent code (the arrangement kept the last game's results screen).
+  const ended = { panes: [{ pane: "results", place: "main" as const }, { pane: "my-card", place: "left" as const }, { pane: "assistant", place: "right" as const }] };
+  const planning = shownPanes(ended, "planning").map(p => p.pane);
+  for (const d of defaultPanes("planning")) assert.ok(planning.includes(d.pane), d.pane);
+  assert.ok(planning.includes("assistant"), "the player's own pane stays");
+});
+
+test("more panes than the maximum, stored by another client or an assistant, show the newest", () => {
+  const panes = ["objects", "my-card", "feed", "agents", "race", "rules"].map(pane => ({ pane, place: "main" as const }));
+  assert.deepEqual(shownPanes({ panes }, "live").map(p => p.pane), ["my-card", "feed", "agents", "race", "rules"]);
+});
+
 test("closing a default pane keeps the other defaults", () => {
   const ops = closePlan({ panes: [] }, "live", "race");
   assert.deepEqual(ops.at(-1), { id: "view.closePane", args: { pane: "race" } });
@@ -64,6 +89,11 @@ test("the others-care, points-over-time and rules panes are offered where they h
   assert.deepEqual(PANES["points-over-time"].phases, ["live", "paused", "ended"]);
   assert.deepEqual(PANES.rules.phases, ["planning", "live", "paused", "ended"]);
   for (const id of PANE_IDS) assert.doesNotMatch(`${PANES[id].title} ${PANES[id].blurb}`, /\b(bits|payoff|objects?|grids?)\b/i, id);
+});
+
+test("the assistant pane is offered in every phase, so a player can ask for help before, during and after a game", () => {
+  assert.ok(PANE_IDS.includes("assistant"));
+  assert.deepEqual(PANES.assistant.phases, ["planning", "live", "paused", "ended"]);
 });
 
 test("opening one line from a full screen keeps the list it was opened from", () => {

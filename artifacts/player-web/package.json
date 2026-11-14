@@ -11,7 +11,8 @@
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
     "e2e:v2-views": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-views.ts ../../docs/screenshots/v2-views",
     "e2e:site": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-site.ts",
-    "e2e:game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-line-game.ts"
+    "e2e:game": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-line-game.ts",
+    "e2e:assistant": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-assistant.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",
