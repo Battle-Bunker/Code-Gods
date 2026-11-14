@@ -46,6 +46,54 @@ const { chromium } = createRequire(import.meta.url)("playwright") as typeof impo
 const browser = await chromium.launch().catch((e: unknown) => { stop(); throw e; });
 try {
   if (OUT) mkdirSync(OUT, { recursive: true });
+  // The plane on hard lines (v2-views.html?section=plot): every label of a priority-1 point measured in the browser lies
+  // inside its drawing and clear of the others, at phone and desktop widths.
+  for (const width of [390, 1440]) {
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: OUT ? 2 : 1 });
+    const errors: string[] = [];
+    page.on("pageerror", e => errors.push(e.message));
+    await page.goto(`${BASE}/v2-views.html?section=plot`);
+    await page.locator("[data-hard]").first().waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    assert.deepEqual(errors, [], `plot ${width}: page errors`);
+    const { bad, n } = await page.evaluate(() => {
+      const out: string[] = [];
+      let n = 0;
+      for (const svg of document.querySelectorAll<SVGSVGElement>("[data-hard] svg.v2v-plane")) {
+        const frame = svg.getBoundingClientRect();
+        if (frame.width === 0) continue; // a tab not shown
+        const boxes = [...svg.querySelectorAll<SVGTextElement>('text[data-priority="1"]')].map(t => ({ t: t.textContent, r: t.getBoundingClientRect() }));
+        n += boxes.length;
+        for (const b of boxes) {
+          if (b.r.left < frame.left - 1 || b.r.right > frame.right + 1 || b.r.top < frame.top - 1 || b.r.bottom > frame.bottom + 1) out.push(`"${b.t}" leaves its drawing`);
+          for (const o of boxes) if (o !== b && b.r.left < o.r.right - 1 && o.r.left < b.r.right - 1 && b.r.top < o.r.bottom - 1 && o.r.top < b.r.bottom - 1) out.push(`"${b.t}" overlaps "${o.t}"`);
+          // The axes' numbers count as obstacles too (the y-intercept label once sat on "27,720").
+          for (const t of svg.querySelectorAll<SVGTextElement>("text.tick-label")) {
+            const o = t.getBoundingClientRect();
+            if (b.r.left < o.right - 1 && o.left < b.r.right - 1 && b.r.top < o.bottom - 1 && o.top < b.r.bottom - 1) out.push(`"${b.t}" overlaps the axis number ${t.textContent}`);
+          }
+        }
+      }
+      return { bad: out, n };
+    });
+    assert.ok(n >= 10, `plot ${width}: only ${n} priority-1 labels measured`);
+    assert.deepEqual(bad, [], `plot ${width}: labels`);
+    if (OUT) {
+      for (const [file, title] of [["plot-after-290x59", "y = 290x + 59 · Square Area"], ["plot-after-27720", "far from the origin, y = 5x + 27,720 · Prime Landing"]] as const) {
+        if (width !== 1440) continue;
+        const buf = await page.locator(`[data-hard="${title}"]`).screenshot({ type: "png" });
+        assert.ok(buf.length <= MAX, `${file}: ${buf.length} bytes`);
+        writeFileSync(`${OUT}/${file}.png`, buf);
+      }
+      if (width === 390) {
+        const buf = await page.locator('[data-hard="y = 290x + 59 · Square Area"]').screenshot({ type: "jpeg", quality: 75 });
+        writeFileSync(`${OUT}/plot-after-290x59-390.jpg`, buf);
+      }
+    }
+    await page.close();
+    console.log(`ok plot ${width}`);
+  }
+
   for (const [file, query, width, scheme] of SHOTS) {
     const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: OUT ? 2 : 1 });
     const errors: string[] = [];

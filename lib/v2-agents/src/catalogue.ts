@@ -102,6 +102,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       ],
     },
     tieBreakers: {
+      "c-spf": {
+        pre: { ts: ["const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fc[0] ?? 1", py: "fc[0] if fc else 1", says: "the y-intercept's smallest prime factor big is better",
+        lenses: ["tilt", "shift"], steps: 8, tryThis: "change FAR = 8 to 16 so it can reach a y-intercept with a bigger smallest factor.",
+      },
+      "c-gpf": {
+        pre: { ts: ["const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fc.at(-1) ?? 1", py: "fc[-1] if fc else 1", says: "the y-intercept's largest prime factor big is better",
+        lenses: ["tilt", "shift"], steps: 8, tryThis: "change FAR = 8 to 16 so it can reach a y-intercept with a bigger prime in it.",
+      },
       prime: { ts: "nearest", py: "nearest", says: "a bigger prime is better", lenses: ["tilt"], steps: 8, tryThis: "change FAR = 8 to 12 so it can jump past wider gaps between primes." },
     },
   },
@@ -282,6 +292,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       py: ["main = -abs(m * p[\"k\"] + c - p[\"T\"])           # y(k) = m*k + c"],
     },
     tieBreakers: {
+      "m-spf": {
+        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
+        lenses: ["turnAtK", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = k keeps the treasure and only changes the gradient.",
+      },
+      "m-gpf": {
+        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
+        lenses: ["turnAtK", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = k keeps the treasure and only changes the gradient.",
+      },
       "prime-terms": {
         pre: {
           ts: ["const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)"],
@@ -300,6 +320,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       py: ["landing = near(c, prime)                        # the prime nearest the y-intercept", "main = -abs(c - landing)"],
     },
     tieBreakers: {
+      "m-spf": {
+        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 8, tryThis: "change FAR = 8 to 16: tilting never moves the y-intercept, so the landing stays.",
+      },
+      "m-gpf": {
+        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
+        lenses: ["shift", "tilt"], steps: 8, tryThis: "change FAR = 8 to 16: tilting never moves the y-intercept, so the landing stays.",
+      },
       "big-prime": { ts: "landing", py: "landing", says: "a bigger prime is better", lenses: ["shift"], steps: 8, tryThis: "change FAR = 8 to 12 so it can jump past wider gaps between primes." },
     },
   },
@@ -320,6 +350,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       ],
     },
     tieBreakers: {
+      "m-spf": {
+        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
+        lenses: ["turnAtT", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = T keeps the unchanged number and only changes the gradient.",
+      },
+      "m-gpf": {
+        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
+        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
+        lenses: ["turnAtT", "tilt", "shift"], steps: 6, tryThis: "change FAR = 6 to 12: turning about x = T keeps the unchanged number and only changes the gradient.",
+      },
       steep: { ts: "Q.abs(Q.sub(m, 1))", py: "abs(m - 1)", says: "a gradient far from 1 is better", lenses: ["shift", "tilt", "turnAtT"], steps: 4, tryThis: "remove the \"turn\" line: can it get steep without losing T?" },
     },
   },

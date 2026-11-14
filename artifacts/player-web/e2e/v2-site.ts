@@ -101,6 +101,7 @@ try {
       await field.fill(said);
       await field.press("Enter");
       await page.locator("[data-testid^=row-chat-]").getByText(said).first().waitFor({ timeout: 15_000 });
+      await page.getByText("Message sent to the room's chat.").first().waitFor({ timeout: 5_000 });
     });
 
     await check(`${label}: a live line game shows your totals, the panes and the lines' faces`, async () => {

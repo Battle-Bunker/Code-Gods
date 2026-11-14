@@ -3,8 +3,10 @@
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
-// back again and again) scores nothing for either of you: it walks away from one and leaves you a note so you can
-// talk to that player. It never spends more than a quarter of its energy on one move.
+// back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
+// with that player and change the agent to keep it. It never spends more than a quarter of its energy on one move.
+// Changing it later costs only what you change. To summon another agent, first move power from your agents to your
+// own store (energy moves with it), pay, then share the power out again.
 // Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
@@ -33,9 +35,9 @@ const QUOTES = 8;  // at most this many plans are priced (each price is a host c
 const SPEND = 0.25;    // never spend more than a quarter of your energy on one move
 
 function agent(offer) {
-  // A tug-of-war (another player taking back your gains on this line, 3 times lately) only burns energy on
-  // both sides: leave the line, with a note telling your owner to talk to that player.
-  if (contested(offer, 3)) return null;
+  // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
+  // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
+  contested(offer, 3);
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
   const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;

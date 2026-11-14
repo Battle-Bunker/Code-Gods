@@ -23,7 +23,7 @@ export const SUMMON_ENERGY_PER_BIT = 1 / 6;
 
 const HELPERS = ["look", "peek", "goal", "progress", "move", "price", "cheapest", "energy", "prime", "square", "near", "whole", "root", "factors", "better", "call", "agent", "offer",
   "worth", "rarity", "recent", "pushback", "note", "contested", "mine", "others", "points"];
-const OFFER = ["view", "element", "myRule", "my_rule", "myScore", "my_score", "quote", "budget", "params", "tieBreaker", "tie_breaker", "card", "layers", "level", "top", "main", "tiebreak", "score", "terms", "valid", "charge", "total", "reason", "m", "c"];
+const OFFER = ["object", "view", "element", "myRule", "my_rule", "myScore", "my_score", "quote", "budget", "params", "tieBreaker", "tie_breaker", "card", "layers", "level", "top", "main", "tiebreak", "score", "terms", "valid", "charge", "total", "reason", "m", "c"];
 const JS_WORDS = [
   ...HELPERS, ...OFFER, "Q", "of", "from", "add", "sub", "mul", "div", "neg", "abs", "cmp", "eq", "isZero", "isInteger", "toNumber", "toString", "n", "d",
   "function", "return", "const", "let", "var", "if", "else", "for", "while", "of", "in", "break", "continue", "null", "undefined", "true", "false",
@@ -57,24 +57,85 @@ export interface SummonPrice {
   readonly tokens: number;
 }
 
-export function summonBits(language: Language, source: string): SummonPrice {
+interface Priced { readonly key: string; readonly bits: number }
+
+/**
+ * The program's priced tokens in order (free tokens dropped), each with the bits the code above gives it. `known`
+ * names count as already spelled (an edit reuses the old program's names).
+ */
+function priced(language: Language, source: string, known: ReadonlySet<string> = new Set()): { tokens: Priced[]; names: Set<string> } {
   const lang = language === "python" ? "py" : "js";
   const vocab = VOCAB[lang], free = FREE[lang];
   const wordBits = Math.log2(vocab.size);
-  const named = new Set<string>();
-  let bits = 0, tokens = 0, qDot = false;
+  const named = new Set<string>(known);
+  const tokens: Priced[] = [];
+  let qDot = false;
   for (const [t] of source.matchAll(TOKEN[lang])) {
     if (qDot) { qDot = false; if (t === ".") continue; }
     if (lang === "js" && t === "Q") { qDot = true; continue; }   // Q.add is JavaScript's +
     if (/^\s/.test(t) || t.startsWith("//") && lang === "js" || t.startsWith("/*") || (t.startsWith("#") && lang === "py")) continue;
     if (free.has(t)) continue;
-    tokens++;
-    if (vocab.has(t)) { bits += wordBits; continue; }
-    if (/^\d+n?$/.test(t)) { bits += 1 + intBits(BigInt(t.replace(/n$/, ""))); continue; }
-    if (/^[\d.]/.test(t)) { bits += 1 + 4 * t.length; continue; }   // decimals, exponents, separators
+    if (vocab.has(t)) { tokens.push({ key: `w:${t}`, bits: wordBits }); continue; }
+    if (/^\d+n?$/.test(t)) { tokens.push({ key: `i:${t.replace(/n$/, "")}`, bits: 1 + intBits(BigInt(t.replace(/n$/, ""))) }); continue; }
+    if (/^[\d.]/.test(t)) { tokens.push({ key: `d:${t}`, bits: 1 + 4 * t.length }); continue; }   // decimals, exponents, separators
     const key = /^["'`]/.test(t) ? `s:${t.slice(1, -1)}` : `n:${t}`;
-    if (named.has(key)) bits += 1 + Math.log2(named.size);
-    else { bits += 2 + 5 * (key.length - 2); named.add(key); }
+    if (named.has(key)) tokens.push({ key, bits: 1 + Math.log2(named.size) });
+    else { tokens.push({ key, bits: 2 + 5 * (key.length - 2) }); named.add(key); }
   }
-  return { bits, energy: bits * SUMMON_ENERGY_PER_BIT, tokens };
+  return { tokens, names: named };
 }
+
+export function summonBits(language: Language, source: string): SummonPrice {
+  const { tokens } = priced(language, source);
+  const bits = tokens.reduce((t, x) => t + x.bits, 0);
+  return { bits, energy: bits * SUMMON_ENERGY_PER_BIT, tokens: tokens.length };
+}
+
+/**
+ * The edit price (owner decision 21): what replacing an agent's program costs is the description length of the change,
+ * at the summon rate. The change is the shortest token-level edit script from the old program's priced tokens to the
+ * new one's (a longest common subsequence; comments and layout are not tokens, so changing them is free). The script
+ * is its number of hunks, then per hunk where it starts in the old program (log2 of the old length + 1), how many old
+ * tokens it deletes and how many it inserts (integer codes, spec §2.3), and the inserted tokens at their summon bits,
+ * with the old program's names counted as already spelled. Zero for an identical program; never more than the new
+ * program's full price (sending it whole is always an option). The common start and end are trimmed first; a middle too
+big to diff within EDIT_TABLE_LIMIT cells is priced as a new program.
+ */
+export function editBits(language: Language, oldSource: string, newSource: string): SummonPrice {
+  const was = priced(language, oldSource);
+  const old = was.tokens;
+  const fresh = priced(language, newSource, was.names).tokens;
+  const full = summonBits(language, newSource);
+  const price = (bits: number): SummonPrice => ({ bits, energy: bits * SUMMON_ENERGY_PER_BIT, tokens: fresh.length });
+  // The common start and end are kept as they are (they cost nothing), so the table below covers only the middle.
+  let head = 0, tail = 0;
+  while (head < old.length && head < fresh.length && old[head]!.key === fresh[head]!.key) head++;
+  while (tail < old.length - head && tail < fresh.length - head && old[old.length - 1 - tail]!.key === fresh[fresh.length - 1 - tail]!.key) tail++;
+  const a = old.slice(head, old.length - tail).map(t => t.key), b = fresh.slice(head, fresh.length - tail).map(t => t.key);
+  const ins_ = fresh.slice(head, fresh.length - tail), n = a.length, m = b.length;
+  if (n === 0 && m === 0) return price(0);
+  // A rewrite too large to diff in bounded memory is priced as what it is: a new program.
+  if ((n + 1) * (m + 1) > EDIT_TABLE_LIMIT) return price(full.bits);
+  // LCS lengths from the ends: L[i][j] for a[i..], b[j..].
+  const width = m + 1, L = new Uint32Array((n + 1) * width);
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) {
+    L[i * width + j] = a[i] === b[j] ? L[(i + 1) * width + j + 1]! + 1 : Math.max(L[(i + 1) * width + j]!, L[i * width + j + 1]!);
+  }
+  const where = Math.log2(old.length + 1);
+  let bits = 0, hunks = 0, i = 0, j = 0;
+  while (i < n || j < m) {
+    if (i < n && j < m && a[i] === b[j]) { i++; j++; continue; }
+    let del = 0, ins = 0, insBits = 0;
+    while ((i < n || j < m) && !(i < n && j < m && a[i] === b[j])) {
+      if (j < m && (i === n || L[i * width + j + 1]! >= L[(i + 1) * width + j]!)) { insBits += ins_[j]!.bits; ins++; j++; }
+      else { del++; i++; }
+    }
+    hunks++;
+    bits += where + intBits(BigInt(del)) + intBits(BigInt(ins)) + insBits;
+  }
+  if (hunks) bits += intBits(BigInt(hunks));
+  return price(Math.min(bits, full.bits));
+}
+
+/** Cells of the edit table at most (about 16 MB): any edit of the shipped agents fits many times over. */
+export const EDIT_TABLE_LIMIT = 4_000_000;

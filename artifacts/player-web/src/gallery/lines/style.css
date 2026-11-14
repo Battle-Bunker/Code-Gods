@@ -175,3 +175,8 @@ body { margin: 0; }
 .la-ruler-label { fill: var(--v2v-ink); font-size: 11px; }
 .la-ruler-vlabel { fill: var(--c); font-weight: 700; }
 .la-ruler-target { fill: var(--c); font-style: italic; }
+@media (max-width: 700px) {
+  .la-moves li { grid-template-columns: 1fr auto; }
+  .la-move-step { grid-column: 1 / -1; grid-row: 3; text-align: left; }
+  .la-move-effect { grid-column: 1 / -1; }
+}

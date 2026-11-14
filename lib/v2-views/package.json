@@ -14,12 +14,16 @@
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
-    "@workspace/v2-linear": "workspace:*"
+    "@workspace/v2-linear": "workspace:*",
+    "d3-array": "^3.2.4",
+    "d3-scale": "^4.0.2"
   },
   "peerDependencies": {
     "react": ">=18"
   },
   "devDependencies": {
+    "@types/d3-array": "^3.2.2",
+    "@types/d3-scale": "^4.0.9",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",

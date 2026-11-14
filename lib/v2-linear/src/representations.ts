@@ -1,5 +1,5 @@
 /** The line's representations (spec §12.3): si, gen, cart, tri, seq, mach, table, crossing, norm. Still to come: int, peg (the pegboard scene). */
-import { Qn, q, ref, type ArgValues, type ElementDecl, type ElementRef, type ElementValue, type Point, type Q, type Representation, type SceneData } from "@workspace/v2-core";
+import { Qn, q, ref, type ArgValues, type ElementDecl, type ElementRef, type ElementValue, type Q, type Representation, type SceneData } from "@workspace/v2-core";
 import { intercept, isVertical, slope, xAt, yAt, type Line, type LineState } from "./line.ts";
 import { distanceToWhole, nearestInteger } from "./numbers.ts";
 
@@ -47,19 +47,14 @@ const el = (name: string, label: string, kind: Decl["kind"], role: Decl["role"],
 const nonVertical = (f: (l: Line, args: ArgValues) => ElementValue): Fn => (l, a) => (isVertical(l) ? undef(VERTICAL) : f(l, a));
 const arg = (a: ArgValues, k: string): Q => a[k]!;
 
-/** The part of a line a·x + b·y + c = 0 inside [−W, W]², or undefined. */
-export function clip(A: bigint, B: bigint, C: bigint, w: bigint = WINDOW): ElementValue {
-  const W = q(w), nW = q(-w);
-  const inBox = (v: Q) => Qn.cmp(v, nW) >= 0 && Qn.cmp(v, W) <= 0;
-  const pts: Point[] = [];
-  const push = (x: Q, y: Q) => {
-    if (inBox(x) && inBox(y) && !pts.some(p => Qn.eq(p.x, x) && Qn.eq(p.y, y))) pts.push({ x, y });
-  };
-  for (const X of [nW, W]) if (B !== 0n) push(X, q(-A * X.n - C, B));
-  for (const Y of [nW, W]) if (A !== 0n) push(q(-B * Y.n - C, A), Y);
-  if (pts.length < 2) return undef("the line does not cross the drawing window");
-  pts.sort((p, r) => Qn.cmp(p.x, r.x) || Qn.cmp(p.y, r.y));
-  return { kind: "segment", from: pts[0]!, to: pts[pts.length - 1]! };
+/**
+ * The line a·x + b·y + c = 0 as a segment between two of its points (x = 0 and x = 1, or y = 0 and y = 1 on a vertical
+ * line). It names the line, not a drawing window: the plane fits its window to what the rule reads (lib/v2-views).
+ */
+export function through(A: bigint, B: bigint, C: bigint): ElementValue {
+  if (B !== 0n) return { kind: "segment", from: { x: Qn.ZERO, y: q(-C, B) }, to: { x: Qn.ONE, y: q(-A - C, B) } };
+  if (A !== 0n) return { kind: "segment", from: { x: q(-C, A), y: Qn.ZERO }, to: { x: q(-C, A), y: Qn.ONE } };
+  return undef("not a line");
 }
 
 // ---------------------------------------------------------------- si: y = mx + c
@@ -104,7 +99,7 @@ function yInt(l: Line): ElementValue {
 export const cart: Representation<LineState> = {
   id: "cart", title: "the line on the plane", scene: "plane", perSite: true,
   elements: [
-    el("line", "the line", "segment", "coordinate", l => clip(l.a, l.b, l.c)),
+    el("line", "the line", "segment", "coordinate", l => through(l.a, l.b, l.c)),
     el("xInt", "x-intercept", "point", "derived", xInt, { meaning: "xIntercept" }),
     el("yInt", "y-intercept", "point", "derived", yInt, { meaning: "yIntercept" }),
     el("slope", "rise over run", "number", "derived", nonVertical(l => num(slope(l))), { meaning: "gradient" }),
@@ -116,7 +111,7 @@ export const cart: Representation<LineState> = {
     el("yAxisMark", "a mark on the y-axis", "point", "dynamic", (_l, a) => pt(Qn.ZERO, arg(a, "y")), { params: [{ name: "y", domain: "Q" }] }),
     el("xAxisMark", "a mark on the x-axis", "point", "dynamic", (_l, a) => pt(arg(a, "x"), Qn.ZERO), { params: [{ name: "x", domain: "Q" }] }),
     el("ghost", "the line of gradient g through the same y-intercept", "segment", "dynamic",
-      nonVertical((l, a) => { const g = arg(a, "g"), c = intercept(l); return clip(-g.n * c.d, g.d * c.d, -c.n * g.d); }),
+      nonVertical((l, a) => { const g = arg(a, "g"), c = intercept(l); return through(-g.n * c.d, g.d * c.d, -c.n * g.d); }),
       { params: [{ name: "g", domain: "Q" }] }),
   ],
   layout: (_s, site) => ({

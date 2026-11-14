@@ -91,7 +91,9 @@ test("plane: two cited points at the same place get one label", async () => {
   const s = mc(-1, 5); // y(1) = 4 and x(4) = 1: both at (1, 4)
   const e = annotate(rule, s).sites[0]!.evaluation;
   const html = renderToStaticMarkup(<RepView type={lineType} state={s} rep="cart" size="expanded" marks={e.marks} terms={e.terms} />);
-  assert.equal((html.match(/\(1, 4\)/g) ?? []).length - (html.match(/<title>[^<]*\(1, 4\)/g) ?? []).length, 1);
+  // Count the drawn labels only (not titles or the drawing's accessible name).
+  const drawn = html.replace(/<title>[^<]*<\/title>/g, "").replace(/aria-label="[^"]*"/g, "");
+  assert.equal((drawn.match(/\(1, 4\)/g) ?? []).length, 1);
 });
 
 test("compact face: the main part's quantity, target and distance; a cited implicit coefficient is shown", async () => {

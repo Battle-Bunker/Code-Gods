@@ -7,7 +7,9 @@
 import type { ReactElement } from "react";
 import { Qn, q } from "@workspace/v2-core";
 import { intercept, slope, yAt, type LineState } from "@workspace/v2-linear";
-import { fmtQ } from "@workspace/v2-views";
+import { fmtQ, RepView } from "@workspace/v2-views";
+import { lineType } from "@workspace/v2-linear";
+import type { Evaluation } from "@workspace/v2-core";
 import { GLYPH, VIEW_TITLE, type Anchor, type Contributor, type Feature, type Role, type ViewId } from "./model";
 
 export interface ViewProps {
@@ -19,6 +21,8 @@ export interface ViewProps {
   /** The next move's line, drawn as a dashed ghost. */
   ghost?: { state: LineState; label: string } | null;
   size: "row" | "card";
+  /** The rule's evaluation: the plane views are the real v2-views renderer (fitted window, placed labels, #462). */
+  evaluation?: Evaluation;
   /** Width available in px (the card's column). */
   width: number;
 }
@@ -31,7 +35,9 @@ export function View(p: ViewProps): ReactElement {
   const reads = here.length > 0;
   const body = (() => {
     switch (p.view) {
-      case "cart": case "tri": return <Plane {...p} />;
+      case "cart": case "tri": return p.evaluation
+        ? <div className="la-real-plane" style={{ maxWidth: p.size === "row" ? 200 : 460 }}><RepView type={lineType} state={p.state} rep={p.view} size={p.size === "row" ? "compact" : "expanded"} marks={p.evaluation.marks} terms={p.evaluation.terms} next={p.ghost?.state} /></div>
+        : <Plane {...p} />;
       case "si": return <Equation {...p} />;
       case "table": return <Table {...p} />;
       case "mach": return <Machine {...p} />;

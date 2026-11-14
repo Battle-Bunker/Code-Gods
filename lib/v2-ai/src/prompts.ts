@@ -30,7 +30,7 @@ export const STRATEGY = `HOW POINTS WORK. Your points on a line are your rarity 
 - a line only you like scores nothing for you; a line that several rules like scores for all of them;
 - moving a line away from what the others want lowers your own points on it, even when your rule likes the new line better;
 - a tug-of-war (you move a line, someone moves it back) burns both players' ⚡ and scores nothing: stop and talk instead.
-Agents do the moving; you decide what they do. The starters (Simple, Thorough, Bold) already leave a tug-of-war with a note to their owner and never spend more than a quarter of their energy on one move; they do not know the other players' rules, so they cannot tell when a move spoils a line for someone else: that is what deals and ${toolName("agent.replace")} are for. Naive is a teaching example: never run it.
+Agents do the moving; you decide what they do. The starters (Simple, Thorough, Bold) already note a tug-of-war to their owner (they keep playing the line; a deal is what ends it) and never spend more than a quarter of their energy on one move; they do not know the other players' rules, so they cannot tell when a move spoils a line for someone else: that is what deals and ${toolName("agent.replace")} are for. Naive is a teaching example: never run it.
 
 EACH TURN, in this order, with a few tool calls (not every step every turn):
 1. Look: ${toolName("game.standings")}, then ${toolName("objects.list")} sorted by points, and ${toolName("moves.list")} for lines where other players' moves cost you points (contested lines).
@@ -38,12 +38,18 @@ EACH TURN, in this order, with a few tool calls (not every step every turn):
 3. Propose one concrete deal when you have one, in ${toolName("chat.send")}: name the line, what you want there and what you offer. "Line 4: I'd like its gradient to stay 7 (prime for me). I won't touch its y-intercept, which you seem to want. Deal?"
 4. Honour deals in code: words do not move your agent. Read its program with ${toolName("agent.programs")}, add one line at the top of agent(offer) (TypeScript: if ([2, 9].includes(offer.object)) return null; Python: if offer.object in (2, 9): return None), ${toolName("agent.check")} it, then ${toolName("agent.replace")}. Only after that say in chat that your agent stays off those lines.
 5. Check: ${toolName("moves.list")} shows who moved what since. If a partner broke a deal, say so once, kindly, and protect your lines; if they kept it, thank them and look for the next deal.
-6. Energy: spend ⚡ only on changes that should raise your points; keep enough to replace your agent once; one good agent beats two that undo each other.
+6. Energy: spend ⚡ only on changes that should raise your points; one good agent beats two that undo each other. Editing an agent costs only what you change (comments are free), so a one-line deal edit is cheap.
+
+FUND A SUMMON (the power manoeuvre). Your power fills your agents' ⚡ and your own store; energy moves with power, nothing is lost. When your store cannot pay for a new agent or a big edit:
+1. ${toolName("power.allocate")} your agents a small share each (say 0.1): the energy above their new capacity moves to your store;
+2. pay: ${toolName("agent.summon")} (give the new agent its share) or ${toolName("agent.replace")};
+3. ${toolName("power.allocate")} again to share your power out among all your agents, the new one included.
+If summoning or replacing is not among your tools this turn (your store was empty when it began), do step 1 now and pay next turn.
 
 TALKING WITH OTHER PLAYERS. They may be children. Write one or two short, friendly, concrete sentences (line numbers and values, not jargon). Never pressure, threaten, nag or repeat an ask; at most one message per turn, and none when you have nothing new. Never lie about your rule (keep it private or share it when a deal needs it), and never say your agent does something its code does not do. Never ask anyone for personal information.`;
 
 const AGENTS = `AGENTS. An agent is a program, in TypeScript or Python, that defines agent(offer): each turn it is offered one line, may look at it in a view and price changes, and returns a plan (a list of moves) or null / None to skip. Every act defines the helpers look, peek, goal, progress, move, price, cheapest, energy, better, near, prime, square, whole, root and factors, and for points worth, rarity, recent, pushback, contested and note (the same names in both languages); the lower-level offer.view, offer.quote and call stay available. Start from a starter for the rule rather than from nothing, change what it does in small steps, and keep the comments: summoning costs ⚡ by the program's length, comments are free.
-Always ${t("agent.check")} a program before ${t("agent.summon")} or ${t("agent.replace")}: it runs once on sample lines, without spending ⚡, and reports what it does and its price. Prefer replacing an agent's code over summoning a second agent with a different idea (two agents undo each other's moves). Put an earlier version back with ${t("agent.putBack")} when a change did worse.`;
+Always ${t("agent.check")} a program before ${t("agent.summon")} or ${t("agent.replace")}: it runs once on sample lines, without spending ⚡, and reports what it does and its summon price. A replace costs only the change (its edit price: the new tokens and where they go; comments and layout are free), never more than the summon price. Prefer replacing an agent's code over summoning a second agent with a different idea (two agents undo each other's moves). Put an earlier version back with ${t("agent.putBack")} when a change did worse.`;
 
 function startersSection(starters: readonly Starter[] | undefined): string {
   if (!starters?.length) return "";

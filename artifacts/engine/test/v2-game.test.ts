@@ -64,6 +64,9 @@ test("the standings are not zero and the game ended on its own at 60 world secon
   const seqs = events.map(e => e.seq);
   assert.deepEqual(seqs, seqs.map((_, i) => i), "the record is dense from 0");
   assert.equal((await host!.query("v2/rooms:get", { roomId })).game, null, "the room is free for the next game");
+  // The world clock follows the wall clock: the game ends when its 60 s are up, not later because ticks ran slow.
+  const header = await host!.query("v2/games:header", { gameId });
+  assert.ok(header.endedAt - header.startedAt <= 60_000 + 4_000, `ended ${(header.endedAt - header.startedAt) / 1000} s after the world started`);
 });
 
 test("no agent owes more than its capacity (the credit rule)", async () => {

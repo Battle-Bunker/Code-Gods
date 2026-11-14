@@ -79,8 +79,10 @@ export interface Contributor {
   sentence: string;
   gauge: Gauge;
   top: boolean;
-  /** "Next target: within 1" (null at the top). */
+  /** "Next target: within 1" (null at the top). Prototype-internal: never shown (decision 23: no thresholds). */
   next: string | null;
+  /** What the rule wants of this quantity, in words: "as close to a prime as possible", "the bigger the better". */
+  aim: string;
   anchors: Partial<Record<ViewId, Anchor>>;
   /** Who it belongs to, for a told rule. */
   owner?: string;
@@ -91,6 +93,8 @@ export interface Move {
   price: number;
   after: LineState;
   levelAfter: number;
+  /** The line's bits after the move (prototype: the calibrated table; the continuous valuation replaces it, decision 23). */
+  bits: number;
   /** "y = 6x + 23". */
   equation: string;
   /** What each contributor does: "● exactly a prime". */
@@ -165,8 +169,8 @@ const nextOf = (g: Gauge): string | null => (g.reached >= g.notches.length ? nul
 
 type Spec = (s: LineState, a: Annotation, rule: RuleRef<LineState, unknown>) => {
   views: ViewId[]; primary: ViewId;
-  main: Omit<Contributor, "role" | "gauge" | "top" | "next" | "title">;
-  tb: Omit<Contributor, "role" | "gauge" | "top" | "next" | "title">;
+  main: Omit<Contributor, "role" | "gauge" | "top" | "next" | "title" | "aim">;
+  tb: Omit<Contributor, "role" | "gauge" | "top" | "next" | "title" | "aim">;
 };
 
 const primeChain = (x: Q) => {
@@ -343,6 +347,15 @@ const SPECS: Record<string, Spec> = {
   },
 };
 
+/** A size's ruler: the value among its natural values (primes, or whole numbers), the next few above it to aim at. */
+function sizeRuler(name: string, value: string, primes: boolean): Ruler | undefined {
+  const v = Number(value.replace("−", "-"));
+  if (!Number.isFinite(v)) return undefined;
+  const hi = Math.max(v + (primes ? 14 : 4), primes ? 13 : 6), lo = Math.max(primes ? 2 : 0, v - (primes ? 8 : 3));
+  const refs = primes ? primesIn(lo, hi).map(x => ({ at: x, label: String(x), strong: x === v })) : Array.from({ length: hi - lo + 1 }, (_, k) => ({ at: lo + k, label: String(lo + k), strong: lo + k === v }));
+  return { value: v, valueLabel: `${name}: ${value}`, refs, bandLabel: "bigger is better →" };
+}
+
 function primesIn(lo: number, hi: number): number[] {
   const out: number[] = [];
   for (let n = Math.max(2, Math.ceil(lo)); n <= hi; n++) if (isPrime(BigInt(n))) out.push(n);
@@ -400,7 +413,7 @@ export function moves(rule: RuleRef<LineState, unknown>, state: LineState, k = 3
     if (seen.has(key)) continue;
     seen.add(key);
     const args = c.m.args(variant).encode(c.a) as Record<string, string>;
-    found.push({ words: moveWords(c.m, args, state, after), price: r.price.total, after, levelAfter: lv, equation: equation(after), effect: "" });
+    found.push({ words: moveWords(c.m, args, state, after), price: r.price.total, after, levelAfter: lv, bits: raritiesOf(family.id, tieBreaker as string)[lv] ?? 0, equation: equation(after), effect: "" });
   }
   // The price/step frontier: the cheapest move, then the cheapest that climbs higher than every cheaper one.
   found.sort((a, b) => a.price - b.price || b.levelAfter - a.levelAfter);
@@ -429,25 +442,22 @@ export function read(rule: RuleRef<LineState, unknown>, state: LineState, withMo
     const g = gauge(rule, i, parts[i]?.rung ?? 0);
     const base = role === "main" ? spec.main : spec.tb;
     const top = g.reached >= g.notches.length;
-    // The ruler's band is the next target, around the reference the layer measures to.
+    // Decision 23: no thresholds. A distance's ruler shows the value against the reference it is measured to (the
+    // target is to be on it); a size's ruler shows the value among its natural values (the primes), bigger to the right.
     let ruler = base.ruler;
-    if (ruler && g.sense === "min") {
-      const ref = ruler.refs.find(x => x.strong);
-      const t = top ? null : g.values[g.reached]!;
-      ruler = { ...ruler, band: ref && t !== null && t > 0 ? [ref.at - t, ref.at + t] : undefined, bandLabel: t === null ? undefined : t > 0 ? `target: within ${fn(t)}` : "target: exactly" };
-    }
-    // The drawing's target bands follow the same next target.
-    const anchors = Object.fromEntries(Object.entries(base.anchors).map(([v, a]) => [v, a && a.fx ? { ...a, fx: a.fx.flatMap((x): Feature[] => {
-      if (x.kind !== "yband" && x.kind !== "xband") return [x];
-      if (!ruler?.band) return [];
-      return [{ ...x, from: ruler.band[0], to: ruler.band[1], label: ruler.bandLabel?.replace("target: ", "") }];
-    }) } : a])) as Contributor["anchors"];
-    return { ...base, anchors, ruler, role, title: titles[i]!, gauge: g, top, next: nextOf(g) };
+    const layer = i === 0 ? rule.family.main : rule.family.tieBreakers.find(t => t.id === rule.tieBreaker)!;
+    if (ruler && layer.sense === "min") ruler = { ...ruler, band: undefined, bandLabel: "target: on it" };
+    // A size's ruler reads the measured quantity itself (the largest prime factor 29, not m = 290).
+    const measured = parts[i]?.value;
+    if (!ruler && layer.sense === "max" && measured && "n" in measured) ruler = sizeRuler(layer.title.replace(/^(the|that) /, ""), fmtQ(measured), /prime/.test(layer.title));
+    const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
+    const anchors = Object.fromEntries(Object.entries(base.anchors).map(([v, a]) => [v, a && a.fx ? { ...a, fx: a.fx.filter(x => x.kind !== "yband" && x.kind !== "xband") } : a])) as Contributor["anchors"];
+    return { ...base, anchors, ruler, aim, role, title: titles[i]!, gauge: g, top, next: nextOf(g) };
   });
   const mainTop = contributors[0]!.top;
   const combine = mainTop
-    ? "The main part is exact, so now only the tie-breaker can lift this line."
-    : "The main part decides first; the tie-breaker orders lines that are level on it, in bigger steps until the main part is exact.";
+    ? "The main part is exactly on target, so now only the tie-breaker can make this line rarer."
+    : "The main part counts first; the tie-breaker decides between lines that are equally good on the main part.";
   const ms = withMoves ? moves(rule, state) : [];
   for (const mv of ms) mv.effect = effectOf(rule, state, mv.after);
   return {
@@ -462,10 +472,9 @@ function effectOf(rule: RuleRef<LineState, unknown>, before: LineState, after: L
   const out: string[] = [];
   r0.contributors.forEach((c0, i) => {
     const c1 = r1.contributors[i]!;
-    if (c1.value === c0.value && c1.gauge.reached === c0.gauge.reached) return;
-    const reach = c1.gauge.reached > 0 ? c1.gauge.notches[c1.gauge.reached - 1]! : "no target yet";
-    const dir = c1.gauge.reached > c0.gauge.reached ? "" : c1.gauge.reached < c0.gauge.reached ? " (falls)" : "";
-    out.push(`${GLYPH[c0.role]} ${c0.name} ${c0.value} → ${c1.value}: ${reach}${dir}`);
+    if (c1.value === c0.value) return;
+    const on = c1.role === "main" && c1.top && c1.gauge.sense === "min" ? " (on target)" : "";
+    out.push(`${GLYPH[c0.role]} ${c0.name} ${c0.value} → ${c1.value}${on}`);
   });
   return out.join(" · ");
 }
