@@ -5,7 +5,7 @@
  */
 import { useId, useMemo, type ReactNode } from "react";
 
-import { DASHES, SERIES } from "./player-colour";
+import { DASHES, SERIES, chartExtent } from "./player-colour";
 /** The categorical colours and their dashes (player-colour.ts, where a player's own slot is decided). */
 export { DASHES, SERIES };
 const INK = "hsl(var(--foreground))";
@@ -14,14 +14,7 @@ const GRID = "hsl(var(--border))";
 
 export const fmtBits = (bits: number) => `${Math.abs(bits) >= 100 ? bits.toFixed(0) : Math.abs(bits) >= 10 ? bits.toFixed(1) : bits.toFixed(2)}b`;
 
-function extent(values: readonly number[], pad = 0): [number, number] {
-  const finite = values.filter(Number.isFinite);
-  if (!finite.length) return [0, 1];
-  let lo = Math.min(...finite), hi = Math.max(...finite);
-  if (lo === hi) { lo -= 1; hi += 1; }
-  const p = (hi - lo) * pad;
-  return [lo - p, hi + p];
-}
+const extent = chartExtent;
 const scale = ([d0, d1]: [number, number], [r0, r1]: [number, number]) => (v: number) => r0 + ((v - d0) / (d1 - d0 || 1)) * (r1 - r0);
 
 /** A tiny inline line chart. */

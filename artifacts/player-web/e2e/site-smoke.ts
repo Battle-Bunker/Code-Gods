@@ -281,7 +281,7 @@ try {
       assert.match(await a.getByTestId("text-room-created").innerText(), /\d{4}/);
       // nextStep: the owner plays (rooms.create seats them). Alone in a room with AI players, the one primary is a
       // practice game against them, with the invite link beside it. The owner may still watch instead, and play again.
-      assert.match(await a.getByTestId("text-viewer-seat").innerText(), /A game needs three players\. Practise against AI players, or invite friends\./);
+      assert.match(await a.getByTestId("text-viewer-seat").innerText(), /A game needs three players\. Play a practice game against practice partners, or invite friends\./);
       assert.match(await a.getByTestId("button-practice-game").innerText(), /Play a practice game with two AI players/);
       assert.match(await a.getByTestId(`text-member-seat-${alice.subject}`).innerText(), /owner · player/);
       await a.getByTestId(`button-spectator-${alice.subject}`).click();

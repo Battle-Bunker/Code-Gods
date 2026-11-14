@@ -585,8 +585,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         aria-label="Agent source"
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
           : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
-        // On a phone a modest fixed height, and the page scrolls on when the code reaches its end (no scroll trap).
-        className="h-40 w-full resize-y overscroll-auto border-l-4 sm:h-56 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
+        // On a phone a modest fixed height, and the page scrolls on when the code reaches its end (no scroll trap). It never
+        // shrinks: in a short pane on desktop it was squeezed to an empty dark strip ("where did my code go?").
+        className="h-40 min-h-[8rem] w-full shrink-0 resize-y overscroll-auto border-l-4 sm:h-56 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
       <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs ⚡ energy from the agent's own store.</p>
       {obs?.instance && <div ref={helpersBox}><HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} /></div>}
       {!ended && (shelf.length > 1 || (observer && observer.source !== source)) && (

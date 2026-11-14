@@ -392,6 +392,10 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
     return () => clearTimeout(timer);
   }, [reveal?.at]); // eslint-disable-line react-hooks/exhaustive-deps
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
+  // A summon was just accepted and the list has not caught up: no "Summon my first agent" (a walker read it as "did it work?").
+  if (!all.length && runnerState.summonedIn !== null && !can.seenAs && !ended) {
+    return <PanelEmpty testId="text-agents-joining">Your agent is summoned and joins this list in a moment.</PanelEmpty>;
+  }
   if (!all.length) {
     return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton disabled={summoning} onClick={() => dock.summonFirst()}>{firstSummonLabel({ summoning, pending: runnerState.firstSummon > 0 })}</TextButton> : undefined}>
       {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
