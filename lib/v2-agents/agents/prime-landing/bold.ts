@@ -1,5 +1,5 @@
 // Prime Landing · Bold
-// Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime).
+// Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime; the gradient's smallest prime factor; the gradient's largest prime factor).
 // What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
@@ -15,6 +15,14 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
   // main: how far the y-intercept is from the nearest prime (closer is better)
   if (tie === "big-prime") return [main, landing];   // a bigger prime is better
+  if (tie === "m-spf") {   // the gradient's smallest prime factor big is better
+    const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
+    return [main, fm[0] ?? 1];
+  }
+  if (tie === "m-gpf") {   // the gradient's largest prime factor big is better
+    const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
+    return [main, fm.at(-1) ?? 1];
+  }
   return [main];
 }
 

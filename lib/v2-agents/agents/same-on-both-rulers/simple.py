@@ -1,5 +1,5 @@
 # Same on Both Rulers · Simple
-# Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient far from 1).
+# Main part: the unchanged number close to T. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; the gradient far from 1).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
@@ -17,6 +17,12 @@ def score(m, c, p, tie):
     fixed = c / (1 - m)                             # where y = mx + c meets y = x
     main = -abs(fixed - p["T"])
     # main: how far the number the machine leaves unchanged is from T (closer is better)
+    if tie == "m-spf":   # the gradient's smallest prime factor big is better
+        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
+        return [main, fm[0] if fm else 1]
+    if tie == "m-gpf":   # the gradient's largest prime factor big is better
+        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
+        return [main, fm[-1] if fm else 1]
     if tie == "steep":   # a gradient far from 1 is better
         return [main, abs(m - 1)]
     return [main]
