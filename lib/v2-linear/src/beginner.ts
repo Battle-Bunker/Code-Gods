@@ -4,49 +4,30 @@
  * dealable tie-breakers, every one valued by an exact sum (sums.ts). Every layer is graded (owner decision 13). A dealt
  * rule is the main layer plus one tie-breaker (decision 14 and its clarification).
  */
-import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import { lineParams, type LineState } from "./line.ts";
+import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
+import { lineParams } from "./line.ts";
+import { allUndefined, distance, family, gap, more, num, undef, type L, type Shape } from "./layers.ts";
 import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
-
-type Ctx = EvalContext<LineState>;
-type L<P> = Layer<P>;
-
-/** A distance layer: smaller is better. */
-function distance<P>(id: string, title: string, sentence: string, rep: string): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "min" };
-}
-/** A count or size layer: bigger is better. */
-function more<P>(id: string, title: string, sentence: string, rep: string | "size" = "size"): L<P> {
-  return { id, title, sentence: () => sentence, rep, sense: "max" };
-}
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
 const gpfQ = (x: Q): Q => q(x.d === 1n ? largestPrimeFactor(x.n) : 1n);
+/**
+ * A prime-factor term's label: 0, 1, −1 and fractions have no prime factor, and the term then counts as 1 (the lowest
+ * a whole number with a factor can score is 2), so the label says so rather than showing a bare "smallest prime factor: 1".
+ */
+export function factorLabel(which: "smallest" | "largest", what: string, x: Q): string {
+  if (x.d !== 1n) return `${what} (${Qn.toWire(x)}) is not a whole number, so it has no prime factor: counts as 1`;
+  if (x.n >= -1n && x.n <= 1n) return `${what} (${x.n}) has no prime factor: counts as 1`;
+  return `${what}'s ${which} prime factor`;
+}
 /** Tie-breakers on the prime factors of a coefficient (the curator's §10.5: graded, an exact Euler-type sum). */
 const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
   more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si"),
   more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si"),
 ];
 
-const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ? v.reason : "not a number" });
-const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
-const gap = (a: Q, b: Q): Q => Qn.abs(Qn.sub(a, b));
 const squareGap = (x: Q): { root: bigint; d: Q } => { const r = nearestSquareRoot(x); return { root: r, d: gap(x, q(r * r)) }; };
-
-interface Shape<P> { main: L<P>; tieBreakers: readonly L<P>[] }
-function allUndefined<P>(ctx: Ctx, f: Shape<P>, why: ElementValue, from: ElementRef): void {
-  for (const l of [f.main, ...f.tieBreakers]) ctx.term(l.id, l.title, undef(why), [from]);
-  ctx.mark({ kind: "note", ref: from, text: undef(why).undefined });
-}
-function card<P>(f: Shape<P>, p: P, tb: TieBreaker): string {
-  const t = tb === null ? undefined : f.tieBreakers.find(x => x.id === tb);
-  return t ? `${f.main.sentence(p)} Tie-breaker: ${t.sentence(p)}` : f.main.sentence(p);
-}
-/** A family with no parameters. */
-function family<P extends object>(id: string, title: string, depends: string[], shape: Shape<P>, params: P[], evaluate: (ctx: Ctx, p: P) => void): RuleFamily<LineState, P> {
-  return { id, title, card: (p, tb) => card(shape, p, tb), params: [], dealable: () => params, depends, ...shape, evaluate };
-}
 
 // ---------------------------------------------------------------- 1. Prime Staircase
 
@@ -107,8 +88,8 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
   if (a === null) return allUndefined(ctx, squareShape, av, area);
   const sq = squareGap(a);
   ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
-  ctx.term("spf", `smallest prime factor of ${sq.root}`, q(smallestPrimeFactor(sq.root)), [area]);
-  ctx.term("lpf", `largest prime factor of ${sq.root}`, q(largestPrimeFactor(sq.root)), [area]);
+  ctx.term("spf", factorLabel("smallest", "the root", q(sq.root)), q(smallestPrimeFactor(sq.root)), [area]);
+  ctx.term("lpf", factorLabel("largest", "the root", q(sq.root)), q(largestPrimeFactor(sq.root)), [area]);
   ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
   ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
   // The nearest square itself, as a shape the plane draws beside the triangle (marks only: no term changes).
@@ -148,8 +129,8 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
   ctx.term("prime-terms", "different primes among y(1) … y(8)", q(primes.size), cols);
   ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [ref("si", "m")]);
   ctx.term("square-start", "distance from the y-intercept to a square", squareGap(c).d, [ref("si", "c")]);
-  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [ref("si", "m")]);
-  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [ref("si", "m")]);
+  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [ref("si", "m")]);
+  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [ref("si", "m")]);
   ctx.mark({ kind: "focus", ref: at });
   // The target T on the y-axis, so the plane can draw where y(k) should land (marks only).
   const tm = ref("cart", "yAxisMark", { y: p.T });
@@ -181,8 +162,8 @@ export const primeLanding = family("prime-landing", "Prime Landing", ["si", "car
   ctx.term("big-prime", "that prime", q(p), [cRef]);
   ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
   ctx.term("next-prime", "distance from y(1) to a prime", distanceToPrime(Qn.abs(v1)), [y1]);
-  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
-  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [mRef]);
+  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
+  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: cRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });
 });
@@ -222,8 +203,8 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
   ctx.term("prime-start", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [ref("si", "c")]);
   ctx.term("whole-values", "different whole values among y(−5) … y(5)", q(wholes.size), cols);
   ctx.term("whole-lamp", "distance from the lamp's height to whole", distanceToWhole(lv), [lamp]);
-  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
-  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [mRef]);
+  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
+  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
   ctx.term("steep", "|m − 1|", gap(m, Qn.ONE), [mRef]);
   ctx.mark({ kind: "focus", ref: fRef });
 });
@@ -245,11 +226,11 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
   if (x === null) return allUndefined(ctx, crossingShape, xv, xRef);   // a flat line never crosses (or lies along the axis)
   const k = num(ctx.read(kRef))!;   // the whole number nearest the crossing (a half rounds up)
   ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${Qn.toWire(k)}`, gap(x, k), [xRef, kRef]);
-  ctx.term("k-spf", `smallest prime factor of ${Qn.toWire(k)}`, spfQ(k), [kRef]);
-  ctx.term("k-gpf", `largest prime factor of ${Qn.toWire(k)}`, gpfQ(k), [kRef]);
+  ctx.term("k-spf", factorLabel("smallest", "that whole number", k), spfQ(k), [kRef]);
+  ctx.term("k-gpf", factorLabel("largest", "that whole number", k), gpfQ(k), [kRef]);
   // A vertical line crosses at x0 but has no gradient: its m-spf is undefined (it ranks last), not its crossing.
   const mv = ctx.read(mRef), m = num(mv);
-  ctx.term("m-spf", "the gradient's smallest prime factor", m === null ? undef(mv) : spfQ(m), [mRef]);
+  ctx.term("m-spf", m === null ? "the gradient's smallest prime factor" : factorLabel("smallest", "the gradient", m), m === null ? undef(mv) : spfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
   // The nearest whole number on the x-axis, so the plane can draw the target (marks only).
@@ -285,8 +266,8 @@ export const divisibilityLadder = family("divisibility-ladder", "Divisibility La
     ctx.mark({ kind: "focus", ref: r });
   }
   ctx.term("ladder", "the run of n dividing y(n)", q(run), cols.length ? cols : [cRef]);
-  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
-  ctx.term("m-gpf", "the gradient's largest prime factor", gpfQ(m), [mRef]);
+  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
+  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
   ctx.term("steep", "|m|", Qn.abs(m), [mRef]);
   ctx.term("m-prime", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
 });

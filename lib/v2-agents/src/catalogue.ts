@@ -196,12 +196,26 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     family: "whole-intercept",
     mainSays: "how far the y-intercept is from a whole number (closer is better)",
     main: {
-      ts: ["const n = whole(c);                             // the whole number nearest the y-intercept", `const main = ${neg("Q.abs(Q.sub(c, n))")};`, "const f = factors(n);                           // its prime factors, smallest first"],
-      py: ["n = whole(c)                                    # the whole number nearest the y-intercept", "main = -abs(c - n)", "f = factors(n)                                  # its prime factors, smallest first"],
+      ts: [
+        "const up = whole(c);                            // the whole number nearest the y-intercept (a half rounds up)",
+        "const spf = k => (Q.isZero(k) ? 2 : (factors(k)[0] ?? 1));   // smallest prime factor: 2 for 0, 1 for 1 and -1",
+        "const half = Q.eq(Q.sub(up, c), Q.of(1, 2));   // exactly halfway between two whole numbers?",
+        "const n = half && spf(Q.sub(up, 1)) > spf(up) ? Q.sub(up, 1) : up;   // halfway: the one with the bigger smallest prime factor",
+        `const main = ${neg("Q.abs(Q.sub(c, n))")};`,
+        "const f = factors(n);                           // its prime factors, smallest first",
+      ],
+      py: [
+        "up = whole(c)                                   # the whole number nearest the y-intercept (a half rounds up)",
+        "spf = lambda k: 2 if k == 0 else (factors(k) or [1])[0]   # smallest prime factor: 2 for 0, 1 for 1 and -1",
+        "half = up - c == Fraction(1, 2)                 # exactly halfway between two whole numbers?",
+        "n = up - 1 if half and spf(up - 1) > spf(up) else up   # halfway: the one with the bigger smallest prime factor",
+        "main = -abs(c - n)",
+        "f = factors(n)                                  # its prime factors, smallest first",
+      ],
     },
     tieBreakers: {
       spf: {
-        ts: "f.length ? f[0] : 1", py: "f[0] if f else 1", says: "a bigger smallest prime factor is better (a big prime is best)",
+        ts: "spf(n)", py: "spf(n)", says: "a bigger smallest prime factor is better (a big prime is best)",
         lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2 and see how often it gets stuck.",
       },
       omega: {

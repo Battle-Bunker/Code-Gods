@@ -24,8 +24,7 @@ test("the gallery lists every family the board deals, the beginner pool first, a
 test("a beginner family says which presets deal it on that board", () => {
   const e = galleryFamilies("line-q").beginner[0]!;
   assert.ok(e.presets.includes("Lines · beginner"), e.presets.join(", "));
-  assert.ok(!e.presets.includes("Lines · whole numbers (easier)"), "the whole-number setup deals on whole-number lines, not this board");
-  assert.ok(galleryFamilies("line-z").beginner[0]!.presets.includes("Lines · whole numbers (easier)"));
+  assert.deepEqual(galleryFamilies("line-z").beginner[0]!.presets, [], "no setup deals whole-number lines");
 });
 
 test("every board the gallery offers is a variant of a type the app draws, the grid's included", () => {

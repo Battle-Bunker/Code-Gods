@@ -1,8 +1,8 @@
 /**
- * pnpm --filter @workspace/v2-valuation values -- [--variant line-z] [--family id] [--tie-breaker id|none] [--draws n] [--write]
+ * pnpm --filter @workspace/v2-valuation values -- [--variant line-z] [--family id] [--tie-breaker id|none] [--all-params] [--draws n] [--write]
  *
  * Builds value functions (owner decision 23; value.ts, value-grid.ts) for the rules on a line or grid variant: each family's first dealable
- * parameters, once per tie-breaker dealt there. --draws sets the direct draws per tilt (default: VALUE_CONFIG's). Prints each one's knots in brief; --write stores it under
+ * parameters (every dealable parameter set with --all-params), once per tie-breaker dealt there. --draws sets the direct draws per tilt (default: VALUE_CONFIG's). Prints each one's knots in brief; --write stores it under
  * values/<variant>/<family>/<params hash>-<tie-breaker>.json.
  */
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -20,9 +20,7 @@ if (!families.length) throw new Error(`No family ${opt("family")}`);
 const tbOpt = opt("tie-breaker");
 const ROOT = join(import.meta.dirname, "..");
 
-for (const family of families) {
-  const params = family.dealable(variant)[0];
-  if (params === undefined) continue;
+for (const family of families) for (const params of family.dealable(variant).slice(0, args.includes("--all-params") ? undefined : 1)) {
   const choices: (string | null)[] = tbOpt ? [tbOpt === "none" ? null : tbOpt] : tieBreakersOn(family, variant).length ? tieBreakersOn(family, variant).map(t => t.id) : [null];
   for (const tieBreaker of choices) {
     const t = Date.now();
