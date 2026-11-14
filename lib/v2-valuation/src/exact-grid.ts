@@ -34,7 +34,12 @@ export const CONTINUITY_BITS = 25;
 /** Every layer's term per unit configuration, kept across a family's tie-breakers (the main layer's are shared). */
 const unitCache = new WeakMap<object, Map<string, Map<string, Q[]>>>();
 
-export function exactGridLadder<P>(type: ObjectType<GridState>, family: RuleFamily<GridState, P>, params: P, variant: Variant, tieBreaker: TieBreaker): ExactGridLadder {
+/**
+ * The exact joint law of a rule's dealt layers' terms on a grid variant (main, then tie-breaker): every attainable pair of
+ * term values with its stationary mass, by convolving the declared units' laws. The mass sums to 1 on a bounded board.
+ */
+export function gridJointLaw<P>(type: ObjectType<GridState>, family: RuleFamily<GridState, P>, params: P, variant: Variant, tieBreaker: TieBreaker):
+  { readonly layers: readonly string[]; readonly entries: readonly { readonly terms: readonly Q[]; readonly w: number }[] } {
   const plan = gridSums[family.id];
   if (!plan) throw new Error(`${family.id}: no gridSums plan`);
   const { size, cap } = gridParams(variant);
@@ -120,10 +125,15 @@ export function exactGridLadder<P>(type: ObjectType<GridState>, family: RuleFami
     joint = next;
   }
 
+  return { layers, entries: [...joint.values()].map(({ c, w }) => ({ terms: c, w })) };
+}
+
+export function exactGridLadder<P>(type: ObjectType<GridState>, family: RuleFamily<GridState, P>, params: P, variant: Variant, tieBreaker: TieBreaker): ExactGridLadder {
+  const { layers, entries } = gridJointLaw(type, family, params, variant, tieBreaker);
   const ladder = objectLadder(type, family, params, variant, tieBreaker);
   const mass = new Array<number>(ladder.length).fill(0);
   const marginal = layers.map(() => new Map<string, number>());
-  for (const { c, w } of joint.values()) {
+  for (const { terms: c, w } of entries) {
     c.forEach((x, j) => marginal[j]!.set(W(x), (marginal[j]!.get(W(x)) ?? 0) + w));
     const { score } = scoreOf(family, params, variant, tieBreaker, id => c[layers.indexOf(id)]!);
     mass[levelOf(score, ladder)]! += w;
