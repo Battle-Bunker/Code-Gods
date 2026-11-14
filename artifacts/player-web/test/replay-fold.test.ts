@@ -157,3 +157,9 @@ test("a file this page cannot read says so", () => {
   assert.throws(() => indexReplay({ version: 2, events: [] }), /version 2/);
   assert.throws(() => indexReplay(null), /not a stored replay/);
 });
+
+test("a replay's rule keeps the game's uniqueness correction, so its faces' bits match the server's (decision 24, W3 #578)", () => {
+  const uniqueness = { ns: [1, 2], heldMass: [0.5, 0.25], objects: 30 };
+  const withU = indexReplay({ ...FILE, rules: FILE.rules.map(r => (r.memberId === "m2" ? { ...r, value: { ...r.value!, uniqueness } } : r)) } as never);
+  assert.deepEqual((frameAt(withU, END).rule("m2")!.value as { uniqueness?: unknown }).uniqueness, uniqueness);
+});
