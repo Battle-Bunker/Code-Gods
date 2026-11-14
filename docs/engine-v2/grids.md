@@ -300,6 +300,25 @@ Nines and Crosswise Threes pair the same cells differently; Magic Eighteen and e
   family × tie-breaker in Python and TypeScript.
 - **Server**: a `grids-beginner` preset on `grid-4-d10` and its deal (bids included), with the server and app sessions.
 
+## 7.1 The first walk through a grid game (14 November)
+
+`pnpm --filter @workspace/player-web run e2e:grid-game`: a scripted first-time player creates a room, picks
+"Grids · beginner" in the setup picker, presses "Play a practice game" and "Summon my first agent", and plays to the
+end, at desktop (1440×900) and phone (390×844), against the live local engine (30 world seconds).
+
+| Milestone | Desktop | Phone | Lines' round-9 best |
+|---|--:|--:|--:|
+| Seated and playing | 2.0 s | 4.1 s | 5 s |
+| First agent summoned | 3.2 s | 6.6 s | 21 s |
+| First scoring move of your agent, in words | 12.0 s | 13.4 s | 28 s |
+| Natural end, "You finished …" | 40.9 s | 39.2 s | (a 5-minute game) |
+
+The scripted player is faster than a person, so these times are lower bounds, not a persona's. What the walk found and
+fixed: the act log and the overview said "line" in a grid game (now "changed a grid", "Points on this grid", "You score on a grid when …"); a setup's blurb showed the board's id (now
+"A 4 × 4 grid of digits"). Still open: "See it line by line", the "Lines" and "One line" pane titles, and the
+results' "points on every line" (the app session's dock and words); on a phone, One line lists nine long
+representation chips before the board itself; agents are named after their tie-breaker ("0s on the board").
+
 ## 8. Decisions and judgment calls
 
 **The owner's, since the first draft:** decision 22 (keep the old beginner rules and every kind of grid rule; value what

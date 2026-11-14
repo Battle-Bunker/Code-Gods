@@ -5,7 +5,7 @@
  */
 import { createContext, useContext, useMemo } from "react";
 import { chipRep, repText } from "@workspace/v2-views";
-import { decodeState, objectTypeOf, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
 import { clock, num } from "@/core/words";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
@@ -26,7 +26,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
     try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
-    return moveSentence({
+    return moveSentence({ noun: objectWord(variant).one,
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
       change, what: callWords(move.calls, variantOf(variant)), before: move.before, after: move.after,
     });
