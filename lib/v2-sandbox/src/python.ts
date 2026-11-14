@@ -7,10 +7,13 @@
  * library (guest/codegods.py) runs as the prelude with `__host` in its globals; `__decode(offer)` makes the Offer;
  * then, inside the budget, the agent's module, `agent(offer)` and `__encode_calls(result)`.
  *
+ * The bundle supplies CPython and its standard library only; the trusted guest is this package's python/guest.py.
+ *
  * Bounds: the deterministic one is the `sys.monitoring` step budget over the agent's own code objects. Every
  * 10,000 steps the guest reads the clock, and the host ends the act there if its time cap has passed (a real-time
  * check at deterministic points). A single long native step is the worker's hard wall's job (sandbox.ts).
  */
+import { readFileSync } from "node:fs";
 import { Wasi, CapabilityTrap, TimeTrap } from "./wasi.ts";
 import { OVERSIZE_REPLY } from "./channel.ts";
 import { SandboxError, LIMITS, stepLimit, timeLimit } from "./limits.ts";
@@ -23,50 +26,8 @@ const ZERO_CHUNK = Buffer.alloc(65536);
 const ENTROPY_SALT = 0x5DEECE66Dn;
 const utf8 = new TextEncoder();
 
-/** Python's repr() of an ASCII str, for trusted bootstrap text. */
-const pyRepr = (text: string) => JSON.stringify(text);
-
-/**
- * Trusted bootstrap of this package, run after the bundle's own guest (boot_guest.py, sandbox_guest.py) and so part
- * of the snapshot: `_V2_HOST`, the channel over descriptor 3, and a step counter that also reads the clock every
- * 10,000 steps so the host can end an act past its time cap.
- */
-const V2_BOOT = `
-def _v2_host_factory():
-    import os
-    write, read, limit, oversize = os.write, os.read, ${LIMITS.messageBytes}, ${pyRepr(OVERSIZE_REPLY)}
-    def take(n):
-        out = b""
-        while len(out) < n:
-            chunk = read(3, n - len(out))
-            if not chunk:
-                raise OSError("the host channel is closed")
-            out += chunk
-        return out
-    def host(request):
-        if type(request) is not str:
-            raise TypeError("a host request is JSON text")
-        data = request.encode("utf-8", "replace")
-        if len(data) > limit:
-            return oversize
-        frame = len(data).to_bytes(4, "little") + data
-        while frame:
-            frame = frame[write(3, frame):]
-        return take(int.from_bytes(take(4), "little")).decode("utf-8", "replace")
-    return host
-_V2_HOST = _v2_host_factory()
-del _v2_host_factory
-_V2_NOW = time.monotonic
-def _v2_on_event(*_a):
-    global _steps
-    _steps += 1
-    if _steps > _step_limit:
-        raise _StepLimit("ran out of steps")
-    if not _steps % 10000:
-        _V2_NOW()
-_MON.register_callback(_TOOL, _MON.events.LINE, _v2_on_event)
-_MON.register_callback(_TOOL, _MON.events.JUMP, _v2_on_event)
-`;
+/** This package's trusted guest (python/guest.py), run into __main__ at bootstrap; the bundle's own guest files are not run. */
+const GUEST = readFileSync(new URL("../python/guest.py", import.meta.url), "utf8");
 
 const Compile = (m: string) => new SandboxError("COMPILE", m);
 const Config = (m: string) => new SandboxError("CONFIG", m);
@@ -223,11 +184,6 @@ export class PythonEngine implements Engine {
   }
 
   private bootstrap(files: Map<string, Uint8Array>) {
-    const text = (path: string) => {
-      const data = files.get(path);
-      if (!data) throw new Error(`The Python bundle lacks ${path}`);
-      return new TextDecoder().decode(data);
-    };
     const lib = new Map([...files].filter(([path]) => path.startsWith("lib/")).map(([path, data]) => ["/" + path, data] as [string, Uint8Array]));
     // Trusted WASI startup: synthetic PYTHONHOME and hash seed, no inherited descriptors, a read-only stdlib.
     this.wasi = new Wasi({ files: lib, args: ["python", "-S", "-B"], env: ["PYTHONHOME=/", "PYTHONHASHSEED=0"] });
@@ -242,9 +198,8 @@ export class PythonEngine implements Engine {
     x.PyConfig_Clear(config);
     x.free(config); x.free(status);
     this.meta = { mainDict: x.PyModule_GetDict(x.PyImport_AddModule(this.cstring("__main__"))) };
-    this.simple(text("guest/boot_guest.py"));
-    this.simple(text("guest/sandbox_guest.py"));
-    this.simple(V2_BOOT);
+    this.simple(GUEST);
+    this.simple(`_HOST = _host_factory(${LIMITS.messageBytes}, ${JSON.stringify(OVERSIZE_REPLY)})\ndel _host_factory`);
     const meta = this.meta;
     meta.sourceBuffer = x.malloc(LIMITS.sourceBytes + 1);
     meta.sizeBuffer = x.malloc(4);
@@ -253,7 +208,7 @@ export class PythonEngine implements Engine {
     for (const key of ["<agent>", "<prelude>", "__builtins__", "__name__", "__decode", "__encode_calls", "__host", "agent", "_exc", "_USER_CODE"]) meta[key] = this.cstring(key);
     meta.truePtr = this.mainGet("_TRUE");
     meta.stepLimitType = this.mainGet("_StepLimit");
-    meta.host = this.mainGet("_V2_HOST");
+    meta.host = this.mainGet("_HOST");
     if (!meta.truePtr || !meta.stepLimitType || !meta.host) throw new Error("Sandbox bootstrap failed");
     meta.moduleName = x.PyUnicode_FromStringAndSize(meta.agent, 5);
     meta.strType = x.PyObject_Type(meta.moduleName);

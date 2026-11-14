@@ -5,26 +5,13 @@
  * function taking one request's JSON text and returning the reply's (spec §6.5).
  */
 import { getQuickJS, type QuickJSContext, type QuickJSHandle, type QuickJSWASMModule } from "quickjs-emscripten";
-import { SandboxError, LIMITS, stepLimit, timeLimit, stopwatch } from "./limits.ts";
+import { LIMITS, fail, stepLimit, timeLimit } from "./limits.ts";
 import { OVERSIZE_REPLY, messageBytes } from "./channel.ts";
+import { SplitMix64 } from "./wasi.ts";
 import type { Engine, ExecuteRequest, ExecuteResult, Hooks } from "./engine.ts";
 
 const EPOCH_US = 1767225600n * 1000000n;           // 2026-01-01T00:00:00Z: every act's virtual clock starts here
 const TICKS_PER_INTERRUPT = 10000;                 // QuickJS polls the interrupt handler every 10,000 ticks
-const MASK64 = (1n << 64n) - 1n;
-const fail = (code: SandboxError["code"], message: string): never => { throw new SandboxError(code, message); };
-
-/** SplitMix64; Math.random = top 53 bits / 2^53. */
-function splitmix(seed: bigint) {
-  let state = BigInt.asUintN(64, seed);
-  return () => {
-    state = (state + 0x9E3779B97F4A7C15n) & MASK64;
-    let z = state;
-    z = ((z ^ (z >> 30n)) * 0xBF58476D1CE4E5B9n) & MASK64;
-    z = ((z ^ (z >> 27n)) * 0x94D049BB133111EBn) & MASK64;
-    return z ^ (z >> 31n);
-  };
-}
 
 /** Installs the virtual clock and seeded randomness, then forgets the host functions it used. */
 const SETUP = `{
@@ -71,7 +58,7 @@ export class QuickJSEngine implements Engine {
     // Captured before untrusted code can replace JSON.stringify (getString is NUL-terminated; JSON escapes NULs).
     const stringify = keep(context.unwrapResult(context.evalCode("JSON.stringify")));
     let ticks = 0n, executing = false, usedRandom = false;
-    const next = splitmix(seed);
+    const random = new SplitMix64(seed);   // Math.random = top 53 bits / 2^53
     /** Copy a guest string primitive exactly, if it is one and at most `max` characters. */
     const copy = (handle: QuickJSHandle, max: number): string | null | undefined => {
       if (context.typeof(handle) !== "string") return undefined;
@@ -88,7 +75,7 @@ export class QuickJSEngine implements Engine {
       context.setProp(context.global, "__elapsed", fn("__elapsed", () => context.newNumber(Number(++ticks) / 1000)));
       context.setProp(context.global, "__entropy", fn("__entropy", () => {
         if (executing) usedRandom = true;
-        return context.newNumber(Number(next() >> 11n) / 2 ** 53);
+        return context.newNumber(Number(random.next() >> 11n) / 2 ** 53);
       }));
       // The channel: a string in, a string out, synchronously. Anything else is answered as a host error would be.
       context.setProp(context.global, "__host", fn("__host", request => {
@@ -110,12 +97,14 @@ export class QuickJSEngine implements Engine {
       if (handed.error) { handed.error.dispose(); fail("CONFIG", "The guest library could not make the offer"); }
       const offerHandle = keep((handed as { value: QuickJSHandle }).value);
       hooks.onExecute?.();
-      const cpu = stopwatch();
-      // QuickJS calls the handler every 10,000 ticks (function calls and backward jumps): a deterministic count.
+      const started = performance.now();
+      // QuickJS calls the handler every 10,000 ticks (function calls and backward jumps): a deterministic count. The
+      // act stops at the poll that reaches the budget (budgets round up to a multiple of 10,000).
       const interruptLimit = Math.ceil(stepBudget / TICKS_PER_INTERRUPT);
       let interrupts = 0;
-      const stepsOut = () => interrupts > interruptLimit;
-      const expired = () => stepsOut() || cpu() >= wallMs;
+      const stepsOut = () => interrupts >= interruptLimit;
+      // Wall time, as Python's check and the worker's hard wall measure it.
+      const expired = () => stepsOut() || performance.now() - started >= wallMs;
       const limit = () => fail("LIMIT", stepsOut() ? stepLimit(stepBudget) : timeLimit(wallMs));
       runtime.setInterruptHandler(() => { interrupts++; return expired(); });
       executing = true;

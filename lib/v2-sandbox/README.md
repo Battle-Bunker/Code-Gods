@@ -7,8 +7,10 @@ calls: one JSON request in, one JSON reply out.
 - **TypeScript / JavaScript** on QuickJS-Wasm. TypeScript is transpiled (no type check) by the TypeScript compiler on
   the host. The channel is a host function `__host(requestJson): replyJson`.
 - **Python** on the pinned CPython 3.15 WASI bundle, unchanged (built by `lib/game-runtime`'s `setup:python` and
-  `build:python`; same SHA-256 pin). The channel is WASI file descriptor 3: the guest writes a 4-byte little-endian
-  length and the request with `os.write(3, …)`, and reads the reply framed the same way with `os.read(3, …)`.
+  `build:python`; same SHA-256 pin). The bundle supplies CPython and its standard library only: the trusted guest is
+  this package's `python/guest.py` (a cleaned copy of the old boot and sandbox guests), and the bundle's own guest
+  files are not run. The channel is WASI file descriptor 3: the guest writes a 4-byte little-endian length and the
+  request with `os.write(3, …)`, and reads the reply framed the same way with `os.read(3, …)`.
 
 Everything here is a copy-and-clean of `lib/game-runtime` (no imports from it): no summon pricing, no script mode, no
 read meter, no pricing vocabulary. Reads are now the host's to count, from the replies' receipts.
@@ -46,8 +48,8 @@ requests the same way (key order, rationals as "p/q"), so the same agent in eith
 | | |
 |---|---|
 | Step budget | default 500,000. Python: `sys.monitoring` LINE and JUMP events in the agent's own code (cannot be caught). QuickJS: interrupt ticks, 10,000 per poll. Deterministic. |
-| Time cap | `wallMs`, default 2,000. QuickJS: checked at every interrupt poll (CPU time). Python: the guest reads the clock every 10,000 steps and the host ends the act there once real time is past the cap. |
-| Hard wall | `execution: "worker"` only: the worker is terminated 250 ms past the time cap (a stuck native step: a catastrophic regex, `sum(range(10**12))`), and the next act starts a new one (Python from the shared snapshot). Inline execution has no hard wall: use it for trusted code and tests. |
+| Time cap | `wallMs`, default 2,000, in wall time. QuickJS: checked at every interrupt poll. Python: the guest reads the clock every 10,000 steps and the host ends the act there once real time is past the cap. |
+| Hard wall | `execution: "worker"` only: the worker is terminated 250 ms past the time cap, or 5 s into trusted preparation, (a stuck native step: a catastrophic regex, `sum(range(10**12))`), and the next act starts a new one (Python from the shared snapshot). Inline execution has no hard wall: use it for trusted code and tests. |
 | Host calls | default 64 per act; past the cap a call gets a host error and never reaches the host. |
 | Sizes | source 16 KiB; each channel message 16 KiB; returned calls 64 KiB; offer 1 KiB. |
 | Memory | QuickJS 32 MiB heap, 512 KiB stack; CPython 128 MiB linear memory. |

@@ -39,9 +39,12 @@ export class Channel {
     let request: unknown;
     try { request = JSON.parse(text); }
     catch { return JSON.stringify(failure("the request is not JSON")); }
-    const reply = this.answer(request);
-    let out = JSON.stringify(reply);
-    if (bytes(out) > LIMITS.messageBytes) out = JSON.stringify(failure(`the reply is over ${LIMITS.messageBytes} bytes`));
+    let reply = this.answer(request), out: string;
+    try { out = JSON.stringify(reply); }
+    catch { reply = failure("the host failed: its reply is not JSON data"); out = JSON.stringify(reply); }
+    if (bytes(out) > LIMITS.messageBytes) { reply = failure(`the reply is over ${LIMITS.messageBytes} bytes`); out = JSON.stringify(reply); }
+    // Only a reply the agent receives charges its receipt.
+    if (reply.ok) this.readBits += reply.bits;
     this.transcript.push({ request: request as HostRequest, reply: JSON.parse(out) as HostReply });
     return out;
   }
@@ -58,7 +61,6 @@ export class Channel {
     catch (error) { return failure(`the host failed: ${String((error as Error)?.message ?? error).slice(0, 500)}`); }
     if (reply?.ok === true) {
       if (!(typeof reply.bits === "number" && Number.isFinite(reply.bits) && reply.bits >= 0)) return failure("the host failed: a reply without a read receipt");
-      this.readBits += reply.bits;
       return reply;
     }
     if (reply?.ok === false && typeof reply.error === "string") return reply;

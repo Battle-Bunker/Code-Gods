@@ -41,17 +41,6 @@ export function actLimits(given: Partial<ActLimits> = {}): ActLimits {
 export const stepLimit = (steps: number) => `Step limit exceeded: the agent took more than ${steps} steps. Do less work per act.`;
 export const timeLimit = (ms: number) => `Time limit exceeded: the agent ran for more than ${ms} ms. Do less work per act.`;
 
-/** This thread's CPU time where Node has it (other workers' time does not count), else wall time, in ms. */
-export function stopwatch(): () => number {
-  const cpu = (process as { threadCpuUsage?: (start?: NodeJS.CpuUsage) => NodeJS.CpuUsage }).threadCpuUsage;
-  if (typeof cpu === "function") {
-    const start = cpu.call(process);
-    return () => { const used = cpu.call(process, start); return (used.user + used.system) / 1000; };
-  }
-  const start = performance.now();
-  return () => performance.now() - start;
-}
-
 /** A 64-bit act seed from a decimal or 0x-hex string (or a bigint). */
 export function parseSeed(seed: string | bigint): bigint {
   const value = typeof seed === "bigint" ? seed

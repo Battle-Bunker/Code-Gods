@@ -56,6 +56,8 @@ export interface Sandbox {
 }
 
 export const HARD_WALL_GRACE_MS = 250;
+/** A worker's trusted preparation of one act (compiling, shape-checking, the guest library) must finish in this. */
+export const PREPARE_MS = 5000;
 const PRELUDES = {
   python: () => readFileSync(new URL("../guest/codegods.py", import.meta.url), "utf8"),
   javascript: () => readFileSync(new URL("../guest/codegods.js", import.meta.url), "utf8"),
@@ -149,8 +151,10 @@ class WorkerSandbox implements Sandbox {
 
   close() {
     this.closed = true;
-    void this.worker?.terminate();
-    this.worker = null;
+    const pending = this.pending;
+    this.pending = null;
+    this.kill();
+    if (pending) { clearTimeout(pending.timer); pending.reject(new SandboxError("UNAVAILABLE", "The sandbox was closed")); }
   }
 
   private start(): Promise<void> {
@@ -172,6 +176,7 @@ class WorkerSandbox implements Sandbox {
     this.ready = new Promise<void>((resolve, reject) => {
       const startup = setTimeout(() => { reject(new SandboxError("UNAVAILABLE", "The sandbox worker did not start in 30 s")); this.kill(); }, 30_000);
       worker.on("message", message => {
+        if (this.worker !== worker) return;   // a worker this sandbox already replaced
         if (message.type === "ready") {
           clearTimeout(startup);
           if (message.snapshot && this.python) { this.python.snapshot = message.snapshot; this.python.files = null; }
@@ -206,12 +211,8 @@ class WorkerSandbox implements Sandbox {
     if (!pending) return;
     if (message.type === "execute") {
       // The hard wall: the guest's own checks get the time cap; a stuck native step gets a little more, then ends.
-      pending.timer = setTimeout(() => {
-        if (this.pending !== pending) return;
-        this.pending = null;
-        this.kill();
-        pending.resolve(failed(new SandboxError("LIMIT", timeLimit(message.wallMs!)), pending.channel));
-      }, message.wallMs! + HARD_WALL_GRACE_MS);
+      clearTimeout(pending.timer);
+      pending.timer = this.wall(pending, message.wallMs! + HARD_WALL_GRACE_MS, timeLimit(message.wallMs!));
     } else if (message.type === "host") {
       const { control, data } = this.shared;
       const request = new TextDecoder().decode(data.slice(0, control[1]));
@@ -240,9 +241,21 @@ class WorkerSandbox implements Sandbox {
     await this.start();
     const channel = new Channel(request.host, prepared.limits.hostCallCap);
     return new Promise<ActResult>((resolve, reject) => {
-      this.pending = { channel, resolve, reject };
+      const pending: Pending = { channel, resolve, reject };
+      pending.timer = this.wall(pending, PREPARE_MS, `The sandbox could not prepare the agent in ${PREPARE_MS} ms`);
+      this.pending = pending;
       Atomics.store(this.shared.control, 0, 0);
       this.worker!.postMessage({ request: prepared.execute });
     });
+  }
+
+  /** End the act and its worker after `ms`, unless it has settled. */
+  private wall(pending: Pending, ms: number, reason: string) {
+    return setTimeout(() => {
+      if (this.pending !== pending) return;
+      this.pending = null;
+      this.kill();
+      pending.resolve(failed(new SandboxError("LIMIT", reason), pending.channel));
+    }, ms);
   }
 }
