@@ -18,7 +18,7 @@ const WORLD: readonly GamePhase[] = ["live", "paused", "ended", "replay"];
 export const REPLAY_PANE = "replay";
 const docked = (p: { pane: string }) => p.pane !== REPLAY_PANE;
 
-export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant"] as const;
+export const PANE_IDS = ["overview", "my-card", "objects", "object", "feed", "agents", "forge", "race", "public-chat", "results", "others-care", "points-over-time", "rules", "assistant", "my-panels"] as const;
 export type PaneId = (typeof PANE_IDS)[number];
 
 export interface PaneDefinition {
@@ -47,11 +47,21 @@ export const PANES: Readonly<Record<PaneId, PaneDefinition>> = {
   "points-over-time": def({ id: "points-over-time", title: "Your points over time", blurb: "Your points at every scoreboard, rising and falling.", phases: WORLD, keywords: ["history", "chart", "points", "trend"] }),
   rules: def({ id: "rules", title: "How to play", blurb: "The game in 90 seconds, with this game's settings.", phases: ALL, keywords: ["rules", "help", "how", "settings", "energy", "power"] }),
   assistant: def({ id: "assistant", title: "Your assistant", blurb: "Ask your assistant for help, or let it play for you.", phases: ALL, keywords: ["assistant", "ask", "help", "autopilot", "ai"] }),
+  "my-panels": def({ id: "my-panels", title: "Your panels", blurb: "Panels you or your assistant wrote: open, edit, roll back or turn them off.", phases: ALL, keywords: ["panels", "custom", "widgets", "code"] }),
   results: def({ id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended"], keywords: ["end", "winner", "final"] }),
 };
 
 export const isPaneId = (v: unknown): v is PaneId => typeof v === "string" && (PANE_IDS as readonly string[]).includes(v);
-export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title : id);
+
+/**
+ * A stored panel (the human's own TSX, `panel.*`) opens as the pane `panel:<slug>`, in every phase. Its title is the
+ * panel's own, which the dock reads from the panel list; here the slug stands in.
+ */
+const STORED = "panel:";
+export const storedPane = (slug: string): string => `${STORED}${slug}`;
+export const storedSlugOf = (pane: string): string | null => (pane.startsWith(STORED) && pane.length > STORED.length ? pane.slice(STORED.length) : null);
+
+export const paneTitle = (id: string): string => (isPaneId(id) ? PANES[id].title : storedSlugOf(id) ?? id);
 
 /** At most this many panes at once; opening another replaces the oldest (and says which: ux-lessons 5.4). */
 export const MAX_PANES = 5;
@@ -71,7 +81,7 @@ export function defaultPanes(phase: GamePhase): OpenPane[] {
   }
 }
 
-const inPhase = (id: string, phase: GamePhase) => isPaneId(id) && PANES[id].phases.includes(phase);
+const inPhase = (id: string, phase: GamePhase) => (isPaneId(id) ? PANES[id].phases.includes(phase) : storedSlugOf(id) !== null);
 /** A pane that needs the world (not offered in planning). */
 const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("planning");
 
@@ -83,7 +93,7 @@ const needsWorld = (id: string) => isPaneId(id) && !PANES[id].phases.includes("p
  * when the next game starts. An arrangement with none of the phase's default panes (a pane an
  * assistant opened on the empty view, which the server stores as it is) meets the defaults the same way, the defaults
  * first. More than MAX_PANES stored (by another client or an assistant) shows the newest. After the end the results come
- * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved).
+ * first even when not open (shown, not stored). Unknown pane ids are dropped (a pane removed since the view was saved); a stored panel's pane is shown in every phase.
  */
 export function shownPanes(view: Pick<ViewState, "panes">, phase: GamePhase): OpenPane[] {
   const own = view.panes.filter(p => docked(p) && inPhase(p.pane, phase)).slice(-MAX_PANES);

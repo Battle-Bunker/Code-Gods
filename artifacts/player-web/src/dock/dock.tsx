@@ -5,18 +5,33 @@
  * inner scroller taller than the screen allows (ux-lessons 5.1). A pane's menu moves or closes it through the same view
  * affordances an assistant uses.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { MoreHorizontal, X } from "lucide-react";
 import { useAffordance } from "@workspace/v2-affordances/react";
-import { PANES, PANE_IDS, columns, isPaneId, paneTitle, readingOrder, shownPanes, type GamePhase, type OpenPane } from "@workspace/v2-client";
+import { PANES, PANE_IDS, columns, isPaneId, paneTitle, readingOrder, shownPanes, storedSlugOf, type GamePhase, type OpenPane } from "@workspace/v2-client";
 import type { Place } from "@workspace/v2-affordances";
 import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useView } from "@/core/affordance-runtime";
 import { useWide } from "@/core/use-wide";
+import { api, useLive } from "@/site/lib/convex";
 import { onReveal, usePaneOps } from "./open-pane";
 
 export type PaneComponents = Partial<Record<string, () => ReactNode>>;
+/** A stored panel's pane (`panel:<slug>`). */
+export type StoredPaneComponent = (props: { slug: string }) => ReactNode;
+
+/**
+ * Pane names: a pane's definition's title, or a stored panel's own title from the viewer's panel list (one shared
+ * subscription; a failed read shows the slug, never the dock's error).
+ */
+function usePaneName(): (pane: string) => string {
+  const panels = useLive(api.v2.panels.list, {}).data;
+  return useCallback((pane: string) => {
+    const slug = storedSlugOf(pane);
+    return slug ? panels?.find(p => p.slug === slug)?.title ?? slug : paneTitle(pane);
+  }, [panels]);
+}
 
 function PaneError({ error, resetError }: ErrorFallbackProps) {
   return (
@@ -36,11 +51,12 @@ function PaneMenu({ pane, phase, open }: { pane: string; phase: GamePhase; open:
   const move = useAffordance("view.movePane");
   const close = useAffordance("view.closePane");
   const ops = usePaneOps(phase);
+  const name = usePaneName();
   const others = PANE_IDS.filter(id => !open.some(p => p.pane === id) && PANES[id].phases.includes(phase) && id !== "object");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className="p-1 text-muted-foreground hover:text-foreground" aria-label={`Options for ${paneTitle(pane)}`} data-testid={`button-pane-menu-${pane}`}><MoreHorizontal className="h-4 w-4" /></button>
+        <button type="button" className="p-1 text-muted-foreground hover:text-foreground" aria-label={`Options for ${name(pane)}`} data-testid={`button-pane-menu-${pane}`}><MoreHorizontal className="h-4 w-4" /></button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-[14rem]">
         {PLACES.map(p => <DropdownMenuItem key={p.place} disabled={!move.available} onSelect={() => void ops.open(pane, p.place)}>{p.label}</DropdownMenuItem>)}
@@ -56,11 +72,12 @@ function PaneFrame({ pane, phase, open, body, grow }: { pane: string; phase: Gam
   const def = isPaneId(pane) ? PANES[pane] : null;
   const close = useAffordance("view.closePane");
   const ops = usePaneOps(phase);
+  const name = usePaneName();
   return (
-    <section data-pane={pane} data-testid={`pane-${pane}`} aria-label={def?.title ?? pane}
+    <section data-pane={pane} data-testid={`pane-${pane}`} aria-label={name(pane)}
       className={`flex min-h-0 flex-col border border-[hsl(var(--card-border))] bg-card ${grow ? "flex-1" : ""}`}>
       <header className="flex items-center gap-2 border-b border-[hsl(var(--card-border))] px-3 py-1.5">
-        <h2 className="flex-1 truncate text-sm font-semibold" title={def?.blurb}>{def?.title ?? pane}</h2>
+        <h2 className="flex-1 truncate text-sm font-semibold" title={def?.blurb}>{name(pane)}</h2>
         <PaneMenu pane={pane} phase={phase} open={open} />
         {pane === "object" && close.available && <button type="button" aria-label="Close" className="p-1 text-muted-foreground hover:text-foreground" onClick={() => void ops.close(pane)}><X className="h-4 w-4" /></button>}
       </header>
@@ -71,16 +88,19 @@ function PaneFrame({ pane, phase, open, body, grow }: { pane: string; phase: Gam
   );
 }
 
-export function Dock({ phase, panes: components }: { phase: GamePhase; panes: PaneComponents }) {
+export function Dock({ phase, panes: components, stored: Stored }: { phase: GamePhase; panes: PaneComponents; stored?: StoredPaneComponent }) {
   const view = useView();
   const wide = useWide();
   const open = shownPanes(view, phase);
+  const name = usePaneName();
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => onReveal(pane => {
     const el = scroller.current?.querySelector<HTMLElement>(`section[data-pane="${pane}"]`);
     el?.scrollIntoView({ block: "start", behavior: "smooth" });
   }), []);
   const body = (pane: string) => {
+    const slug = storedSlugOf(pane);
+    if (slug && Stored) return <Stored slug={slug} />;
     const C = components[pane];
     return C ? <C /> : <p className="p-4 text-sm text-muted-foreground">This pane is not on this version of the game yet.</p>;
   };
@@ -94,7 +114,7 @@ export function Dock({ phase, panes: components }: { phase: GamePhase; panes: Pa
           {readingOrder(open).map(p => (
             <button key={p} type="button" className="shrink-0 border px-2 py-0.5 text-xs" data-testid={`button-jump-${p}`}
               onClick={() => scroller.current?.querySelector<HTMLElement>(`section[data-pane="${p}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" })}>
-              {paneTitle(p)}
+              {name(p)}
             </button>
           ))}
         </nav>

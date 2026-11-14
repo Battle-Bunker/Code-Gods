@@ -8,7 +8,7 @@ import { affordance, id, obj, rep } from "../define.ts";
 import { CONTEXTS, IN_GAME, IN_ROOM } from "../types.ts";
 
 const GAME = [...IN_GAME, "ended", "replay"] as const;
-const pane = z.string().min(1).max(40).describe('A pane id, e.g. "objects", "agents", "forge", "log", "chat", "goal".');
+const pane = z.string().min(1).max(60).describe('A pane id, e.g. "objects", "agents", "forge", "rules", "my-panels", or "panel:<slug>" for one of the human\'s stored panels.');
 const place = z.enum(["main", "left", "right", "bottom"]);
 const done = z.object({ ok: z.literal(true), layoutVersion: z.number().int() });
 

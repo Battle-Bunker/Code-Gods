@@ -190,8 +190,11 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 - [ ] **R** MCP server, OAuth, CLI (`pnpm player`): same transport and auth; tools, dispatch and CLI subcommands generated
   from the affordance directory (§2.5) (M2 generator, M3 complete).
 - [ ] **D** `run_code` and the code-output pane (code tables are generic); v2 datasets are the game's own events (M3).
-- [ ] **R** Stored panels and the panel SDK: the bridge exposes the sdk2 hooks as `@sdk` version 2; v1 panels do not load
-  in v2 games (the frame says so); the example panels are rewritten for v2 (M3).
+- [x] **R** Stored panels and the panel SDK: the bridge exposes the sdk2 hooks as `@sdk` version 2; v1 panels do not load
+  in v2 games (the frame says so); the example panels are rewritten for v2 (M3). Done: `artifacts/player-web/src/frame/*`
+  (protocol, loader, the frame's `@sdk`), `src/panes/stored-panel.tsx` and `panel-host.tsx` (the host runs the real hook
+  per watch, so replays work too), "Your panels" (`src/panes/my-panels.tsx`, one v2 example panel in its editor); a
+  stored panel opens as the pane `panel:<slug>`; e2e `e2e:panels`.
 - [ ] **D** Spectators (`game-panels.tsx` 224): standings, objects (states only, drawn in a default representation
   since a spectator holds no rule), chat (M3).
 - [ ] **D** Phone layout: stacked panes, ≤ 45% list height, short code box, stacked primary buttons, status lines brought

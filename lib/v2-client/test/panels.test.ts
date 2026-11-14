@@ -1,7 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EMPTY_VIEW } from "@workspace/v2-affordances";
-import { closePlan, columns, defaultPanes, MAX_PANES, openPlan, PANE_IDS, PANES, readingOrder, shownPanes } from "../src/panels.ts";
+import { closePlan, columns, defaultPanes, MAX_PANES, openPlan, PANE_IDS, PANES, paneTitle, readingOrder, shownPanes, storedPane, storedSlugOf } from "../src/panels.ts";
+
+test("a stored panel opens as a pane of its own in every phase, and keeps its slug", () => {
+  // Catches: shownPanes dropping a stored panel's pane as an unknown id, so "Open as a pane" shows nothing.
+  const pane = storedPane("my-stats");
+  assert.equal(pane, "panel:my-stats");
+  assert.equal(storedSlugOf(pane), "my-stats");
+  assert.equal(storedSlugOf("objects"), null);
+  assert.equal(storedSlugOf("panel:"), null);
+  for (const phase of ["planning", "live", "ended", "replay"] as const) {
+    const own = { panes: [...defaultPanes(phase), { pane, place: "right" as const }].slice(-MAX_PANES) };
+    assert.ok(shownPanes(own, phase).some(p => p.pane === pane), phase);
+  }
+  assert.equal(paneTitle(pane), "my-stats");
+  // The longest slug still fits the view operations' pane id.
+  assert.ok(storedPane("a".repeat(48)).length <= 60);
+});
+
+test("the panels pane is offered in every phase", () => {
+  assert.deepEqual(PANES["my-panels"].phases, ["planning", "live", "paused", "ended", "replay"]);
+});
 
 test("an empty view follows the phase's defaults; an own arrangement is kept", () => {
   assert.deepEqual(shownPanes(EMPTY_VIEW, "planning"), defaultPanes("planning"));
