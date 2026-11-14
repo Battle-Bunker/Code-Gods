@@ -8,6 +8,7 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
+import { rungsOf } from "../convex/v2/artefacts.ts";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
@@ -89,6 +90,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
   // Acts the commit overrode (a stale state, an unaffordable change) carry `charged`; the rest are the agent's own record.
   const acts = events.filter(e => e.kind === "act" && e.data.charged === undefined);
   assert.ok(acts.length > 10, `enough acts to mean something (${acts.length})`);
+  assert.ok(acts.some(e => e.data.input?.value && Array.isArray(e.data.input.history)), "agents are told their owner's stake in the line, and it is recorded");
   for (const e of acts) {
     const d = e.data, key = `${d.agentId}:${d.program.version}`;
     if (!sources.has(key)) sources.set(key, (await admin.query("v2/testing:program", { agentId: d.agentId, version: d.program.version })).source);
@@ -99,8 +101,10 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       type: lineType, variant: lineZ, state: lineType.decode(d.before),
       rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker },
       program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number - 1, liveObjects: d.liveObjects,
+      // What the agent was told of its owner's stake (recorded), and the dealt rule's ladder (from the game's artefact).
+      ...(d.input ?? {}), rungs: rungsOf(rule.ruleKey),
     });
-    const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits });
+    const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);
   }
 });
