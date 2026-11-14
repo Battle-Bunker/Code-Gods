@@ -5,7 +5,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, offers, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { summonPracticePartners } from "./agents.ts";
@@ -145,7 +145,8 @@ async function dealHistory(ctx: QueryCtx, roomId: Id<"v2Rooms">): Promise<PastDe
 /** The rotated deal the next game would get, or null when it would be dealt fresh. */
 export async function rotationFor(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: readonly Doc<"v2Members">[]) {
   const preset = presetOf(room.preset), pool = dealablePool(preset), dealKey = dealKeyOf(preset, pool);
-  const rotated = rotatedDeal(seats.map(s => s._id), dealKey, await dealHistory(ctx, room._id));
+  // A practice game is dealt afresh each time (practiceDeal), so it never rotates.
+  const rotated = isPracticeGame(seats.map(s => s.kind)) ? null : rotatedDeal(seats.map(s => s._id), dealKey, await dealHistory(ctx, room._id));
   const byKey = new Map(pool.map(r => [r.ruleKey, r]));
   const rules = rotated?.rules.map(k => byKey.get(k));
   return { pool, dealKey, rotated: rules && rules.every(r => r) ? { rules: rules as DealtRule[], round: rotated!.round, of: rotated!.of } : null };
@@ -156,6 +157,8 @@ export async function nextDeal(ctx: QueryCtx, room: Doc<"v2Rooms">, seats: reado
   const { pool, dealKey, rotated } = await rotationFor(ctx, room, seats);
   if (pool.length === 0) throw new OpFailure("This preset has no rule with a converged valuation yet, so nothing can be dealt.");
   if (rotated) return { rules: rotated.rules, dealKey, rotation: { round: rotated.round, of: rotated.of } };
+  const kinds = seats.map(s => s.kind);
+  if (isPracticeGame(kinds)) return { rules: practiceDeal(pool, kinds, seed, presetOf(room.preset).variant), dealKey, rotation: null };
   return { rules: freshDeal(pool, seats.length, seed), dealKey, rotation: null };
 }
 

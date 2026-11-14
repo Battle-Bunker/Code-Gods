@@ -7,7 +7,8 @@
 import { topBits, valueRecord } from "../../convex/v2/values.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dealablePool, freshDeal, rotatedDeal, ruleView, type PastDeal } from "../../convex/v2/deal.ts";
+import { dealablePool, freshDeal, isPracticeGame, practiceDeal, rotatedDeal, ruleView, type DealtRule, type PastDeal, type SeatKind } from "../../convex/v2/deal.ts";
+import { pairVerdict } from "@workspace/v2-agents/pure";
 import { presetOf } from "../../convex/v2/presets.ts";
 
 const beginner = presetOf("lines-beginner");
@@ -98,4 +99,34 @@ test("bids: no bids gives the plain deal byte for byte; a win is exclusive and f
   assert.deepEqual(dealt.wins.map(w => [w.playerId, w.familyId, w.handicap]), [["b", target, 10]]);
   assert.equal(dealt.deal[1]!.family, target);
   assert.ok(dealt.deal.filter((_, i) => i !== 1).every(r => r.family !== target), "nobody else is dealt the won family");
+});
+
+// Practice games (coordinator's call (b), provisional): one human and practice partners only. The deal keeps the human
+// from being the odd one out, by the agents session's pair verdicts (lib/v2-agents compat.gen.ts).
+for (const id of ["lines-beginner", "grids-beginner"]) test(`a practice deal in ${id} never leaves the human the odd one out`, () => {
+  const preset = presetOf(id), pool = dealablePool(preset);
+  const verdict = (a: DealtRule, b: DealtRule) => a.ruleKey === b.ruleKey ? "compatible" : pairVerdict(preset.variant, `${a.family}/${a.tieBreaker}`, `${b.family}/${b.tieBreaker}`);
+  for (const kinds of [["human", "practice"], ["practice", "human", "practice"], ["human", "practice", "practice", "practice"]] as SeatKind[][]) {
+    const h = kinds.indexOf("human");
+    let fresh = 0;
+    for (let s = 0; s < 40; s++) {
+      const seed = `practice-${s}`, deal = practiceDeal(pool, kinds, seed, preset.variant);
+      assert.deepEqual(deal, practiceDeal(pool, kinds, seed, preset.variant), "reproducible from its seed");
+      assert.equal(deal.length, kinds.length);
+      const partners = deal.filter((_, i) => i !== h);
+      assert.ok(partners.some(p => verdict(deal[h]!, p) === "compatible"), `${id} ${kinds} ${seed}: the human shares a goal with a partner`);
+      for (const p of partners) for (const q of partners) if (p !== q)
+        assert.ok(!(verdict(p, q) === "compatible" && verdict(deal[h]!, p) === "conflict" && verdict(deal[h]!, q) === "conflict"), `${id} ${seed}: no two partners agree against the human`);
+      if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, kinds.length, seed))) fresh++;
+    }
+    assert.ok(fresh > 0, "the constraint changes some deals (else it is not doing anything)");
+  }
+});
+
+test("only a game of one human and practice partners is a practice game", () => {
+  assert.equal(isPracticeGame(["human", "practice"]), true);
+  assert.equal(isPracticeGame(["practice", "human", "practice"]), true);
+  assert.equal(isPracticeGame(["human", "human", "practice"]), false, "two humans: a real deal");
+  assert.equal(isPracticeGame(["human", "ai"]), false, "an AI player: a real deal");
+  assert.equal(isPracticeGame(["human"]), false);
 });

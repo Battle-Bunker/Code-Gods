@@ -8,10 +8,13 @@
  * are players everyone holds each seat's rule once (when the pool is smaller than the seats, some seats share a rule);
  * then the next game is dealt afresh. A deal made with winning bids never
  * rotates and never continues a rotation.
+ *
+ * Practice games (one human, every other seat a practice partner; the coordinator's call (b), provisional) are dealt
+ * so the human is not the odd one out (`practiceDeal`), by the agents session's pair verdicts, and never rotate.
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
-import { hasStarters } from "@workspace/v2-agents/pure";
+import { hasStarters, pairVerdict, type PairVerdict } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { topBits, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
@@ -81,6 +84,43 @@ export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng): Dea
     [order[i], order[j]] = [order[j]!, order[i]!];
   }
   return Array.from({ length: seats }, (_, i) => order[i % order.length]!);
+}
+
+/** Who holds a seat. */
+export type SeatKind = "human" | "practice" | "ai";
+/** A practice game: one human, and every other seat a practice partner. Any other room gets the plain deal. */
+export const isPracticeGame = (kinds: readonly SeatKind[]): boolean =>
+  kinds.length > 1 && kinds.filter(k => k === "human").length === 1 && kinds.every(k => k !== "ai");
+
+/** Seeded deals a practice deal draws before it settles for the first (a pool too small to satisfy it). */
+const PRACTICE_TRIES = 200;
+/** Two dealt rules' verdict (lib/v2-agents compat.gen.ts); the same rule shares its own goal. */
+function verdictOf(variant: string, a: DealtRule, b: DealtRule): PairVerdict | undefined {
+  return a.ruleKey === b.ruleKey ? "compatible" : pairVerdict(variant, `${a.family}/${a.tieBreaker}`, `${b.family}/${b.tieBreaker}`);
+}
+/**
+ * Whether a practice deal leaves the human (seat `h`) in company: compatible with at least one partner, and no two
+ * partners compatible with each other while both conflict with the human.
+ */
+export function practiceFits(variant: string, deal: readonly DealtRule[], h: number): boolean {
+  const human = deal[h]!, partners = deal.filter((_, i) => i !== h);
+  if (!partners.some(p => verdictOf(variant, human, p) === "compatible")) return false;
+  return !partners.some((p, i) => partners.some((q, j) => i !== j && verdictOf(variant, p, q) === "compatible"
+    && verdictOf(variant, human, p) === "conflict" && verdictOf(variant, human, q) === "conflict"));
+}
+/**
+ * A practice game's deal: the first of the seed's fresh deals that fits (`practiceFits`), or the first fresh deal when
+ * none of PRACTICE_TRIES does. Reproducible from the seed.
+ */
+export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): DealtRule[] {
+  const r = dealRng(seed), h = kinds.indexOf("human");
+  let first: DealtRule[] | undefined;
+  for (let i = 0; i < PRACTICE_TRIES; i++) {
+    const deal = dealFrom(pool, kinds.length, r);
+    first ??= deal;
+    if (practiceFits(variant, deal, h)) return deal;
+  }
+  return first!;
 }
 
 /**
