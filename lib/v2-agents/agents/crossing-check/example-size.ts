@@ -18,7 +18,7 @@ function score(m, c, p) {
   return [main, Q.abs(x)];   // main: how far apart y(k) and x(q) are (closer is better); tie-breaker: a bigger x(q) is better
 }
 
-const FAR = 4;      // how far one change may go
+const FAR = 3;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

@@ -7,7 +7,7 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: change FAR = 3 to 6 and watch the price of each move.
+// Try this: change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {

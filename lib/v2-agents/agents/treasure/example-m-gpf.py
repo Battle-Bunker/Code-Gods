@@ -7,7 +7,7 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 6 to 12: turning about x = k keeps the treasure and only changes the gradient.
+# Try this: change FAR = 3 to 2: turning about x = k keeps the treasure and only changes the gradient.
 
 
 def score(m, c, p):
@@ -17,7 +17,7 @@ def score(m, c, p):
     return [main, fm[-1] if fm else 1]   # main: how far y(k) is from T (closer is better); tie-breaker: the gradient's largest prime factor big is better
 
 
-FAR = 6      # how far one change may go
+FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

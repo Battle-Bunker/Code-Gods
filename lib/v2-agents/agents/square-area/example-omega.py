@@ -7,7 +7,7 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 3 to 5 so it can reach bigger squares.
+# Try this: change FAR = 3 to 2: shorter steps cost less; does it still reach bigger squares?
 
 
 def score(m, c, p):

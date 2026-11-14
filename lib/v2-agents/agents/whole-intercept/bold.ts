@@ -7,7 +7,7 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: change FAR = 6 to 3: smaller jumps, cheaper moves.
+// Try this: change FAR = 4 to 2: shorter steps, cheaper moves.
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
@@ -20,7 +20,7 @@ function score(m, c, p, tie) {
   return [main];
 }
 
-const FAR = 6;      // how far one change may go
+const FAR = 4;      // how far one change may go
 const QUOTES = 20;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

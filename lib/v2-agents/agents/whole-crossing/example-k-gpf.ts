@@ -19,7 +19,7 @@ function score(m, c, p) {
   return [main, fk.at(-1) ?? 1];   // main: how far the line's x-axis crossing is from a whole number (closer is better); tie-breaker: that whole number's largest prime factor big is better
 }
 
-const FAR = 6;      // how far one change may go
+const FAR = 3;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

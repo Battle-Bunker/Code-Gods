@@ -7,7 +7,7 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 6 to 10 so it can jump to bigger primes.
+# Try this: change FAR = 3 to 2: shorter steps cost less; does it still jump to bigger primes?
 
 
 def score(m, c, p):
@@ -26,7 +26,7 @@ def score(m, c, p):
     return [main, run[0] if run else 0]   # main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: a bigger first prime is better
 
 
-FAR = 6      # how far one change may go
+FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

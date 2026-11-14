@@ -24,7 +24,7 @@ def score(m, c, p):
     return [main, abs(m)]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: a steeper gradient is better
 
 
-FAR = 6      # how far one change may go
+FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

@@ -7,7 +7,7 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 6 to 12: the run needs c a multiple of 27720, so big jumps help.
+# Try this: change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?
 
 
 def score(m, c, p):
@@ -24,7 +24,7 @@ def score(m, c, p):
     return [main, fm[0] if fm else 1]   # main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better); tie-breaker: the gradient's smallest prime factor big is better
 
 
-FAR = 6      # how far one change may go
+FAR = 3      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

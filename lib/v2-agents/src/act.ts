@@ -35,6 +35,8 @@ export interface ActInput<S> {
   readonly others?: HostInput<S>["others"];
   /** Whether another object already holds a state (unique objects): such a result is refused. */
   readonly occupied?: HostInput<S>["occupied"];
+  /** Disclosure noise on the others' sum at a state (live games): `othersAfter` reports the noisy, clamped sum. */
+  readonly disclosed?: HostInput<S>["disclosed"];
 }
 
 export type Outcome = "committed" | "skipped" | "failed";
@@ -79,7 +81,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const economy = input.economy ?? SPEC_ECONOMY;
   const host = new EngineHost({
     type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy,
-    value: input.value, history: input.history, values: input.values, others: input.others, occupied: input.occupied,
+    value: input.value, history: input.history, values: input.values, others: input.others, occupied: input.occupied, disclosed: input.disclosed,
   });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));
   const result = await sandbox.act({ source: input.program.source, offer: { object: input.object ?? 0 }, seed: input.seed, host, limits: input.limits });

@@ -136,3 +136,20 @@ test("unique objects: a plan onto a state another object holds is not allowed, s
   assert.deepEqual([up.valid, up.valid ? "" : up.reason], [false, "another object is already in that state"]);
   assert.equal(down.valid, true);
 });
+
+test("disclosure noise: othersAfter reports the others' sum plus the noise at each state, never below 0", () => {
+  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
+  const others = [{ rule: other, values: findValues("line-z", other)! }];
+  const at = { lines: [fromMC(q(7), q(3))] }, next = lineType.encode({ lines: [fromMC(q(7), q(4))] });
+  const ask = (disclosed?: (e: string) => number) => {
+    const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others, ...(disclosed ? { disclosed } : {}) });
+    const reply = host.handle({ op: "othersAfter", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] } as HostRequest, { hostCallsLeft: 10 });
+    assert.equal(reply.ok, true);
+    return (reply as { result: { before: number; after: number } }).result;
+  };
+  const exact = ask();
+  assert.ok(exact.before > 0 && exact.after > 0);
+  const noisy = ask(e => (e === next ? 2.5 : -1));
+  assert.deepEqual([noisy.before, noisy.after], [exact.before - 1, exact.after + 2.5], "the noise at the state before and at the state after");
+  assert.deepEqual(ask(() => -1e6), { before: 0, after: 0 }, "never below 0");
+});

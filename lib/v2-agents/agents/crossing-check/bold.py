@@ -7,7 +7,7 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 6 to 3: smaller jumps, cheaper moves.
+# Try this: change FAR = 4 to 2: shorter steps, cheaper moves.
 
 
 def score(m, c, p, tie):
@@ -25,7 +25,7 @@ def score(m, c, p, tie):
     return [main]
 
 
-FAR = 6      # how far one change may go
+FAR = 4      # how far one change may go
 QUOTES = 20  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
