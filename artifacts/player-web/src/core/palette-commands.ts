@@ -37,6 +37,8 @@ export interface PaletteHost {
   panes?: { open(pane: string): Promise<unknown>; close(pane: string): Promise<void> };
   /** A short confirmation once something typed in the palette was done (playtest: a chat sent from it said nothing). */
   notify?(title: string): void;
+  /** The game's objects ("grid", "grids"): directory titles say "objects" (round 8b: "Leave objects alone" in a grid game). */
+  noun?: { one: string; many: string };
 }
 
 const run = async (host: PaletteHost, id: AffordanceId, args: unknown) => {
@@ -102,11 +104,18 @@ const DONE: Partial<Record<AffordanceId, string>> = { "chat.send": "Message sent
 /** A field's label in words: the parameter's name only when there is none. */
 const FIELD_LABELS: Record<string, string> = { text: "Your message", code: "Room code", name: "Name", question: "Your question" };
 
+/** "Leave objects alone" in a grid game: "Leave grids alone" (any case, singular and plural). */
+export function nouned(text: string, noun?: { one: string; many: string }): string {
+  if (!noun) return text;
+  const cap = (w: string) => w[0]!.toUpperCase() + w.slice(1);
+  return text.replace(/\b([Aa])n ([Oo])bject\b/g, (_, a: string, o: string) => `${a} ${o === "O" ? cap(noun.one) : noun.one}`).replace(/\b([Oo])bject(s?)\b/g, (_, o: string, s: string) => (o === "O" ? cap : (w: string) => w)(s ? noun.many : noun.one));
+}
+
 /** The palette's commands for this context. */
 export function paletteCommands(ctx: AffordanceContext, host: PaletteHost): Command[] {
   const rows: Command[] = paletteFor(ctx).map(e => ({
     id: e.id,
-    human: { title: e.title, tooltip: e.tooltip },
+    human: { title: nouned(e.title, host.noun), tooltip: nouned(e.tooltip, host.noun) },
     group: e.group,
     keywords: e.keywords,
     confirm: e.confirm,

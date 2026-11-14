@@ -18,6 +18,7 @@ import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from 
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
+import { mergeTugs } from "./summary-tugs";
 
 export function ResultsPane() {
   const header = useGame();
@@ -114,7 +115,7 @@ function EndSummary({ total }: { total: number }) {
   const summary = useMemo(() => {
     if (!my || !header) return null;
     const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, id: o.objectId, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
-    const tugs: SummaryTug<unknown>[] = foldTugs(moves.results).flatMap(i => (i.kind === "tug"
+    const tugs: SummaryTug<unknown>[] = mergeTugs(foldTugs(moves.results).flatMap(i => (i.kind === "tug"
       ? [(() => {
         const others = [...new Map(i.moves.filter(m => !m.mine && m.by).map(m => [m.by!.memberId, m.by!.name])).entries()];
         const practice = others.length > 0 && others.every(([id]) => header.roster.find(r => r.memberId === id)?.kind === "practice");
@@ -123,7 +124,7 @@ function EndSummary({ total }: { total: number }) {
         const best = top ? { state: decodeState(top.stateAfter, header.variant), points: top.after!.points ?? 0 } : undefined;
         return { number: i.number, withNames: others.map(([, n]) => n), flips: i.flips, mySpend: i.mySpend, practice, ...(best ? { best } : {}) };
       })()]
-      : []));
+      : [])));
     // In a rotation that goes on, the next game deals another rule: the advice is the lesson, not this game's line.
     const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
     const partial = moves.status !== "Exhausted" ? moves.results.length : null;

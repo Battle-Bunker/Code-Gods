@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { paletteFor } from "@workspace/v2-affordances";
 import { affordanceContext } from "../src/core/affordance-context.ts";
-import { paletteCommands } from "../src/core/palette-commands.ts";
+import { nouned, paletteCommands } from "../src/core/palette-commands.ts";
 
 const ctx = affordanceContext({ signedIn: true, admin: false, room: { preset: "lines-beginner", bidding: null, members: [{ memberId: "m", name: "A", kind: "human", spectator: false, owner: true, me: true }] } as never,
   header: { phase: "live", me: "m" } as never, me: { energy: 50, pauseUsed: false, agents: 1 } as never });
@@ -72,4 +72,13 @@ test("leave alone and hold open Agent code at their controls, not a page that sa
     if (p?.kind === "submit") await p.run();
   }
   assert.deepEqual(opened, ["forge", "forge"]);
+});
+
+test("a grid game's palette says grids, not objects (round 8b)", () => {
+  const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, noun: { one: "grid", many: "grids" } };
+  const rows = paletteCommands(ctx, host as never);
+  assert.equal(rows.find(r => r.id === "agent.leaveAlone")!.human.title, "Leave grids alone");
+  assert.equal(rows.find(r => r.id === "agent.hold")!.human.title, "Settle and hold grids");
+  for (const r of rows) assert.doesNotMatch(`${r.human.title} ${r.human.tooltip}`, /\bobjects?\b/i, r.id);
+  assert.equal(nouned("Objects and an object", { one: "line", many: "lines" }), "Lines and a line");
 });

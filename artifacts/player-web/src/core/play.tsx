@@ -143,7 +143,7 @@ function Screen({ header }: { header: Header }) {
   const code = room?.code ?? "";
   const owner = !!room?.members.find(m => m.me)?.owner;
   return (
-    <Page context={context} scope={{ roomId: header.roomId, gameId: header.gameId }} fill dockPhase={live.phase} roomPath={code ? roomPath(code) : undefined}
+    <Page context={context} scope={{ roomId: header.roomId, gameId: header.gameId }} fill dockPhase={live.phase} noun={objectWord(header.variant)} roomPath={code ? roomPath(code) : undefined}
       crumbs={[{ label: code || "Room", href: code ? roomPath(code) : undefined }, { label: `Game ${header.number}` }]} chip={`Game ${header.number}`}
       placeholder="Search or do anything in this game">
       <ReplayRoute header={live} />
