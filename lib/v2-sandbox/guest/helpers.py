@@ -196,6 +196,11 @@ def settle(offer, target):
         plan.append(call("si.shift", k=Fraction(target["c"]) - c0))
     if m0 != target["m"]:
         plan.append(call("si.tilt", k=Fraction(target["m"]) - m0))
+    if plan:
+        ms, cs = str(Fraction(target["m"])), str(Fraction(target["c"]))
+        mx = "" if ms == "0" else "x" if ms == "1" else "-x" if ms == "-1" else ms + "x"
+        eq = cs if not mx else mx if cs == "0" else mx + (" - " + cs[1:] if cs.startswith("-") else " + " + cs)
+        note(offer, "Holding line " + str(offer.object) + " at y = " + eq + " as agreed.")
     return plan or None
 
 

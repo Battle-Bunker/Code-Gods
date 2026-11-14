@@ -43,12 +43,13 @@ export async function check<S>(sandbox: Sandbox, input: CheckInput<S>): Promise<
   const sample = acts.map((a, i) => ({ objectId: input.samples[i]!.objectId, outcome: a.outcome, ...(a.reason ? { reason: a.reason } : {}) }));
   const n = acts.length, committed = acts.filter(a => a.outcome === "committed").length, failed = acts.filter(a => a.outcome === "failed");
   const p = (x: number) => `${Math.round(x * 10) / 10} ⚡`;
-  if (n === 0) return { verdict: "warns", summary: `There were no sample lines to try it on. Summoning it costs ${p(price)}.`, price, sample, acts };
+  const many = input.type.id === "grid" ? "boards" : "lines", one = input.type.id === "grid" ? "board" : "line";
+  if (n === 0) return { verdict: "warns", summary: `There were no sample ${many} to try it on. Summoning it costs ${p(price)}.`, price, sample, acts };
   if (acts[0]?.code === "COMPILE") return { verdict: "rejected", summary: `The program does not run: ${acts[0].reason}`, price, sample, acts };
   if (failed.length === n) return { verdict: "fails", summary: `It failed on every sample: ${failed[0]!.reason}`, price, sample, acts };
   const spend = acts.reduce((t, a) => t + a.charge, 0) / n;
-  const summary = `It made a change on ${committed} of ${n} sample lines, spending about ${p(spend)} a turn. Summoning it costs ${p(price)}.`;
+  const summary = `It made a change on ${committed} of ${n} sample ${many}, spending about ${p(spend)} a turn. Summoning it costs ${p(price)}.`;
   if (failed.length) return { verdict: "warns", summary: `${summary} It failed on ${failed.length}: ${failed[0]!.reason}`, price, sample, acts };
-  if (committed === 0) return { verdict: "warns", summary: `${summary} It never changed a line: check that it returns moves.`, price, sample, acts };
+  if (committed === 0) return { verdict: "warns", summary: `${summary} It never changed a ${one}: check that it returns moves.`, price, sample, acts };
   return { verdict: "works", summary, price, sample, acts };
 }
