@@ -213,6 +213,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `account.revokeConnection` | Disconnect an assistant | connectionId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
 | `account.signIn` | Sign in | — | client · none | anyone | signedOut | write; not on assistant/mcp/cli (consent) |
 | `account.approveConnection` | Approve a connection | request, grant, room, completion, ownerConsent, accountConsent | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm modal; not on assistant/mcp/cli (consent) |
+| `account.denyConnection` | Deny a connection | request | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; not on assistant/mcp/cli (consent) |
 | `assistant.send` | Ask the assistant | text, threadId, newThread, grant, ownerConsent | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |
 | `assistant.cancel` | Stop the assistant | — | server · room | member | room, planning, live, paused, ended, replay | write |
 | `assistant.setMode` | Set the assistant's mode | mode, grant, ownerConsent | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |

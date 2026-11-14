@@ -37,7 +37,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
-| `v2/play:moves` | `gameId, paginationOpts` | seated |
+| `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` only on the caller's own moves |
 | `v2/spectate:objectIds`, `object` | as above | member; states only |
 | `v2/layout:current` | `roomId` | member |
 | `v2/replays:stored` | `gameId` | member |
@@ -47,6 +47,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/assistant:turn` | `turnId` | the turn's human: outcome and tool calls (activity chips) |
 | `v2/panels:list`, `code` | `{}`, `slug, version?` | signed in: the caller's own panels |
 | `v2/rooms:aiQuotas` | `roomId` | member: the owner's per-game token quotas `{ai, assistant}` |
+| `v2/connect:pending` | `request` (the /connect key) | signed in: the OAuth request's client, grant, status, expiry, hinted room and the caller's v2 rooms; decided by `account.approveConnection` / `account.denyConnection` |
 | `v2/setups:presets` | `{}` | signed in: the deployed presets (the setup picker); `room.create`/`room.settings` refuse any other id |
 | `v2/gallery:family` | `preset, family` | signed in: the family's dealable rules with card, layers and ladder, each rung's ✨ rarity |
 

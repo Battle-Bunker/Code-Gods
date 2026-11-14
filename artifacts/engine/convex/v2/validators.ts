@@ -93,7 +93,11 @@ export const agentProgramsV = v.array(v.object({
 export const movesPageV = paginationResultValidator(v.object({
   seq: v.number(), worldSeconds: v.number(), objectId: v.id("v2Objects"), number: v.number(),
   agentId: v.union(v.id("v2Agents"), v.null()), mine: v.boolean(), calls: v.array(callV), rep: v.string(),
-  stateBefore: v.string(), stateAfter: v.string(), before: valueSnapV, after: valueSnapV, charge: v.union(v.number(), v.null()),
+  stateBefore: v.string(), stateAfter: v.string(), before: valueSnapV, after: valueSnapV,
+  /** What the move cost: the caller's own agents' moves only (another player's spend is theirs). */
+  charge: v.union(v.number(), v.null()),
+  /** The player whose agent moved the line (the caller for their own moves). */
+  by: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
 }));
 export const digestV = v.object({ version: v.number(), packed: v.array(v.number()) });
 

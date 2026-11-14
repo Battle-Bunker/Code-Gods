@@ -3,6 +3,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { normalizeUserCode, sha256Hex } from "../../auth/crypto";
 import { memberOf, roomById } from "../access";
 import type { MutationCtx } from "../../_generated/server";
+import { oauthRequest } from "../oauth";
 import { callerOf, defineOp } from "./define";
 
 export const { op: whoami, as: whoamiAs } = defineOp("account.whoami", "query", async env => {
@@ -68,8 +69,7 @@ export const { op: approveConnection, as: approveConnectionAs } = defineOp("acco
 async function approveOAuth(ctx: MutationCtx, userId: string, a: {
   request: string; grant: "read" | "act" | "owner" | "account"; room?: string; completion: string; ownerConsent?: boolean; accountConsent?: boolean;
 }) {
-  const keyHash = a.request.length >= 20 && a.request.length <= 128 ? await sha256Hex(a.request) : null;
-  const request = keyHash ? await ctx.db.query("oauthRequests").withIndex("by_key", q => q.eq("keyHash", keyHash)).unique() : null;
+  const request = await oauthRequest(ctx, a.request);
   if (!request || request.status !== "pending" || request.expiresAt <= Date.now()) throw new OpFailure("Invalid or expired connection request.");
   const completionHash = await sha256Hex(a.completion);
   if ((request.permission === "account") !== (a.grant === "account")) {
@@ -91,3 +91,20 @@ async function approveOAuth(ctx: MutationCtx, userId: string, a: {
   await ctx.db.patch(request._id, { status: "approved", subject: userId, roomId: room._id, grantedPermission: a.grant, completionHash });
   return { ok: true as const };
 }
+
+/** Consent too: refuses a pending OAuth request (by its key) or device code, so the app gets nothing. */
+export const { op: denyConnection, as: denyConnectionAs } = defineOp("account.denyConnection", "mutation", async (env, a) => {
+  const userId = callerOf(env).userId!, ctx = env.ctx, now = Date.now();
+  const request = await oauthRequest(ctx, a.request);
+  if (request) {
+    if (request.status !== "pending" || request.expiresAt <= now) throw new OpFailure("Invalid or expired connection request.");
+    await ctx.db.patch(request._id, { status: "denied", subject: userId });
+    return { ok: true as const };
+  }
+  const code = normalizeUserCode(a.request);
+  const userCodeHash = code ? await sha256Hex(code) : null;
+  const device = userCodeHash ? await ctx.db.query("devices").withIndex("by_user_code", q => q.eq("userCodeHash", userCodeHash)).first() : null;
+  if (!device || device.status !== "pending" || device.expiresAt <= now) throw new OpFailure("Invalid or expired connection request.");
+  await ctx.db.patch(device._id, { status: "denied" });
+  return { ok: true as const };
+});
