@@ -15,7 +15,7 @@
  */
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
 import { aiSeatSystemPrompt, commitmentBriefing, commitmentsOf, findDeals, runAssistant, type Budget, type ChatProvider, type RunResult } from "@workspace/v2-ai";
-import { hashHex, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
+import { hashHex, Qn, rng, ruleLayers, scoreToWire, type ObjectType, type Variant } from "@workspace/v2-core";
 import {
   actCredit, affordable, agentIncome, defaultShare, energyCapacity, firstAgentShare, LINES_BEGINNER_ECONOMY, movePower, newAccount,
   opportunities, pickByEnergy, readCharge, roundShare, settle, settleOwn, spend, type Account, type Economy,
@@ -99,7 +99,7 @@ export interface TableReport {
 
 /** The tools a table answers: the server tools an AI seat is offered, less the room's admin. */
 export const TABLE_TOOLS = [
-  "game.get", "game.standings", "rule.explain", "rule.ladder", "objects.list", "object.read", "object.score", "moves.list",
+  "game.get", "game.standings", "rule.explain", "rule.values", "rule.worth", "objects.list", "object.read", "object.score", "moves.list",
   "chat.send", "chat.list", "agents.list", "agent.programs", "agent.check", "agent.summon", "agent.replace", "power.allocate",
 ] as const;
 
@@ -267,15 +267,18 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         }
         case "rule.explain": return {
           family: family.id, params: seat.rule.params, layers: ruleLayers(family, seat.rule.tieBreaker).map(l => l.title),
-          card: family.card(seat.rule.params, seat.rule.tieBreaker), depends: [...((family as { depends?: readonly string[] }).depends ?? [])],
-          ladder: v.rungs.map((g, k) => ({ level: k, label: v.labels[k] ?? String(k), rarityBits: g.bits })), wonByBid: null,
+          card: family.card(seat.rule.params, seat.rule.tieBreaker), depends: [...((family as { depends?: readonly string[] }).depends ?? [])], wonByBid: null,
         };
-        case "rule.ladder": return { rungs: v.rungs.map((g, k) => ({ level: k, label: v.labels[k] ?? String(k), rarityBits: g.bits })) };
+        case "rule.values": return { points: v.rungs.map(g => ({ score: g.score, bits: g.bits })) };
+        case "rule.worth": {
+          const w = v.worth(args.score === null ? null : (args.score as (string | null)[]).map(x => (x === null ? null : Qn.parse(x))));
+          return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };
+        }
         case "objects.list": {
           const lastMove = lines.map(() => -1);
           for (const m of log) lastMove[m.object] = m.seq;
-          const rows = lines.map((s, j) => ({ objectId: String(j), number: j, level: v.level(s), points: points[j]![i]!, recent: lastMove[j]! }));
-          const key = args.sort === "level" ? "level" : args.sort === "recent" ? "recent" : "points";
+          const rows = lines.map((s, j) => ({ objectId: String(j), number: j, bits: v.bits(s), points: points[j]![i]!, recent: lastMove[j]! }));
+          const key = args.sort === "rarity" ? "bits" : args.sort === "recent" ? "recent" : "points";
           rows.sort((x, y) => y[key] - x[key]);
           return pageOf(rows.map(({ recent: _r, ...row }) => row), args);
         }
@@ -289,7 +292,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "object.score": {
           const j = objectArg(args), s = lines[j]!;
           const score = v.scoreOf(s);
-          return { score: score === null ? null : scoreToWire(score), number: j, level: v.level(s), top: v.top, terms: [], rarityBits: v.bits(s), points: points[j]![i]! };
+          return { score: score === null ? null : scoreToWire(score), number: j, terms: [], bits: v.bits(s), points: points[j]![i]! };
         }
         case "moves.list": {
           const rows = log.filter(m => m.by === i || m.before[i] !== m.after[i]).reverse().map(m => ({

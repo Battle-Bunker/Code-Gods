@@ -31,8 +31,8 @@ test("model seats play through the directory's tools on the server's economy: th
   const simple = startersFor("treasure", "typescript").find(x => x.kind === "simple")!.source;
   const edited = simple.replace("function agent(offer) {", "function agent(offer) {\n  if ([2].includes(offer.object)) return null;   // the deal with Bo");
   const ada: MockStep[][] = [[
-    { tools: [t("game.get"), t("game.standings"), t("rule.explain"), t("rule.ladder"), t("objects.list", { sort: "points", limit: 3 }), t("object.score", { objectId: "2" }), t("object.read", { objectId: "2", rep: "si" }), t("moves.list")] },
-    { tools: [t("chat.list"), t("agents.list"), t("agent.programs", { agentId: "a0-0" }), t("agent.check", { language: "typescript", source: edited })] },
+    { tools: [t("game.get"), t("game.standings"), t("rule.explain"), t("rule.values"), t("objects.list", { sort: "rarity", limit: 3 }), t("object.score", { objectId: "2" }), t("object.read", { objectId: "2", rep: "si" }), t("moves.list")] },
+    { tools: [t("rule.worth", { score: ["0", "5"] }), t("chat.list"), t("agents.list"), t("agent.programs", { agentId: "a0-0" }), t("agent.check", { language: "typescript", source: edited })] },
     { tools: [t("agent.replace", { agentId: "a0-0", language: "typescript", source: edited }), t("chat.send", { text: "Line 2: I'll leave its gradient alone if you keep it whole. Deal?" })] },
     { text: "Kept the deal in code." },
   ], [
@@ -48,7 +48,7 @@ test("model seats play through the directory's tools on the server's economy: th
   });
   const [a, b, c] = report.seats;
   assert.equal(a!.failedToolCalls, 0, "every call fits its tool's params and every result its result schema");
-  assert.equal(a!.toolCalls, 17);
+  assert.equal(a!.toolCalls, 18);
   assert.equal(a!.replaced, 1); assert.equal(a!.summoned, 1); assert.equal(a!.allocations, 2);
   assert.ok(a!.spent.edits > 0 && a!.spent.edits < 40, `the one-line edit costs the change, not the program (${a!.spent.edits.toFixed(1)} ⚡)`);
   assert.ok(a!.spent.summons > 300, "a new agent pays the full price");

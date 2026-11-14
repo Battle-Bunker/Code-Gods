@@ -157,6 +157,7 @@ export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPl
     return {
       scoreOf,
       bits: (s: S) => look(scoreOf(s)).bits,
+      worth: (u: Score) => { const w = look(u); return { bits: w.bits, lo: w.lo, hi: w.hi }; },
       level: (s: S) => Math.floor(look(scoreOf(s)).bits),
       top: Math.floor(Math.max(...vf.knots.map(k => k.bits))),
       labels: vf.knots.map(k => (k.u === null ? "worst" : k.u.map(x => x ?? "–").join(", "))),
@@ -172,6 +173,7 @@ export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPl
     bits: (s: S) => (ladder.length ? a!.rungs[levelOf(scoreOf(s), ladder)]!.bits ?? 0 : 0),
     level: (s: S) => (ladder.length ? levelOf(scoreOf(s), ladder) : 0),
     top: a ? a.rungs.length - 1 : 0,
+    worth: (u: Score) => { const b = ladder.length ? a!.rungs[levelOf(u, ladder)]!.bits ?? 0 : 0; return { bits: b, lo: b, hi: b }; },
     labels: a ? a.rungs.map(g => g.label) : [],
     rungs: a ? a.rungs.map(g => ({ score: g.score, bits: g.bits ?? 0, layer: g.layer, ...(g.main !== undefined ? { main: g.main } : {}) })) : [],
     values: undefined as Pick<ValueFunction, "knots" | "tail"> | undefined,
