@@ -81,3 +81,18 @@ test("rotation: a new seat order mid-round still gives everyone each rule once",
   }
   assert.equal(rotatedDeal(["a", "b", "c"], KEY, [past(["c", "b", "a"], r3.rules), g2, g1]), null);
 });
+
+test("bids: no bids gives the plain deal byte for byte; a win is exclusive and from its family", async () => {
+  const { dealWithBids } = await import("@workspace/v2-economy");
+  const { bidDealer, dealRng } = await import("../../convex/v2/deal.ts");
+  const pool = dealablePool(beginner), families = [...new Set(pool.map(r => r.family))], seats = ["a", "b", "c"];
+  for (const seed of ["s1", "s2", "s3"]) {
+    const plain = freshDeal(pool, 3, seed);
+    assert.deepEqual(dealWithBids(seats, families, [], dealRng(seed), bidDealer(pool)).deal, plain, seed);
+  }
+  const target = families[0]!;
+  const dealt = dealWithBids(seats, families, [{ playerId: "b", familyId: target, percent: 20 }, { playerId: "c", familyId: target, percent: 10 }], dealRng("s1"), bidDealer(pool), "second");
+  assert.deepEqual(dealt.wins.map(w => [w.playerId, w.familyId, w.handicap]), [["b", target, 10]]);
+  assert.equal(dealt.deal[1]!.family, target);
+  assert.ok(dealt.deal.filter((_, i) => i !== 1).every(r => r.family !== target), "nobody else is dealt the won family");
+});
