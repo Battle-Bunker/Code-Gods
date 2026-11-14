@@ -141,3 +141,33 @@ effort. Table points gained per game:
   - One game reached 509,000. The seats found rows that suit all three ("2 7 2 7").
   - The other game reached 147,000.
   - They describe boards row by row, not as 16 digits, so the tracker counted them as plain deals, not settle deals.
+
+## More tables: spread over 3 games, and what a deal settles (2026-11-14)
+
+The same prompt as above, the cheapest model, 3 games each, 300 s. Table points gained, game by game:
+
+| Table | Naive | Model seats | Mean, model / naive | Lowest seat-game, naive → model | Settle deals accepted / kept | Spent |
+|---|---|---|--:|--:|--:|--:|
+| Lines, conflicting (Prime Landing, Square Area, Whole Crossing) | 24,465 · 28,398 · 27,763 | 137,606 · 86,924 · 129,989 | 4.4× | 3,995 → 7,017 | 30 / 22 | $0.183 |
+| Lines, 4 seats (the mixed table + Prime Gradient) | 36,573 · 29,275 · 15,990 | 116,566 · 14,423 · 30,318 | 2.0× | 2,179 → −64 | 39 / 13 | $0.241 |
+| Grid (Two Pair, Strangers, Leapfrog) | 23,199 · 22,158 · 26,672 | 32,113 · 43,286 · 39,845 | 1.6× | 4,962 → 9,985 | (rows, not read as settles) | $0.127 |
+
+- **On three-seat tables, every model game beats every naive game.**
+- **The 4-seat table splits.**
+  - The seats proposed two states, y = −x + 59 and y = −11x + 59. Neither is the table's best state, which is
+    y = x + 59.
+  - They kept only 13 of 39 deals: one game reached 4× naive, one fell below it, and one seat ended below its start.
+  - The fix is agreeing one state before settling; the prompt's "Talk first" step is the place to say so.
+
+**What a deal settles.** In every line run, the deal the seats reached was one state on every line, nearly always
+y = −x + 59. Lines score independently, so one state on every line is also what maximises the table total. Sharing
+gains more evenly costs total points. At the states themselves, for 24 lines:
+
+| Table | Every line at the max-total state | Fairest found | Poorest seat | Table total |
+|---|---|---|--:|--:|
+| Mixed 3 | y = −x + 59: total 65,823, poorest 6,126 | every line at y = −x + 41 | +45% | −29% |
+| Conflicting 3 | y = −x + 59: total 60,224, poorest 3,326 | 18 lines at y = −2x + 58, 6 at y = −x + 59 | ×2.9 | −41% |
+| Mixed 4 | y = x + 59: total 72,086, poorest 3,752 | three states over the lines | +28% | −65% |
+
+The fairest mix was found by multiplicative weights over the game-scale states, rounded to 24 lines; it is
+approximate. How evenly a table should share its gains is a design question for the owner, not a defect.
