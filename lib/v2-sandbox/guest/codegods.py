@@ -187,13 +187,17 @@ class Offer:
 
     def my_rule(self):
         r = _ask({"op": "myRule"})
-        return Record({"family": r["family"], "params": r["params"], "card": r["card"]})
+        return Record({
+            "family": r["family"], "params": r["params"], "tieBreaker": r.get("tieBreaker"), "card": r["card"],
+            "layers": [Record(dict(l)) for l in r.get("layers", [])],
+        })
 
     def my_score(self):
         s = _ask({"op": "myScore"})
         return Record({
             "score": None if s["score"] is None else [None if x is None else _q(x) for x in s["score"]],
             "level": s["level"], "top": s["top"],
+            "layers": [Record(dict(l)) for l in s.get("layers", [])],
             "terms": [Record({"id": t["id"], "value": None if t["value"] is None else _q(t["value"])}) for t in s["terms"]],
         })
 
