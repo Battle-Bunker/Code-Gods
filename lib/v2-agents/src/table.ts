@@ -86,6 +86,8 @@ export interface TableAct<S> {
   readonly seat: number;
   readonly outcome: ActRecord["outcome"];
   readonly committed: boolean;
+  /** The line's state before the act and after it. */
+  readonly before: S;
   readonly state: S;
   readonly objects: number;
 }
@@ -139,7 +141,7 @@ export interface TableReport {
 
 /** The tools a table answers: the server tools an AI seat is offered, less the room's admin. */
 export const TABLE_TOOLS = [
-  "game.get", "game.standings", "rule.explain", "rule.values", "rule.worth", "objects.list", "object.read", "object.score", "moves.list",
+  "game.get", "game.standings", "rule.explain", "rule.values", "rule.worth", "objects.list", "object.read", "object.score", "moves.list", "log.list",
   "chat.send", "chat.list", "agents.list", "agent.programs", "agent.check", "agent.summon", "agent.replace", "power.allocate",
 ] as const;
 
@@ -260,7 +262,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
-    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", state: verdict === "committed" ? state : lines[object]!, objects: lines.length });
+    input.onAct?.({ at: world, object, seat: i, outcome: record.outcome, committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length });
     if (verdict !== "committed") return;
     const from = type.encode(lines[object]!), to = type.encode(state), last = lastMove.get(object);
     if (last && last.by !== i && last.from === to) stats[i]!.flips++;
@@ -361,6 +363,13 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
             seq: m.seq, objectId: String(m.object), number: m.object, agentId: m.by === i ? m.agentId : null, mine: m.by === i,
             calls: m.record.calls.map(c => ({ mutator: c.mutator, args: c.args, ...(c.site ? { site: c.site } : {}) })),
             pointsBefore: m.before[i]!, pointsAfter: m.after[i]!, charge: m.by === i ? m.charge : null,
+          }));
+          return pageOf(rows, args);
+        }
+        case "log.list": {   // the public log: every move, unattributed while live (the table is always live)
+          const rows = log.slice().reverse().map(m => ({
+            seq: m.seq, worldSeconds: m.at, kind: "move" as const, objectId: String(m.object), number: m.object, stateBefore: m.record.before, state: m.record.after,
+            mine: m.by === i, pointsBefore: m.before[i]!, points: m.after[i]!, by: null, agentId: m.by === i ? m.agentId : null,
           }));
           return pageOf(rows, args);
         }

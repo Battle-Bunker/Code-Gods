@@ -5,21 +5,26 @@
  *
  *   pnpm --filter @workspace/v2-agents collapse-check [-- --variant line-q,line-z,grid-4-d10] [--tests 1,2,3,4,5]
  *     [--beta 0.02,0.05,0.1] [--tables 8] [--grid-tables 3] [--evals 100000] [--ref-mult 10] [--ramp-evals 30000]
- *     [--games 3] [--seconds 300] [--objects 10] [--births 0.05] [--old-row yes|no] [--reach-births 2] [--jobs 3] [--json]
+ *     [--games 3] [--seconds 300] [--objects 10] [--births 0.05] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
  *
  * Tests (thresholds in src/collapse.ts):
- *   1 no ramp        per dealable rule: its top in the energy-reachable window W (a line's share of a 3-seat game) and in
- *                    2W; fails when the top is at W's edge, grows > 10%, and tail bits track read length (corr > 0.9)
+ *   1 joint rise     per dealt table (owner decision 30, thresholds set 14 Nov): directions (one call, repeated 8 times;
+ *                    every call up to 12 bits plus, on lines, the shortcut climber's moves) from distinct births along
+ *                    which two seated rules' bits rise together; fails when one does so from ≥ 25% of the starts with no
+ *                    third rule falling comparably (an adversary). β-independent. Single-rule ramps (top at W's edge,
+ *                    growing > 10% to 2W, tail tracking read length) are reported as information
  *   2 cheap optimum  per dealt 3-seat table: a searcher with the rules and B evaluations in W (enumerates when W ≤ B, else
  *                    anneals with 10 restarts) against a reference (W enumerated, or ref-mult·B of annealing); a table
  *                    fails at ≥ 95%, the variant when more than a quarter do
  *   3 single answer  per table: the best 24 distinct states in W keep ≥ 70% of 24 × the best and lie in one closed form
- *   4 convergence    scripted starter seats (no model seats) on the beginner economy at this β, 300 s: over the last
- *                    100 s, "no move found" (acts that returned no calls), objects changing state per minute, and the
- *                    largest share of objects within one unit move of one state family; at --objects starting objects and
- *                    --births a second (the beginner presets' new 10 and 0.05), plus one comparison row at the old 24 and
- *                    0.1 (middle β; shown, not counted)
- *   5 disclosure     H4: probes until the others' rules are identified from exact disclosed sums (β-independent)
+ *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play 300 s under
+ *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 10 and
+ *                    0.05; one comparison row at the old 24 and 0.1, middle β, not counted). Fails on (a) < 25% of
+ *                    objects changing in the last minute under the plain starters, (b) a shortcut search finding no
+ *                    improving move on > half the final objects, (c) gains stopping by the midpoint for every climber.
+ *                    Idle shares are reported, not failed
+ *   5 disclosure     H4: probes until the others' rules are identified from the others' sums blurred as the server
+ *                    blurs them (8 bits, keyed per state; convex/v2/disclose.ts). Exact sums: a comparison row, not counted
  *
  * The energy-reachable set uses the real prices (v2-core applyPriced fees and surcharges) with one call per act and
  * jumps of up to K, moving one coordinate at a time (scripts/landscape-lib.ts): a subset of what is truly reachable.
@@ -30,12 +35,13 @@ import { parseArgs } from "node:util";
 import { rng } from "@workspace/v2-core";
 import { GRIDS_BEGINNER_ECONOMY, KAPPA, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import {
-  CHEAP, CONVERGE, DISCLOSE, RAMP, SINGLE, cheapFails, convergeFails, discloseFails, failureCount, oneClosedForm, rampFails,
-  singleFails, tableCheap, type Verdict,
+  CHEAP, DISCLOSE, RAMP, SINGLE, cheapFails, discloseFails, dynamicsFailures, failureCount, oneClosedForm, rampFails,
+  singleFails, stalled, tableCheap, TOGETHER, togetherFails, type Verdict,
 } from "../src/collapse.ts";
 import { gridStartersFor } from "../src/grid-starters.ts";
 import { births, sandboxes, startersFor } from "../src/index.ts";
-import { runTable, type TableSeat } from "../src/table.ts";
+import type { Program } from "../src/act.ts";
+import { callsUpTo, directions, frozenShare, lineShortcutMoves, lineStarter, playTable, SHORTCUT, type Played } from "./climbers.ts";
 import {
   anneal, corr, costAt, countWithin, enumerate, identify, median, poolOf, reach, ruleName, sample, spaceOf, total, VARIANTS,
   type Reach, type Rule, type Space, type VariantId,
@@ -54,6 +60,7 @@ const { values: o } = parseArgs({ options: {
   games: { type: "string", default: "3" },
   seconds: { type: "string", default: "300" },
   "reach-births": { type: "string", default: "2" },
+  "direction-starts": { type: "string", default: "60" },
   objects: { type: "string", default: "10" },
   births: { type: "string", default: "0.05" },
   "old-row": { type: "string", default: "yes" },
@@ -115,20 +122,25 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
   const tables = deal(rules, nTables, v);
   const birthXs = births(space.type, space.variant, "collapse", Number(o["reach-births"])).map(s => space.coords(s));
   const details: string[] = [];
+  let together: { verdict: Verdict; note: string } | null = null;   // test 1 does not depend on β
   let fullRow: { beta: number; verdicts: Record<string, Verdict>; notes: Record<string, string> } | null = null;
   const rows: Row[] = [];
   const stateKey = (x: readonly number[]) => x.join(",");
   log(`${v}: ${rules.length} rules (${pool.skipped.length} without a value function), E = ${f1(E)} ⚡, ${tables.length} tables`);
 
   // Test 5 does not depend on β: once.
-  let disclose: { verdict: Verdict; note: string } | null = null;
+  // At the server's noise (DISCLOSE.sigma, keyed per state) it counts; exact sums are a comparison row.
+  let disclose: { verdict: Verdict; note: string } | null = null, exact: { verdict: Verdict; note: string } | null = null;
   if (tests.has(5)) {
     const t0 = performance.now();
     const probes = births(space.type, space.variant, "probe", 3000);
-    const res = identify(rules, r => space.bits(r), probes, 40, 0, v);
-    const m = median(res.need);
-    disclose = { verdict: discloseFails(m) ? "FAIL" : "PASS", note: `median ${Number.isFinite(m) ? m : "> 3000"} probes (floor ${DISCLOSE.floor}), ${res.unidentified}/${res.need.length} unidentified` };
-    log(`  ${v} test 5: ${disclose.note} (${f1((performance.now() - t0) / 1000)} s)`);
+    const at = (sigma: number) => {
+      const res = identify(rules, r => space.bits(r), probes, 40, sigma, v, 3000, s => space.type.encode(s));
+      const m = median(res.need);
+      return { verdict: (discloseFails(m) ? "FAIL" : "PASS") as Verdict, note: `σ = ${sigma} bits: median ${Number.isFinite(m) ? m : "> 3000"} probes (floor ${DISCLOSE.floor}), ${res.unidentified}/${res.need.length} unidentified in 3,000` };
+    };
+    disclose = at(DISCLOSE.sigma); exact = at(0);
+    log(`  ${v} test 5: ${disclose.note}; exact: ${exact.note} (${f1((performance.now() - t0) / 1000)} s)`);
   }
 
   for (const beta of betas) {
@@ -170,8 +182,9 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
         if (rampFails(m)) failing.push(ruleName(rule));
         details.push(`${v} β ${beta} test 1 ${ruleName(rule)}: top W ${f1(top1)} bits at (${topAt.join(", ")}) costing ${pct(m.topCostShare)} of E, 2W ${f1(top2)} (+${pct(m.growth)}), tail corr(bits, read length) ${f2(m.corr)} over ${tail.length} ${fromSample ? "sampled" : "searched"} states${rampFails(m) ? " — RAMP" : ""}`);
       }
-      row.verdicts["1"] = failing.length ? "FAIL" : "PASS";
-      row.notes["1"] = `${failing.length}/${rules.length} rules ramp; ${atEdge} top at W's edge`;
+      together ??= togetherTest(v, space, tables, details);
+      row.verdicts["1"] = together.verdict;
+      row.notes["1"] = `${together.note}; information: ${failing.length}/${rules.length} single rules ramp, ${atEdge} with their top at W's edge`;
       log(`  ${v} β ${beta} test 1: ${row.notes["1"]} (${f1((performance.now() - t0) / 1000)} s)`);
     }
 
@@ -228,83 +241,101 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
 
     // ------------------------------------------------ test 4: convergence in play
     if (tests.has(4)) {
-      const r4 = await converge(v, space, rules, tables, beta, OBJECTS, BIRTHS_PER_SECOND);
+      const r4 = await dynamics(v, space, rules, tables, beta, OBJECTS, BIRTHS_PER_SECOND);
       row.verdicts["4"] = r4.verdict; row.notes["4"] = r4.note;
     }
     if (disclose) { row.verdicts["5"] = disclose.verdict; row.notes["5"] = disclose.note; }
     rows.push(row);
+    if (exact && beta === betas[0]) rows.push({ variant: v, beta, E, comparison: "exact disclosure, σ = 0", verdicts: { "5": exact.verdict }, notes: { "5": exact.note } });
     // One comparison row at the old preset numbers (24 objects, 0.1 births a second), test 4 only, at the middle β.
     if (tests.has(4) && o["old-row"] === "yes" && beta === betas[Math.floor(betas.length / 2)]) {
-      const r4 = await converge(v, space, rules, tables, beta, 24, 0.1);
+      const r4 = await dynamics(v, space, rules, tables, beta, 24, 0.1);
       rows.push({ variant: v, beta, E, comparison: "24 objects, 0.1 births/s", verdicts: { "4": r4.verdict }, notes: { "4": r4.note } });
     }
   }
   return { variant: v, preset: pool.preset, rules: rules.length, skipped: pool.skipped, rows, details };
 }
 
-/** Test 4: scripted starter seats (no model seats) play `games` games; metrics over the last CONVERGE.window seconds. */
-async function converge(v: VariantId, space: Space<any>, rules: readonly Rule[], tables: readonly Rule[][], beta: number, objects0: number, birthsPerSecond: number): Promise<{ verdict: Verdict; note: string }> {
+/**
+ * Test 1: per dealt table, the directions (one call repeated) along which two seated rules rise together with no
+ * adversary, from births. Calls: every call up to 12 bits, plus on lines the shortcut climber's moves.
+ */
+function togetherTest(v: VariantId, space: Space<any>, tables: readonly Rule[][], details: string[]): { verdict: Verdict; note: string } {
+  const grid = v === "grid-4-d10";
+  const base = callsUpTo(space.type, space.variant, 12);
+  // Distinct births (most births sit at the centre; counting each copy would weigh the centre many times).
+  const starts = [...new Map(births(space.type, space.variant, "directions", Number(o["direction-starts"])).map(s => [space.type.encode(s), s] as const)).values()];
+  let failing = 0, opposed = 0;
+  for (const [t, table] of tables.entries()) {
+    const keys = new Set(base.map(c => `${c.mutator} ${JSON.stringify(c.args)}`));
+    const calls = (s: any) => (grid ? base : [...base, ...lineShortcutMoves(space.variant, table[0]!, s).filter(c => !keys.has(`${c.mutator} ${JSON.stringify(c.args)}`))]);
+    const found = directions({ type: space.type, variant: space.variant, rules: table, bits: r => space.bits(r), starts, calls });
+    const worst = found[0];
+    const fails = !!worst && togetherFails(worst.unopposed, starts.length);
+    if (fails) failing++;
+    else if (found.some(f => f.together >= TOGETHER.starts * starts.length)) opposed++;
+    details.push(`${v} test 1 table ${t} (${table.map(ruleName).join(", ")}): ${found.length} directions raise two rules together from some start; ${worst ? `most unopposed: ${worst.key} from ${worst.unopposed}/${starts.length} starts (together from ${worst.together})${worst.example ? `, e.g. ${worst.example.from} → ${worst.example.to}, gains ${worst.example.gains.map(f1).join(" / ")}` : ""}` : "none"}${fails ? " — FAIL" : ""}`);
+  }
+  return {
+    verdict: failing ? "FAIL" : "PASS",
+    note: `${failing}/${tables.length} tables have an unopposed direction raising two rules together${opposed ? `; ${opposed} more have one an adversary opposes` : ""}`,
+  };
+}
+
+/**
+ * Test 4, dynamics: the plain starters, and on lines the shortcut climber (scripts/climbers.ts), play `games` games each
+ * under unique objects. Fails on (a) fewer than DYNAMICS.movingPerMinute of objects changing in the last minute under
+ * the plain starters, (b) a shortcut search finding no improving move on more than DYNAMICS.frozenShare of the final
+ * objects (the shortcut climber's boards on lines, the plain starters' on grids, every grid call up to 12 bits), or
+ * (c) the table's gains stalling before the midpoint for every climber. Idle shares are reported, never failed.
+ */
+async function dynamics(v: VariantId, space: Space<any>, rules: readonly Rule[], tables: readonly Rule[][], beta: number, objects0: number, birthsPerSecond: number): Promise<{ verdict: Verdict; note: string }> {
   const t0 = performance.now();
   const grid = v === "grid-4-d10";
   const names = PLAYED[grid ? "grid" : "lines"]!;
   const chosen = names.every(n => rules.some(r => ruleName(r) === n)) ? names.map(n => rules.find(r => ruleName(r) === n)!) : tables[0]!;
-  const seats: TableSeat[] = chosen.map((rule, k) => {
-    const a = (grid ? gridStartersFor(rule.family, "typescript", rule.tieBreaker) : startersFor(rule.family, "typescript")).find(x => x.kind === "simple")!;
-    return { name: ["Ada", "Bo", "Cy"][k]!, kind: "starter", rule, program: { language: a.language, source: a.source } };
-  });
-  const seconds = Number(o.seconds), from = seconds - CONVERGE.window;
-  const games: { noMove: number; moving: number; family: number; end: number }[] = [];
+  const economy = grid ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY;
+  const plain = (rule: Rule) => { const a = (grid ? gridStartersFor(rule.family, "typescript", rule.tieBreaker) : startersFor(rule.family, "typescript")).find(x => x.kind === "simple")!; return { language: a.language, source: a.source }; };
+  const kinds: { name: string; program: (r: Rule) => Program }[] = [{ name: "plain", program: plain }, ...(grid ? [] : [{ name: "shortcut", program: (r: Rule) => lineStarter(r.family, SHORTCUT) }])];
+  const gridCalls = grid ? callsUpTo(space.type, space.variant, 12) : [];
+  const moves = (s: any) => (grid ? gridCalls : lineShortcutMoves(space.variant, chosen[0]!, s));
   const boxes = sandboxes();
-  for (let g = 0; g < Number(o.games); g++) {
-    const seed = `collapse-g${g}`;
-    // The table's lines: its births, then one birth per new object (src/table.ts draws them the same way).
-    const states: number[][] = births(space.type, space.variant, seed, objects0).map(s => space.coords(s));
-    const grow = (n: number) => { while (states.length < n) states.push(space.coords(births(space.type, space.variant, `${seed}:${states.length + 1}`, 1)[0]!)); };
-    let acts = 0, skipped = 0, snapshot: number[][] | null = null;
-    const changed = new Set<number>();
-    const report = await runTable(boxes, {
-      type: space.type, variant: space.variant, ...(grid ? { economy: GRIDS_BEGINNER_ECONOMY } : {}), lines: objects0, birthsPerSecond, seed, seconds, seats,
-      actEconomy: { kappa: KAPPA, beta },
-      onAct: e => {
-        grow(e.objects);
-        if (e.at > from && !snapshot) snapshot = states.map(x => x.slice());
-        if (e.committed) states[e.object] = space.coords(e.state);
-        if (e.at <= from) return;
-        acts++;
-        if (e.outcome === "skipped") skipped++;
-        if (e.committed) changed.add(e.object);
-      },
-    });
-    grow(report.objects);
-    const fam = Math.min(familyShare(snapshot ?? states), familyShare(states));
-    games.push({ noMove: acts ? skipped / acts : 0, moving: (changed.size / report.objects) * (60 / CONVERGE.window), family: fam, end: report.objects });
-    log(`  ${v} β ${beta} test 4 (${objects0} objects, ${birthsPerSecond}/s) game ${g}: ${report.objects} objects at the end, no move found ${pct(games.at(-1)!.noMove)}, moving ${pct(games.at(-1)!.moving)}/min, family ${pct(fam)} (${f1((performance.now() - t0) / 1000)} s)`);
+  const per: Record<string, { played: Played<any>[]; frozen: number[] }> = {};
+  for (const k of kinds) {
+    per[k.name] = { played: [], frozen: [] };
+    for (let g = 0; g < Number(o.games); g++) {
+      const p = await playTable(boxes, {
+        type: space.type, variant: space.variant, seats: chosen.map(rule => ({ rule, program: k.program(rule) })), bits: r => space.bits(r), beta,
+        objects: objects0, birthsPerSecond, seconds: Number(o.seconds), seed: `collapse-g${g}`, economy, summonCap: economy.startingEnergy,
+      });
+      const fz = frozenShare({ type: space.type, variant: space.variant, rules: chosen, bits: r => space.bits(r), beta, final: p.final, moves, fullCharge: economy.powerPerSecond * economy.fullChargeSeconds });
+      per[k.name]!.played.push(p); per[k.name]!.frozen.push(fz);
+      log(`  ${v} β ${beta} test 4 (${objects0} objects, ${birthsPerSecond}/s) ${k.name} game ${g}: objects ${p.objects.start} → ${p.objects.end}, idle ${pct(p.idle)}, ${pct(p.movingLastMinute)} changed in the last minute, gains by mid ${f1(p.gainedByMid)} of ${f1(p.gainedByEnd)}, frozen ${pct(fz)} (${f1((performance.now() - t0) / 1000)} s)`);
+    }
   }
   await boxes.close();
-  const mean = (k: "noMove" | "moving" | "family") => games.reduce((t, x) => t + x[k], 0) / games.length;
-  const m = { familyShare: mean("family"), movingPerMinute: mean("moving") };
-  return {
-    verdict: convergeFails(m) ? "FAIL" : "PASS",
-    note: `objects ${objects0} at the start, ${games.map(x => x.end).join("/")} at the end; no move found ${pct(mean("noMove"))} of late acts; ${pct(m.movingPerMinute)} of objects change a minute; ${pct(m.familyShare)} in one family (${games.length} games, ${chosen.map(ruleName).join(", ")})`,
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+  const of = (k: string) => {
+    const x = per[k]!;
+    return {
+      idle: mean(x.played.map(p => p.idle)), moving: mean(x.played.map(p => p.movingLastMinute)), frozen: mean(x.frozen),
+      stalled: stalled({ gainedByMid: x.played.reduce((t, p) => t + p.gainedByMid, 0), gainedByEnd: x.played.reduce((t, p) => t + p.gainedByEnd, 0) }),
+      afterMid: (() => { const e = x.played.reduce((t, p) => t + p.gainedByEnd, 0), m = x.played.reduce((t, p) => t + p.gainedByMid, 0); return e ? (e - m) / Math.abs(e) : 0; })(),
+      ends: x.played.map(p => p.objects.end).join("/"),
+    };
   };
-}
-
-/** The largest share of objects within one unit move (L1 ≤ 1 on coordinates up to sign) of one object's state. */
-function familyShare(xs: readonly (readonly number[])[]): number {
-  if (!xs.length) return 0;
-  const abs = xs.map(x => x.map(Math.abs));
-  let best = 0;
-  for (const c of abs) {
-    let n = 0;
-    for (const y of abs) { let d = 0; for (let k = 0; k < c.length && d <= 1; k++) d += Math.abs(y[k]! - c[k]!); if (d <= 1) n++; }
-    best = Math.max(best, n);
-  }
-  return best / xs.length;
+  const pl = of("plain"), climber = of(grid ? "plain" : "shortcut");
+  const failing = dynamicsFailures({ movingPerMinute: pl.moving, frozenShare: climber.frozen, stalledEvery: kinds.every(k => of(k.name).stalled) });
+  const kindNotes = kinds.map(k => { const x = of(k.name); return `${k.name}: idle ${pct(x.idle)}, ${pct(x.moving)} of objects change in the last minute, ${pct(x.afterMid)} of gains after the midpoint${grid || k.name === "shortcut" ? `, frozen ${pct(x.frozen)}` : ""}`; });
+  return {
+    verdict: failing.length ? "FAIL" : "PASS",
+    note: `${failing.length ? `fails (${failing.join(", ")}); ` : ""}${kindNotes.join("; ")}; objects ${objects0} → ${pl.ends} (${Number(o.games)} games each, ${chosen.map(ruleName).join(", ")})`,
+  };
 }
 
 // ---------------------------------------------------------------- report
 
-const TEST_NAMES: Record<string, string> = { "1": "1 no ramp", "2": "2 no cheap optimum", "3": "3 no single answer", "4": "4 no convergence in play", "5": "5 disclosure" };
+const TEST_NAMES: Record<string, string> = { "1": "1 no unopposed joint rise", "2": "2 no cheap optimum", "3": "3 no single answer", "4": "4 dynamics", "5": "5 disclosure" };
 function report(results: VariantResult[]): string {
   const out: string[] = [];
   for (const r of results) {

@@ -18,6 +18,7 @@ import { valueLookup } from "@workspace/v2-valuation";
 import { changeCharge, EngineHost, sandboxes, startersFor } from "../src/index.ts";
 import { findValues } from "../src/harness.ts";
 import { runTable } from "../src/table.ts";
+import { RETURN, rounding as roundingOf, SHORTCUT, SHORTCUTS, steps } from "./climbers.ts";
 
 const { values: o } = parseArgs({ options: {
   table: { type: "string", default: "mixed" }, agents: { type: "string", default: "climb" }, variant: { type: "string", default: "line-q" },
@@ -37,22 +38,12 @@ const bitsOf = rules.map(rule => { const look = valueLookup(findValues(variant.i
 
 // Escapes from a local optimum, on top of the shipped climbing starter: wide (when stuck, steps up to twice as far) and
 // dip (when stuck, a quarter of the time, the best step that keeps at least 95% of one's points).
-const RETURN = "  return climb(offer, options, score(m, c, p, tie), QUOTES);";
 const WIDE = `  const now = score(m, c, p, tie), step = climb(offer, options, now, QUOTES);
   if (step) return step;
   const wide = [];
   for (let k = -2 * FAR; k <= 2 * FAR; k++) { if (Math.abs(k) <= FAR) continue;
     wide.push([move("si.shift", { k }), score(m, Q.add(c, k), p, tie)]); wide.push([move("si.tilt", { k }), score(Q.add(m, k), c, p, tie)]); }
   return climb(offer, wide, now, QUOTES);`;
-// shortcut: when stuck, the representation mutators as ways across a valley (decision 25): stretch, pivot, mirror.
-const SHORTCUT = `  const now = score(m, c, p, tie), step = climb(offer, options, now, QUOTES);
-  if (step) return step;
-  const sc = [];
-  for (const f of [2, 3, -1, Q.of(1, 2), Q.of(1, 3)]) sc.push([move("mach.stretch", { f }), Q.mul(m, Q.from(f)), Q.mul(c, Q.from(f))]);
-  for (const x0 of [-1, 1, 2]) for (const k of [-2, -1, 1, 2]) sc.push([move("cart.pivot", { x0, k }), Q.add(m, Q.from(k)), Q.sub(c, Q.mul(Q.from(k), Q.from(x0)))]);
-  sc.push([move("cart.mirror", { axis: "y" }), Q.neg(m), c], [move("cart.mirror", { axis: "x" }), Q.neg(m), Q.neg(c)], [move("cart.mirror", { axis: "origin" }), m, Q.neg(c)]);
-  if (!Q.eq(m, Q.of(0))) sc.push([move("cart.mirror", { axis: "diagonal" }), Q.div(Q.of(1), m), Q.neg(Q.div(c, m))]);
-  return climb(offer, sc.map(([pl, m2, c2]) => [pl, score(m2, c2, p, tie)]), now, QUOTES);`;
 const ROUNDING = "  tries.push(...rounding(m, c));";
 // own: v1's starters climbed only their own rule (never the others' disclosed sum).
 const OWN = `  const now = score(m, c, p, tie);
@@ -90,27 +81,7 @@ const digits = (s: LineState) => {
 };
 
 const boxes = sandboxes();
-const steps = (far: number) => Array.from({ length: far }, (_, k) => k + 1).flatMap(k => [k, -k]).flatMap(k => [
-  { mutator: "si.shift", site: 0, args: { k: String(k) } }, { mutator: "si.tilt", site: 0, args: { k: String(k) } }]);
-// The rounding helper's steps, host side: to the whole number below or above, by one part, a stretch by the denominator.
-const rounding = (s: LineState) => {
-  const v = new EngineHost({ type: lineType, variant, state: s, rule: rules[0]!, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { ok: boolean; result?: { elements: { m: { q?: string }; c: { q?: string } } } };
-  if (!v.ok || !v.result!.elements.m.q || !v.result!.elements.c.q) return [];
-  const out: { mutator: string; site: number; args: Record<string, string> }[] = [];
-  for (const [name, mut] of [["c", "si.shift"], ["m", "si.tilt"]] as const) {
-    const [n, d = "1"] = v.result!.elements[name].q!.split("/");
-    if (d === "1") continue;
-    const N = BigInt(n!), D = BigInt(d), fl = N >= 0n ? N / D : -((-N + D - 1n) / D);
-    out.push({ mutator: mut, site: 0, args: { k: `${fl * D - N}/${D}` } }, { mutator: mut, site: 0, args: { k: `${(fl + 1n) * D - N}/${D}` } },
-      { mutator: mut, site: 0, args: { k: `1/${D}` } }, { mutator: mut, site: 0, args: { k: `-1/${D}` } }, { mutator: "mach.stretch", site: 0, args: { f: String(D) } });
-  }
-  return out;
-};
-const SHORTCUTS = [
-  ...["2", "3", "-1", "1/2", "1/3"].map(f => ({ mutator: "mach.stretch", site: 0, args: { f } })),
-  ...["-1", "1", "2"].flatMap(x0 => ["-2", "-1", "1", "2"].map(k => ({ mutator: "cart.pivot", site: 0, args: { x0, k } }))),
-  ...["x", "y", "origin", "diagonal"].map(axis => ({ mutator: "cart.mirror", site: 0, args: { axis } })),
-];
+const rounding = (s: LineState) => roundingOf(variant, rules[0]!, s);
 const moves = (s: LineState, set: string) => (set === "steps" ? [...steps(3), ...rounding(s)] : set === "shortcuts" ? [...steps(3), ...rounding(s), ...SHORTCUTS] : [...steps(10), ...rounding(s)]);
 for (let g = 0; g < Number(o.games); g++) {
   const seats = rules.map((rule, k) => ({ name: `P${k}`, kind: "starter" as const, rule, program: program(rule.family) }));
