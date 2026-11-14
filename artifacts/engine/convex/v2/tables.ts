@@ -61,6 +61,8 @@ export const v2Tables = {
     /** The human's user id (Better Auth subject); absent for practice partners and AI players. */
     userId: v.optional(v.string()),
     aiTemplate: v.optional(v.string()),
+    /** Joined while a game ran (so watching it); seated again when it ends. */
+    seatNext: v.optional(v.boolean()),
   }).index("by_room", ["roomId", "joinedAt"]).index("by_user", ["userId", "joinedAt"]).index("by_room_user", ["roomId", "userId"]),
 
   v2Chat: defineTable({ roomId: v.id("v2Rooms"), memberId: v.optional(v.id("v2Members")), from: v.string(), text: v.string(), at: v.number() })
@@ -110,6 +112,8 @@ export const v2Tables = {
   v2Engine: defineTable({
     gameId: v.id("v2Games"), leaseId: v.string(), tick: v.number(), objects: v.number(), acts: v.number(), moves: v.number(),
     events: v.number(), scoreboards: v.number(), scoreboardAt: v.number(), failures: v.number(),
+    /** Each player's running points total (hot, so it lives here and not on any document a query reads). */
+    totals: v.record(v.string(), v.number()),
   }).index("by_game", ["gameId"]),
 
   /** A player's dealt rule (private to that player): `{family, params, layers}`, its card and its ladder. */
@@ -129,8 +133,8 @@ export const v2Tables = {
   v2Players: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), userId: v.optional(v.string()), kind: memberKindV,
     energy: v.number(), power: v.number(), ready: v.boolean(), pauseUsed: v.boolean(), agents: v.number(),
-    /** The own store's balance is as of this world second; Σ of the agents' power shares; the running points total. */
-    settledAt: v.number(), allocated: v.number(), total: v.number(),
+    /** The own store's balance is as of this world second; Σ of the agents' power shares. */
+    settledAt: v.number(), allocated: v.number(),
   }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
 
   /** An object's cold part. */

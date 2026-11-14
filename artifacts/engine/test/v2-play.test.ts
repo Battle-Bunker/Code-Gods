@@ -63,6 +63,13 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 3, [second.result.agentId]: 1 } }, scope())).ok, true);
   const agents = await ada!.query("v2/play:agents", { gameId });
   assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.25, 0.75]);
+  // Naming one agent gives it what the others leave: the total never passes the player's whole power.
+  await perform(ada!, "power.allocate", { shares: { [agentId]: 1 } }, scope());
+  const shares = (await ada!.query("v2/play:agents", { gameId })).map((a: any) => a.share);
+  assert.ok(Math.abs(shares.reduce((t: number, s: number) => t + s, 0) - 1) < 1e-6, `shares ${shares}`);
+  try { await perform(ada!, "power.allocate", { shares: { [agentId]: 0 } }, scope()); assert.fail("a zero share is a destroy"); } catch (e) {
+    assert.equal((e as any).data?.error?.code, "failed");
+  }
   assert.equal((await perform(ada!, "agent.destroy", { agentId: second.result.agentId }, scope())).ok, true);
   assert.equal((await ada!.query("v2/play:agents", { gameId })).length, 1);
   assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).error.code, "refused", "another player's agent");
@@ -74,6 +81,9 @@ test("ready: the world starts when every human is ready", async () => {
   await perform(bo!, "game.ready", { ready: true }, scope());
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal(header.phase, "live");
+  const e0 = (await me(bo!)).energy;
+  await new Promise(r => setTimeout(r, 3000));
+  assert.ok((await me(bo!)).energy > e0, "the own store accrues while the world runs, read as of now");
   assert.equal((await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 100, cursor: null } })).page.length, 24);
 });
 
@@ -99,6 +109,9 @@ test("reads: a representation, an element, a quote and a score, as an agent is t
 });
 
 test("pause once, resume by the owner, end by the owner", async () => {
+  const [late] = await humans("Play Late");
+  await perform(late!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code });
+  assert.equal((await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late").spectator, true, "joining mid-game: watching");
   assert.equal((await perform(bo!, "game.pause", {}, scope())).ok, true);
   assert.equal((await ada!.query("v2/games:header", { gameId })).phase, "paused");
   assert.equal((await perform(bo!, "game.resume", {}, scope())).error.code, "refused", "only the owner resumes");
@@ -115,5 +128,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   assert.ok(header.summary);
   assert.ok((await ada!.query("v2/games:standings", { gameId })).rows.length === 3);
   assert.equal((await ada!.query("v2/rooms:get", { roomId })).game, null);
+  const seated = (await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late");
+  assert.equal(seated.spectator, false, "who joined mid-game is seated for the next one");
   void admin;
 });

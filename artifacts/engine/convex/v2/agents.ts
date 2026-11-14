@@ -8,7 +8,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { hashHex } from "@workspace/v2-core";
 import { startersFor, summonBits } from "@workspace/v2-agents/pure";
 import {
-  agentIncome, defaultShare, energyCapacity, firstAgentShare, movePower, roundShare, settle, settleOwn, spend, type Account,
+  agentIncome, defaultShare, energyCapacity, firstAgentShare, floorShare, movePower, roundShare, settle, settleOwn, spend, type Account,
 } from "@workspace/v2-economy";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
@@ -103,12 +103,21 @@ export async function destroyAgent(ctx: MutationCtx, game: Doc<"v2Games">, playe
   await appendEvent(ctx, game._id, "command", { kind: "destroy", memberId: player.memberId, agentId: agent._id, worldSeconds: world });
 }
 
-/** Sets the agents' shares (normalised to sum to 1); decreases first, so energy leaving one agent can reach another. */
+/**
+ * Sets the named agents' shares, in proportion to the numbers given, out of the power the agents not named leave
+ * (all of it when every agent is named). Each named agent keeps some power: stopping one is `agent.destroy`.
+ * Decreases go first, so energy leaving one agent can reach another.
+ */
 export async function allocatePower(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, shares: Record<string, number>) {
   const total = Object.values(shares).reduce((s, x) => s + x, 0);
-  if (!(total > 0)) throw new OpFailure("Give at least one agent a share.");
-  const agents = [];
-  for (const id of Object.keys(shares)) agents.push({ agent: await ownAgent(ctx, player, id), to: roundShare(shares[id]! / total) });
+  if (Object.values(shares).some(x => !(x > 0))) throw new OpFailure("Every agent you name needs a share above 0.", "agent.destroy");
+  const named: Doc<"v2Agents">[] = [];
+  for (const id of Object.keys(shares)) named.push(await ownAgent(ctx, player, id));
+  const others = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", player.memberId)).take(MAX_AGENTS))
+    .filter(a => a.destroyedAt === undefined && !named.some(n => n._id === a._id));
+  const room = 1 - others.reduce((t, a) => t + a.share, 0);
+  if (!(room > 0)) throw new OpFailure("Your other agents hold all of your power.", "power.allocate");
+  const agents = named.map(agent => ({ agent, to: floorShare(room * shares[agent._id]! / total) }));
   const world = (await clockOf(ctx, game._id)).worldSeconds;
   agents.sort((x, y) => (x.to - x.agent.share) - (y.to - y.agent.share));
   let p = player;
@@ -130,9 +139,13 @@ export async function summonPracticePartners(ctx: MutationCtx, game: Doc<"v2Game
     if (p.kind !== "practice") continue;
     const rule = (await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", p.memberId)).unique())!;
     const language: Language = k++ === 0 ? "typescript" : "python";
-    const starter = startersFor(rule.family, language).find(s => s.kind === "simple")!;
-    const need = Math.max(...startersFor(rule.family, language).map(s => priceOf(language, s.source)));
+    const starters = startersFor(rule.family, language).map(s => ({ s, price: priceOf(language, s.source) }));
+    // The Simple starter; in a room whose starting energy is too low for it, the dearest one that fits; else none.
+    const fits = starters.filter(x => x.price <= p.energy).sort((x, y) => y.price - x.price);
+    const pick = fits.find(x => x.s.kind === "simple") ?? fits[0];
+    if (!pick) continue;
+    const need = Math.max(...starters.map(x => x.price));
     const share = firstAgentShare({ allocated: 0, powerPerSecond: p.power, fullChargeSeconds: game.settings.economy.fullChargeSeconds, need }) ?? defaultShare(0);
-    await summonAgent(ctx, game, p, { language, source: starter.source, name: starter.title, share });
+    await summonAgent(ctx, game, p, { language, source: pick.s.source, name: pick.s.title, share });
   }
 }

@@ -72,11 +72,11 @@ export const tick = internalAction({
         balance.set(agent.agentId, energy - record.charge);
         if (record.outcome === "committed") local.set(number, record.after);
         acts.push({
-          agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
+          n: snap.acts + i, agentId: agent.agentId, memberId: agent.memberId, objectId: s.objectId, number, version: s.version,
           seed, energy, liveObjects: snap.objects, programVersion: agent.version, record,
         });
       }
-      await ctx.runMutation(COMMIT, { gameId, leaseId, world, now, born, acts: chainVersions(acts) });
+      await ctx.runMutation(COMMIT, { gameId, leaseId, world, now, born, acts: chainVersions(acts), picks: picks.length });
     } catch (e) {
       await ctx.runMutation(FAILED, { gameId, leaseId, error: String((e as Error)?.stack ?? e).slice(0, 2000) });
     }

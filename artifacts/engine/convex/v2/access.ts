@@ -7,6 +7,7 @@ import { ConvexError } from "convex/values";
 import type { AffordanceContext, Context, Grant } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { settleOwn } from "@workspace/v2-economy";
 import { getViewer } from "../auth/access";
 import { isAdminUser } from "../auth/identity";
 import { presetOf } from "./presets";
@@ -65,11 +66,23 @@ export async function requireGameMember(ctx: QueryCtx, gameId: string) {
   const member = await memberOf(ctx, game.roomId, user.userId) ?? fail("FORBIDDEN", "Join the room first");
   return { user, game, member };
 }
-/** A player seated in the game (dealt a rule), with their account row. */
+/** The member's dealt rule in a game: cold, so a seat check never makes a query depend on what a tick writes. */
+export async function ruleOf(ctx: QueryCtx, gameId: Id<"v2Games">, memberId: Id<"v2Members">): Promise<Doc<"v2Rules"> | null> {
+  return await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
+}
+/** A player seated in the game (dealt a rule). */
 export async function requireSeat(ctx: QueryCtx, gameId: string) {
   const { user, game, member } = await requireGameMember(ctx, gameId);
-  const player = await playerOf(ctx, game._id, member._id) ?? fail("FORBIDDEN", "Only players with a seat in this game can see this");
-  return { user, game, member, player };
+  const rule = await ruleOf(ctx, game._id, member._id) ?? fail("FORBIDDEN", "Only players with a seat in this game can see this");
+  return { user, game, member, rule };
+}
+/** The own store's balance now: accrued to the game's world time (the stored balance is as of its last write). */
+export async function ownEnergyNow(ctx: QueryCtx, game: Doc<"v2Games">, player: Doc<"v2Players">): Promise<number> {
+  if (game.phase === "planning") return player.energy;
+  const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
+  const world = Math.max(player.settledAt, clock?.worldSeconds ?? 0);
+  return settleOwn({ balance: player.energy, settledWorldSeconds: player.settledAt }, world,
+    { powerPerSecond: player.power, allocated: player.allocated, fullChargeSeconds: game.settings.economy.fullChargeSeconds }).balance;
 }
 
 /** The scope a call names: the room or game in view (app) or bound (a credential). */
@@ -112,7 +125,7 @@ export async function resolveContext(ctx: QueryCtx, user: User | null, scope: Sc
     const members = await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", room._id)).take(MAX_MEMBERS);
     out.room = { players: members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidOpen: !!room.bidding };
   }
-  if (game && player) out.game = { phase: game.phase, energy: player.energy, pauseUsed: player.pauseUsed, agents: player.agents };
+  if (game && player) out.game = { phase: game.phase, energy: await ownEnergyNow(ctx, game, player), pauseUsed: player.pauseUsed, agents: player.agents };
   else if (game) out.game = { phase: game.phase };
   return { ctx: out, user, room, game, member, player };
 }

@@ -7,7 +7,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
-import { fail, requireGameMember, requireSeat, requireUser } from "./access";
+import { fail, ownEnergyNow, playerOf, requireGameMember, requireSeat, requireUser } from "./access";
 import {
   agentEnergyV, agentProgramsV, agentRowV, digestV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
@@ -19,9 +19,7 @@ export const myRule = query({
   args: { gameId: v.string() },
   returns: myRuleV,
   handler: async (ctx, { gameId }) => {
-    const { game, member } = await requireSeat(ctx, gameId);
-    const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", member._id)).unique()
-      ?? fail("NOT_FOUND", "Your rule has not been dealt yet");
+    const { rule: r } = await requireSeat(ctx, gameId);
     return {
       family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
       ladder: r.ladder, ruleKey: r.ruleKey, bid: r.bid ?? null, handicap: r.handicap ?? null,
@@ -33,8 +31,9 @@ export const me = query({
   args: { gameId: v.string() },
   returns: meV,
   handler: async (ctx, { gameId }) => {
-    const { player } = await requireSeat(ctx, gameId);
-    return { memberId: player.memberId, energy: player.energy, power: player.power, ready: player.ready, pauseUsed: player.pauseUsed, agents: player.agents };
+    const { game, member } = await requireSeat(ctx, gameId);
+    const player = await playerOf(ctx, game._id, member._id) ?? fail("NOT_FOUND", "No account in this game");
+    return { memberId: player.memberId, energy: await ownEnergyNow(ctx, game, player), power: player.power, ready: player.ready, pauseUsed: player.pauseUsed, agents: player.agents };
   },
 });
 

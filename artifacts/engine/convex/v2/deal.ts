@@ -25,8 +25,14 @@ export function familyOf(id: string): RuleFamily<unknown, unknown> {
   return f;
 }
 
+const pools = new Map<string, DealtRule[]>();
 /** Every rule the preset may deal: its families × dealable parameters × tie-breakers, converged artefacts only. */
 export function dealablePool(preset: Preset): DealtRule[] {
+  let pool = pools.get(preset.id);
+  if (!pool) pools.set(preset.id, pool = buildPool(preset));
+  return pool;
+}
+function buildPool(preset: Preset): DealtRule[] {
   const { type, variant } = findVariant(preset.variant);
   const out: DealtRule[] = [];
   for (const id of preset.families) {

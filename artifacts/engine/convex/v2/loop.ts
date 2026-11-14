@@ -20,6 +20,10 @@ export const TICK_MS = 1500;
 export const MAX_DT = 3;
 /** World seconds between scoreboards (standings, their history, a `tick` event). */
 export const SCOREBOARD_SECONDS = 10;
+/** Wall milliseconds between watchdog checks, and how long a chain may go without committing before it is replaced. */
+const WATCHDOG_MS = 20_000;
+const STALL_MS = 30_000;
+const WATCHDOG = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; leaseId: string }>("v2/loop:watchdog");
 /** Ticks in a row may fail this many times before the game is ended. */
 const MAX_FAILURES = 20;
 /** A move concerns a player whose points on the object changed by more than this (plan §2.3). */
@@ -46,11 +50,20 @@ export async function seatRules(ctx: QueryCtx, game: Doc<"v2Games">): Promise<Se
 export const powerTerms = (game: Doc<"v2Games">, p: Doc<"v2Players">) =>
   ({ powerPerSecond: p.power, allocated: p.allocated, fullChargeSeconds: game.settings.economy.fullChargeSeconds });
 
+/** The next event seq per game within one transaction, so a commit of many events reads the engine row once. */
+const nextSeq = new WeakMap<MutationCtx, Map<string, { engineId: Id<"v2Engine">; seq: number }>>();
 /** Appends an event to the record (dense seq from 0). */
 export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind: Doc<"v2Events">["kind"], data: unknown) {
-  const engine = await engineOf(ctx, gameId);
-  await ctx.db.insert("v2Events", { gameId, seq: engine.events, kind, data });
-  await ctx.db.patch(engine._id, { events: engine.events + 1 });
+  let games = nextSeq.get(ctx);
+  if (!games) nextSeq.set(ctx, games = new Map());
+  let at = games.get(gameId);
+  if (!at) {
+    const engine = await engineOf(ctx, gameId);
+    games.set(gameId, at = { engineId: engine._id, seq: engine.events });
+  }
+  await ctx.db.insert("v2Events", { gameId, seq: at.seq, kind, data });
+  at.seq += 1;
+  await ctx.db.patch(at.engineId, { events: at.seq });
 }
 
 // ---------------------------------------------------------------- values in the read model
@@ -79,10 +92,11 @@ async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatR
   return { before, after, stateBefore: st.state };
 }
 
-/** Patches each player's digest (packed [number, rarity, want] by object number) and running total. */
+/** Patches each player's digest (packed [number, rarity, want] by object number) and running total (on the engine). */
 async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: { number: number; values: Value[]; before?: Map<string, Value> }[]) {
   if (changes.length === 0) return;
   const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
+  const engine = await engineOf(ctx, gameId), totals = { ...engine.totals };
   for (const p of players) {
     let delta = 0, touched = false;
     const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", p.memberId)).unique();
@@ -97,10 +111,11 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
       packed.splice(at, 3, c.number, now.rarityBits, now.want);
     }
     if (!touched) continue;
-    if (delta !== 0) await ctx.db.patch(p._id, { total: p.total + delta });
+    totals[p.memberId] = (totals[p.memberId] ?? 0) + delta;
     if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
     else await ctx.db.insert("v2Digests", { gameId, memberId: p.memberId, packed, version: 1 });
   }
+  await ctx.db.patch(engine._id, { totals });
 }
 
 /** Writes the scoreboard: standings ranked by net total, a history row and a `tick` event. */
@@ -113,8 +128,8 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number)
     handicap.set(p.memberId, r?.handicap ?? 0);
   }
   const rows = players.map(p => {
-    const h = handicap.get(p.memberId) ?? 0;
-    return { memberId: p.memberId, name: game.roster.find(r => r.memberId === p.memberId)?.name ?? "", total: p.total, handicap: h, net: p.total - (h / 100) * Math.abs(p.total), rank: 0 };
+    const h = handicap.get(p.memberId) ?? 0, total = engine.totals[p.memberId] ?? 0;
+    return { memberId: p.memberId, name: game.roster.find(r => r.memberId === p.memberId)?.name ?? "", total, handicap: h, net: total - (h / 100) * Math.abs(total), rank: 0 };
   }).sort((a, b) => b.net - a.net).map((r, i) => ({ ...r, rank: i + 1 }));
   const seq = engine.scoreboards;
   const existing = await ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
@@ -150,6 +165,7 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: 0 });
   await scoreboard(ctx, { ...game, phase: "live" }, 0);
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
+  await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }
 
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
@@ -163,6 +179,9 @@ export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
+  // Who joined while it ran watched it; the next game seats them.
+  for (const m of await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", room._id)).take(16))
+    if (m.seatNext) await ctx.db.patch(m._id, { spectator: false, seatNext: undefined });
 }
 
 export async function pauseGame(ctx: MutationCtx, game: Doc<"v2Games">, by: Id<"v2Members">) {
@@ -180,7 +199,33 @@ export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, game.settings.worldSeconds - clock.worldSeconds) * 1000 });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
+  await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }
+
+/**
+ * The watchdog of a live game's chain (one per lease): a chain the runtime killed (a timeout, memory, a stuck native
+ * step) never reaches its own failure handler, so when the clock has not moved for STALL_MS the watchdog takes a new
+ * lease and starts a new chain. It stops with its lease (a pause, the end, or a replacement).
+ */
+export const watchdog = internalMutation({
+  args: { gameId: v.id("v2Games"), leaseId: v.string() },
+  handler: async (ctx, { gameId, leaseId }) => {
+    const game = await ctx.db.get(gameId);
+    const engine = game && await engineOf(ctx, gameId);
+    if (!game || !engine || game.phase !== "live" || engine.leaseId !== leaseId) return;
+    const clock = await clockOf(ctx, gameId), now = Date.now();
+    let lease = leaseId;
+    if (now - clock.lastTickAt > STALL_MS) {
+      lease = crypto.randomUUID();
+      console.error(`v2 tick chain of ${gameId} stalled for ${Math.round((now - clock.lastTickAt) / 1000)} s: restarted`);
+      await ctx.db.patch(engine._id, { leaseId: lease, failures: engine.failures + 1 });
+      await ctx.db.patch(clock._id, { lastTickAt: now });
+      await ctx.scheduler.runAfter(0, TICK, { gameId, leaseId: lease });
+      if (engine.failures + 1 >= MAX_FAILURES) { await endGame(ctx, game); return; }
+    }
+    await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId, leaseId: lease });
+  },
+});
 
 /** Scheduled at planning's deadline by the start. */
 export const planningEnds = internalMutation({
@@ -201,7 +246,7 @@ export const snapshot = internalQuery({
     if (!game) return null;
     const engine = await engineOf(ctx, gameId), clock = await clockOf(ctx, gameId);
     const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
-    const agents = (await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(16 * 20)).filter(a => a.destroyedAt === undefined);
+    const agents = await ctx.db.query("v2Agents").withIndex("by_game", q => q.eq("gameId", gameId)).filter(q => q.eq(q.field("destroyedAt"), undefined)).take(16 * 20);
     const withEnergy = [];
     for (const a of agents) {
       const e = (await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", a._id)).unique())!;
@@ -232,7 +277,7 @@ export const statesOf = internalQuery({
 });
 
 const actV = v.object({
-  agentId: v.id("v2Agents"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(), version: v.number(),
+  n: v.number(), agentId: v.id("v2Agents"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(), version: v.number(),
   seed: v.string(), energy: v.number(), liveObjects: v.number(), programVersion: v.number(), record: v.any(),
 });
 
@@ -243,7 +288,7 @@ const actV = v.object({
  * when world time is up, and the next tick.
  */
 export const commit = internalMutation({
-  args: { gameId: v.id("v2Games"), leaseId: v.string(), world: v.number(), now: v.number(), born: v.array(v.string()), acts: v.array(actV) },
+  args: { gameId: v.id("v2Games"), leaseId: v.string(), world: v.number(), now: v.number(), born: v.array(v.string()), acts: v.array(actV), picks: v.number() },
   handler: async (ctx, a) => {
     const game = await ctx.db.get(a.gameId);
     const engine = game && await engineOf(ctx, a.gameId);
@@ -252,7 +297,8 @@ export const commit = internalMutation({
     const clock = await clockOf(ctx, game._id), seats = await seatRules(ctx, game);
     const world = Math.max(clock.worldSeconds, Math.min(a.world, game.settings.worldSeconds));
     const changes: { number: number; values: Value[]; before?: Map<string, Value> }[] = [];
-    let objects = engine.objects, acts = engine.acts, moves = engine.moves;
+    // Acts are numbered by the tick's opportunities (their seeds are `act:<n>`), whether or not each one ran.
+    let objects = engine.objects, acts = engine.acts + a.picks, moves = engine.moves;
 
     for (const wire of a.born) {
       const number = ++objects;
@@ -274,7 +320,7 @@ export const commit = internalMutation({
       const account: Account = settle({ balance: energy.energy, settledWorldSeconds: energy.settledAt }, world, income, energyCapacity(income, P.fullChargeSeconds));
       const committed = record.outcome === "committed" && !stale && record.after !== record.before;
       const charged = chargeAct(account, record.charge);
-      const n = acts++;
+      const n = act.n;
       await ctx.db.patch(energy._id, {
         energy: charged.balance, settledAt: charged.settledWorldSeconds, acts: energy.acts + 1, spend: energy.spend + record.charge, lastActAt: world,
         ...(record.outcome === "skipped" ? { skips: energy.skips + 1 } : record.outcome === "failed" ? { failures: energy.failures + 1 } : {}),

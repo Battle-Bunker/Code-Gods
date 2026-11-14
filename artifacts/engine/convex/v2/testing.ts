@@ -107,7 +107,7 @@ export const seedGame = internalMutation({
       await ctx.db.insert("v2Players", {
         gameId, memberId, ...(m.userId ? { userId: m.userId } : {}), kind: m.kind,
         energy: preset.startingEnergy, power: preset.economy.powerPerSecond, ready: false, pauseUsed: false, agents: 1,
-        settledAt: 0, allocated: 0.5, total: 0,
+        settledAt: 0, allocated: 0.5,
       });
     }
 
