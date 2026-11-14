@@ -45,6 +45,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
     layout: () => ({
       kind: "grid", rows: n, cols: n, cells: cellRefs(n),
       right: rows(n).map((_, r) => ref("tally", `row${r}`)), bottom: cols(n).map((_, c) => ref("tally", `col${c}`)),
+      rightTitle: "total", bottomTitle: "total",
     }),
   };
 
@@ -52,7 +53,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const turn: Representation<GridState> = {
     id: "turn", title: "each cell and its opposite (a half turn away)", scene: "grid", perSite: false,
     elements: ps.map(([a, b], k) => derived(`pair${k}`, `${cellLabel(n, a)} plus its opposite (${cellLabel(n, b)})`, s => s.cells[a]! + s.cells[b]!, `pairTotal:${k}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: ps.map(([a, b], k) => ({ cells: [a, b], el: ref("turn", `pair${k}`) })) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: ps.map(([a, b], k) => ({ cells: [a, b], el: ref("turn", `pair${k}`) })), groupTitle: "pair totals" }),
   };
 
   const half = Math.floor(n / 2);
@@ -60,7 +61,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const mirror: Representation<GridState> = {
     id: "mirror", title: "each row beside itself read backwards", scene: "grid", perSite: false,
     elements: rows(n).map((_, r) => derived(`gap${r}`, `how far row ${r + 1} is from reading the same backwards`, s => gap(s, r), `mirrorGap:${r}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), right: rows(n).map((_, r) => ref("mirror", `gap${r}`)) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), right: rows(n).map((_, r) => ref("mirror", `gap${r}`)), rightTitle: "gap" }),
   };
 
   const stepOf = (s: GridState, r: number, j: number) => s.cells[at(n, r, j + 1)]! - s.cells[at(n, r, j)]!;
@@ -77,6 +78,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       kind: "grid", rows: n, cols: n, cells: cellRefs(n),
       groups: stepNames.map(({ name, r, j }) => ({ cells: [at(n, r, j), at(n, r, j + 1)], el: ref("steps", name) })),
       right: rows(n).map((_, r) => ref("steps", `bend${r}`)),
+      rightTitle: "uneven", groupTitle: "steps",
     }),
   };
 
@@ -85,7 +87,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const boxRep: Representation<GridState> = {
     id: "boxes", title: "the board cut into four corner boxes", scene: "grid", perSite: false,
     elements: bx.map((cs, k) => derived(`box${k}`, `the ${BOX[k]} box's total`, s => sum(s, cs), `boxTotal:${k}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })), groupTitle: "box totals" }),
   };
 
   return [cells, tally, turn, mirror, steps, boxRep];

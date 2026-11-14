@@ -7,7 +7,8 @@ import { representation, type ObjectType } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
 import { ExpandedFace, levelText } from "./faces.tsx";
 import { fmtBits, fmtNum } from "./format.ts";
-import { chipRep, repText } from "./rep-view.tsx";
+import { fmtValue } from "./format.ts";
+import { chipRep, labelOf, nounOf, repText, shownRefs, valuesOf } from "./rep-view.tsx";
 
 export interface GoalCardProps<S, P> {
   readonly rule: RuleRef<S, P>;
@@ -56,6 +57,23 @@ function form<S>(type: ObjectType<S>, state: S, rep: string): string {
   return repText(type, state, representation(type, rep).scene === "equation" ? rep : chipRep(type, state, rep));
 }
 
+/** Changed elements listed at most this many; the rest counted. */
+const CHANGES_SHOWN = 2;
+
+/**
+ * The change in words. An object with an equation is written before → after ("y = −3x + 10 → y = −3x + 9"); one without
+ * (a grid) names the elements of its chip's view that changed: "row 1, column 1: 3 → 7; and 2 more".
+ */
+function changeText<S>(type: ObjectType<S>, before: S, after: S, rep: string): string {
+  if (representation(type, rep).scene === "equation") return `${form(type, before, rep)} → ${form(type, after, rep)}`;
+  const b = valuesOf(type, before, 0), a = valuesOf(type, after, 0);
+  const changed = shownRefs(type, after, rep).filter(r => fmtValue(b(r)) !== fmtValue(a(r)));
+  if (!changed.length) return "no change";
+  const said = changed.slice(0, CHANGES_SHOWN).map(r => `${labelOf(type, r)}: ${fmtValue(b(r))} → ${fmtValue(a(r))}`);
+  const more = changed.length - said.length;
+  return said.join("; ") + (more ? `; and ${more} more` : "");
+}
+
 /**
  * One act log line (ux-lessons 2.2–2.3): the change, the rule's step before → after, rarity in bits before → after with its
  * reason, and the points with the want (both values when it changed; "because …" when points move against the score).
@@ -65,26 +83,27 @@ export function MoveLine<S, P>(props: MoveLineProps<S, P>): ReactElement {
   const a0 = annotate(rule, before, { rarities: props.rarities });
   const a1 = annotate(rule, after, { rarities: props.rarities });
   const rep = chipRep(rule.type, after);
+  const noun = nounOf(rule.type);
   const up = a1.level > a0.level, down = a1.level < a0.level;
   const step = a0.level === a1.level
     ? `Still ${levelText(a1)}`
     : `${up ? "Up" : "Down"}: step ${a0.level} → ${a1.level} of ${a1.top}`;
   const rarity = a0.rarity !== null && a1.rarity !== null && a0.rarity !== a1.rarity
-    ? `Rarity ${fmtNum(a0.rarity)} → ${fmtBits(a1.rarity)} (${a1.rarity > a0.rarity ? "fewer" : "more"} random lines score this well)`
+    ? `Rarity ${fmtNum(a0.rarity)} → ${fmtBits(a1.rarity)} (${a1.rarity > a0.rarity ? "fewer" : "more"} random ${noun}s score this well)`
     : null;
   let points: string | null = null;
   if (props.points) {
     const p = props.points;
     const want = p.wantBefore !== undefined && fmtNum(p.wantBefore) !== fmtNum(p.want) ? `${fmtNum(p.want)}, was ${fmtNum(p.wantBefore)}` : fmtNum(p.want);
-    points = `Points on this line ${fmtNum(p.before)} → ${fmtNum(p.after)} (the others want it ${want})`;
+    points = `Points on this ${noun} ${fmtNum(p.before)} → ${fmtNum(p.after)} (the others want it ${want})`;
     // Points fell while the rule score did not, or the others' want fell too: say why (ux-lessons 2.3).
     const wantFell = p.wantBefore !== undefined && p.want < p.wantBefore;
-    if (p.after < p.before && (!down || wantFell)) points += ": because the others want this line less now";
+    if (p.after < p.before && (!down || wantFell)) points += `: because the others want this ${noun} less now`;
   }
   return (
     <p className="v2v v2v-move" data-dir={up ? "up" : down ? "down" : "same"}>
-      <span className="v2v-move-who">{props.who} changed a line:</span>{" "}
-      <span className="v2v-move-change">{form(rule.type, before, rep)} → {form(rule.type, after, rep)}</span>
+      <span className="v2v-move-who">{props.who} changed a {noun}:</span>{" "}
+      <span className="v2v-move-change" data-scene={representation(rule.type, rep).scene}>{changeText(rule.type, before, after, rep)}</span>
       {props.what && <> ({props.what})</>}. <span className="v2v-move-step">{step}</span>.
       {rarity && <> {rarity}.</>}
       {points && <> {points}.</>}

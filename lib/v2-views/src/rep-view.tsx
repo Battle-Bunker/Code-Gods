@@ -95,9 +95,20 @@ function sceneRefs(rep: string, scene: SceneData, site: number): ElementRef[] {
     case "machine": return scene.stages.filter(s => s.el).map(s => ({ rep, name: s.el!, site }));
     case "plane": return scene.items.filter(i => i.draw === "line").map(i => i.el);
     case "pegboard": return [scene.on];
+    case "grid": return [...scene.cells];
     default: return [];
   }
 }
+
+/** The representation a viewer without a rule sees (a spectator, a replay): the object type's first (the board, for a grid). */
+export const defaultRep = <S,>(type: ObjectType<S>): string => type.representations[0]!.id;
+
+/** The game's own noun for an object of this type ("line", "grid"), never "object" (ux-lessons 2.5). */
+export const nounOf = <S,>(type: ObjectType<S>): string => type.id;
+
+/** The element refs a scene shows, exported for the move line (what changed between two states). */
+export const shownRefs = <S,>(type: ObjectType<S>, state: S, repId: string, site = 0): ElementRef[] =>
+  sceneRefs(repId, representation(type, repId).layout(state, site), site);
 
 /** Whether a representation can express this line (none of what its scene shows is undefined). */
 export function expresses<S>(type: ObjectType<S>, state: S, repId: string, site = 0): boolean {

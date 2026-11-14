@@ -5,7 +5,7 @@
  * with the same weight, so the price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
 import { choiceBits, sampleStepsNonzero, stepsNonzeroBits, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
-import { at, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
+import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
 import { boxes, lines, pairs } from "./units.ts";
 
 export type GridArgs = Readonly<Record<string, string | number>>;
@@ -97,13 +97,23 @@ const permute = (s: GridState, src: (i: number) => number): GridState => ({ cell
 
 type M = Mutator<GridState, GridArgs>;
 const k = (a: GridArgs) => a.k as number;
-const signed = (x: number) => (x > 0 ? `+${x}` : String(x));
+const signed = (x: number) => (x > 0 ? `+${x}` : `−${-x}`);
+/** People's words for an argument (element names are for agents): r1c2 → "row 2, column 3", col0 → "column 1". */
+const cellWords = (name: unknown): string => {
+  const [, r, c] = /^r(\d+)c(\d+)$/.exec(String(name))!;
+  return `row ${Number(r!) + 1}, column ${Number(c!) + 1}`;
+};
+const lineWords = (name: unknown): string => {
+  const [, kind, i] = /^(row|col)(\d+)$/.exec(String(name))!;
+  return `${kind === "row" ? "row" : "column"} ${Number(i!) + 1}`;
+};
+const BOX_WORDS = ["top-left", "top-right", "bottom-left", "bottom-right"];
 
 // ---------------------------------------------------------------- the nine
 
 export const add: M = {
   id: "cells.add", reps: ["cells"], title: "add to one cell", perSite: false,
-  describe: a => `${signed(k(a))} in ${a.cell}`,
+  describe: a => `${signed(k(a))} in ${cellWords(a.cell)}`,
   args: v => fields({ cell: oneOf(cellNames(N(v))), k: amount }),
   apply: (s, _site, a, v) => { const i = cellIndex(N(v), a.cell as string); return addTo(s, v, [i], () => k(a)); },
   inverse: { kind: "mutator", id: "cells.add", args: a => ({ ...a, k: -k(a) }) },
@@ -111,7 +121,7 @@ export const add: M = {
 
 export const swap: M = {
   id: "cells.swap", reps: ["cells"], title: "swap two cells", perSite: false,
-  describe: a => `swap ${a.a} and ${a.b}`,
+  describe: a => `swap ${cellWords(a.a)} and ${cellWords(a.b)}`,
   args: v => fields({ a: oneOf(cellNames(N(v))), b: oneOf(cellNames(N(v))) }),
   apply: (s, _site, a, v) => {
     const i = cellIndex(N(v), a.a as string), j = cellIndex(N(v), a.b as string);
@@ -123,7 +133,7 @@ export const swap: M = {
 
 export const lineAdd: M = {
   id: "tally.add", reps: ["tally"], title: "add to every cell of a row or column", perSite: false,
-  describe: a => `${signed(k(a))} in every cell of ${a.line}`,
+  describe: a => `${signed(k(a))} in every cell of ${lineWords(a.line)}`,
   args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)), k: amount }),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), () => k(a)),
   inverse: { kind: "mutator", id: "tally.add", args: a => ({ ...a, k: -k(a) }) },
@@ -132,7 +142,7 @@ export const lineAdd: M = {
 /** Built per board size: moving j places along is undone by moving N − j (the same line, a choice of the same price). */
 export const rotateFor = (n: number): M => ({
   id: "tally.rotate", reps: ["tally"], title: "move a row's or column's numbers along, the last coming round to the front", perSite: false,
-  describe: a => `move ${a.line}'s numbers ${a.j} place${a.j === "1" ? "" : "s"} along`,
+  describe: a => `move ${lineWords(a.line)}'s numbers ${a.j} place${a.j === "1" ? "" : "s"} along`,
   args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)), j: oneOf(Array.from({ length: N(v) - 1 }, (_, i) => String(i + 1))) }),
   apply: (s, _site, a, v) => {
     const cs = lineCells(N(v), a.line as string), j = Number(a.j), L = cs.length;
@@ -168,20 +178,24 @@ export const spin: M = {
   inverse: { kind: "mutator", id: "turn.spin", args: a => ({ how: a.how === "quarter" ? "three-quarters" : a.how === "three-quarters" ? "quarter" : a.how! }) },
 };
 
-export const balance: M = {
+/** Built per board size: its words name the pair's two cells. */
+export const balanceFor = (n: number): M => ({
   id: "turn.balance", reps: ["turn"], title: "move an amount from a cell to its opposite (their total is kept)", perSite: false,
-  describe: a => `${signed(k(a))} in ${a.pair}'s top cell, ${signed(-k(a))} in its opposite`,
+  describe: a => {
+    const [i, j] = pairs(n)[Number(String(a.pair).slice(4))]!;
+    return `${signed(k(a))} in ${cellLabel(n, i)} and ${signed(-k(a))} in its opposite, ${cellLabel(n, j)}`;
+  },
   args: v => fields({ pair: oneOf(pairs(N(v)).map((_, i) => `pair${i}`)), k: amount }),
   apply: (s, _site, a, v) => {
     const [i, j] = pairs(N(v))[Number((a.pair as string).slice(4))]!;
     return write(s, v, [[i, s.cells[i]! + k(a)], [j, s.cells[j]! - k(a)]]);
   },
   inverse: { kind: "mutator", id: "turn.balance", args: a => ({ ...a, k: -k(a) }) },
-};
+});
 
 export const reverse: M = {
   id: "mirror.reverse", reps: ["mirror"], title: "write a row or column backwards", perSite: false,
-  describe: a => `write ${a.line} backwards`,
+  describe: a => `write ${lineWords(a.line)} backwards`,
   args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)) }),
   apply: (s, _site, a, v) => {
     const cs = lineCells(N(v), a.line as string);
@@ -192,7 +206,7 @@ export const reverse: M = {
 
 export const tilt: M = {
   id: "steps.tilt", reps: ["steps"], title: "make every step along a row or column bigger by k (the first number stays)", perSite: false,
-  describe: a => `${signed(k(a))} on every step along ${a.line}`,
+  describe: a => `${signed(k(a))} on every step along ${lineWords(a.line)}`,
   args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)), k: amount }),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), pos => pos * k(a)),
   inverse: { kind: "mutator", id: "steps.tilt", args: a => ({ ...a, k: -k(a) }) },
@@ -200,11 +214,11 @@ export const tilt: M = {
 
 export const boxAdd: M = {
   id: "boxes.add", reps: ["boxes"], title: "add to every cell of a corner box", perSite: false,
-  describe: a => `${signed(k(a))} in every cell of ${a.box}`,
+  describe: a => `${signed(k(a))} in every cell of the ${BOX_WORDS[Number(String(a.box).slice(3))]} box`,
   args: v => fields({ box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)), k: amount }),
   apply: (s, _site, a, v) => addTo(s, v, boxes(N(v))[Number((a.box as string).slice(3))]!, () => k(a)),
   inverse: { kind: "mutator", id: "boxes.add", args: a => ({ ...a, k: -k(a) }) },
 };
 
 /** The nine, for an N×N board, in the order every grid variant offers them. */
-export const gridMutators = (n: number): readonly M[] => [add, swap, lineAdd, rotateFor(n), spin, balance, reverse, tilt, boxAdd];
+export const gridMutators = (n: number): readonly M[] => [add, swap, lineAdd, rotateFor(n), spin, balanceFor(n), reverse, tilt, boxAdd];

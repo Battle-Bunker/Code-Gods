@@ -84,6 +84,7 @@
     "@workspace/v2-client": "workspace:*",
     "zod": "catalog:",
     "@workspace/v2-core": "workspace:*",
+    "@workspace/v2-grid": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",
     "@workspace/v2-views": "workspace:*",

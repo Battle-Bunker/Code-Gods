@@ -58,3 +58,18 @@ test("arguments outside their code are refused", () => {
   assert.ok(isInvalid(run("cells.add", { cell: "r0c0", k: "0" })));
   assert.ok(isInvalid(run("tally.rotate", { line: "row0", j: "4" })));
 });
+
+test("every mutator describes its call in people's words (row 2, column 3), never an element name", () => {
+  const say = (id: string, args: Record<string, string>) => {
+    const m = gridType.mutators.find(x => x.id === id)!;
+    return m.describe(m.args(grid4).decode(args));
+  };
+  assert.equal(say("cells.add", { cell: "r1c2", k: "1" }), "+1 in row 2, column 3");
+  assert.equal(say("cells.swap", { a: "r0c0", b: "r3c3" }), "swap row 1, column 1 and row 4, column 4");
+  assert.equal(say("tally.add", { line: "col0", k: "-2" }), "−2 in every cell of column 1");
+  assert.equal(say("tally.rotate", { line: "row1", j: "2" }), "move row 2's numbers 2 places along");
+  assert.equal(say("turn.balance", { pair: "pair1", k: "2" }), "+2 in row 1, column 2 and −2 in its opposite, row 4, column 3");
+  assert.equal(say("mirror.reverse", { line: "row3" }), "write row 4 backwards");
+  assert.equal(say("steps.tilt", { line: "row0", k: "1" }), "+1 on every step along row 1");
+  assert.equal(say("boxes.add", { box: "box1", k: "1" }), "+1 in every cell of the top-right box");
+});

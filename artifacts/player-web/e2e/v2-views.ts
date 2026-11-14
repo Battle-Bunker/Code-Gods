@@ -2,7 +2,8 @@
  * The engine v2 views gallery in a browser (v2-views.html on a Vite dev server this script starts), at phone (390 px)
  * and desktop (1440 px) widths, light and dark. Checks what only a browser can: no page errors, no sideways scroll, a
  * narrow card shows only the chosen representation, pointing at a number lights the same quantity in another view, and
- * pointing at a part leaves only its marks. With an output directory, saves screenshots of every section.
+ * pointing at a part leaves only its marks, and on grids, pointing at a total lights its cells and a cell lights in every
+ * view, with digits of a readable size. With an output directory, saves screenshots of every section.
  *
  *   node --experimental-transform-types e2e/v2-views.ts [screenshot dir]
  */
@@ -57,13 +58,29 @@ try {
       assert.equal(await face.locator('[data-mark="measure"]').count(), 0, "the tie-breaker's marks only");
       await page.mouse.move(0, 0);
 
+      // Grids: pointing at a margin's value lights the cells it is made of; pointing at a cell lights it in every view.
+      const grids = page.locator("[data-section=grids]");
+      const svg = grids.locator(".v2v-expanded .v2v-panel:visible .v2v-grid", { has: page.locator(".margin") }).first();
+      await svg.locator(".margin").first().hover();
+      assert.ok(await svg.locator(".cell[data-member]").count() >= 2, "a margin's value lights its cells");
+      const gface = grids.locator(".v2v-expanded").first();
+      await gface.locator(".v2v-panel:visible .cell").first().hover();
+      const litCells = await gface.locator(".cell[data-lit]").count();
+      assert.ok(width < 700 ? litCells >= 1 : litCells >= 2, `a cell lights in every view shown (${litCells})`);
+      // Digits stay readable: a cell's digit is at least 11 px tall on the page in an expanded view.
+      const digit = await gface.locator(".v2v-panel:visible .digit").first().boundingBox();
+      assert.ok(digit && digit.height >= 11, `digit height ${digit?.height}`);
+      await page.mouse.move(0, 0);
+
       if (OUT) {
         // The long families section only twice (desktop light, phone dark) to keep the repository small.
         const long = (width === 1440 && scheme === "light") || (width === 390 && scheme === "dark");
-        for (const section of long ? ["story", "families", "dealt"] : ["story", "dealt"]) {
+        for (const section of long ? ["story", "families", "dealt", "grids"] : ["story", "dealt"]) {
           const s = page.locator(`[data-section=${section}]`);
           await s.screenshot({ path: `${OUT}/${section}-${width}-${scheme}.png` });
         }
+        // The grid's views of one board, at every width and scheme (short).
+        await page.locator("[data-grid-views]").screenshot({ path: `${OUT}/grid-views-${width}-${scheme}.png` });
       }
       await page.close();
       console.log(`ok ${width} ${scheme}`);
