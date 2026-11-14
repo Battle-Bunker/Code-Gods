@@ -1,5 +1,5 @@
 // Prime Gradient · Naive (for learning)
-// Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime).
+// Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime; the y-intercept's smallest prime factor; the y-intercept's largest prime factor).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -13,6 +13,14 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(m, nearest)));
   // main: how far the gradient is from the nearest prime (closer is better)
   if (tie === "prime") return [main, nearest];   // a bigger prime is better
+  if (tie === "c-spf") {   // the y-intercept's smallest prime factor big is better
+    const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
+    return [main, fc[0] ?? 1];
+  }
+  if (tie === "c-gpf") {   // the y-intercept's largest prime factor big is better
+    const fc = factors(c) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
+    return [main, fc.at(-1) ?? 1];
+  }
   return [main];
 }
 

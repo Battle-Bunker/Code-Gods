@@ -1,5 +1,5 @@
 # Prime Gradient · Bold
-# Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime).
+# Main part: gradient close to a prime. Tie-breaker: whichever you were dealt (the size of that prime; the y-intercept's smallest prime factor; the y-intercept's largest prime factor).
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
@@ -19,6 +19,12 @@ def score(m, c, p, tie):
     # main: how far the gradient is from the nearest prime (closer is better)
     if tie == "prime":   # a bigger prime is better
         return [main, nearest]
+    if tie == "c-spf":   # the y-intercept's smallest prime factor big is better
+        fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
+        return [main, fc[0] if fc else 1]
+    if tie == "c-gpf":   # the y-intercept's largest prime factor big is better
+        fc = factors(c) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
+        return [main, fc[-1] if fc else 1]
     return [main]
 
 
