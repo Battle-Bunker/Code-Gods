@@ -100,7 +100,7 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
     const { record } = await runAct(await sandboxes.get(language)!, {
       type: lineType, variant: lineZ, state: lineType.decode(d.before),
       rule: { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker },
-      program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number - 1, liveObjects: d.liveObjects,
+      program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number, liveObjects: d.liveObjects,
       // What the agent was told of its owner's stake (recorded), and the dealt rule's ladder (from the game's artefact).
       ...(d.input ?? {}), rungs: rungsOf(rule.ruleKey),
     });

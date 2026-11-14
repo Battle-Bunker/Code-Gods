@@ -78,13 +78,14 @@ export const tick = internalAction({
         // The act's seed (spec §9.3: `act:<n>` from the game seed), as the 64-bit integer the sandbox takes.
         const seed = hash64(`${snap.seed}:act:${snap.acts + i}`).toString(), energy = balance.get(agent.agentId)!;
         const sandbox = await sandboxFor(ctx, agent.language);
+        // `offer.object` is the line's number, the one every read and the app show ("leave line 4 alone").
         // What the agent may know of its owner's stake in the line (W2's worth/recent/contested), as of the last commit.
         const input = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
         if (!ladders.has(seat.rule.ruleKey)) ladders.set(seat.rule.ruleKey, rungsOf(seat.rule.ruleKey));
         const { record } = await runAct(sandbox, {
           type: lineType, variant, state: decode(local.get(number) ?? s.state),
           rule: { family: seat.rule.family, params: seat.rule.params as Record<string, unknown>, tieBreaker: seat.rule.tieBreaker },
-          program: { language: agent.language, source: agent.source }, seed, energy, object: number - 1, liveObjects: snap.objects,
+          program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
           ...input, rungs: ladders.get(seat.rule.ruleKey)!,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity

@@ -121,6 +121,8 @@ const STUCK_TIE: Record<string, string> = {};
 /** Rules whose main part's top is out of reach in 25 turns of small moves from newborn lines: there it only has to rise. */
 const STUCK_MAIN: Record<string, string> = {
   "prime-staircase/first-prime": "six different primes in a row (y = 30x + 7) is far from small lines",
+  "divisibility-ladder/m-spf": "a run of 11 needs c a multiple of 27720, far from small lines",
+  "divisibility-ladder/m-gpf": "as above", "divisibility-ladder/steep": "as above", "divisibility-ladder/m-prime": "as above",
 };
 
 test("each example climbs both rungs: some line reaches the main part's top, some line's tie-breaker rises", async () => {

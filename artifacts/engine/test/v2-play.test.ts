@@ -60,16 +60,18 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
 
   const second = await perform(ada!, "agent.summon", { language: "typescript", source: tiny, name: "Second" }, scope(), "action");
   assert.equal(second.ok, true, JSON.stringify(second));
-  assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 3, [second.result.agentId]: 1 } }, scope())).ok, true);
+  // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds her own store.
+  assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0.6, [second.result.agentId]: 0.2 } }, scope())).ok, true);
   const agents = await ada!.query("v2/play:agents", { gameId });
-  assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.25, 0.75]);
-  // Naming one agent gives it what the others leave: the total never passes the player's whole power.
-  await perform(ada!, "power.allocate", { shares: { [agentId]: 1 } }, scope());
-  const shares = (await ada!.query("v2/play:agents", { gameId })).map((a: any) => a.share);
-  assert.ok(Math.abs(shares.reduce((t: number, s: number) => t + s, 0) - 1) < 1e-6, `shares ${shares}`);
-  try { await perform(ada!, "power.allocate", { shares: { [agentId]: 0 } }, scope()); assert.fail("a zero share is a destroy"); } catch (e) {
-    assert.equal((e as any).data?.error?.code, "failed");
-  }
+  assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.2, 0.6]);
+  const kept = await me(ada!);
+  assert.ok(Math.abs(kept.ownPerSecond - kept.power * 0.2) < 1e-6, `the store keeps the 20% no agent holds: ${JSON.stringify(kept)}`);
+  // Pulling power back to pay for something: the store's share (and so its income and capacity) grows.
+  await perform(ada!, "power.allocate", { shares: { [agentId]: 0.1 } }, scope());
+  assert.ok(Math.abs((await me(ada!)).ownPerSecond - kept.power * 0.7) < 1e-6, "lowering an agent's share returns that power to the store");
+  const over = await perform(ada!, "power.allocate", { shares: { [agentId]: 0.9 } }, scope()).catch((e: any) => e.data);
+  assert.equal(over.error.code, "failed", "with the other agent's 20%, 90% is more than all of Ada's power");
+  assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0 } }, scope())).error.code, "invalid_args", "a zero share is a destroy, not an allocation");
   assert.equal((await perform(ada!, "agent.destroy", { agentId: second.result.agentId }, scope())).ok, true);
   assert.equal((await ada!.query("v2/play:agents", { gameId })).length, 1);
   assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).error.code, "refused", "another player's agent");

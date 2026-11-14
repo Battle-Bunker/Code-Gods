@@ -75,7 +75,7 @@ test("a failed write leaves the world as it was", async () => {
   const { f, gameId, as } = await liveGame();
   const mine = await f.perform(as("u2"), "agent.summon", { language: "python", source: "def agent(o): pass" }) as { ok: true; result: { agentId: string } };
   const theirs = await f.perform(as("u3"), "agent.summon", { language: "python", source: "def agent(o): pass" }) as { ok: true; result: { agentId: string } };
-  const out = await f.perform(as("u2"), "power.allocate", { shares: { [mine.result.agentId]: 1, [theirs.result.agentId]: 1 } });
+  const out = await f.perform(as("u2"), "power.allocate", { shares: { [mine.result.agentId]: 0.5, [theirs.result.agentId]: 0.5 } });
   assert.ok(!out.ok && out.error.message === "That agent is not yours.");
   assert.equal(f.state.games[gameId]!.agents.find(a => a.agentId === mine.result.agentId)!.share, 1);
 });
