@@ -240,6 +240,8 @@ try {
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
+      // The price and new bits arrive after the move's words (read at once, the text was only "−1 in every cell of row 4").
+      await options.first().getByText(/→ [\d,]+\.\d\d bits?/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
       assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+ by chance\)/, `a move has its new bits: ${first}`);
