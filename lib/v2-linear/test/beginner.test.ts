@@ -77,3 +77,19 @@ test("presets: three pools over the beginner families, every named tie-breaker e
     }
   }
 });
+
+test("Prime Staircase: a repeated prime stops the run but is no near miss; no run, no first prime", () => {
+  // y = 7: 7, 7, 7, … a run of one, and no term that is not prime.
+  assert.deepEqual(terms(primeStaircase, {}, mc(0, 7)), { run: "1", "first-prime": "7", "last-prime": "7", "near-miss": "—", "step-back": "0" });
+  // y = x + 1000: 1000 is not prime, so there is no run and no first prime to grow.
+  const t = terms(primeStaircase, {}, mc(1, 1000));
+  assert.deepEqual([t.run, t["first-prime"], t["last-prime"]], ["0", "0", "0"]);
+});
+
+test("whole-number lines get whole-number distance rungs where the distance is always whole", () => {
+  const ts = (f: typeof treasure | typeof primeLanding, id: string, v: typeof lineZ) =>
+    [f.main, ...f.tieBreakers].find(l => l.id === id)!.thresholds(f.dealable(v)[0] as never, v).map(x => (x.d === 1n ? String(x.n) : `${x.n}/${x.d}`));
+  assert.deepEqual(ts(primeLanding, "landing", lineZ), ["4", "2", "1", "0"]);
+  assert.deepEqual(ts(primeLanding, "landing", lineQ), ["4", "2", "1", "1/2", "1/4", "1/8", "0"]);
+  assert.deepEqual(ts(treasure, "treasure", lineZ), ["32", "16", "8", "4", "2", "1", "0"]);
+});

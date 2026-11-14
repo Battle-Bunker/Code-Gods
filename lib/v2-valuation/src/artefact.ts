@@ -48,7 +48,7 @@ export interface Artefact {
     readonly direct: readonly (number | null)[];
     readonly levelMatrix: readonly (readonly number[])[];
     /** Per rung: [drift of the chain's rate into the next rung between the halves of its samples, in standard errors]. */
-    readonly drift: readonly (readonly [number, number] | null)[];
+    readonly drift: readonly (readonly [number, number | null] | null)[];
     /** Every rung up to this one is within the error target. */
     readonly convergedThrough: number;
   };
@@ -95,7 +95,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
       split: est.rungs.map(r => r4(r.split)), direct: est.rungs.map(r => (r.direct === null ? null : r4(r.direct))),
       levelMatrix: est.levelMatrix,
       convergedThrough: est.convergedThrough,
-      drift: est.drift.map(d => (d === null ? null : [r4(d[0]), Number.isFinite(d[1]) ? r4(d[1]) : null] as const)) as never,
+      drift: est.drift.map(d => (d === null ? null : [r4(d[0]), Number.isFinite(d[1]) ? r4(d[1]) : null] as const)),
     },
   };
   return { artefact: { ...body, contentHash: contentHash(body) }, estimate: est };
@@ -107,7 +107,9 @@ export function bitsFor(a: Artefact, score: Score): number {
   const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
   const level = levelOf(score, ladder);
   const base = a.rungs[level]!.bits;
-  // The curve interpolates between primary rungs only.
+  // The curve interpolates between main rungs, and only on a one-layer ladder: on a joint ladder the tie-breaker's rungs
+  // sit between main rungs, and a value read off the main curve alone would not follow the lexicographic order.
+  if (a.rungs.some(r => r.layer === 1)) return base;
   if (score === null || score[0] === null || level === 0 || a.rungs[level + 1]?.layer !== 0 || !a.curve?.snapped) return base;
   const t = a.primarySense === "min" ? -Qn.toNumber(score[0]!) : Qn.toNumber(score[0]!);
   const next = a.rungs[level + 1]!.bits;

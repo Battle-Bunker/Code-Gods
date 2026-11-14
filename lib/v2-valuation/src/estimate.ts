@@ -149,7 +149,6 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   // The ladder calibrated: the full one, truncated below the first rung no replicate's climb could reach (step 1).
   let rungs: readonly Rung[] = fullLadder;
   const singleSite = type.sites(type.origin(variant), variant) === 1;
-  // Where each layer starts counting: the prefix (every earlier layer at its top) of its first rung.
   // Where each layer counts for the continuity check: the main layer everywhere, the tie-breaker at the main layer's top.
   const mainTop = [...fullLadder].reverse().find(r => r.layer === 0);
   const layerPrefix: Score[] = Array.from({ length: layers }, (_, j) => (j === 0 || !mainTop?.score ? null : mainTop.score.slice(0, 1)));

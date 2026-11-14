@@ -66,7 +66,7 @@ export interface HarnessReport {
 
 // ---------------------------------------------------------------- artefacts
 
-interface ArtefactFile { family: string; params: unknown; tieBreaker: string; variant: string; status: string; rungs: { score: (string | null)[] | null; bits: number | null; layer: number; label: string }[] }
+interface ArtefactFile { family: string; params: unknown; tieBreaker: string; variant: string; status: string; rungs: { score: (string | null)[] | null; bits: number | null; layer: number; main?: number; label: string }[] }
 const ARTEFACTS = join(import.meta.dirname, "..", "..", "v2-valuation", "artefacts");
 const canonical = (x: unknown): string => JSON.stringify(x, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort()) : v));
 
@@ -83,7 +83,7 @@ export function findArtefact(variant: string, rule: HarnessPlayer["rule"]): Arte
 
 /** A score's bits on the artefact's rungs (the highest rung met; no curve between rungs). */
 function bitsOf(a: ArtefactFile, score: Score): number {
-  const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer }));
+  const ladder = a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
   if (!ladder.length) return 0;
   return a.rungs[levelOf(score, ladder)]!.bits ?? 0;
 }

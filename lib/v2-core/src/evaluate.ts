@@ -188,6 +188,7 @@ export function ruleLadder<P>(family: RuleFamily<any, P>, params: P, variant: Va
   const main = layers[0]!;
   const mainRungs = layerRungs(main, params, variant, [], 0);
   if (layers.length === 1) return [{ score: null, label: "anything", layer: -1 }, ...mainRungs];
+  if (layers.length > 2) throw new Error(`${family.id}: a dealt rule has a main layer and at most one tie-breaker (owner decision 14)`);
   const tie = layers[1]!;
   const tieTs = tie.thresholds(params, variant);
   const coarse = tieTs.length <= COARSE_TIE_RUNGS ? tieTs

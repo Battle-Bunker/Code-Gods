@@ -5,7 +5,7 @@
  * is the main layer plus one tie-breaker (decision 14 and its clarification).
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import type { LineState } from "./line.ts";
+import { lineParams, type LineState } from "./line.ts";
 import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestSquareRoot, primeFactorCount, primesBetween, smallestPrimeFactor } from "./numbers.ts";
 
 type Ctx = EvalContext<LineState>;
@@ -23,6 +23,13 @@ const atLeast = (what: string) => (t: Q) => `${what} at least ${Qn.toWire(t)}`;
 /** A distance layer: smaller is better, thresholds easiest first. */
 function distance<P>(id: string, title: string, sentence: string, rep: string, thresholds: Q[], what: string): L<P> {
   return { id, title, sentence: () => sentence, rep, sense: "min", measure: "distance", thresholds: () => thresholds, rungLabel: within(what) };
+}
+/**
+ * A distance between whole numbers on whole-number lines (y(k) to T, c or m to a prime, …): on a Z-domain variant its
+ * fractional thresholds would be rungs no line can tell apart from the next whole one, so they are dropped there.
+ */
+function whole<P>(l: L<P>): L<P> {
+  return { ...l, thresholds: (p, v) => { const ts = l.thresholds(p, v); return lineParams(v).domain === "Z" ? ts.filter(t => t.d === 1n) : ts; } };
 }
 /** A count or size layer: bigger is better. */
 function more<P>(id: string, title: string, sentence: string, rep: string, thresholds: Q[], what: string, measure: "count" | "size" = "size"): L<P> {
@@ -55,8 +62,8 @@ const staircase: Shape<object> = {
   tieBreakers: [
     more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq", primes(3, 31), "y(0)"),
     more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq", primes(5, 47), "the last prime"),
-    distance("near-miss", "the first non-prime term close to a prime", "The first term that is not prime should be as close as possible to a prime.", "seq", ds("8", "4", "2", "1", "1/2", "1/4", "1/8"), "the first miss to a prime"),
-    distance("step-back", "y(−1) close to a prime", "The term before the start, y(−1), should be as close as possible to a prime.", "seq", ds("4", "2", "1", "1/2", "1/4", "0"), "y(−1) to a prime"),
+    whole(distance("near-miss", "the first non-prime term close to a prime", "The first term that is not prime should be as close as possible to a prime.", "seq", ds("8", "4", "2", "1", "1/2", "1/4", "1/8"), "the first miss to a prime")),
+    whole(distance("step-back", "y(−1) close to a prime", "The term before the start, y(−1), should be as close as possible to a prime.", "seq", ds("4", "2", "1", "1/2", "1/4", "0"), "y(−1) to a prime")),
   ],
 };
 export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq", "si"], staircase, [{}], ctx => {
@@ -65,24 +72,28 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
   if (num(v0) === null) return allUndefined(ctx, staircase, v0, first);
   const seen = new Set<bigint>();
   let run = 0;
+  // The run stops at the first term that is not a new prime (a repeated prime stops it too); the near miss is the first
+  // term that is not prime at all, which may come later or not within twelve terms (y = 7 repeats a prime forever).
+  let stop: ElementRef | null = null;
   let miss: { ref: ElementRef; v: Q } | null = null;
-  for (let n = 0; n < 12; n++) {
+  for (let n = 0; n < 12 && (stop === null || miss === null); n++) {
     const r = ref("seq", "term", { n });
     const v = num(ctx.read(r))!;
-    if (v.d !== 1n || !isPrime(v.n) || seen.has(v.n)) { miss = { ref: r, v }; break; }
-    seen.add(v.n);
-    run++;
-    ctx.mark({ kind: "focus", ref: r });
+    const prime = v.d === 1n && isPrime(v.n);
+    if (stop === null) {
+      if (prime && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
+    }
+    if (!prime && miss === null) miss = { ref: r, v };
   }
   const back = ref("seq", "term", { n: -1 });
   const vb = num(ctx.read(back))!;
   const terms = Array.from({ length: run }, (_, n) => ref("seq", "term", { n }));
   ctx.term("run", "different primes from y(0)", q(run), terms.length ? terms : [first]);
-  ctx.term("first-prime", "y(0)", num(v0)!, [first]);
+  ctx.term("first-prime", "the first prime", run ? num(v0)! : Qn.ZERO, [first]);
   ctx.term("last-prime", "the last prime of the run", run ? q([...seen][run - 1]!) : Qn.ZERO, terms.length ? [terms[run - 1]!] : [first]);
-  ctx.term("near-miss", "distance from the first non-prime term to a prime", miss ? distanceToPrime(Qn.abs(miss.v)) : { undefined: "the first twelve terms are all different primes" }, miss ? [miss.ref] : [first]);
+  ctx.term("near-miss", "distance from the first non-prime term to a prime", miss ? distanceToPrime(Qn.abs(miss.v)) : { undefined: "the first twelve terms are all prime" }, miss ? [miss.ref] : [first]);
   ctx.term("step-back", "distance from y(−1) to a prime", distanceToPrime(Qn.abs(vb)), [back]);
-  if (miss) ctx.mark({ kind: "note", ref: miss.ref, text: "the run stops here" });
+  if (stop) ctx.mark({ kind: "note", ref: stop, text: "the run stops here" });
 });
 
 // ---------------------------------------------------------------- 2. Square Area (the owner's example 2)
@@ -112,12 +123,12 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
 
 type KT = { k: number; T: number };
 const treasureShape: Shape<KT> = {
-  main: { ...distance<KT>("treasure", "y(k) close to T", "", "table", ds("32", "16", "8", "4", "2", "1", "1/2", "1/4", "0"), "y(k) to T"),
+  main: { ...whole(distance<KT>("treasure", "y(k) close to T", "", "table", ds("32", "16", "8", "4", "2", "1", "1/2", "1/4", "0"), "y(k) to T")),
     sentence: p => `When x is ${p.k}, y should be as close as possible to ${p.T}.` },
   tieBreakers: [
     more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table", upTo(8), "different primes", "count"),
-    distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime"),
-    distance("square-start", "the y-intercept close to a square", "The y-intercept should be as close as possible to a square number.", "si", ds("8", "4", "2", "1", "1/2", "0"), "c to a square"),
+    whole(distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
+    whole(distance("square-start", "the y-intercept close to a square", "The y-intercept should be as close as possible to a square number.", "si", ds("8", "4", "2", "1", "1/2", "0"), "c to a square")),
   ],
 };
 export const treasure = family<KT>("treasure", "Treasure", ["table", "si"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
@@ -147,7 +158,7 @@ const rulerShape: Shape<object> = {
   main: distance("ruler", "distance² from (0, 0) close to a square", "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.", "norm", ds("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", "0"), "distance² to a square"),
   tieBreakers: [
     more("far", "that whole distance", "That distance should be as big as possible.", "norm", ns(2, 3, 4, 5, 6, 8, 10, 12), "the distance"),
-    distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime"),
+    whole(distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
     distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri", ds("8", "4", "2", "1", "1/2", "1/4", "0"), "the area to a square"),
   ],
 };
@@ -200,11 +211,11 @@ export const exactChange = family<W>("exact-change", "Exact Change", ["coins", "
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
 
 const landingShape: Shape<object> = {
-  main: distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si", ds("4", "2", "1", "1/2", "1/4", "1/8", "0"), "c to a prime"),
+  main: whole(distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si", ds("4", "2", "1", "1/2", "1/4", "1/8", "0"), "c to a prime")),
   tieBreakers: [
     more("big-prime", "that prime", "That prime should be as big as possible.", "si", primes(2, 31), "the prime"),
-    distance("prime-gradient", "the gradient close to a prime too", "The gradient should be as close as possible to a prime too.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime"),
-    distance("next-prime", "y(1) close to a prime too", "y(1) = m + c should be as close as possible to a prime too.", "table", ds("4", "2", "1", "1/2", "1/4", "0"), "y(1) to a prime"),
+    whole(distance("prime-gradient", "the gradient close to a prime too", "The gradient should be as close as possible to a prime too.", "si", ds("4", "2", "1", "1/2", "1/4", "0"), "m to a prime")),
+    whole(distance("next-prime", "y(1) close to a prime too", "y(1) = m + c should be as close as possible to a prime too.", "table", ds("4", "2", "1", "1/2", "1/4", "0"), "y(1) to a prime")),
   ],
 };
 export const primeLanding = family("prime-landing", "Prime Landing", ["si", "cart", "table"], landingShape, [{}], ctx => {
@@ -232,7 +243,7 @@ const rulersShape: Shape<T> = {
     sentence: p => `The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to ${p.T}.` },
   tieBreakers: [
     more("steep", "the gradient far from 1", "The gradient should be as far from 1 as possible.", "si", fracs([1, 4], [1, 2], [1, 1], [2, 1], [3, 1], [5, 1], [8, 1]), "|m − 1|"),
-    distance("prime-start", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si", ds("4", "2", "1", "1/2", "0"), "|c| to a prime"),
+    whole(distance("prime-start", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si", ds("4", "2", "1", "1/2", "0"), "|c| to a prime")),
     more("whole-values", "different whole numbers among y(−5) … y(5)", "As many of y(−5) … y(5) as possible should be different whole numbers.", "table", upTo(11), "different whole values", "count"),
     distance("whole-lamp", "the lamp's height close to whole", "The lamp's height m/(m − 1) should be as close as possible to a whole number.", "mach", ds("1/2", "1/4", "1/8", "1/16", "0"), "the lamp to whole"),
   ],
@@ -269,7 +280,7 @@ const pythShape: Shape<A> = {
     sentence: p => `The triangle the line cuts off the axes should have an area as close as possible to ${p.A}.` },
   tieBreakers: [
     distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri", ds("16", "8", "4", "2", "1", "1/2", "0"), "side² to a square"),
-    distance("prime-height", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si", ds("4", "2", "1", "1/2", "0"), "|c| to a prime"),
+    whole(distance("prime-height", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si", ds("4", "2", "1", "1/2", "0"), "|c| to a prime")),
     distance("whole-legs", "both legs close to whole numbers", "Both legs should be as close as possible to whole numbers (distances added).", "tri", ds("1/2", "1/4", "1/8", "1/16", "0"), "the legs to whole"),
   ],
 };

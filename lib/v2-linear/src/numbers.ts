@@ -99,14 +99,5 @@ export function distanceToPrime(x: Q): Q {
   return Qn.abs(Qn.sub(x, q(nearbyPrimes(x)[0]!)));
 }
 
-/** The gap from the prime p to the nearest other prime. */
-export function primeGap(p: bigint): bigint {
-  let lo = p - 1n;
-  while (lo >= 2n && !isPrime(lo)) lo--;
-  let hi = p + 1n;
-  while (!isPrime(hi)) hi++;
-  return lo >= 2n && p - lo < hi - p ? p - lo : hi - p;
-}
-
 /** Distance from x to the nearest whole number. */
 export const distanceToWhole = (x: Q): Q => Qn.abs(Qn.sub(x, q(nearestInteger(x))));
