@@ -10,7 +10,7 @@
  * Pure; no React.
  */
 import {
-  elementDecl, elementValue, evaluateObject, Qn, q, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
+  elementDecl, elementValue, evaluateObject, Qn, q, refKey, type ElementRef, type Evaluation, type Layer, type Mark, type Q, type Score, type Undef,
 } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { fmtQ, isUndef } from "./format.ts";
@@ -143,7 +143,11 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   const axisOf = (m: Extract<Mark, { kind: "candidate" }>) => (m.ref.args && "x" in m.ref.args ? "x" : m.ref.args && "y" in m.ref.args ? "y" : null);
   const termCands = e.marks.filter((m): m is Extract<Mark, { kind: "candidate" }> => m.kind === "candidate" && m.term === term.id);
   const axis = termCands.map(axisOf).find(a => a !== null) ?? null;
-  const source: Source[] = term.from.map(r => {
+  // A term read from its own reference too (the crossing and its nearest whole number) says the reference once, as the
+  // reference, not again among its sources.
+  const isRef = (r: ElementRef) => termCands.some(c => refKey({ ...c.ref, site: undefined }) === refKey({ ...r, site: undefined }));
+  const from = term.from.length > 1 && term.from.some(r => !isRef(r)) ? term.from.filter(r => !isRef(r)) : term.from;
+  const source: Source[] = from.map(r => {
     let v: Q | null = null;
     try {
       const ev = elementValue(rule.type, state, r, site);
