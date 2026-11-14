@@ -6,7 +6,7 @@
 import { Play } from "lucide-react";
 import { Link, useParams } from "wouter";
 import { roomPath } from "@/site/lib/routes";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
 import { usePaneOps } from "@/dock/open-pane";
@@ -95,11 +95,19 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
  * earned your points, what cost you, and one thing to try next game (lib/v2-views summary.tsx). It reads only what the
  * game's panes already share: Lines' skeleton by your points and its objects, the act log's tug-of-wars, your rule.
  */
+/** How many act-log moves the summary reads at most. */
+const MOVES_CAP = 1000;
+
 function EndSummary({ total }: { total: number }) {
   const header = useGame();
   const my = useMyRule();
   const ids = useObjectIds("points");
   const moves = useMoves();
+  const round = useRotationRound();
+  // Every tug-of-war of the game, not only the newest page's (a walk read "no tug-of-war" beside a 99 ⚡ fight): the act
+  // log's own pages, read on to the start of the game, up to a cap.
+  const done = moves.status === "Exhausted" || moves.results.length >= MOVES_CAP;
+  useEffect(() => { if (moves.status === "CanLoadMore" && moves.results.length < MOVES_CAP) moves.loadMore(200); }, [moves.status, moves.results.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const top = useMemo(() => ids.results.slice(0, 5).map(r => r.objectId), [ids.results]);
   const objects = useMyObjects(top);
   const summary = useMemo(() => {
@@ -115,8 +123,11 @@ function EndSummary({ total }: { total: number }) {
         return { number: i.number, withNames: others.map(([, n]) => n), flips: i.flips, mySpend: i.mySpend, practice, ...(best ? { best } : {}) };
       })()]
       : []));
-    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total });
-  }, [my, header, objects, moves.results, total]);
+    // In a rotation that goes on, the next game deals another rule: the advice is the lesson, not this game's line.
+    const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
+    const partial = moves.status !== "Exhausted" ? moves.results.length : null;
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: partial });
+  }, [my, header, objects, moves.results, moves.status, total, round]);
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(header?.phase ?? "ended");
   const onOpen = async (id: string | undefined) => {
@@ -125,6 +136,6 @@ function EndSummary({ total }: { total: number }) {
     catch (e) { toast({ title: `The ${objectWord(header?.variant).one} did not open`, description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
   };
   // Said only once the page and its objects have loaded: an empty list read "no line scored" to a player with points.
-  if (!summary || ids.status === "LoadingFirstPage" || objects.some(o => o === undefined)) return null;
+  if (!summary || !done || ids.status === "LoadingFirstPage" || objects.some(o => o === undefined)) return null;
   return <div data-testid="results-summary"><GameSummary summary={summary as never} rule={my!.rule as never} value={my!.bits ?? undefined} onOpen={id => void onOpen(id)} /></div>;
 }

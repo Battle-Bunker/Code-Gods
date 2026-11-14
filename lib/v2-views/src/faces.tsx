@@ -12,7 +12,7 @@ import { useMemo, useState, type ReactElement } from "react";
 import { representation, type ElementRef, type Mark, type ObjectType, type Score } from "@workspace/v2-core";
 import { annotate, type Annotation, type Part, type RuleRef } from "./annotate.ts";
 import { BITS_HELP, chanceText, fmtBits, fmtEnergy } from "./format.ts";
-import { moves, type Move } from "./moves.ts";
+import { holdHere, moves, type Move } from "./moves.ts";
 import { markRefs, nounOf } from "./refs.ts";
 import { ObjectChip, RepView } from "./rep-view.tsx";
 import { key } from "./render/common.tsx";
@@ -252,6 +252,8 @@ export interface ExpandedFaceProps<S, P> {
   readonly compare?: string | null;
   readonly onActive?: (rep: string) => void;
   readonly onCompare?: (rep: string | null) => void;
+  /** The line is contested (a tug-of-war): "Hold it here" comes first, with the settings that hold it (its number). */
+  readonly hold?: { readonly number: number };
 }
 
 export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement {
@@ -329,7 +331,20 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
         {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
-        {props.improvement !== false && <MovesList list={list} noun={a.noun} />}
+        {props.improvement !== false && (() => {
+          const hold = props.hold ? holdHere(rule.type, state, props.hold.number) : null;
+          const moves = <MovesList list={list} noun={a.noun} />;
+          return hold
+            ? <div className="v2v-moves-col">
+                <div className="v2v-hold" data-testid="hold-it-here">
+                  <h4 className="v2v-moves-title">Hold it here</h4>
+                  <p>{hold.why}</p>
+                  <p className="v2v-hold-code">In your agent's code: <code>{hold.code}</code></p>
+                </div>
+                {moves}
+              </div>
+            : moves;
+        })()}
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>
