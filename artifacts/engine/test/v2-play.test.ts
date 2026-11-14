@@ -31,7 +31,8 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   const rule = await ada!.query("v2/play:myRule", { gameId });
   const [simple] = startersFor(rule.family, "typescript");
   // It tells its owner what the line was worth to it (myScore's bits, from the value function the tick passes).
-  const tiny = "function agent(offer) {\n  offer.note(\"bits \" + offer.myScore().bits);\n  return [call(\"si.shift\", { k: 1 })];\n}\n";
+  // And what the line is worth to the others now (othersAfter's `before`, from their value functions the tick passes).
+  const tiny = "function agent(offer) {\n  offer.note(\"bits \" + offer.myScore().bits);\n  offer.note(\"others \" + offer.othersAfter([call(\"si.shift\", { k: 1 })]).before);\n  return [call(\"si.shift\", { k: 1 })];\n}\n";
   const checked = await perform(ada!, "agent.check", { language: "typescript", source: simple!.source }, scope(), "action");
   assert.equal(checked.ok, true, JSON.stringify(checked));
   assert.ok(["works", "warns"].includes(checked.result.verdict), checked.result.summary);
@@ -154,6 +155,8 @@ test("pause once, resume by the owner, end by the owner", async () => {
     if (m.mine) {   // Ada's one agent, which notes its bits on every move
       const bits = Number(/^bits (\S+)$/.exec(m.notes[0] ?? "")?.[1]);
       assert.ok(Math.abs(bits - m.before.rarityBits) < 1e-6, `the agent's worth agrees with the server's (decision 23): ${m.notes[0]} vs ${m.before.rarityBits}`);
+      const others = Number(/^others (\S+)$/.exec(m.notes[1] ?? "")?.[1]);
+      assert.ok(Math.abs(others - m.before.want) < 1e-6, `the others' worth the agent sees is the server's: ${m.notes[1]} vs ${m.before.want}`);
     }
   }
   assert.ok(energy.settledAt >= (energy.lastActAt ?? 0) && energy.perSecond > 0, `an agent's energy is settled to the world clock: ${JSON.stringify(energy)}`);

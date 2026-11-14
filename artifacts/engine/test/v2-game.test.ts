@@ -124,6 +124,8 @@ test("re-executing every act from its recorded inputs gives the same act", { tim
       program: { language, source: sources.get(key)! }, seed: d.seed, energy: d.energy, object: d.number, liveObjects: d.liveObjects,
       // What the agent was told of its owner's stake (recorded), and the dealt rule's value function (from the bundle).
       ...(d.input ?? {}), values: valueFn(rule.ruleKey),
+      // The other seats' rules and value functions (their othersAfter), in seat order, from the bundle.
+      others: [...rules.values()].filter((p: any) => p.memberId !== d.memberId).map((p: any) => ({ rule: { family: p.family, params: p.params, tieBreaker: p.tieBreaker }, values: valueFn(p.ruleKey) })),
     });
     const same = (r: ActRecord | any) => ({ outcome: r.outcome, after: r.after, charge: r.charge, calls: r.calls.map((c: any) => [c.mutator, c.site, c.args]), readBits: r.readBits, notes: r.notes ?? [] });
     assert.deepEqual(same(record), same(d), `act ${d.n}`);
