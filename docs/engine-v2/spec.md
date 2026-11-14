@@ -19,19 +19,23 @@ worth under the walk's stationary law.
 2. **The object is the line** (or a tuple of lines, a variant parameter). Its canonical state is exact (integers);
    every written form is a representation computed from it, with rational elements.
 3. **Representations name elements**: coordinates (written by mutators), derived quantities and dynamic elements made
-   from a rule's parameters. Rules compute their score from elements through an evaluation context that records every
-   term, and their annotation is built from those same recorded terms, so the picture and the score cannot disagree.
+   from a rule's parameters. A rule is a **ladder of two layers**: a main layer in school-textbook terms, then one
+   tie-breaker chosen from the family's alternatives, which counts once the main layer is at its top; every layer a graded quantity, never a yes/no test. Rules compute each layer
+   from elements through an evaluation context that records every term, and their annotation is built from those same
+   recorded terms, so the picture and the score cannot disagree.
 4. **Mutators belong to representations and are priced by their code length** (which mutator, where, the argument),
-   plus a **confining surcharge**: the bits by which the state's read length grows. The price list is a probability law
-   over calls, and it drives both what agents pay and the walk.
+   plus a **confining surcharge**: the bits by which the state's read length grows. Confinement is a principle of every
+   price list (owner decision 11): each object type has a gravitational centre, the state that is cheapest to write, and
+   moving away from it costs more than coming back. The price list is a probability law over calls, and it drives both
+   what agents pay and the walk.
 5. **Value is the stationary law of the walk.** For each rule (family, parameters, variant), an offline estimator
    samples states inside each rung of the rule's score ladder, perturbs them with one walk step, builds the
    rung-to-rung matrix and takes its stationary vector. A rung's value is minus log2 of the stationary mass at least that
    good. Runs stop at a 2% error or a compute budget; results are fitted to curves and snapped; the artefact is a
-   committed JSON file the server looks values up in. Unconverged rules go on the too-hard backlog and are not dealt.
+   committed JSON file the server looks values up in. Unconverged or too-coarse rules go on the backlog and are not dealt.
 6. **Points** are as before: own bits times the sum of the other players' bits, per object, summed over objects.
-7. **Everything else is new and small**: new Convex tables, an append-only event log that replays by folding, per-viewer
-   value documents, and a `/v2` route tree in the web app.
+7. **Everything else is new and small**: new Convex tables, an append-only event log that replays by folding, and
+   per-viewer value documents. How the existing app moves onto v2 data is `docs/engine-v2/integration-plan.md`.
 
 ### 0.1 Why this architecture, and not the brainstorm alternatives
 
@@ -63,7 +67,8 @@ fails on such an import. `@workspace/ui-kit` (generic components) may be used by
 | `lib/v2-agents` | the agent host: offers, priced queries, quotes, call parsing, act charge; the guest libraries for Python and TypeScript (thin: transport and a rational helper, no rule logic); the example agents | v2-core, v2-sandbox |
 | `lib/v2-economy` | power, capacity, energy, offer selection, act charge (copied and cleaned from `game-core/energy.ts` and `docs/energy-model.md`) | v2-core |
 | `lib/v2-views` | React renderers per scene kind (§11), the marks layer, compact and expanded object views, the goal card | v2-core, ui-kit |
-| `artifacts/engine/convex/v2/` | v2 tables, tick, rooms, deal, queries (§10) | v2-linear, v2-valuation, v2-agents, v2-economy |
+| `lib/v2-affordances` | the one directory of operations (owner decision 16): every operation defined once (`defineOp`) and the assistant tools, MCP, CLI, command palette and buttons generated from it; integration plan §2.5 | v2-core |
+| `artifacts/engine/convex/v2/` | v2 tables, tick, rooms, deal, queries (§10); each operation a separate Convex function behind its affordance | v2-linear, v2-valuation, v2-agents, v2-economy, v2-affordances |
 | `artifacts/player-web/src/v2/` | the `/v2` pages | v2-views, v2-linear |
 
 Packages follow the workspace's conventions: `type: module`, `exports` pointing at `src/index.ts`, tests with
@@ -122,7 +127,7 @@ needs.
 | Code | Domain | Length in bits |
 |---|---|---|
 | `gamma(n)` (Elias gamma) | n ≥ 1 | 2⌊log2 n⌋ + 1 |
-| `int(n)` | n ∈ ℤ | gamma(zigzag(n) + 1), zigzag(n) = 2n for n ≥ 0, −2n − 1 for n < 0 (0 → 1 bit, ±1 → 3, ±2, ±3 → 5, ±4 → 7 or 5) |
+| `int(n)` | n ∈ ℤ | gamma(zigzag(n) + 1), zigzag(n) = 2n for n ≥ 0, −2n − 1 for n < 0 (0 → 1 bit, ±1 → 3, ±2, ±3 → 5, ±4 … ±7 → 7) |
 | `nonzero(n)` | n ∈ ℤ, n ≠ 0 | 1 + gamma(\|n\|) (±1 → 2 bits, ±2, ±3 → 4, ±4..±7 → 6) |
 | `rat(p/q)` | lowest terms, q ≥ 1 | int(p) + gamma(q) |
 | `nonzeroRat(p/q)` | p ≠ 0 | nonzero(p) + gamma(q) (sampling draws p and q independently and returns nothing when gcd ≠ 1: that remainder is the walk staying put) |
@@ -141,7 +146,44 @@ of the walk's state. The birth walk's generator is derived from the game seed (�
 from the mixing time the calibration measured (the artefact records the integrated autocorrelation time of the walk's
 level process; the variant uses four times the largest over its rules).
 
-### 2.5 Collisions and identity
+### 2.5 Confinement and the gravitational centre (owner decision 11)
+
+"It lets us have infinite state spaces with sort of gravitational centres that are expensive to depart from which
+naturally provides dimensions to define higher utility/energy with respect to as well." So, for every object type and
+every variant, bounded ones included:
+
+- **The number code is declared.** `readLength(state, variant)` is the state's description length under the type's
+  number code (§2.3: `int` for integers, `rat` for rationals). It is a prefix code, so 2^−φ sums to at most 1 over the
+  domain.
+- **The gravitational centre is the state (or states) of shortest read length**, and `origin(variant)` returns one of
+  them. Birth walks start there (§2.4) and calibration climbs from there (§7.2).
+- **Every mutator's price is a base plus the growth in description length** (§5.2): `max(0, φ(s′) − φ(s))`. Moving
+  outward costs more than coming back, so the walk has a stationary law and a state's energy is, up to the price list's
+  lopsidedness, its description length. There is no flat uniform law for finite boards: a bounded variant is confined
+  exactly like an unbounded one, and its bounds only refuse calls past them.
+- **Rules may be defined relative to the centre.** Distance from the centre (a coefficient's size, a denominator, a
+  number's prime factors) is a natural axis of utility, because it is the axis along which states get rarer; the
+  secondary layers of §12.5 use it ("the bigger that prime, the better", "x(q) nearly whole").
+
+**The line over the rationals, and mixed costing (owner decision 17).** The centre is y = 0: the triple (0, 1, 0) on the
+Q domain, (m, c) = (0, 0) on Z. The number code is **mixed** ("Use mixed costing now"): a whole number is written by its
+prime factorisation, each prime p costing `STEP · p` bits with STEP = 1/2, so
+
+```
+mixedPos(n) = STEP · Σ_{p^e ∥ n} e·p + log2 Z,     Z = Π_p 1 / (1 − 2^(−STEP·p))  (log2 Z ≈ 2.10)
+mixedInt(0) = 1,   mixedInt(±n) = 2 + mixedPos(n)
+```
+
+Its Kraft sum is exactly 1, so it is normalisable on the unbounded domains (and on the triples of the Q domain, a
+subset). A large prime is dear and a large smooth number cheap: 23 costs 15.6 bits and 24 costs 8.6; 47 costs 27.6 and 48
+costs 9.6. A number's energy is roughly its shortest arithmetic description. `φ(line)` is mixedInt(m) + mixedInt(c) on Z
+and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q. Measured (`pnpm --filter @workspace/v2-valuation law`): on `line-z` the
+line's largest number is at most 2, 20 and 162 for 50%, 90% and 99% of the stationary mass (on `line-q` 1, 12 and 81),
+and 24 is about 200 times commoner than 23. The constant STEP sets how strong gravity is: the earlier Elias-gamma
+("digits") code made size cost only logarithmically (#347's doubling code), and a steps-only code would make size cost
+linearly whatever its factors; number-codes.md records the comparison.
+
+### 2.6 Collisions and identity
 
 There is no uniqueness constraint between objects: two objects may hold the same state. Each object is an independent
 universe, and a mutation never fails because another object holds the result. (Decision 5 asks for collisions of
@@ -150,7 +192,7 @@ interest on few degrees of freedom; one line per object gives exactly that.)
 ## 3. The representation contract
 
 ```ts
-export type SceneKind = "equation" | "plane" | "table" | "sequence" | "machine" | "pegboard" | "grid";
+export type SceneKind = "equation" | "plane" | "table" | "sequence" | "machine" | "pegboard" | "grid" | "dial" | "rulers";
 
 export interface Representation<S> {
   readonly id: string;                                  // "si"
@@ -158,7 +200,9 @@ export interface Representation<S> {
   readonly scene: SceneKind;
   readonly perSite: boolean;                            // true: one view per line; false: one view of the whole object
   readonly elements: readonly ElementDecl<S>[];
-  layout(state: S, site: number): SceneData;            // what the renderer draws (§11), every primitive tied to an element
+  // What the renderer draws (§11), every primitive tied to an element. `args` are the rule's parameters, for lenses a
+  // rule parameterises (a modulus, a jar size); a representation that takes none ignores them.
+  layout(state: S, site: number, args?: ArgValues): SceneData;
 }
 
 export interface ElementDecl<S> {
@@ -175,10 +219,15 @@ export type ElementValue =
   | { kind: "number"; q: Q }
   | { kind: "point"; x: Q; y: Q }
   | { kind: "segment"; from: { x: Q; y: Q }; to: { x: Q; y: Q } }
+  | { kind: "polygon"; points: readonly { x: Q; y: Q }[] }      // a region: cut pieces, a crate, the intercept triangle
+  | { kind: "path"; points: readonly { x: Q; y: Q }[] }         // an open polyline: a bounce path, a cobweb
   | { kind: "symbol"; text: string }
   | { kind: "undefined"; reason: string };            // "a horizontal line never meets the x-axis"
 
-export interface ElementRef { rep: string; name: string; site?: number; args?: Record<string, string> } // args as Q wire "p/q"
+// Arguments travel as strings: a rational ("p/q") for domain Z or Q, or a plain word for domain "name".
+export interface ElementRef { rep: string; name: string; site?: number; args?: Record<string, string> }
+// ParamDecl.domain is "Z" | "Q" | "name"; a Z parameter may declare `max(state)` for a state-dependent count
+// (way(k) for k < the number of ways, letter(i)).
 ```
 
 - **Static elements** are coordinates and derived elements: no parameters. **Coordinates** are the elements a
@@ -187,8 +236,10 @@ export interface ElementRef { rep: string; name: string; site?: number; args?: R
   agent (`mach.out(q)`, `cart.yAxisMark(y)`): this is how a rule makes "the point at x = q" or "the prime 7 on the y axis"
   into something it can score and draw.
 - **Undefined is a value, not an error.** A representation that cannot express a state (slope-intercept of a vertical
-  line) gives `undefined` with a sentence for every element. A rule that reads an undefined element in a score term
-  scores WORST (§4.2); its annotation shows the sentence.
+  line) gives `undefined` with a sentence for every element. A rule whose primary layer reads an undefined element
+  scores WORST; an undefined secondary layer ranks last in its own component (§4.2); the annotation shows the sentence.
+- **Elements are exact; drawing may not be.** Element values are rational. A layout may carry floating-point positions
+  for drawing only (an irrational chord end, a tangent foot), never cited by a score.
 - **`meaning`** links elements that are the same quantity in different representations (`si.c`, `cart.yInt`,
   `mach.out(0)`, `table.y(0)` all have meaning `yIntercept`; dynamic elements match on meaning and arguments). The views
   cross-highlight by meaning (§11.3). A unit test checks that elements sharing a meaning have equal values on a corpus.
@@ -204,61 +255,100 @@ interface ViewReply { rep: string; site: number; elements: Record<string, Elemen
 interface ElementReply { ref: ElementRef; value: ElementValue; bits: number }
 ```
 
-- `bits` is the information read: the sum, over the representation's **coordinates**, of the code length of their
-  values (`rat` for a number, both coordinates for a point, 1 bit for an undefined element). Derived elements of the same
-  representation come with it free: they are functions of the coordinates, which the agent could compute itself.
+- `bits` is the information read: the sum of the code lengths of the **values returned** (every static element of the
+  view: `rat` for a number, both coordinates for a point, every vertex of a segment, polygon or path, 8 bits per
+  character of a symbol, 1 bit for an undefined element). A view with no coordinates is not free: `table` reveals the
+  line through its values and pays for them.
 - A single element costs the code length of its value.
-- Within one act, a repeated query is free, and the bits charged for one representation never exceed that
-  representation's full read; the bits charged for the whole act never exceed `readLength` of the state plus the bits of
-  dynamic elements asked for (an agent that reads everything pays one full read, however it asks).
+- **Caps.** Within one act a repeated query is free; the bits charged for the static views of one line never exceed
+  `readLength` of that line (an agent that reads everything pays one full read, however it asks, even where the view's
+  `rat` codes would sum to more, as `si` on the Z domain does by one bit per coordinate); dynamic elements are charged
+  on top, each at its value's code length.
+- The read receipt travels on the reply envelope, `{ ok: true, result, bits }`, for every query, including `quote`,
+  whose `result.bits` are prices, not read bits (§6.3).
 
 ## 4. The rule contract
 
-### 4.1 Families, parameters, the card
+### 4.1 Families, layers, parameters, the card
+
+A rule is a **ladder of layers** (owner decisions 12–14). The main layer is what a 12-year-old following a standard
+linear-equations course can read (gradient, intercepts, substitution, a table of values); each later layer is a
+tie-breaker that only counts once every earlier layer is at its top, and may be more advanced. Every layer is a graded
+quantity with a direction (a distance, a count, a size) and many attainable values, never a yes/no test: "binary
+decisions are worthless for extending the ladder".
 
 ```ts
+export interface Layer<P> {
+  readonly id: string;                                   // also the id of the term that measures it
+  readonly title: string;                                // "gradient close to a prime"
+  sentence(params: P): string;                           // the card's sentence for this layer
+  readonly rep: string;                                  // the representation the layer is read in (its compact view)
+  readonly sense: "min" | "max";                         // smaller is better (a distance) or bigger is better
+  readonly measure: "distance" | "count" | "size";       // which curve calibration fits (§7.4)
+  thresholds(params: P, variant: Variant): readonly Q[]; // rung thresholds, easiest first; the last is the layer's top
+  rungLabel(threshold: Q, params: P): string;            // "gradient to a prime within 1/4"
+}
+
 export interface RuleFamily<S, P> {
   readonly id: string;                                   // "prime-gradient"
   readonly title: string;                                // "Prime Gradient"
-  card(params: P): string;                               // one sentence a 12-year-old can read
+  card(params: P, tieBreaker: string | null): string;    // the main sentence, then the dealt tie-breaker's
   readonly params: readonly ParamDecl[];                 // named, typed parameters
   dealable(variant: Variant): readonly P[];              // the finite grid of parameter values a deal draws from
   readonly depends: readonly string[];                   // representation ids, in the order the expanded view shows them
-  readonly primary: string;                              // one of depends: the compact view
-  evaluate(ctx: EvalContext<S>, params: P): void;        // reads elements, records terms, sets the score, adds marks
-  ladder(params: P, variant: Variant): readonly Rung[];  // §4.4
+  readonly main: Layer<P>;                               // the main layer (its rep is the compact view)
+  readonly tieBreakers: readonly Layer<P>[];             // alternative secondaries; a dealt rule picks one
+  evaluate(ctx: EvalContext<S>, params: P): void;        // reads elements, records every layer's term, adds marks
+  examples?(params: P, variant: Variant): readonly S[];  // worked examples for the goal card (integration plan §5.7)
 }
+type TieBreaker = string | null;                         // a dealt rule's choice; null: the main layer alone
 ```
 
-A rule is `{ family, params }`; a dealt rule also names the variant, and `ruleKey = family.id + canonical JSON of params
-+ variantKey + objectType.version` identifies its artefact (§7.6).
+- **A family offers several tie-breakers; a dealt rule uses one** (decision 14 and its clarification: "I will want
+  several secondary rule candidates within each family"). A dealt rule is `{ family, params, tieBreaker }`: the main
+  layer plus that tie-breaker, never a third layer. Each (family, params, tie-breaker, variant) has its own artefact, and
+  `ruleKey` = object type and version + variant and its hash + family + canonical params + `tb=<id>` identifies it (§7.6).
+  The deal picks the tie-breaker as it picks parameters (W3-3 decides the distribution; uniform over converged ones).
+- **Continuity is checked, not trusted.** Calibration counts the distinct values each dealt layer takes among the samples
+  where it counts (the main layer everywhere, the tie-breaker where the main layer is at its top); a layer with fewer
+  than `minLevels` (default 6) makes the rule **too coarse**, and it goes on the backlog (§7.5) whatever its values.
+- **Ordering and value.** Scores compare as plain lexicographic tuples (coordinator's call (f): no gating), so the
+  tie-breaker orders lines at every main level. The ladder that values a rule puts the tie-breaker's rungs at the main
+  layer's top, so bits from the tie-breaker are earned once the main layer is met.
 
 ### 4.2 Evaluation: score and annotation from the same terms
 
 ```ts
 export interface EvalContext<S> {
-  readonly state: S; readonly sites: number;
+  readonly state: S; readonly site: number; readonly variant: Variant;
   read(ref: ElementRef): ElementValue;                   // records the read; rejects refs outside `depends`
   term(id: string, label: string, value: Q | Undef, from: readonly ElementRef[]): TermId;  // a named quantity
-  score(components: readonly { term: TermId; sense: "max" | "min" }[]): void;            // exactly once
   mark(mark: Mark): void;                                // marks may only cite refs read and terms recorded here
 }
 export type Undef = { undefined: string };
+export type Score = readonly (Q | null)[] | null;        // one component per dealt layer, bigger is better
 
 export interface Evaluation {
-  score: Score;                                          // readonly Q[] (bigger is better), or null = WORST
-  terms: readonly Term[]; marks: readonly Mark[]; reads: readonly ElementRef[];
+  score: Score; terms: readonly Term[]; marks: readonly Mark[]; reads: readonly ElementRef[];
 }
 ```
 
-- The engine's `evaluate(rule, state)` builds the context, calls the family and returns the `Evaluation`. Every score
-  component is the value of a recorded term (negated for `min`); if any is undefined the score is WORST. A mark that cites
+- The engine's `evaluateSite(type, family, params, state, variant, site, tieBreaker)` builds the context, calls the family
+  and makes the score itself: component 0 is the main layer's term, component 1 the dealt tie-breaker's (negated for
+  `min`); `Evaluation.components` names them, for the views' "main part" and "tie-breaker". The
+  family cannot set a score any other way, so the score is made of recorded terms and of nothing else. A mark that cites
   an element not read, or a term not recorded, throws. So the picture is built from the very numbers the score is made
   of; there is no second computation to disagree with.
-- Scores compare lexicographically; WORST is below everything. `compareScores(a, b)` is in v2-core.
+- **Undefined, per component.** An undefined primary makes the score WORST (`null`), below everything. An undefined
+  secondary is a `null` component that ranks last in its own component only (a line that meets the primary but has no
+  intercept triangle still beats one that misses the primary).
+- **Saturation.** The main layer saturates at its top when a tie-breaker is dealt: a "bigger is better" layer past its top threshold
+  scores as its top. Beyond its top a layer only opens the next one, so a state past an earlier top neither outranks nor
+  skips the rungs of the layers after it.
+- Scores compare lexicographically; `compareScores(a, b)` and `meets(score, threshold)` are in v2-core.
 - A family evaluates one line when `sites = 1`. For variants with k lines a family is evaluated per line and the object's
-  score is `[Σ_lines rungIndex(line score)]` followed by the per-line scores sorted best first (§12.6). Calibration is
-  per variant, so the k-line score has its own artefact.
+  score is `[Σ_lines level(line score)]` followed by the per-line primary components sorted best first (§12.6).
+  Calibration is per variant, so the k-line score has its own artefact (`objectLadder`).
 
 ### 4.3 Marks
 
@@ -267,21 +357,28 @@ export type Mark =
   | { kind: "focus"; ref: ElementRef }                                       // this element counts
   | { kind: "measure"; from: ElementRef; to: ElementRef; term: TermId }      // a distance, labelled with a term's value
   | { kind: "candidate"; ref: ElementRef; term?: TermId }                    // a nearby target (a prime on the y axis)
-  | { kind: "note"; ref: ElementRef; text: string };                         // short words beside an element
+  | { kind: "note"; ref: ElementRef; text: string }                          // short words beside an element
+  | { kind: "shade"; ref: ElementRef; term?: TermId }                        // a polygon element shaded (an area that counts)
+  | { kind: "trace"; ref: ElementRef }                                       // a path element drawn as a route
+  | { kind: "match"; a: ElementRef; b: ElementRef; term?: TermId };          // "these two are the same" (or should be)
 ```
 
-Example: Y-intercept Prime on `y = ½x + 5½` reads `cart.yInt` (11/2), makes dynamic elements `cart.yAxisMark(y=5)` and
-`cart.yAxisMark(y=7)`, records terms `d5 = 1/2`, `d7 = 3/2`, `dist = 1/2`, scores `min dist`, and marks `focus yInt`,
-`candidate yAxisMark(5) (d5)`, `candidate yAxisMark(7) (d7)`, `measure yInt → yAxisMark(5) (dist)`. The plane draws the
-two primes as ticks on the y axis with their distances, the nearer one bold.
+`shade`, `trace` and `match` come with polygon and path element values (§3) and are what brainstorm E (#352) needs to
+draw its lenses; v2-core's `Mark` type gains them with the first family that uses them.
+
+Example: Prime Gradient on `y = 4x − 3` reads `si.m` (4), makes dynamic elements `cart.ghost(g=3)` and
+`cart.ghost(g=5)` (the lines of gradient 3 and 5 through the same y-intercept), records `d3 = 1`, `d5 = 1`, the primary
+`near = 1` and the secondary `prime = 3`, and marks `focus si.m` and the two ghosts as candidates with their distances.
 
 ### 4.4 The ladder
 
-A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). A state's **level** is the index of
-the highest rung whose score it meets or beats. Ladders are what make infinite score sets calibratable: a distance rule
-on rational lines declares thresholds such as `d ≤ 8, 4, 2, 1, 1/2, 1/4, 0` (as scores `−8 … 0`). Rungs must be strictly
-nested in practice: the calibration drops a rung whose level is empty on its samples and reports it. The ladder is also
-what the goal card shows as "steps to the top".
+A **ladder** is an ascending list of rungs; rung 0 is `{ score: null }` (everything). The main layer's rungs come from its
+thresholds; the tie-breaker's rungs are its thresholds prefixed with the main layer's top. `layerLadders` gives each
+layer's own single-component ladder, which the card shows as "main part: step 5 of 8, tie-breaker: step 2 of 3". A state's **level**
+is the index of the highest rung whose score it meets or beats (`ruleLadder`, `levelOf`). Ladders are what make
+infinite score sets calibratable: a distance layer on rational lines declares thresholds such as `8, 4, 2, 1, 1/2,
+1/4, 1/8, 0`. The calibration reports rungs that no sample reached at their level. The ladder is also what the goal
+card shows as "steps to the top", and its layers are what the views call "main part" and "tie-breaker".
 
 ## 5. The mutator contract
 
@@ -301,7 +398,10 @@ export interface Mutator<S, A> {
     | { kind: "partial"; id: string; args(a: A): A; note: string }   // undone where the result is defined
     | { kind: "none"; note: string };                    // gen.nudge: renormalisation loses the scale
 }
-export interface ArgCode<A> { bits(a: A): number; sample(rng: Rng): A | null; encode(a: A): unknown; decode(w: unknown): A }
+export interface ArgCode<A> {
+  bits(a: A): number; sample(rng: Rng): A | null; encode(a: A): unknown; decode(w: unknown): A;
+  enumerate?(maxBits: number): Iterable<A>;             // every argument up to a price, cheapest first (spec PR 5)
+}
 export interface Call { mutator: string; site: number; args: unknown }      // the wire form an agent returns
 ```
 
@@ -313,8 +413,14 @@ For a call `a` made on state s with result s′ in a variant with N mutators and
 W(a, s) = log2 N + (perSite ? log2 k : 0) + args.bits(a) + max(0, φ(s′) − φ(s))
 ```
 
-The first three terms are the call's code length: which mutator, where, the argument. The last is the **confining
-surcharge** (call (b)): arriving at a state that takes more bits to read costs those extra bits. Prices are of the call
+The first three terms are the call's code length: which mutator, where, the argument. **Mixed costing** (owner decision
+17) decides the argument code: an amount added (a shift, a tilt, a step, a slide, a nudge, an intercept move, a pivot's
+anchor) is priced by **steps**, `1 + STEP·(|n| − 1) + G` bits for a nonzero integer n with G = −log2(1 − 2^−STEP), and
+`1 + STEP·(|p| − 1) + STEP·(q − 1) + 2G` for a nonzero rational p/q (an amount that may be 0 adds one bit for "zero or
+not"); a factor (a stretch) is priced by **digits**, its gamma code `nonzero(p) + gamma(q)`, and its inverse 1/f costs the
+same; choices (an axis, a coefficient) cost log2 of their number. Every multiplicative move keeps its inverse, so the walk
+is confined in both directions. The last term is the **confining
+surcharge** (owner decision 11, §2.5): arriving at a state that takes more bits to read costs those extra bits. Prices are of the call
 as made, never of the cheapest call with the same effect (the brainstorms agree: otherwise the engine does the lens
 switching for the player). A call whose result equals its input is refused.
 
@@ -383,8 +489,9 @@ may not ask for other players' scores or values.
 - `quote(calls)` → `{ valid, reason?, bits: number[], total, charge }`: what the calls would cost on the offered state, in
   order, without the resulting state. It reveals nothing the agent could not compute from a full read and the price list,
   except the surcharge, which depends on the result: a quote of an unread state therefore charges, once per act, the read
-  bits of the representation the first quoted mutator belongs to, as if it had been viewed.
-- `budget()` → `{ energy, readPrice: 1/κ, beta, hostCallsLeft, stepsLeft }`.
+  bits of the first representation in the first quoted mutator's `reps`, as if it had been viewed.
+- `budget()` → `{ energy, readPrice: 1/κ, beta, hostCallsLeft }`. (No steps left: the host cannot read the guest's step
+  count during a channel call without re-entering the interpreter.)
 
 ### 6.4 The API in TypeScript and Python
 
@@ -395,7 +502,7 @@ interface Offer {
   view(rep: string, site?: number): Record<string, Value>;      // Value = Q | Point | string | Undefined
   element(rep: string, name: string, args?: Record<string, Q | number>, site?: number): Value;
   myRule(): { family: string; params: Record<string, unknown>; card: string };
-  myScore(): { score: Q[] | null; level: number; top: number; terms: { id: string; value: Q | null }[] };
+  myScore(): { score: (Q | null)[] | null; level: number; top: number; terms: { id: string; value: Q | null }[] };
   quote(calls: Call[]): { valid: boolean; reason?: string; bits: number[]; total: number; charge: number };
   budget(): { energy: number; readPrice: number; beta: number; hostCallsLeft: number };
 }
@@ -403,7 +510,8 @@ declare function call(mutator: string, args: Record<string, unknown>, site?: num
 ```
 
 ```python
-# Python guest (lib/v2-agents/guest/codegods.py); numbers are fractions.Fraction, undefined is None plus .why
+# Python guest (lib/v2-agents/guest/codegods.py); numbers are fractions.Fraction; an undefined element is an
+# `Undefined` value: falsy, equal to None, with `.why` (None itself cannot carry the sentence)
 def agent(offer):
     v = offer.view("si")            # v.m, v.c are Fractions
     s = offer.my_score()            # s.score, s.level, s.top, s.terms
@@ -420,12 +528,15 @@ The sandbox (`lib/v2-sandbox`, a copy of `lib/game-runtime`) gains one capabilit
 between guest and host, carrying one JSON object each way (at most 16 KiB).
 
 - **QuickJS:** a host function `__host(requestJson: string): string` installed before the agent's program runs.
-- **Python (WASI CPython):** a preopened file descriptor 3. The guest library writes a length-prefixed request with
-  `os.write(3, …)` and reads the reply with `os.read(3, …)`; the host's WASI `fd_write` and `fd_read` implementations for
-  descriptor 3 handle the request between the two calls. No change to the pinned CPython build or bundle is needed: the
-  guest library ships as the act's prelude, as today's preludes do.
-- **Messages:** `{ op: "view" | "element" | "myRule" | "myScore" | "quote" | "budget", ... }` → `{ ok: true, ... } |
-  { ok: false, error }`. Rationals travel as strings `"p/q"`. The host counts calls against the cap and charges reads.
+- **Python (WASI CPython):** a preopened file descriptor 3. Agents may not import `os` (the module allowlist), so the
+  trusted prelude installs a `__host(request)` function that writes a length-prefixed request with `os.write(3, …)` and
+  reads the reply with `os.read(3, …)`; the host's WASI `fd_write` and `fd_read` implementations for descriptor 3 handle
+  the request between the two calls, and the guest library calls `__host` only. No change to the pinned CPython build
+  or bundle is needed: v2-sandbox runs the bundle file game-runtime builds, with its own cleaned guest code as prelude.
+- **Messages:** `{ op: "view" | "element" | "myRule" | "myScore" | "quote" | "budget", ... }` → `{ ok: true, result,
+  bits } | { ok: false, error }`, where `bits` is the read receipt of every op (§3.1). Rationals travel as strings
+  `"p/q"`. The host counts calls against the cap and charges reads. The wire types live in `lib/v2-sandbox/src/agent-api.ts`
+  until v2-agents takes them over from v2-core.
 - **Determinism:** replies are pure functions of the offered state, the rule and the act's earlier requests, so an act
   replays exactly from its seed and inputs. The agent's own randomness stays the seeded generator of the act.
 
@@ -507,32 +618,40 @@ Inputs: the object type, the variant, the rule, a seed, and `ValuationConfig` (`
 
 ```ts
 interface ValuationConfig {
-  computeBudget: number;      // walk steps in total; default 16,000,000 (the owner's "default compute investment"; ~15 s per rule)
+  computeBudget: number;      // walk steps in total; default 32,000,000 (the owner's "default compute investment"; ~40 s per rule)
   targetRelError: number;     // 0.02
   absFloorBits: number;       // 0.03: a 2% error in a probability (log2 1.02 = 0.029), the target for rungs below 1.5 bits
   replicates: number;         // 8 independent replicates
   burnIn: number;             // moves before sampling in each chain; default 2,000
   thin: number;               // moves between samples; default 10
   perturbations: number;      // one-step free-walk perturbations of each sample; default 4
-  proposalSteps: number;      // K: free walk steps per move of a chain; default 4
+  proposalSteps: number;      // K: a chain's moves and the perturbations are 1 … K free walk steps, uniformly; default 6
   initialSamples: number;     // samples per chain in the first pass; default 64, doubled per pass
+  minLevels: number;          // 6: fewer distinct values in a dealt layer where it counts makes the rule too coarse (§4.1)
 }
 ```
 
-1. **Seeds, per replicate.** Each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs: walk
-   steps that do not lower the level are accepted, others refused, until each U_i is reached or 20 × burnIn steps pass
-   (then the run is `unreachable`). Replicates do not share seeds: replicates that shared a start would share its slowly
+1. **Seeds, per replicate.** Each replicate walks freely from `origin(variant)` for `burnIn × K` steps, then climbs,
+   alternating a single walk step filtered to keep the level and a kernel proposal (1 … K walk steps, uniformly) kept
+   only if the level did not drop, until each U_i is reached or 20 × burnIn proposals pass. The ladder is calibrated up to
+   the last rung every replicate reached; the rungs above are dropped and the artefact says so (a rule with no reachable
+   rung is `unreachable`). Replicates do not share seeds: replicates that shared a start would share its slowly
    forgotten bias, and their spread would understate the error.
-2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i moves by K free
-   walk steps at a time and keeps the end only if it is still in U_i (U_0's chain keeps every end: it is the free walk).
+ Replicates do not share seeds: replicates that shared a start would share its slowly
+   forgotten bias, and their spread would understate the error.
+2. **Sample each upper set within the stationary law.** For each replicate and each i, a chain on U_i moves by 1 … K free
+   walk steps at a time (uniformly) and keeps the end only if it is still in U_i (U_0's chain keeps every end: it is the free walk).
    P^K has the walk's stationary law, and K-step moves connect thin upper sets that single moves cannot (with shift and
    tilt alone, no single move stays on m = c). Under detailed balance the chain's law is exactly π restricted to U_i;
    otherwise it is the standard approximation, whose error sits at the chain's own boundary, and step 6 measures it.
-3. **Perturb.** Every sample, from every chain, is perturbed by `perturbations` single free walk steps, and each landing
-   level is counted in the row of the sample's own level, kept per chain: `C[k][l][j]`. (A sample of chain U_k at level l
+3. **Perturb.** Every sample, from every chain, is perturbed `perturbations` times by the perturbation kernel (1 … K free
+   walk steps, uniformly; it has the walk's stationary law, so step 4's identity holds, #347 §1.4.3, and unlike a single
+   step it joins levels that only a pair of moves connects, such as |c| along m = c), and each landing level is counted
+   in the row of the sample's own level, kept per chain: `C[k][l][j]`. (A sample of chain U_k at level l
    is a draw from π restricted to L_l, whichever chain produced it.)
 4. **The level matrix and its stationary vector.** Row l is pooled from chains U_0 … U_k for the smallest k whose counts
-   at level l (over all replicates) reach 64 × perturbations: the free chain where it can, restricted chains only where
+   at level l (over all replicates) reach 64 × perturbations and, below the top, include 16 upward transitions (the
+   small rates that stitch rare levels to the rest): the free chain where it can, restricted chains only where
    they must, so each row carries as little restriction error as the samples allow. T[l][j] is the row normalised. The
    level masses w are its stationary vector (wT = w, Σw = 1, by Gaussian elimination on (Tᵀ − I) with the normalisation
    row), computed only when the sampled levels form one communicating class. Then V_i = −log2 Σ_{j ≥ i} w_j. The full
@@ -567,10 +686,11 @@ to 1/10,000 bit.
 
 ### 7.4 Curves and snapping
 
-After a converged run the estimator fits V against the rung thresholds' primary component t (a rational):
+After a converged run the estimator fits V against the **primary layer's** rung thresholds t (secondary rungs keep their
+step values; single-line objects only):
 
-- **Distance rules** (score `−d`): V(d) = α − β·log2(d + δ), δ ∈ {1/16, 1/8, 1/4, 1/2, 1, 2}; **count rules** (score
-  `n`): V(n) = α + β·n + γ·n². Weighted least squares with weights 1/error².
+- **Distance layers** (score `−d`): V(d) = α − β·log2(d + δ), δ ∈ {1/16, 1/8, 1/4, 1/2, 1, 2}; **count and size
+  layers** (score `n`): V(n) = α + β·n + γ·n². Weighted least squares with weights 1/error².
 - A fit is **accepted** when every rung's residual is within twice its error and the curve is non-decreasing over the
   ladder's range. **Snapping** rounds α, β, γ to the nearest 1/256 and keeps the rounded curve if it is still accepted.
 - With a snapped curve the server uses the curve at the state's own primary score (clamped between the values of the
@@ -580,21 +700,27 @@ After a converged run the estimator fits V against the rung thresholds' primary 
 
 ### 7.5 The too-hard backlog
 
-A rule (family, parameters, variant) whose run is unconverged at the default budget, unreachable at a rung, or flagged
-by the splitting or direct check, is not dealable. The `calibrate` command appends it to
-`docs/engine-v2/too-hard-backlog.md` with the diagnostics; a person or a later session decides whether to change the
-ladder, the parameters or the family, or to raise the budget for it explicitly (an artefact records the budget it used).
+A rule (family, parameters, tie-breaker, variant) is not dealable when its run is **unconverged** at the budget it ran with,
+**unreachable** at its first rung, **flagged** (by the splitting or direct check, or because its ladder was truncated
+below a rung no climb reached), or **too coarse** (a dealt layer takes fewer
+than `minLevels` distinct values where it counts, §4.1). `calibrate --write` regenerates the rows of the rules it
+calibrated in `docs/engine-v2/too-hard-backlog.md`, with the reasons; a person or a later session decides whether to
+change the ladder, the parameters or the family, or to raise the budget for it explicitly (an artefact records the
+budget it used).
 
 ### 7.6 The artefact
 
-One JSON file per rule key, committed under `lib/v2-valuation/artefacts/<variant>/<family>/<params-hash>.json`:
+One JSON file per rule key, committed under `lib/v2-valuation/artefacts/<variant>/<family>/<params-hash>-<tie-breaker>.json`:
 
 ```json
-{ "schema": 1, "ruleKey": "...", "objectType": "line", "objectTypeVersion": 1, "variant": "line-z", "variantHash": "...",
-  "family": "prime-gradient", "params": {}, "seed": "v2", "config": { ... }, "status": "converged",
-  "reasons": [], "rungs": [ { "score": null, "label": "anything", "bits": 0, "error": 0 }, { "score": ["-2"], "label": "...", "bits": 0.41, "error": 0.006 }, ... ],
+{ "schema": 2, "ruleKey": "...", "objectType": "line", "objectTypeVersion": 1, "variant": "line-z", "variantHash": "...",
+  "family": "prime-gradient", "params": {}, "tieBreaker": "prime", "seed": "v2", "config": { ... }, "status": "converged",
+  "reasons": [], "rungs": [ { "score": null, "label": "anything", "layer": -1, "bits": 0, "error": 0 },
+    { "score": ["-2"], "label": "...", "layer": 0, "bits": 0.41, "error": 0.006 }, ...,
+    { "score": ["0", "5"], "label": "the prime at least 5", "layer": 1, "bits": 4.1, "error": 0.08 }, ... ],
+  "primarySense": "min",
   "curve": { "model": "log-distance", "alpha": 3.25, "beta": 0.75, "delta": 0.5, "snapped": true },
-  "diagnostics": { "reversibility": 0.03, "mixingSteps": 44, "steps": 12110645, "samplesPerChain": 4096, "split": [...], "direct": [...], "levelMatrix": [[...]] },
+  "diagnostics": { "reversibility": 0.03, "mixingSteps": 44, "steps": 12110645, "samplesPerChain": 4096, "distinctLevels": [21, 9], "examples": ["...per rung, a line from that rung's chain"], "split": [...], "direct": [...], "levelMatrix": [[...]] },
   "contentHash": "..." }
 ```
 
@@ -610,20 +736,20 @@ time. Values are stored per (object, player) (§10).
 
 ### 7.8 Resolution: enough bits on a line
 
-#347 measured rule tops of 2 to 5 bits on one integer line. The design gives four levers, all configuration, none a new
-mechanism:
+#347 measured rule tops of 2 to 5 bits on one integer line. The owner (decision 12): that means the rules are not
+creative enough, not that the object is too small. The answer is the ladder of layers (§4.1): a secondary layer counts
+only at the primary's top, so its rungs stack above it, and a layer about size or factor structure climbs into the
+rare states the confining code makes rare (§2.5). The other levers remain, all configuration:
 
-1. **Ladders on rational scores.** Distance rules on the `Q` domain have values all the way down to d = 0 with snapped
-   curves; agents get graded value for getting closer, not only at the top.
-2. **Rarer parameters.** A dealable parameter grid may include rarer targets (a larger triangle area, a far term); the
-   artefact tells the dealer each rule's top, and the deal may require tops within a room's band.
-3. **Tie-break components.** A family may add a second score component that only matters once the first is met (Prime
-   Gradient: a larger prime is better), which lengthens the ladder above the first top.
-4. **Lines per object.** A k-line variant sums per-line rung indices (§4.2), so tops grow roughly k-fold (#347: four to
-   eight lines reach the grid's 15–27 bits).
+1. **Tie-breakers.** Every family has a main layer and alternative tie-breakers; a dealt rule uses the main layer and one
+   of them (no third layer, decision 14). The calibration prints bits per rung of the whole ladder, so the reach of each
+   tie-breaker is visible.
+2. **Ladders on rational scores.** Distance layers on the `Q` domain have values all the way down to d = 0.
+3. **Rarer parameters.** A dealable grid may include rarer targets; each artefact tells the dealer its rule's top.
+4. **Lines per object.** A k-line variant sums per-line levels (§4.2), so tops grow roughly k-fold.
 
-The default is one line per object (call (c)). The first calibration report (milestone 2) prints every rule's top so the
-default variant for real games can be chosen from measurements.
+The default is one line per object (call (c)); the beginner pool is chosen from the calibration report in
+`v2-linear/presets.ts` (spec PR 5).
 
 ## 8. Points from bits
 
@@ -646,7 +772,7 @@ One append-only table `v2Events` per game, ordered by `seq` (dense from 0). Ever
 
 | Kind | Payload |
 |---|---|
-| `gameStarted` | header: code version (git commit of the deploy), object type and version, variant JSON and hash, economy constants, room settings, seeds, players, dealt rules (family, params, artefact `contentHash`) |
+| `gameStarted` | header: code version (git commit of the deploy), object type and version, variant JSON and hash, economy constants, room settings, seeds, players, dealt rules (family, params, tie-breaker, artefact `contentHash`) |
 | `objectBorn` | object id, state wire, birth-walk step count |
 | `act` | tick, object id, agent id, player id, act seed, queries (op, ref, bits), calls (wire), per-call prices, outcome (`committed`, `skipped`, `failed` with reason), state before and after (wire), read bits, charge |
 | `values` | object id, per player: score (wire), level, bits (the server-private record of §7.7) |
@@ -689,12 +815,24 @@ Queries a page uses: the object skeleton (an index page of `v2Objects` by game, 
 row, the viewer's agents and their energy, and an index page of `v2Events` by (game, player) for the agent log. Each new
 query gets an entry in the query-cost gate (R8). Every query requires sign-in.
 
+**Operations are affordances** (owner decision 16): each command (check, summon, replace, destroy, allocate power,
+ready, pause, chat, the owner's room commands) is a separate Convex function defined once in `lib/v2-affordances`, which
+generates the assistant tools, MCP, CLI, palette and buttons (integration plan §2.5); there is no single `submit`
+envelope.
+
+**The integration plan extends this table** (`docs/engine-v2/integration-plan.md` §2.2, §4.2, which are authoritative
+for the schema): `v2Players`, `v2Moves` (per-viewer act-log rows written by the tick, replacing reads of `v2Events` by
+the agent log), `v2StandingsHistory`, `v2AgentPrograms`, `v2Digests`, `v2Members`, `v2Chat`, `v2Receipts`, `v2Layouts`,
+per-player sort indexes on `v2ObjectValues`, and the card sentence and the ladder with per-rung rarities on `v2Rules`.
+With layered ladders (§4.1), `v2Rules` also records the dealt tie-breaker, and `v2ObjectValues` the level.
+
 ## 11. The rendering contract
 
 ### 11.1 Scenes
 
-A renderer exists per **scene kind**, never per rule family. `layout(state, site)` returns `SceneData`, a list of
-primitives, each tied to the element it draws:
+A renderer exists per **scene kind**, never per rule family. `layout(state, site, args?)` returns `SceneData`, a list
+of primitives, each tied to the element it draws, plus optional **scenery**: fixed furniture of the lens (a chessboard,
+a dot field, a circle with rim pegs, two rulers) that no mark may cite and no score reads:
 
 ```ts
 type SceneData =
@@ -703,8 +841,12 @@ type SceneData =
   | { kind: "table"; columns: { header: string; el: ElementRef }[] }
   | { kind: "sequence"; terms: { n: number; el: ElementRef }[]; picture: "tiles" | "dots" }
   | { kind: "machine"; stages: { label: string; el?: string }[]; input: ElementRef; output: ElementRef }
-  | { kind: "pegboard"; window: [number, number]; on: ElementRef };
-type PlaneItem = { draw: "line" | "point" | "segment" | "region" | "tick"; el: ElementRef };
+  | { kind: "pegboard"; window: [number, number]; on: ElementRef }
+  | { kind: "dial"; size: number; items: PlaneItem[] }                    // a ring of pegs, a gear pointer, a cipher wheel
+  | { kind: "rulers"; scales: [Q, Q, Q, Q]; threads: ElementRef[] };      // two parallel scales joined by threads
+// every kind may add `scenery?: Scenery[]` (polygons, paths, labels and grids in floats, drawing only)
+// a "sequence" term may cite a symbol element (letters, notes), not only a number
+type PlaneItem = { draw: "line" | "point" | "segment" | "region" | "path" | "tick"; el: ElementRef };
 ```
 
 Marks (§4.3) are drawn by the same renderer onto the primitive of the element they cite; dynamic elements cited by marks
@@ -748,9 +890,11 @@ Variants shipped first: `line-z` (Z, k = 1), `line-q` (Q, k = 1), `line-z4` (Z, 
 
 ### 12.2 Read length
 
-- Domain Z: φ = Σ_lines int(m) + int(c).
-- Domain Q: φ = Σ_lines int(a) + int(b) + int(c) of the primitive triple. (The Kraft sum is below 1: the code is defined on
-  all triples, the domain is a subset.)
+The mixed number code of §2.5 (owner decision 17):
+
+- Domain Z: φ = Σ_lines mixedInt(m) + mixedInt(c).
+- Domain Q: φ = Σ_lines mixedInt(a) + mixedInt(b) + mixedInt(c) of the primitive triple. (The Kraft sum is below 1: the code
+  is defined on all triples, the domain is a subset.)
 
 ### 12.3 Representations
 
@@ -774,8 +918,9 @@ table.y(q), seq.term(q), mach.out(q), cart.pointAtX(q)'s y).
 
 ### 12.4 Mutators
 
-N = 9 in every first variant: log2 9 = 3.17 bits of "which". Arguments are coded with §2.3's codes (`nz` = nonzero in the
-variant's argument domain, `nonzero` for Z or `nonzeroRat` for Q; `int` likewise `int` or `rat`). k sites add log2 k.
+N = 9 in every first variant: log2 9 = 3.17 bits of "which". Under mixed costing (§5.2) `nz` is an amount added, priced
+by steps (an integer on the Z argument domain, a rational on Q), `int` a position or displacement that may be 0, also by
+steps, and a factor is priced by digits. k sites add log2 k.
 
 | Id | Representations | Arguments (bits) | Effect on (m, c) or (a, b, c) | Inverse |
 |---|---|---|---|---|
@@ -785,36 +930,47 @@ variant's argument domain, `nonzero` for Z or `nonzeroRat` for Q; `int` likewise
 | `cart.pivot` | cart, peg | x0: int; k: nz | m += k, c −= k·x0 (turn about the point at x = x0) | `cart.pivot(x0, −k)` |
 | `cart.slide` | cart | u: int; v: int; (u, v) ≠ (0, 0) | c += v − m·u (translate by (u, v)); vertical lines: a·x moves by u | `cart.slide(−u, −v)` |
 | `cart.mirror` | cart | axis: choice of 4 (2 bits): `x`, `y`, `origin`, `diagonal` | (−m, −c), (−m, c), (m, −c), the inverse function (x and y swapped) | self |
-| `gen.nudge` | gen | which: choice of 3 (log2 3); k: nonzero (integers) | a, b or c += k, then renormalise | none: dividing by the new gcd loses the scale |
+| `gen.nudge` | gen | which: choice of 3 (log2 3); k: steps (integers) | a, b or c += k, then renormalise | none: dividing by the new gcd loses the scale |
 | `int.move` | int | axis: 1 bit; k: nz | p += k or q += k, keeping the other | partial: `int.move(axis, −k)` where the result has both intercepts |
-| `mach.stretch` | mach | factor f: nonzeroRat, f ≠ ±1 | m ·= f, c ·= f (every output × f) | partial: `mach.stretch(1/f)`, whose code length differs |
+| `mach.stretch` | mach | factor f: digits (`nonzeroRat`), f ≠ ±1 | m ·= f, c ·= f (every output × f) | `mach.stretch(1/f)`, the same price; partial only where 1/f leaves the domain |
 
 Results outside the variant's domain are invalid (a Z-domain line with a fractional coefficient, a vertical line in Z, a
 line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 §4.5 hold: y = x + 5 → y = 3x + 3 is one
-`seq.step(2)` (3.17 + 4 = 7.17 bits plus surcharge) against `si.shift(−4)` and `si.tilt(2)`.
+`seq.step(2)` (steps on 2) against `si.shift(−4)` and `si.tilt(2)` (steps on 4 and on 2).
 
 ### 12.5 Rule families
 
-Twelve, the owner's four first. Every distance rule's ladder on Z is `d ≤ 13, 8, 5, 3, 2, 1, 0`, on Q `d ≤ 8, 4, 2, 1,
-1/2, 1/4, 1/8, 0` (scores `−d`); count rules use every count.
+Every family has a main layer in school-textbook terms and alternative tie-breakers (§4.1); a dealt rule uses one of
+them. Distance layers use the domain's thresholds: on Z `13, 8, 5, 3, 2, 1, 0`, on Q `8, 4, 2, 1, 1/2, 1/4, 1/8, 0`. **Built** (PR 3 and
+its amendment): families 1–6. **To build in PR 5**: families 7–12, written here as two-layer ladders; a separate
+session's catalogue of layered families (`docs/engine-v2/layered-line-rules.md`) will propose changes to this list, to be
+folded in when it lands.
 
-| # | Family | Card | Primary; also | Params (dealable grid) | Score | Annotation |
-|---|---|---|---|---|---|---|
-| 1 | `prime-gradient` (owner) | Make the gradient as close as possible to a prime number. | si; cart | — | min dist(m, nearest prime); primes are positive | focus si.m; candidates: `cart.ghost(p)` for the primes p either side, labelled with their distances; note the nearer |
-| 2 | `triangle-area` (owner) | The line and the two axes make a triangle; make its area as close as possible to A. | tri; cart, si | A ∈ {4, 6, 8, 12, 18} | min \|tri.area − A\| | focus legs; note area; measure area → A |
-| 3 | `m-meets-c` (owner) | Make the gradient and the y-intercept as close as possible to each other. | si; cart | — | min \|m − c\| | focus si.m, si.c; on the plane, the point at x = −1 and its height (= c − m) |
-| 4 | `crossing-check` (owner) | Make y(k) and x(q) as close as possible. | mach; cart | k ∈ {1, 2, 3}, q ∈ {2, 4, 6} | min \|mach.out(k) − mach.reverse(q)\| | both machine runs, their gap |
-| 5 | `y-intercept-prime` | Make the y-intercept as close as possible to a prime. | cart; si | — | min dist(yInt, nearest prime) | the brief's example: nearby primes as ticks on the y axis with distances |
-| 6 | `treasure` | When x is k, y should be T. | table; cart | (k, T) ∈ {(2, 7), (3, 11), (4, 5), (−2, 9)} | min \|y(k) − T\| | table column k; the point (k, T) on the plane |
-| 7 | `sequence-contains` | One of the first ten pattern terms should be T. | seq; table | T ∈ {12, 20, 30, 50} | min over n ≤ 10 of \|term(n) − T\| | the nearest term highlighted |
-| 8 | `prime-run` | Count the different primes among the first six terms. | seq | — | max count | primes among terms marked |
-| 9 | `peg-count` | The line should pass through exactly n pegs of the board. | peg; cart | n ∈ {2, 3, 5, 7} | min \|pegs − n\| | pegs on the line filled |
-| 10 | `feed-zero-square` | Feed 0 into the machine; the answer should be as close as possible to a square number. | mach | — | min dist(out(0), nearest square) | the squares either side |
-| 11 | `zero-sum` | Written as ax + by + c = 0 in lowest terms, a + b + c should be as close as possible to 0. | gen; cart | — | min \|gen.sum\| | the three coefficients and their sum; the point (1, 1) on the plane |
-| 12 | `intercept-sum` | The x-intercept plus the y-intercept should be as close as possible to S. | int; cart | S ∈ {4, 7, 10} | min \|p + q − S\| | the two intercepts on the axes |
+| # | Family | Main layer (rep) | Tie-breakers, alternatives (rep) | Params (dealable grid) |
+|---|---|---|---|---|
+| 1 | `prime-gradient` (owner) | gradient close to a prime: min dist(m, nearest prime) (si) | `prime`: the size of that prime, max; `cPrime`: the y-intercept close to a prime too, min (si) | — |
+| 2 | `triangle-area` (owner) | triangle area close to A: min \|area − A\| (tri) | `legs`: legs nearly whole, min den(legX) + den(legY) − 2; `even`: legs nearly equal, min \|legX − legY\| (tri) | A ∈ {4, 6, 8, 12, 18} |
+| 3 | `m-meets-c` (owner) | gradient close to the y-intercept: min \|m − c\| (si) | `size`: they meet at a big number, max \|c\|; `meetPrime`: they meet at a prime, min dist(c, prime) (si) | — |
+| 4 | `crossing-check` (owner) | y(k) close to x(q): min \|out(k) − reverse(q)\| (mach) | `size`: they cross at a big number, max \|x(q)\|; `whole`: x(q) nearly whole, min den(x(q)) − 1 (mach) | k ∈ {1, 2, 3}, q ∈ {2, 4, 6} |
+| 5 | `whole-intercept` (owner decision 12) | y-intercept close to a whole number: min dist(c, nearest integer) (si) | `spf`: that number's smallest prime factor, max; `omega`: its prime factors with repeats, max (si) | — |
+| 6 | `square-area` (owner decision 12) | triangle area close to a square number: min dist(area, nearest square) (tri) | `factors`: prime factors of the square's root with repeats, max; `rootSpf`: the root's smallest prime factor, max (tri) | — |
+| 7 | `y-intercept-prime` | y-intercept close to a prime: min dist(yInt, nearest prime) (cart) | the size of that prime; the gradient whole | — |
+| 8 | `treasure` | when x is k, y close to T: min \|y(k) − T\| (table) | the gradient's bottom number small; the gradient prime | (k, T) ∈ {(2, 7), (3, 11), (4, 5), (−2, 9)} |
+| 9 | `sequence-contains` | a pattern term close to T: min over n ≤ 10 of \|term(n) − T\| (seq) | T reached early (min n); the step prime | T ∈ {12, 20, 30, 50} |
+| 10 | `prime-run` | different primes among the first ten terms: max count (seq) | the largest of them; the first of them early | — |
+| 11 | `zero-sum` | a + b + c close to 0: min \|gen.sum\| (gen) | the numbers big: max \|a\| + \|b\|; prime coefficients: max count (gen) | — |
+| 12 | `intercept-sum` | x-intercept + y-intercept close to S: min \|p + q − S\| (int) | the intercepts' bottom numbers small; their product close to P | S ∈ {4, 7, 10} |
 
-Prime Gradient adds a tie-break component on the Q domain (the denominator of m: smaller is better) so exact primes are
-preferred to near ones of equal distance (with families 5–12, PR 5; the first cut scores distance only).
+Families 7–12 follow the curator's revised change list (`docs/engine-v2/layered-line-rules.md`, #358, and its revision)
+when it lands; the rows above are placeholders in the contract's shape.
+
+Annotations: each layer marks the elements its term reads (the primes either side as `cart.ghost` candidates for
+family 1, the nearby primes as `cart.yAxisMark` ticks with their distances for family 7, the point at x = −1 for
+family 3, the nearest whole number on the y axis for family 5).
+
+**Measured** (`calibrate --variant line-z` and `--variant line-q`, artefacts committed, statuses in the backlog file):
+whole-intercept's primary takes one value on the Z domain (every intercept there is whole), so it is too coarse on
+`line-z` and dealable only on `line-q`. That is the continuity check doing its job.
 
 ### 12.6 Variants and multi-line scoring
 
@@ -832,8 +988,10 @@ Only to test that the contracts are general; nothing here is built yet.
   sums), `pairs` (derived: opposite-cell pairs and their sums), `blocks`. Dynamic: `cellAt(r, c)` for rules with
   positional parameters.
 - **Mutators:** `cells.set(r, c, v)` (log2 n² + log2(S − 1)), `cells.nudge(r, c, k)` (distance code), `lines.paint(line,
-  v)`. Symmetric prices and constant φ give a uniform stationary law: the estimator reproduces today's rarity, which is
-  its first cross-check when the grid is ported.
+  v)`, each plus the confining surcharge. Under owner decision 11 the grid is confined like the line: its number code
+  writes a digit by its distance from a centre digit (`int(d − centre)`), the centre board is every cell at the centre
+  digit, and the stationary law is no longer today's uniform rarity. The estimator's first cross-check on the grid is an
+  exact power iteration on a 2×2 board.
 - **Rules:** Opposite Nines reads `pairs`, records one term per pair, scores the count; its marks focus the pairs that
   count. Today's "parts add up to the ordinal" invariant is the §4.2 term rule.
 
@@ -841,28 +999,13 @@ The contracts need no grid-specific branch; the grid scene renderer is the one n
 
 ## 14. Build plan
 
-The path from these packages to the working app, and the changes it makes to this table, are in
-[integration-plan.md](integration-plan.md) (§5.7 lists the changes).
+Done: PR 1 (this specification, #349), PRs 2–4 (v2-core, v2-linear, v2-valuation, #356, and their amendment for owner
+decisions 11–14), PR 6 (v2-sandbox, #351). The plan from here is maintained in `docs/engine-v2/integration-plan.md`
+(§5 and the change list of §5.7), which supersedes the table that stood here. In short: W1 (this workstream) does spec
+PR 5 (int, table and peg representations; families 7–12; `line-q` and `line-z4` artefacts; `presets.ts` with the
+beginner pool from the calibration report; `ArgCode.enumerate`; `RuleFamily.examples`) and later the grid (M4); W2 the
+agent host and starters; W3 the Convex server and v2-economy; W4 the views; W5 the app on v2 data.
 
-Ordered pull requests, each into `develop`. "∥" marks work that separate sessions can do at the same time once its
-dependencies have merged. Interfaces they share are frozen in the PR that introduces them; a change to one is its own PR.
-
-| PR | Contents | Depends on | Shared interface it fixes |
-|---|---|---|---|
-| 1 | This specification, the owner's decisions, the CLAUDE.md section | — | — |
-| 2 | `lib/v2-core`: Q, codes, rng, contracts as types, evaluation context, ladder levels, walk step, import-boundary test (milestone 2) | 1 | v2-core types (§2–§5) |
-| 3 | `lib/v2-linear` first cut: state, Z and Q domains, `si`, `gen`, `cart`, `tri`, `seq`, `mach`, the nine mutators, families 1–4, variant `line-z` (milestone 2) | 2 | the line's element names (§12.3) |
-| 4 | `lib/v2-valuation`: estimator, fitting, artefact format, `calibrate` command; first artefacts for families 1–4 on `line-z` (milestone 2) | 2 (∥ 3, against a toy type), then 3 | artefact JSON (§7.6) |
-| 5 | v2-linear complete: `int`, `table`, `peg`; families 5–12; `line-q`, `line-z4`; all artefacts; backlog file | 3, 4 | — |
-| 6 | `lib/v2-sandbox`: copy of game-runtime plus the host channel; spike tests for both languages | 1 ∥ 2–5 | host channel messages (§6.5) |
-| 7 | `lib/v2-agents`: agent host, query pricing, quotes, act charge; guest libraries; the three example agents in both languages | 3, 6 | agent API (§6.4) |
-| 8 | `lib/v2-economy`: power, capacity, energy, offer selection, act charge, with the agent-count neutrality tests copied | 2 ∥ 3–7 | — |
-| 9 | `lib/v2-views`: scene renderers, marks, compact and expanded views, goal card; a static gallery page for review | 3 ∥ 4–8 | SceneData (§11) |
-| 10 | Convex v2: tables, rooms, deal (artefact-gated), tick (births, offers, acts through the sandbox, values, standings, events), query-cost gate entries, game test through the tick | 4, 7, 8 | the v2 schema (§10) |
-| 11 | Web `/v2`: lobby, game page (objects, goal card, agents, log, standings), replay | 9, 10 | — |
-| 12 | Assistant and MCP tools for v2 (explain my rule, write my agent, negotiate) | 10 ∥ 11 | — |
-| 13 | Port the digit grid (§13) | 10 | — |
-| 14 | Remove the old engine, once the owner says v2 replaces it | owner | — |
-
-PRs 2–4 are milestone 2 and may merge as one pull request. Two sessions can work in parallel from the start: one on
-PR 6 (the sandbox), one on PRs 2–5; after PR 3, a third on PR 9.
+Shared interfaces, each frozen in the PR that introduces it and changed only by a PR of its own: the v2-core types
+(§2–§5), the line's element names (§12.3), the artefact JSON (§7.6), the host channel messages (§6.5), and the v2 API
+contract (integration plan W3-1).

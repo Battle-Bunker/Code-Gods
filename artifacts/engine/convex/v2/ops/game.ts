@@ -14,7 +14,7 @@ export const { op: get, as: getAs } = defineOp("game.get", "query", async env =>
 export const { op: standings, as: standingsAs } = defineOp("game.standings", "query", async env => {
   const { game } = inGame(env);
   const s = await env.ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-  return { rows: (s?.rows ?? []).map(r => ({ memberId: r.memberId, name: r.name, points: r.net, rank: r.rank })) };
+  return { rows: (s?.rows ?? []).map(r => ({ memberId: r.memberId, name: r.name, points: r.total, handicap: r.handicap, net: r.net, rank: r.rank })) };
 });
 
 export const { op: rotation, as: rotationAs } = defineOp("game.rotation", "query", () => notYet("W3-3"));

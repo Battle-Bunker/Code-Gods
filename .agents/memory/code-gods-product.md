@@ -134,11 +134,11 @@ Call them **utility functions**, never "value functions". "Value" means an objec
 
 **How to apply:** Use utility/ordinal/rewardBits/netBits/peerNetBits/peerCare/payoff in code, protocol, UI and docs.
 
-Utility functions must be heterogeneous, simple to state, and accompanied by a plain-language incentive summary. There is a large repertoire of unrelated families per object type (lib/game-utilities). Utility functions return ordinal utilities (a number or a lexicographic tuple, bigger is better) in the kid card style `def utility(grid):`; scoring converts them to rarity bits through shipped calibration tables (docs/clean-implementation-plan.md). Dealing is behind a selector interface: "fair-aligned" (measured rule synergy) by default, with the Divine Lottery as fallback.
+Utility functions must be heterogeneous, simple to state, and accompanied by a plain-language incentive summary. There is a large repertoire of unrelated families per object type (lib/game-utilities). Utility functions return ordinal utilities (a number or a lexicographic tuple, bigger is better) in the kid card style `def utility(grid):`; scoring converts them to rarity bits through shipped calibration tables (archive/engine-v1:docs/clean-implementation-plan.md). Dealing is behind a selector interface: "fair-aligned" (measured rule synergy) by default, with the Divine Lottery as fallback.
 
 **Why:** The user rejected a uniform schema with one varying parameter, and rejected complicated rule code with validation boilerplate. Fairness is meant to come from many games, not in-game balancing (for now). Beginners must understand their incentives without reading code.
 
-**How to apply:** New families need short Python and TypeScript kid cards with no input validation, a summary, a finite parameter support, and calibration tables regenerated with `pnpm --filter @workspace/game-utilities calibrate`. Parity tests (Python ≡ TS, order ≡ lib/grid-lab) and the calibration freshness test enforce this.
+**How to apply:** New families need short Python and TypeScript kid cards with no input validation, a summary, a finite parameter support, and calibration tables regenerated with `pnpm --filter @workspace/game-utilities calibrate`. Parity tests (Python ≡ TS, order ≡ archive/engine-v1:lib/grid-lab) and the calibration freshness test enforce this.
 
 The user directed a clean break: the old design ([0,1] utilities, free-form T → T agents, god-only energy, protocol v2) was deleted outright, with no shims or deprecated fields.
 
@@ -204,7 +204,7 @@ There is one app (artifacts/player-web), served by the engine at `/` and runnabl
 
 **Why:** The owner (2026-11-02): "get rid of the distinction of having a separate client app inside the reference implementation and just put all functionality on its appropriate page calibrated to the signed in user. Remove the /client/ prefix context entirely. Game play should occur at /rooms/:id/games/:id. That same URL becomes a replay interface once the game is over." And: "Remove the old code as thoroughly as possible … There is no reason to collect junk old code for backwards compatibility purposes."
 
-**How to apply:** One URL scheme (`artifacts/player-web/src/core/routes.ts`; the pages' paths in `src/site/lib/routes.ts`), relative to Vite's base, never a hard-coded prefix. No redirects or legacy aliases (no `/client/`, `/player`, `/games/:code`, `?game=`, `?room=`): an unknown path is the not-found page. `src/site/pages/game.tsx` chooses the view from the roster and the phase. A past game (neither the room's active nor its current game) is readable only by the gods who played in it, its spectators and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone. docs/unify-apps-plan.md.
+**How to apply:** One URL scheme (`artifacts/player-web/src/core/routes.ts`; the pages' paths in `src/site/lib/routes.ts`), relative to Vite's base, never a hard-coded prefix. No redirects or legacy aliases (no `/client/`, `/player`, `/games/:code`, `?game=`, `?room=`): an unknown path is the not-found page. `src/site/pages/game.tsx` chooses the view from the roster and the phase. A past game (neither the room's active nor its current game) is readable only by the gods who played in it, its spectators and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone. archive/engine-v1:docs/unify-apps-plan.md.
 
 Rights come from the human's Google identity, never from which app they run. The app served by the engine uses the site's Google session; an app on any other origin (localhost, a Replit dev URL, a static host) uses an OAuth account grant (`scope=account`) with the same rights. Room credentials (one room, one permission) stay the way in for agents, CLIs, the in-client assistant and least-privilege apps. Every client calls only public catalogued functions.
 
@@ -247,7 +247,7 @@ A room member is a player or a spectator of the next game. The owner is seated a
 
 **Why:** The owner (2026-11-02): "Allow room members to be spectators (owner or the member themselves can configure this) and default the room owner to a spectator." Spectators see the public view of a live game, never per-god secrets.
 
-**How to apply:** `members.spectator` is a preference for the next game (`rooms.setSpectator`, tool `set_spectator`); a running game's roster never changes. `games.spectators` lists everyone not dealt in at launch plus whoever joins while it runs, and they may open the game once it is past (`requireHistoricReaderAs`). A spectator's live reads are the unseated projection (roster index -1). docs/unify-apps-plan.md §2.
+**How to apply:** `members.spectator` is a preference for the next game (`rooms.setSpectator`, tool `set_spectator`); a running game's roster never changes. `games.spectators` lists everyone not dealt in at launch plus whoever joins while it runs, and they may open the game once it is past (`requireHistoricReaderAs`). A spectator's live reads are the unseated projection (roster index -1). archive/engine-v1:docs/unify-apps-plan.md §2.
 
 ## Every rule offers a continuous landscape of points (2026-11-03)
 

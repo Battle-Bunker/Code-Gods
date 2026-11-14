@@ -516,7 +516,7 @@ irrelevant.
   are settled at the old shares first. Game-core `movePower` computes it; the `summon`, `power` and `destroy` events
   record the amount (`held`, `EVENT_LOG_SCHEMA` 15; positive onto the deity, negative onto the agent), the receipt
   carries it, and a replay applies the recorded amount. Batches below 15 lost that energy, and replay them so.
-  Until 13 Nov the excess was dropped at once; that behaviour is the variant named in `docs/design-explorations.md`.
+  Until 13 Nov the excess was dropped at once; that behaviour is archived on `archive/engine-v1`.
   - *Why not keep the excess and only stop filling?* A deity could fill one agent at 100% of its power, move the power
     to the next and fill that: one full store per agent, an advantage from the number of agents (§7).
   - *Funding summons.* An agent's energy can now come back to its deity and pay for a summon, where before only

@@ -49,6 +49,6 @@ test("settle applies the calls in order and charges R/κ + W + βW²; an invalid
 test("myScore reads the rule's representations and scores on the ladder", () => {
   const host = new FakeHost({ line: { m: 1, c: 5 }, rule: { family: "m-meets-c", params: {} } });
   const s = ok(host.handle({ op: "myScore" }, ctx));
-  assert.deepEqual(s.result, { score: ["-4"], level: 3, top: 7, terms: [{ id: "gap", value: "4" }] });
+  assert.deepEqual(s.result, { score: ["-4"], level: 3, top: 7, layers: [{ id: "gap", level: 3, top: 7 }], terms: [{ id: "gap", value: "4" }] });
   assert.equal(s.bits, 12);
 });

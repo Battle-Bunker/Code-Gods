@@ -1,5 +1,5 @@
 /**
- * The app's session (docs/unify-apps-plan.md §3): who the human is, however this app proves it (core/connection.ts).
+ * The app's session (archive/engine-v1:docs/unify-apps-plan.md §3): who the human is, however this app proves it (core/connection.ts).
  *
  * - "site": Google through Better Auth on this same origin (`/api/auth/*`): an HttpOnly session cookie, exchanged by
  *   the Convex client for 10-minute JWTs at `/api/auth/convex/token`.

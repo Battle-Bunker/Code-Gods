@@ -1,4 +1,4 @@
-/** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
+/** Strategy-lens rules (archive/engine-v1:lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import { colourParam, choiceParam, symbolParam } from "../../params.ts";
 import type { Params } from "../../types.ts";

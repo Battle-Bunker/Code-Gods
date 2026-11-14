@@ -104,8 +104,11 @@ export interface Representation<S> {
 
 // ---------------------------------------------------------------- rules (§4)
 
-/** Bigger is better, compared lexicographically; null is WORST, below everything. */
-export type Score = readonly Q[] | null;
+/**
+ * Bigger is better, compared lexicographically, one component per layer. null is WORST, below everything (the primary
+ * layer is undefined); a null component ranks last in its own component only (a secondary layer that is undefined).
+ */
+export type Score = readonly (Q | null)[] | null;
 
 export interface Undef {
   readonly undefined: string;
@@ -125,25 +128,26 @@ export type Mark =
   | { readonly kind: "candidate"; readonly ref: ElementRef; readonly term?: TermId }
   | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string };
 
-export interface ScoreComponent {
-  readonly term: TermId;
-  readonly sense: "max" | "min";
-}
-
 export interface EvalContext<S> {
   readonly state: S;
   /** The line (site) being evaluated; refs without a site mean this one. */
   readonly site: number;
   readonly variant: Variant;
   read(ref: ElementRef): ElementValue;
+  /** Record a term. A term whose id is a layer's id is that layer's measure: the score is made of them. */
   term(id: TermId, label: string, value: Q | Undef, from: readonly ElementRef[]): TermId;
-  score(components: readonly ScoreComponent[]): void;
   mark(mark: Mark): void;
+}
+
+/** A component of a score: the term that measures a layer, and its sense. */
+export interface ScoreComponent {
+  readonly term: TermId;
+  readonly sense: "max" | "min";
 }
 
 export interface Evaluation {
   readonly score: Score;
-  /** The components the family scored, in order (the terms that make the score; views name them main part, tie-breaker). */
+  /** The terms that make the score, in order: the main layer, then the dealt tie-breaker (views: main part, tie-breaker). */
   readonly components: readonly ScoreComponent[];
   readonly terms: readonly Term[];
   readonly marks: readonly Mark[];
@@ -154,21 +158,55 @@ export interface Rung {
   /** Threshold: a state meets the rung when its score meets or beats this on the threshold's components. */
   readonly score: Score;
   readonly label: string;
+  /** The layer this rung belongs to (−1 for the bottom rung, "anything"). */
+  readonly layer: number;
 }
 
+/**
+ * One layer of a rule (spec §4.1): a graded quantity with a direction, never a yes/no test (owner decision 13).
+ */
+export interface Layer<P> {
+  /** Also the id of the term that measures it. */
+  readonly id: string;
+  /** "gradient close to a prime": in a 12-year-old's words for the main layer (owner decision 14). */
+  readonly title: string;
+  sentence(params: P): string;
+  /** The representation this layer is read in: the compact view of the layer. */
+  readonly rep: string;
+  /** min: smaller is better (a distance); max: bigger is better (a count, a size). */
+  readonly sense: "min" | "max";
+  /** distance and count/size tell calibration which curve to fit (§7.4). */
+  readonly measure: "distance" | "count" | "size";
+  /** The rung thresholds, from the easiest to the top. The last is the layer's top. */
+  thresholds(params: P, variant: Variant): readonly Q[];
+  /** Words for a rung: "within 1/4 of a prime". */
+  rungLabel(threshold: Q, params: P): string;
+}
+
+/**
+ * A rule family (spec §4.1): one main layer and a list of alternative tie-breakers (owner decision 14 and its
+ * correction: "I will want several secondary rule candidates within each family"). A dealt rule is the main layer plus
+ * at most one chosen tie-breaker; never a third layer.
+ */
 export interface RuleFamily<S, P> {
   readonly id: string;
   readonly title: string;
-  card(params: P): string;
+  /** The rule in a sentence or two; with the dealt tie-breaker when there is one. */
+  card(params: P, tieBreaker: string | null): string;
   readonly params: readonly ParamDecl[];
   dealable(variant: Variant): readonly P[];
   readonly depends: readonly string[];
-  readonly primary: string;
-  /** How calibration fits a curve to the ladder (§7.4): the primary score is −distance, or a count. */
-  readonly curve: "distance" | "count";
+  readonly main: Layer<P>;
+  /** Alternatives; each has its own artefact with the main layer. */
+  readonly tieBreakers: readonly Layer<P>[];
+  /** Reads elements, records the main layer's term and every tie-breaker's (by the layers' ids), adds marks. */
   evaluate(ctx: EvalContext<S>, params: P): void;
-  ladder(params: P, variant: Variant): readonly Rung[];
+  /** Worked examples for the goal card (integration plan §5.7); a seeded search when absent. */
+  examples?(params: P, variant: Variant): readonly S[];
 }
+
+/** Which tie-breaker a dealt rule uses: an id of the family's, or null for the main layer alone. */
+export type TieBreaker = string | null;
 
 // ---------------------------------------------------------------- mutators (§5)
 

@@ -38,7 +38,7 @@ export const agentOps = [
     description: "Runs a program once on sample objects in the sandbox without spending energy: whether it compiles, what it does, and what summoning it would cost. Always check before summoning.",
     tooltip: "Try your code without spending energy.", keywords: ["validate", "test", "dry run", "check code"],
     params: obj({ language, source }), result: checkReport,
-    contexts: IN_GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
+    contexts: IN_GAME, caller: "seated", effect: "read", confirm: "none", runs: "server", action: true,
   }),
   affordance({
     id: "agent.summon", title: "Summon an agent", group: "agents", scope: "game",
@@ -50,14 +50,14 @@ export const agentOps = [
       requestId: requestId.optional(),
     }),
     result: z.object({ agentId: id, price: z.number() }),
-    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server", available: energyCheck,
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server", action: true, available: energyCheck,
   }),
   affordance({
     id: "agent.replace", title: "Replace an agent's code", group: "agents", scope: "game",
     description: "Pays the new program's summon price and swaps it into an existing agent, keeping its power share and energy.",
     tooltip: "Give an agent new code.", keywords: ["replace", "update code", "edit agent", "redeploy"],
     params: obj({ agentId: id, language, source, requestId: requestId.optional() }), result: z.object({ version: z.number().int(), price: z.number() }),
-    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server",
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server", action: true,
     available: ctx => { const a = hasAgents(ctx); return a.ok ? energyCheck(ctx) : a; },
   }),
   affordance({
@@ -65,7 +65,7 @@ export const agentOps = [
     description: "Replaces an agent's program with one of its earlier versions, at that version's summon price.",
     tooltip: "Go back to an earlier version.", keywords: ["revert", "undo", "put back", "rollback"],
     params: obj({ agentId: id, version: z.number().int().min(0), requestId: requestId.optional() }), result: z.object({ version: z.number().int(), price: z.number() }),
-    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server",
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "energy", confirm: "summary", runs: "server", action: true,
     available: ctx => { const a = hasAgents(ctx); return a.ok ? energyCheck(ctx) : a; },
   }),
   affordance({

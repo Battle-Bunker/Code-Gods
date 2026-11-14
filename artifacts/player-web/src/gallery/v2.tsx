@@ -88,7 +88,7 @@ function Storyboards() {
       <GoalCard rule={rule} example={line} rarities={TANK_RARITIES} />
       <h3>In the Objects list (a row)</h3>
       <div className="g-objrow">
-        <CompactFace rule={rule} state={line} annotation={a} />
+        <CompactFace rule={rule} state={line} annotation={a} next />
         <div className="g-objrow-text">
           <ObjectChip type={lineType} state={line} />
           <div>{levelText(a)} · ✨ rarity {a.rarity?.toFixed(1)}</div>
@@ -123,7 +123,7 @@ function FamilySection({ f }: { f: Family }) {
   return (
     <section className="g-rule" data-family={f.id}>
       <h3>{f.title}{f === emptyTank ? " (storyboard rule, not in v2-linear's pool)" : ""}</h3>
-      <p className="g-note">{f.card(p)}</p>
+      <p className="g-note">{f.card(p, f.tieBreakers[0]?.id ?? null)}</p>
       {lines.map(s => <LineRow key={lineType.encode(s)} rule={rule} state={s} />)}
     </section>
   );
@@ -135,10 +135,10 @@ function LineRow({ rule, state }: { rule: RuleRef<LineState, unknown>; state: Li
   return (
     <div className="g-row" data-line={lineType.encode(state)}>
       <div className="g-small">
-        <Cell title="chip"><ObjectChip type={lineType} state={state} extra={levelText(a, true)} /></Cell>
-        <Cell title="compact"><CompactFace rule={rule} state={state} annotation={a} /></Cell>
+        <Cell title="chip"><ObjectChip type={lineType} state={state} extra={levelText(a)} /></Cell>
+        <Cell title="compact"><CompactFace rule={rule} state={state} annotation={a} next /></Cell>
       </div>
-      <Cell title="expanded" wide><ExpandedFace rule={rule} state={state} rarities={rarities} /></Cell>
+      <Cell title="expanded" wide><ExpandedFace rule={rule} state={state} rarities={rarities} ladderOpen={false} /></Cell>
     </div>
   );
 }
@@ -158,7 +158,7 @@ function Dealt() {
             <div className="g-dealt-grid">
               {f.dealable(lineQ).map(p => (
                 <Cell key={JSON.stringify(p)} title={Object.entries(p as object).map(([k, v]) => `${k} = ${v}`).join(", ") || "no parameters"}>
-                  <CompactFace rule={ruleOf(f, p)} state={line} />
+                  <CompactFace rule={ruleOf(f, p)} state={line} next />
                 </Cell>
               ))}
             </div>

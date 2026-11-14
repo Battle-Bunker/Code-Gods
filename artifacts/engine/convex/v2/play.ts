@@ -23,7 +23,7 @@ export const myRule = query({
     const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", member._id)).unique()
       ?? fail("NOT_FOUND", "Your rule has not been dealt yet");
     return {
-      family: r.family, title: r.title, params: r.params, layers: r.layers, card: r.card, depends: r.depends, primary: r.primary,
+      family: r.family, title: r.title, params: r.params, layers: r.layers, tieBreaker: r.tieBreaker, card: r.card, depends: r.depends, primary: r.primary,
       ladder: r.ladder, ruleKey: r.ruleKey, bid: r.bid ?? null, handicap: r.handicap ?? null,
     };
   },

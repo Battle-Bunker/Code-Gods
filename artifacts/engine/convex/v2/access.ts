@@ -102,14 +102,15 @@ export async function resolveContext(ctx: QueryCtx, user: User | null, scope: Sc
   const out: AffordanceContext = {
     context,
     principal: {
-      signedIn: !!user, member: !!member, seated: !!player, owner: !!user && !!room && room.ownerId === user.userId,
+      // In the room before a game (the bid phase), a player's seat for the next game.
+      signedIn: !!user, member: !!member, seated: game ? !!player : !!member && !member.spectator, owner: !!user && !!room && room.ownerId === user.userId,
       admin: !!user?.admin,
     },
     ...(grant ? { grant } : {}),
   };
   if (room) {
     const members = await ctx.db.query("v2Members").withIndex("by_room", q => q.eq("roomId", room._id)).take(MAX_MEMBERS);
-    out.room = { players: members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidding: !!room.bidding };
+    out.room = { players: members.filter(m => !m.spectator).length, minPlayers: presetOf(room.preset).minPlayers, bidOpen: !!room.bidding };
   }
   if (game && player) out.game = { phase: game.phase, energy: player.energy, pauseUsed: player.pauseUsed, agents: player.agents };
   else if (game) out.game = { phase: game.phase };

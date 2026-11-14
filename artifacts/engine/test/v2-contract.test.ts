@@ -74,7 +74,7 @@ test("every live query answers a seated player within its validator", async () =
   await admin.mutation("v2/testing:setBidding", { roomId, open: true });
   const bids = await ada.query("v2/bids:state", { roomId });
   assert.ok(bids.open && bids.families.length > 0 && bids.players.length === 3);
-  assert.ok(bids.families.every((f: any) => f.card.length > 0 && f.topRarityBits > 0), "each family on offer with its card and top");
+  assert.ok(bids.families.every((f: any) => f.card.length > 0 && f.top > 0), "each family on offer with its card and top");
   await admin.mutation("v2/testing:setBidding", { roomId, open: false });
 });
 

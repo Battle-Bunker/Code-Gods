@@ -181,6 +181,23 @@ function Scene({ p }: { p: P }) {
     }
   }
 
+  // The nearest improvement's line, when the face asks for it: dashed, in the candidate colour, marked "next".
+  if (p.next && lineItem) {
+    const g = geom(p.next(lineItem.el));
+    if (g && "seg" in g && fmtValue(p.next(lineItem.el)) !== fmtValue(p.values(lineItem.el))) {
+      const c = clipLine(v, g.seg[0], g.seg[1]);
+      if (c) {
+        const end = c[1].y > c[0].y ? c[1] : c[0];
+        layers.push(
+          <g key="next" data-next="">
+            <line className="line-next" x1={sx(v, c[0].x)} y1={sy(v, c[0].y)} x2={sx(v, c[1].x)} y2={sy(v, c[1].y)} />
+            <text className="cand-label label-halo" x={Math.min(sx(v, end.x) + 3, v.w - 26)} y={Math.max(sy(v, end.y) + 10, 10)}>next</text>
+          </g>,
+        );
+      }
+    }
+  }
+
   // Ghost lines (candidates and other cited segments).
   const ghostMarks = marks.filter((m): m is Extract<Mark, { kind: "candidate" }> => m.kind === "candidate" && geom(p.values(m.ref)) !== null && "seg" in geom(p.values(m.ref))!);
   const nearest = ghostMarks.reduce<{ m: Mark | null; d: number }>((acc, m) => {
@@ -247,6 +264,13 @@ function Scene({ p }: { p: P }) {
     const g = geom(p.values(r));
     if (g && "point" in g && !pointRefs.has(key(r))) pointRefs.set(key(r), { r, item: false });
   }
+  // Two cited points at the same place (y(1) and x(4) on y = −x + 5 both at (1, 4)) get one label.
+  const labelled: { t: string; X: number; Y: number }[] = [];
+  const fresh = (t: string, X: number, Y: number) => {
+    if (!t || labelled.some(l => l.t === t && Math.hypot(l.X - X, l.Y - Y) < 6)) return false;
+    labelled.push({ t, X, Y });
+    return true;
+  };
   for (const { r } of pointRefs.values()) {
     const g = geom(p.values(r));
     if (!g || !("point" in g) || !inView(v, g.point)) continue; // undefined or off the window: a readout instead
@@ -255,7 +279,8 @@ function Scene({ p }: { p: P }) {
     const st = markState(marks, r);
     const axisMark = /AxisMark$/.test(r.name);
     const cand = candFor(marks, r);
-    const label = cand ? candLabel(p, cand, marks) : "";
+    const raw = cand ? candLabel(p, cand, marks) : "";
+    const label = fresh(raw, X, Y) ? raw : "";
     const isX = r.name === "xAxisMark";
     front.push(
       <g key={`p${key(r)}`} {...elAttrs(q, r)} {...hover(q, r)}>

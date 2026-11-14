@@ -28,9 +28,9 @@ export const playOps = [
   }),
   affordance({
     id: "game.standings", title: "Show the standings", group: "play", scope: "game",
-    description: "Every player's points and rank as of the last scoreboard (at most 10 s old).",
+    description: "Every player's points, bid handicap and net total (total less the handicap's share), ranked by net total, as of the last scoreboard (at most 10 s old).",
     tooltip: "Who is ahead.", keywords: ["leaderboard", "scores", "ranking", "points"],
-    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), rank: z.number().int() })) }),
+    params: none, result: z.object({ rows: z.array(z.object({ memberId: id, name: z.string(), points: z.number(), handicap: z.number().int(), net: z.number(), rank: z.number().int() })) }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -50,10 +50,13 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, the card sentence, which representations it reads, and its ladder. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, its ladder, and the handicap if it was won by bid. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
-    result: z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), card: z.string(), depends: z.array(z.string()), ladder: z.array(rung) }),
+    result: z.object({
+      family: z.string(), params: z.record(z.string(), z.unknown()), layers: z.array(z.string()), card: z.string(), depends: z.array(z.string()), ladder: z.array(rung),
+      wonByBid: z.object({ handicap: z.number().int() }).nullable(),
+    }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -132,6 +135,6 @@ export const playOps = [
     tooltip: "Help me pitch a deal to other players.", keywords: ["negotiate", "pitch", "deal", "cooperate"],
     params: obj({ to: z.array(id).max(15).optional().describe("Member ids to address; omit for everyone."), aim: z.string().max(300).optional(), requestId: requestId.optional() }),
     result: z.object({ draft: z.string() }),
-    contexts: IN_GAME, caller: "seated", effect: "write", spends: "aiBudget", confirm: "summary", runs: "server",
+    contexts: IN_GAME, caller: "seated", effect: "write", spends: "aiBudget", confirm: "summary", runs: "server", action: true,
   }),
 ] as const;

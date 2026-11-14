@@ -1,0 +1,548 @@
+{
+ "schema": 2,
+ "ruleKey": "line@1/line-z#7c3aa34b892803e6/crossing-check/{\"k\":1,\"q\":2}/tb=whole",
+ "objectType": "line",
+ "objectTypeVersion": 1,
+ "variant": "line-z",
+ "variantHash": "7c3aa34b892803e6",
+ "family": "crossing-check",
+ "params": {
+  "k": 1,
+  "q": 2
+ },
+ "tieBreaker": "whole",
+ "seed": "v2",
+ "config": {
+  "computeBudget": 32000000,
+  "targetRelError": 0.02,
+  "absFloorBits": 0.03,
+  "replicates": 8,
+  "burnIn": 2000,
+  "thin": 10,
+  "perturbations": 4,
+  "proposalSteps": 6,
+  "initialSamples": 64,
+  "minLevels": 6
+ },
+ "status": "too-coarse",
+ "reasons": [
+  "layer 1 (whole) takes 1 distinct values where it counts, fewer than 6: too coarse to extend the ladder"
+ ],
+ "rungs": [
+  {
+   "score": null,
+   "label": "anything",
+   "layer": -1,
+   "bits": 0,
+   "error": 0
+  },
+  {
+   "score": [
+    "-13"
+   ],
+   "label": "y(k) to x(q) within 13",
+   "layer": 0,
+   "bits": 1.5473,
+   "error": 0.026
+  },
+  {
+   "score": [
+    "-8"
+   ],
+   "label": "y(k) to x(q) within 8",
+   "layer": 0,
+   "bits": 1.7357,
+   "error": 0.0266
+  },
+  {
+   "score": [
+    "-5"
+   ],
+   "label": "y(k) to x(q) within 5",
+   "layer": 0,
+   "bits": 1.9692,
+   "error": 0.0262
+  },
+  {
+   "score": [
+    "-3"
+   ],
+   "label": "y(k) to x(q) within 3",
+   "layer": 0,
+   "bits": 2.282,
+   "error": 0.0284
+  },
+  {
+   "score": [
+    "-2"
+   ],
+   "label": "y(k) to x(q) within 2",
+   "layer": 0,
+   "bits": 2.5921,
+   "error": 0.0295
+  },
+  {
+   "score": [
+    "-1"
+   ],
+   "label": "y(k) to x(q) within 1",
+   "layer": 0,
+   "bits": 2.6725,
+   "error": 0.0328
+  },
+  {
+   "score": [
+    "0"
+   ],
+   "label": "y(k) to x(q) exactly",
+   "layer": 0,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-12"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 12",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-8"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 8",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-6"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 6",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-4"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 4",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-3"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 3",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-2"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 2",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "-1"
+   ],
+   "label": "x(q)'s bottom number − 1 at most 1",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196,
+   "empty": true
+  },
+  {
+   "score": [
+    "0",
+    "0"
+   ],
+   "label": "x(q)'s bottom number − 1 0",
+   "layer": 1,
+   "bits": 9.8915,
+   "error": 0.196
+  }
+ ],
+ "primarySense": "min",
+ "curve": null,
+ "diagnostics": {
+  "reversibility": 0.0267,
+  "mixingSteps": 45.4885,
+  "steps": 13855799,
+  "samplesPerChain": 2048,
+  "distinctLevels": [
+   1258,
+   1
+  ],
+  "examples": [
+   "15,1,0",
+   "1,1,0",
+   "-8,1,0",
+   "-7,1,4",
+   "-1,1,0",
+   "-2,1,0",
+   "-2,1,0",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2",
+   "2,1,-2"
+  ],
+  "split": [
+   0,
+   1.5065,
+   1.6941,
+   1.9113,
+   2.2004,
+   2.5084,
+   2.5995,
+   9.9861,
+   9.9861,
+   9.9861,
+   9.9861,
+   9.9861,
+   9.9861,
+   9.9861,
+   9.9861,
+   9.9861
+  ],
+  "direct": [
+   0,
+   1.5065,
+   1.6967,
+   1.9327,
+   2.2414,
+   2.5453,
+   2.6206,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "levelMatrix": [
+   [
+    39448,
+    456,
+    292,
+    315,
+    289,
+    84,
+    1569,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    11
+   ],
+   [
+    516,
+    1467,
+    371,
+    181,
+    98,
+    28,
+    186,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+   ],
+   [
+    326,
+    409,
+    1489,
+    345,
+    139,
+    40,
+    299,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+   ],
+   [
+    330,
+    184,
+    352,
+    1615,
+    254,
+    66,
+    488,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    11
+   ],
+   [
+    292,
+    82,
+    166,
+    264,
+    1166,
+    65,
+    592,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    9
+   ],
+   [
+    82,
+    18,
+    29,
+    70,
+    65,
+    152,
+    145,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    7
+   ],
+   [
+    1596,
+    197,
+    316,
+    517,
+    628,
+    149,
+    7163,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    18
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    69,
+    13,
+    18,
+    45,
+    45,
+    49,
+    141,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    76
+   ]
+  ]
+ },
+ "contentHash": "77eb8c036f755e4d"
+}

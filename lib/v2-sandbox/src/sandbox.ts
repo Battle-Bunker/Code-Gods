@@ -58,9 +58,14 @@ export interface Sandbox {
 export const HARD_WALL_GRACE_MS = 250;
 /** A worker's trusted preparation of one act (compiling, shape-checking, the guest library) must finish in this. */
 export const PREPARE_MS = 5000;
+/** The guest library (transport, values) and then the plain-words helpers (look, price, cheapest, ...). */
+const guest = (...files: string[]) => {
+  let text: string | undefined;
+  return () => (text ??= files.map(f => readFileSync(new URL(`../guest/${f}`, import.meta.url), "utf8")).join("\n"));
+};
 const PRELUDES = {
-  python: () => readFileSync(new URL("../guest/codegods.py", import.meta.url), "utf8"),
-  javascript: () => readFileSync(new URL("../guest/codegods.js", import.meta.url), "utf8"),
+  python: guest("codegods.py", "helpers.py"),
+  javascript: guest("codegods.js", "helpers.js"),
 };
 
 /** Validate and compile an act's inputs (an agent's compile error is a result, not a throw). */

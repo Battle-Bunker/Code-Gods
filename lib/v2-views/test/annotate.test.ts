@@ -7,8 +7,8 @@ import { emptyTank } from "../src/demo.ts";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
   ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
-const rule = <P,>(family: RuleFamily<LineState, P>, params: P, variant = lineZ): RuleRef<LineState, P> =>
-  ({ type: lineType, family, params, variant });
+const rule = <P,>(family: RuleFamily<LineState, P>, params: P, variant = lineZ, tieBreaker?: string | null): RuleRef<LineState, P> =>
+  ({ type: lineType, family, params, variant, tieBreaker });
 
 test("format: true minus, vulgar fractions, mixed numbers", () => {
   assert.equal(fmtQ(q(-3)), "−3");
@@ -18,19 +18,21 @@ test("format: true minus, vulgar fractions, mixed numbers", () => {
   assert.equal(fmtQ(q(22, 7)), "22/7");
 });
 
-test("Prime Gradient: one main part, its value is the scored term, its step on the family ladder", () => {
+test("Prime Gradient: main part and tie-breaker, values are the scored terms, steps on their own ladders", () => {
   const a = annotate(rule(primeGradient, {}), mc(4, -3));
   assert.equal(a.level, 6);           // Z ladder 13, 8, 5, 3, 2, 1, 0: a gap of 1 meets six steps
-  assert.equal(a.top, 7);
-  const [p] = a.sites[0]!.parts;
-  assert.equal(a.sites[0]!.parts.length, 1);
+  assert.equal(a.top, 7 + 8);         // then eight steps of the tie-breaker (the prime's size)
+  const [p, tie] = a.sites[0]!.parts;
+  assert.equal(a.sites[0]!.parts.length, 2);
   assert.equal(p!.name, "main part");
-  assert.equal(p!.term, "gap");
+  assert.equal(p!.term, "near");
   assert.equal(Qn.toWire(p!.value as Q), "1");
   assert.equal(p!.rung, 6);
   assert.equal(p!.rungs, 7);
-  assert.equal(p!.rungLabel, "a prime within 1");
-  assert.equal(p!.nextLabel, "a prime exactly");
+  assert.equal(p!.rungLabel, "gradient to a prime within 1");
+  assert.equal(p!.nextLabel, "gradient to a prime exactly");
+  assert.equal(tie!.term, "prime");
+  assert.equal(annotate(rule(primeGradient, {}, lineZ, null), mc(4, -3)).sites[0]!.parts.length, 1);
   // The main part owns the picture: both nearby primes, drawn as ghosts with their distances.
   assert.deepEqual(p!.marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref)).sort(), ["cart.ghost(g=3)", "cart.ghost(g=5)"]);
   assert.ok(a.sites[0]!.working.includes("gradient = 4"));
@@ -47,9 +49,9 @@ test("WORST: the undefined sentence is the reason, level 0", () => {
 
 test("two parts: main part and tie-breaker each on their own ladder, marks split by term (storyboard §3.4)", () => {
   const r = rule(emptyTank, {}, lineQ);
-  const a = annotate(r, mc(-3, 10), { rarities: [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8] });
-  assert.equal(a.level, 5);           // T = 10/3, nearest minute 3, gap 1/3: step 5 of 8
-  assert.equal(a.top, 8);
+  const a = annotate(r, mc(-3, 10), { rarities: [0, 0.4, 0.9, 1.5, 2.1, 3.4, 4.6, 5.7, 6.8, 7.5, 8.1, 8.9, 9.6] });
+  assert.equal(a.level, 5);           // T = 10/3, nearest minute 3, gap 1/3: step 5 of the main part's 8
+  assert.equal(a.top, 8 + 4);         // then the tie-breaker's four steps
   assert.equal(a.rarity, 3.4);
   assert.equal(a.nextRarity, 4.6);
   const [main, tie] = a.sites[0]!.parts;
@@ -104,7 +106,7 @@ test("nearest improvement: really raises the level, at the price it quotes", () 
   const after = annotate(r, imp.result as LineState);
   assert.equal(after.level, imp.levelAfter);
   assert.ok(imp.price.total > 0);
-  assert.match(imp.sentence, /⚡\): step \d+ of 8\.$/);
+  assert.match(imp.sentence, /⚡\): step \d+ of 12\.$/);
 
   for (const [f, p, st] of [
     [primeGradient, {}, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],
@@ -118,5 +120,5 @@ test("nearest improvement: really raises the level, at the price it quotes", () 
 });
 
 test("nearest improvement: none at the top of a ladder with nothing closer", () => {
-  assert.equal(nearestImprovement(rule(primeGradient, {}), mc(3, 0)), null);
+  assert.equal(nearestImprovement(rule(primeGradient, {}, lineZ, null), mc(3, 0)), null);
 });

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
-    "calibrate": "node --experimental-strip-types src/cli.ts"
+    "calibrate": "node --experimental-strip-types src/cli.ts",
+    "law": "node --experimental-strip-types src/law.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",

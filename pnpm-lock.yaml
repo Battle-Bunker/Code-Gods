@@ -600,6 +600,28 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.9.6
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      react:
+        specifier: 'catalog:'
+        version: 19.1.0
+
+  lib/v2-agents:
+    dependencies:
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../v2-core
+      '@workspace/v2-linear':
+        specifier: workspace:*
+        version: link:../v2-linear
+      '@workspace/v2-sandbox':
+        specifier: workspace:*
+        version: link:../v2-sandbox
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
 
   lib/v2-core: {}
 

@@ -41,7 +41,7 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
   const seated = (id: string) => !!g && g.roster.some(r => r.id === id);
   const players = room.members.filter(m => !m.spectator).length;
   const open = g ? 0 : Math.max(0, minPlayers - players);
-  // Watch or play the next game (docs/unify-apps-plan.md §2): the member themselves, or the owner for any human.
+  // Watch or play the next game (archive/engine-v1:docs/unify-apps-plan.md §2): the member themselves, or the owner for any human.
   const canToggle = (m: RoomState["members"][number]) => m.kind === "human" && (m.id === meId || isOwner) && !(room.preparing && !room.preparing.error) && !openBidding(room)
     && !(m.spectator && players >= (manifest?.maximumPlayers ?? 8));
   const role = (m: RoomState["members"][number]) => (m.spectator ? (g ? "watches the next game" : "spectator") : g ? "plays the next game" : "player");

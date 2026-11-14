@@ -17,7 +17,7 @@ lists operations. Every surface is generated from it:
 | Remote assistant (MCP) | `mcpTools(ctx)` → `tools/list` entries with annotations and output schema | `ctx.grant` narrows to the credential's permission |
 | CLI | `cliCommands()`, `parseCli(argv)` | `<namespace> <verb> --flag value` and `call <id> '<json>'`; flags from the JSON Schema |
 | Command palette | `paletteFor(ctx)` → entries with `searchText`, `confirm`, `availability`; `searchPalette` | the app maps entries onto its palette UI |
-| UI buttons | `useAffordance(id)` (`@workspace/v2-affordances/react`, next PR) | `{available, reason, fix, confirm, spends, run(args)}` |
+| UI buttons | `useAffordance(id)` (`@workspace/v2-affordances/react`) | `{available, reason, fix, confirm, spends, run(args)}` |
 | Server | `defineOp(id, kind, handler)` (`@workspace/v2-affordances/convex`) | one Convex function per server affordance plus its internal twin |
 | Model dispatch | `callTool(name, args, ctx, via, perform)`, `mcpDispatch(msg, ctx, perform)` | the assistant's tool calls and MCP `tools/list` / `tools/call`; results wrapped untrusted |
 
@@ -58,7 +58,9 @@ Rules the parity test enforces (`parityProblems()`, `test/parity.test.ts`):
 2. every server affordance has exactly one handler, and every public v2 mutation or action is one (`handlerProblems`
    over the fake's handler map; `convexOpsProblems` over `artifacts/engine/convex/v2`, which turns strict as soon as
    `convex/v2/ops/` exists);
-3. the web app calls no v2 mutation or action except through `useAffordance` (with the React hook, next PR);
+3. the web app calls no v2 mutation or action except through `useAffordance` (`appProblems` over
+   `artifacts/player-web/src`: only the one runtime file that builds `perform`, named `affordance-runtime.ts(x)`, may
+   call one);
 4. for every context and caller, the assistant, MCP and the palette offer the same set;
 5. ids are `namespace.verb` and unique; text within limits; keywords present; destructive and spending affordances
    confirm; server writes take an optional `requestId` (idempotent retries); schemas convert to JSON Schema.
@@ -84,8 +86,14 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 ```
 
 - `defineOp(id, kind, handler)` only accepts a server affordance's id. The handler's `args` are the parsed params, and
-  its return type is the declared result. Kind is `query` for reads, `mutation` for writes, and `action` where the
-  sandbox or a model runs (`agent.check`, `agent.summon`, `agent.replace`, `agent.putBack`, `pitch.draft`).
+  its return type is the declared result. `kind` must equal `opKind(affordance)`: `action` where the declaration says
+  `action: true` (the sandbox or a model runs: `agent.check`, `agent.summon`, `agent.replace`, `agent.putBack`,
+  `pitch.draft`), else `query` for reads and `mutation` for writes. The declaration carries it so the app and the CLI
+  know how to call each function.
+- View operations have one server function, so an assistant can change what the human sees:
+  `export const { op: apply, as: applyAs } = defineViewOps(host)` in `ops/view.ts` (`VIEW_OP_PATH`). The host adds
+  `loadView` and `saveView` over the human's `v2Layouts` row; both functions run `applyView`, the same reducer and
+  checks the browser runs.
 - Both functions run `runOp`. It validates the args, applies `refusal` with the context `resolve` derived from the
   server's own records (never the client's say-so), answers a repeated `requestId` from its receipt, and checks the
   result against the declaration (a mismatch throws: it is a bug). A handler reports a domain failure by throwing
@@ -105,13 +113,25 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 
 ## 4. For W5 (the app)
 
-- No button calls a Convex function: it calls `useAffordance(id)`, renders `reason` when unavailable, and shows the
-  same confirmation the palette uses (`confirm`, `spends`).
-- The palette's rows are `paletteFor(ctx)`; the hand-written bind tables of v1 have no v2 counterpart.
-- View operations (`runs: "client"`) change the human's layout (`v2Layouts` pane params), so a remote assistant
-  changes what the human sees and every open client follows. Representation pins live there, not in localStorage.
-- The app builds the `AffordanceContext` from its subscriptions: the page's context (room, phase, replay), the
-  principal (signed in, member, seated, owner, admin) and the game's cold facts (energy, pause used, seats).
+- The app's root renders `<AffordanceProvider runtime={{ context, perform }}>` (`@workspace/v2-affordances/react`),
+  with `runtime` memoised per context. `context` is built from the page's subscriptions: the page's context (room,
+  phase, replay), the principal (signed in, member, seated, owner, admin), `room` facts (players, minimum) and the
+  game's cold facts (energy, pause used, agents). `perform(id, args)`, in the app's one `affordance-runtime.ts`, is the
+  one place the app calls Convex. For a
+  server affordance it calls `opPath(id).public` with `opKind(affordance)` (`convex.query` / `mutation` / `action`) and
+  `{args, roomId, gameId, replay}`, reading a thrown failure with `outcomeOf`. For a view operation it applies
+  `applyView` to the local view state for an instant answer and calls `VIEW_OP_PATH.public` so the other clients follow.
+- Every button: `const summon = useAffordance("agent.summon")` gives `{available, reason, fix, hidden, confirm, spends,
+  run(args)}`. Render nothing when `hidden`, render the reason (and the fix as a link) when unavailable, and ask the
+  confirmation the palette asks. `run` throws `AffordanceError` with the server's words.
+- The palette's rows are `paletteFor(ctx)` (search with `searchPalette`, or map onto the existing palette UI). A row
+  with `needsInput` opens a form from the params (or hands off to the assistant). A **read** affordance's row opens
+  the pane that subscribes to that data (R7: the app makes no one-off reads); the read itself is for models and the CLI.
+- View state (`ViewState`: open panes, representation pins, object sort and filter, focused object and the
+  representations it compares, where none means every representation the rule depends on, glossary, replay cursor:
+  an event number, or a world time plus events after it, which the replay pane resolves) lives in the human's
+  `v2Layouts` row. A view operation that changes nothing keeps the version and is not written. `pinnedRep(view,
+  family, default)` is the representation a compact face draws. Pins are never kept in localStorage.
 
 ## 5. The directory (generated; `pnpm --filter @workspace/v2-affordances gen:doc`)
 
@@ -136,11 +156,11 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `game.startWorldNow` | End planning now | — | server · game | owner | planning | write; confirm inline |
 | `game.resume` | Resume the game | — | server · game | owner | paused | write |
 | `game.end` | End the game | — | server · game | owner | planning, live, paused | destructive; confirm modal |
-| `bid.state` | Show the bid phase | — | server · room | member | room | read |
-| `bid.place` | Bid on a rule family | family, percent | server · room | member | room | write |
-| `bid.withdraw` | Withdraw a bid | family | server · room | member | room | write |
-| `bid.done` | Finish bidding | done | server · room | member | room | write |
-| `game.auction` | Show the auction's results | — | server · game | member | planning, live, paused, ended, replay | read |
+| `bid.state` | Show the bid phase | — | server · room | seated | room | read |
+| `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
+| `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |
+| `bid.done` | Finish bidding | — | server · room | seated | room | write |
+| `game.auction` | Show the auction's result | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.get` | Show the game | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.standings` | Show the standings | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.ready` | Mark me ready | ready | server · game | seated | planning | write |
@@ -155,13 +175,13 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
-| `pitch.draft` | Draft a cooperation pitch | to, aim | server · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
+| `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
 | `agents.list` | List my agents | — | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
-| `agent.check` | Check an agent's code | language, source | server · game | seated | planning, live, paused | read |
-| `agent.summon` | Summon an agent | language, source, name, share | server · game | seated | planning, live, paused | write; spends energy; confirm summary |
-| `agent.replace` | Replace an agent's code | agentId, language, source | server · game | seated | planning, live, paused | write; spends energy; confirm summary |
-| `agent.putBack` | Put back an earlier version | agentId, version | server · game | seated | planning, live, paused | write; spends energy; confirm summary |
+| `agent.check` | Check an agent's code | language, source | server (action) · game | seated | planning, live, paused | read |
+| `agent.summon` | Summon an agent | language, source, name, share | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
+| `agent.replace` | Replace an agent's code | agentId, language, source | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
+| `agent.putBack` | Put back an earlier version | agentId, version | server (action) · game | seated | planning, live, paused | write; spends energy; confirm summary |
 | `agent.destroy` | Destroy an agent | agentId | server · game | seated | planning, live, paused | destructive; confirm modal |
 | `power.allocate` | Split power between agents | shares | server · game | seated | planning, live, paused | write |
 | `view.openPane` | Open a pane | pane, place | client · room | member | room, planning, live, paused, ended, replay | write |

@@ -41,6 +41,9 @@
     },
     {
       "path": "./lib/v2-affordances"
+    },
+    {
+      "path": "./lib/v2-agents"
     }
   ]
 }

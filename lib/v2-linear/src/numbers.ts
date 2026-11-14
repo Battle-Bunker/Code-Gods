@@ -5,7 +5,7 @@ export function isPrime(n: bigint): boolean {
   if (n < 2n) return false;
   if (n < 4n) return true;
   if (n % 2n === 0n || n % 3n === 0n) return false;
-  for (let d = 5n; d * d <= n; d += 6n) if (n % d === 0n || n % (d + 2n) === 0n) return false;
+  for (let d = 5n; d * d <= n && d <= TRIAL_DIVISION_LIMIT; d += 6n) if (n % d === 0n || n % (d + 2n) === 0n) return false;
   return true;
 }
 
@@ -28,4 +28,52 @@ export function nearbyPrimes(x: Q): bigint[] {
   const lo = primeAtMost(x), hi = primeAtLeast(x);
   const ps = lo === null || lo === hi ? [hi] : [lo, hi];
   return ps.sort((a, b) => Qn.cmp(Qn.abs(Qn.sub(x, q(a))), Qn.abs(Qn.sub(x, q(b)))));
+}
+
+/** ⌊√n⌋ for n ≥ 0 (Newton's method on bigint: exact at any size). */
+export function isqrt(n: bigint): bigint {
+  if (n < 0n) throw new RangeError("isqrt of a negative number");
+  if (n < 2n) return n;
+  let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+  for (;;) {
+    const y = (x + n / x) >> 1n;
+    if (y >= x) return x;
+    x = y;
+  }
+}
+
+/** The whole number nearest x (halves round up). */
+export const nearestInteger = (x: Q): bigint => Qn.floor(Qn.add(x, q(1, 2)));
+
+/** The root r ≥ 0 of the perfect square r² nearest x (ties go to the smaller square; negative x → 0). */
+export function nearestSquareRoot(x: Q): bigint {
+  if (x.n <= 0n) return 0n;
+  const r = isqrt(Qn.floor(x));
+  const lo = Qn.sub(x, q(r * r)), hi = Qn.sub(q((r + 1n) * (r + 1n)), x);
+  return Qn.cmp(hi, lo) < 0 ? r + 1n : r;
+}
+
+/**
+ * Trial division stops at this divisor: a number with no factor below it counts as prime here. Rule scores stay exact
+ * and deterministic, and the cost of a rule evaluation stays bounded on huge numbers (which the confining code makes
+ * vanishingly rare).
+ */
+export const TRIAL_DIVISION_LIMIT = 100_000n;
+
+/** The smallest prime factor of |n| (up to TRIAL_DIVISION_LIMIT, else |n|); 1 for 0 and ±1. */
+export function smallestPrimeFactor(n: bigint): bigint {
+  const m = n < 0n ? -n : n;
+  if (m < 2n) return 1n;
+  if (m % 2n === 0n) return 2n;
+  for (let d = 3n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += 2n) if (m % d === 0n) return d;
+  return m;
+}
+
+/** Ω(n): prime factors of |n| counted with multiplicity (a cofactor with no factor below the limit counts once); 0 for 0 and ±1. */
+export function primeFactorCount(n: bigint): number {
+  let m = n < 0n ? -n : n;
+  if (m < 2n) return 0;
+  let k = 0;
+  for (let d = 2n; d * d <= m && d <= TRIAL_DIVISION_LIMIT; d += d === 2n ? 1n : 2n) while (m % d === 0n) { m /= d; k++; }
+  return m > 1n ? k + 1 : k;
 }

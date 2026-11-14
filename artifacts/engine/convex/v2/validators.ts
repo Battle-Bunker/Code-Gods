@@ -22,7 +22,7 @@ export const roomV = v.object({
   preset: v.string(), overrides: overridesV, phase: roomPhaseV,
   members: v.array(memberRowV),
   game: v.union(gameHeadV, v.null()), lastGame: v.union(gameHeadV, v.null()),
-  bidding: v.union(v.object({ deadline: v.number(), families: v.array(offerV) }), v.null()),
+  bidding: v.union(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) }), v.null()),
 });
 export const roomListV = paginationResultValidator(v.object({ roomId: v.id("v2Rooms"), memberId: v.id("v2Members"), joinedAt: v.number() }));
 export const chatPageV = paginationResultValidator(v.object({ id: v.id("v2Chat"), from: v.string(), memberId: v.union(v.id("v2Members"), v.null()), text: v.string(), at: v.number() }));
@@ -51,7 +51,7 @@ export const standingsHistoryV = v.array(v.object({ seq: v.number(), worldSecond
 
 /** `v2/play:myRule`: the caller's private rule. */
 export const myRuleV = v.object({
-  family: v.string(), title: v.string(), params: v.any(), layers: v.array(v.any()), card: v.string(),
+  family: v.string(), title: v.string(), params: v.any(), layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), card: v.string(),
   depends: v.array(v.string()), primary: v.string(), ladder: v.array(rungV), ruleKey: v.string(),
   bid: v.union(v.number(), v.null()), handicap: v.union(v.number(), v.null()),
 });

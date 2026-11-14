@@ -18,11 +18,12 @@ import {
   type GenericActionCtx, type GenericDataModel, type GenericMutationCtx, type GenericQueryCtx,
 } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import { AFFORDANCES, type ServerAffordanceId } from "./directory.ts";
+import { AFFORDANCES, opKind, type ServerAffordanceId } from "./directory.ts";
 import { runOp, type Handler, type OpOutcome, type ReceiptStore } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
+import { applyView, type ViewState } from "./layout.ts";
 
-/** query for reads; mutation for writes; action where the sandbox or a model runs (check, summon, replace, pitch). */
+/** query for reads; mutation for writes; action where the declaration says `action` (the sandbox or a model runs). */
 export type OpKind = "query" | "mutation" | "action";
 export type CtxOf<DM extends GenericDataModel, K extends OpKind> =
   K extends "query" ? GenericQueryCtx<DM> : K extends "mutation" ? GenericMutationCtx<DM> : GenericActionCtx<DM>;
@@ -63,6 +64,7 @@ export function makeDefineOp<DM extends GenericDataModel>(host: OpHost<DM>) {
   return function defineOp<Id extends ServerAffordanceId, K extends OpKind>(id: Id, kind: K, handler: Handler<Id, OpEnv<DM, K>>) {
     const a = AFFORDANCES[id];
     if (!a || a.runs !== "server") throw new Error(`defineOp: ${id} is not a server affordance in the directory`);
+    if (kind !== opKind(a)) throw new Error(`defineOp: ${id} is declared as a Convex ${opKind(a)}, not a ${kind}`);
     const run = async (ctx: CtxOf<DM, K>, who: { session: true } | { delegate: Delegate }, input: OpScope & { args: unknown }) => {
       const { args, ...scope } = input;
       const caller = await host.resolve(ctx as GenericQueryCtx<DM>, who, scope);
@@ -87,3 +89,37 @@ export function makeDefineOp<DM extends GenericDataModel>(host: OpHost<DM>) {
     }
   };
 }
+
+/** What W3 supplies for view operations besides `OpHost`: where the human's view state lives (`v2Layouts`). */
+export interface ViewHost<DM extends GenericDataModel> extends OpHost<DM> {
+  loadView(ctx: GenericMutationCtx<DM>, caller: Caller, scope: OpScope): Promise<ViewState>;
+  saveView(ctx: GenericMutationCtx<DM>, caller: Caller, scope: OpScope, view: ViewState): Promise<void>;
+}
+
+/**
+ * The one server function for every view operation, so an assistant or MCP credential can change what the human sees:
+ *   // convex/v2/ops/view.ts
+ *   export const { op: apply, as: applyAs } = defineViewOps(host);
+ * `op` takes `{id, args, roomId?, gameId?, replay?}` (a browser that wants its other clients to follow); `as` adds
+ * `delegate`. Both run `applyView` (the same reducer and checks the browser runs) and save the result.
+ */
+export function defineViewOps<DM extends GenericDataModel>(host: ViewHost<DM>) {
+  const run = async (ctx: GenericMutationCtx<DM>, who: { session: true } | { delegate: Delegate }, input: OpScope & { id: string; args: unknown }) => {
+    const { id, args, ...scope } = input;
+    const caller = await host.resolve(ctx, who, scope);
+    const { outcome, view, changed } = applyView(await host.loadView(ctx, caller, scope), id, args, caller.ctx, "delegate" in who ? who.delegate.via : "app");
+    if (changed) await host.saveView(ctx, caller, scope, view);
+    return outcome;
+  };
+  const args = { id: v.string(), args: v.any(), ...scopeArgs };
+  return {
+    op: mutationGeneric({ args, handler: (ctx: GenericMutationCtx<DM>, input: OpScope & { id: string; args: unknown }) => run(ctx, { session: true }, input) } as never),
+    as: internalMutationGeneric({
+      args: { ...args, delegate: delegateArg },
+      handler: (ctx: GenericMutationCtx<DM>, { delegate, ...input }: OpScope & { id: string; args: unknown; delegate: Delegate }) => run(ctx, { delegate }, input),
+    } as never),
+  };
+}
+
+/** Where the view operations' functions live (`defineViewOps` under the layout convention). */
+export const VIEW_OP_PATH = { public: "v2/ops/view:apply", internal: "v2/ops/view:applyAs" } as const;

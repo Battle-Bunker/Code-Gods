@@ -5,8 +5,8 @@
  * at least that good. Checked against an exactly solvable price list in test/estimate.test.ts.
  */
 import {
-  canonicalJson, evaluateObject, hashHex, levelOf, objectLadder, rng, walkStep,
-  type ObjectType, type RuleFamily, type Rung, type Variant,
+  canonicalJson, evaluateObject, hashHex, levelOf, meets, objectLadder, rng, ruleLayers, tieBreakerId, toWireQ, walkStep,
+  type ObjectType, type RuleFamily, type Rung, type Score, type TieBreaker, type Variant,
 } from "@workspace/v2-core";
 import { stationary } from "./linalg.ts";
 
@@ -23,17 +23,23 @@ export interface ValuationConfig {
   readonly thin: number;
   readonly perturbations: number;
   /**
-   * A restricted chain proposes this many free walk steps at once and keeps the end only if it is still in the upper
-   * set. P^K has the same stationary law as P, and it connects thin upper sets (m = c) that single moves cannot.
+   * A restricted chain proposes K free walk steps at once, K uniform on 1 … proposalSteps, and keeps the end only if it
+   * is still in the upper set. Each P^K, and so their mixture, has the walk's stationary law; long proposals connect thin
+   * upper sets (m = c) that single moves cannot, short ones are often accepted near a boundary.
    */
   readonly proposalSteps: number;
   /** Samples per chain in the first pass; each further pass doubles it. */
   readonly initialSamples: number;
+  /**
+   * A layer must take at least this many distinct values among the samples where it counts (every earlier layer at its
+   * top), or the rule is too coarse to extend a ladder (owner decision 13: "Require all rules to be continuous").
+   */
+  readonly minLevels: number;
 }
 
 export const DEFAULT_CONFIG: ValuationConfig = {
-  computeBudget: 16_000_000, targetRelError: 0.02, absFloorBits: 0.03, replicates: 8,
-  burnIn: 2_000, thin: 10, perturbations: 4, proposalSteps: 4, initialSamples: 64,
+  computeBudget: 32_000_000, targetRelError: 0.02, absFloorBits: 0.03, replicates: 8,
+  burnIn: 2_000, thin: 10, perturbations: 4, proposalSteps: 6, initialSamples: 64, minLevels: 6,
 };
 
 export interface RungEstimate {
@@ -49,7 +55,7 @@ export interface RungEstimate {
   readonly empty: boolean;
 }
 
-export type Status = "converged" | "unconverged" | "unreachable" | "flagged";
+export type Status = "converged" | "unconverged" | "unreachable" | "flagged" | "too-coarse";
 
 export interface Estimate {
   readonly status: Status;
@@ -59,12 +65,16 @@ export interface Estimate {
   readonly mixingSteps: number;
   readonly samplesPerChain: number;
   readonly steps: number;
+  /** Per rung: a state from replicate 0's chain on that rung's upper set at the end of the run (wire), to show sizes. */
+  readonly examples: readonly string[];
+  /** Per dealt layer: distinct values it took among samples where it counts (null for multi-line objects). */
+  readonly distinctLevels: readonly (number | null)[];
   /** The pooled level-matrix counts the values come from: row l, column j. */
   readonly levelMatrix: readonly (readonly number[])[];
 }
 
-export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown): string {
-  return `${type.id}@${type.version}/${variant.id}#${hashHex(canonicalJson(variant))}/${familyId}/${canonicalJson(params)}`;
+export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown, tieBreaker: string): string {
+  return `${type.id}@${type.version}/${variant.id}#${hashHex(canonicalJson(variant))}/${familyId}/${canonicalJson(params)}/tb=${tieBreaker}`;
 }
 
 const mean = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -114,6 +124,8 @@ export interface EstimateInput<S, P> {
   readonly variant: Variant;
   readonly family: RuleFamily<S, P>;
   readonly params: P;
+  /** The dealt tie-breaker (default: the family's first; null: the main layer alone). */
+  readonly tieBreaker?: TieBreaker;
   readonly seed?: string;
   readonly config?: Partial<ValuationConfig>;
 }
@@ -122,20 +134,55 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   const { type, variant, family, params } = input;
   const cfg = { ...DEFAULT_CONFIG, ...input.config };
   const seed = input.seed ?? "v2";
-  const key = ruleKey(type as ObjectType<unknown>, variant, family.id, params);
-  const rungs: readonly Rung[] = objectLadder(type, family, params, variant);
-  const n = rungs.length - 1;
+  const tb = tieBreakerId(family, input.tieBreaker) === "none" ? null : tieBreakerId(family, input.tieBreaker);
+  const layers = ruleLayers(family, tb).length;
+  const key = ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreakerId(family, tb));
+  const fullLadder: readonly Rung[] = objectLadder(type, family, params, variant, tb);
+  // The ladder calibrated: the full one, truncated below the first rung no replicate's climb could reach (step 1).
+  let rungs: readonly Rung[] = fullLadder;
+  const singleSite = type.sites(type.origin(variant), variant) === 1;
+  // Where each layer starts counting: the prefix (every earlier layer at its top) of its first rung.
+  const layerPrefix: Score[] = Array.from({ length: layers }, (_, j) => {
+    const first = fullLadder.find(r => r.layer === j);
+    return first && first.score ? first.score.slice(0, j) : null;
+  });
+  const distinct: Set<string>[] = Array.from({ length: layers }, () => new Set());
+  let n = rungs.length - 1;
 
-  const cache = new Map<string, number>();
-  const level = (s: S): number => {
+  const cache = new Map<string, { score: Score }>();
+  const scored = (s: S) => {
     const k = type.encode(s);
-    let l = cache.get(k);
-    if (l === undefined) {
-      l = levelOf(evaluateObject(type, family, params, s, variant).score, rungs);
+    let e = cache.get(k);
+    if (e === undefined) {
+      e = { score: evaluateObject(type, family, params, s, variant, tb).score };
       if (cache.size > 400_000) cache.clear();
-      cache.set(k, l);
+      cache.set(k, e);
     }
-    return l;
+    return e;
+  };
+  const level = (s: S): number => levelOf(scored(s).score, rungs);
+
+  /**
+   * The proposal and perturbation kernel: 1 … proposalSteps free walk steps, uniformly. It has the walk's stationary
+   * law, so the level masses are still its level matrix's stationary vector (#347 §1.4.3: any perturbation built from
+   * the moves will do); unlike a single step it joins levels that only a pair of moves connects (|c| along m = c).
+   */
+  const perturb = (x: S, r: ReturnType<typeof rng>): S => {
+    let y = x;
+    const len = 1 + r.below(cfg.proposalSteps);
+    for (let j = 0; j < len; j++) y = walkStep(type, variant, y, r);
+    return y;
+  };
+  /** Note the values of the layers that count at this sample (single-line objects). */
+  const noteLayers = (s: S): void => {
+    if (!singleSite) return;
+    const sc = scored(s).score;
+    if (sc === null) return;
+    for (let j = 0; j < layers; j++) {
+      if (j > 0 && !meets(sc, layerPrefix[j]!)) break;
+      const v = sc[j];
+      distinct[j]!.add(v === null || v === undefined ? "undefined" : toWireQ(v));
+    }
   };
 
   // 1. Seeds for each upper set, separately for each replicate (replicates that shared a start would share its
@@ -153,7 +200,10 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
       let tries = 0;
       while (level(s) < i && tries < 20 * cfg.burnIn) {
         const here = level(s);
-        s = walkStep(type, variant, s, r, x => level(x) >= here);
+        // Alternate a filtered single step and a kernel proposal: the first creeps along thin sets, the second jumps
+        // between levels that only pairs of moves join.
+        const y = tries % 2 === 0 ? walkStep(type, variant, s, r, x => level(x) >= here) : perturb(s, r);
+        if (level(y) >= here) s = y;
         tries++;
       }
       steps += tries;
@@ -163,19 +213,24 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     return seeds;
   };
   const allSeeds = Array.from({ length: cfg.replicates }, (_, rep) => seedsFor(rep));
-  for (const seeds of allSeeds) {
-    const unreachable = seeds.findIndex(x => x === null);
-    if (unreachable !== -1) {
+  // Every replicate must start every chain: calibrate up to the last rung all of them reached.
+  const reached = Math.min(...allSeeds.map(seeds => { const u = seeds.findIndex(x => x === null); return u === -1 ? n : u - 1; }));
+  const truncation: string[] = [];
+  if (reached < n) {
+    truncation.push(`ladder truncated at rung ${reached}: no state found at rung ${reached + 1} (${rungs[reached + 1]!.label}) within ${20 * cfg.burnIn} climbing proposals`);
+    if (reached === 0) {
       return {
-        status: "unreachable", reasons: [`no state found at rung ${unreachable} (${rungs[unreachable]!.label}) within ${20 * cfg.burnIn} climbing steps`],
-        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, levelMatrix: [],
+        status: "unreachable", reasons: truncation,
+        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [], examples: [],
       };
     }
+    rungs = rungs.slice(0, reached + 1);
+    n = reached;
   }
 
   // 2–3. One persistent chain per (replicate, upper set). Each pass extends every chain until it holds `target`
   // samples, so a doubling reuses the burn-in and every earlier sample.
-  const K = cfg.proposalSteps;
+  const K = (cfg.proposalSteps + 1) / 2;   // mean proposal length, for step accounting
   interface Chain { state: S; readonly r: ReturnType<typeof rng>; readonly i: number; samples: number }
   interface Replicate {
     readonly chains: Chain[];
@@ -185,8 +240,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     readonly freeLevels: number[];   // levels of U_0's chain, in order
   }
   const move = (c: Chain): void => {
-    let y = c.state;
-    for (let j = 0; j < K; j++) y = walkStep(type, variant, y, c.r);
+    const y = perturb(c.state, c.r);
     if (c.i === 0 || level(y) >= c.i) c.state = y;
   };
   const reps: Replicate[] = Array.from({ length: cfg.replicates }, (_, rep) => ({
@@ -205,18 +259,19 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
         for (let t = 0; t < cfg.thin; t++) move(c);
         steps += cfg.thin * K;
         const l = level(c.state);
+        noteLayers(c.state);
         c.samples++;
         rep.total[c.i]!++;
         if (l >= c.i + 1) rep.inNext[c.i]!++;
         if (c.i === 0) rep.freeLevels.push(l);
         // Every chain samples within the stationary law, so a sample at level l is a draw from π restricted to L_l,
         // whichever upper set's chain produced it: perturb it and count it in row l (kept per chain, see rowsOf).
-        for (let p = 0; p < cfg.perturbations; p++) rep.C[c.i]![l]![level(walkStep(type, variant, c.state, c.r))]!++;
-        steps += cfg.perturbations;
+        for (let p = 0; p < cfg.perturbations; p++) rep.C[c.i]![l]![level(perturb(c.state, c.r))]!++;
+        steps += cfg.perturbations * K;
       }
     }
   };
-  const extendCost = (from: number, to: number) => cfg.replicates * (n + 1) * (to - from) * (cfg.thin * K + cfg.perturbations);
+  const extendCost = (from: number, to: number) => cfg.replicates * (n + 1) * (to - from) * (cfg.thin + cfg.perturbations) * K;
 
   /**
    * Row l of the level matrix comes from the least restricted chains that sampled level l at least `minRow` times:
@@ -225,12 +280,20 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
    * row's level carries the least of it.
    */
   const minRow = 64 * cfg.perturbations;
-  /** For each level, how many chains (U_0 … U_k) to pool: decided once on all replicates' counts, then used for each. */
+  const minUp = 16;
+  /**
+   * For each level, how many chains (U_0 … U_k) to pool: decided once on all replicates' counts, then used for each.
+   * A row needs enough counts and, below the top, enough upward transitions: the rates that stitch rare levels to the
+   * rest are the small ones, and a row that never saw one would cut the matrix in two.
+   */
   const chainsFor = (): number[] => rungs.map((_, l) => {
-    let total = 0;
+    let total = 0, up = 0;
     for (let k = 0; k <= l; k++) {
-      for (const r of reps) total += r.C[k]![l]!.reduce((a, b) => a + b, 0);
-      if (total >= minRow) return k;
+      for (const r of reps) {
+        const row = r.C[k]![l]!;
+        for (let j = 0; j <= n; j++) { total += row[j]!; if (j > l) up += row[j]!; }
+      }
+      if (total >= minRow && (l === n || up >= minUp)) return k;
     }
     return l;
   });
@@ -316,7 +379,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     circ += Math.abs(f - g); flow += f + g;
   }
 
-  const reasons: string[] = [];
+  const reasons: string[] = [...truncation];
   let status: Status = "converged";
   if (!st.ok) { status = "unconverged"; reasons.push(`not within ${cfg.targetRelError * 100}% after ${steps} steps (budget ${cfg.computeBudget})`); }
   for (const [i, r] of rungsOut.entries()) {
@@ -328,5 +391,13 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     }
   }
   if (status === "converged" && reasons.length) status = "flagged";
-  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, levelMatrix: st.pooled };
+  const distinctLevels = Array.from({ length: layers }, (_, j) => (singleSite ? distinct[j]!.size : null));
+  distinctLevels.forEach((d, j) => {
+    if (d !== null && d < cfg.minLevels) {
+      reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values where it counts, fewer than ${cfg.minLevels}: too coarse to extend the ladder`);
+      status = "too-coarse";   // a design fault, whatever the budget did
+    }
+  });
+  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled,
+    examples: reps[0]!.chains.map(c => type.encode(c.state)) };
 }

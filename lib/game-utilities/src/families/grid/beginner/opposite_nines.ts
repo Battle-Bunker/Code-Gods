@@ -29,7 +29,7 @@ const ninesText = (g: GridSpec): CardText => {
 };
 
 /**
- * Tiers (docs/layered-rules-design.md §5.3): "lines add up to x" and "2×2 squares add up to x". Half-turn partners add
+ * Tiers (archive/engine-v1:docs/layered-rules-design.md §5.3): "lines add up to x" and "2×2 squares add up to x". Half-turn partners add
  * up to the target T at the base's top, so a line and its image add up to N·T together and x folds with N·T − x; at
  * x = N·T/2 (18 on 4×4 digits) both long diagonals are free and the tier is Magic Eighteen's own goal.
  */
@@ -38,7 +38,7 @@ export const ninesTiers: GridTiers<NinesP> = {
     { ...linesSum, canonical: foldTotal("lines", g => g.N * ninesTarget(g)) },
     { ...windowsSum, canonical: foldTotal("squares", g => 4 * ninesTarget(g)) },
   ],
-  // The base's greedy ten-move level on 4×4 (docs/layered-rules-design.md §3): three quarters of the pairs.
+  // The base's greedy ten-move level on 4×4 (archive/engine-v1:docs/layered-rules-design.md §3): three quarters of the pairs.
   gate: g => (3 * g.N * g.N) / 8,
   gateText: (gate, g) => `${gate} opposite pairs that add up to ${g.say.tile(ninesTarget(g))}`,
   dealt: g => (g.N === 4 && g.base === 10 ? NINES_DEALT : []),
@@ -51,7 +51,7 @@ export const ninesTiers: GridTiers<NinesP> = {
   }),
 };
 /**
- * The values dealt on 4×4 digits (measured, docs/layered-rules-measurements/opposite-nines.md): each is alive at the
+ * The values dealt on 4×4 digits (measured, archive/engine-v1:docs/layered-rules-measurements/opposite-nines.md): each is alive at the
  * base's top, adds 11 to 15 bits over it (the band is 6 to 20), and the tops of one interaction's values stay within
  * 15% of each other (equal opportunity between peers, test/equal-opportunity.test.ts).
  */
@@ -70,7 +70,7 @@ const NINES_LAB: readonly TierValue[] = [
 
 /**
  * Expert (two tiers: lines, then squares among boards equal on lines), measured on 4×4 digits against a band of 6 to 26
- * bits for the two together (docs/layered-rules-measurements/expert-pairs.md). Both totals are at most 18, so each
+ * bits for the two together (archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md). Both totals are at most 18, so each
  * pair is its own canonical form: the two values fold separately (x ~ 36 − x), which is one symmetry of the pair only
  * when both fold together.
  */

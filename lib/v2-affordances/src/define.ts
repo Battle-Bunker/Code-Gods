@@ -38,8 +38,8 @@ export const call = obj({
   site,
 });
 export const score = z.object({
-  score: z.array(q).nullable().describe("The rule score tuple, compared lexicographically; null is WORST."),
+  score: z.array(q.nullable()).nullable().describe("The rule score tuple (one entry per layer), compared lexicographically; null is WORST, a null entry an undefined layer."),
   level: z.number().int(), top: z.number().int(),
   terms: z.array(z.object({ id: z.string(), value: q.nullable() })),
 });
-export const rung = z.object({ level: z.number().int(), label: z.string(), rarityBits: z.number() });
+export const rung = z.object({ level: z.number().int(), label: z.string(), rarityBits: z.number(), layer: z.string().optional().describe("The layer this rung belongs to.") });

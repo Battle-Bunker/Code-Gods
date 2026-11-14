@@ -4,7 +4,7 @@
  */
 import type {
   ElementDecl, ElementRef, ElementValue, EvalContext, Evaluation, Mark, ObjectType, Representation, RuleFamily,
-  Rung, Score, ScoreComponent, Term, TermId, Undef, Variant,
+  Layer, Rung, Score, ScoreComponent, Term, TermId, TieBreaker, Undef, Variant,
 } from "./contracts.ts";
 import { cmp, from, neg, parse, toWire, type Q } from "./q.ts";
 
@@ -79,13 +79,20 @@ export function elementValue<S>(type: ObjectType<S>, state: S, r: ElementRef, si
 
 // ---------------------------------------------------------------- scores and ladders
 
+/** null components rank last in their component. */
+function cmpComponent(a: Q | null, b: Q | null): -1 | 0 | 1 {
+  if (a === null) return b === null ? 0 : -1;
+  if (b === null) return 1;
+  return cmp(a, b);
+}
+
 /** Lexicographic; null (WORST) is below everything; on unequal lengths the common prefix decides, then the longer wins. */
 export function compareScores(a: Score, b: Score): -1 | 0 | 1 {
   if (a === null) return b === null ? 0 : -1;
   if (b === null) return 1;
   const n = Math.min(a.length, b.length);
   for (let i = 0; i < n; i++) {
-    const c = cmp(a[i]!, b[i]!);
+    const c = cmpComponent(a[i]!, b[i]!);
     if (c !== 0) return c;
   }
   return a.length === b.length ? 0 : a.length > b.length ? 1 : -1;
@@ -96,9 +103,8 @@ export function meets(score: Score, threshold: Score): boolean {
   if (threshold === null) return true;
   if (score === null) return false;
   for (let i = 0; i < threshold.length; i++) {
-    const s = score[i];
-    if (s === undefined) return false;
-    const c = cmp(s, threshold[i]!);
+    if (i >= score.length) return false;
+    const c = cmpComponent(score[i]!, threshold[i]!);
     if (c !== 0) return c > 0;
   }
   return true;
@@ -112,11 +118,60 @@ export function levelOf(score: Score, rungs: readonly Rung[]): number {
   return level;
 }
 
-export function scoreToWire(s: Score): string[] | null {
-  return s === null ? null : s.map(toWire);
+export function scoreToWire(s: Score): (string | null)[] | null {
+  return s === null ? null : s.map(x => (x === null ? null : toWire(x)));
 }
-export function scoreFromWire(w: readonly string[] | null): Score {
-  return w === null ? null : w.map(parse);
+export function scoreFromWire(w: readonly (string | null)[] | null): Score {
+  return w === null ? null : w.map(x => (x === null ? null : parse(x)));
+}
+
+/**
+ * The layers of a dealt rule: the main layer, then the chosen tie-breaker. `undefined` means the family's first
+ * tie-breaker (or none); `null` means the main layer alone.
+ */
+export function ruleLayers<P>(family: RuleFamily<any, P>, tieBreaker?: TieBreaker): readonly Layer<P>[] {
+  const id = tieBreaker === undefined ? (family.tieBreakers[0]?.id ?? null) : tieBreaker;
+  if (id === null) return [family.main];
+  const tb = family.tieBreakers.find(t => t.id === id);
+  if (!tb) throw new Error(`${family.id} has no tie-breaker ${id}`);
+  return [family.main, tb];
+}
+
+/** The id a dealt rule's key records: the chosen tie-breaker, or "none". */
+export function tieBreakerId(family: RuleFamily<any, any>, tieBreaker?: TieBreaker): string {
+  const ls = ruleLayers(family, tieBreaker);
+  return ls.length > 1 ? ls[1]!.id : "none";
+}
+
+function layerRungs<P>(layer: Layer<P>, params: P, variant: Variant, prefix: readonly Q[], index: number): Rung[] {
+  const ts = layer.thresholds(params, variant);
+  if (ts.length === 0) throw new Error(`layer ${layer.id} has no thresholds`);
+  return ts.map(t => ({ score: [...prefix, layer.sense === "max" ? t : neg(t)], label: layer.rungLabel(t, params), layer: index }));
+}
+const topOf = <P,>(layer: Layer<P>, params: P, variant: Variant): Q => {
+  const ts = layer.thresholds(params, variant);
+  const t = ts[ts.length - 1]!;
+  return layer.sense === "max" ? t : neg(t);
+};
+
+/**
+ * The ladder of one line (spec §4.4): rung 0 is everything; then the main layer's thresholds; then the tie-breaker's,
+ * each prefixed with the main layer's top (the tie-breaker climbs only once the main layer is at its top).
+ */
+export function ruleLadder<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly Rung[] {
+  const layers = ruleLayers(family, tieBreaker);
+  const rungs: Rung[] = [{ score: null, label: "anything", layer: -1 }];
+  const prefix: Q[] = [];
+  layers.forEach((layer, j) => {
+    rungs.push(...layerRungs(layer, params, variant, prefix, j));
+    prefix.push(topOf(layer, params, variant));
+  });
+  return rungs;
+}
+
+/** One single-component ladder per layer of the dealt rule: what a card shows as "main part: step 5 of 8". */
+export function layerLadders<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly (readonly Rung[])[] {
+  return ruleLayers(family, tieBreaker).map((layer, j) => [{ score: null, label: "anything", layer: -1 }, ...layerRungs(layer, params, variant, [], j)]);
 }
 
 // ---------------------------------------------------------------- evaluation
@@ -127,8 +182,6 @@ class Context<S> implements EvalContext<S> {
   readonly reads = new Map<string, ElementRef>();
   readonly terms = new Map<TermId, Term>();
   readonly marks: Mark[] = [];
-  scored: Score | undefined = undefined;
-  components: readonly ScoreComponent[] = [];
   readonly type: ObjectType<S>; readonly family: RuleFamily<S, unknown>; readonly state: S;
   readonly site: number; readonly variant: Variant; readonly sites: number;
   constructor(type: ObjectType<S>, family: RuleFamily<S, unknown>, state: S, site: number, variant: Variant, sites: number) {
@@ -153,18 +206,6 @@ class Context<S> implements EvalContext<S> {
     this.terms.set(id, { id, label, value, from: fromRefs.map(r => this.norm(r)) });
     return id;
   }
-  score(components: readonly ScoreComponent[]): void {
-    if (this.scored !== undefined) throw new Error(`${this.family.id} scored twice`);
-    this.components = components.map(c => ({ term: c.term, sense: c.sense }));
-    const out: Q[] = [];
-    for (const c of components) {
-      const t = this.terms.get(c.term);
-      if (!t) throw new Error(`${this.family.id} scores unrecorded term ${c.term}`);
-      if (isUndef(t.value)) { this.scored = null; return; }
-      out.push(c.sense === "max" ? t.value : neg(t.value));
-    }
-    this.scored = out;
-  }
   mark(m: Mark): void {
     switch (m.kind) {
       case "focus": case "note": this.known(m.ref); break;
@@ -178,13 +219,34 @@ class Context<S> implements EvalContext<S> {
   }
 }
 
-/** Evaluate a rule on one site of a state. */
-export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, site = 0): Evaluation {
+/**
+ * Evaluate a rule on one site of a state. The score is made of the layers' terms, in ladder order: an undefined
+ * primary makes it WORST; an undefined later layer ranks last in its own component; every layer but the last dealt one
+ * saturates at its top.
+ */
+export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, site = 0, tieBreaker?: TieBreaker): Evaluation {
+  const layers = ruleLayers(family, tieBreaker);
   const sites = type.sites(state, variant);
   const ctx = new Context<S>(type, family as RuleFamily<S, unknown>, state, site, variant, sites);
   family.evaluate(ctx, params);
-  if (ctx.scored === undefined) throw new Error(`${family.id} did not score`);
-  return { score: ctx.scored, components: ctx.components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
+  for (const l of [family.main, ...family.tieBreakers]) if (!ctx.terms.has(l.id)) throw new Error(`${family.id} did not record layer ${l.id}`);
+  const score: (Q | null)[] = [];
+  const components: ScoreComponent[] = [];
+  let worst = false;
+  layers.forEach((layer, j) => {
+    const t = ctx.terms.get(layer.id)!;
+    components.push({ term: layer.id, sense: layer.sense });
+    if (isUndef(t.value)) { if (j === 0) worst = true; score.push(null); return; }
+    let c = layer.sense === "max" ? t.value : neg(t.value);
+    // The main layer saturates at its top when a tie-breaker follows: beyond its top it only opens the tie-breaker, so
+    // a state past it must not outrank, or skip the rungs of, the tie-breaker.
+    if (j < layers.length - 1) {
+      const top = topOf(layer, params, variant);
+      if (cmp(c, top) > 0) c = top;
+    }
+    score.push(c);
+  });
+  return { score: worst ? null : score, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
 }
 
 export interface ObjectEvaluation {
@@ -195,32 +257,31 @@ export interface ObjectEvaluation {
 
 /**
  * Evaluate a rule on a whole object (spec §4.2, §12.6). One site: that site's score. Several: the sum of the sites'
- * levels on the family's (single-site) ladder, then the sites' scores' primary components, best first. Its ladder is
- * `objectLadder`.
+ * levels on the line ladder, then the sites' primary components, best first. Its ladder is `objectLadder`.
  */
-export function evaluateObject<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant): ObjectEvaluation {
+export function evaluateObject<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, tieBreaker?: TieBreaker): ObjectEvaluation {
   const k = type.sites(state, variant);
-  const sites = Array.from({ length: k }, (_, i) => evaluateSite(type, family, params, state, variant, i));
+  const sites = Array.from({ length: k }, (_, i) => evaluateSite(type, family, params, state, variant, i, tieBreaker));
   if (k === 1) return { score: sites[0]!.score, sites };
-  const ladder = family.ladder(params, variant);
+  const ladder = ruleLadder(family, params, variant, tieBreaker);
   let total = 0n;
   for (const e of sites) total += BigInt(levelOf(e.score, ladder));
   const ranked = sites.map(e => e.score).sort((a, b) => compareScores(b, a));
-  const tail: Q[] = [];
+  const tail: (Q | null)[] = [];
   for (const s of ranked) if (s !== null) tail.push(s[0]!);
   return { score: [{ n: total, d: 1n }, ...tail], sites };
 }
 
 /**
- * The ladder an object's score is calibrated and looked up on: the family's own ladder when the object has one site;
- * with k sites, every total of per-site levels from 1 to k × (the family's top level).
+ * The ladder an object's score is calibrated and looked up on: the line ladder when the object has one site; with k
+ * sites, every total of per-line levels from 1 to k × (the line ladder's top).
  */
-export function objectLadder<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, variant: Variant): readonly Rung[] {
-  const ladder = family.ladder(params, variant);
+export function objectLadder<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, variant: Variant, tieBreaker?: TieBreaker): readonly Rung[] {
+  const ladder = ruleLadder(family, params, variant, tieBreaker);
   const k = type.sites(type.origin(variant), variant);
   if (k === 1) return ladder;
   const top = ladder.length - 1;
-  return [{ score: null, label: "anything" }, ...Array.from({ length: k * top }, (_, i) => ({
-    score: [{ n: BigInt(i + 1), d: 1n }], label: `${i + 1} of ${k * top} steps over the ${k} lines`,
+  return [{ score: null, label: "anything", layer: -1 }, ...Array.from({ length: k * top }, (_, i) => ({
+    score: [{ n: BigInt(i + 1), d: 1n }], label: `${i + 1} of ${k * top} steps over the ${k} lines`, layer: 0,
   }))];
 }

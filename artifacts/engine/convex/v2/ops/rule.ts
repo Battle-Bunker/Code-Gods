@@ -8,11 +8,15 @@ async function myRule(env: Parameters<typeof seated>[0]) {
   if (!r) throw new OpFailure("Your rule has not been dealt yet.");
   return r;
 }
-const rungs = (r: { ladder: { level: number; label: string; rarityBits: number }[] }) => r.ladder.map(({ level, label, rarityBits }) => ({ level, label, rarityBits }));
+const rungs = (r: { ladder: { level: number; label: string; rarityBits: number; layer?: string }[] }) =>
+  r.ladder.map(({ level, label, rarityBits, layer }) => ({ level, label, rarityBits, ...(layer ? { layer } : {}) }));
 
 export const { op: explain, as: explainAs } = defineOp("rule.explain", "query", async env => {
   const r = await myRule(env);
-  return { family: r.family, params: r.params ?? {}, card: r.card, depends: r.depends, ladder: rungs(r) };
+  return {
+    family: r.family, params: r.params ?? {}, layers: r.layers, card: r.card, depends: r.depends, ladder: rungs(r),
+    wonByBid: r.handicap !== undefined ? { handicap: r.handicap } : null,
+  };
 });
 
 export const { op: ladder, as: ladderAs } = defineOp("rule.ladder", "query", async env => ({ rungs: rungs(await myRule(env)) }));

@@ -7,7 +7,7 @@
  * rule evaluated on the state (v2-core). Rarities are placeholders (1.5 bits per level) until values come from the
  * committed artefacts (W3-4); points follow spec §8 from them.
  */
-import { evaluateObject, levelOf, objectLadder, rng, scoreToWire, type RuleFamily } from "@workspace/v2-core";
+import { evaluateObject, levelOf, objectLadder, rng, ruleLayers, scoreToWire, type RuleFamily } from "@workspace/v2-core";
 import { families, fromMC, lineType, lineZ, type LineState } from "@workspace/v2-linear";
 import { ConvexError, v } from "convex/values";
 import { components } from "../_generated/api";
@@ -92,13 +92,16 @@ export const seedGame = internalMutation({
     // Rules and accounts.
     const rules = members.map((memberId, i) => {
       const f = family(i), params = f.dealable(lineZ)[0]!;
-      return { memberId, f, params, ladder: objectLadder(lineType, f, params, lineZ) };
+      // The family's first tie-breaker, as the dealer's default.
+      const layers = ruleLayers(f), tb = layers[1]?.id ?? null;
+      return { memberId, f, params, tb, layers, ladder: objectLadder(lineType, f, params, lineZ, tb) };
     });
-    for (const { memberId, f, params, ladder } of rules) {
-      const ruleKey = `line@1/${lineZ.id}/${f.id}/${JSON.stringify(params)}`;
+    for (const { memberId, f, params, tb, layers, ladder } of rules) {
+      const ruleKey = `line@1/${lineZ.id}/${f.id}/${tb ?? "none"}/${JSON.stringify(params)}`;
       await ctx.db.insert("v2Rules", {
-        gameId, memberId, family: f.id, params, layers: [], ruleKey, contentHash: "fixture", title: f.title, card: f.card(params),
-        depends: [...f.depends], primary: f.primary, ladder: ladder.map((rung, level) => ({ level, label: rung.label, rarityBits: level * RARITY_PER_LEVEL })),
+        gameId, memberId, family: f.id, params, layers: layers.map(l => l.id), tieBreaker: tb, ruleKey, contentHash: "fixture",
+        title: f.title, card: f.card(params, tb), depends: [...f.depends], primary: f.main.rep,
+        ladder: ladder.map((rung, level) => ({ level, label: rung.label, rarityBits: level * RARITY_PER_LEVEL, ...(rung.layer >= 0 ? { layer: layers[rung.layer]!.id } : {}) })),
       });
       const m = (await ctx.db.get(memberId))!;
       await ctx.db.insert("v2Players", {
@@ -115,8 +118,8 @@ export const seedGame = internalMutation({
       const objectId = await ctx.db.insert("v2Objects", { gameId, number: i + 1, bornAt: i });
       objects.push(objectId);
       await ctx.db.insert("v2ObjectStates", { objectId, gameId, state: lineType.encode(state), version: 1, changedAt: i });
-      const evals = rules.map(({ f, params, ladder }) => {
-        const score = evaluateObject(lineType, f, params, state, lineZ).score;
+      const evals = rules.map(({ f, params, tb, ladder }) => {
+        const score = evaluateObject(lineType, f, params, state, lineZ, tb).score;
         const level = levelOf(score, ladder);
         return { score: scoreToWire(score), level, rarityBits: level * RARITY_PER_LEVEL };
       });
@@ -201,8 +204,8 @@ export const setBidding = internalMutation({
       const f = families.find(x => x.id === id) as RuleFamily<LineState, unknown> | undefined;
       if (!f) return [];
       const params = f.dealable(lineZ)[0]!;
-      return [{ family: f.id, title: f.title, card: f.card(params), topRarityBits: (objectLadder(lineType, f, params, lineZ).length - 1) * RARITY_PER_LEVEL }];
+      return [{ family: f.id, title: f.title, card: f.card(params, null), top: (objectLadder(lineType, f, params, lineZ).length - 1) * RARITY_PER_LEVEL }];
     });
-    await ctx.db.patch(roomId, open ? { bidding: { deadline: Date.now() + (seconds ?? 45) * 1000, families: offers } } : { bidding: undefined });
+    await ctx.db.patch(roomId, open ? { bidding: { deadline: Date.now() + (seconds ?? 45) * 1000, pricing: presetOf(room.preset).bid?.pricing ?? "first", families: offers } } : { bidding: undefined });
   },
 });

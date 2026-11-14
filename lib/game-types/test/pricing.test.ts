@@ -1,6 +1,6 @@
 /**
  * Open-agent pricing, measurement side: universal codes, PRNG and seeds,
- * against Grid Lab's published vectors (lib/grid-lab/gridlab/openagents/test_vectors.json, copied to
+ * against Grid Lab's published vectors (archive/engine-v1:lib/grid-lab/gridlab/openagents/test_vectors.json, copied to
  * test/pricing-data; test/fixtures/ is gitignored).
  */
 import assert from "node:assert/strict";

@@ -31,7 +31,7 @@ export const rungV = v.object({ level: v.number(), label: v.string(), rarityBits
 export const valueSnapV = v.object({ score: scoreWireV, level: v.number(), rarityBits: v.number(), want: v.number(), points: v.number() });
 export const bidV = v.object({ family: v.string(), percent: v.number() });
 /** A family on offer in the bid phase, as a player judges it: its card and the top of its ladder in ✨ rarity. */
-export const offerV = v.object({ family: v.string(), title: v.string(), card: v.string(), topRarityBits: v.number() });
+export const offerV = v.object({ family: v.string(), title: v.string(), card: v.string(), top: v.number() });
 
 export const eventKindV = v.union(
   v.literal("gameStarted"), v.literal("objectBorn"), v.literal("act"), v.literal("values"), v.literal("tick"),
@@ -52,7 +52,7 @@ export const v2Tables = {
     /** Games started in this room so far (a game's `number`). */
     games: v.number(),
     /** The open bid phase (plan §5.9): a step of the start, before the game exists. */
-    bidding: v.optional(v.object({ deadline: v.number(), families: v.array(offerV) })),
+    bidding: v.optional(v.object({ deadline: v.number(), pricing: v.union(v.literal("first"), v.literal("second")), families: v.array(offerV) })),
     /** The deal rotation's state across the room's games (rule keys by seat), absent before the first deal. */
     rotation: v.optional(v.any()),
   }).index("by_code", ["code"]),
@@ -108,8 +108,12 @@ export const v2Tables = {
   /** A player's dealt rule (private to that player): `{family, params, layers}`, its card and its ladder. */
   v2Rules: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"),
-    family: v.string(), params: v.any(), layers: v.array(v.any()), ruleKey: v.string(), contentHash: v.string(),
-    title: v.string(), card: v.string(), depends: v.array(v.string()), primary: v.string(), ladder: v.array(rungV),
+    family: v.string(), params: v.any(),
+    /** The dealt layers' ids: the main layer, then the dealt tie-breaker if any (a rule is never more than two). */
+    layers: v.array(v.string()), tieBreaker: v.union(v.string(), v.null()), ruleKey: v.string(), contentHash: v.string(),
+    title: v.string(), card: v.string(), depends: v.array(v.string()),
+    /** The main layer's representation (the compact face's view). */
+    primary: v.string(), ladder: v.array(rungV),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
   }).index("by_game_member", ["gameId", "memberId"]),

@@ -23,7 +23,7 @@ export function GoalCard<S, P>({ rule, example, rarities }: GoalCardProps<S, P>)
     <article className="v2v v2v-goal">
       <header>
         <h3 className="v2v-goal-title">{f.title}</h3>
-        <p className="v2v-goal-card">{f.card(rule.params)}</p>
+        <p className="v2v-goal-card">{f.card(rule.params, rule.tieBreaker === undefined ? (f.tieBreakers[0]?.id ?? null) : rule.tieBreaker)}</p>
         <p className="v2v-goal-hint">A worked example. Point at a part to see why; point at a number to find it in every view.</p>
       </header>
       <ExpandedFace rule={rule} state={example} rarities={rarities} />

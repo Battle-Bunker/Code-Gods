@@ -1,6 +1,6 @@
 /**
  * Layered rule prototypes (scripts/rule-difficulty-layered.mjs) and the tiered profile (scripts/layered-profile.ts),
- * docs/layered-rules-design.md: the vocabulary operators on hand-checked boards, the fast compile agreeing with the
+ * archive/engine-v1:docs/layered-rules-design.md: the vocabulary operators on hand-checked boards, the fast compile agreeing with the
  * room's prelude, and the tier columns on a rule whose tier is hand-checkable.
  */
 import { test } from "node:test";

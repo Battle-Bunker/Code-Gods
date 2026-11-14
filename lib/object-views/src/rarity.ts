@@ -1,6 +1,6 @@
 /**
- * Kid-facing wording for information scores (lib/grid-lab/docs/kid-cards.md §2,
- * lib/grid-lab/docs/defence-goals.md §6). Framework-free so it is unit tested under Node.
+ * Kid-facing wording for information scores (archive/engine-v1:lib/grid-lab/docs/kid-cards.md §2,
+ * archive/engine-v1:lib/grid-lab/docs/defence-goals.md §6). Framework-free so it is unit tested under Node.
  *
  * ✨ reward bits s: only 1 random object in N = 2^s is at least this good ("1 in N" never saturates).
  * ⚠️ penalty bits h = η(s⁻), the soft hinge of the bad event's surprisal; we invert η to say

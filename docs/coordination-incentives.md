@@ -1168,7 +1168,7 @@ Welfare of each one-policy table: greedy 46212, payoff 88950, cooperator 59044, 
 ## 9. Spoiling after the rotated deal (2026-11-14)
 
 The rotated deal (docs/beginner-pool.md §6) removes the dealt rule's edge over a rotation; it does nothing to the
-style edge. Mixed tables, 3 players, 150 single games with rules and seats rotated (`docs/balance-results-2026-11-13/tables3-mixed.txt`):
+style edge. Mixed tables, 3 players, 150 single games with rules and seats rotated (`archive/engine-v1:docs/balance-results-2026-11-13/tables3-mixed.txt`):
 one `deny` among two cooperators wins 95%, among two `considerate` players 100%; one `considerate` among two greedy
 wins 0%. The rotation spreads these over the round unchanged, so careful play still loses on rank.
 

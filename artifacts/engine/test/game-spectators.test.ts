@@ -1,5 +1,5 @@
 /**
- * Spectators (docs/unify-apps-plan.md §2): a room member who watches the next game instead of playing it. The owner
+ * Spectators (archive/engine-v1:docs/unify-apps-plan.md §2): a room member who watches the next game instead of playing it. The owner
  * is seated as a player when they create the room (first-time players expected to play the room they made) unless
  * they create it with `spectator: true`; a member sets it for themselves, the owner for any human; AI seats always play. Only players are
  * dealt in and count toward the 3 to 8. A game's spectators (everyone not dealt in at launch, and whoever joins while it

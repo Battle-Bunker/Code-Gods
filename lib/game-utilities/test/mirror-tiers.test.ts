@@ -1,5 +1,5 @@
 /**
- * Mirrormancer's tiers (src/families/grid/layered/mirror-tiers.ts; docs/layered-rules-measurements/mirror-tiers.md):
+ * Mirrormancer's tiers (src/families/grid/layered/mirror-tiers.ts; archive/engine-v1:docs/layered-rules-measurements/mirror-tiers.md):
  * the tiered ordinal on hand-checked boards, the gate, the base left exactly as shipped (card, table key, ordinal), the
  * disjoint-unit base, the symmetries the shared tables rely on, and the liveness of every dealt value.
  */

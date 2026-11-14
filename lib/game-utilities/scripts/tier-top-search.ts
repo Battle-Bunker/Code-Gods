@@ -1,5 +1,5 @@
 /**
- * A second opinion on a tiered draw's top (docs/layered-rules-measurements/expert-pairs.md): the hybrid law's best
+ * A second opinion on a tiered draw's top (archive/engine-v1:docs/layered-rules-measurements/expert-pairs.md): the hybrid law's best
  * board is the best its splitting found, and a level deeper than about 30 bits can be missed. This walks from a given
  * board over boards that score at least as much, changing one, two or three cells at a time, and reports every
  * improvement. No improvement in many steps is evidence, not proof.

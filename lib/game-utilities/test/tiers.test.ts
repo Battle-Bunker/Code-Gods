@@ -1,5 +1,5 @@
 /**
- * Tiered rules (docs/layered-rules-design.md): the guard tests.
+ * Tiered rules (archive/engine-v1:docs/layered-rules-design.md): the guard tests.
  *  - A base draw is untouched: no `tiers` key, the same card, shape and table key as before tiers existed.
  *  - A tiered draw's ordinal is [...base, base[0] ≥ gate ? tier : 0]: its base part is the base draw's ordinal, and its
  *    table below the gate is the base's exact law.
@@ -231,7 +231,7 @@ test("liveness: every dealt tier varies at the base's top, adds 6 to 20 bits, an
       check(f, c, EXPERT_BAND);
     }
   }
-  // The pool of tiered rules: tops within 2.5× of each other (docs/layered-rules-design.md §8.3).
+  // The pool of tiered rules: tops within 2.5× of each other (archive/engine-v1:docs/layered-rules-design.md §8.3).
   assert.ok(Math.max(...tops) / Math.min(...tops) <= 2.5, `tops ${Math.min(...tops).toFixed(1)}..${Math.max(...tops).toFixed(1)}`);
 });
 

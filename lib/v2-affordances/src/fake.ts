@@ -6,6 +6,7 @@
  * `contextFor` shows how a server derives the caller's context from the room and the game header.
  */
 import { AFFORDANCES, isAffordanceId, type AffordanceId, type Via } from "./directory.ts";
+import { applyView, EMPTY_VIEW, type ViewState } from "./layout.ts";
 import { memoryReceipts, OpFailure, runOp, type OpOutcome, type ServerHandlers } from "./server.ts";
 import type { AffordanceContext, Grant } from "./types.ts";
 
@@ -14,20 +15,25 @@ interface FakeMember { memberId: string; userId: string | null; name: string; ki
 interface FakeAgent { agentId: string; ownerId: string; name: string; language: "python" | "typescript"; share: number; energy: number; acts: number; versions: { language: "python" | "typescript"; source: string }[] }
 interface FakeGame {
   gameId: string; roomId: string; phase: Phase; worldSeconds: number; seated: string[];
-  rules: Record<string, string>; energy: Record<string, number>; ready: Record<string, boolean>; pauseUsed: Record<string, boolean>;
+  rules: Record<string, string>;
+  /** The auction this game was dealt by: each winner's family and handicap, and the sealed bids. */
+  auction: { wins: Record<string, { family: string; handicap: number }>; bids: Record<string, Record<string, number>> } | null;
+  energy: Record<string, number>; ready: Record<string, boolean>; pauseUsed: Record<string, boolean>;
   objects: Record<string, { m: number; c: number }>; agents: FakeAgent[]; endedAt: number | null;
 }
 interface FakeRoom {
   roomId: string; code: string; name: string; ownerId: string; preset: string; members: FakeMember[];
   chat: { from: string; text: string; at: number }[]; gameId: string | null; games: string[];
-  /** An open bid phase (integration plan §5.9): sealed bids and who is done, by user id. */
-  bidding?: { deadline: number; bids: Record<string, { family: string; percent: number }[]>; done: Record<string, boolean> };
+  /** The open bid phase: each human's sealed bids (family → percent) and who is done. */
+  bid: { bids: Record<string, Record<string, number>>; done: string[]; deadline: number } | null;
 }
 export interface FakeState {
   users: Record<string, { name: string; admin?: boolean }>;
   rooms: Record<string, FakeRoom>; games: Record<string, FakeGame>;
   connections: Record<string, { userId: string; client: string; roomId: string | null; grant: Grant }>;
   receipts: Record<string, OpOutcome>;
+  /** Each human's view state per room (their `v2Layouts` pane params). */
+  views: Record<string, ViewState>;
   next: number; now: number;
 }
 
@@ -38,7 +44,7 @@ const FAMILIES = ["closeGradient", "nearIntercept", "pegCount", "triangleArea"];
 export interface FakeEnv { state: FakeState; userId: string; roomId: string | null; gameId: string | null; grant?: Grant }
 
 export function emptyState(): FakeState {
-  return { users: {}, rooms: {}, games: {}, connections: {}, receipts: {}, next: 1, now: 1_800_000_000_000 };
+  return { users: {}, rooms: {}, games: {}, connections: {}, receipts: {}, views: {}, next: 1, now: 1_800_000_000_000 };
 }
 const newId = (s: FakeState, prefix: string) => `${prefix}${s.next++}`;
 
@@ -53,11 +59,12 @@ export function contextFor(s: FakeState, userId: string | null, roomId: string |
     context: !signedIn ? "signedOut" : !room ? "home" : opts.replay ? "replay" : game ? game.phase : "room",
     principal: {
       signedIn, member, owner: !!room && room.ownerId === userId, admin: signedIn && !!s.users[userId!]!.admin,
-      seated: !!game && userId !== null && game.seated.includes(userId),
+      // In the room before a game (the bid phase), a player's seat for the next game.
+      seated: userId !== null && (game ? game.seated.includes(userId) : !!room?.members.some(m => m.userId === userId && !m.spectator)),
     },
     ...(opts.grant ? { grant: opts.grant } : {}),
   };
-  if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: FAKE_PRESET.minPlayers, bidding: !!room.bidding };
+  if (room) ctx.room = { players: room.members.filter(m => !m.spectator).length, minPlayers: FAKE_PRESET.minPlayers, bidOpen: !!room.bid };
   if (game && userId) ctx.game = {
     phase: game.phase, energy: game.energy[userId], pauseUsed: !!game.pauseUsed[userId],
     agents: game.agents.filter(a => a.ownerId === userId).length,
@@ -104,6 +111,11 @@ const levelOf = (g: FakeGame, userId: string, o: { m: number; c: number }) => {
 };
 const ladder = () => [0, 1, 2, 3, 4, 5, 6].map(level => ({ level, label: `d ≤ ${6 - level}`, rarityBits: level * 1.5 }));
 const nameOf = (s: FakeState, userId: string) => s.users[userId]?.name ?? userId;
+/** A user's member id in the game's room (the id surfaces show), falling back to the user id. */
+const memberOf = (e: FakeEnv, userId: string) => {
+  const g = gameOf(e);
+  return e.state.rooms[g.roomId]!.members.find(m => m.userId === userId)?.memberId ?? userId;
+};
 const ok = { ok: true as const };
 
 type El = { kind: "number"; q: string } | { kind: "symbol"; text: string };
@@ -118,6 +130,35 @@ function readRep(o: { m: number; c: number }, rep: string): { elements: Record<s
   throw new OpFailure(`The fake server answers only "si" and "gen", not "${rep}".`);
 }
 
+/**
+ * Deals the room's next game. With bids: the top bid (ties to the earlier bidder, a stand-in for the seeded draw) wins
+ * its family exclusively, that player's other bids and the family's other bids drop, repeat; everyone else is dealt
+ * from the families nobody won. No bids: the plain deal.
+ */
+function deal(s: FakeState, r: FakeRoom): string {
+  const gameId = newId(s, "g");
+  const seated = r.members.filter(m => !m.spectator && m.userId).map(m => m.userId!);
+  const bids = r.bid?.bids ?? {};
+  const all = Object.entries(bids).flatMap(([u, fs]) => Object.entries(fs).map(([family, percent]) => ({ u, family, percent })))
+    .sort((a, b) => b.percent - a.percent);
+  const wins: Record<string, { family: string; handicap: number }> = {};
+  for (const bid of all) if (!wins[bid.u] && !Object.values(wins).some(w => w.family === bid.family)) wins[bid.u] = { family: bid.family, handicap: bid.percent };
+  // Families nobody won; when bids took them all, the whole pool (rules may coincide, as when seats outnumber families).
+  const unwon = FAMILIES.filter(f => !Object.values(wins).some(w => w.family === f));
+  const free = unwon.length ? unwon : FAMILIES;
+  let next = 0;
+  const rules = Object.fromEntries(seated.map(u => [u, wins[u]?.family ?? free[next++ % free.length]!]));
+  s.games[gameId] = {
+    gameId, roomId: r.roomId, phase: "planning", worldSeconds: 0, seated, rules,
+    auction: all.length ? { wins, bids } : null,
+    energy: Object.fromEntries(seated.map(u => [u, FAKE_PRESET.startingEnergy])),
+    ready: {}, pauseUsed: {}, objects: { o1: { m: 2, c: 3 }, o2: { m: -1, c: 0 }, o3: { m: 0, c: 5 } }, agents: [], endedAt: null,
+  };
+  r.gameId = gameId; r.games.push(gameId);
+  r.bid = null;
+  return gameId;
+}
+
 export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "room.list": (e, a) => page(Object.values(e.state.rooms).filter(r => r.members.some(m => m.userId === e.userId)).reverse()
     .map(r => ({ roomId: r.roomId, code: r.code, name: r.name, phase: r.gameId ? e.state.games[r.gameId]!.phase : "lobby" as const })), a),
@@ -126,7 +167,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     e.state.rooms[roomId] = {
       roomId, code, name: a.name ?? `${nameOf(e.state, e.userId)}'s room`, ownerId: e.userId, preset: a.preset ?? FAKE_PRESET.id,
       members: [{ memberId: newId(e.state, "m"), userId: e.userId, name: nameOf(e.state, e.userId), kind: "human", spectator: false }],
-      chat: [], gameId: null, games: [],
+      chat: [], gameId: null, games: [], bid: null,
     };
     return { roomId, code };
   },
@@ -151,24 +192,6 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "chat.send": (e, a) => { roomOf(e).chat.push({ from: nameOf(e.state, e.userId), text: a.text, at: e.state.now++ }); return ok; },
   "chat.list": (e, a) => page([...roomOf(e).chat].reverse(), a),
   "game.rotation": e => ({ seats: roomOf(e).members.filter(m => !m.spectator).map((m, i) => ({ memberId: m.memberId, name: m.name, family: FAMILIES[i % FAMILIES.length]! })) }),
-  "bid.state": e => {
-    const r = roomOf(e), b = r.bidding;
-    return {
-      open: !!b, deadline: b?.deadline ?? null,
-      families: FAMILIES.map(f => ({ family: f, title: f, card: `The ${f} rule.`, topRarityBits: 9 })),
-      mine: b?.bids[e.userId] ?? [], done: !!b?.done[e.userId],
-      players: r.members.filter(m => m.kind === "human" && !m.spectator).map(m => ({ memberId: m.memberId, name: m.name, done: !!b?.done[m.userId ?? ""] })),
-    };
-  },
-  "bid.place": (e, a) => {
-    const b = roomOf(e).bidding!;
-    if (!FAMILIES.includes(a.family)) throw new OpFailure(`${a.family} is not on offer.`);
-    b.bids[e.userId] = [...(b.bids[e.userId] ?? []).filter(x => x.family !== a.family), { family: a.family, percent: a.percent }];
-    return ok;
-  },
-  "bid.withdraw": (e, a) => { const b = roomOf(e).bidding!; b.bids[e.userId] = (b.bids[e.userId] ?? []).filter(x => x.family !== a.family); return ok; },
-  "bid.done": (e, a) => { roomOf(e).bidding!.done[e.userId] = a.done; return ok; },
-  "game.auction": e => ({ disclosure: "none" as const, wins: gameOf(e).seated.map(u => ({ memberId: u, family: null, handicapPercent: 0 })), bids: null }),
   "room.settings": (e, a) => { if (a.preset) roomOf(e).preset = a.preset; return ok; },
   "seats.fillPracticePartners": e => {
     const r = roomOf(e);
@@ -190,16 +213,44 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return ok;
   },
   "game.start": e => {
-    const r = roomOf(e), gameId = newId(e.state, "g");
-    const seated = r.members.filter(m => !m.spectator && m.userId).map(m => m.userId!);
-    e.state.games[gameId] = {
-      gameId, roomId: r.roomId, phase: "planning", worldSeconds: 0, seated,
-      rules: Object.fromEntries(seated.map((u, i) => [u, FAMILIES[i % FAMILIES.length]!])),
-      energy: Object.fromEntries(seated.map(u => [u, FAKE_PRESET.startingEnergy])),
-      ready: {}, pauseUsed: {}, objects: { o1: { m: 2, c: 3 }, o2: { m: -1, c: 0 }, o3: { m: 0, c: 5 } }, agents: [], endedAt: null,
+    const r = roomOf(e);
+    if (r.preset.includes("bidding")) {
+      r.bid = { bids: {}, done: [], deadline: e.state.now + 45_000 };
+      return { gameId: null, bidPhase: true };
+    }
+    return { gameId: deal(e.state, r), bidPhase: false };
+  },
+  "bid.state": e => {
+    const r = roomOf(e), b = r.bid!;
+    return {
+      deadline: b.deadline, pricing: "first",
+      families: FAMILIES.map(family => ({ family, card: `The ${family} rule.`, top: 6 })),
+      mine: Object.entries(b.bids[e.userId] ?? {}).map(([family, percent]) => ({ family, percent })),
+      done: r.members.filter(m => m.userId && b.done.includes(m.userId)).map(m => ({ memberId: m.memberId, name: m.name })),
     };
-    r.gameId = gameId; r.games.push(gameId);
-    return { gameId };
+  },
+  "bid.place": (e, a) => {
+    if (!FAMILIES.includes(a.family)) throw new OpFailure(`${a.family} is not on offer.`, "bid.state");
+    const b = roomOf(e).bid!;
+    (b.bids[e.userId] ??= {})[a.family] = a.percent;
+    return ok;
+  },
+  "bid.withdraw": (e, a) => { delete roomOf(e).bid!.bids[e.userId]?.[a.family]; return ok; },
+  "bid.done": e => {
+    const r = roomOf(e), b = r.bid!;
+    if (!b.done.includes(e.userId)) b.done.push(e.userId);
+    const humans = r.members.filter(m => m.kind === "human" && !m.spectator).map(m => m.userId!);
+    if (humans.every(u => b.done.includes(u))) deal(e.state, r);
+    return ok;
+  },
+  "game.auction": e => {
+    const g = gameOf(e), names = (u: string) => nameOf(e.state, u);
+    const wins = Object.entries(g.auction?.wins ?? {}).map(([u, w]) => ({ memberId: memberOf(e, u), name: names(u), family: w.family, handicap: w.handicap }));
+    const open = g.phase === "ended";
+    return {
+      disclosure: open ? "all" : "handicaps", wins,
+      bids: open && g.auction ? Object.entries(g.auction.bids).flatMap(([u, fs]) => Object.entries(fs).map(([family, percent]) => ({ memberId: memberOf(e, u), family, percent }))) : null,
+    };
   },
   "game.startWorldNow": e => { gameOf(e).phase = "live"; return ok; },
   "game.resume": e => { gameOf(e).phase = "live"; return ok; },
@@ -213,14 +264,17 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     const g = gameOf(e), seat = g.seated.includes(e.userId);
     return {
       gameId: g.gameId, phase: g.phase, worldSeconds: g.worldSeconds, endsAt: null, preset: roomOf(e).preset, variant: "line-z",
-      roster: g.seated.map(u => ({ memberId: u, name: nameOf(e.state, u) })),
+      roster: g.seated.map(u => ({ memberId: memberOf(e, u), name: nameOf(e.state, u) })),
       me: seat ? { energy: g.energy[e.userId]!, power: 1, ready: !!g.ready[e.userId], pauseUsed: !!g.pauseUsed[e.userId] } : null,
     };
   },
   "game.standings": e => {
     const g = gameOf(e);
-    const pts = g.seated.map(u => ({ memberId: u, name: nameOf(e.state, u), points: Object.values(g.objects).reduce((t, o) => t + levelOf(g, u, o), 0) }));
-    return { rows: pts.sort((a, b) => b.points - a.points).map((p, i) => ({ ...p, rank: i + 1 })) };
+    const pts = g.seated.map(u => {
+      const points = Object.values(g.objects).reduce((t, o) => t + levelOf(g, u, o), 0), handicap = g.auction?.wins[u]?.handicap ?? 0;
+      return { memberId: memberOf(e, u), name: nameOf(e.state, u), points, handicap, net: points - handicap / 100 * Math.abs(points) };
+    });
+    return { rows: pts.sort((a, b) => b.net - a.net).map((p, i) => ({ ...p, rank: i + 1 })) };
   },
   "game.ready": (e, a) => {
     const g = gameOf(e);
@@ -231,7 +285,8 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "game.pause": e => { const g = gameOf(e); g.pauseUsed[e.userId] = true; g.phase = "paused"; return ok; },
   "rule.explain": e => {
     const family = gameOf(e).rules[e.userId]!;
-    return { family, params: {}, card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], ladder: ladder() };
+    const won = gameOf(e).auction?.wins[e.userId];
+    return { family, params: {}, layers: ["main"], card: `Your rule, ${family}, wants the gradient close to its target.`, depends: ["si"], ladder: ladder(), wonByBid: won ? { handicap: won.handicap } : null };
   },
   "rule.ladder": () => ({ rungs: ladder() }),
   "rule.rarity": (_e, a) => ({ level: a.level, rarityBits: a.level * 1.5 }),
@@ -321,21 +376,30 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
 /** A fake deployment: perform any server affordance as a user, through the same `runOp` path `defineOp` uses. */
 export function createFake(state: FakeState = emptyState()) {
   state.receipts ??= {};
+  state.views ??= {};
   const receipts = memoryReceipts(state.receipts);
   return {
     state, receipts,
     addUser(userId: string, name: string, admin = false) { state.users[userId] = { name, ...(admin ? { admin } : {}) }; },
     contextFor: (userId: string | null, roomId: string | null = null, gameId: string | null = null, grant?: Grant) => contextFor(state, userId, roomId, gameId, { grant }),
-    async perform(who: { userId: string; roomId?: string | null; gameId?: string | null; grant?: Grant; via?: Via }, id: string, args: unknown): Promise<OpOutcome> {
+    /** `replay`: the caller is watching a replay of `gameId` (the app's replay route; a server reads it from the scope). */
+    async perform(who: { userId: string; roomId?: string | null; gameId?: string | null; grant?: Grant; via?: Via; replay?: boolean }, id: string, args: unknown): Promise<OpOutcome> {
       if (!isAffordanceId(id)) return { ok: false, error: { code: "unknown", message: `Unknown affordance: ${id}` } };
       const a = AFFORDANCES[id];
-      if (a.runs !== "server") return { ok: false, error: { code: "unknown", message: `${id} is a view operation; the human's layout performs it.` } };
       const roomId = who.roomId ?? null, gameId = who.gameId ?? null;
+      if (a.runs === "client") {
+        // A view operation changes the human's stored view, as `defineViewOps` does on the server.
+        const key = `${who.userId}|${roomId ?? ""}`;
+        const ctx = contextFor(state, who.userId, roomId, gameId, { grant: who.grant, replay: who.replay });
+        const { outcome, view, changed } = applyView(state.views[key] ?? EMPTY_VIEW, id, args, ctx, who.via ?? "app");
+        if (changed) state.views[key] = view;
+        return outcome;
+      }
       const handler = FAKE_HANDLERS[id as Extract<AffordanceId, keyof typeof FAKE_HANDLERS>];
       // A transaction, as a Convex mutation is: a failure leaves the world as it was.
       const before = structuredClone(state);
       const out = await runOp(a, handler as never, args, {
-        ctx: contextFor(state, who.userId, roomId, gameId, { grant: who.grant }), via: who.via ?? "app",
+        ctx: contextFor(state, who.userId, roomId, gameId, { grant: who.grant, replay: who.replay }), via: who.via ?? "app",
         callerKey: who.userId, receipts, env: { state, userId: who.userId, roomId, gameId, grant: who.grant },
       });
       if (!out.ok) Object.assign(state, before);

@@ -76,7 +76,7 @@ test("Opposite Nines at its top, exactly: lines that add up to 18", () => {
 });
 
 // The conditional splitting the hybrid law is made of (src/tiers/hybrid.ts), with a native tier function, against the
-// exact law. Measured (docs/layered-rules-measurements/opposite-nines.md): at the top base level 1,024 particles and 2
+// exact law. Measured (archive/engine-v1:docs/layered-rules-measurements/opposite-nines.md): at the top base level 1,024 particles and 2
 // sweeps are 1.5 bits off at all 10 lines; the budget below (the hybrid law's top budget) is within half a bit.
 test("conditionalTier agrees with the exact top law of Opposite Nines within half a bit", () => {
   const base: DisjointBase = {

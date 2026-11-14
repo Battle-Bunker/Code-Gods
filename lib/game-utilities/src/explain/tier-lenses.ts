@@ -1,5 +1,5 @@
 /**
- * Annotations of tiered draws (docs/layered-rules-design.md §4). A tiered draw's ordinal is its base's ordinal followed
+ * Annotations of tiered draws (archive/engine-v1:docs/layered-rules-design.md §4). A tiered draw's ordinal is its base's ordinal followed
  * by one component per tier, counted once the base's first component reaches the gate. Its explanation is therefore the
  * base lens's units (their points padded with zeros for the tier components) plus, from the gate on, each tier's own
  * units, which score the tier's component only. Below the gate there are no tier units: the explanation's `tiers` says

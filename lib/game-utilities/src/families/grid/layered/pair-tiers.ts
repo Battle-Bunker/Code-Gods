@@ -1,5 +1,5 @@
 /**
- * ✌️ Two Pair's tiers (docs/layered-rules-design.md §5.4; measurements in docs/layered-rules-measurements/two-pair.md,
+ * ✌️ Two Pair's tiers (archive/engine-v1:docs/layered-rules-design.md §5.4; measurements in archive/engine-v1:docs/layered-rules-measurements/two-pair.md,
  * scripts/tier-sweep.ts and scripts/two-pair-exact.ts).
  *
  * The base is Two Pair as shipped: the 2×2 boxes are disjoint units scoring [two different pairs, one pair], so it has
@@ -135,7 +135,7 @@ export const equalRoads: Interaction = {
 export const PAIR_INTERACTIONS: readonly Interaction[] = [pairLinks, pairLinkSums, pairLinksVia, equalRoads];
 
 /**
- * Dealt on 4×4 digits (docs/layered-rules-measurements/two-pair.md). At the base's top a link depends only on which two
+ * Dealt on 4×4 digits (archive/engine-v1:docs/layered-rules-measurements/two-pair.md). At the base's top a link depends only on which two
  * numbers each box holds, so the link tiers' tops are exact counts (scripts/two-pair-exact.ts); the hybrid law through
  * the card agrees within a bit (scripts/tier-sweep.ts), and test/two-pair-tiers.test.ts re-runs the liveness check.
  *   - linkSums: every even x from 14 to 58 (12 tables: x ~ 72 − x) adds 15.4 to 17.1 bits. Odd totals are dead (a

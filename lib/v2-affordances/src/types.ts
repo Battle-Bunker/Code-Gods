@@ -37,6 +37,10 @@ export type Grant = "read" | "act" | "owner";
 export interface Principal {
   signedIn: boolean;
   member: boolean;
+  /**
+   * Holds a player's seat: in the game in view, or, in the room before a game (the bid phase), a player's (not a
+   * spectator's) seat for the next game. AI seats and practice partners are never principals.
+   */
   seated: boolean;
   owner: boolean;
   admin: boolean;
@@ -58,8 +62,8 @@ export interface RoomFacts {
   /** Players seated (humans, practice partners and AI players) and the preset's minimum. */
   players: number;
   minPlayers: number;
-  /** Whether the room's bid phase is open (a step of the start, before the game exists; integration plan §5.9). */
-  bidding?: boolean;
+  /** Whether the room's bid phase is open (a preset with bidding, after the owner starts and before the deal). */
+  bidOpen?: boolean;
 }
 
 /** Everything availability depends on. Built by the app from its subscriptions, by the server from the game header. */
@@ -102,6 +106,11 @@ export interface Affordance<Id extends string = string, I extends z.ZodObject = 
   confirm: Confirm;
   /** server: one Convex function (`defineOp`); client: a view operation on the human's layout. */
   runs: R;
+  /**
+   * A server affordance that runs the sandbox or a model is a Convex action; otherwise reads are queries and writes
+   * mutations (`opKind`). Declared here so every caller (the app's `useAffordance`, the CLI) knows how to call it.
+   */
+  action?: true;
   /**
    * What it acts in besides its params: the room or the game in view (the app passes its id) or bound (an MCP or CLI
    * credential is bound to one room, whose current game is the game). `none`: global (home, account).

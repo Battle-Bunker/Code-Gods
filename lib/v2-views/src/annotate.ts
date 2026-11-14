@@ -6,27 +6,20 @@
  * Never disagreeing: every number here is a recorded term or an element the rule read. Nothing is recomputed.
  */
 import {
-  elementDecl, elementValue, evaluateObject, levelOf, objectLadder, type ElementRef, type Evaluation, type Mark,
-  type ObjectEvaluation, type ObjectType, type Q, type RuleFamily, type Rung, type Score, type Term, type Undef,
+  elementDecl, elementValue, evaluateObject, layerLadders, levelOf, objectLadder, type ElementRef, type Evaluation, type Mark,
+  type ObjectEvaluation, type ObjectType, type Q, type RuleFamily, type Rung, type Score, type Term, type TieBreaker, type Undef,
   type Variant,
 } from "@workspace/v2-core";
 import { fmtQ, fmtTermValue, fmtValue, isUndef } from "./format.ts";
 import { markTerm } from "./refs.ts";
 
-/**
- * Optional per-component ladders a family may declare (a proposed v2-core addition): one ladder per score component,
- * each a family ladder over that component alone (rung 0 = anything). Without it, the main part's ladder is the
- * family ladder projected on the first component, and tie-breakers have none (their value is shown, not a step).
- */
-export interface PartLadders<P> {
-  partLadders?(params: P, variant: Variant): readonly (readonly Rung[] | null)[];
-}
-
 export interface RuleRef<S, P> {
   readonly type: ObjectType<S>;
-  readonly family: RuleFamily<S, P> & PartLadders<P>;
+  readonly family: RuleFamily<S, P>;
   readonly params: P;
   readonly variant: Variant;
+  /** The dealt tie-breaker (default: the family's first; null: the main layer alone). */
+  readonly tieBreaker?: TieBreaker;
 }
 
 export interface Part {
@@ -82,21 +75,10 @@ function components(e: Evaluation): { term: Term; sense: "max" | "min" }[] {
   return e.components.map(c => ({ term: byId.get(c.term)!, sense: c.sense }));
 }
 
-/** Each component's ladder: declared, or the family ladder projected on the first component. */
+/** Each component's own ladder: one per layer of the dealt rule (v2-core's layerLadders), aligned with the components. */
 export function partLadders<S, P>(rule: RuleRef<S, P>, count: number): readonly (readonly Rung[] | null)[] {
-  const declared = rule.family.partLadders?.(rule.params, rule.variant);
-  if (declared) return Array.from({ length: count }, (_, i) => declared[i] ?? null);
-  const fam = rule.family.ladder(rule.params, rule.variant);
-  const first: Rung[] = [{ score: null, label: fam[0]?.label ?? "anything" }];
-  const seen = new Set<string>();
-  for (const r of fam.slice(1)) {
-    if (r.score === null || r.score.length === 0) continue;
-    const k = `${r.score[0]!.n}/${r.score[0]!.d}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    first.push({ score: [r.score[0]!], label: r.label });
-  }
-  return Array.from({ length: count }, (_, i) => (i === 0 ? first : null));
+  const ls = layerLadders(rule.family, rule.params, rule.variant, rule.tieBreaker);
+  return Array.from({ length: count }, (_, i) => ls[i] ?? null);
 }
 
 const capital = (s: string) => (s ? s[0]!.toUpperCase() + s.slice(1) : s);
@@ -142,12 +124,12 @@ export interface AnnotateOptions {
 
 /** Annotate a rule's evaluation of a state. The evaluation is v2-core's; this only arranges it. */
 export function annotate<S, P>(rule: RuleRef<S, P>, state: S, opts: AnnotateOptions = {}): Annotation {
-  const ev: ObjectEvaluation = evaluateObject(rule.type, rule.family, rule.params, state, rule.variant);
+  const ev: ObjectEvaluation = evaluateObject(rule.type, rule.family, rule.params, state, rule.variant, rule.tieBreaker);
   return annotateEvaluation(rule, state, ev, opts);
 }
 
 export function annotateEvaluation<S, P>(rule: RuleRef<S, P>, state: S, ev: ObjectEvaluation, opts: AnnotateOptions = {}): Annotation {
-  const ladder = objectLadder(rule.type, rule.family, rule.params, rule.variant);
+  const ladder = objectLadder(rule.type, rule.family, rule.params, rule.variant, rule.tieBreaker);
   const level = levelOf(ev.score, ladder);
   const top = ladder.length - 1;
   const sites = ev.sites.map((e, i) => annotateSite(rule, e, i, state));

@@ -67,9 +67,9 @@ export function candidateArgs<A>(code: Enumerable<A>, seed: string, budget: Impr
 interface Candidate { m: Mutator<unknown, unknown>; site: number; args: unknown; base: number }
 
 export function nearestImprovement<S, P>(rule: RuleRef<S, P>, state: S, budget: ImproveBudget = DEFAULT_BUDGET): Improvement | null {
-  const { type, family, params, variant } = rule;
-  const ladder = objectLadder(type, family, params, variant);
-  const before = evaluateObject(type, family, params, state, variant).score;
+  const { type, family, params, variant, tieBreaker } = rule;
+  const ladder = objectLadder(type, family, params, variant, tieBreaker);
+  const before = evaluateObject(type, family, params, state, variant, tieBreaker).score;
   const levelBefore = levelOf(before, ladder);
   const ms = variantMutators(type as ObjectType<unknown>, variant);
   const k = type.sites(state, variant);
@@ -96,7 +96,7 @@ export function nearestImprovement<S, P>(rule: RuleRef<S, P>, state: S, budget: 
     if (isInvalid(applied)) continue;
     tried++;
     const result = applied.result as S;
-    const after = evaluateObject(type, family, params, result, variant).score;
+    const after = evaluateObject(type, family, params, result, variant, tieBreaker).score;
     const levelAfter = levelOf(after, ladder);
     const found: Found = { c, price: applied.price, after, levelAfter, result };
     if (levelAfter > levelBefore) {

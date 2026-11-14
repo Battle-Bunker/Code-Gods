@@ -1,4 +1,4 @@
-/** Every ported grid-lab family, by lens (lib/grid-lab/gridlab/rules/__init__.py order: seeds, strategy, ...), then the beginner pool. */
+/** Every ported grid-lab family, by lens (archive/engine-v1:lib/grid-lab/gridlab/rules/__init__.py order: seeds, strategy, ...), then the beginner pool. */
 import { ARITHMETIC } from "./arithmetic.ts";
 import { BEGINNER } from "./beginner/index.ts";
 import { COLOUR } from "./colour.ts";

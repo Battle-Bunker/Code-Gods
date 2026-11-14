@@ -162,7 +162,7 @@ export class FakeHost implements AgentHost {
     switch (request.op) {
       case "view": return this.view(request.rep, request.site);
       case "element": return this.element(request.ref);
-      case "myRule": return ok({ family: this.rule.family, params: this.rule.params, card: FAMILIES[this.rule.family].card }, 0);
+      case "myRule": return ok({ family: this.rule.family, params: this.rule.params, tieBreaker: null, card: FAMILIES[this.rule.family].card, layers: [{ id: "gap", title: "the gap", sense: "min" }] }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
       case "budget": return ok({ energy: this.energy, readPrice: 1 / KAPPA, beta: BETA, hostCallsLeft: context.hostCallsLeft }, 0);
@@ -223,7 +223,7 @@ export class FakeHost implements AgentHost {
     const bits = this.chargeStatic("si", this.full("si"));
     const d = FAMILIES[this.rule.family].gap(this.state, this.rule.params);
     const level = d === null ? 0 : LADDER.filter(t => cmp(d, t) <= 0).length;
-    return ok({ score: d === null ? null : [wire(q(-d.n, d.d))], level, top: LADDER.length, terms: [{ id: "gap", value: d === null ? null : wire(d) }] }, bits);
+    return ok({ score: d === null ? null : [wire(q(-d.n, d.d))], level, top: LADDER.length, layers: [{ id: "gap", level, top: LADDER.length }], terms: [{ id: "gap", value: d === null ? null : wire(d) }] }, bits);
   }
 
   /** Prices of `calls` applied in order from `state`, or why one is invalid. */
