@@ -4,7 +4,7 @@
  * by v2-views in the representation that changed. Older pages load on request; every loaded page stays live.
  */
 import { createContext, useContext, useMemo } from "react";
-import { chipRep, repText } from "@workspace/v2-views";
+import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
 import { callWords, moveSentence, moveWho } from "./move-line";
@@ -23,21 +23,35 @@ function lineText(state: unknown, rep: string, site: number, variant: string): s
 function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<string, string>; variant: string }) {
   const length = useGame()?.worldSeconds ?? null;
   const notes = useContext(NotesContext).get(move.seq);
+  // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
+  const board = useMemo(() => {
+    const type = objectTypeOf(variant);
+    if (type.id !== "grid") return null;
+    try { return { type, before: decodeState(move.stateBefore, variant), after: decodeState(move.stateAfter, variant), site: move.calls[0]?.site ?? 0 }; } catch { return null; }
+  }, [move, variant]);
   const text = useMemo(() => {
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
-    try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
+    if (!board) try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
     return moveSentence({ noun: objectWord(variant).one,
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
       change, what: callWords(move.calls, variantOf(variant)), before: move.before, after: move.after,
     });
-  }, [move, names, variant]);
+  }, [move, names, variant, board]);
   return (
     <li className={`space-y-0.5 px-4 py-2 ${move.mine ? "" : "text-muted-foreground"}`} data-testid={`row-move-${move.seq}`} data-mine={move.mine || undefined}>
       <p className="text-xs text-muted-foreground tabular-nums">
         {timeLeft(move.worldSeconds, length)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} ⚡` : ""}
       </p>
-      <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
+      {board ? (
+        <div className="flex items-start gap-3">
+          <div className="v2v shrink-0" data-testid="move-board">
+            <RepView type={board.type} state={board.after} before={board.before} rep={defaultRep(board.type)} size="compact" site={board.site}
+              label={`The ${objectWord(variant).one} after this move, its changed cells marked`} />
+          </div>
+          <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
+        </div>
+      ) : <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>}
       {notes?.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
     </li>
   );

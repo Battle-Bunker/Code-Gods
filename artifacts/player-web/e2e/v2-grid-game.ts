@@ -174,7 +174,7 @@ try {
     const feed = page.getByTestId("pane-feed");
     // The first scoring move (a move can also leave the step and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
-    const mine = feed.locator("[data-testid=feed] > ol > li > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
+    const mine = feed.locator("[data-testid=feed] > ol > li > div > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
     await mine.waitFor({ timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
     const sentence = await mine.innerText();
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
@@ -182,6 +182,10 @@ try {
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
     assert.doesNotMatch(sentence, /payoff|object|✨/i);
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
+    // The change is drawn as a small board beside the sentence, not written as sixteen digits (coordinator, round 6).
+    assert.doesNotMatch(sentence, /\d \d \d \d \/ \d/, `no board written out in digits: ${sentence}`);
+    await mine.locator("xpath=..").getByTestId("move-board").locator("svg").first().waitFor();
+    await mine.locator("xpath=../..").screenshot({ path: path.join(shots, `grid-${label}-feed.png`) });
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
     // The goal card (decision 23): a worked example and the rule's parts, no steps.
@@ -213,6 +217,9 @@ try {
     assert.match(await why.innerText(), FORMULA, "a Lines row says yours × others' = points");
     if (label === "phone") await page.locator("[data-testid^=row-line-]").first().screenshot({ path: path.join(shots, "grid-phone-lines-row.png") });
 
+    // One grid is read on the ended game: the 30 s world ends about now, and the change of phase remounts the panes
+    // (opened just before it, its buttons detached under the click).
+    await page.getByTestId("text-phase").getByText(/ended/i).waitFor({ timeout: 60_000 });
     await page.locator("[data-testid^=row-line-]").first().click();
     const line = page.getByTestId("pane-object");
     await line.locator(".v2v-grid, [data-scene=grid]").first().waitFor({ state: "attached", timeout: 20_000 });
@@ -241,6 +248,8 @@ try {
     assert.ok(await parts.first().locator(".v2v-ruler").count() > 0, "the main part sits on a ruler");
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
+      // The price and new bits arrive after the move's words (read at once, the text was only "−1 in every cell of row 4").
+      await options.first().getByText(/→ [\d,]+\.\d\d bits?/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
       assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
       assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+ by chance\)/, `a move has its new bits: ${first}`);
@@ -252,6 +261,8 @@ try {
 
     await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 120_000 });
     const results = page.getByTestId("pane-results");
+    // On a desktop the Grids pane, opened after the end, is in front of Results' tab ("How the game went").
+    if (await page.getByTestId("tab-results").count()) await page.getByTestId("tab-results").click();
     await results.getByText(/You finished (tied for )?\S+ of 3 with/).waitFor({ timeout: 20_000 });
     await assertNoSteps(page, `${label}: the results`);
     // The end in plain words: what earned your points, what cost you, one thing to try next game.
