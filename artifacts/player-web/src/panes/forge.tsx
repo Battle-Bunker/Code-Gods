@@ -15,6 +15,7 @@ import { useOpenPane } from "@/dock/open-pane";
 import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
 import { useWide } from "@/core/use-wide";
+import { PullBack } from "./pull-back-ui";
 import {
   affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
 } from "./forge-model";
@@ -88,25 +89,29 @@ export function ForgePane() {
 
   const fail = (e: unknown) => setStatus({ tone: "error", text: failureText(e) });
   firstSummonRef.current = () => { if (count === 0 && opening && summon.available && !runner.busy) void doSummon(opening.source, true, agentName(opening.title)); };
-  const doSummon = async (src: string, first: boolean, name?: string) => {
+  /** The new agent's id, or false when nothing was summoned. */
+  const doSummon = async (src: string, first: boolean, name?: string): Promise<string | false> => {
     setStatus({ tone: "info", text: first ? "Summoning your first agent…" : "Summoning…" });
     try {
       const r = await runner.run("summon", () => summon.run({ language, source: src, ...(name ? { name } : {}), ...(first ? { share: FIRST_SHARE } : {}) }));
-      if (!r) return;
+      if (!r) return false;
       setRan(src); setDraft(null); setSelected(r.agentId);
       if (header?.gameId) noteSummoned(header.gameId);
       setStatus({ tone: "ok", text: first ? summonedText({ name: name ?? "Your agent", share: FIRST_SHARE, power: me?.power ?? 0 }) : `Summoned for ${energyText(r.price)}.`, action: "agents" });
-    } catch (e) { fail(e); }
+      return r.agentId;
+    } catch (e) { fail(e); return false; }
   };
-  const doReplace = async (src: string) => {
-    if (!agent) return;
+  /** null when replaced, false when not. */
+  const doReplace = async (src: string): Promise<null | false> => {
+    if (!agent) return false;
     setStatus({ tone: "info", text: `Replacing ${agent.name}'s code…` });
     try {
       const r = await runner.run("replace", () => replace.run({ agentId: agent.agentId, language, source: src }));
-      if (!r) return;
+      if (!r) return false;
       setRan(src); setDraft(null);
       setStatus({ tone: "ok", text: replacedText(agent.name), action: "agents" });
-    } catch (e) { fail(e); }
+      return null;
+    } catch (e) { fail(e); return false; }
   };
   const doCheck = async () => {
     setReport("Checking: one move on a sample line…");
@@ -158,9 +163,10 @@ export function ForgePane() {
             {runner.busy === "replace" ? "Replacing…" : `Replace ${agent.name}'s code`}
           </button>
         )}
-        {count > 0 && (primary === "replace" || primary === "summon") && (
+        {count > 0 && primary !== "summonFirst" && (
+          // Always on offer once an agent exists: a second agent should not need a code change first (owner).
           <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => summon.available && !runner.busy && void doSummon(source, false)}
-            className="border px-3 py-2" data-testid="button-summon-beside">Summon beside it</button>
+            className="border px-3 py-2" data-testid="button-summon-beside">{primary === "replace" ? "Summon beside it" : "Summon another agent"}</button>
         )}
         <button type="button" aria-disabled={!check.available || undefined} onClick={() => check.available && void doCheck()} className="border px-3 py-2" title="Try one move on a sample line without spending energy. Summon does not wait for it." data-testid="button-check">Check</button>
         {others.length > 0 && (
@@ -178,7 +184,11 @@ export function ForgePane() {
           </details>
         )}
       </div>
-      {!runner.busy && (primary || !agent) && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
+      {!runner.busy && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
+      {me && agents && agents.length > 0 && primary !== "summonFirst" && (
+        <PullBack me={me} agents={agents} price={price} verb={primary === "replace" ? "edit" : "summon"} offer={ran !== source || primary === null}
+          pay={() => (primary === "replace" ? doReplace(source) : doSummon(source, false))} />
+      )}
       <div ref={statusRef} aria-live="polite">
         {status && (
           <div className={`border px-3 py-2 ${status.tone === "error" ? "border-destructive/50 text-destructive" : status.tone === "ok" ? "border-primary/40" : ""}`} data-testid="text-forge-status">
