@@ -182,11 +182,36 @@ and 24 is about 200 times commoner than 23. The constant STEP sets how strong gr
 ("digits") code made size cost only logarithmically (#347's doubling code), and a steps-only code would make size cost
 linearly whatever its factors; number-codes.md records the comparison.
 
-### 2.6 Collisions and identity
+### 2.6 Unique objects (owner decision 24)
 
-There is no uniqueness constraint between objects: two objects may hold the same state. Each object is an independent
-universe, and a mutation never fails because another object holds the result. (Decision 5 asks for collisions of
-interest on few degrees of freedom; one line per object gives exactly that.)
+Within a game no two objects hold the same state: two lines are the same when their canonical triples are equal (two
+grids when their cells are). A strategy cannot thrive by finding one good state and copying it to many objects.
+
+- **A move onto a held state is refused.** A call (or plan) whose result equals another object's current state is
+  invalid: refused like any invalid call, with no charge, and the quote says so ("another line is already y = 2x + 1").
+  An agent's `price`/`cheapest` then return null for that plan, so a starter never proposes one. The check is on the
+  plan's final state against every other object of the game at commit time (two simultaneous moves to the same state:
+  the first to commit wins, the second is refused).
+- **Births never duplicate.** A birth whose drawn state is already held is redrawn (the next draw of the same seeded
+  birth walk), so births stay draws from the law restricted to distinct states.
+- **Effect on values.** Refusing a move is a rejection in both directions, so the walk stays reversible and the
+  stationary law of a game with N objects is the product law restricted to distinct tuples. One object's marginal is
+  then π(x) times the chance that the others avoid x. For a common state the others crowd it out; for a rare state the
+  others almost never hold it, so its mass rises by 1/(1 − E[M]), with M the π-mass the other N − 1 objects hold.
+  Measured on line-z by a Gibbs sampler of the restricted law (Σπ² = 0.068 there, so collisions are not rare):
+
+  | Objects N | 4 | 10 | 40 | 100 | 400 | 1,000 |
+  |---|--:|--:|--:|--:|--:|--:|
+  | E[M] | 0.13 | 0.23 | 0.39 | 0.51 | 0.68 | 0.77 |
+  | Rare-state bits shift | −0.20 | −0.37 | −0.72 | −1.03 | −1.64 | −2.13 |
+
+  The order of states is unchanged; the offset is nearly constant over rare states and matters in large games.
+  Values today are computed under the one-object law (§7.0). The correction is provisional and not built: subtract
+  log2(1/(1 − E[M_N])) from the value of knots rarer than the crowded region (bits ≥ log2 N + 2), from a per-variant
+  table of E[M_N].
+- **Identity, not near-duplicates.** "Unique" is exact equality of the canonical state. A stronger notion (lines that
+  differ only slightly, the same primary utility) would be arbitrary per rule, would distort the law more, and would
+  forbid legitimate neighbours that hill climbing needs. Recommended: identity only.
 
 ## 3. The representation contract
 

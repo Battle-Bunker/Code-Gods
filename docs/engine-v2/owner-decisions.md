@@ -112,6 +112,12 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     set; a state's value is −log2 π{states whose (primary, secondary) is at least as good}, at its actual score.
     This supersedes the coordinator's calls (f), on rungs, and (g), on caps.)
 
+24. On unique objects (relayed by the coordinator, 14 November): "Agents should always be dynamic hill climbers.
+    Objects must be unique so you can't thrive by finding one optimal object state and replicating it and anyway it's
+    really expensive to move objects a long way in a single turn now, by design, so all strategies should be
+    incremental hill climbing towards profitable combined states." (Within a game no two objects hold the same state;
+    spec §2.6. It withdraws the architect's call that there is no uniqueness constraint.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
@@ -156,9 +162,8 @@ existing code. The specification that follows from them is [spec.md](spec.md).
 
 Each is decided in [spec.md](spec.md); the section is given.
 
-- No uniqueness constraint between objects: two objects may hold the same line (spec §2.5). Each object is an
-  independent universe; decision 5 is read as "rules compete on the same few degrees of freedom", which one line per
-  object already gives.
+- *Withdrawn 14 November by owner decision 24.* The original call: "No uniqueness constraint between objects: two
+  objects may hold the same line (spec §2.5)."
 - Births are drawn from the stationary law itself, by a seeded birth walk (spec §2.4), so "b bits" keeps meaning "one
   newborn object in 2^b is this good".
 - Hold rarity and defence goals are not carried into v2's first version (spec §8). Value is the stationary-law bits
