@@ -90,6 +90,19 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     capped; an exact sum arrives later in its own PR and changes only artefact numbers; a family with a usable ladder
     is never held back as undealable because its exact sum is not written yet.)
 
+21. On the agent economy (relayed by the coordinator, 14 November): "I do think modifying an existing agent should cost
+    only what one changes … It should be quite tractable to pull power away from one's agents to quickly supply the
+    God itself with plenty of energy for spawning and then return that power back to a new allocation among agents
+    including the new one(s)."
+
+22. On mixed calibration (relayed by the coordinator, 14 November): "I don't want to give up the affordance for grid
+    rules like these [overlapping windows, rows with columns, regions and paths, histograms]. If we can calculate
+    calibration stats for such rules accurately enough using simulation, then keep them. I don't mind if we need a
+    mixture of analytical and empirical methods to calculate our scoring calibration stats across the diversity of
+    rules for different objects we might want, as long as it is tractable via some method to reach principled
+    conversion from utility to energy/bits/probability." (So a rule with a certified empirical ladder is as good as an
+    exact one for a pool.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
