@@ -156,3 +156,9 @@ test("expanded face: a contested line lists 'Hold it here' first, with the setti
   assert.ok(t.indexOf("Hold it here") < t.indexOf("What would make it rarer") || !/What would make it rarer/.test(t) || t.indexOf("Hold it here") > -1);
   assert.ok(html.indexOf("v2v-hold") < html.indexOf("v2v-move-option") || html.indexOf("v2v-move-option") === -1, "hold comes before the moves");
 });
+
+test("hold it here: with the app's set-up action, a button instead of the code", () => {
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} hold={{ number: 24, onHold: () => {} }} />);
+  assert.match(html, /data-testid="button-hold-it-here"[^>]*>Hold it here: set up my agent</);
+  assert.doesNotMatch(html, /TARGET =/);
+});
