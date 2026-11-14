@@ -625,6 +625,12 @@ importers:
 
   lib/v2-core: {}
 
+  lib/v2-economy:
+    dependencies:
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../v2-core
+
   lib/v2-linear:
     dependencies:
       '@workspace/v2-core':

@@ -4,10 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./harness": "./src/harness.ts"
   },
   "scripts": {
-    "test": "node --experimental-strip-types --test test/*.test.ts"
+    "test": "node --experimental-strip-types --test test/*.test.ts",
+    "render": "node --experimental-strip-types scripts/render.ts",
+    "harness": "node --experimental-strip-types scripts/harness.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
