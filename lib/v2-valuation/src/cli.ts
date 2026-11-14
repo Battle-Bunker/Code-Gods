@@ -10,7 +10,6 @@ import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { canonicalJson, hashHex, tieBreakersOn, type RuleFamily } from "@workspace/v2-core";
 import { BACKLOG_HEAD, calibrate, type Artefact } from "./artefact.ts";
-import type { Estimate } from "./estimate.ts";
 import { findVariant } from "./registry.ts";
 import { describeLine } from "@workspace/v2-linear";
 
@@ -35,21 +34,17 @@ const describe = (wire: string): string => {
 };
 const num = (x: number | null | undefined, d = 3) => (x === null || x === undefined || !Number.isFinite(x) ? "—" : x.toFixed(d));
 
-function report(a: Artefact, e: Estimate, seconds: number): void {
-  console.log(`\n${a.family} ${canonicalJson(a.params)} + ${a.tieBreaker} on ${a.variant}: ${a.status} — ${e.steps.toLocaleString("en")} steps, ${seconds.toFixed(1)} s, ${e.samplesPerChain} samples per chain, converged through rung ${e.convergedThrough} of ${e.rungs.length - 1}`);
-  if (!e.rungs.length) { console.log(`  ${a.reasons.join("; ")}`); return; }
-  console.log(`  ${pad("layer", 6)} ${pad("rung", 38)} ${pad("bits", 8)} ${pad("±", 7)} ${pad("split", 7)} ${pad("direct", 7)} a line there`);
-  e.rungs.forEach((r, i) => {
-    const layer = a.rungs[i]!.layer;
-    console.log(`  ${pad(layer < 0 ? "" : String(layer + 1), 6)} ${pad(r.label, 38)} ${pad(num(r.bits), 8)} ${pad(i ? num(r.error) : "", 7)} ${pad(num(r.split), 7)} ${pad(num(r.direct), 7)} ${e.examples[i] ? describe(e.examples[i]!) : ""}${r.empty ? "  (empty rung)" : ""}`);
+function report(a: Artefact, seconds: number): void {
+  const sim = a.diagnostics.simulation;
+  console.log(`\n${a.family} ${canonicalJson(a.params)} + ${a.tieBreaker} on ${a.variant}: ${a.status} — ${seconds.toFixed(1)} s` +
+    `${sim ? `, simulated ${sim.steps.toLocaleString("en")} steps` : ", no simulation"}; dealt to rung ${a.cap} of ${a.rungs.length - 1}${a.dealable ? "" : " (not dealable)"}`);
+  if (!a.rungs.length) { console.log(`  ${a.reasons.join("; ")}`); return; }
+  console.log(`  ${pad("layer", 6)} ${pad("rung", 46)} ${pad("bits", 8)} ${pad("±", 7)} ${pad("source", 10)} a line there`);
+  a.rungs.forEach((r, i) => {
+    const example = sim?.examples[i];
+    console.log(`  ${pad(r.layer < 0 ? "" : String(r.layer + 1), 6)} ${pad(r.label.slice(0, 46), 46)} ${pad(num(r.bits), 8)} ${pad(i ? num(r.error) : "", 7)} ${pad(r.source ?? "", 10)} ${example ? describe(example) : ""}${r.empty ? "  (empty rung)" : ""}`);
   });
-  console.log(`  distinct values where each layer counts: ${e.distinctLevels.map(d => (d === null ? "—" : String(d))).join(", ")}`);
-  if (a.curve) {
-    const c = a.curve;
-    const f = c.model === "log-distance" ? `${num(c.alpha, 4)} − ${num(c.beta, 4)}·log2(d + ${c.delta})` : `${num(c.alpha, 4)} + ${num(c.beta, 4)}·n + ${num(c.gamma, 4)}·n²`;
-    console.log(`  curve: V = ${f}${c.snapped ? " (snapped)" : ""}`);
-  } else console.log("  curve: none accepted");
-  console.log(`  reversibility ${num(e.reversibility)}, mixing ${num(e.mixingSteps, 0)} steps${a.reasons.length ? `; ${a.reasons.join("; ")}` : ""}`);
+  if (a.reasons.length) console.log(`  ${a.reasons.join("; ")}`);
 }
 
 // The backlog is regenerated for the rules calibrated now: their old rows go, and the unconverged ones come back.
@@ -61,8 +56,8 @@ for (const family of families) {
   const choices: (string | null)[] = tbOpt ? [tbOpt === "none" ? null : tbOpt] : tieBreakersOn(family, variant).length ? tieBreakersOn(family, variant).map(t => t.id) : [null];
   for (const params of paramSets) for (const tieBreaker of choices) {
     const t = Date.now();
-    const { artefact, estimate } = calibrate(type, variant, family, params, { seed, tieBreaker, config: budget ? { computeBudget: budget } : {} });
-    report(artefact, estimate, (Date.now() - t) / 1000);
+    const { artefact } = calibrate(type, variant, family, params, { seed, tieBreaker, config: budget ? { computeBudget: budget } : {} });
+    report(artefact, (Date.now() - t) / 1000);
     if (flag("write")) {
       const dir = join(ROOT, "artefacts", variant.id, family.id);
       mkdirSync(dir, { recursive: true });

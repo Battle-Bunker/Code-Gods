@@ -23,7 +23,7 @@ for (const variant of readdirSync(ROOT).sort()) for (const family of readdirSync
     const fam = (findVariant(a.variant).type.families as readonly RuleFamily<unknown, unknown>[]).find(f => f.id === a.family)!;
     const tie = ruleLayers(fam, a.tieBreaker === "none" ? null : a.tieBreaker)[1] ?? null;
     const { cap, convergedCap, tail, dealable } = dealtLadder(a, tie);
-    const body = { ...a, schema: 4 as const, cap, convergedCap, tail, dealable };
+    const body = { ...a, schema: 5 as const, cap, convergedCap, tail, dealable };
     writeFileSync(path, JSON.stringify({ ...body, contentHash: contentHash(body) }, null, 1) + "\n");
     n++;
     if (!dealable) rows.push(`| ${a.family} | \`${canonicalJson(a.params)}\` | ${a.tieBreaker} | ${a.variant} | ${a.status} | ${a.reasons.join("; ") || `fewer than 6 rungs converged`} |`);

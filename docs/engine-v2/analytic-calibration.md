@@ -161,3 +161,17 @@ beginner pairings:
 - Ruler and Exact Change need lattice sums near their curves.
 
 Each of these is a page of code. Each is checked, as here, against every simulated rung that converges.
+
+## Stage 2: what was built (14 November)
+
+- **The potential** (#427). gen.nudge refuses results it would have to divide through or turn over. The cycle test is a
+  hard gate in lib/v2-linear's potential test, over every variant.
+- **Exact valuation** (spec §7.2). Families declare `separable` or `band` plans in lib/v2-linear/src/sums.ts, and every
+  band is checked against brute force. On `line-z`, 15 pairings are exact to the top with no simulation, 16 are hybrid
+  (exact low rungs, simulated above where the simulation converges), and 3 are too coarse. Values are in
+  number-codes.md.
+- **The simulation is kept, and only for the hybrid rungs.** It still runs for the families with no plan (Prime
+  Staircase, Ruler, Exact Change, Crossing Check), for the rungs between the generic enumeration's reach (about 8 bits)
+  and a band's start, and for the rational and multi-line variants. The owner has asked that families be chosen so an
+  exact valuation exists. The curator's pool (layered-line-rules.md §10.5) is made of exact pairings only, and once it
+  replaces the current pool the simulation's remaining uses on `line-z` go with the families it was needed for.

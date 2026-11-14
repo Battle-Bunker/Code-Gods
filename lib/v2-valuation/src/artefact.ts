@@ -1,6 +1,7 @@
 /** The committed artefact per rule (spec §7.6) and the run-time lookup (§7.7). */
 import { canonicalJson, hashHex, levelOf, objectLadder, ruleLayers, scoreFromWire, tieBreakerId, scoreToWire, Qn, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { estimate, ruleKey, DEFAULT_CONFIG, type Estimate, type ValuationConfig } from "./estimate.ts";
+import { distinctLayerValues, exactLadder } from "./exact.ts";
 import { evalCurve, fit, type Curve, type Point } from "./fit.ts";
 
 export interface ArtefactRung {
@@ -13,11 +14,13 @@ export interface ArtefactRung {
   readonly bits: number;
   readonly error: number;
   readonly empty?: true;
+  /** Where the value comes from: an exact sum (error = half its certified interval) or the simulation. */
+  readonly source?: "exact" | "simulated";
 }
 
 export interface Artefact {
-  /** 4: the fitted tail and the converged cap; 3: the dealable cap (call (g)); 2: layered ladders. */
-  readonly schema: 4;
+  /** 5: exact values (owner decision 19); 4: the fitted tail; 3: the dealable cap (call (g)); 2: layered ladders. */
+  readonly schema: 5;
   readonly ruleKey: string;
   readonly objectType: string;
   readonly objectTypeVersion: number;
@@ -29,7 +32,8 @@ export interface Artefact {
   readonly tieBreaker: string;
   readonly seed: string;
   readonly config: ValuationConfig;
-  readonly status: Estimate["status"];
+  /** "exact": every rung certified by an exact sum; "hybrid": exact where certified, simulated elsewhere. */
+  readonly status: Estimate["status"] | "exact" | "hybrid";
   readonly reasons: readonly string[];
   /** The rungs calibrated: the rule's ladder, or a prefix of it when its top rungs could not be reached (see reasons). */
   readonly rungs: readonly ArtefactRung[];
@@ -48,6 +52,10 @@ export interface Artefact {
   readonly primarySense: "min" | "max";
   readonly curve: (Curve & { readonly snapped: boolean }) | null;
   readonly diagnostics: {
+    /** The exact sums' certified intervals per rung and how each was summed (null: the variant has no exact law). */
+    readonly exact: { readonly method: readonly string[]; readonly lo: readonly number[]; readonly hi: readonly number[] } | null;
+    /** The simulation's diagnostics (null: every rung was exact, so it did not run). */
+    readonly simulation: {
     readonly reversibility: number;
     readonly mixingSteps: number;
     readonly steps: number;
@@ -62,6 +70,7 @@ export interface Artefact {
     readonly drift: readonly (readonly [number, number | null] | null)[];
     /** Every rung up to this one is within the error target. */
     readonly convergedThrough: number;
+    } | null;
   };
   readonly contentHash: string;
 }
@@ -174,45 +183,90 @@ export function contentHash(a: Omit<Artefact, "contentHash">): string {
 }
 
 export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: RuleFamily<S, P>, params: P,
-  options: { seed?: string; config?: Partial<ValuationConfig>; tieBreaker?: TieBreaker } = {}): { artefact: Artefact; estimate: Estimate } {
+  options: { seed?: string; config?: Partial<ValuationConfig>; tieBreaker?: TieBreaker } = {}): { artefact: Artefact; estimate: Estimate | null } {
   const seed = options.seed ?? "v2";
   const config = { ...DEFAULT_CONFIG, ...options.config };
   const tieBreaker = tieBreakerId(family, options.tieBreaker);
   const tb = tieBreaker === "none" ? null : tieBreaker;
-  const est = estimate({ type, variant, family, params, seed, config, tieBreaker: tb });
-  const ladder = objectLadder(type, family, params, variant, tb).slice(0, Math.max(est.rungs.length, 1));
-  const rungs: ArtefactRung[] = est.rungs.map((r, i) => ({
-    score: scoreToWire(ladder[i]!.score), label: r.label, layer: ladder[i]!.layer, ...(ladder[i]!.main !== undefined ? { main: ladder[i]!.main } : {}), bits: r4(r.bits), error: r4(r.error), ...(r.empty ? { empty: true as const } : {}),
-  }));
-  let curve: Artefact["curve"] = null;
-  // Curves are fitted to the primary layer's rungs (§7.4), on single-line objects.
+  const fullLadder = objectLadder(type, family, params, variant, tb);
+  const within = (bits: number, error: number) => Number.isFinite(bits) && Number.isFinite(error) && error <= Math.max(config.targetRelError * bits, config.absFloorBits);
+  // 1. Exact values where the law is known exactly (owner decision 19): whole-number lines, one per object.
+  const ex = exactSupported(type, variant) ? exactLadder(family as never, params, variant, tb) : null;
+  const exact = fullLadder.map((_, k) => {
+    if (!ex) return null;
+    if (k === 0) return { bits: 0, error: 0 };
+    const lo = ex.lo[k]!, hi = ex.hi[k]!, bits = (lo + hi) / 2, error = (hi - lo) / 2;
+    return within(bits, error) ? { bits, error } : null;
+  });
+  const allExact = exact.every(x => x !== null);
+  // 2. The simulation only where an exact value is missing: it fills those rungs where it converges (the hybrid).
+  const est = allExact ? null : estimate({ type, variant, family, params, seed, config, tieBreaker: tb });
+  // The rungs recorded: the whole ladder when exact; else as far as either source reaches (the simulation truncates at a
+  // rung no climb reached).
+  let lastExact = 0;
+  exact.forEach((x, k) => { if (x) lastExact = k; });
+  const ladder = fullLadder.slice(0, allExact ? fullLadder.length : Math.max(est!.rungs.length, lastExact + 1));
+  const reasons: string[] = [...(est?.reasons ?? [])];
+  const rungs: ArtefactRung[] = ladder.map((r, k) => {
+    const e = exact[k], sim = est?.rungs[k];
+    const simOk = sim !== undefined && (k === 0 || within(sim.bits, sim.error));
+    if (e && sim && simOk && k > 0 && !sim.empty && Math.abs(sim.bits - e.bits) > Math.max(3 * sim.error, config.targetRelError * e.bits, 0.05)) {
+      reasons.push(`rung ${k}: simulated ${sim.bits.toFixed(3)} ± ${sim.error.toFixed(3)} against exact ${e.bits.toFixed(3)}`);
+    }
+    const base = { score: scoreToWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) };
+    if (e) return { ...base, bits: r4(e.bits), error: r4(e.error), source: "exact" as const };
+    if (sim) return { ...base, bits: r4(sim.bits), error: r4(sim.error), source: "simulated" as const, ...(sim.empty ? { empty: true as const } : {}) };
+    return { ...base, bits: NaN, error: NaN, source: "simulated" as const };
+  });
+  // Continuity (owner decision 13) on exact values: each dealt layer must take at least minLevels distinct values among
+  // the cheapest lines (every line with φ ≤ 20, about 18,000), as the simulation's check counts them among its samples.
+  if (allExact) {
+    const distinct = distinctLayerValues(family as never, params, variant, tb, 20);
+    distinct.forEach((d, j) => {
+      if (d < config.minLevels) reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values, fewer than ${config.minLevels}: too coarse to extend the ladder`);
+    });
+  }
+  const status: Artefact["status"] = allExact ? (reasons.some(r => /too coarse/.test(r)) ? "too-coarse" : "exact")
+    : est!.status === "too-coarse" || est!.status === "unreachable" ? est!.status
+    : reasons.some(r => / against exact /.test(r)) ? "flagged"
+    : ex ? "hybrid" : est!.status;
   const primary = ruleLayers(family, tb)[0]!;
-  if (est.status === "converged" && type.sites(type.origin(variant), variant) === 1) {
-    const points = est.rungs.flatMap((r, i) => {
-      const s = ladder[i]!.score;
-      if (ladder[i]!.layer !== 0 || r.empty || s === null || s[0] === null) return [];
-      const t = primary.sense === "min" ? -Qn.toNumber(s[0]!) : Qn.toNumber(s[0]!);
+  let curve: Artefact["curve"] = null;
+  // Curves are fitted to the primary layer's rungs (§7.4), on single-line objects, when every rung has a value.
+  if ((status === "converged" || status === "exact") && type.sites(type.origin(variant), variant) === 1) {
+    const points = rungs.flatMap((r, i) => {
+      const sc = ladder[i]!.score;
+      if (ladder[i]!.layer !== 0 || r.empty || sc === null || sc[0] === null) return [];
+      const t = primary.sense === "min" ? -Qn.toNumber(sc[0]!) : Qn.toNumber(sc[0]!);
       return [{ t, v: r.bits, err: Math.max(r.error, config.absFloorBits) }];
     });
     const f = fit(primary.measure === "distance" ? "distance" : "count", points);
     if (f && f.accepted) curve = { ...f.curve, snapped: f.snapped };
   }
   const tieLayer = ruleLayers(family, tb)[1] ?? null;
-  const { cap, convergedCap, tail, dealable } = dealtLadder({ status: est.status, rungs, config }, tieLayer);
+  const { cap, convergedCap, tail, dealable } = dealtLadder({ status, rungs, config }, tieLayer);
   const body: Omit<Artefact, "contentHash"> = {
-    schema: 4, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
+    schema: 5, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
     variant: variant.id, variantHash: hashHex(canonicalJson(variant)), family: family.id, params, tieBreaker, seed, config,
-    status: est.status, reasons: est.reasons, rungs, cap, convergedCap, tail, dealable, primarySense: primary.sense, curve,
+    status, reasons, rungs, cap, convergedCap, tail, dealable, primarySense: primary.sense, curve,
     diagnostics: {
-      reversibility: r4(est.reversibility), mixingSteps: r4(est.mixingSteps), steps: est.steps, samplesPerChain: est.samplesPerChain,
-      distinctLevels: est.distinctLevels, examples: est.examples,
-      split: est.rungs.map(r => r4(r.split)), direct: est.rungs.map(r => (r.direct === null ? null : r4(r.direct))),
-      levelMatrix: est.levelMatrix,
-      convergedThrough: est.convergedThrough,
-      drift: est.drift.map(d => (d === null ? null : [r4(d[0]), Number.isFinite(d[1]) ? r4(d[1]) : null] as const)),
+      exact: ex ? { method: ex.method.slice(0, rungs.length), lo: ex.lo.slice(0, rungs.length).map(r4), hi: ex.hi.slice(0, rungs.length).map(r4) } : null,
+      simulation: est ? {
+        reversibility: r4(est.reversibility), mixingSteps: r4(est.mixingSteps), steps: est.steps, samplesPerChain: est.samplesPerChain,
+        distinctLevels: est.distinctLevels, examples: est.examples,
+        split: est.rungs.map(r => r4(r.split)), direct: est.rungs.map(r => (r.direct === null ? null : r4(r.direct))),
+        levelMatrix: est.levelMatrix, convergedThrough: est.convergedThrough,
+        drift: est.drift.map(d => (d === null ? null : [r4(d[0]), Number.isFinite(d[1]) ? r4(d[1]) : null] as const)),
+      } : null,
     },
   };
   return { artefact: { ...body, contentHash: contentHash(body) }, estimate: est };
+}
+
+/** Exact sums need the law of one whole-number line (π(m, c) = p(m)·p(c)); other variants are simulated. */
+function exactSupported<S>(type: ObjectType<S>, variant: Variant): boolean {
+  const p = variant.params as { domain?: string; linesPerObject?: number };
+  return type.id === "line" && p.domain === "Z" && (p.linesPerObject ?? 1) === 1;
 }
 
 /** A score's bits (spec §7.7): the rung's value, or the snapped curve between this rung and the next. */
