@@ -102,7 +102,7 @@ function LineRow({ objectId, number, rule, rep, scale, focused, contested, onOpe
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="font-semibold">Line {number}</span>
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
-          title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">contested</span>}
+          title="Your agent and another player's keep moving this line back and forth: both of you burn energy. Talk to them.">tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} />}
