@@ -32,6 +32,7 @@ export interface ActInput<S> {
   readonly value?: HostInput<S>["value"];
   readonly history?: HostInput<S>["history"];
   readonly values?: HostInput<S>["values"];
+  readonly others?: HostInput<S>["others"];
 }
 
 export type Outcome = "committed" | "skipped" | "failed";
@@ -76,7 +77,7 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   const economy = input.economy ?? SPEC_ECONOMY;
   const host = new EngineHost({
     type: input.type, variant: input.variant, state: input.state, rule: input.rule, energy: input.energy, economy,
-    value: input.value, history: input.history, values: input.values,
+    value: input.value, history: input.history, values: input.values, others: input.others,
   });
   const offerBits = Math.log2(Math.max(1, input.liveObjects ?? 1));
   const result = await sandbox.act({ source: input.program.source, offer: { object: input.object ?? 0 }, seed: input.seed, host, limits: input.limits });

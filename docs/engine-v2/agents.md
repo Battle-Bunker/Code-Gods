@@ -46,7 +46,7 @@ what the player may see (spec §8 disclosure):
 - `rungs: { score, bits, layer?, main? }[]`: the player's rule's committed ladder (the artefact's rungs), so that
   `rarity(score)` prices a score the agent computed. `worth()` is answered only when rungs are given.
 
-`worth` costs 6 read bits, `recent` 2 per move, `rarity` and `note` nothing (`WORTH_BITS`, `RECENT_BITS_PER_MOVE`).
+`others: { rule, values }[]` (the other players' rules and value functions) lets the host answer `othersAfter(plan)`: the others' rarity on the line, added up, before and after the plan; the agent never sees their rules. `worth` costs 6 read bits, `recent` 2 per move, `rarity` and `note` nothing (`WORTH_BITS`, `RECENT_BITS_PER_MOVE`).
 
 The engine host is `EngineHost` (`lib/v2-agents/src/host.ts`); its read accounting is spec §3.1 with one addition: a
 view with no coordinates (`tri`) is charged its static elements, or it would be a free full read.
@@ -76,6 +76,7 @@ Every act's prelude defines these, with the same names and behaviour in both lan
 | `recent(offer)` | the latest moves on this line you may see, newest last: `mine`, `pointsBefore`, `pointsAfter` (Python `points_before`, `points_after`) | 1, a small read per move |
 | `pushback(offer)` | how many times lately another player's move took back points your agent had just won here (a tug-of-war) | as `recent` |
 | `contested(offer, times)` | true once `pushback` reaches `times`; it then leaves the owner a note naming the tug-of-war | as `recent` |
+| `fair(offer, plan)` | true when the plan would not lower the other players' rarity on this line, added up (true when the game does not say) | 1, a small read each time (`OTHERS_AFTER_BITS`, 6) |
 | `note(offer, text)` | leave your owner a short note in the act log (at most 3 an act, 200 characters) | 1, free |
 
 An agent is `agent(offer)` returning a plan (a list of moves) or null/None to skip. The lower-level guest API

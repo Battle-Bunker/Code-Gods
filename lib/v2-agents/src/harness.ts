@@ -165,6 +165,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
       type, variant, state: lines[object]!, rule: p.rule, program: p.program, seed: BigInt(`0x${hashHex(`${input.seed}:${turn}`).slice(0, 15)}`),
       energy: energy[i]!, object, liveObjects: lines.length,
       value: { mine: n[i]!, others: total - n[i]!, points: n[i]! * (total - n[i]!) }, history, ...(valuers[i]!.values ? { values: valuers[i]!.values } : {}),
+      others: players.flatMap((p, j) => (j === i || !valuers[j]!.values ? [] : [{ rule: p.rule, values: valuers[j]!.values! }])),
     });
     reversal[i]!.noteCount += record.notes.length;
     for (const t of record.notes) if (reversal[i]!.notes.length < 3 && !reversal[i]!.notes.includes(t)) reversal[i]!.notes.push(t);

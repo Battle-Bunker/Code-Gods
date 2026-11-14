@@ -56,11 +56,16 @@ const KINDS: Record<Exclude<AgentKind, "example">, { title: string; summary: str
 /** The lines every points-aware agent ends with, in plain words (TypeScript, then Python). */
 const POINTS = {
   ts: [
+    "  // A promise: on these lines, only moves that leave the other players at least as well off.",
+    "  if (PROTECT.includes(offer.object)) plans = plans.slice(0, QUOTES).filter(plan => fair(offer, plan));",
     "  if (!plans.length) return null;",
     "  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
     "  return plan;",
   ],
   py: [
+    "    # A promise: on these lines, only moves that leave the other players at least as well off.",
+    "    if offer.object in PROTECT:",
+    "        plans = [plan for plan in plans[:QUOTES] if fair(offer, plan)]",
     "    if not plans:",
     "        return None",
     "    plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best",
@@ -134,6 +139,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
       "const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
+      "const PROTECT = [];    // lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
     ]),
     "",
     "function agent(offer) {",
@@ -210,6 +216,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(kind === "naive" ? [] : [
       "LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them",
+      "PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: only moves that keep them as well off",
     ]),
     "",
     "",

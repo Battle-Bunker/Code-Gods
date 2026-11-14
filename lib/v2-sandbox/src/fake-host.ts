@@ -169,6 +169,7 @@ export class FakeHost implements AgentHost {
       case "budget": return ok({ energy: this.energy, readPrice: 1 / KAPPA, beta: BETA, hostCallsLeft: context.hostCallsLeft }, 0);
       case "worth": return err("the toy game does not say what lines are worth");
       case "rarity": return err("the toy game does not say what scores are worth");
+      case "othersAfter": return err("the toy game does not say what lines are worth to others");
       case "recent": return ok({ moves: [] }, 0);
       case "note": {
         const text = typeof request.text === "string" ? request.text.trim() : "";

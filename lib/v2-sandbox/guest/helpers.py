@@ -31,6 +31,8 @@
 #   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
 #   pushback(offer)              how many times lately someone else's move took back points your agent had just won
 #                                on this line (a tug-of-war).
+#   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
+#                                (True when the game does not say). Costs a small read each time.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -177,6 +179,14 @@ def worth(offer):
         return offer.worth()
     except HostError:
         return None
+
+
+def fair(offer, plan):
+    try:
+        o = offer.others_after(_as_plan(plan))
+        return o.after is None or o.after >= o.before
+    except HostError:
+        return True
 
 
 def recent(offer):

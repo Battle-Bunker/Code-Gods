@@ -26,7 +26,7 @@ const share = rules.map(rule => {
   const vf = findValues("line-z", rule);
   if (!vf) throw new Error(`no value function for ${rule.family}/${rule.tieBreaker}`);
   const look = valueLookup(vf), f = lineType.families.find(x => x.id === rule.family)!;
-  const b = lines.map(s => { const e = evaluateSite(lineType, f, rule.params, s, lineZ, 0, rule.tieBreaker); return look(e.utility ?? e.score).bits; });
+  const b = lines.map(s => { const e = evaluateSite(lineType, f, rule.params, s, lineZ, 0, rule.tieBreaker); return look(e.score).bits; });
   const best = Math.max(...b);
   return Float64Array.from(b, x => (best > 0 ? x / best : 0));
 });

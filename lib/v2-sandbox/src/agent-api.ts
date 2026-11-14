@@ -41,10 +41,11 @@ export type HostRequest =
   | { op: "worth" }
   | { op: "rarity"; score: (QWire | null)[] | null }
   | { op: "recent" }
-  | { op: "note"; text: string };
+  | { op: "note"; text: string }
+  | { op: "othersAfter"; calls: Call[] };
 
 export type HostOp = HostRequest["op"];
-export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScore", "quote", "budget", "worth", "rarity", "recent", "note"];
+export const HOST_OPS: readonly HostOp[] = ["view", "element", "myRule", "myScore", "quote", "budget", "worth", "rarity", "recent", "note", "othersAfter"];
 
 /** §3.1 */
 export interface ViewReply { rep: string; site: number; elements: Record<string, ElementValueWire>; bits: number }
@@ -76,6 +77,11 @@ export interface BudgetReply { energy: number; readPrice: number; beta: number; 
  * Σ n_j and their points π_i = n_i · Σ n_j, in bits.
  */
 export interface WorthReply { mine: number; others: number; points: number }
+/**
+ * The other players' rarity on the offered line, added up, now and after a plan (coordinator, 2026-11-14: the total
+ * only, never each player's), in bits; `after` is null when the plan is not allowed.
+ */
+export interface OthersAfterReply { before: number; after: number | null }
 /** The rarity the player's own rule gives a score (their own calibration, as their goal card shows), in bits. */
 export interface RarityReply { bits: number }
 /** The latest moves on the offered line the player may see (newest last): theirs, and others' that changed their points. */
@@ -94,6 +100,7 @@ export interface HostResults {
   rarity: RarityReply;
   recent: RecentReply;
   note: NoteReply;
+  othersAfter: OthersAfterReply;
 }
 
 /**

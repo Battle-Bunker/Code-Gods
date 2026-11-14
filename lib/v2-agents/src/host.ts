@@ -58,10 +58,17 @@ export interface HostInput<S> {
    * worth in bits. Prices `rarity(score)` and gives `myScore()` its bits; `worth()` is only answered with it.
    */
   readonly values?: Pick<ValueFunction, "knots" | "tail">;
+  /**
+   * The other players' rules and value functions, so the host can answer `othersAfter` (their rarity on the line,
+   * added up, before and after a plan). The agent never sees them, only the total.
+   */
+  readonly others?: readonly { readonly rule: RuleRef; readonly values: Pick<ValueFunction, "knots" | "tail"> }[];
 }
 
 /** Read bits charged for `worth()`: three summary numbers the player could read off the line's row. */
 export const WORTH_BITS = 6;
+/** Read bits charged for each `othersAfter(plan)`: two summary numbers, like worth, every time (each plan differs). */
+export const OTHERS_AFTER_BITS = 6;
 /** Read bits charged per move `recent()` returns. */
 export const RECENT_BITS_PER_MOVE = 2;
 /** Notes an act may leave its owner, and their length. */
@@ -116,6 +123,8 @@ export class EngineHost<S> implements AgentHost {
   private readonly repCharged = new Map<string, number>();
   private readonly asked = new Set<string>();
   private quoted = false;
+  /** The other players' rules, ready to score a state, and their value lookups (for othersAfter). */
+  private readonly others: { family: RuleFamily<S, unknown>; params: unknown; tieBreaker: TieBreaker; look: ReturnType<typeof valueLookup> }[] | undefined;
   /** The value function's lookup, when the game gives one. */
   private readonly lookup: ReturnType<typeof valueLookup> | undefined;
 
@@ -131,6 +140,11 @@ export class EngineHost<S> implements AgentHost {
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.input = input;
     this.lookup = input.values ? valueLookup(input.values) : undefined;
+    this.others = input.others?.map(o => {
+      const family = input.type.families.find(f => f.id === o.rule.family);
+      if (!family) throw new Error(`${input.type.id} has no rule family ${o.rule.family}`);
+      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker)[1]?.id ?? null, look: valueLookup(o.values) };
+    });
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);
   }
@@ -156,6 +170,12 @@ export class EngineHost<S> implements AgentHost {
       case "worth": {
         const v = this.input.values ? this.input.value : undefined;   // worth comes with rarity, or not at all
         return v ? ok({ mine: v.mine, others: v.others, points: v.points }, this.charged("worth", WORTH_BITS)) : err("this game does not say what lines are worth to agents");
+      }
+      case "othersAfter": {
+        if (!this.others?.length) return err("this game does not say what lines are worth to the others");
+        const priced = this.price(request.calls);
+        const total = (s: S) => this.others!.reduce((t, o) => t + o.look(evaluateObject(this.type, o.family, o.params, s, this.variant, o.tieBreaker).score).bits, 0);
+        return ok({ before: total(this.state), after: priced.valid ? total(priced.result) : null }, this.attribute("othersAfter", OTHERS_AFTER_BITS));
       }
       case "rarity": {
         if (!this.lookup) return err("this game does not say what scores are worth");

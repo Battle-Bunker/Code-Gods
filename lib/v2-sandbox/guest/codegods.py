@@ -218,6 +218,11 @@ class Offer:
         parts = None if score is None else [None if x is None else _wire(x, "score") for x in score]
         return _ask({"op": "rarity", "score": parts})["bits"]
 
+    def others_after(self, calls):
+        if not isinstance(calls, (list, tuple)):
+            raise TypeError("others_after takes a list of calls")
+        return Record(_ask({"op": "othersAfter", "calls": [_normal(c) for c in calls]}))
+
     def recent(self):
         return [Record(dict(m)) for m in _ask({"op": "recent"})["moves"]]
 
