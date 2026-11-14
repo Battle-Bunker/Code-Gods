@@ -31,6 +31,7 @@
 #   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
 #   pushback(offer)              how many times lately someone else's move took back points your agent had just won
 #                                on this line (a tug-of-war).
+#   settle(offer, target)        the moves that bring a line to target ({"m": .., "c": ..}), or None when it is there.
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
@@ -179,6 +180,23 @@ def worth(offer):
         return offer.worth()
     except HostError:
         return None
+
+
+def settle(offer, target):
+    # A line only: the moves that bring y = mx + c to y = target["m"] x + target["c"], or None when it is there (hold it).
+    try:
+        at = offer.view("si")
+    except HostError:
+        return None
+    m0, c0 = at.m, at.c
+    if not isinstance(m0, Fraction) or not isinstance(c0, Fraction):
+        return None
+    plan = []
+    if c0 != target["c"]:
+        plan.append(call("si.shift", k=Fraction(target["c"]) - c0))
+    if m0 != target["m"]:
+        plan.append(call("si.tilt", k=Fraction(target["m"]) - m0))
+    return plan or None
 
 
 def fair(offer, plan):

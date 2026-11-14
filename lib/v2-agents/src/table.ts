@@ -95,6 +95,8 @@ export interface TableReport {
   readonly chat: readonly { readonly from: string; readonly text: string; readonly at: number }[];
   readonly deals: readonly Deal[];
   readonly usd: number;
+  /** Objects on the table at the end (the starting lines plus births). */
+  readonly objects: number;
 }
 
 /** The tools a table answers: the server tools an AI seat is offered, less the room's admin. */
@@ -401,7 +403,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       commitments: (l => ({ enacted: l.filter(c => c.status === "enacted").length, pending: l.filter(c => c.status === "pending").length, retracted: l.filter(c => c.status === "retracted").length }))(ledger(i)),
     })),
     chat: chat.map(({ from, text, at }) => ({ from, text, at })),
-    deals: found.deals, usd,
+    deals: found.deals, usd, objects: lines.length,
   };
 }
 

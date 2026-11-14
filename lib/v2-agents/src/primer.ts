@@ -30,6 +30,7 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "pushback", ts: "pushback(offer)", py: "pushback(offer)", says: "how many times lately another player's move took back points your agent had just won on this line" },
   { name: "recent", ts: "recent(offer)", py: "recent(offer)", says: "the latest moves on this line you may see, newest last: mine, points before and after" },
   { name: "contested", ts: "contested(offer, 3)", py: "contested(offer, 3)", says: "true / True once pushback(offer) reaches the number; it then leaves the owner a note naming the tug-of-war" },
+  { name: "settle", ts: "settle(offer, { m: -1, c: 59 })", py: "settle(offer, {\"m\": -1, \"c\": 59})", says: "lines only: the moves that bring the line to y = mx + c, or null / None when it is there (hold it)" },
   { name: "fair", ts: "fair(offer, plan)", py: "fair(offer, plan)", says: "true / True when the plan would not lower the other players' rarity here, added up (a small read)" },
   { name: "note", ts: "note(offer, text)", py: "note(offer, text)", says: "leave your owner a short note in the act log (at most 3 a turn), e.g. why the agent stopped" },
 ];
@@ -113,6 +114,19 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   },
 };
 
+/** An example agent's source without the deal knobs' lines (LEAVE, PROTECT, TARGET, SETTLE, contested), for the primer. */
+function withoutKnobs(source: string | undefined): string | undefined {
+  if (source === undefined) return undefined;
+  const lines = source.split("\n"), out: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]!;
+    if (/^(LEAVE|PROTECT|TARGET|SETTLE) = /.test(l) || /contested\(offer/.test(l) || /tug-of-war|Leaving the line|promise: on these lines/i.test(l)) continue;
+    if (/^\s+if (offer\.object in (LEAVE|PROTECT)|TARGET is not None)/.test(l)) { i++; continue; }   // the test and its one-line body
+    out.push(l);
+  }
+  return out.join("\n");
+}
+
 /** The primer for an object type (default: the line). */
 export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as ObjectType<S>): string {
   const w = WORDS[type.id];
@@ -120,7 +134,8 @@ export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as Obje
   const { one, many } = w;
   // The example without its header (the primer says what the header would): its code and its comments only.
   const which = w.example();
-  const ex = which ? exampleFor(which[0], which[1], "python")?.source.replace(/^(#[^\n]*\n)+\n*/, "") : undefined;
+  // The example without its header, and without the deal knobs (PLAYING FOR POINTS says what they do): its search only.
+  const ex = which ? withoutKnobs(exampleFor(which[0], which[1], "python")?.source.replace(/^(#[^\n]*\n)+\n*/, "")) : undefined;
   return `WRITING AGENTS (engine v2: ${w.title})
 
 THE GAME. ${w.game} A ${one}'s score on a rule is its rarity: ${many} that random play rarely makes that good are worth more points. The player's job is to understand their rule, negotiate with the others, and tell you what their agent should do; your job is to write that agent and explain it in plain words.
@@ -146,7 +161,7 @@ HELPERS (the same names in both languages):
 ${HELPERS.map(h => ({ ...h, says: h.says.replace(/\bline\b/g, one), ...w.helpers?.[h.name] })).map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}
 Lower level, if needed: offer.view / element / quote / budget, Q (TypeScript rationals: Q.add, Q.sub, Q.mul, Q.div, Q.abs, Q.cmp, Q.eq) and Python's Fraction.
 
-PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns ⚡ on both sides. The starters (not "Naive", a teaching example) improve the ${one} for their rule, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch). offer.object is the ${one}'s number.
+PLAYING FOR POINTS. A player's points on a ${one} are their rarity there times the other players' rarity there, added up: a ${one} only they like scores nothing, a move that spoils a ${one} for the others lowers their points too, and a tug-of-war burns ⚡ on both sides. The starters (not "Naive", a teaching example) improve the ${one} for their rule, note tug-of-wars to their owner (contested(offer, 3)), and keep two lists a player sets after a deal in chat (${w.deal}): PROTECT (${many} where they only make moves that keep the others as well off; fair(offer, plan) checks) and LEAVE (${many} they never touch); TARGET (a state everyone agreed on) with SETTLE (which ${many}, [] for all): they move those ${many} there and hold them, which often pays everyone far more than each climbing alone. offer.object is the ${one}'s number.
 
 STARTING POINTS. Every rule has a ready example for its tie-breaker and three starters (Simple, Thorough, Bold) plus a "Naive" one to learn from; each has one "Try this:" comment. Prefer changing the player's current agent with Replace over summoning a second one (two agents with different ideas undo each other). Check a program before summoning: it runs once on sample ${many} and reports the price. After a change, compare points per move before and after; put the previous version back if it did worse.
 ${ex ? `
