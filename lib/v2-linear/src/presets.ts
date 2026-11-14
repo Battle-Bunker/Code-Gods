@@ -5,7 +5,7 @@
  * whose artefact is not dealable (spec §7.5), so a pool lists candidates and the artefacts decide what is live.
  */
 import { tieBreakersOn, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { divisibilityLadder, primeLanding, primeStaircase, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
+import { divisibilityLadder, exactChange, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
 import { primeGradient } from "./families.ts";
 import { lineQ, lineZ, lineZ4 } from "./type.ts";
 
@@ -27,15 +27,19 @@ export interface Preset {
  * The beginner pool on a variant: every pool family with each of its
  * tie-breakers that is dealt there (Layer.dealtOn).
  */
-/** The beginner pool (layered-line-rules.md §10.5): families an exact sum can value, the owner's two examples kept. */
-export const beginnerPool = [primeLanding, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase] as const;
+/**
+ * The beginner pool: the curator's families plus Ruler, Exact Change and Pythagorean Area, restored (owner decision 22:
+ * rules no exact sum can value are valued by sampling, with honest intervals).
+ */
+export const beginnerPool = [primeLanding, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, exactChange, pythagoreanArea] as const;
 
 const beginnerRules = (v: Variant): readonly PoolRule[] => beginnerPool.flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));
 
 export const presets: readonly Preset[] = [
-  { id: "lines-beginner", title: "Lines · beginner", variant: "line-z", rules: beginnerRules(lineZ) },
-  { id: "lines-rational", title: "Lines · rational", variant: "line-q", rules: beginnerRules(lineQ) },
+  // Owner decision 2: lines are played on the rationals. Whole numbers are an explicitly chosen, easier variant.
+  { id: "lines-beginner", title: "Lines · beginner", variant: "line-q", rules: beginnerRules(lineQ) },
+  { id: "lines-whole", title: "Lines · whole numbers (easier)", variant: "line-z", rules: beginnerRules(lineZ) },
   { id: "lines-four", title: "Lines · four lines", variant: "line-z4", rules: beginnerRules(lineZ4) },
 ];
 

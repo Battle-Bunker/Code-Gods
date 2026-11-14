@@ -13,7 +13,7 @@ import { valueObjects } from "../convex/v2/world.ts";
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { runAct, type ActRecord } from "@workspace/v2-agents";
-import { lineType, lineZ } from "@workspace/v2-linear";
+import { lineQ, lineType } from "@workspace/v2-linear";
 import { gridType, grid4 } from "@workspace/v2-grid";
 import type { ObjectType, Variant } from "@workspace/v2-core";
 import { createSandbox, type Language, type Sandbox } from "@workspace/v2-sandbox";
@@ -198,7 +198,7 @@ test("the stored replay: built once at the end, served only to a member with a J
 });
 }
 
-gameSuite("lines-beginner", lineType, lineZ);
+gameSuite("lines-beginner", lineType, lineQ);
 // Decision 23: a game deals only rules with a value function. Grids play end to end here once their value functions are
 // in values.gen.ts; until then the server withholds the preset, and this says so.
 if (VALUE_RECORDS.some(r => r.variant === grid4.id)) gameSuite("grids-beginner", gridType, grid4);

@@ -13,8 +13,8 @@ import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
 import type { GameRule } from "../../sdk/rule.ts";
 
 export const BOARDS: readonly { id: string; title: string; blurb: string }[] = [
-  { id: "line-z", title: "Whole-number lines", blurb: "One line per object, y = mx + c with whole numbers." },
   { id: "line-q", title: "Fraction lines", blurb: "One line per object; numbers may be fractions." },
+  { id: "line-z", title: "Whole-number lines", blurb: "One line per object, y = mx + c with whole numbers (easier)." },
   { id: "line-z4", title: "Four lines", blurb: "Four whole-number lines per object, each scored." },
   { id: grid4.id, title: "Grids", blurb: "A 4 × 4 grid of digits per object." },
 ];

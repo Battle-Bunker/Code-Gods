@@ -16,7 +16,7 @@ import { findValues } from "../src/harness.ts";
 
 const { values: o } = parseArgs({ options: { m: { type: "string", default: "10" }, c: { type: "string", default: "60" }, keep: { type: "string", default: "0.8" }, list: { type: "string" }, json: { type: "boolean", default: false } } });
 const M = Number(o.m), C = Number(o.c), KEEP = Number(o.keep);
-const pool = presets.find(p => p.id === "lines-beginner")!.rules;
+const pool = presets.find(p => p.id === "lines-whole")!.rules;
 const rules = pool.flatMap(r => (r.tieBreakers as string[]).map(tb => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: tb })));
 const lines: LineState[] = [];
 for (let m = -M; m <= M; m++) if (m !== 0) for (let c = -C; c <= C; c++) lines.push({ lines: [fromMC(q(m), q(c))] });

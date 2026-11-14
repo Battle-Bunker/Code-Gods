@@ -109,6 +109,7 @@ function lensesFor(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null): 
   if (kind === "example") return [...e.tieBreakers[tieBreaker!]!.lenses];
   if (kind === "simple" || kind === "naive") return [...(e.simple ?? ["shift", "tilt"])];
   if (kind === "bold") return ["shift", "tilt"];
+  if (e.thorough) return [...e.thorough];
   return (Object.keys(LENSES) as LensId[]).filter(id => { const l: Lens = LENSES[id]; return !l.only || l.only.includes(e.family); });
 }
 

@@ -1,4 +1,4 @@
-/** The line's representations (spec §12.3): si, gen, cart, tri, seq, mach, table, crossing, norm. Still to come: int, peg (the pegboard scene). */
+/** The line's representations (spec §12.3): si, gen, cart, tri, seq, mach, table, crossing, norm, coins. Still to come: int, peg (the pegboard scene). */
 import { Qn, q, ref, type ArgValues, type ElementDecl, type ElementRef, type ElementValue, type Q, type Representation, type SceneData } from "@workspace/v2-core";
 import { intercept, isVertical, slope, xAt, yAt, type Line, type LineState } from "./line.ts";
 import { distanceToWhole, nearestInteger } from "./numbers.ts";
@@ -252,4 +252,34 @@ export const norm: Representation<LineState> = {
   }),
 };
 
-export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, crossing, norm];
+// ---------------------------------------------------------------- coins: a·x + b·y = N as paying N with coins a and b
+
+/** Counting stops here: a line whose ways to pay cannot be counted quickly has none we report. */
+const MAX_COIN_STEPS = 100_000n;
+const NOT_COINS = "the line reads as coins only when a and b (in a·x + b·y = N) are both positive";
+/** The ways to pay N with coins worth a and b: whole x, y ≥ 0 with a·x + b·y = N. */
+export function waysToPay(l: Line): { x: bigint; y: bigint }[] | null {
+  const a = l.a, b = l.b, N = -l.c;
+  if (!(a > 0n && b > 0n)) return null;
+  if (N < 0n) return [];
+  if (N / a > MAX_COIN_STEPS) return null;
+  const out: { x: bigint; y: bigint }[] = [];
+  for (let x = 0n; a * x <= N; x++) if ((N - a * x) % b === 0n) out.push({ x, y: (N - a * x) / b });
+  return out;
+}
+const coinsOr = (f: (w: { x: bigint; y: bigint }[], l: Line) => ElementValue): Fn => l => {
+  const w = waysToPay(l);
+  return w === null ? undef(NOT_COINS) : f(w, l);
+};
+export const coins: Representation<LineState> = {
+  id: "coins", title: "exact change: a·x + b·y = N", scene: "pegboard", perSite: true,
+  elements: [
+    el("bill", "the bill N", "number", "derived", coinsOr((_w, l) => num(q(-l.c)))),
+    el("ways", "ways to pay", "number", "derived", coinsOr(w => num(q(w.length)))),
+    el("smallestPile", "the smaller pile, in the way where it is smallest", "number", "derived",
+      coinsOr(w => (w.length ? num(q(w.reduce((m, { x, y }) => { const s = x < y ? x : y; return s < m ? s : m; }, w[0]!.x < w[0]!.y ? w[0]!.x : w[0]!.y))) : undef("there is no way to pay")))),
+  ],
+  layout: (_s, site) => ({ kind: "pegboard", window: [0, 12], on: ref("cart", "line", undefined, site) }),
+};
+
+export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, crossing, norm, coins];

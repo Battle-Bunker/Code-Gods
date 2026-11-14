@@ -39,7 +39,7 @@ const budget = new Budget({ tokens: 50_000_000, usd: Number(o.usd) });
 if (o.type !== "lines" && o.type !== "grid") throw new Error(`--type is lines or grid, not ${o.type}`);
 const grid = o.type === "grid";
 const ECON = grid ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY;
-const beginner = grid ? gridPresets.find(p => p.id === "grids-beginner")!.rules : presets.find(p => p.id === "lines-beginner")!.rules;
+const beginner = grid ? gridPresets.find(p => p.id === "grids-beginner")!.rules : presets.find(p => p.id === "lines-whole")!.rules;
 // Lines: three families of the §10.5 beginner pool, one of them new in it (Whole Crossing). Grids: the table whose
 // shared board rule-compatibility.md found (8118455454451881).
 const DEFAULT_RULES = grid ? [["magic-eighteen", "primes"], ["opposite-nines", "primes"], ["mirrormancer", "middle"]] : [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]];

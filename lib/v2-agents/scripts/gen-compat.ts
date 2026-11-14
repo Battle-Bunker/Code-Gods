@@ -1,19 +1,20 @@
 /**
- * Generates src/compat.gen.ts: a verdict for every pair of dealt rules of the beginner presets (lines-beginner on line-z,
- * grids-beginner on grid-4-d10; each family's first dealt numbers, every dealt tie-breaker), for a server deal that
+ * Generates src/compat.gen.ts: a verdict for every pair of dealt rules of the beginner presets (lines-beginner on line-q,
+ * lines-whole on line-z, grids-beginner on grid-4-d10; each family's first dealt numbers, every dealt tie-breaker), for a server deal that
  * keeps compatible rules together (docs/engine-v2/rule-compatibility.md).
  *
  * For a pair: the object that maximises their shared points n_A · n_B, and the share of its best alone each keeps there.
- * Compatible: both keep ≥ 80%; partial: both ≥ 50%; conflict: otherwise. Lines: exact over the game-scale grid of
- * whole-number lines (|m| ≤ 10, |c| ≤ 60). Grids: a hill-climbing search with restarts (a lower bound; deterministic).
+ * Compatible: both keep ≥ 80%; partial: both ≥ 50%; conflict: otherwise. Lines: exact over a game-scale grid of
+ * lines y = mx + c (line-z: whole m, c with |m| ≤ 10, |c| ≤ 60; line-q: m and c over denominators up to 4, |m| ≤ 10,
+ * |c| ≤ 30). Grids: a hill-climbing search with restarts (a lower bound; deterministic).
  *
  *   pnpm --filter @workspace/v2-agents gen-compat
  */
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { evaluateSite, q, rng } from "@workspace/v2-core";
+import { evaluateSite, q, rng, type Q, type Variant } from "@workspace/v2-core";
 import { gridPresets, gridType, grid4, type GridState } from "@workspace/v2-grid";
-import { fromMC, lineType, lineZ, presets, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineQ, lineType, lineZ, presets, type LineState } from "@workspace/v2-linear";
 import { valueLookup } from "@workspace/v2-valuation";
 import { findValues } from "../src/harness.ts";
 
@@ -23,19 +24,17 @@ const verdictOf = (a: number, b: number): Verdict => (Math.min(a, b) >= 0.8 ? "c
 const round = (x: number) => Math.round(x * 1000) / 1000;
 const rows: Row[] = [];
 
-// ---------------------------------------------------------------- lines (exact)
-{
-  const pool = presets.find(p => p.id === "lines-beginner")!.rules;
+// ---------------------------------------------------------------- lines (exact over a grid)
+function linePairs(presetId: string, variant: Variant, lines: readonly LineState[]): void {
+  const pool = presets.find(p => p.id === presetId)!.rules;
   const rules = pool.flatMap(r => (r.tieBreakers as string[]).map(tb => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: tb })));
-  const lines: LineState[] = [];
-  for (let m = -10; m <= 10; m++) if (m !== 0) for (let c = -60; c <= 60; c++) lines.push({ lines: [fromMC(q(m), q(c))] });
   const bits = rules.map(rule => {
-    const vf = findValues(lineZ.id, rule);
-    if (!vf) throw new Error(`no value function for ${rule.family}/${rule.tieBreaker}`);
+    const vf = findValues(variant.id, rule);
+    if (!vf) throw new Error(`no value function for ${variant.id} ${rule.family}/${rule.tieBreaker}`);
     const look = valueLookup(vf), f = lineType.families.find(x => x.id === rule.family)!;
-    return Float64Array.from(lines, s => look(evaluateSite(lineType, f, rule.params, s, lineZ, 0, rule.tieBreaker).score).bits);
+    return Float64Array.from(lines, s => look(evaluateSite(lineType, f, rule.params, s, variant, 0, rule.tieBreaker).score).bits);
   });
-  const best = bits.map(b => Math.max(...b));
+  const best = bits.map(b => b.reduce((x, y) => Math.max(x, y), -Infinity));
   for (let i = 0; i < rules.length; i++) for (let j = 0; j < rules.length; j++) {
     if (rules[i]!.family === rules[j]!.family) continue;
     const a = `${rules[i]!.family}/${rules[i]!.tieBreaker}`, b = `${rules[j]!.family}/${rules[j]!.tieBreaker}`;
@@ -43,8 +42,25 @@ const rows: Row[] = [];
     let k = 0, top = -1;
     for (let x = 0; x < lines.length; x++) { const p = bits[i]![x]! * bits[j]![x]!; if (p > top) { top = p; k = x; } }
     const sa = bits[i]![k]! / best[i]!, sb = bits[j]![k]! / best[j]!;
-    rows.push({ variant: lineZ.id, a, b, verdict: verdictOf(sa, sb), shareA: round(sa), shareB: round(sb) });
+    rows.push({ variant: variant.id, a, b, verdict: verdictOf(sa, sb), shareA: round(sa), shareB: round(sb) });
   }
+}
+{
+  // lines-whole on line-z: whole-number lines, |m| ≤ 10, |c| ≤ 60.
+  const lines: LineState[] = [];
+  for (let m = -10; m <= 10; m++) if (m !== 0) for (let c = -60; c <= 60; c++) lines.push({ lines: [fromMC(q(m), q(c))] });
+  linePairs("lines-whole", lineZ, lines);
+}
+{
+  // lines-beginner on line-q: lines y = mx + c with m and c over denominators up to 4, |m| ≤ 10, |c| ≤ 30.
+  const values = (top: number): Q[] => {
+    const seen = new Map<string, Q>();
+    for (let d = 1; d <= 4; d++) for (let n = -top * d; n <= top * d; n++) { const x = q(n, d); seen.set(`${x.n}/${x.d}`, x); }
+    return [...seen.values()];
+  };
+  const lines: LineState[] = [];
+  for (const m of values(10)) if (m.n !== 0n) for (const c of values(30)) lines.push({ lines: [fromMC(m, c)] });
+  linePairs("lines-beginner", lineQ, lines);
 }
 
 // ---------------------------------------------------------------- grids (search)
@@ -113,4 +129,4 @@ export function pairVerdict(variant: string, x: string, y: string): PairVerdict 
 `;
 writeFileSync(join(import.meta.dirname, "..", "src", "compat.gen.ts"), out);
 const count = (v: string, d: Verdict) => rows.filter(r => r.variant === v && r.verdict === d).length;
-for (const v of [lineZ.id, grid4.id]) console.log(`${v}: ${count(v, "compatible")} compatible, ${count(v, "partial")} partial, ${count(v, "conflict")} conflict`);
+for (const v of [lineZ.id, lineQ.id, grid4.id]) console.log(`${v}: ${count(v, "compatible")} compatible, ${count(v, "partial")} partial, ${count(v, "conflict")} conflict`);

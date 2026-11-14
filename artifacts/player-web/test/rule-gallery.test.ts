@@ -6,15 +6,15 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { beginnerFamilies, lineType, lineZ } from "@workspace/v2-linear";
+import { beginnerFamilies, lineQ, lineType, lineZ } from "@workspace/v2-linear";
 import { beginnerGridFamilies, grid4, gridType } from "@workspace/v2-grid";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
 
 test("the gallery lists every family the board deals, the beginner pool first, and nothing it does not deal", () => {
-  const g = galleryFamilies("line-z");
-  assert.deepEqual(g.beginner.map(e => e.id), beginnerFamilies.filter(f => f.dealable(lineZ).length).map(f => f.id));
+  const g = galleryFamilies("line-q");
+  assert.deepEqual(g.beginner.map(e => e.id), beginnerFamilies.filter(f => f.dealable(lineQ).length).map(f => f.id));
   const all = [...g.beginner, ...g.more].map(e => e.id).sort();
-  assert.deepEqual(all, lineType.families.filter(f => f.dealable(lineZ).length).map(f => f.id).sort());
+  assert.deepEqual(all, lineType.families.filter(f => f.dealable(lineQ).length).map(f => f.id).sort());
   const tri = g.more.find(e => e.id === "triangle-area")!;
   assert.equal(tri.title, "Triangle Area");
   assert.match(tri.sentence, /triangle/);
@@ -22,10 +22,10 @@ test("the gallery lists every family the board deals, the beginner pool first, a
 });
 
 test("a beginner family says which presets deal it on that board", () => {
-  const g = galleryFamilies("line-z");
-  const e = g.beginner[0]!;
+  const e = galleryFamilies("line-q").beginner[0]!;
   assert.ok(e.presets.includes("Lines · beginner"), e.presets.join(", "));
-  assert.ok(!e.presets.includes("Lines · rational"), "rational deals on fraction lines, not this board");
+  assert.ok(!e.presets.includes("Lines · whole numbers (easier)"), "the whole-number setup deals on whole-number lines, not this board");
+  assert.ok(galleryFamilies("line-z").beginner[0]!.presets.includes("Lines · whole numbers (easier)"));
 });
 
 test("every board the gallery offers is a variant of a type the app draws, the grid's included", () => {
@@ -65,14 +65,14 @@ test("a family without parameters says so; one with none to deal on this board h
 
 test("an unknown board, a parameter past the end or an unknown tie-breaker falls back to the first", () => {
   const p = familyPage("triangle-area", setupFromSearch("?board=grid&params=99&tb=zzz"))!;
-  assert.equal(p.setup.board, "line-z");
+  assert.equal(p.setup.board, "line-q", "fraction lines are the default board (decision 2)");
   assert.equal(p.setup.params, 0);
   assert.equal(p.rule.tieBreaker, "legs");
 });
 
 test("the URL of a choice opens the same rule again", () => {
-  const s = { board: "line-q", params: 3, tb: "even" };
-  assert.equal(gallerySearch(s), "?board=line-q&params=3&tb=even");
+  const s = { board: "line-z", params: 3, tb: "even" };
+  assert.equal(gallerySearch(s), "?board=line-z&params=3&tb=even");
   assert.deepEqual(setupFromSearch(gallerySearch(s)), s);
-  assert.equal(gallerySearch({ board: "line-z", params: 0, tb: null }), "");
+  assert.equal(gallerySearch({ board: "line-q", params: 0, tb: null }), "");
 });

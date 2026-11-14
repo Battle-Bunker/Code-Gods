@@ -166,6 +166,27 @@ existing code. The specification that follows from them is [spec.md](spec.md).
   pending the owner's decision on compatible dealing. (Playtest round 4: Opposite Nines scored 509 against about 4,100
   when both partners' rules liked the same grids.)
 
+## Coordinator's calls under the owner's delegation (14 Nov)
+
+The owner delegated the open rule calls to the coordinator (CLAUDE.md, #589): the old design is the default and "a
+strong guiding light, not gospel"; the coordinator may trial changes that make the game more dynamic and declares them.
+The owner also said: "We want to be able to hill climb a combined landscape that improves several rules at once. We
+just want it to be hard to find really high peaks in that landscape." Each call is marked RESTORE (the old design comes
+back) or TRIAL (a declared experiment, measured and reported).
+
+1. **RESTORE** hold rarity and defence goals as v1 designed them, adapted to v2 values (hold: the stationary walk's own
+   proposal kernel as the noise, m = players − 1; defence: a value function per defence family, n = s⁺ − w·(h − E_π h)).
+2. ~~TRIAL: grid moves priced as choices pay at least the fee of the equivalent unit path.~~ Cancelled by the owner's
+   decision 25: representation shortcuts are wanted and stay priced as choices.
+3. β stays 0.05 for now; the collapse and freeze measurements include β so the coordinator can choose with data.
+4. Kept: the coefficient box and births from the stationary law.
+5. Several lines per object stays provisional and undealt.
+6. Line rules: rationals are the default (decision 2) and Ruler, Exact Change and Pythagorean Area are restored
+   (decision 22); the current pool is not polished further until the line-patterns proposals arrive. The tie-breakers
+   sessions replaced are listed for a choice in `tie-breakers-replaced.md`.
+7. The landscape analysis's collapse check (its five tests) runs as a nightly script printing a table per variant; it
+   is expected to fail on lines today and does not block merges.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
