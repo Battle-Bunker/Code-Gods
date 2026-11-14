@@ -614,6 +614,56 @@ def agent(offer):
 
 ## 7. Valuation
 
+### 7.0 Value functions (normative; owner decision 23)
+
+A rule's layers are **utilities**: each maps a state to a value in a totally ordered set (a number, bigger better; a
+distance enters negated). A dealt rule's **utility** is the pair (primary, secondary), compared lexicographically, with
+no thresholds and no saturation (`Evaluation.utility`; an undefined primary makes it null, the worst; an undefined
+secondary ranks last in its place). A state's value is the survival of the stationary law at its actual utility:
+
+```
+bits(s) = −log2 π{ x : utility(x) ≥ utility(s) }        (lexicographic ≥; the worst utility is worth 0)
+```
+
+It is defined at every utility, so there are no rungs, levels, caps or "too coarse" rules: a utility must not be
+binary (it may be discrete by nature: a smallest prime factor, a run length).
+
+**The artefact is the value function** (`lib/v2-valuation/src/value.ts`, schema 6, under `values/`): knots, sorted from
+the worst score up, each a score with its bits and a certified interval [lo, hi]. Survival is monotone in the score, so
+for k_i ≤ s ≤ k_j the value lies in [lo(k_i), hi(k_j)]: a lookup (`valueLookup`) returns the knot's value at a knot, the
+midpoint and that bracket between knots, and, beyond the best knot, an extrapolation along the last knots (along the
+secondary utility at the same primary, else along the primary), marked `beyond`, with the best knot's lo as its
+certified floor and no ceiling. Knots are kept wherever the value moves by more than `delta` (0.05 bits), so a lookup
+between knots is within delta/2 of the truth.
+
+**How knots are certified.** Each knot takes the tightest interval any survival oracle gives:
+
+- *Exact oracles* (whole-number lines, §7.2's plans): the same sums, accumulated by utility instead of by rung. A
+  separable plan is one 1D law, or a product S(a, b) = P1(U1 > a) + P1(U1 = a)·P2(U2 ≥ b) of two; a band is valid for
+  utilities whose primary is at least the band's start; the generic enumeration of the cheapest lines is valid
+  everywhere. Each interval is [inside, inside + outside]. Certified within max(2% · bits, 0.06 bits).
+- *Direct draws* (owner decision 22, every line variant): π is a product of independent mixed-integer codes, drawn
+  exactly coordinate by coordinate (per-prime geometric exponents; `sampleMixedInt`); a fraction line is a drawn triple
+  kept when canonical. The rare tail comes from a mixture of tilted laws q_t(n) = 2^(−t·bits(n))/Z_t (t = 1, 0.75, 0.55,
+  0.4, 0.3), each draw weighted p/q_mix and the estimate self-normalised; its ±2σ interval (delta method) is certified
+  within max(5% · bits, 0.2 bits) with at least 30 draws at or above the knot.
+
+**The board's box is part of the law, not a truncation of it.** Every line variant has a `heightCap` (10^6): a line
+with |a|, |b| or |c| above it is not a state of the game (§12), and a mutator call that would make one is invalid, so the
+walk stays where it is (`walkStep`: an invalid result is a rejection). Proposals are symmetric and each refused move
+is a rejection in both directions, so detailed balance under the potential holds on the box, and the walk's
+stationary law is π conditioned on the box: π_box(x) = 2^−φ(x) / Z_box. That is the law values are taken under. The
+sums use it exactly: they keep only in-box numbers and divide by Z_box, computed in full by a sieve over every
+integer up to the cap (`capMass`). The direct draws use it too (a drawn coordinate past the cap is refused). Nothing
+else is truncated: the enumeration budget is a truncation of the *sum*, and its remainder is the certified interval.
+For scale, the code puts 3.4·10^−5 of a coordinate's mass past 10^6, so the box holds all but 6.7·10^−5 of the
+unconfined product law on line-z (1.0·10^−4 on line-q). It matters only for very rare scores: about 78% of the lines
+with c a multiple of lcm(1..16) lie past the cap. The cycle diagnostic is about prices, and a refusal has none, so the
+cycle gate (lib/v2-linear/test/potential.test.ts) is unaffected by the boundary.
+
+The old rung values are this function at the old thresholds (checked: `test/value.test.ts`). Server, agents and views
+switch to value lookups; the rung machinery of §4.4 and §7.1–7.8 is deleted when they have (decision 23, PR 2).
+
 ### 7.1 What a value is
 
 For a rule r with ladder rungs t_0 < t_1 < … < t_n on a variant, let π be the stationary law of the variant's walk
@@ -945,7 +995,7 @@ a·x + b·y + c = 0 with gcd(|a|, |b|, |c|) = 1 and the sign fixed by b > 0, or 
 | | `"Q"` | every line with rational coefficients, vertical included |
 | `linesPerObject` | 1 … 8 | k |
 | `argDomain` | `"Z"`, `"Q"` | whether mutator arguments are integers or rationals (default: the domain's) |
-| `heightCap` | integer | a safety bound on \|a\|, \|b\|, \|c\| (default 10^6); a call past it is invalid; its effect on values is below the error bars because the surcharge makes such states vanishingly rare (checked: the direct check in §7.2 reports the fraction of samples above cap/1000) |
+| `heightCap` | integer | the board's box: \|a\|, \|b\|, \|c\| at most this (default 10^6); a call past it is invalid, so the walk's law is π conditioned on the box, and values are taken under that law (§7.0) |
 
 Variants shipped first: `line-z` (Z, k = 1), `line-q` (Q, k = 1), `line-z4` (Z, k = 4).
 

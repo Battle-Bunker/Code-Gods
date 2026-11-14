@@ -181,3 +181,38 @@ steep exact at 13.98, the curator's value.
 | line-z | whole-crossing | m-spf | exact | yes | 39/39 | 39/39 | 19.33 ± 0.04 |
 | line-z | whole-intercept | omega | too-coarse | no | 34/34 | 34/34 | 5.46 ± 0.04 |
 | line-z | whole-intercept | spf | too-coarse | no | 32/39 | 32/39 | 5.88 ± 0.06 |
+
+## Value functions (owner decision 23)
+
+Thresholds and rungs are gone. A state is worth bits(s) = −log2 π{states whose (primary, secondary) utilities are at
+least as good}, at its actual score (spec §7.0). The artefacts are value functions (`lib/v2-valuation/values/`,
+`pnpm --filter @workspace/v2-valuation values`): knots with certified intervals, bracketed between knots and
+extrapolated beyond them. On `line-z` the exact sums certify knots to 25–30 bits (on the height-capped law the game
+plays). On `line-q`, direct draws (a mixture of tilted laws) reach 12–20 bits. The owner's examples, at scores that
+were never thresholds:
+
+| Rule | Score | Bits | Certified | Where | Chance |
+|---|---|--:|---|---|---|
+| Whole Intercept + spf (line-q) | c 1/7 from a whole number | 0.89 | [0.85, 0.92] | between knots | 1 in 2 |
+| | c 1/30 from a whole number | 1.06 | [1.03, 1.09] | between knots | 1 in 2 |
+| | c whole, smallest prime factor 2 | 2.93 | [2.91, 2.95] | knot | 1 in 8 |
+| | c whole, spf 5 | 5.98 | [5.92, 6.03] | knot | 1 in 63 |
+| | c whole, spf 13 | 10.71 | [10.50, 10.95] | knot | 1 in 1,669 |
+| | c whole, spf 31 | 20.02 | [13.16, ∞] | extrapolated | 1 in about a million |
+| Prime Landing + big-prime (line-z) | c 3 from the prime 7 | 0.37 | [0.31, 0.42] | between knots | 1 in 1.3 |
+| | c 1 from the prime 23 | 3.31 | exact | knot | 1 in 10 |
+| | c = 11 | 8.83 | exact | knot | 1 in 454 |
+| | c = 29 | 17.93 | exact | knot | 1 in 250,000 |
+| | c = 53 | 30.12 | [29.94, 30.34] | knot | 1 in 1.2 billion |
+| | c = 101 | 53.97 | [29.94, ∞] | extrapolated | — |
+
+**Whole Intercept on `line-q`: the primary carries about 1.2 bits.** Under the mixed code 45% of the law's mass has c
+whole (b = 1 is the commonest denominator by far). Closeness among non-whole c is worth little: c within 1/2 of a whole
+number is 0.23 bits (85% of lines), within 1/3 is 0.59, within 1/7 is 0.89, within 1/30 is 1.06, and whole is 1.16. The
+range is all in the secondary: whole with spf ≥ 2 is 2.93 bits, ≥ 5 is 5.98, ≥ 13 is 10.71. That is the law, not an
+error. If the owner wants closeness to carry more, these are options; none is applied:
+- A fraction variant whose denominator code is flatter (for instance b drawn from a code that gives 1 … D nearly
+  equal weight), so a whole c has probability about 1/D and the primary spans about log2 D bits.
+- A primary whose exact value is not the commonest case: c close to a prime (Prime Landing), or close to a target T
+  that is not whole (c close to T = k + 1/2, say), so landing exactly is rare under the same code.
+- Leave the primary as it is and deal Whole Intercept with a secondary (spf, omega) that carries the range, as now.

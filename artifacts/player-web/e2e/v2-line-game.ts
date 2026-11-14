@@ -95,6 +95,17 @@ try {
     assert.match(await status.innerText(), /70% of it now goes to this agent/);
     assert.equal(await page.getByTestId("button-summon-first").count(), 0, "nothing offers the first summon again (ux 1.8)");
     console.log(`${label}: summoned at ${clock(t0)}`);
+    if (label === "desktop") {
+      // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
+      const box = page.getByTestId("input-forge-code");
+      await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");
+      const priced = await page.getByTestId("text-forge-price").innerText();
+      const m = /changes only: ([\d,.]+) ⚡ \(the whole program would be ([\d,.]+) ⚡\)/.exec(priced);
+      assert.ok(m, `the edit is priced by its change: ${priced}`);
+      assert.ok(Number(m[1]!.replace(/,/g, "")) < Number(m[2]!.replace(/,/g, "")), `the change costs less than the whole: ${priced}`);
+      console.log(`${label}: ${priced}`);
+      await box.fill(await box.inputValue().then(v => v.replace("\nconst extra = 1;\n", "")));
+    }
     if (label === "phone") {
       // A phone folds the agent's code behind "Show the code" (a wall of code filled the screen in a persona walk).
       assert.equal(await page.getByTestId("input-forge-code").count(), 0, "phone: the code is folded");

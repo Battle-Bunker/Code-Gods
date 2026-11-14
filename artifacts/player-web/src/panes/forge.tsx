@@ -17,7 +17,7 @@ import { energyText } from "@/core/words";
 import { useWide } from "@/core/use-wide";
 import { PullBack } from "./pull-back-ui";
 import {
-  affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
+  affordLine, comparisonText, editLine, editPrice, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
 } from "./forge-model";
 
 /** An agent's name from its program's title: "Example: legs nearly whole" → "Legs nearly whole". */
@@ -69,13 +69,15 @@ export function ForgePane() {
   const programs = useAgentPrograms(agent?.agentId);
   const current = programs?.[0];
   const opening = useMemo(() => (rule ? openingProgram(rule.row.family, rule.row.tieBreaker, language) : null), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
-  const others = useMemo(() => (rule ? otherStartingPoints(rule.row.family, language) : []), [rule?.row.family, language]); // eslint-disable-line react-hooks/exhaustive-deps
+  const others = useMemo(() => (rule ? otherStartingPoints(rule.row.family, language, rule.row.tieBreaker) : []), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
   // The agent's own code; until its program arrives (right after a summon), the code just summoned, never a blank box.
   const base = agent ? current?.source ?? ran ?? "" : opening?.source ?? "";
   const source = draft ?? base;
   const changed = !!agent && !!current && source !== current.source;
   const primary = primaryAction({ agents: count, selected: !!agent, draftChanged: changed });
   const price = summonPrice(language, source);
+  // A replace charges only what changed (owner decision 21; agent.replace's editPrice), from the agent's running program.
+  const replacePrice = primary === "replace" && current ? editPrice(language, current.source, source) : null;
   useEffect(() => { statusRef.current?.scrollIntoView({ block: "nearest" }); }, [status]);   // ux-lessons 5.3
   // A "Summon my first agent" pressed elsewhere on the screen (the planning line, Where am I) is performed here, once.
   const firstSummonRef = useRef<() => void>(() => {});
@@ -186,9 +188,11 @@ export function ForgePane() {
           </details>
         )}
       </div>
-      {!runner.busy && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
+      {!runner.busy && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{replacePrice !== null
+        ? editLine({ edit: replacePrice, full: price, energy: me?.energy ?? 0 })
+        : affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
       {me && agents && agents.length > 0 && primary !== "summonFirst" && (
-        <PullBack me={me} agents={agents} price={price} verb={primary === "replace" ? "edit" : "summon"} offer={wantMore || (ran !== source && status?.tone !== "ok")}
+        <PullBack me={me} agents={agents} price={replacePrice ?? price} verb={primary === "replace" ? "edit" : "summon"} offer={wantMore || (ran !== source && status?.tone !== "ok")}
           pay={() => (primary === "replace" ? doReplace(source) : doSummon(source, false))} />
       )}
       <div ref={statusRef} aria-live="polite">

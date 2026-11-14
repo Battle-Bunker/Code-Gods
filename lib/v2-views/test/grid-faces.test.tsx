@@ -24,7 +24,7 @@ test("compact face: each rule's main view with its focus marks, the main part in
     for (const m of e.marks) if (m.kind === "focus" && m.ref.rep === rule.family.main.rep) assert.match(html, new RegExp(`data-ref="${refNodeKey(m.ref).replace(/[.()]/g, "\\$&")}"[^>]*data-focus=""`), rule.family.id);
     const t = text(html);
     assert.match(t, /step \d+ of \d+|not scoring/, rule.family.id);
-    assert.doesNotMatch(t, /\bline\b/, rule.family.id);
+    assert.doesNotMatch(t, /(?<!fold )\bline\b/, rule.family.id);   // "the fold line" is Crosswise Threes' word, not the object's noun
     // The one line says the main part's quantity and amount, never a single unit's note standing for the whole.
     const line = mainLine(rule, B, annotate(rule, B));
     const part = annotate(rule, B).sites[0]!.parts[0]!;
@@ -42,7 +42,7 @@ test("expanded face: the views the rule reads side by side, a short worked compu
     assert.equal((html.match(/role="tab"/g) ?? []).length, gridType.representations.length);
     const t = text(html);
     assert.match(t, /rarer among random grids/);
-    assert.doesNotMatch(t, /\bline\b/, rule.family.id);
+    assert.doesNotMatch(t, /(?<!fold )\bline\b/, rule.family.id);   // "the fold line" is Crosswise Threes' word, not the object's noun
     // The working: a rule that reads every cell gets the board in one line, not sixteen lines of cells.
     const reads = annotate(rule, B).sites[0]!.evaluation.reads;
     if (reads.filter(r => r.rep === "cells").length >= 9) {
@@ -57,7 +57,7 @@ test("goal card: every grid family's card renders on a worked example", () => {
     const t = text(renderToStaticMarkup(<GoalCard rule={rule} example={B} />));
     assert.ok(t.includes(rule.family.title), rule.family.id);
     assert.match(t, /Steps to the top/);
-    assert.doesNotMatch(t, /\bline\b/, rule.family.id);
+    assert.doesNotMatch(t, /(?<!fold )\bline\b/, rule.family.id);   // "the fold line" is Crosswise Threes' word, not the object's noun
   }
 });
 

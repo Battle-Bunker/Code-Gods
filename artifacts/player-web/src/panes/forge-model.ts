@@ -2,7 +2,7 @@
  * The forge's plain logic (ux-lessons §1.3–1.9, §3): what the editor opens with, what the primary button does, what a
  * summon or a replace message says, and the frozen before/after comparison of a put-back. Pure, unit-tested.
  */
-import { exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
+import { editBits, exampleFor, startersFor, summonBits, type ShippedAgent, type ShippedLanguage } from "@workspace/v2-agents/pure";
 import { energyText, num, powerText } from "../core/words.ts";
 
 /** The first agent's share of power (ux-lessons 3.7: close to 75%, leaving room to replace it with any starter). */
@@ -13,19 +13,25 @@ export type Language = ShippedLanguage;
 /** The program the forge opens with for a dealt rule: the example for its tie-breaker, else the Simple starter. */
 export function openingProgram(family: string, tieBreaker: string | null, language: Language): ShippedAgent | null {
   try {
-    return (tieBreaker ? exampleFor(family, tieBreaker, language) : null) ?? startersFor(family, language)[0] ?? null;
+    return (tieBreaker ? exampleFor(family, tieBreaker, language) : null) ?? startersFor(family, language, tieBreaker)[0] ?? null;
   } catch {
     return null;   // a family this build has no agents for
   }
 }
 
-/** "Other starting points" (ux-lessons 3.4): Simple, Thorough, Bold for the family. */
-export function otherStartingPoints(family: string, language: Language): ShippedAgent[] {
-  try { return startersFor(family, language); } catch { return []; }
+/** "Other starting points" (ux-lessons 3.4): Simple, Thorough, Bold for the family (a grid family's are written for the dealt tie-breaker). */
+export function otherStartingPoints(family: string, language: Language, tieBreaker: string | null = null): ShippedAgent[] {
+  try { return startersFor(family, language, tieBreaker); } catch { return []; }
 }
 
 /** The summon (or replace) price of a program, in ⚡. */
 export const summonPrice = (language: Language, source: string) => summonBits(language, source).energy;
+/** What replacing an agent's program costs (owner decision 21): only what changed, as agent.replace charges it. */
+export const editPrice = (language: Language, oldSource: string, newSource: string) => editBits(language, oldSource, newSource).energy;
+/** The edit's price beside the whole program's, and the energy to pay it. */
+export function editLine(o: { edit: number; full: number; energy: number }): string {
+  return `Replacing costs changes only: ${energyText(o.edit)} (the whole program would be ${energyText(o.full)}); you have ${energyText(o.energy)}.`;
+}
 
 export type Primary = "summonFirst" | "replace" | "summon";
 /**

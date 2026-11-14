@@ -90,6 +90,7 @@ import type * as v2_panels from "../v2/panels.js";
 import type * as v2_perform from "../v2/perform.js";
 import type * as v2_play from "../v2/play.js";
 import type * as v2_presets from "../v2/presets.js";
+import type * as v2_pricing from "../v2/pricing.js";
 import type * as v2_reads from "../v2/reads.js";
 import type * as v2_replays from "../v2/replays.js";
 import type * as v2_rooms from "../v2/rooms.js";
@@ -194,6 +195,7 @@ declare const fullApi: ApiFromModules<{
   "v2/perform": typeof v2_perform;
   "v2/play": typeof v2_play;
   "v2/presets": typeof v2_presets;
+  "v2/pricing": typeof v2_pricing;
   "v2/reads": typeof v2_reads;
   "v2/replays": typeof v2_replays;
   "v2/rooms": typeof v2_rooms;

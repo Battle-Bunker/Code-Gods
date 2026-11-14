@@ -103,6 +103,15 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     conversion from utility to energy/bits/probability." (So a rule with a certified empirical ladder is as good as an
     exact one for a pool.)
 
+23. On threshold ladders (relayed by the coordinator, 14 November): "I hate the idea of utility functions that have a
+    finite number of discrete buckets … I want rules like primary utility is negative distance of c to the nearest
+    integer (closer to exact is better) and secondary is the smallest prime factor of that integer (big primes better).
+    Why did you depart from that sort of pattern that I obviously wanted and how have you actually turned utility
+    values into a discrete set of finite steps?" (The thresholds were an artefact of the restricted-walk estimator,
+    which could value only a finite list of level sets. They are removed: a layer is a utility into a totally ordered
+    set; a state's value is −log2 π{states whose (primary, secondary) is at least as good}, at its actual score.
+    This supersedes the coordinator's calls (f), on rungs, and (g), on caps.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

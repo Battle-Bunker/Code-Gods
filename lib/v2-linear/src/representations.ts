@@ -139,6 +139,8 @@ export const tri: Representation<LineState> = {
     el("legY", "height (along the y-axis)", "number", "derived", triangle((_lx, ly) => ly)),
     el("area", "area", "number", "derived", triangle((lx, ly) => Qn.div(Qn.mul(lx, ly), q(2)))),
     el("hyp2", "slanted side, squared", "number", "derived", triangle((lx, ly) => Qn.add(Qn.mul(lx, lx), Qn.mul(ly, ly)))),
+    // A square of side s (its area): what an area is compared with ("close to a square number"); drawn beside the triangle.
+    el("square", "a square of side s", "number", "dynamic", (_l, a) => num(Qn.mul(arg(a, "s"), arg(a, "s"))), { params: [{ name: "s", domain: "Q" }], meaning: "squareOfSide" }),
   ],
   layout: (_s, site) => ({
     kind: "plane", window: [q(-WINDOW), q(-WINDOW), q(WINDOW), q(WINDOW)],

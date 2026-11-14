@@ -6,6 +6,7 @@
  */
 import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
+import { gridPresets } from "@workspace/v2-grid";
 
 export interface PresetBid { pricing: "first" | "second"; disclosure: "none" | "handicaps" | "all"; seconds: number }
 /** The economy a preset plays (docs/energy-model.md; `lib/v2-economy` owns the maths). */
@@ -40,8 +41,14 @@ const ECONOMY: PresetEconomy = {
   opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 0.1,
 };
 
+/** A pool by id: the line presets' (v2-linear) or the grid's (v2-grid). */
+function poolPreset(id: string): { id: string; title: string; variant: string; rules: readonly PoolRule[] } {
+  const g = gridPresets.find(x => x.id === id);
+  return g ? { id: g.id, title: g.title, variant: g.variant, rules: g.rules as readonly PoolRule[] } : linearPreset(id);
+}
+
 function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: string } = {}): Preset {
-  const p = linearPreset(id);
+  const p = poolPreset(id);
   const pool = p.rules;
   return {
     id: p.id, title: p.title, variant: p.variant, pool, families: [...new Set(pool.map(r => r.family))],
@@ -51,12 +58,16 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
 }
 
 const BEGINNER = fromPool("lines-beginner");
+/** The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits, six families, every pairing exact. */
+const GRIDS = fromPool("grids-beginner");
 
 export const PRESETS: readonly Preset[] = [
   BEGINNER,
   { ...BEGINNER, id: "lines-beginner-bidding", title: "Lines · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   fromPool("lines-rational"),
   fromPool("lines-four"),
+  GRIDS,
+  { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

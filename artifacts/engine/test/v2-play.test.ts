@@ -51,7 +51,18 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
 
   const replaced = await perform(ada!, "agent.replace", { agentId, language: "typescript", source: tiny }, scope(), "action");
   assert.deepEqual(replaced.result.version, 1);
-  await perform(ada!, "agent.replace", { agentId, language: "typescript", source: tiny.replace("k: 1", "k: 2") }, scope(), "action");
+  // An edit costs only the change (owner decision 21): check quotes it, and replace charges exactly that.
+  const edited = tiny.replace("k: 1", "k: 2");
+  const quoted = await perform(ada!, "agent.check", { language: "typescript", source: edited, agentId }, scope(), "action");
+  assert.ok(quoted.result.editPrice > 0 && quoted.result.editPrice < quoted.result.price, JSON.stringify(quoted.result));
+  assert.equal((await perform(ada!, "agent.check", { language: "typescript", source: edited }, scope(), "action")).result.editPrice, null, "no agent named: no edit price");
+  const beforeEdit = (await me(ada!)).energy;
+  await perform(ada!, "agent.replace", { agentId, language: "typescript", source: edited }, scope(), "action");
+  assert.ok(Math.abs(beforeEdit - (await me(ada!)).energy - quoted.result.editPrice) < 1e-6, "the replace charged the quoted edit price");
+  const otherLanguage = await perform(ada!, "agent.check", { language: "python", source: "def agent(offer):\n  return []\n", agentId }, scope(), "action");
+  assert.ok(Math.abs(otherLanguage.result.editPrice - otherLanguage.result.price) < 1e-9, "a new language is a new program: the full price");
+  const notMine = await perform(bo!, "agent.check", { language: "typescript", source: edited, agentId }, scope(), "action");
+  assert.equal(notMine.error?.code, "failed", "another player's agent cannot be quoted");
   const back = await perform(ada!, "agent.putBack", { agentId, version: 1 }, scope(), "action");
   assert.equal(back.result.version, 3, JSON.stringify(back));
   const versions = await ada!.query("v2/play:agentPrograms", { agentId });

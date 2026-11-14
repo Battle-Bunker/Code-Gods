@@ -40,35 +40,35 @@ type StarterKind = Exclude<AgentKind, "example">;
 const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: string; far: number; quotes: number }> = {
   simple: {
     title: "Simple", summary: "Changes one cell, or the board in your rule's own way, by a little; below its reserve, only changes worth a point per ⚡.",
-    tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 3, quotes: 4,
+    tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 2, quotes: 4,
   },
   thorough: {
     title: "Thorough", summary: "Tries every cell and every pair of cells (moving an amount from one to the other), prices more plans; below its reserve, only changes worth a point per ⚡.",
     tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.", far: 2, quotes: 6,
   },
   bold: {
-    title: "Bold", summary: "Moves amounts of 2 or more between two cells, or changes the board in your rule's own way, so it gets there in fewer, dearer moves; below its reserve, only changes worth a point per ⚡.",
+    title: "Bold", summary: "Moves amounts of 2 or more between two cells (on some rules also changing a row or an opposite pair), so it gets there in fewer, dearer moves; below its reserve, only changes worth a point per ⚡.",
     tryThis: "change FAR = 3 to 2: jumps of 2 only, cheaper moves.", far: 3, quotes: 6,
   },
   naive: {
     title: "Naive (for learning)",
     summary: "Chases your rule on every board it is offered, whatever the price and whatever the others think of the board. Compare it with Simple.",
-    tryThis: "summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.", far: 3, quotes: 8,
+    tryThis: "summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.", far: 2, quotes: 8,
   },
 };
 
 const HOW_EXAMPLE = [
   "What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only",
   "time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war",
-  "(another player pulling the board back again and again) scores nothing for either of you: it walks away from one",
-  "and leaves you a note so you can talk to that player. It never spends more than a quarter of its energy on one move.",
+  "(another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you",
+  "a note, so you can make a deal with that player. It never spends more than a quarter of its energy on one move.",
 ];
 const HOW_POINTS = [
   "What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only",
   "time) and finds the cheapest change to the best board for your rule. Your points on a board are your rarity there",
   "times the other players' rarity there added up, so once its energy is below RESERVE it only pays for a change worth",
   "a point per ⚡ (the bits it gains you times the others' bits), keeping the rest for boards where points count. It",
-  "walks away from a tug-of-war (leaving you a note) and never spends more than a quarter of its energy on one move.",
+  "notes a tug-of-war for you (so you can make a deal) and never spends more than a quarter of its energy on one move.",
 ];
 const HOW_NAIVE = [
   "What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every",
@@ -80,7 +80,7 @@ const HOW_NAIVE = [
 function lensesFor(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null): GridLensId[] {
   const ids: GridLensId[] = kind === "example" ? [...e.tieBreakers[tieBreaker!]!.lenses]
     : kind === "simple" || kind === "naive" ? ["add", ...e.simple]
-    : kind === "bold" ? ["trade", ...e.simple]
+    : kind === "bold" ? ["trade", ...e.simple.filter(id => id !== "swap" && id !== "twin")]   // two cells at once already
     : ["add", "trade"];
   return [...new Set(ids)];
 }
@@ -91,7 +91,8 @@ function saturated(f: RuleFamily<unknown, unknown>, language: ShippedLanguage): 
   const tops = new Set(f.dealable(grid4).map(p => { const ts = f.main.thresholds(p, grid4); return Number(ts[ts.length - 1]!.n); }));
   if (tops.size !== 1) throw new Error(`${f.id}: the main part's top depends on the rule's numbers; the agents need it as a parameter`);
   const [top] = [...tops] as [number];
-  if (f.main.sense === "min") return top === 0 ? "main" : language === "typescript" ? `Math.max(main, -${top})` : `max(main, -${top})`;
+  // Past its top the main part counts as its top (v2-core scoreOf): a distance within the last threshold counts as on it.
+  if (f.main.sense === "min") return top === 0 ? "main" : language === "typescript" ? `Math.min(main, -${top})` : `min(main, -${top})`;
   return language === "typescript" ? `Math.min(main, ${top})` : `min(main, ${top})`;
 }
 
@@ -173,7 +174,7 @@ const CLIMB_TS = (args: string, end: Ending) => [
     "  const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best",
     "  if (!plan) return null;           // nothing better (or nothing allowed): skip",
     "  const cost = price(offer, plan), e = energy(offer);",
-    "  if (cost > e * SPEND) return null;   // too dear: keep the energy for more turns",
+    "  if (cost > e / 4) return null;   // too dear (more than a quarter of its energy on one move): keep the energy for more turns",
     ...(end === "points" ? [
       "  // Your points on a board are your rarity there times the other players' rarity there, added up. So what this",
       "  // change is worth is the bits it gains you (+1: a better board is a step towards the next rung) times the",
@@ -192,28 +193,27 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     `const FAR = ${far};      // how far one change may go`,
     `const QUOTES = ${quotes};  // at most this many plans are priced (each price is a host call)`,
     ...(points ? ["const RESERVE = 300;  // below this much ⚡, only pay for changes that add points (see the end)"] : []),
-    ...(kind === "naive" ? [] : ["const SPEND = 0.25;    // never spend more than a quarter of your energy on one move"]),
     ...tablesTs(e, lenses),
     "",
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
-      "  // A tug-of-war (another player taking back your gains on this board, 3 times lately) only burns energy on",
-      "  // both sides: leave the board, with a note telling your owner to talk to that player.",
-      "  if (contested(offer, 3)) return null;",
+      "  // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both",
+      "  // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)",
+      "  contested(offer, 3);",
     ]),
     "  const v = look(offer, \"cells\");   // the board",
-    `  const { params: p${kind === "example" ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule's numbers${kind === "example" ? "" : " and tie-breaker"} (free)`,
+    `  const { params: p${tieBreaker !== null ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule's numbers${tieBreaker !== null ? "" : " and tie-breaker"} (free)`,
     "  const NAME = Object.keys(v).slice(0, 16);   // the cells' names, r0c0 ... r3c3, row by row",
     "  const b = NAME.map(n => Q.toNumber(v[n]));   // their 16 numbers",
     ...(addHelper(lenses) ? ["  const add = (i, k) => move(\"cells.add\", { cell: NAME[i], k });   // the move that adds k to cell i"] : []),
     "  const tries = [];                 // [plan, board after]: changes tried in the agent's own head",
     "  for (let k = -FAR; k <= FAR; k++) {",
-    kind === "bold" ? "    if (k > -2 && k < 2) continue;   // only jumps of 2 or more" : "    if (k === 0) continue;",
+    kind === "bold" ? "    if (k * k < 4) continue;   // only jumps of 2 or more" : "    if (k === 0) continue;",
   ];
   for (const id of lenses.filter(id => GRID_LENSES[id].k)) out.push(`    ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
   out.push("  }");
   for (const id of lenses.filter(id => !GRID_LENSES[id].k)) out.push(`  ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
-  out.push(...CLIMB_TS(kind === "example" ? "p" : "p, tie", kind === "naive" ? "naive" : points ? "points" : "climb"), "}");
+  out.push(...CLIMB_TS(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : points ? "points" : "climb"), "}");
   return out;
 }
 
@@ -274,7 +274,7 @@ const CLIMB_PY = (args: string, end: Ending) => [
     "    if plan is None:           # nothing better (or nothing allowed): skip",
     "        return None",
     "    cost, e = price(offer, plan), energy(offer)",
-    "    if cost > e * SPEND:   # too dear: keep the energy for more turns",
+    "    if cost > e / 4:   # too dear (more than a quarter of its energy on one move): keep the energy for more turns",
     "        return None",
     ...(end === "points" ? [
       "    # Your points on a board are your rarity there times the other players' rarity there, added up. So what this",
@@ -295,31 +295,29 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     `FAR = ${far}      # how far one change may go`,
     `QUOTES = ${quotes}  # at most this many plans are priced (each price is a host call)`,
     ...(points ? ["RESERVE = 300  # below this much ⚡, only pay for changes that add points (see the end)"] : []),
-    ...(kind === "naive" ? [] : ["SPEND = 0.25    # never spend more than a quarter of your energy on one move"]),
     ...tablesPy(e, lenses),
     "",
     "",
     "def agent(offer):",
     ...(kind === "naive" ? [] : [
-      "    # A tug-of-war (another player taking back your gains on this board, 3 times lately) only burns energy on",
-      "    # both sides: leave the board, with a note telling your owner to talk to that player.",
-      "    if contested(offer, 3):",
-      "        return None",
+      "    # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both",
+      "    # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)",
+      "    contested(offer, 3)",
     ]),
     "    v = look(offer, \"cells\")   # the board",
     "    rule = goal(offer)         # your rule (free)",
-    kind === "example" ? "    p = rule.params" : "    p, tie = rule.params, rule.tie_breaker",
+    tieBreaker !== null ? "    p = rule.params" : "    p, tie = rule.params, rule.tie_breaker",
     "    NAME = list(v.keys())[:16]   # the cells' names, r0c0 ... r3c3, row by row",
     "    b = [int(v[n]) for n in NAME]   # their 16 numbers",
     ...(addHelper(lenses) ? ["    add = lambda i, k: move(\"cells.add\", cell=NAME[i], k=k)   # the move that adds k to cell i"] : []),
     "    tries = []                 # (plan, board after): changes tried in the agent's own head",
     "    for k in range(-FAR, FAR + 1):",
-    ...(kind === "bold" ? ["        if -2 < k < 2:          # only jumps of 2 or more", "            continue"] : ["        if k == 0:", "            continue"]),
+    ...(kind === "bold" ? ["        if k * k < 4:          # only jumps of 2 or more", "            continue"] : ["        if k == 0:", "            continue"]),
   ];
   const k = lenses.filter(id => GRID_LENSES[id].k), flat = lenses.filter(id => !GRID_LENSES[id].k);
   for (const id of k) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`        ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `        ${x}`)); }
   for (const id of flat) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`    ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `    ${x}`)); }
-  out.push(...CLIMB_PY(kind === "example" ? "p" : "p, tie", kind === "naive" ? "naive" : points ? "points" : "climb"));
+  out.push(...CLIMB_PY(tieBreaker !== null ? "p" : "p, tie", kind === "naive" ? "naive" : points ? "points" : "climb"));
   return out;
 }
 
@@ -352,16 +350,25 @@ export function gridExampleFor(family: string, tieBreaker: string, language: Shi
     ? render("example", family, tieBreaker, language) : null;
 }
 
-export function gridStartersFor(family: string, language: ShippedLanguage): ShippedAgent[] {
+/**
+ * The starters for a grid family. With the dealt tie-breaker (the shipped ones), each scores that tie-breaker only:
+ * a board's scores take more code than a line's, and a starter scoring all three tie-breakers would cost more than
+ * the starting energy to summon. Without one, the starters read the dealt tie-breaker themselves (all three scored;
+ * dearer, and not shipped).
+ */
+export function gridStartersFor(family: string, language: ShippedLanguage, tieBreaker?: string | null): ShippedAgent[] {
   if (!isGridFamily(family)) return [];   // a grid family with no agents described yet (gridUndescribed())
-  return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
+  if (tieBreaker && !(entryOf(family).tieBreakers[tieBreaker] && familyOf(family).tieBreakers.some(t => t.id === tieBreaker))) throw new Error(`${family} has no tie-breaker ${tieBreaker} with shipped agents`);
+  const tb = tieBreaker || null;
+  return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, tb, language));
 }
 
 export function gridShippedAgents(): ShippedAgent[] {
-  return GRID_CATALOGUE.filter(e => isGridFamily(e.family)).flatMap(e => (["typescript", "python"] as const).flatMap(language => [
-    ...familyOf(e.family).tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => render("example", e.family, t.id, language)),
-    ...gridStartersFor(e.family, language),
-  ]));
+  return GRID_CATALOGUE.filter(e => isGridFamily(e.family)).flatMap(e => (["typescript", "python"] as const).flatMap(language =>
+    familyOf(e.family).tieBreakers.filter(t => e.tieBreakers[t.id]).flatMap(t => [
+      render("example", e.family, t.id, language),
+      ...gridStartersFor(e.family, language, t.id),
+    ])));
 }
 
 export function gridScoreSource(family: string, tieBreaker: string | null, language: ShippedLanguage): string {

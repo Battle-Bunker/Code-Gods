@@ -52,6 +52,9 @@ export interface PlaneLayout {
   readonly marks: readonly Mark[];
   /** The axes' numbers that are drawn (none under a label or a point). */
   readonly ticks: readonly TickLabel[];
+  /** The square a rule compares an area with (a candidate on an element meaning "squareOfSide"), beside the triangle, in box
+   *  px; only on equal scales (a square must look square), else null and the rule's words say it. */
+  readonly square: { readonly x: number; readonly y: number; readonly side: number; readonly label: string; readonly ref: ElementRef } | null;
 }
 
 export interface TickLabel { readonly text: string; readonly x: number; readonly y: number; readonly anchor: "middle" | "end"; readonly box: Rect }
@@ -156,6 +159,7 @@ function candLabel(p: Pick<P, "values" | "terms" | "size">, m: Candidate, measur
 }
 
 export interface PlaneLayoutInput extends Pick<P, "rep" | "scene" | "values" | "marks" | "terms" | "size" | "project"> {
+  readonly meaningOf?: (r: ElementRef) => string;
   readonly labelOf?: (r: ElementRef) => string;
   readonly box: { readonly w: number; readonly h: number };
 }
@@ -230,7 +234,15 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
 
   // ------------------------------------------------ the window
   const important = [...raw.values()].filter(r => r.priority <= 2);
-  const core: XY[] = [...important, ...(world ?? [])];
+  // The nearest square, when the rule cites one: side s, beside the triangle, its base on the x-axis.
+  const sqMark = marks.find((m): m is Candidate => m.kind === "candidate" && (input.meaningOf?.(m.ref) ?? "").startsWith("squareOfSide"));
+  let sqWorld: { x: number; y: number; side: number; ref: ElementRef } | null = null;
+  if (sqMark && world && sqMark.ref.args?.s) {
+    const side = N(Qn.parse(sqMark.ref.args.s)), gap = Math.max(0.15 * side, 0.5);
+    sqWorld = { x: world[1]!.x < 0 ? gap : -side - gap, y: world[2]!.y < 0 ? -side : 0, side, ref: sqMark.ref };
+  }
+  const sqCorners: XY[] = sqWorld ? [{ x: sqWorld.x, y: sqWorld.y }, { x: sqWorld.x + sqWorld.side, y: sqWorld.y + sqWorld.side }] : [];
+  const core: XY[] = [...important, ...(world ?? []), ...sqCorners];
   // Landmarks join the window unless they would shrink what matters more than 8-fold on an axis (and lie beyond 30 units).
   const span = (vs: number[]) => (vs.length ? Math.max(...vs) - Math.min(...vs) : 0);
   const fits = (pt: XY) => {
@@ -244,8 +256,13 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
   const kept = land.filter(fits);
   const pad = compact ? 8 : 18;
   // With nothing else to show (a rule that reads no point here), the line's own intercepts frame it.
-  const fitPts = [...core, ...kept];
-  const view = fitViewport({ points: fitPts, box: input.box, pad });
+  let view = fitViewport({ points: [...core, ...kept], box: input.box, pad });
+  if (sqWorld && !view.equal) {
+    // A square drawn on unequal scales would be a rectangle: fit without it, and leave it to the words.
+    sqWorld = null;
+    const without = core.filter(c => !sqCorners.includes(c));
+    view = fitViewport({ points: [...without, ...kept], box: input.box, pad });
+  }
   const line = clipLine(view, L.a, L.b, L.c);
 
   const inView = (pt: XY) => pt.x >= view.x0 && pt.x <= view.x1 && pt.y >= view.y0 && pt.y <= view.y1;
@@ -300,14 +317,29 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
   // label still covers, or that sits under a point, is left out below).
   const blocked: Rect[] = offAxes.map((t, i) => ({ x: 4, y: view.box.h - 14 - i * 12, w: textWidth(t), h: 12 }));
   if (region?.thin) blocked.push(insetBox(view.box, compact));
+  if (sqWorld) {
+    // The square's sides are obstacles too: no label crosses them.
+    const x0 = view.sx(sqWorld.x), x1 = view.sx(sqWorld.x + sqWorld.side), y0 = view.sy(sqWorld.y + sqWorld.side), y1 = view.sy(sqWorld.y);
+    segs.push({ x1: x0, y1: y0, x2: x1, y2: y0 }, { x1: x1, y1: y0, x2: x1, y2: y1 }, { x1: x0, y1: y1, x2: x1, y2: y1 }, { x1: x0, y1: y0, x2: x0, y2: y1 });
+  }
   const allTicks = compact ? [] : tickLabels(view);
+  if (sqWorld && !compact) {
+    const t = `${readable(Qn.parse(sqWorld.ref.args!.s!))} × ${readable(Qn.parse(sqWorld.ref.args!.s!))}`;
+    reqs.push({ id: "square", x: view.sx(sqWorld.x + sqWorld.side / 2), y: view.sy(sqWorld.y + sqWorld.side / 2), w: textWidth(t), h, priority: 2, prefer: undefined });
+    texts.set("square", t);
+  }
   const placed = placeLabels(reqs, segs, view.box, [...blocked, ...allTicks.map(t => t.box)]);
   const labels: PlaneLabel[] = placed.map((l, i) => ({ ...l, text: texts.get(l.id)!, ax: reqs[i]!.x, ay: reqs[i]!.y }));
 
 
   const covers = [...labels.filter(l => l.shown).map(l => l.box), ...blocked, ...points.map(pt => ({ x: pt.px - 5, y: pt.py - 5, w: 10, h: 10 }))];
   const ticks = allTicks.filter(t => !covers.some(c => overlaps(c, t.box)));
-  return { view, line, lineRef: L.ref, points, labels, region, offAxes, marks, ticks };
+  const sqV = sqWorld ? p.values(sqWorld.ref) : null;
+  const square = sqWorld ? {
+    x: view.sx(sqWorld.x), y: view.sy(sqWorld.y + sqWorld.side), side: view.sx(sqWorld.side) - view.sx(0), ref: sqWorld.ref,
+    label: `${readable(Qn.parse(sqWorld.ref.args!.s!))} × ${readable(Qn.parse(sqWorld.ref.args!.s!))} = ${sqV?.kind === "number" ? readable(sqV.q) : ""}`,
+  } : null;
+  return { view, line, lineRef: L.ref, points, labels, region, offAxes, marks, ticks, square };
 }
 
 // ------------------------------------------------------------------ drawing
@@ -346,6 +378,12 @@ function Scene({ p }: { p: P }) {
   const drawnNotes = new Set<string>();
   const back: ReactElement[] = [], front: ReactElement[] = [];
 
+  if (L.square) {
+    placed.add(key(L.square.ref));
+    back.push(<rect key="square" className="square" x={L.square.x} y={L.square.y} width={L.square.side} height={L.square.side} {...elAttrs(q, L.square.ref)} {...hover(q, L.square.ref)}><title>{`the nearest square: ${L.square.label}`}</title></rect>);
+    const sl = L.labels.find(l => l.id === "square");
+    if (sl?.shown) front.push(<text key="square-label" className="cand-label label-halo" x={sl.box.x + 1} y={sl.box.y + sl.box.h - 3}>{sl.text}</text>);
+  }
   if (L.region) {
     placed.add(key(L.region.ref));
     const val = fmtValue(p.values(L.region.ref));

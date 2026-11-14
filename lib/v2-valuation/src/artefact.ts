@@ -3,6 +3,7 @@ import { canonicalJson, hashHex, levelOf, objectLadder, ruleLayers, scoreFromWir
 import { estimate, ruleKey, DEFAULT_CONFIG, type Estimate, type ValuationConfig } from "./estimate.ts";
 import { distinctLayerValues, exactLadder } from "./exact.ts";
 import { exactGridLadder } from "./exact-grid.ts";
+import { sampleGridLadder } from "./sample-grid.ts";
 import { gridSums } from "@workspace/v2-grid";
 import { evalCurve, fit, type Curve, type Point } from "./fit.ts";
 
@@ -16,8 +17,11 @@ export interface ArtefactRung {
   readonly bits: number;
   readonly error: number;
   readonly empty?: true;
-  /** Where the value comes from: an exact sum (error = half its certified interval) or the simulation. */
-  readonly source?: "exact" | "simulated";
+  /**
+   * Where the value comes from: an exact sum (error = half its certified interval), the walk simulation, or direct and
+   * importance sampling from an exact product law (grids, owner decision 22; error = one standard error).
+   */
+  readonly source?: "exact" | "simulated" | "sampled";
 }
 
 export interface Artefact {
@@ -56,6 +60,8 @@ export interface Artefact {
   readonly diagnostics: {
     /** The exact sums' certified intervals per rung and how each was summed (null: the variant has no exact law). */
     readonly exact: { readonly method: readonly string[]; readonly lo: readonly number[]; readonly hi: readonly number[] } | null;
+    /** The grid sampler's diagnostics (absent unless the rule was sampled). */
+    readonly sampling?: { readonly proposals: number; readonly evaluations: number; readonly ess: readonly number[] };
     /** The simulation's diagnostics (null: every rung was exact, so it did not run). */
     readonly simulation: {
     readonly reversibility: number;
@@ -205,7 +211,9 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
     return within(bits, error) ? { bits, error } : null;
   });
   const allExact = exact.every(x => x !== null);
-  // 2. The simulation only where an exact value is missing: it fills those rungs where it converges (the hybrid).
+  // 2. A grid rule with no exact sum is sampled directly from its exact product law (owner decision 22): no walk.
+  if (!allExact && type.id === "grid" && !gridSums[family.id]) return calibrateSampled(type, variant, family, params, tb, tieBreaker, seed, config, fullLadder);
+  // 3. The simulation only where an exact value is missing: it fills those rungs where it converges (the hybrid).
   const est = allExact ? null : estimate({ type, variant, family, params, seed, config, tieBreaker: tb });
   // The rungs recorded: the whole ladder when exact; else as far as either source reaches (the simulation truncates at a
   // rung no climb reached).
@@ -267,6 +275,34 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
     },
   };
   return { artefact: { ...body, contentHash: contentHash(body) }, estimate: est };
+}
+
+/** A grid rule valued by the sampler (sample-grid.ts): every rung sampled, capped where the error target is missed. */
+function calibrateSampled<S, P>(type: ObjectType<S>, variant: Variant, family: RuleFamily<S, P>, params: P, tb: TieBreaker, tieBreaker: string,
+  seed: string, config: ValuationConfig, ladder: readonly ReturnType<typeof objectLadder>[number][]): { artefact: Artefact; estimate: null } {
+  const s = sampleGridLadder(type as never, family as never, params, variant, tb, seed, { targetRelError: config.targetRelError, absFloorBits: config.absFloorBits });
+  const reasons: string[] = [];
+  s.distinct.forEach((d, j) => {
+    if (d < config.minLevels) reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values, fewer than ${config.minLevels}: too coarse to extend the ladder`);
+  });
+  if (s.convergedThrough < ladder.length - 1) reasons.push(`sampled to the error target through rung ${s.convergedThrough} of ${ladder.length - 1} (${s.evaluations} boards); the rest await a longer background run`);
+  const rungs: ArtefactRung[] = ladder.map((r, k) => ({
+    score: scoreToWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}),
+    // A rung past the converged one keeps its estimate but no error (stored as null), so the dealt ladder stops below it
+    // (call (g)): its effective sample was too small to trust the error.
+    bits: Number.isFinite(s.rungs[k]!.bits) ? r4(s.rungs[k]!.bits) : NaN, error: k <= s.convergedThrough ? r4(s.rungs[k]!.error) : NaN,
+    source: "sampled" as const,
+  }));
+  const status: Artefact["status"] = reasons.some(x => /too coarse/.test(x)) ? "too-coarse" : s.convergedThrough === ladder.length - 1 ? "converged" : "unconverged";
+  const primary = ruleLayers(family, tb)[0]!;
+  const { cap, convergedCap, tail, dealable } = dealtLadder({ status, rungs, config }, ruleLayers(family, tb)[1] ?? null);
+  const body: Omit<Artefact, "contentHash"> = {
+    schema: 5, ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker), objectType: type.id, objectTypeVersion: type.version,
+    variant: variant.id, variantHash: hashHex(canonicalJson(variant)), family: family.id, params, tieBreaker, seed, config,
+    status, reasons, rungs, cap, convergedCap, tail, dealable, primarySense: primary.sense, curve: null,
+    diagnostics: { exact: null, sampling: { proposals: s.proposals, evaluations: s.evaluations, ess: s.rungs.map(x => Math.round(x.ess)) }, simulation: null },
+  };
+  return { artefact: { ...body, contentHash: contentHash(body) }, estimate: null };
 }
 
 /** Exact sums need the law of one whole-number line (π(m, c) = p(m)·p(c)); other variants are simulated. */
