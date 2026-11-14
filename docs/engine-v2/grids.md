@@ -298,6 +298,8 @@ Each family's ladder ends where its dealt tops sit in the 15–25 bit band; the 
 | 7 | **Leapfrog** (leaps, rows) | "Each number and the number two cells along should be one apart, like 4 _ 5." Σ \|\|a − b\| − 1\| | first column big · primes · 0s | exact | first column 23.5 · primes 23.6 · 0s 23.6 |
 | 8 | **Crosswise Threes** (fold, fold pairs and the fold line) | "Fold the board on its other diagonal: each number and the number it lands on should be 3 apart." Σ \|\|a − b\| − 3\| | fold line big · primes · 0s | exact | fold line 23.9 · primes 24.1 · 0s 23.7 |
 
+The tie-breakers in this table are the ones before decision 29; they are no longer dealt (§6.4 lists the dealt ones).
+
 Magic Eighteen keeps its 18 (the owner: a target changes only for a reason other than exactness); its main ladder is
 capped at "off by 4 in all" because "exactly 18 in every row" is 26.1 bits before any tie-breaker, past the band. Old
 scores that were categories (Two Pair's "two pairs, one pair, nothing") or yes/no counts became distances or counts
@@ -314,6 +316,58 @@ than a product of cells, or the transfer matrix of §5.3.
 Collisions are on purpose (decision 5): all compete for the same sixteen numbers. Mirrormancer and Leapfrog want
 incompatible rows (a b b a has leaps a–b and b–a, which Leapfrog wants one apart: compatible only as 4 5 5 4); Opposite
 Nines and Crosswise Threes pair the same cells differently; Magic Eighteen and every "big" tie-breaker fight gravity.
+
+### 6.3 Grids · more rules
+
+**The more-rules pool** (`grids-more-rules`, a second setup beside the unchanged beginner one; owner-decisions.md,
+coordinator's call 13) restores v1's coupled reward families as continuous rules: a count or a distance, no thresholds
+(decision 23), each with three tie-breakers tied to what its main part singles out (decision 29; §6.4). None declares
+units, so all are valued by plain draws from π (2 million per rule, sampled knots to 18 bits, the marked tail beyond).
+
+| # | Family (v1 name) | Main layer (the card) | Params | Single-rule gate |
+|---|---|---|---|---|
+| 1 | **Kings and Subjects** | "In each corner box … the biggest number (the king) should equal the other three added up." Σ boxes \|2·king − total\|, a tied biggest 20 off | none | fails (63% of climbs reach 0) |
+| 2 | **Stepping Stones** | "Make the biggest group of cells you can hop between: … touching cells whose numbers differ by exactly 2." | none | passes (7%) |
+| 3 | **Mountain Climb** | "Starting at the top-left cell, climb as far as you can: each step … exactly 1 bigger." | none | passes (0%) |
+| 4 | **Uphill** (young_tableau) | "Walk toward the bottom-right corner along every row and column: as many steps as possible should reach a bigger number." | corner TL/TR/BL/BR | passes (0%) |
+| 5 | **Staircase** (staircase_climber) | "As many numbers as possible should be exactly 1 more than the number to their left." | right / down | passes (0%) |
+| 6 | **Magic Accountant** | "Every row should add up to 18." Σ rows (or columns) \|total − T\| | rows/columns × T 17–19 | fails (100%: separable, as Magic Eighteen) |
+| 7 | **Fillomino** | "Every patch of touching equal numbers should have as many cells as its number." | none | passes (0%) |
+
+The single-rule gate (lib/v2-valuation grid-gate.ts) climbs the main part alone by ±1 and swaps from π boards; a family
+passes when it climbs but reaches its top from at most 10% of starts. The two that fail alone are dealt for now: the
+table gate on the combined landscape (several rules on one board) decides whether they stay.
+
+### 6.4 Tied tie-breakers (decision 29, the coordinator's call 14)
+
+A tie-breaker is a relation between what the main part singles out and another aspect of the board, never an
+independent wish. Both grid pools deal only tied tie-breakers. The beginner eight keep their mains, Two Pair's `apart`
+and Strangers' `ones`; their 22 independent tie-breakers (primes, zeros, corners, odd numbers, "X big") stay in the
+code, undealt (lib/v2-grid presets.ts `BEGINNER_DEALT`). Some pull toward small numbers, repeats or shared factors and
+others toward big or different numbers, so that the pool holds tension (decision 30). A tie-breaker is valued exactly
+when it adds up over its family's units (sums.ts `tieBreakers`), else sampled.
+
+| Family | Tie-breakers dealt (exact · sampled) |
+|---|---|
+| Mirrormancer | one-apart, small-middle · mirror-columns |
+| Magic Eighteen | different-numbers · columns, diagonals |
+| Opposite Nines | big-on-top · mirror-nines, different-splits |
+| Two Pair | apart, diagonal-pairs, small-pairs |
+| Spread of Three | · spread-diagonal, spread-small, square-different |
+| Strangers | ones, prime-strangers · across-strangers |
+| Leapfrog | same-way, middle-factors · columns-leap |
+| Crosswise Threes | bigger-side, fold-factors · other-fold |
+| Kings and Subjects | · different-kings, king-multiples, kings-on-diagonals |
+| Stepping Stones | · outside-small, group-reach, group-corners |
+| Mountain Climb | · climb-reach, climb-far, climb-summit |
+| Uphill | · rise-by-one, corner-peak, start-low |
+| Staircase | · long-flight, double-stairs, low-stairs |
+| Magic Accountant | · other-way, diagonals, all-different |
+| Fillomino | · patch-kinds, patch-count, near-misses |
+
+The table gate (lib/v2-valuation table-gate-cli.ts: climbs, annealing with restarts, written-down boards, each rule's
+top with --tops) and the alignment/tension matrix (tension-cli.ts: does climbing rule A raise, lower or leave rule B)
+measure the pools.
 
 ## 7. Views, agents, server
 

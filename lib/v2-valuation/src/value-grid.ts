@@ -2,15 +2,15 @@
  * Value functions for grid rules (owner decision 23; value.ts holds the machinery). A grid board's bits are the survival
  * of the stationary law at its actual utilities, −log2 π{x : utility(x) ≥ utility(board)}, with no thresholds.
  *
- * - A family that declares units (lib/v2-grid sums.ts) has its whole utility distribution exactly: the convolution of
- *   its units' laws (exact-grid.ts), so every attainable score is a knot with lo = hi.
- * - Any other family is sampled by plain draws from π (each cell independently), so every weight is 1 and a score's
+ * - A family that declares units (lib/v2-grid sums.ts) covering the dealt tie-breaker has its whole utility distribution
+ *   exactly: the convolution of its units' laws (exact-grid.ts), so every attainable score is a knot with lo = hi.
+ * - Any other rule (no units, or a tie-breaker that reads across them) is sampled by plain draws from π (each cell independently), so every weight is 1 and a score's
  *   survival interval is binomial, calibrated by construction. Importance sampling (the deleted grid-draws.ts) is not used here: its
  *   intervals failed calibration against the exact families (grids.md §5.2: per-cell proposals miss whole regions at rare
  *   scores, and no constant inflation fixes that). Scores rarer than the draws reach take the marked extrapolated tail.
  */
 import { canonicalJson, evaluateObject, hashHex, scoreOf, tieBreakerId, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { gridSums, type GridState } from "@workspace/v2-grid";
+import { exactlySummed, type GridState } from "@workspace/v2-grid";
 import { ruleKey } from "./keys.ts";
 import { gridJointLaw } from "./exact-grid.ts";
 import { cellProbability, gridParams } from "@workspace/v2-grid";
@@ -29,7 +29,7 @@ export function gridValueFunction<P>(type: ObjectType<GridState>, family: RuleFa
   const oracles: Oracle[] = [];
   const exact: { name: string; outside: number }[] = [];
   let sampled: ValueFunction["diagnostics"]["sampled"] = null;
-  if (gridSums[family.id]) {
+  if (exactlySummed(family.id, tb)) {
     const { entries } = gridJointLaw(type, family, params, variant, tb);
     const name = "convolution of the units' laws";
     oracles.push(massOracle(name, entries.map(e => ({ u: scoreOf(family, tb, id => e.terms[ruleLayersIndex(family, tb, id)]!).score, w: e.w })), 0));

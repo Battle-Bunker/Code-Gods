@@ -254,6 +254,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     ⚡, a tenth of the stretch case's 1.06) and never a strong one. Step 1, measurement only: each game logs its unopposed
     directions (`unopposedDirections` in v2-agents) and the collapse check reports them; the filter is turned on when the
     pool has enough adversaries.
+13. **RESTORE** "Grids · more rules" (`grids-more-rules`), a second grid setup on grid-4-d10 beside the unchanged
+    beginner one: v1's coupled reward families Kings & Subjects, Stepping Stones, Mountain Climb, Uphill (v1's
+    young_tableau), Staircase (staircase_climber), Magic Accountant and Fillomino, as continuous counts or distances
+    (decision 23: no thresholds) with tied tie-breakers (call 14), valued by plain draws from π (lib/v2-grid
+    more-families.ts; grids.md §6.3, §6.4).
+14. Following decision 29 (a tie-breaker is a relation between what the main part singles out and another aspect of
+    the object, never an independent wish): grid tie-breakers are tied. The seven more-rules families get three tied
+    tie-breakers each. The beginner eight keep their mains, Two Pair's "pairs far apart" and Strangers' "1s beside
+    bigger numbers", and get tied replacements for the 22 independent ones (primes, zeros, corners, odd, "X big"),
+    which leave the dealt pool but stay in the code, undealt, until the coordinator reports the effect (grids.md §6).
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

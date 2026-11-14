@@ -1,12 +1,14 @@
 /**
  * Seven more grid families, brought over from v1's reward families on the 4×4 digit board (kings_and_subjects,
  * stepping_stones, mountain_climb, young_tableau, staircase_climber, magic_accountant, fillomino). Each is one main
- * layer in a 12-year-old's words and three alternative tie-breakers; the scores are plain counts or distances.
+ * layer in a 12-year-old's words and three alternative tie-breakers; the scores are plain counts or distances. Each
+ * tie-breaker ties what the main part singles out (the kings, the biggest group, the climb, the rising steps, the stairs,
+ * the totals, the patches) to another side of the board, never an unrelated wish.
  */
 import { q, ref, type ElementRef, type RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
 import { boxes, cols, corners, rows } from "./units.ts";
-import { cornersTie, countCells, distance, family, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
+import { offTotals, diagonals, term, distance, family, more, readCells, readNum, type Ctx, type Shape } from "./family-kit.ts";
 
 type None = Record<string, never>;
 type Cells = { v: number[]; refs: ElementRef[] };
@@ -29,12 +31,7 @@ function groups(n: number, v: readonly number[], joined: (a: number, b: number) 
   return out;
 }
 const focusAll = (ctx: Ctx, cells: Cells, which: Iterable<number>) => { for (const i of new Set(which)) ctx.mark({ kind: "focus", ref: cells.refs[i]! }); };
-/** The three shared tie-breakers' terms. */
-function ties(ctx: Ctx, cells: Cells, n: number): void {
-  countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
-  countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
-  totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
-}
+/** A count, recorded as a term over the given cells. */
 
 // ---------------------------------------------------------------- 1. Kings and Subjects
 
@@ -46,19 +43,29 @@ export function kingsAndSubjects(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
     main: distance<None>("kings", "every corner box's king equals his subjects",
       () => `In each corner box of four cells, the biggest number (the king) should equal the other three added up, like 9 with 2, 3 and 4. A box whose biggest number appears twice has no king and is ${NO_KING} off.`, "cells"),
-    tieBreakers: [zerosTie(), primesTie(), cornersTie()],
+    tieBreakers: [
+      more<None>("different-kings", "pairs of kings that are different numbers", "The kings should all be different numbers.", "cells"),
+      more<None>("king-multiples", "kings that are a multiple of the smallest number in their box", "Each king should be a multiple of the smallest number in his box, like 8 with a 2.", "cells"),
+      more<None>("kings-on-diagonals", "kings on the board's diagonals", "Each king should stand on one of the board's two diagonals.", "cells"),
+    ],
   };
   return family<None>("kings-and-subjects", "Kings and Subjects", ["cells"], shape, [{}], ctx => {
     const cells = readCells(ctx, n);
     let off = 0;
+    const kings: { cell: number; king: number; least: number }[] = [];   // the boxes that have a king
     for (const cs of bx) {
       const v = cs.map(i => cells.v[i]!), m = Math.max(...v), king = cs[v.indexOf(m)]!;
       const away = v.filter(x => x === m).length > 1 ? NO_KING : Math.abs(2 * m - v.reduce((t, x) => t + x, 0));
+      if (v.filter(x => x === m).length === 1) kings.push({ cell: king, king: m, least: Math.min(...v) });
       off += away;
       ctx.mark(away === 0 ? { kind: "focus", ref: cells.refs[king]! } : { kind: "note", ref: cells.refs[king]!, text: v.filter(x => x === m).length > 1 ? "no king" : `off by ${away}` });
     }
     ctx.term("kings", "how far each box's king is from his subjects added up, added up", q(off), cells.refs);
-    ties(ctx, cells, n);
+    const kingRefs = kings.map(k => cells.refs[k.cell]!);
+    term(ctx, "different-kings", "pairs of kings that are different numbers", kings.reduce((t, a, k) => t + kings.slice(k + 1).filter(b => b.king !== a.king).length, 0), kingRefs);
+    term(ctx, "king-multiples", "kings that are a multiple of the smallest number in their box", kings.filter(k => k.least >= 1 && k.king % k.least === 0).length, kingRefs);
+    const onDiagonal = (i: number) => { const r = Math.floor(i / n), c = i % n; return r === c || r + c === n - 1; };
+    term(ctx, "kings-on-diagonals", "kings on the board's diagonals", kings.filter(k => onDiagonal(k.cell)).length, kingRefs);
   }, n);
 }
 
@@ -68,14 +75,21 @@ export function steppingStones(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
     main: more<None>("stones", "the biggest group you can hop between",
       "Make the biggest group of cells you can hop between: you can hop between touching cells whose numbers differ by exactly 2.", "cells"),
-    tieBreakers: [zerosTie(), primesTie(), cornersTie()],
+    tieBreakers: [
+      distance<None>("outside-small", "the cells outside the biggest group, added up", () => "The cells outside the biggest group should add up to as little as possible.", "cells"),
+      more<None>("group-reach", "rows and columns the biggest group reaches", "The biggest group should reach into as many rows and columns as possible.", "cells"),
+      more<None>("group-corners", "board corners in the biggest group", "The biggest group should reach as many of the board's corners as possible.", "cells"),
+    ],
   };
   return family<None>("stepping-stones", "Stepping Stones", ["cells"], shape, [{}], ctx => {
     const cells = readCells(ctx, n);
     const best = groups(n, cells.v, (a, b) => Math.abs(a - b) === 2).reduce((b, g) => (g.length > b.length ? g : b));
     ctx.term("stones", "cells in the biggest group you can hop between", q(best.length), cells.refs);
     if (best.length > 1) focusAll(ctx, cells, best);
-    ties(ctx, cells, n);
+    const refs = best.map(i => cells.refs[i]!);
+    term(ctx, "outside-small", "the cells outside the biggest group, added up", cells.v.reduce((t, x, i) => (best.includes(i) ? t : t + x), 0), refs);
+    term(ctx, "group-reach", "rows and columns the biggest group reaches", new Set(best.map(i => Math.floor(i / n))).size + new Set(best.map(i => i % n)).size, refs);
+    term(ctx, "group-corners", "board corners in the biggest group", corners(n).filter(i => best.includes(i)).length, refs);
   }, n);
 }
 
@@ -85,7 +99,11 @@ export function mountainClimb(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
     main: more<None>("climb", "cells on the longest climb from the top-left cell",
       "Starting at the top-left cell, climb as far as you can: each step goes to a touching cell exactly 1 bigger. Count the cells on your longest climb.", "cells"),
-    tieBreakers: [zerosTie(), primesTie(), cornersTie()],
+    tieBreakers: [
+      more<None>("climb-reach", "cells some climb reaches", "As many cells as possible should be on some climb from the top-left.", "cells"),
+      more<None>("climb-far", "how far the climb gets from the top-left cell", "The climb should end as far from the top-left cell as possible.", "cells"),
+      more<None>("climb-summit", "the biggest number the climb reaches", "The climb should reach as big a number as possible.", "cells"),
+    ],
   };
   return family<None>("mountain-climb", "Mountain Climb", ["cells"], shape, [{}], ctx => {
     const cells = readCells(ctx, n);
@@ -99,7 +117,10 @@ export function mountainClimb(n: number): RuleFamily<GridState, None> {
     }
     ctx.term("climb", "cells on the longest climb from the top-left cell", q(steps), cells.refs);
     focusAll(ctx, cells, reached);
-    ties(ctx, cells, n);
+    const refs = reached.map(i => cells.refs[i]!);
+    term(ctx, "climb-reach", "cells some climb reaches", reached.length, refs);
+    term(ctx, "climb-far", "steps across and down from the top-left cell to the farthest cell the climb reaches", Math.max(...reached.map(i => Math.floor(i / n) + (i % n))), refs);
+    term(ctx, "climb-summit", "the biggest number the climb reaches", cells.v[0]! + steps - 1, refs);
   }, n);
 }
 
@@ -107,12 +128,21 @@ export function mountainClimb(n: number): RuleFamily<GridState, None> {
 
 export type Corner = "TL" | "TR" | "BL" | "BR";
 const CORNER_WORDS: Record<Corner, string> = { TL: "the top-left corner", TR: "the top-right corner", BL: "the bottom-left corner", BR: "the bottom-right corner" };
+const OPPOSITE: Record<Corner, Corner> = { TL: "BR", TR: "BL", BL: "TR", BR: "TL" };
+/** The corner's cell. */
+const cornerCell = (n: number, corner: Corner) => at(n, corner[0] === "B" ? n - 1 : 0, corner[1] === "R" ? n - 1 : 0);
 
 export function uphill(n: number): RuleFamily<GridState, { corner: Corner }> {
   const shape: Shape<{ corner: Corner }> = {
     main: { id: "uphill", title: "rising steps toward the corner", rep: "cells", sense: "max",
       sentence: p => `Walk toward ${CORNER_WORDS[p.corner]} along every row and column: as many steps as possible should reach a bigger number.` },
-    tieBreakers: [zerosTie(), primesTie(), cornersTie()],
+    tieBreakers: [
+      more<{ corner: Corner }>("rise-by-one", "rising steps that rise by exactly 1", "As many of the rising steps as possible should rise by exactly 1.", "cells"),
+      more<{ corner: Corner }>("corner-peak", "numbers smaller than the number in the corner you walk toward",
+        p => `The number in ${CORNER_WORDS[p.corner]} should be bigger than as many other numbers as possible.`, "cells"),
+      more<{ corner: Corner }>("start-low", "numbers bigger than the number in the corner the walks start from",
+        p => `The number in ${CORNER_WORDS[OPPOSITE[p.corner]]} should be smaller than as many other numbers as possible.`, "cells"),
+    ],
   };
   const params = (["TL", "TR", "BL", "BR"] as const).map(corner => ({ corner }));
   return family<{ corner: Corner }>("uphill", "Uphill", ["cells"], shape, params, (ctx, p) => {
@@ -122,7 +152,11 @@ export function uphill(n: number): RuleFamily<GridState, { corner: Corner }> {
     const ends = lines.flatMap(l => l.slice(1).filter((i, k) => cells.v[i]! > cells.v[l[k]!]!));
     ctx.term("uphill", `rising steps toward ${CORNER_WORDS[p.corner]}`, q(ends.length), cells.refs);
     focusAll(ctx, cells, ends);
-    ties(ctx, cells, n);
+    const byOne = lines.flatMap(l => l.slice(1).filter((i, k) => cells.v[i] === cells.v[l[k]!]! + 1));
+    term(ctx, "rise-by-one", `rising steps toward ${CORNER_WORDS[p.corner]} that rise by exactly 1`, byOne.length, cells.refs);
+    const peak = cells.v[cornerCell(n, p.corner)]!, start = cells.v[cornerCell(n, OPPOSITE[p.corner])]!;
+    term(ctx, "corner-peak", `numbers smaller than the one in ${CORNER_WORDS[p.corner]}`, cells.v.filter(x => x < peak).length, cells.refs);
+    term(ctx, "start-low", `numbers bigger than the one in ${CORNER_WORDS[OPPOSITE[p.corner]]}`, cells.v.filter(x => x > start).length, cells.refs);
   }, n);
 }
 
@@ -134,7 +168,12 @@ export function staircase(n: number): RuleFamily<GridState, { direction: Directi
   const shape: Shape<{ direction: Direction }> = {
     main: { id: "staircase", title: "numbers one more than the one before", rep: "cells", sense: "max",
       sentence: p => `As many numbers as possible should be exactly 1 more than the number ${p.direction === "right" ? "to their left" : "above them"}.` },
-    tieBreakers: [zerosTie(), primesTie(), cornersTie()],
+    tieBreakers: [
+      more<{ direction: Direction }>("long-flight", "cells in the longest flight of stairs", "The longest flight of stairs should be as long as possible.", "cells"),
+      more<{ direction: Direction }>("double-stairs", "stairs that are also 1 more the other way",
+        p => `As many stairs as possible should also be 1 more than the number ${p.direction === "right" ? "above them" : "to their left"}.`, "cells"),
+      distance<{ direction: Direction }>("low-stairs", "the numbers the stairs climb from, added up", () => "The stairs should climb from numbers as small as possible.", "cells"),
+    ],
   };
   return family<{ direction: Direction }>("staircase", "Staircase", ["cells"], shape, [{ direction: "right" }, { direction: "down" }], (ctx, p) => {
     const cells = readCells(ctx, n);
@@ -142,7 +181,15 @@ export function staircase(n: number): RuleFamily<GridState, { direction: Directi
     const hits = lines.flatMap(l => l.slice(1).filter((i, k) => cells.v[i] === cells.v[l[k]!]! + 1));
     ctx.term("staircase", `numbers 1 more than the one ${p.direction === "right" ? "to their left" : "above them"}`, q(hits.length), cells.refs);
     focusAll(ctx, cells, hits);
-    ties(ctx, cells, n);
+    // A flight: stairs one after another along a row (or down a column), counting the cell it starts from.
+    let flight = 1;
+    for (const l of lines) { let run = 1; for (let k = 1; k < l.length; k++) { run = cells.v[l[k]!] === cells.v[l[k - 1]!]! + 1 ? run + 1 : 1; flight = Math.max(flight, run); } }
+    term(ctx, "long-flight", "cells in the longest flight of stairs", flight, cells.refs);
+    const back = p.direction === "right" ? n : 1;   // the number the other way: above, or to the left
+    const both = hits.filter(i => (p.direction === "right" ? i >= n : i % n > 0) && cells.v[i] === cells.v[i - back]! + 1);
+    term(ctx, "double-stairs", `stairs also 1 more than the number ${p.direction === "right" ? "above them" : "to their left"}`, both.length, cells.refs);
+    const before = p.direction === "right" ? 1 : n;   // the number before a stair: to its left, or above
+    term(ctx, "low-stairs", "the numbers the stairs climb from, added up", hits.reduce((t, i) => t + cells.v[i - before]!, 0), cells.refs);
   }, n);
 }
 
@@ -155,15 +202,27 @@ export function magicAccountant(n: number): RuleFamily<GridState, Accounts> {
   const shape: Shape<Accounts> = {
     main: distance<Accounts>("accounts", "every row (or column) adds up to the magic number",
       p => `Every ${p.axis === "rows" ? "row" : "column"} should add up to ${p.T}.`, "tally"),
-    tieBreakers: [zerosTie(), primesTie(), cornersTie()],
+    tieBreakers: [
+      distance<Accounts>("other-way", "the other way adds up to the magic number too",
+        p => `The ${p.axis === "rows" ? "columns" : "rows"} should add up to ${p.T} too.`, "tally"),
+      distance<Accounts>("diagonals", "both diagonals add up to the magic number", p => `Both diagonals should add up to ${p.T} too.`, "cells"),
+      more<Accounts>("all-different", "rows (or columns) of four different numbers", p => `Each ${p.axis === "rows" ? "row" : "column"} should hold four different numbers.`, "cells"),
+    ],
   };
-  const params = (["rows", "columns"] as const).flatMap(axis => [15, 16, 17, 18, 19, 20, 21].map(T => ({ axis, T })));
+  const params = (["rows", "columns"] as const).flatMap(axis => [17, 18, 19].map(T => ({ axis, T })));
   return family<Accounts>("magic-accountant", "Magic Accountant", ["tally", "cells"], shape, params, (ctx, p) => {
     const refs = rows(n).map((_, k) => ref("tally", `${p.axis === "rows" ? "row" : "col"}${k}`));
     const totals = refs.map(r => readNum(ctx, r));
     ctx.term("accounts", `how far the ${p.axis}' totals are from ${p.T}, added up`, q(totals.reduce((t, x) => t + Math.abs(x - p.T), 0)), refs);
     refs.forEach((r, k) => { const d = totals[k]! - p.T; ctx.mark(d === 0 ? { kind: "focus", ref: r } : { kind: "note", ref: r, text: d < 0 ? `${-d} short` : `${d} over` }); });
-    ties(ctx, readCells(ctx, n), n);
+    const other = p.axis === "rows" ? "columns" : "rows";
+    const otherRefs = rows(n).map((_, k) => ref("tally", `${p.axis === "rows" ? "col" : "row"}${k}`));
+    term(ctx, "other-way", `how far the ${other}' totals are from ${p.T}, added up`, otherRefs.reduce((t, r) => t + Math.abs(readNum(ctx, r) - p.T), 0), otherRefs);
+    const cells = readCells(ctx, n);
+    const diag = diagonals(n);
+    term(ctx, "diagonals", `how far the diagonals' totals are from ${p.T}, added up`, offTotals(cells.v, diag, p.T), diag.flat().map(i => cells.refs[i]!));
+    const dealt = p.axis === "rows" ? rows(n) : cols(n);
+    term(ctx, "all-different", `${p.axis} of ${n} different numbers`, dealt.filter(l => new Set(l.map(i => cells.v[i])).size === l.length).length, cells.refs);
   }, n);
 }
 
@@ -173,14 +232,21 @@ export function fillomino(n: number): RuleFamily<GridState, None> {
   const shape: Shape<None> = {
     main: more<None>("fillomino", "cells in patches of the right size",
       "Every patch of touching equal numbers should have as many cells as its number, like a 3 in a patch of three cells. Count the cells in patches of the right size.", "cells"),
-    tieBreakers: [primesTie(), zerosTie(), cornersTie()],
+    tieBreakers: [
+      more<None>("patch-kinds", "different numbers in right-size patches", "The right-size patches should use as many different numbers as possible.", "cells"),
+      more<None>("patch-count", "right-size patches", "There should be as many right-size patches as possible.", "cells"),
+      distance<None>("near-misses", "how far the wrong-size patches are from their numbers", () => "Every wrong-size patch should be as close to its number in size as possible.", "cells"),
+    ],
   };
   return family<None>("fillomino", "Fillomino", ["cells"], shape, [{}], ctx => {
     const cells = readCells(ctx, n);
-    const right = groups(n, cells.v, (a, b) => a === b).filter(g => cells.v[g[0]!]! > 0 && g.length === cells.v[g[0]!]).flat();
+    const patches = groups(n, cells.v, (a, b) => a === b).filter(g => cells.v[g[0]!]! > 0);   // patches of 0s never count
+    const fits = patches.filter(g => g.length === cells.v[g[0]!]), right = fits.flat();
     ctx.term("fillomino", "cells in patches of the right size", q(right.length), cells.refs);
     focusAll(ctx, cells, right);
-    ties(ctx, cells, n);
+    term(ctx, "patch-kinds", "different numbers in right-size patches", new Set(fits.map(g => cells.v[g[0]!])).size, cells.refs);
+    term(ctx, "patch-count", "right-size patches", fits.length, cells.refs);
+    term(ctx, "near-misses", "how far the wrong-size patches are from their numbers, added up", patches.reduce((t, g) => t + Math.abs(g.length - cells.v[g[0]!]!), 0), cells.refs);
   }, n);
 }
 

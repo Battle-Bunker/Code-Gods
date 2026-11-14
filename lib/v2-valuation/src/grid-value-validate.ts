@@ -11,7 +11,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { evaluateObject, rng, scoreOf, tieBreakersOn, type Score } from "@workspace/v2-core";
-import { gridSums, gridType, grid4 } from "@workspace/v2-grid";
+import { exactlySummed, gridSums, gridType, grid4 } from "@workspace/v2-grid";
 import { gridJointLaw } from "./exact-grid.ts";
 import { drawFromPi } from "./value-grid.ts";
 import { massOracle, sampledOracle, VALUE_CONFIG } from "./value.ts";
@@ -28,7 +28,7 @@ console.log("| Pairing | Scores checked | \\|z\\| > 2 | \\|z\\| > 3 | Worst \\|z
 console.log("|---|--:|--:|--:|--:|--:|");
 for (const f of gridType.families) {
   if (!gridSums[f.id] || (opt("family") && f.id !== opt("family"))) continue;
-  for (const tb of tieBreakersOn(f, grid4)) {
+  for (const tb of tieBreakersOn(f, grid4).filter(t => exactlySummed(f.id, t.id))) {
     const p = f.dealable(grid4)[0];
     const { entries } = gridJointLaw(gridType, f, p, grid4, tb.id);
     const exact = massOracle("exact", entries.map(e => ({ u: scoreOf(f, tb.id, id => e.terms[id === f.main.id ? 0 : 1]!).score, w: e.w })), 0);

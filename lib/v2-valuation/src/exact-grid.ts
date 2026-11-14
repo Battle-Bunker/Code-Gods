@@ -9,7 +9,7 @@
  * On a bounded board the law is exact (no outside mass).
  */
 import { evaluateSite, Qn, q, rng, ruleLayers, type ObjectType, type Q, type RuleFamily, type TieBreaker, type Undef, type Variant } from "@workspace/v2-core";
-import { cellProbability, gridParams, gridSums, type GridState } from "@workspace/v2-grid";
+import { cellProbability, exactlySummed, gridParams, gridSums, type GridState } from "@workspace/v2-grid";
 
 const W = Qn.toWire;
 const isUndef = (v: Q | Undef): v is Undef => typeof (v as Undef).undefined === "string";
@@ -28,16 +28,18 @@ export function gridJointLaw<P>(type: ObjectType<GridState>, family: RuleFamily<
   { readonly layers: readonly string[]; readonly entries: readonly { readonly terms: readonly Q[]; readonly w: number }[] } {
   const plan = gridSums[family.id];
   if (!plan) throw new Error(`${family.id}: no gridSums plan`);
+  if (!exactlySummed(family.id, tieBreaker)) throw new Error(`${family.id}+${tieBreaker}: the declared units do not cover this tie-breaker; it is sampled`);
   const { size, cap } = gridParams(variant);
   const layers = ruleLayers(family, tieBreaker).map(l => l.id);
-  const allLayers = [family.main, ...family.tieBreakers].map(l => l.id);
+  // The main layer and the tie-breakers the units cover (the others may read across units: they are not computed here).
+  const allLayers = [family.main, ...family.tieBreakers].map(l => l.id).filter(id => id === family.main.id || exactlySummed(family.id, id));
   const pick = layers.map(id => allLayers.indexOf(id));
   const units = plan.units(variant);
   const seen = new Set<number>();
   for (const u of units) for (const i of u) { if (seen.has(i)) throw new Error(`${family.id}: units overlap at cell ${i}`); seen.add(i); }
   const p = Array.from({ length: cap + 1 }, (_, x) => cellProbability(x, variant));
 
-  /** Every layer's term (main, then each tie-breaker in the family's order). */
+  /** Every covered layer's term (main, then each covered tie-breaker in the family's order). */
   const allTermsOf = (cells: readonly number[]): Q[] => {
     const e = evaluateSite(type, family, params, { cells }, variant, 0, null);
     return allLayers.map(id => {

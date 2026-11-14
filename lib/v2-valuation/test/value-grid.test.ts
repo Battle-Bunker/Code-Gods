@@ -7,7 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, evaluateObject, tieBreakersOn, type Score } from "@workspace/v2-core";
-import { gridSums, gridType2, grid2 } from "@workspace/v2-grid";
+import { exactlySummed, gridType2, grid2 } from "@workspace/v2-grid";
 import { gridValueFunction } from "../src/value-grid.ts";
 import { valueLookup } from "../src/value.ts";
 
@@ -25,7 +25,7 @@ for (const f of gridType2.families) {
     for (const s of boards) {
       const want = -Math.log2(mass.filter(m => compareScores(m.u, u(s)) >= 0).reduce((a, m) => a + m.w, 0));
       const got = look(u(s));
-      if (gridSums[f.id]) assert.ok(Math.abs(got.bits - want) <= 1e-4, `${gridType2.encode(s)}: ${got.bits} against ${want}`);
+      if (exactlySummed(f.id, tb)) assert.ok(Math.abs(got.bits - want) <= 1e-4, `${gridType2.encode(s)}: ${got.bits} against ${want}`);
       else {
         const half = (got.hi - got.lo) / 2, mid = (got.hi + got.lo) / 2;
         if (!(got.lo - 1e-4 <= want && want <= got.hi + 1e-4)) misses++;
