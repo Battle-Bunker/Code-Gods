@@ -64,11 +64,13 @@ project. We are in rapid exploration mode which is cheaper and faster than ever 
 backwards compatibility baggage and attachment to prior work is one of the biggest hazards to our rapid exploration
 priority." So, in v2 work (decision 15):
 
-- **Delete early.** Everything as it stood before v2 is on the branch `archive/engine-v1` (never push to it). What v1
-  can lose today is deleted now (integer and string objects, paid looks, tiers, hold rarity, score noise, every setup but
-  Annotated basics and its bidding twin); the rest of the old engine leaves `develop` as soon as v2 replaces it
-  (integration plan §5.8). Old code lives only on the archive branch: no legacy copies, no adapters, no frozen v1
-  directories kept "for reference" on `develop`.
+- **Delete old code early; never game rules.** Everything as it stood before v2 is on the branch `archive/engine-v1`
+  (never push to it). Old code leaves `develop` as soon as v2 replaces it (integration plan §5.8) and lives only on the
+  archive branch: no legacy copies, no adapters, no frozen v1 directories kept "for reference" on `develop`. The only
+  game features the owner asked to delete are integer and string objects. A session, not the owner, also deleted paid
+  looks, hold rarity, score noise and the other setups and credited the owner's decision 15 for it
+  (`docs/engine-v2/v1-audit.md`); those are open with the owner, and no session deletes a game feature again without
+  the owner's own words.
 - No compatibility with stored games, old calibration tables, old settings or the old event log.
 - Every operation is an affordance in one directory (`lib/v2-affordances`, owner decision 16) that generates the
   assistant tools, MCP, CLI, command palette and buttons; never add an operation to one surface by hand.
