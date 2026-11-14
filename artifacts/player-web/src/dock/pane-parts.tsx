@@ -13,6 +13,7 @@ import { api, useLive } from "@/site/lib/convex";
 import { objectWord, useGame } from "@/sdk";
 import { useRuntime } from "@/core/affordance-runtime";
 import { usePaneOps } from "./open-pane";
+import { paneErrorWords } from "./pane-error";
 
 export type PaneComponents = Partial<Record<string, () => ReactNode>>;
 /** A stored panel's pane (`panel:<slug>`). */
@@ -46,12 +47,14 @@ export function usePaneName(): (pane: string) => string {
     return paneTitle(pane);
   }, [panels, word]);
 }
-
 function PaneError({ error, resetError }: ErrorFallbackProps) {
+  const w = paneErrorWords(error);
   return (
     <div className="p-4 text-sm space-y-2" data-testid="pane-error" role="alert">
-      <p className="text-destructive">This pane could not load: {error instanceof Error ? error.message : String(error)}</p>
-      <button type="button" className="underline underline-offset-4" onClick={resetError}>Try again</button>
+      <p className="text-destructive">{w.text}</p>
+      <button type="button" className="underline underline-offset-4" data-testid="button-pane-retry" onClick={() => (w.reload ? window.location.reload() : resetError())}>
+        {w.reload ? "Try again (reloads the page)" : "Try again"}
+      </button>
     </div>
   );
 }
