@@ -1452,3 +1452,50 @@ height 100. Ladders for prime sizes now list every prime, so they climb smoothly
    catalogue's "effective levels". Every beginner primary in §9.2 passes. Secondaries marked *not dealt* in §8 fail it
    and should not be dealable.
 3. **Square Area needs a prime-climbing tie-breaker** under mixed costing, or it falls below the band.
+
+### 9.4 Brainstorm D, added after the cut-off
+
+[Brainstorm D](rule-brainstorm/d-number-theory.md) (number-theoretic ladders with proved reach, 16 families) reported
+after §7 merged. Its families merge into the table of §7.2 as follows:
+
+| D family | Merges with (§7.2) | Note |
+|---|---|---|
+| Prime Parade | Prime Staircase (K1, A15, C PT) | same primary |
+| Root Hunter | Pell Gradient (A8) | D proves 6.64 bits per digit of √2 |
+| Euclid's Staircase | Euclid's Long Way (A10) | D proves 2.33 bits per step |
+| Pythagoras' Corner, Congruent Corner | Pythagorean Area / Ladder (A4, B) | Congruent Corner's primary is yes/no: needs grading |
+| Square Steps | Square Terms (A16, K8, C ST) | bounded at 6 squares |
+| Pharaoh's Gradient | Egyptian Line (A12) | greedy expansion length |
+| ABC Line | Twin Sum (A26) family: the line through (1, 1) | secondary C/rad(abc) |
+| Circle Kiss | Tangent Circle / Ruler (A28, C RU) | its primary is a 3-level step (irrational, rational, whole): needs grading |
+| Cyclic Decimal | Long Division (C LD) | |
+| Prime Feedback | Cunningham Machine (A20) | seed 1 |
+| Amicable Line | Perfect Line (A13) | sporadic tops |
+| Rectangle Field | Whole Crossing / Pick's Pegs (C WC, A30) | divisors of the area |
+| **Coin Line** | new (Exact Change's opposite: no way to pay) | measured below |
+| **Divisibility Ladder** | new (Divisibility Treasure's run form) | measured below |
+| **Parabola Chord** | new (Parabola Kiss's two-crossing form) | measured below |
+
+**Graded and measured here** (two parts each, height 100, both laws; levels attained / effective):
+
+| Family | Parts (graded) | Mixed: levels; top | Digits: top |
+|---|---|---|--:|
+| Coin Line | ways to pay c → min; \|c − (ab − a − b)\| → min | P 5/2, S 7/7; 10.8 | 10.0 |
+| Divisibility Ladder | longest run of n with n \| y(n) (c ≠ 0) → max | 5/5; 10.8 (box-limited at k = 6) | 13.2 |
+| Parabola Chord | distance of m² + 4c from a square → min; crossings' distance from primes → min | P 8/2, S 6/3; 7.7 | 8.2 |
+
+**Reconciling with D's 40–80 bits.** D measures under the old digits law with a height cap of 10^6, and its depth comes
+from "larger" last components reached at very large coefficients. Inside a box of height 100 the same families top out
+near 8–13 bits, like the others. Mixed costing changes which far rungs are cheap:
+
+- Divisibility Ladder's rungs need c to be a multiple of lcm(1..k). These are smooth numbers, so they are now
+  **cheap**: lcm(1..16) = 720720 costs about 29 bits. That is below D's 41-bit top, and the ladder is shallower than D
+  measured.
+- D's prime-sieve rungs (prime coins in Coin Line, twin primes in Parabola Chord, prime hypotenuses in Pythagoras'
+  Corner) are now **dearer** than D measured, as in §9.1.
+
+D's structural finding is right under both laws, and this catalogue follows it: a tie-break earns bits only when it is
+cheaper than the primary's next step, so a deep ladder is a cheap whole-number condition, then a sieve, then "larger".
+But D's tops need re-measuring under mixed costing and graded rungs. Several of D's rungs are still yes/no (Congruent
+Corner's primary, Circle Kiss's three-level primary, Square Steps' and Cyclic Decimal's indicator secondaries), so they
+fail the owner's graded-rung rule as written.

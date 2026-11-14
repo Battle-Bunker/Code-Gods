@@ -1029,6 +1029,47 @@ function areaBelow(L) {
   return s;
 }
 
+const runCount = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
+// D: number-theoretic ladders (rule-brainstorm/d-number-theory.md), the three new ideas, graded
+ext({ id: "d-coin-line", name: "Coin Line", source: "D §9", lens: "general form as coins (Frobenius)", curriculum: "stretch: whole-number solutions of ax + by = c",
+  cards: ["Reading the line as a·x + b·y = c (coins worth a and b), the number of ways to pay c exactly should be as small as possible (none is best).", "c should be as close as possible to the biggest amount those coins cannot pay, a·b − a − b."],
+  parts: [
+    part("P", "ways to pay c", "ways", (L) => {
+      const w = ways(L);
+      return w && -L.C > 0 ? -w.length : null;
+    }, dist("4", "3", "2", "1", 0)),
+    part("S", "|c − (ab − a − b)|", "units", (L) => -Math.abs(-L.C - (L.A * L.B - L.A - L.B)), dist("32", "16", "8", "4", "2", "1", 0)),
+  ] });
+ext({ id: "d-divisibility-ladder", name: "Divisibility Ladder", source: "D §11", lens: "table", curriculum: "core: multiples; table of values",
+  cards: ["(The line must not pass through the origin.) y(1) should be a multiple of 1, y(2) of 2, y(3) of 3, and so on: the run of n for which y(n) is a multiple of n should be as long as possible."],
+  parts: [
+    part("P", "longest k with n | y(n) for n = 1..k", "steps", (L) => {
+      if (!L.nv || L.C === 0) return null; // through the origin every y(n) = m·n passes for free
+      let k = 0;
+      for (let n = 1; n <= 16; n++) {
+        const y = yAt(L, n);
+        if (y[1] === 1 && y[0] % n === 0) k = n;
+        else break;
+      }
+      return k;
+    }, runCount(16)),
+  ] });
+ext({ id: "d-parabola-chord", name: "Parabola Chord", source: "D §16", lens: "a curve on the plane", curriculum: "stretch: plotting y = x²",
+  cards: ["Where the line cuts y = x², m² + 4c should be as close as possible to a square number (then both crossing points are pegs when m is whole).", "The two crossing x-values should each be as close as possible to a prime (distances added)."],
+  parts: [
+    part("P", "distance of m² + 4c from a square", "units", (L) => {
+      if (!L.nv) return null;
+      const D = add(mul(L.m, L.m), mul([4, 1], L.c));
+      return val(D) < 0 ? -1e9 : -nearSquare(D).dist;
+    }, dist("8", "4", "2", "1", "1/2", "1/4", "1/8", 0)),
+    part("S", "distance of the crossings from primes", "units", (L) => {
+      const D = val(add(mul(L.m, L.m), mul([4, 1], L.c)));
+      if (D < 0) return -1e9;
+      const r = Math.sqrt(D), m = val(L.m);
+      return -[(m + r) / 2, (m - r) / 2].reduce((a, x) => a + distPrime(rat(Math.round(Math.abs(x) * 64), 64)), 0);
+    }, dist("8", "4", "2", "1", "1/2", 0)),
+  ] });
+
 // --------------------------------------------------------------------------------------------------------------
 // Levels
 // --------------------------------------------------------------------------------------------------------------
@@ -1064,7 +1105,7 @@ const firstNonRun = (L) => {
   const n = staircase(L);
   return yAt(L, n);
 };
-const runCount = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
+const runCountUnused = (k) => ({ rungs: Array.from({ length: k }, (_, i) => i + 1), labels: Array.from({ length: k }, (_, i) => `≥ ${i + 1}`) });
 export const BEGINNER = [
   {
     id: "prime-staircase", name: "Prime Staircase", source: "K1 (A15, C PT)", topic: "core: sequences (the nth term); primes under 50",
