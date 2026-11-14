@@ -22,9 +22,12 @@ def score(m, c, p):
 FAR = 4      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 SPEND = 0.25    # never spend more than a quarter of your energy on one move
+LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 
 def agent(offer):
+    if offer.object in LEAVE:   # a deal: leave this line alone
+        return None
     # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
     contested(offer, 3)

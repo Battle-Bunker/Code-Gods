@@ -65,11 +65,29 @@ export function findDeals(chat: readonly ChatRow[], window = 40): { deals: Deal[
   return { deals, proposals };
 }
 
-/** Whether a program keeps its agent off these lines: it reads offer.object and names every one of them. */
+/**
+ * The lines a program keeps its agent off: the numbers in a list or comparison tested against offer.object on the same
+ * line ([2, 9].includes(offer.object), offer.object in (2, 9), offer.object === 19), and in any list a name holds when
+ * that name is tested against offer.object (const LEAVE = [19]; … LEAVE.includes(offer.object)). Comments do not count.
+ */
+export function skippedLines(source: string): Set<number> {
+  const code = source.replace(/\/\/[^\n]*|#[^\n]*/g, "");
+  const out = new Set<number>();
+  const numbers = (text: string) => { for (const m of text.matchAll(/(?<![\w.])\d+(?![\w.])/g)) out.add(Number(m[0])); };
+  const names = new Set<string>();
+  for (const line of code.split("\n")) {
+    if (!/offer\.object/.test(line)) continue;
+    for (const m of line.matchAll(/\[([\d\s,]+)\]\s*\.includes\(\s*offer\.object\s*\)|offer\.object\s+in\s+[\[(]([\d\s,]+)[\])]|offer\.object\s*===?\s*(\d+)/g)) numbers(m[1] ?? m[2] ?? m[3] ?? "");
+    for (const m of line.matchAll(/(\w+)\.includes\(\s*offer\.object\s*\)|offer\.object\s+in\s+(\w+)/g)) names.add(m[1] ?? m[2]!);
+  }
+  for (const name of names) for (const m of code.matchAll(new RegExp(`\\b${name}\\s*=\\s*[\\[(]([\\d\\s,]*)[\\])]`, "g"))) numbers(m[1]!);
+  return out;
+}
+
+/** Whether a program keeps its agent off all these lines. */
 export function skipsLines(source: string, lines: readonly number[]): boolean {
-  if (!/offer\.object/.test(source)) return false;
-  const code = source.replace(/\/\/[^\n]*|#[^\n]*/g, "");   // a line number in a comment keeps nothing
-  return lines.every(l => new RegExp(`(^|[^\\w.])${l}(?![\\w.])`).test(code));
+  const skipped = skippedLines(source);
+  return lines.every(l => skipped.has(l));
 }
 
 /**
@@ -103,7 +121,7 @@ export function commitmentBriefing(commitments: readonly Commitment[]): string {
     if (c.status === "enacted") return `${head}your agents skip ${c.lines.length === 1 ? "it" : "them"}: kept.${theirs}`;
     const ids = c.lines.join(", ");
     return `${head}PENDING: your agents' code does not skip ${c.lines.length === 1 ? "it" : "them"} yet${c.myBreaks.length ? `, and they moved ${list([...new Set(c.myBreaks.map(b => b.line))])} against ${c.partner} since` : ""}. `
-      + `This turn, enact it (read the code with ${toolName("agent.programs")}; add at the top of agent(offer) if ([${ids}].includes(offer.object)) return null; in TypeScript or if offer.object in (${ids}${c.lines.length === 1 ? "," : ""}): return None in Python; ${toolName("agent.check")}, then ${toolName("agent.replace")}: an edit costs only the change, about 20 ⚡) or retract it in chat.${theirs}`;
+      + `This turn, enact it (read the code with ${toolName("agent.programs")}; if it has a LEAVE list, add ${ids} to it; otherwise add at the top of agent(offer) if ([${ids}].includes(offer.object)) return null; in TypeScript or if offer.object in (${ids}${c.lines.length === 1 ? "," : ""}): return None in Python; ${toolName("agent.check")}, then ${toolName("agent.replace")}: an edit costs only the change, about 20 ⚡) or retract it in chat.${theirs}`;
   });
   return `YOUR DEALS (read from the chat; you keep them, the game does not):\n${rows.join("\n")}`;
 }
