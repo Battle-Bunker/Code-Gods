@@ -1,5 +1,7 @@
-/** `rule.*`: the caller's private rule, its ladder and a level's rarity. */
+/** `rule.*`: the caller's private rule and what its scores are worth (its value function, owner decision 23). */
 import { OpFailure } from "@workspace/v2-affordances";
+import { scoreFromWire } from "@workspace/v2-core";
+import { curveOf, valueRecord, worthOf } from "../values";
 import { defineOp, seated } from "./define";
 
 async function myRule(env: Parameters<typeof seated>[0]) {
@@ -8,22 +10,24 @@ async function myRule(env: Parameters<typeof seated>[0]) {
   if (!r) throw new OpFailure("Your rule has not been dealt yet.");
   return r;
 }
-const rungs = (r: { ladder: { level: number; label: string; rarityBits: number; layer?: string }[] }) =>
-  r.ladder.map(({ level, label, rarityBits, layer }) => ({ level, label, rarityBits, ...(layer ? { layer } : {}) }));
 
 export const { op: explain, as: explainAs } = defineOp("rule.explain", "query", async env => {
   const r = await myRule(env);
   return {
-    family: r.family, params: r.params ?? {}, layers: r.layers, card: r.card, depends: r.depends, ladder: rungs(r),
+    family: r.family, params: r.params ?? {}, layers: r.layers, card: r.card, depends: r.depends,
     wonByBid: r.handicap !== undefined ? { handicap: r.handicap } : null,
   };
 });
 
-export const { op: ladder, as: ladderAs } = defineOp("rule.ladder", "query", async env => ({ rungs: rungs(await myRule(env)) }));
+/** The value function's knots, worst to best: what each score the rule can reach is worth. */
+export const { op: values, as: valuesAs } = defineOp("rule.values", "query", async env => {
+  const vf = valueRecord((await myRule(env)).ruleKey);
+  if (!vf) throw new OpFailure("Your rule has no value function on this deployment.");
+  return { points: curveOf(vf) };
+});
 
-export const { op: rarity, as: rarityAs } = defineOp("rule.rarity", "query", async (env, a) => {
-  const r = await myRule(env);
-  const rung = r.ladder.find(x => x.level === a.level);
-  if (!rung) throw new OpFailure(`Your rule has levels 0 to ${r.ladder.length - 1}.`);
-  return { level: rung.level, rarityBits: rung.rarityBits };
+/** What one score is worth under the caller's rule: bits and their interval (hi is Infinity past the last knot). */
+export const { op: worth, as: worthAs } = defineOp("rule.worth", "query", async (env, a) => {
+  const w = worthOf((await myRule(env)).ruleKey, scoreFromWire(a.score));
+  return { bits: w.bits, lo: w.lo, hi: Number.isFinite(w.hi) ? w.hi : null };
 });

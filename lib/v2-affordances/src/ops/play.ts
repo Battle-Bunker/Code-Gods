@@ -70,7 +70,7 @@ export const playOps = [
     id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",
     description: "The value in bits of one score of the caller's rule (a score tuple as object.score returns it), with the calibration's lower and upper bounds.",
     tooltip: "How rare a score is.", keywords: ["worth", "rarity", "bits", "how rare", "value"],
-    params: obj({ score: scoreWire }), result: z.object({ bits: z.number(), lo: z.number(), hi: z.number() }),
+    params: obj({ score: scoreWire }), result: z.object({ bits: z.number(), lo: z.number(), hi: z.number().nullable().describe("null past the rule's last measured score: at least lo.") }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

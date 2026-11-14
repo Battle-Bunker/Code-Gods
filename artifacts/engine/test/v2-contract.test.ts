@@ -45,7 +45,7 @@ test("every live query answers a seated player within its validator", async () =
 
   const rule = await ada.query("v2/play:myRule", { gameId });
   assert.equal(rule.family, "prime-gradient");
-  assert.ok(rule.ladder.length > 2 && rule.card.length > 0);
+  assert.ok(rule.value.knots.length > 2 && rule.card.length > 0);
   const me = await ada.query("v2/play:me", { gameId });
   assert.equal(me.memberId, header.me);
   for (const sort of ["points", "rarity", "want", "born", "recent"]) {

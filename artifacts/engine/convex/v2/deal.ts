@@ -1,7 +1,7 @@
 /**
  * The deal (spec §7.6, integration plan §4.3): which rule each seat holds. A dealt rule is a family's main layer plus
- * one of its tie-breakers, with parameters from the family's dealable grid, and is dealt only when its artefact is
- * committed and dealable. Pure: the lobby (ops/game.ts) persists the result.
+ * one of its tie-breakers, with parameters from the family's dealable grid, and is dealt only when it has a value
+ * function (owner decision 23). Pure: the lobby (ops/game.ts) persists the result.
  *
  * Rotation (copied and cleaned from v1's lib/dealRotation.ts, docs/beginner-pool.md §6): when a room plays again with
  * the same players and the same deal key, the last game's rules pass one seat along, so over as many games as there
@@ -9,14 +9,14 @@
  * then the next game is dealt afresh. A deal made with winning bids never
  * rotates and never continues a rotation.
  */
-import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type Rng, type RuleFamily, type Rung } from "@workspace/v2-core";
+import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
 import { CATALOGUE } from "@workspace/v2-agents/pure";
-import { findVariant, objectTypes, ruleKey, rungBits } from "@workspace/v2-valuation";
-import { artefactFor, dealable } from "./artefacts.ts";
+import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
+import { topBits, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
 
-/** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its artefact. */
+/** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its value function. */
 export interface DealtRule { family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string }
 
 /** Every object type's families, by id (ids are unique across types: test/unit/v2-deal.test.ts checks it). */
@@ -29,7 +29,7 @@ export function familyOf(id: string): RuleFamily<unknown, unknown> {
 
 const pools = new Map<string, DealtRule[]>();
 /**
- * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a dealable artefact (spec §7.5, call (g))
+ * Every rule the preset may deal: its pool's (family, parameters, tie-breaker) with a value function (decision 23)
  * and shipped starters (a player, or a practice partner, must be able to summon one: integration plan §5.2).
  */
 export function dealablePool(preset: Preset): DealtRule[] {
@@ -44,8 +44,8 @@ function buildPool(preset: Preset): DealtRule[] {
     if (!FAMILIES.has(r.family) || !CATALOGUE.some(e => e.family === r.family)) continue;
     for (const tb of r.tieBreakers) {
       const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
-      const a = artefactFor(key);
-      if (dealable(a)) out.push({ family: r.family, params: r.params, tieBreaker: tb, ruleKey: key, contentHash: a.contentHash });
+      const vf = valueRecord(key);
+      if (vf) out.push({ family: r.family, params: r.params, tieBreaker: tb, ruleKey: key, contentHash: vf.contentHash });
     }
   }
   return out;
@@ -67,7 +67,7 @@ export function freshDeal(pool: readonly DealtRule[], seats: number, seed: strin
 export const dealRng = (seed: string): Rng => rng(seed, "deal");
 /** A fresh deal drawn from `r`. */
 export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng): DealtRule[] {
-  if (pool.length === 0) throw new Error("No rule of this preset has a dealable artefact: nothing can be dealt");
+  if (pool.length === 0) throw new Error("No rule of this preset is dealable (none has a value function): nothing can be dealt");
   const order = [...pool];
   for (let i = order.length - 1; i > 0; i--) {
     const j = r.below(i + 1);
@@ -95,14 +95,13 @@ export function bidDealer(pool: readonly DealtRule[]): BidDealer<DealtRule> {
   };
 }
 
-/** The families on offer in a bid phase: each with its card and its ladder's top (✨ bits, rounded). */
+/** The families on offer in a bid phase: each with its card and the most ✨ bits its rules reach (rounded to 0.1). */
 export function offers(pool: readonly DealtRule[]) {
   const out: { family: string; title: string; card: string; top: number }[] = [];
   for (const id of [...new Set(pool.map(r => r.family))]) {
     const rules = pool.filter(r => r.family === id), f = familyOf(id);
-    // Each rule's top is its cap's value (call (g)): the rungs above it are not dealt.
-    const top = Math.max(...rules.map(r => { const a = artefactFor(r.ruleKey); return a ? rungBits(a, a.cap) : 0; }));
-    out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top) });
+    const top = Math.max(...rules.map(r => { const vf = valueRecord(r.ruleKey); return vf ? topBits(vf) : 0; }));
+    out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top * 10) / 10 });
   }
   return out;
 }
@@ -150,29 +149,10 @@ export function rotatedDeal(members: readonly string[], dealKey: string, history
 
 // ---------------------------------------------------------------- the player's card
 
-export interface RuleView {
-  title: string; card: string; depends: string[]; primary: string; layers: string[];
-  ladder: { level: number; label: string; rarityBits: number; layer?: string }[];
-}
+export interface RuleView { title: string; card: string; depends: string[]; primary: string; layers: string[] }
 
-/** What the player is shown about a dealt rule: its card, layers and ladder with each rung's ✨ rarity (artefact bits). */
+/** What the player is shown about a dealt rule: its card and layers (its value function is `valueRecord(ruleKey)`). */
 export function ruleView(rule: DealtRule): RuleView {
-  const f = familyOf(rule.family), a = artefactFor(rule.ruleKey);
-  if (!a) throw new Error(`No artefact for ${rule.ruleKey}`);
-  const layers = ruleLayers(f, rule.tieBreaker).map(l => l.id);
-  return {
-    title: f.title, card: f.card(rule.params, rule.tieBreaker), depends: [...f.depends], primary: f.main.rep, layers,
-    // The dealt ladder stops at the cap (call (g)): the rungs above it did not converge, and lines there score as the cap.
-    ladder: a.rungs.slice(0, a.cap + 1).map((r, level) => ({ level, label: r.label, rarityBits: rungBits(a, level), ...(r.layer >= 0 ? { layer: layers[r.layer]! } : {}) })),
-  };
-}
-
-/**
- * The ladder of a dealt rule as v2-core compares scores on it (from the artefact, so levels and bits agree): up to the
- * cap (call (g)), with each rung's main level (a joint ladder's levelOf needs it).
- */
-export function artefactLadder(rule: DealtRule): Rung[] {
-  const a = artefactFor(rule.ruleKey);
-  if (!a) throw new Error(`No artefact for ${rule.ruleKey}`);
-  return a.rungs.slice(0, a.cap + 1).map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) }));
+  const f = familyOf(rule.family);
+  return { title: f.title, card: f.card(rule.params, rule.tieBreaker), depends: [...f.depends], primary: f.main.rep, layers: ruleLayers(f, rule.tieBreaker).map(l => l.id) };
 }

@@ -43,7 +43,7 @@ export const header = internalQuery({
     const rules = [];
     for (const s of game.roster) {
       const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", s.memberId)).unique();
-      if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, ladder: r.ladder, handicap: r.handicap ?? null });
+      if (r) rules.push({ memberId: r.memberId, family: r.family, params: r.params, tieBreaker: r.tieBreaker, ruleKey: r.ruleKey, card: r.card, layers: r.layers, contentHash: r.contentHash, handicap: r.handicap ?? null });
     }
     const { _id, _creationTime, replayFile: _, ...rest } = game;
     return { game: { gameId: _id, ...rest }, rules };
