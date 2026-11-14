@@ -5,7 +5,7 @@
  * proportional to its settled energy and an object uniformly, run the act in the sandbox (`runAct`, lib/v2-agents),
  * and send everything to `loop:commit`, which owns every write. Deterministic given the seed and the tick's inputs.
  */
-import { births, runAct } from "@workspace/v2-agents";
+import { runAct } from "@workspace/v2-agents";
 import { hash64, rng } from "@workspace/v2-core";
 import { actCredit, affordable, agentIncome, energyCapacity, opportunities, pickByEnergy, readCharge, settle } from "@workspace/v2-economy";
 import { makeFunctionReference } from "convex/server";
@@ -14,7 +14,7 @@ import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
-import { decode, encode, typeOf, variantOf } from "./world";
+import { birthDraws, decode, typeOf, variantOf } from "./world";
 import { valueRecord } from "./values";
 
 type Snapshot = {
@@ -49,7 +49,8 @@ export const tick = internalAction({
       const r = rng(snap.seed, "tick", snap.tick);
 
       const nBorn = opportunities(econ.birthsPerSecond, dt, r);
-      const born = Array.from({ length: nBorn }, (_, i) => encode(births(typeOf(snap.variant), variant, `${snap.seed}:${snap.objects + i + 1}`, 1)[0]!, snap.variant));
+      // Each birth's first draws: the commit places the first that no object holds (decision 24).
+      const born = Array.from({ length: nBorn }, (_, i) => birthDraws(snap.variant, `${snap.seed}:${snap.objects + i + 1}`));
       const nOffers = snap.objects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
       const picks = Array.from({ length: nOffers }, () => 1 + r.below(snap.objects));
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));

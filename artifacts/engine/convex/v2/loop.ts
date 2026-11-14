@@ -7,12 +7,11 @@
  * Copied and cleaned in spirit from v1's engine/loop.ts (lease, commit pattern); nothing is imported from it.
  */
 import { agentIncome, chargeAct, energyCapacity, readCharge, settle, type Account } from "@workspace/v2-economy";
-import { births } from "@workspace/v2-agents/pure";
 import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { decode, encode, typeOf, valuesOf, variantOf, type SeatRule, type Value } from "./world.ts";
+import { decode, distinctBirths, heldReason, valuesOf, type SeatRule, type Value } from "./world.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -67,6 +66,16 @@ export async function appendEvent(ctx: MutationCtx, gameId: Id<"v2Games">, kind:
 }
 
 // ---------------------------------------------------------------- values in the read model
+
+/** The object of the game that holds `state`, other than `except` (decision 24), or null: one index read. */
+async function holderOf(ctx: MutationCtx, gameId: Id<"v2Games">, state: string, except?: Id<"v2Objects">) {
+  for (const row of await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", gameId).eq("state", state)).take(2)) {
+    if (row.objectId === except) continue;
+    const object = await ctx.db.get(row.objectId);
+    return { objectId: row.objectId, number: object?.number ?? 0 };
+  }
+  return null;
+}
 
 /** Writes a new object's state and every player's value; returns the values. */
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {
@@ -178,10 +187,9 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number)
 export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase !== "planning") return;
   const now = Date.now(), seats = await seatRules(ctx, game);
-  const states = births(typeOf(game.variant), variantOf(game.variant), game.seed, game.settings.startingObjects);
+  const states = distinctBirths(game.variant, game.seed, game.settings.startingObjects);
   const changes = [];
-  for (const [i, s] of states.entries()) {
-    const wire = encode(s, game.variant);
+  for (const [i, wire] of states.entries()) {
     const { objectId, values } = await addObject(ctx, game, seats, i + 1, wire, 0);
     changes.push({ number: i + 1, values });
     await appendEvent(ctx, game._id, "objectBorn", { objectId, number: i + 1, state: wire, worldSeconds: 0 });
@@ -344,7 +352,7 @@ const actV = v.object({
  * when world time is up, and the next tick.
  */
 export const commit = internalMutation({
-  args: { gameId: v.id("v2Games"), leaseId: v.string(), world: v.number(), now: v.number(), born: v.array(v.string()), acts: v.array(actV), picks: v.number() },
+  args: { gameId: v.id("v2Games"), leaseId: v.string(), world: v.number(), now: v.number(), born: v.array(v.array(v.string())), acts: v.array(actV), picks: v.number() },
   handler: async (ctx, a) => {
     const game = await ctx.db.get(a.gameId);
     const engine = game && await engineOf(ctx, a.gameId);
@@ -357,7 +365,11 @@ export const commit = internalMutation({
     // Acts are numbered by the tick's opportunities (their seeds are `act:<n>`), whether or not each one ran.
     let objects = engine.objects, acts = engine.acts + a.picks, moves = engine.moves;
 
-    for (const wire of a.born) {
+    for (const draws of a.born) {
+      // The first draw no object holds (decision 24); none of them free (vanishingly rare): no birth.
+      let wire: string | undefined;
+      for (const d of draws) if (!await holderOf(ctx, game._id, d)) { wire = d; break; }
+      if (wire === undefined) continue;
       const number = ++objects;
       const { objectId, values } = await addObject(ctx, game, seats, number, wire, world);
       changes.push({ number, values });
@@ -377,9 +389,12 @@ export const commit = internalMutation({
       // What happened (spec §6.1, docs/energy-model.md §7.2): a change commits only on the state it was made on, and
       // only if paying for it leaves the agent owing at most its capacity; otherwise it pays for its reads alone.
       const verdict = act.verdict as "committed" | "stale" | "unaffordable" | "skipped" | "failed";
-      const committed = verdict === "committed" && st.version === act.version;
-      const outcome = verdict === "committed" && !committed ? "stale" : verdict;
-      const charge = committed || outcome === "skipped" || outcome === "failed" ? record.charge : readCharge(record.readBits);
+      const current = verdict === "committed" && st.version === act.version;
+      // Decision 24: a move onto a state another object holds is refused like an invalid call (it pays its reads).
+      const holder = current ? await holderOf(ctx, game._id, record.after, act.objectId) : null;
+      const committed = current && !holder;
+      const outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
+      const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
       const charged = chargeAct(account, charge);
       const n = act.n;
       await ctx.db.patch(energy._id, {
@@ -391,6 +406,7 @@ export const commit = internalMutation({
         seed: act.seed, energy: act.energy, liveObjects: act.liveObjects, program: { version: act.programVersion, language: agent.language },
         ...(act.input ? { input: act.input } : {}),
         ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
+        ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
       });
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);

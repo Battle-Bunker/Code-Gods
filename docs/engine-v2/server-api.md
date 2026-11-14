@@ -65,6 +65,12 @@ destroy, allocate), `phase`, `objectBorn`, `values` (per player utility and bits
 seed, energy, offered object, program version), `tick` (standings), `gameEnded`. Folding `values` gives the standings;
 every `act` re-executes from its own fields (test/v2-game.test.ts).
 
+Unique objects (spec §2.6, decision 24): no two objects of a game hold the same state. The starting objects are the
+seeded birth walk's first distinct draws; a later birth takes the first of its walk's draws no object holds (`BIRTH_DRAWS`,
+world.ts). A committed act whose state another object holds (index `v2ObjectStates.by_game_state`, one read) is
+refused at commit like an invalid call: outcome `failed`, a `reason` naming the other object, its reads charged only.
+Stored games that already hold duplicates keep them.
+
 A game's seed decides its births and every act's seed, so `game.rematch` (the room's last game dealt again: the same
 rule to each player and the same seed) starts from the same objects; only the players' programs and choices differ.
 

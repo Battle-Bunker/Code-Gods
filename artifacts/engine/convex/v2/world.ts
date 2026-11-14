@@ -7,6 +7,7 @@ import { evaluateObject, scoreToWire, type ObjectType } from "@workspace/v2-core
 import { findVariant } from "@workspace/v2-valuation";
 import { familyOf, type DealtRule } from "./deal.ts";
 import { worthOf } from "./values.ts";
+import { births } from "@workspace/v2-agents/pure";
 
 export interface SeatRule { memberId: string; rule: DealtRule }
 export interface Value { memberId: string; score: (string | null)[] | null; rarityBits: number; want: number; points: number }
@@ -33,4 +34,28 @@ export function valuesOf(state: unknown, variantId: string, seats: readonly Seat
     const want = total - v.rarityBits;
     return { ...v, want, points: v.rarityBits * want };
   });
+}
+
+// ---------------------------------------------------------------- unique objects (spec §2.6, owner decision 24)
+
+/** Draws a later birth may take: the first not held wins (a commit refuses to place a duplicate). */
+export const BIRTH_DRAWS = 8;
+
+/** A birth's candidate states, in the order of its seeded birth walk (encoded). */
+export function birthDraws(variantId: string, seed: string, draws = BIRTH_DRAWS): string[] {
+  return births(typeOf(variantId), variantOf(variantId), seed, draws).map(s => encode(s, variantId));
+}
+
+/** The game's starting objects: the seeded birth walk's draws, skipping any state already drawn (never a duplicate). */
+export function distinctBirths(variantId: string, seed: string, count: number): string[] {
+  for (let draws = count; ; draws *= 2) {
+    const distinct = [...new Set(birthDraws(variantId, seed, draws))];
+    if (distinct.length >= count || draws > 64 * count + 64) return distinct.slice(0, count);
+  }
+}
+
+/** "Another line (line 4) is already in that state": why a move onto a held state is refused. */
+export function heldReason(variantId: string, number: number): string {
+  const one = typeOf(variantId).id === "grid" ? "grid" : "line";
+  return `another ${one} (${one} ${number}) is already in that state: no two ${one}s may be the same`;
 }
