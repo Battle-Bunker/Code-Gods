@@ -36,16 +36,16 @@ test("after the end the results are shown first even when not open", () => {
 
 test("opening a pane on an empty view keeps the defaults first, and the pane joins at its home", () => {
   const ops = openPlan(EMPTY_VIEW, "planning", "public-chat");
-  assert.deepEqual(ops.map(o => o.args.pane), [...defaultPanes("planning").map(p => p.pane), "public-chat"]);
+  assert.deepEqual(ops.map(o => o.args.pane), [...defaultPanes("planning").map(p => p.pane), "public-chat", "public-chat"]);
   assert.ok(ops.every(o => o.id === "view.openPane"));
-  assert.deepEqual(ops.at(-1)!.args, { pane: "public-chat", place: "right" });
+  assert.deepEqual(ops.slice(-2).map(o => o.args), [{ pane: "public-chat", place: "right" }, { pane: "public-chat" }], "joins at its home, then comes to the front");
 });
 
 test("opening a pane never closes another (round 1: One line evicted What just changed)", () => {
   const full = { panes: [...defaultPanes("live"), { pane: "object", place: "main" as const }, { pane: "public-chat", place: "right" as const }] };
   for (const pane of ["rules", "assistant", "others-care", "points-over-time"]) {
     const ops = openPlan(full, "live", pane);
-    assert.deepEqual(ops.map(o => o.id), ["view.openPane"], pane);
+    assert.deepEqual(ops.map(o => o.id), ["view.openPane", "view.openPane"], pane);
   }
   assert.equal(shownPanes({ panes: [...full.panes, { pane: "rules", place: "main" }] }, "live").length, 8);
 });
@@ -146,5 +146,5 @@ test("arranging panes in a replay keeps the replay open", () => {
 });
 
 test("opening one line keeps every pane", () => {
-  assert.deepEqual(openPlan({ panes: defaultPanes("live") }, "live", "object"), [{ id: "view.openPane", args: { pane: "object", place: "main" } }]);
+  assert.deepEqual(openPlan({ panes: defaultPanes("live") }, "live", "object"), [{ id: "view.openPane", args: { pane: "object", place: "main" } }, { id: "view.openPane", args: { pane: "object" } }]);
 });

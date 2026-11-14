@@ -64,15 +64,16 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
   }, [name]);
   useEffect(() => { apply(tree); }, [tree, apply]);
 
-  /** The human changed the dock: store it when it differs from the arrangement drawn. */
-  const save = useCallback(() => {
+  /** The human changed the dock: store it when it differs from the arrangement drawn (true when it is being stored). */
+  const save = useCallback((): boolean => {
     const dock = api.current;
-    if (!dock) return;
+    if (!dock) return false;
     const now = fromDockview(dock.toJSON());
-    if (!now || sameDock(now, treeNow.current)) return;
+    if (!now || sameDock(now, treeNow.current)) return false;
     void rt.perform("view.arrangeDock", { dock: formatDock(now), phase: kind }).then(out => {
       if (!out.ok) { toast({ title: "The screen did not change", description: out.error.message, variant: "destructive" }); apply(treeNow.current); }
     });
+    return true;
   }, [rt, kind, apply]);
 
   const onReady = useCallback((event: DockviewReadyEvent) => {
@@ -92,7 +93,8 @@ export default function DesktopDock({ phase }: { phase: GamePhase }) {
     const el = container.current;
     if (!el) return;
     let watchdog: ReturnType<typeof setTimeout> | undefined;
-    const finish = () => { gesture.current = false; saveLatest.current(); applyLatest.current(treeNow.current); };
+    // A stored change reaches the dock as the next arrangement drawn; anything else the gesture left is put back.
+    const finish = () => { gesture.current = false; if (!saveLatest.current()) applyLatest.current(treeNow.current); };
     // After dockview has finished the move.
     const end = () => { clearTimeout(watchdog); if (gesture.current) requestAnimationFrame(finish); };
     const start = () => {

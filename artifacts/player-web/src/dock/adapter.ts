@@ -10,7 +10,7 @@
  * container and back. Floating and pop-out groups are turned off in the dock, so they are not read back.
  */
 import type { GroupviewPanelState, Orientation, SerializedDockview, SerializedGridObject } from "dockview-react";
-import { isGroup, normaliseDock, type DockDirection, type DockNode } from "@workspace/v2-affordances";
+import { dockPanes, isGroup, normaliseDock, type DockDirection, type DockNode } from "@workspace/v2-affordances";
 
 type Size = { width: number; height: number };
 /** A group as dockview serialises it (its type is not exported by name). */
@@ -47,10 +47,7 @@ export function toDockview(tree: DockNode, size: Size = DEFAULT_SIZE, title: (pa
   const root: Grid = isGroup(tree)
     ? { type: "branch", size: across, data: [toGrid(tree, other(direction), along, across)] }
     : toGrid(tree, direction, across, along);
-  const panes: string[] = [];
-  const collect = (n: DockNode) => (isGroup(n) ? panes.push(...n.tabs) : n.children.forEach(collect));
-  collect(tree);
-  return { grid: { root, width, height, orientation: ORIENTATION[direction] as Orientation }, panels: Object.fromEntries(panes.map(p => [p, panelOf(p, title(p))])) };
+  return { grid: { root, width, height, orientation: ORIENTATION[direction] as Orientation }, panels: Object.fromEntries(dockPanes(tree).map(p => [p, panelOf(p, title(p))])) };
 }
 
 function fromGrid(grid: Grid, orientation: DockDirection, known: ReadonlySet<string>): DockNode | null {

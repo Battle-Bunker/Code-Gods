@@ -173,7 +173,9 @@ export const DEFAULT_DOCKS: Readonly<Record<DockKind, string>> = {
   ended: "row(my-card 28, results 44, race 28)",
   replay: "row(my-card 28, objects 42, column(feed 50, race 50) 30)",
 };
-export const defaultDock = (kind: DockKind): DockNode => parseDock(DEFAULT_DOCKS[kind]);
+const DEFAULT_TREES = Object.fromEntries(DOCK_KINDS.map(k => [k, parseDock(DEFAULT_DOCKS[k])])) as Record<DockKind, DockNode>;
+/** A screen's default arrangement (parsed once; the trees are never changed in place). */
+export const defaultDock = (kind: DockKind): DockNode => DEFAULT_TREES[kind];
 
 /** Where a pane goes when it is opened; the same four places the pane menu offers. */
 export type DockPlace = "main" | "left" | "right" | "bottom";
@@ -202,15 +204,16 @@ function replaceAt(n: DockNode, path: readonly number[], f: (m: DockNode) => Doc
 
 const EDGE = 1e-6;
 /**
- * The group a place means: the biggest group for "main", else the last group (the lowest, then the rightmost) along
- * that edge. A group showing the assistant's conversation is passed over while there is another: what the assistant
+ * The group a place means: the biggest group for "main", the widest group along the bottom for "bottom", else the last
+ * group (the lowest) along that edge. A group showing the assistant's conversation is passed over while there is another: what the assistant
  * opens for the human never covers the conversation they are having with it.
  */
 function anchorOf(all: Leaf[], place: DockPlace): Leaf {
   const free = all.filter(l => l.group.active !== "assistant");
   const leaves = free.length ? free : all;
   const along = (f: (r: Rect) => boolean) => leaves.filter(l => f(l.rect)).at(-1);
-  const edge = place === "left" ? along(r => r.x < EDGE) : place === "right" ? along(r => r.x + r.w > 1 - EDGE) : place === "bottom" ? along(r => r.y + r.h > 1 - EDGE) : undefined;
+  const bottom = leaves.filter(l => l.rect.y + l.rect.h > 1 - EDGE).reduce<Leaf | undefined>((best, l) => (!best || l.rect.w > best.rect.w + EDGE ? l : best), undefined);
+  const edge = place === "left" ? along(r => r.x < EDGE) : place === "right" ? along(r => r.x + r.w > 1 - EDGE) : place === "bottom" ? bottom : undefined;
   return edge ?? leaves.reduce((best, l) => (l.rect.w * l.rect.h > best.rect.w * best.rect.h + EDGE ? l : best));
 }
 

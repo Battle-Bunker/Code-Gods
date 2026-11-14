@@ -144,12 +144,12 @@ try {
     await frame.getByTestId("example-phase").getByText(/^The game is (live|ended)\.$/).waitFor({ timeout: 30_000 });
 
     // Off and on: the pane says it is off, then runs again.
-    await front(`panel:${slug}`);
     await mine.getByTestId(`button-panel-toggle-${slug}`).click();
-    await pane.getByTestId("stored-panel-off").waitFor({ timeout: 20_000 });
+    // On a desktop the panel may be a tab behind another (its content stays mounted): attached is enough here.
+    await pane.getByTestId("stored-panel-off").waitFor({ state: "attached", timeout: 20_000 });
     await mine.getByTestId(`button-panel-toggle-${slug}`).click();
-    await pane.locator("iframe").waitFor({ timeout: 20_000 });
-    await pane.frameLocator("iframe").getByTestId("example-phase").waitFor({ timeout: 30_000 });
+    await pane.locator("iframe").waitFor({ state: "attached", timeout: 20_000 });
+    await pane.frameLocator("iframe").getByTestId("example-phase").waitFor({ state: "attached", timeout: 30_000 });
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     assert.ok(overflow <= 0, `${label}: the page does not scroll sideways (${overflow}px)`);
@@ -157,7 +157,7 @@ try {
     // Delete (a modal confirmation): the list loses it and its pane says so.
     await confirmed(page, `button-panel-remove-${slug}`);
     await mine.getByTestId(`row-panel-${slug}`).waitFor({ state: "detached", timeout: 20_000 });
-    await pane.getByTestId("stored-panel-missing").waitFor({ timeout: 20_000 });
+    await pane.getByTestId("stored-panel-missing").waitFor({ state: "attached", timeout: 20_000 });
     assert.deepEqual(errors, [], `${label}: no page errors`);
     console.log(`${label}: saved with diagnostics, opened, live phase seen in the frame, versions, off/on and delete`);
     } catch (e) {

@@ -16,7 +16,7 @@ const done = z.object({ ok: z.literal(true), layoutVersion: z.number().int() });
 export const viewOps = [
   affordance({
     id: "view.openPane", title: "Open a pane", group: "view", scope: "room",
-    description: "Opens a pane on the human's screen (and every client they have open), optionally at a place.",
+    description: "Opens a pane on the human's screen (and every client they have open), in front; given a place, it joins that place behind the tab shown there (open it again without a place to bring it to the front). An open pane given a place moves there.",
     tooltip: "Show a pane.", keywords: ["open", "show", "panel", "window"],
     params: obj({ pane, place: place.optional() }), result: done,
     contexts: IN_ROOM, caller: "member", effect: "write", confirm: "none", runs: "client",
@@ -35,10 +35,10 @@ export const viewOps = [
   }),
   affordance({
     id: "view.arrangeDock", title: "Arrange the dock", group: "view", scope: "room",
-    description: "Sets how the panes of one game screen are laid out on the human's desktop (kept for the room and every device; the phone stacks panes). "
-      + "Text form: row(...) side by side, column(...) one above the other, a number after a child is its weight (a share, not pixels), "
-      + "a|b is one group with tabs a and b, * marks the tab shown. Example: row(column(my-card 50, agents 50) 28, objects 42, column(feed 55, race|*public-chat 45) 30). "
-      + "Panes it leaves out keep their default place; panes it names that are not open are ignored. Empty text restores the screen's default arrangement.",
+    description: "Lays out one game screen's panes on the human's desktop (kept for the room on every device; phones stack panes). "
+      + "Text: row(...) side by side, column(...) stacked, a number after a child is its weight (a share), "
+      + "a|b is one group with tabs a and b, * marks the tab shown, e.g. row(column(my-card 50, agents 50) 30, objects 40, feed|*race 30). "
+      + "Open panes it leaves out join behind a tab at their place; closed panes it names show there once opened. Empty text restores the default.",
     tooltip: "Lay out the screen.", keywords: ["arrange", "layout", "dock", "resize", "split", "tabs", "columns"],
     params: obj({
       dock: z.string().max(DOCK_LIMITS.text).describe("The arrangement in the text form above, or empty for the default."),

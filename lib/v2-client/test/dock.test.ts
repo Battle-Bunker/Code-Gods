@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EMPTY_VIEW, PRINCIPALS, applyView, dockGroups, dockPanes, formatDock, parseDock, type AffordanceContext, type ViewState } from "@workspace/v2-affordances";
-import { defaultPanes, dockFor, openPlan, type GamePhase } from "../src/panels.ts";
+import { closePlan, defaultPanes, dockFor, openPlan, type GamePhase } from "../src/panels.ts";
 
 const ctx = (context: AffordanceContext["context"]): AffordanceContext => ({ context, principal: PRINCIPALS.seated! });
 /** The panes in front (one per group: what is on screen). */
@@ -85,4 +85,22 @@ test("after the end the results keep their full height: panes carried from the l
   const ended = dockFor(v, "ended")!;
   assert.deepEqual(visible(v, "ended").sort(), ["my-card", "race", "results"]);
   assert.equal(dockGroups(ended).length, 3, formatDock(ended));
+});
+
+test("a default closed in the next game's planning stays closed, and keeps its place on the live screen", () => {
+  // Catches: the planning defaults rejoining for good once a live game stored its panes (review), and a close in one
+  // screen erasing the pane's place in another.
+  let v = run(EMPTY_VIEW, [{ id: "view.arrangeDock", args: { dock: "row(objects 50, feed|race 50)" } }], "live");
+  v = run(v, openPlan(v, "live", "public-chat"), "live");
+  v = run(v, closePlan(v, "planning", "overview"), "planning");
+  assert.ok(!dockPanes(dockFor(v, "planning")).includes("overview"), formatDock(dockFor(v, "planning")!));
+  assert.deepEqual(dockPanes(dockFor(v, "planning")).sort(), ["agents", "forge", "my-card", "public-chat"], "panes opened in the live game that planning can show stay");
+  const live = formatDock(dockFor(v, "live")!);
+  assert.ok(live.startsWith("row(objects") && /, feed\|race\|/.test(live) && visible(v, "live").includes("objects"), live);
+});
+
+test("opening a pane does not bring the screen's other panes in front of the tabs the human chose", () => {
+  const v = run(EMPTY_VIEW, [{ id: "view.arrangeDock", args: { dock: "row(column(my-card, agents) 30, objects 40, column(race|*feed, public-chat) 30)" } }], "live");
+  const after = run(v, openPlan(v, "live", "rules"), "live");
+  assert.ok(visible(after, "live").includes("feed") && visible(after, "live").includes("rules"), formatDock(dockFor(after, "live")!));
 });

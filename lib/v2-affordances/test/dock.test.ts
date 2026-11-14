@@ -59,6 +59,8 @@ test("moving or closing a pane takes it out of every arrangement; reopening an o
 test("opening a pane shows it on the screen in view and takes nothing away; one line opens below the lines", () => {
   // Catches: opening a pane evicting another (round 1: One line evicted What just changed).
   let v = applyView(EMPTY_VIEW, "view.openPane", { pane: "public-chat", place: "right" }, live).view;
+  assert.equal(formatDock(v.dock.live!), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race|public-chat 50) 30)", "at a place: behind the tab there");
+  v = applyView(v, "view.openPane", { pane: "public-chat" }, live).view;
   const tree = v.dock.live!;
   assert.deepEqual(dockPanes(tree).filter(p => p !== "public-chat"), dockPanes(defaultDock("live")), "every default pane stays");
   assert.equal(formatDock(tree), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race|*public-chat 50) 30)");

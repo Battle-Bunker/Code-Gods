@@ -76,15 +76,18 @@ const undock = (v: ViewState, pane: string) => eachDock(v, n => dockWithout(n, p
  * `dock` with `pane` placed and shown in the arrangement of the screen in view (that screen's default when the human
  * has none yet); outside a game screen nothing changes (the pane joins at its place when a game shows it).
  */
-function placed(dock: ViewState["dock"], pane: string, place: Place, ctx: AffordanceContext): ViewState["dock"] {
+function placed(dock: ViewState["dock"], pane: string, place: Place, ctx: AffordanceContext, show = true): ViewState["dock"] {
   const kind = dockKindOf(ctx.context);
   if (!kind) return dock;
-  return { ...dock, [kind]: dockActivate(dockInsert(dock[kind] ?? defaultDock(kind), pane, place, true), pane) };
+  const tree = dock[kind] ?? defaultDock(kind);
+  // A pane the arrangement already places (a default the panes list did not hold yet) stays where it is, behind or in front.
+  if (dockPanes(tree).includes(pane)) return dock;
+  return { ...dock, [kind]: dockInsert(tree, pane, place, show) };
 }
 /**
- * Opening `pane`: it joins the open panes and is shown on the screen in view, nothing taken away to make room; an open
- * one given a place moves there (out of every arrangement, then placed), and an open one without a place comes to the
- * front of its tab group.
+ * Opening `pane`: it joins the open panes and, unless the screen in view already places it, is shown there at its place,
+ * nothing taken away to make room; an open one given a place moves there (out of every arrangement, then placed), and an
+ * open one without a place comes to the front of its tab group.
  */
 function opened(v: ViewState, pane: string, place: Place | undefined, ctx: AffordanceContext): Omit<ViewState, "version"> {
   const open = v.panes.some(p => p.pane === pane);
@@ -95,7 +98,20 @@ function opened(v: ViewState, pane: string, place: Place | undefined, ctx: Affor
     const dock = eachDock(v, n => dockActivate(n, pane)), kind = dockKindOf(ctx.context);
     return { ...v, panes, dock: kind && !dockPanes(dock[kind] ?? defaultDock(kind)).includes(pane) ? placed(dock, pane, at, ctx) : dock };
   }
-  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx) };
+  // A pane opened at a place joins that place behind the tab shown there (the panes on screen, stored before a change,
+  // keep their tabs); without a place, or moved, it comes to the front.
+  return { ...v, panes, dock: placed(open ? undock(v, pane) : v.dock, pane, at, ctx, open || !place) };
+}
+/**
+ * The arrangements after closing `pane`: out of the screen in view's (other screens keep its place there for when it is
+ * shown again; while closed it is left out); out of every one outside a game screen.
+ */
+function closed(v: ViewState, pane: string, ctx: AffordanceContext): ViewState["dock"] {
+  const kind = dockKindOf(ctx.context);
+  if (!kind) return undock(v, pane);
+  const { [kind]: tree, ...rest } = v.dock;
+  const left = tree && dockWithout(tree, p => p === pane);
+  return left ? { ...rest, [kind]: left } : rest;
 }
 const replayOf = (v: ViewState) => {
   if (!v.replay) throw new OpFailure("Open a replay first.", "replay.open");
@@ -105,8 +121,8 @@ const replayOf = (v: ViewState) => {
 export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.openPane": (v, a, ctx) => opened(v, a.pane, a.place, ctx),
   // Closing the object or replay pane closes what it showed, so nothing acts on a pane the human cannot see.
-  "view.closePane": (v, a) => ({
-    ...v, panes: v.panes.filter(p => p.pane !== a.pane), dock: undock(v, a.pane),
+  "view.closePane": (v, a, ctx) => ({
+    ...v, panes: v.panes.filter(p => p.pane !== a.pane), dock: closed(v, a.pane, ctx),
     ...(a.pane === "object" ? { focus: null } : {}), ...(a.pane === "replay" ? { replay: null } : {}),
   }),
   "view.movePane": (v, a, ctx) => {

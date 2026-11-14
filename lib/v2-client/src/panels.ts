@@ -114,14 +114,17 @@ export type ViewOp = { id: "view.openPane" | "view.closePane" | "view.movePane" 
 
 /**
  * The view operations that make the stored panes what the human sees now (the defaults, or an arrangement merged with
- * the world's defaults), so a change keeps what is on screen: the shown panes not stored are opened. Stored panes are
- * left alone, so their place in every dock stays, and one this phase has nothing for (the agent code after the end)
- * is still open in the next game. None when they agree.
+ * the defaults of this phase), so a change keeps what is on screen: the shown panes not stored are opened and the
+ * stored panes not shown are closed. A pane stored and shown is left alone, so its place in the dock stays; closing
+ * changes only this screen's arrangement, so a closed pane keeps its place on the other screens. None when they agree.
  */
 export function keepShown(view: Pick<ViewState, "panes">, phase: GamePhase): ViewOp[] {
+  const shown = shownPanes(view, phase);
   const stored = view.panes.filter(docked);
-  return shownPanes(view, phase).filter(s => !stored.some(p => p.pane === s.pane))
-    .map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } }));
+  return [
+    ...stored.filter(p => !shown.some(s => s.pane === p.pane)).map((p): ViewOp => ({ id: "view.closePane", args: { pane: p.pane } })),
+    ...shown.filter(s => !stored.some(p => p.pane === s.pane)).map((p): ViewOp => ({ id: "view.openPane", args: { pane: p.pane, place: p.place } })),
+  ];
 }
 
 /** Where a pane joins when opened without a place. */
@@ -136,7 +139,9 @@ export function openPlan(view: Pick<ViewState, "panes">, phase: GamePhase, pane:
   const shown = shownPanes(view, phase).some(p => p.pane === pane);
   const ops = keepShown(view, phase);
   if (shown && place) return [...ops, { id: "view.movePane", args: { pane, place } }];
-  return [...ops, { id: "view.openPane", args: { pane, ...(shown ? {} : { place: place ?? homeOf(pane) }) } }];
+  const front: ViewOp = { id: "view.openPane", args: { pane } };
+  // A pane the arrangement already places joins there; the last op brings it to the front (a no-op when it is).
+  return shown ? [...ops, front] : [...ops, { id: "view.openPane", args: { pane, place: place ?? homeOf(pane) } }, front];
 }
 
 /** Closing a shown pane: the shown arrangement kept, then the pane closed. */
