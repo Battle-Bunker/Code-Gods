@@ -37,7 +37,7 @@ export function ForgePane() {
   const runner = useRun();
   const statusRef = useRef<HTMLDivElement>(null);
 
-  const [language, setLanguage] = useState<Language>("typescript");
+  const [chosenLanguage, setLanguage] = useState<Language>("typescript");
   const [selected, setSelected] = useState<string | null>(null);   // the agent in the editor
   const [draft, setDraft] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>(null);
@@ -45,8 +45,13 @@ export function ForgePane() {
   const [report, setReport] = useState<string | null>(null);
   // An accepted summon counts at once, before the agent list catches up (ux-lessons 1.8).
   const count = Math.max(agents?.length ?? 0, me?.agents ?? 0);
-  useEffect(() => { if (!selected && agents?.length) setSelected(agents[0]!.agentId); }, [agents, selected]);
+  // The agent in the editor: the one chosen, else the first; a destroyed one gives way to the next.
+  useEffect(() => {
+    if (agents?.length && !agents.some(a => a.agentId === selected)) { setSelected(agents[0]!.agentId); setDraft(null); }
+  }, [agents, selected]);
   const agent = agents?.find(a => a.agentId === selected) ?? null;
+  // An agent's code is in its own language; the choice applies to new code only.
+  const language: Language = agent ? agent.language : chosenLanguage;
   const programs = useAgentPrograms(agent?.agentId);
   const current = programs?.[0];
   const opening = useMemo(() => (rule ? openingProgram(rule.row.family, rule.row.tieBreaker, language) : null), [rule?.row.family, rule?.row.tieBreaker, language]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -135,7 +140,7 @@ export function ForgePane() {
               {others.map(o => (
                 <li key={o.title} className="space-y-1 p-2">
                   <p><span className="font-medium">{o.title}</span>: {o.summary} <span className="text-muted-foreground">({energyText(summonPrice(language, o.source))})</span></p>
-                  {agent ? <button type="button" className="underline underline-offset-4" onClick={() => void doReplace(o.source)} data-testid={`button-replace-with-${o.kind}`}>Replace {agent.name} with {o.title}</button>
+                  {agent ? <button type="button" className="underline underline-offset-4" aria-disabled={!replace.available || !!runner.busy || undefined} onClick={() => replace.available && !runner.busy && void doReplace(o.source)} data-testid={`button-replace-with-${o.kind}`}>Replace {agent.name} with {o.title}</button>
                     : <button type="button" className="underline underline-offset-4" onClick={() => setDraft(o.source)} data-testid={`button-open-${o.kind}`}>Open in the editor</button>}
                 </li>
               ))}

@@ -4,7 +4,7 @@
  * they want, or pass. Bids are sealed: nothing here shows another player's. Every change goes through the `bid.*`
  * affordances; the screen reads one live query (`v2/bids:state`).
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
@@ -21,6 +21,8 @@ function FamilyRow({ family, title, card, top, mine, busy, onBid, onWithdraw }: 
   onBid(percent: number): void; onWithdraw(): void;
 }) {
   const [text, setText] = useState(mine ? String(mine) : "");
+  // The box follows the bid as it stands (a chip, or taking it back).
+  useEffect(() => { setText(mine ? String(mine) : ""); }, [mine]);
   const percent = Math.round(Number(text));
   const valid = Number.isFinite(percent) && percent >= 1 && percent <= 100;
   return (
@@ -38,19 +40,24 @@ function FamilyRow({ family, title, card, top, mine, busy, onBid, onWithdraw }: 
   );
 }
 
+/** The bid phase's clock, re-rendered alone twice a second. */
+function Countdown({ deadline }: { deadline: number }) {
+  const now = useNow(500);
+  const left = Math.max(0, Math.ceil((deadline - now) / 1000));
+  return <div role="timer" aria-live="off" className="font-mono" data-testid="bidding-countdown"><span className="text-xs text-muted-foreground">Ends in </span><span className="text-2xl font-semibold tabular-nums">{clock(left)}</span></div>;
+}
+
 export function Bidding({ roomId }: { roomId: string }) {
   const q = useLive(api.v2.bids.state, { roomId });
   const place = useAffordance("bid.place");
   const withdraw = useAffordance("bid.withdraw");
   const done = useAffordance("bid.done");
-  const now = useNow(500);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const s = q.data;
   if (q.error) return <ErrorLine message={`The bidding could not load: ${errMsg(q.error)}`} />;
   if (!s?.open) return null;
   const act = async (f: () => Promise<unknown>) => { setBusy(true); setError(null); try { await f(); } catch (e) { setError(failureText(e)); } finally { setBusy(false); } };
-  const left = s.deadline ? Math.max(0, Math.ceil((s.deadline - now) / 1000)) : 0;
   const canBid = place.available && !s.done;
   return (
     <section className="border-2 border-primary bg-card" data-testid="panel-bidding">
@@ -59,7 +66,7 @@ export function Bidding({ roomId }: { roomId: string }) {
           <h2 className="font-semibold">Bid for the rule you want</h2>
           <p className="text-sm text-muted-foreground">Bid a share of your own final total on a rule family; the highest bid wins that family for its bidder alone. Bids are secret: the other players do not see yours. Or pass, and you are dealt a rule as usual.</p>
         </div>
-        <div role="timer" aria-live="off" className="font-mono" data-testid="bidding-countdown"><span className="text-xs text-muted-foreground">Ends in </span><span className="text-2xl font-semibold tabular-nums">{clock(left)}</span></div>
+        {s.deadline && <Countdown deadline={s.deadline} />}
       </header>
       {canBid ? (
         <ul className="divide-y">

@@ -4,13 +4,13 @@
  * replacing. Energy a little below zero is an agent spending as fast as it earns: "about 0 ⚡", the exact figure in
  * the tooltip. A destroy confirmation says what comes back.
  */
-import { one } from "./move-line.ts";
+import { energyText, one } from "../core/words.ts";
 
 /** A share from 0 to 1 as a percentage: "70%", "12.5%". */
 export const percent = (share: number): string => `${Math.round((Number.isFinite(share) ? share : 0) * 1000) / 10}%`;
 
 /** "123.4 ⚡"; between −50 and 0, "about 0 ⚡" (a bare "−8.9 ⚡" read as broken). */
-export const energyWords = (x: number): string => (x < 0 && x > -50 ? "about 0 ⚡" : `${one(x)} ⚡`);
+export const energyWords = energyText;
 /** The tooltip under "about 0 ⚡": the exact figure and what it means; null when the figure is shown as it is. */
 export function energyExact(x: number): string | null {
   return x < 0 && x > -50 ? `Exactly ${one(x)} ⚡: it spends energy as fast as it earns it, so it hovers around 0.` : null;

@@ -33,11 +33,8 @@ export interface MoveSentenceInput {
   readonly top?: number | null;
 }
 
-/** One decimal, en-US grouping, a true minus sign, never "−0.0". */
-export function one(x: number): string {
-  const r = Math.round((Number.isFinite(x) ? x : 0) * 10) / 10;
-  return (r === 0 ? 0 : r).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).replace("-", "−");
-}
+export { one } from "../core/words.ts";
+import { one } from "../core/words.ts";
 const same = (a: number, b: number) => one(a) === one(b);
 
 /** Who moved it: "Your agent Tank-1", "Your agent" (a destroyed or not yet listed agent), "Another player's agent". */

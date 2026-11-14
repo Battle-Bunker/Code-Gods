@@ -25,7 +25,7 @@ export interface PaletteHost {
   /** The room page's path, when a room is in view. */
   roomPath?: string;
   /** The dock's pane operations when it is on screen (pane rows open panes there, keeping the panes shown). */
-  panes?: { open(pane: string): Promise<void>; close(pane: string): Promise<void> };
+  panes?: { open(pane: string): Promise<unknown>; close(pane: string): Promise<void> };
 }
 
 const run = async (host: PaletteHost, id: AffordanceId, args: unknown) => {

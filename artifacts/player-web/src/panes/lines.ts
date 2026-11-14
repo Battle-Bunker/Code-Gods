@@ -4,6 +4,7 @@
  * view state (`focus.reps`) and back to view operations. Player words only (ux-lessons 2.1, 2.8): points, ✨ rarity,
  * "how much the others want it", the noun "line".
  */
+import { one } from "../core/words.ts";
 import type { ViewState } from "@workspace/v2-affordances";
 
 // ------------------------------------------------------------------ sort
@@ -65,7 +66,6 @@ export function payoffRect(row: { rarity: number; want: number }, scale: PayoffS
 
 // ------------------------------------------------------------------ why
 
-const one = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
 
 /**
  * The row's "Why?": the formula in the house words with this line's numbers, then what the main part of the rule read

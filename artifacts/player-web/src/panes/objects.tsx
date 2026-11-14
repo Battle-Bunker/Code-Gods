@@ -7,6 +7,7 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
+import { one } from "@/core/words";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -28,7 +29,6 @@ const YOURS = "#1f6f8b", OTHERS = "#b8336a", AREA = "rgba(217, 150, 30, 0.55)";
 /** A row: the compact face (160 × 100 and its foot) beside the numbers. */
 const ROW_H = 214, SPECTATOR_ROW_H = 36;
 
-const one = (x: number) => (Math.round(x * 10) / 10).toFixed(1);
 
 function PointsRectangle({ number, rarity, want, points, scale }: { number: number; rarity: number; want: number; points: number; scale: PayoffScale }) {
   const g = payoffRect({ rarity, want }, scale, SIDE);
@@ -125,7 +125,7 @@ function SeatedLines() {
   const rep = rule ? pinnedRep(view, rule.family.id, my!.row.primary) : DEFAULT_REP;
   const onOpen = useCallback(async (objectId: string) => {
     // The pane first (the arrangement on screen kept, at most five), then the line in it.
-    await panes.open("object");
+    if (!await panes.open("object")) return;
     try { await openObject.run({ objectId }); }
     catch (e) { toast({ title: "The line did not open", description: e instanceof Error ? e.message : String(e), variant: "destructive" }); }
   }, [panes, openObject]);

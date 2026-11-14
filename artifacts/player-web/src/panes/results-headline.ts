@@ -3,12 +3,10 @@
  * standings (the server's ranks, which equal totals share): "You finished 1st of 3 with 412.5 points." for a seated
  * player, "Ada won with 412.5 points." for a spectator.
  */
-import { one } from "./move-line.ts";
+import { ordinal, pointsText as points } from "../core/words.ts";
 
 export interface StandingRow { memberId: string; name: string; net: number; handicap: number; rank: number }
 
-const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
-const points = (x: number) => `${one(x)} point${one(x) === "1.0" ? "" : "s"}`;
 
 /** "1st", or "tied for 1st" when another row shares the rank. */
 export function finishPlace(rows: readonly StandingRow[], row: StandingRow): string {
