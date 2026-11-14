@@ -13,7 +13,7 @@ import { compareScores, evaluateObject, mixedIntBits, objectLadder, levelOf, q, 
 
 /** Compares two score components (null ranks last), as compareScores does. */
 const compareComponent = (a: Q | null, b: Q): number => compareScores([a], [b]);
-import { fromMC, lineParams, lineSums, lineType, type LineState, type LineSums } from "@workspace/v2-linear";
+import { fromMC, lineParams, lineSums, lineType, type Band, type LineState, type LineSums } from "@workspace/v2-linear";
 
 /** The exact sums enumerate single lines: a variant with several lines per object needs its own law (not built). */
 function oneLine(variant: Variant): void {
@@ -222,8 +222,8 @@ export function exactLadder<P>(family: RuleFamily<LineState, P>, params: P, vari
   const tri = exactRungs(family, params, variant, tieBreaker, cfg.triangleBits);
   const lo = [...tri.lo], hi = [...tri.hi];
   const method: ("separable" | "band" | "enumeration")[] = lo.map(() => "enumeration");
-  if (plan?.band) {
-    const b = bandRungs(family, params, variant, tieBreaker, plan.band, cfg);
+  for (const band of plan?.bands ?? []) {
+    const b = bandRungs(family, params, variant, tieBreaker, band, cfg);
     for (let k = b.from; k < lo.length; k++) {
       if (b.hi[k]! - b.lo[k]! < hi[k]! - lo[k]!) { lo[k] = b.lo[k]!; hi[k] = b.hi[k]!; method[k] = "band"; }
     }
@@ -238,7 +238,7 @@ export function exactLadder<P>(family: RuleFamily<LineState, P>, params: P, vari
  * summed: wideRange).
  */
 function bandRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Variant, tieBreaker: TieBreaker,
-  band: NonNullable<LineSums<P>["band"]>, cfg: ExactConfig): { from: number; lo: number[]; hi: number[] } {
+  band: Band<P>, cfg: ExactConfig): { from: number; lo: number[]; hi: number[] } {
   const ladder = objectLadder(lineType, family, params, variant, tieBreaker);
   const fromMain = band.fromMain(params);
   const from = ladder.findIndex(r => r.layer === 0 && r.main === fromMain);
@@ -258,12 +258,13 @@ function bandRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Vari
     const score = evaluateObject(lineType, family, params, { lines: [fromMC(q(mN), q(c))] }, variant, tieBreaker).score;
     mass[levelOf(score, ladder)]! += pm * 2 ** -bits;
   };
-  if (band.fixed) for (const r of band.ranges(0n, params)) pointMass += 2 ** -mixedIntBits(r.lo);
+  if (band.points === "same") for (const r of band.ranges(0n, params)) pointMass += 2 ** -mixedIntBits(r.lo);
+  if (band.points === "one-per-m") pointMass = 2 ** -Math.min(...ints.map(x => x.bits));   // the most any one c can weigh
   for (const m of ints) {
     const pm = 2 ** -m.bits;
     const seen = new Set<bigint>();
     for (const r of band.ranges(m.n, params)) {
-      if (band.fixed) {
+      if (band.points) {
         // A point, evaluated whatever its size (its mass is in pointMass).
         if (!seen.has(r.lo)) { seen.add(r.lo); add(pm, r.lo, mixedIntBits(r.lo), m.n); }
         continue;
@@ -290,9 +291,9 @@ function bandRungs<P>(family: RuleFamily<LineState, P>, params: P, variant: Vari
       }
     }
   }
-  // Outside the enumeration: m beyond the budget (T1, times the points' mass when the c values are fixed points, all
-  // of which were summed), c beyond it (T1), and the wide ranges' mass.
-  const out = band.fixed ? T1 * pointMass : 2 * T1 + slack;
+  // Outside the enumeration: m beyond the budget (T1, times the most one m's points can weigh when the c values are
+  // points, all of which were summed), c beyond it (T1), and the wide ranges' mass.
+  const out = band.points ? T1 * pointMass : 2 * T1 + slack;
   const lo: number[] = [], hi: number[] = [];
   let acc = 0;
   for (let k = ladder.length - 1; k >= 0; k--) {

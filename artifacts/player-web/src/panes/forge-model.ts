@@ -38,11 +38,18 @@ export function primaryAction(o: { agents: number; selected: boolean; draftChang
   return "summon";
 }
 
-/** Whether the energy pays the price; never a stale "cannot afford" for the code just summoned (ux-lessons 3.6). */
-export function affordLine(o: { price: number; energy: number; justRan: boolean }): string | null {
+/**
+ * Whether the energy pays the price; never a stale "cannot afford" for the code just summoned (ux-lessons 3.6). When it
+ * does not, how long the own store takes at the current split, or why it never will (it holds too little, or it earns
+ * nothing because the agents hold all the power).
+ */
+export function affordLine(o: { price: number; energy: number; justRan: boolean; ownPerSecond: number; capacity: number }): string | null {
   if (o.justRan) return null;
-  return o.price <= o.energy ? `Summoning costs ${energyText(o.price)}; you have ${energyText(o.energy)}.`
-    : `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}: wait for your energy to grow, or shorten the code.`;
+  if (o.price <= o.energy) return `Summoning costs ${energyText(o.price)}; you have ${energyText(o.energy)}.`;
+  if (!(o.ownPerSecond > 0)) return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}. Your agents hold all your power, so your own store does not grow: give yourself some power back.`;
+  if (o.price > o.capacity) return `Summoning costs ${energyText(o.price)}, more than your own store can hold at your current split (${energyText(o.capacity)}). Give yourself more power, or shorten the code.`;
+  const seconds = Math.ceil((o.price - o.energy) / o.ownPerSecond);
+  return `Summoning costs ${energyText(o.price)}, and you have ${energyText(o.energy)}: at your current split your own store reaches it in about ${seconds} second${seconds === 1 ? "" : "s"}.`;
 }
 
 /** What a first summon did, in the same breath as what power is (ux-lessons 1.9, 3.7). */

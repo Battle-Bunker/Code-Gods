@@ -8,6 +8,7 @@ import { elementDecl, elementValue, refKey, representation, type ElementRef, typ
 import { marksForRep, meaningKey } from "./refs.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
+import { isSingleLine } from "./render/equation.tsx";
 
 /** Element values of a state; a value that cannot be computed reads as undefined with the reason. */
 export function valuesOf<S>(type: ObjectType<S>, state: S, site: number): (r: ElementRef) => ElementValue {
@@ -118,8 +119,13 @@ export function expresses<S>(type: ObjectType<S>, state: S, repId: string, site 
  * object type's first equation that does (for a line: slope-intercept, or the general form for a vertical line).
  */
 export function chipRep<S>(type: ObjectType<S>, state: S, preferred?: string, site = 0): string {
-  if (preferred && representation(type, preferred).scene === "equation" && expresses(type, state, preferred, site)) return preferred;
-  const eq = type.representations.find(r => r.scene === "equation" && expresses(type, state, r.id, site));
+  // A one-line equation only: a worked one (the crossing) is several lines, too long for a chip.
+  const writes = (id: string) => {
+    const scene = representation(type, id).layout(state, site);
+    return scene.kind === "equation" && isSingleLine(scene) && expresses(type, state, id, site);
+  };
+  if (preferred && writes(preferred)) return preferred;
+  const eq = type.representations.find(r => r.scene === "equation" && writes(r.id));
   return eq?.id ?? preferred ?? type.representations[0]!.id;
 }
 
