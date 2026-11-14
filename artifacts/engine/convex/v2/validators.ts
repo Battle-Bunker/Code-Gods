@@ -63,6 +63,12 @@ export const myRuleV = v.object({
 /** `v2/play:me`: the caller's account (hot, one document). */
 export const meV = v.object({
   memberId: v.id("v2Members"), energy: v.number(), power: v.number(), ready: v.boolean(), pauseUsed: v.boolean(), agents: v.number(),
+  /**
+   * The own store's income (the unallocated power, ⚡/s) and what it holds at most (that income times the full-charge
+   * seconds): at capacity it stops growing until something is spent. `energy` is as of the world clock's last tick;
+   * `settledAt` is that world second, so the app can interpolate between ticks with its own clock.
+   */
+  ownPerSecond: v.number(), capacity: v.number(), settledAt: v.number(),
 });
 export const objectSortV = v.union(v.literal("points"), v.literal("rarity"), v.literal("want"), v.literal("born"), v.literal("recent"));
 export const objectIdsV = paginationResultValidator(v.object({ objectId: v.id("v2Objects"), number: v.number() }));
@@ -78,6 +84,8 @@ export const agentRowV = v.object({
 export const agentEnergyV = v.object({
   agentId: v.id("v2Agents"), energy: v.number(), acts: v.number(), skips: v.number(), failures: v.number(), spend: v.number(),
   pointsGained: v.number(), lastActAt: v.union(v.number(), v.null()),
+  /** As the own store's: the agent's income and capacity, and `energy` settled to the world second `settledAt`. */
+  perSecond: v.number(), capacity: v.number(), settledAt: v.number(),
 });
 export const agentProgramsV = v.array(v.object({
   version: v.number(), language: languageV, source: v.string(), price: v.number(), summonedAt: v.number(), acts: v.number(), pointsGained: v.number(),
@@ -85,7 +93,11 @@ export const agentProgramsV = v.array(v.object({
 export const movesPageV = paginationResultValidator(v.object({
   seq: v.number(), worldSeconds: v.number(), objectId: v.id("v2Objects"), number: v.number(),
   agentId: v.union(v.id("v2Agents"), v.null()), mine: v.boolean(), calls: v.array(callV), rep: v.string(),
-  stateBefore: v.string(), stateAfter: v.string(), before: valueSnapV, after: valueSnapV, charge: v.union(v.number(), v.null()),
+  stateBefore: v.string(), stateAfter: v.string(), before: valueSnapV, after: valueSnapV,
+  /** What the move cost: the caller's own agents' moves only (another player's spend is theirs). */
+  charge: v.union(v.number(), v.null()),
+  /** The player whose agent moved the line (the caller for their own moves). */
+  by: v.union(v.object({ memberId: v.id("v2Members"), name: v.string() }), v.null()),
 }));
 export const digestV = v.object({ version: v.number(), packed: v.array(v.number()) });
 

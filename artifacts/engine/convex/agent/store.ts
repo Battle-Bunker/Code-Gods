@@ -1,6 +1,5 @@
 /**
- * Internal reads and writes of the agent interface: principal resolution for POST /mcp and the registry,
- * and the job rows of background summon/validate calls.
+ * Internal reads of the agent interface: principal resolution for POST /mcp.
  */
 import { v } from "convex/values";
 import { internalMutation, internalQuery, type QueryCtx } from "../_generated/server";
@@ -12,8 +11,6 @@ const LAST_USED_RESOLUTION_MS = 60_000;
 export type Who = {
   credentialId: string; subject: string; name: string; roomId: string; roomCode: string | null; permission: "read" | "act" | "owner";
   kind: "device" | "oauth" | "assistant"; label: string; expiresAt: number;
-  /** Which engine the bound room runs: v2 rooms get the tools generated from the affordance directory (agent/mcpV2.ts). */
-  engine: "v1" | "v2";
 };
 
 /** Who for a room credential; null for an account grant, which the agent interface never accepts (it acts per room). */
@@ -22,7 +19,6 @@ async function whoOf(ctx: QueryCtx, viewer: Viewer): Promise<Who | null> {
   if (credential.permission === "account" || credential.roomId === undefined) return null;
   const room = await credentialRoom(ctx, credential.roomId);
   return {
-    engine: room?.engine ?? "v1",
     credentialId: credential._id, subject: viewer.subject, name: viewer.name, roomId: credential.roomId, roomCode: room?.code ?? null,
     permission: credential.permission, kind: viewer.credentialKind ?? "device", label: credential.label,
     expiresAt: Math.min(credential.expiresAt, credential.refreshExpiresAt ?? Infinity),
@@ -58,53 +54,5 @@ export const authenticate = internalMutation({
     const now = Date.now();
     if (row.lastUsedAt === undefined || now - row.lastUsedAt > LAST_USED_RESOLUTION_MS) await ctx.db.patch(id, { lastUsedAt: now });
     return whoOf(ctx, viewer);
-  },
-});
-
-// ---------------------------------------------------------------------------------------------
-// Background command jobs
-// ---------------------------------------------------------------------------------------------
-
-const key = (args: { roomId: string; subject: string; commandId: string }) =>
-  (q: any) => q.eq("roomId", args.roomId).eq("subject", args.subject).eq("commandId", args.commandId);
-
-/** A job still "running" after this long died without reporting (Convex stops actions after 10 minutes): treat it as failed. */
-const STALE_MS = 11 * 60_000;
-const stale = (job: { status: string; createdAt: number }) => job.status === "running" && job.createdAt < Date.now() - STALE_MS;
-
-export const jobFor = internalQuery({
-  args: { roomId: v.string(), subject: v.string(), commandId: v.string() },
-  handler: async (ctx, args) => {
-    const job = await ctx.db.query("agentJobs").withIndex("by_command", key(args)).unique();
-    if (!job) return null;
-    if (stale(job)) return { status: "failed" as const, error: { code: "UNAVAILABLE", message: "The command did not finish; resend the identical call" } };
-    return { status: job.status, error: job.error ?? null };
-  },
-});
-
-/** Mark a background command as running (replacing an earlier failed run of the same commandId). */
-export const startJob = internalMutation({
-  args: { credentialId: v.string(), roomId: v.string(), subject: v.string(), commandId: v.string() },
-  handler: async (ctx, args) => {
-    const job = await ctx.db.query("agentJobs").withIndex("by_command", key(args)).unique();
-    if (job?.status === "running" && !stale(job)) return { started: false };
-    if (job) await ctx.db.delete(job._id);
-    await ctx.db.insert("agentJobs", { ...args, status: "running", createdAt: Date.now() });
-    // Old job rows carry nothing a receipt does not: keep the table small.
-    for (const old of await ctx.db.query("agentJobs").withIndex("by_created", q => q.lt("createdAt", Date.now() - 24 * 3600_000)).take(20)) {
-      await ctx.db.delete(old._id);
-    }
-    return { started: true };
-  },
-});
-
-/** A background command ended: delete its job row, or record the failure when no receipt was written. */
-export const finishJob = internalMutation({
-  args: { roomId: v.string(), subject: v.string(), commandId: v.string(), error: v.optional(v.object({ code: v.string(), message: v.string() })) },
-  handler: async (ctx, { error, ...args }) => {
-    const job = await ctx.db.query("agentJobs").withIndex("by_command", key(args)).unique();
-    if (!job) return;
-    if (error) await ctx.db.patch(job._id, { status: "failed", error });
-    else await ctx.db.delete(job._id);
   },
 });

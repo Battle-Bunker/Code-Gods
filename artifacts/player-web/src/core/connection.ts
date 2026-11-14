@@ -6,7 +6,7 @@
  *               signs in with the site's Google session (Better Auth cookie, same origin) and is the human everywhere.
  *  "account"  : the app on any other origin (localhost, a Replit dev URL, a static host), built or run with
  *               VITE_CODE_GODS_ENGINE_URL naming the engine's site. The human approves an account grant on
- *               the engine's /connect page (OAuth + PKCE; lib/player-client/src/browser.ts) and the app is then the
+ *               the engine's /connect page (OAuth + PKCE; core/player-auth.ts) and the app is then the
  *               human everywhere, as on the site, except the consent pages and admin, which stay on the engine's site.
  *  "devserver": a player's own app, run as a Vite dev server in any environment. The dev server holds a room
  *               credential (CODE_GODS_CREDENTIAL, from the environment's secret store or .env.local) and answers
@@ -17,7 +17,7 @@
  * subscriptions.
  */
 import { ConvexReactClient } from "convex/react";
-import { createPlayerAuth, isAccountSession, type AccountSession, type PlayerAuth } from "@workspace/player-client/browser";
+import { createPlayerAuth, isAccountSession, type AccountSession, type PlayerAuth } from "@/core/player-auth";
 import { keepCurrent } from "./updates";
 
 export type Mode = "devserver" | "site" | "account";

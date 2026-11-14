@@ -8,7 +8,7 @@ import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { distHash, stampBuildId } from "../../scripts/deploy-static.mjs";
-import { readBuildMeta } from "@workspace/player-client/build-meta";
+import { readBuildMeta } from "../../../../lib/v2-client/src/build-meta.ts";
 
 function tree(files: Record<string, string>) {
   const dir = mkdtempSync(join(tmpdir(), "dist-"));
@@ -64,7 +64,7 @@ test("stampBuildId: an id over every file, written where the page reads it; stam
     const id = stampBuildId(a);
     assert.match(id!, /^[0-9a-f]{16}$/);
     const stamped = readFileSync(join(a, "index.html"), "utf8");
-    assert.equal(readBuildMeta(stamped), id, "the page reads the id deploy-static wrote (lib/player-client/src/build-meta.ts)");
+    assert.equal(readBuildMeta(stamped), id, "the page reads the id deploy-static wrote (lib/v2-client/src/build-meta.ts)");
     const hash = distHash(a);
     assert.equal(stampBuildId(a), id, "idempotent, so --skip-build and --if-changed see the same build");
     assert.equal(distHash(a), hash);

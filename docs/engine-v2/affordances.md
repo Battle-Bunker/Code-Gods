@@ -206,12 +206,14 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `replay.pause` | Pause the replay | — | client · game | member | replay | write |
 | `replay.seek` | Jump to a moment in the replay | seq, worldSeconds | client · game | member | replay | write |
 | `replay.step` | Step the replay | by | client · game | member | replay | write |
+| `replay.watchAs` | Watch the replay as a player | memberId | client · game | member | replay | write |
 | `replay.speed` | Set the replay speed | speed | client · game | member | replay | write |
 | `account.whoami` | Show who I am | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.connections` | List connected assistants | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.revokeConnection` | Disconnect an assistant | connectionId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |
 | `account.signIn` | Sign in | — | client · none | anyone | signedOut | write; not on assistant/mcp/cli (consent) |
 | `account.approveConnection` | Approve a connection | request, grant, room, completion, ownerConsent, accountConsent | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; confirm modal; not on assistant/mcp/cli (consent) |
+| `account.denyConnection` | Deny a connection | request | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | write; not on assistant/mcp/cli (consent) |
 | `assistant.send` | Ask the assistant | text, threadId, newThread, grant, ownerConsent | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |
 | `assistant.cancel` | Stop the assistant | — | server · room | member | room, planning, live, paused, ended, replay | write |
 | `assistant.setMode` | Set the assistant's mode | mode, grant, ownerConsent | server · room | member | room, planning, live, paused, ended, replay | write; spends aiBudget; confirm inline |

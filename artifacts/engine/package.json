@@ -6,35 +6,20 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test:game": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game*.test.ts",
-    "bench": "node scripts/bench.mjs",
-    "load": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/load.ts",
     "test:auth": "node scripts/test-auth.mjs",
     "gen-jwt-key": "node scripts/gen-jwt-key.mjs",
     "deploy-static": "node scripts/deploy-static.mjs",
     "fake-oidc": "node scripts/fake-oidc.mjs",
-    "upload-runtime": "node scripts/upload-runtime.mjs",
-    "assistant:live": "node scripts/assistant-provider.mjs live",
-    "assistant:mock": "node scripts/assistant-provider.mjs mock",
-    "assistant:status": "node scripts/assistant-provider.mjs status",
-    "test:assistant-live": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/assistant-live.test.ts",
-    "upload-calibration": "node scripts/upload-calibration.mjs",
-    "test:mcp": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/mcp.test.ts test/external-clients.test.ts",
     "test:unit": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/unit/*.test.ts",
-    "test:calibration": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game-calibration.test.ts test/calibration-ondemand.test.ts",
-    "test:v2": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/v2-*.test.ts"
+    "test:v2": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/v2-*.test.ts",
+    "test:version": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/version.test.ts",
+    "upload-runtime": "node scripts/upload-runtime.mjs"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.6",
     "@convex-dev/migrations": "0.3.7",
     "@convex-dev/static-hosting": "0.2.1",
     "@modelcontextprotocol/server": "2.4.0",
-    "@workspace/ai-player": "workspace:*",
-    "@workspace/game-core": "workspace:*",
-    "@workspace/game-runtime": "workspace:*",
-    "@workspace/game-types": "workspace:*",
-    "@workspace/game-utilities": "workspace:*",
-    "@workspace/player-client": "workspace:*",
     "@workspace/v2-affordances": "workspace:*",
     "@workspace/v2-agents": "workspace:*",
     "@workspace/v2-ai": "workspace:*",
@@ -46,14 +31,10 @@
     "better-auth": "1.6.33",
     "convex": "1.48.0",
     "jose": "6.2.13",
-    "quickjs-emscripten": "0.31.0",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "quickjs-emscripten": "0.31.0"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
-    "@modelcontextprotocol/client": "2.4.0",
-    "@modelcontextprotocol/sdk": "1.32.2",
-    "@types/node": "catalog:",
-    "esbuild": "0.28.2"
+    "@types/node": "catalog:"
   }
 }

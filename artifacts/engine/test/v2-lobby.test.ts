@@ -80,3 +80,20 @@ test("the start deals every seated member a converged rule and opens their accou
   assert.equal(explained.result.wonByBid, null);
   assert.equal((await perform(ada, "game.start", {}, { roomId })).error.code, "refused", "one game at a time");
 });
+
+test("the setup picker: the server's own presets, and nothing else; a family's ladders with their rarity", async () => {
+  const [plain] = await humans("Lobby Plain");
+  const presets = await plain!.query("v2/setups:presets", {});
+  assert.ok(presets.some((p: any) => p.id === "lines-beginner" && p.families.length > 1), JSON.stringify(presets.map((p: any) => p.id)));
+  assert.ok(presets.some((p: any) => p.bid), "the bidding preset says so");
+  const created = await perform(plain!, "room.create", { name: "Plain room", preset: "lab-whatever" }).catch((e: any) => e.data);
+  assert.match(created.error.message, /No preset/, "an id the server does not deploy is refused on the server");
+  const room = (await perform(plain!, "room.create", { name: "Plain room" })).result.roomId;
+  const changed = await perform(plain!, "room.settings", { preset: "test-anything" }, { roomId: room }).catch((e: any) => e.data);
+  assert.match(changed.error.message, /No preset/);
+
+  const rules = await plain!.query("v2/gallery:family", { preset: "lines-beginner", family: "prime-landing" });
+  assert.ok(rules.length > 0, "the family's dealable rules");
+  for (const r of rules) assert.ok(r.ladder.length > 1 && r.ladder.every((s: any) => s.rarityBits >= 0) && r.ladder.at(-1).rarityBits > 0, JSON.stringify(r.ladder));
+  assert.deepEqual(await plain!.query("v2/gallery:family", { preset: "nope", family: "prime-landing" }), []);
+});

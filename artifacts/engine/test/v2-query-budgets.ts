@@ -24,6 +24,8 @@ export interface V2Budget {
 export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/rooms:list", args: () => page, reads: "v2Members by_user page", cold: true },
   { query: "v2/rooms:get", args: f => ({ roomId: f.roomId }), reads: "room + ≤ 16 members + current and last game header", cold: true },
+  // The fixture holds the room's id, not its code: measured on a code nobody holds (the lookup is one index read either way).
+  { query: "v2/rooms:byCode", args: () => ({ code: "ZZZZZZ" }), reads: "1 v2Rooms by_code + the caller's v2Members row", cold: true },
   { query: "v2/rooms:chat", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Chat by_room page", cold: true },
   { query: "v2/rooms:round", args: f => ({ roomId: f.roomId }), reads: "≤ 16 ended game headers + their v2Standings", cold: true },
   { query: "v2/rooms:history", args: f => ({ roomId: f.roomId, ...page }), reads: "v2Games by_room_phase page", cold: true },
@@ -45,6 +47,9 @@ export const V2_BUDGETS: readonly V2Budget[] = [
   { query: "v2/panels:list", args: () => ({}), reads: "v2Panels by_user_slug, ≤ 40", cold: true },
   { query: "v2/panels:code", args: () => ({ slug: "gate-panel" }), reads: "1 v2Panels + 1 v2PanelVersions", cold: true },
   { query: "v2/replays:stored", args: f => ({ gameId: f.gameId }), reads: "1 v2Games", cold: true },
+  { query: "v2/connect:pending", args: () => ({ request: "gate-request-key-that-is-not-real" }), reads: "1 oauthRequests + the caller's v2Members (≤ 32) + their rooms", cold: true },
+  { query: "v2/setups:presets", args: () => ({}), reads: "none (the deployed presets) + the caller's user row", cold: true },
+  { query: "v2/gallery:family", args: () => ({ preset: "lines-beginner", family: "prime-landing" }), reads: "none (the bundled artefacts) + the caller's user row", cold: true },
   { query: "v2/rooms:aiQuotas", args: f => ({ roomId: f.roomId }), reads: "member + 1 v2RoomQuotas", cold: true },
   { query: "v2/assistant:status", args: f => ({ roomId: f.roomId }), reads: "room + member + owner + quotas + prefs + v2AiUsage + latest turn + queue (≤ 10)", cold: true },
   { query: "v2/assistant:threads", args: f => ({ roomId: f.roomId }), reads: "room + member + v2AssistantThreads by_room_user_game, ≤ 20", cold: true },

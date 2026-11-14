@@ -101,20 +101,6 @@ export function isAllowedOrigin(origin: string | null, siteOrigin: string, extra
   return origin === siteOrigin || (DEFAULT_MCP_ORIGINS as readonly string[]).includes(origin) || extra.includes(origin);
 }
 
-const RANK: Record<string, number> = { read: 0, act: 1, owner: 2 };
-/**
- * The MCP SDK answers a call to a tool it did not register with "Tool <name> not found". When the tool exists but
- * needs more than this connection's grant (tools/list hides it), say so, so a model asks for the right grant
- * instead of concluding the tool is gone. Null keeps the SDK's message.
- */
-export function grantHint(message: string, held: Permission, needs: (name: string) => Permission | undefined): string | null {
-  const name = /^Tool (\S+) not found$/.exec(message)?.[1];
-  const needed = name ? needs(name) : undefined;
-  if (!name || !needed || RANK[needed] <= RANK[held]) return null;
-  return `Tool ${name} needs the ${needed} permission; this connection has ${held}. ` +
-    `The human can reconnect (or issue a new room credential) with ${needed} rights; until then use the tools tools/list shows.`;
-}
-
 export const CREDENTIAL_PATTERN = /^cgc_[A-Za-z0-9_-]{16,124}$/;
 const JWT_PATTERN = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 /** How the request presents its credential: `Authorization: Bearer <JWT | cgc_…>` or `x-api-key: cgc_…`. */
@@ -131,8 +117,12 @@ export function bearerFrom(headers: Headers): { kind: "credential" | "jwt"; valu
 /** Comma/space separated env list. */
 export const envList = (value: string | undefined) => (value ?? "").split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
 
-/**
- * How long a summon/validate call waits before checking its receipt again: 250 ms, doubling to at most 2 s, so a
- * quick command answers fast and a slow one costs about one check (two function calls) per 2 s instead of four.
- */
-export const pollDelay = (attempt: number): number => Math.min(2000, 250 * 2 ** Math.max(0, attempt));
+const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
+/** A hint for a tool call refused for lack of permission: which permission the tool needs and how to get it. */
+export function grantHint(message: string, held: Permission, needs: (name: string) => Permission | undefined): string | null {
+  const name = /^Tool (\S+) not found$/.exec(message)?.[1];
+  const needed = name ? needs(name) : undefined;
+  if (!name || !needed || RANK[needed] <= RANK[held]) return null;
+  return `Tool ${name} needs the ${needed} permission; this connection has ${held}. ` +
+    `The human can reconnect (or issue a new room credential) with ${needed} rights; until then use the tools tools/list shows.`;
+}

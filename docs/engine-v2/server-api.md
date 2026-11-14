@@ -9,7 +9,7 @@ Code: `artifacts/engine/convex/v2/`.
 |---|---|---|
 | Tables | `convex/v2/tables.ts` | spread into `convex/schema.ts`; players are `v2Members` rows (human, practice, ai), so game tables key by `memberId` |
 | Live queries (subscriptions) | `rooms.ts`, `games.ts`, `play.ts`, `spectate.ts`, `layout.ts`, `replays.ts`, `bids.ts` | each declares `returns:` from `validators.ts`; app types come from the generated api (`FunctionReturnType<typeof api.v2.play.object>`) |
-| Operations | `ops/<namespace>.ts` | one `defineOp` per server affordance of `lib/v2-affordances` (`v2/ops/<ns>:<verb>` and its twin `<verb>As`); unbuilt ones answer `{ok: false, error: {code: "failed", message: "Not built yet: … W3-x"}}` |
+| Operations | `ops/<namespace>.ts` | one `defineOp` per server affordance of `lib/v2-affordances` (`v2/ops/<ns>:<verb>` and its twin `<verb>As`); every one is built. A domain failure is `{ok: false, error: {code: "failed", message, fix?}}` (a mutation throws it as a ConvexError whose data is the outcome) |
 | Caller and context | `access.ts`, `ops/define.ts` | sign-in everywhere; the affordance context is derived from v2's own rows; a credential bound to a room acts there only |
 | Lobby and deal | `lobby.ts`, `deal.ts`, `artefacts.ts` (+ `artefacts.gen.ts`, `scripts/gen-v2-artefacts.mjs`) | only rules with a converged artefact are dealt; rotation as v1, keyed by rule key |
 | Loop | `loop.ts` (world start, commit, scoreboard, pause, resume, end, watchdog), `tick.ts` (Node: births, offers, `runAct`) | one lease per live game; the commit owns every write |
@@ -33,11 +33,11 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/rooms:chat`, `v2/rooms:history` | `roomId, paginationOpts` | member |
 | `v2/games:header`, `standings` | `gameId` | member; `header.me` is the caller's seat or null |
 | `v2/games:standingsHistory` | `gameId, after` | member; ≤ 100 rows after `after` |
-| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated |
+| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated; `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
 | `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
-| `v2/play:moves` | `gameId, paginationOpts` | seated |
+| `v2/play:moves` | `gameId, paginationOpts` | seated; every row's `by` names the mover; `charge` only on the caller's own moves |
 | `v2/spectate:objectIds`, `object` | as above | member; states only |
 | `v2/layout:current` | `roomId` | member |
 | `v2/replays:stored` | `gameId` | member |
@@ -47,6 +47,9 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/assistant:turn` | `turnId` | the turn's human: outcome and tool calls (activity chips) |
 | `v2/panels:list`, `code` | `{}`, `slug, version?` | signed in: the caller's own panels |
 | `v2/rooms:aiQuotas` | `roomId` | member: the owner's per-game token quotas `{ai, assistant}` |
+| `v2/connect:pending` | `request` (the /connect key) | signed in: the OAuth request's client, grant, status, expiry, hinted room and the caller's v2 rooms; decided by `account.approveConnection` / `account.denyConnection` |
+| `v2/setups:presets` | `{}` | signed in: the deployed presets (the setup picker); `room.create`/`room.settings` refuse any other id |
+| `v2/gallery:family` | `preset, family` | signed in: the family's dealable rules with card, layers and ladder, each rung's ✨ rarity |
 
 Values: `rarityBits` is the player's n_i, `want` is Σ_{j≠i} n_j and `points` = n_i · want (spec §8). States travel as
 the object type's wire (`line-z`: `a,b,c` per line, `;` between lines). Scores are `(string | null)[] | null`.

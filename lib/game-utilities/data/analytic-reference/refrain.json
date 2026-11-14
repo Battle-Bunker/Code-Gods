@@ -1,3 +1,0 @@
-{"format":"analytic-reference/v1","family":"refrain","tables":[
-{"key":"19a33c815a94d77c49c2e1beb96cd5bc2a471831c354b3be2d43e7d9ba6f789f","family":"refrain","canonicalParams":{},"instance":"Int(-2147483648,2147483647)","shape":{"kind":"scalar"},"levels":[[0,0.000001],[1,3.283850394],[2,6.599654203],[3,9.916520673],[4,12.977632187],[5,16.358453971],[6,19.301870443],[7,22.486295014],[8,28.282154297]],"slope":3.826130528,"estimator":{"id":"mc-ams","version":3,"seed":"39abe7028aedde39","budget":{"nMc":1048576,"minMcCount":128,"particles":500,"p0":0.5,"sweeps":1,"targetBits":64,"maxStages":400,"maxStuck":3}},"meta":{"mcLevels":5,"splitLevels":4,"stoppedEarly":true,"topReached":true,"maxBits":28.282154297}}
-]}

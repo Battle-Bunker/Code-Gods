@@ -1,83 +1,131 @@
 /**
- * The rule gallery (/rule-gallery): independent of any room or game. The rule-determining settings at the top (object
- * type and board, in GET params), then a tile per richly annotated rule family that board can deal. Each tile offers
- * its params (random to start), describes the rule for them live, keeps its source in a collapsed section, and links
- * to the family's own page in a new tab with the board and every param in its GET params.
+ * The rule gallery (`/rule-gallery`) and one rule's page (`/rule-gallery/:family`), integration plan §1.1: generated
+ * from the v2 rule families of the line type and the deployed presets (site/lib/rule-gallery.ts), with no room, game
+ * or server read. The gallery lists the rules a board deals; a rule's page shows its card for the chosen numbers and
+ * tie-breaker, its parts, the views it reads and the goal card's worked example with its steps to the top.
  */
-import { useEffect, useMemo, useState } from "react";
-import { useLocation, useSearch } from "wouter";
-import type { Instantiation } from "@workspace/game-types";
-import { context, family, type Params } from "@workspace/game-utilities";
+import { useEffect, useMemo } from "react";
+import { Link, useLocation, useParams, useSearch } from "wouter";
+import { GoalCard } from "@workspace/v2-views";
+import "@workspace/v2-views/styles.css";
 import { Page } from "@/site/components/layout";
-import { EmptyState } from "@/site/components/page-parts";
-import { ParamFields, SetupForm, familySummary, languageOf, type SourceLanguage } from "@/site/components/rule-gallery-parts";
-import { freshSeed, galleryFamilies, gallerySearch, instOf, randomParams, setupFromSearch, withParam, type GallerySetup } from "@/site/lib/rule-gallery";
-import { ruleGalleryPath } from "@/site/lib/routes";
-import { routeHref } from "@/core/routes";
+import { EmptyState, Section } from "@/site/components/page-parts";
+import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch, type GalleryEntry, type GallerySetup } from "@/site/lib/rule-gallery";
+import { ruleFamilyPath, ruleGalleryPath } from "@/site/lib/routes";
+import { workedExample } from "@/panes/worked-example";
 
-export default function RuleGallery() {
+const field = "h-9 min-w-0 max-w-full border bg-background px-2 text-sm";
+
+function BoardPicker({ board, onPick }: { board: string; onPick: (b: string) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Board" className="flex flex-wrap gap-2" data-testid="board-picker">
+      {BOARDS.map(b => (
+        <button key={b.id} type="button" role="radio" aria-checked={b.id === board} onClick={() => onPick(b.id)} title={b.blurb}
+          className={`border px-3 py-1.5 text-sm ${b.id === board ? "bg-primary text-primary-foreground border-primary" : "hover:bg-muted"}`} data-testid={`button-board-${b.id}`}>
+          {b.title}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Tile({ e, board }: { e: GalleryEntry; board: string }) {
+  const href = ruleFamilyPath(e.id, gallerySearch({ board, params: 0, tb: null }));
+  return (
+    <li className="flex flex-col gap-2 border bg-card p-4" data-testid={`tile-${e.id}`}>
+      <h3 className="text-lg font-semibold leading-tight"><Link href={href} className="hover:underline underline-offset-4" data-testid={`link-family-${e.id}`}>{e.title}</Link></h3>
+      <p className="text-sm leading-relaxed">{e.sentence}</p>
+      <p className="mt-auto text-xs text-muted-foreground">
+        {e.tieBreakers} tie-breaker{e.tieBreakers === 1 ? "" : "s"}{e.choices > 1 ? ` · ${e.choices} versions` : ""}
+        {e.presets.length ? ` · dealt in ${e.presets.join(", ")}` : " · not in a setup yet"}
+      </p>
+    </li>
+  );
+}
+
+export function RuleGallery() {
   const search = useSearch();
   const [, navigate] = useLocation();
-  const setup = useMemo(() => setupFromSearch(search), [search]);
-  const language = languageOf(search);
-  const inst = useMemo(() => instOf(setup), [setup]);
-  const families = useMemo(() => galleryFamilies(inst), [inst]);
+  const setup = setupFromSearch(search);
+  const g = useMemo(() => galleryFamilies(setup.board), [setup.board]);
   useEffect(() => { document.title = "Rule gallery · Code Gods"; }, []);
-  const go = (s: GallerySetup, l: SourceLanguage) => navigate(ruleGalleryPath(gallerySearch(s, {}, l)), { replace: true });
   return (
     <Page crumbs={[{ label: "Rule gallery" }]}>
-      <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-10 space-y-6 rise" data-testid="page-rule-gallery">
-        <header className="space-y-2">
-          <h1 className="font-display text-5xl">Rule gallery</h1>
+      <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-6 rise" data-testid="page-rule-gallery">
+        <header className="space-y-3">
+          <h1 className="font-display text-4xl md:text-5xl leading-none">Rule gallery</h1>
           <p className="max-w-[70ch] text-sm text-muted-foreground">
-            Every rule with picture-by-picture explanations that a board like this can deal. Pick the board, then try each
-            rule's settings: its description follows them. Open a rule's page to try it on a board of your own.
+            Every secret rule a game can deal you. Pick a board, then open a rule to see a worked example and the steps to the top.
           </p>
+          <BoardPicker board={setup.board} onPick={b => navigate(ruleGalleryPath(gallerySearch({ board: b, params: 0, tb: null })), { replace: true })} />
         </header>
-        <SetupForm setup={setup} language={language} onChange={s => go(s, language)} onLanguage={l => go(setup, l)} />
-        {families.length === 0
-          ? <EmptyState title="No annotated rules here yet" body="Only Grid boards have rules with rich annotations so far. Pick Grid as the object type." testId="empty-rule-gallery" />
-          : (
-            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="list-rule-families">
-              {families.map(id => <Tile key={`${inst.key}:${id}`} familyId={id} inst={inst} setup={setup} language={language} />)}
-            </ul>
-          )}
+        {[{ title: "Beginner rules", list: g.beginner, id: "beginner" }, { title: "More rules", list: g.more, id: "more" }].map(s => s.list.length > 0 && (
+          <section key={s.id} className="space-y-3" data-testid={`section-${s.id}`}>
+            <h2 className="font-display text-2xl">{s.title} <span className="text-muted-foreground text-base">({s.list.length})</span></h2>
+            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{s.list.map(e => <Tile key={e.id} e={e} board={setup.board} />)}</ul>
+          </section>
+        ))}
       </div>
     </Page>
   );
 }
 
-function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Instantiation; setup: GallerySetup; language: SourceLanguage }) {
-  const f = family(familyId);
-  const [params, setParams] = useState<Params>(() => randomParams(familyId, inst, freshSeed()));
-  const [sourceOpen, setSourceOpen] = useState(false);
-  const summary = useMemo(() => familySummary(familyId, params, inst), [familyId, params, inst]);
-  const href = routeHref(import.meta.env.BASE_URL, { kind: "ruleFamily", family: familyId }, gallerySearch(setup, params, language));
+export function RuleFamily() {
+  const { family = "" } = useParams<{ family: string }>();
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const page = useMemo(() => familyPage(family, setupFromSearch(search)), [family, search]);
+  const example = useMemo(() => (page ? workedExample(page.rule) : null), [page]);
+  useEffect(() => { document.title = `${page?.family.title ?? "Rule"} · Rule gallery · Code Gods`; }, [page?.family.title]);
+  const go = (s: Partial<GallerySetup>) => page && navigate(ruleFamilyPath(family, gallerySearch({ ...page.setup, ...s })), { replace: true });
+  const back = ruleGalleryPath(page ? gallerySearch({ board: page.setup.board, params: 0, tb: null }) : "");
   return (
-    <li className="flex flex-col gap-3 border bg-card p-4" data-testid={`tile-${familyId}`}>
-      <header className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-lg font-semibold leading-tight"><span aria-hidden>{f.emoji} </span>{f.name}</h2>
-          <p className="text-xs text-muted-foreground">{f.theme}</p>
-        </div>
-        <a href={href} target="_blank" rel="noopener" className="shrink-0 text-xs underline underline-offset-4" data-testid={`link-family-${familyId}`}>Open page ↗</a>
-      </header>
-      <div className="flex items-end gap-2">
-        <ParamFields familyId={familyId} inst={inst} params={params} compact onChange={(k, v) => setParams(p => withParam(familyId, inst, p, k, v))} />
-        <button type="button" className="border px-1.5 py-0.5 text-xs hover:bg-muted" aria-label={`Random settings for ${f.name}`}
-          onClick={() => setParams(randomParams(familyId, inst, freshSeed()))}>🎲</button>
+    <Page crumbs={[{ label: "Rule gallery", href: back }, { label: page?.family.title ?? family }]}>
+      <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-6 rise" data-testid="page-rule-family">
+        {!page || !example ? (
+          <EmptyState title="No such rule on this board" body={<>This board does not deal a rule called “{family}”. <Link href={back} className="underline underline-offset-4">See every rule</Link>.</>} testId="empty-rule-family" />
+        ) : (<>
+          <header className="space-y-3">
+            <h1 className="font-display text-4xl md:text-5xl leading-none" data-testid="text-family-title">{page.family.title}</h1>
+            <p className="max-w-[70ch] text-base" data-testid="text-family-card">{page.card}</p>
+            <p className="text-xs text-muted-foreground">{page.presets.length ? `Dealt in ${page.presets.join(", ")}.` : "No setup deals this rule on this board yet."}</p>
+          </header>
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start">
+            <div className="space-y-6 min-w-0">
+              <Section title="Try a version" testId="section-family-choices">
+                <div className="space-y-3 p-4 text-sm">
+                  <BoardPicker board={page.setup.board} onPick={b => go({ board: b, params: 0, tb: null })} />
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-muted-foreground">Its numbers</span>
+                    <select value={page.setup.params} onChange={e => go({ params: Number(e.target.value) })} disabled={page.params.length < 2} className={field} data-testid="select-family-params">
+                      {page.params.map(p => <option key={p.index} value={p.index}>{p.label}</option>)}
+                    </select>
+                  </label>
+                  <fieldset className="space-y-1">
+                    <legend className="text-xs text-muted-foreground">Tie-breaker: it decides between lines on the same step of the main part</legend>
+                    {page.tieBreakers.map(t => (
+                      <label key={t.id} className="flex items-start gap-2 py-1">
+                        <input type="radio" name="tie-breaker" className="mt-1" checked={page.rule.tieBreaker === t.id} onChange={() => go({ tb: t.id })} data-testid={`radio-tie-breaker-${t.id}`} />
+                        <span><span className="font-medium">{t.title}</span><span className="block text-muted-foreground">{t.sentence}</span></span>
+                      </label>
+                    ))}
+                  </fieldset>
+                </div>
+              </Section>
+              <Section title="How it scores" testId="section-family-parts">
+                <dl className="space-y-2 p-4 text-sm">
+                  <div><dt className="font-medium">Main part: {page.main.title}</dt><dd className="text-muted-foreground">{page.main.sentence}</dd></div>
+                  <div><dt className="font-medium">It reads the line as</dt><dd className="text-muted-foreground" data-testid="text-family-reads">{page.reads.join(", ")}</dd></div>
+                </dl>
+              </Section>
+            </div>
+            <div className="min-w-0 border bg-card p-3 md:p-4" data-testid="goal-card">
+              <GoalCard rule={page.rule} example={example} />
+              <p className="mt-2 text-xs text-muted-foreground">In a game, each step also shows its ✨ rarity: how rarely a random line scores that well.</p>
+            </div>
+          </div>
+        </>)}
       </div>
-      <p className="text-sm leading-relaxed" data-testid={`text-summary-${familyId}`}>{summary}</p>
-      <details className="mt-auto text-xs" data-testid={`source-${familyId}`} onToggle={e => setSourceOpen(e.currentTarget.open)}>
-        <summary className="cursor-pointer text-muted-foreground">Source ({language === "python" ? "Python" : "TypeScript"})</summary>
-        {sourceOpen && <Source familyId={familyId} params={params} inst={inst} language={language} />}
-      </details>
-    </li>
+    </Page>
   );
-}
-
-/** The card program for these params, in the chosen language. */
-function Source({ familyId, params, inst, language }: { familyId: string; params: Params; inst: Instantiation; language: SourceLanguage }) {
-  const text = useMemo(() => family(familyId).card[language](params as never, context(inst)), [familyId, params, inst, language]);
-  return <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words bg-muted p-2 font-mono text-[11px] leading-snug">{text}</pre>;
 }
