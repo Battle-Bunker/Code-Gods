@@ -32,6 +32,27 @@ behind them and the redesign plan are in `docs/convex-read-architecture.md`; the
 `.agents/memory/convex-reads.md`; Convex's own audit workflow is `.claude/skills/convex-performance-audit`. A new page
 query needs an entry in the query-cost gate (R8).
 
+## The game is a metastable ecosystem; its logic is the owner's (standing instruction, 2026-11-14)
+
+- **Critical design criterion.** The game must remain dynamic, interesting and resilient to metagame collapse. The
+  owner: "We're trying to design a metastable ecosystem here that remains dynamic and interesting and we're explicitly
+  trying to move away from a task that's like a static exam." The landscape over the players' combined utility
+  functions is meant to be enormous and hard to search, "even for a frontier AI with a substantial amount of compute".
+- **An optimum found is a bug.** "If you discover that optimal *solutions* are ever being found you should report this
+  as a bug and try yourself to find appropriate ways to avoid the failure mode." Never build features, prompts or advice
+  that help players reach or hold a fixed point (agreed destination states, settle-and-hold, copying one state). Report
+  simulation results for dynamics (do objects keep moving, do states converge, does one strategy dominate), not only
+  totals. An AI model's bias is toward single-point optimisation; correct for it.
+- **Agents are dynamic hill climbers.** Objects are unique within a game; a far move in one act costs at least the path
+  of small ones; "all strategies should be incremental hill climbing towards profitable combined states."
+- **The old game is the spec; only its implementation is disposable.** "The old code acts as a precious spec of what I
+  want and a demonstration of what I'm trying to accomplish, even though the specific implementation of that logic is
+  not precious." A game rule changes only by the owner's own words, recorded verbatim in
+  `docs/engine-v2/owner-decisions.md`: never as a session's "judgment call" or "provisional call". If a rule blocks the
+  work, stop and ask. The instruction below not to be attached to prior work is about code, never about game logic.
+- Details, and what went wrong on 14 November: `.agents/memory/metastable-ecosystem.md`. Departures made during the
+  rebuild: `docs/engine-v2/v1-audit.md`. Why optima were easy to find: `docs/engine-v2/landscape-analysis.md`.
+
 ## Engine v2 (the owner's standing instructions, 2026-11-14)
 
 The engine is being rebuilt from a fresh slate, for linear equations first, in new `lib/v2-*` packages and new `v2*`
