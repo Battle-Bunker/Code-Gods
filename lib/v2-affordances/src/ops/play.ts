@@ -79,7 +79,7 @@ export const playOps = [
     description: "Pages through the game's objects for the viewer, sorted by the viewer's points, level or most recent change, with each object's level and points.",
     tooltip: "Objects in this game.", keywords: ["objects", "lines", "list", "browse"],
     params: obj({ sort: z.enum(["points", "level", "recent"]).default("points"), ...paging }),
-    result: page(z.object({ objectId: id, level: z.number().int(), points: z.number() })),
+    result: page(z.object({ objectId: id, number: z.number().int().describe("The line's number: what the app shows and an agent's offer.object."), level: z.number().int(), points: z.number() })),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -118,7 +118,7 @@ export const playOps = [
     id: "object.score", title: "Score an object under my rule", group: "objects", scope: "game",
     description: "The caller's rule evaluated on one object: score tuple, level, the recorded terms, its rarity in bits and the caller's points from it (the caller's bits × the other players' bits on it added together).",
     tooltip: "How your rule rates this object.", keywords: ["score", "my points", "level", "evaluate"],
-    params: obj({ objectId: id }), result: score.extend({ rarityBits: z.number(), points: z.number() }),
+    params: obj({ objectId: id }), result: score.extend({ number: z.number().int(), rarityBits: z.number(), points: z.number() }),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
@@ -126,7 +126,7 @@ export const playOps = [
     description: "Pages through the moves that changed the caller's points or were made by the caller's agents: calls, states before and after, level and points before and after, charge.",
     tooltip: "What happened to your objects.", keywords: ["log", "moves", "history", "what happened"],
     params: obj({ ...paging }),
-    result: page(z.object({ seq: z.number().int(), objectId: id, agentId: id.nullable(), mine: z.boolean(), calls: z.array(call), pointsBefore: z.number(), pointsAfter: z.number(), charge: z.number().nullable() })),
+    result: page(z.object({ seq: z.number().int(), objectId: id, number: z.number().int(), agentId: id.nullable(), mine: z.boolean(), calls: z.array(call), pointsBefore: z.number(), pointsAfter: z.number(), charge: z.number().nullable() })),
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
