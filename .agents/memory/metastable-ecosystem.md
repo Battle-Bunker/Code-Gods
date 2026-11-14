@@ -34,11 +34,23 @@ to change the game's logic.
 - **The old game is the spec.** The owner: "the old code acts as a precious spec of what I want and a demonstration of
   what I'm trying to accomplish, even though the specific implementation of that logic is not precious and can and
   should be replaced if warranted to create a cleaner architecture." Implementation is disposable; game logic is not.
-  A game rule (scoring, uniqueness, independence, information hiding and noise, costs, births, what agents can do)
-  changes only by the owner's own words, recorded verbatim in `docs/engine-v2/owner-decisions.md`. A session never
-  drops, weakens or replaces one as a "judgment call" or "provisional call"; if a rule seems to block the work, stop and
-  ask. The rules are in `.agents/memory/code-gods-product.md` and on the branch `archive/engine-v1`;
-  `docs/engine-v2/v1-audit.md` lists every departure made during the rebuild.
+  The default for every game rule (scoring, uniqueness, independence, information hiding and noise, costs, births, what
+  agents can do) is the old rule. The rules are in `.agents/memory/code-gods-product.md` and on the branch
+  `archive/engine-v1`; `docs/engine-v2/v1-audit.md` lists every departure made during the rebuild.
+- **A strong guiding light, not gospel.** The owner, later on 14 November: "I don't have enough bandwidth to give you
+  detailed decisions about lots of the things you've asked. I need you to get a hang of the principles for designing
+  this game so you can make good calls yourself. Generally speaking the right approach is to keep the rules we already
+  designed prior to this engine upgrade, but don't treat the old design as gospel, just as a strong guiding light for
+  what I'm trying to achieve here. If you can see an obvious way that an older design choice could be changed to cohere
+  better with the new engine design and make the game more dynamic, you can try out such policy changes and loudly
+  declare to me that you are doing so and what the motivations are and then the empirical effects, once you know them."
+  So: never drop or weaken a rule silently, as a "judgment call", or for convenience. The coordinator may trial a
+  change that makes the game more dynamic; it is declared to the owner at once with its motivation, recorded as a
+  trial in `docs/engine-v2/owner-decisions.md`, measured, and the effects reported. Worker sessions propose such
+  changes to the coordinator; they do not make them.
+- **Hill climbing together is wanted; easy high peaks are the bug.** The owner: "We want to be able to hill climb a
+  combined landscape that improves several rules at once. We just want it to be hard to find really high peaks in that
+  landscape." Do not report "a climb found a board that suits several rules" as a defect.
 - **An optimum found is a bug.** If a search, a script, a model seat or a player finds a state or strategy that is
   optimal or near-optimal for the table and can simply be held or copied, report it to the owner as a defect, with the
   mechanism that made it findable. Never build features, prompts, starters or advice that help players reach or hold a
