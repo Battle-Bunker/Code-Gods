@@ -352,6 +352,28 @@ The results say "after your bid's 10% handicap", and the deal does not rotate. T
 2.5 s, first scoring move 10.8 s, end 36.6 s; phone bid 2.1 s, seated 2.3 s, first scoring move 13.4 s, end 36.4 s.
 `test/v2-bidding.test.ts` runs the server's bid contract on both bidding presets.
 
+**A non-coder persona** (14 November; one played by an agent in a real browser against the local engine, reading
+only the screen; full game, no shortening):
+
+| Milestone | Desktop | Phone |
+|---|--:|--:|
+| In a room | 0:13 | 0:12 |
+| Grid setup chosen | 0:27 | 0:29 |
+| In a game | 1:03 | 0:42 |
+| First agent summoned (one press, no code) | 1:16 | 0:56 |
+| World started ("Start the world now", pressed twice) | 1:39 | 1:47 |
+| Could say how they score | ~2:49, partly | not reached |
+| Game over / result understood | 6:39 / 7:06 (rank only) | not followed |
+
+What worked: room, setup, practice game and first agent take about a minute with no dead end; the rule sentence
+("Every row should add up to 18") and the board's "8 short" marks read clearly. What stopped them, worst first:
+"line" and "code" words in the panes that explain scoring (feed, tug-of-war, leaderboard, chart, "Try this" and
+"shorten the code" hints); "See its rules" opened a gallery of line rules only (fixed: the gallery has a Grids board);
+scoring explained as a formula of bits rather than through the player's own rule, with walls of numbers in the feed;
+nothing to do while the game runs (a second starter blocked, the other starters described in jargon); an end screen
+with no reason and no next step; on a phone, the setup choice two screens below Play and a tab strip running off the
+right edge. Those outside grids went to the app session.
+
 ## 8. Decisions and judgment calls
 
 **The owner's, since the first draft:** decision 22 (keep the old beginner rules and every kind of grid rule; value what

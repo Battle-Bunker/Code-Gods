@@ -7,6 +7,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { beginnerFamilies, lineType, lineZ } from "@workspace/v2-linear";
+import { beginnerGridFamilies, grid4, gridType } from "@workspace/v2-grid";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
 
 test("the gallery lists every family the board deals, the beginner pool first, and nothing it does not deal", () => {
@@ -27,8 +28,22 @@ test("a beginner family says which presets deal it on that board", () => {
   assert.ok(!e.presets.includes("Lines · rational"), "rational deals on fraction lines, not this board");
 });
 
-test("every board the gallery offers is a variant of the line type", () => {
-  for (const b of BOARDS) assert.ok(lineType.variants.some(v => v.id === b.id), b.id);
+test("every board the gallery offers is a variant of a type the app draws, the grid's included", () => {
+  for (const b of BOARDS) assert.ok([lineType, gridType].some(t => t.variants.some(v => v.id === b.id)), b.id);
+  assert.ok(BOARDS.some(b => b.id === grid4.id), "the grid's board");
+});
+
+test("the grid board lists the grid's families (the beginner grid pool first), never a line's, and its pages are grids'", () => {
+  const g = galleryFamilies(grid4.id);
+  assert.deepEqual(g.beginner.map(e => e.id), beginnerGridFamilies(4).filter(f => f.dealable(grid4).length).map(f => f.id));
+  const all = [...g.beginner, ...g.more].map(e => e.id).sort();
+  assert.deepEqual(all, gridType.families.filter(f => f.dealable(grid4).length).map(f => f.id).sort());
+  assert.ok(g.beginner.find(e => e.id === "magic-eighteen")!.presets.includes("Grids · beginner"));
+  const p = familyPage("magic-eighteen", setupFromSearch(`?board=${grid4.id}`))!;
+  assert.equal(p.rule.type, gridType);
+  assert.equal(p.rule.variant.id, grid4.id);
+  assert.match(p.main.sentence, /18/);
+  assert.equal(familyPage("triangle-area", setupFromSearch(`?board=${grid4.id}`)), null, "a line family has no page on the grid board");
 });
 
 test("a family page offers the family's dealable parameters and tie-breakers, and its card follows the choice", () => {
