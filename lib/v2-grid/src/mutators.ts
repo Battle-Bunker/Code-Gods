@@ -1,10 +1,11 @@
 /**
  * The grid's nine mutators (docs/engine-v2/grids.md §4), each tied to a representation. Positions are choices (their
- * log2 is the move's handling fee, the same both ways); amounts are priced by steps (owner decision 17); v2-core adds
- * "which" (log2 9) and the confining surcharge (half the growth of the board's total). Every move's inverse is proposed
- * with the same weight, so the price list is an exact potential (owner decision 19; test/potential.test.ts).
+ * log2 is the move's handling fee, the same both ways); amounts are priced in proportion to their size (the call's
+ * whole fee is rate·|k|: v2-core codes.ts, "far moves are dear"); v2-core adds "which" (log2 9) and the confining
+ * surcharge (half the growth of the board's total). Every move's inverse is proposed with the same weight, so the
+ * price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
-import { choiceBits, sampleStepsNonzero, stepsNonzeroBits, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { amountCode, choiceBits, sampleAmount, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
 import { BOX_NAMES, boxes, lines, pairs } from "./units.ts";
 
@@ -28,38 +29,49 @@ const oneOf = (names: readonly string[]): Field => ({
   decode: w => { if (typeof w !== "string" || !names.includes(w)) throw new RangeError(`must be one of ${names.join(", ")}`); return w; },
 });
 
-/** A nonzero whole amount, priced by steps: 1 + ½(|k| − 1) + 1.77 bits. */
-const amount: Field = {
-  values: max => { const out: number[] = []; for (let k = 1; stepsNonzeroBits(BigInt(k)) <= max + 1e-9; k++) out.push(k, -k); return out; },
-  bits: v => stepsNonzeroBits(BigInt(v)),
-  sample: rng => Number(sampleStepsNonzero(rng)),
-  decode: w => {
-    const s = typeof w === "number" ? String(w) : w;
-    if (typeof s !== "string" || !/^-?\d+$/.test(s)) throw new RangeError("must be a whole number");
-    const k = Number(s);
-    if (k === 0) throw new RangeError("must not be 0");
-    return k;
-  },
-};
+/**
+ * The amount part of a call: a nonzero whole number, priced against the rest of the call (v2-core codes.ts, "far moves
+ * are dear"): with o the bits of which + the call's choices, k costs rate(o)·|k| − o, so the call's whole fee is
+ * rate(o)·|k| and a move of k costs exactly |k| moves of 1.
+ */
+const amountBits = (k: number, o: number): number => amountCode(o, 1, false).bits(Math.abs(k));
+function decodeAmount(w: unknown): number {
+  const s = typeof w === "number" ? String(w) : w;
+  if (typeof s !== "string" || !/^-?\d+$/.test(s)) throw new RangeError("must be a whole number");
+  const k = Number(s);
+  if (k === 0) throw new RangeError("must not be 0");
+  return k;
+}
 
-function fields(spec: Readonly<Record<string, Field>>): ArgCode<GridArgs> {
-  const names = Object.keys(spec);
+/** The argument code of choices `spec` and, when `amount`, an amount k, for a call whose "which" costs `base` bits. */
+function fields(base: number, spec: Readonly<Record<string, Field>>, amount = false): ArgCode<GridArgs> {
+  const choiceNames = Object.keys(spec);
+  const names = amount ? [...choiceNames, "k"] : choiceNames;
+  const choiceBitsOf = (a: GridArgs) => choiceNames.reduce((t, k) => t + spec[k]!.bits(a[k]!), 0);
   return {
     enumerate: maxBits => {
       let partial: { a: Record<string, string | number>; bits: number }[] = [{ a: {}, bits: 0 }];
-      for (const k of names) {
+      for (const k of choiceNames) {
         const f = spec[k]!;
         const vals = f.values(maxBits).map(v => ({ v, bits: f.bits(v) }));
         const next: typeof partial = [];
         for (const p of partial) for (const { v, bits } of vals) if (p.bits + bits <= maxBits + 1e-9) next.push({ a: { ...p.a, [k]: v }, bits: p.bits + bits });
         partial = next;
       }
+      if (amount) {
+        partial = partial.flatMap(p => {
+          const o = base + p.bits, out: typeof partial = [];
+          for (let k = 1; p.bits + amountBits(k, o) <= maxBits + 1e-9; k++) for (const x of [k, -k]) out.push({ a: { ...p.a, k: x }, bits: p.bits + amountBits(x, o) });
+          return out;
+        });
+      }
       return partial.sort((x, y) => x.bits - y.bits).map(x => x.a);
     },
-    bits: a => names.reduce((t, k) => t + spec[k]!.bits(a[k]!), 0),
+    bits: a => { const c = choiceBitsOf(a); return amount ? c + amountBits(a.k as number, base + c) : c; },
     sample: rng => {
       const out: Record<string, string | number> = {};
-      for (const k of names) { const v = spec[k]!.sample(rng); if (v === null) return null; out[k] = v; }
+      for (const k of choiceNames) { const v = spec[k]!.sample(rng); if (v === null) return null; out[k] = v; }
+      if (amount) out.k = Number(sampleAmount(rng, base + choiceBitsOf(out), false)!.n);
       return out;
     },
     encode: a => Object.fromEntries(names.map(k => [k, String(a[k])])),
@@ -71,12 +83,15 @@ function fields(spec: Readonly<Record<string, Field>>): ArgCode<GridArgs> {
       const out: Record<string, string | number> = {};
       for (const k of names) {
         if (!(k in rec)) throw new RangeError(`missing argument ${k}`);
-        try { out[k] = spec[k]!.decode(rec[k]); } catch (e) { throw new RangeError(`${k} ${(e as Error).message}`); }
+        try { out[k] = amount && k === "k" ? decodeAmount(rec[k]) : spec[k]!.decode(rec[k]); } catch (e) { throw new RangeError(`${k} ${(e as Error).message}`); }
       }
       return out;
     },
   };
 }
+
+/** "which": log2 of the variant's mutators. */
+const base = (v: Variant): number => Math.log2(v.mutators.length);
 
 // ---------------------------------------------------------------- helpers
 
@@ -113,7 +128,7 @@ const lineWords = (name: unknown): string => {
 export const add: M = {
   id: "cells.add", reps: ["cells"], title: "add to one cell", perSite: false,
   describe: a => `${signed(k(a))} in ${cellWords(a.cell)}`,
-  args: v => fields({ cell: oneOf(cellNames(N(v))), k: amount }),
+  args: v => fields(base(v), { cell: oneOf(cellNames(N(v))) }, true),
   apply: (s, _site, a, v) => { const i = cellIndex(N(v), a.cell as string); return addTo(s, v, [i], () => k(a)); },
   inverse: { kind: "mutator", id: "cells.add", args: a => ({ ...a, k: -k(a) }) },
 };
@@ -121,7 +136,7 @@ export const add: M = {
 export const swap: M = {
   id: "cells.swap", reps: ["cells"], title: "swap two cells", perSite: false,
   describe: a => `swap ${cellWords(a.a)} and ${cellWords(a.b)}`,
-  args: v => fields({ a: oneOf(cellNames(N(v))), b: oneOf(cellNames(N(v))) }),
+  args: v => fields(base(v), { a: oneOf(cellNames(N(v))), b: oneOf(cellNames(N(v))) }),
   apply: (s, _site, a, v) => {
     const i = cellIndex(N(v), a.a as string), j = cellIndex(N(v), a.b as string);
     if (i === j) return { invalid: "swap needs two different cells" };
@@ -133,7 +148,7 @@ export const swap: M = {
 export const lineAdd: M = {
   id: "tally.add", reps: ["tally"], title: "add to every cell of a row or column", perSite: false,
   describe: a => `${signed(k(a))} in every cell of ${lineWords(a.line)}`,
-  args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)), k: amount }),
+  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), () => k(a)),
   inverse: { kind: "mutator", id: "tally.add", args: a => ({ ...a, k: -k(a) }) },
 };
@@ -142,7 +157,7 @@ export const lineAdd: M = {
 export const rotateFor = (n: number): M => ({
   id: "tally.rotate", reps: ["tally"], title: "move a row's or column's numbers along, the last coming round to the front", perSite: false,
   describe: a => `move ${lineWords(a.line)}'s numbers ${a.j} place${a.j === "1" ? "" : "s"} along`,
-  args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)), j: oneOf(Array.from({ length: N(v) - 1 }, (_, i) => String(i + 1))) }),
+  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)), j: oneOf(Array.from({ length: N(v) - 1 }, (_, i) => String(i + 1))) }),
   apply: (s, _site, a, v) => {
     const cs = lineCells(N(v), a.line as string), j = Number(a.j), L = cs.length;
     return write(s, v, cs.map((c, pos) => [c, s.cells[cs[(pos - j + L) % L]!]!] as [number, number]));
@@ -169,7 +184,7 @@ const SPIN_WORDS: Readonly<Record<string, string>> = {
 export const spin: M = {
   id: "turn.spin", reps: ["turn"], title: "turn or flip the whole board", perSite: false,
   describe: a => SPIN_WORDS[a.how as string]!,
-  args: () => fields({ how: oneOf(Object.keys(SPINS)) }),
+  args: v => fields(base(v), { how: oneOf(Object.keys(SPINS)) }),
   apply: (s, _site, a, v) => {
     const n = N(v), f = SPINS[a.how as string]!;
     return permute(s, i => { const [r, c] = f(n, Math.floor(i / n), i % n); return at(n, r, c); });
@@ -184,7 +199,7 @@ export const balanceFor = (n: number): M => ({
     const [i, j] = pairs(n)[Number(String(a.pair).slice(4))]!;
     return `${signed(k(a))} in ${cellLabel(n, i)} and ${signed(-k(a))} in its opposite, ${cellLabel(n, j)}`;
   },
-  args: v => fields({ pair: oneOf(pairs(N(v)).map((_, i) => `pair${i}`)), k: amount }),
+  args: v => fields(base(v), { pair: oneOf(pairs(N(v)).map((_, i) => `pair${i}`)) }, true),
   apply: (s, _site, a, v) => {
     const [i, j] = pairs(N(v))[Number((a.pair as string).slice(4))]!;
     return write(s, v, [[i, s.cells[i]! + k(a)], [j, s.cells[j]! - k(a)]]);
@@ -195,7 +210,7 @@ export const balanceFor = (n: number): M => ({
 export const reverse: M = {
   id: "mirror.reverse", reps: ["mirror"], title: "write a row or column backwards", perSite: false,
   describe: a => `write ${lineWords(a.line)} backwards`,
-  args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)) }),
+  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)) }),
   apply: (s, _site, a, v) => {
     const cs = lineCells(N(v), a.line as string);
     return write(s, v, cs.map((c, pos) => [c, s.cells[cs[cs.length - 1 - pos]!]!] as [number, number]));
@@ -206,7 +221,7 @@ export const reverse: M = {
 export const tilt: M = {
   id: "steps.tilt", reps: ["steps"], title: "make every step along a row or column bigger by k (the first number stays)", perSite: false,
   describe: a => `${signed(k(a))} on every step along ${lineWords(a.line)}`,
-  args: v => fields({ line: oneOf(lines(N(v)).map(l => l.name)), k: amount }),
+  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), pos => pos * k(a)),
   inverse: { kind: "mutator", id: "steps.tilt", args: a => ({ ...a, k: -k(a) }) },
 };
@@ -214,7 +229,7 @@ export const tilt: M = {
 export const boxAdd: M = {
   id: "boxes.add", reps: ["boxes"], title: "add to every cell of a corner box", perSite: false,
   describe: a => `${signed(k(a))} in every cell of the ${BOX_NAMES[Number(String(a.box).slice(3))]} box`,
-  args: v => fields({ box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)), k: amount }),
+  args: v => fields(base(v), { box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, boxes(N(v))[Number((a.box as string).slice(3))]!, () => k(a)),
   inverse: { kind: "mutator", id: "boxes.add", args: a => ({ ...a, k: -k(a) }) },
 };

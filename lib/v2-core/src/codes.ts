@@ -186,3 +186,155 @@ export function sampleMixedInt(r: Rng, t = 1): bigint {
   }
   return negative ? -n : n;
 }
+
+// ---------------------------------------------------------------- far moves are dear (owner design, 2026-11-14)
+//
+// "It's really expensive to move objects a long way in a single turn, by design, so all strategies should be incremental
+// hill climbing." A call's fee is which + where + its arguments. Most arguments split into choices (which coefficient,
+// which cell, a pivot's x0) and one size (how far: an amount added, a slide, a factor). The size is priced against the
+// rest of the call: when the call's other parts cost o bits, a size σ costs rate(o)·σ − o, so the whole fee is
+// rate(o)·σ: exactly proportional to the size. A move of size n then costs exactly what n unit moves cost (each paying
+// its own which, where and choices), and a far move is never cheaper than the path of unit moves to the same place.
+// rate(o) is the least that keeps the code a (sub-)probability: Σ 2^−bits ≤ 1 over every size, with equality here.
+// Sizes:
+//   an amount (a nonzero rational p/q in lowest terms; integers have q = 1): σ = |p| + q − 1, so a whole number n has
+//     σ = |n| and a fraction pays for its denominator;
+//   a displacement (u, v), not both 0: σ = σ(u) + σ(v), with σ(0) = 0;
+//   a factor (a nonzero rational p/q other than ±1): σ = log2(|p|·q), its digits, which add up along a product of
+//     primes: a factor costs exactly what its prime factors cost one by one.
+// The amount and displacement codes are geometric in σ (ratio r = 2^−rate) over sign, p ≥ 1 and q ≥ 1 drawn
+// independently; a draw that is not in lowest terms is the code's leftover mass. The factor code is a zeta law
+// (|p|·q)^−rate over p ≥ 1 and q ≥ 1, likewise.
+
+/** The size of a nonzero amount p/q: |p| + q − 1 (a whole number's absolute value). 0 has size 0. */
+export function amountSize(x: Q): number {
+  if (x.n === 0n) return 0;
+  return Number(x.n < 0n ? -x.n : x.n) + Number(x.d) - 1;
+}
+
+/** The size of a factor p/q: log2(|p|·q). */
+export function factorSize(x: Q): number {
+  const p = x.n < 0n ? -x.n : x.n;
+  return log2Big(p) + log2Big(x.d);
+}
+function log2Big(n: bigint): number {
+  const s = n.toString(2);
+  if (s.length <= 52) return Math.log2(Number(n));
+  return s.length - 52 + Math.log2(Number(n >> BigInt(s.length - 52)));
+}
+
+/** A size code given the rest of the call's bits o: bits(σ) = rate·σ − o. */
+export interface SizeCode {
+  /** Bits per unit of size: a call of size σ has fee rate·σ. */
+  readonly rate: number;
+  /** The bits of the size part: rate·σ − o. */
+  bits(size: number): number;
+}
+
+const rateCache = new Map<string, number>();
+function cached(key: string, f: () => number): number {
+  let r = rateCache.get(key);
+  if (r === undefined) rateCache.set(key, r = f());
+  return r;
+}
+
+/**
+ * The geometric ratio r for an amount (dims 1) or a displacement (dims 2), whole (Z) or rational (Q), after o bits.
+ * g(r) = Σ over a nonzero component of r^σ: 2r/(1 − r) for Z (sign, |n| ≥ 1), 2r/(1 − r)² for Q (sign, p ≥ 1, q ≥ 1).
+ * Complete code: 2^o·g = 1 for one amount; 2^o·((1 + g)² − 1) = 1 for a displacement (the pair (0, 0) excluded).
+ */
+function amountRatio(o: number, dims: 1 | 2, rational: boolean): number {
+  return cached(`a${dims}${rational ? "Q" : "Z"}${o}`, () => {
+    const g = dims === 1 ? 2 ** -o : Math.sqrt(1 + 2 ** -o) - 1;
+    // Z: 2r/(1 − r) = g. Q: 2r/(1 − r)² = g, the root below 1.
+    return rational ? (g + 1 - Math.sqrt(2 * g + 1)) / g : g / (2 + g);
+  });
+}
+
+/** The code of an amount (dims 1) or a displacement (dims 2) when the rest of the call costs o bits. */
+export function amountCode(o: number, dims: 1 | 2, rational: boolean): SizeCode {
+  const rate = -Math.log2(amountRatio(o, dims, rational));
+  return { rate, bits: size => rate * size - o };
+}
+
+/** A geometric draw j ≥ 0 with P(j) = (1 − r)·r^j. */
+function geometricRatio(rng: Rng, r: number): number {
+  return Math.floor(Math.log1p(-rng.unit()) / Math.log(r));
+}
+/** A nonzero component with probability r^σ / g (see amountRatio), or null when not in lowest terms. */
+function drawComponent(rng: Rng, r: number, rational: boolean): Q | null {
+  const s = rng.bit();
+  const p = BigInt(1 + geometricRatio(rng, r));
+  const d = rational ? BigInt(1 + geometricRatio(rng, r)) : 1n;
+  if (gcd(p, d) !== 1n) return null;
+  return q(s ? -p : p, d);
+}
+
+/** One amount with probability 2^−bits under amountCode(o, 1, rational), or null for the leftover mass. */
+export function sampleAmount(rng: Rng, o: number, rational: boolean): Q | null {
+  return drawComponent(rng, amountRatio(o, 1, rational), rational);
+}
+
+/** One displacement (u, v), not both 0, with probability 2^−bits under amountCode(o, 2, rational), or null. */
+export function sampleDisplacement(rng: Rng, o: number, rational: boolean): [Q, Q] | null {
+  const r = amountRatio(o, 2, rational);
+  const g = rational ? 2 * r / (1 - r) ** 2 : 2 * r / (1 - r);
+  // Each component is 0 with probability 1/(1 + g), else a nonzero draw; (0, 0) is redrawn.
+  for (;;) {
+    const zu = rng.unit() < 1 / (1 + g), zv = rng.unit() < 1 / (1 + g);
+    if (zu && zv) continue;
+    const u = zu ? q(0) : drawComponent(rng, r, rational);
+    const v = zv ? q(0) : drawComponent(rng, r, rational);
+    return u === null || v === null ? null : [u, v];
+  }
+}
+
+/** ζ(s) for s > 1: a direct sum and the Euler–Maclaurin tail. */
+function zeta(s: number): number {
+  const N = 1000;
+  let t = 0;
+  for (let n = 1; n < N; n++) t += n ** -s;
+  return t + N ** (1 - s) / (s - 1) + N ** -s / 2 + s * N ** (-s - 1) / 12;
+}
+
+/**
+ * The factor code when the rest of the call costs o bits: bits = rate·log2(|p|·q) − o, rate the root of
+ * 2^(o+1)·(ζ(rate)² − 1) = 1 (sign, p ≥ 1, q ≥ 1, the pair (1, 1) excluded).
+ */
+export function factorCode(o: number): SizeCode {
+  const rate = cached(`f${o}`, () => {
+    let lo = 1.01, hi = 80;
+    for (let i = 0; i < 200; i++) {
+      const mid = (lo + hi) / 2;
+      if (2 ** (o + 1) * (zeta(mid) ** 2 - 1) > 1) lo = mid; else hi = mid;
+    }
+    return hi;
+  });
+  return { rate, bits: size => rate * size - o };
+}
+
+/** A draw n ≥ 1 with P(n) = n^−a / ζ(a), a > 1 (Devroye's rejection method), or null past 2^52. */
+function sampleZipf(rng: Rng, a: number): number | null {
+  const b = 2 ** (a - 1);
+  for (;;) {
+    const u = 1 - rng.unit(), v = rng.unit();
+    const x = Math.floor(u ** (-1 / (a - 1)));
+    if (!(x <= 2 ** 52)) return null;
+    const t = (1 + 1 / x) ** (a - 1);
+    if (v * x * (t - 1) / (b - 1) <= t / b) return x;
+  }
+}
+
+/** One factor (not ±1) with probability 2^−bits under factorCode(o), or null for the leftover mass. */
+export function sampleFactor(rng: Rng, o: number): Q | null {
+  const a = factorCode(o).rate;
+  for (;;) {
+    const s = rng.bit();
+    const p = sampleZipf(rng, a), d = sampleZipf(rng, a);
+    if (p === null || d === null) return null;
+    if (p === 1 && d === 1) continue;
+    const P = BigInt(p), D = BigInt(d);
+    if (gcd(P, D) !== 1n) return null;
+    return q(s ? -P : P, D);
+  }
+}

@@ -87,7 +87,7 @@ test("parts are the recorded terms on every family and a walk of states: no seco
   }
 });
 
-test("moves: each really improves the utility, at the price it quotes, cheapest first", () => {
+test("moves: each really improves the utility, at the price it quotes; the cheapest for the main part leads, the frontier ascends", () => {
   for (const [f, p, st] of [
     [emptyTank, {}, mc(-3, 10)], [primeGradient, {}, mc(4, -3)], [mMeetsC, {}, mc(1, 5)], [crossingCheck, { k: 1, q: 5 }, mc(1, 0)], [triangleArea, { A: 8 }, mc(-1, 3)],
   ] as const) {
@@ -101,8 +101,13 @@ test("moves: each really improves the utility, at the price it quotes, cheapest 
       const mu = variantMutators(lineType as ObjectType<unknown>, lineQ).find(x => x.id === m.call.mutator)!;
       const again = applyPriced(lineType as ObjectType<unknown>, lineQ, st, mu, m.call.site, mu.args(lineQ).decode(m.call.args as never));
       assert.ok(!("invalid" in again) && Math.abs(again.price.total - m.price.total) < 1e-9, `${f.id}: price of ${m.words}`);
-      if (i > 0) assert.ok(m.price.total >= ms[i - 1]!.price.total);
       assert.equal(m.bits, null);
     }
+    // The varied list (moves.ts): the cheapest move for the main part first, then the tie-breaker's, then the frontier.
+    const main = (u: typeof before) => (u === null ? null : [u[0] ?? null]);
+    const forMain = ms.filter(m => compareScores(main(m.utility), main(before)) > 0);
+    if (forMain.length) assert.ok(forMain.every(m => m.price.total >= ms[0]!.price.total), `${f.id}: the cheapest for the main part leads`);
+    const fill = ms.filter(m => /^rare/.test(m.reason));
+    for (let i = 1; i < fill.length; i++) assert.ok(fill[i]!.price.total >= fill[i - 1]!.price.total, `${f.id}: the frontier ascends`);
   }
 });

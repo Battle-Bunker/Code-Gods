@@ -923,9 +923,20 @@ table.y(q), seq.term(q), mach.out(q), cart.pointAtX(q)'s y).
 
 ### 12.4 Mutators
 
-N = 9 in every first variant: log2 9 = 3.17 bits of "which". Under mixed costing (§5.2) `nz` is an amount added, priced
-by steps (an integer on the Z argument domain, a rational on Q), `int` a position or displacement that may be 0, also by
-steps, and a factor is priced by digits. k sites add log2 k.
+N = 9 in every first variant: log2 9 = 3.17 bits of "which". k sites add log2 k. Far moves are dear (owner design,
+2026-11-14: "It's really expensive to move objects a long way in a single turn, by design, so all strategies should be
+incremental hill climbing"): a call's arguments are choices (an axis, which coefficient, a pivot's anchor x0, priced as
+before: x0 by steps, owner decision 17) and at most one size, priced against the rest of the call. With o the bits of
+which + where + the choices, a size σ costs rate(o)·σ − o, so the call's whole fee is rate(o)·σ and a move of size n costs
+exactly n unit moves (v2-core `codes.ts`, `amountCode` and `factorCode`). `nz` is an amount added, of size |p| + q − 1
+(a whole number's size is |k|; a fraction pays for its denominator); a slide (u, v) has size σ(u) + σ(v); a factor p/q
+has size log2(|p|·q), its digits, so a factor costs what its prime factors cost one by one. rate(o) is the least that
+keeps each code a complete (sub-)probability: for an amount on Z, 2^o·2r/(1 − r) = 1 with r = 2^−rate (rate = log2 19 =
+4.25 for o = log2 9); on Q, 2^o·2r/(1 − r)² = 1 over sign, p ≥ 1 and q ≥ 1 (4.32); for a slide, 2^o·((1 + g)² − 1) = 1
+with g the amount sum (5.25 on Z); for a factor, 2^(o+1)·(ζ(rate)² − 1) = 1 (5.39). Draws not in lowest terms are the
+codes' leftover mass. A unit shift or tilt on line-z costs 4.25 bits plus its surcharge (it was 5.94); y = x + 1 →
+y = 30x + 7 in one act costs W = 157.2, charge 1392.4, against 250.1 for the 35 unit acts (it was W = 36.9, charge 104.9,
+against 346.7).
 
 | Id | Representations | Arguments (bits) | Effect on (m, c) or (a, b, c) | Inverse |
 |---|---|---|---|---|
@@ -935,7 +946,7 @@ steps, and a factor is priced by digits. k sites add log2 k.
 | `cart.pivot` | cart, peg | x0: int; k: nz | m += k, c −= k·x0 (turn about the point at x = x0) | `cart.pivot(x0, −k)` |
 | `cart.slide` | cart | u: int; v: int; (u, v) ≠ (0, 0) | c += v − m·u (translate by (u, v)); vertical lines: a·x moves by u | `cart.slide(−u, −v)` |
 | `cart.mirror` | cart | axis: choice of 4 (2 bits): `x`, `y`, `origin`, `diagonal` | (−m, −c), (−m, c), (m, −c), the inverse function (x and y swapped) | self |
-| `gen.nudge` | gen | which: choice of 3 (log2 3); k: steps (integers) | a, b or c += k; refused when the result has a common factor (it would be divided through, a one-way move) or would turn the equation over | `gen.nudge(which, −k)` |
+| `gen.nudge` | gen | which: choice of 3 (log2 3); k: nz (integers) | a, b or c += k; refused when the result has a common factor (it would be divided through, a one-way move) or would turn the equation over | `gen.nudge(which, −k)` |
 | `int.move` | int | axis: 1 bit; k: nz | p += k or q += k, keeping the other | partial: `int.move(axis, −k)` where the result has both intercepts |
 | `mach.stretch` | mach | factor f: digits (`nonzeroRat`), f ≠ ±1 | m ·= f, c ·= f (every output × f) | `mach.stretch(1/f)`, the same price; partial only where 1/f leaves the domain |
 

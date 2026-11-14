@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyCall, applyPriced, isInvalid, Qn, rng, stepsIntBits, stepsNonzeroBits, stepsNonzeroRatBits, walkStep, type Call, type Variant } from "@workspace/v2-core";
+import { amountCode, applyCall, applyPriced, factorCode, isInvalid, Qn, rng, stepsIntBits, walkStep, type Call, type Variant } from "@workspace/v2-core";
 import { lineType, lineQ, lineZ, mutators, describeLine } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
@@ -14,29 +14,51 @@ test("each mutator's effect and price on worked examples (spec §12.4)", () => {
   const which = Math.log2(9);
   const phi = (st: ReturnType<typeof mc>, v: Variant) => lineType.readLength(st, v);
   const up = (from: ReturnType<typeof mc>, to: ReturnType<typeof mc>, v: Variant) => Math.max(0, phi(to, v) - phi(from, v));
-  const n = (k: bigint) => stepsNonzeroBits(k), z = (k: bigint) => stepsIntBits(k);
+  // A sized call's whole fee is rate(o)·size, o the bits of the rest of the call (v2-core codes.ts, far moves are dear).
+  const rate = (o: number, dims: 1 | 2 = 1, rational = false) => amountCode(o, dims, rational).rate;
   const s = mc(1, 5);  // y = x + 5
-  // Additive moves pay steps: in proportion to the amount added (owner decision 17).
-  assert.equal(after(lineZ, s, "seq.step", { k: "2" }), `y = 3x + 3 @ ${(which + n(2n) + up(s, mc(3, 3), lineZ)).toFixed(2)}`);
-  assert.equal(after(lineZ, s, "si.shift", { k: "-4" }), `y = x + 1 @ ${(which + n(4n) + up(s, mc(1, 1), lineZ)).toFixed(2)}`);
-  assert.ok(n(4n) - n(2n) === 1 && n(1n) < 3);  // half a bit per unit added
-  assert.equal(after(lineZ, mc(2, 1), "cart.pivot", { x0: "1", k: "1" }), "y = 3x @ " + (which + z(1n) + n(1n) + up(mc(2, 1), mc(3, 0), lineZ)).toFixed(2));
-  assert.equal(after(lineZ, mc(2, 1), "cart.slide", { u: "1", v: "0" }), "y = 2x - 1 @ " + (which + z(1n) + z(0n) + up(mc(2, 1), mc(2, -1), lineZ)).toFixed(2));
+  // Additive moves pay in proportion to the amount added: twice as far, twice the fee.
+  assert.equal(after(lineZ, s, "seq.step", { k: "2" }), `y = 3x + 3 @ ${(2 * rate(which) + up(s, mc(3, 3), lineZ)).toFixed(2)}`);
+  assert.equal(after(lineZ, s, "si.shift", { k: "-4" }), `y = x + 1 @ ${(4 * rate(which) + up(s, mc(1, 1), lineZ)).toFixed(2)}`);
+  assert.ok(rate(which) > which + 1 && rate(which) < which + 1.1);  // a unit move costs a little over which + 1
+  // A pivot's x0 is a choice priced by steps; the turn is the size.
+  assert.equal(after(lineZ, mc(2, 1), "cart.pivot", { x0: "1", k: "1" }), "y = 3x @ " + (rate(which + stepsIntBits(1n)) + up(mc(2, 1), mc(3, 0), lineZ)).toFixed(2));
+  assert.equal(after(lineZ, mc(2, 1), "cart.slide", { u: "1", v: "0" }), "y = 2x - 1 @ " + (rate(which, 2) + up(mc(2, 1), mc(2, -1), lineZ)).toFixed(2));
   assert.equal(after(lineZ, mc(2, 1), "cart.mirror", { axis: "x" }), "y = -2x - 1 @ " + (which + 2 + up(mc(2, 1), mc(-2, -1), lineZ)).toFixed(2));
   assert.equal(after(lineZ, mc(2, 1), "cart.mirror", { axis: "diagonal" }), "this board only has whole-number gradients and intercepts");
   assert.equal(after(lineQ, abc(0, 1, -3), "cart.mirror", { axis: "diagonal" }), "x = 3 @ " + (which + 2).toFixed(2));
-  // Multiplicative moves pay digits: the gamma code of the factor.
-  assert.equal(after(lineZ, mc(2, 2), "mach.stretch", { f: "1/2" }), "y = x + 1 @ " + (which + 2 + 3).toFixed(2));
-  assert.equal(after(lineZ, mc(4, 8), "mach.stretch", { f: "6" }), "y = 24x + 48 @ " + (which + 6 + 1 + up(mc(4, 8), mc(24, 48), lineZ)).toFixed(2));
-  assert.equal(after(lineQ, mc(2, 1), "gen.nudge", { which: "b", k: "1" }), "y = x + 1/2 @ " + (which + Math.log2(3) + n(1n) + up(mc(2, 1), mc(1, Qn.q(1, 2)), lineQ)).toFixed(2));
-  assert.equal(after(lineQ, mc(1, 4), "int.move", { axis: "x", k: "2" }), "y = 2x + 4 @ " + (which + 1 + stepsNonzeroRatBits(Qn.q(2)) + up(mc(1, 4), mc(2, 4), lineQ)).toFixed(2));
+  // Multiplicative moves pay for their digits: rate·log2(|p|·q), so a factor costs what its prime factors cost in turn.
+  const f = factorCode(which).rate;
+  assert.equal(after(lineZ, mc(2, 2), "mach.stretch", { f: "1/2" }), "y = x + 1 @ " + f.toFixed(2));
+  assert.equal(after(lineZ, mc(4, 8), "mach.stretch", { f: "6" }), "y = 24x + 48 @ " + (f * Math.log2(6) + up(mc(4, 8), mc(24, 48), lineZ)).toFixed(2));
+  assert.equal(after(lineQ, mc(2, 1), "gen.nudge", { which: "b", k: "1" }), "y = x + 1/2 @ " + (rate(which + Math.log2(3)) + up(mc(2, 1), mc(1, Qn.q(1, 2)), lineQ)).toFixed(2));
+  assert.equal(after(lineQ, mc(1, 4), "int.move", { axis: "x", k: "2" }), "y = 2x + 4 @ " + (2 * rate(which + 1, 1, true) + up(mc(1, 4), mc(2, 4), lineQ)).toFixed(2));
+  // On line-q a fraction pays for its denominator: k = 1/2 has size 2, k = 3/2 size 4.
+  assert.equal(after(lineQ, s, "si.shift", { k: "3/2" }), `y = x + 13/2 @ ${(4 * rate(which, 1, true) + up(s, mc(1, Qn.q(13, 2)), lineQ)).toFixed(2)}`);
+});
+
+test("far moves are dear: a call's fee is exactly its size times the fee of a unit move", () => {
+  const fee = (v: Variant, mutator: string, args: Record<string, string>, from = mc(1, 5)) => {
+    const r = applyCall(lineType, v, from, { mutator, site: 0, args });
+    assert.ok(!isInvalid(r), `${mutator} ${JSON.stringify(args)}`);
+    return r.price.total - r.price.surcharge;
+  };
+  const near = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-9, `${a} vs ${b}`);
+  near(fee(lineZ, "si.tilt", { k: "29" }), 29 * fee(lineZ, "si.tilt", { k: "1" }));
+  near(fee(lineZ, "si.shift", { k: "-6" }), 6 * fee(lineZ, "si.shift", { k: "1" }));
+  near(fee(lineZ, "cart.slide", { u: "2", v: "-3" }), 5 * fee(lineZ, "cart.slide", { u: "0", v: "1" }));
+  near(fee(lineZ, "cart.pivot", { x0: "3", k: "4" }), 4 * fee(lineZ, "cart.pivot", { x0: "3", k: "-1" }));
+  // A fraction: at least the whole steps and the remainder (size 7 + 2 − 1 = 8 against 3 + (1 + 2 − 1) = 5).
+  near(fee(lineQ, "si.shift", { k: "7/2" }), (8 / 5) * (3 * fee(lineQ, "si.shift", { k: "1" }) + fee(lineQ, "si.shift", { k: "1/2" })));
+  near(fee(lineZ, "mach.stretch", { f: "-6" }, mc(1, 1)), fee(lineZ, "mach.stretch", { f: "2" }, mc(1, 1)) + fee(lineZ, "mach.stretch", { f: "3" }, mc(1, 1)));
 });
 
 test("mixed costing: a large prime is dearer to reach than a large smooth number", () => {
   const r = (to: number) => applyCall(lineType, lineZ, mc(1, 0), { mutator: "si.shift", site: 0, args: { k: String(to) } });
   const prime = r(47), smooth = r(48);
   assert.ok(!isInvalid(prime) && !isInvalid(smooth));
-  assert.ok(prime.price.total > smooth.price.total + 15, `${prime.price.total} vs ${smooth.price.total}`);
+  assert.ok(prime.price.surcharge > smooth.price.surcharge + 15, `${prime.price.surcharge} vs ${smooth.price.surcharge}`);
+  assert.ok(prime.price.total > smooth.price.total, `${prime.price.total} vs ${smooth.price.total}`);
 });
 
 test("the confining surcharge: growing the read length costs the growth", () => {

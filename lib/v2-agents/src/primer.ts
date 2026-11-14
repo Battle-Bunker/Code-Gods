@@ -96,7 +96,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   line: {
     title: "lines", one: "line", many: "lines",
     game: "The game is played on lines: every piece is one line, read in several views. Each player has a rule about lines, made of a main part and a tie-breaker (for example \"make the gradient close to a prime; tie-breaker: the bigger that prime, the better\").",
-    prices: "Adding and turning are priced by steps (a bigger k costs more); multiplying (mach.stretch) by digits. Numbers made of small primes are cheap (24), big primes dear (23).",
+    prices: "A move by k costs k moves by 1, so a big jump never saves; ×6 (mach.stretch) costs ×2 plus ×3. Numbers made of small primes are cheap (24), big primes dear (23).",
     deal: "\"I leave line 4's y-intercept alone if you keep its gradient prime\"",
     typescript: "the same shape with Q for arithmetic",
     example: () => ["m-meets-c", "meetPrime"],
@@ -104,7 +104,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   grid: {
     title: "grids", one: "board", many: "boards",
     game: "The game is played on boards: every piece is a 4×4 board of the numbers 0 to 9 (cells r0c0 … r3c3, row by row, counted from 0), read in several views. Each player has a rule about boards, made of a main part and a tie-breaker (for example \"every row should read the same backwards, like 3 1 1 3; tie-breaker: the middle two columns as big as possible\").",
-    prices: "Amounts are priced by steps (a bigger k costs more), and a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
+    prices: "A move by k costs k moves by 1, so climb in small steps; a change that raises the board's total pays a surcharge of half the growth, so big numbers are rare and dear; rearranging (swaps, turns, writing a row backwards) pays none.",
     deal: "\"I leave board 4's top row alone if you keep its corners big\"",
     typescript: "the same shape, with plain numbers (a view's numbers are Q: Q.toNumber reads them)",
     helpers: {
