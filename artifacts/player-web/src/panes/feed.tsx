@@ -7,12 +7,15 @@ import { createContext, useContext, useMemo } from "react";
 import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
 import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
+import { useReplaying } from "@/core/affordance-runtime";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 import { noteLines } from "./move-notes";
 
 /** What your agents noted for you, by move (each note once, on its newest move). */
 const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
+/** While the game runs, another player's move is unattributed: no name, agent, calls or cost (v1's public log). */
+const AnonymousContext = createContext(true);
 
 /** The line's written form in the representation the move changed (an equation that expresses it, else the first that does). */
 function lineText(state: unknown, rep: string, site: number, variant: string): string {
@@ -21,6 +24,7 @@ function lineText(state: unknown, rep: string, site: number, variant: string): s
 }
 
 function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<string, string>; variant: string }) {
+  const anonymous = useContext(AnonymousContext);
   const length = useGame()?.worldSeconds ?? null;
   const notes = useContext(NotesContext).get(move.seq);
   // A grid's change is drawn (a small board, the changed cells marked), not written as sixteen digits.
@@ -35,9 +39,9 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
     if (!board) try { change = { before: lineText(decodeState(move.stateBefore, variant), move.rep, site, variant), after: lineText(decodeState(move.stateAfter, variant), move.rep, site, variant) }; } catch { change = null; }
     return moveSentence({ noun: objectWord(variant).one,
       who: moveWho(move, move.agentId ? names.get(move.agentId) : null),
-      change, what: callWords(move.calls, variantOf(variant)), before: move.before, after: move.after,
+      change, what: move.mine || !anonymous ? callWords(move.calls, variantOf(variant)) : null, before: move.before, after: move.after,
     });
-  }, [move, names, variant, board]);
+  }, [move, names, variant, board, anonymous]);
   return (
     <li className={`space-y-0.5 px-4 py-2 ${move.mine ? "" : "text-muted-foreground"}`} data-testid={`row-move-${move.seq}`} data-mine={move.mine || undefined}>
       <p className="text-xs text-muted-foreground tabular-nums">
@@ -59,6 +63,10 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
 
 /** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
 function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; variant: string; kinds: ReadonlyMap<string, string> }) {
+  const anonymous = useContext(AnonymousContext);
+  // Live, the movers are unknown: whether anyone at the table reads chat is all the entry can say.
+  const me = useGame()?.me;
+  const othersBots = [...kinds.entries()].filter(([id]) => id !== me).every(([, k]) => k !== "human");
   const length = useGame()?.worldSeconds ?? null;
   // Its moves' notes show on the entry itself: the moves are folded away below.
   const notesBySeq = useContext(NotesContext);
@@ -66,7 +74,7 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
       <p className="text-xs text-muted-foreground tabular-nums">{timeLeft(tug.to, length)} · contested {objectWord(variant).one}</p>
-      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one, length)}</p>
+      <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds, objectWord(variant).one, length, { anonymous, othersBots })}</p>
       {tugNotes.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
@@ -78,6 +86,7 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
 
 export function FeedPane() {
   const header = useGame();
+  const replaying = useReplaying();
   const { seated } = useGameScope();
   const rule = useMyRule();
   const agents = useMyAgents();
@@ -101,13 +110,13 @@ export function FeedPane() {
   }
   return (
     <div data-testid="feed">
-      <NotesContext.Provider value={notes}>
+      <NotesContext.Provider value={notes}><AnonymousContext.Provider value={!replaying && header.phase !== "ended"}>
       <ol className="divide-y">
         {items.map(i => i.kind === "tug"
           ? <TugRow key={`tug-${i.moves[0]!.seq}`} tug={i} names={names} variant={header.variant} kinds={kinds} />
           : <MoveRow key={i.move.seq} move={i.move} names={names} variant={header.variant} />)}
       </ol>
-      </NotesContext.Provider>
+      </AnonymousContext.Provider></NotesContext.Provider>
       {moves.status === "CanLoadMore" && (
         <button type="button" className="w-full border-t py-2 text-xs underline underline-offset-4 text-muted-foreground" onClick={() => moves.loadMore(30)} data-testid="button-feed-earlier">Earlier moves</button>
       )}

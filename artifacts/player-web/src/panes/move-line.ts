@@ -20,7 +20,7 @@ export interface MoveSnap {
 }
 
 export interface MoveSentenceInput {
-  /** "Your agent Tank-1", "Another player's agent" (moveWho). */
+  /** "Your agent Tank-1", "Another player" (moveWho). */
   readonly who: string;
   /** The line's written form before and after, in the representation that changed ("y = −3x + 10"). */
   readonly change?: { readonly before: string; readonly after: string } | null;
@@ -35,9 +35,10 @@ export interface MoveSentenceInput {
 import { bitsText, chanceText, num, onlyYouNote, scoreFormula } from "../core/words.ts";
 const same = (a: number, b: number) => num(a) === num(b);
 
-/** Who moved it: "Your agent Tank-1", "Your agent" (a destroyed or not yet listed agent), "Another player's agent". */
+/** Who moved it: "Your agent Tank-1", "Your agent" (a destroyed or not yet listed agent), "Another player". */
 export function moveWho(row: { mine: boolean; agentId: string | null }, agentName?: string | null): string {
-  if (!row.mine) return "Another player's agent";
+  // Another player's move says nothing of who made it, or how (v1's public log, restored: no attribution while live).
+  if (!row.mine) return "Another player";
   return agentName ? `Your agent ${agentName}` : "Your agent";
 }
 
