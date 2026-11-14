@@ -90,3 +90,14 @@ export const expireDevice = internalMutation({
     if (device) await ctx.db.patch(device._id, { expiresAt: Date.now() - 1 });
   },
 });
+
+/** A room credential with a known token hash (test/v2-mcp.test.ts presents the token on POST /mcp). */
+export const seedCredential = internalMutation({
+  args: { subject: v.string(), roomId: v.string(), permission, tokenHash: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    guard();
+    const now = Date.now();
+    return ctx.db.insert("credentials", { tokenHash: args.tokenHash ?? crypto.randomUUID(), subject: args.subject, roomId: args.roomId, permission: args.permission,
+      label: "test", createdAt: now, expiresAt: now + 3600_000 });
+  },
+});

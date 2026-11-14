@@ -15,3 +15,12 @@ export function takeFirstSummon(gameId: string): boolean {
   return pending.delete(gameId);
 }
 export function onFirstSummon(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }
+
+/**
+ * The button's press: open the forge, then ask it to summon. Opening first matters: opening can store the screen's
+ * arrangement and remount the forge, and a summon taken by the forge being replaced would lose its message.
+ */
+export async function summonFirst(gameId: string, openPane: (pane: string) => Promise<boolean>) {
+  if (!await openPane("forge")) return;
+  requestAnimationFrame(() => requestFirstSummon(gameId));
+}

@@ -95,8 +95,8 @@ try {
     const mine = feed.getByText(/^Your agent .* changed a line/).first();
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();
-    assert.match(sentence, /✨ rarity [\d.]+ → [\d.]+|✨ rarity [\d.]+/, "the move says the ✨ rarity");
-    assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed/, "the move says the points before → after");
+    assert.match(sentence, /✨ rarity [\d.]+ → [\d.]+|✨ rarity [\d.]+/, `the move says the ✨ rarity: ${sentence}`);
+    assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed/, `the move says the points before → after: ${sentence}`);
     assert.doesNotMatch(sentence, /\bbits?\b|payoff|object/i);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
@@ -111,10 +111,13 @@ try {
     await line.getByText("slope-intercept").first().waitFor({ timeout: 20_000 });
     if (label === "desktop") {
       // Plan §5.3: pointing at the y-intercept in slope-intercept form lights it on the plane (same meaning).
+      // The plane is drawn when the rule reads it; otherwise compare with it (a view affordance, like a player would).
+      if (!await line.locator('[data-ref="cart.yInt"]').count()) await line.locator("select", { has: page.locator("option", { hasText: /^nothing$/ }) }).first().selectOption({ label: "line on the plane" });
+      await line.locator('[data-ref="cart.yInt"]').first().waitFor({ state: "attached", timeout: 5000 });
       const c = line.locator('[data-ref="si.c"]').first();
       if (await c.count()) {
         await c.hover();
-        await line.locator('[data-ref="cart.yInt"][data-lit]').first().waitFor({ timeout: 3000 });
+        await line.locator('[data-ref="cart.yInt"][data-lit]').first().waitFor({ state: "attached", timeout: 3000 });
       } else console.log("desktop: this rule's representations have no si.c; cross-highlight not checked");
     }
     await shot(page, `game-${label}-line`);
