@@ -191,7 +191,7 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-annotated-bidding", "grid-annotated-paid", "grid-classic", "grid-low-income", "grid-big", "grid-master", "grid-tiered"]);
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-annotated-bidding", "grid-classic", "grid-low-income", "grid-big", "grid-master", "grid-tiered"]);
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -228,6 +228,16 @@ test("upgradeStoredSettings gives stored settings without a duration mode the ha
 });
 
 // Haskell was removed (2026-11): stored rooms and setups that allowed it must still validate.
+test("upgradeStoredSettings drops the settings of deleted features, so stored rooms and setups still load and validate", () => {
+  // A room stored on "Basics with paid looks" (deleted in D1; archive/engine-v1) carried observation: "paid".
+  const stored = { ...DEFAULT_SETTINGS, observation: "paid" };
+  const upgraded = upgradeStoredSettings(stored);
+  assert.ok(upgraded && !("observation" in upgraded));
+  assert.doesNotThrow(() => validateSettings(upgraded as never));
+  assert.equal(upgradeStoredSettings(upgraded), null, "idempotent");
+  assert.equal(upgradeStoredSettings(stored, false, { keepRetired: true }), null, "the stored-data migration leaves the rows alone");
+});
+
 test("upgradeStoredSettings drops the removed Haskell language, falling back to TypeScript when none is left", () => {
   const upgraded = (languages: unknown) => upgradeStoredSettings({ ...DEFAULT_SETTINGS, languages })?.languages;
   assert.deepEqual(upgraded(["python", "haskell"]), ["python"]);
@@ -258,11 +268,6 @@ test("Annotated basics is sized for a first game: five minutes with a countdown,
   assert.deepEqual([s.durationMode, s.halfLifeSeconds], ["fixed", 300]);
   // Disclosure noise makes every live total read high and drop at the end (the others' sum is floored after the noise).
   assert.equal(s.peerNoiseBits, 0);
-  // A first game sees everything; paying to look is its own setup, otherwise identical.
-  assert.equal(s.observation, "free");
-  const paid = seedSetupSettings("grid-annotated-paid");
-  assert.deepEqual({ ...paid, observation: "free" }, s);
-  assert.equal(paid.observation, "paid");
 });
 
 test("energy settings have upper bounds, so no allowed value overflows an account or a score (balance harness)", () => {
@@ -346,8 +351,8 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
 });
 
 test("the setups built on Annotated basics price changes by distance; every other ordinary seed keeps the default model unspelled", () => {
-  // Each of these is Annotated basics plus one thing (a bid phase, paid looks, ★ tiers), so each follows the beginner board's pricing.
-  const onBasics = [DEFAULT_SETUP_SEED_ID, ANNOTATED_BIDDING_SEED_ID, "grid-annotated-paid", TIERED_RULES_SEED_ID];
+  // Each of these is Annotated basics plus one thing (a bid phase, ★ tiers), so each follows the beginner board's pricing.
+  const onBasics = [DEFAULT_SETUP_SEED_ID, ANNOTATED_BIDDING_SEED_ID, TIERED_RULES_SEED_ID];
   for (const s of SEED_SETUPS) {
     validateSettings(s.settings);
     if (onBasics.includes(s.seedId)) assert.equal(s.settings.costModel, "distance-v1", s.seedId);

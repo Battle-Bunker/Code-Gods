@@ -148,7 +148,6 @@ test("the forge shows the engine's own answer: a warming sandbox and a refusal a
   assert.equal(headerNotice("destroy", { accepted: true, message: "" }), "Destroyed. Its power share is yours again.");
   assert.equal(destroyedText(" "), "Destroyed: your agent. Its power share is yours again.");
   assert.equal(headerNotice("destroy", { accepted: false, message: "No such agent" }, destroyedText("X")), "No such agent", "a refusal is the engine's sentence");
-  assert.equal(headerNotice("look", { accepted: true, message: "Looked at 14 objects for 23.25 energy" }), "Looked at 14 objects for 23.25 energy");
   assert.equal(headerNotice("ready", { accepted: true, message: "" }), "Accepted.");
   assert.deepEqual(receiptNotice("summon", { commandId, accepted: false, message: "" }), { ok: false, text: "Rejected." });
   // Its diagnostics are listed in the forge's validation box already.

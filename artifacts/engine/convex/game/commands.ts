@@ -6,9 +6,6 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
-import { boardsLive, godLooks, lookPriceOf, paidLive } from "../lib/knowledge";
-import { viewRowOf } from "../lib/views";
-import { syncRows } from "./objectViews";
 import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, energyCapacity, movePower, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type AgentAccount, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, examinesProgram, type CommandResult, type Envelope } from "@workspace/player-client";
@@ -62,11 +59,8 @@ export const prepare = internalQuery({
     if (!prior && game && examinesProgram(command) && envelope.gameId === game._id &&
         allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
-      // The sample world the agent is examined on: the game's objects, or, under paid observation, the same objects as
-      // this god was last told them (an examination is free, so it must not report on boards the god has not paid to see).
-      const live = paidLive(game) && !boardsLive(game)
-        ? await ctx.db.query("objectViews").withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", member.godId)).take(16)
-        : await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
+      // The sample world the agent is examined on: the game's objects.
+      const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
       const settings = (upgradeStoredSettings(game.settings, true) ?? game.settings) as GameSettings;
       // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
@@ -126,19 +120,17 @@ export const apply = internalMutation({
     let receipt: CommandResult;
     try {
       const result = await run(ctx, room, member, envelope, args.examined);
-      const look = command.type === "look" ? result as NonNullable<CommandResult["look"]> : undefined;
       // Debt that moved with the power on a destroy or a re-allocation (docs/energy-model.md §7.2).
       const owed = command.type === "destroy" || command.type === "allocatePower" ? (result as { owed?: number }).owed : undefined;
       // Energy that moved with the power (§6.1): onto the god (positive) or onto the agent, a summoned one included.
       const held = command.type === "destroy" || command.type === "allocatePower" || command.type === "summon" ? (result as { held?: number }).held : undefined;
       receipt = { commandId: envelope.commandId, accepted: true,
-        message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left`
-          : owed !== undefined && Math.abs(owed) >= 0.05 ? (owed > 0 ? `Accepted: ${owed.toFixed(1)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(1)} bits you owed are now owed by the agent`)
+        message: owed !== undefined && Math.abs(owed) >= 0.05 ? (owed > 0 ? `Accepted: ${owed.toFixed(1)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(1)} bits you owed are now owed by the agent`)
           : held !== undefined && Math.abs(held) >= 0.05 && command.type !== "summon" ? (held > 0 ? `Accepted: ${held.toFixed(1)} bits the agent held are now yours` : `Accepted: ${(-held).toFixed(1)} bits you held went to the agent with the power`)
           // A replacement says what it cost: the receipt is the only place the price is told with the act.
           : command.type === "replace" ? `Accepted: the agent's program is replaced, for ${(result as { summonCost: number }).summonCost.toFixed(0)} bits of your own energy`
           : "Accepted",
-        ...(look ? { look } : {}), ...(owed !== undefined ? { owed } : {}), ...(held !== undefined ? { held } : {}),
+        ...(owed !== undefined ? { owed } : {}), ...(held !== undefined ? { held } : {}),
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
         // A summon (or a replacement) is never refused for what the examination found: it is told, with the agent summoned.
         ...((command.type === "summon" || command.type === "replace") && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
@@ -369,40 +361,6 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // overwrite the account settled here.
     await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
     return { agentId: agent._id, share, allocated: roundShare(others + share), ...movedFields(moved) };
-  }
-  if (command.type === "look") {
-    // Paid observation (lib/knowledge.ts, docs/energy-model.md §11): the god pays its own energy to be told one object
-    // as it is now, or all of them. Refused, with the price and the balance, when it cannot pay.
-    if (!paidLive(game)) fail("BAD_REQUEST", "Looking is free in this game: every object is already shown as it is");
-    // "agents": a god never looks for itself; its agents' changes and complete reads are its only eyes.
-    if (!godLooks(settings)) fail("BAD_REQUEST", "A god cannot look in this game: only your agents see the world. Summon an agent that reads the whole object and returns no calls to watch it.");
-    // Before the world runs nothing has changed: every object is as its god was told at its birth, so a look buys nothing.
-    if (game.phase === "planning") fail("CONFLICT", "The world has not started: every object is still exactly as you see it, so there is nothing to pay for");
-    const world = worldNow(game, now), each = lookPriceOf(settings);
-    const id = command.objectId === undefined ? null : ctx.db.normalizeId("objects", command.objectId);
-    const object = id ? await ctx.db.get(id) : null;
-    if (command.objectId !== undefined && (!object || object.gameId !== game._id)) fail("NOT_FOUND", "This game has no object with that ID");
-    // A look at all is charged for the set it was quoted for (command.count: the object count the player was shown):
-    // that many objects, oldest first. An object born since is already known from its birth, so it is neither looked
-    // at nor paid for, and the price charged is the price shown.
-    const count = object ? 1 : Math.min(game.objectCount, command.count ?? game.objectCount), cost = each * count;
-    const own = deityAccount(game, deity, world);
-    // The shared charge (lib/power.ts chargeGod): settled within the account's capacity, never into debt.
-    const left = own.balance < cost ? null : await chargeGod(ctx, game, deity, cost, now);
-    if (left === null) {
-      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you ${own.balance < 0 ? `owe ${(-own.balance).toFixed(2)} (what an agent of yours owed when you took its power; your own income repays it)` : `have ${own.balance.toFixed(2)}`}`
-        + (deity.allocated >= 1 - 1e-9 ? ". All your power is with your agents, so your own energy holds nothing: keep some power for yourself to look" : ""));
-    }
-    const me: ReadonlySet<string> = new Set([member.godId]);
-    if (object) await syncRows(ctx, [object], true, { world, told: () => me, boards: boardsLive(game) });
-    else await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId: game._id, godId: member.godId, world, cursor: null, remaining: count });
-    const nextBatch = await appendEvents(ctx, game, [{ t: "look", ownerId: member.godId, world, cost, count, ...(object ? { objectId: object._id } : {}) }], world, world);
-    await writeGame(ctx, game, { nextBatch });
-    const view = object ? viewRowOf(object, member.godId, true) : null;
-    return {
-      looked: count, price: cost, energy: left as number, worldSeconds: world,
-      ...(object && view ? { object: { id: object._id, value: object.value, version: object.version, own: { netBits: view.netBits }, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff } } : {}),
-    };
   }
   return fail("BAD_REQUEST", "Unknown command");
 }

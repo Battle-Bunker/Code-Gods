@@ -204,7 +204,6 @@ export function isCopy(source: string, language: string, agents: readonly { sour
 export function replaceNeedsConfirm(s: { source: string; untouched: boolean; copy: boolean }): boolean {
   return !!s.source.trim() && !s.untouched && !s.copy;
 }
-export const REPLACE_QUESTION = "Replace the code in the editor with the observer? Your summoned agents are not affected.";
 
 /** Above the editor once the player has an agent: what summoning another one means. */
 export function secondAgentHint(agents: number | undefined): string | null {

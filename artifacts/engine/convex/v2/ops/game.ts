@@ -1,6 +1,8 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
 import { membersOf, rotationFor, startGame } from "../lobby";
-import { defineOp, inGame, inRoom, notYet } from "./define";
+import { OpFailure } from "@workspace/v2-affordances";
+import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
+import { defineOp, inGame, inRoom, notYet, seated } from "./define";
 
 export const { op: get, as: getAs } = defineOp("game.get", "query", async env => {
   const { game, player } = inGame(env);
@@ -30,9 +32,36 @@ export const { op: start, as: startAs } = defineOp("game.start", "mutation", asy
   const { room } = inRoom(env);
   return { gameId: await startGame(env.ctx, room), bidPhase: false };
 });
-export const { op: startWorldNow, as: startWorldNowAs } = defineOp("game.startWorldNow", "mutation", () => notYet("W3-4"));
-export const { op: resume, as: resumeAs } = defineOp("game.resume", "mutation", () => notYet("W3-4"));
-export const { op: end, as: endAs } = defineOp("game.end", "mutation", () => notYet("W3-4"));
-export const { op: ready, as: readyAs } = defineOp("game.ready", "mutation", () => notYet("W3-4"));
-export const { op: pause, as: pauseAs } = defineOp("game.pause", "mutation", () => notYet("W3-4"));
+export const { op: startWorldNow, as: startWorldNowAs } = defineOp("game.startWorldNow", "mutation", async env => {
+  await startWorld(env.ctx, inGame(env).game);
+  return { ok: true as const };
+});
+
+export const { op: resume, as: resumeAs } = defineOp("game.resume", "mutation", async env => {
+  await resumeGame(env.ctx, inGame(env).game);
+  return { ok: true as const };
+});
+
+export const { op: end, as: endAs } = defineOp("game.end", "mutation", async env => {
+  await endGame(env.ctx, inGame(env).game);
+  return { ok: true as const };
+});
+
+/** Ready to leave planning; when every seated human is ready the world starts early (partners are always ready). */
+export const { op: ready, as: readyAs } = defineOp("game.ready", "mutation", async (env, a) => {
+  const { game, player } = seated(env);
+  await env.ctx.db.patch(player._id, { ready: a.ready });
+  const players = await env.ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
+  if (a.ready && players.every(p => p._id === player._id || p.ready)) await startWorld(env.ctx, game);
+  return { ok: true as const };
+});
+
+/** Each player may pause once; the owner resumes. */
+export const { op: pause, as: pauseAs } = defineOp("game.pause", "mutation", async env => {
+  const { game, player, member } = seated(env);
+  if (player.pauseUsed) throw new OpFailure("You have used your one pause.");
+  await env.ctx.db.patch(player._id, { pauseUsed: true });
+  await pauseGame(env.ctx, game, member._id);
+  return { ok: true as const };
+});
 export const { op: auction, as: auctionAs } = defineOp("game.auction", "query", () => notYet("W3-8"));

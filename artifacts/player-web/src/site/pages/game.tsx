@@ -35,7 +35,7 @@ import { dockRoomId, gamePath, roomPath } from "@/site/lib/routes";
 import { errMsg, fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
-import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer, paidObservation } from "@workspace/game-core";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer } from "@workspace/game-core";
 import { GameTimerView } from "@/core/game-timer-view";
 
 type GameInstance = FunctionReturnType<typeof api.games.instance>;
@@ -176,7 +176,7 @@ function SpectatorView({ game, instance, room }: { game: GameHeader; instance?: 
               onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
           ) : <Chat messages={[]} canPost={false} pending={false} placeholder="" onSend={() => undefined} closed="Its room is no longer available." />}
         </div>
-        <Objects gameId={game.id} instance={instance?.objectInstance} playingPaid={active && seated && paidObservation(game.settings)} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
+        <Objects gameId={game.id} instance={instance?.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
       </div>
       <Section title="Game details" collapsible defaultOpen={false} testId="section-game-details">
         <div className="p-4 grid gap-6 md:grid-cols-2">

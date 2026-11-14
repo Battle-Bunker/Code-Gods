@@ -170,16 +170,6 @@ export interface GameSettings {
    */
   peerNoiseBits: number;
   /**
-   * What a seated god sees of the world while the game is live (docs/energy-model.md §11). "free": every object, live
-   * (the game until 2026-11-11). "paid": seeing an object's state costs its full read at the read price; a god's view of
-   * an object is the last state they were told (at its birth, by their agents' changes and complete reads, or by a look
-   * they paid for from their own energy), with the world time they learned it. "boards": as paid, but every board and
-   * the god's own bits on it are shown live; only the others' interest (and the payoff built on it) and the history are
-   * as last told. "agents": as paid, but a god cannot pay to look: its agents are its only eyes. One of
-   * OBSERVATION_MODES. Stored settings without it are "free" (upgradeStoredSettings), and an ended game is always open.
-   */
-  observation: ObservationMode;
-  /**
    * The bid phase (docs/bid-phase.md): seconds the players have, when the game starts and before it is dealt, to bid a
    * handicap percentage on rule families of the pool. The highest bid on a family wins it, exclusively, and that
    * percentage is taken off the winner's score; everyone else is dealt as usual from the families nobody won. 0: no bid
@@ -242,17 +232,6 @@ export function lookIsCheaperThanChange(settings: Pick<GameSettings, "objectType
   const cheapest = cheapestChange(settings, model);
   return cheapest === undefined || readBound(instantiationOf(settings)) * READ_PRICE < cheapest;
 }
-export type ObservationMode = "free" | "boards" | "paid" | "agents";
-/** The pre-authored choices of observation, from the most open to the most austere. */
-export const OBSERVATION_MODES: readonly ObservationMode[] = Object.freeze(["free", "boards", "paid", "agents"]);
-/** Whether this game's gods see objects as last told, not as they are (stored settings from before the setting are free). */
-export const paidObservation = (settings: { observation?: unknown } | null | undefined): boolean =>
-  settings?.observation === "paid" || settings?.observation === "boards" || settings?.observation === "agents";
-/** "boards": every board and the god's own bits are live; the others' interest and the history are as last told. */
-export const boardsFree = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "boards";
-/** Whether a god may pay its own energy for a look ("agents": no, its agents are its only eyes). */
-export const godLooks = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "paid" || settings?.observation === "boards";
-
 export type BidPricing = "first" | "second";
 /** The pre-authored choices of bidPricing. */
 export const BID_PRICINGS: readonly BidPricing[] = Object.freeze(["first", "second"]);
@@ -337,7 +316,6 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   objectSelection: "uniform",
   scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
   peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
-  observation: "free",
   bidSeconds: 0,
   bidPricing: "first",
   bidVisibility: "sealed",
@@ -377,17 +355,18 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
  * game started before the setting existed keeps having no capacity (game-core energyCapacity), live and in its replay.
  * Likewise `bidSeconds` and `bidPricing` are not filled: a game started before the bid phase existed had none.
  */
-export function upgradeStoredSettings(settings: unknown, played = false): Record<string, unknown> | null {
+export function upgradeStoredSettings(settings: unknown, played = false, { keepRetired = false } = {}): Record<string, unknown> | null {
   const languages = upgradeLegacyLanguage(settings);
-  const s = (languages ?? settings) as Record<string, unknown> | null;
-  if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
+  // `keepRetired`: the stored-data migration (engine lib/migrateSetups.ts) leaves deleted features' keys in the rows.
+  const retired = keepRetired ? null : withoutRetiredSettings(languages ?? settings);
+  const s = (retired ?? languages ?? settings) as Record<string, unknown> | null;
+  if (!s || typeof s !== "object" || Array.isArray(s)) return retired ?? languages;
   const kept = Array.isArray(s.languages) ? s.languages.filter(l => l !== "haskell") : undefined;
   const filled: Record<string, unknown> = {
     ...(kept && kept.length !== (s.languages as unknown[]).length ? { languages: kept.length ? kept : ["typescript"] } : {}),
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
-    ...(!("observation" in s) ? { observation: "free" } : {}),
     ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
     // No bid phase before the setting existed (docs/bid-phase.md): a played game is left without the fields (read `?? 0`).
     ...(!played && !("bidSeconds" in s) ? { bidSeconds: 0 } : {}),
@@ -395,7 +374,21 @@ export function upgradeStoredSettings(settings: unknown, played = false): Record
     ...(!played && !("bidVisibility" in s) ? { bidVisibility: "sealed" } : {}),
     ...(!played && !("bidDisclosure" in s) ? { bidDisclosure: "private" } : {}),
   };
-  return Object.keys(filled).length ? { ...s, ...filled } : languages;
+  return Object.keys(filled).length ? { ...s, ...filled } : retired ?? languages;
+}
+
+/**
+ * Settings of features deleted from the engine (engine v2 deletion D1; the code is on archive/engine-v1). Stored rooms,
+ * setups and games may still carry them; they are dropped wherever stored settings are read, and ignored in a change.
+ */
+export const RETIRED_SETTINGS: readonly string[] = Object.freeze(["observation"]);
+
+/** These settings without the RETIRED_SETTINGS keys, or null when they carry none (or are not a settings object). */
+export function withoutRetiredSettings(settings: unknown): Record<string, unknown> | null {
+  if (!settings || typeof settings !== "object" || Array.isArray(settings)) return null;
+  const s = settings as Record<string, unknown>;
+  if (!RETIRED_SETTINGS.some(k => k in s)) return null;
+  return Object.fromEntries(Object.entries(s).filter(([k]) => !RETIRED_SETTINGS.includes(k)));
 }
 
 /**
@@ -536,7 +529,6 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
     throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
   }
-  if (!OBSERVATION_MODES.includes(settings.observation)) throw new Error(`observation must be one of ${OBSERVATION_MODES.join(", ")}`);
   // Absent only in the settings of a game started before the bid phase existed (it had none).
   if (settings.bidSeconds !== undefined) {
     if (!Number.isInteger(settings.bidSeconds)) throw new Error("bidSeconds must be a whole number of seconds");
@@ -734,8 +726,6 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
 
 /** Annotated basics with a bid phase before the deal (docs/bid-phase.md). */
 export const ANNOTATED_BIDDING_SEED_ID = "grid-annotated-bidding";
-/** Annotated basics with paid observation: the default sees everything for free. */
-export const ANNOTATED_PAID_SEED_ID = "grid-annotated-paid";
 /** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */
 export const ANNOTATED_COLOURS_SEED_ID = "grid-annotated-colours";
 /**
@@ -768,11 +758,6 @@ const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
   interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
   startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
   costModel: "distance-v1",
-  // A first game sees everything as it changes. Paid looks (docs/energy-model.md §11) are "Basics with paid looks":
-  // in first-game walks (2026-11-13) they sped nobody up and cost attention: boards went stale again seconds after a
-  // paid look, the three-human game never met them, and on "boards" a player replaced their agent with a looker to
-  // make the STALE notice go away. Free was the walk with the clearest account of why the score moved.
-  observation: "free",
   // No disclosure noise on the beginner setup: with noise, a live total reads high (the others' sum is floored at 0
   // after the noise) and every total drops when the game ends (live 308, final 194 in a first game), which a new
   // player reads as a bug. Eight known simple rules have little secrecy to protect; docs/public-log-design.md §5.2.
@@ -803,9 +788,6 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   // to planning). 45 s, and it ends at once when every human player has passed or finished.
   seed(ANNOTATED_BIDDING_SEED_ID, "Basics with bidding", "The beginner board and its eight rules, but first each player may bid part of their score for the rule they want",
     "Grid", ANNOTATED_BASICS_BOARD, { ...ANNOTATED_BASICS_PATCH, bidSeconds: 45 }),
-  // Annotated basics where looking costs energy (owner, 2026-11-11: a costly use of a god's own energy): for a second game.
-  seed(ANNOTATED_PAID_SEED_ID, "Basics with paid looks", "The beginner board and its eight rules, but you see each board as you last saw it: a fresh look costs energy",
-    "Grid", ANNOTATED_BASICS_BOARD, { ...ANNOTATED_BASICS_PATCH, observation: "paid" }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
@@ -816,7 +798,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
   // Tiered rules (archive/engine-v1:docs/layered-rules-design.md). The order above is the learning order, with the twins of Annotated
-  // basics (the same board with one setting changed, such as paid looks) sitting together right after it; any other
+  // basics (the same board with one setting changed, such as a bid phase) sitting together right after it; any other
   // new seed goes at the end.
   seed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along",
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1 })),
@@ -843,8 +825,8 @@ function labCostSeed(seedId: string, name: string, summary: string, costModel: C
  * To declare one, add an entry here with `lab(...)`, exactly as `seed(...)` above: a NEW stable seed id (prefix
  * "lab-"), a name of at most SETUP_NAME_MAX characters, a one-sentence summary saying what is different, the
  * instantiation, and the patch over that instantiation's defaults. Example:
- *   lab("lab-free-observation", "Lab: free observation", "Annotated basics, but looking at the world costs nothing",
- *     "Grid", { size: 4, symbols: "base10", colours: "mono" }, { ...the Annotated basics patch, observationMode: "free" }),
+ *   lab("lab-slow-world", "Lab: slow world", "Annotated basics, but agents act half as often",
+ *     "Grid", { size: 4, symbols: "base10", colours: "mono" }, { ...the Annotated basics patch, interactionRateHz: 12.5 }),
  * SEED_SETUPS (the ordinary system setups, and every test and script that pins or walks them) never includes these.
  * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
  */
@@ -854,16 +836,6 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
   labCostSeed("lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
   labCostSeed("lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
   labCostSeed("lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
-  // Observation modes on Annotated basics (docs/energy-model.md §11.8): the default is "free" (the first entry equals
-  // it and stays so that no stored seed disappears); "paid" is the ordinary setup "Basics with paid looks".
-  ...([
-    ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
-    ["lab-observation-boards", "Lab · boards always visible", "Annotated basics, but every board is live: only the others' interest in it is as you last saw it", "boards"],
-    ["lab-observation-agents", "Lab · only agents can look", "Annotated basics, but you cannot pay to look: only your agents' changes and complete reads show you the world", "agents"],
-  ] as const).map(([seedId, name, summary, observation]) => {
-    const basics = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
-    return lab(seedId, name, summary, basics.objectType, { ...basics.typeArgs }, { ...basics, observation });
-  }),
   // The bid phase's alternatives (docs/bid-phase.md §4): "Basics with bidding" is first price, sealed, private.
   ...([
     ["lab-bidding-second-price", "Lab · bidding, second price", "Basics with bidding, but a winner pays the highest bid they beat, not their own", { bidPricing: "second" }],
@@ -1077,11 +1049,6 @@ export const SETTINGS_DOCS = {
     question: "How blurred are the other players' combined interest in each object?", section: "goals", tier: "more", control: "segmented", unit: "bits", suggested: PEER_NOISE_OPTIONS,
     meaning: "While the game runs, the other players' summed bits for each object are shown with random noise of this size, fixed per change; after the end the exact numbers show.",
     consequence: "More noise makes it harder to work out the other players' rules from the numbers alone, so negotiation clues matter more, but it also makes their interest in each object less certain.",
-  },
-  observation: {
-    question: "Do players pay to look at the world?", section: "energy", tier: "more", control: "segmented", suggested: OBSERVATION_MODES,
-    meaning: "Free shows every object as it changes, while paid shows each as you were last told it (at its birth, by your agents, or by a look you pay energy for); boards and agents are variants.",
-    consequence: "Paid looking gives a player's own energy a use and makes watching the others costly; boards keeps every board live and charges only for the others' interest; agents allows no paid looks.",
   },
   bidSeconds: {
     question: "How long may players bid for rules before the game is dealt?", section: "goals", tier: "ask", control: "number", unit: "s", suggested: [0, 20, 30, 45, 60, 120],

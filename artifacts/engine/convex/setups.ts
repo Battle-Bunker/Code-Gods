@@ -68,8 +68,15 @@ export async function seed(ctx: MutationCtx) {
       await ctx.db.patch(existing._id, { ...listing, lab });
     }
   }
+  // An ordinary system setup taken out of the code (engine v2's D1 deleted several) is marked deleted, as a player's own
+  // deleted setup is: never listed or offered again, its row kept; rooms that ran it keep their settings and show its
+  // name as deleted.
+  const seedIds = new Set(ALL_SEED_SETUPS.map(s => s.seedId));
+  for await (const row of ctx.db.query("gameSetups").withIndex("by_order", q => q.lt("order", OTHERS_ORDER))) {
+    if (row.ownerId === null && !row.lab && row.seedId && !seedIds.has(row.seedId) && !row.deleted) await ctx.db.patch(row._id, { deleted: true, updatedAt: now });
+  }
   // A Lab setup taken out of the code is removed (experiments come and go); rooms that ran it keep their settings and
-  // its name. Ordinary system setups are never deleted here.
+  // its name.
   const labIds = new Set(LAB_SETUPS.map(s => s.seedId));
   for await (const row of ctx.db.query("gameSetups").withIndex("by_order", q => q.gte("order", LAB_ORDER).lt("order", LAB_ORDER + OTHERS_ORDER))) {
     if (row.ownerId === null && row.lab && !(row.seedId && labIds.has(row.seedId))) await ctx.db.delete(row._id);

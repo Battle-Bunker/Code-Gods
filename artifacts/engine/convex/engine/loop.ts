@@ -235,9 +235,9 @@ export const commit = internalMutation({
     disclosedTotals: v.optional(v.array(v.number())),
     /** Each roster god's totals after the window as disclosed (lib/views.ts godTotalsOf), when objects changed. */
     godTotals: v.optional(v.array(godTotalsV)),
-    /** Paid observation (lib/knowledge.ts): per object, the gods this window told it (an agent's change or complete read). */
-    told: v.optional(v.array(v.object({ id: v.id("objects"), gods: v.array(v.string()) }))),
     wakeAt: v.optional(v.number()),
+    /** LEGACY (D1): paid observation's tellings, sent by a tick that started before the deploy. Ignored. */
+    told: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const game = await liveGame(ctx, args.gameId);
@@ -320,13 +320,9 @@ export const commit = internalMutation({
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
     // Each god's object rows and totals (game/objectViews.ts), written off this commit: one scheduled call.
-    // Under paid observation the sync rewrites only the rows of the gods told (`told`: an agent's change or complete
-    // read); a changed object's other rows are marked stale once, and a spawn's rows are new.
-    const told = args.told ?? [];
-    const touched = [...new Set([...args.objects.map(c => c.id), ...told.map(t => t.id)]), ...[...ids.values()] as Id<"objects">[]];
+    const touched = [...new Set(args.objects.map(c => c.id)), ...ids.values()] as Id<"objects">[];
     if (touched.length || args.godTotals) {
-      await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}),
-        ...(told.length ? { told } : {}) });
+      await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}) });
     }
     const acts = events.filter(e => e.t === "transform" || e.t === "fail" || e.t === "skip").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };

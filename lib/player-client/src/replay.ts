@@ -62,9 +62,7 @@ export type ReplayEvent =
   /** `owed` (log schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: the other way). */
   /** `held` (log schema 15): the energy that moved with the power, from the agent onto its god's own account (negative: the other way). Without it, a log lost that energy. */
   | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number; owed?: number; held?: number }
-  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number; owed?: number; held?: number }
-  /** A god paid `cost` of its own energy to look at `count` objects (log schema 11; paid observation). */
-  | { type: "god.looked"; ownerId: string; worldSeconds: number; price: number; count: number; objectId?: string };
+  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number; owed?: number; held?: number };
 
 /** `from`: the index in its batch of the first event served (a batch larger than a page is split across pages). */
 export type ReplayBatch = { seq: number; at: number; worldFrom: number; worldTo: number; from?: number; events: ReplayEvent[] };
@@ -262,15 +260,6 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         state.spent[i] += ev.summonCost;
         const d = settleDeity(settings, state.deities[i], entry.world);
         state.deities[i] = { ...d, balance: d.balance - ev.summonCost };
-      }
-      break;
-    }
-    case "god.looked": {
-      const i = roster.get(ev.ownerId);
-      if (i !== undefined) {
-        state.spent[i] += ev.price;
-        const d = settleDeity(settings, state.deities[i], entry.world);
-        state.deities[i] = { ...d, balance: d.balance - ev.price };
       }
       break;
     }
@@ -574,7 +563,6 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
     };
     case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) } : null;
     case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}), ...(mine && ev.held !== undefined ? { held: ev.held } : {}) };
-    case "god.looked": return { type: "god.looked" as const, seq, mine, worldSeconds: ev.worldSeconds, price: ev.price, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
 
@@ -590,7 +578,9 @@ export function replayEvents(replay: Replay, at: ReplayAt, limit = 20) {
     if (s !== seq) { if (seen === batches) break; seen++; seq = s; }
     i--;
   }
-  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster)).filter(e => e !== null);
+  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster))
+    // An event type this client no longer knows (a stored replay's `god.looked`, deleted in D1) is left out.
+    .filter(e => e != null);
   return { gameId: replay.game.id, events, nextCursor: lastSeq, latestCursor: lastSeq, gap: false };
 }
 
