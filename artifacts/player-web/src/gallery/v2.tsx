@@ -15,7 +15,7 @@ import { createRoot } from "react-dom/client";
 import { evaluateObject, levelOf, objectLadder, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
 import { fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, fmtBits as bitsText, CompactFace, ExpandedFace, GoalCard, levelText, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
-import { divisibilityLadderDemo, emptyTank, wholeCrossingDemo } from "@workspace/v2-views/demo";
+import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
@@ -28,8 +28,8 @@ const ruleOf = (family: Family, params: unknown): RuleRef<LineState, unknown> =>
 /** Hand-picked lines per family: one at the top, one near, one far, one the rule cannot score. */
 const CURATED: Readonly<Record<string, { params?: unknown; lines: readonly LineState[] }>> = {
   "empty-tank-demo": { lines: [mc(-3, 10), mc(-3, 9), mc(-2, 7), mc(2, -6)] },
-  "whole-crossing-demo": { lines: [mc(3, -7), mc(-2, 5), mc(4, -12), mc(0, 4)] },
-  "divisibility-ladder-demo": { lines: [mc(6, 6), mc(7, 60), mc(2, 1), mc(3, 0)] },
+  "whole-crossing": { lines: [mc(3, -7), mc(-2, 5), mc(4, -12), mc(0, 4)] },
+  "divisibility-ladder": { lines: [mc(6, 6), mc(7, 60), mc(2, 1), mc(3, 0)] },
   "prime-gradient": { lines: [mc(4, -3), mc(5, 1), mc(q(5, 2), 1), abc(1, 0, -3)] },
   "triangle-area": { params: { A: 8 }, lines: [mc(-1, 4), mc(2, -6), mc(-3, 10), mc(3, 0)] },
   "m-meets-c": { lines: [mc(1, 5), mc(3, 3), mc(-2, 1), mc(q(1, 2), -1)] },
@@ -56,7 +56,7 @@ function autoLines(family: Family, params: unknown): LineState[] {
   return lines.length ? lines : [mc(1, 1)];
 }
 
-const FAMILIES: readonly Family[] = [emptyTank, wholeCrossingDemo, divisibilityLadderDemo, ...lineType.families];
+const FAMILIES: readonly Family[] = [emptyTank, ...lineType.families];
 const examplesOf = (f: Family) => {
   const c = CURATED[f.id];
   const params = c?.params ?? f.dealable(lineQ)[0];
@@ -124,7 +124,7 @@ function FamilySection({ f }: { f: Family }) {
   const rule = ruleOf(f, p);
   return (
     <section className="g-rule" data-family={f.id}>
-      <h3>{f.title}{f === emptyTank || f === wholeCrossingDemo || f === divisibilityLadderDemo ? " (storyboard rule, not in v2-linear's pool)" : ""}</h3>
+      <h3>{f.title}{f === emptyTank ? " (storyboard rule, not in v2-linear's pool)" : ""}</h3>
       <p className="g-note">{f.card(p, f.tieBreakers[0]?.id ?? null)}</p>
       {lines.map(s => <LineRow key={lineType.encode(s)} rule={rule} state={s} />)}
     </section>

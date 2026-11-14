@@ -120,18 +120,14 @@ test("crossing.x0 shares its meaning with the plane's x-intercept, on a corpus",
   assert.equal(decl("crossing", "x0").meaning, decl("cart", "xInt").meaning);
 });
 
-test("table.q is y(x) ÷ x, and table.run counts the multiples from x = 1 up to the first miss", () => {
+test("table.q is y(x) ÷ x, whole exactly where x divides y(x)", () => {
   const s = mc(6, 6); // y(1) = 12, y(2) = 18, y(3) = 24, y(4) = 30: 12, 9, 8, then 7½
   assert.deepEqual([1, 2, 3, 4, 5, 6].map(x => val(s, "table", "q", { x })), ["12", "9", "8", "15/2", "36/5", "7"]);
-  assert.equal(val(s, "table", "run"), "3");
-  assert.equal(val(mc(5, 60), "table", "run"), "6", "60 is a multiple of 1 … 6, not of 7");
-  assert.equal(val(mc(2, 1), "table", "run"), "1");
-  assert.equal(val(mc(q(1, 2), 0), "table", "run"), "0", "y(1) = ½ is not a multiple of 1");
-  assert.equal(val(mc(q(1, 2), q(1, 2)), "table", "run"), "1", "y(1) = 1, y(2) = 3/2");
+  assert.equal(val(mc(q(1, 2), q(1, 2)), "table", "q", { x: 2 }), "3/4", "y(2) = 3/2");
   assert.equal(val(mc(-3, 12), "table", "q", { x: -2 }), "-9");
-  for (const [s0, name, args] of [[s, "q", { x: 0 }], [mc(3, 0), "run", undefined], [abc(1, 0, -3), "q", { x: 1 }]] as const) {
-    const v = elementValue(lineType, s0, ref("table", name, args));
-    assert.ok(v.kind === "undefined" && v.reason.length > 10, `${name} ${lineType.encode(s0)}`);
+  for (const [s0, args] of [[s, { x: 0 }], [abc(1, 0, -3), { x: 1 }]] as const) {
+    const v = elementValue(lineType, s0, ref("table", "q", args));
+    assert.ok(v.kind === "undefined" && v.reason.length > 10, lineType.encode(s0));
   }
 });
 

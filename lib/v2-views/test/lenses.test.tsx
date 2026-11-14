@@ -2,15 +2,14 @@
 /**
  * The two lenses of the new beginner families (layered-line-rules §10.5): the crossing (solving y = 0, worked out) and
  * the table's run of multiples (a "y ÷ x" row, ticked while whole, the first miss marked). Static markup, as in
- * render.test.tsx.
+ * render.test.tsx, under the real families of v2-linear.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
 import { q, type Mark, type Q, type RuleFamily } from "@workspace/v2-core";
-import { fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
+import { divisibilityLadder, fromMC, lineQ, lineType, normalise, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, ExpandedFace, ObjectChip, RepView, repText, type RuleRef } from "../src/index.ts";
-import { divisibilityLadderDemo, wholeCrossingDemo } from "../src/demo.ts";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
   ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
@@ -42,10 +41,11 @@ test("crossing scene: every step's numbers and both readouts are element nodes; 
 });
 
 test("crossing: marks land on its elements and x0 lights with the plane's x-intercept", () => {
-  const e = evaluation(wholeCrossingDemo, mc(3, -7));
+  const e = evaluation(wholeCrossing, mc(3, -7));
   const html = view(mc(3, -7), "crossing", "expanded", e.marks);
   assert.match(node(html, "crossing.x0"), /data-focus=""/);
-  assert.match(node(html, "crossing.near"), /data-cand=""/);
+  const near: Mark[] = [{ kind: "candidate", ref: { rep: "crossing", name: "near" } }];
+  assert.match(node(view(mc(3, -7), "crossing", "expanded", near), "crossing.near"), /data-cand=""/);
   assert.match(node(view(mc(3, -7), "crossing", "expanded", [], { highlight: "xIntercept" }), "crossing.x0"), /data-lit=""/);
   assert.match(node(view(mc(3, -7), "cart", "expanded", [], { highlight: "xIntercept" }), "cart.xInt"), /data-lit=""/);
   // The chip never writes the worked steps: it falls back to y = mx + c.
@@ -58,7 +58,7 @@ test("crossing: marks land on its elements and x0 lights with the plane's x-inte
 test("table: the y ÷ x row is drawn only when a rule cites it, ticks the run and marks the first miss", () => {
   const s = mc(6, 6); // 12, 18, 24 are multiples of 1, 2, 3; 30 is not a multiple of 4
   assert.doesNotMatch(view(s, "table", "expanded"), /y ÷ x/);
-  const e = evaluation(divisibilityLadderDemo, s);
+  const e = evaluation(divisibilityLadder, s);
   const html = view(s, "table", "expanded", e.marks);
   assert.match(html, /<th scope="row">y ÷ x<\/th>/);
   for (const x of [1, 2, 3]) {
@@ -69,21 +69,21 @@ test("table: the y ÷ x row is drawn only when a rule cites it, ticks the run an
   assert.equal((html.match(/✗/g) ?? []).length, 1, "only the first miss is crossed");
   assert.equal((html.match(/data-run=""/g) ?? []).length, 9, "the run's three columns: header, y and y ÷ x");
   assert.match(html, /data-ref="table\.q\(x=6\)"(?:(?!<\/td>).)*✓/, "a later whole quotient is still ticked");
-  assert.match(html, /y\(4\) is not a multiple of 4/);
+  assert.match(html, /4 does not divide y\(4\): the run stops here/);
   // The compact table starts at x = 1, where the row has cells, and keeps the run's focus.
   const compact = view(s, "table", "compact", e.marks);
   assert.ok(node(compact, "table.q(x=1)") && !node(compact, "table.y(x=0)"));
 });
 
-test("table: a line through (0, 0) has no run to count; the demo rule says why", () => {
-  const e = evaluation(divisibilityLadderDemo, mc(3, 0));
-  assert.ok("undefined" in e.terms.find(t => t.id === "run")!.value);
-  assert.match(view(mc(3, 0), "table", "expanded", e.marks), /the run never stops/);
+test("table: a line through (0, 0) has no run to count, and its table draws no y ÷ x row", () => {
+  const e = evaluation(divisibilityLadder, mc(3, 0));
+  assert.ok("undefined" in e.terms.find(t => t.id === "ladder")!.value);
+  assert.doesNotMatch(view(mc(3, 0), "table", "expanded", e.marks), /y ÷ x/);
 });
 
-test("the expanded faces of both demo rules draw their lenses", () => {
+test("the expanded faces of both families draw their lenses", () => {
   const face = (family: RuleFamily<LineState, any>, s: LineState) =>
     renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family, params: {}, variant: lineQ }} state={s} ladderOpen={false} />);
-  assert.match(face(wholeCrossingDemo, mc(3, -7)), /data-rep="crossing"/);
-  assert.match(face(divisibilityLadderDemo, mc(6, 6)), /data-rep="table"[\s\S]*y ÷ x/);
+  assert.match(face(wholeCrossing, mc(3, -7)), /data-rep="crossing"/);
+  assert.match(face(divisibilityLadder, mc(6, 6)), /data-rep="table"[\s\S]*y ÷ x/);
 });

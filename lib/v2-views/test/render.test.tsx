@@ -10,7 +10,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { Qn, q, rng, walkStep, type Q, type RuleFamily } from "@workspace/v2-core";
 import { families, fromMC, lineQ, lineType, normalise, type Line, type LineState } from "@workspace/v2-linear";
 import { annotate, fmtQ, markRefs, ObjectChip, RepView, repText, type RuleRef } from "../src/index.ts";
-import { divisibilityLadderDemo, emptyTank, wholeCrossingDemo } from "../src/demo.ts";
+import { emptyTank } from "../src/demo.ts";
 import { key as refNodeKey } from "../src/render/common.tsx";
 
 const mc = (m: number | Q, c: number | Q): LineState =>
@@ -42,7 +42,7 @@ function corpus(): LineState[] {
 const nodes = (html: string) => new Set([...html.matchAll(/data-ref="([^"]+)"/g)].map(m => m[1]!.replace(/&quot;/g, '"')));
 
 test("every mark of every family produces a node; focus survives the compact view", () => {
-  const all = [...families, emptyTank, wholeCrossingDemo, divisibilityLadderDemo] as readonly RuleFamily<LineState, any>[];
+  const all = [...families, emptyTank] as readonly RuleFamily<LineState, any>[];
   let checked = 0;
   for (const s of corpus()) {
     for (const f of all) {

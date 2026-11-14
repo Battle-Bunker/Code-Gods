@@ -1,4 +1,4 @@
-/** The line's representations (spec §12.3): si, gen, cart, tri, seq, mach, table, crossing, norm, coins. Still to come: int, peg. */
+/** The line's representations (spec §12.3): si, gen, cart, tri, seq, mach, table, crossing, norm. Still to come: int, peg (the pegboard scene). */
 import { Qn, q, ref, type ArgValues, type ElementDecl, type ElementRef, type ElementValue, type Point, type Q, type Representation, type SceneData } from "@workspace/v2-core";
 import { intercept, isVertical, slope, xAt, yAt, type Line, type LineState } from "./line.ts";
 import { distanceToWhole, nearestInteger } from "./numbers.ts";
@@ -190,18 +190,8 @@ export const mach: Representation<LineState> = {
 
 // ---------------------------------------------------------------- table: a table of values
 
-const TABLE_XS = [0, 1, 2, 3, 4, 5, 6, 7, 8];
-/** A safety stop only: with c ≠ 0 the run ends before n(n + 1) passes |c| (q(n) − q(n + 1) = c / (n(n + 1)) is whole). */
-const RUN_LIMIT = 100_000;
-/** How many of y(1), y(2), y(3), … in a row are multiples of their x: y(n) ÷ n is a whole number. */
-function multiplesRun(l: Line): ElementValue {
-  const m = slope(l), c = intercept(l);
-  if (Qn.isZero(c) && Qn.isInteger(m)) return undef("the line goes through (0, 0), so every y(x) is x times the gradient and the run never stops");
-  let n = 0;
-  while (n < RUN_LIMIT && Qn.isInteger(Qn.add(m, Qn.div(c, q(n + 1))))) n++;
-  return num(q(n));
-}
-
+/** x = 0 … 12: Divisibility Ladder reads a run up to 12 (its rungs go to 11), so the first miss is in the table. */
+const TABLE_XS = Array.from({ length: 13 }, (_, x) => x);
 export const table: Representation<LineState> = {
   id: "table", title: "table of values", scene: "table", perSite: true,
   elements: [
@@ -209,7 +199,6 @@ export const table: Representation<LineState> = {
     el("q", "y ÷ x", "number", "dynamic",
       nonVertical((l, a) => { const x = arg(a, "x"); return Qn.isZero(x) ? undef("y ÷ x has no value at x = 0: nothing can be divided by 0") : num(Qn.div(yAt(l, x), x)); }),
       { params: [{ name: "x", domain: "Z" }] }),
-    el("run", "multiples in a row from x = 1", "number", "derived", nonVertical(multiplesRun)),
   ],
   layout: (_s, site): TableScene => ({
     kind: "table",
@@ -261,34 +250,4 @@ export const norm: Representation<LineState> = {
   }),
 };
 
-// ---------------------------------------------------------------- coins: a·x + b·y = N as paying N with coins a and b
-
-/** Counting stops here: a line whose ways to pay cannot be counted quickly has none we report. */
-const MAX_COIN_STEPS = 100_000n;
-const NOT_COINS = "the line reads as coins only when a and b (in a·x + b·y = N) are both positive";
-/** The ways to pay N with coins worth a and b: whole x, y ≥ 0 with a·x + b·y = N. */
-export function waysToPay(l: Line): { x: bigint; y: bigint }[] | null {
-  const a = l.a, b = l.b, N = -l.c;
-  if (!(a > 0n && b > 0n)) return null;
-  if (N < 0n) return [];
-  if (N / a > MAX_COIN_STEPS) return null;
-  const out: { x: bigint; y: bigint }[] = [];
-  for (let x = 0n; a * x <= N; x++) if ((N - a * x) % b === 0n) out.push({ x, y: (N - a * x) / b });
-  return out;
-}
-const coinsOr = (f: (w: { x: bigint; y: bigint }[], l: Line) => ElementValue): Fn => l => {
-  const w = waysToPay(l);
-  return w === null ? undef(NOT_COINS) : f(w, l);
-};
-export const coins: Representation<LineState> = {
-  id: "coins", title: "exact change: a·x + b·y = N", scene: "pegboard", perSite: true,
-  elements: [
-    el("bill", "the bill N", "number", "derived", coinsOr((_w, l) => num(q(-l.c)))),
-    el("ways", "ways to pay", "number", "derived", coinsOr(w => num(q(w.length)))),
-    el("smallestPile", "the smaller pile, in the way where it is smallest", "number", "derived",
-      coinsOr(w => (w.length ? num(q(w.reduce((m, { x, y }) => { const s = x < y ? x : y; return s < m ? s : m; }, w[0]!.x < w[0]!.y ? w[0]!.x : w[0]!.y))) : undef("there is no way to pay")))),
-  ],
-  layout: (_s, site) => ({ kind: "pegboard", window: [0, 12], on: ref("cart", "line", undefined, site) }),
-};
-
-export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, crossing, norm, coins];
+export const representations: readonly Representation<LineState>[] = [si, gen, cart, tri, seq, mach, table, crossing, norm];
