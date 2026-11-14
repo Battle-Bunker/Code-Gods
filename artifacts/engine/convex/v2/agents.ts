@@ -104,20 +104,21 @@ export async function destroyAgent(ctx: MutationCtx, game: Doc<"v2Games">, playe
 }
 
 /**
- * Sets the named agents' shares, in proportion to the numbers given, out of the power the agents not named leave
- * (all of it when every agent is named). Each named agent keeps some power: stopping one is `agent.destroy`.
- * Decreases go first, so energy leaving one agent can reach another.
+ * Sets the named agents' shares to the fractions of the player's power given (absolute); agents not named keep theirs,
+ * and all together are at most the player's whole power. What no agent holds feeds the player's own store, so a
+ * player can pull power back to pay for a summon or an edit and give it out again. Energy moves with power
+ * (`movePower`); decreases go first, so energy leaving one agent can reach another. Stopping one is `agent.destroy`.
  */
 export async function allocatePower(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, shares: Record<string, number>) {
-  const total = Object.values(shares).reduce((s, x) => s + x, 0);
-  if (Object.values(shares).some(x => !(x > 0))) throw new OpFailure("Every agent you name needs a share above 0.", "agent.destroy");
+  if (Object.values(shares).some(x => !(x > 0) || x > 1)) throw new OpFailure("Every agent you name needs a share above 0 and at most all of your power.", "agent.destroy");
   const named: Doc<"v2Agents">[] = [];
   for (const id of Object.keys(shares)) named.push(await ownAgent(ctx, player, id));
   const others = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", player.memberId)).take(MAX_AGENTS))
     .filter(a => a.destroyedAt === undefined && !named.some(n => n._id === a._id));
-  const room = 1 - others.reduce((t, a) => t + a.share, 0);
-  if (!(room > 0)) throw new OpFailure("Your other agents hold all of your power.", "power.allocate");
-  const agents = named.map(agent => ({ agent, to: floorShare(room * shares[agent._id]! / total) }));
+  const agents = named.map(agent => ({ agent, to: floorShare(shares[agent._id]!) }));
+  if (agents.some(x => x.to <= 0)) throw new OpFailure("That share rounds to nothing; give each agent you name at least 0.1% of your power.", "agent.destroy");
+  const total = others.reduce((t, a) => t + a.share, 0) + agents.reduce((t, x) => t + x.to, 0);
+  if (total > 1 + 1e-9) throw new OpFailure(`Those shares come to ${Math.round(total * 100)}% of your power with your other agents'; at most 100%.`, "power.allocate");
   const world = (await clockOf(ctx, game._id)).worldSeconds;
   agents.sort((x, y) => (x.to - x.agent.share) - (y.to - y.agent.share));
   let p = player;

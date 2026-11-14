@@ -77,9 +77,9 @@ export const agentOps = [
   }),
   affordance({
     id: "power.allocate", title: "Split power between agents", group: "agents", scope: "game",
-    description: "Sets each agent's share of the caller's power (shares are normalised to sum to 1). Power sets how fast each agent's energy accrues.",
-    tooltip: "Decide which agents get more power.", keywords: ["power", "shares", "allocate", "split"],
-    params: obj({ shares: z.record(id, z.number().min(0)).describe("agentId → share"), requestId: requestId.optional() }), result: ok,
+    description: "Sets the named agents' shares of the caller's power, each a fraction of the whole (0 < share ≤ 1); agents not named keep theirs, and all shares together are at most 1. The power no agent holds feeds the caller's own store, so lowering shares fills the store faster (to pay for a summon or an edit) and raising them again moves the energy back. Energy moves with power. Power sets how fast each account accrues.",
+    tooltip: "Decide which agents get more power, and how much you keep.", keywords: ["power", "shares", "allocate", "split", "keep power", "fund"],
+    params: obj({ shares: z.record(id, z.number().gt(0).max(1)).describe("agentId → its fraction of your power (absolute; the rest stays yours)"), requestId: requestId.optional() }), result: ok,
     contexts: IN_GAME, caller: "seated", effect: "write", confirm: "none", runs: "server", available: hasAgents,
   }),
 ] as const;

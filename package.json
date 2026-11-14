@@ -8,7 +8,7 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck",
     "test:offline": "pnpm run test:offline:rest",
-    "test:v2": "for pkg in v2-core v2-linear v2-valuation v2-views v2-affordances; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done",
+    "test:v2": "for pkg in v2-core v2-linear v2-grid v2-valuation v2-views v2-affordances; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done",
     "test:offline:rest": "pnpm run test:v2 && pnpm --filter @workspace/engine test:unit && for pkg in ui-kit player-web; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done && pnpm run test:ci-scripts",
     "test:ci-scripts": "node --test .github/scripts/*.test.mjs"
   },

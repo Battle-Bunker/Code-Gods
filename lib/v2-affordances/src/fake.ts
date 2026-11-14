@@ -301,7 +301,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   "rule.rarity": (_e, a) => ({ level: a.level, rarityBits: a.level * 1.5 }),
   "objects.list": (e, a) => {
     const g = gameOf(e);
-    const rows = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, level: levelOf(g, e.userId, o), points: levelOf(g, e.userId, o) }));
+    const rows = Object.entries(g.objects).map(([objectId, o]) => ({ objectId, number: numberOf(g, objectId), level: levelOf(g, e.userId, o), points: levelOf(g, e.userId, o) }));
     const key = a.sort;
     if (key !== "recent") rows.sort((x, y) => y[key] - x[key]);
     return page(rows, a);
@@ -334,7 +334,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   },
   "object.score": (e, a) => {
     const g = gameOf(e), level = levelOf(g, e.userId, objectOf(e, a.objectId));
-    return { score: [String(level - 6)], level, top: 6, terms: [], rarityBits: level * 1.5, points: level };
+    return { score: [String(level - 6)], level, top: 6, terms: [], number: numberOf(g, a.objectId), rarityBits: level * 1.5, points: level };
   },
   "moves.list": (_e, a) => page([], a),
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
@@ -367,9 +367,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
   },
   "agent.destroy": (e, a) => { const g = gameOf(e), agent = agentOf(e, a.agentId); g.agents = g.agents.filter(x => x !== agent); return ok; },
   "power.allocate": (e, a) => {
-    const total = Object.values(a.shares).reduce((s, x) => s + x, 0);
-    if (total <= 0) throw new OpFailure("Give at least one agent a share.");
-    for (const [agentId, share] of Object.entries(a.shares)) agentOf(e, agentId).share = share / total;
+    for (const agentId of Object.keys(a.shares)) agentOf(e, agentId);   // each must be the caller's
+    const g = gameOf(e), named = new Set(Object.keys(a.shares));
+    const others = g.agents.filter(x => x.ownerId === e.userId && !named.has(x.agentId)).reduce((s, x) => s + x.share, 0);
+    const total = others + Object.values(a.shares).reduce((s, x) => s + x, 0);
+    if (total > 1 + 1e-9) throw new OpFailure(`Those shares come to ${Math.round(total * 100)}% of your power; at most 100%.`);
+    for (const [agentId, share] of Object.entries(a.shares)) agentOf(e, agentId).share = share;
     return ok;
   },
   "room.aiQuotas": (e, a) => {
@@ -459,6 +462,9 @@ function panelOf(e: FakeEnv, slug: string): FakePanel {
   return e.state.panels?.[`${e.userId}|${slug}`] ?? (() => { throw new OpFailure(`No panel "${slug}".`, "panel.list"); })();
 }
 const authorOf = (e: FakeEnv) => e.grant ? { kind: "delegate" as const, label: e.grant } : { kind: "browser" as const, label: nameOf(e.state, e.userId) };
+
+/** A line's number (1-based, in birth order), as the server numbers objects. */
+const numberOf = (g: FakeGame, objectId: string) => Object.keys(g.objects).indexOf(objectId) + 1;
 
 function assistantOf(e: FakeEnv): FakeAssistant {
   const key = `${e.userId}|${e.roomId ?? ""}`;
