@@ -51,8 +51,8 @@ export const changeCost = (W: number): number => W + CHANGE_BETA * W * W;
  * κ, the change/read ratio (docs/energy-model.md §2.1): how many bits of the object an agent may read for the price of
  * one bit of committed change. It is the economy's one free dimension of price (scaling every price together is the
  * same as scaling power): κ = 1 prices a bit read like a bit changed; κ → ∞ makes looking free. 32 is set by a rule,
- * not by feel: a complete look at the board costs less than the smallest change to it, on every shipped setup (the
- * binding case is Master, 7×7 cards, where κ must exceed 21.7; game-core/test/read-price.test.ts). A constant like
+ * not by feel: a complete look at the board costs less than the smallest change to it, on every playable board (the
+ * binding case is 7×7 cards in six colours, where κ must exceed 21.7; game-core/test/read-price.test.ts). A constant like
  * CHANGE_BETA, not a room setting, so every room prices alike.
  */
 export const CHANGE_READ_RATIO = 32;

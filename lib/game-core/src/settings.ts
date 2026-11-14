@@ -577,8 +577,7 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   Grid: {
     // Power 64 bits/s per deity (docs/energy-model.md §6): two agents at the former 32 bits/s each. The 32 was the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
-    // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
-    // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
+    // interaction cap binds in about 75% of snapshots, and the study predates defence goals.
     // Starting energy 600 (13 Nov 2026): a new player's first agent must be payable during planning, when nothing
     // accrues. The dearest shipped Python example agent for a beginner rule costs 572.2 bits (BEGINNER_AGENT_BUDGET_BITS: 573).
     // It is under the planning store (64 × 30 = 1,920), and after a first summon at the default half share the god's own
@@ -616,12 +615,10 @@ export function defaultSettingsFor(
 }
 
 /**
- * The seed catalogue of game setups, in the suggested learning order. Each is a complete settings object: the
+ * The seed catalogue of game setups. Each is a complete settings object: the
  * instantiation's tuned defaults (TYPE_DEFAULTS), then the setup's own patch. The engine keeps its `gameSetups` table
  * (artifacts/engine/convex/setups.ts) equal to this list: seed setups are owned by the system, so nobody (admins
- * included) edits or deletes them; players duplicate one instead. "First
- * steps" slows interactions so kids can follow their own scores (explore/gridtypes.md: at 100 Hz an own score changes
- * 10–17 times a minute).
+ * included) edits or deletes them; players duplicate one instead.
  */
 export interface SeedSetup {
   /** Stable id of the seeded row (the former preset id), so a re-seed never duplicates or recreates it. */
@@ -639,7 +636,6 @@ export interface SeedSetup {
 }
 /** The longest setup name. */
 export const SETUP_NAME_MAX = 40;
-export const FIRST_STEPS_SEED_ID = "grid-first-steps";
 
 /** The default setup: the beginner pool (BEGINNER_POOL), every rule annotated, on a 4×4 board of numbers with no colour. */
 export const ANNOTATED_BASICS_SEED_ID = "grid-annotated-basics";
@@ -668,29 +664,6 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
 
 /** Annotated basics with a bid phase before the deal (docs/bid-phase.md). */
 export const ANNOTATED_BIDDING_SEED_ID = "grid-annotated-bidding";
-/** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */
-export const ANNOTATED_COLOURS_SEED_ID = "grid-annotated-colours";
-/**
- * Grid(4,base10,rgb) reward families without a lens. Pre-authored; the engine unit test (test/unit/setups.test.ts)
- * derives the expected list from the lens registry (game-utilities LENSES), so a new lens or family fails it.
- */
-const ANNOTATED_COLOURS_EXCLUDED: readonly string[] = Object.freeze([
-  "seed1_line_painter", "seed2_patchwork", "seed3_green_ones", "rainbow_road", "border_baron", "conqueror",
-  "homebody", "lone_peak", "islander", "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote",
-  "far_apart", "castle_keeper", "archipelago", "bridge_builder", "looking_glass", "pinwheel", "bullseye",
-  "snake_charmer", "tetromino_tamer", "rainbow_bands", "constellation", "gravity", "swiss_cheese", "mountain_climb",
-  "treasure_map", "straight_shooter", "round_numbers", "king_of_the_hill", "divisibility_detective",
-  "number_sandwich", "magic_window", "times_table_territory", "odds_evens", "number_painter", "robin_hood", "seesaw",
-  "column_addition", "ladder_of_numbers", "snap", "young_tableau", "fillomino",
-  "colour_value_ladder", "stripe_painter", "feuding_families", "fair_weaver", "lantern_lighter", "best_friends",
-  "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
-  "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller", "sudoku_scholar", "full_house", "flush_royale",
-  "twenty_one", "go_fish_books", "knight_riders", "uno_snake", "kings_court", "connect_four", "head_count",
-  "fibonacci_sandwich", "prime_territory", "colour_seesaw",
-  "mirror_quilt", "colour_pinwheel", "i_piece_tamer", "t_piece_tamer", "l_piece_tamer", "s_piece_tamer", "treasure_castle",
-  "castle_pockets",
-]);
-
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
   Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }) });
 
@@ -703,44 +676,19 @@ const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
 });
 
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
-  seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
   seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Eight simple rules with picture-by-picture explanations, on a small slowed-down board of numbers",
     "Grid", ANNOTATED_BASICS_BOARD, ANNOTATED_BASICS_PATCH),
-  seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
-      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_COLOURS_EXCLUDED,
-      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
-    }),
   // Annotated basics with a bid phase (docs/bid-phase.md; the default setup itself has none: a first game goes straight
   // to planning). 45 s, and it ends at once when every human player has passed or finished.
   seed(ANNOTATED_BIDDING_SEED_ID, "Basics with bidding", "The beginner board and its eight rules, but first each player may bid part of their score for the rule they want",
     "Grid", ANNOTATED_BASICS_BOARD, { ...ANNOTATED_BASICS_PATCH, bidSeconds: 45 }),
-  seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
-    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
-  // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
-  seed("grid-low-income", "Low income", "Classic 5×5 with half the power: agents act about half as often",
-    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, { powerPerSecond: 32 }),
-  seed("grid-big", "Big board", "6×6 in hex digits and six colours",
-    "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
-  seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
-    "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
-  // The order above is the learning order, with the twins of Annotated basics (the same board with one setting changed,
-  // such as a bid phase) sitting together right after it; any other new seed goes at the end.
+  // The twins of Annotated basics (the same board with one setting changed, such as a bid phase) sit right after it;
+  // any other new seed goes at the end.
 ]);
 
 /** An experimental setup: `seed(...)` marked `lab` (see LAB_SETUPS). */
 const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...seed(...args), lab: true as const });
-
-/**
- * A Lab setup that is Annotated basics under another cost model: everything else is that seed's own settings, so its
- * board, rule pool and pacing cannot drift from it. "set-v1" stays unspelled, as in every stored setup.
- */
-function labCostSeed(seedId: string, name: string, summary: string, costModel: CostModel): SeedSetup {
-  const { costModel: _replaced, ...rest } = SEED_SETUPS.find(s => s.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
-  return Object.freeze({ seedId, name, summary, lab: true as const, settings: Object.freeze({ ...rest, ...(costModel === DEFAULT_COST_MODEL ? {} : { costModel }) }) });
-}
 
 /**
  * The LAB setups: experimental alternatives the owner can try on a deployment without offering them to players.
@@ -757,11 +705,6 @@ function labCostSeed(seedId: string, name: string, summary: string, costModel: C
  * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
  */
 export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
-  // The alternative cost models (docs/energy-model.md §4.5), each on Annotated basics' board, rules and pacing.
-  labCostSeed("lab-cost-set", "Lab · flat price", "Annotated basics with the flat price: every changed number costs the same", "set-v1"),
-  labCostSeed("lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
-  labCostSeed("lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
-  labCostSeed("lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
   // The bid phase's alternatives (docs/bid-phase.md §4): "Basics with bidding" is first price, sealed, private.
   ...([
     ["lab-bidding-second-price", "Lab · bidding, second price", "Basics with bidding, but a winner pays the highest bid they beat, not their own", { bidPricing: "second" }],

@@ -20,7 +20,7 @@ The rest of this document covers:
 - how to run it, including on a rule that exists only as an evaluator;
 - how to read the table;
 - the proposed thresholds for a symmetric beginner pool;
-- the measured tables for the Annotated basics and First steps pools.
+- the measured tables for the Annotated basics pool and the Grid(4,base10,rgb) default pool.
 
 ## 1. What a rule is to the framework
 
@@ -206,7 +206,8 @@ Only these columns depend on `--cost-model`. Every other column is unchanged by 
 
 ```
 pnpm --filter @workspace/game-utilities difficulty [options]
-  --setup annotated|first-steps   the seed setup's shape and reward pool (default annotated)
+  --setup annotated|rgb           the shape and reward pool: the seed setup (default annotated), or rgb, Grid(4,base10,rgb)
+                                  on its tuned defaults (no setup ships it)
   --families a,b,c                these families instead of the setup's pool
   --adhoc FILE                    also measure the ad-hoc rules a module exports
   --only-adhoc                    only the ad-hoc rules
@@ -252,7 +253,7 @@ its card bits are measured from this source, and it is then measured like any fa
 To measure candidates beside the number-only families:
 
 ```
-pnpm --filter @workspace/game-utilities difficulty --setup first-steps --numbers-only --moves symbol --adhoc rules.mjs
+pnpm --filter @workspace/game-utilities difficulty --setup rgb --numbers-only --moves symbol --adhoc rules.mjs
 pnpm --filter @workspace/game-utilities difficulty --only-adhoc --adhoc rules.mjs --moves symbol         # a candidate set alone
 ```
 
@@ -317,8 +318,8 @@ calibrated on the spot. The text output is the same as the Markdown below; regen
 
 The tables:
 - §6.1, Annotated basics: the full pool with full moves, plus the three example ad-hoc rules.
-- §6.2, number-only families of First steps: measured on symbols only, with the pair matrix.
-- §6.3, every First steps family: per rule, full moves.
+- §6.2, number-only families of Grid(4,base10,rgb): measured on symbols only, with the pair matrix.
+- §6.3, every Grid(4,base10,rgb) family: per rule, full moves.
 - §6.4, energy: the beginner eight under the five cost models, and the beginner stand-ins under `set-v1` and
   `distance-v1`, both agents.
 
@@ -366,7 +367,7 @@ Pool: rate4 max/min 19.25 (CV 0.39); reach16 max/min 3.22; card max/min 7.26; DI
 
 Symmetric beginner pool thresholds: fails 30 (chessmaster: DIFF 13.48 > 10 (greedy is trapped or a cleverer search earns more); chessmaster: card 1018.38 bits > 800; number_bonds: DIFF 22.37 > 10 (greedy is trapped or a cleverer search earns more); colour_bonds: DIFF 45.55 > 10 (greedy is trapped or a cleverer search earns more); honest_minesweeper: DIFF 33.31 > 10 (greedy is trapped or a cleverer search earns more); honest_minesweeper: K 5.25 > 3.5 (a move's effect depends on too many cells); …).
 
-### 6.2 Number-only families of First steps (symbol moves)
+### 6.2 Number-only families of Grid(4,base10,rgb) (symbol moves)
 
 The score of these families ignores colour (measured), so they are the candidates for a single-colour beginner set.
 
@@ -426,7 +427,7 @@ Pool: rate4 max/min 2.55 (CV 0.18); reach16 max/min 2.34; card max/min 4.38; DIF
 
 Symmetric beginner pool thresholds: fails 85 (staircase_climber: DIFF 24.48 > 10 (greedy is trapped or a cleverer search earns more); pinwheel: card 1268.21 bits > 800; mountain_climb: DIFF 31.84 > 10 (greedy is trapped or a cleverer search earns more); mountain_climb: card 822.67 bits > 800; straight_shooter: DIFF 36.15 > 10 (greedy is trapped or a cleverer search earns more); straight_shooter: card 1287.67 bits > 800; …).
 
-### 6.3 Every First steps family (full moves, per rule)
+### 6.3 Every Grid(4,base10,rgb) family (full moves, per rule)
 
 Grid(4,base10,rgb), moves: cell, budget: default
 
@@ -654,7 +655,7 @@ none of them the price:
   to 0.20 at 32 and 0.42 to 0.22 at 64 (`rateE` max/min 3.7 to 1.7); the prototype's setup with 200 starts gives 0.45
   to 0.20 at 32.
 
-So the claim holds and is, if anything, understated: the spread roughly halves. On the First steps board
+So the claim holds and is, if anything, understated: the spread roughly halves. On the 4×4 rgb board
 (Grid(4,base10,rgb), `--moves symbol`), where naming the family adds 1 bit to every move (18.4 energy for a set, 8.8 for
 ±1), the stand-ins go from 0.49 to 0.29 at 32 and from 0.43 to 0.20 at 64. There row_sum_18 is the one rule that
 holds less at 64 under distance pricing (11.9 to 10.8 bits): the myopic per-energy agent takes cheap nudges toward a

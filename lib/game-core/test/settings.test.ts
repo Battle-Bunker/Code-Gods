@@ -4,7 +4,7 @@ import { COST_MODELS } from "@workspace/game-types";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
-  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, ANNOTATED_BIDDING_SEED_ID, DEFAULT_SETUP_SEED_ID,
+  upgradeStoredSettings, ANNOTATED_BASICS_SEED_ID, ANNOTATED_BIDDING_SEED_ID, DEFAULT_SETUP_SEED_ID,
   costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, BID_PRICINGS, TIME_LIMITS, type GameSettings,
 } from "../src/settings.ts";
@@ -179,10 +179,11 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(grid.powerPerSecond, 64); // two agents at the measured Grid income (grid-lab PR #14 §4.9)
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-annotated-bidding", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
-  assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
-  assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
-  assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-annotated-basics", "grid-annotated-bidding"]);
+  assert.equal(seedSetupSettings("grid-annotated-basics").interactionRateHz, 25);
+  assert.equal(classic.interactionRateHz, 100, "the tuned 5×5 board keeps the general pace");
+  assert.ok(!defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).excludedFamilies.includes("ladder_of_numbers"),
+    "cards cannot deal it, so it is not listed");
   assert.throws(() => seedSetupSettings("nope"), /Unknown seed setup/);
   assert.throws(() => validateSettings(settings({ excludedFamilies: ["Bad Id"] })));
 });
@@ -246,14 +247,12 @@ test("upgradeStoredSettings drops the removed Haskell language, falling back to 
   assert.equal(upgradeStoredSettings({ ...DEFAULT_SETTINGS, languages: ["python", "typescript"] }), null, "idempotent");
 });
 
-test("First steps is 10 minutes fixed; the default setup (Annotated basics) is sized for a first session: 5 minutes fixed", () => {
+test("the default setup (Annotated basics) is sized for a first session: 5 minutes fixed; a Grid board's defaults keep the half-life", () => {
   // Catches: a first game nobody sees the end of (5 min of planning + 10 min of game in the first-players study).
-  for (const [id, length] of [[FIRST_STEPS_SEED_ID, 600], [ANNOTATED_BASICS_SEED_ID, 300]] as const) {
-    const s = seedSetupSettings(id);
-    assert.equal(s.durationMode, "fixed"); assert.equal(s.halfLifeSeconds, length);
-    assert.doesNotThrow(() => validateSettings(s));
-  }
-  assert.equal(seedSetupSettings("grid-classic").durationMode, "halfLife");
+  const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
+  assert.equal(s.durationMode, "fixed"); assert.equal(s.halfLifeSeconds, 300);
+  assert.doesNotThrow(() => validateSettings(s));
+  assert.equal(defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "base10", colours: "rgby" }).durationMode, "halfLife");
 });
 
 test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans for 60 seconds", () => {
@@ -277,12 +276,11 @@ test("energy settings have upper bounds, so no allowed value overflows an accoun
   for (const seed of SEED_SETUPS) assert.doesNotThrow(() => validateSettings(seed.settings));
 });
 
-test("the default setup (Annotated basics) is the numbers-only 4×4 board; First steps keeps its colours", () => {
+test("the default setup (Annotated basics) is the numbers-only 4×4 board", () => {
   const s = seedSetupSettings(DEFAULT_SETUP_SEED_ID);
   assert.equal(DEFAULT_SETUP_SEED_ID, ANNOTATED_BASICS_SEED_ID);
   assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
   assert.doesNotThrow(() => validateSettings(s));
-  assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
 });
 
 test("the cost model is optional: absent reads as set-v1, and distance-v1 is offered only where the object type supports it", () => {
@@ -311,40 +309,13 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
   assert.throws(() => validateSettings({ ...grid, costModel: null as never }), /costModel must be one of/);
 });
 
-test("the setups built on Annotated basics price changes by distance; every other ordinary seed keeps the default model unspelled", () => {
-  // Each of these is Annotated basics plus one thing (a bid phase), so each follows the beginner board's pricing.
-  const onBasics = [DEFAULT_SETUP_SEED_ID, ANNOTATED_BIDDING_SEED_ID];
-  for (const s of SEED_SETUPS) {
+test("the setups (Annotated basics and its twins) price changes by distance", () => {
+  // Each is Annotated basics plus at most one thing (a bid phase), so each follows the beginner board's pricing.
+  for (const s of ALL_SEED_SETUPS) {
     validateSettings(s.settings);
-    if (onBasics.includes(s.seedId)) assert.equal(s.settings.costModel, "distance-v1", s.seedId);
-    else assert.ok(!("costModel" in s.settings), `${s.seedId} is untouched`);
+    assert.equal(s.settings.costModel, "distance-v1", s.seedId);
   }
   assert.equal(seedSetupSettings(DEFAULT_SETUP_SEED_ID).costModel, "distance-v1");
-});
-
-test("the Lab setups are Annotated basics under each other cost model, after the ordinary seeds", () => {
-  const lab = LAB_SETUPS.filter(s => s.seedId.startsWith("lab-cost-"));
-  assert.ok(lab.every(s => s.lab === true) && !SEED_SETUPS.some(s => s.seedId.startsWith("lab-")), "Lab setups are never among the ordinary seeds");
-  assert.deepEqual(lab.map(s => [s.seedId, s.name, s.summary, s.settings.costModel]), [
-    ["lab-cost-set", "Lab · flat price", "Annotated basics with the flat price: every changed number costs the same", undefined],
-    ["lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
-    ["lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
-    ["lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
-  ]);
-  // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
-  const { costModel: _basics, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
-  for (const s of lab) {
-    const { costModel, ...rest } = seedSetupSettings(s.seedId);
-    assert.deepEqual(rest, basics, s.seedId);
-    assert.equal("costModel" in s.settings, s.seedId !== "lab-cost-set", `${s.seedId}: set-v1 stays unspelled`);
-    assert.equal(costModelOf(s.settings), costModel ?? "set-v1");
-    assert.ok(supportedCostModels(s.settings).includes(costModelOf(s.settings)));
-    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length <= 160, s.seedId);
-    validateSettings(s.settings);
-  }
-  // Each model of COST_MODELS is tried by exactly one system setup on this board.
-  const tried = [ANNOTATED_BASICS_SEED_ID, ...lab.map(s => s.seedId)].map(id => costModelOf(seedSetupSettings(id))).sort();
-  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "set-v1"]);
 });
 
 test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {
@@ -375,7 +346,7 @@ test("the settings of a game started before fullChargeSeconds existed still vali
 test("the bid phase settings: off by default, whole seconds from 0 to 600, a first or second price", () => {
   assert.equal(DEFAULT_SETTINGS.bidSeconds, 0, "no bid phase unless the owner asks for one");
   assert.equal(DEFAULT_SETTINGS.bidPricing, "first");
-  // Only "Basics with bidding" has a bid phase (45 s); the default setup and every other system setup have none.
+  // Only "Basics with bidding" has a bid phase (45 s); the default setup has none.
   for (const seed of SEED_SETUPS) assert.deepEqual([seed.settings.bidSeconds, seed.settings.bidPricing], [seed.seedId === ANNOTATED_BIDDING_SEED_ID ? 45 : 0, "first"], seed.seedId);
   assert.notEqual(DEFAULT_SETUP_SEED_ID, ANNOTATED_BIDDING_SEED_ID);
   const { bidSeconds: _b, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID), { bidSeconds: _c, ...withBids } = seedSetupSettings(ANNOTATED_BIDDING_SEED_ID);

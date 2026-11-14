@@ -5,7 +5,7 @@
  *   pnpm --filter @workspace/engine deploy-static  # builds the app (served at /) into the local deployment
  *   cd artifacts/player-web && node --experimental-transform-types e2e/readme-shots.ts <out-dir>
  *
- * Bob owns a First Steps room with Alice and two AI seats; the room allows Python and TypeScript. Bob summons
+ * Bob owns a room (Annotated basics) with Alice and two AI seats; the room allows Python and TypeScript. Bob summons
  * a Python and a TypeScript agent, Alice a TypeScript one, they talk in public chat, and the world runs. The script then
  * photographs Bob's page of the game in the app on the engine's site (/rooms/:room/games/:game, signed in with his site
  * session): the live dock with the board, the leaderboard and the assistant (hero.png; the assistant is the local mock

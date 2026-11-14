@@ -1,6 +1,6 @@
 /**
  * Goal annotations gallery (dev only: `pnpm --filter @workspace/player-web dev`, then /annotations.html): every annotated
- * family on First Steps (4×4, base 10, rgb) as its goal card shows it, plus compact grids whose hover view explains them.
+ * family on the 4×4 board (base 10, rgb) as its goal card shows it, plus compact grids whose hover view explains them.
  * Used to look at the annotations and to record the demo videos (docs/annotations-design.md §12).
  * `?family=<id>` shows one family; `?mode=<id>` one alternative mode demo.
  */
@@ -14,7 +14,7 @@ import "../index.css";
 
 const GRID = { size: 4, symbols: "base10", colours: "rgb" } as const;
 const INST = instantiate("Grid", GRID);
-// The shipped First Steps tables (dev gallery only; the game fetches its tables from the engine), so the cards show "How this scores".
+// The shipped Grid(4,base10,rgb) tables (dev gallery only; the game fetches its tables from the engine), so the cards show "How this scores".
 const TABLES = instanceTables(INST.key, firstSteps as unknown as CalibrationFile);
 const withTables = (draw: { familyId: string; params: never }) => {
   const reward = tableFor(TABLES, draw, INST);
@@ -142,7 +142,7 @@ function Gallery() {
   const shown = SHOWCASE.filter(s => !only || s.familyId === only);
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-6">
-      {!only && <h1 className="text-2xl font-semibold">Goal annotations: First Steps</h1>}
+      {!only && <h1 className="text-2xl font-semibold">Goal annotations: Grid 4×4 rgb</h1>}
       {shown.map(s => <Family key={s.familyId} familyId={s.familyId} params={s.params} />)}
       {!only && <PlainFamily />}
       {!only && <Modes only={null} />}

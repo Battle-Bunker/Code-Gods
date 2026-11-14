@@ -32,7 +32,7 @@
  *   shares             pre-created agents (one list of power shares per god) in place of priced summons.
  */
 import {
-  DEFAULT_SETTINGS, SEED_SETUPS, validateSettings, type GameSettings, type AgentAccount,
+  DEFAULT_SETTINGS, SEED_SETUPS, defaultSettingsFor, validateSettings, type GameSettings, type AgentAccount,
   newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerReadBits, affordable, actCredit, defaultShare, energyCapacity,
   settleDeityEnergy, chargeDeityAccount, movePower,
   netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds, CHANGE_READ_RATIO, CHANGE_BETA,
@@ -236,22 +236,34 @@ function summarize(c: Config, games: number) {
 }
 
 // ------------------------------------------------------------------------------------------------ configurations
-export const BOARD: Record<string, { cells: number; symbols: number; colours: number }> = {
-  "grid-first-steps": { cells: 16, symbols: 10, colours: 3 }, "grid-annotated-basics": { cells: 16, symbols: 10, colours: 3 },
-  "grid-classic": { cells: 25, symbols: 10, colours: 4 }, "grid-low-income": { cells: 25, symbols: 10, colours: 4 },
-  "grid-big": { cells: 36, symbols: 16, colours: 6 }, "grid-master": { cells: 49, symbols: 52, colours: 6 },
+const grid = (size: number, symbols: string, colours: string, patch: Partial<GameSettings> = {}): GameSettings =>
+  ({ ...defaultSettingsFor("Grid", ["python"], { size, symbols, colours }), ...patch });
+/**
+ * The rooms the harness plays: the seed setups, and Grid boards on their tuned defaults that no setup ships (the slow
+ * 4×4 in three colours, 5×5 in four, 6×6 hex in six, 7×7 cards in six).
+ */
+export const ROOMS: Readonly<Record<string, GameSettings>> = {
+  ...Object.fromEntries(SEED_SETUPS.map(s => [s.seedId, s.settings])),
+  "grid-4-rgb-slow": grid(4, "base10", "rgb", { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
+  "grid-5-rgby": grid(5, "base10", "rgby"),
+  "grid-6-hex": grid(6, "base16", "rainbow6"),
+  "grid-7-cards": grid(7, "cards", "rainbow6"),
 };
-export function base(seedId: string, patch: Partial<Config> = {}, settingsPatch: Partial<GameSettings> = {}): Config {
-  const setup = SEED_SETUPS.find(x => x.seedId === seedId)!;
-  const settings = { ...setup.settings, ...settingsPatch } as GameSettings;
+export const BOARD: Record<string, { cells: number; symbols: number; colours: number }> = {
+  "grid-annotated-basics": { cells: 16, symbols: 10, colours: 1 }, "grid-annotated-bidding": { cells: 16, symbols: 10, colours: 1 },
+  "grid-4-rgb-slow": { cells: 16, symbols: 10, colours: 3 }, "grid-5-rgby": { cells: 25, symbols: 10, colours: 4 },
+  "grid-6-hex": { cells: 36, symbols: 16, colours: 6 }, "grid-7-cards": { cells: 49, symbols: 52, colours: 6 },
+};
+export function base(roomId: string, patch: Partial<Config> = {}, settingsPatch: Partial<GameSettings> = {}): Config {
+  const settings = { ...ROOMS[roomId], ...settingsPatch } as GameSettings;
   const players = patch.players ?? 3;
-  return { name: seedId, settings, players, policies: Array.from({ length: players }, () => "greedy" as Policy), agentsPerGod: 3, summonBits: 60, ...BOARD[seedId], ...CLI_RULES, ...patch };
+  return { name: roomId, settings, players, policies: Array.from({ length: players }, () => "greedy" as Policy), agentsPerGod: 3, summonBits: 60, ...BOARD[roomId], ...CLI_RULES, ...patch };
 }
 function configs(): Config[] {
   const out: Config[] = [];
   const add = (name: string, c: Config) => { try { validateSettings(c.settings); } catch (e) { console.log(`INVALID ${name}: ${(e as Error).message}`); return; } out.push({ ...c, name }); };
-  for (const sd of SEED_SETUPS) add(`${sd.seedId} (3 greedy)`, base(sd.seedId));
-  const B = "grid-classic";
+  for (const id of Object.keys(ROOMS)) add(`${id} (3 greedy)`, base(id));
+  const B = "grid-5-rgby";
   for (const p of [2, 4, 6, 8]) add(`${B} players=${p}`, base(B, { players: p, policies: new Array(p).fill("greedy") }));
   for (const pp of [0, 1, 8, 32, 128, 1e4]) add(`${B} power=${pp}`, base(B, {}, { powerPerSecond: pp }));
   for (const se of [0, 50, 400, 1e6]) add(`${B} startingEnergy=${se}`, base(B, {}, { startingEnergy: se }));
@@ -267,12 +279,12 @@ function configs(): Config[] {
   add(`${B} deny vs greedy vs greedy`, base(B, { policies: ["deny", "greedy", "greedy"] }));
   add(`${B} 2p random vs greedy`, base(B, { players: 2, policies: ["random", "greedy"] }));
   add(`${B} 2p deny vs greedy`, base(B, { players: 2, policies: ["deny", "greedy"] }));
-  add(`grid-master power=8`, base("grid-master", {}, { powerPerSecond: 8 }));
-  const F = "grid-first-steps";
+  add(`grid-7-cards power=8`, base("grid-7-cards", {}, { powerPerSecond: 8 }));
+  const F = "grid-4-rgb-slow";
   add(`${F} random vs greedy vs greedy`, base(F, { policies: ["random", "greedy", "greedy"] }));
   add(`${F} random vs greedy vs deny`, base(F, { policies: ["random", "greedy", "deny"] }));
-  add(`grid-master random vs greedy vs deny`, base("grid-master", { policies: ["random", "greedy", "deny"] }));
-  add(`grid-first-steps 8p`, base("grid-first-steps", { players: 8, policies: new Array(8).fill("greedy") }));
+  add(`grid-7-cards random vs greedy vs deny`, base("grid-7-cards", { policies: ["random", "greedy", "deny"] }));
+  add(`${F} 8p`, base(F, { players: 8, policies: new Array(8).fill("greedy") }));
   return out.filter(c => !ONLY || c.name.includes(ONLY));
 }
 
@@ -283,8 +295,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     // agent's store comes back with the power). B pays the offer price on every offer the idle agent is given; the
     // worst case for B's cost is the best case for the exploit, so both ends are shown: the idle agent is offered
     // nothing (B = A), and it is offered every opportunity in the game.
-    console.table(SEED_SETUPS.map(sd => {
-      const st = sd.settings as GameSettings, T = st.fullChargeSeconds, P = st.powerPerSecond, u = 0.5;
+    console.table(Object.entries(ROOMS).map(([id, st]) => {
+      const T = st.fullChargeSeconds, P = st.powerPerSecond, u = 0.5;
       const offer = offerReadBits(st.startingObjectCount) / KAPPA, perSecond = st.interactionRateHz * offer;
       let kept: AgentAccount = { balance: 0, settledWorldSeconds: 0 }, parked: AgentAccount = { balance: 0, settledWorldSeconds: 0 };
       for (let t = 1; t <= T; t++) {
@@ -296,7 +308,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       const idle = settleAgentEnergy({ balance: 0, settledWorldSeconds: 0 }, T, u * P, energyCapacity(u * P, T));
       const takeBack = (a: AgentAccount) => movePower(a, { balance: 0, settledWorldSeconds: T }, u, 0, 1 - u, P * T).deity.balance;
       const back = takeBack(parked);
-      return { setup: sd.seedId, "kept unallocated (A)": kept.balance.toFixed(0), "parked, offered nothing (B)": takeBack(idle).toFixed(0),
+      return { setup: id, "kept unallocated (A)": kept.balance.toFixed(0), "parked, offered nothing (B)": takeBack(idle).toFixed(0),
         "parked, offered everything (B)": back.toFixed(0), "offer bits": offer.toFixed(3), "offers/s": st.interactionRateHz, "B worst / A": (back / kept.balance).toFixed(3) };
     }));
   } else if (flag("experiments")) {

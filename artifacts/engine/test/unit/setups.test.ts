@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, ALL_SEED_SETUPS, BEGINNER_POOL, LAB_SETUPS, SEED_SETUPS, applySettingsChange, seedSetupSettings, validateSettings } from "@workspace/game-core";
+import { ALL_SEED_SETUPS, BEGINNER_POOL, SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
 import { offeredInstantiations, playableInstantiations } from "@workspace/game-utilities";
 import { shippedManifest } from "@workspace/game-utilities/calibration-data";
 import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
@@ -47,26 +47,20 @@ test("the server domain lists every playable shape, shipped tables or not, and t
   assert.ok(typeDefence.every(id => id.startsWith("hate_")) && !SETTINGS_DOMAIN.typeFamilies("Grid", "reward").some(id => id.startsWith("hate_")));
 });
 
-test("Annotated basics deals exactly the beginner pool on a numbers-only board; Annotated colours deals every family with a lens", async () => {
+test("every setup (Annotated basics, its bidding twin and that twin's Lab variants) deals exactly the beginner pool on a numbers-only board", async () => {
   const { LENSES, availableFamilies, selector, applicable, family, context } = await import("@workspace/game-utilities");
   const { instantiate, seededRng } = await import("@workspace/game-types");
   const { seedSetupSettings } = await import("@workspace/game-core");
   const annotated = new Set(LENSES.map(l => l.familyId));
-  const cases = [
-    { seedId: ANNOTATED_BASICS_SEED_ID, pool: new Set(BEGINNER_POOL), colours: "mono" },
-    { seedId: ANNOTATED_COLOURS_SEED_ID, pool: null, colours: "rgb" },
-    // The Lab setups are Annotated basics under another cost model: the same board and the same eight rules.
-    ...LAB_SETUPS.filter(x => x.seedId.startsWith("lab-cost-")).map(x => ({ seedId: x.seedId, pool: new Set(BEGINNER_POOL), colours: "mono" })),
-  ];
-  assert.deepEqual(cases.slice(2).map(c => c.seedId), ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"]);
-  for (const { seedId, pool, colours } of cases) {
+  const expected = new Set(BEGINNER_POOL);
+  assert.equal(BEGINNER_POOL.length, 8);
+  for (const id of expected) assert.ok(annotated.has(id), `${id} has a lens`);
+  for (const { seedId, summary } of ALL_SEED_SETUPS) {
     const s = seedSetupSettings(seedId);
-    assert.ok([...SEED_SETUPS, ...LAB_SETUPS].some(x => x.seedId === seedId && x.summary.length <= 160), `${seedId}: listed among the system setups`);
-    assert.equal(s.typeArgs.colours, colours, `${seedId}: board`);
+    assert.ok(summary.length <= 160, `${seedId}: a one-line summary`);
+    assert.equal(s.typeArgs.colours, "mono", `${seedId}: board`);
     const inst = instantiate(s.objectType, s.typeArgs);
-    // Every family of the pool is dealable on this shape and annotated; nothing else is (a new family must be excluded).
-    const expected = pool ?? new Set([...annotated].filter(id => availableFamilies(inst, "reward").some(f => f.id === id)));
-    for (const id of expected) assert.ok(annotated.has(id), `${seedId}: ${id} has a lens`);
+    // Every family of the pool is dealable on this shape; nothing else is (a new family must be excluded).
     const dealable = availableFamilies(inst, "reward", s.excludedFamilies).map(f => f.id).sort();
     assert.deepEqual(dealable, [...expected].sort(), seedId);
     for (const id of expected) {
@@ -82,10 +76,4 @@ test("Annotated basics deals exactly the beginner pool on a numbers-only board; 
       }
     }
   }
-  // Every beginner rule is dealt by the coloured annotated setup too.
-  assert.equal(BEGINNER_POOL.length, 8);
-  const colours = seedSetupSettings(ANNOTATED_COLOURS_SEED_ID);
-  const coloursDealable = new Set(availableFamilies(instantiate(colours.objectType, colours.typeArgs), "reward", colours.excludedFamilies).map(f => f.id));
-  for (const id of BEGINNER_POOL) assert.ok(coloursDealable.has(id), `Annotated colours deals ${id}`);
 });
-

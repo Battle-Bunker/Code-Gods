@@ -5,15 +5,15 @@
  * "before" = no T, cap on, no offer price; "after" = T, cap off, offer price on.
  *
  *   node --experimental-transform-types lib/game-core/scripts/balance-settings.ts --experiments [1,2,…|all] [--games 200] [--wingames 1000]
- *        [--rooms grid-first-steps,grid-classic,grid-master,grid-first-steps@4Hz]     (narrows experiments 1 and 2)
+ *        [--rooms grid-4-rgb-slow,grid-5-rgby,grid-7-cards,grid-4-rgb-slow@4Hz]     (narrows experiments 1 and 2)
  *
  * It prints markdown tables: 1 the T sweep, 2 careful against blunt, 3 the hoarder, 4 agent-count neutrality, 5 the
  * offer price against a mutation, 6 the god's own account (arithmetic with game-core's energy functions, no games).
  * Every game is seeded (seed 1000 + i), so a row is reproducible from its command.
  */
-import { play, base, type Config, type Policy } from "./balance-settings.ts";
+import { play, base, ROOMS as HARNESS_ROOMS, type Config, type Policy } from "./balance-settings.ts";
 import {
-  SEED_SETUPS, DEFAULT_SETTINGS, CHANGE_READ_RATIO, type AgentAccount,
+  DEFAULT_SETTINGS, CHANGE_READ_RATIO, type AgentAccount,
   energyCapacity, settleDeityEnergy, chargeDeityAccount, defaultShare, fullReadCharge, rankTotals,
 } from "../src/index.ts";
 
@@ -79,10 +79,10 @@ function table(head: string[], rows: (string | number)[][]): void {
 type Rules = Pick<Config, "fullChargeSeconds" | "rateCap" | "offerPrice" | "debtBound">;
 const after = (T: number | undefined, debtBound = false): Rules => ({ fullChargeSeconds: T, rateCap: false, offerPrice: true, debtBound });
 const capKept = (T: number | undefined): Rules => ({ fullChargeSeconds: T, rateCap: true, offerPrice: false, debtBound: false });
-/** The sweep's rooms: three seed setups as shipped, and First steps with a scarce stream, where offers (not energy) bind. */
+/** The sweep's rooms: three of the harness's Grid boards on their defaults, and the slow 4×4 with a scarce stream, where offers (not energy) bind. */
 const SWEEP_ROOMS: { id: string; seed: string; hz?: number }[] = [
-  { id: "grid-first-steps", seed: "grid-first-steps" }, { id: "grid-classic", seed: "grid-classic" }, { id: "grid-master", seed: "grid-master" },
-  { id: "grid-first-steps@4Hz", seed: "grid-first-steps", hz: 4 },
+  { id: "grid-4-rgb-slow", seed: "grid-4-rgb-slow" }, { id: "grid-5-rgby", seed: "grid-5-rgby" }, { id: "grid-7-cards", seed: "grid-7-cards" },
+  { id: "grid-4-rgb-slow@4Hz", seed: "grid-4-rgb-slow", hz: 4 },
 ];
 let ROOMS = SWEEP_ROOMS;
 const room = (r: { seed: string; hz?: number }, patch: Partial<Config>) => base(r.seed, patch, r.hz ? { interactionRateHz: r.hz } : {});
@@ -128,13 +128,13 @@ function careful(winGames: number): void {
 
 // ------------------------------------------------------------------------------------------------ 3. the hoarder
 function hoarder(games: number): void {
-  console.log(`## 3. Hoarder: god 2's three agents read nothing and return no calls; gods 0 and 1 are greedy (3 agents each, default shares 1/2, 1/4, 1/8). grid-first-steps, ${games} games per row and room. "active acts/s" sums gods 0 and 1. Comparison rooms under the same rules: the third god an ordinary greedy player; only the two active gods.\n`);
+  console.log(`## 3. Hoarder: god 2's three agents read nothing and return no calls; gods 0 and 1 are greedy (3 agents each, default shares 1/2, 1/4, 1/8). grid-4-rgb-slow, ${games} games per row and room. "active acts/s" sums gods 0 and 1. Comparison rooms under the same rules: the third god an ordinary greedy player; only the two active gods.\n`);
   for (const hz of [25, 4]) {
-    console.log(`### interactionRateHz = ${hz}${hz === 25 ? " (the Grid seeds' value)" : " (scarce stream: offers are the bottleneck)"}\n`);
+    console.log(`### interactionRateHz = ${hz}${hz === 25 ? " (the slow 4×4 room's value)" : " (scarce stream: offers are the bottleneck)"}\n`);
     const rows: (string | number)[][] = [];
     for (const T of TS) for (const offerPrice of [false, true]) for (const rateCap of [true, false]) {
       const r: Rules = { fullChargeSeconds: T, rateCap, offerPrice, debtBound: false };
-      const mk = (patch: Partial<Config>) => run(base("grid-first-steps", { ...r, ...patch }, { interactionRateHz: hz }), games);
+      const mk = (patch: Partial<Config>) => run(base("grid-4-rgb-slow", { ...r, ...patch }, { interactionRateHz: hz }), games);
       const h = mk({ policies: ["greedy", "greedy", "hoard"] }), third = mk({}), two = mk({ players: 2, policies: ["greedy", "greedy"] });
       const active = (a: Agg) => a.god[0].actsHz.m + a.god[1].actsHz.m, hg = h.god[2];
       rows.push([tName(T), offerPrice ? "on" : "off", rateCap ? "4 Hz" : "none", pc(hg.offersHz.m / hz, 1), f(hg.offersHz.m, 2), f(hg.offerCostHz.m, 2), pc(hg.offerCostHz.m / hg.incomeHz.m, 1),
@@ -148,13 +148,13 @@ function hoarder(games: number): void {
 // ------------------------------------------------------------------------------------------------ 4. agent-count neutrality
 function neutrality(games: number): void {
   const NS = [1, 2, 3, 5, 10];
-  console.log(`## 4. Agent-count neutrality: god 0 runs n pre-created agents with equal shares 0.9/n (no summon priced); gods 1 and 2 are greedy with 2 agents at 0.45 each. grid-classic board, fixed 300 s, P = 64. ${games} games per row at 25 Hz, ${Math.max(20, Math.round(games / 2))} at 100 Hz; mean ± standard error over games. (a) before: 4 Hz cap, no T; (b) capacity T = 30 with the cap kept; (c) after: no cap, T = 30, offer price.\n`);
+  console.log(`## 4. Agent-count neutrality: god 0 runs n pre-created agents with equal shares 0.9/n (no summon priced); gods 1 and 2 are greedy with 2 agents at 0.45 each. grid-5-rgby board, fixed 300 s, P = 64. ${games} games per row at 25 Hz, ${Math.max(20, Math.round(games / 2))} at 100 Hz; mean ± standard error over games. (a) before: 4 Hz cap, no T; (b) capacity T = 30 with the cap kept; (c) after: no cap, T = 30, offer price.\n`);
   const variants: [string, Rules][] = [["(a) before", capKept(undefined)], ["(b) cap + T=30", capKept(30)], ["(c) after", after(30)]];
   for (const hz of [25, 100]) for (const pol of ["always", "greedy", "hoard"] as Policy[]) {
     console.log(`### ${hz} Hz, god 0 policy: ${pol}\n`);
     const rows: (string | number)[][] = [];
     for (const [label, r] of variants) for (const n of NS) {
-      const c = base("grid-classic", { ...r, policies: [pol, "greedy", "greedy"], shares: [new Array(n).fill(0.9 / n), [0.45, 0.45], [0.45, 0.45]] }, { interactionRateHz: hz, durationMode: "fixed", halfLifeSeconds: 300 });
+      const c = base("grid-5-rgby", { ...r, policies: [pol, "greedy", "greedy"], shares: [new Array(n).fill(0.9 / n), [0.45, 0.45], [0.45, 0.45]] }, { interactionRateHz: hz, durationMode: "fixed", halfLifeSeconds: 300 });
       const g = run(c, hz === 25 ? games : Math.max(20, Math.round(games / 2))).god[0];
       rows.push([label, n, pm(g.offersHz), pm(g.actsHz), pm(g.spentHz), pmPc(g.win), Math.round(g.lateEnergy.m)]);
     }
@@ -163,16 +163,16 @@ function neutrality(games: number): void {
 }
 
 // ------------------------------------------------------------------------------------------------ 5. the offer price
-/** The cheapest change on each seed's board (docs/energy-model.md §2.1, "Cheapest change C"). */
-const CHEAPEST_CHANGE: Record<string, number> = { "grid-first-steps": 11.5, "grid-annotated-basics": 16.3, "grid-classic": 14.3, "grid-low-income": 14.3, "grid-big": 17.8, "grid-master": 18.7 };
+/** The cheapest change on each room's board under the flat price (docs/energy-model.md §2.1, "Cheapest change C"). */
+const CHEAPEST_CHANGE: Record<string, number> = { "grid-annotated-basics": 16.3, "grid-annotated-bidding": 16.3, "grid-4-rgb-slow": 11.5, "grid-5-rgby": 14.3, "grid-6-hex": 17.8, "grid-7-cards": 18.7 };
 function offerPrice(): void {
   console.log(`## 5. The offer price log2(live objects)/κ (κ = ${CHANGE_READ_RATIO}) against the cheapest change C (docs/energy-model.md §2.1) and a full read at 1/κ (fullReadCharge). "after 600 s" uses startingObjectCount + spawnRateHz × 600 objects.\n`);
-  const rows = SEED_SETUPS.map(sd => {
-    const s = sd.settings, n0 = s.startingObjectCount, n1 = n0 + s.spawnRateHz * 600, C = CHEAPEST_CHANGE[sd.seedId], read = fullReadCharge(s);
+  const rows = Object.entries(HARNESS_ROOMS).map(([id, s]) => {
+    const n0 = s.startingObjectCount, n1 = n0 + s.spawnRateHz * 600, C = CHEAPEST_CHANGE[id], read = fullReadCharge(s);
     const o0 = Math.log2(n0) / CHANGE_READ_RATIO, o1 = Math.log2(n1) / CHANGE_READ_RATIO;
-    return [sd.seedId, n0, f(o0, 3), Math.round(n1), f(o1, 3), C ?? "?", f(read, 2), C ? pc(o0 / C, 1) : "?", C ? pc(o1 / C, 1) : "?", pc(o0 / read, 1), f(s.interactionRateHz * o1, 1), s.powerPerSecond];
+    return [id, n0, f(o0, 3), Math.round(n1), f(o1, 3), C ?? "?", f(read, 2), C ? pc(o0 / C, 1) : "?", C ? pc(o1 / C, 1) : "?", pc(o0 / read, 1), f(s.interactionRateHz * o1, 1), s.powerPerSecond];
   });
-  table(["seed", "objects at start", "offer price (bits)", "objects after 600 s", "offer price then", "cheapest change C", "full read ÷ κ", "offer ÷ C (start)", "offer ÷ C (600 s)", "offer ÷ full read", "whole stream's offers, bits/s (600 s)", "P (bits/s per god)"], rows);
+  table(["room", "objects at start", "offer price (bits)", "objects after 600 s", "offer price then", "cheapest change C", "full read ÷ κ", "offer ÷ C (start)", "offer ÷ C (600 s)", "offer ÷ full read", "whole stream's offers, bits/s (600 s)", "P (bits/s per god)"], rows);
 }
 
 // ------------------------------------------------------------------------------------------------ 6. the god's account
@@ -182,7 +182,7 @@ function godAccount(): void {
   const start = DEFAULT_SETTINGS.startingEnergy, T6 = [15, 30, 60, 120];
   console.log(`## 6. The god's own account: capacity = retained share × P × T (energyCapacity). Refilling from empty takes T world seconds at any retained share (capacity ÷ income). "fits" = the largest reference program (${PROGRAMS.join(", ")} bits) a full account pays for. startingEnergy = ${start}.\n`);
   for (const P of [64, 32, 8]) {
-    console.log(`### P = ${P}${P === 64 ? " (Grid)" : P === 32 ? " (grid-low-income)" : " (general defaults)"}\n`);
+    console.log(`### P = ${P}${P === 64 ? " (Grid)" : P === 32 ? " (half the Grid power)" : " (general defaults)"}\n`);
     table(["T (s)", ...[0.1, 0.25, 0.5, 1].map(r => `retained ${pc(r)}: capacity (fits)`), "seconds to refill from empty", "startingEnergy kept in planning"],
       T6.map(T => [T, ...[0.1, 0.25, 0.5, 1].map(r => { const cap = energyCapacity(P * r, T); return `${f(cap, 0)} (${fits(cap)})`; }), T, f(Math.min(start, energyCapacity(P, T)), 0)]));
     table(["program (bits)", ...[0.1, 0.25, 0.5, 1].map(r => `retained ${pc(r)}: smallest T that fits it (s); seconds to save it from empty`)],

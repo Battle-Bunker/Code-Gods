@@ -20,7 +20,7 @@
  * creates a room in one click (no dialog), is seated as a player, and sees its AI quotas (300,000 tokens per game by default) on the room page; the page's one primary follows nextStep
  * (a practice game with AI players while she is alone, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
- * room's setup (put on First steps through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
+ * room's setup (put on Basics with bidding through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "Basics with bidding's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
  * dealing, prior, act targeting, then TypeScript ticked and Python unticked in the languages multi-select, 1 s
  * planning), saves it for
@@ -28,9 +28,9 @@
  * AI quotas sheet; bob chats; the palette explains connecting a player
  * app and shows owner commands dimmed to members; alice starts the game (at phone width on a setup with a two-minute
  * bid phase: bob and carol get the bidding screen, bob bids and takes it back, both pass and it ends; at desktop width
- * the walk passes through a bid phase only if the setup has one), and every viewer is taken to the game page,
+ * the copy's bid phase is switched off, so the start goes straight to the game), and every viewer is taken to the game page,
  * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup combobox puts
- * the room on First steps at once, with Undo (then alice deletes her copy, so runs leave no setups behind). Then the device page approves an `act` request made through POST
+ * the room on Annotated basics at once, with Undo (then alice deletes her copy, so runs leave no setups behind). Then the device page approves an `act` request made through POST
  * /api/device/request (the credential appears under Connected apps and is revoked), and an owner request needs the
  * consent checkbox. Needs Playwright with Chromium available to `require("playwright")`.
  */
@@ -299,32 +299,32 @@ try {
 
     let copyId = "", copyName = "";
     await check(`${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy`, async () => {
-      // A new room runs Annotated basics; alice puts it on First steps through the combobox first (searched on the engine).
+      // A new room runs Annotated basics; alice puts it on Basics with bidding through the combobox first (searched on the engine).
       await a.getByTestId("text-current-setup").filter({ hasText: /^Annotated basics$/ }).waitFor();
       await a.getByTestId("select-setup").click();
-      await a.getByTestId("input-setup-search").fill("first steps");
-      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps · System/ }).click();
-      await a.getByTestId("text-current-setup").filter({ hasText: /^First steps$/ }).waitFor();
+      await a.getByTestId("input-setup-search").fill("basics with bidding");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^Basics with bidding · System/ }).click();
+      await a.getByTestId("text-current-setup").filter({ hasText: /^Basics with bidding$/ }).waitFor();
       await a.getByTestId("select-setup").click();
       await a.getByTestId("popover-setups").waitFor();
-      await a.getByTestId("input-setup-search").fill("classic");
-      const classic = a.locator('[data-testid^="row-setup-"]', { hasText: /^Classic · System/ });
-      await classic.waitFor();
-      assert.ok(!(await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps/ }).count()), "the search filters by name");
-      const edit = classic.locator('[data-testid^="button-edit-setup-"]');
+      await a.getByTestId("input-setup-search").fill("annotated basics");
+      const basics = a.locator('[data-testid^="row-setup-"]', { hasText: /^Annotated basics · System/ });
+      await basics.waitFor();
+      assert.ok(!(await a.locator('[data-testid^="row-setup-"]', { hasText: /^Basics with bidding/ }).count()), "the search filters by name");
+      const edit = basics.locator('[data-testid^="button-edit-setup-"]');
       assert.equal(await edit.getAttribute("aria-disabled"), "true", "nobody edits a system setup");
       await edit.hover();
       await a.getByRole("tooltip").filter({ hasText: "System setups cannot be edited: duplicate it" }).first().waitFor();
       await a.getByTestId("input-setup-search").fill("system");
-      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps \(current\) · System/ }).waitFor();
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^Basics with bidding \(current\) · System/ }).waitFor();
       await shot(a, `setups-combobox-${name}`, false);
       // Duplicate the room's current setup: the copy is alice's own, and the configuration page opens on it.
-      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps/ }).locator('[data-testid^="button-duplicate-setup-"]').click();
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^Basics with bidding/ }).locator('[data-testid^="button-duplicate-setup-"]').click();
       await a.waitForURL(new RegExp(`/rooms/${code}/configure\\?setup=`));
       copyId = new URL(a.url()).searchParams.get("setup")!;
       await a.getByTestId("page-configure").waitFor();
       copyName = await a.getByTestId("input-setup-name").inputValue();
-      assert.match(copyName, /^First steps's copy( \d+)?$/);
+      assert.match(copyName, /^Basics with bidding's copy( \d+)?$/);
     });
 
     await check(`${name}: alice edits her copy: name first, three board controls, defence goals for everyone, every engine choice; bob sees it live`, async () => {
@@ -332,7 +332,7 @@ try {
       const nameBox = await a.getByTestId("field-name").boundingBox(), worldBox = await a.getByTestId("section-world").boundingBox();
       assert.ok(nameBox && worldBox && nameBox.y < worldBox.y, "the name comes first");
       assert.equal(await a.getByTestId("select-typeArgs").count(), 0, "no combined shape dropdown");
-      // First steps is Grid(4,base10,rgb): every size 4–7 is playable (tables are prepared on demand), none disabled.
+      // Basics with bidding is Grid(4,base10,mono): every size 4–7 is playable (tables are prepared on demand), none disabled.
       await a.getByTestId("choice-arg-size-5").waitFor({ timeout: 120_000 });   // a fresh engine boots both sandboxes on the first manifest.node.warm
       for (const size of [4, 5, 6, 7]) assert.equal(await a.getByTestId(`choice-arg-size-${size}`).isDisabled(), false, `${size}×${size} is playable`);
       assert.equal(await a.getByTestId("reasons-size").count(), 0, "nothing to explain");
@@ -453,12 +453,11 @@ try {
     });
 
     let gameCode = "";
-    // The phone run starts with a bid phase (docs/bid-phase.md), the desktop run with the setup as it is: both ways into a game.
+    // The phone run starts with a two-minute bid phase (docs/bid-phase.md), the desktop run with none (the copy of Basics
+    // with bidding has one, switched off here): both ways into a game.
     const withBidding = name === "phone";
     await check(`${name}: alice starts the game; the Start button reads "Starting…" in the same frame`, async () => {
-      if (withBidding) {
-        await ownerSettings(a, code, { bidSeconds: 120 });
-      }
+      await ownerSettings(a, code, { bidSeconds: withBidding ? 120 : 0 });
       // The click registers in the same frame: by the next animation frame the button reads "Starting…" and refuses a
       // second click, before the start action (a Node action) has answered.
       await a.evaluate(() => document.querySelector('[data-testid="button-start"]')!.addEventListener("click", () => requestAnimationFrame(() => {
@@ -568,10 +567,10 @@ try {
       const current = a.getByTestId("text-current-setup");
       await current.filter({ hasText: copyName }).waitFor();
       await a.getByTestId("select-setup").click();
-      await a.getByTestId("input-setup-search").fill("first steps");
-      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps · System/ }).click();
-      await current.filter({ hasText: /^First steps$/ }).waitFor({ timeout: 30_000 });
-      await a.getByTestId("text-next-game-summary").filter({ hasText: /^First steps:/ }).waitFor();
+      await a.getByTestId("input-setup-search").fill("annotated basics");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^Annotated basics · System/ }).click();
+      await current.filter({ hasText: /^Annotated basics$/ }).waitFor({ timeout: 30_000 });
+      await a.getByTestId("text-next-game-summary").filter({ hasText: /^Annotated basics:/ }).waitFor();
       await a.getByTestId("button-undo-setup").click();
       await current.filter({ hasText: copyName }).waitFor({ timeout: 30_000 });
       // Leave no setups behind on the shared deployment: alice deletes her copy; the room keeps its settings.

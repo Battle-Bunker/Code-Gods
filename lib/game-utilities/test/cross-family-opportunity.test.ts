@@ -16,13 +16,13 @@ import { shippedInstanceKeys, shippedFile } from "../src/calibration-data.ts";
 import { family } from "../src/catalog.ts";
 import type { CalibrationTable } from "../src/calibration.ts";
 
-/** The seed setups' shapes (game-core SEED_SETUPS), measured 2026-11-11: the largest top-bits ratio and the largest prior-mean-bits gap allowed. */
+/** Five Grid shapes (the seed setups' and four other common boards), measured 2026-11-11: the largest top-bits ratio and the largest prior-mean-bits gap allowed. */
 const LIMITS: Readonly<Record<string, { topRatio: number; meanGap: number }>> = {
-  "Grid(4,base10,rgb)": { topRatio: 21.59, meanGap: 1.39 }, // bridge_builder..conqueror (First steps)
+  "Grid(4,base10,rgb)": { topRatio: 21.59, meanGap: 1.39 }, // bridge_builder..conqueror
   "Grid(4,base10,mono)": { topRatio: 11.42, meanGap: 1.38 }, // ladder_of_numbers..constellation (Annotated basics, numbers only)
-  "Grid(5,base10,rgby)": { topRatio: 20.16, meanGap: 1.02 }, // bridge_builder..conqueror (Classic, Low income)
-  "Grid(6,base16,rainbow6)": { topRatio: 24.81, meanGap: 1.17 }, // ladder_of_numbers..conqueror (Big board)
-  "Grid(7,cards,rainbow6)": { topRatio: 28.67, meanGap: 1.27 }, // bridge_builder..lucky_token (Master)
+  "Grid(5,base10,rgby)": { topRatio: 20.16, meanGap: 1.02 }, // bridge_builder..conqueror
+  "Grid(6,base16,rainbow6)": { topRatio: 24.81, meanGap: 1.17 }, // ladder_of_numbers..conqueror
+  "Grid(7,cards,rainbow6)": { topRatio: 28.67, meanGap: 1.27 }, // bridge_builder..lucky_token
 };
 /** Estimator noise allowance. */
 const MARGIN = 1.02, MEAN_MARGIN = 0.05;
@@ -60,5 +60,5 @@ test("no shipped shape widens the gap between reward families' ceilings or prior
     if (g.meanGap > lim.meanGap + MEAN_MARGIN) worse.push(`${key}: prior-mean gap ${g.meanGap.toFixed(2)} > ${lim.meanGap}`);
   }
   assert.deepEqual(worse, [], "cross-family opportunity got worse; see scripts/family-balance.ts");
-  assert.equal(crossFamilyGaps().size, Object.keys(LIMITS).length, "a seed setup's shape has no shipped calibration");
+  assert.equal(crossFamilyGaps().size, Object.keys(LIMITS).length, "a listed shape has no shipped calibration");
 });

@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, applySettingsChange, defaultSettingsFor, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
 import { COST_MODELS, objectType } from "@workspace/game-types";
 import {
   SECTIONS, LABELS, ROOM_DETAILS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, bidLine, paceWord,
@@ -51,7 +51,7 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("fullChargeSeconds", 30), null);
   assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
-  const grid = seedSetupSettings("grid-classic");
+  const grid = defaultSettingsFor("Grid", ["python"], GRID5);
   assert.deepEqual(draftErrors(grid), {});
   assert.deepEqual(Object.keys(draftErrors({ ...grid, stepBudget: 0 })), ["stepBudget"]);
   assert.equal(draftErrors({ ...grid, startingEnergy: null as unknown as number }).startingEnergy, "Enter a number.", "an emptied field (NaN, stored as null) is an error, not 0");
@@ -76,7 +76,7 @@ test("the domain lists the manifest's playable instantiations, accepts any other
   assert.ok(!domain.families("Grid", GRID5, "reward").some(id => id.startsWith("hate_")), "rewards and defence goals are separate lists");
   // The page's controls run through the model with this domain: a room stored on a removed object type (Int) moves to
   // the first listed Grid instantiation (the default board is not listed here), keeping the owner's other choices.
-  const classic = seedSetupSettings("grid-classic");
+  const classic = defaultSettingsFor("Grid", ["python"], GRID5);
   const removed = { ...classic, objectType: "Int", typeArgs: { min: 0, max: 9999 }, excludedFamilies: ["removed_rule"] };
   const toGrid = applySettingsChange(removed, { objectType: "Grid" }, domain);
   assert.deepEqual([toGrid.typeArgs, toGrid.excludedFamilies, toGrid.startingObjectCount], [GRID5, [], classic.startingObjectCount]);
@@ -212,7 +212,7 @@ test("the bid phase on the form: bidding time in whole seconds up to 10 minutes,
 test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {
   assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel"], "asked, then more");
   assert.equal(LABELS.costModel, "Change pricing");
-  const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
+  const classic = defaultSettingsFor("Grid", ["python"], GRID5), basics = seedSetupSettings("grid-annotated-basics");
   assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");
   assert.deepEqual(costModelChoices(classic).slice(0, 2), ["set-v1", "distance-v1"]);
   assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Flat: every change alike", "Distance: further costs more"]);

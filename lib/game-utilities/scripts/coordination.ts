@@ -16,7 +16,8 @@
  *   validate          the model against real engine games (scripts/coordination-engine-games.json) on the same deals
  *
  * Options
- *   --setup annotated|first-steps     the seed setup (default annotated: the default beginner setup)
+ *   --setup annotated|rgb             the seed setup (default annotated: the default beginner setup), or rgb:
+ *                                     the 4×4 board in three colours on its tuned defaults, slowed to 25 Hz with a fixed 600 s (no setup ships it)
  *   --games N                         games per table (default 24); deals and seeds are shared by every table
  *   --players P                       gods (default 3)
  *   --pool a,b,c                      deal from exactly these rule families instead of the setup's pool
@@ -40,7 +41,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { instantiate, seededRng, type Instantiation } from "@workspace/game-types";
-import { SEED_SETUPS, costModelOf } from "../../game-core/src/settings.ts";
+import { SEED_SETUPS, costModelOf, defaultSettingsFor } from "../../game-core/src/settings.ts";
 import { availableFamilies, context, family, selector, type Params } from "../src/index.ts";
 import { familyRule, space, type Rule } from "./rule-difficulty-lib.ts";
 import {
@@ -68,7 +69,9 @@ let POOL: readonly string[] | undefined, EQUAL_TOPS = 0, SCALE: Record<string, n
 export function setPool(pool: readonly string[] | undefined, equalTops = 0, scale: Record<string, number> = {}, deal?: readonly string[]) { POOL = pool; EQUAL_TOPS = equalTops; SCALE = scale; DEAL = deal; ruleCache.clear(); }
 
 export function setupOf(id: string) {
-  const setup = SEED_SETUPS.find(s => s.seedId === (id === "first-steps" ? "grid-first-steps" : id === "annotated" ? "grid-annotated-basics" : id));
+  if (id === "rgb") return { seedId: "grid-4-rgb", name: "Grid 4×4 rgb", settings: {
+    ...defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "rgb" }), interactionRateHz: 25, durationMode: "fixed" as const, halfLifeSeconds: 600 } };
+  const setup = SEED_SETUPS.find(s => s.seedId === (id === "annotated" ? "grid-annotated-basics" : id));
   if (!setup) throw new Error(`Unknown setup: ${id}`);
   return setup;
 }

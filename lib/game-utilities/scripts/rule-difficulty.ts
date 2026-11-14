@@ -4,7 +4,8 @@
  *   pnpm --filter @workspace/game-utilities difficulty [options]
  *   (= node --experimental-strip-types lib/game-utilities/scripts/rule-difficulty.ts [options])
  *
- *   --setup annotated|first-steps   the seed setup's shape and reward pool (default annotated)
+ *   --setup annotated|rgb           the shape and reward pool: the seed setup (default annotated), or rgb, Grid(4,base10,rgb)
+ *                                   on its tuned defaults (no setup ships it)
  *   --families a,b,c                these families instead of the setup's pool
  *   --adhoc FILE                    also measure the ad-hoc rules a module exports (format below)
  *   --only-adhoc                    measure only the ad-hoc rules (no families)
@@ -32,7 +33,7 @@ import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { writeFileSync } from "node:fs";
 import { COST_MODELS, DEFAULT_COST_MODEL, isCostModel, instantiate, type Instantiation } from "@workspace/game-types";
-import { SEED_SETUPS } from "../../game-core/src/settings.ts";
+import { SEED_SETUPS, defaultSettingsFor } from "../../game-core/src/settings.ts";
 import {
   DEFAULT_BUDGET, ENERGY_BUDGETS, QUICK_BUDGET, adHocRule, verdict, colourBlind, familyParams, familyRule, measurePool, poolFamilies, space,
   type MoveSet, type PoolReport, type Rule,
@@ -48,8 +49,9 @@ const opt = (name: string) => {
   return argv[i + 1];
 };
 
-const setupId = opt("setup") === "first-steps" ? "grid-first-steps" : "grid-annotated-basics";
-const setup = SEED_SETUPS.find(s => s.seedId === setupId)!;
+const setup = opt("setup") === "rgb"
+  ? { settings: defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "rgb" }) }
+  : SEED_SETUPS.find(s => s.seedId === "grid-annotated-basics")!;
 function parseShape(s: string): Instantiation {
   const m = /^Grid\((\d+),(\w+),(\w+)\)$/.exec(s.replace(/\s/g, ""));
   if (!m) throw new Error(`--shape must look like Grid(4,base10,rgb), got ${s}`);

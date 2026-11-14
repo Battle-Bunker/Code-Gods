@@ -2,12 +2,12 @@
  * The shared catalogue of game setups (convex/setups.ts) against the live local backend. What would break: a system
  * setup edited or deleted by anyone (admins included) or drifting from the code, a setup hidden from other humans (they
  * are shared), a human changing or deleting another's, a copy named wrongly or colliding with one of the duplicator's
- * names, a read-only credential writing, an incomplete or unplayable setup stored, or a new room not running First steps.
+ * names, a read-only credential writing, an incomplete or unplayable setup stored, or a new room not running Annotated basics.
  */
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
+import { SEED_SETUPS, SETUP_NAME_MAX, defaultSettingsFor, seedSetupSettings } from "@workspace/game-core";
 import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, touch, type God } from "./game-helpers.ts";
 
 async function errorOf(promise: Promise<unknown>): Promise<{ code?: string; message?: string }> {
@@ -30,7 +30,8 @@ async function list(g: God): Promise<Omit<Setup, "settings">[]> {
   return rows;
 }
 const get = (g: God, setupId: string): Promise<Setup> => g.c.query(api.setups.get, { setupId });
-const classic = () => seedSetupSettings("grid-classic");
+/** Some complete Grid settings that are no system setup: the tuned 5×5 board in four colours. */
+const classic = () => defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "base10", colours: "rgby" });
 
 before(async () => { await admin.mutation(internal.testing.resetSeedSetups, {}); });
 after(async () => { await admin.mutation(internal.testing.resetSeedSetups, {}); });
@@ -41,17 +42,17 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   const [ann] = await gods("Seed Ann");
   const system = (await list(ann)).filter(r => r.system);
   assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
-  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Basics with bidding", "Classic", "Low income", "Big board", "Master"]);
+  assert.deepEqual(system.map(d => d.name), ["Annotated basics", "Basics with bidding"]);
   for (const d of system) {
     assert.ok(!("settings" in d), "a list row has no settings");
     assert.deepEqual((await get(ann, d.id)).settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
     assert.deepEqual([d.ownerName, d.mine, d.editable], ["System", false, false]);
   }
   // A stored seed that drifted (an admin edit from before setups were immutable, or older settings) is put back.
-  const big = system.find(d => d.seedId === "grid-big")!;
-  await admin.mutation(internal.testing.makeLegacy, { setupId: big.id as never, settings: { ...seedSetupSettings("grid-big"), planningSeconds: 999 } });
+  const bidding = system.find(d => d.seedId === "grid-annotated-bidding")!;
+  await admin.mutation(internal.testing.makeLegacy, { setupId: bidding.id as never, settings: { ...seedSetupSettings("grid-annotated-bidding"), planningSeconds: 999 } });
   await admin.mutation(internal.setups.ensureSeeded, {});
-  assert.deepEqual((await get(ann, big.id)).settings, seedSetupSettings("grid-big"));
+  assert.deepEqual((await get(ann, bidding.id)).settings, seedSetupSettings("grid-annotated-bidding"));
 });
 
 test("a system setup the code no longer ships is marked deleted by the seed sync: never listed or opened, its row kept", async () => {
@@ -125,15 +126,15 @@ test("Lab setups: an administrator sees, opens, copies and applies one; to anyon
 
 test("nobody edits or deletes a system setup, admins and owner credentials included: they duplicate it", { timeout: 60_000 }, async () => {
   const root = await adminGod("Setup Admin");
-  const master = (await list(root)).find(r => r.seedId === "grid-master")!;
-  assert.equal(master.editable, false, "not even for an admin");
-  const edit = await errorOf(root.c.action(api.setups.save, { setupId: master.id, name: "Master", settings: seedSetupSettings("grid-master") }));
+  const bidding = (await list(root)).find(r => r.seedId === "grid-annotated-bidding")!;
+  assert.equal(bidding.editable, false, "not even for an admin");
+  const edit = await errorOf(root.c.action(api.setups.save, { setupId: bidding.id, name: "Basics with bidding", settings: seedSetupSettings("grid-annotated-bidding") }));
   assert.deepEqual([edit.code, edit.message], ["FORBIDDEN", "System setups cannot be edited: duplicate it"]);
-  assert.equal(await errorCode(root.c.mutation(api.setups.remove, { setupId: master.id })), "FORBIDDEN");
+  assert.equal(await errorCode(root.c.mutation(api.setups.remove, { setupId: bidding.id })), "FORBIDDEN");
   const { roomId } = await roomWith([root]);
   const app = await playerClient(root, roomId, "owner");
-  assert.equal(await errorCode(app.action(api.setups.save, { setupId: master.id, name: "Master", settings: seedSetupSettings("grid-master") })), "FORBIDDEN");
-  assert.deepEqual((await get(root, master.id)).settings, seedSetupSettings("grid-master"), "unchanged");
+  assert.equal(await errorCode(app.action(api.setups.save, { setupId: bidding.id, name: "Basics with bidding", settings: seedSetupSettings("grid-annotated-bidding") })), "FORBIDDEN");
+  assert.deepEqual((await get(root, bidding.id)).settings, seedSetupSettings("grid-annotated-bidding"), "unchanged");
 });
 
 test("everyone sees every setup with its owner; only the owner changes or deletes it; read credentials only read", { timeout: 60_000 }, async () => {
@@ -250,25 +251,25 @@ test("the catalogue pages in order, at most 30 a page; search finds by name, own
 
 test("duplicate: any setup becomes the duplicator's own \"<name>'s copy\", deduplicated among theirs and within 40 characters", { timeout: 60_000 }, async () => {
   const [ann, bob] = await gods("Copy Ann", "Copy Bob");
-  const classicRow = (await list(ann)).find(r => r.seedId === "grid-classic")!;
-  const first: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id });
-  assert.deepEqual([first.name, first.ownerName, first.mine, first.editable, first.system], ["Classic's copy", "Copy Ann", true, true, false]);
-  assert.deepEqual(first.settings, seedSetupSettings("grid-classic"), "starting from the duplicated setup's values");
-  assert.equal(first.summary, classicRow.summary);
-  const second: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id });
-  const third: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id });
-  assert.deepEqual([second.name, third.name], ["Classic's copy 2", "Classic's copy 3"]);
+  const biddingRow = (await list(ann)).find(r => r.seedId === "grid-annotated-bidding")!;
+  const first: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: biddingRow.id });
+  assert.deepEqual([first.name, first.ownerName, first.mine, first.editable, first.system], ["Basics with bidding's copy", "Copy Ann", true, true, false]);
+  assert.deepEqual(first.settings, seedSetupSettings("grid-annotated-bidding"), "starting from the duplicated setup's values");
+  assert.equal(first.summary, biddingRow.summary);
+  const second: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: biddingRow.id });
+  const third: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: biddingRow.id });
+  assert.deepEqual([second.name, third.name], ["Basics with bidding's copy 2", "Basics with bidding's copy 3"]);
   // Another human's names do not count; another human's setup can be copied too.
   const bobsCopy: Setup = await bob.c.mutation(api.setups.duplicate, { setupId: first.id });
-  assert.equal(bobsCopy.name, "Classic's copy's copy");
-  assert.equal((await bob.c.mutation(api.setups.duplicate, { setupId: classicRow.id })).name, "Classic's copy");
+  assert.equal(bobsCopy.name, "Basics with bidding's copy's copy");
+  assert.equal((await bob.c.mutation(api.setups.duplicate, { setupId: biddingRow.id })).name, "Basics with bidding's copy");
   // A long name is shortened so "'s copy" (and " 2") still fit.
   const long: Setup = await ann.c.action(api.setups.save, { name: "L".repeat(SETUP_NAME_MAX), settings: classic() });
   const longCopy: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: long.id });
   const longCopy2: Setup = await ann.c.mutation(api.setups.duplicate, { setupId: long.id });
   assert.deepEqual([longCopy.name, longCopy2.name], [`${"L".repeat(SETUP_NAME_MAX - 7)}'s copy`, `${"L".repeat(SETUP_NAME_MAX - 9)}'s copy 2`]);
   // An explicit name is used as given (deduplicated the same way).
-  assert.equal((await ann.c.mutation(api.setups.duplicate, { setupId: classicRow.id, name: "Classic's copy" })).name, "Classic's copy 4");
+  assert.equal((await ann.c.mutation(api.setups.duplicate, { setupId: biddingRow.id, name: "Basics with bidding's copy" })).name, "Basics with bidding's copy 4");
   assert.equal(await errorCode(ann.c.mutation(api.setups.duplicate, { setupId: "nope" })), "NOT_FOUND");
 });
 
@@ -278,28 +279,28 @@ test("a new room runs the system's Annotated basics; owner.settings applies anyo
   const { roomId, shortCode } = await roomWith([host]);
   await ada.c.mutation(api.rooms.join, { room: shortCode });
   const setups = await list(host);
-  const first = setups.find(r => r.seedId === "grid-annotated-basics")!, master = setups.find(r => r.seedId === "grid-master")!;
+  const first = setups.find(r => r.seedId === "grid-annotated-basics")!, bidding = setups.find(r => r.seedId === "grid-annotated-bidding")!;
   let room = await host.c.query(api.rooms.get, { room: roomId });
   assert.deepEqual(room.settings, seedSetupSettings("grid-annotated-basics"));
   assert.deepEqual(room.setup, { id: first.id, name: "Annotated basics", deleted: false });
 
   // Ada's setup, in another language: applied whole by the room's owner (setups are shared).
-  const adas: Setup = await ada.c.action(api.setups.save, { name: "TypeScript Master", settings: {
-    ...seedSetupSettings("grid-master"), languages: ["typescript"], planningSeconds: 300 } });
+  const adas: Setup = await ada.c.action(api.setups.save, { name: "TypeScript bidding", settings: {
+    ...seedSetupSettings("grid-annotated-bidding"), languages: ["typescript"], planningSeconds: 300 } });
   const applied = await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: adas.id });
   assert.equal(applied.setup.created, false);
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: false }]);
-  await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: master.id });
+  assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript bidding", deleted: false }]);
+  await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: bidding.id });
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings, room.setup], [seedSetupSettings("grid-master"), { id: master.id, name: "Master", deleted: false }]);
-  assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: master.id, settings: { planningSeconds: 5 } })), "BAD_REQUEST",
+  assert.deepEqual([room.settings, room.setup], [seedSetupSettings("grid-annotated-bidding"), { id: bidding.id, name: "Basics with bidding", deleted: false }]);
+  assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: bidding.id, settings: { planningSeconds: 5 } })), "BAD_REQUEST",
     "a setup or settings, not both");
   assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: "not-an-id" })), "NOT_FOUND");
   // A setup applied and later deleted: the room keeps its snapshot and shows the setup as deleted.
   await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: adas.id });
   await ada.c.mutation(api.setups.remove, { setupId: adas.id });
   room = await ada.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: true }]);
+  assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript bidding", deleted: true }]);
 });
 

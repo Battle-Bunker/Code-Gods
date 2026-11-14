@@ -4,6 +4,10 @@ Harness: `lib/game-core/scripts/balance-settings.ts` (rule switches on `Config`)
 `lib/game-core/scripts/capacity-experiments.ts` (the tables). Every game is seeded (seed 1000 + i), so each table is
 reproducible from the command above it. All numbers below are pasted from those runs on 2026-11-11.
 
+The harness's room ids were renamed when their setups were removed in engine v2 D1: grid-first-steps is now
+grid-4-rgb-slow, grid-classic grid-5-rgby, grid-big grid-6-hex and grid-master grid-7-cards (the same settings);
+grid-low-income (grid-5-rgby at P = 32) is gone. The commands and tables below keep the ids of the runs.
+
 Rules: **R1** capacity = power × T; **R2** no 4 Hz per-agent cap; **R3** offer price log2(live objects)/32 per offer;
 **R4** debt bound (optional). "before" = no T, cap on, no offer price. "after" = T, cap off, offer price on.
 

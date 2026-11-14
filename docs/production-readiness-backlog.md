@@ -78,23 +78,23 @@ Owner decisions first.
 
 1. **Is skill-independent equality between goal families the goal?** Under greedy play on Annotated basics (3
    players, fair 33%): colour_bonds 60%, magic_accountant 55%, mirrormancer 53% … chessmaster 14%, kingdom 4%.
-   First steps: seesaw 89%; mountain_climb, times_table_territory, constellation about 4%. The order flips under
+   Grid(4,base10,rgb): seesaw 89%; mountain_climb, times_table_territory, constellation about 4%. The order flips under
    random and "deny" play. Capping family ceilings does almost nothing (tested at 16 and 24 bits); the imbalance is
    climb rate (bits gained per move). Candidate fix: calibrate by bits reachable in N greedy moves from a random
    board, or rescale by measured climb rate. `test/cross-family-opportunity.test.ts` pins today's gaps so they can be
    ratcheted down.
 2. **"Deny the opponents" may be the dominant strategy:** 62% of wins against random 12% and greedy 26% with real
-   scoring on the First steps board.
+   scoring on the 4×4 rgb board.
 3. **Drop or flag kingdom in the Annotated basics pool** (`ANNOTATED_BASICS_EXCLUDED` in game-core settings).
 4. **Degenerate tables:** sudoku_scholar on Grid(4,base10,rgby) has a one-level table (always about 0 bits);
-   bridge_builder tops at 3.6 bits on 4×4 rgb and is in the First steps pool. Exclude a family wherever its table
+   bridge_builder tops at 3.6 bits on 4×4 rgb and is in that board's default pool. Exclude a family wherever its table
    is degenerate (declared needs).
-5. **Weak climbers in First steps** (mountain_climb, times_table_territory, constellation, the *_piece_tamer
+5. **Weak climbers on Grid(4,base10,rgb)** (mountain_climb, times_table_territory, constellation, the *_piece_tamer
    family, prime_territory, fibonacci_sandwich): check for plateaus; give a finer ordinal, then recalibrate.
 6. **Tempo settings:** `interactionRateHz` does nothing above about 25 Hz at current power; bigger boards get far
-   fewer acts at the same power (master about a third of classic). Shipped setup defaults are stored data: use the
+   fewer acts at the same power (7×7 cards about a third of 5×5). Shipped setup defaults are stored data: use the
    migration workflow. Re-check with real scoring first.
-7. **Dealing:** fair-aligned equals divine-lottery on First steps, Annotated basics, Big board and Master (no synergy
+7. **Dealing:** fair-aligned equals divine-lottery on Grid(4,base10,rgb), Annotated basics, 6×6 hex and 7×7 cards (no synergy
    matrix ships for them); check fair-aligned is seat-symmetric as #261 made the lottery.
 8. **First-seat advantage** of 3–8 points in the turn-based model: confirm against the engine's real tick order.
 9. **Pacing for a first game:** five minutes of planning plus 10–15 minutes; no first-time persona reached the end.

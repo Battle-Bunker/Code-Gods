@@ -2,7 +2,12 @@
 
 The owner's decisions of 3 Nov 2026, recorded in `docs/coordination/status.md` (branch `claude/jolly-hamilton-iuxff1`), as
 one economy. This document is the specification; the code cites its sections. All numbers below are for the
-"First steps" board, Grid(4, base10, rgb): 16 cells, S = 10 symbols, C = 3 colours.
+Grid(4, base10, rgb) board: 16 cells, S = 10 symbols, C = 3 colours.
+
+Setup names in the measurements below name the boards of setups removed in engine v2 D1 (Nov 2026; branch
+`archive/engine-v1`): First steps = Grid(4,base10,rgb) at 25 Hz, fixed 600 s; Classic = Grid(5,base10,rgby); Low income =
+Classic at P = 32; Big board = Grid(6,base16,rainbow6); Master = Grid(7,cards,rainbow6), each on its tuned defaults. The
+shipped setups are Annotated basics and Basics with bidding.
 
 Cost models (11 Nov 2026): a room prices change by one of two models, §4. "set-v1" (the default, and every number in
 this document outside §4.5) charges every changed cell the same; "distance-v1" (§4.5, a room setting) charges a number
@@ -67,9 +72,10 @@ are priced at a fraction of it:
   for the price of one bit of change. `READ_PRICE = 1/κ`. κ = 1 was the economy until 11 Nov 2026; κ → ∞ makes looking
   free. It is a constant, not a room setting, so every room prices alike (as β).
 - **The rule that sets κ = 32:** a complete look at the board costs less than the smallest change to it, on every
-  shipped setup. Then "look at everything, then decide" is never the expensive part of an act. The binding case is
-  Master; 32 is the next power of two above it, with margin. `lib/game-core/test/read-price.test.ts` checks the rule over
-  `SEED_SETUPS`, so retuning κ or adding a bigger board shows it.
+  playable board under the flat price. Then "look at everything, then decide" is never the expensive part of an act. The
+  binding case is Grid(7,cards,rainbow6) (Master below); 32 is the next power of two above it, with margin.
+  `lib/game-core/test/read-price.test.ts` checks the rule over `SEED_SETUPS` and every playable Grid shape, so retuning
+  κ or adding a bigger board shows it.
 
 | Setup | Board | Full read R (bits) | Cheapest change C | κ the rule needs | Full read at κ = 32 |
 |---|---|---|---|---|---|
@@ -427,7 +433,7 @@ game is live); a replay charges the recorded price to the god and swaps the agen
 ## 6. Power (PR 3)
 
 - `settings.powerPerSecond` (P, bits per world second) is each deity's fixed budget. Defaults: 8; Grid 64 (two agents
-  at the former 32 bits/s); the "Low income" seed 32.
+  at the former 32 bits/s).
 - Each agent has a `powerShare` s ∈ [0, 1]. A deity's shares sum to at most 1 (`deities.allocated`).
 - An agent earns s·P per world second. The deity earns (1 − Σs)·P into its own world-time account (`deities.account`),
   which starts at `startingEnergy` (default 200) and pays summon prices.

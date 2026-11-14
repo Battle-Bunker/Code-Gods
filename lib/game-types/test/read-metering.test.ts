@@ -99,7 +99,7 @@ test("grid: positions, neighbours and shapes are free", { skip: skipPy }, () => 
   near(bits, [0, 0, 0, 0, 0, 0]);
 });
 
-test("grid: repr reads every cell's two layers (78.5 bits on First steps)", { skip: skipPy }, () => {
+test("grid: repr reads every cell's two layers (78.5 bits on the 4×4 rgb board)", { skip: skipPy }, () => {
   const bits = trace(g4, W4, [["repr(v)", "String(v)"], ["repr(v.cell(0, 0))", "String(v.cell(0, 0))"]]);
   near(bits, [16 * (lg(10) + lg(3)), 16 * (lg(10) + lg(3))]);
   assert.ok(Math.abs(bits[0] - 78.5) < 0.05);

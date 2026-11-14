@@ -22,12 +22,9 @@ lens in `src/explain/lenses/` and a Python reference in `archive/engine-v1:lib/g
 | ↙️ Crosswise Threes | 6 pairs across the top-right/bottom-left diagonal | (#pairs exactly 3 apart, −Σ\|\|a − b\| − 3\|) | (6, 0) |
 
 Magic Eighteen is magic_accountant's exact scoring with the target fixed at the middle sum N·(S−1)/2 (18 on 4×4
-digits). magic_accountant keeps its own params, support and calibration keys for the other setups; the sibling exists
+digits). magic_accountant keeps its own params, support and calibration keys for the other boards; the sibling exists
 because only targets 18 avoid flat contradictions with the rest of the pool and setups cannot restrict a family's
 params.
-
-The coloured annotated set is kept as its own setup, **Annotated colours** (`grid-annotated-colours`, Grid(4,base10,rgb),
-every family with a lens).
 
 ## 2. How it was chosen
 
@@ -35,7 +32,7 @@ Brainstorms proposed eight; measurement replaced three and tuned two (2026-11-11
 
 - **stepping_stones** (biggest group of hops of 2) dropped: flat parity contradictions with Opposite Nines and the
   fold rule (a pair adding to 9 or differing by 1 mixes parities; a hop-2 group is one parity) and with Mirrormancer
-  (four mirrors halve the board), and its bits ran far above the pool. It keeps its new lens in Annotated colours.
+  (four mirrors halve the board), and its bits ran far above the pool. It keeps its new lens.
 - **magic_accountant** → **Magic Eighteen**: odd targets contradict Mirrormancer (a palindrome a b b a has an even sum),
   every target but 18 contradicts Opposite Nines (half-turn sums force row r + row 3−r = 36), and targets 16/20 are
   maximised by an all-same board.

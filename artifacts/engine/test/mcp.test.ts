@@ -198,20 +198,20 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   const seenByHost = (await call(owner.token, "list_setups", { query: "Ada over MCP" })).data.setups.find((s: any) => s.id === saved.data.id);
   assert.deepEqual([seenByHost?.ownerName, seenByHost?.mine, seenByHost?.editable], [ada.name, false, false], "the host sees Ada's setup, as hers");
   assert.equal((await call(owner.token, "delete_setup", { setupId: saved.data.id })).error?.code, "FORBIDDEN");
-  const firstPage = (await call(owner.token, "list_setups", { limit: 5 })).data;
-  assert.deepEqual([firstPage.setups.length, firstPage.total >= 6], [5, true], "a limit caps the rows; total counts every match");
+  const firstPage = (await call(owner.token, "list_setups", { limit: 2 })).data;
+  assert.deepEqual([firstPage.setups.length, firstPage.total >= 3], [2, true], "a limit caps the rows; total counts every match");
   assert.ok(!("settings" in firstPage.setups[0]), "rows carry no settings");
-  // Classic by name: the first page holds whichever five setups sort first, which changes as setups are added.
-  const classicRow = (await call(owner.token, "list_setups", { query: "Classic" })).data.setups.find((s: any) => s.seedId === "grid-classic");
-  assert.ok(classicRow, "list_setups finds the Classic system setup by name");
-  const classic = (await call(owner.token, "get_setup", { setupId: classicRow.id })).data;
-  const copy = await call(actor.token, "duplicate_setup", { setupId: classic.id });
-  assert.deepEqual([copy.data?.name, copy.data?.mine, copy.data?.settings], ["Classic's copy", true, classic.settings], JSON.stringify(copy).slice(0, 300));
+  // Basics with bidding by name: the first page holds whichever setups sort first, which changes as setups are added.
+  const twinRow = (await call(owner.token, "list_setups", { query: "Basics with bidding" })).data.setups.find((s: any) => s.seedId === "grid-annotated-bidding");
+  assert.ok(twinRow, "list_setups finds the Basics with bidding system setup by name");
+  const twin = (await call(owner.token, "get_setup", { setupId: twinRow.id })).data;
+  const copy = await call(actor.token, "duplicate_setup", { setupId: twin.id });
+  assert.deepEqual([copy.data?.name, copy.data?.mine, copy.data?.settings], ["Basics with bidding's copy", true, twin.settings], JSON.stringify(copy).slice(0, 300));
   const revision = (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const applied = await call(owner.token, "update_settings", { requestId: randomUUID(), revision, setupId: classic.id });
+  const applied = await call(owner.token, "update_settings", { requestId: randomUUID(), revision, setupId: twin.id });
   assert.ok(!applied.error, JSON.stringify(applied));
   let room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings, room.setup], [classic.settings, { id: classic.id, name: "Classic", deleted: false }]);
+  assert.deepEqual([room.settings, room.setup], [twin.settings, { id: twin.id, name: "Basics with bidding", deleted: false }]);
   assert.ok(!(await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, setupId: saved.data.id })).error, "anyone's setup can be applied");
   room = await host.c.query(api.rooms.get, { room: roomId });
   const changed = await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, settings: { planningSeconds: 300 } });

@@ -168,11 +168,11 @@ test("the read price: κ = 32 bits read for one bit changed; κ = 1 is the old c
 
 test("a failed act: the meter's bits (or the LIMIT bound) are priced once, by actCharge", () => {
   const first = GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" });
-  const bound = readBound(first); // 78.51 bits: the whole First steps board
+  const bound = readBound(first); // 78.51 bits: the whole 4×4 rgb board
   // a trap or the hard wall: the bound, in bits; actCharge prices it once
   const limit = failedReadBits({ code: "LIMIT" }, bound);
   assert.equal(limit, bound);
-  close(actCharge(null, limit).total, bound / 32, 1e-12, "LIMIT on First steps");
+  close(actCharge(null, limit).total, bound / 32, 1e-12, "LIMIT on the 4×4 rgb board");
   close(actCharge(null, limit).total, 2.4534, 1e-4, "≈ 2.45 energy bits");
   // the runtime reported 3 bits before it raised
   assert.equal(actCharge(null, failedReadBits({ readBits: 3, code: "EXECUTION" }, bound)).total, 3 / 32);

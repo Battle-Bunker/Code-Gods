@@ -7,7 +7,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { complexityFor, grammarFor, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { complexityFor, defaultSettingsFor, grammarFor, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { admin, api, gods, internal, roomWith, setupEntries, startGame, touch, waitFor, type God, makeAdmin } from "./game-helpers.ts";
 
 /**
@@ -26,29 +26,29 @@ test("legacy rooms, games and setups are migrated once: every room runs a setup 
   const [host, ada, bo] = await gods("Legacy Host", "Legacy Ada", "Legacy Bo");
   await touch(host);
   const setups = await setupEntries(host.c);
-  const classic = setups.find((s: any) => s.seedId === "grid-classic");
+  const twin = setups.find((s: any) => s.seedId === "grid-annotated-bidding");
   const room = async (roomId: string) => host.c.query(api.rooms.get, { room: roomId });
 
   // A custom room that dealt defence goals at a rate, with a defence family excluded.
   const custom = await roomWith([host]);
-  await admin.mutation(internal.testing.makeLegacy, { roomId: custom.roomId, settings: legacy(seedSetupSettings("grid-classic"), 0.5, ["hate_blob"]), settingsOrigin: { kind: "custom", modified: false } });
-  // A room on the unmodified Classic, and one that had modified it.
-  const onClassic = await roomWith([host]);
-  await admin.mutation(internal.testing.makeLegacy, { roomId: onClassic.roomId, settings: legacy(seedSetupSettings("grid-classic"), 0), settingsOrigin: { kind: "setup", id: classic.id, modified: false } });
+  await admin.mutation(internal.testing.makeLegacy, { roomId: custom.roomId, settings: legacy(seedSetupSettings("grid-annotated-bidding"), 0.5, ["hate_blob"]), settingsOrigin: { kind: "custom", modified: false } });
+  // A room on the unmodified Basics with bidding, and one that had modified it.
+  const onTwin = await roomWith([host]);
+  await admin.mutation(internal.testing.makeLegacy, { roomId: onTwin.roomId, settings: legacy(seedSetupSettings("grid-annotated-bidding"), 0), settingsOrigin: { kind: "setup", id: twin.id, modified: false } });
   const modified = await roomWith([host]);
-  const modifiedSettings = { ...legacy(seedSetupSettings("grid-classic"), 0), planningSeconds: 120 };
-  await admin.mutation(internal.testing.makeLegacy, { roomId: modified.roomId, settings: modifiedSettings, settingsOrigin: { kind: "setup", id: classic.id, modified: true } });
+  const modifiedSettings = { ...legacy(seedSetupSettings("grid-annotated-bidding"), 0), planningSeconds: 120 };
+  await admin.mutation(internal.testing.makeLegacy, { roomId: modified.roomId, settings: modifiedSettings, settingsOrigin: { kind: "setup", id: twin.id, modified: true } });
   // A legacy preset room with no origin at all.
   const bare = await roomWith([host]);
-  await admin.mutation(internal.testing.makeLegacy, { roomId: bare.roomId, settings: legacy(seedSetupSettings("grid-first-steps"), 0) });
+  await admin.mutation(internal.testing.makeLegacy, { roomId: bare.roomId, settings: legacy(defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "rgb" }), 0) });
   // One of the host's own setups with legacy settings.
-  const own = await host.c.action(api.setups.save, { name: "Old defence", settings: seedSetupSettings("grid-classic") });
-  await admin.mutation(internal.testing.makeLegacy, { setupId: own.id, settings: legacy(seedSetupSettings("grid-classic"), 1, ["hate_colour"]) });
-  // An ended game started from Classic, before setupIds.
+  const own = await host.c.action(api.setups.save, { name: "Old defence", settings: seedSetupSettings("grid-annotated-bidding") });
+  await admin.mutation(internal.testing.makeLegacy, { setupId: own.id, settings: legacy(seedSetupSettings("grid-annotated-bidding"), 1, ["hate_colour"]) });
+  // An ended game started from Basics with bidding, before setupIds.
   const played = await roomWith([host, ada, bo], { planningSeconds: 3600, halfLifeSeconds: 1e9, startingObjectCount: 3, spawnRateHz: 0 });
   const game = await startGame(host, played.roomId);
   await host.c.mutation(api.rooms.endActiveGame, { roomId: played.roomId });
-  await admin.mutation(internal.testing.makeLegacy, { gameId: game.gameId, settings: legacy(seedSetupSettings("grid-classic"), 0.25), settingsOrigin: { kind: "setup", id: classic.id, modified: false } });
+  await admin.mutation(internal.testing.makeLegacy, { gameId: game.gameId, settings: legacy(seedSetupSettings("grid-annotated-bidding"), 0.25), settingsOrigin: { kind: "setup", id: twin.id, modified: false } });
 
   const first = await migrate();
   assert.ok(first.rooms >= 4 && first.games >= 1 && first.setups >= 1, JSON.stringify(first));
@@ -56,13 +56,13 @@ test("legacy rooms, games and setups are migrated once: every room runs a setup 
   // The custom room: its own new setup, named after the room, holding its (converted) settings.
   const c = await room(custom.roomId);
   assert.equal(c.setup.name, `Room ${custom.shortCode}'s setup`);
-  const expected = { ...seedSetupSettings("grid-classic"), defenceGoals: true, excludedDefenceFamilies: ["hate_blob"] };
+  const expected = { ...seedSetupSettings("grid-annotated-bidding"), defenceGoals: true, excludedDefenceFamilies: ["hate_blob"] };
   assert.deepEqual(c.settings, expected);
   const created = await host.c.query(api.setups.get, { setupId: c.setup.id });
   assert.deepEqual([created.mine, created.settings], [true, expected]);
   assert.ok(!("settingsOrigin" in c));
-  // On Classic unmodified: Classic. Modified: a new setup of the owner's with the modified settings.
-  assert.deepEqual((await room(onClassic.roomId)).setup, { id: classic.id, name: "Classic", deleted: false });
+  // On Basics with bidding unmodified: that setup. Modified: a new setup of the owner's with the modified settings.
+  assert.deepEqual((await room(onTwin.roomId)).setup, { id: twin.id, name: "Basics with bidding", deleted: false });
   const m = await room(modified.roomId);
   assert.equal(m.setup.name, `Room ${modified.shortCode}'s setup`);
   assert.equal(m.settings.planningSeconds, 120);
@@ -71,7 +71,7 @@ test("legacy rooms, games and setups are migrated once: every room runs a setup 
   const ownAfter = await host.c.query(api.setups.get, { setupId: own.id });
   assert.deepEqual([ownAfter.settings.defenceGoals, ownAfter.settings.excludedDefenceFamilies, "defenceRate" in ownAfter.settings], [true, ["hate_colour"], false]);
   const [record] = await host.c.query(api.rooms.history, { room: played.roomId });
-  assert.deepEqual(record.setup, { id: classic.id, name: "Classic" });
+  assert.deepEqual(record.setup, { id: twin.id, name: "Basics with bidding" });
   assert.equal(record.settings.defenceGoals, true);
   assert.ok(!("defenceRate" in record.settings));
   for (const settings of [c.settings, m.settings, ownAfter.settings, record.settings]) {

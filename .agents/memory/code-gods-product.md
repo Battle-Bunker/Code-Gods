@@ -225,7 +225,7 @@ The player can keep typing while their assistant works: messages queue in Convex
 **How to apply:** A queued message joins the running turn after the current step's tool results (in that user message, after the results, for both providers), or starts the next turn when the turn ends without a tool step. Sent while an autopilot turn runs, it preempts that turn. Stop keeps queued messages held until the player sends again. Delivery is exactly once (status change in the delivering mutation, clientId for retries); the queue is keyed by (player, game). Details: docs/surface-architecture.md §6 "Queued messages".
 
 ## Game duration mode (2026-11)
-`durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). First steps and Annotated basics are 10 min fixed; Annotated basics also starts with 10 objects, spawns 0.1 per second and plans for 5 minutes. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
+`durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). Annotated basics (and its twin Basics with bidding) is 5 min fixed, starts with 10 objects, spawns 0.1 per second and plans for 60 seconds. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
 
 ## Panes have no tabs (2026-11-02)
 
@@ -315,8 +315,8 @@ colour or suit pays a flat log2(n − 1), nothing for erasure; every mutator is 
 (`write(cell, 7)` on a 5 costs what `add(cell, 2)` costs). Every Ranked Grid has `add(where, amount=1)` in both
 models; it never wraps and fails out of range. Reads and summons stay priced. Variants in code: "dial-v1" (numbers
 wrap: 9 and 0 are one step apart), "log-v1" (price grows with log2 of the distance) and "multiply-v1" (digits only:
-adds plus multiply/divide modulo the base, a number pays the cheaper, plus 1 bit). The Lab setups (administrators only)
-run the beginner pool under each.
+adds plus multiply/divide modulo the base, a number pays the cheaper, plus 1 bit). They are a room setting only (the
+Lab setups that ran the beginner pool under each were removed in engine v2 D1).
 
 **Why:** the owner (2026-11-11) wants adding a small number to cost less than setting a cell, with the cost following
 the argument, and dislikes rules that grow more complicated.

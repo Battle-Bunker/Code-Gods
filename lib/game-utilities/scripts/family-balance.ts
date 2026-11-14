@@ -4,7 +4,7 @@
  * on a seed setup's shape and family pool, and prints per-family statistics.
  *
  *   node --experimental-strip-types lib/game-utilities/scripts/family-balance.ts [setup] [games] [policy] [players]
- *     setup:   annotated (default) | first-steps   (game-core SEED_SETUPS; Grid(4,base10,rgb))
+ *     setup:   annotated (default: game-core SEED_SETUPS) | rgb (Grid(4,base10,rgb) on its tuned defaults; no setup ships it)
  *     games:   games per family (default 60);  policy: random | greedy | deny | mixed (default greedy);  players: 3
  *     env ROUNDS=40 (turns per player), MATRIX=1 (print the pairwise table)
  *
@@ -15,7 +15,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { instantiate, objectType, seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
-import { SEED_SETUPS } from "../../game-core/src/settings.ts";
+import { SEED_SETUPS, defaultSettingsFor } from "../../game-core/src/settings.ts";
 import { availableFamilies, context, evaluator, surprisal, tableFor, type CalibrationTable } from "../src/index.ts";
 import { shippedTables } from "../src/calibration-data.ts";
 
@@ -27,7 +27,9 @@ export interface God { familyId: string; score: (w: ObjectValue) => number; top:
  * build on it (scripts/bid-market.ts); running this file prints the balance table below.
  */
 export function harness(setupArg = "annotated", ROUNDS = Number(process.env.ROUNDS ?? 40)) {
-const setup = SEED_SETUPS.find(s => s.seedId === (setupArg === "first-steps" ? "grid-first-steps" : "grid-annotated-basics"))!;
+const setup = setupArg === "rgb"
+  ? { seedId: "grid-4-rgb", name: "Grid 4×4 rgb", settings: defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "rgb" }) }
+  : SEED_SETUPS.find(s => s.seedId === "grid-annotated-basics")!;
 const inst: Instantiation = instantiate(setup.settings.objectType, setup.settings.typeArgs);
 const type = objectType(inst.objectType), codec = type.codec(inst), ctx = context(inst), tables = shippedTables(inst.key);
 const K = setup.settings.startingObjectCount ?? 10, C = 16;

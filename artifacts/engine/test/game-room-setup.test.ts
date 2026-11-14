@@ -1,19 +1,21 @@
 /**
  * New rooms, settings changes through the settings model, and the setup a room runs (docs/ui-redesign.md §2.4) against
- * the live local backend. What would break: a new room not running First steps, the assistant staying off after a
+ * the live local backend. What would break: a new room not running Annotated basics, the assistant staying off after a
  * creation that asked for it, an invalid allowance accepted, a change moving fields the game does not tie to it (the
  * old retuning), a change editing a setup the owner does not own (the system's or another human's) instead of their
  * copy, a change creating copies when it should edit the owner's own setup, or a game that forgot its setup.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { seedSetupSettings } from "@workspace/game-core";
+import { defaultSettingsFor, seedSetupSettings } from "@workspace/game-core";
 import { admin, api, gods, internal, roomWith, setupEntries, startGame, touch, adminGods } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
   return "no error";
 }
+/** Some complete Grid settings that are no system setup: the tuned 5×5 board in four colours. */
+const grid5 = () => defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "base10", colours: "rgby" });
 const setupId = async (c: any, seedId: string): Promise<string> => (await setupEntries(c)).find((s: any) => s.seedId === seedId).id;
 
 test("a new room runs Annotated basics and can set its AI quotas in the same call", async () => {
@@ -42,12 +44,12 @@ test("a setup saved on a stale view of the room is refused with CONFLICT and lea
   await touch(host);
   const { roomId } = await roomWith([host]);
   const seen = (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const classic = await setupId(host.c, "grid-classic");
-  const first = await setupId(host.c, "grid-first-steps");
-  await host.c.action(api.owner.settings, { roomId, revision: seen, setupId: classic });
-  assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: seen, setupId: first })), "CONFLICT");
+  const bidding = await setupId(host.c, "grid-annotated-bidding");
+  const basics = await setupId(host.c, "grid-annotated-basics");
+  await host.c.action(api.owner.settings, { roomId, revision: seen, setupId: bidding });
+  assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: seen, setupId: basics })), "CONFLICT");
   const room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.equal(room.setup?.id, classic, "the newer change stands");
+  assert.equal(room.setup?.id, bidding, "the newer change stands");
   assert.equal(room.revision, seen + 1);
 });
 
@@ -108,7 +110,7 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   assert.equal((await mine()).length, 1);
 
   // Another human's setup: applied as is; a change makes the owner's copy, Ada's stays hers.
-  const adas = await ada.c.action(api.setups.save, { name: "Ada's board", settings: seedSetupSettings("grid-classic") });
+  const adas = await ada.c.action(api.setups.save, { name: "Ada's board", settings: grid5() });
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), setupId: adas.id });
   const fromAda = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { startingObjectCount: 40 } });
   assert.deepEqual([fromAda.setup.name, fromAda.setup.created], ["Ada's board's copy", true]);
@@ -137,10 +139,10 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
   await touch(host);
   const a = await roomWith([host]), b = await roomWith([host]);
   const revision = async (roomId: string) => (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const mine = await host.c.action(api.setups.save, { name: "Shared board", settings: seedSetupSettings("grid-classic") });
+  const mine = await host.c.action(api.setups.save, { name: "Shared board", settings: grid5() });
   for (const roomId of [a.roomId, b.roomId]) await host.c.action(api.owner.settings, { roomId, revision: await revision(roomId), setupId: mine.id });
   // Edited elsewhere (here: saved directly); room A's snapshot still has the old energy.
-  await host.c.action(api.setups.save, { setupId: mine.id, name: "Shared board", settings: { ...seedSetupSettings("grid-classic"), startingEnergy: 400 } });
+  await host.c.action(api.setups.save, { setupId: mine.id, name: "Shared board", settings: { ...grid5(), startingEnergy: 400 } });
   assert.equal((await host.c.query(api.rooms.get, { room: a.roomId })).settings.startingEnergy, 600);
   const changed = await host.c.action(api.owner.settings, { roomId: a.roomId, revision: await revision(a.roomId), settings: { planningSeconds: 120 } });
   assert.deepEqual([changed.setup.id, changed.setup.created], [mine.id, false]);
@@ -150,10 +152,10 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
 
   // At the cap of own setups, explicit saves and copies are refused, but changing a room on a system setup still works.
   const own = (await setupEntries(host.c)).filter((s: any) => s.mine).length;
-  const classic = await setupId(host.c, "grid-classic");
-  for (let i = own; i < 50; i++) await host.c.mutation(api.setups.duplicate, { setupId: classic });
-  assert.equal(await errorCode(host.c.mutation(api.setups.duplicate, { setupId: classic })), "BAD_REQUEST", "the cap");
-  await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), setupId: classic });
+  const bidding = await setupId(host.c, "grid-annotated-bidding");
+  for (let i = own; i < 50; i++) await host.c.mutation(api.setups.duplicate, { setupId: bidding });
+  assert.equal(await errorCode(host.c.mutation(api.setups.duplicate, { setupId: bidding })), "BAD_REQUEST", "the cap");
+  await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), setupId: bidding });
   const copied = await host.c.action(api.owner.settings, { roomId: b.roomId, revision: await revision(b.roomId), settings: { planningSeconds: 30 } });
   assert.equal(copied.setup.created, true, "the room's change is kept as the owner's copy even past the cap");
 });

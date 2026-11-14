@@ -3,7 +3,7 @@
  *   - exhaustive agreement: for every lens, on every playable Grid shape where its family is applicable, for every param
  *     of its support, on seeded random boards, the exemplar and the goal example, the parts add up to the card's own
  *     ordinal (the program the engine scores with), so an annotation can never disagree with the score;
- *   - hand-derived cases on one literal First Steps board (4×4, base 10, rgb), each expectation worked out from the
+ *   - hand-derived cases on one literal 4×4 rgb board (4×4, base 10, rgb), each expectation worked out from the
  *     card's text by hand in the comments, for what a kid sees: which scoring units the board lists and points at, their facts and points.
  */
 import { test } from "node:test";
@@ -40,13 +40,13 @@ test("every lens's parts add up to its card's score: every playable Grid shape, 
     for (const inst of playableInstantiations("Grid")) {
       if (!applicable(f, inst).ok) continue;
       const params = paramsFor(l.familyId, inst);
-      // Every param on First Steps; a sample of 6 elsewhere (the support of Magic Accountant has 27 per shape).
+      // Every param on Grid(4,base10,rgb); a sample of 6 elsewhere (the support of Magic Accountant has 27 per shape).
       const chosen = inst.key === FIRST_STEPS.key ? params : params.filter((_, i) => i % Math.ceil(params.length / 6) === 0);
       for (const p of chosen) {
         const goal = explainer({ familyId: l.familyId, params: p }, inst)!;
         const boards = Array.from({ length: inst.key === FIRST_STEPS.key ? 60 : 12 }, (_, i) => randomWire(inst, `explain:${l.familyId}:${paramsKey(p)}:${i}`));
         if (f.exemplar) boards.push(String(f.exemplar(p, context(inst))));
-        // The example search is checked on First Steps (below and in the examples test); elsewhere random boards suffice.
+        // The example search is checked on Grid(4,base10,rgb) (below and in the examples test); elsewhere random boards suffice.
         if (inst.key === FIRST_STEPS.key) boards.push(goal.example()!.value);
         for (const value of boards) {
           const e = goal.explain(value);
@@ -74,7 +74,7 @@ test("addsUp: a part that is off by one, or a missing component, is caught", () 
 });
 
 // ------------------------------------------------------------------------------------------------
-// one literal First Steps board
+// one literal 4×4 rgb board
 // ------------------------------------------------------------------------------------------------
 //
 //        c0   c1   c2   c3

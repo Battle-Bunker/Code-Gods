@@ -1,6 +1,6 @@
 /**
  * The goal card and grid hover views in the REAL player app, recorded as a video (docs/annotations-design.md §12).
- * Needs the local engine (`pnpm --filter @workspace/engine dev`). Seeds a First Steps room of three players whose
+ * Needs the local engine (`pnpm --filter @workspace/engine dev`). Seeds a room (Annotated basics) of three players whose
  * goals can only be annotated families (excludedFamilies holds every other one), starts a game, opens alice's app on
  * a Vite dev server of this checkout, shows her goal card, explores its example board and hovers a live grid.
  *
