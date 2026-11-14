@@ -2,11 +2,12 @@
  * Live room queries (integration plan §2.2). Writes are affordances in ops/room.ts, ops/chat.ts and ops/seats.ts.
  * Each reads one document or one index page, and requires sign-in and membership.
  */
+import { quotasOf } from "./spend";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
-import { MAX_MEMBERS, requireMember, requireUser } from "./access";
+import { MAX_MEMBERS, memberOf, requireMember, requireUser } from "./access";
 import { chatPageV, historyPageV, roomListV, roomV, roundV } from "./validators";
 
 /** The caller's rooms, newest joined first: a skeleton page; each row's component subscribes to `get`. */
@@ -101,5 +102,15 @@ export const round = query({
       games: inRound.map(g => ({ gameId: g._id, number: g.number })),
       totals: [...totals.values()].sort((a, b) => b.net - a.net),
     };
+  },
+});
+
+/** The owner's per-game AI token quotas (`room.aiQuotas`): all AI players together, and each player's assistant. */
+export const aiQuotas = query({
+  args: { roomId: v.id("v2Rooms") },
+  returns: v.union(v.object({ ai: v.number(), assistant: v.number() }), v.null()),
+  handler: async (ctx, { roomId }) => {
+    const user = await requireUser(ctx);
+    return await memberOf(ctx, roomId, user.userId) ? await quotasOf(ctx, roomId) : null;
   },
 });

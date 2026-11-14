@@ -52,15 +52,15 @@ export const turn = internalAction({
     const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
       `You have ${Math.round(seat.energy)} ⚡ in your own store and ${seat.agents} agent(s). Act, then stop.`;
     try {
-      await spendWithin(ctx, gameId, memberId, budget => runAssistant({
+      await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({
         provider: providerFor(), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools }),
         messages: [{ role: "user", content: briefing }], tools, maxSteps: 6, budget,
         perform: (name, args) => performAs(ctx, delegate, { gameId }, affordanceForTool(name)!.id, args),
       }));
     } catch (e) {
-      // The allowance used up, or no model on this deployment: this seat stops for the game. Anything else is logged
-      // and the next turn tries again.
-      if (e instanceof OpFailure) { console.warn(`v2 AI player ${memberId} stops: ${e.message}`); return; }
+      // Refused before any call (a quota, a ceiling, the rate limit, no model, not an administrator's room): the seat
+      // waits and asks again next turn, uncounted, since the owner may raise a quota mid-game. A failure is logged.
+      if (e instanceof OpFailure) { console.warn(`v2 AI player ${memberId} waits: ${e.message}`); await schedule(n); return; }
       console.error(`v2 AI turn failed (${memberId}): ${(e as Error).message}`);
     }
     await schedule(n + 1);

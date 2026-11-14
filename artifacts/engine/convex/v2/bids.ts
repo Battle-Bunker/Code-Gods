@@ -3,8 +3,7 @@
  * Other players' bids are never returned. Writes are the `bid.*` affordances (ops/bid.ts).
  */
 import { v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
-import { closeBidding } from "./lobby";
+import { query } from "../_generated/server";
 import { MAX_MEMBERS, requireMember } from "./access";
 import { bidStateV } from "./validators";
 
@@ -25,11 +24,3 @@ export const state = query({
   },
 });
 
-/** The bid phase's deadline: the deal happens with whatever bids there are. */
-export const closeAtDeadline = internalMutation({
-  args: { roomId: v.id("v2Rooms"), deadline: v.number() },
-  handler: async (ctx, { roomId, deadline }) => {
-    const room = await ctx.db.get(roomId);
-    if (room) await closeBidding(ctx, room, deadline);
-  },
-});
