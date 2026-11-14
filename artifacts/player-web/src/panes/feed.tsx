@@ -3,13 +3,17 @@
  * viewer, newest first, one sentence each (move-line.ts) from the `v2Moves` row, with the line before → after written
  * by v2-views in the representation that changed. Older pages load on request; every loaded page stays live.
  */
-import { useMemo } from "react";
+import { createContext, useContext, useMemo } from "react";
 import { lineType, type LineState } from "@workspace/v2-linear";
 import { chipRep, repText } from "@workspace/v2-views";
 import { decodeState, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move } from "@/sdk";
 import { clock, num } from "@/core/words";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
+import { noteLines } from "./move-notes";
+
+/** What your agents noted for you, by move (each note once, on its newest move). */
+const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
 
 /** The line's written form in the representation the move changed (an equation that expresses it, else the first that does). */
 function lineText(state: LineState, rep: string, site: number): string {
@@ -17,6 +21,7 @@ function lineText(state: LineState, rep: string, site: number): string {
 }
 
 function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap<string, string>; top: number | null; variant: string }) {
+  const notes = useContext(NotesContext).get(move.seq);
   const text = useMemo(() => {
     const site = move.calls[0]?.site ?? 0;
     let change: { before: string; after: string } | null = null;
@@ -32,16 +37,21 @@ function MoveRow({ move, names, top, variant }: { move: Move; names: ReadonlyMap
         {clock(move.worldSeconds)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} ⚡` : ""}
       </p>
       <p className="text-sm text-foreground" data-testid="text-move-line">{text}</p>
+      {notes?.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
     </li>
   );
 }
 
 /** A back-and-forth on one line, folded: who pulls, how often, what it cost, and to talk; its moves on request. */
 function TugRow({ tug, names, top, variant, kinds }: { tug: Extract<FeedItem<Move>, { kind: "tug" }>; names: ReadonlyMap<string, string>; top: number | null; variant: string; kinds: ReadonlyMap<string, string> }) {
+  // Its moves' notes show on the entry itself: the moves are folded away below.
+  const notesBySeq = useContext(NotesContext);
+  const tugNotes = [...new Set(tug.moves.flatMap(m => notesBySeq.get(m.seq) ?? []))];
   return (
     <li className="space-y-1 border-l-4 border-destructive/60 px-4 py-2" data-testid={`row-tug-${tug.objectId}`}>
       <p className="text-xs text-muted-foreground tabular-nums">{clock(tug.to)} · contested line</p>
       <p className="text-sm text-foreground" data-testid="text-tug-line">{tugSentence(tug, kinds)}</p>
+      {tugNotes.map(n => <p key={n} className="border-l-2 border-primary/50 pl-2 text-sm italic text-foreground" data-testid="text-move-note">Your agent says: {n}</p>)}
       <details>
         <summary className="cursor-pointer text-xs text-muted-foreground underline underline-offset-4">Show the {tug.moves.length} moves</summary>
         <ol className="divide-y">{tug.moves.map(m => <MoveRow key={m.seq} move={m} names={names} top={top} variant={variant} />)}</ol>
@@ -58,6 +68,7 @@ export function FeedPane() {
   const moves = useMoves();
   const names = useMemo(() => new Map((agents ?? []).map(a => [a.agentId as string, a.name])), [agents]);
   const items = useMemo(() => foldTugs(moves.results), [moves.results]);
+  const notes = useMemo(() => noteLines(moves.results.map(m => ({ seq: m.seq, agentId: m.agentId, notes: m.notes }))), [moves.results]);
   // Who each seat is (a person, a practice partner, an AI player): practice partners read no chat.
   const kinds = useMemo(() => new Map((header?.roster ?? []).map(r => [r.memberId as string, r.kind as string])), [header?.roster]);
   if (!header) return null;
@@ -75,11 +86,13 @@ export function FeedPane() {
   }
   return (
     <div data-testid="feed">
+      <NotesContext.Provider value={notes}>
       <ol className="divide-y">
         {items.map(i => i.kind === "tug"
           ? <TugRow key={`tug-${i.moves[0]!.seq}`} tug={i} names={names} top={top} variant={header.variant} kinds={kinds} />
           : <MoveRow key={i.move.seq} move={i.move} names={names} top={top} variant={header.variant} />)}
       </ol>
+      </NotesContext.Provider>
       {moves.status === "CanLoadMore" && (
         <button type="button" className="w-full border-t py-2 text-xs underline underline-offset-4 text-muted-foreground" onClick={() => moves.loadMore(30)} data-testid="button-feed-earlier">Earlier moves</button>
       )}
