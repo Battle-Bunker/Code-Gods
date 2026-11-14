@@ -1,5 +1,5 @@
 # Treasure · Simple
-# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; different primes among y(1) … y(8)).
+# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8); the gradient close to a prime; the y-intercept close to a square; the gradient's smallest prime factor; the gradient's largest prime factor).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -14,15 +14,21 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
     # main: how far y(k) is from T (closer is better)
+    if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better
+        primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)
+        return [main, len(primes)]
+    if tie == "prime-gradient":   # a gradient close to a prime is better
+        mp = near(m, prime)                        # the prime nearest the gradient
+        return [main, -abs(m - mp)]
+    if tie == "square-start":   # a y-intercept close to a square number is better
+        sq = near(c, square)                       # the square number nearest the y-intercept (0 below it)
+        return [main, -abs(c - sq)]
     if tie == "m-spf":   # the gradient's smallest prime factor big is better
         fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
         return [main, fm[0] if fm else 1]
     if tie == "m-gpf":   # the gradient's largest prime factor big is better
         fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
         return [main, fm[-1] if fm else 1]
-    if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better
-        primes = {m * x + c for x in range(1, 9) if prime(m * x + c)}   # y(1) ... y(8)
-        return [main, len(primes)]
     return [main]
 
 

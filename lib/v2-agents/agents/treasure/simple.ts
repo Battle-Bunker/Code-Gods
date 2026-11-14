@@ -1,5 +1,5 @@
 // Treasure · Simple
-// Main part: y(k) close to T. Tie-breaker: whichever you were dealt (the gradient's smallest prime factor; the gradient's largest prime factor; different primes among y(1) … y(8)).
+// Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8); the gradient close to a prime; the y-intercept close to a square; the gradient's smallest prime factor; the gradient's largest prime factor).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -13,6 +13,18 @@
 function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
   // main: how far y(k) is from T (closer is better)
+  if (tie === "prime-terms") {   // more different primes among y(1) ... y(8) is better
+    const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)
+    return [main, primes.size];
+  }
+  if (tie === "prime-gradient") {   // a gradient close to a prime is better
+    const mp = near(m, prime);                  // the prime nearest the gradient
+    return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
+  }
+  if (tie === "square-start") {   // a y-intercept close to a square number is better
+    const sq = near(c, square);                 // the square number nearest the y-intercept (0 below it)
+    return [main, Q.neg(Q.abs(Q.sub(c, sq)))];
+  }
   if (tie === "m-spf") {   // the gradient's smallest prime factor big is better
     const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
     return [main, fm[0] ?? 1];
@@ -20,10 +32,6 @@ function score(m, c, p, tie) {
   if (tie === "m-gpf") {   // the gradient's largest prime factor big is better
     const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
     return [main, fm.at(-1) ?? 1];
-  }
-  if (tie === "prime-terms") {   // more different primes among y(1) ... y(8) is better
-    const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)
-    return [main, primes.size];
   }
   return [main];
 }

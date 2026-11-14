@@ -1,5 +1,5 @@
 # Prime Staircase · Thorough
-# Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime).
+# Main part: a run of different primes from y(0). Tie-breaker: whichever you were dealt (the first prime; the last prime of the run; the first non-prime term close to a prime; y(−1) close to a prime).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,7 +12,7 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    run, stopped, miss = [], False, None            # miss: the first term that is not prime
+    run, stopped, miss = [], False, None            # miss: the size of the first term that is not prime
     for n in range(12):                             # y(0) ... y(11)
         t = m * n + c
         is_prime = prime(t)
@@ -21,11 +21,18 @@ def score(m, c, p, tie):
         else:
             stopped = True
         if not is_prime and miss is None:
-            miss = t
+            miss = abs(t)
     main = len(run)
     # main: how many different primes the pattern y(0), y(1), ... starts with (more is better)
     if tie == "first-prime":   # a bigger first prime is better
         return [main, run[0] if run else 0]
+    if tie == "last-prime":   # a bigger last prime of the run is better
+        return [main, run[-1] if run else 0]
+    if tie == "near-miss":   # a first non-prime term (ignoring sign) close to a prime is better (none in twelve terms: no tie-breaker)
+        return [main, None if miss is None else -abs(miss - near(miss, prime))]
+    if tie == "step-back":   # y(-1) (ignoring sign) close to a prime is better
+        back = abs(c - m)                          # y(-1), ignoring its sign
+        return [main, -abs(back - near(back, prime))]
     return [main]
 
 
@@ -54,8 +61,6 @@ def agent(offer):
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
         tries.append((move("seq.step", k=k), m + k, c - k))   # change the pattern's step, keeping y(1)
         tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
-        f = k + 1 if k > 0 else k - 1
-        tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

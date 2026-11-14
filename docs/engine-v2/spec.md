@@ -967,14 +967,14 @@ family's first tie-breaker is its default:
 
 | Family | Main layer (rep) | Tie-breakers (alternatives) | Sum |
 |---|---|---|---|
-| `prime-landing` | the y-intercept close to a prime (si) | `big-prime` (that prime), `m-spf`, `m-gpf` (the gradient's smallest and largest prime factor) | separable |
+| `prime-landing` | the y-intercept close to a prime (si) | `big-prime` (that prime), `prime-gradient` (m close to a prime), `next-prime` (y(1) close to a prime), `m-spf`, `m-gpf` (the gradient's smallest and largest prime factor) | separable; the restored ones sampled |
 | `square-area` | the triangle's area close to a square (tri) | `spf`, `lpf` (the root's smallest and largest prime factor), `omega` (Ω of the root) | band: 2\|m\| = t², c a multiple of t |
 | `whole-crossing` | the x-axis crossing −c/m close to a whole number k (cart) | `k-spf`, `k-gpf` (k's prime factors), `m-spf` | band: c a multiple of m |
 | `divisibility-ladder` | the run of n dividing y(n), the line not through (0, 0) (table) | `m-spf`, `m-gpf`, `steep` (\|m\|), `m-prime` (m close to a prime) | separable (n \| mn + c ⇔ n \| c) |
-| `treasure` | y(k) close to T (table), (k, T) = (2, 37) | `m-spf`, `m-gpf`, `prime-terms` (different primes among y(1)…y(8)) | band: c = T − km ± 4 |
-| `same-on-both-rulers` | the number the machine leaves unchanged close to T (mach), T = 6 | `m-spf`, `m-gpf`, `steep` (\|m − 1\|) | band: c between (T ± 2)(1 − m) |
-| `prime-gradient` | the gradient close to a prime (si) | `prime` (that prime), `c-spf`, `c-gpf` (the y-intercept's prime factors) | separable |
-| `prime-staircase` | the run of different primes from y(0) (seq) | `first-prime` | band: c over the primes |
+| `treasure` | y(k) close to T (table), (k, T) = (2, 37) | `prime-terms` (different primes among y(1)…y(8)), `prime-gradient`, `square-start` (c close to a square), `m-spf`, `m-gpf` | band: c = T − km ± 4; the restored ones sampled |
+| `same-on-both-rulers` | the number the machine leaves unchanged close to T (mach), T = 6 | `steep` (\|m − 1\|), `prime-start` (\|c\| close to a prime), `whole-values` (different whole numbers among y(−5)…y(5)), `whole-lamp` (m/(m − 1) close to whole), `m-spf`, `m-gpf` | band: c between (T ± 2)(1 − m); the restored ones sampled |
+| `prime-gradient` | the gradient close to a prime (si) | `prime` (that prime), `cPrime` (c close to a prime), `c-spf`, `c-gpf` (the y-intercept's prime factors) | separable |
+| `prime-staircase` | the run of different primes from y(0) (seq) | `first-prime`, `last-prime` (the run's last prime), `near-miss` (the first non-prime term close to a prime), `step-back` (y(−1) close to a prime) | band: c over the primes; the restored ones sampled |
 | `ruler` | the distance² from (0, 0) to the line close to a square k², k ≥ 1 (norm) | `far` (k; not on whole lines), `prime-gradient`, `square-area` | sampled |
 | `exact-change` | reading a·x + b·y = N as coins a, b paying N: the number of ways close to 6 (coins) | `big-piles` (the smaller pile at its smallest; not on whole lines), `big-bill` (N), `prime-coins` | sampled |
 | `pythagorean-area` | the triangle's area close to A = 6 (tri) | `slanted-square` (side² close to a square), `prime-height` (\|c\| close to a prime), `whole-legs` | sampled |

@@ -186,6 +186,15 @@ back) or TRIAL (a declared experiment, measured and reported).
    sessions replaced are listed for a choice in `tie-breakers-replaced.md`.
 7. The landscape analysis's collapse check (its five tests) runs as a nightly script printing a table per variant; it
    is expected to fail on lines today and does not block merges.
+8. **RESTORE** v1 Annotated basics' beginner numbers on both beginner presets: 10 starting objects (not 24), 60 s
+   planning, and the half-life end (halfLifeSeconds 300; the server session restores the hidden end).
+9. **TRIAL** (declared to the owner, who wants fewer objects in the beginner game): births at 0.05/s instead of v1's
+   0.1/s, about 25 objects at five minutes instead of 40. The uniqueness correction's N follows (10 + 0.05 × 150 ≈ 18).
+10. The nine rational-native families set aside by the integer filter (Whole Intercept, Pell, Euclid's Long Way,
+    Farey, Egyptian, Long Division, Prime Slope, Steady Gradient; Ruler and Exact Change already back) return as sampled
+    families on line-q, undealt first; those that pass the collapse tests are dealt. Whole Crossing and Divisibility
+    Ladder (picked because a band sum existed) stay only if they pass too. Order: after the tie-breaker restoration and
+    after defence goals.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
