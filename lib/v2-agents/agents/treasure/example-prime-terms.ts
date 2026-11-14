@@ -4,7 +4,7 @@
 // no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 // Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
 // back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
-// with that player and change the agent to keep it. It never spends more than a quarter of its energy on one move.
+// with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 6 to 30: a step of 30 through (2, 37) gives many primes.
@@ -18,7 +18,6 @@ function score(m, c, p) {
 
 const FAR = 6;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const SPEND = 0.25;    // never spend more than a quarter of your energy on one move
 const LEAVE = [];      // lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 function agent(offer) {
@@ -45,6 +44,5 @@ function agent(offer) {
   }
   if (!plans.length) return null;
   const plan = cheapest(offer, plans.slice(0, QUOTES));   // the cheapest of the best
-  if (!plan || price(offer, plan) > energy(offer) * SPEND) return null;   // too dear: keep the energy for more turns
   return plan;
 }

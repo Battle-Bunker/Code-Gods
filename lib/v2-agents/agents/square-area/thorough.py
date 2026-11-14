@@ -4,7 +4,7 @@
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Your points on a line are your rarity times the others' rarity, so a tug-of-war (another player pulling the line
 # back again and again) burns energy on both sides: when it finds one it leaves you a note, so you can make a deal
-# with that player and change the agent to keep it. It never spends more than a quarter of its energy on one move.
+# with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
 # Try this: change QUOTES = 20 to 6: fewer prices asked, but it may miss a cheaper plan.
@@ -32,7 +32,6 @@ def score(m, c, p, tie):
 
 FAR = 5      # how far one change may go
 QUOTES = 20  # at most this many plans are priced (each price is a host call)
-SPEND = 0.25    # never spend more than a quarter of your energy on one move
 LEAVE = []      # lines you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 
 
@@ -67,6 +66,4 @@ def agent(offer):
     if not plans:
         return None
     plan = cheapest(offer, plans[:QUOTES])   # the cheapest of the best
-    if plan is None or price(offer, plan) > energy(offer) * SPEND:   # too dear: keep the energy for more turns
-        return None
     return plan
