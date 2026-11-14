@@ -906,7 +906,7 @@ are gated as in §1.1. Two consumers measure the same definitions:
   primitive lines of height ≤ 100 weighted 2^−φ, as in §3. It gives bits per rung and **levels per rung** for all 78
   ladders (all 31 A families, the nine K families with each of their secondaries, and the strongest families of B, C and
   E). It also gives the pair table used for §7.5.
-- **The v2 estimator,** [scripts/layered-v2-valuation.ts](scripts/layered-v2-valuation.ts): each family is wrapped as a v2
+- **The v2 estimator,** scripts/layered-v2-valuation.ts (deleted with the rung machinery, decision 23; in git at e694e5da): each family is wrapped as a v2
   `RuleFamily` whose score is its level, and `lib/v2-valuation`'s `calibrate` values it on the `line-q` variant's
   priced walk (spec §7.2). This is the one method used for the strongest thirty (§7.4). Where the stationary value did
   not converge, the estimator's own multilevel **splitting** estimate is quoted. The splitting estimate is the spec's §7.2 step-6
@@ -1559,7 +1559,7 @@ longer the source of upper values. This section:
 - sorts every family into five tractability classes, each with its summation recipe (§10.2);
 - classifies every family × secondary of the catalogue and the five brainstorms (§10.3);
 - gives exact joint tops and steps for every pairing that is dealt (§10.4), from
-  [scripts/analytic-classes.ts](scripts/analytic-classes.ts) (output:
+  scripts/analytic-classes.ts (deleted with the rung machinery, decision 23; in git at e694e5da) (output:
   [scripts/analytic-classes-results.md](scripts/analytic-classes-results.md));
 - re-proposes the beginner pool (§10.5) and, briefly, the second pool (§10.6).
 
