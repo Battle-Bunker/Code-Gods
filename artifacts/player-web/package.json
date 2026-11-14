@@ -88,6 +88,7 @@
     "@workspace/player-client": "workspace:*",
     "@workspace/ui-kit": "workspace:*",
     "@workspace/v2-affordances": "workspace:*",
+    "@workspace/v2-agents": "workspace:*",
     "@workspace/v2-client": "workspace:*",
     "zod": "catalog:",
     "@workspace/v2-core": "workspace:*",

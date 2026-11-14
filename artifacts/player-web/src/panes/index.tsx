@@ -4,6 +4,7 @@ import { RoomChat } from "@/site/components/chat";
 import { useGameScope } from "@/sdk";
 import { OverviewPane } from "./overview";
 import { RacePane } from "./race";
+import { ForgePane } from "./forge";
 
 function ChatPane() {
   return <RoomChat roomId={useGameScope().roomId} height="h-full min-h-[200px]" />;
@@ -13,4 +14,5 @@ export const PANE_COMPONENTS: PaneComponents = {
   overview: OverviewPane,
   race: RacePane,
   "public-chat": ChatPane,
+  forge: ForgePane,
 };
