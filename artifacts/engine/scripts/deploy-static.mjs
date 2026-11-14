@@ -20,7 +20,7 @@
  * deployment has none): the frame CSP then names that origin too (besides 'self'). Each upload is atomic
  * (the previous version stays live if it fails) and garbage-collects the previous upload. SPA fallback stays on.
  * Each site's index.html is stamped with its build id (a hash of the build) and, after the upload, the id is recorded
- * (`version:record`), so open pages of an older build update themselves (lib/player-client/src/update.ts). With --if-changed, a build byte-identical to its last
+ * (`version:record`), so open pages of an older build update themselves (lib/v2-client/src/update.ts). With --if-changed, a build byte-identical to its last
  * upload (the URLs above are baked into the build, so they count) isn't uploaded again; a build that differs in any
  * byte, even a minifier's harmless variation, uploads as usual.
  */
@@ -70,10 +70,10 @@ export function distHash(dir) {
 const BUILD_META = /<meta name="code-gods-build" content="[^"]*">/;
 /**
  * Stamps the build's id into dist/index.html as `<meta name="code-gods-build" content="…">` (the name is BUILD_META in
- * lib/player-client/src/build-meta.ts) and returns it; null without an index.html or a </head>. The id is the
+ * lib/v2-client/src/build-meta.ts) and returns it; null without an index.html or a </head>. The id is the
  * distHash of the tree without the stamp, so it follows every file (the panel frame, the CSP, public/), a
  * byte-identical build gets the same id, and stamping again changes nothing. Recorded with `version:record` after the
- * upload: open pages of an older build then update themselves (lib/player-client/src/update.ts).
+ * upload: open pages of an older build then update themselves (lib/v2-client/src/update.ts).
  */
 export function stampBuildId(dist) {
   const file = join(dist, "index.html");

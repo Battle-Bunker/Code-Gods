@@ -6,8 +6,8 @@ calls: one JSON request in, one JSON reply out.
 
 - **TypeScript / JavaScript** on QuickJS-Wasm. TypeScript is transpiled (no type check) by the TypeScript compiler on
   the host. The channel is a host function `__host(requestJson): replyJson`.
-- **Python** on the pinned CPython 3.15 WASI bundle, unchanged (built by `lib/game-runtime`'s `setup:python` and
-  `build:python`; same SHA-256 pin). The bundle supplies CPython and its standard library only: the trusted guest is
+- **Python** on the pinned CPython 3.15 WASI bundle, unchanged (built by this package's `setup:python` and
+  `build:python` from `python-runtime/`, moved unchanged from the old runtime; same SHA-256 pin). The bundle supplies CPython and its standard library only: the trusted guest is
   this package's `python/guest.py` (a cleaned copy of the old boot and sandbox guests), and the bundle's own guest
   files are not run. The channel is WASI file descriptor 3: the guest writes a 4-byte little-endian length and the
   request with `os.write(3, …)`, and reads the reply framed the same way with `os.read(3, …)`.
@@ -67,6 +67,6 @@ the step counter out of reach.
 
 ## Tests
 
-`pnpm --filter @workspace/v2-sandbox test` (needs the Python bundle: `pnpm --filter @workspace/game-runtime
-setup:python && pnpm --filter @workspace/game-runtime build:python`). The spec's three example agents run in both
+`pnpm --filter @workspace/v2-sandbox test` (needs the Python bundle: `pnpm --filter @workspace/v2-sandbox
+setup:python && pnpm --filter @workspace/v2-sandbox build:python`). The spec's three example agents run in both
 languages (`test/agents/`) and must make the same calls at the same costs.

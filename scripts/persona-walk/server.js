@@ -230,12 +230,9 @@ async function run(cmd, args, text) {
         try {
           const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
           const p = await signIn(ctx, who);
-          await p.getByTestId('button-palette').click();
-          await p.getByTestId('dialog-palette').waitFor();
-          await p.getByTestId('input-palette').fill(code);
-          await p.keyboard.press('Enter');
-          await p.waitForURL(new RegExp(`/rooms/${code}$`), { timeout: 20000 });
-          await p.getByTestId('button-join').click({ timeout: 20000 });
+          // The invite link: the room's page offers "Join this room" to a signed-in visitor.
+          await p.goto(`${SITE}/rooms/${code}`);
+          await p.getByTestId('button-join-room').click({ timeout: 20000 });
           await sleep(1500);
           friends.push(ctx); out.push(`${who}: joined`);
         } catch (e) { out.push(`${who}: FAILED (${String(e.message).split('\n')[0]})`); }

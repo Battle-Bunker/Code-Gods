@@ -2,11 +2,12 @@
  * The shared command palette's vocabulary (docs/ui-redesign.md §2.5). A Command is one catalogue entry (or a
  * client-only `ui.*` action of the same human shape) plus a performer: what happens when it runs. Pure types.
  */
-import type { Phase } from "@workspace/player-client/panels";
-import type { PaletteGroup } from "@workspace/player-client/catalog";
-import type { ToolName } from "@workspace/player-client/tools";
-
-export type { PaletteGroup, Phase };
+/** A game's phase, as the app names it ("planning", "live", "paused", "ended"). */
+export type Phase = string;
+/** The palette group of an operation (lib/v2-affordances `Group`): it decides the section a row is listed under. */
+export type PaletteGroup = "play" | "agents" | "objects" | "view" | "replay" | "room" | "owner" | "account" | "help";
+/** An assistant tool's name (lib/v2-affordances `toolName`: the affordance id with "." → "_"). */
+export type ToolName = string;
 export type Confirm = "none" | "inline" | "summary" | "modal";
 
 /** The palette's sections, in display order (docs/research/ui-redesign/palette-and-pages.md §2.3). */

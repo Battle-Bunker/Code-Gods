@@ -5,17 +5,12 @@
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "player": "pnpm --silent --filter @workspace/player-client cli",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./clients/**\" --if-present run typecheck",
-    "smoke:hello": "pnpm --filter @workspace/hello-client smoke",
-    "build:artifact": "node clients/claude-artifact/build.mjs",
-    "test:artifact": "node --test clients/claude-artifact/core.test.js",
-    "test:offline": "pnpm run test:offline:rest && pnpm --filter @workspace/game-utilities test",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck",
+    "test:offline": "pnpm run test:offline:rest",
     "test:v2": "for pkg in v2-core v2-linear v2-valuation v2-views v2-affordances; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done",
-    "test:offline:rest": "pnpm run test:v2 && pnpm --filter @workspace/engine test:unit && pnpm --filter @workspace/player-client test:unit && for pkg in ai-player game-core game-types object-views ui-kit player-web; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done && pnpm run test:artifact && pnpm run test:ci-scripts",
-    "test:ci-scripts": "node --test .github/scripts/*.test.mjs",
-    "smoke:artifact": "node clients/claude-artifact/smoke.mjs"
+    "test:offline:rest": "pnpm run test:v2 && pnpm --filter @workspace/engine test:unit && for pkg in ui-kit player-web; do pnpm --filter \"@workspace/$pkg\" test || exit 1; done && pnpm run test:ci-scripts",
+    "test:ci-scripts": "node --test .github/scripts/*.test.mjs"
   },
   "private": true,
   "packageManager": "pnpm@10.28.0",

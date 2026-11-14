@@ -18,10 +18,7 @@ const SRC = join(import.meta.dirname, "../src");
  * What remains: each file's exact number of findings (so an allowed file cannot gain another), the reason, and the
  * change that removes it. Shrinks only.
  */
-const ALLOWED: Record<string, { findings: number; why: string }> = {
-  "core/replay/replay-game.tsx": { findings: 1,
-    why: "the paged replay (no retry) for a game without a stored replay; removed once migrations:backfillReplays reports done on dev and production (read-architecture §4.4)" },
-};
+const ALLOWED: Record<string, { findings: number; why: string }> = {};
 
 /** One finding per line: the first that matches. */
 const ONE_OFF: [RegExp, string][] = [

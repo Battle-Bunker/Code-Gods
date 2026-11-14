@@ -5,7 +5,7 @@ description: Use in the Code Gods repo before running any test suite, to pick th
 
 # Selective testing: test your change, once, when it is ready
 
-The repo's suites are long (the live-backend engine suite, the MCP suite, several browser suites), and an agent that
+The repo's suites are long (the live-backend engine suites, the browser suites), and an agent that
 re-runs them after every edit, rebase or flake spends most of its time waiting. The owner's rule
 (2026-11-03): **each agent builds a selective set of suites for its own work, and runs it sparingly, ideally only
 when it is ready to merge.** CI on `develop` (`.github/workflows/deploy.yml`) is the full safety net.
@@ -31,25 +31,22 @@ match. That union is your set. Write it in the PR description, with each suite's
 | You changed | Run | Not needed |
 |---|---|---|
 | Docs, `.agents/`, `.claude/skills/`, comments only | nothing (root typecheck only if a `.ts` file changed) | everything else |
-| A pure library (`lib/game-core`, `lib/game-types`, `lib/game-utilities`, `lib/object-views`, `lib/ai-player`, `lib/ui-kit`) | that package's `pnpm --filter <pkg> test`, plus the unit tests of packages that import the changed export (grep for it) | engine live suites, unless the engine's behaviour changes through it |
-| `lib/game-runtime` | `pnpm --filter @workspace/game-runtime test`; plus `test:game`'s sandbox files (`game-sandboxes`, `game-agents*`) | browser suites |
-| `artifacts/engine/convex/lib/*` pure helpers | `test:unit` | — |
-| An engine function (`artifacts/engine/convex/**`) | the `test/game-*.test.ts` files that call it (grep the function name and its `api.` path), plus `game-disclosure` if a player-facing query or field changed, plus `game-query-cost` if a page query's reads changed, plus `game-schema-migrations` if the schema or a migration changed | the rest of `test:game` |
-| The MCP tool registry, `agent/*`, OAuth | `test:mcp` | browser suites |
-| `convex/auth/*`, `http.ts` routes | `test:auth` (stop the dev engine first) | — |
-| The public function catalogue (adding, removing or renaming a public function) | `pnpm --filter @workspace/player-client test` (catalogue tests) and regenerate `docs/engine-api.md` | — |
+| A pure library (`lib/v2-core`, `lib/v2-linear`, `lib/v2-valuation`, `lib/v2-views`, `lib/v2-economy`, `lib/v2-client`, `lib/ui-kit`) | that package's `pnpm --filter <pkg> test`, plus the unit tests of packages that import the changed export (grep for it) | engine live suites, unless the engine's behaviour changes through it |
+| `lib/v2-affordances` (an operation) | `pnpm --filter @workspace/v2-affordances test`, plus `test:v2` if the server side of the operation changed | — |
+| `lib/v2-sandbox`, `lib/v2-agents` | that package's `test` (needs the Python bundle: `pnpm --filter @workspace/v2-sandbox setup:python && pnpm --filter @workspace/v2-sandbox build:python`) | browser suites |
+| `artifacts/engine/convex/lib/*` pure helpers, `convex/v2` pure modules (`deal.ts`, `presets.ts`, `artefacts.ts`) | `test:unit` | — |
+| A v2 engine function (`artifacts/engine/convex/v2/**`) | `test:v2` (the files that call it: grep the function name), plus `test:unit` (`v2-query-budgets` checks the query table) if a public query was added, removed or renamed | — |
+| `convex/version.ts` | `test:version` | — |
+| `convex/auth/*`, `agent/*` (OAuth, `/mcp`), `http.ts` routes | `test:auth` (stop the dev engine first) | — |
 | `artifacts/player-web/src` logic | `pnpm --filter @workspace/player-web test` | browser suites, unless rendering or a page's data path changed |
-| A site page's rendering or data path | add `e2e:site` | `e2e` (multi-client) |
-| Dock panels' rendering | add `e2e:panels` | `e2e` (multi-client) |
-| Account mode, sign-in gate | add `e2e:account` | — |
-| HMR, several apps at once, static hosting of player apps | `e2e` (multi-client, about 20 minutes). Only for these. | — |
+| A site page's or pane's rendering or data path | add `e2e:site` (`artifacts/player-web/e2e/v2-site.ts`) | — |
+| The v2 views' look (`lib/v2-views`, their panes) | add `e2e:v2-views` (screenshots) | — |
 | Anything in TypeScript | root `pnpm run typecheck`, once, at the end | — |
 
-Run the whole `test:game` only when your change touches something every engine test passes through:
-- the tick (`engine/loop.ts`, `engine/tick.ts`);
-- `game/state.ts`;
+Run the whole `test:v2` only when your change touches something every v2 engine test passes through:
+- `convex/v2/access.ts`, `convex/v2/ops/define.ts`;
 - `auth/access.ts`;
-- `game-helpers.ts`;
+- `test/v2-helpers.ts`;
 - the schema of a table most tests write.
 
 ## When to run it, and when not to run it again

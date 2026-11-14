@@ -1,5 +1,5 @@
 /**
- * The pinned CPython runtime bundle (built by lib/game-runtime's `setup:python` and `build:python`, unchanged):
+ * The pinned CPython runtime bundle (built by this package's `setup:python` and `build:python` from python-runtime/, unchanged):
  *
  *   "CGPYRT1\n" | u32 LE manifest length | manifest JSON {files: [[path, size], ...]} | file bytes...
  *
@@ -13,10 +13,10 @@ import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
 const MAGIC = new TextEncoder().encode("CGPYRT1\n");
-/** SHA-256 of the uncompressed bundle (the same pin as lib/game-runtime/engine/bundle.mjs). */
+/** SHA-256 of the uncompressed bundle (unchanged since the bundle moved here from game-runtime). */
 export const PYTHON_BUNDLE_SHA256 = "5aacc3bef36d8c7039ef3a1cd04eb0c4948d73efaf67e3e3e492d647a4421cfa";
 /** Where the build puts it in this workspace (a bundled copy of this package passes the bytes instead). */
-export const defaultBundlePath = () => fileURLToPath(new URL("../../game-runtime/dist/python-runtime.bin.gz", import.meta.url));
+export const defaultBundlePath = () => fileURLToPath(new URL("../dist/python-runtime.bin.gz", import.meta.url));
 
 export const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 

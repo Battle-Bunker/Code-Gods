@@ -1,11 +1,8 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { readFile } from 'fs/promises';
-import { build as viteBuild, defineConfig, type Plugin } from 'vite';
-import { devServerHosts, tokenHandler } from '@workspace/player-client/engine';
-import { compilePanel } from '@workspace/engine/convex/panels/compiler.ts';
-import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
+import { defineConfig, type Plugin } from 'vite';
+import { devPageCsp, injectCsp, injectPageCsp } from './vite/csp';
 
 const isBuild = process.argv.includes("build");
 // Defaults: dev server on port 22772 at "/"; the engine hosts a build at "/" too. The app never assumes its prefix
@@ -23,94 +20,13 @@ const basePath = process.env.BASE_PATH || "/";
  * Site-mode development (CODE_GODS_SITE_URL, e.g. http://127.0.0.1:3211): the app signs in on the engine site with its
  * Google session, as the build the engine serves does. `/api` is proxied there so the page keeps one origin; the
  * engine's token and logout routes accept only their own Origin (CSRF), so the proxy presents the engine's origin.
- * Without it, the dev server is a player's own app holding a room credential (/__codegods/token).
  *
  * Account mode (VITE_CODE_GODS_ENGINE_URL, in the environment or a .env file): the app signs in to that engine
  * with an account grant from its /connect page (src/core/connection.ts), from this origin; no proxy, no token route.
  * Read from Vite's resolved env, so it is the same value the page is built or served with, in every mode.
  */
-const accountMode = (env: Record<string, string | undefined>) => !!env.VITE_CODE_GODS_ENGINE_URL;
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
 const siteUrl = (process.env.CODE_GODS_SITE_URL ?? "").replace(/\/+$/, "");
-function mountToken(server: { middlewares: { use(handler: ReturnType<typeof tokenHandler>): unknown }; httpServer?: { once(event: "listening", listener: () => void): unknown } | null }) {
-  // The hosts the token endpoint answers for (DNS-rebinding guard; Vite runs plugin middleware before its own
-  // host check, which stays open so any proxy or tunnel can load the page) and the launch link's origin:
-  // loopback, CODE_GODS_ALLOWED_HOSTS, CODE_GODS_PUBLIC_ORIGIN and a detected dev container (Replit, GitHub
-  // Codespaces, Gitpod). See devServerHosts in lib/player-client/src/engine.ts.
-  const { allowedHosts, publicOrigin } = devServerHosts(process.env, port);
-  const handler = tokenHandler({ allowedHosts });
-  server.middlewares.use(handler);
-  server.httpServer?.once("listening", () => console.log(`\n  Code Gods: open your player app with its launch link (keep it private):\n  ${handler.launchUrl(publicOrigin)}\n`));
-}
-
-const panelsDir = path.resolve(import.meta.dirname, 'src/panels') + path.sep;
-const registryFile = path.resolve(import.meta.dirname, 'src/shell/registry.ts');
-const frameConfig = path.resolve(import.meta.dirname, 'vite.frame.config.ts');
-
-/**
- * Stored panels in a dev server. The frame (panel-frame.html, panel-runtime.js, panel-frame.css) is built in memory
- * with vite.frame.config.ts on first use and rebuilt after an SDK, shell, frame or style change; the frame CSP names
- * this request's own origin. GET /__codegods/panel-compiled?file=x.tsx compiles a file panel with the engine's
- * compiler, for a file panel pane's "sandbox" toggle.
- */
-function framePlugin(): Plugin {
-  let built: Promise<Map<string, string>> | undefined;
-  const build = () => built ??= viteBuild({ configFile: frameConfig, mode: "development", logLevel: "warn", build: { write: false } }).then(result => {
-    const files = new Map<string, string>();
-    for (const output of [result].flat() as { output: { fileName: string; type: string; code?: string; source?: string | Uint8Array }[] }[]) {
-      for (const item of output.output) files.set(item.fileName, item.type === "chunk" ? item.code! : typeof item.source === "string" ? item.source : Buffer.from(item.source!).toString("utf8"));
-    }
-    return files;
-  }).catch(error => { built = undefined; throw error; });
-  const types: Record<string, string> = { "panel-runtime.js": "text/javascript", "panel-frame.css": "text/css" };
-  return {
-    name: "code-gods-panel-frame-dev",
-    apply: "serve",
-    configureServer(server) {
-      const src = path.resolve(import.meta.dirname, 'src') + path.sep;
-      server.watcher.on("change", file => { if (file.startsWith(src) && !file.startsWith(panelsDir)) built = undefined; });
-      server.middlewares.use(async (req, res, next) => {
-        const url = new URL(req.url ?? "/", "http://x");
-        // Paths relative to the app's base ("/" by default, or BASE_PATH), as the client requests them.
-        const base = server.config.base;
-        if (!url.pathname.startsWith(base)) { next(); return; }
-        const name = url.pathname.slice(base.length);
-        try {
-          if (name === "panel-frame.html") {
-            const proto = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0].trim() || ((req.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
-            res.setHeader("Content-Type", "text/html; charset=utf-8");
-            res.setHeader("Cache-Control", "no-store");
-            res.end(frameHtml(`${proto}://${req.headers.host}`));
-            return;
-          }
-          if (types[name]) {
-            const body = (await build()).get(name);
-            res.setHeader("Content-Type", types[name]);
-            res.setHeader("Cache-Control", "no-store");
-            res.end(body ?? "");
-            return;
-          }
-          if (name === "__codegods/panel-compiled") {
-            const file = url.searchParams.get("file") ?? "";
-            res.setHeader("Content-Type", "application/json");
-            res.setHeader("Cache-Control", "no-store");
-            if (!/^[a-z0-9][a-z0-9-]*\.tsx$/i.test(file)) { res.statusCode = 400; res.end(JSON.stringify({ ok: false, error: "file must be a src/panels/*.tsx name" })); return; }
-            const source = await readFile(path.join(panelsDir, file), "utf8");
-            try { res.end(JSON.stringify(compilePanel(source))); }
-            catch (error) { res.end(JSON.stringify({ ok: false, error: (error as { data?: { message?: string } }).data?.message ?? String(error) })); }
-            return;
-          }
-        } catch (error) {
-          res.statusCode = 500;
-          res.end(String((error as Error).message ?? error));
-          return;
-        }
-        next();
-      });
-    },
-  };
-}
-
 /** The page's CSP as a meta tag (vite/csp.ts): the app's policy in a build, frame-src 'self' in a dev server. */
 const pageCspPlugins = (): Plugin[] => [
   (() => {
@@ -125,28 +41,6 @@ const pageCspPlugins = (): Plugin[] => [
 export default defineConfig({
   base: basePath,
   plugins: [
-    {
-      // Adding or deleting a panel only changes the registry's glob. Route those events to the registry
-      // (which accepts its own update) so a re-created file name with a stale module node never forces a
-      // full page reload.
-      name: "code-gods-panels-hmr",
-      apply: "serve",
-      hotUpdate({ file, type, modules }) {
-        if (this.environment.name !== "client" || !file.startsWith(panelsDir) || type === "update") return;
-        const registry = this.environment.moduleGraph.getModuleById(registryFile);
-        return registry ? [registry] : modules;
-      },
-    },
-    {
-      // A player app's engine token (lib/player-client tokenHandler): the room credential stays in this
-      // server and the browser gets 10-minute JWTs from GET /__codegods/token. Not mounted for hosted-mode
-      // development against an engine site (CODE_GODS_SITE_URL), where the client signs in on the site.
-      name: "code-gods-engine-token",
-      // A dev URL is public, so a browser needs the private launch link printed here (never served) first.
-      configureServer(server) { if (!hostedDev && !accountMode(server.config.env)) mountToken(server); },
-      configurePreviewServer(server) { if (!hostedDev && !accountMode(server.config.env)) mountToken(server); },
-    },
-    framePlugin(),
     ...pageCspPlugins(),
     react(),
     tailwindcss(),
@@ -155,7 +49,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(import.meta.dirname, 'src'),
       '@sdk': path.resolve(import.meta.dirname, 'src/sdk/index.ts'),
-      '@sdk-transport': path.resolve(import.meta.dirname, 'src/sdk/transport.ts'),
     },
     dedupe: ['react', 'react-dom'],
   },

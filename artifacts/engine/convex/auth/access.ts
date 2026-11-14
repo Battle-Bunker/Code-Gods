@@ -116,6 +116,8 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
   if (!credential) return null;
   const room = credential.roomId ? await credentialRoom(ctx, credential.roomId) : null;
   if (credentialProblem(credential, room, Date.now())) return null;
+  // A room credential acts for a member: someone who has left the room (its owner included) holds nothing there.
+  if (credential.roomId && !await credentialRoomMember(ctx, credential.roomId, credential.subject)) return null;
   const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", credential.subject)).unique();
   if (!user) return null;
   if (credential.permission === "account") {
@@ -128,21 +130,17 @@ export async function viewerForCredential(ctx: QueryCtx | MutationCtx, credentia
 }
 
 /**
- * The room a credential is bound to: a v1 room, or a v2 room (engine v2; its MCP tools are generated from the
+ * The room a credential is bound to: a v2 room (engine v2; its MCP tools are generated from the
  * affordance directory, agent/mcpV2.ts). Both carry `ownerId` as the owner's subject.
  */
-export async function credentialRoom(ctx: QueryCtx | MutationCtx, roomId: string): Promise<{ engine: "v1" | "v2"; ownerId: string; code: string | null } | null> {
-  const v1 = ctx.db.normalizeId("rooms", roomId);
-  if (v1) { const r = await ctx.db.get(v1); return r ? { engine: "v1", ownerId: r.ownerId, code: r.shortCode ?? null } : null; }
+export async function credentialRoom(ctx: QueryCtx | MutationCtx, roomId: string): Promise<{ ownerId: string; code: string | null } | null> {
   const v2 = ctx.db.normalizeId("v2Rooms", roomId);
-  if (v2) { const r = await ctx.db.get(v2); return r ? { engine: "v2", ownerId: r.ownerId, code: r.code } : null; }
-  return null;
+  if (v2) { const r = await ctx.db.get(v2); return r ? { ownerId: r.ownerId, code: r.code } : null; }
+  return null;   // a v1 room's credential: its room is gone (archive/engine-v1)
 }
 
-/** Whether `subject` is a member of a credential's room (v1 `members`, or v2 `v2Members`). */
+/** Whether `subject` is a member of a credential's room (`v2Members`). */
 export async function credentialRoomMember(ctx: QueryCtx | MutationCtx, roomId: string, subject: string): Promise<boolean> {
-  const v1 = ctx.db.normalizeId("rooms", roomId);
-  if (v1) return !!await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", v1).eq("godId", subject)).unique();
   const v2 = ctx.db.normalizeId("v2Rooms", roomId);
   if (v2) return !!await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", v2).eq("userId", subject)).first();
   return false;

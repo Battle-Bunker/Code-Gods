@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { Page, usePage } from "@/site/components/layout";
+import { Page } from "@/site/components/layout";
+import { useAuth } from "@/site/hooks/use-auth";
 import { Action } from "@/site/components/action";
 import { invitedTo } from "@/site/lib/routes";
 
@@ -16,14 +17,14 @@ const STEPS = [
 
 /** One sentence, three steps, one button. */
 function Landing() {
-  const { run } = usePage();
+  const { login } = useAuth();
   const [location] = useLocation();
   return (
     <div className="mx-auto max-w-[1100px] px-4 md:px-6 py-14 md:py-24 rise">
       <h1 className="font-display text-6xl md:text-8xl leading-[0.92]">Gods bargain.<br /><em className="text-primary">Universes</em> execute.</h1>
       <p className="mt-6 max-w-xl text-lg text-muted-foreground">A negotiation game for programmers: players share one running world, write tiny agents that change it, and bargain over what it should become.</p>
       <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Action k="ui.auth.signIn" tone="primary" onClick={() => run("ui.auth.signIn")} testId="button-login" className="px-6 py-3 text-base" />
+        <Action label="Sign in" tone="primary" onClick={login} testId="button-login" className="px-6 py-3 text-base" />
         <span className="text-sm text-muted-foreground" data-testid="text-sign-in-for">{invitedTo(location) ?? "Got an invite link? Sign in, then open it."}</span>
       </div>
       <section className="mt-16 border-t pt-8">

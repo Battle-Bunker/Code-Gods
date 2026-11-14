@@ -19,7 +19,7 @@ import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { EngineProvider, SIGN_OUT_UNCONFIRMED, api, useLive, useSession, type EngineAuth } from "@/site/lib/convex";
+import { EngineProvider, SIGN_OUT_UNCONFIRMED, useSession, type EngineAuth } from "@/site/lib/convex";
 import NotFound from "@/site/pages/not-found";
 import Home from "@/site/pages/home";
 import Room from "@/site/pages/room";
@@ -27,11 +27,7 @@ import Game from "@/site/pages/game";
 import Device from "@/site/pages/device";
 import Connect from "@/site/pages/connect";
 import AdminAgents from "@/site/pages/admin-agents";
-import Configure from "@/site/pages/configure";
 import SignIn from "@/site/pages/sign-in";
-import RuleGallery from "@/site/pages/rule-gallery";
-import RuleFamily from "@/site/pages/rule-family";
-import { roomPath } from "@/site/lib/routes";
 import { connection, convexClient, engineSite, fetchAppAccessToken, type Connection } from "./connection";
 import { Screen } from "./screen";
 import { ROUTE_PATTERNS } from "./routes";
@@ -108,15 +104,12 @@ function Routes({ mode }: { mode: Connection["mode"] }) {
       <SignInGate>
       <Switch>
         <Route path={ROUTE_PATTERNS.home} component={devserver ? CredentialRoom : Home} />
-        <Route path={ROUTE_PATTERNS.configure} component={Configure} />
         <Route path={ROUTE_PATTERNS.game} component={Game} />
         <Route path={ROUTE_PATTERNS.room} component={Room} />
         <Route path={ROUTE_PATTERNS.device} component={offSite ? siteOnly("Approve a device") : Device} />
         <Route path={ROUTE_PATTERNS.connect} component={offSite ? siteOnly("Approve a connection") : Connect} />
         <Route path={ROUTE_PATTERNS.admin} component={offSite ? siteOnly("AI players") : AdminAgents} />
         <Route path={ROUTE_PATTERNS.adminAgent} component={offSite ? siteOnly("AI players") : AdminAgents} />
-        <Route path={ROUTE_PATTERNS.ruleGallery} component={RuleGallery} />
-        <Route path={ROUTE_PATTERNS.ruleFamily} component={RuleFamily} />
         <Route component={NotFound} />
       </Switch>
       </SignInGate>
@@ -152,14 +145,12 @@ function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
 }
 
-/** A dev server's app at /: its credential's room. */
+/**
+ * A dev server's app at /: its credential is a v1 room credential, which v2 rooms do not accept. Sign in on the site,
+ * or connect with an account grant (the assistant's delegation to v2 rooms arrives with the MCP generator).
+ */
 function CredentialRoom() {
-  const { roomId } = useSession();
-  const [, navigate] = useLocation();
-  const room = useLive(api.rooms.get, roomId ? { room: roomId } : "skip");
-  useEffect(() => { if (room.data) navigate(roomPath(room.data.shortCode), { replace: true }); }, [room.data, navigate]);
-  if (room.error) return <Screen title="The engine refused this player app" testId="text-connection-error"><p>{room.error.message}</p><AppHelp /></Screen>;
-  return <Screen title="Connecting…" testId="status-connecting" />;
+  return <Screen title="This player app needs an account grant" testId="text-connection-error"><p>Room credentials belong to the old engine. Open the engine's site and sign in, or connect this app with an account grant.</p><AppHelp /></Screen>;
 }
 
 function SiteOnly({ title }: { title: string }) {

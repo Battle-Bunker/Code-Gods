@@ -3,7 +3,7 @@ import { restartAutopilots } from "./assistant";
 import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { MAX_MEMBERS, userById } from "./access";
+import { MAX_MEMBERS, normaliseCode, userById } from "./access";
 import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, offers, rotatedDeal, ruleView, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
@@ -38,7 +38,7 @@ export async function createRoom(ctx: MutationCtx, userId: string, o: { name?: s
 }
 
 export async function joinRoom(ctx: MutationCtx, userId: string, rawCode: string): Promise<Id<"v2Rooms">> {
-  const code = rawCode.trim().toUpperCase();
+  const code = normaliseCode(rawCode);
   const room = await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", code)).first();
   if (!room) throw new OpFailure(`No room has the code ${code}.`);
   const existing = await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", room._id).eq("userId", userId)).first();

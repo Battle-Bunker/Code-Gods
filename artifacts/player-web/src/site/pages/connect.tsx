@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { Page } from "@/site/components/layout";
 import { ErrorLine } from "@/site/components/page-parts";
 import { OwnerAccessWarning, OwnerConsentCheck, permissionDescription } from "@/site/components/grant-review";
@@ -22,7 +23,7 @@ export default function Connect() {
   const details = useLive(api.agent.connect.pending, isAuthenticated && request ? { request } : "skip");
   const approve = useMutation(api.agent.connect.approve);
   const deny = useMutation(api.agent.connect.deny);
-  const join = useMutation(api.rooms.join);
+  const join = useAffordance("room.join");
   const [joining, setJoining] = useState(false);
   const [roomId, setRoomId] = useState("");
   const [permission, setPermission] = useState<Permission | null>(null);
@@ -54,7 +55,7 @@ export default function Connect() {
     if (!d?.roomHint || joining) return;
     setJoining(true); setError(null);
     const hinted = d.roomHint.roomId;
-    join({ room: hinted }).then(() => {
+    join.run({ code: d.roomHint.shortCode }).then(() => {
       setRoomId(hinted);
       if (requested === "owner" && !d.roomHint!.isOwner) setPermission("act");
       setJoining(false);

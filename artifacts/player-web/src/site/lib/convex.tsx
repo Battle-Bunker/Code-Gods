@@ -6,17 +6,15 @@
  * - "token": a player JWT the app fetches itself (a dev server's room credential): the human in that one room.
  *
  * Either way the signed-in human is the `auth/user:me` query, and pages read it through useSession.
- * - Real user input (pointer/keyboard) calls `activity.touch` at most once a minute, which keeps the
- *   engine out of idle parking and resumes parked games. Nothing else pings: no polling, no heartbeats.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
-import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation, usePaginatedQuery, useQueries, type PaginatedQueryArgs, type PaginatedQueryReference } from "convex/react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, usePaginatedQuery, useQueries, type PaginatedQueryArgs, type PaginatedQueryReference } from "convex/react";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { convexToJson, type Value } from "convex/values";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
-import type { AccountSession, PlayerAuth } from "@workspace/player-client/browser";
+import type { AccountSession, PlayerAuth } from "@/core/player-auth";
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
 import { liveResult } from "@/lib/live-result";
@@ -107,25 +105,6 @@ function SessionProvider({ auth, children }: { auth: EngineAuth; children: React
   return <SessionContext.Provider value={useEngineSession(auth)}>{children}</SessionContext.Provider>;
 }
 
-/** Touch `activity` on trusted pointer/keyboard input, at most once a minute. */
-function ActivityPing() {
-  const { isAuthenticated } = useConvexAuth();
-  const touch = useMutation(api.activity.touch);
-  const last = useRef(0);
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const onInput = (event: Event) => {
-      if (!event.isTrusted || Date.now() - last.current < 60_000) return;
-      last.current = Date.now();
-      touch({}).catch(() => { last.current = 0; });
-    };
-    window.addEventListener("pointerdown", onInput);
-    window.addEventListener("keydown", onInput);
-    return () => { window.removeEventListener("pointerdown", onInput); window.removeEventListener("keydown", onInput); };
-  }, [isAuthenticated, touch]);
-  return null;
-}
-
 /** A fresh Convex JWT of the signed-in human, or null: the one the Convex client sends. */
 type FetchAccessToken = () => Promise<string | null>;
 const AccessTokenContext = createContext<FetchAccessToken | null>(null);
@@ -152,7 +131,7 @@ export function EngineProvider({ client, auth, children }: { client: ConvexReact
   // The SDK's transport reads the same source for the engine routes it calls outside React (calibration tables): set
   // while rendering, so it is there before any child's effect asks.
   setAppAccessToken(tokenSource);
-  const inner = <SessionProvider auth={auth}><ActivityPing />{children}</SessionProvider>;
+  const inner = <SessionProvider auth={auth}>{children}</SessionProvider>;
   return (
     <AccessTokenContext.Provider value={tokenSource}>
       {fetchToken ? <TokenProvider client={client} fetchAccessToken={fetchToken}>{inner}</TokenProvider> : (

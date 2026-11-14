@@ -4,25 +4,7 @@
   "files": [],
   "references": [
     {
-      "path": "./lib/game-types"
-    },
-    {
-      "path": "./lib/player-client"
-    },
-    {
-      "path": "./lib/ai-player"
-    },
-    {
       "path": "./lib/ui-kit"
-    },
-    {
-      "path": "./lib/game-core"
-    },
-    {
-      "path": "./lib/object-views"
-    },
-    {
-      "path": "./lib/game-utilities"
     },
     {
       "path": "./lib/v2-core"
@@ -44,6 +26,9 @@
     },
     {
       "path": "./lib/v2-agents"
+    },
+    {
+      "path": "./lib/v2-client"
     },
     {
       "path": "./lib/v2-economy"

@@ -6,7 +6,7 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
-import { MAX_MEMBERS, requireMember, requireUser } from "./access";
+import { MAX_MEMBERS, normaliseCode, requireMember, requireUser } from "./access";
 import { chatPageV, historyPageV, roomListV, roomV, roundV } from "./validators";
 
 /** The caller's rooms, newest joined first: a skeleton page; each row's component subscribes to `get`. */
@@ -45,6 +45,22 @@ export const get = query({
   handler: async (ctx, { roomId }) => {
     const { user, room } = await requireMember(ctx, roomId);
     return await roomView(ctx, room, user.userId);
+  },
+});
+
+/**
+ * A room by its join code (invite links and the URL carry the code): its id and whether the caller is a member. Any
+ * signed-in human holding the code may ask (the code is the invitation); null when no room has it.
+ */
+export const byCode = query({
+  args: { code: v.string() },
+  returns: v.union(v.object({ roomId: v.id("v2Rooms"), member: v.boolean() }), v.null()),
+  handler: async (ctx, { code }) => {
+    const user = await requireUser(ctx);
+    const room = await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", normaliseCode(code))).first();
+    if (!room) return null;
+    const member = await ctx.db.query("v2Members").withIndex("by_room_user", q => q.eq("roomId", room._id).eq("userId", user.userId)).first();
+    return { roomId: room._id, member: !!member };
   },
 });
 

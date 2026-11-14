@@ -30,3 +30,6 @@ export const v2ReplayDownload = httpAction(async (ctx, request) => {
   if (!blob) return reply({ error: "This game's replay is not stored (yet): fold its events instead", code: "NOT_FOUND" }, 404);
   return new Response(blob, { headers: { ...BEARER_CORS, "Content-Type": "application/json", "Cache-Control": "private, no-store" } });
 });
+
+/** The CORS preflight of the replay route (a page on another origin sends its Authorization header). */
+export const v2ReplayPreflight = httpAction(async () => new Response(null, { status: 204, headers: BEARER_CORS }));

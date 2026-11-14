@@ -1,6 +1,6 @@
 /**
  * Imported first (as a side effect) by every script that drives a LOCAL backend: scripts/dev.mjs,
- * scripts/test-auth.mjs, the e2e scripts and the player-client test runner. They set test-only deployment env
+ * scripts/test-auth.mjs and the e2e scripts. They set test-only deployment env
  * vars (DEV, TEST_FIXTURES, AI_MOCK, FAKE_OIDC_URL) and upload fixture sites through the Convex CLI, and the
  * CLI follows CONVEX_DEPLOY_KEY, CONVEX_DEPLOYMENT_TOKEN, the self-hosted variables, or a CONVEX_DEPLOYMENT
  * naming a cloud deployment ("dev:…", "prod:…"; also read from artifacts/engine/.env.local) to that deployment.
