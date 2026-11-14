@@ -14,7 +14,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { energyCapacity, instantiationOf, leaderboard, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { BEGINNER_AGENT_BUDGET_BITS, energyCapacity, firstAgentShare, instantiationOf, leaderboard, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { availableFamilies, context, family, type UtilityDescriptor } from "@workspace/game-utilities";
 import { starterAgentsFor } from "@workspace/game-utilities/example-agents";
 import { admin, api, envelope, gods, internal, raw, roomWith, sleep, startGame, touch, waitFor, type God } from "../test/game-helpers.ts";
@@ -23,7 +23,15 @@ import { admin, api, envelope, gods, internal, raw, roomWith, sleep, startGame, 
  * `example`: the rule's first ready-made agent (the example the forge pre-fills, game-utilities starterAgents);
  * `thorough`: its fullest one that is not bold (Thorough, else Careful): the shipped agents practice opponents may run.
  */
-type Policy = "random" | "greedy" | "example" | "thorough";
+type Policy = "random" | "greedy" | "example" | "thorough" | "beginner";
+/**
+ * `beginner`: the example agent at the share a beginner's first summon asks for (game-core firstAgentShare, as the
+ * forge's "Summon my first agent" and the practice partner send). `example` and `thorough` take the engine's default
+ * share; random and greedy keep POWER_SHARE (the model's validation set).
+ */
+const shareOf = (policy: Policy, settings: GameSettings): number | undefined =>
+  policy === "beginner" ? firstAgentShare({ allocated: 0, powerPerSecond: settings.powerPerSecond, fullChargeSeconds: settings.fullChargeSeconds, need: BEGINNER_AGENT_BUDGET_BITS })
+  : policy === "example" || policy === "thorough" ? undefined : POWER_SHARE;
 const arg0 = (name: string) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
 /** Where game records are appended (`--out FILE`; default the model's validation set). */
 const OUT = arg0("out") ?? fileURLToPath(new URL("../../../lib/game-utilities/scripts/coordination-engine-games.json", import.meta.url));
@@ -80,7 +88,7 @@ function starterSource(policy: "example" | "thorough", utility: UtilityDescripto
   return (policy === "example" ? starters[0] : [...starters].reverse().find(s => s.id !== "bold") ?? starters[0])!.source;
 }
 const sourceOf = (policy: Policy, utility: UtilityDescriptor, settings: GameSettings) =>
-  policy === "random" ? RANDOM_SOURCE : policy === "greedy" ? greedySource(utility, settings) : starterSource(policy, utility, settings);
+  policy === "random" ? RANDOM_SOURCE : policy === "greedy" ? greedySource(utility, settings) : starterSource(policy === "beginner" ? "example" : policy, utility, settings);
 
 /** The dearest summon price validated so far, by whether the game has a greedy seat: later games start with enough energy. */
 const dearest = new Map<boolean, number>();
@@ -120,7 +128,8 @@ async function playGame(label: string, table: string, policies: Policy[], second
     return playGame(label, table, policies, seconds, Math.max(need, (startingEnergy ?? 0) + 50));
   }
   const summons = await Promise.all(members.map(async (m, i) => {
-    const r = await send(m, { type: "summon", name: `${policies[i]}${i}`, language: LANGUAGE, source: sources[i], powerShare: POWER_SHARE });
+    const share = shareOf(policies[i], settings);
+    const r = await send(m, { type: "summon", name: `${policies[i]}${i}`, language: LANGUAGE, source: sources[i], ...(share !== undefined ? { powerShare: share } : {}) });
     if (!r.accepted) throw new Error(`${label}: summon refused: ${r.message}`);
     return r;
   }));
@@ -255,14 +264,14 @@ async function main() {
     plans.push(...c);
   }
   // Replays, or any tables: --table fill --plans rrr,ggg,gee (r random, g greedy, e example, t thorough)
-  const LETTER: Record<string, Policy> = { r: R, g: G, e: "example", t: "thorough" };
+  const LETTER: Record<string, Policy> = { r: R, g: G, e: "example", t: "thorough", b: "beginner" };
   if (table === "fill") plans.push(...arg("plans", "").split(",").filter(Boolean).map(p => [...p].map(ch => LETTER[ch]!)));
   const stamp = Date.now().toString(36);
   // A game the machine starved (fewer than 93% of rate × seconds opportunities) or that failed is replayed, at most twice.
   const queue = plans.map(policies => ({ policies, tries: 0 }));
   for (let n = 0; queue.length; ) {
     const batch = queue.splice(0, concurrency);
-    const tableOf = (p: Policy[]) => (p.some(x => x === "example" || x === "thorough") ? p.map(x => x[0]).join("") : p.every(x => x === "random") ? "a" : p.every(x => x === "greedy") ? "b" : "c");
+    const tableOf = (p: Policy[]) => (p.some(x => x === "example" || x === "thorough" || x === "beginner") ? p.map(x => x[0]).join("") : p.every(x => x === "random") ? "a" : p.every(x => x === "greedy") ? "b" : "c");
     const results = await Promise.allSettled(batch.map(p => playGame(`${table === "probe" ? "probe" : tableOf(p.policies)}${n++}-${stamp}`, tableOf(p.policies), p.policies, seconds)));
     results.forEach((r, j) => {
       const again = () => { if (table !== "probe" && batch[j].tries < 2) queue.push({ policies: batch[j].policies, tries: batch[j].tries + 1 }); };
