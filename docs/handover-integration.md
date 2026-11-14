@@ -1,5 +1,28 @@
 # Integration pass: handover (2026-11-13)
 
+## 0. State on 2026-11-14 (third session): read this first
+
+Merged into `develop`: #326 (rotated deal, harness, evidence), #335 (practice partner, rotation on the room page and
+results), plus the docs PR this section came in. Sections 1 to 7 below are the second session's and are kept for their
+numbers; where they conflict with this one, this one is current.
+
+- **Balance (stage 4): decided.** No single-game fix exists among scaling, pool choice or deal choice (numbers:
+  docs/rule-difficulty.md §9, docs/beginner-pool.md §6). Shipped: a room playing again with the same players passes the
+  rules one seat along until everyone has held each (`artifacts/engine/convex/lib/dealRotation.ts`); the room page and
+  the results say whose rule comes next and add up the rotation. Scoring unchanged; options for the owner in
+  docs/rule-difficulty.md §9.
+- **Practice opponents: done.** Practice games seat the built-in Practice partner (no model), which summons its
+  rule's example agent (docs/beginner-pool.md §7). AI seats, this one included, are still admin-only.
+- **Saturation: none** (docs/beginner-pool.md §8). No parameter changed.
+- **Spoiling:** unchanged by the rotation; the smallest principled change is #295 at ×3, which suits the default
+  setup's exact sums (docs/coordination-incentives.md §9). Not shipped (a scoring decision).
+- **Integration:** Deploy runs on `develop` green for #317 to #326 (#335 was running at the time of writing);
+  `mcp.test.ts` fixed (18/18); `test:auth` 19/19; `e2e:account` 8/8; 20-game load check: 20/20 started, late p50
+  1.3 s / max 2.1 s, 0 restarts. The 895-before-1,007 leaderboard: the public scoreboard publishes every 10 world
+  seconds (`scoreIntervalSeconds`) and the final is published exactly at the end; by design, not a bug.
+- **Not done:** a browser look at the rotation line and the practice partner on the page; `e2e:panels`; the assistant
+  live suite (needs a provider key); full `test:game`; the model against engine games under #320.
+
 Written for a successor who has not seen the session. Branch: `claude/integration-pass` (from `develop` at 06a598c1).
 The brief: prove the combined `develop` works after a day of merges, fix what does not, tune the beginner defaults
 with evidence. Stages 1 to 3 are done; stage 4 (balance) is measured but **not fixed**; stages 5 and 6 are not started.
