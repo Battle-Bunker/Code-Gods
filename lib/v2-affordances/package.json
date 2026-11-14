@@ -1,0 +1,31 @@
+{
+  "name": "@workspace/v2-affordances",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./convex": "./src/convex.ts",
+    "./fake": "./src/fake.ts",
+    "./scan": "./src/scan.ts",
+    "./react": "./src/react.ts",
+    "./layout": "./src/layout.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
+    "gen:doc": "UPDATE_DOC=1 node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/doc.test.ts",
+    "cli": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/cli.ts"
+  },
+  "dependencies": {
+    "zod": "catalog:",
+    "convex": "1.48.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  }
+}

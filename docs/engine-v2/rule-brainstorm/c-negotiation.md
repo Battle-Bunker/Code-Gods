@@ -28,8 +28,12 @@ The coordinator relayed three owner rules after the first version merged (#355).
    allows "area and any other features ... within reach of some dedicated study by a smart 12yo". Each primary in the
    pool of eight (§5) is tagged **core curriculum** or **stretch (what the child would look up)**, and its card uses
    textbook words.
-3. **The pool has two rungs per family:** the primary and exactly ONE secondary (which may be more advanced), and no
-   tertiary. The other eight families keep their longer ladders and are marked **second pool**.
+3. **No tertiary preferences, but several secondary candidates.** The owner, as corrected: "I said I don't want tertiary
+   preferences but I will want several secondary rule candidates within each family." A pool family is one primary plus
+   three graded secondary candidates (§5). A dealt rule is the primary plus ONE candidate, two rungs deep. The
+   coordinator's provisional call is that there is no gating: the score is a plain lexicographic tuple (primary,
+   secondary), so the secondary orders lines at every level of the primary, not only at its top. The other eight
+   families keep their longer ladders and are marked **second pool**.
 
 The negotiations (§4.3) are restated as positions on the pool's two graded scales. The intersections, the empty pairs
 and the attacks read only the primaries, so they did not change.
@@ -91,8 +95,8 @@ swaps the two intercepts, so it changes nothing either player cares about, and h
 14.17 bits against 6.17 to hurt one).
 
 **The pool** (§5): Whole Landing, Whole Crossing, Square Corner, Ruler, Matched Pair, Half-Way House, Fixed Point and
-Long Division. Each has a primary a twelve-year-old can check (five core curriculum, three stretch) and one graded
-secondary. Across its 56 triples: 30 have a common line, 18 are "two of the three pairs only" (a real coalition
+Long Division. Each has a primary a twelve-year-old can check (five core curriculum, three stretch) and three graded
+secondary candidates; a dealt rule takes one. Across its 56 triples: 30 have a common line, 18 are "two of the three pairs only" (a real coalition
 choice), 5 are "every pair but not all three" (the purest choice) and 3 have only one compatible pair (§4.4).
 
 ---
@@ -246,7 +250,7 @@ the family a negotiating partner.
 - **Primary** (si: `si.m` as a decimal). min |ℓ(m) − 6|, ℓ(m) the period of the decimal expansion (0 if it stops),
   ℓ = ord_q(10) for q = den(m) with its 2s and 5s removed. (A parameter L ∈ {6, 16, 18} is possible; 6 is the first.)
 - **S1** min |num(m)|: a unit fraction. **S2** max spf(den(m)). **S3** min den(c): a simple y-intercept (8 levels on the
-  grid; this is the pool's one secondary).
+  grid; this is the pool's default candidate).
 - **Levels.** On the grid the primary takes only the values 0, 5 and 6, because denominators stop at 8. On the real domain
   |ℓ − 6| takes every value from 0 to 6 and beyond: period 1 for 1/3, 2 for 1/11, 3 for 1/27 and 1/37, 4 for 1/101,
   5 for 1/41, 16 for 1/17.
@@ -341,7 +345,7 @@ the family a negotiating partner.
   the bottom of the y-intercept.
 - **Primary** (si). min | |num(m)| − den(c) |; m = 0 is WORST.
 - **S1** max spf(|num(m)|): the gradient's top should have a big smallest prime factor, so on the primary's top the
-  shared number is a big prime (the pool's one secondary). **S2** min |den(m) − |num(c)||: the other two should match
+  shared number is a big prime (the pool's default candidate). **S2** min |den(m) − |num(c)||: the other two should match
   as well ("crossed"). **S3** min |m|.
 - **Example.** `y = 3x/5 + 5/3` (φ 29): (0, 3, 0, −3/5): 3 over 5 and 5 over 3.
 - **Pins** one arithmetic relation between m and c. **Free** one degree of freedom, but in a number-theoretic, not
@@ -434,7 +438,7 @@ step of algebra; high: a theorem). "Checked" means the script compares the descr
 ### 4.3 Two-player negotiations
 
 Each negotiation below is stated on the two graded scales of the pool (§5): the primary (a distance; 0 is the top) and
-the one secondary. A score `(−1/4, 2)` means the primary is 1/4 from its target (the 1/4 rung) and the secondary is at
+the family's default secondary candidate (the first in §5's candidate table). A score `(−1/4, 2)` means the primary is 1/4 from its target (the 1/4 rung) and the secondary is at
 2 on its scale. "Alone" is a good, reasonably cheap line for that player by itself; φ is what the line costs to read,
 which is also its build and repair cost (§4.5). The script's section is `beginner`.
 
@@ -640,13 +644,14 @@ attack always picks the partner that is cheaper to hurt.
 
 ## 5. The recommended pool of eight
 
-Each family has two graded rungs: the primary and ONE secondary (owner rule 3; no tertiary). The card is in textbook
+Each family is a primary plus three graded secondary candidates (owner rule 3, §0); a dealt rule is the primary and one
+candidate, scored as the plain tuple (primary, secondary) with no gating. The card is in textbook
 words. "Curriculum" says what a first linear-equations course covers. **Core** means the course itself. **Stretch**
 means what a smart twelve-year-old would look up to play it, within the owner's latitude: area, primes, factors,
 square numbers, simple fractions, perpendicular, ratios. "Levels" are distinct values on the checker's grid (§2); a
 distance primary has the spec's eight rungs (8, 4, 2, 1, 1/2, 1/4, 1/8, 0) and more values between them.
 
-| Family | Card (primary) | Exact primary | Curriculum | The one secondary (exact) | Levels (primary / secondary on the grid) |
+| Family | Card (primary) | Exact primary | Curriculum | Default secondary candidate (exact) | Levels (primary / default on the grid) |
 |---|---|---|---|---|---|
 | Whole Landing | "The line's y-intercept should be a whole number." | min ‖c‖ | core: the y-intercept, reading the starting amount | the whole number it lands on should have a big smallest prime factor: max spf(round c) | 12 (grid-limited; many on ℚ) / 38 |
 | Whole Crossing | "Where the line crosses the x-axis should be a whole number." | min ‖−c/m‖ | core: solving mx + c = 0 for the x-intercept | that number should have many factors: max τ(round p) | ≥ 1000 / 24 |
@@ -656,6 +661,31 @@ distance primary has the spec's eight rungs (8, 4, 2, 1, 1/2, 1/4, 1/8, 0) and m
 | Half-Way House | "When x is ½, y should be a whole number." | min ‖m/2 + c‖ | core: substituting a value of x | that whole number should have a big smallest prime factor: max spf(round y(½)) | 152 / 43 |
 | Fixed Point | "The line crosses the line y = x where x is a whole number." | min ‖c/(1 − m)‖ | core: solving mx + c = x (where two lines meet) | the line should cross y = x as close to a right angle as it can: min \|m + 1\| | ≥ 1000 / 233 |
 | Long Division | "Write the gradient as a decimal: the repeating block of digits should be six long, like 1/7 = 0.142857…" | min \|ℓ(m) − 6\| | stretch: recurring decimals by long division | the y-intercept should be a simple fraction: min den(c) | 3 on the grid, 7+ on ℚ (§3.8) / 8 |
+
+**The secondary candidates.** Each candidate is graded. Its levels are measured on the primary's top lines of the
+checker's grid (script section `levels`; S1 to S3 of §3). The first candidate is the default used in §4.3.
+
+| Family | Candidate A (default) | Candidate B | Candidate C |
+|---|---|---|---|
+| Whole Landing | big smallest prime factor of the landing number, max spf(round c): 38 levels | simple gradient, min den(m): 8 | many pegs on the board: 14 |
+| Whole Crossing | many factors of the crossing, max τ(round p): 24 | rise of 1 at a time, min \|num m\|: 60 | simple y-intercept, min den(c): 8 |
+| Square Corner | many prime factors of the square's side, max Ω(r): 9 | legs near whole, min ‖p‖ + ‖c‖: 9 | nearly Pythagorean, min distance of p² + c² to a square: 284 (never 0 on the top: Fermat) |
+| Ruler | foot of the perpendicular near a grid point, min ‖fx‖ + ‖fy‖: 13 | far from (0, 0), max min(k, 12): 11 | simple gradient, min den(m): 5 |
+| Matched Pair | big smallest prime factor of the gradient's top, max spf(\|num m\|): 5 (grid-limited) | crossed, min \|den m − \|num c\|\|: 160 | gentle, min \|m\|: 43 |
+| Half-Way House | big smallest prime factor of y(½), max spf(round y(½)): 43 | simple gradient, min den(m): 6 | even gradient, min ‖m/2‖: 12 |
+| Fixed Point | close to a right angle with y = x, min \|m + 1\|: 233 | far meeting point, max min(\|X\|, 12): 13 | simple y-intercept, min den(c): 8 |
+| Long Division | simple y-intercept, min den(c): 8 | unit fraction, min \|num m\|: 31 | big smallest prime factor of the gradient's bottom, max spf(den m): 1 on the grid (only 7 has a six-digit repeat below 9), 3, 7, 13, … on ℚ: the weakest candidate |
+
+Which candidate is dealt changes the table. Examples from §4.3 and the first version's full ladders:
+
+- In N1, WL dealt "simple gradient" prefers r = 7 (`y = −x/2 + 7`, den 2) to r = 14 (den 8). The default ("big prime")
+  is indifferent between them.
+- In N4, WL dealt "many pegs" loses all its pegs on `y = x/7 + 7`, so the free gift becomes a real concession.
+- In N2, MA dealt "crossed" gets `y = x/4 − 4` (den 4 = |num c| 4) at the cost of one divisor to WC. The default is at
+  its floor whatever happens.
+
+So a dealer who wants a cooperative table deals candidates that are cheap for likely partners to grant, and a dealer
+who wants hard bargaining deals candidates that conflict.
 
 Why these eight:
 

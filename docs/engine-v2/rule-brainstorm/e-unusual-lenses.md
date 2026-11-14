@@ -14,8 +14,9 @@ claim that is proved rather than searched says so.
 **Revised the same day** for three owner rules relayed by the coordinator. (1) "binary decisions are worthless for
 extending the ladder. Require all rules to be continuous": every rung is now a graded quantity (a distance, a count, a
 size), never a yes/no; the five rungs that were predicates or two-or-three-level counts were converted (§2.1). (2) and
-(3): a **beginner set** of eight families with a primary a twelve-year-old doing school linear equations can check,
-exactly one secondary and no third rung (§5). Everything else is the **second pool** (§2), kept with its full ladders.
+(3): a **beginner set** of eight families with a primary a twelve-year-old doing school linear equations can check and
+no third rung: a family is one primary plus several candidate secondaries, and a dealt rule is the primary plus one of
+them (§5, §5.1). The score is a plain lexicographic tuple, with no gating. Everything else is the **second pool** (§2), kept with its full ladders.
 
 ## 0. Conventions
 
@@ -46,7 +47,7 @@ Element names are what a rule or a drawing points at.
 | 1 | `mir` | a mirror | — | coordinate `twin`: the reflection of the origin (point). Dynamic `image(px, py)` (point), `foot(px, py)` (point: where the perpendicular from P meets the mirror), `gap2(px, py)` (squared distance from P to the mirror), `side(px, py)` (+1, 0, −1) | **Yes**, for lines not through the origin: the line is the perpendicular bisector of the origin and `twin`. Through the origin `twin` is the origin itself and the lens is blind to the direction |
 | 2 | `fold` | a crease in a sheet of paper | the paper, the square [0, 8]² | `creaseA`, `creaseB` (points where the crease meets the paper's edge), `landing` (where the bottom-left corner lands: `mir.image(0, 0)`), `cornerTri` (the three side lengths of the triangle cut off at the top-left corner when the corner lands on the top edge), `flapArea` (area of the paper on the origin's side of the crease). Dynamic `landingOf(k)` for corner k | **Yes** where the crease crosses the paper (`creaseA`, `creaseB` are coordinates); it is `mir` with a boundary |
 | 3 | `cut` | a saw cut across a chessboard | the board [0, 8]², unit squares (i, j), dark when i + j is even | coordinates `enter`, `exit` (points on the board's edge). Derived `below`, `above` (areas of the two pieces), `through` (unit squares whose inside the cut passes through), `darkThrough`, `lightThrough`, `wholeBelow`, `wholeAbove` (uncut squares each side) | **Yes** for lines that cross the board; the counts alone are a view |
-| 4 | `dots` | a fence through a field of sheep | the 49 dots {0 … 6}² | `above`, `below`, `on` (counts), `clear2` (smallest squared distance from a dot not on the fence to the fence), `touchers` (dots at exactly that distance), `nearest` (point). Dynamic `side(px, py)` | **View**: every fence in the same gap between dots gives the same counts |
+| 4 | `dots` | a fence through a field of sheep | the 49 dots {0 … 6}² | `above`, `below`, `on` (counts), `clear2` (smallest squared distance from any dot to the fence; 0 when a sheep stands on it), `touchers` (dots at exactly that distance), `nearest` (point). Dynamic `side(px, py)` | **View**: every fence in the same gap between dots gives the same counts |
 | 5 | `word` | a word, spelt by walking it | the open box (0, 6)² with its grid lines | `word` (symbol): walking left to right, write R at each vertical grid line x = 1 … 5, U (or D when descending) at each horizontal grid line y = 1 … 5, X when both are crossed at once (a peg). Derived `length`, `mismatch` (positions i in the first half with letter i ≠ letter from the end), `corners` (number of X). Dynamic `letter(i)` | **View**: a whole region of (m, c) spells the same word |
 | 6 | `beat` | a drum pattern | a bar of eight beats, n = 1 … 8 | dynamic `hit(n)` = ⌊y(n)⌋ − ⌊y(n − 1)⌋ (the horizontal grid lines crossed during beat n). Derived `bar` (symbol: `x` where hit ≠ 0, `.` elsewhere), `hits` (number of `x` in the bar), dynamic `barAt(k)` (the k-th bar, beats 8k − 7 … 8k) | **View**: floors forget where between the grid lines the line is |
 | 7 | `bil` | a billiard shot | the table [0, 8] × [0, 4]; the ball travels from the left cushion to the right, bouncing off top and bottom | with fold(t) = t mod 8, replaced by 8 − (t mod 8) when above 4: `start` = (0, fold(y(0))), `landing` = (8, fold(y(8))), `bounces` (number of multiples of 4 strictly between y(0) and y(8)), dynamic `bounce(k)` (point on a cushion), `leg(k)` (segment) | **View** of the unfolded line; isomorphic when `start`, the signed bounce count and `landing` are all kept and 0 ≤ c ≤ 4 |
@@ -539,19 +540,21 @@ Lines that sit high on two ladders at once, found while checking examples. These
 - Lines through a box's centre serve Fair Cut (centre (4, 4)) or Palindrome Path (centre (3, 3)), never both, unless
   they pass through both centres: only y = x.
 
-## 5. The beginner set: eight families, two rungs each
+## 5. The beginner set: eight families, dealt two rungs deep
 
 Chosen for delight, for how differently each makes a child look at the same line, and (the owner's rule) for a primary
 that a twelve-year-old learning linear equations at school can check: stated in textbook words, marked **core** (a first
 course teaches it: gradient, intercepts, substituting x, tables of values, plotting, solving simple equations) or
-**stretch** (within reach of a keen child, with what she would look up). Exactly one secondary each, which may be more
-advanced; no third rung. Both rungs are graded. Two of the first version's top eight, Tangent Kite and
+**stretch** (within reach of a keen child, with what she would look up). The owner: "I don't want tertiary preferences
+but I will want several secondary rule candidates within each family." So a beginner **family** is its primary plus
+three to five candidate secondaries (§5.1); a **dealt rule** is the primary plus one of them, two rungs deep. The table
+shows each family with its lead candidate; all rungs are graded and the score is a plain lexicographic pair. Two of the first version's top eight, Tangent Kite and
 Trick Shot, move to the second pool (a pole and a folded billiard table are not textbook); Fair Cut and Exact Change
 replace them.
 
-| # | Family (lens) | Primary, in textbook words | Practises | Levels | The one secondary | Levels | Top example, score |
+| # | Family (lens) | Primary, in textbook words | Practises | Levels | Lead secondary | Levels | Top example, score |
 |---|---|---|---|---|---|---|---|
-| 1 | **Sheep Fence** (`dots`: the line is a fence) | Plot the 49 grid points with x and y from 0 to 6. Count the points above the line (y is greater than mx + c). The count should be as close as possible to N. min \|above − N\| | **core**: plotting; substituting x and comparing y | about 40 | The fence should leave the widest street: max `clear2`, the squared distance to the nearest grid point not on the line | cont. | N = 10: y = x + 5/2, (0, ⅛) |
+| 1 | **Sheep Fence** (`dots`: the line is a fence) | Plot the 49 grid points with x and y from 0 to 6. Count the points above the line (y is greater than mx + c). The count should be as close as possible to N. min \|above − N\| | **core**: plotting; substituting x and comparing y | about 40 | The fence should leave the widest street: max `clear2`, the squared distance from the line to the nearest grid point (0 if a point is on it) | cont. | N = 10: y = x + 5/2, (0, ⅛) |
 | 2 | **Tresillo** (`beat`: the line is a drum pattern) | Make a table of y for x = 0 to 8 and round each y down to a whole number. The drum sounds on each step where the rounded value goes up. The eight steps should match x . . x . . x . on as many beats as possible | **core**: table of values; gradient as rise per step | 9 | The pattern keeps going: max the further beats (9 to 32) that match before the first wrong one | 25 | y = ⅜x + ⅝, (8, 24) |
 | 3 | **Firefly Jar** (`orbit`: the answer is fed back in) | Substitute x = 0, then substitute each answer back in as the next x. The answers should stay between −10 and 10 four times and go outside on exactly the fifth. min \|escape − 5\| | **core**: substituting, negative numbers | about 60 | It only just gets out: min the size of the fifth answer | cont. (11, then fractions above 10) | y = −2x + 1 (1, −1, 3, −5, 11), (0, −11); y = x + 11/5 ties |
 | 4 | **Same on Both Rulers** (`lamp`: Lamp and Rulers) | Solve mx + c = x: the number the line leaves unchanged (where it crosses y = x). It should be as close as possible to T. min \|c/(1 − m) − T\| | **core**: solving a linear equation; where two lines cross | cont. | Whole numbers go to whole numbers: max the different whole values among y(−5) … y(5) | 12 | T = 6: y = 2x − 6, (0, 11); y = −x + 12 ties |
@@ -563,7 +566,7 @@ replace them.
 Notes on the two-rung ladders.
 
 - With one secondary several tops are ties (Firefly Jar, Same on Both Rulers): that is collisions of interest, not a
-  defect, and the fuller ladders in §2 are there when a room wants them broken.
+  defect; §5.1 says which candidate gives which ties.
 - Exact Change's secondary has no top: a smallest pile of 5 first appears at 6x + 7y = 149. The read-length surcharge is
   what stops the climb, as the pricing principle intends; its ladder should declare rungs 0, 1, 2, 3.
 - Sheep Fence, Tresillo, Firefly Jar and Same on Both Rulers need nothing beyond a first course. The four stretch
@@ -573,7 +576,57 @@ Notes on the two-rung ladders.
   draw as written (A); Fair Cut, Haga's Fold and Cipher Wheel score as written and need scenery, regions or a dial to
   draw (B).
 
-### 5.1 Second pool, in the order I would add them
+### 5.1 Candidate secondaries per beginner family
+
+Each candidate is measured **paired with the primary alone**: the "best pair" column is the top of the two-rung ladder
+(primary, that candidate), from the script's searches. A dash in the last column means the pairing's best value is
+approached but never reached, so its ladder needs explicit thresholds and the surcharge does the confining.
+
+| Family | Candidate secondary (graded) | Lens it is seen through | Levels | Best pair: line, (primary, secondary) |
+|---|---|---|---|---|
+| **Sheep Fence** (N = 10) | a. widest street: max `clear2` | `dots` | cont. | y = x + 5/2, (0, ⅛) |
+| | b. most sheep on the kerb: max `touchers` | `dots` | 1 to about 14 | y = x + 5/2, (0, 9) |
+| | c. fewest sheep on the fence: min `on` | `peg` | 0–7 | any fence between the rows, (0, 0): many ties |
+| | d. simplest gradient: min \|p\| + q | `si` | many | y = −x + 8, (0, −2): five sheep stand on it |
+| **Tresillo** | a. the pattern keeps going: max `streak` | `beat` | 25 | y = ⅜x + ⅝, (8, 24) |
+| | b. clean hits: max hits of the bar where y is whole exactly on the beat | `peg` | 4 | y = x/3 + ⅔, (8, 3): but its second bar is wrong at once |
+| | c. simplest gradient: min p + q | `si` | many | y = x/3 + ⅔, (8, −4) |
+| | d. start on the ground floor: min \|⌊y(0)⌋\| | `table` | many | y = ⅜x + ⅝, (8, 0): many ties |
+| **Firefly Jar** (K = 5) | a. it only just gets out: min \|hop(5)\| | `orbit` | cont. | — (y = x + 11/5 and y = −2x + 1 give 11; y = x + 2.02 gives 10.1) |
+| | b. whole answers: max the whole numbers among the five | `table` | 6 | y = −2x + 1, (0, 5); y = −2x − 1 ties |
+| | c. zigzag: max consecutive answers on opposite sides of 0 | `cart` (the cobweb spirals) | 5 | y = −2x + 1, (0, 4) |
+| **Same on Both Rulers** (T = 6) | a. whole numbers go to whole numbers: max different whole values among y(−5) … y(5) | `table` | 12 | y = 2x − 6, (0, 11); every whole gradient but 0 and 1 ties |
+| | b. the lamp hangs a whole number of gaps away: min dist(`lampHeight`, ℤ) | `lamp` | cont. | y = 2x − 6, (0, 0); y = (3/2)x − 3, y = x/2 + 3, y = 6 tie |
+| | c. a short thread from 0: min \|y(0)\| | `si` (the y-intercept) | cont. | — (y = (5/6)x + 1 gives 1; smaller needs m nearer 1) |
+| **Fair Cut** | a. spoil dark, not light: max `darkThrough` − `lightThrough` | `cut` | about 12 | y = x, (0, 8) |
+| | b. spoil few squares: min `through` | `cut` | 16 | y = 4, (0, 0) |
+| | c. ends on pegs: min the ends' distance from pegs | `peg` | cont. | y = x, y = 4, y = x/2 + 2 …, (0, 0): many ties |
+| | d. simplest gradient: min \|p\| + q | `si` | many | y = 4, (0, −1) |
+| **Exact Change** (W = 3) | a. plenty of both coins: max `smallestPile` | `coin` | 0 to about 5 | — (3x + 4y = 35 gives 1; 5x + 6y = 93 gives 3; 6x + 7y = 149 gives 5) |
+| | b. an even-handed way: min `lopsided` | `cart` (the diagonal y = x) | many | x + y = 2, (0, 0); 3x + 4y = 35 ties |
+| | c. cheapest bill: min `bill` | `gen` | many | x + y = 2, (0, −2) |
+| | d. fewest coins: min `fewest` | `coin` | many | x + y = 2, (0, −2) |
+| **Haga's Fold** | a. the middle of the edge: min \|landing.x − 4\| | `fold` | cont. | y = −x/2 + 5, (0, 0) |
+| | b. a whole tick: min dist(landing.x, ℤ) | `fold` | cont. | landing on any of (0, 8) … (8, 8): nine ties |
+| | c. a whole-sided corner triangle: min the three sides' total distance from whole numbers | `tri`-like | cont. | y = −x/2 + 5 (sides 3, 4, 5), (0, 0); the flat fold y = 4 (sides 4, 0, 4) ties |
+| | d. the crease leaves at a whole tick: min dist(`creaseB`.y, ℤ) | `cut` | cont. | y = −x/2 + 5 (leaves at (8, 1)), (0, 0) |
+| **Cipher Wheel** (GIRL → TRIO) | a. plainest key: min \|m\| + \|c\| | `si` | many | y = −x − 1, (4, −2) |
+| | b. it can be undone: max `letters` | `cipher` | 4 | y = −x − 1, (4, 26): every key that writes TRIO ties |
+| | c. the same wheel decodes: max `selfUndo` | `cipher` | 5 | y = −x − 1, (4, 26): the same ties |
+| | d. no letter stays itself: min `stay` | `cipher` | 5 | y = −x − 1, (4, 0): the same ties |
+
+What the pairing shows, for whoever chooses which candidates to deal:
+
+- **Strong pairs** (a single top or a short list, many levels): Sheep Fence a and b, Tresillo a, Firefly Jar b and c,
+  Same on Both Rulers a and b, Fair Cut a, Haga's Fold a, c and d, Cipher Wheel a.
+- **Pairs that pull against the lens** and are interesting for that: Sheep Fence d (the simplest gradient puts sheep
+  on the fence), Tresillo b and c (a gradient of ⅓ plays the first bar and then goes wrong: the secondary rewards a
+  short-sighted line), Fair Cut b and d (the flat cut).
+- **Open-ended pairs** (no top; fine with thresholds): Firefly Jar a, Same on Both Rulers c, Exact Change a.
+- **Weak pairs**: Exact Change b, c, d all top at x + y = 2; Cipher Wheel b, c, d are settled by the primary once the
+  word is right, so they only grade the keys that get some letters wrong; Sheep Fence c and Fair Cut c tie widely.
+
+### 5.2 Second pool, in the order I would add them
 
 Constellation Mirror (reflection, a count of matched stars: the most accessible of the rest), Crate Ramp, Palindrome
 Path, Trick Shot, Tangent Kite, Plumb Line, Kiss the Circle, Homecoming Gear, One Thread, Sweet Chord, Prime Threads;

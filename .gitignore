@@ -55,3 +55,4 @@ Thumbs.db
 
 # multi-client e2e: simulated player apps (worktrees) and their secrets
 .e2e/
+.v2-fake.json

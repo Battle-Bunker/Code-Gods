@@ -9,6 +9,7 @@ where each family's best lines sit relative to the cheap centre. The census is a
 sketch, not the calibration of spec section 7.
 
 Run:  python3 docs/engine-v2/rule-brainstorm/scripts/b_story_lenses.py [--beginner] [--census]
+      python3 docs/engine-v2/rule-brainstorm/scripts/b_story_lenses.py --candidates
 
 --beginner evaluates the two-rung beginner set (the top eight) instead of the full
 second-pool ladders.
@@ -476,7 +477,177 @@ def census(families, bound=16):
         print(f"  best tuple {best}: {len(bests)} lines, ~{-log2(wb / total):.1f} bits; cheapest {show(cheapest_b[2], cheapest_b[3])} (phi {cheapest_b[1]})")
 
 
+# ---------------------------------------------------------------- beginner families: one primary, several
+# candidate secondaries, NO story gates (every line gets a graded value; the
+# primary's worst rung stands in where the story has no answer).
+def d_pos(x):
+    """Distance from x to the nearest positive integer."""
+    return abs(x - near_pos_int(x))
+
+
+def p_matchsticks(m, c):
+    return abs(c - 1)
+
+
+def p_doubling(m, c):
+    return min(abs(m * n + c - 2 ** n) for n in range(1, 9))
+
+
+def shop_parts(m, c):
+    a, b, c0 = triple(m, c)
+    return abs(a), b, abs(c0)
+
+
+def change_left(A, B, C):
+    if C < A + B:
+        return F(A + B - C)
+    if A == 0:
+        return F((C - B) % B)
+    return F(leftover(A, B, C))
+
+
+def p_shopping(m, c):
+    return change_left(*shop_parts(m, c))
+
+
+def agree(m, c):
+    return None if m == 1 else c / (1 - m)
+
+
+def p_same(m, c):
+    f = agree(m, c)
+    return F(9) if f is None else dZ(f)          # F(9): rung 0, "the scales never agree"
+
+
+def legs(m, c):
+    lx = F(0) if m == 0 else abs(c / m)          # a level line has no foot: leg 0
+    return lx, abs(c)
+
+
+def p_ladder(m, c):
+    lx, ly = legs(m, c)
+    return d_pos(lx) + d_pos(ly)                 # at least 1 m from the corner, so the origin line is not free
+
+
+def p_savings(m, c, T=100):
+    return F(9) if m == 0 else d_pos((T - c) / m)
+
+
+def p_tank(m, c):
+    return F(9) if m == 0 else d_pos(-c / m)
+
+
+def p_price(m, c, K=10):
+    return dZ((m * K + c) / K)
+
+
+def N_of(x):
+    return near_pos_int(x)
+
+
+CANDIDATES = [
+    ("Matchstick Chains", p_matchsticks, [
+        ("prime-sided shapes, a triangle or more", lambda m, c: D("", F(3) - (m + 1) if m + 1 <= 3 else d_prime(m + 1))),
+        ("pattern 10 uses a prime number of sticks", lambda m, c: D("", d_prime(10 * m + c))),
+        ("each shape adds a whole number of sticks, at least 2", lambda m, c: D("", dZ(m) if m >= 2 else 2 - m)),
+        ("pattern 10 uses a square number of sticks", lambda m, c: D("", d_sq(10 * m + c))),
+    ]),
+    ("Steady vs Doubling", p_doubling, [
+        ("it happens in a second week too", lambda m, c: D("", sorted(abs(m * n + c - 2 ** n) for n in range(1, 9))[1])),
+        ("the weekly raise is whole pounds", lambda m, c: D("", dZ(m))),
+        ("week 0's pay is whole pounds", lambda m, c: D("", dZ(c))),
+        ("weeks the steady plan pays more (count)", lambda m, c: N("", sum(1 for n in range(1, 9) if m * n + c > 2 ** n))),
+        ("the raise is a prime number of pounds", lambda m, c: D("", d_prime(m))),
+        ("week 8's steady pay is a square number", lambda m, c: D("", d_sq(8 * m + c))),
+    ]),
+    ("Shopping Baskets", p_shopping, [
+        ("both prices are prime", lambda m, c: D("", d_prime(F(shop_parts(m, c)[0])) + d_prime(F(shop_parts(m, c)[1])))),
+        ("a basket with as many apples as bananas", lambda m, c: D("", dZ(F(shop_parts(m, c)[2], max(1, shop_parts(m, c)[0] + shop_parts(m, c)[1]))))),
+        ("the budget is a square number", lambda m, c: D("", d_sq(F(shop_parts(m, c)[2])))),
+        ("the number of exact baskets (count)", lambda m, c: N("", baskets(*shop_parts(m, c)))),
+        ("the budget is a prime number of pence", lambda m, c: D("", d_prime(F(shop_parts(m, c)[2])))),
+        ("a basket with twice as many bananas as apples", lambda m, c: D("", dZ(F(shop_parts(m, c)[2], max(1, shop_parts(m, c)[0] + 2 * shop_parts(m, c)[1]))))),
+    ]),
+    ("Same Reading", p_same, [
+        ("the agreeing number has many prime factors (Omega, cap 6)", lambda m, c: N("", 0 if agree(m, c) is None else min(big_omega(near_int(agree(m, c))), 6))),
+        ("a simple multiplier (-(|num| + den), cap 20)", lambda m, c: N("", max(-(abs(m.numerator) + m.denominator), -20))),
+        ("they agree at a round ten", lambda m, c: D("", F(9) if agree(m, c) is None else dZ(agree(m, c) / 10))),
+        ("the multiplier is a whole number", lambda m, c: D("", dZ(m))),
+        ("the multiplier is a prime number", lambda m, c: D("", d_prime(m))),
+        ("they agree below freezing (distance to -1, -2, ...)", lambda m, c: D("", F(9) if agree(m, c) is None else (agree(m, c) + 1 if agree(m, c) > -1 else dZ(agree(m, c))))),
+    ]),
+    ("Ladder Against the Wall", p_ladder, [
+        ("the ladder is a whole number of metres long", lambda m, c: D("", d_sq(sum(v * v for v in legs(m, c))))),
+        ("the one-out-for-four-up safety rule", lambda m, c: D("", abs(abs(m) - 4))),
+        ("the triangle's area is a whole number", lambda m, c: D("", dZ(legs(m, c)[0] * legs(m, c)[1] / 2))),
+        ("the top is at a prime height", lambda m, c: D("", d_prime(abs(c)))),
+    ]),
+    ("Savings Goal (T = 100)", p_savings, [
+        ("you started with one real coin", lambda m, c: D("", min(abs(100 * c - 100 * k) for k in COINS))),
+        ("you save one real coin a week", lambda m, c: D("", min(abs(100 * m - 100 * k) for k in COINS))),
+        ("the goal ends a four-week month", lambda m, c: D("", F(1, 2) if m == 0 else dZ(F(N_of((100 - c) / m), 4)))),
+        ("the number of weeks is a square number", lambda m, c: D("", F(9) if m == 0 else d_sq(F(N_of((100 - c) / m))))),
+        ("you save a prime number of pounds a week", lambda m, c: D("", d_prime(m))),
+    ]),
+    ("Empty Tank", p_tank, [
+        ("the minute's smallest prime factor (cap 13)", lambda m, c: N("", 1 if m == 0 else min(spf(N_of(-c / m)), 13))),
+        ("it drains a whole number of litres a minute (-den, cap 12)", lambda m, c: N("", max(-m.denominator, -12))),
+        ("it starts with a square number of litres", lambda m, c: D("", d_sq(c))),
+        ("it is half empty at a whole minute too", lambda m, c: D("", F(1, 2) if m == 0 else dZ(-c / m / 2))),
+        ("it starts with a prime number of litres", lambda m, c: D("", d_prime(c))),
+    ]),
+    ("Price per Minute (K = 10)", lambda m, c: p_price(m, c), [
+        ("the fee adds a whole number of pence (at least 1) to each minute", lambda m, c: D("", d_pos(c / 10))),
+        ("the average is whole on a 20-minute call too", lambda m, c: D("", dZ((20 * m + c) / 20))),
+        ("whole averages for calls of 1 to 10 minutes (count)", lambda m, c: N("", sum(1 for x in range(1, 11) if ((m * x + c) / x).denominator == 1))),
+        ("the average is a prime number of pence", lambda m, c: D("", d_prime((10 * m + c) / 10))),
+        ("the rate is a prime number of pence a minute", lambda m, c: D("", d_prime(m))),
+        ("a 10-minute call costs a square number of pence", lambda m, c: D("", d_sq(10 * m + c))),
+    ]),
+]
+
+
+def baskets(A, B, C):
+    if A == 0 or B == 0:
+        return 0
+    return sum(1 for x in range(1, C // A + 1) if C - A * x > 0 and (C - A * x) % B == 0)
+
+
+def candidates_census(bound=16):
+    lines = []
+    for a in range(-bound, bound + 1):
+        for b in range(1, bound + 1):
+            for c0 in range(-bound, bound + 1):
+                if gcd(gcd(abs(a), b), abs(c0)) != 1:
+                    continue
+                m, c = F(-a, b), F(-c0, b)
+                lines.append((m, c, phi(m, c)))
+    total = sum(2.0 ** -p for _, _, p in lines)
+    print(f"candidates census: {len(lines)} lines, |a|,|c0| <= {bound}, 1 <= b <= {bound}; no gates\n")
+    for name, prim, cands in CANDIDATES:
+        ps = [(rung(prim(m, c)), m, c, p) for m, c, p in lines]
+        top = max(r for r, _, _, _ in ps)
+        wtop = sum(2.0 ** -p for r, _, _, p in ps if r == top)
+        cheap = min((x for x in ps if x[0] == top), key=lambda x: x[3])
+        print(f"## {name}: primary top rung {top}, ~{-log2(wtop / total):.1f} bits, cheapest {show(cheap[1], cheap[2])} (phi {cheap[3]})")
+        for label, fn in cands:
+            rows = [((r, fn(m, c)[2]), m, c, p) for r, m, c, p in ps]
+            best = max(t for t, _, _, _ in rows)
+            sel = [x for x in rows if x[0] == best]
+            w = sum(2.0 ** -x[3] for x in sel)
+            ch = min(sel, key=lambda x: x[3])
+            levels = len({t[1] for t, _, _, _ in rows})
+            # conditional rarity of the secondary's top among primary-top lines
+            print(f"   - {label}: best pair {list(best)}, ~{-log2(w / total):.1f} bits "
+                  f"(+{-log2(w / wtop):.1f} over the primary), {len(sel)} lines, cheapest {show(ch[1], ch[2])} (phi {ch[3]}); "
+                  f"{levels} levels seen")
+        print()
+
+
 if __name__ == "__main__":
+    if "--candidates" in sys.argv:
+        candidates_census()
+        sys.exit(0)
     fams = BEGINNER if "--beginner" in sys.argv else FAMILIES
     examples(fams)
     if "--census" in sys.argv:

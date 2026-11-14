@@ -48,7 +48,8 @@ export interface ElementReply { ref: ElementRef; value: ElementValueWire; bits: 
 /** §6.2 */
 export interface RuleReply { family: string; params: Record<string, unknown>; card: string }
 export interface ScoreReply {
-  score: QWire[] | null;
+  /** null: WORST. A null component: that layer is undefined for this state (v2-core's layered ladders). */
+  score: (QWire | null)[] | null;
   level: number;
   top: number;
   terms: { id: string; value: QWire | null }[];

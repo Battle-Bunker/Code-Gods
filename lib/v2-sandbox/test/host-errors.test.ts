@@ -46,3 +46,16 @@ for (const language of ["python", "typescript"] as const) {
     if (result.ok) assert.deepEqual(probes(result.calls), ["the host failed: database down"]);
   });
 }
+
+test("both languages: a score with an undefined layer reads as null in that component", async () => {
+  const layered = { calls: 0, handle: () => ({ ok: true as const, result: { score: ["-2", null], level: 1, top: 7, terms: [] }, bits: 0 }) };
+  const sources = {
+    python: "def agent(offer):\n    s = offer.my_score()\n    return [call('probe', r=str(s.score[0]) + ',' + str(s.score[1]))]\n",
+    typescript: "function agent(offer: Offer) { const s = offer.myScore(); return [call('probe', { r: Q.toString(s.score![0]!) + ',' + String(s.score![1]) })]; }\n",
+  };
+  for (const language of ["python", "typescript"] as const) {
+    const result = await (await boxes.get(language)).act({ source: sources[language], offer: { object: 0 }, seed: "1", host: layered });
+    assert.equal(result.ok, true, result.ok ? "" : result.error);
+    if (result.ok) assert.deepEqual(probes(result.calls), [language === "python" ? "-2,None" : "-2,null"]);
+  }
+});

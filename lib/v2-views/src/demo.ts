@@ -5,10 +5,11 @@
  */
 import { Qn, q, ref, type EvalContext, type Layer, type Q, type RuleFamily } from "@workspace/v2-core";
 import { isPrime, nearbyPrimes, type LineState } from "@workspace/v2-linear";
+import { fmtQ } from "./format.ts";
 
 const Q_STEPS = [q(8), q(4), q(2), q(1), q(1, 2), q(1, 4), q(1, 8), q(0)];
 const PRIME_STEPS = [q(3), q(2), q(1), q(0)];
-const label = (near: string, exact: string) => (d: Q) => (Qn.isZero(d) ? exact : `${near} ${Qn.toWire(d)}`);
+const label = (near: string, exact: string) => (d: Q) => (Qn.isZero(d) ? exact : `${near} ${fmtQ(d)}`);
 
 /** The nearest whole minute at or after the first: 1 below 1, else the nearer integer, ties to the smaller. */
 function nearestMinute(t: Q): bigint {
@@ -50,7 +51,7 @@ export const emptyTank: RuleFamily<LineState, NoParams> = {
     ctx.read(tick);
     ctx.term("gap", `gap between the emptying time and minute ${N}`, Qn.abs(Qn.sub(T, q(N))), [xRef]);
     const P = nearbyPrimes(q(N))[0]!;
-    ctx.term("pgap", isPrime(N) ? `${N} is a prime: gap` : `gap between minute ${N} and the prime ${P}`, Qn.abs(q(N - P)), [xRef]);
+    ctx.term("pgap", isPrime(N) ? `distance from minute ${N} to a prime (${N} is one)` : `distance from minute ${N} to the prime ${P}`, Qn.abs(q(N - P)), [xRef]);
     ctx.mark({ kind: "focus", ref: xRef });
     ctx.mark({ kind: "candidate", ref: tick, term: "gap" });
     ctx.mark({ kind: "measure", from: xRef, to: tick, term: "gap" });

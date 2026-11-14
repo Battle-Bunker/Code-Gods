@@ -111,7 +111,7 @@ DOTS = [(x, y) for x in range(7) for y in range(7)]
 def fence(m, c, N):
     above = sum(1 for (x, y) in DOTS if y > m * x + c)
     on = sum(1 for (x, y) in DOTS if y == m * x + c)
-    ds = sorted(dist2_line(m, c, P) for P in DOTS if P[1] != m * P[0] + c)
+    ds = sorted(dist2_line(m, c, P) for P in DOTS)      # a sheep on the fence has clearance 0
     return -abs(above - N), -on, ds[0], sum(1 for d in ds if d == ds[0])
 show("4 Sheep Fence (N = 10)", "y = x + 5/2", zip(["-|above-10|", "-on", "clear2", "touchers"], fence(F(1), F(5, 2), 10)))
 cands = []
@@ -372,3 +372,19 @@ for mm, cc in ((F(-1), F(2)), (F(-2), F(5)), (F(-3, 4), F(25, 4)), (F(-4, 3), F(
 print("   Tangent Kite 5x + y = 25:", [str(v) for v in kite(F(-5), F(25))])
 fall = lambda m, c: (lambda n: max(0, n[1] - n[2]) + max(0, n[2] - n[3]))([F(1), m + c, m * (m + c) + c, m * (m * (m + c) + c) + c])
 print("   Sweet Chord fall-back: y = x + 1/2 ->", fall(F(1), F(1, 2)), " y = -x + 5/2 ->", fall(F(-1), F(5, 2)), " y = 3/2 ->", fall(F(0), F(3, 2)))
+
+# ---------------------------------------------------------------- beginner families: each candidate secondary paired with the primary
+print("\n== Beginner candidates (primary, one secondary)")
+fl = [(fence(F(p, q), F(k, 4 * q), 10), F(p, q), F(k, 4 * q)) for p in range(-6, 7) for q in range(1, 7) if gcd(abs(p), q) == 1 for k in range(-200, 200)]
+fl = [t for t in fl if t[0][0] == 0]
+for name, key in (("fewest on the fence", lambda t: t[0][1]), ("widest street", lambda t: t[0][2]), ("most on the kerb", lambda t: t[0][3]),
+                  ("simplest gradient", lambda t: -(abs(t[1].numerator) + t[1].denominator))):
+    b = max(fl, key=key); print("   Sheep Fence, %s: y = %sx + %s -> %s" % (name, b[1], b[2], key(b)))
+dl = [(drum(F(p, q), F(k, q)), F(p, q), F(k, q)) for q in range(1, 17) for p in range(0, q + 1) if gcd(p, q) == 1 for k in range(0, 2 * q)]
+dl = [t for t in dl if t[0][1] == 8]
+for name, key in (("longest streak", lambda t: t[0][2]), ("clean hits", lambda t: t[0][3]), ("simplest gradient", lambda t: -(t[1].numerator + t[1].denominator))):
+    b = max(dl, key=key); print("   Tresillo, %s: y = %sx + %s -> %s (streak %s)" % (name, b[1], b[2], key(b), b[0][2]))
+side_off = lambda m, c: sum(near_int(v) for v in fold(m, c)[5])
+print("   Haga sides off whole: t=4 ->", side_off(F(-1, 2), F(5)), " t=2 ->", side_off(F(-1, 4), F(17, 4)), " t=0 (y = 4) ->", side_off(F(0), F(4)))
+print("   Cipher y = -x - 1 letters kept:", sum(1 for k in range(26) if (-k - 1) % 26 == k), "  y = x + 3:", sum(1 for k in range(26) if (k + 3) % 26 == k))
+print("   Fair Cut y = 4:", [str(v) for v in fair_cut(F(0), F(4))], " Lamp y = 5x/6 + 1 (T = 6):", [str(v) for v in lamp(F(5, 6), F(1), 6)])

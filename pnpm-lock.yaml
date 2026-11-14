@@ -234,6 +234,15 @@ importers:
       '@workspace/ui-kit':
         specifier: workspace:*
         version: link:../../lib/ui-kit
+      '@workspace/v2-core':
+        specifier: workspace:*
+        version: link:../../lib/v2-core
+      '@workspace/v2-linear':
+        specifier: workspace:*
+        version: link:../../lib/v2-linear
+      '@workspace/v2-views':
+        specifier: workspace:*
+        version: link:../../lib/v2-views
       convex:
         specifier: 1.48.0
         version: 1.48.0(react@19.1.0)
@@ -566,6 +575,25 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.1.0(react@19.1.0)
+
+  lib/v2-affordances:
+    dependencies:
+      convex:
+        specifier: 1.48.0
+        version: 1.48.0(react@19.1.0)
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.9.6
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.3.0
+      react:
+        specifier: 'catalog:'
+        version: 19.1.0
 
   lib/v2-core: {}
 
