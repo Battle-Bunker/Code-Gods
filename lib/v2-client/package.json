@@ -1,0 +1,22 @@
+{
+  "name": "@workspace/v2-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./update": "./src/update.ts",
+    "./build-meta": "./src/build-meta.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@workspace/v2-affordances": "workspace:*",
+    "@workspace/engine": "workspace:*",
+    "convex": "1.48.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

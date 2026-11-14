@@ -16,7 +16,7 @@ const meta = { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.mode
 
 async function credential(subject: string, roomId: string, permission: "read" | "act" | "owner") {
   const token = `cgc_${randomBytes(32).toString("base64url")}`;
-  await admin.mutation("testing:seedCredential", { subject, roomId, permission, tokenHash: sha256(token) });
+  await admin.mutation("auth/testing:seedCredential", { subject, roomId, permission, tokenHash: sha256(token) });
   return token;
 }
 async function rpc(token: string, method: string, params: Record<string, unknown> = {}): Promise<any> {

@@ -1,7 +1,6 @@
 packages:
   - artifacts/*
   - lib/*
-  - clients/hello
 
 autoInstallPeers: false
 

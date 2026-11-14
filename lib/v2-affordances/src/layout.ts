@@ -25,7 +25,8 @@ export interface ViewState {
   focus: { objectId: string; reps: string[] } | null;
   /** The glossary open at a term ("" for its index), or closed. */
   glossary: string | null;
-  replay: { gameId: string; cursor: ReplayCursor; playing: boolean; speed: number } | null;
+  /** The replay open on screen; `as`: the player whose eyes it is watched through (absent: the human's own seat). */
+  replay: { gameId: string; cursor: ReplayCursor; playing: boolean; speed: number; as?: string } | null;
 }
 
 /**
@@ -90,6 +91,7 @@ export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
     return { ...v, replay: { ...r, playing: false, cursor: "seq" in c ? { seq: Math.max(0, c.seq + a.by) } : { ...c, plus: c.plus + a.by } } };
   },
   "replay.speed": (v, a) => ({ ...v, replay: { ...replayOf(v), speed: a.speed } }),
+  "replay.watchAs": (v, a) => ({ ...v, replay: { ...replayOf(v), as: a.memberId } }),
 };
 
 export function isViewOp(id: string): id is ViewOpId {

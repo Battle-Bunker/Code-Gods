@@ -50,7 +50,8 @@ test("no legacy aliases: old and stray paths are not found", () => {
   }
 });
 
-test("navigation carries the page's own parameters, never a replay's position", () => {
-  assert.equal(carriedSearch("?panels=off&e=12&t=3&speed=2&play=1&as=u1"), "?panels=off");
-  assert.equal(carriedSearch("?e=1"), "");
+test("navigation carries the page's own parameters, never one game's ?replay", () => {
+  // Catches: leaving a replayed game for another opening that game's replay too.
+  assert.equal(carriedSearch("?panels=off&replay"), "?panels=off");
+  assert.equal(carriedSearch("?replay=1"), "");
 });

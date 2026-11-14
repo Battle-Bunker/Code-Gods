@@ -19,7 +19,7 @@ export interface PlanningInput {
 }
 export interface PlanningLine {
   text: string;
-  /** Show the owner's "Start the world now" button (rooms.startWorldNow). */
+  /** Show the owner's "Start the world now" button (the game.startWorldNow affordance). */
   startNow: boolean;
   /** Show the primary "Summon my first agent" button, which opens the agent editor: the player has no agent yet. */
   summon: boolean;
@@ -36,7 +36,7 @@ const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60))
 export function planningLine(i: PlanningInput): PlanningLine | null {
   const none = i.seated && i.agents === 0;
   const summon = none && i.canSummon !== false;
-  if (i.phase === "running" && none) return { text: "You have no agent yet. Summon one to start scoring.", startNow: false, summon };
+  if (i.phase === "live" && none) return { text: "You have no agent yet. Summon one to start scoring.", startNow: false, summon };
   if (i.phase !== "planning" || !i.planningEndsAt || i.planningEndsAt <= i.nowMs) return null;
   const left = clock(Math.ceil((i.planningEndsAt - i.nowMs) / 1000));
   const what = !i.seated ? "the players are writing their first agents" : i.agents ? "your agent is ready" : "summon your first agent";

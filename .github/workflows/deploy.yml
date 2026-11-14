@@ -1,16 +1,15 @@
-# Deploys the engine (functions, the Python runtime bundle, both static sites) to Convex.
+# Deploys the engine (functions and the app's static site) to Convex.
 #   push to develop → GitHub Environment "development" → the dev deployment
 #   push to main    → GitHub Environment "production"  → the production deployment
 # Each environment holds one secret, CONVEX_DEPLOY_KEY (a deploy key for that deployment); the key alone
 # selects the deployment. Setup and recovery: PILOT.md, "Automatic deploys".
 #
-# The gate is the `checks` job: root typecheck, the offline unit suites (game-utilities split over 8 parallel shards,
-# the rest in one job), calibration freshness and the sandbox tests; each part is its own parallel job and `checks`
-# aggregates them. Pushing to develop runs it beside the deploy: it marks the commit red on failure but never holds
-# back the dev deploy, which keeps only the cheap checks (env var names, the functions typecheck in `convex deploy`,
-# the worker build, the bundle pin, the post-deploy smoke test). A production deploy waits for it, after doing its own
-# install and bundle build in parallel, except when `lookup` finds that the gate already passed on develop for a commit
-# with the identical tree (a release is a merge of develop, so usually it did): then nothing is re-run.
+# The gate is the `checks` job: root typecheck, the offline unit suites and the sandbox tests; each part is its own
+# parallel job and `checks` aggregates them. Pushing to develop runs it beside the deploy: it marks the commit red on
+# failure but never holds back the dev deploy, which keeps only the cheap checks (env var names, the functions
+# typecheck in `convex deploy`, the post-deploy smoke test). A production deploy waits for it, after doing its own
+# install in parallel, except when `lookup` finds that the gate already passed on develop for a commit with the
+# identical tree (a release is a merge of develop, so usually it did): then nothing is re-run.
 # Any doubt (no match, API error, a red or cancelled run) runs the gate in full.
 name: Deploy
 
@@ -73,21 +72,14 @@ jobs:
           restore-keys: tsbuild2-
       - run: pnpm run typecheck
 
-  # The offline unit suites. game-utilities holds nearly all the time (its calibration, analytic and family-law tests
-  # loop over every family and instantiation), so its loops are split by CG_SHARD=k/8 (lib/game-utilities/test/shard.ts);
-  # shards 1..8 together cover every item once. "rest" is every other suite plus calibration freshness.
+  # The offline unit suites (root `test:offline:rest`: the v2 libraries, the engine's unit tests, the app, the CI scripts).
   unit:
     needs: lookup
     if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
-    name: unit (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8', rest]
     concurrency:
-      group: gate-unit-${{ matrix.shard }}-${{ github.ref_name }}
+      group: gate-unit-${{ github.ref_name }}
       cancel-in-progress: ${{ github.ref_name != 'main' }}
     defaults:
       run:
@@ -100,31 +92,9 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The "rest" shard runs the tests that compile a starter agent (ai-player, engine example agents), which need the
-      # pinned Python runtime; `dist/python-runtime.bin.gz` is built, not committed, so this shard builds it too.
-      - if: matrix.shard == 'rest'
-        uses: actions/cache@v4
-        id: cpython
-        with:
-          path: .cache/code-gods
-          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
-      - if: matrix.shard == 'rest' && steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python
-      - if: matrix.shard == 'rest'
-        run: pnpm --filter @workspace/game-runtime build:python
-      - if: matrix.shard != 'rest'
-        run: pnpm --filter @workspace/game-utilities test
-        env:
-          CG_SHARD: ${{ matrix.shard }}
-      - if: matrix.shard == 'rest'
-        run: pnpm run test:offline:rest
-        env:
-          CG_REQUIRE_PYTHON_RUNTIME: 1   # a test that needs the bundle fails here instead of skipping itself
-      - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
-        if: matrix.shard == 'rest'
-        run: pnpm --filter @workspace/game-utilities calibrate --check
+      - run: pnpm run test:offline:rest
 
-  # The sandbox tests (Python bundle, QuickJS worker).
+  # The agent sandbox tests (the pinned Python bundle, QuickJS).
   runtime:
     needs: lookup
     if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
@@ -148,11 +118,10 @@ jobs:
         id: cpython
         with:
           path: .cache/code-gods
-          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+          key: cpython-wasi-${{ hashFiles('lib/v2-sandbox/python-runtime/setup.py') }}
       - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python
-      - run: pnpm --filter @workspace/game-runtime build:python
-      - run: pnpm --filter @workspace/game-runtime test
+        run: pnpm --filter @workspace/v2-sandbox setup:python
+      - run: pnpm --filter @workspace/v2-sandbox build:python
       - run: pnpm --filter @workspace/v2-sandbox test
       - run: pnpm --filter @workspace/v2-agents test
 
@@ -197,18 +166,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # ---- the pinned runtime bundle (Python) ----
+      # ---- the pinned runtime bundle (Python), for engine v2's agents ----
       - uses: actions/cache@v4
         id: cpython
         with:
           path: .cache/code-gods
-          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+          key: cpython-wasi-${{ hashFiles('lib/v2-sandbox/python-runtime/setup.py') }}
       - if: steps.cpython.outputs.cache-hit != 'true'
-        run: pnpm --filter @workspace/game-runtime setup:python
-      - run: pnpm --filter @workspace/game-runtime build:python
-      - name: Worker build is current   # 0.1s; never deploy a stale sandbox worker
-        working-directory: lib/game-runtime
-        run: node scripts/build-worker.mjs --check
+        run: pnpm --filter @workspace/v2-sandbox setup:python
+      - run: pnpm --filter @workspace/v2-sandbox build:python
+
       # ---- production: nothing below this line ships until the gate has passed (the steps above ran beside it) ----
       - name: Wait for the gate
         if: github.ref_name == 'main'
@@ -260,11 +227,6 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: npx convex run version:record "{\"site\":\"functions\",\"build\":\"${GITHUB_SHA::12}\"}"
 
-      - name: Upload the calibration tables   # right after the push: the new code reads tables from storage (unchanged files are skipped)
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: pnpm --filter @workspace/engine upload-calibration
-
       - name: Better Auth JWKS (first deploy only)
         working-directory: artifacts/engine
         env:
@@ -279,30 +241,6 @@ jobs:
           [ -n "$jwks" ] || { echo "::error::rotateKeys returned no keys"; exit 1; }
           printf '%s' "$jwks" | npx convex env set BETTER_AUTH_JWKS
           npx convex deploy   # push again so auth.config.ts inlines the JWKS
-
-      - name: Sync the system game setups with the code (idempotent)
-        working-directory: artifacts/engine
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: npx convex run setups:ensureSeeded
-
-      - name: Migrate stored settings (setups-v2, allowed languages) and room setups (idempotent; convex/migrations.ts)
-        working-directory: artifacts/engine
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: npx convex run migrations/node:setupsV2
-
-      - name: Give AI seats unique names (idempotent; convex/migrations.ts aiSeatNames)
-        working-directory: artifacts/engine
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: npx convex run migrations:aiSeatNames
-
-      - name: Key the assistant's stored state by (player, game) (idempotent; convex/migrations.ts assistant-per-game)
-        working-directory: artifacts/engine
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: npx convex run migrations:assistantPerGame
 
       - name: Schema migrations (the @convex-dev/migrations component; waits for every one; CLAUDE.md "Schema migrations")
         working-directory: artifacts/engine
@@ -330,15 +268,3 @@ jobs:
           curl -fsS "$site/api/health"; echo
           code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$site/mcp" -H 'Content-Type: application/json' -d '{}')
           [ "$code" = 401 ] || { echo "::error::/mcp answered $code without a token (expected 401)"; exit 1; }
-          for language in python typescript; do npx convex run runtime/probe:smoke "{\"language\":\"$language\"}"; done
-          # A two-language game's pools busy at once on one instance, within its memory budget (TypeScript compiled apart).
-          npx convex run runtime/probe:concurrent '{}'
-          # Lazy load from storage round-trips: the Grid default's tables serve a fresh table.
-          npx convex run calibration/node:probe '{"settings":{"objectType":"Grid","typeArgs":{"size":4,"symbols":"base10","colours":"rgb"},"priorId":"uniform"},"draw":{"familyId":"seed3_green_ones","params":{"colour":0,"value":0}},"refresh":true}' \
-            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log(JSON.stringify(r));if(!r.key||!r.tables)process.exit(1)})'
-
-      - name: Games in progress are still ticking   # last, read-only (engine/loop:liveProgress): fails loudly if a running game stalled
-        working-directory: artifacts/engine
-        env:
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-        run: node scripts/check-live-games.mjs
