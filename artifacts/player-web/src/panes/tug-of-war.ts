@@ -55,7 +55,7 @@ export function foldTugs<M extends TugMove>(moves: readonly M[]): FeedItem<M>[] 
 const names = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
 
 export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>, kinds?: ReadonlyMap<string, string>, one = "line", length?: number | null,
-  opts: { /** Live: no names, nothing of the other side's spending (v1's public log). */ anonymous?: boolean; /** Every other seat is a practice partner or AI player (unused live: it would hint at the mover). */ othersBots?: boolean } = {}): string {
+  opts: { /** Live: no names, nothing of the other side's spending (v1's public log). */ anonymous?: boolean; } = {}): string {
   const when = length ? `from ${timeLeft(t.from, length)} to ${timeLeft(t.to, length)}` : `${clock(t.from)} to ${clock(t.to)}`;
   if (opts.anonymous) {
     return `Tug-of-war on ${one} ${t.number}: your agent and another player moved it back and forth ${t.moves.length} times (${when}). ` +
