@@ -135,7 +135,7 @@ try {
     await frame.getByTestId("example-phase").getByText(/^Phase now: (live|ended)\.$/).waitFor({ timeout: 30_000 });
     const rollback = mine.getByTestId(`button-panel-rollback-${slug}`);
     await rollback.click();
-    await rollback.click();   // inline confirmation: "Again to …"
+    await rollback.click();   // inline confirmation: "Press again to …"
     await mine.getByTestId(`text-panel-version-${slug}`).getByText(/Version 3, written by you/).waitFor({ timeout: 20_000 });
     await frame.getByTestId("example-phase").getByText(/^The game is (live|ended)\.$/).waitFor({ timeout: 30_000 });
 

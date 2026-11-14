@@ -26,8 +26,8 @@ test("power is explained in the same breath as the share (ux 3.7)", () => {
 });
 
 test("what an agent did, in one line", () => {
-  assert.equal(workText({ acts: 12, skips: 3, failures: 1, spend: 84, pointsGained: 36.54 }), "12 moves · 3 skipped · 1 failed · 84.00 ⚡ spent · +36.54 points gained");
-  assert.equal(workText({ acts: 1, skips: 0, failures: 0, spend: 0, pointsGained: -2 }), "1 move · 0 skipped · 0 failed · 0.00 ⚡ spent · −2.00 points gained");
+  assert.equal(workText({ acts: 12, skips: 3, failures: 1, spend: 84, pointsGained: 36.54 }), "12 moves · 3 skipped · 1 failed · 84.00 ⚡ spent · +36.54 points from its moves");
+  assert.equal(workText({ acts: 1, skips: 0, failures: 0, spend: 0, pointsGained: -2 }), "1 move · 0 skipped · 0 failed · 0.00 ⚡ spent · −2.00 points from its moves");
 });
 
 test("a destroy confirmation says what comes back (ux 3.8)", () => {

@@ -95,6 +95,12 @@ try {
     assert.match(await status.innerText(), /70% of it now goes to this agent/);
     assert.equal(await page.getByTestId("button-summon-first").count(), 0, "nothing offers the first summon again (ux 1.8)");
     console.log(`${label}: summoned at ${clock(t0)}`);
+    if (label === "phone") {
+      // A phone folds the agent's code behind "Show the code" (a wall of code filled the screen in a persona walk).
+      assert.equal(await page.getByTestId("input-forge-code").count(), 0, "phone: the code is folded");
+      await page.getByTestId("button-forge-show-code").click();
+      await page.getByTestId("input-forge-code").waitFor();
+    }
 
     const startNow = page.getByTestId("button-start-world");
     if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }

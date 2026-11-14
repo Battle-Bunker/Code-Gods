@@ -14,6 +14,7 @@ import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
 import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
+import { useWide } from "@/core/use-wide";
 import {
   affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
 } from "./forge-model";
@@ -50,6 +51,9 @@ export function ForgePane() {
   const [status, setStatus] = useState<Status>(null);
   const [ran, setRan] = useState<string | null>(null);             // the source just summoned or replaced (no stale price: ux 3.6)
   const [report, setReport] = useState<string | null>(null);
+  // A phone shows the code only on request: a wall of code filled a first-time player's screen (persona walks).
+  const wide = useWide();
+  const [showCode, setShowCode] = useState(false);
   // An accepted summon counts at once, before the agent list catches up (ux-lessons 1.8).
   const count = useAgentCount() ?? 0;
   // The agent in the editor: the one chosen, else the first; a destroyed one gives way to the next.
@@ -133,8 +137,14 @@ export function ForgePane() {
       {count === 0 && (
         <p className="text-sm" data-testid="text-forge-hint">You don't need to change anything: <span className="font-medium">Summon my first agent</span> runs this code as it is. Later, try the one line marked "Try this:".</p>
       )}
-      <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
-        className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
+      {!wide && !showCode && draft === null ? (
+        <button type="button" onClick={() => setShowCode(true)} className="self-start text-xs underline underline-offset-4" data-testid="button-forge-show-code">
+          Show the code ({source.split("\n").length} lines; you don't need to read it to play)
+        </button>
+      ) : (
+        <textarea value={source} onChange={e => { setDraft(e.target.value); setRan(null); }} spellCheck={false} wrap="off" aria-label="Agent code"
+          className="min-h-[160px] h-[40dvh] md:h-auto md:flex-1 w-full resize-y border bg-[hsl(var(--muted))]/40 p-2 font-mono text-xs leading-relaxed" data-testid="input-forge-code" />
+      )}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {primary === "summonFirst" && (
           <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => summon.available && !runner.busy && void doSummon(source, true, agentName(opening?.title))}
