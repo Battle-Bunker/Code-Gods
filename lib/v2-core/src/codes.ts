@@ -149,3 +149,40 @@ export function factorWeight(n: bigint): number {
 export const mixedPosBits = (n: bigint): number => factorWeight(n) + LOG2_Z;
 /** Any integer: 0 → 1 bit; ±n → 2 + mixedPosBits(|n|) (one bit for "not zero", one for the sign). */
 export const mixedIntBits = (n: bigint): number => (n === 0n ? 1 : 2 + mixedPosBits(n < 0n ? -n : n));
+
+// ---------------------------------------------------------------- direct draws from the mixed code (owner decision 23)
+
+const DRAW_PRIMES = smallPrimes(10_000);
+const log2ZCache = new Map<number, number>();
+/**
+ * log2 of Z_t = Σ_n 2^(−t·mixedIntBits(n)) over all integers: the normaliser of the tilted law q_t(n) = 2^(−t·bits)/Z_t.
+ * Z_1 = 1 (the code is complete). Z_t = 2^−t + 2·2^(−t(2 + log2 Z))·Π_p 1/(1 − 2^(−t·STEP·p)).
+ */
+export function mixedIntLog2Norm(t: number): number {
+  const hit = log2ZCache.get(t);
+  if (hit !== undefined) return hit;
+  if (!(t > 0)) throw new RangeError("the tilt t must be positive");
+  const logProd = DRAW_PRIMES.reduce((a, p) => a - Math.log2(1 - 2 ** (-t * STEP * p)), 0);
+  const nonzero = 1 - t * (2 + LOG2_Z) + logProd;   // log2 of 2·2^(−t(2 + log2 Z))·Π
+  const z = Math.log2(2 ** -t + 2 ** nonzero);
+  log2ZCache.set(t, z);
+  return z;
+}
+
+/**
+ * One integer from q_t(n) = 2^(−t·mixedIntBits(n)) / Z_t: t = 1 is the law itself, t < 1 a heavier tail for importance
+ * sampling. Zero or not, then a fair sign, then each prime's exponent independently geometric with ratio 2^(−t·STEP·p)
+ * (the factorisation code is a product over primes). Primes whose chance of appearing at all is below 2^−60 are skipped.
+ */
+export function sampleMixedInt(r: Rng, t = 1): bigint {
+  const z = mixedIntLog2Norm(t);
+  if (r.unit() < 2 ** (-t - z)) return 0n;
+  const negative = r.bit() === 1;
+  let n = 1n;
+  for (const p of DRAW_PRIMES) {
+    const ratio = 2 ** (-t * STEP * p);
+    if (ratio < 2 ** -60) break;
+    while (r.unit() < ratio) n *= BigInt(p);
+  }
+  return negative ? -n : n;
+}

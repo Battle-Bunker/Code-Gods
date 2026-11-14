@@ -173,6 +173,12 @@ export interface ScoreComponent {
 
 export interface Evaluation {
   readonly score: Score;
+  /**
+   * The rule's utilities, compared lexicographically, bigger better (owner decision 23): the main layer's then the dealt
+   * tie-breaker's, each negated for "min", with no saturation; null when the main layer is undefined. This is what a
+   * value function (lib/v2-valuation value.ts) is keyed by. `score` (saturated, for the threshold ladders) goes in PR 2.
+   */
+  readonly utility: Score;
   /** The terms that make the score, in order: the main layer, then the dealt tie-breaker (views: main part, tie-breaker). */
   readonly components: readonly ScoreComponent[];
   readonly terms: readonly Term[];
