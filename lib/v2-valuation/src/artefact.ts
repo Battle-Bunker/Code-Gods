@@ -2,6 +2,8 @@
 import { canonicalJson, hashHex, levelOf, objectLadder, ruleLayers, scoreFromWire, tieBreakerId, scoreToWire, Qn, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { estimate, ruleKey, DEFAULT_CONFIG, type Estimate, type ValuationConfig } from "./estimate.ts";
 import { distinctLayerValues, exactLadder } from "./exact.ts";
+import { exactGridLadder } from "./exact-grid.ts";
+import { gridSums } from "@workspace/v2-grid";
 import { evalCurve, fit, type Curve, type Point } from "./fit.ts";
 
 export interface ArtefactRung {
@@ -191,7 +193,11 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
   const fullLadder = objectLadder(type, family, params, variant, tb);
   const within = (bits: number, error: number) => Number.isFinite(bits) && Number.isFinite(error) && error <= Math.max(config.targetRelError * bits, config.absFloorBits);
   // 1. Exact values where the law is known exactly (owner decision 19): whole-number lines, one per object.
-  const ex = exactSupported(type, variant) ? exactLadder(family as never, params, variant, tb) : null;
+  const ex: { lo: readonly number[]; hi: readonly number[]; method: readonly string[]; distinct?: readonly number[] } | null =
+    // A grid family without a declared sum is simulated like any other (owner decision 20: exact scoring is an optional
+    // augmentation and never holds a family back).
+    type.id === "grid" && gridSums[family.id] ? exactGridLadder(type as never, family as never, params, variant, tb)
+    : exactSupported(type, variant) ? exactLadder(family as never, params, variant, tb) : null;
   const exact = fullLadder.map((_, k) => {
     if (!ex) return null;
     if (k === 0) return { bits: 0, error: 0 };
@@ -221,7 +227,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
   // Continuity (owner decision 13) on exact values: each dealt layer must take at least minLevels distinct values among
   // the cheapest lines (every line with φ ≤ 20, about 18,000), as the simulation's check counts them among its samples.
   if (allExact) {
-    const distinct = distinctLayerValues(family as never, params, variant, tb, 20);
+    const distinct = ex?.distinct ?? distinctLayerValues(family as never, params, variant, tb, 20);
     distinct.forEach((d, j) => {
       if (d < config.minLevels) reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values, fewer than ${config.minLevels}: too coarse to extend the ladder`);
     });
