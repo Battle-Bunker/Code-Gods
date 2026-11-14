@@ -340,3 +340,8 @@
 .v2v-rep[data-size="compact"] .v2v-seq-val { font-size: 13px; padding: 1px 3px; }
 .v2v-rep[data-size="compact"] .v2v-seq-step { font-size: 10px; }
 .v2v-plane .leg { stroke: var(--v2v-cand); stroke-width: 3.5; stroke-linecap: round; opacity: 0.75; }
+.v2v-plane .square { fill: none; stroke: var(--v2v-cand); stroke-width: 1.6; stroke-dasharray: 5 3; }
+/* The switcher never widens a narrow card: tabs wrap within it. */
+.v2v-switcher { min-width: 0; max-width: 100%; }
+.v2v-tabs { min-width: 0; }
+.v2v-tab { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; }
