@@ -192,7 +192,8 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   if (members.length < 3) fail("BAD_REQUEST", "At least three players are required (spectators don't count)");
   if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight players can play");
   const bots = members.filter(m => m.kind === "ai");
-  if (bots.length && !context.aiEnabled) fail("FORBIDDEN", `${AI_ADMIN_ONLY}: remove the AI seats to start`);
+  // Built-in players (no model) play in any room; a model-backed seat needs an administrator's room.
+  if (bots.some(b => b.aiAgent?.provider !== "builtin") && !context.aiEnabled) fail("FORBIDDEN", `${AI_ADMIN_ONLY}: remove the AI seats to start`);
   for (const bot of bots) {
     if (!bot.aiAgent) fail("BAD_REQUEST", "Every AI seat needs an agent from the library");
     if (!aiProviderAvailable(bot.aiAgent.provider)) fail("UNAVAILABLE", `AI players require a server-side ${bot.aiAgent.provider} API key`);

@@ -214,7 +214,7 @@ Now: a practice game seats the **Practice partner** (`aiTemplates.ts` `PRACTICE_
 a built-in AI player that calls no model and costs nothing. It summons its own rule's example agent, the one the forge
 pre-fills for a new player, once, and leaves it alone. A player who only summons the example therefore plays against
 equals and finishes in the middle on average by construction; any improvement shows. If an administrator removes the
-template, practice falls back to the default AI player. AI seats remain admin-only (`aiEnabledFor`), as before.
+template, practice falls back to the default AI player. Since 14 Nov any signed-in owner may seat practice partners, with or without a provider key; model-backed AI seats remain admin-only (`aiEnabledFor`).
 
 Real engine games, default setup, 300 s, seat 0 the player under test against two Practice partners
 (`artifacts/engine/scripts/coordination-games.ts --table fill --plans tee,gee`):

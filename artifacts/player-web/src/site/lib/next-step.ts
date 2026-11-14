@@ -108,9 +108,9 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
   // The owner plays (rooms.create seats them). Until enough players are in, the path is to invite; alone in the room
   // with AI players available, one click fills the other seats and starts a practice game.
   if (n < min) {
-    if (!ai) return { status: `A game needs ${countWord(min)} players. Invite ${countWord(min - n)} ${min - n === 1 ? "friend" : "friends"} with this link.`, primary: "ui.copyInviteLink", secondary: [] };
-    if (room.members.length === 1) return { status: `A game needs ${countWord(min)} players. Practise against AI players, or invite friends.`, primary: "ui.practiceGame", secondary: ["ui.copyInviteLink"] };
-    return { status: `${plural(min - n, "more player")} needed. AI players count.`, primary: "ui.copyInviteLink", secondary: [] };
+    // Practice partners (no model) fill any missing seats, in every room: alone, or with fewer friends than a game needs.
+    if (room.members.length === 1) return { status: `A game needs ${countWord(min)} players. Play a practice game against practice partners, or invite friends.`, primary: "ui.practiceGame", secondary: ["ui.copyInviteLink"] };
+    return { status: `${plural(min - n, "more player")} needed. Invite friends, or fill the empty ${min - n === 1 ? "seat" : "seats"} with practice partners.`, primary: "ui.copyInviteLink", secondary: ["ui.practiceGame"] };
   }
   return { status: `${plural(n, "player")} are in; start when you're ready.`, primary: "owner.start", secondary: ["ui.copyInviteLink"] };
 }

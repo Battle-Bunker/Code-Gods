@@ -317,7 +317,6 @@ export const addAiAs = internalMutation({
 async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }: { roomId: string; templateId?: string }) {
     const room = await requireRoom(ctx, roomId);
     await requireOwnerAs(ctx, viewer, room);
-    await requireAiEnabled(ctx, room);
     if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
     const members = await membersOf(ctx, room._id);
     if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);
@@ -329,6 +328,9 @@ async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }
       ? named
       : await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).first();
     if (!template || template.deleted) return fail("NOT_FOUND", templateId !== undefined ? "AI agent not found" : "The AI library is empty; an administrator adds AI players");
+    // A built-in player (the practice partner) calls no model and costs nothing: every signed-in owner may seat one.
+    // Model-backed seats stay in administrators' rooms.
+    if (template.provider !== "builtin") await requireAiEnabled(ctx, room);
     const godId = `ai:${crypto.randomUUID()}`;
     const name = aiSeatName(godId, members.map(m => m.name), [template.name]);
     await ctx.db.insert("members", {
