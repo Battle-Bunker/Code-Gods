@@ -172,6 +172,9 @@ try {
     const mine = feed.locator("[data-testid=feed] > ol > li > div > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a grid.*Your rarity/ }).first();
     await mine.waitFor({ timeout: 60_000 }).catch(async (e: Error) => { await page.screenshot({ path: path.join(shots, `grid-${label}-no-move.png`) }); console.log(`${label}: feed says: ${(await feed.innerText()).slice(0, 600)}`); throw e; });
     const sentence = await mine.innerText();
+    // While the game runs another player's move is unattributed (v1's public log): no name, no agent, no calls.
+    const logText = await feed.innerText();
+    assert.doesNotMatch(logText, /Practice partner \d+'s agent|the agents of|Another player's agent|Talk to Practice partner/, `${label}: the live act log names no one`);
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this grid [−\d.,]+ → [−\d.,]+|Points on this grid stayed|No points on this grid/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);

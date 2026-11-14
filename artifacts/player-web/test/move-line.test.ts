@@ -70,13 +70,14 @@ test("your rarity in words: bits with their chance, or stayed", () => {
   assert.equal(rarityText(30, 9), "Your rarity 30.00 → 9.00 bits: 1 in 1.1 billion → 1 in 512 by chance");
 });
 
-test("who moved it: the viewer's own agent by name, or another player's", () => {
+test("who moved it: the viewer's own agent by name, or another player, unnamed", () => {
   assert.equal(moveWho({ mine: true, agentId: "a1" }, "Tank-1"), "Your agent Tank-1");
   assert.equal(moveWho({ mine: true, agentId: "a1" }, undefined), "Your agent", "a destroyed agent has no row to name it");
-  assert.equal(moveWho({ mine: false, agentId: null }), "Another player's agent");
+  // Another player's move names no one, not even that an agent made it (v1's public log: no attribution while live).
+  assert.equal(moveWho({ mine: false, agentId: null }), "Another player");
   // 3.4 × 2.4 = 8.16.
   assert.equal(moveSentence({ who: moveWho({ mine: false, agentId: null }), before: snap(6.8, 2.4, 16.32), after: snap(3.4, 2.4, 8.16) }),
-    "Another player's agent changed a line. Your rarity 6.80 → 3.40 bits: 1 in 111 → 1 in 11 by chance. Points on this line 16.32 → 8.16: your 3.40 bits × others' 2.40 bits = 8.16 points.");
+    "Another player changed a line. Your rarity 6.80 → 3.40 bits: 1 in 111 → 1 in 11 by chance. Points on this line 16.32 → 8.16: your 3.40 bits × others' 2.40 bits = 8.16 points.");
 });
 
 test("the calls in words, from the line's own mutators", () => {

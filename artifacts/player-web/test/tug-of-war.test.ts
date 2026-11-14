@@ -75,3 +75,18 @@ test("with the world's length, a tug-of-war's times read as the countdown does (
   const s = tugSentence({ kind: "tug", objectId: "o1", number: 7, from: 12, to: 17, mySpend: 3, moves: [{ seq: 1, mine: true, at: 12 }, { seq: 2, mine: false, at: 17, by: { memberId: "m2", name: "Ada" } }] } as never, undefined, "line", 300);
   assert.match(s, /\(from 4:48 left to 4:43 left\)/);
 });
+
+test("live, a tug-of-war names no one and says nothing of what the other side spent (v1 public log: no attribution)", () => {
+  const by = (name: string) => ({ memberId: name, name });
+  const tug = foldTugs([
+    { ...m(4, "L7", false, 30), by: by("Ada") }, { ...m(3, "L7", true, 28), by: by("Sam") },
+    { ...m(2, "L7", false, 26), by: by("Ada") }, { ...m(1, "L7", true, 24, 4.5), by: by("Sam") },
+  ])[0]!;
+  assert.ok(tug.kind === "tug");
+  assert.equal(tugSentence(tug, undefined, "line", null, { anonymous: true }),
+    "Tug-of-war on line 7: your agent and another player moved it back and forth 4 times (0:24 to 0:30). " +
+    "Your agent spent 9.50 ⚡ on it, and every pull costs the other side too, so neither of you is getting anywhere. Ask in chat who else wants this line.");
+  const bots = tugSentence(tug, undefined, "grid", null, { anonymous: true, othersBots: true });
+  assert.doesNotMatch(bots, /Ada|Ask in chat/);
+  assert.match(bots, /Practice partners do not read chat: with people, this is when you would talk to them\.$/);
+});
