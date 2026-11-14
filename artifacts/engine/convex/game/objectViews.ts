@@ -10,7 +10,7 @@
  * back, and an older tick's totals never replace a newer one's (`world`).
  *
  * `fill` brings a whole game's rows and totals in line with its objects as stored, a small page at a time: scheduled at
- * the start, after the hold rescoring (engine/holdData.ts apply: same versions, new scores), once a world minute while
+ * the start, once a world minute while
  * the game runs (a sweep: a sync that failed leaves no row stale for longer), at the end (the disclosure becomes exact)
  * and by migrations.backfillObjectViews. Every write is idempotent: a row already equal is left alone.
  */
