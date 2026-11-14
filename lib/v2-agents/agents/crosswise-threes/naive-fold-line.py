@@ -15,7 +15,7 @@ def score(b, p):
     return [main, b[3] + b[6] + b[9] + b[12]]   # main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: a bigger fold line (top-right to bottom-left) is better
 
 
-FAR = 2      # how far one change may go
+FAR = 1      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 
 

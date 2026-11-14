@@ -19,7 +19,7 @@ function score(b, p) {
   return [main, b[0] + b[3] + b[12] + b[15]];   // main: how many touching pairs in the corner boxes are strangers (more is better); tie-breaker: bigger corners of the board are better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 6;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

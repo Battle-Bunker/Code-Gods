@@ -13,7 +13,7 @@ function score(b, p) {
   return [main, b.filter(x => [2, 3, 5, 7].includes(x)).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 
 // The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9

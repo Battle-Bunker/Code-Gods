@@ -15,7 +15,7 @@ def score(b, p):
     return [main, len([x for x in b if x % 2])]   # main: how far the rows' totals are from T, added up (closer is better); tie-breaker: more odd numbers is better
 
 
-FAR = 2      # how far one change may go
+FAR = 1      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LINE, LINES = [], []   # the rows and columns: their names, and their cells
 for i in range(4):

@@ -40,20 +40,20 @@ type StarterKind = Exclude<AgentKind, "example">;
 const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: string; far: number; quotes: number }> = {
   simple: {
     title: "Simple", summary: "Nudges the numbers a little at a time towards your rule. Where another player keeps undoing it, it only makes changes that keep your points.",
-    tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 2, quotes: 4,
+    tryThis: "add the \"trade\" line from the Thorough starter: moving an amount from one cell to another keeps their total.", far: 1, quotes: 4,
   },
   thorough: {
     title: "Thorough", summary: "Like Simple, but it also moves an amount from one number to another and compares more prices before it pays.",
-    tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.", far: 2, quotes: 6,
+    tryThis: "change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.", far: 1, quotes: 6,
   },
   bold: {
-    title: "Bold", summary: "Makes bigger changes, 2 or more at a time, so it gets there in fewer but dearer moves.",
-    tryThis: "change FAR = 3 to 2: jumps of 2 only, cheaper moves.", far: 3, quotes: 6,
+    title: "Bold", summary: "Makes changes of 2 at a time, so it gets there in fewer moves, each twice the price of a single step.",
+    tryThis: "change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.", far: 2, quotes: 6,
   },
   naive: {
     title: "Naive (for learning)",
     summary: "Chases your rule on every grid, whatever it costs and whatever the others want. It is here to learn from: compare it with Simple.",
-    tryThis: "summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.", far: 2, quotes: 8,
+    tryThis: "summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.", far: 1, quotes: 8,
   },
 };
 
@@ -197,7 +197,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     ...(addHelper(lenses) ? ["  const add = (i, k) => move(\"cells.add\", { cell: NAME[i], k });   // the move that adds k to cell i"] : []),
     "  const tries = [];                 // [plan, board after]: changes tried in the agent's own head",
     "  for (let k = -FAR; k <= FAR; k++) {",
-    kind === "bold" ? "    if (k * k < 4) continue;   // only jumps of 2 or more" : "    if (k === 0) continue;",
+    kind === "bold" ? "    if (k * k < 4) continue;   // only steps of 2 (each costs two single steps)" : "    if (k === 0) continue;",
   ];
   for (const id of lenses.filter(id => GRID_LENSES[id].k)) out.push(`    ${snippet(GRID_LENSES[id].ts, lenses, "typescript")}   // ${GRID_LENSES[id].comment}`);
   out.push("  }");
@@ -305,7 +305,7 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     ...(addHelper(lenses) ? ["    add = lambda i, k: move(\"cells.add\", cell=NAME[i], k=k)   # the move that adds k to cell i"] : []),
     "    tries = []                 # (plan, board after): changes tried in the agent's own head",
     "    for k in range(-FAR, FAR + 1):",
-    ...(kind === "bold" ? ["        if k * k < 4:          # only jumps of 2 or more", "            continue"] : ["        if k == 0:", "            continue"]),
+    ...(kind === "bold" ? ["        if k * k < 4:          # only steps of 2 (each costs two single steps)", "            continue"] : ["        if k == 0:", "            continue"]),
   ];
   const k = lenses.filter(id => GRID_LENSES[id].k), flat = lenses.filter(id => !GRID_LENSES[id].k);
   for (const id of k) { const l = { ...GRID_LENSES[id], py: GRID_LENSES[id].py.map(x => snippet(x, lenses, "python")) }; out.push(`        ${l.py[0]}   # ${l.comment}`, ...l.py.slice(1).map(x => `        ${x}`)); }

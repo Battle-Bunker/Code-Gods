@@ -14,7 +14,7 @@ function score(b, p) {
   return [main, b[3] + b[6] + b[9] + b[12]];   // main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: a bigger fold line (top-right to bottom-left) is better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 6;  // at most this many plans are priced (each price is a host call)
 const LEAVE = [];      // boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

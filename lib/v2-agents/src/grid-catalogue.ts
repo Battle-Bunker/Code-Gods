@@ -113,9 +113,9 @@ export interface GridFamilyEntry {
 }
 
 const PRIMES_TS = "b.filter(x => [2, 3, 5, 7].includes(x)).length", PRIMES_PY = "len([x for x in b if x in (2, 3, 5, 7)])";
-const primesTie = (lenses: readonly GridLensId[], tryThis: string, steps = 3): GridTieBreakerEntry =>
+const primesTie = (lenses: readonly GridLensId[], tryThis: string, steps = 2): GridTieBreakerEntry =>
   ({ ts: PRIMES_TS, py: PRIMES_PY, says: "more cells holding 2, 3, 5 or 7 is better", lenses, steps, tryThis });
-const zerosTie = (lenses: readonly GridLensId[], tryThis: string, steps = 3): GridTieBreakerEntry =>
+const zerosTie = (lenses: readonly GridLensId[], tryThis: string, steps = 2): GridTieBreakerEntry =>
   ({ ts: "b.filter(x => x === 0).length", py: "b.count(0)", says: "more 0s is better", lenses, steps, tryThis });
 const CORNERS = { ts: "b[0] + b[3] + b[12] + b[15]", py: "b[0] + b[3] + b[12] + b[15]" };
 const FIRST_COLUMN = { ts: "b[0] + b[4] + b[8] + b[12]", py: "b[0] + b[4] + b[8] + b[12]" };
@@ -135,8 +135,8 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       py: ["main = 0", "for r in range(0, 16, 4):   # each row: its ends' gap and its middle's gap", "    main -= abs(b[r] - b[r + 3]) + abs(b[r + 1] - b[r + 2])"],
     },
     tieBreakers: {
-      middle: { ts: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", py: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", says: "bigger middle columns are better", lenses: ["add", "line"], steps: 3, tryThis: "remove the \"line\" line: can it raise the middle without a whole row at once?" },
-      primes: primesTie(["add", "twin"], "change FAR = 2 to 3 so two cells can jump to a prime together (it thinks longer: mind the step limit).", 2),
+      middle: { ts: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", py: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", says: "bigger middle columns are better", lenses: ["add", "line"], steps: 2, tryThis: "remove the \"line\" line: can it raise the middle without a whole row at once?" },
+      primes: primesTie(["add", "twin"], "change FAR = 2 to 1: single steps only, more turns at the same price per step; does it still reach primes?", 2),
       zeros: zerosTie(["add", "twin"], "add the \"line\" line from the Mirrormancer middle example: a whole row can drop at once.", 2),
     },
   },
@@ -148,7 +148,7 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       py: ["main = 0", "for r in range(0, 16, 4):   # each row: how far its total is from T", "    main -= abs(b[r] + b[r + 1] + b[r + 2] + b[r + 3] - p[\"T\"])"],
     },
     tieBreakers: {
-      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line", "swap"], steps: 3, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },
+      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },
       primes: primesTie(["add", "line", "trade"], "change FAR = 2 to 1: moving 1 from cell to cell is cheapest, but does it still find primes?", 2),
       odd: oddTie(["add", "line", "trade"], "remove the \"line\" line: can it fix the rows one cell at a time just as cheaply?"),
     },
@@ -161,9 +161,9 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       py: ["main = 0", "for i in range(8):   # cell i and its opposite, 15 - i", "    main -= abs(b[i] + b[15 - i] - p[\"T\"])"],
     },
     tieBreakers: {
-      "top-half": { ts: "b.slice(0, 8).reduce((t, x) => t + x, 0)", py: "sum(b[:8])", says: "a bigger top half is better", lenses: ["add", "balance"], steps: 4, tryThis: "change FAR = 4 to 9: one balance move can carry a whole pair's total to the top." },
-      primes: { ts: PRIMES_TS, py: PRIMES_PY, says: "more cells holding 2, 3, 5 or 7 is better", lenses: ["add", "balance"], steps: 4, tryThis: "add the \"swap\" line from the Two Pair corners example and compare what it spends." },
-      odd: oddTie(["add", "balance"], "change FAR = 3 to 1: one step makes an even number odd.", 3),
+      "top-half": { ts: "b.slice(0, 8).reduce((t, x) => t + x, 0)", py: "sum(b[:8])", says: "a bigger top half is better", lenses: ["add", "balance"], steps: 2, tryThis: "remove the \"balance\" line: can single cells raise the top half without breaking the pairs?" },
+      primes: { ts: PRIMES_TS, py: PRIMES_PY, says: "more cells holding 2, 3, 5 or 7 is better", lenses: ["add", "balance"], steps: 2, tryThis: "add the \"swap\" line from the Two Pair corners example and compare what it spends." },
+      odd: oddTie(["add", "balance"], "change FAR = 2 to 1: one step makes an even number odd.", 2),
     },
   },
   {
@@ -190,10 +190,10 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
           ts: ["let apart = 0;", "for (const x of BOXES) { const v = x.map(i => b[i]); apart += Math.max(...v) - Math.min(...v); }   // each box: biggest minus smallest"],
           py: ["apart = sum(max(b[i] for i in x) - min(b[i] for i in x) for x in BOXES)   # each box: biggest minus smallest"],
         },
-        ts: "apart", py: "apart", says: "pairs further apart in each box are better", lenses: ["add", "twin"], steps: 2, tryThis: "change FAR = 2 to 3 so a pair can jump further (it thinks longer: mind the step limit).",
+        ts: "apart", py: "apart", says: "pairs further apart in each box are better", lenses: ["add", "twin"], steps: 2, tryThis: "remove the \"twin\" line: can single cells push the pairs apart?",
       },
       primes: primesTie(["add", "swap"], "add the \"trade\" line from the Thorough starter: moving an amount keeps a box's total."),
-      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 3, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
     },
   },
   {
@@ -216,8 +216,8 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
     },
     tieBreakers: {
       primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single steps find primes without spoiling a square?", 2),
-      zeros: zerosTie(["add", "twin"], "change FAR = 2 to 3: a 3 next to a 0 is a spread of 3 (it thinks longer: mind the step limit).", 2),
-      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 3, tryThis: "remove the \"swap\" line: a corner is in only one square, so can single steps raise it?" },
+      zeros: zerosTie(["add", "twin"], "remove the \"twin\" line: can single steps still find the zeros?", 2),
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: a corner is in only one square, so can single steps raise it?" },
     },
   },
   {
@@ -247,9 +247,9 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       ],
     },
     tieBreakers: {
-      ones: { ts: "ones", py: "ones", says: "more 1s touching a bigger number in their box is better", lenses: ["add", "swap"], steps: 5, tryThis: "change FAR = 5 to 2: smaller steps, cheaper moves, but can it still find strangers?" },
+      ones: { ts: "ones", py: "ones", says: "more 1s touching a bigger number in their box is better", lenses: ["add", "swap"], steps: 2, tryThis: "change FAR = 2 to 1: single steps, more turns, the same price per step: can it still find strangers?" },
       primes: primesTie(["add", "swap"], "remove the \"swap\" line: can single steps find primes that stay strangers?"),
-      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 3, tryThis: "change FAR = 3 to 5: bigger jumps to big corners." },
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can single steps raise the corners?" },
     },
   },
   {
@@ -260,8 +260,8 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       py: ["main = 0", "for i in [0, 1, 4, 5, 8, 9, 12, 13]:   # cell i and the cell two along", "    main -= abs(abs(b[i] - b[i + 2]) - 1)"],
     },
     tieBreakers: {
-      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line"], steps: 3, tryThis: "remove the \"line\" line: adding to a whole row keeps its leaps, can single cells do as well?" },
-      primes: primesTie(["add", "trade"], "change FAR = 2 to 3 so a trade can reach a prime further away (it thinks longer: mind the step limit).", 2),
+      "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line"], steps: 2, tryThis: "remove the \"line\" line: adding to a whole row keeps its leaps, can single cells do as well?" },
+      primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single cells reach the primes?", 2),
       zeros: zerosTie(["add", "line", "twin"], "remove the \"line\" line: is lowering two cells at a time enough?", 2),
     },
   },
@@ -273,9 +273,9 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       py: ["main = 0", "for i, j in [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]]:   # each cell and its fold partner", "    main -= abs(abs(b[i] - b[j]) - 3)"],
     },
     tieBreakers: {
-      "fold-line": { ts: "b[3] + b[6] + b[9] + b[12]", py: "b[3] + b[6] + b[9] + b[12]", says: "a bigger fold line (top-right to bottom-left) is better", lenses: ["add", "swap"], steps: 3, tryThis: "change FAR = 3 to 5: the fold line has no partner, so it can jump freely." },
+      "fold-line": { ts: "b[3] + b[6] + b[9] + b[12]", py: "b[3] + b[6] + b[9] + b[12]", says: "a bigger fold line (top-right to bottom-left) is better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can single steps raise the fold line?" },
       primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single steps find primes that stay 3 apart?", 2),
-      zeros: zerosTie(["add", "trade"], "change FAR = 2 to 3: a 0 folds onto a 3 (it thinks longer: mind the step limit).", 2),
+      zeros: zerosTie(["add", "trade"], "remove the \"trade\" line: can single steps still make the zeros?", 2),
     },
   },
   {
@@ -286,8 +286,8 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       py: ["main = 0", "for x in BOXES:   # each box: how far its total is from T", "    main -= abs(sum(b[i] for i in x) - p[\"T\"])"],
     },
     tieBreakers: {
-      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "box", "swap"], steps: 3, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
-      primes: primesTie(["add", "box", "trade"], "change FAR = 2 to 3 so a trade can reach a prime further away (it thinks longer: mind the step limit).", 2),
+      corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "box", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
+      primes: primesTie(["add", "box", "trade"], "remove the \"trade\" line: can single cells reach the primes?", 2),
       zeros: zerosTie(["add", "box", "trade"], "remove the \"box\" line: is fixing one cell at a time as cheap?", 2),
     },
   },

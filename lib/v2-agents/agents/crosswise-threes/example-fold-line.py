@@ -5,7 +5,7 @@
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 # a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
 # changes that keep them.
-# Try this: change FAR = 3 to 5: the fold line has no partner, so it can jump freely.
+# Try this: remove the "swap" line: can single steps raise the fold line?
 
 
 def score(b, p):
@@ -16,7 +16,7 @@ def score(b, p):
     return [main, b[3] + b[6] + b[9] + b[12]]   # main: how far each number and the number it folds onto are from 3 apart, added up (closer is better); tie-breaker: a bigger fold line (top-right to bottom-left) is better
 
 
-FAR = 3      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off

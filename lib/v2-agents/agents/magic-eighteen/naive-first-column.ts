@@ -13,7 +13,7 @@ function score(b, p) {
   return [main, b[0] + b[4] + b[8] + b[12]];   // main: how far the rows' totals are from T, added up (closer is better); tie-breaker: a bigger first column is better
 }
 
-const FAR = 2;      // how far one change may go
+const FAR = 1;      // how far one change may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const LINE = [], LINES = [];   // the rows and columns: their names, and their cells
 for (let i = 0; i < 4; i++) { LINE.push("row" + i, "col" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]); }

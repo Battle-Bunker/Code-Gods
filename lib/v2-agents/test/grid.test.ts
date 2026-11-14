@@ -333,6 +333,15 @@ test("the starters' TARGET settles a board at the agreed one, and PROTECT keeps 
   }
 });
 
+test("grid agents climb in small steps: FAR is at most 2 and no \"Try this\" suggests a bigger jump (a far move costs its path, #580)", () => {
+  for (const a of all) {
+    const far = Number(/FAR\s*=\s*(\d+)/.exec(a.source)?.[1]);
+    assert.ok(far >= 1 && far <= 2, `${a.family} ${a.title} (${a.language}): FAR = ${far}`);
+    const hint = /Try this: (.*)/.exec(a.source)?.[1] ?? "";
+    assert.doesNotMatch(hint, /FAR = \d+ to ([3-9]|\d\d)/, `${a.family} ${a.title}: ${hint}`);
+  }
+});
+
 test("the primer for grids lists the board's views and moves, says board, and shows a grid example", () => {
   const primer = agentPrimer(gridType);
   for (const r of gridType.representations) assert.ok(primer.includes(`- ${r.id}: `), r.id);

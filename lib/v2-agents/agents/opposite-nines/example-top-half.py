@@ -5,7 +5,7 @@
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
 # a note, so you can make a deal with that player. Where another player keeps lowering your points, it only makes
 # changes that keep them.
-# Try this: change FAR = 4 to 9: one balance move can carry a whole pair's total to the top.
+# Try this: remove the "balance" line: can single cells raise the top half without breaking the pairs?
 
 
 def score(b, p):
@@ -16,7 +16,7 @@ def score(b, p):
     return [main, sum(b[:8])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: a bigger top half is better
 
 
-FAR = 4      # how far one change may go
+FAR = 2      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 LEAVE = []      # boards you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # boards where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
