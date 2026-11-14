@@ -76,3 +76,13 @@ test("plane: two cited points at the same place get one label", async () => {
   const html = renderToStaticMarkup(<RepView type={lineType} state={s} rep="cart" size="expanded" marks={e.marks} terms={e.terms} />);
   assert.equal((html.match(/\(1, 4\)/g) ?? []).length - (html.match(/<title>[^<]*\(1, 4\)/g) ?? []).length, 1);
 });
+
+test("compact face: the main part's quantity, target and distance; a cited implicit coefficient is shown", async () => {
+  const { mMeetsC } = await import("@workspace/v2-linear");
+  const tri = { type: lineType, family: triangleArea, params: { A: 8 }, variant: lineQ };
+  assert.match(text(renderToStaticMarkup(<CompactFace rule={tri} state={mc(2, -6)} />)), /area 9, target 8 · off by 1/);
+  const mmc = { type: lineType, family: mMeetsC, params: {}, variant: lineQ };
+  const html = renderToStaticMarkup(<CompactFace rule={mmc} state={mc(1, 5)} />);
+  assert.match(text(html), /gradient 1, y-intercept 5 · off by 4/);
+  assert.match(html, /data-ref="si\.m"[^>]*>(<span[^>]*>)?<span class="v2v-implied">1<\/span>/);
+});
