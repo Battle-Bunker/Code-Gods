@@ -168,6 +168,6 @@ test("a room stored on the removed Int type still opens, and starting it says th
   const observation = await host.c.query(api.player.observation, { roomId });
   assert.equal(observation.instance, undefined, "no instance for a removed type");
   assert.equal((await host.c.query(api.rooms.get, { room: roomId })).settings.objectType, "Int");
-  const error = await host.c.action(api.owner.start, { roomId }).then(() => null, (e: any) => e);
+  const error = await host.c.action(api.owner.start, { roomId }).then(() => null, (e: any) => e); // start-result-ok: the start is refused, no game
   assert.ok(error && /Int object type was removed/.test(error.data?.message ?? error.message), String(error?.data?.message ?? error));
 });
