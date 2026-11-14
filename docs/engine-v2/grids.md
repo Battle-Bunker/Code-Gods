@@ -346,6 +346,12 @@ fixed: the act log and the overview said "line" in a grid game (now "changed a g
 results' "points on every line" (the app session's dock and words); on a phone, One line lists nine long
 representation chips before the board itself; agents are named after their tie-breaker ("0s on the board").
 
+**With bidding** (`GRID_SETUP=grids-beginner-bidding`, 14 November): the practice game opens the bid phase, offering the
+board's families. The walker bids 10% on the first one, presses "Done bidding" and is dealt that family on the board.
+The results say "after your bid's 10% handicap", and the deal does not rotate. Times: desktop bid at 2.2 s, seated
+2.5 s, first scoring move 10.8 s, end 36.6 s; phone bid 2.1 s, seated 2.3 s, first scoring move 13.4 s, end 36.4 s.
+`test/v2-bidding.test.ts` runs the server's bid contract on both bidding presets.
+
 ## 8. Decisions and judgment calls
 
 **The owner's, since the first draft:** decision 22 (keep the old beginner rules and every kind of grid rule; value what
