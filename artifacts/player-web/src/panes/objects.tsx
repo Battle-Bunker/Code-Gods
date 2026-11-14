@@ -7,7 +7,7 @@
  * and "Why?" from the rule's main part. Clicking a row opens it in One line (`view.openObject`). The order is the human's
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
-import { bitsText, num, pointsText, scoreFormula } from "@/core/words";
+import { bitsText, num, pointsText, scoreFormula, OTHERS_NOTE } from "@/core/words";
 import { useCallback, useMemo, type ReactNode } from "react";
 import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
@@ -58,6 +58,7 @@ function PointsKey() {
       <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
       <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
       <BitsHelp testId="button-bits-help-lines" />
+      <span className="basis-full" data-testid="text-others-note">{OTHERS_NOTE}</span>
     </p>
   );
 }

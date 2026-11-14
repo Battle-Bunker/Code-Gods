@@ -50,3 +50,17 @@ test("the entry names the other player when the moves say who moved, and both wh
   assert.ok(two.kind === "tug");
   assert.match(tugSentence(two), /your agent and the agents of Ada and Bo moved it .* Talk to Ada and Bo in chat about this line\.$/);
 });
+
+test("against practice partners or AI players only, the entry does not tell you to chat with them", () => {
+  const by = (name: string) => ({ memberId: name, name });
+  const tug = foldTugs([
+    { ...m(4, "L7", false, 30), by: by("Practice partner 1") }, { ...m(3, "L7", true, 28), by: by("Sam") },
+    { ...m(2, "L7", false, 26), by: by("Practice partner 1") }, { ...m(1, "L7", true, 24), by: by("Sam") },
+  ])[0]!;
+  assert.ok(tug.kind === "tug");
+  const kinds = new Map([["Practice partner 1", "practice"]]);
+  const s = tugSentence(tug, kinds);
+  assert.doesNotMatch(s, /Talk to/);
+  assert.match(s, /Practice partners do not read chat: with people, this is when you would talk to them\.$/);
+  assert.match(tugSentence(tug, new Map([["Practice partner 1", "human"]])), /Talk to Practice partner 1 in chat/);
+});

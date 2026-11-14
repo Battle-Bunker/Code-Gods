@@ -37,6 +37,11 @@ export const clock = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String
 export const SCORE_SENTENCE = "You score on a line when it's rare for you and rare for someone else at the same time: your rarity × theirs. Your total adds up all the lines.";
 /** Under a total: what it is made of. */
 export const TOTAL_NOTE = "Your total is the sum of your points on every line.";
+/** Beside the formula's "others' bits". */
+export const OTHERS_NOTE = "Others' bits: every other player's rarity on this line, added together. A line scores when it is rare for you and for them.";
+/** When the standings were counted (world seconds): a move's points join a total only at the next count. */
+export const countedNote = (worldSeconds: number | null | undefined): string | null =>
+  worldSeconds == null ? null : `Totals are counted every few seconds; this one at ${clock(worldSeconds)}, so a move's points join the total at the next count.`;
 /** Under the standings: the same for every player. */
 export const TOTALS_NOTE = "Each total is the sum of that player's points on every line.";
 /** After either note, when a won bid's handicap (the "−N%" beside a total) came off it. */
