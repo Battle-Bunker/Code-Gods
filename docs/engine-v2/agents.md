@@ -129,9 +129,8 @@ codes, spec §2.3), and the inserted tokens at their summon bits, with the old p
 identical program costs 0, and an edit never costs more than the new program's full summon price (sending it whole is
 always possible). A change of language is a full summon. Example: adding `if ([2, 9].includes(offer.object)) return null;`
 to Treasure's Simple starter costs about 18 ⚡; the whole program costs 404 ⚡. A new agent still pays the full summon
-price. **Not on the server yet:** `reprogram` (agent.replace, agent.putBack) still charges the full summon price, and
-`power.allocate` still normalises its shares; W3 is moving both to this page's semantics (edit price; absolute shares).
-Until then the seat prompt's edit price and power manoeuvre hold only in tables.
+price. **Not on the server yet:** `reprogram` (agent.replace, agent.putBack) still charges the full summon price; W3
+switches it to `editBits` once this lands. Until then the seat prompt's edit price holds only in tables.
 
 Prices of the shipped agents when this page was written:
 
@@ -306,8 +305,8 @@ v2-economy functions as the tick:
 - summons pay the full price, edits pay the edit price;
 - `movePower` moves energy with power.
 
-`power.allocate` takes absolute shares there (each a fraction of the player's power; the rest stays in the player's own
-store), the semantics proposed to W3 for the power manoeuvre. A model-backed seat takes a turn every 20 s with the
+`power.allocate` takes absolute shares (each a fraction of the player's power; the rest stays in the player's own
+store), as on the server. A model-backed seat takes a turn every 20 s with the
 server AI seat's system prompt (`aiSeatSystemPrompt`, `STRATEGY` included) and the affordance directory's assistant
 tools (`TABLE_TOOLS`: the game, standings, rule, objects, moves, chat, agents, programs, check, summon, replace and
 power), answered from the table's state; every result is

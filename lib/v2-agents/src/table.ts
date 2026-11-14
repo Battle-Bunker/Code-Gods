@@ -7,9 +7,8 @@
  * through the affordance directory's assistant tools (the server AI seat's tool names, inputs and result shapes),
  * answered from the table's state. Chat is public; rules stay secret.
  *
- * Differences from the server, on purpose: one process, no wall clock (world time advances a tick at a time), and
- * `power.allocate` takes absolute shares (each a fraction of the player's power; the rest stays in the player's own
- * store), the semantics proposed for the power manoeuvre.
+ * Differences from the server: one process, no wall clock (world time advances a tick at a time), lines numbered from 0
+ * (objectId and number are the index, which is the agent's offer.object), and replaces already pay the edit price.
  *
  * It reports, per seat, points gained (spec §8), the energy its gains cost that another seat then took back, what it
  * spent on acts, summons and edits, messages, proposals and tool calls; per table, deals read from the chat (`deals`).
@@ -281,7 +280,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "objects.list": {
           const lastMove = lines.map(() => -1);
           for (const m of log) lastMove[m.object] = m.seq;
-          const rows = lines.map((s, j) => ({ objectId: String(j), level: v.level(s), points: points[j]![i]!, recent: lastMove[j]! }));
+          const rows = lines.map((s, j) => ({ objectId: String(j), number: j, level: v.level(s), points: points[j]![i]!, recent: lastMove[j]! }));
           const key = args.sort === "level" ? "level" : args.sort === "recent" ? "recent" : "points";
           rows.sort((x, y) => y[key] - x[key]);
           return pageOf(rows.map(({ recent: _r, ...row }) => row), args);
@@ -296,11 +295,11 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         case "object.score": {
           const j = objectArg(args), s = lines[j]!;
           const score = v.scoreOf(s);
-          return { score: score === null ? null : scoreToWire(score), level: v.level(s), top: Math.max(0, v.rungs.length - 1), terms: [], rarityBits: v.bits(s), points: points[j]![i]! };
+          return { score: score === null ? null : scoreToWire(score), number: j, level: v.level(s), top: Math.max(0, v.rungs.length - 1), terms: [], rarityBits: v.bits(s), points: points[j]![i]! };
         }
         case "moves.list": {
           const rows = log.filter(m => m.by === i || m.before[i] !== m.after[i]).reverse().map(m => ({
-            seq: m.seq, objectId: String(m.object), agentId: m.by === i ? m.agentId : null, mine: m.by === i,
+            seq: m.seq, objectId: String(m.object), number: m.object, agentId: m.by === i ? m.agentId : null, mine: m.by === i,
             calls: m.record.calls.map(c => ({ mutator: c.mutator, args: c.args, ...(c.site ? { site: c.site } : {}) })),
             pointsBefore: m.before[i]!, pointsAfter: m.after[i]!, charge: m.by === i ? m.charge : null,
           }));

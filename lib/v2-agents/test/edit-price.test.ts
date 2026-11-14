@@ -43,7 +43,7 @@ test("deleting costs where and how much, not what is deleted; the price is in en
   assert.notEqual(without, simple);
   const del = editBits("typescript", simple, without);
   assert.ok(del.bits > 0 && del.bits < 30, `${del.bits}`);
-  assert.equal(del.energy, del.bits * summonBits("typescript", "x").energy / summonBits("typescript", "x").bits);
+  assert.ok(Math.abs(del.energy - del.bits * summonBits("typescript", "x").energy / summonBits("typescript", "x").bits) < 1e-9);
 });
 
 test("a rewrite too big to diff in bounded memory is priced as a new program; a shared start and end cost nothing", () => {

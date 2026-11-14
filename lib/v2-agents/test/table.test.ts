@@ -43,7 +43,7 @@ test("model seats play through the directory's tools on the server's economy: th
   const bo: MockStep[][] = [[{ tools: [t("chat.list")] }, { text: "Waiting." }], [{ tools: [t("chat.send", { text: "Deal! Line 2 it is." })] }, { text: "Accepted." }]];
   const report = await runTable(boxes, {
     type: lineType, variant: lineZ, lines: 6, seed: "t", seconds: 24,
-    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "last-prime"), seat("Cy", "naive", "prime-landing", "big-prime")],
+    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "first-prime"), seat("Cy", "naive", "prime-landing", "big-prime")],
     model: { provider: (p => (name: string) => p[name === "Ada" ? 0 : 1]!)([perTurn(ada), perTurn(bo)]), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
   });
   const [a, b, c] = report.seats;
