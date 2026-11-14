@@ -3,7 +3,7 @@
  * a score's bits. Bundled by scripts/gen-v2-artefacts.mjs; no calibration runs on the server.
  */
 import type { Score } from "@workspace/v2-core";
-import { bitsFor, type Artefact } from "@workspace/v2-valuation";
+import { bitsFor, type Artefact, type Tail } from "@workspace/v2-valuation";
 import { ARTEFACT_RECORDS } from "./artefacts.gen.ts";
 
 export interface ArtefactRecord {
@@ -15,6 +15,9 @@ export interface ArtefactRecord {
   status: "converged" | "unconverged" | "unreachable" | "flagged" | "too-coarse" | string;
   /** The dealt ladder's top rung: lines above it score as it (call (g)). */
   cap: number;
+  /** The last measured, converged rung; rungs above it up to the cap take the fitted tail's values (rungBits). */
+  convergedCap: number;
+  tail: Tail | null;
   dealable: boolean;
   primarySense: "min" | "max";
   curve: Artefact["curve"];
