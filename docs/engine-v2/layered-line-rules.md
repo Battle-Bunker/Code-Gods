@@ -1499,3 +1499,48 @@ cheaper than the primary's next step, so a deep ladder is a cheap whole-number c
 But D's tops need re-measuring under mixed costing and graded rungs. Several of D's rungs are still yes/no (Congruent
 Corner's primary, Circle Kiss's three-level primary, Square Steps' and Cyclic Decimal's indicator secondaries), so they
 fail the owner's graded-rung rule as written.
+
+### 9.5 The last pass: Square Area's prime-climbing secondaries, and D in the second pool
+
+Mixed code, height 100. "Joint top" is the value where the primary and the secondary are both at their top rungs.
+"Effective" counts levels that add at least ¼ bit. The full output is in
+[scripts/layered-second-results-mixed.md](scripts/layered-second-results-mixed.md) and
+[scripts/layered-beginner-results-mixed.md](scripts/layered-beginner-results-mixed.md).
+
+**Square Area (owner's example 2) gets its reach back.** Under mixed costing its root-factors secondary climbs through
+cheap smooth numbers (13.0 bits). Three prime-climbing candidates are added to the family:
+
+| Secondary (card) | Lens | Effective / levels | Bits per level with the primary at its top | Joint top |
+|---|---|---|---|--:|
+| That square's root's smallest prime factor should be as big as possible. | factor tree | 13 / 15 | 7.1 8.5 10.0 11.4 13.2 14.5 16.4 17.7 19.9 22.6 24.1 26.8 28.6 30.0 32.3 (spf ≥ 2 … 47) | 32.3 |
+| That square's root's biggest prime factor should be as big as possible. | factor tree | 13 / 15 | 7.1 7.7 8.9 10.3 12.4 13.8 15.9 17.2 19.4 22.6 24.1 26.8 28.6 30.0 32.3 | 32.3 |
+| Both legs should be as close as possible to primes (distances added). | intercept triangle | 5 / 6 | 6.6 6.9 7.6 17.0 (a wall at exact primes) | 17.0 |
+
+Capped at a root with smallest prime factor ≥ 23 (19.9 bits) or ≥ 29 (22.6 bits), Square Area sits in the band again.
+It does so in steps of 1.3 to 2.7 bits, the smoothest ladder of the beginner pool. Its first secondary for dealing
+should now be the smallest prime factor of the root. Root factors stays as an alternative for rooms with a lower band.
+
+**Brainstorm D in the second pool**, regraded as one primary plus several secondaries. Where D's primary was coarse
+once graded, a stronger graded quantity of the same family became the primary:
+
+| Family | Primary (card) | Primary levels (effective) | Secondaries: joint top (bits); not dealt in italics |
+|---|---|--:|---|
+| **Coin Line** (D §9) | "Reading the line as a·x + b·y = c (coins worth a and b), c should be as close as possible to a·b − a − b, the biggest amount those coins cannot pay." | 7 | c as big as possible 22.8 (9 effective); coins as close as possible to primes 10.9; *no way to pay c 10.8 (earns nothing: the Frobenius number is never payable)* |
+| **Parabola Chord** (D §16) | "The line cuts y = x² twice: both crossing x-values should be as close as possible to primes." | 6 | chord as wide as possible 24.2 (9 effective); gradient as close as possible to a prime 12.9; *m² + 4c near a square 7.7 (earns nothing: prime crossings are whole)* |
+| **Divisibility Ladder** (D §11) | "(Not through the origin.) y(1) should be a multiple of 1, y(2) of 2, …: the run should be as long as possible." | 5 | gradient as close as possible to a prime 14.6; the first failure as close as possible to a multiple 10.8; *smallest y-intercept: box-limited* |
+| **Pythagoras' Corner** (D §6, regraded) | "The legs should be as close as possible to whole numbers and the slanted side squared as close as possible to a square (distances added)." | 7 | slanted side as long as possible 16.8; slanted side as close as possible to a prime 13.7; *legs sharing a small factor 13.7 (earns nothing: 3-4-5 is already primitive)* |
+
+The second pool of §7.5 gains these four. Coin Line and Parabola Chord are its smoothest new ladders.
+
+**D's finding against these measurements.** D: "a tie-break earns bits only if cheaper than the next primary step".
+Under ungated scoring the same rule shows up as follows: a secondary earns nothing at the top when the primary's top
+already settles it. Three cases measured above are exact instances:
+
+- the Frobenius number is never payable, so "no way to pay" adds nothing;
+- prime crossings are whole, so "m² + 4c near a square" adds nothing;
+- 3-4-5 is already primitive, so "legs sharing a small factor" adds nothing.
+
+Below the primary's top, though, an ungated secondary still orders lines and earns bits. D's recipe for depth holds for
+the joint top: a cheap whole-number condition, then a multiplicative sieve, then "larger" last. Coin Line × big bill and
+Parabola Chord × wide chord are that recipe as two rungs: the primary is the condition and sieve, the secondary is
+"larger".
