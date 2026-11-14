@@ -26,6 +26,8 @@ export interface Move<S> {
   readonly changes: readonly string[];
   /** The line after the move, written: "y = 6x + 24". */
   readonly text: string;
+  /** Why it is listed: "the cheapest for the main part", "the cheapest for the tie-breaker", "the most rarity per ⚡". */
+  readonly reason: string;
 }
 
 export interface MovesOptions {
@@ -60,14 +62,15 @@ export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) =>
     for (let site = 0; site < (m.perSite ? k : 1); site++) for (const a of args) cands.push({ m, site, a, base: code.bits(a) });
   }
   cands.sort((x, y) => x.base - y.base);
-  const found: Omit<Move<S>, "changes" | "words" | "text">[] = [];
+  const found: Omit<Move<S>, "changes" | "words" | "text" | "reason">[] = [];
   const meta = new Map<object, { m: Mutator<unknown, unknown>; a: unknown }>();
   const want = opts.k ?? 3;
   let tried = 0;
   for (const c of cands) {
     if (tried >= budget.evaluations) break;
     // Enough of the frontier is found and every later call costs at least as much as its last move.
-    if (found.length >= want) {
+    // (A move for the main part, when one exists, is worth the search: the varied list leads with it.)
+    if (found.length >= want && found.some(f => compareScores(f.utility === null ? null : [f.utility[0] ?? null], u0 === null ? null : [u0[0] ?? null]) > 0)) {
       const f = frontierOf(found, better);
       if (f.length >= want && c.base >= f[want - 1]!.price.total) break;
     }
@@ -84,11 +87,41 @@ export function moves<S, P>(rule: RuleRef<S, P>, state: S, value: ((u: Score) =>
     found.push(f);
   }
   const was = contributors(rule, state).parts;
-  return frontierOf(found, better).slice(0, want).map(f => {
+  return varied(found, u0, before, want, f => meta.get(f)!.m.id, better).map(({ f, reason }) => {
     const { m, a } = meta.get(f)!;
     const changes = changesBetween(was, contributors(rule, f.after).parts);
-    return { ...f, words: wordsOf(type, m, a, f.after), changes, text: repText(type, f.after, chipRep(type, f.after)) };
+    return { ...f, words: wordsOf(type, m, a, f.after), changes, text: repText(type, f.after, chipRep(type, f.after)), reason };
   });
+}
+
+/**
+ * A varied list (coordinator, from real games: three "multiply every output by 4, 16, 64"): the cheapest move that
+ * improves the main part, the cheapest that improves the tie-breaker without hurting the main part, then the most
+ * rarity per ⚡; at most one move of each kind; filled from the price/bits frontier if short.
+ */
+function varied<F extends Found>(found: readonly F[], u0: Score, before: number | null, want: number, kindOf: (f: F) => string,
+  better: (u: Score, bits: number | null, than: Found) => boolean): { f: F; reason: string }[] {
+  const byPrice = [...found].sort((a, b) => a.price.total - b.price.total || (b.bits ?? 0) - (a.bits ?? 0));
+  const part = (u: Score, i: number): Score => (u === null ? null : [u[i] ?? null]);
+  const improves = (f: F, i: number) => compareScores(part(f.utility, i), part(u0, i)) > 0;
+  const keeps = (f: F, i: number) => compareScores(part(f.utility, i), part(u0, i)) >= 0;
+  const out: { f: F; reason: string }[] = [];
+  const kinds = new Set<string>();
+  const take = (f: F | undefined, reason: string) => {
+    if (!f || out.length >= want || out.some(o => o.f === f) || kinds.has(kindOf(f))) return;
+    out.push({ f, reason });
+    kinds.add(kindOf(f));
+  };
+  take(byPrice.find(f => improves(f, 0)), "the cheapest for the main part");
+  take(byPrice.find(f => !kinds.has(kindOf(f)) && keeps(f, 0) && improves(f, 1)), "the cheapest for the tie-breaker");
+  if (before !== null) {
+    const perEnergy = (f: F) => ((f.bits ?? before) - before) / Math.max(f.price.total, 1e-9);
+    // One move for this reason: the best value that is not already listed (or of a kind already listed).
+    take([...found].sort((a, b) => perEnergy(b) - perEnergy(a)).find(f => !out.some(o => o.f === f) && !kinds.has(kindOf(f))), "the most rarity per ⚡");
+  }
+  const fill = ["rarer still", "rarer again", "rarest on offer"];
+  for (const f of frontierOf(found, better)) take(f, fill[out.filter(o => fill.includes(o.reason)).length] ?? "rarer again");
+  return out;
 }
 
 type Found = { price: Price; utility: Score; bits: number | null };

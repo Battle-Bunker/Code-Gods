@@ -381,3 +381,6 @@
 .v2v-summary-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .v2v-summary-note { margin: 0; color: var(--v2v-muted); font-size: 12px; }
 .v2v-summary-next { margin: 0; padding: 6px 10px; border-left: 4px solid var(--v2v-main, var(--v2v-rule)); background: var(--v2v-card); font-weight: 600; }
+.v2v-move-reason { grid-column: 1 / -1; font-size: 11px; color: var(--v2v-muted); font-style: italic; }
+.v2v-plane .inset-label { font-size: 9px; fill: var(--v2v-ink); }
+.v2v-rep[data-size="expanded"] .v2v-plane .inset-label { font-size: 10px; }

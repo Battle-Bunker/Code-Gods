@@ -242,7 +242,16 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
 export function contributorsOf<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, site = 0): Contributor[] {
   const tb = rule.tieBreaker === undefined ? rule.family.tieBreakers[0] : rule.family.tieBreakers.find(t => t.id === rule.tieBreaker);
   const layers = [rule.family.main, ...(tb ? [tb] : [])];
-  return layers.slice(0, e.components.length).map((l, i) => contributor(rule, state, e, i, l, site));
+  const parts = layers.slice(0, e.components.length).map((l, i) => contributor(rule, state, e, i, l, site));
+  // A tie-breaker that reads the main part's reference (the whole number the crossing is measured to) says so: the
+  // number then carries the main part's target and the tie-breaker's input, and the line explains both.
+  const ref = parts[0]?.reference;
+  if (!ref) return parts;
+  const k = refKey({ ...ref.ref, site: undefined });
+  const of = ` (of ${ref.text}, the ${labelOf(rule as RuleRef<S, unknown>, ref.ref).replace(/^the /, "")} the main part is measured to)`;
+  return parts.map((p, i) => (i > 0 && p.source.some(x => refKey({ ...x.ref, site: undefined }) === k)
+    ? { ...p, sentence: p.sentence.replace(/^([^:]+): /, `$1${of}: `) }
+    : p));
 }
 
 /** The contributors of a rule on one line of a state. */

@@ -115,7 +115,7 @@ function overlaps(a: Rect, b: Rect): boolean { return a.x < b.x + b.w && b.x < a
 
 /** Where a too-thin region's schematic is drawn: the top-right corner. */
 export function insetBox(box: { w: number; h: number }, compact: boolean): Rect {
-  const w = compact ? 44 : 84, h = compact ? 34 : 60;
+  const w = compact ? 50 : 120, h = compact ? 40 : 66;
   return { x: box.w - w - 4, y: 4, w, h };
 }
 
@@ -397,12 +397,17 @@ function Scene({ p }: { p: P }) {
       const ib = insetBox(v.box, p.size === "compact"), IW = ib.w, IH = ib.h, X = ib.x, Y = ib.y, m = 6;
       const ws = L.region.world, xs = ws.map(w => w.x), ys = ws.map(w => w.y);
       const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-      const pts = ws.map(w => `${X + m + ((w.x - x0) / (x1 - x0 || 1)) * (IW - 2 * m)},${Y + m + ((y1 - w.y) / (y1 - y0 || 1)) * (IH - 2 * m - (p.size === "compact" ? 0 : 10))}`).join(" ");
+      // Room for a line of words under the stretched triangle, in both sizes: an inset with no words read as an empty box.
+      const foot = p.size === "compact" ? 9 : 11;
+      const at = ws.map(w => ({ x: X + m + ((w.x - x0) / (x1 - x0 || 1)) * (IW - 2 * m), y: Y + m + ((y1 - w.y) / (y1 - y0 || 1)) * (IH - 2 * m - foot) }));
+      const [o, xi, yi] = at;
       front.push(
         <g key="inset" className="inset">
           <rect className="inset-box" x={X} y={Y} width={IW} height={IH} />
-          <polygon className="region" points={pts} {...elAttrs(q, L.region.ref)} {...hover(q, L.region.ref)}><title>{`${p.labelOf(L.region.ref)}: ${val} (drawn not to scale)`}</title></polygon>
-          {p.size === "expanded" && <text className="note" x={X + 3} y={Y + IH - 3}>not to scale</text>}
+          <polygon className="region" points={at.map(c => `${c.x},${c.y}`).join(" ")} {...elAttrs(q, L.region.ref)} {...hover(q, L.region.ref)}><title>{`${p.labelOf(L.region.ref)}: ${val} (drawn not to scale)`}</title></polygon>
+          <line className="leg" x1={o!.x} y1={o!.y} x2={xi!.x} y2={xi!.y} />
+          <line className="leg" x1={o!.x} y1={o!.y} x2={yi!.x} y2={yi!.y} />
+          <text className="note inset-label" x={X + 3} y={Y + IH - 3}>{p.size === "compact" ? val : `area ${val}, not to scale`}</text>
         </g>,
       );
     }
