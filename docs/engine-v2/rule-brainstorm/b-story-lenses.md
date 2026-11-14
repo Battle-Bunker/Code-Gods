@@ -29,6 +29,9 @@ Relayed by the coordinator after the first version (PR #350):
    eight (§5) are now the **beginner set** (§1): a primary in textbook words, marked **core** (curriculum) or
    **stretch** (what the child would look up), with the topic it practises, and exactly **one** secondary. The longer
    ladders of §2 are the **second pool**; for the beginner families they are second-pool variants.
+3. *"I said I don't want tertiary preferences but I will want several secondary rule candidates within each family,"*
+   with the coordinator's provisional call of no gating. Each beginner family now lists three to five graded candidate
+   secondaries, each measured paired with the primary on ungated lines (§1.0); a dealt rule takes one.
 
 ## 0. Conventions used by every family
 
@@ -49,9 +52,11 @@ unbucketed secondary would only matter at the very top):
 This is the spec's tie-break lever (§7.8, item 3), applied systematically. It also keeps every score a tuple of small
 integers, which is what the card shows ("rung 6 of 8, then 3, then ...").
 
-**Story gates.** Several stories only make sense for some lines (a draining tank needs c > 0 and m < 0). Outside the
-gate the score is WORST, with the gate's sentence as the reason ("this tank is not draining"). The census below says how
-much of the cheap centre each gate cuts off.
+**Story gates (superseded for the beginner set).** In the first version several stories only made sense for some lines
+(a draining tank needs c > 0 and m < 0), and outside the gate the score was WORST. The coordinator has since called for
+no gating (provisional); §1.0 removes the gates from the beginner set and measures the result. The second-pool families
+of §2 still show their gates and gated census figures; if the call stands they are ungated the same way (the story's
+"no answer" becomes the primary's worst rung).
 
 **Helpers.** `dZ(x)` is the distance from x to the nearest integer. "Nearest positive integer" N of x is 1 if x < 1, and
 otherwise the nearer integer, ties to the smaller. `dPrime`, `dSq`, `dTri` are distances to the nearest prime (≥ 2),
@@ -70,14 +75,14 @@ the first drafts of four families were topped by the flat line y = 0 or by a run
 
 ---
 
-## 1. The beginner set: one primary, one secondary
+## 1. The beginner set: one primary, several candidate secondaries
 
 The top eight (§5), each cut to two rungs. The primary uses what a first school course on linear equations teaches, or
 what a keen 12-year-old could look up ("stretch"); the secondary may be more advanced. Distances are rungs on the Q
-ladder (at most 9 levels, 0 to 8). Scores are `[P, S]`. Census figures are the crude rarities of §0 for the two-rung score.
+ladder (at most 9 levels, 0 to 8). Scores are `[P, S]`. Census figures in 1.1 to 1.8 are the crude rarities of §0 for the two-rung score with the first revision's gates; §1.0 gives the ungated figures.
 The full stories, cards and collisions are in §2; the second-pool ladders there keep these primaries.
 
-| # | Family | Primary, in textbook words | Curriculum topic | Level | The one secondary | Levels (P, S) |
+| # | Family | Primary, in textbook words | Curriculum topic | Level | Default secondary (others: §1.0) | Levels (P, S) |
 |---|---|---|---|---|---|---|
 | 1 | Matchstick Chains | Pattern 0 (before any shapes are built) has exactly one stick. | nth term of a sequence; the zeroth term is the y-intercept | core | the shapes have a prime number of sides, at least a triangle | 9, 9 |
 | 2 | Steady vs Doubling | In some week from 1 to 8 the steady plan pays exactly what the doubling plan pays. | tables of values, substituting x; powers of 2 | stretch | it happens in a second week too | 9, 9 |
@@ -94,6 +99,126 @@ on the Q ladder it only reaches rungs 5 to 8 (4 levels); a sum of two such dista
 ladder thresholds `1, 1/2, 1/4, 1/8, 1/16, 1/32, 1/64, 0` (spec §4.4 lets a family declare its ladder), which gives
 them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's change is whole pence (rungs for 0p,
 1p, 2p, 3–4p, 5–8p, more: 6 levels), and so is its distance to prime prices.
+
+### 1.0 No gates, and several candidate secondaries per family
+
+A later correction relayed by the curator: *"I said I don't want tertiary preferences but I will want several secondary
+rule candidates within each family."* A beginner **family** is one primary plus several graded candidate secondaries; a
+**dealt rule** is the primary plus one of them, two rungs deep. The coordinator's provisional call is also applied
+here: **no gating**. The score is a plain lexicographic tuple `[rung(P), S]` defined on every line; where a story has
+no answer (a level line never empties a tank), the primary takes its worst rung, a value like any other, not WORST.
+
+**The primaries without gates** (run `scripts/b_story_lenses.py --candidates`):
+
+| Family | Ungated primary | What changed |
+|---|---|---|
+| Matchstick Chains | rung(\|c − 1\|) | nothing (it had no gate) |
+| Steady vs Doubling | rung(min over n = 1..8 of \|y(n) − 2ⁿ\|) | nothing |
+| Shopping Baskets | prices A = \|a\|, B = b, budget C = \|c₀\| of the primitive a·x + b·y + c₀ = 0; rung of the least change (or the shortfall) | signs read as sizes; a level line is "apples are free" (A = 0) |
+| Same Reading | rung(dZ(c/(1 − m))); m = 1 (the scales never agree) is rung 0 | falling and level "scales" are allowed |
+| Ladder Against the Wall | rung(D(legX) + D(legY)), D = distance to the nearest **positive** whole number; a level line's leg is 0 | the ladder must stand at least 1 m from the corner, so a line through the origin is not free |
+| Savings Goal | rung(D((100 − c)/m)); m = 0 is rung 0 | none needed beyond m = 0 |
+| Empty Tank | rung(D(−c/m)), the line meets the time axis at a whole positive minute; m = 0 is rung 0 | a rising line reads as "a tank filling from empty": its x-intercept is when it was empty |
+| Price per Minute | rung(dZ(y(10)/10)) | negative fees and rates are allowed |
+
+Removing the gates makes three primaries much cheaper at the centre: Same Reading (~0.7 bits: y = 0 "agrees" at 0),
+Price per Minute (~1.6 bits) and Shopping (~2.1 bits: y = 1 is free apples and 1p bananas). Their value then comes from
+the secondary, which is why each needs at least one strong candidate.
+
+**The candidates, each measured paired with its primary.** For each candidate: the best pair `[P, S]` found in the
+census box, its crude rarity in bits (and how many bits it adds over the primary's top alone), the cheapest line that
+reaches it, and the number of distinct levels the secondary showed. Candidates marked ★ are my recommended default;
+candidates adding about a bit or less over the primary are listed under "weak" and should not be dealt (most are
+satisfied for free by y = 0, y = x or y = 2x).
+
+**1. Matchstick Chains** (primary top ~3.5 bits, cheapest y = 1)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| ★ the shapes have a prime number of sides, a triangle or more: D9(m + 1 to an odd prime) | [8, 8] | 7.8 (+4.3) | y = 2x + 1 | 9 |
+| each new shape adds a whole number of sticks, at least 2 | [8, 8] | 6.7 (+3.2) | y = 3x + 1 | 9 |
+| pattern 10 uses a prime number of sticks: dPrime(10m + c) | [8, 8] | 6.0 (+2.5) | y = x + 1 | 9 |
+| pattern 10 uses a square number of sticks: dSq(10m + c) | [8, 8] | 4.5 (+1.0) | y = 1 | 9 |
+
+**2. Steady vs Doubling** (primary top ~4.2 bits, cheapest y = 2x)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| the weeks the steady plan pays more (count, 0 to 8) | [8, 6] | 22.5 (+18.4) | y = 16x + 16 | 7 |
+| ★ it happens in a second week too: the second-smallest gap | [8, 8] | 6.2 (+2.0) | y = 2x | 9 |
+| the raise is a prime number of pounds: dPrime(m) | [8, 8] | 6.0 (+1.8) | y = 2x | 9 |
+| week 8's steady pay is a square number: dSq(y(8)) | [8, 8] | 5.4 (+1.2) | y = 2x | 9 |
+| weak: the raise is whole pounds; week 0's pay is whole pounds | [8, 8] | 4.3 (+0.1) | y = 2x | 4 |
+
+The count is the strongest but its top lies far out (y = 16x + 16 meets 2ⁿ in week 7, 128, and pays more in weeks 1 to 6);
+the second-week gap is the gentle default.
+
+**3. Shopping Baskets** (primary top ~2.1 bits, cheapest y = 1, "free apples")
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| the number of exact baskets (count) | [8, 15] | 12.5 (+10.4) | y = x + 16 | 16 |
+| ★ both prices are prime: dPrime(A) + dPrime(B) | [8, 8] | 9.1 (+7.0) | y = 3/2x + 7/2 (3x − 2y + 7 = 0: 3p and 2p, 7p) | 4 |
+| a basket with twice as many bananas as apples: dZ(C/(A + 2B)) | [8, 8] | 4.1 (+2.0) | y = 2 | 4 |
+| the budget is a square number: dSq(C) | [8, 8] | 3.3 (+1.2) | y = 1 | 4 |
+| the budget is a prime number of pence: dPrime(C) | [8, 8] | 3.3 (+1.2) | y = 3 | 3 |
+| weak: a basket with as many apples as bananas | [8, 8] | 2.4 (+0.2) | y = 1 | 4 |
+
+The count runs away with the budget on unit prices (y = x + 16 is x − y + 16 = 0: 1p apples, 1p bananas, 16p, fifteen
+baskets), so prime prices stay the default.
+
+**4. Same Reading** (primary top ~0.7 bits, cheapest y = 0)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| ★ the agreeing number has many prime factors: Ω, capped at 6 | [8, 4] in the box | 11.3 (+10.6) | y = 16 | 5 seen (7 with the cap) |
+| the multiplier is a prime number: dPrime(m) | [8, 8] | 4.6 (+3.9) | y = 3x | 9 |
+| they agree below freezing: distance to −1, −2, ... | [8, 8] | 3.2 (+2.5) | y = −1 | 9 |
+| weak: a simple multiplier; agree at a round ten; a whole multiplier | — | 1.1 to 1.6 (+0.4 to +0.9) | y = 0 | 4 to 20 |
+
+Without the gate, Ω's cheapest top is the level line y = 16 (it "agrees" at 16 = 2⁴). Pairing Ω with the multiplier
+being prime (a second-pool ladder) would push the top back to y = 2x + 16.
+
+**5. Ladder Against the Wall** (primary top ~3.3 bits, cheapest y = x + 1)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| ★ the ladder is a whole number of metres long: dSq(legX² + legY²) | [8, 8] | 15.5 (+12.2) | y = 4/3x + 4 | 9 |
+| the one-out-for-four-up safety rule: \|\|m\| − 4\| | [8, 8] | 11.9 (+8.6) | y = 4x + 4 | 8 |
+| the triangle's area is a whole number | [8, 8] | 5.0 (+1.7) | y = x + 2 | 4 |
+| the top is at a prime height: dPrime(\|c\|) | [8, 8] | 4.7 (+1.4) | y = x + 3 | 6 |
+
+**6. Savings Goal** (primary top ~2.4 bits, cheapest y = x)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| you save a prime number of pounds a week: dPrime(m) | [8, 8] | 5.6 (+3.2) | y = 2x | 9 |
+| ★ you started with one real coin (pence to the nearest coin) | [8, 8] | 5.4 (+3.0) | y = x + 1 | 6 |
+| the number of weeks is a square number | [8, 8] | 4.3 (+1.9) | y = x | 6 |
+| the goal ends a four-week month | [8, 8] | 3.5 (+1.1) | y = x | 3 |
+| weak: you save one real coin a week | [8, 8] | 3.0 (+0.6) | y = x | 6 |
+
+**7. Empty Tank** (primary top ~3.6 bits, cheapest y = x − 1)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| ★ the minute's smallest prime factor, capped at 13 | [8, 13] | 10.6 (+7.0) | y = x − 13 | 7 |
+| it starts with a prime number of litres: dPrime(c) | [8, 8] | 6.7 (+3.2) | y = −x + 3 | 9 |
+| it starts with a square number of litres: dSq(c) | [8, 8] | 6.2 (+2.6) | y = −x + 1 | 9 |
+| it is half empty at a whole minute too: dZ(T/2) | [8, 8] | 5.7 (+2.1) | y = x − 2 | 4 |
+| weak: it drains a whole number of litres a minute | [8, −1] | 4.5 (+0.9) | y = x − 1 | 12 |
+
+**8. Price per Minute** (primary top ~1.6 bits, cheapest y = 0)
+
+| Candidate secondary | Best pair | Bits (+ over P) | Cheapest top | Levels |
+|---|---|---|---|---|
+| ★ the fee adds a whole number of pence, at least 1p, to each minute: D(c/10) | [8, 8] | 9.6 (+8.0) | y = 10 | 7 |
+| the average is a prime number of pence | [8, 8] | 5.1 (+3.6) | y = 3x | 9 |
+| the rate is a prime number of pence a minute | [8, 8] | 5.1 (+3.6) | y = 3x | 9 |
+| weak: a 10-minute call costs a square number of pence (+1.0); whole on a 20-minute call too (+0.0); whole averages for 1 to 10 minutes (+0.0) | — | 1.6 to 2.5 | y = 0 | 4 to 9 |
+
+Every family keeps at least three candidates that add more than a bit. The ★ default is the one used in the examples
+below (1.1 to 1.8), whose gate sentences are superseded by this subsection.
 
 ### 1.1 Matchstick Chains (core)
 
@@ -117,7 +242,7 @@ them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's c
 
 ### 1.3 Shopping Baskets (stretch: whole-number solutions)
 
-- Line A·x + B·y = C (`gen`), gate A, C > 0. **P** = rung(least change C − A·x − B·y over whole x, y ≥ 1 with
+- Line A·x + B·y = C (`gen`), (gated in the first revision; ungated in §1.0). **P** = rung(least change C − A·x − B·y over whole x, y ≥ 1 with
   A·x + B·y ≤ C; if one of each costs more than C, the shortfall A + B − C). **S** = rung(dPrime(A) + dPrime(B)).
 - Good: 2x + 3y = 25, no change (e.g. 5 and 5), prime prices, [8, 8]. Middling: x + y = 5, [8, 3] (1p is not prime).
   Bad: 4x + 6y = 15, the best basket (2, 1) costs 14p and leaves 1p; 4 and 6 are each 1 from a prime: [4, 3].
@@ -126,7 +251,7 @@ them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's c
 
 ### 1.4 Same Reading (core: solving a linear equation)
 
-- Gate m > 0, m ≠ 1. **P** = rung(dZ(c/(1 − m))). **S** = Ω(|n|), n the nearest integer to the agreeing reading,
+- (First revision's gate m > 0, m ≠ 1; ungated in §1.0.) **P** = rung(dZ(c/(1 − m))). **S** = Ω(|n|), n the nearest integer to the agreeing reading,
   capped at 6.
 - Good: y = 2x + 40 and the real y = 9/5x + 32 both agree at −40 = −2³·5: [8, 4]. Bad: y = 1/2x + 1/3 agrees at 2/3,
   [5, 0].
@@ -136,7 +261,7 @@ them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's c
 
 ### 1.5 Ladder Against the Wall (core: intercepts)
 
-- Gate m, c ≠ 0. **P** = rung(dZ(legX) + dZ(legY)). **S** = rung(dSq(legX² + legY²)).
+- (First revision's gate m, c ≠ 0; ungated in §1.0.) **P** = rung(dZ(legX) + dZ(legY)). **S** = rung(dSq(legX² + legY²)).
 - Good: y = −4/3x + 4, legs 3 and 4, length 5: [8, 8]. Middling: y = −x + 3, length² 18 (2 from 16): [8, 3]. Bad:
   y = −2/5x + 7/3, legs 35/6 and 7/3: [5, 2].
 - Census: P top ~3.3 bits; [8, 8] ~15.5 bits (the 3-4-5 ladders). The steepest beginner climb: the secondary is the
@@ -145,7 +270,7 @@ them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's c
 
 ### 1.6 Savings Goal (core: rate and starting amount)
 
-- Gate m ≠ 0, goal T = 100. **P** = rung(|W − N|), W = (100 − c)/m. **S** = rung(distance from 100·c to the nearest
+- Goal T = 100 (m = 0: rung 0, §1.0). **P** = rung(|W − N|), W = (100 − c)/m. **S** = rung(distance from 100·c to the nearest
   coin in pence: 1, 2, 5, 10, 20, 50, 100, 200).
 - Good: y = 1/2x + 2, 196 weeks, starting with a £2 coin: [8, 8]. Middling: y = x (start with nothing, 1p from a
   coin): [8, 4]. Bad: y = 3x + 1/3 (33⅓p is 40/3 from 20p): [6, 0].
@@ -155,7 +280,7 @@ them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's c
 
 ### 1.7 Empty Tank (core: the x-intercept)
 
-- Gate c > 0 > m. **P** = rung(|T − N|), T = −c/m. **S** = spf(N), capped at 13 (the owner's own example shape).
+- (First revision's gate c > 0 > m; ungated in §1.0.) **P** = rung(|T − N|), T = −c/m. **S** = spf(N), capped at 13 (the owner's own example shape).
 - Good: y = −x + 7, empty at minute 7: [8, 7]. Middling: y = −2x + 4, minute 2: [8, 2]. Bad: y = −3/4x + 5/2,
   T = 10/3: [5, 3].
 - Census: P top ~4.6 bits; [8, 13] ~11.6 bits, cheapest y = −x + 13.
@@ -163,7 +288,7 @@ them 7 or 8 levels. The figures in brackets are with the fine tail. Shopping's c
 
 ### 1.8 Price per Minute (stretch: average rate)
 
-- Gate m > 0, c ≥ 0, K = 10. **P** = rung(dZ(y(10)/10)). **S** = rung(|c/10 − N|), N the nearest positive integer:
+- K = 10 (first revision's gate m > 0, c ≥ 0; ungated in §1.0). **P** = rung(dZ(y(10)/10)). **S** = rung(|c/10 − N|), N the nearest positive integer:
   the fee spread over a 10-minute call adds a whole number of pence, at least 1p, to each minute. (A fee of 0 is 1p
   away, so fee-free plans, which meet the primary for free, do not top the secondary.)
 - Good: y = 3x + 20, 50p for 10 minutes (5p a minute), the fee adds 2p a minute: [8, 8]. Middling: y = 2x (no fee),
