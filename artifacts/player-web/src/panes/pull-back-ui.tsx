@@ -16,7 +16,10 @@ type Phase = { kind: "idle" } | { kind: "filling"; before: Record<string, number
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function PullBack({ me, agents, price, verb, offer, pay, onStart }: {
+/** Seconds a proposed split waits for the player before it applies itself (round 6: an agent was left at 1%). */
+export const AUTO_SPLIT_SECONDS = 8;
+
+export function PullBack({ me, agents, price, verb, offer, pay, onStart, planning = false }: {
   me: Me; agents: readonly Agent[]; price: number;
   /** Whether to offer it now (not for the code just paid for); a pull-back under way stays on screen either way. */
   offer: boolean;
@@ -26,11 +29,23 @@ export function PullBack({ me, agents, price, verb, offer, pay, onStart }: {
   pay: () => Promise<string | null | false>;
   /** Called when the pull-back starts (it pays from then on, so a purchase waiting to pay itself stands down). */
   onStart?: () => void;
+  /** In planning nothing accrues: what the agents give back is all there is, so it pays at once or not at all. */
+  planning?: boolean;
 }) {
   const allocate = useAffordance("power.allocate");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const paying = useRef(false);
+  const [left, setLeft] = useState(AUTO_SPLIT_SECONDS);
+  // Never leave an agent starved: a pull-back the player leaves (the pane closes, another agent is selected) gives the
+  // power back: the proposed split once paid, else the split as it was.
+  const phaseRef = useRef(phase); phaseRef.current = phase;
+  const allocateRef = useRef(allocate); allocateRef.current = allocate;
+  useEffect(() => () => {
+    const p = phaseRef.current;
+    const shares = p.kind === "propose" ? p.proposal : p.kind === "filling" || p.kind === "paying" ? p.before : null;
+    if (shares) void allocateRef.current.run({ shares }).catch(() => {});
+  }, []);
   const chargeSeconds = me.ownPerSecond > 0 ? me.capacity / me.ownPerSecond : 30;
   const plan = pullBackPlan({ power: me.power, energy: me.energy, chargeSeconds, agents: agents.map(a => ({ agentId: a.agentId, share: a.share })), price });
 
@@ -46,6 +61,19 @@ export function PullBack({ me, agents, price, verb, offer, pay, onStart }: {
       setPhase({ kind: "propose", before, proposal: proposedSplit(before, id) });
     });
   }, [phase, me.energy, price, pay]);
+
+  // The proposal applies itself after a few seconds; the player can use it at once or put the split back instead.
+  useEffect(() => {
+    if (phase.kind !== "propose") return;
+    setLeft(AUTO_SPLIT_SECONDS);
+    const t0 = Date.now();
+    const tick = setInterval(() => {
+      const l = AUTO_SPLIT_SECONDS - Math.floor((Date.now() - t0) / 1000);
+      setLeft(Math.max(0, l));
+      if (l <= 0) { clearInterval(tick); void run(phase.proposal, { kind: "done", text: `Your agents have their power again: ${splitText(phase.proposal)}.` }); }
+    }, 250);
+    return () => clearInterval(tick);
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const run = async (shares: Record<string, number>, next: Phase) => {
     setError(null);
@@ -65,7 +93,7 @@ export function PullBack({ me, agents, price, verb, offer, pay, onStart }: {
       <button type="button" className="self-start border border-primary px-3 py-2 text-sm font-medium" data-testid="button-pull-back"
         title="Your agents keep a sliver of power for a moment; the rest fills your own store, the cost is paid, then you choose the new split."
         onClick={() => { onStart?.(); void run(plan.shares, { kind: "filling", before }); }}>
-        Pull power back to pay for this (about {plan.seconds} s)
+        {planning ? "Pull power back to pay for this now" : `Pull power back to pay for this (about ${plan.seconds} s)`}
       </button>
     );
   }
@@ -79,10 +107,10 @@ export function PullBack({ me, agents, price, verb, offer, pay, onStart }: {
       </>)}
       {phase.kind === "paying" && <p data-testid="text-pull-back">Paying for the {verb}…</p>}
       {phase.kind === "propose" && (<>
-        <p data-testid="text-pull-back-proposal">Paid. Proposed split: {splitText(phase.proposal)}.</p>
+        <p data-testid="text-pull-back-proposal">Paid. New split: {splitText(phase.proposal)}. It applies by itself in {left} s.</p>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="bg-primary px-3 py-1.5 text-primary-foreground" data-testid="button-pull-back-use"
-            onClick={() => void run(phase.proposal, { kind: "done", text: `Your agents have their power again: ${splitText(phase.proposal)}.` })}>Use this split</button>
+            onClick={() => void run(phase.proposal, { kind: "done", text: `Your agents have their power again: ${splitText(phase.proposal)}.` })}>Use it now</button>
           <button type="button" className="border px-3 py-1.5" data-testid="button-pull-back-restore"
             onClick={() => void run(phase.before, { kind: "done", text: "Your agents have their power back as it was." })}>Put it back as it was</button>
         </div>

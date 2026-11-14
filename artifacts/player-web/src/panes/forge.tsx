@@ -106,7 +106,7 @@ export function ForgePane() {
     const s = first ? null : shortfallOf(e);
     if (!s) { fail(e); return; }
     setShort({ verb, src, price: s.price });
-    setStatus({ tone: "info", text: shortText(s, verb) });
+    setStatus({ tone: "info", text: shortText(s, verb, header?.phase === "planning") });
   };
   payShortRef.current = () => {
     if (!short) return;
@@ -218,7 +218,7 @@ export function ForgePane() {
         ? editLine({ edit: replacePrice, full: price, energy: me?.energy ?? 0 })
         : affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}
       {me && agents && agents.length > 0 && primary !== "summonFirst" && (
-        <PullBack me={me} agents={agents} price={short?.price ?? replacePrice ?? price} verb={short?.verb ?? (primary === "replace" ? "edit" : "summon")} offer={!!short || wantMore || (ran !== source && status?.tone !== "ok")} onStart={() => setShort(null)}
+        <PullBack me={me} agents={agents} price={short?.price ?? replacePrice ?? price} verb={short?.verb ?? (primary === "replace" ? "edit" : "summon")} offer={!!short || wantMore || (ran !== source && status?.tone !== "ok")} onStart={() => setShort(null)} planning={header?.phase === "planning"}
           pay={() => (primary === "replace" ? doReplace(source) : doSummon(source, false))} />
       )}
       <div ref={statusRef} aria-live="polite">
