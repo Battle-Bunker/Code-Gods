@@ -43,3 +43,15 @@ test("expanded face: a line the rule cannot score says why and offers what bring
   assert.match(t, /not scoring/);
   assert.match(t, /Next step: /);
 });
+
+test("move line: the change, the step before → after, the rarity with its reason, points with the want", async () => {
+  const { MoveLine } = await import("../src/index.ts");
+  const t = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent Tank-1" what="move the line down 1"
+    rarities={RARITIES} points={{ before: 8.2, after: 16.3, want: 2.4 }} />));
+  assert.match(t, /Your agent Tank-1 changed a line: y = −3x \+ 10 → y = −3x \+ 9 \(move the line down 1\)\. Up: step 5 → 8 of 8 ?\./);
+  assert.match(t, /✨ rarity 3\.4 → 6\.8 \(fewer random lines score this well\)\./);
+  assert.match(t, /Points on this line 8\.2 → 16\.3 \(the others want it 2\.4\)\./);
+  const t2 = text(renderToStaticMarkup(<MoveLine rule={tank} before={mc(-3, 10)} after={mc(-3, 9)} who="Your agent" rarities={RARITIES}
+    points={{ before: 8.2, after: 7.9, want: 1.1, wantBefore: 2.4 }} />));
+  assert.match(t2, /the others want it 1\.1, was 2\.4\): because the others want this line less now/);
+});

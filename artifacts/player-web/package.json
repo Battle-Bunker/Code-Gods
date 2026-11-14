@@ -16,6 +16,7 @@
     "e2e:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations.ts",
     "videos:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-videos.ts ../../docs/videos/annotations",
     "e2e:glyphs": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/grid-glyphs.ts",
+    "e2e:v2-views": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-views.ts ../../docs/screenshots/v2-views",
     "e2e:site": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/site-smoke.ts",
     "e2e:account": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/account-mode.ts",
     "e2e:update": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/auto-update.ts"
