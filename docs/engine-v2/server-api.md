@@ -79,6 +79,7 @@ shown are own × max(0, others shown). Stored exact, with `shownWant`/`shownPoin
 `standings` (the disclosed totals), `objects.list`, `moves.list`, `object.score`, the agents' `value`, `history` and
 `othersAfter` (the tick passes `disclosed`), tugs and agents' points gained all disclose. After the end: exact
 (standings, digest, values, moves); replays are exact. The noise key is never returned and not in the replay file.
+`v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 
 Values carry the uniqueness correction (§2.6, `withUniqueness`) at a fixed object count per game, `valueObjects`: the

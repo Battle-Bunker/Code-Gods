@@ -19,7 +19,7 @@ import { mintPlayerJwt } from "../auth/jwt";
 import { makeFunctionReference } from "convex/server";
 import { fixturesOn } from "../auth/identity";
 import { presetOf } from "./presets";
-import { noiseAt, shownAt } from "./disclose";
+import { newNoiseKey, noiseAt, shownAt } from "./disclose";
 
 const fixtures = () => {
   if (!fixturesOn(process.env)) throw new ConvexError({ code: "FORBIDDEN", message: "v2 fixtures need TEST_FIXTURES=1" });
@@ -78,6 +78,8 @@ export const seedGame = internalMutation({
     contested: v.optional(v.number()),
     /** Moves in each member's act log (default 3). */
     moves: v.optional(v.number()),
+    /** A disclosure-noise key (default none: exact, as games stored before the noise was restored). */
+    noise: v.optional(v.boolean()),
     /** Tugs-of-war in each member's v2Tugs (default none), on the first objects. */
     tugs: v.optional(v.number()),
     /** A line the owner's agent and the next seat's climbed together (every move raised both sides), by number. */
@@ -96,7 +98,7 @@ export const seedGame = internalMutation({
     const gameId = await ctx.db.insert("v2Games", {
       roomId, number: 1, code: `G${roomId.slice(-6).toUpperCase()}`, phase, preset: preset.id, variant: lineZ.id, seed,
       settings: { planningSeconds: preset.planningSeconds, worldSeconds: preset.worldSeconds, startingEnergy: preset.startingEnergy, startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy },
-      roster, createdAt: now, startedAt: now, rotates: true, dealKey: "fixture", artefacts: [],
+      roster, createdAt: now, startedAt: now, rotates: true, dealKey: "fixture", artefacts: [], ...(a.noise ? { noiseKey: newNoiseKey() } : {}),
       ...(phase === "planning" ? { planningEndsAt: now + preset.planningSeconds * 1000 } : { endsAt: now + preset.worldSeconds * 1000 }),
       ...(phase === "ended" ? { endedAt: now, summary: { winner: members[0]!, objects: a.objects ?? 12, acts: 0 } } : {}),
     });
@@ -134,7 +136,8 @@ export const seedGame = internalMutation({
         const e = evals[k]!, want = total - e.rarityBits, points = e.rarityBits * want;
         pts.set(memberId, (pts.get(memberId) ?? 0) + points);
         packed.set(memberId, [...(packed.get(memberId) ?? []), i + 1, e.rarityBits, want]);
-        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, version: 1, changedAt: i });
+        const shown = a.noise ? shownAt({ rarityBits: e.rarityBits, want }, noiseAt((await ctx.db.get(gameId))!, lineType.encode(state))) : {};
+        await ctx.db.insert("v2ObjectValues", { objectId, gameId, memberId, number: i + 1, ...e, want, points, ...shown, version: 1, changedAt: i });
       }
     }
 
