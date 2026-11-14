@@ -56,6 +56,17 @@ when the image comes out messy.
    objects; climbers that look at two-call plans keep 4 to 8 of 12 objects moving, with moves that help two or more
    seats at once to the end; "help the table" climbers freeze after the first fifth.
 
+**Revision B2 (§8), after two owner rules that arrived once this was first merged.** A secondary must be tied to the
+primary's anchor ("a secondary that seeks to maximise the largest common factor of that closest integer with the floor
+of the gradient"), and unbounded "bigger is better" hills are wanted, provided each hill has adversaries and the pool
+has deliberate tensions (decision 30). So point 4 above is no longer a defect in itself: it is the cheapest hill, and
+the question is who opposes it. §8 gives a tied pool of 8 families and 16 rules, half of them preferring small,
+negative or many-factored values, and measures alignment and tension pair by pair and per mutator. Off the hills, rules
+barely touch (174 of 224 ordered pairs neutral). On joint hills, while one rule keeps climbing and the partner's
+primary is held, there are 64 adversary pairs, 7 allies and 137 neutral, out of 208. Every one of the 16 hills has
+at least one adversary; Steep and Steep-and-High are the one strong alliance. That meets "few aligned", but not yet "many
+in tension": §8.4 says what to add.
+
 **Recommended first cut** (§6): the two-line system on the rationals, the line's nine mutators per line plus four
 system mutators (elimination, reflect in the other line, slide along the other line, translate the whole picture),
 and five families whose tie-breakers are not size counts. Three lines next, after replacing the size-count
@@ -238,7 +249,7 @@ and y = −mx − c with mirror y = 0 (Mirror). The question is whether the *tie
   m²)).
 - **The count tie-breakers are the bug (next section).**
 
-### 3.4 The bug: size counts reached through smooth numbers
+### 3.4 The bug: size counts reached through smooth numbers (reframed by decision 30, §8.1)
 
 `tri-pegs` and `pegs` count lattice points inside a triangle, which grows with its area (Pick: about the area). A
 triangle's area is a product of intercepts, and an intercept can be huge and cheap at once when it is smooth: x + y =
@@ -253,7 +264,7 @@ stopped them. The same route serves, less steeply, any tie-breaker read off the 
 with Square Area/root-omega (the owner's example 2 moved to triangles) and Right Triangle/area-spf the planners built
 "y − 414,720 = 0" (2¹⁰·3⁴·5), although test 1 measured square-area/root-omega climbing only 7.2 → 7.4 → 8.8 bits.
 
-**Recommendation:** no dealt tie-breaker on systems counts something that grows with size (lattice points, area, a
+**Recommendation (superseded by §8.1: unbounded hills are wanted if they have adversaries):** no dealt tie-breaker on systems counts something that grows with size (lattice points, area, a
 perimeter, a run that lengthens with size). Tie-breakers read prime structure or coincidences of derived numbers
 (smallest prime factor of a divisor or of a target, Euclid's steps, Ω of a root), which the measurements show grow
 slowly. Replacements for the dealt pool: `tri-pegs` → `angle-cf` or `gap-spf`; `pegs` → `centroid-spf`,
@@ -462,3 +473,125 @@ Three lines next: the same contracts plus `rail.move` and `pair.quarter`, famili
   lib/v2-linear's in small ways (the factor code's rate, the Q amount code).
 - `pair.turn` and `sys.straighten` are designed but not measured.
 - Whether the dealer's aspect-coverage check is enough to pass test 3 is a prediction, not a measurement.
+
+## 8. Revision B2: tied secondaries, unbounded hills and deliberate tensions
+
+### 8.1 The two new rules
+
+Relayed by the coordinator after the first version merged, verbatim:
+
+- "Secondary rules should tie to the primary in some way even if they invoke an extra dimension of the object. For
+  example, a primary that seeks proximity to integers in the y intercept could have a secondary that seeks to maximise
+  the largest common factor of that closest integer with the floor of the gradient. That's better than a secondary that
+  just independently wants the gradient to be close to a large prime."
+- Decision 30: "I absolutely want bigger is better mechanics so there are unbounded hills to climb. We just need to make
+  sure there are adversaries to ongoing expensive climb of those hills and we should create diversity of goals so that
+  it's rare for optimising just one thing, like finding a large prime in the x-intercept, to straightforwardly benefit
+  multiple rules at once. Introduce more variety of the set of rules so that it's harder to improve multiple rules at
+  once with a basic strategy. Also deliberately introduce rules that are in tension with one another. We want rules that
+  prefer small values and lots of prime factors instead of large primes and more interesting interactions like wanting
+  high gradient and y intercept so the X intercept that another player wants big will be small and negative etc."
+
+What changes here:
+
+- **§3's secondaries are mostly independent wishes.** "The divisor's smallest prime factor" does not mention the
+  primary's anchor, the answer. They fail the first rule; §8.2 replaces them.
+- **§3.4 is no longer a defect in itself.** A size-count hill reached cheaply through smooth numbers is an unbounded
+  hill, which is wanted. What decision 30 asks is whether it has adversaries. The finding stands as a fact about cost:
+  smooth numbers make size cheap, so a size hill needs at least one rule that prefers the opposite (small, negative,
+  or one big prime factor rather than many small ones).
+- **The ramp test (§4.6, test 1) is not a failure test any more.** It now measures how steep each hill is.
+
+### 8.2 The tied pool (two lines, 8 families, 16 rules)
+
+Each family has an **anchor**, the whole number its primary closes in on. Each secondary relates the anchor to another
+aspect of the system. Senses are mixed: "big" hills, "small" hills (as negative as possible) and "smooth" hills (as many
+prime factors as possible). A common factor with an anchor of 0 counts as 1, so the trivial anchor earns nothing.
+
+| Family (primary) | Anchor | Secondary A | Secondary B |
+|---|---|---|---|
+| `whole-answer` (the answer whole) | X + Y of the answer | `answer-divisor`: common factor of X + Y and the divisor (big) | `south-west`: X + Y as negative as possible (small) |
+| `square-cross` (a right angle) | the divisor (a² + b² at a right angle) | `divisor-factors`: Ω of the divisor (smooth) | `divisor-meets-intercept`: common factor of the divisor and red's y-intercept (big) |
+| `on-the-diagonal` (cross on y = x) | t, the whole number nearest the crossing | `north-east`: t as big as possible (big) | `diagonal-gradient`: common factor of t and the steeper gradient's whole part, the owner's example (big) |
+| `whole-distance` (a whole distance from (0, 0)) | r, the distance | `distance-factors`: Ω of r (smooth) | `distance-divisor`: common factor of r and the divisor (big) |
+| `steep-ratio` (one line k times as steep) | k | `steep`: the steeper gradient's whole part (big) | `ratio-gap`: common factor of k and the y-intercepts' gap (big) |
+| `far-crossing` (red's x-intercept whole) | red's x-intercept | `far-right`: as big as possible (big) | `crossing-share`: common factor of red's x- and y-intercepts (big) |
+| `high-start` (red's y-intercept whole) | red's y-intercept | `steep-and-high`: the smaller of it and red's gradient, as big as possible, so red's x-intercept is small and negative: the owner's example of an opposite to `far-right` (big) | `start-factors`: Ω of what the y-intercept shares with the divisor (smooth) |
+| `gap-match` (equal gaps) | the y-intercepts' gap | `small-gap-factors`: Ω of the gap (smooth) | `gap-divisor`: common factor of the gap and the divisor (big) |
+
+Designed oppositions: `south-west` against `north-east`, and `far-right` against `steep-and-high`. The divisor is
+pulled four ways: by common factors with the answer, the distance, the gap and the y-intercept, and toward many small
+factors.
+
+### 8.3 Measured: alignment and tension
+
+Script parts `tension`, `adversaries` and `hills`; every matrix, pair by pair and per mutator, is in the results file.
+
+**Anywhere** (calls from moderately rare states; ordered pairs of rules from different families): 30 aligned, 16 in
+tension, 174 neutral, 4 mixed. Off the hills, rules barely touch. Every secondary counts only at its own primary's
+top, and two primaries are seldom both at their tops by chance.
+
+**On joint hills** is where tension counts: states where both rules' primaries are at their tops, the ground a
+cooperating pair stands on. Joint states were found for 104 of 112 pairs. Of the calls that raise rule i there, the
+share that knock rule j's primary off its top averages 27% (median 19%) over the cells with enough calls. Among calls
+that keep it, the verdicts are 44 tension, 9 aligned, 24 neutral, 1 mixed; 146 cells had too few such calls to judge.
+Per mutator the data are thin. Stretches carry most hill steps (429 calls), then nudges, shifts and slides. The system
+mutators (combine, reflect, slideOn, translate, quarter) seldom raise a hill without moving the partner off its
+primary.
+
+**The ongoing climb** is decision 30's question: from each joint state, rule i keeps climbing (W = 60) through states
+that hold j's primary at its top; j's mean change over that leg. Of 208 ordered pairs: **64 adversary** (j loses ≥ 1 bit),
+**7 ally**, **137 neutral**.
+
+| Hill | Sense | Its adversaries (Δ bits of the other while it climbs) |
+|---|---|---|
+| whole-answer/answer-divisor | big | steep-and-high (−2.4), north-east (−1.7), ratio-gap (−1.4) |
+| whole-answer/south-west | small | gap-divisor (−10.7), distance-divisor (−8.5), north-east (−4.9), ratio-gap (−3.6), 3 more |
+| square-cross/divisor-factors | smooth | gap-divisor (−3.0), north-east (−1.8), start-factors (−1.7), ratio-gap (−1.0) |
+| square-cross/divisor-meets-intercept | big | answer-divisor (−3.8), ratio-gap (−3.1), crossing-share (−2.6), 3 more |
+| on-the-diagonal/north-east | big | start-factors (−1.4), far-right (−1.3), answer-divisor (−1.3) |
+| on-the-diagonal/diagonal-gradient | big | start-factors (−2.4) |
+| whole-distance/distance-factors | smooth | answer-divisor (−8.7), start-factors (−6.6), steep-and-high (−2.3) |
+| whole-distance/distance-divisor | big | steep-and-high (−3.1) |
+| steep-ratio/steep | big | answer-divisor (−5.9), diagonal-gradient (−3.7), gap-divisor (−3.7), 2 more |
+| steep-ratio/ratio-gap | big | answer-divisor (−5.0), gap-divisor (−3.8), start-factors (−3.4), 2 more |
+| far-crossing/far-right | big | steep-and-high (−9.0), start-factors (−8.1), answer-divisor (−6.9), distance-divisor (−3.5), 5 more |
+| far-crossing/crossing-share | big | start-factors (−5.7), answer-divisor (−5.4), steep-and-high (−3.6), ratio-gap (−3.3), 2 more |
+| high-start/steep-and-high | big | answer-divisor (−5.7), north-east (−4.2) |
+| high-start/start-factors | smooth | ratio-gap (−5.5), distance-divisor (−3.4), answer-divisor (−1.4) |
+| gap-match/small-gap-factors | smooth | diagonal-gradient (−3.7), far-right (−1.9), ratio-gap (−1.7), 2 more |
+| gap-match/gap-divisor | big | answer-divisor (−4.4) |
+
+The allies: `steep` with `steep-and-high` (+6.2 one way, +2.6 the other; both want a steep red line),
+`ratio-gap` with `steep-and-high` (+4.3), `answer-divisor` with `distance-divisor` (+2.1; they share the divisor),
+`gap-divisor` with `north-east` (+1.8) and `south-west` (+1.1), and `crossing-share` with `diagonal-gradient` (+1.2).
+
+- **Every hill has at least one adversary;** some have one (`distance-divisor`, `gap-divisor`, `diagonal-gradient`),
+  some nine (`far-right`).
+- **Designed oppositions work one way.** `far-right` costs `steep-and-high` 9.0 bits, but `steep-and-high` climbing
+  changes `far-right` by less than a bit (why is not traced). `south-west` costs `north-east` 4.9, while `north-east`'s
+  own climb costs `south-west` less than a bit.
+- **The cost of a hill to its adversaries is real cost.** `south-west`'s climb costs `gap-divisor` 10.7 bits: a seat
+  climbing it on a shared object takes that from a neighbour, which is the "adversaries to ongoing expensive climb"
+  the owner asked for.
+- **The counts are noisy.** With the climb legs seeded per pair (as here) the count is 64 adversary pairs; an earlier
+  run that reused one seed across pairs gave 51 adversaries, 8 allies, and two hills without an adversary. Six joint
+  states per pair is a small sample; treat each cell as an indication, the totals as the finding.
+
+### 8.4 What to add for "many in tension"
+
+The pool meets "few aligned" (7 allies in 208) and "some neutral", but tension is under a third of the pairs, not "many".
+Next, all of them configuration:
+
+- **Give every hill a declared opposite on the same anchor or aspect,** as `far-right`/`steep-and-high` and
+  `south-west`/`north-east` already are. Missing: on-the-diagonal's hills have only weak adversaries (≤ 2.4 bits) and
+  need a rule wanting the crossing near the origin or below the diagonal, and the divisor needs a rule wanting it **prime** (one big factor) against the
+  four that want it to share factors.
+- **Make opposites symmetric.** The measured oppositions bite one way; a rule wanting red's x-intercept "small and
+  negative" in so many words would bite both ways against `far-right`.
+- **Deal for tension.** The dealer reads each rule's declared sense and anchor and deals tables with at least one
+  opposed pair, so no single climb straightforwardly raises everyone.
+- **Three lines** take the same pattern (anchors: the corners' X + Y, the area's root, the common point, the rails'
+  notches); not measured yet.
+- §3's three-line pool and the first cut (§6) should use tied secondaries from this section, not §3's.
+

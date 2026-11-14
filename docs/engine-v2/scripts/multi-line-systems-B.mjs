@@ -11,7 +11,7 @@ import { writeFileSync } from "node:fs";
 
 const argv = process.argv.slice(2);
 const opt = (n, d) => (argv.includes(`--${n}`) ? argv[argv.indexOf(`--${n}`) + 1] : d);
-const PARTS = new Set(opt("part", "law,reach,values,entangle,climb,collapse,attack").split(","));
+const PARTS = new Set(opt("part", "law,reach,values,entangle,climb,collapse,attack,tension,adversaries,hills").split(","));
 const SAMPLES = Number(opt("samples", "60000"));
 const OUT = opt("out", "docs/engine-v2/scripts/multi-line-systems-B-results.md");
 const out = [];
@@ -293,6 +293,77 @@ const fam3 = [
 for (const f of fam2) f.sec = (id) => f.extra?.[id] ?? sec2[id];
 for (const f of fam3) f.sec = (id) => f.extra?.[id] ?? sec3[id];
 const FAMS = { 2: fam2, 3: fam3 };
+
+// ------------------------------------------------------------------------------------------------ the tied pool (B2)
+// After the owner's rule (relayed 14 November): "Secondary rules should tie to the primary in some way even if they
+// invoke an extra dimension of the object", and decision 30 ("bigger is better mechanics so there are unbounded hills
+// to climb", adversaries, deliberate tensions, rules that prefer small values and many prime factors). Each family has
+// an anchor (the whole number its primary is closing in on) and secondaries that relate the anchor to another aspect.
+const gcdA = (anchor, other) => { anchor = Math.abs(Math.round(anchor)); other = Math.abs(Math.round(other)); if (!anchor || !other || !Number.isSafeInteger(anchor) || !Number.isSafeInteger(other)) return 1; return gcd(anchor, other); };
+const fl = (x) => Math.floor(Math.abs(rnum(x)));
+const nearInt = (x) => Number(rround(x));
+const xInt = (l) => (l[0] ? rq(B(-l[2]), B(l[0])) : null);
+const yInt = (l) => (l[1] ? rq(B(-l[2]), B(l[1])) : null);
+const steeper = (F) => (F.si1 && F.si2 ? Math.max(fl(F.si1.m), fl(F.si2.m)) : null);
+const fam2t = [
+  { id: "whole-answer", aspect: "crossing", card: "Solve the two equations: the answer (x, y) should be whole numbers.",
+    p: (s, F) => (F.P ? rdist(F.P.x) + rdist(F.P.y) : null),
+    tied: {
+      "answer-divisor": { reads: "crossing ↔ divisor", sense: "big", text: "the common factor of x + y (of the answer) and the divisor", f: (s, F) => (F.P ? gcdA(nearInt(F.P.x) + nearInt(F.P.y), F.D) : null) },
+      "south-west": { reads: "crossing ↔ position", sense: "small", text: "x + y of the answer as negative as possible", f: (s, F) => (F.P ? -(nearInt(F.P.x) + nearInt(F.P.y)) : null) },
+    } },
+  { id: "square-cross", aspect: "angle", card: "The two lines should cross at a right angle.",
+    p: (s, F) => (F.D === 0 ? null : Math.abs(F.dot) / Math.abs(F.D)),
+    tied: {
+      "divisor-factors": { reads: "angle ↔ divisor", sense: "smooth", text: "the number of prime factors of the divisor (for square crossings, a² + b²)", f: (s, F) => (F.D === 0 ? null : omega(F.D)) },
+      "divisor-meets-intercept": { reads: "angle ↔ y-intercepts", sense: "big", text: "the common factor of the divisor and red's y-intercept", f: (s, F) => (F.D === 0 || !F.Y1 ? null : gcdA(F.D, nearInt(F.Y1))) },
+    } },
+  { id: "on-the-diagonal", aspect: "crossing", card: "The lines should cross on the line y = x.",
+    p: (s, F) => (F.P ? Math.abs(rnum(rsub(F.P.x, F.P.y))) : null),
+    tied: {
+      "north-east": { reads: "crossing ↔ position", sense: "big", text: "the whole number nearest the crossing's x, as big as possible", f: (s, F) => (F.P ? nearInt(F.P.x) : null) },
+      "diagonal-gradient": { reads: "crossing ↔ gradient", sense: "big", text: "the common factor of that whole number and the steeper gradient's whole part (the owner's example)", f: (s, F) => (F.P ? gcdA(nearInt(F.P.x), steeper(F) ?? 0) : null) },
+    } },
+  { id: "whole-distance", aspect: "distance", card: "The crossing should be a whole distance from (0, 0).",
+    p: (s, F) => (F.P ? nearestSquareDist(radd(rmul(F.P.x, F.P.x), rmul(F.P.y, F.P.y)))[0] : null),
+    tied: {
+      "distance-factors": { reads: "distance (its own root)", sense: "smooth", text: "the number of prime factors of that whole distance", f: (s, F) => (F.P ? omega(nearestSquareDist(radd(rmul(F.P.x, F.P.x), rmul(F.P.y, F.P.y)))[1]) : null) },
+      "distance-divisor": { reads: "distance ↔ divisor", sense: "big", text: "the common factor of the distance and the divisor", f: (s, F) => (F.P ? gcdA(nearestSquareDist(radd(rmul(F.P.x, F.P.x), rmul(F.P.y, F.P.y)))[1], F.D) : null) },
+    } },
+  { id: "steep-ratio", aspect: "gradient", card: "One line should be a whole number of times as steep as the other.",
+    p: (s, F) => steepRatio(F)?.d ?? null,
+    tied: {
+      "steep": { reads: "gradient ratio ↔ steepness", sense: "big", text: "the whole part of the steeper gradient, as big as possible", f: (s, F) => (steepRatio(F) ? steeper(F) : null) },
+      "ratio-gap": { reads: "gradient ↔ y-intercepts", sense: "big", text: "the common factor of the ratio and the gap between the y-intercepts", f: (s, F) => { const r = steepRatio(F); return r && F.Y1 && F.Y2 ? gcdA(r.k, nearInt(rsub(F.Y1, F.Y2))) : null; } },
+    } },
+  { id: "far-crossing", aspect: "x-intercept", card: "Red's x-intercept (where it crosses the x-axis) should be a whole number.",
+    p: (s, F) => { const X = xInt(s[0]); return X ? rdist(X) : null; },
+    tied: {
+      "far-right": { reads: "x-intercept (its size)", sense: "big", text: "that whole number, as big as possible (far to the right)", f: (s, F) => { const X = xInt(s[0]); return X ? nearInt(X) : null; } },
+      "crossing-share": { reads: "x-intercept ↔ y-intercept", sense: "big", text: "the common factor of red's x-intercept and red's y-intercept", f: (s, F) => { const X = xInt(s[0]), Y = yInt(s[0]); return X && Y ? gcdA(nearInt(X), nearInt(Y)) : null; } },
+    } },
+  { id: "high-start", aspect: "y-intercept", card: "Red's y-intercept should be a whole number.",
+    p: (s, F) => (F.Y1 ? rdist(F.Y1) : null),
+    tied: {
+      "steep-and-high": { reads: "y-intercept ↔ gradient", sense: "big", text: "the smaller of that whole number and red's gradient, as big as possible (so red's x-intercept is small and negative)", f: (s, F) => (F.Y1 && F.si1 ? Math.min(nearInt(F.Y1), Math.floor(rnum(F.si1.m))) : null) },
+      "start-factors": { reads: "y-intercept ↔ divisor", sense: "smooth", text: "the number of prime factors the y-intercept shares with the divisor", f: (s, F) => (F.Y1 && F.D ? omega(gcdA(nearInt(F.Y1), F.D)) : null) },
+    } },
+  { id: "gap-match", aspect: "gap", card: "The gap between the y-intercepts should equal the gap between the x-intercepts.",
+    p: (s, F) => (F.X1 && F.X2 && F.Y1 && F.Y2 ? Math.abs(rnum(rabs(rsub(F.Y1, F.Y2))) - rnum(rabs(rsub(F.X1, F.X2)))) : null),
+    tied: {
+      "small-gap-factors": { reads: "gap (its own factors)", sense: "smooth", text: "the number of prime factors of the gap (a rich, small gap)", f: (s, F) => (F.Y1 && F.Y2 ? omega(nearInt(rabs(rsub(F.Y1, F.Y2)))) : null) },
+      "gap-divisor": { reads: "gap ↔ divisor", sense: "big", text: "the common factor of the gap and the divisor", f: (s, F) => (F.Y1 && F.Y2 ? gcdA(nearInt(rsub(F.Y1, F.Y2)), F.D) : null) },
+    } },
+];
+for (const f of fam2t) { f.secs = Object.keys(f.tied); f.sec = (id) => f.tied[id]; }
+let TIED = null;
+function buildTied() {
+  if (TIED) return TIED; buildValues(2); TIED = [];
+  for (const fam of fam2t) for (const sec of fam.secs) { const rule = { fam, sec, id: `${fam.id}/${sec}` }; rule.v = valueFn(rule, SAMPLE[2], FEATS[2]); rule.bits = (x, F = feat(x)) => rule.v.bits(utility(rule, x, F)); TIED.push(rule); }
+  return TIED;
+}
+const mgroup = (id) => id.replace(/^L\d\./, "line.").replace(/\(.*$/, "");
+
 const FCACHE = new Map();
 const feat = (s) => { const key = sysKey(s); let F = FCACHE.get(key); if (!F) { if (FCACHE.size > 400000) FCACHE.clear(); F = s.length === 2 ? features2(s) : features3(s); FCACHE.set(key, F); } return F; };
 // a dealt rule: [family, secondary]; its utility is [−primary, secondary] (bigger better; null = worst)
@@ -710,6 +781,147 @@ if (PARTS.has("collapse")) {
     }
     say();
   }
+}
+
+
+if (PARTS.has("tension")) {
+  const rules = buildTied();
+  say(`## The tied pool (B2): alignment and tension, pair by pair and per mutator`);
+  say();
+  say(`Two lines. ${rules.length} dealt rules: 8 families, two tied secondaries each (§8 of the doc). From 1,500 states drawn from the`);
+  say(`tilted law t = 0.55, every candidate call. For an ordered pair (i, j): among calls that raise rule i by at least`);
+  say(`half a bit, the share that raise j (by ≥ ½ bit), lower it, or leave it. Verdict: **aligned** when raise − lower`);
+  say(`≥ 0.15, **tension** when lower − raise ≥ 0.15, **neutral** when ≥ 60% leave it, else mixed.`);
+  say();
+  const r = rngFrom(SEED + 1500); const D = rules.map(() => []); const G = [];
+  for (let n = 0; n < 1500; n++) {
+    const s = drawSystem(r, 2, 0.55); const F = feat(s); const b0 = rules.map((ru) => ru.bits(s, F));
+    for (const m of moves(s)) { const F2 = feat(m.s); rules.forEach((ru, i) => D[i].push(ru.bits(m.s, F2) - b0[i])); G.push(mgroup(m.id)); }
+  }
+  const groups = [...new Set(G)];
+  const cell = (i, j, g) => { let up = 0, dn = 0, n = 0; for (let k = 0; k < G.length; k++) { if (g && G[k] !== g) continue; if (D[i][k] < 0.5) continue; n++; if (D[j][k] >= 0.5) up++; else if (D[j][k] <= -0.5) dn++; } return { n, up: up / Math.max(1, n), dn: dn / Math.max(1, n), le: (n - up - dn) / Math.max(1, n) }; };
+  const verdict = (c) => (c.n < 20 ? "–" : c.up - c.dn >= 0.15 ? "aligned" : c.dn - c.up >= 0.15 ? "tension" : c.le >= 0.6 ? "neutral" : "mixed");
+  const short = (c) => (c.n < 20 ? "–" : `${fmt(100 * c.up, 0)}/${fmt(100 * c.dn, 0)}/${fmt(100 * c.le, 0)}`);
+  say(`### Overall (raise/lower/leave %, and the verdict)`);
+  say();
+  say(`| i ↓ raises, j → | ${rules.map((ru) => ru.id).join(" | ")} |`);
+  say(`|---|${rules.map(() => "---").join("|")}|`);
+  const counts = { aligned: 0, tension: 0, neutral: 0, mixed: 0, "–": 0 };
+  for (let i = 0; i < rules.length; i++) say(`| ${rules[i].id} | ${rules.map((_, j) => { if (i === j) return "·"; const c = cell(i, j); const v = verdict(c); if (rules[i].fam !== rules[j].fam) counts[v]++; return `${short(c)} ${v}`; }).join(" | ")} |`);
+  say();
+  say(`Ordered pairs from different families: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}.`);
+  say();
+  say(`### Per mutator: the verdict of every ordered pair from different families, counted`);
+  say();
+  say(`| Mutator | calls | aligned | tension | neutral | mixed | too few |`);
+  say(`|---|--:|--:|--:|--:|--:|--:|`);
+  for (const g of groups) { const c2 = { aligned: 0, tension: 0, neutral: 0, mixed: 0, "–": 0 }; for (let i = 0; i < rules.length; i++) for (let j = 0; j < rules.length; j++) if (rules[i].fam !== rules[j].fam) c2[verdict(cell(i, j, g))]++; say(`| ${g} | ${G.filter((x) => x === g).length} | ${c2.aligned} | ${c2.tension} | ${c2.neutral} | ${c2.mixed} | ${c2["–"]} |`); }
+  say();
+  say(`### Per mutator, pair by pair (raise/lower/leave %; "–" fewer than 20 calls raise i)`);
+  say();
+  for (const g of groups) {
+    say(`<details><summary>${g}</summary>`);
+    say();
+    say(`| i ↓ raises, j → | ${rules.map((ru) => ru.id).join(" | ")} |`);
+    say(`|---|${rules.map(() => "---").join("|")}|`);
+    for (let i = 0; i < rules.length; i++) say(`| ${rules[i].id} | ${rules.map((_, j) => (i === j ? "·" : `${short(cell(i, j, g))} ${verdict(cell(i, j, g))}`)).join(" | ")} |`);
+    say();
+    say(`</details>`);
+    say();
+  }
+}
+
+if (PARTS.has("adversaries")) {
+  const rules = buildTied();
+  say(`## The tied pool (B2): every hill and its adversaries`);
+  say();
+  say(`Each rule alone climbs (steepest ascent with kicks, 3,000 evaluations, path budget W = 120) from 6 births. For`);
+  say(`the climb's best state: the rule's own gain, the secondary reached, and every other rule's mean change in bits.`);
+  say(`Adversaries lose a bit or more on average; allies gain a bit or more.`);
+  say();
+  say(`| Hill (rule) | own gain | secondary reached (mean) | adversaries (mean Δ bits) | allies (mean Δ bits) |`);
+  say(`|---|--:|--:|---|---|`);
+  const births = []; const r = rngFrom(SEED + 1600); while (births.length < 6) births.push(drawSystem(r, 2));
+  for (const rule of rules) {
+    const own = [], secv = [], d = rules.map(() => []);
+    births.forEach((b, bi) => { const res = search((x) => rule.bits(x), b, 120, 3000, rngFrom(SEED + 1700 + bi)); own.push(rule.bits(res.bestS) - rule.bits(b)); const u = utility(rule, res.bestS, feat(res.bestS)); secv.push(u ? u[1] : 0); rules.forEach((o, j) => d[j].push(o.bits(res.bestS) - o.bits(b))); });
+    const md = d.map(mean);
+    const adv = rules.map((o, j) => [o, md[j]]).filter(([o, v]) => o.fam !== rule.fam && v <= -1).sort((a, b) => a[1] - b[1]).map(([o, v]) => `${o.id} (${fmt(v)})`);
+    const ally = rules.map((o, j) => [o, md[j]]).filter(([o, v]) => o.fam !== rule.fam && v >= 1).sort((a, b) => b[1] - a[1]).map(([o, v]) => `${o.id} (+${fmt(v)})`);
+    say(`| ${rule.id} (${rule.fam.sec(rule.sec).sense}) | ${fmt(mean(own))} | ${fmt(mean(secv))} | ${adv.join(", ") || "none"} | ${ally.join(", ") || "none"} |`);
+  }
+  say();
+}
+
+if (PARTS.has("hills")) {
+  const rules = buildTied(); const R = rules.length;
+  const atTop = (ru, x) => { const u = utility(ru, x, feat(x)); return u && u[0] === 0; };
+  say(`## The tied pool (B2) on joint hills: alignment and tension where it counts`);
+  say();
+  say(`A rule's secondary only counts once its primary is at the top, so two rules' secondaries meet only on states where`);
+  say(`both primaries are at the top: the joint hill a cooperating pair stands on. For every pair of rules from different`);
+  say(`families: up to 6 such states (climbs on the sum of the two rules' bits from births, 600 evaluations each);`);
+  say(`every candidate call from them that raises rule i (by any amount). Of those calls, "breaks" is the share that knock`);
+  say(`rule j's primary off its top (any climber ignoring j does that; it is not the tension decision 30 asks for); of the`);
+  say(`rest, the share that raise, lower or leave j's hill (by ≥ 0.05 bits). Verdict on those: aligned when raise − lower`);
+  say(`≥ 0.15, tension when lower − raise ≥ 0.15, neutral when ≥ 60% leave it, else mixed; "–" fewer than 10 such calls.`);
+  say(`Then **the ongoing climb**: from each joint state rule i climbs on (1,500 evaluations, W = 60) using only states that`);
+  say(`keep rule j's primary at its top; rule j's mean change over that leg. An adversary loses ≥ 1 bit of its hill.`);
+  say();
+  const rows = []; const leg = []; for (let i = 0; i < R; i++) { rows.push([]); leg.push([]); for (let j = 0; j < R; j++) { rows[i].push([]); leg[i].push(null); } }
+  const found = [];
+  for (let i = 0; i < R; i++) for (let j = i + 1; j < R; j++) {
+    if (rules[i].fam === rules[j].fam) continue;
+    const r = rngFrom(SEED + 2000 + 37 * i + j); const states = []; let tries = 0;
+    while (states.length < 6 && tries < 24) { tries++; const b0 = drawSystem(r, 2); const res = search((x) => rules[i].bits(x) + rules[j].bits(x), b0, 60, 600, rngFrom(SEED + 2100 + tries + 50 * i + j)); if (atTop(rules[i], res.bestS) && atTop(rules[j], res.bestS) && !states.some((x) => sysKey(x) === sysKey(res.bestS))) states.push(res.bestS); }
+    found.push(states.length);
+    const legs = [[], []];
+    for (const st of states) {
+      const F = feat(st); const bi = rules[i].bits(st, F), bj = rules[j].bits(st, F);
+      for (const m of moves(st)) { const F2 = feat(m.s); const di = rules[i].bits(m.s, F2) - bi, dj = rules[j].bits(m.s, F2) - bj; const g = mgroup(m.id); const ti = atTop(rules[i], m.s), tj = atTop(rules[j], m.s); if (di > 0.05) rows[i][j].push([g, dj, tj]); if (dj > 0.05) rows[j][i].push([g, di, ti]); }
+      // the ongoing climb keeps the other rule's primary at its top: only the other's hill can be lost
+      for (const [a, c, k] of [[i, j, 0], [j, i, 1]]) { const res = search((x) => (atTop(rules[c], x) ? rules[a].bits(x) : -1e9), st, 60, 1500, rngFrom(SEED + 2200 + 1009 * i + 97 * j + 13 * k + legs[k].length)); legs[k].push(rules[c].bits(res.bestS) - rules[c].bits(st)); }
+    }
+    leg[i][j] = legs[0].length ? mean(legs[0]) : null; leg[j][i] = legs[1].length ? mean(legs[1]) : null;
+  }
+  // among calls that raise i: the share that break j's primary; of the rest (j's primary kept), raise/lower/leave j's hill
+  const cell = (i, j, g) => { const all = rows[i][j].filter(([gg]) => !g || gg === g); const xs = all.filter(([, , t]) => t); const n = xs.length; const up = xs.filter(([, d]) => d >= 0.05).length, dn = xs.filter(([, d]) => d <= -0.05).length; return { n, br: (all.length - n) / Math.max(1, all.length), up: up / Math.max(1, n), dn: dn / Math.max(1, n), le: (n - up - dn) / Math.max(1, n) }; };
+  const verdict = (c) => (c.n < 10 ? "–" : c.up - c.dn >= 0.15 ? "aligned" : c.dn - c.up >= 0.15 ? "tension" : c.le >= 0.6 ? "neutral" : "mixed");
+  const short = (c) => (c.n < 10 ? "–" : `${fmt(100 * c.up, 0)}/${fmt(100 * c.dn, 0)}/${fmt(100 * c.le, 0)} (breaks ${fmt(100 * c.br, 0)}%)`);
+  say(`Joint states found per pair: median ${[...found].sort((a, b) => a - b)[found.length >> 1]} of 6, none for ${found.filter((x) => x === 0).length} of ${found.length} pairs.`);
+  say();
+  say(`### Calls that raise i: raise/lower/leave % of j's hill (j's primary kept), the share breaking j's primary, and the verdict`);
+  say();
+  say(`| i ↓ climbs, j → | ${rules.map((ru) => ru.id).join(" | ")} |`);
+  say(`|---|${rules.map(() => "---").join("|")}|`);
+  const counts = { aligned: 0, tension: 0, neutral: 0, mixed: 0, "–": 0 };
+  for (let i = 0; i < R; i++) say(`| ${rules[i].id} | ${rules.map((_, j) => { if (rules[i].fam === rules[j].fam) return "·"; const c = cell(i, j); const v = verdict(c); counts[v]++; return `${short(c)} ${v}`; }).join(" | ")} |`);
+  say();
+  say(`Ordered pairs (different families), by calls: ${Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(", ")}.`);
+  say();
+  const groups = [...new Set(rows.flat().flat().map(([g]) => g))].sort();
+  say(`| Mutator | calls that raise i | aligned | tension | neutral | mixed | too few |`);
+  say(`|---|--:|--:|--:|--:|--:|--:|`);
+  for (const g of groups) { const c2 = { aligned: 0, tension: 0, neutral: 0, mixed: 0, "–": 0 }; let n = 0; for (let i = 0; i < R; i++) for (let j = 0; j < R; j++) if (rules[i].fam !== rules[j].fam) { const c = cell(i, j, g); n += c.n; c2[verdict(c)]++; } say(`| ${g} | ${n} | ${c2.aligned} | ${c2.tension} | ${c2.neutral} | ${c2.mixed} | ${c2["–"]} |`); }
+  say();
+  say(`### The ongoing climb: mean change of j (bits) while i climbs on alone from the joint hill`);
+  say();
+  say(`| i ↓ climbs, j → | ${rules.map((ru) => ru.id).join(" | ")} |`);
+  say(`|---|${rules.map(() => "--:").join("|")}|`);
+  for (let i = 0; i < R; i++) say(`| ${rules[i].id} | ${rules.map((_, j) => (leg[i][j] === null ? "·" : fmt(leg[i][j]))).join(" | ")} |`);
+  say();
+  const lc = { adversary: 0, ally: 0, neutral: 0 }; for (let i = 0; i < R; i++) for (let j = 0; j < R; j++) if (leg[i][j] !== null) lc[leg[i][j] <= -1 ? "adversary" : leg[i][j] >= 1 ? "ally" : "neutral"]++;
+  say(`Ordered pairs by the climb: ${Object.entries(lc).map(([k, v]) => `${k} ${v}`).join(", ")}.`);
+  say();
+  say(`| Hill | sense | adversaries (Δ bits while it climbs) | allies |`);
+  say(`|---|---|---|---|`);
+  for (let i = 0; i < R; i++) {
+    const L = rules.map((o, j) => [o, leg[i][j]]).filter(([, v]) => v !== null);
+    const adv = L.filter(([, v]) => v <= -1).sort((a, b) => a[1] - b[1]).map(([o, v]) => `${o.id} (${fmt(v)})`).join(", ") || "none";
+    const al = L.filter(([, v]) => v >= 1).sort((a, b) => b[1] - a[1]).map(([o, v]) => `${o.id} (+${fmt(v)})`).join(", ") || "none";
+    say(`| ${rules[i].id} | ${rules[i].fam.sec(rules[i].sec).sense} | ${adv} | ${al} |`);
+  }
+  say();
 }
 
 if (PARTS.has("attack")) {
