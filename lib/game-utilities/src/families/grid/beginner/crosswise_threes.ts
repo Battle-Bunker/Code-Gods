@@ -38,7 +38,7 @@ const crossText = (g: GridSpec): CardText => ({
 });
 
 /**
- * Tiers (docs/layered-rules-design.md §5.3; docs/layered-rules-measurements/crosswise-threes.md): "lines add up to x"
+ * Tiers (archive/engine-v1:docs/layered-rules-design.md §5.3; archive/engine-v1:docs/layered-rules-measurements/crosswise-threes.md): "lines add up to x"
  * and "2×2 squares add up to x". The base reads differences only, so turning every number v into (S−1) − v leaves it
  * alone and takes a total of k cells to k(S−1) − x: x folds with 36 − x on 4×4 digits, for lines and squares alike.
  *
@@ -67,7 +67,7 @@ export const threesTiers: GridTiers<CrossP> = {
   }),
 };
 /**
- * The values dealt on 4×4 digits (measured, docs/layered-rules-measurements/crosswise-threes.md): each is alive at the
+ * The values dealt on 4×4 digits (measured, archive/engine-v1:docs/layered-rules-measurements/crosswise-threes.md): each is alive at the
  * base's top, adds 15.3 to 19.7 bits over it (the band is 6 to 20) and tops at 5 or 6 of the 10 lines, and their tops
  * stay within 14% of each other (equal opportunity, test/equal-opportunity.test.ts). Line totals below 11 all reach
  * further than that — the base leaves four cells free, which is room enough to make low lines common — and every

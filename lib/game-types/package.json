@@ -6,7 +6,6 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",
-    "test:python": "python3 test/parity.py",
     "typecheck": "tsc --build"
   },
   "devDependencies": {

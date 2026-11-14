@@ -1,4 +1,4 @@
-/** Colour & visual-pattern lens rules (lib/grid-lab/gridlab/rules/colour.py, cards from rules/cards.py). */
+/** Colour & visual-pattern lens rules (archive/engine-v1:lib/grid-lab/gridlab/rules/colour.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import type { Params } from "../../types.ts";
 import { boolParam, choiceParam, colourParam, intParam } from "../../params.ts";
@@ -341,7 +341,7 @@ const lanternLighter = gridFamily<LanternP>({
 
 
 // ================================================================================================
-// Not shortlisted (new cards, checked against grid-lab by test/gridlab_parity.py)
+// Not shortlisted (new cards)
 // ================================================================================================
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;

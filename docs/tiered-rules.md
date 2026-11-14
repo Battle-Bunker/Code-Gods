@@ -1,7 +1,7 @@
 # Tiered rules: what is in the code
 
-The design and its measurements are in `docs/layered-rules-design.md`; the numbers for each shipped family are in
-`docs/layered-rules-measurements/`. This page says how the shipped code works and how to add to it.
+The design and its measurements are in `archive/engine-v1:docs/layered-rules-design.md`; the numbers for each shipped family are in
+`archive/engine-v1:docs/layered-rules-measurements/`. This page says how the shipped code works and how to add to it.
 
 ## A tiered draw
 

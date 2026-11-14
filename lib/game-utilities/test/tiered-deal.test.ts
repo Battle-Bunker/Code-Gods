@@ -1,5 +1,5 @@
 /**
- * Dealing tiered rules (docs/layered-rules-design.md): `SelectOptions.tiers` deals only a family's tiered draws
+ * Dealing tiered rules (archive/engine-v1:docs/layered-rules-design.md): `SelectOptions.tiers` deals only a family's tiered draws
  * (`UtilityFamily.tiered`), uniformly over the families that offer some and then over their draws; without the option a
  * deal is exactly what it was before tiers existed. What would break: a base draw in a tiered game, a tiered draw in an
  * ordinary one, one family's many tiered draws crowding out another family, or an existing pool's deals changing.

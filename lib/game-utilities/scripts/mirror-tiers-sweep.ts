@@ -1,5 +1,5 @@
 /**
- * Measurements behind Mirrormancer's tiers (docs/layered-rules-measurements/mirror-tiers.md), on 4×4 digits:
+ * Measurements behind Mirrormancer's tiers (archive/engine-v1:docs/layered-rules-measurements/mirror-tiers.md), on 4×4 digits:
  *
  *   node --experimental-strip-types scripts/mirror-tiers-sweep.ts [cards] [dealt] [sweep] [exact] [gate] [literal] [cross] [hall]
  *

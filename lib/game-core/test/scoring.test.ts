@@ -7,7 +7,7 @@ const close = (actual: number, expected: number, eps = 1e-12) =>
 const net = (entries: Record<string, number>) => new Map(Object.entries(entries));
 
 test("softHinge matches defence.py hinge", () => {
-  // Values from lib/grid-lab/gridlab/defence.py: hinge(s) = log2(1 + 2^(s-1)) - log2(1.5).
+  // Values from archive/engine-v1:lib/grid-lab/gridlab/defence.py: hinge(s) = log2(1 + 2^(s-1)) - log2(1.5).
   const reference: [number, number][] = [
     [0, 0], [1, 0.4150374992788438], [2, 0.9999999999999999], [4, 2.584962500721156],
     [10, 8.417852514885897], [-1, -0.26303440583379384],

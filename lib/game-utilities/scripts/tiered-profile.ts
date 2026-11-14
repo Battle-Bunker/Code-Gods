@@ -1,5 +1,5 @@
 /**
- * The tiered difficulty profile of the REAL tiered families (docs/layered-rules-design.md §5–§8): every family with
+ * The tiered difficulty profile of the REAL tiered families (archive/engine-v1:docs/layered-rules-design.md §5–§8): every family with
  * `UtilityFamily.tiered` on Grid(4,base10,mono), read through its own card evaluator and its real table (the shipped
  * one when fresh, else built here: the hybrid law for gated and plain draws, the sampling estimator for unlocked ones).
  * No per-family code: a family is picked up as soon as it declares `tiered`.

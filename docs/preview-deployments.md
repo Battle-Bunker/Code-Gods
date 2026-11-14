@@ -1,7 +1,7 @@
 # Preview deployments
 
 A preview is a separate copy of the whole app (its own Convex deployment, its own URL, empty data) built from one
-branch, so you can try a branch without touching dev. The index of what there is to try: `docs/design-explorations.md`.
+branch, so you can try a branch without touching dev.
 
 ## Once (about five minutes)
 

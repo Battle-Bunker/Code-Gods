@@ -1,7 +1,7 @@
 /**
  * The family catalog, kid cards and the trusted host evaluator.
  *
- * The TypeScript card is the single source of truth for a draw's ordinal (docs/clean-implementation-plan.md §3):
+ * The TypeScript card is the single source of truth for a draw's ordinal (archive/engine-v1:docs/clean-implementation-plan.md §3):
  * the host compiles it once per (instantiation, family, params) together with the instantiation's generated JS
  * prelude, and the calibration pipeline uses this same evaluator, so live scores and tables cannot drift apart.
  * Cards are authored in this package and are plain JavaScript (no type annotations); player code never reaches

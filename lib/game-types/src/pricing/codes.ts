@@ -1,5 +1,5 @@
 /**
- * Universal codes of ast-bits-v1 (lib/grid-lab/gridlab/openagents/astbits.py; open-agents.md §2.1):
+ * Universal codes of ast-bits-v1 (archive/engine-v1:lib/grid-lab/gridlab/openagents/astbits.py; open-agents.md §2.1):
  * Elias γ for positive integers, the string code and the float code. Shared with the description
  * walker (Runtime) and used by the naming bound of the decision estimator (estimators.ts).
  */

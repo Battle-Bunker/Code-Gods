@@ -1,5 +1,5 @@
 /**
- * Tiered difficulty profile for layered rules (docs/layered-rules-design.md §5): each family's base alone, then the base
+ * Tiered difficulty profile for layered rules (archive/engine-v1:docs/layered-rules-design.md §5): each family's base alone, then the base
  * with each interaction, measured with the rule-difficulty framework (docs/rule-difficulty.md), plus what only a layered
  * rule has: how much of the added top a base-only agent reaches by accident, what a tier-aware agent gains, the upper
  * tail of the calibration, synergy with the beginner eight, and three-player games where the layered player plays the

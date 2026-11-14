@@ -1,6 +1,6 @@
 /**
- * The Grid kid API (lib/grid-lab/docs/kid-api.md) as generated Python and JS, mirroring
- * lib/grid-lab/gridlab/kid.py. Instance data is emitted as literal tables; only the helpers the
+ * The Grid kid API (archive/engine-v1:lib/grid-lab/docs/kid-api.md) as generated Python and JS, mirroring
+ * archive/engine-v1:lib/grid-lab/gridlab/kid.py. Instance data is emitted as literal tables; only the helpers the
  * instantiation's classes provide are emitted (cell.suit / cell.is_picture: Suited/Faced; mix: Mixable).
  *
  * Private names (for mutator constructors too): Python _SIZE, _CODES (code → symbol index),

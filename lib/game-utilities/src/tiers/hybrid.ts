@@ -1,5 +1,5 @@
 /**
- * Hybrid calibration and liveness for tiered rules (docs/layered-rules-design.md §7.3, §12 steps 2 and 3).
+ * Hybrid calibration and liveness for tiered rules (archive/engine-v1:docs/layered-rules-design.md §7.3, §12 steps 2 and 3).
  *
  * A tiered rule's ordinal is `[...base, base[0] ≥ gate ? tier : 0]`. Its base is a sum of scores of DISJOINT units
  * (pairs, boxes, rows), so the base has an exact law by convolution and an exact sampler of boards given the base. The
@@ -313,7 +313,7 @@ export function hybridLaw(base: DisjointBase, options: HybridOptions): HybridLaw
   const law = baseLaw(base), rand = mulberry32(options.seed);
   // The top base level carries the table's rare end, so it gets the budget: measured against the exact count of
   // Opposite Nines' 10^8 top boards, 1,024 particles and 2 sweeps are off by up to 2 bits at 15 bits; 8,192 and 4 are
-  // within 0.3 bits (docs/layered-rules-measurements/opposite-nines.md). Lower levels are bounded by the next base level.
+  // within 0.3 bits (archive/engine-v1:docs/layered-rules-measurements/opposite-nines.md). Lower levels are bounded by the next base level.
   const particles = options.particles ?? 256, topParticles = options.topParticles ?? 8192;
   const sweeps = options.sweeps ?? 2, topSweeps = options.topSweeps ?? 4;
   const zeros = new Array<number>(options.tierArity).fill(0);
@@ -338,7 +338,7 @@ export function hybridLaw(base: DisjointBase, options: HybridOptions): HybridLaw
 }
 
 // ------------------------------------------------------------------------------------------------
-// liveness (docs/layered-rules-design.md §2.3 rule 1 and 2, §8.3)
+// liveness (archive/engine-v1:docs/layered-rules-design.md §2.3 rule 1 and 2, §8.3)
 // ------------------------------------------------------------------------------------------------
 
 /** The added reach a dealt tier must have, in bits over its base's top (§8.3: below 6 it is not worth a card line). */

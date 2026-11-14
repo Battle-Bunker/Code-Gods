@@ -1,6 +1,6 @@
 /**
  * Calibration tables: ordinal utility → surprisal (bits) under the type's uniform spawn prior μ
- * (docs/clean-implementation-plan.md §§4.4, 4.5; reference lib/grid-lab/gridlab/calibrate.py, estimator 3).
+ * (archive/engine-v1:docs/clean-implementation-plan.md §§4.4, 4.5; reference archive/engine-v1:lib/grid-lab/gridlab/calibrate.py, estimator 3).
  *
  *   G(t) = μ{u ≥ t},   s(t) = −log2 G(t)   (✨ reward bits; a defence goal's badness uses the same table form)
  *

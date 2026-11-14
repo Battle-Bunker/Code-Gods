@@ -1,5 +1,5 @@
 /**
- * /rooms/:room/games/:game (docs/unify-apps-plan.md §1.2), calibrated to the viewer:
+ * /rooms/:room/games/:game (archive/engine-v1:docs/unify-apps-plan.md §1.2), calibrated to the viewer:
  *
  *   live, you play in it     the player view: your dock (core/play.tsx Play)
  *   live, you watch it       the spectator view below: "Game G9TQ" with its room, one status sentence, then Leaderboard

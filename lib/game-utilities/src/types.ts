@@ -11,7 +11,7 @@ export type Params = { readonly [key: string]: ParamJson };
 
 /**
  * An ordinal utility: a number, or a fixed-arity tuple compared lexicographically. Bigger is better.
- * Only the order matters; magnitudes never reach scoring (lib/grid-lab/docs/kid-api.md §1).
+ * Only the order matters; magnitudes never reach scoring (archive/engine-v1:lib/grid-lab/docs/kid-api.md §1).
  */
 export type Ordinal = number | readonly number[];
 export type ScoreShape = { readonly kind: "scalar" } | { readonly kind: "tuple"; readonly arity: number };
@@ -30,7 +30,7 @@ export interface FamilyContext {
  * comment (emoji, name, plain sentences), the dealt params as UPPER_CASE constants, and
  * `def utility(grid):` / `function utility(grid)` written against the room's generated prelude
  * (`x` for Int and string). Penalty cards define `def penalty(grid):` / `function penalty(grid)` instead
- * (lib/grid-lab/docs/defence-goals.md §6). TypeScript cards are plain JavaScript (no annotations), so the
+ * (archive/engine-v1:lib/grid-lab/docs/defence-goals.md §6). TypeScript cards are plain JavaScript (no annotations), so the
  * host compiles them as they are.
  */
 export interface UtilityFamily<P extends Params = Params> {
@@ -48,7 +48,7 @@ export interface UtilityFamily<P extends Params = Params> {
   /** Fixed per (family, instantiation): a few families change arity with the board (Sudoku Scholar at N ≤ 4). */
   shape(ctx: FamilyContext, params?: P): ScoreShape;
   /**
-   * Optional: the tiered draws of this family here (docs/layered-rules-design.md): params carrying `tiers`, a list of
+   * Optional: the tiered draws of this family here (archive/engine-v1:docs/layered-rules-design.md): params carrying `tiers`, a list of
    * `depth` interactions on top of the base, each of which passed the liveness check on this shape. They are never in
    * `support` (so every pool that deals the base is unchanged); a setup deals them by asking for a tier depth
    * (`SelectOptions.tiers`). `compose` picks the variant (`TierCompose`; default "gated").

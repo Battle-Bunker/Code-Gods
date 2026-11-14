@@ -81,7 +81,7 @@ export type InstanceView = z.infer<typeof instanceSchema>;
 /** Your kid card: plain-language incentives, then `def utility(...)` source in the game's default language; a defence goal adds `penalty`. */
 export const utilityCardSchema = z.object({
   familyId: z.string().max(128), emoji: z.string().max(16), name: z.string().max(128), theme: z.string().max(500),
-  // A tiered draw's summary is its base's text and then each ★ block's (docs/layered-rules-design.md §4).
+  // A tiered draw's summary is its base's text and then each ★ block's (archive/engine-v1:docs/layered-rules-design.md §4).
   summary: z.string().max(4000), language, source: z.string().max(16384), shape: shape.optional(),
   // A tiered draw's ★ blocks: each opens once the ordinal's first component reaches `gate`; its points sit at `index`.
   tiers: z.array(z.object({

@@ -1,5 +1,5 @@
 /**
- * What a game deals from one reward family (docs/layered-rules-design.md): an ordinary game its support, a tiered game
+ * What a game deals from one reward family (archive/engine-v1:docs/layered-rules-design.md): an ordinary game its support, a tiered game
  * (settings.ruleTiers) the family's tiered draws of that depth and composition, which are deliberately outside the
  * support. The one place that decides it, for the dealer (selectors.ts), rival inference (inference.ts), table coverage
  * (calibration.ts) and the engine's warm-ups.

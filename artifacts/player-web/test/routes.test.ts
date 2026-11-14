@@ -1,5 +1,5 @@
 /**
- * The app's URL scheme (src/core/routes.ts, docs/unify-apps-plan.md §1.2), checked against the router's own patterns
+ * The app's URL scheme (src/core/routes.ts, archive/engine-v1:docs/unify-apps-plan.md §1.2), checked against the router's own patterns
  * with wouter's own matcher: every page's href reaches exactly its page under any base path, and anything else is not
  * found (no legacy aliases: /client/…, /games/:code, ?room=, rooms/:room/games).
  */
