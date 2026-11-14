@@ -222,6 +222,23 @@ try {
       assert.ok(tabs && tabs.height < 48, `phone: the tabs are one row (${tabs?.height} px tall)`);
       await line.screenshot({ path: path.join(shots, "grid-phone-one-line.png") });
     }
+    // The annotations chain on a grid (the persona walk's four questions; docs/engine-v2/annotations-design.md §11.4):
+    // what the rule reads and how much (the main part and its units), where that is (a ruler), what would make the board
+    // rarer at what price with its new bits, and the others' bits in the formula (checked above).
+    const parts = line.locator(".v2v-part");
+    await parts.first().waitFor({ timeout: 10_000 });
+    const main = await parts.first().innerText();
+    assert.match(main, /^● Main part: /m, `the main part is named with its glyph: ${main}`);
+    assert.match(main, /off by \d|: \d|exactly/, `the main part says how much: ${main}`);
+    assert.ok(await parts.first().locator(".v2v-ruler").count() > 0, "the main part sits on a ruler");
+    const options = line.locator(".v2v-move-option");
+    if (await options.count()) {
+      const first = await options.first().innerText();
+      assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
+      assert.match(first, /→ [\d,]+\.\d\d bits? \(1 in [\d,.]+ by chance\)/, `a move has its new bits: ${first}`);
+    } else await line.getByText(/No single move makes this grid rarer/).waitFor();
+    await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
+    await line.screenshot({ path: path.join(shots, `grid-${label}-parts.png`) });
     await shot(page, `grid-${label}-line`);
 
 

@@ -92,3 +92,36 @@ test("playtest round 4: a plural noun is one word; a compact face draws nothing 
     for (const b of boards) assert.doesNotMatch(renderToStaticMarkup(<CompactFace rule={rule} state={b} value={VALUE} />), /v2v-overlay/, rule.family.id);
   }
 });
+
+test("grid contributors: each part says what every unit contributes, sits on a ruler from 0, and a move names the part's change", async () => {
+  const { contributors } = await import("../src/contributors.ts");
+  const { moves } = await import("../src/moves.ts");
+  const B2: GridState = { cells: [3, 2, 0, 8, 3, 2, 3, 3, 2, 1, 0, 9, 1, 0, 1, 2] };
+  const magic = { ...rules.find(r => r.family.id === "magic-eighteen")!, tieBreaker: undefined };
+  const main = contributors(magic, B2).parts[0]!;
+  // The chain: the rows read, each one's own amount (the board's notes), then the part's sum.
+  assert.deepEqual(main.units.map(u => u.text), ["5 short", "7 short", "6 short", "14 short"], main.units.map(u => `${u.label} ${u.text}`).join(", "));
+  assert.ok(main.units.every(u => /^row \d$/.test(u.label)), main.units.map(u => u.label).join(", "));
+  assert.equal(main.distance, "off by 32");
+  // A sum of distances sits on a ruler whose strong mark is 0: perfect.
+  assert.ok(main.ruler, "an off-by part has a ruler");
+  assert.equal(main.ruler!.value, 32);
+  assert.deepEqual(main.ruler!.refs.filter(r => r.strong).map(r => r.at), [0]);
+  // Every family's parts never throw and never say NaN on a walk of boards.
+  for (const r of rules) for (const p of contributors({ ...r, tieBreaker: r.family.tieBreakers[0]?.id }, B2).parts)
+    assert.doesNotMatch(`${p.sentence} ${p.units.map(u => u.text).join(" ")}`, /NaN|undefined/, r.family.id);
+  // A move says what it did to the part's own quantity, not to one row of it.
+  const ms = moves(magic, B2, null, { k: 3 });
+  assert.ok(ms.length > 0);
+  for (const m of ms) assert.ok(m.changes.some(c => /off by 32 → /.test(c)) || m.changes.length > 0, `${m.words}: ${m.changes.join(" · ")}`);
+  assert.ok(ms.some(m => m.changes.some(c => /off by 32 → \d+/.test(c))), ms.map(m => m.changes.join(" · ")).join(" | "));
+});
+
+test("grid expanded face: the parts' units listed under each part, its ruler drawn", () => {
+  const magic = { ...rules.find(r => r.family.id === "magic-eighteen")!, tieBreaker: undefined };
+  const t = text(renderToStaticMarkup(<ExpandedFace rule={magic} state={{ cells: [3, 2, 0, 8, 3, 2, 3, 3, 2, 1, 0, 9, 1, 0, 1, 2] }} value={VALUE} />));
+  assert.match(t, /row 1: 5 short · row 2: 7 short · row 3: 6 short · row 4: 14 short/);
+  assert.match(t, /What would make it rarer/);
+  assert.doesNotMatch(t, /→ \d \d \d \d \/ /, "a move does not repeat the whole board after its words");
+  assert.match(renderToStaticMarkup(<ExpandedFace rule={magic} state={B} value={VALUE} />), /class="v2v-ruler" data-role="main"/);
+});

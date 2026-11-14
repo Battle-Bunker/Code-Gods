@@ -52,6 +52,11 @@ export interface Contributor {
   readonly ruler: RulerData | null;
   /** One sentence, for the card and a screen reader. */
   readonly sentence: string;
+  /**
+   * What each unit the part adds up contributes, from the rule's own notes on its sources ("row 1: 5 short"), in the
+   * sources' order; empty when the part is one number.
+   */
+  readonly units: readonly { readonly label: string; readonly text: string }[];
 }
 
 export interface Contributors {
@@ -109,6 +114,12 @@ const primesNear = (lo: number, hi: number): number[] => {
   }
   return out;
 };
+
+/** A unit's short name, from its element's label: "row 1's total" → "row 1", "the top-left box's pairs" → "the top-left box". */
+function unitLabel(label: string): string {
+  const m = /\b(row \d+|column \d+|the [a-z-]+ (box|half|square|pair)|square \d+)\b/.exec(label);
+  return m ? m[1]! : label.replace(/'s .*$/, "");
+}
 
 /** The natural values of a reference's kind near v (presentation only: the reference itself is the rule's). */
 function neighbours(kind: string, lo: number, hi: number): number[] {
@@ -195,6 +206,25 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     ruler = { value: v, valueText: `${valueText}`, refs: [{ at: v, label: readable(value), strong: true }, ...near.map(x => ({ at: x, label: readableN(x) }))] };
   }
 
+  // A sum of distances with no single reference (a grid's rows from 18) sits on a ruler from 0, which is perfect.
+  if (layer.sense === "min" && !isUndef(value) && !ruler) {
+    const v = N(value);
+    ruler = { value: v, valueText: distance ?? valueText, refs: [{ at: 0, label: "0", strong: true }, ...neighbours("whole", 1, Math.max(v, 4)).filter(x => x !== v).map(x => ({ at: x, label: readableN(x) }))] };
+  }
+
+  // The units the part adds up, each with the rule's own note on it (the board's "5 short" on row 1's total).
+  const units = from.length > 1
+    ? from.flatMap(r => {
+      const k = refKey({ ...r, site: undefined });
+      const note = e.marks.find((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && refKey({ ...m.ref, site: undefined }) === k);
+      return note ? [{ label: labelOf(rule as RuleRef<S, unknown>, r), text: note.text }] : [];
+    })
+    : [];
+  // Listed by short names ("row 1") only where they tell the units apart; units that would need their full labels
+  // (a pair, a 2×2 square) are left to the board, which draws each note beside its own cells.
+  const shortNames = units.map(u => unitLabel(u.label));
+  const named = new Set(shortNames).size === shortNames.length ? units.map((u, i) => ({ ...u, label: shortNames[i]! })) : [];
+
   // A part made of many elements (sixteen cells) is said by its term's own label, not element by element.
   const what = source.length > 3 ? term.label : source.filter(s => s.value).map(s => `${s.label} ${s.text}`).join(", ");
   const sentence = isUndef(value)
@@ -204,7 +234,7 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       : `${cap(title)}: ${valueText}. ${cap(aim)}.`;
   return {
     role, name: role === "main" ? "main part" : "tie-breaker", title, wants, sense: layer.sense, aim, term: term.id, value, valueText,
-    source, reference, distance, ruler, sentence,
+    source, reference, distance, ruler, sentence, units: named,
   };
 }
 
@@ -234,6 +264,12 @@ export function changesBetween(was: readonly Contributor[], now: readonly Contri
     const q = now[i];
     if (!q) return;
     const a = p.source.find(s => s.value), b = q.source.find(s => s.value && s.label === a?.label);
+    const short = p.title.replace(/^(the|that) /, "");
+    // A part that adds up several units (a grid's rows) changes as a whole: "every row adds up to 18: off by 32 → 30".
+    if (p.sense === "min" && (p.units.length > 0 || !p.reference)) {
+      if (p.valueText !== q.valueText) out.push(`${short}: ${p.distance ?? p.valueText} → ${q.distance?.replace(/^off by /, "") ?? q.valueText}`);
+      return;
+    }
     if (p.sense === "min" && a && b && a.text !== b.text) out.push(`${a.label} ${a.text} → ${b.text}${q.distance?.startsWith("on ") ? ` (${q.distance})` : ""}`);
     else if (p.sense === "max" && p.valueText !== q.valueText) out.push(`${p.title.replace(/^(the|that) /, "")} ${p.valueText} → ${q.valueText}`);
   });
