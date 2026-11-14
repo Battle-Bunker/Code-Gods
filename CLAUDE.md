@@ -47,9 +47,17 @@ query needs an entry in the query-cost gate (R8).
   of small ones; "all strategies should be incremental hill climbing towards profitable combined states."
 - **The old game is the spec; only its implementation is disposable.** "The old code acts as a precious spec of what I
   want and a demonstration of what I'm trying to accomplish, even though the specific implementation of that logic is
-  not precious." A game rule changes only by the owner's own words, recorded verbatim in
-  `docs/engine-v2/owner-decisions.md`: never as a session's "judgment call" or "provisional call". If a rule blocks the
-  work, stop and ask. The instruction below not to be attached to prior work is about code, never about game logic.
+  not precious." The owner (later the same day): "keep the rules we already designed prior to this engine upgrade, but
+  don't treat the old design as gospel, just as a strong guiding light." So the default is the old rule. A rule is never
+  dropped silently, by a session's "judgment call", or to make the work easier. The coordinator (not a worker session)
+  may trial a change to an old rule when there is an obvious way it would cohere better with the new engine and make
+  the game more dynamic, and must then "loudly declare" it to the owner with the motivation, and report the empirical
+  effects once known (recorded in `docs/engine-v2/owner-decisions.md` as a trial, not as the owner's decision). A worker
+  session that sees such a change proposes it to the coordinator. The instruction below not to be attached to prior
+  work is about code.
+- **What is wanted and what is the bug.** Hill climbing a combined landscape that improves several players' rules at
+  once is wanted. The bug is when really high peaks are easy to find (by search, by a formula, or by being told the
+  rules). The owner has little time for detailed decisions: learn the principles and make good calls.
 - Details, and what went wrong on 14 November: `.agents/memory/metastable-ecosystem.md`. Departures made during the
   rebuild: `docs/engine-v2/v1-audit.md`. Why optima were easy to find: `docs/engine-v2/landscape-analysis.md`.
 
