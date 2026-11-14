@@ -29,7 +29,7 @@ test("representations: tallies, opposite pairs, mirror gaps, steps and boxes", (
 test("each family's terms on one board", () => {
   assert.deepEqual(terms("row-totals", B, { T: 12 }), { rows: 9 + 8 + 12 + 3, "first-column": 12, primes: 2, zeros: 11 });
   assert.deepEqual(terms("opposite-pairs", B, { T: 9 }), { pairs: 9 + 8 + 7 + 0 + 6 + 9 + 9 + 8, "top-half": 7, primes: 2, odd: 4 });
-  assert.deepEqual(terms("mirror-rows", B, {}), { mirror: 1 + 2 + 0 + 9, middle: 3, primes: 2, "row-totals": 32 });
+  assert.deepEqual(terms("mirror-rows", B, {}), { mirror: 1 + 2 + 0 + 9, middle: 3, primes: 2, zeros: 11 });
   assert.deepEqual(terms("steady-steps", B, {}), { steady: 3 + 4 + 0 + 9, climb: 0 + 2 + 0 + 9, start: 12, primes: 2 });
   assert.deepEqual(terms("box-totals", B, { T: 12 }), { boxes: 8 + 9 + 3 + 12, corners: 9, primes: 2, zeros: 11 });
   assert.deepEqual(terms("prime-cells", B, {}), { "prime-count": 2, "prime-total": 5, sevens: 0, corners: 9 });

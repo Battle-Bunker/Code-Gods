@@ -14,7 +14,13 @@ export const grid2: Variant = { id: "grid-2-d3", objectType: "grid", mutators: M
 
 /** The grid object type for N×N boards (representations, mutators and families name that size's cells). */
 export function makeGridType(n: number, variants: readonly Variant[]): ObjectType<GridState> {
-  for (const v of variants) if (gridParams(v).size !== n) throw new Error(`${v.id} is not ${n} × ${n}`);
+  // Boxes are quarters (an even side); element names and the cards' "2, 3, 5 or 7" assume one digit a cell. Wider
+  // boards and bigger numbers are later variants, each needing those generalised.
+  if (n % 2 !== 0 || n < 2 || n > 10) throw new Error(`grid boards have an even side from 2 to 10, not ${n}`);
+  for (const v of variants) {
+    if (gridParams(v).size !== n) throw new Error(`${v.id} is not ${n} × ${n}`);
+    if (gridParams(v).cap > 9) throw new Error(`${v.id}: a cell holds one digit (cap at most 9)`);
+  }
   return {
     id: "grid",
     version: 1,

@@ -89,8 +89,7 @@ const lineCells = (n: number, name: string): number[] => lines(n).find(l => l.na
 function write(s: GridState, v: Variant, changes: readonly [number, number][]): GridState | Invalid {
   const cells = s.cells.slice();
   for (const [i, x] of changes) cells[i] = x;
-  const r = inDomain({ cells }, v);
-  return r;
+  return inDomain({ cells }, v);
 }
 const addTo = (s: GridState, v: Variant, cells: readonly number[], f: (pos: number) => number): GridState | Invalid =>
   write(s, v, cells.map((i, pos) => [i, s.cells[i]! + f(pos)] as [number, number]));

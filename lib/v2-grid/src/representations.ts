@@ -13,7 +13,7 @@ const sizeOf = (s: GridState): number => Math.round(Math.sqrt(s.cells.length));
 const sum = (s: GridState, cells: readonly number[]): number => cells.reduce((t, i) => t + s.cells[i]!, 0);
 const derived = (name: string, label: string, f: (s: GridState) => number, meaning?: string): Decl =>
   ({ name, label, kind: "number", role: "derived", ...(meaning ? { meaning } : {}), value: s => num(f(s)) });
-const cellRefs = (rep: string, n: number) => Array.from({ length: n * n }, (_, i) => ref(rep === "cells" ? "cells" : "cells", cellName(n, i)));
+const cellRefs = (n: number) => Array.from({ length: n * n }, (_, i) => ref("cells", cellName(n, i)));
 
 /**
  * Representations are built per board size (element names enumerate the cells, rows, pairs and boxes of that size).
@@ -32,7 +32,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       })),
       total,
     ],
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs("cells", n) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n) }),
   };
 
   const tally: Representation<GridState> = {
@@ -43,7 +43,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       total,
     ],
     layout: () => ({
-      kind: "grid", rows: n, cols: n, cells: cellRefs("cells", n),
+      kind: "grid", rows: n, cols: n, cells: cellRefs(n),
       right: rows(n).map((_, r) => ref("tally", `row${r}`)), bottom: cols(n).map((_, c) => ref("tally", `col${c}`)),
     }),
   };
@@ -52,7 +52,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const turn: Representation<GridState> = {
     id: "turn", title: "each cell and its opposite (a half turn away)", scene: "grid", perSite: false,
     elements: ps.map(([a, b], k) => derived(`pair${k}`, `${cellLabel(n, a)} plus its opposite (${cellLabel(n, b)})`, s => s.cells[a]! + s.cells[b]!, `pairTotal:${k}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs("cells", n), groups: ps.map(([a, b], k) => ({ cells: [a, b], el: ref("turn", `pair${k}`) })) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: ps.map(([a, b], k) => ({ cells: [a, b], el: ref("turn", `pair${k}`) })) }),
   };
 
   const half = Math.floor(n / 2);
@@ -60,7 +60,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const mirror: Representation<GridState> = {
     id: "mirror", title: "each row beside itself read backwards", scene: "grid", perSite: false,
     elements: rows(n).map((_, r) => derived(`gap${r}`, `how far row ${r + 1} is from reading the same backwards`, s => gap(s, r), `mirrorGap:${r}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs("cells", n), right: rows(n).map((_, r) => ref("mirror", `gap${r}`)) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), right: rows(n).map((_, r) => ref("mirror", `gap${r}`)) }),
   };
 
   const stepOf = (s: GridState, r: number, j: number) => s.cells[at(n, r, j + 1)]! - s.cells[at(n, r, j)]!;
@@ -74,7 +74,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
       ...rows(n).map((_, r) => derived(`bend${r}`, `how far row ${r + 1}'s steps are from all being equal`, s => bend(s, r), `bend:${r}`)),
     ],
     layout: () => ({
-      kind: "grid", rows: n, cols: n, cells: cellRefs("cells", n),
+      kind: "grid", rows: n, cols: n, cells: cellRefs(n),
       groups: stepNames.map(({ name, r, j }) => ({ cells: [at(n, r, j), at(n, r, j + 1)], el: ref("steps", name) })),
       right: rows(n).map((_, r) => ref("steps", `bend${r}`)),
     }),
@@ -85,7 +85,7 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
   const boxRep: Representation<GridState> = {
     id: "boxes", title: "the board cut into four corner boxes", scene: "grid", perSite: false,
     elements: bx.map((cs, k) => derived(`box${k}`, `the ${BOX[k]} box's total`, s => sum(s, cs), `boxTotal:${k}`)),
-    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs("cells", n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })) }),
+    layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: bx.map((cs, k) => ({ cells: cs, el: ref("boxes", `box${k}`) })) }),
   };
 
   return [cells, tally, turn, mirror, steps, boxRep];
