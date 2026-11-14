@@ -82,3 +82,8 @@ function committedBits(variant: string, family: string, tieBreaker: string): ((u
   return u => look(u).bits;
 }
 
+
+test("a Lines row's Why? is an estimate while the others' bits are blurred, exact otherwise", () => {
+  assert.match(whyLine({ rarity: 3.4, want: 2 }, {}, "line", true), /^your 3\.40 bits × others' about 2\.00 bits ≈ 6\.80 points\./);
+  assert.match(whyLine({ rarity: 3.4, want: 2 }, {}, "line"), /^your 3\.40 bits × others' 2\.00 bits = 6\.80 points\./);
+});

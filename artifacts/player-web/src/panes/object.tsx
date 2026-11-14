@@ -10,7 +10,7 @@ import { pinnedRep } from "@workspace/v2-affordances";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { ExpandedFace, moves as candidatesOf, ObjectChip, proposalText, shortTitle, type Move } from "@workspace/v2-views";
 import { representation } from "@workspace/v2-core";
-import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyRule, useOthersAt } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyObject, useMyRule, useOthersAt, useOthersBlurred } from "@/sdk";
 import { contestedLines, foldTugs } from "./tug-of-war";
 import { useReplaying, useView } from "@/core/affordance-runtime";
 import { useOpenPane } from "@/dock/open-pane";
@@ -32,6 +32,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const o = useMyObject(objectId);
   const my = useMyRule();
   const agents = useMyAgents();
+  const blurred = useOthersBlurred();
   const show = useAffordance("view.showRepresentation");
   const compare = useAffordance("view.compareRepresentations");
   const pin = useAffordance("view.pinRepresentation");
@@ -61,7 +62,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const run = (op: SwitchOp) => (op.id === "view.showRepresentation" ? show.run(op.args) : compare.run(op.args)).catch(failed("The view did not change"));
   const pinned = pinnedRep(view, rule.family.id, primary);
   const v = o.value;
-  const othersAt = others && v ? { now: v.want, at: (after: unknown) => others.get(rule.type.encode(after)) ?? null } : undefined;
+  const othersAt = others && v ? { now: v.want, at: (after: unknown) => others.get(rule.type.encode(after)) ?? null, approx: blurred } : undefined;
   const propose = othersAt && !replaying && header?.phase !== "ended"
     ? (m: Move<unknown>) => void requestChat(proposalText(rule.type, o.number, m.after, m.bits ?? 0, othersAt.at(m.after) ?? 0), openPane)
     : undefined;
@@ -73,7 +74,7 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
           {v && <span data-testid="text-line-points">{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
           {v && <BitsHelp testId="button-bits-help-line" />}
         </p>
-        {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {})}</p>}
+        {v && <p className="text-xs text-muted-foreground" data-testid="text-line-formula">{whyLine({ rarity: v.rarityBits, want: v.want }, {}, word.one, blurred)}</p>}
       </div>
       <ExpandedFace rule={rule} state={state} value={my!.bits ?? undefined} active={active} compare={compared}
         moves={candidates} others={othersAt} onPropose={propose}

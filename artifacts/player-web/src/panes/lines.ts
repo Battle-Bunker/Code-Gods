@@ -71,9 +71,9 @@ export function payoffRect(row: { rarity: number; want: number }, scale: PayoffS
  * The row's "Why?": the line's score in the one formula ("your 3.40 bits × others' 2.00 bits = 6.80 points"), why it
  * scores nothing when only you care, then what the main part of the rule read (or why the line does not score).
  */
-export function whyLine(v: { rarity: number; want: number }, main: { sentence?: string; worst?: string | null }, one = "line"): string {
+export function whyLine(v: { rarity: number; want: number }, main: { sentence?: string; worst?: string | null }, one = "line", approx = false): string {
   const only = onlyYouNote(v.rarity, v.want, one);
-  const head = `${scoreFormula(v.rarity, v.want)}.${only ? ` ${only}` : ""}`;
+  const head = `${scoreFormula(v.rarity, v.want, approx)}.${only ? ` ${only}` : ""}`;
   if (main.worst) return `${head} This ${one} does not score for your rule: ${main.worst}.`;
   return main.sentence ? `${head} Main part: ${main.sentence.replace(/\.$/, "")}.` : head;
 }

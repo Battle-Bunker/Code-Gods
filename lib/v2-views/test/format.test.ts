@@ -38,3 +38,9 @@ test("1 in N by chance, N = 2^bits, rounded the way people say big numbers", () 
   assert.equal(chanceText(Math.log2(999e12)), "1 in 1 × 10¹⁵", "rounding up to the next power");
   for (const b of [50, 80, 100, 140.79, 300, 999]) assert.match(chanceText(b), /^1 in \d(\.\d)? × 10[⁰¹²³⁴⁵⁶⁷⁸⁹]+$/, `${b} bits: ${chanceText(b)}`);
 });
+
+test("live, with the others' numbers blurred: the formula says about and ≈, never an exact product (v1 peerNoiseBits)", async () => {
+  const { scoreFormula } = await import("../src/format.ts");
+  assert.equal(scoreFormula(6.8, 2.4, true), "your 6.80 bits × others' about 2.40 bits ≈ 16.32 points");
+  assert.equal(scoreFormula(6.8, 2.4), "your 6.80 bits × others' 2.40 bits = 16.32 points", "exact once the game has ended");
+});

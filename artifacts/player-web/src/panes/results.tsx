@@ -14,7 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
-import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
+import { BLURRED_ENDED_NOTE, isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
 import { resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
@@ -65,6 +65,7 @@ export function ResultsPane() {
       {rows.length > 0 && (
         <div className="space-y-1 text-xs text-muted-foreground" data-testid="text-results-note">
           <p>{totalNote(totalsSumNote(objectWord(header?.variant).one), rows.some(r => r.handicap > 0))}{tied ? ` ${TIE_NOTE}` : ""}</p>
+          {Number((header as { peerNoiseBits?: unknown } | undefined)?.peerNoiseBits ?? 0) > 0 && <p data-testid="text-results-exact">{BLURRED_ENDED_NOTE}</p>}
           <LineByLine testId="button-line-by-line-results" />
         </div>
       )}

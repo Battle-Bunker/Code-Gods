@@ -130,7 +130,7 @@ const KIND_SLOT = Object.fromEntries(CARE_KINDS.map(k => [k.kind, k.slot])) as R
  * Every line as a dot: across, your bits; up, the others' bits added together. Lines on the same spot share one dot,
  * bigger by their number (the read-out lists them).
  */
-export function CareScatter({ points, height = 220, word = { one: "line", One: "Line", many: "lines", Many: "Lines" } }: { points: readonly CarePoint[]; height?: number; word?: ObjectWord }) {
+export function CareScatter({ points, height = 220, word = { one: "line", One: "Line", many: "lines", Many: "Lines" }, approx = false }: { points: readonly CarePoint[]; height?: number; word?: ObjectWord; approx?: boolean }) {
   const { ref, width } = useWidth();
   const [hover, setHover] = useState<string | null>(null);
   const groups = useMemo(() => {
@@ -172,10 +172,10 @@ export function CareScatter({ points, height = 220, word = { one: "line", One: "
       </svg>
       {shown && (
         <Tooltip x={sx(shown.p.rarity)} width={width}>
-          {shown.list.length === 1 ? <p>{careTitle(shown.p, word.One)}</p> : (
+          {shown.list.length === 1 ? <p>{careTitle(shown.p, word.One, approx)}</p> : (
             <>
               <p>{shown.list.length} {word.many} here: {shown.list.slice(0, 8).map(p => p.number).join(", ")}{shown.list.length > 8 ? " …" : ""}</p>
-              <p className="text-muted-foreground">{careTitle(shown.p, word.One).replace(/^\S+ \d+: /, "each: ")}</p>
+              <p className="text-muted-foreground">{careTitle(shown.p, word.One, approx).replace(/^\S+ \d+: /, "each: ")}</p>
             </>
           )}
         </Tooltip>

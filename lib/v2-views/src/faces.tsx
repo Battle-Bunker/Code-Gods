@@ -165,6 +165,8 @@ export interface OthersAt<S> {
   /** Their total now. */
   readonly now: number | null;
   readonly at: (after: S) => number | null;
+  /** Live, with the others' numbers blurred (peerNoiseBits): the points are estimates, written with "about" and ≈. */
+  readonly approx?: boolean;
 }
 
 export interface MovesListProps<S> {
@@ -202,7 +204,7 @@ export function MovesList<S>({ list, noun, bits, others, onPropose }: MovesListP
               {o === "points" ? "Best for points" : "Best for my rarity"}
             </button>
           ))}
-          {others.now !== null && <span className="v2v-move-now">The others now: {fmtBits(others.now)} together</span>}
+          {others.now !== null && <span className="v2v-move-now">The others now: {others.approx ? "about " : ""}{fmtBits(others.now)} together</span>}
         </div>
       )}
       <ol>
@@ -214,7 +216,7 @@ export function MovesList<S>({ list, noun, bits, others, onPropose }: MovesListP
             <span className="v2v-move-reason">{cap1(m.reason)}{both && <b className="v2v-move-both" title="More bits for you and for the others"> · ↑ both of you</b>}</span>
             <span className="v2v-move-changes">{m.changes.join(" · ")}</span>
             {m.bits !== null && (others
-              ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs) : `your ${fmtBits(m.bits)} × others' …`}</span>
+              ? <span className="v2v-move-bits">→ {theirs !== null ? scoreFormula(m.bits, theirs, others.approx) : `your ${fmtBits(m.bits)} × others' …`}</span>
               : <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>)}
             {onPropose && theirs !== null && (
               <span className="v2v-move-acts">

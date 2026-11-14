@@ -96,3 +96,9 @@ test("no sentence uses the words walkers did not understand", () => {
   ];
   for (const l of lines) assert.doesNotMatch(l, /\b(grid|object|payoff)s?\b|✨/i);
 });
+
+test("live, with the others' bits blurred, the act log's points are estimates: about and ≈ (v1 peerNoiseBits)", () => {
+  const s = moveSentence({ who: "Your agent", before: snap(3.4, 2.0, 6.8), after: snap(6.8, 2.4, 16.32), approx: true });
+  assert.match(s, /Points on this line 6\.80 → 16\.32: your 6\.80 bits × others' about 2\.40 bits ≈ 16\.32 points \(others' bits were about 2\.00\)\./);
+  assert.doesNotMatch(s, / = /);
+});
