@@ -189,12 +189,18 @@ export interface ValueConfig {
   readonly minSupport: number;
   readonly sampledRel: number;
   readonly sampledAbs: number;
+  /**
+   * No sampled knot is certified past this many bits: the rarity to which the sampler was checked against the exact
+   * sums on line-z (sampler-check; 654 knots on 9 pairings, |z| ≤ 2.4 above 8 bits through 25 bits). Rarer scores are
+   * left to the tail rule, marked "beyond", with the last certified knot as their floor.
+   */
+  readonly sampledMaxBits: number;
 }
 
 export const VALUE_CONFIG: ValueConfig = {
   separableBits: 44, bandBits: 40, triangleBits: 28, wideRange: 200,
   tilts: [1, 0.75, 0.55, 0.4, 0.3], drawsPerTilt: 60_000, delta: 0.05, relTarget: 0.02, absFloor: 0.06, minSupport: 30,
-  sampledRel: 0.05, sampledAbs: 0.2,
+  sampledRel: 0.05, sampledAbs: 0.2, sampledMaxBits: 25,
 };
 
 export interface ValueTail {
@@ -237,7 +243,7 @@ const r4down = (x: number) => (Number.isFinite(x) ? Math.floor(x * 1e4) / 1e4 : 
 const r4up = (x: number) => (Number.isFinite(x) ? Math.ceil(x * 1e4) / 1e4 : x);
 
 /** Knots from oracles: each candidate takes the tightest certified interval; monotone; thinned. */
-export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "delta" | "relTarget" | "absFloor" | "minSupport" | "sampledRel" | "sampledAbs">): { knots: ValueKnot[]; candidates: number } {
+export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "delta" | "relTarget" | "absFloor" | "minSupport" | "sampledRel" | "sampledAbs"> & { sampledMaxBits?: number }): { knots: ValueKnot[]; candidates: number } {
   const seen = new Map<string, Score>();
   for (const o of oracles) for (const u of o.candidates(cfg.delta / 4)) seen.set(keyOf(u), u);
   seen.set(keyOf(null), null);
@@ -251,6 +257,7 @@ export function knotsFrom(oracles: readonly Oracle[], cfg: Pick<ValueConfig, "de
       if (o.source === "sampled" && s.support < cfg.minSupport) continue;
       const hi = bitsOf(s.lo), lo = bitsOf(s.hi), bits = bitsOf(s.estimate);
       if (!Number.isFinite(hi) || !Number.isFinite(bits)) continue;
+      if (o.source === "sampled" && bits > (cfg.sampledMaxBits ?? Infinity)) continue;
       const width = o.source === "exact" ? Math.max(cfg.relTarget * bits, cfg.absFloor) : 2 * Math.max(cfg.sampledRel * bits, cfg.sampledAbs);
       if (hi - lo > width) continue;
       if (!best || hi - lo < best.hi - best.lo) best = { u, bits, lo, hi, source: o.source };
