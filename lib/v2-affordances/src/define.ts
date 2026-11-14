@@ -1,8 +1,8 @@
 /** `affordance({...})`: declares one operation, keeping its id, params and result types for the generated surfaces. */
 import { z } from "zod/v4";
-import type { Affordance } from "./types.ts";
+import type { Affordance, Runs } from "./types.ts";
 
-export function affordance<const Id extends string, I extends z.ZodObject, O extends z.ZodType>(a: Affordance<Id, I, O>): Affordance<Id, I, O> {
+export function affordance<const Id extends string, I extends z.ZodObject, O extends z.ZodType, const R extends Runs>(a: Affordance<Id, I, O, R>): Affordance<Id, I, O, R> {
   return a;
 }
 

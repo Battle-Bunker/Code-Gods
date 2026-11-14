@@ -5,9 +5,9 @@
  *      unless it declares the consent exemption (the only one allowed);
  *   4. for every context and caller, the assistant, MCP and the palette offer the same set;
  *   5. text limits, unique ids, keywords present, destructive and spending affordances confirm.
- * Checks 2 (every server affordance has exactly one handler, every public v2 function is one) and 3 (the app calls no
- * v2 mutation or action except through `useAffordance`) need the server binding and the React hook, which W6-2 adds;
- * until then nothing enforces them.
+ * Check 2 (every server affordance has exactly one handler, every public v2 mutation or action is one) is
+ * `handlerProblems` (server.ts) over a handler map, and `convexOpsProblems` (scan.ts) over `convex/v2`. Check 3 (the
+ * app calls no v2 mutation or action except through `useAffordance`) comes with the React hook.
  */
 import { z } from "zod/v4";
 import { DIRECTORY, type Directory } from "./directory.ts";

@@ -17,8 +17,9 @@ lists operations. Every surface is generated from it:
 | Remote assistant (MCP) | `mcpTools(ctx)` → `tools/list` entries with annotations and output schema | `ctx.grant` narrows to the credential's permission |
 | CLI | `cliCommands()`, `parseCli(argv)` | `<namespace> <verb> --flag value` and `call <id> '<json>'`; flags from the JSON Schema |
 | Command palette | `paletteFor(ctx)` → entries with `searchText`, `confirm`, `availability`; `searchPalette` | the app maps entries onto its palette UI |
-| UI buttons | `useAffordance(id)` (W6-2, `@workspace/v2-affordances/react`) | `{available, reason, fix, confirm, spends, run(args)}` |
-| Server | `defineOp(affordance, handler)` (W6-2) | one Convex function per server affordance plus its internal twin |
+| UI buttons | `useAffordance(id)` (`@workspace/v2-affordances/react`, next PR) | `{available, reason, fix, confirm, spends, run(args)}` |
+| Server | `defineOp(id, kind, handler)` (`@workspace/v2-affordances/convex`) | one Convex function per server affordance plus its internal twin |
+| Model dispatch | `callTool(name, args, ctx, via, perform)`, `mcpDispatch(msg, ctx, perform)` | the assistant's tool calls and MCP `tools/list` / `tools/call`; results wrapped untrusted |
 
 The assistant, MCP and the palette all start from **`availableAffordances(ctx)`, the dynamic directory**: every
 affordance whose `contexts` include `ctx.context`, whose `caller` the principal satisfies, which the grant allows and
@@ -54,8 +55,10 @@ Rules the parity test enforces (`parityProblems()`, `test/parity.test.ts`):
 
 1. every affordance is reachable from the assistant, MCP, the CLI and the palette in at least one context, unless it
    declares the consent exemption (any other reason is refused and leaves every surface required);
-2. every server affordance has exactly one handler, and every public v2 Convex function is one (W6-2, below);
-3. the web app calls no v2 mutation or action except through `useAffordance` (W6-2);
+2. every server affordance has exactly one handler, and every public v2 mutation or action is one (`handlerProblems`
+   over the fake's handler map; `convexOpsProblems` over `artifacts/engine/convex/v2`, which turns strict as soon as
+   `convex/v2/ops/` exists);
+3. the web app calls no v2 mutation or action except through `useAffordance` (with the React hook, next PR);
 4. for every context and caller, the assistant, MCP and the palette offer the same set;
 5. ids are `namespace.verb` and unique; text within limits; keywords present; destructive and spending affordances
    confirm; server writes take an optional `requestId` (idempotent retries); schemas convert to JSON Schema.
@@ -66,16 +69,39 @@ each answer carries `bits`, what an agent pays for the same read (spec §3.1, §
 
 ## 3. For W3 (the Convex server)
 
-- Every public v2 mutation or action **is** a `defineOp` (W6-2 publishes it in `@workspace/v2-affordances/convex`);
-  there is no other way to make one. `defineOp` validates args with the affordance's zod schema, resolves the
-  principal and the context from the game header (a resolver W3 supplies), applies `refusal`, records the receipt
-  idempotently by `requestId` (a receipts store W3 supplies over `v2Receipts`) and returns the typed result. Each also
-  gets an internal twin that takes a principal, which the assistant and MCP executors call.
-- The Convex function kind is the handler's choice (`query` for reads, `mutation` for writes, `action` where the
-  sandbox or a model runs: `agent.check`, `agent.summon`, `agent.replace`, `agent.putBack`, `pitch.draft`).
-- A new operation is declared here first, in its own small PR or as part of the PR that implements it; W6 reviews it.
-- Until W3 lands, `@workspace/v2-affordances/fake` (W6-2) implements every server affordance in memory, so the
-  surfaces are tested end to end.
+Every public v2 mutation or action **is** a `defineOp`; there is no other way to make one. W3 binds it once:
+
+```ts
+// convex/v2/ops/define.ts
+import { makeDefineOp } from "@workspace/v2-affordances/convex";
+export const defineOp = makeDefineOp<DataModel>({
+  resolve: async (ctx, who, scope) => …,   // { session: true } | { delegate }, and { roomId?, gameId?, replay? }
+                                           // → { ctx: AffordanceContext, callerKey, userId }, from v2Rooms/v2Members/v2Games
+  receipts: ctx => …,                      // a ReceiptStore over v2Receipts (actions: through runMutation)
+});
+// convex/v2/ops/agent.ts: one file per namespace, each affordance exported as { op: <verb>, as: <verb>As }
+export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", async ({ ctx, caller, scope }, args) => …);
+```
+
+- `defineOp(id, kind, handler)` only accepts a server affordance's id. The handler's `args` are the parsed params, and
+  its return type is the declared result. Kind is `query` for reads, `mutation` for writes, and `action` where the
+  sandbox or a model runs (`agent.check`, `agent.summon`, `agent.replace`, `agent.putBack`, `pitch.draft`).
+- Both functions run `runOp`. It validates the args, applies `refusal` with the context `resolve` derived from the
+  server's own records (never the client's say-so), answers a repeated `requestId` from its receipt, and checks the
+  result against the declaration (a mismatch throws: it is a bug). A handler reports a domain failure by throwing
+  `OpFailure(message, fix?)`. Both return an `OpOutcome`; refusals and failures are values.
+- `op` takes `{args, roomId?, gameId?, replay?}` as the signed-in session. `as` (internal) takes the same plus
+  `delegate {userId, roomId, grant?, via}`: the assistant and MCP executors call it as the human they act for. A
+  consent affordance refuses every delegate.
+- `opPath(id)` names both functions (`v2/ops/agent:summon`, `v2/ops/agent:summonAs`), so callers need no table.
+- Live queries (§2.2 of the plan) are not affordances and stay plain `query`s. Their one-off read counterparts for
+  models are affordances (`game.get`, `objects.list`, `object.read`, …).
+- `@workspace/v2-affordances/fake` implements every server affordance in memory (`FAKE_HANDLERS`, `createFake`,
+  `contextFor`), the reference for what each handler takes and answers. The CLI runs against it until the server
+  exists: `pnpm --filter @workspace/v2-affordances cli help`.
+- MCP: when v2 rooms exist, `/mcp` routes a v2 room's credential to `mcpDispatch` with the credential's context and a
+  `perform` that runs `as` with the credential as delegate. The transport, OAuth and `initialize` stay as they are.
+- A new operation is declared in the directory first (in the PR that implements it, or its own); W6 reviews it.
 
 ## 4. For W5 (the app)
 

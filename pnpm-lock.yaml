@@ -578,6 +578,9 @@ importers:
 
   lib/v2-affordances:
     dependencies:
+      convex:
+        specifier: 1.48.0
+        version: 1.48.0(react@19.1.0)
       zod:
         specifier: 'catalog:'
         version: 3.25.76
