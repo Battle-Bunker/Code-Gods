@@ -1,7 +1,7 @@
 /**
  * Offline calibration pipeline: builds the shipped survival tables (data/calibration/v1/).
  *
- *   pnpm --filter @workspace/game-utilities calibrate [--types Int,string,Grid] [--instances "Grid(5,base10,rgby)",...]
+ *   pnpm --filter @workspace/game-utilities calibrate [--types Grid] [--instances "Grid(5,base10,rgby)",...]
  *        [--families id,...] [--budget default|smoke|k=v,...] [--workers 4] [--force] [--check] [--out dir]
  *        [--pool pool.json]   (mixture-prior tables ½·uniform + ½·pool, from the uniform tables already built)
  *
@@ -20,7 +20,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
-import { INT_PRESETS, STRING_PRESETS, instantiate, type Instantiation, type TypeArgs } from "@workspace/game-types";
+import { instantiate, type Instantiation, type TypeArgs } from "@workspace/game-types";
 import { available, canonicalSupport, context, familiesFor, paramsKey } from "../src/catalog.ts";
 import {
   CALIBRATION_FORMAT, instantiateKey, manifestEntry, manifestOf, priorKey, tableKey, tableOrder, type CalibrationBudget,
@@ -49,11 +49,7 @@ export const CURATED_GRIDS: readonly TypeArgs[] = [
 
 /** Everything the pipeline calibrates by default, in manifest order. */
 export function defaultInstances(): Instantiation[] {
-  return [
-    ...INT_PRESETS.map(a => instantiate("Int", a)),
-    ...STRING_PRESETS.map(a => instantiate("string", a)),
-    ...CURATED_GRIDS.map(a => instantiate("Grid", a)),
-  ];
+  return CURATED_GRIDS.map(a => instantiate("Grid", a));
 }
 
 export interface Job { readonly instance: string; readonly args: TypeArgs; readonly objectType: string; readonly familyId: string; readonly params: Params; readonly key: string }
@@ -249,7 +245,7 @@ function buildMixtures(dir: string, poolPath: string, families: ReadonlySet<stri
   console.error(`built ${made.length} mixture tables for ${priorKey(prior)} on ${inst.key}`);
 }
 
-const weight = (j: Job) => (j.objectType === "Grid" ? 1000 * Number(j.args.size) ** 2 : j.objectType === "string" ? Number(j.args.maxLength) : 1);
+const weight = (j: Job) => (j.objectType === "Grid" ? 1000 * Number(j.args.size) ** 2 : 1);
 
 if (isMainThread && process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   main().catch(e => { console.error(e); process.exit(1); });

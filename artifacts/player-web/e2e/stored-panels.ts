@@ -19,8 +19,7 @@
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
  *   the engine; after the game ends its page turns into the replay without a reload, where every built-in panel shows
- *   the final state (none blank) and the forge is read-only; while the next game prepares its rule tables the room page
- *   shows the progress; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
+ *   the final state (none blank) and the forge is read-only; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
  *   built-in panels and the assistant; the page CSP reports nothing of its own and a signed-out visit offers sign-in.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
@@ -100,8 +99,9 @@ const DEFAULT = () => defaultLayout("running");
 // Layouts follow the human across rooms: start this room from the default arrangement.
 await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT() });
 
-/** A long-lived Int game: three objects, no spawns, a lifetime far beyond this run. */
-const LONG_GAME = { objectType: "Int", languages: ["typescript"], spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100_000, planningSeconds: 5 };
+/** A long-lived game on the beginner board: three objects, no spawns, a lifetime far beyond this run. */
+const LONG_GAME = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, languages: ["typescript"], spawnRateHz: 0,
+  startingObjectCount: 3, halfLifeSeconds: 100_000, planningSeconds: 5 };
 /**
  * Configure and start a game in a room carol owns (with `settings`), and wait until it is live: a start may first
  * prepare the rule tables (`{ status: "preparing" }`). Returns the game's short code.
@@ -441,13 +441,13 @@ await check("after the game ends its page turns into the replay without a reload
   type Obs = { gameId: string; language: "python" | "typescript"; instance: { objectType: string }; objects: { id: string }[]; agents: unknown[]; transformations: { calls?: [string, Record<string, unknown>][] }[] };
   const observe = () => carol.query(fn.q("player:observation"), { roomId, at: Date.now() }) as Promise<Obs>;
   let obs = await observe();
-  const AGENT: Record<string, Record<string, string>> = {
-    python: { Int: "def agent(x):\n    return [add(1)]", string: "def agent(s):\n    return [swap_chars(0, 1)]", Grid: "def agent(grid):\n    return [slide(row(0), 1)]" },
-    typescript: { Int: "function agent(x) { return [add(1)]; }", string: "function agent(s) { return [swapChars(0, 1)]; }", Grid: "function agent(grid) { return [slide(row(0), 1)]; }" },
+  const AGENT: Record<string, string> = {
+    python: "def agent(grid):\n    return [slide(row(0), 1)]",
+    typescript: "function agent(grid) { return [slide(row(0), 1)]; }",
   };
   // The game ends whatever happens here: the checks after this one expect an ended game.
   try {
-    const source = AGENT[obs.language][obs.instance.objectType];
+    const source = AGENT[obs.language];
     assert(source, `no agent source for ${obs.language} ${obs.instance.objectType}`);
     const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
       command: { type: "summon", name: "Test agent", language: obs.language, source } } }) as { accepted: boolean; message?: string };
@@ -545,38 +545,9 @@ await check("after the game ends its page turns into the replay without a reload
   }
 });
 
-// The dock exists only in a live game: preparing the next one is shown on the room page.
-await check("while the next game prepares its rule tables (a shape with no shipped file), the room page says so with the progress", async () => {
-  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
-  const { canonicalSupport, context: tableContext, familiesFor, firstUseSeconds, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
-  const inst = instantiateKey("Int(0,2147483647)");
-  const smooth = familiesFor("Int", "reward").find(f => f.id === "smooth-operator")!;
-  const convex = (fnName: string, args: unknown) => execFileSync("npx", ["convex", "run", fnName, JSON.stringify(args)], { cwd: ENGINE, encoding: "utf8" });
-  convex("calibration/cache:forget", { instance: inst.key });
-  // The three tables are claimed as if computing elsewhere: the room waits on them, nothing is computed here.
-  for (const p of canonicalSupport(smooth, tableContext(inst))) {
-    convex("calibration/cache:claim", { key: tableKey(smooth.id, p, inst), instance: inst.key, family: smooth.id, paramsKey: paramsKey(p), prior: "uniform" });
-  }
-  const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
-  await owner("settings", { revision, settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, languages: ["typescript"],
-    excludedFamilies: familiesFor("Int", "reward").map(f => f.id).filter(id => id !== smooth.id) } });
-  const started = await owner("start") as { status?: string; message?: string };
-  assert(started.status === "preparing" && /preparing its rule tables: 0 of 3 ready/.test(started.message ?? ""), `start: ${JSON.stringify(started)}`);
-  const roomPage = await context.newPage();
-  await roomPage.goto(`${SITE}/rooms/${shortCode}`);
-  const note = roomPage.locator("[data-testid=text-preparing]");
-  await note.waitFor({ timeout: 30_000 });
-  const text = await note.innerText();
-  assert(new RegExp(`The game is preparing its rule tables, 0 of 3 ready\\. This is the first game on Int\\(0,2147483647\\) on this server \\(about ${firstUseSeconds(inst)} s;`).test(text), `note: ${text}`);
-  await owner("endGame");   // ends the preparation
-  await note.waitFor({ state: "detached", timeout: 30_000 });
-  await roomPage.close();
-  convex("calibration/cache:forget", { instance: inst.key });
-});
-
-// A second live game (Grid) for the checks that need a dock: the phone layouts and safe mode.
+// A second live game for the checks that need a dock: the phone layouts and safe mode.
 let gridPath = "";
-await check("a second game (Grid) starts and the room page opens it: carol plays, so its page is her dock", async () => {
+await check("a second game starts and the room page opens it: carol plays, so its page is her dock", async () => {
   const roomPage = await context.newPage();
   await roomPage.goto(`${SITE}/rooms/${shortCode}`);
   await roomPage.waitForSelector("[data-testid=text-room-code]", { timeout: 60_000 });

@@ -11,8 +11,8 @@ import assert from "node:assert/strict";
 import { admin, api, gods, internal, makeAdmin, playerClient, raw, roomWith, startGame, touch, waitFor, TS, type God } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify({ steps })}`;
 const DONE = ["done", "failed", "cancelled", "budget_exhausted"];
@@ -52,7 +52,7 @@ test("Read-only: the model may ask for any tool, but nothing that changes anythi
   await ann.c.mutation(api.assistant.setMode, { roomId, mode: "readOnly" });
   assert.equal((await ann.c.query(api.assistant.status, { roomId })).mode, "readOnly");
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
-    { tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Sneaky" } }, { name: "send_chat", input: { text: "read-only hello" } }, { name: "get_observation", input: { objectsLimit: 1 } }] },
+    { tools: [{ name: "summon_agent", input: { source: TS.Grid, name: "Sneaky" } }, { name: "send_chat", input: { text: "read-only hello" } }, { name: "get_observation", input: { objectsLimit: 1 } }] },
     { text: "ok" },
   ]) });
   const t = await until(ann, sent, DONE, "the read-only turn ends");
@@ -71,7 +71,7 @@ test("Read-only: the model may ask for any tool, but nothing that changes anythi
 
 test("On request: a summon the player asks for runs at once, with no approval; no turn opens without a message", { timeout: 180_000 }, async () => {
   const { members: [ann], roomId, game } = await modeRoom(["Or Ann", "Or Bob", "Or Cyd"]);
-  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "Summoned." }]) });
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Grid, name: "Test agent" } }] }, { text: "Summoned." }]) });
   const t = await until(ann, sent, DONE, "the turn ends");
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
   assert.equal(t.calls[0].status, "ok", t.calls[0].resultJson);

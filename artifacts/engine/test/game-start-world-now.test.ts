@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { api, gods, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 10, spawnRateHz: 1,
+  languages: ["typescript"], objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 10, spawnRateHz: 1,
   interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 

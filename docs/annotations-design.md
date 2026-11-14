@@ -194,15 +194,6 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | 🏰 Rook's Watch | rows and columns holding a token | Rays from tokens. |
 | Defence goals (🚫 🙅 🫧 🏴 🫠 📐 🔁 👥) | penalties are mostly global counts | Same lenses, loss tone; disclosure unchanged (own goal only). |
 
-### Int and string families
-
-The paradigm is a *focus position* (digit or character) instead of a cell. Most are Tier A/B with the same building
-blocks: runs (🍬 Glyph Glutton, 🏃 Streaker, 📈 Ascender), pairs from the outside in (🪞 Mirror, Palindromist), prefix or
-suffix matches (🦎 Tailwright, 👑 Firstborn, 🔚 Last Word, 🪄 Incantor), totals (🔯 Numerologist, 🧾 Tallykeeper, ⚖️
-Scale-keeper). Arithmetic ones (🏺 Power Hoarder, 🎭 Many-Faced, 🔮 Residue Oracle) are Tier D: a factor tree or residue
-table, not a position. Out of scope for phase 2 (First Steps is a Grid setup), but the model's `Part.cells` generalises
-to positions without change.
-
 ## 6. Architecture
 
 ### 6.1 Lenses (game-utilities `src/explain/`)

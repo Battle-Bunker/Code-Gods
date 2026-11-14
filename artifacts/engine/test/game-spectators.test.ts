@@ -9,7 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { api, gods, raw, rejects, sandboxesWarm, startGame, touch, makeAdmin } from "./game-helpers.ts";
 
-const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
+const BOARD_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 const roles = async (c: any, roomId: string) => Object.fromEntries((await c.query(api.rooms.get, { room: roomId })).members.map((m: any) => [m.name, m.spectator]));
 
 test("the owner plays by default: they are dealt in and count toward three", { timeout: 180000 }, async () => {
@@ -20,7 +20,7 @@ test("the owner plays by default: they are dealt in and count toward three", { t
   // Catches: the person who made the room left watching it ("Watching? I made this, I want to play.").
   assert.deepEqual(await roles(host.c, roomId), { "Play Host": false });
   const room = await host.c.query(api.rooms.get, { room: roomId });
-  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: INT_TS });
+  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: BOARD_TS });
   await ada.c.mutation(api.rooms.join, { room: shortCode });
   assert.match(await rejects(host.c.action(api.owner.start, { roomId })), /three players/);
   await bo.c.mutation(api.rooms.join, { room: shortCode });
@@ -41,7 +41,7 @@ test("an owner who creates the room to watch (spectator: true) is not dealt in; 
   await touch(host);
   const { roomId, shortCode } = await host.c.mutation(api.rooms.create, { spectator: true });
   const room = await host.c.query(api.rooms.get, { room: roomId });
-  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: INT_TS });
+  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: BOARD_TS });
   await ada.c.mutation(api.rooms.join, { room: shortCode });
   await bo.c.mutation(api.rooms.join, { room: shortCode });
   // Catches: a spectator counted toward the minimum.
@@ -66,7 +66,7 @@ test("who may set it: a member for themselves, the owner for any human, never an
   await touch(host);
   const { roomId, shortCode } = await host.c.mutation(api.rooms.create, { spectator: true });
   const room = await host.c.query(api.rooms.get, { room: roomId });
-  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: INT_TS });
+  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: BOARD_TS });
   for (const g of [ada, bo, cy]) await g.c.mutation(api.rooms.join, { room: shortCode });
 
   // A member for themselves; their ready state goes with it, and a spectator cannot be ready.
@@ -115,7 +115,7 @@ test("a game's spectators, mid-game joiners included, open it once it is past; a
   await touch(host);
   const { roomId, shortCode } = await host.c.mutation(api.rooms.create, {});
   const room = await host.c.query(api.rooms.get, { room: roomId });
-  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: INT_TS });
+  await host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: BOARD_TS });
   for (const g of [ada, bo, cy]) await g.c.mutation(api.rooms.join, { room: shortCode });
   await host.c.mutation(api.rooms.setSpectator, { roomId, spectator: true, godId: cy.subject });
   await host.c.mutation(api.rooms.setSpectator, { roomId, spectator: false });

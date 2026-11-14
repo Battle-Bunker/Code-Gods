@@ -40,9 +40,15 @@ export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard
   }));
 }
 
-/** The fully applied object type of (validated) settings, with the commit-clause helper when offered. */
-export function objectInstance(settings: GameSettings): InstanceInfo {
-  const info = instanceInfo(instantiationOf(settings), costModelOf(settings));
+/**
+ * The fully applied object type of (validated) settings, with the commit-clause helper when offered; absent for settings
+ * stored with an object type that no longer exists (the integer and string types, removed in 2026-11): such a room
+ * still opens, so its owner can choose a Grid board.
+ */
+export function objectInstance(settings: GameSettings): InstanceInfo | undefined {
+  let inst: ReturnType<typeof instantiationOf>;
+  try { inst = instantiationOf(settings); } catch { return undefined; }
+  const info = instanceInfo(inst, costModelOf(settings));
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 

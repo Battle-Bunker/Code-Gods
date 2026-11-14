@@ -40,7 +40,7 @@ export const GLOSSARY = {
   room: { term: "Room", gloss: "The table you play at: a short code, an owner and up to 8 seats; it hosts game after game." },
   game: { term: "Game", gloss: "One round in a room: a planning minute, then a running world that ends at a random moment." },
   god: { term: "God", gloss: "A player, human or AI." },
-  object: { term: "Object", gloss: "One thing in the world (a grid, a number, a piece of text); no two are ever identical." },
+  object: { term: "Object", gloss: "One thing in the world (a grid); no two are ever identical." },
   "utility-function": { term: "Utility function", gloss: "Your secret rule: it gives every object a rule score; only which object is better matters." },
   "rule-score": { term: "Rule score", gloss: SCORE_LINES.ruleScore },
   "defence-goal": { term: "Defence goal", gloss: "An optional second secret rule: objects that are unusually bad for it take ✨ rarity away from you." },

@@ -9,7 +9,7 @@ import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, instantiate } from "@workspace/ga
 import {
   FAMILIES, card, context, evaluator, explainer, family, paramOptions, paramsInDomain,
 } from "../src/index.ts";
-import { allGrids, familiesOf, intInsts, stringInsts } from "./support.ts";
+import { allGrids, familiesOf } from "./support.ts";
 
 const rgb = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
 const b12 = instantiate("Grid", { size: 5, symbols: "base12", colours: "rainbow6" });
@@ -31,11 +31,10 @@ test("colour and symbol types resolve to the shape's own colours and glyphs", ()
   assert.equal(deck[13 + 9].label, "10♥ (ten of hearts)");
   assert.deepEqual(paramOptions({ kind: "int", label: "n", min: 3, max: 5 }, rgb).map(o => o.value), [3, 4, 5]);
   assert.deepEqual(paramOptions({ kind: "bool", label: "b" }, rgb).map(o => o.value), [false, true]);
-  assert.throws(() => paramOptions({ kind: "colour", label: "c" }, instantiate("Int", {})));
 });
 
 test("every typed family × every shape: named params, exact domains, support inside them, no colour or symbol indices", () => {
-  for (const inst of [...allGrids(), ...intInsts(), ...stringInsts()]) {
+  for (const inst of allGrids()) {
     const ctx = context(inst);
     for (const f of familiesOf(inst)) {
       const fields = f.params(ctx), where = `${f.id} ${inst.key}`;

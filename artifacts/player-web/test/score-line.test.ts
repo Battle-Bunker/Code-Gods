@@ -10,9 +10,7 @@ test("a change is said in plain words", () => {
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/5G,4R", "grid"), "changed red 3 to green 5 at row 2, column 1");
   assert.equal(describeChange("1R,2R/3R,4R", "2R,2R/3R,5R", "grid"), "changed 2 cells of a grid");
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/3R,4R", "grid"), "left a grid as it was");
-  assert.equal(describeChange(12, 13, "number"), "changed 12 to 13");
-  assert.equal(describeChange("abc", "abd", "string"), "changed “abc” to “abd”");
-  assert.equal(describeChange("x".repeat(60), "y".repeat(60), "string"), "changed a string");
+  assert.equal(describeChange("1R,2R/3R,4R", "1R,2R,3R/4R,5R,6R/7R,8R,9R", "grid"), "changed a grid", "boards of different sizes");
 });
 
 test("rule scores and their change", () => {

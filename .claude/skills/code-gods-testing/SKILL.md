@@ -65,8 +65,8 @@ mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live 
 - **Time.** Don't sleep a fixed time to wait for a tick; poll for the observable outcome with a bound
   (`waitFor` in `game-helpers.ts`, `until` in the e2e). Games under test set a long `halfLifeSeconds` unless the
   test is about the lifetime.
-- **Economy-aware fixtures.** Agent sources in tests must be affordable. A 128-character string rotate costs
-  about 273 bits per act; prefer `swapChars`, `add`, or a small `slide`.
+- **Economy-aware fixtures.** Agent sources in tests must be affordable. A move that rewrites the whole board costs
+  hundreds of bits per act; prefer a small `slide` or a one-cell `write`.
 - **A bug fix starts with a failing test** at the cheapest layer that reproduces it. The multi-client e2e found
   three engine bugs; each fix should also gain a fast test.
 - **Before finishing**, run your change's selective set once, when it is ready to merge (the `selective-testing`

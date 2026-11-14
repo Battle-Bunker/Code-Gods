@@ -17,7 +17,10 @@ const playableArgs = new Map<string, readonly TypeArgs[]>();
 const DOMAIN: SettingsDomain = {
   playable(objectTypeId) {
     let found = playableArgs.get(objectTypeId);
-    if (!found) playableArgs.set(objectTypeId, found = playableInstantiations(objectTypeId).map(inst => inst.args));
+    if (found) return found;
+    // A type that no longer exists (a room stored with the removed Int or string type) has nothing playable.
+    try { found = playableInstantiations(objectTypeId).map(inst => inst.args); } catch { return []; }
+    playableArgs.set(objectTypeId, found);
     return found;
   },
   isPlayable(objectTypeId, typeArgs) {

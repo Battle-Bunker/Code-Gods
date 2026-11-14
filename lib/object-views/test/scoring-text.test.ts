@@ -42,7 +42,6 @@ test("rarity: everyday objects, zero, negative and non-finite bits", () => {
   assert.equal(formatCount(Infinity), "more than a quintillion");
   assert.match(formatCount(2 ** 70), /^1\.2 × 10\^21$/);
   assert.equal(objectNoun("Grid"), "grid");
-  assert.equal(objectNoun("Int"), "number");
   assert.equal(objectNoun(undefined), "object");
 });
 
@@ -133,11 +132,11 @@ test("settings: component badges are maximal; rule deltas count gained and lost 
 
 test("dispatch: a known objectType wins over inference; untyped values fall back by shape", () => {
   const r = createObjectTypeRegistry<string>();
-  r.register({ type: "string", component: "S", infer: v => typeof v === "string" });
-  r.register({ type: "Int", component: "I", infer: v => typeof v === "number" });
+  r.register({ type: "Label", component: "S", infer: v => typeof v === "string" });
+  r.register({ type: "Count", component: "I", infer: v => typeof v === "number" });
   r.register({ type: "Grid", component: "G", infer: looksLikeGrid });
   assert.equal(r.resolve("1R,2G/3B,4R")?.component, "G");
-  assert.equal(r.resolve("1R,2G/3B,4R", { objectType: "string" })?.component, "S");
+  assert.equal(r.resolve("1R,2G/3B,4R", { objectType: "Label" })?.component, "S");
   assert.equal(r.resolve(7)?.component, "I");
   assert.equal(r.resolve("hello")?.component, "S");
   assert.equal(r.resolve("7R", {})?.component, "S", "1×1 is not inferred as a grid");

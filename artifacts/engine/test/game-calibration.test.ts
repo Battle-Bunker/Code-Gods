@@ -15,9 +15,9 @@ import { admin, internal } from "./game-helpers.ts";
 
 const convex = convexRunner();
 const quiet = { log: () => {} };
-const INSTANCE = "Int(0,9999)";
-const settings = { objectType: "Int", typeArgs: { min: 0, max: 9999 }, priorId: "uniform" };
-const draw = { familyId: "digit-devotee", params: { digit: 7 } };
+const INSTANCE = "Grid(5,base10,rgby)";
+const settings = { objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, priorId: "uniform" };
+const draw = { familyId: "snap", params: {} };
 
 test("upload skips unchanged files, replaces a changed one, and the engine then loads the new bytes from storage", { timeout: 180_000 }, async () => {
   // The dev script uploaded the repository's files: nothing to do.

@@ -13,8 +13,8 @@ import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
@@ -38,7 +38,7 @@ const RANK_PY = "def main(data):\n    rows = sorted(data['objects'], key=lambda 
 test("run_code: a script over datasets resolved as the player, stored for them only, within disclosure", { timeout: 240_000 }, async () => {
   const { members: [ann, bob], roomId, gameId } = await startedRoom(["Ann Coder", "Bob Coder", "Cal Coder"]);
   const SECRET = "bob_code_marker";
-  const summoned = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: `function agent(x) { const ${SECRET} = 1; return [add(${SECRET})]; }` }, gameId) });
+  const summoned = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: `function agent(grid) { const ${SECRET} = 1; return [slide(row(0), ${SECRET})]; }` }, gameId) });
   assert.equal(summoned.accepted, true, summoned.message);
   const cred = await credential(ann, roomId);
 

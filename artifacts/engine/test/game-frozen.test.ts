@@ -13,8 +13,8 @@ import { observationSchema } from "@workspace/player-client";
 import { admin, api, envelope, gods, internal, raw, roomWith, sleep, startGame, touch, TS, waitFor, makeAdmin } from "./game-helpers.ts";
 
 const settings = {
-  languages: ["typescript"], objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
+  languages: ["typescript"], objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 4, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
 };
 const mock = (steps: unknown[]) => `/mock ${JSON.stringify({ steps })}`;
 const DONE = ["done", "failed", "cancelled", "budget_exhausted"];
@@ -29,8 +29,8 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   await host.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
   const game = await startGame(host, roomId);
   const send = (god: typeof ann, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  assert.equal((await send(ann, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
-  assert.equal((await send(bob, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(ann, { type: "summon", name: "Test agent", language: "typescript", source: TS.Grid })).accepted, true);
+  assert.equal((await send(bob, { type: "summon", name: "Test agent", language: "typescript", source: TS.Grid })).accepted, true);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
   await waitFor(async () => (await ann.c.query(api.player.observation, { roomId })).transformations.length >= 2, "Ann's agent transforms objects", 60_000);
   assert.equal((await send(ann, { type: "chat", text: "frozen-chat marker" })).accepted, true);
@@ -46,7 +46,7 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   assert.equal(end.objects.length, 4, "objects with their final payoffs");
   assert.ok(end.objects.every(o => typeof o.payoff === "number" && typeof o.own.netBits === "number"));
   assert.equal(end.agents.length, 1, "Ann's agent, as it ended the game");
-  assert.ok(end.agents[0].acts >= 1 && end.agents[0].source === TS.Int);
+  assert.ok(end.agents[0].acts >= 1 && end.agents[0].source === TS.Grid);
   assert.ok(end.transformations.length >= 2, "the feed's transformations");
   assert.equal(end.leaderboard.length, 3);
   assert.ok(end.self.utility?.name, "the player's own card");
@@ -85,7 +85,7 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   assert.equal((await ann.c.query(api.layout.current, { roomId })).phase, "ended");
 
   // Actions stay refused with a reason; chat belongs to the room and stays open, as on the room page.
-  const summon = await send(ann, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int });
+  const summon = await send(ann, { type: "summon", name: "Test agent", language: "typescript", source: TS.Grid });
   assert.equal(summon.accepted, false);
   assert.match(summon.message, /not accepting commands/);
   assert.equal((await send(ann, { type: "destroy", agentId: end.agents[0].id })).accepted, false);

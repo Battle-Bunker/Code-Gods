@@ -19,8 +19,8 @@ import { NO_FAILURES } from "../convex/lib/futility.ts";
 import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
   halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 const close = (a: number, b: number, what: string) => assert.ok(Math.abs(a - b) < 1e-9 * Math.max(1, Math.abs(b)), `${what}: ${a} vs ${b}`);
@@ -33,13 +33,13 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const ok = async (p: Promise<any>) => { const r = await p; assert.equal(r.accepted, true, r.message); return r; };
   const SECRET_BO = "bo_replay_marker";
-  await ok(send(ada, { type: "summon", name: "Ada first", description: "Adds one.", language: "typescript", source: TS.Int }));
-  await ok(send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(2)]; }" }));
-  const doomed = { id: (await raw(game.gameId)).agents.find((a: any) => a.source.includes("add(2)"))._id as string };
-  await ok(send(bo, { type: "summon", name: "Bo hoarder", description: "Bo secret until the end.", language: "typescript", source: `function agent(x) { const ${SECRET_BO} = 3; return [add(${SECRET_BO})]; }` }));
-  await ok(send(host, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(-1)]; }" }));
+  await ok(send(ada, { type: "summon", name: "Ada first", description: "Adds one.", language: "typescript", source: TS.Grid }));
+  await ok(send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(grid) { return [slide(row(0), 2)]; }" }));
+  const doomed = { id: (await raw(game.gameId)).agents.find((a: any) => a.source.includes("slide(row(0), 2)"))._id as string };
+  await ok(send(bo, { type: "summon", name: "Bo hoarder", description: "Bo secret until the end.", language: "typescript", source: `function agent(grid) { const ${SECRET_BO} = 3; return [slide(row(0), ${SECRET_BO})]; }` }));
+  await ok(send(host, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(grid) { return [slide(row(0), -1)]; }" }));
   // A runtime error on every act: its failures are marked in the log, so the replay counts them as errors, not invalid calls.
-  await ok(send(bo, { type: "summon", name: "Thrower", language: "typescript", source: "function agent(x) { if (x !== null) throw new Error('boom'); return []; }" }));
+  await ok(send(bo, { type: "summon", name: "Thrower", language: "typescript", source: "function agent(grid) { if (grid !== null) throw new Error('boom'); return []; }" }));
   await ok(send(ada, { type: "chat", text: "planning-chat" }));
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   // Live: nothing is revealed, to anyone.

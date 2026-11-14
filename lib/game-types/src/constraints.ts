@@ -1,9 +1,9 @@
 /**
  * Capability classes and the constraint language (docs/research/grid/architecture.md §§2–3).
  *
- * Classes are single-parameter and attach to one slot (symbols, colours, bounds...). Constraints are
+ * Classes are single-parameter and attach to one slot (symbols, colours...). Constraints are
  * data: `{has}` an instance of a class (superclass closure applied), or a refinement over a numeric
- * term the instantiation exposes ("size", "colours.count", "bounds.min", "length.max"). The server,
+ * term the instantiation exposes ("size", "colours.count", "symbols.count"). The server,
  * both UIs and the AI prompt builder all evaluate them with these functions.
  */
 import type { Badge, CapabilityClass, Constraint, Instantiation, ObjectTypeDef, ParamSchema, ParamValue, Resolution, TypeArgs } from "./types.ts";
@@ -24,8 +24,6 @@ export const CLASSES: readonly CapabilityClass[] = Object.freeze([
   cls("Spectral", "colours", [], "🌈", "Colour order", "Colours come in rainbow order"),
   cls("Wheel", "colours", ["Spectral"], "🎡", "Colour wheel", "The rainbow goes round: violet is next to red"),
   cls("Mixable", "colours", [], "🎨", "Paint mixing", "Two paints mix into a third"),
-  // Int bounds
-  cls("Natural", "bounds", [], "🔢", "Counting numbers", "Never below zero"),
 ]);
 
 const BY_ID = new Map(CLASSES.map(c => [c.id, c]));
@@ -138,7 +136,6 @@ export function unlock(constraints: readonly Constraint[], inst: Instantiation):
 const TERM_WORDS: Readonly<Record<string, string>> = {
   "size": "board size", "colours.count": "colours", "symbols.count": "symbols", "mixes.count": "paint mixes",
   "symbols.base": "number base", "ranks.count": "ranks", "suits.count": "suits", "faces.count": "picture cards",
-  "bounds.min": "smallest number", "bounds.max": "biggest number", "length.max": "longest text",
 };
 
 /** Labels of single-parameter changes that make `c` hold ("Playing cards", "size 3, 5 or 7"). */

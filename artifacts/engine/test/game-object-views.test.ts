@@ -13,8 +13,8 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const settings = {
-  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
-  typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 40, spawnRateHz: 1, interactionRateHz: 40, planningSeconds: 3600,
+  language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
+  typeArgs: { size: 4, symbols: "base10", colours: "mono" }, startingObjectCount: 40, spawnRateHz: 1, interactionRateHz: 40, planningSeconds: 3600,
   halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
@@ -67,7 +67,7 @@ test("objectViews: the start fills each god's rows; the sync keeps them, the ord
 
   // Run the world: agents change objects and objects spawn; the rows follow each commit's sync.
   for (const god of [ada, bo]) {
-    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Views agent", language: "typescript", source: "function agent(x) { return [add(7)]; }" }, game.gameId) });
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Views agent", language: "typescript", source: "function agent(grid) { return [slide(row(0), 7)]; }" }, game.gameId) });
     assert.equal(r.accepted, true, r.message);
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });

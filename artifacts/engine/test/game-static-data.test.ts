@@ -24,7 +24,7 @@ test("the settings manifest is a query over a stored document; reading it never 
   assert.ok(warmed.sandboxes.some((s: any) => s.language === "python"));
   const manifest = await alice.c.query(api.manifest.get, {});
   assert.ok(manifest, "manifest.node.warm stored it");
-  assert.ok(manifest.objectTypes.some((t: any) => t.id === "Int" && t.playable.length > 0), "object types with their playable shapes");
+  assert.ok(manifest.objectTypes.some((t: any) => t.id === "Grid" && t.playable.length > 0), "object types with their playable shapes");
   assert.ok(manifest.priors.includes("uniform"));
   for (const field of ["defaults", "options", "languages", "runtimes", "sandboxes", "aiFunding", "engine"]) assert.ok(field in manifest, field);
   await waitFor(async () => (await pythonRow())?.state === "ready" || undefined, "python ready", 120_000, 200);
@@ -57,11 +57,11 @@ test("the settings manifest is a query over a stored document; reading it never 
   assert.deepEqual((await alice.c.query(api.manifest.get, {})).priors, manifest.priors, "refresh writes the computed manifest back");
 });
 
-const INT = { objectType: "Int", typeArgs: { min: 0, max: 9999 }, priorId: "uniform", spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 3 };
+const BOARD = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" }, priorId: "uniform", spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 3 };
 
 test("a seat's calibration tables: GET /api/calibration/<room>/<game>/<god>, the caller's own live, any seat in a replay", { timeout: 180_000 }, async () => {
   const [host, ada, bo, late, after] = await gods("Tables Host", "Tables Ada", "Tables Bo", "Tables Late", "Tables After");
-  const { roomId, shortCode } = await roomWith([host, ada, bo], INT);
+  const { roomId, shortCode } = await roomWith([host, ada, bo], BOARD);
   await startGame(host, roomId);
   const mine = await ada.c.query(api.player.myUtility, { roomId });
   const url = (gameId = mine.gameId, godId = mine.godId, room = roomId) =>
@@ -79,7 +79,7 @@ test("a seat's calibration tables: GET /api/calibration/<room>/<game>/<god>, the
   const tables = await response.json() as { reward: { key: string; instance: string; levels: unknown[] }; penalty?: { key: string } };
   const probe = await admin.action(internal.calibration.node.probe, { settings: mine.settings, draw: { familyId: mine.utility.familyId, params: mine.utility.params } });
   assert.equal(tables.reward.key, probe.key, "the engine's own table for ada's draw");
-  assert.equal(tables.reward.instance, "Int(0,9999)");
+  assert.equal(tables.reward.instance, "Grid(4,base10,mono)");
   assert.equal(!!tables.penalty, !!mine.utility.penalty, "the defence goal's table when there is one");
 
   // Another god's tables name their goal: never, even to another player of the game.
@@ -107,7 +107,7 @@ test("a seat's calibration tables: GET /api/calibration/<room>/<game>/<god>, the
 
 test("one draw's table by instantiation: GET /api/rule-tables, for any signed-in caller (the rule gallery)", { timeout: 120_000 }, async () => {
   const [host, ada, bo] = await gods("Gallery Host", "Gallery Ada", "Gallery Bo");
-  const { roomId } = await roomWith([host, ada, bo], INT);
+  const { roomId } = await roomWith([host, ada, bo], BOARD);
   const jwt = await httpJwt(ada, roomId);
   const url = (instance: string, family: string, params: unknown) =>
     `${SITE_}/api/rule-tables?instance=${encodeURIComponent(instance)}&family=${encodeURIComponent(family)}&params=${encodeURIComponent(JSON.stringify(params))}`;

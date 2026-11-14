@@ -51,40 +51,33 @@ test("a setup saved on a stale view of the room is refused with CONFLICT and lea
   assert.equal(room.revision, seen + 1);
 });
 
-test("a settings change moves only what the game ties to it: no retuning on a new world, nothing else; a single language still works", { timeout: 60_000 }, async () => {
+test("a settings change moves only what the game ties to it: no retuning on a new board, nothing else; a single language still works", { timeout: 60_000 }, async () => {
   const [host] = await gods("Model Host");
   await touch(host);
   const { roomId } = await roomWith([host]);
   const revision = async () => (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  // The room starts on Annotated basics, priced by distance; Int has only the flat price, so the cost model goes with the
-  // Grid (settings-model: a model the new world does not support is dropped). Everything else stays the owner's.
-  const { costModel: _gridOnly, ...before } = seedSetupSettings("grid-annotated-basics");
-  await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { objectType: "Int" } });
-  let room = await host.c.query(api.rooms.get, { room: roomId });
-  // Hand-derived: Int's default instantiation, the Grid families no longer exist, every tuned Grid value stays the owner's.
-  assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [] });
+  // The room starts on Annotated basics; each change below moves only its own field.
+  const before = seedSetupSettings("grid-annotated-basics");
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { languages: ["typescript", "python"] } });
-  room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [],
-    languages: ["typescript", "python"] });
+  let room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual(room.settings, { ...before, languages: ["typescript", "python"] });
   // The old single-language change (an older client) allows exactly that language.
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { language: "typescript" } });
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.settings, { ...before, objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, excludedFamilies: [],
-    languages: ["typescript"] });
-  // Refused: an invalid instantiation, an option the language lacks, an unknown field, a family the world lacks,
-  // and defence goals in a world with no defence families (Int has none).
-  for (const settings of [{ typeArgs: { min: 5, max: 0 } }, { grammarId: "python-agent-v1" }, { languages: [] }, { languages: ["cobol"] }, { colour: "red" }, { excludedFamilies: ["sudoku_scholar"] },
-    { defenceGoals: true }, { defenceRate: 0.5 }]) {
+  assert.deepEqual(room.settings, { ...before, languages: ["typescript"] });
+  // Refused: an invalid instantiation, a removed object type, an option the language lacks, an unknown field, a family
+  // the world lacks.
+  for (const settings of [{ typeArgs: { size: 4, symbols: "base10", colours: "plaid" } }, { objectType: "Int" }, { grammarId: "python-agent-v1" }, { languages: [] },
+    { languages: ["cobol"] }, { colour: "red" }, { excludedFamilies: ["no_such_rule"] }, { defenceRate: 0.5 }]) {
     assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: await revision(), settings })), "BAD_REQUEST", JSON.stringify(settings));
   }
   // Out-of-bounds numbers are the validator's refusal.
   assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { halfLifeSeconds: 0 } })), "BAD_REQUEST");
-  // The room's settings sent back whole with one field edited: the stale arguments follow the new world.
+  // The room's settings sent back whole with one field edited: only the board moves (no retuning on a new board).
   const whole = (await host.c.query(api.rooms.get, { room: roomId })).settings;
-  await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { ...whole, objectType: "Grid" } });
+  await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { ...whole, typeArgs: { size: 5, symbols: "base10", colours: "mono" } } });
   room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual([room.settings.typeArgs, room.settings.startingObjectCount], [{ size: 4, symbols: "base10", colours: "rgb" }, before.startingObjectCount]);
+  assert.deepEqual([room.settings.typeArgs, room.settings.startingObjectCount], [{ size: 5, symbols: "base10", colours: "mono" }, before.startingObjectCount]);
 });
 
 test("a change edits the room's setup when the owner owns it, else their copy, which the room then runs; the game keeps its setup", { timeout: 120_000 }, async () => {

@@ -209,7 +209,7 @@ flowchart LR
 | `artifacts/player-web` | The app: rooms, owner controls, sign-in and approvals (`src/site`), and the game itself, a dock of panels around the assistant |
 | `clients/hello`, `clients/claude-artifact` | Minimal external clients |
 | `lib/game-core` | Settings, setups, energy and scoring |
-| `lib/game-types` | Object types (Grid, Int, string), their moves and helper preludes |
+| `lib/game-types` | The object type (Grid), its moves and helper preludes |
 | `lib/game-utilities` | The goal families, their kid cards, annotations and calibration |
 | `lib/game-runtime` | The Python and TypeScript agent sandboxes |
 | `lib/player-client` | Protocol, typed function catalogue, tool registry, browser SDK and the `pnpm player` CLI |

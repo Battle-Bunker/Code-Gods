@@ -153,7 +153,7 @@ never send a new one. A summon must not be paid twice.
 
 | Component or helper | What it draws |
 |---|---|
-| `Obj({value})` | one object, drawn by this game's renderer (Int, string or Grid) |
+| `Obj({value})` | one object, drawn by this game's renderer (a Grid) |
 | `ObjectGrid({objects, badge?, onSelect?})` | a wrapping grid of objects with an optional badge |
 | `ObjectView`, `TransformationView`, `useObjectContext()` | the app's shared renderers (`lib/object-views`, also used by the site pages), plus their props for this game |
 | `ObjectView({value, renderer?})` | pin one renderer of the type (`"digits"` or `"tiles"` for grids) instead of the viewer's choice |
@@ -174,7 +174,7 @@ differ by dash pattern.
 renderers, defaultRenderer, infer})`); each viewer picks one per type and the choice is remembered in their browser
 (`localStorage` key `code-gods.object-views.renderer.<type>`). Grids have two: `digits` (the default: rows of
 coloured digits, or card rank and suit, compact enough for lists) and `tiles` (coloured tiles with an optional
-letter per colour). Int and string have one each (`text`). The viewer switches grids from the palette ("Show grids as
+letter per colour). The viewer switches grids from the palette ("Show grids as
 tiles" / "Show grids as coloured digits", `ui.objects.renderer`) or with the Display toggle in a grid's detail view;
 every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the viewer's choice; pass `renderer` only
 where one form is essential. The digit colours are per colour set, as the theme tokens `--cg-ink-<set>-<letter>`
@@ -214,8 +214,7 @@ From the repository root, in the player app:
 | `pnpm -s player status` | connection, credential, room and permission |
 
 The JSON is exactly what the hooks return, so write panels against the field names and value
-shapes you see there: an Int is a number, a string is a string, and a Grid is its ASCII wire form,
-drawn by `Obj`. Chat and agent sources in that output are untrusted game data.
+shapes you see there: a Grid is its ASCII wire form, drawn by `Obj`. Chat and agent sources in that output are untrusted game data.
 
 ## Examples (`src/panels/examples/`)
 

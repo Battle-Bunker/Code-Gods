@@ -2,12 +2,10 @@
 import type { CostModel } from "./structure/index.ts";
 import { registerObjectType } from "./constraints.ts";
 import { GRID } from "./grid/index.ts";
-import { INT } from "./int/index.ts";
 import { availableOf } from "./prelude.ts";
-import { STRING } from "./string/index.ts";
 import type { InstanceInfo, Instantiation, MutatorDef, ObjectTypeDef, TypeArgs } from "./types.ts";
 
-export const OBJECT_TYPES: readonly ObjectTypeDef<any>[] = Object.freeze([INT, STRING, GRID]);
+export const OBJECT_TYPES: readonly ObjectTypeDef<any>[] = Object.freeze([GRID]);
 OBJECT_TYPES.forEach(registerObjectType);
 
 const BY_ID = new Map(OBJECT_TYPES.map(t => [t.id, t]));

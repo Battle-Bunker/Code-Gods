@@ -11,7 +11,7 @@ import { ReplayController } from "../src/core/replay/controller.ts";
 
 const charge = (total: number) => ({ read: total, change: 0, total });
 const settings = { languages: ["python"], powerPerSecond: 2, startingEnergy: 100, maxAgentsPerGod: 4,
-  penaltyWeight: 0, objectType: "Int", typeArgs: {}, priorId: "uniform" };
+  penaltyWeight: 0, objectType: "Grid", typeArgs: {}, priorId: "uniform" };
 const page: ReplayPage = {
   version: REPLAY_VERSION,
   game: { id: "g", shortCode: "G", phase: "ended", startedAt: 0, planningEndsAt: 0, endedAt: 10_000, endReason: "owner", worldSeconds: 5, endAtWorld: 5,

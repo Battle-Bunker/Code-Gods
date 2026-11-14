@@ -25,7 +25,7 @@ function withStorage(fn: (store: Map<string, string>) => void, opts: { throws?: 
 
 function gridRegistry() {
   const reg = createObjectTypeRegistry<string>();
-  reg.register({ type: "string", renderers: [r("text")], infer: v => typeof v === "string" });
+  reg.register({ type: "Label", renderers: [r("text")], infer: v => typeof v === "string" });
   reg.register({ type: "Grid", renderers: [r("tiles"), r("digits")], defaultRenderer: "digits", infer: v => v === "grid" });
   return reg;
 }
@@ -63,10 +63,10 @@ test("renderers: the default is the first renderer when none is named; a bad def
 
 test("renderers: one-component registration still works, as a single renderer", () => {
   const reg = createObjectTypeRegistry<string>();
-  reg.register({ type: "Int", component: "I", infer: v => typeof v === "number" });
+  reg.register({ type: "Count", component: "I", infer: v => typeof v === "number" });
   assert.equal(reg.resolve(5)?.component, "I");
-  assert.deepEqual(reg.renderers("Int").map(x => x.id), ["default"]);
-  assert.equal(reg.pick("Int")?.Component, "I");
+  assert.deepEqual(reg.renderers("Count").map(x => x.id), ["default"]);
+  assert.equal(reg.pick("Count")?.Component, "I");
 });
 
 test("renderers: the viewer's choice is remembered per type in localStorage and read back by a fresh registry", () => {
