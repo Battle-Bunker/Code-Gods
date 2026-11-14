@@ -191,3 +191,15 @@ test("a rule's value curve: knots worst to best, and the worth of any score", as
   const worth = await f.perform(as("u2"), "rule.worth", { score: score.result.score }) as { ok: true; result: { bits: number } };
   assert.equal(worth.result.bits, score.result.bits, "the lookup agrees with the object's own value");
 });
+
+test("a failure's data reaches the model and the button", async () => {
+  const ctx = { context: "live" as const, principal: PRINCIPALS.seated! };
+  const shortfall = { price: 40, store: 12, secondsToPay: 9 };
+  const out = await callTool("agent_summon", { language: "python", source: "x" }, ctx, "mcp",
+    async () => ({ ok: false, error: { code: "failed", message: "Not enough energy.", fix: "power.allocate", data: shortfall } }));
+  assert.deepEqual(out, { content: [{ type: "text", text: `Not enough energy. (power.allocate)\nDetails: ${JSON.stringify(shortfall)}` }], isError: true });
+  const { AffordanceError, affordanceHandle } = await import("../src/react.ts");
+  const handle = affordanceHandle("game.ready", { context: { context: "planning", principal: PRINCIPALS.seated! },
+    perform: async () => ({ ok: false, error: { code: "failed", message: "No.", data: shortfall } }) });
+  await assert.rejects(handle.run({}), (e: unknown) => e instanceof AffordanceError && e.data === shortfall);
+});

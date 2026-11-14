@@ -5,7 +5,7 @@
  * twin as the delegating human (Convex), or a layout write for a view operation.
  */
 import { onSurface, refusal } from "./directory.ts";
-import type { OpOutcome } from "./server.ts";
+import type { OpError, OpOutcome } from "./server.ts";
 import { affordanceForTool, mcpTools, UNTRUSTED_NOTICE, wrapResult } from "./surfaces.ts";
 import type { AffordanceContext } from "./types.ts";
 
@@ -18,6 +18,12 @@ export interface ToolCallResult {
 
 const error = (text: string): ToolCallResult => ({ content: [{ type: "text", text }], isError: true });
 
+/** A failure as a model reads it: the sentence, its fix, and the numbers it carries (a summon's shortfall) as JSON. */
+export function failureText(e: OpError): string {
+  const head = e.fix ? `${e.message} (${e.fix})` : e.message;
+  return e.data && Object.keys(e.data).length ? `${head}\nDetails: ${JSON.stringify(e.data)}` : head;
+}
+
 /** Runs one tool call from the assistant or an MCP client. Refusals and failures are tool errors the model can read. */
 export async function callTool(name: string, args: unknown, ctx: AffordanceContext, via: "assistant" | "mcp", perform: Perform): Promise<ToolCallResult> {
   const a = affordanceForTool(name);
@@ -26,7 +32,7 @@ export async function callTool(name: string, args: unknown, ctx: AffordanceConte
   const no = refusal(a, ctx, undefined, via);
   if (no) return error(no.fix ? `${no.reason} (${no.fix})` : no.reason);
   const out = await perform(a.id, args ?? {});
-  if (!out.ok) return error(out.error.fix ? `${out.error.message} (${out.error.fix})` : out.error.message);
+  if (!out.ok) return error(failureText(out.error));
   const structuredContent = wrapResult(out.result);
   return { content: [{ type: "text", text: `${UNTRUSTED_NOTICE}\n${JSON.stringify(out.result)}` }], structuredContent, isError: false };
 }
