@@ -130,6 +130,36 @@ the economy (W3), which knows the accrual; these prices are its input.
 result (`verdict`, `summary`, `price`, `sample`) plus `acts`, each sample's `ActRecord`. It runs one act per sample
 object and spends nothing. `births(type, variant, seed, n)` samples newborn objects for it.
 
+## The harness: comparing families for difficulty
+
+```
+pnpm --filter @workspace/v2-agents harness -- --rule m-meets-c/size                      # one player, its example
+pnpm --filter @workspace/v2-agents harness -- --rule m-meets-c/size --rule prime-gradient/prime --agent bold
+pnpm --filter @workspace/v2-agents harness -- --rule triangle-area/legs --source my-agent.py --budget 300
+pnpm --filter @workspace/v2-agents harness -- --pool docs/engine-v2/agent-harness-results.md
+```
+
+Players take turns on shared newborn lines with a fixed energy budget each (no births, power or accrual). It prints,
+per rule, the mean level of the main part and the tie-breaker at the start and the end, the lines at the main top, and
+the bits gained (the committed artefact's rungs; "–" when the rule has no values yet), and per player the acts made,
+skipped and failed and the energy on reads and on changes by view. `runHarness` (`@workspace/v2-agents/harness`) is
+the same as a function. The pool run is in [agent-harness-results.md](agent-harness-results.md); what it shows, at
+500 ⚡ on line-z:
+
+- **Easiest:** Prime Gradient (every agent puts 7–8 of 8 lines at the main top; with the prime-size tie-breaker it
+  gains about 17–20 bits per 100 ⚡), Whole Intercept/spf (the main part is free on whole lines; 13–16 bits per
+  100 ⚡) and m Meets c/meetPrime (14 per 100 ⚡).
+- **Middle:** Triangle Area (the main part climbs from about 0.4 to 6.6 of 7, but only 2–7 lines reach its top), Square
+  Area (Bold does best: two moves at once find squares) and m Meets c/size.
+- **Hardest:** Crossing Check (2–6 bits per 100 ⚡, 0–3 lines at the main top: y(k) = x(q) needs m and c to fit
+  together, and single small moves rarely land it), and the count tie-breakers (Whole Intercept/omega, Square
+  Area/factors) whose levels climb slowly.
+- The lens matters: Thorough often spends most of its change energy through `seq` or `mach` (step, stretch) rather
+  than `si`. Simple, with only small shifts and tilts, often finds no better line and skips; on some rules a third to
+  half of its energy goes on reading (skips are still charged their reads).
+- On shared lines rules interfere: with Prime Gradient/prime tilting the same lines, m Meets c's main part fell from
+  2.6 to 1.8 while its tie-breaker rose. The table is the material for negotiation.
+
 ## Still to come from W2
 
-The harness that compares families; the assistant's primer. This page will list them when they land.
+The assistant's primer. This page will list it when it lands.
