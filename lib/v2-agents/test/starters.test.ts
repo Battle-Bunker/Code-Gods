@@ -11,6 +11,7 @@
  */
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
+import { isGridTypeFamily } from "../src/grid-starters.ts";
 import { readFileSync } from "node:fs";
 import { evaluateSite, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
@@ -18,7 +19,7 @@ import { firstAgentShare, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
-  BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
+  BEGINNER_STARTING_ENERGY, GRID_BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
   summonBits, type ShippedAgent,
 } from "../src/index.ts";
 import { findValues } from "../src/harness.ts";
@@ -149,10 +150,11 @@ test("each example gains value: on some newborn line its bits rise and the main 
   }
 });
 
-test("every shipped agent is payable from the beginner preset's starting energy, at about the same price in both languages", () => {
+test("every shipped agent is payable from its beginner preset's starting energy (lines 600, grids 900), at about the same price in both languages", () => {
   for (const a of all) {
     const price = summonBits(a.language, a.source).energy;
-    assert.ok(price <= BEGINNER_STARTING_ENERGY, `${shippedPath(a)} costs ${price.toFixed(1)} ⚡`);
+    const starting = isGridTypeFamily(a.family) ? GRID_BEGINNER_STARTING_ENERGY : BEGINNER_STARTING_ENERGY;
+    assert.ok(price <= starting, `${shippedPath(a)} costs ${price.toFixed(1)} ⚡ of ${starting}`);
     if (a.language === "typescript") {
       const py = all.find(b => b.language === "python" && b.family === a.family && b.kind === a.kind && b.tieBreaker === a.tieBreaker)!;
       const ratio = summonBits("python", py.source).bits / summonBits("typescript", a.source).bits;

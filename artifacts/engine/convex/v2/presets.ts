@@ -4,7 +4,7 @@
  * the server needs to run a game of it: timing, players, the economy and an optional bid phase. The deal
  * (convex/v2/deal.ts) deals only the pool's rules whose artefact converged.
  */
-import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
+import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 import { gridPresets } from "@workspace/v2-grid";
 
@@ -63,7 +63,7 @@ const BEGINNER = fromPool("lines-beginner");
  * so they are longer and dearer to summon (grid starters cost about 400 to 590 ⚡, line starters 300 to 500): grids
  * start with 900 ⚡ so that a starter takes about the share of the starting energy a line starter takes of 600.
  */
-const GRIDS = fromPool("grids-beginner", { startingEnergy: 900 });
+const GRIDS = fromPool("grids-beginner", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
 
 export const PRESETS: readonly Preset[] = [
   BEGINNER,

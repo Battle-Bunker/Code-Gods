@@ -239,6 +239,88 @@ test("the starters play for points: below their reserve they keep their energy w
   }
 });
 
+test("a grid agent's own notes name the board: a tug-of-war is on a grid, not a line", async () => {
+  const [state] = births(gridType, grid4, "tug", 1);
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const sources = {
+    typescript: "function agent(offer) {\n  contested(offer, 0);\n  return null;\n}\n",
+    python: "def agent(offer):\n    contested(offer, 0)\n    return None\n",
+  } as const;
+  for (const language of ["typescript", "python"] as const) {
+    const { record } = await runAct(await boxes.get(language), { type: gridType, variant: grid4, state: state!, rule, program: { language, source: sources[language] }, seed: "1", energy: 100 });
+    assert.equal(record.notes.length, 1, language);
+    assert.match(record.notes[0]!, /^Tug-of-war on grid \d+:/, language);
+    assert.doesNotMatch(record.notes[0]!, /\bline\b/, language);
+  }
+});
+
+test("settle on a board: at most 4 cells a turn towards the agreed board, then nothing (hold it); the same in both languages", async () => {
+  const start: GridState = { cells: [1, 2, 3, 4, 0, 0, 0, 0, 5, 6, 7, 8, 9, 0, 1, 2] };
+  const target = "9779855879979779";
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const sources = {
+    typescript: `function agent(offer) { return settle(offer, "${target}"); }\n`,
+    python: `def agent(offer):\n    return settle(offer, "${target}")\n`,
+  } as const;
+  const runs: string[][] = [];
+  for (const language of ["typescript", "python"] as const) {
+    let s = start;
+    const seen: string[] = [];
+    for (let t = 0; t < 8; t++) {
+      const { record, state } = await runAct(await boxes.get(language), { type: gridType, variant: grid4, state: s, rule, program: { language, source: sources[language] }, seed: String(t), energy: 100_000 });
+      assert.notEqual(record.outcome, "failed", `${language}: ${record.reason}`);
+      if (record.outcome === "skipped") break;
+      const changed = state.cells.filter((x, i) => x !== s.cells[i]).length;
+      assert.ok(changed >= 1 && changed <= 4, `${language}: ${changed} cells in one turn`);
+      s = state;
+      seen.push(gridType.encode(s));
+    }
+    assert.equal(s.cells.join(""), target, `${language}: the board reaches the agreed one and then holds`);
+    runs.push(seen);
+  }
+  assert.deepEqual(runs[1], runs[0], "both languages take the same steps");
+});
+
+test("the starters' TARGET settles a board at the agreed one, and PROTECT keeps only moves that leave the others as well off", async () => {
+  const target = "9779855879979779";
+  const [state] = births(gridType, grid4, "settle", 1);
+  const rule = { family: "magic-eighteen", params: paramsOf("magic-eighteen"), tieBreaker: "first-column" };
+  const opp = { family: "opposite-nines", params: paramsOf("opposite-nines"), tieBreaker: "odd" };
+  const others = [{ rule: opp, values: worthOf(opp).values! }];
+  const othersBits = (s: GridState) => worthOf(opp).bits(s);
+  for (const language of ["typescript", "python"] as const) {
+    const [simple] = startersFor("magic-eighteen", language, "first-column");
+    assert.match(simple!.source, language === "typescript" ? /const TARGET = null;/ : /TARGET = None/);
+    // TARGET on every board (SETTLE = []): it goes there and stays.
+    const settling = simple!.source.replace(language === "typescript" ? "const TARGET = null;" : "TARGET = None", language === "typescript" ? `const TARGET = "${target}";` : `TARGET = "${target}"`);
+    let s = state!;
+    for (let t = 0; t < 8; t++) {
+      const { record, state: next } = await runAct(await boxes.get(language), { type: gridType, variant: grid4, state: s, rule, program: { language, source: settling }, seed: String(t), energy: 100_000 });
+      assert.notEqual(record.outcome, "failed", `${language}: ${record.reason}`);
+      if (record.outcome === "skipped") break;
+      s = next;
+    }
+    assert.equal(s.cells.join(""), target, `${language}: TARGET settles the board`);
+    // A board perfect for the other player (every cell and its opposite add up to 9), far from Magic Eighteen: climbing
+    // the rows spoils it unprotected; with PROTECT on this board (object 0) no move lowers the others.
+    const theirs: GridState = { cells: [1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8] };
+    const lowered = async (source: string) => {
+      let p = theirs, count = 0;
+      for (let t = 0; t < 6; t++) {
+        const { record, state: next } = await runAct(await boxes.get(language), { type: gridType, variant: grid4, state: p, rule, program: { language, source }, seed: String(t), energy: 600, others });
+        assert.notEqual(record.outcome, "failed", `${language}: ${record.reason}`);
+        if (record.outcome === "skipped") break;
+        if (othersBits(next) < othersBits(p) - 1e-9) count++;
+        p = next;
+      }
+      return count;
+    };
+    assert.ok(await lowered(simple!.source) > 0, `${language}: unprotected, the climb spoils the other player's board`);
+    const protecting = simple!.source.replace(language === "typescript" ? "const PROTECT = [];" : "PROTECT = []", language === "typescript" ? "const PROTECT = [0];" : "PROTECT = [0]");
+    assert.equal(await lowered(protecting), 0, `${language}: PROTECT keeps the others as well off`);
+  }
+});
+
 test("the primer for grids lists the board's views and moves, says board, and shows a grid example", () => {
   const primer = agentPrimer(gridType);
   for (const r of gridType.representations) assert.ok(primer.includes(`- ${r.id}: `), r.id);

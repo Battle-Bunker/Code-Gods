@@ -161,6 +161,7 @@ export class EngineHost<S> implements AgentHost {
       case "view": return this.view(request.rep, request.site ?? 0);
       case "element": return this.element(request.ref);
       case "myRule": return ok({
+        object: this.type.id,   // what the agent changes ("line", "grid"): its own words name it
         family: this.family.id, params: this.params, tieBreaker: this.tieBreaker, card: this.family.card(this.params, this.tieBreaker),
         layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id, title: l.title, sense: l.sense })),
       }, 0);
