@@ -153,7 +153,7 @@ type Accounts = { axis: Axis; T: number };
 
 export function magicAccountant(n: number): RuleFamily<GridState, Accounts> {
   const shape: Shape<Accounts> = {
-    main: distance<Accounts>("accounts", "every line adds up to the magic number",
+    main: distance<Accounts>("accounts", "every row (or column) adds up to the magic number",
       p => `Every ${p.axis === "rows" ? "row" : "column"} should add up to ${p.T}.`, "tally"),
     tieBreakers: [zerosTie(), primesTie(), cornersTie()],
   };
