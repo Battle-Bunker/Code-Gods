@@ -49,6 +49,8 @@ export interface RepViewProps<S> {
   readonly onHover?: (meaning: string | null, ref: ElementRef | null) => void;
   /** Accessible name of the drawing. */
   readonly label?: string;
+  /** The elements each part of the viewer's rule reads (its sources): badged here and wherever they project by meaning. */
+  readonly roles?: readonly { readonly ref: ElementRef; readonly role: "main" | "tb" }[];
 }
 
 export function RepView<S>(props: RepViewProps<S>): ReactElement {
@@ -59,6 +61,15 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
   const scene = rep.layout(state, site);
   const values = valuesOf(type, state, site);
   const meaningOf = (r: ElementRef) => meaningKey(type, r);
+  // An element is badged when a part reads it, or reads what it means in another view (si.c and the plane's y-intercept).
+  const roleKeys = new Map<string, "main" | "tb">();
+  for (const { ref, role } of props.roles ?? []) {
+    for (const r of [ref, ...projectRef(type, ref, [repId])]) {
+      const k = refKey({ ...r, site: undefined });
+      if (!roleKeys.has(k) || role === "main") roleKeys.set(k, role);
+    }
+  }
+  const roleOf = roleKeys.size ? (r: ElementRef) => roleKeys.get(refKey({ ...r, site: undefined })) ?? null : undefined;
   if (!renderer) {
     return <div className="v2v-rep" data-size={size} data-rep={repId}><div className="v2v-undef">{rep.title}: no drawing for “{rep.scene}” yet</div></div>;
   }
@@ -76,6 +87,7 @@ export function RepView<S>(props: RepViewProps<S>): ReactElement {
         meaningOf,
         onHover: props.onHover ? r => props.onHover!(r ? meaningOf(r) : null, r) : undefined,
         labelOf: r => labelOf(type, r),
+        roleOf,
       })}
     </div>
   );
