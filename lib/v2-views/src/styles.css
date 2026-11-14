@@ -374,3 +374,10 @@
 
 /* The units a part adds up, each with its own amount ("row 1 5 short · row 2 7 short"): the chain from cells to the sum. */
 .v2v-part-units { font-size: 12px; color: var(--v2v-muted); margin-top: 2px; }
+
+/* The end of a game: what earned, what cost, one thing to try. */
+.v2v-summary { display: grid; gap: 6px; }
+.v2v-summary-title { margin: 6px 0 0; font-size: 13px; font-weight: 700; }
+.v2v-summary-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.v2v-summary-note { margin: 0; color: var(--v2v-muted); font-size: 12px; }
+.v2v-summary-next { margin: 0; padding: 6px 10px; border-left: 4px solid var(--v2v-main, var(--v2v-rule)); background: var(--v2v-card); font-weight: 600; }

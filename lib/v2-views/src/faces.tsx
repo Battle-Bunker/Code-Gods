@@ -29,7 +29,7 @@ export function bitsLine(a: Annotation): string {
 }
 
 /** One part in one line: "● y-intercept 25 · 2 above 23" / "◆ that prime 23". */
-export function partLine(p: Part): string {
+export function partLine(p: Contributor): string {
   const g = GLYPH[p.role];
   const said = p.source.filter(x => x.text);
   if (p.distance && said.length) return `${g} ${p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ")} · ${p.distance}`;
