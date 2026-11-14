@@ -142,6 +142,7 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
             <span className="v2v-part-aim">{p.aim}</span>
           </div>
           <div className="v2v-part-sentence">{p.sentence}</div>
+          {p.units.length > 0 && p.units.length <= 9 && <div className="v2v-part-units">{p.units.map(u => `${u.label}: ${u.text}`).join(" · ")}</div>}
           <RulerView part={p} />
         </li>
       ))}
@@ -152,6 +153,9 @@ export function PartsList({ parts, active, onActive, onSelect, selected }: Parts
 // ------------------------------------------------------------------ moves
 
 /** The moves that would make the object rarer: words, price, what they change, new bits. */
+/** A move's result is written after it when short (a line's equation); a board's sixteen digits are left to its changes. */
+const RESULT_MAX = 28;
+
 export function MovesList<S>({ list, noun }: { list: readonly Move<S>[]; noun: string }): ReactElement {
   if (!list.length) return <p className="v2v-next" data-kind="none">No single move makes this {noun} rarer for your rule.</p>;
   return (
@@ -160,7 +164,7 @@ export function MovesList<S>({ list, noun }: { list: readonly Move<S>[]; noun: s
       <ol>
         {list.map((m, i) => (
           <li key={i} className="v2v-move-option" data-first={i === 0 ? "" : undefined}>
-            <span className="v2v-move-words">{m.words[0]!.toUpperCase() + m.words.slice(1)}{!m.words.includes(m.text) && <span className="v2v-move-result"> → {m.text}</span>}</span>
+            <span className="v2v-move-words">{m.words[0]!.toUpperCase() + m.words.slice(1)}{!m.words.includes(m.text) && m.text.length <= RESULT_MAX && <span className="v2v-move-result"> → {m.text}</span>}</span>
             <span className="v2v-move-price">{fmtEnergy(m.price.total)}</span>
             <span className="v2v-move-changes">{m.changes.join(" · ")}</span>
             {m.bits !== null && <span className="v2v-move-bits">→ {fmtBits(m.bits)} ({chanceText(m.bits)} by chance)</span>}
