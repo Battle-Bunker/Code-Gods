@@ -104,8 +104,11 @@ try {
     const history = line.getByTestId("climb-history");
     await history.waitFor({ timeout: 10_000 });
     assert.equal(await history.getAttribute("data-kind"), "undoing", label);
-    assert.equal(await history.getByTestId("climb-step").count(), 4);
-    assert.match(await history.getByTestId("climb-step").first().innerText(), /^Your agent ↑ you 1\.00 bits · ↓ the others 1\.00 bits$/);
+    // The seed's four pulls (and its earlier quiet move on line 1, if shown).
+    const steps = await history.getByTestId("climb-step").allInnerTexts();
+    assert.ok(steps.length >= 4, `${label}: ${steps.length} steps`);
+    assert.ok(steps.some(t => /^Your agent ↑ you 1\.00 bits · ↓ the others 1\.00 bits$/.test(t)), steps.join(" | "));
+    assert.ok(steps.some(t => /^Practice partner \d's agent ↓ you 1\.00 bits · ↑ the others 1\.00 bits$/.test(t)), steps.join(" | "));
     assert.match(await history.getByTestId("text-climb-verdict").innerText(), /^Stuck: these moves undo each other/);
     await line.locator(".v2v-moves").scrollIntoViewIfNeeded();
     await shot(page, `climb-${label}.jpg`);
@@ -127,7 +130,7 @@ try {
     if (await page.getByTestId("tab-results").count()) await page.getByTestId("tab-results").click();
     const undone = page.getByTestId("summary-climb-1"), together = page.getByTestId("summary-climb-2");
     await together.waitFor({ timeout: 30_000 });
-    assert.match(await undone.innerText(), /^Line 1: you and Practice partner \d undid each other's moves \(4 moves\): your points [\d.,]+ → [\d.,]+ points?\.$/, label);
+    assert.match(await undone.innerText(), /^Line 1: you and Practice partner \d undid each other's moves \(\d moves\): your points [\d.,]+ → [\d.,]+ points?\.$/, label);
     assert.match(await together.innerText(), /^Line 2: you and Practice partner \d climbed together, every move raising the points: your points [\d.,]+ → [\d.,]+ points?\.$/, label);
     await together.scrollIntoViewIfNeeded();
     await shot(page, `summary-${label}.jpg`);

@@ -156,7 +156,9 @@ export const seedGame = internalMutation({
 
     for (const { memberId } of rules) for (let i = 0; i < Math.min(a.tugs ?? 0, n); i++) {
       const others = members.filter(m => m !== memberId).slice(0, 2);
-      await ctx.db.insert("v2Tugs", { gameId, memberId, objectId: objects[i]!, number: i + 1, moves: 12, flips: 2 + (i % 9), lastMine: true, mySpend: 40, others, from: i, to: i + 30, best: { state: "fixture", points: 3 } });
+      // The best state the pull passed through: the object's own (a real state, which the summary decodes).
+      const state = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objects[i]!)).unique())!.state;
+      await ctx.db.insert("v2Tugs", { gameId, memberId, objectId: objects[i]!, number: i + 1, moves: 12, flips: 2 + (i % 9), lastMine: true, mySpend: 40, others, from: i, to: i + 30, best: { state, points: 3 } });
     }
 
     // Moves on a line by the owner's agent and the next seat's, alternating, as the owner's act log has them: on
