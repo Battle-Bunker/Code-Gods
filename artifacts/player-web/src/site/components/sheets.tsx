@@ -1,6 +1,6 @@
 /** The account's side sheet: connected apps (credentials), listed and revoked. */
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useAffordance } from "@workspace/v2-affordances/react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorLine } from "@/site/components/page-parts";
@@ -15,7 +15,7 @@ type Credential = FunctionReturnType<typeof api.auth.credentials.list>[number];
 
 export function ConnectedAppsSheet({ open, onOpenChange, roomCode }: { open: boolean; onOpenChange(o: boolean): void; roomCode?: string }) {
   const creds = useLive(api.auth.credentials.list, open ? {} : "skip");
-  const revoke = useMutation(api.auth.credentials.revoke);
+  const revoke = useAffordance("account.revokeConnection");
   const act = useRun();
   const [armed, setArmed] = useState<string | null>(null);
   const row = (c: Credential) => (
@@ -26,7 +26,7 @@ export function ConnectedAppsSheet({ open, onOpenChange, roomCode }: { open: boo
         <span className="block text-xs text-muted-foreground">{c.lastUsedAt ? `last used ${fmtWhen(c.lastUsedAt)}` : "never used"}</span>
       </span>
       <button type="button" disabled={act.pending} data-testid={`button-revoke-${c.credentialId}`}
-        onClick={() => { if (armed !== c.credentialId) { setArmed(c.credentialId); return; } setArmed(null); act.run("revoke", () => revoke({ credentialId: c.credentialId })); }}
+        onClick={() => { if (armed !== c.credentialId) { setArmed(c.credentialId); return; } setArmed(null); act.run("revoke", () => revoke.run({ connectionId: c.credentialId })); }}
         className="border border-destructive/50 text-destructive px-2.5 py-1 text-xs hover:bg-destructive/5 disabled:opacity-40">{armed === c.credentialId ? "Click again to revoke" : "Revoke"}</button>
     </li>
   );
