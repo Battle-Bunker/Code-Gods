@@ -10,12 +10,12 @@ const round = {
 
 test("an ended game in a rotation says which game of the round it was and ranks the running totals, ties shared", () => {
   const s = rotationSummary(round, "me", "g2")!;
-  assert.equal(s.heading, "Game 2 of 3 in this rotation: every player gets each rule once. Totals so far:");
+  assert.equal(s.heading, "Game 2 of 3: you get a different rule each game, and your totals add up over the 3 games. Totals so far:");
   assert.deepEqual(s.rows.map(r => [r.name, r.rank, r.mine]), [["Ada", 1, false], ["Sam", 2, true], ["Bo", 2, false]]);
 });
 
 test("the last game of a round says the round is over", () => {
-  assert.match(rotationSummary({ ...round, round: 3 }, "me", "g2")!.heading, /^The rotation is over: every player has had each rule once\. Final totals:/);
+  assert.match(rotationSummary({ ...round, round: 3 }, "me", "g2")!.heading, /^The 3 games are over: everyone has played each rule once\. Totals over the 3 games:/);
 });
 
 test("nothing when there is no round or this game is not in it", () => {
@@ -26,6 +26,6 @@ test("nothing when there is no round or this game is not in it", () => {
 test("the first game of a round says so, without a totals table that only repeats the final standings", () => {
   // Catches (playtest round 5): Results showed the same standings twice after game 1 of a rotation.
   const s = rotationSummary({ ...round, round: 1, games: [{ gameId: "g1", number: 1 }] }, "me", "g1")!;
-  assert.equal(s.heading, "Game 1 of 3 in this rotation: every player gets each rule once.");
+  assert.equal(s.heading, "Game 1 of 3: you get a different rule each game, and your totals add up over the 3 games.");
   assert.deepEqual(s.rows, []);
 });

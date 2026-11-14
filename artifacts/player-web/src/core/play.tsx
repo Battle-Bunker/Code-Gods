@@ -50,7 +50,7 @@ function GameBar({ header }: { header: Header }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-1.5 text-sm" data-testid="game-bar">
       <span className="border px-2 py-0.5 text-xs font-medium uppercase tracking-wide" data-testid="text-phase">{replay ? "Replay" : PHASE[header.phase]}</span>
       {seat ? (<>
-        <span data-testid="text-my-total" title={[scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many), totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0), countedNote(standings?.worldSeconds)].filter(Boolean).join(" ")}>
+        <span data-testid="text-my-total" title={[scoreSentence(objectWord(header.variant).one, objectWord(header.variant).many), totalNote(totalSumNote(objectWord(header.variant).one), (mine?.handicap ?? 0) > 0), countedNote(standings?.worldSeconds, header.worldSeconds)].filter(Boolean).join(" ")}>
           {who}: <span className="font-semibold tabular-nums">{pointsText(mine?.net ?? 0)}</span>{mine && standings && standings.rows.length > 1 ? ` · ${ordinal(mine.rank)} of ${standings.rows.length}` : ""}
           {mine && standings && isTied(standings.rows, mine) && <> <TiedMark testId="text-my-tied" /></>}
         </span>

@@ -30,6 +30,12 @@ export const exactEnergy = (x: number) => `${num(x)} ⚡`;
 export const powerText = (x: number) => `${num(x)} ⚡ a second`;
 /** "1st", "2nd", "3rd", "4th". */
 export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
+/**
+ * A moment of the world as the countdown says it ("3:39 left"), so the act log and the clock read the same (persona
+ * walk: "0:13" beside "Game ends in 3:39"); elapsed ("1:19") without the world's length.
+ */
+export const timeLeft = (worldSeconds: number, at: number | null | undefined) =>
+  at == null ? clock(worldSeconds) : `${clock(Math.max(0, at - worldSeconds))} left`;
 /** "m:ss". */
 export const clock = (s: number) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;
 
@@ -44,8 +50,8 @@ export const totalSumNote = (one = "line") => `Your total is the sum of your poi
 /** Beside the formula's "others' bits". */
 export const othersNote = (one = "line") => `Others' bits: every other player's rarity on this ${one}, added together. A ${one} scores when it is rare for you and for them.`;
 /** When the standings were counted (world seconds): a move's points join a total only at the next count. */
-export const countedNote = (worldSeconds: number | null | undefined): string | null =>
-  worldSeconds == null ? null : `Totals are counted every few seconds; this one at ${clock(worldSeconds)}, so a move's points join the total at the next count.`;
+export const countedNote = (worldSeconds: number | null | undefined, length?: number | null): string | null =>
+  worldSeconds == null ? null : `Totals are counted every few seconds; this one ${length ? `with ${timeLeft(worldSeconds, length)}` : `at ${clock(worldSeconds)}`}, so a move's points join the total at the next count.`;
 /** Under the standings: the same for every player. */
 export const totalsSumNote = (one = "line") => `Each total is the sum of that player's points on every ${one}.`;
 /** After either note, when a won bid's handicap (the "−N%" beside a total) came off it. */

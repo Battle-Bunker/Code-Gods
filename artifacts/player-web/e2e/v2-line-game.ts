@@ -128,12 +128,15 @@ try {
     }
 
     const startNow = page.getByTestId("button-start-world");
-    if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
+    // One tap starts the world (persona walk: a second "Press again" tap was missed on a phone).
+    if (await startNow.count()) await startNow.click();
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
 
     const feed = page.getByTestId("pane-feed");
     // The first scoring move (a move can also leave your rarity and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
+    // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
+    await feed.locator("[data-testid^=row-move-] p").first().getByText(/^\d+:\d\d left/).waitFor({ timeout: 60_000 });
     const mine = feed.locator("[data-testid=feed] > ol > li > [data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();
@@ -174,6 +177,14 @@ try {
     await page.getByTestId("pane-objects").waitFor();
     await page.locator("[data-testid^=row-line-]").first().waitFor({ state: "visible", timeout: 10_000 });
     assert.equal(await page.getByTestId("select-lines-sort").inputValue(), "points", "Lines sorted by your points");
+    if (label === "desktop") {
+      // The list holds still under the pointer while the world runs (persona walk: a re-sort opened the wrong grid).
+      const order = async () => page.locator("[data-testid^=row-line-]").evaluateAll((els: Element[]) => els.map(e => e.getAttribute("data-testid")));
+      await page.locator("[data-testid^=row-line-]").first().hover();
+      const held = await order();
+      await page.waitForTimeout(5000);
+      assert.deepEqual(await order(), held, "the rows do not move while the pointer is over the list");
+    }
     const why = page.locator("[data-testid^=text-why-line-]").first();
     assert.match(await why.innerText(), FORMULA, "a Lines row says yours × others' = points");
     if (label === "phone") await page.locator("[data-testid^=row-line-]").first().screenshot({ path: path.join(shots, "score-words-phone-lines-row.png") });
@@ -255,7 +266,7 @@ try {
     await results.getByTestId("button-line-by-line-results").waitFor();
     console.log(`${label}: natural end at ${clock(t0)}: ${(await results.getByText(/You finished/).first().innerText()).slice(0, 120)}`);
     // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.
-    await results.getByTestId("results-rotation").getByText(/^Game 1 of 3 in this rotation/).waitFor({ timeout: 10_000 });
+    await results.getByTestId("results-rotation").getByText(/^Game 1 of 3: you get a different rule each game, and your totals add up over the 3 games\./).waitFor({ timeout: 10_000 });
     // After game 1 the running totals are these standings: shown once (round 5 showed both tables).
     assert.equal(await results.getByTestId("results-rotation").locator("ol").count(), 0, "no running-totals table after the first game");
     if (label === "phone") {
@@ -271,6 +282,10 @@ try {
       }
       const navBox = await page.getByTestId("dock-jump").boundingBox();
       assert.ok(navBox && head && head.y >= navBox.y + navBox.height - 1, `phone: the Results headline is below the pane names (${head?.y} vs ${navBox && navBox.y + navBox.height})`);
+      // Results reads as part of the page: its body never scrolls inside itself (persona walk: page scrolls skipped
+      // past "What cost you").
+      const inner = await results.locator("[data-pane-body]").evaluate((b: HTMLElement) => b.scrollHeight - b.clientHeight);
+      assert.ok(inner <= 1, `phone: Results is not a box that scrolls inside the page (${inner} px hidden inside it)`);
     }
     await shot(page, `game-${label}-end`);
     // The standings once, in Results (a persona walk met the same table three times), and the way back to the room.

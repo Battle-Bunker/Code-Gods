@@ -57,7 +57,7 @@ function PracticeButton({ primary }: { primary: boolean }) {
     <Tip text={fill.tooltip} reason={reason}>
       <button type="button" aria-disabled={!!reason || busy || undefined} onClick={() => void go()} data-testid="button-practice-game"
         className={`${primary ? "bg-primary text-primary-foreground px-4 py-2 text-sm font-medium" : "border px-3 py-2 text-sm"} ${reason || busy ? "opacity-50" : ""}`}>
-        {busy ? "Starting the world…" : "Play a practice game"}
+        {busy ? "Seating practice partners and dealing your rules…" : "Play a practice game"}
       </button>
     </Tip>
   );

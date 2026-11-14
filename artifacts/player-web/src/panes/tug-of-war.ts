@@ -4,7 +4,7 @@
  * and another player's, close together in time, fold into one entry that says who pulls, how often, what it cost you,
  * and to talk; the line's row is marked contested. Pure: from the act log's own rows (newest first).
  */
-import { clock, num } from "../core/words.ts";
+import { clock, num, timeLeft } from "../core/words.ts";
 
 export interface TugMove {
   seq: number; objectId: string; number: number; mine: boolean; worldSeconds: number; charge: number | null;
@@ -54,7 +54,7 @@ export function foldTugs<M extends TugMove>(moves: readonly M[]): FeedItem<M>[] 
 /** "Ada", "Ada and Bo", "Ada, Bo and Cy". */
 const names = (list: readonly string[]) => (list.length <= 1 ? list[0] ?? "" : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`);
 
-export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>, kinds?: ReadonlyMap<string, string>, one = "line"): string {
+export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>, kinds?: ReadonlyMap<string, string>, one = "line", length?: number | null): string {
   // The other side, by name when the moves say who moved (older rows do not).
   const others = [...new Set(t.moves.filter(m => !m.mine && m.by).map(m => m.by!.name))];
   const theirAgents = others.length === 0 ? "another player's agent" : others.length === 1 ? `${others[0]}'s agent` : `the agents of ${names(others)}`;
@@ -62,7 +62,7 @@ export function tugSentence(t: Extract<FeedItem<TugMove>, { kind: "tug" }>, kind
   const ids = [...new Set(t.moves.filter(m => !m.mine && m.by).map(m => m.by!.memberId))];
   const robots = !!kinds && ids.length > 0 && ids.every(id => kinds.has(id) && kinds.get(id) !== "human");
   return `Tug-of-war on ${one} ${t.number}: your agent and ${theirAgents} moved it back and forth ${t.moves.length} times ` +
-    `(${clock(t.from)} to ${clock(t.to)}). Your agent spent ${num(t.mySpend)} ⚡ on it, and theirs spent energy too, so neither of ` +
+    `(${length ? `from ${timeLeft(t.from, length)} to ${timeLeft(t.to, length)}` : `${clock(t.from)} to ${clock(t.to)}`}). Your agent spent ${num(t.mySpend)} ⚡ on it, and theirs spent energy too, so neither of ` +
     `you is getting anywhere. ` +
     // Practice partners and AI players read no chat: the advice is for a game with people.
     (robots ? "Practice partners do not read chat: with people, this is when you would talk to them." : `Talk to ${them} in chat about this ${one}.`);

@@ -269,7 +269,7 @@ try {
       assert.equal(await results.getByTestId("results-rotation").count(), 0, "a deal with a won bid does not rotate");
     } else {
       // A practice game is dealt in a rotation: the results say which game of the round it was, with running totals.
-      await results.getByTestId("results-rotation").getByText(/^Game 1 of 3 in this rotation/).waitFor({ timeout: 10_000 });
+      await results.getByTestId("results-rotation").getByText(/^Game 1 of 3: you get a different rule each game, and your totals add up over the 3 games\./).waitFor({ timeout: 10_000 });
     }
     await shot(page, `grid-${label}-end`);
     assert.deepEqual(errors, [], `${label}: no page errors`);

@@ -143,7 +143,7 @@ export const roomOps = [
     description: "Ends the planning phase early and starts the world: objects are born and agents begin to act.",
     tooltip: "Skip the rest of planning.", keywords: ["skip planning", "start now", "go live"],
     params: obj({ requestId: requestId.optional() }), result: ok,
-    contexts: ["planning"], caller: "owner", effect: "write", confirm: "inline", runs: "server",
+    contexts: ["planning"], caller: "owner", effect: "write", confirm: "none", runs: "server",
   }),
   affordance({
     id: "game.resume", title: "Resume the game", group: "owner", scope: "game",
