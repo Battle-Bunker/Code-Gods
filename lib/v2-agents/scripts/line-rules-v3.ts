@@ -198,6 +198,42 @@ function rationalFamilies(T: number, TX: number, PT: [number, number], D2: numbe
     ]),
   ];
 }
+/** 7-smooth numbers (only 2, 3, 5 and 7 as prime factors), sorted, and the nearest one (sign kept) to x. */
+const SMOOTH: number[] = (() => { const out: number[] = []; for (let a = 1; a <= 1e12; a *= 2) for (let b = a; b <= 1e12; b *= 3) for (let c = b; c <= 1e12; c *= 5) for (let d = c; d <= 1e12; d *= 7) out.push(d); return out.sort((x, y) => x - y); })();
+function nearestSmooth(x: number): number {
+  const ax = Math.abs(x); let lo = 0, hi = SMOOTH.length - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (SMOOTH[mid]! < ax) lo = mid + 1; else hi = mid; }
+  const cands = [SMOOTH[lo]!, SMOOTH[Math.max(0, lo - 1)]!];
+  const best = cands.reduce((a, b) => (Math.abs(b - ax) < Math.abs(a - ax) ? b : a));
+  return x < 0 ? -best : best;
+}
+const omegaOfGcd = (x: number, y: number) => { const g = rgcd(x, y); return g <= 1 ? 0 : bigOmega(g); };
+
+/** Adversaries for the beginner pool's big-prime hills (owner decision 30): same anchors, opposite pulls. */
+function adversaryFamilies(): Fam[] {
+  const fam = (id: string, name: string, text: string, P: (d: D) => number, anchor: (d: D) => number, secs: Sec[]): Fam => ({ id, name, text, P: d => fin(P(d)), anchor, secs });
+  return [
+    fam("smooth-intercept", "Smooth Intercept", "the y-intercept as close as possible to a number made only from 2s, 3s, 5s and 7s", d => -Math.abs(d.k - nearestSmooth(d.k)), d => nearestSmooth(d.k), [
+      { id: "shares-x", text: "that number and the whole number nearest the x-intercept share as many prime factors as possible (with repeats)", f: d => (Number.isFinite(d.X) ? omegaOfGcd(nearestSmooth(d.k), Math.round(d.X)) : 0) },
+      { id: "omega", text: "that number has as many prime factors as possible (anchor only; for comparison)", f: d => bigOmega(nearestSmooth(d.k)) },
+    ]),
+    fam("smooth-crossing", "Smooth Crossing", "the x-axis crossing as close as possible to a number made only from 2s, 3s, 5s and 7s", d => -Math.abs(d.X - nearestSmooth(d.X)), d => nearestSmooth(d.X), [
+      { id: "shared-factors", text: "that number and the whole number nearest the y-intercept share as many prime factors as possible (with repeats)", f: d => (Number.isFinite(d.X) ? omegaOfGcd(nearestSmooth(d.X), Math.round(d.k)) : W) },
+    ]),
+    fam("close-crossing", "Close Crossing", "the line crosses the x-axis as close as possible to 0, but not at 0", d => (d.c === 0 || !Number.isFinite(d.X) ? W : -Math.abs(d.X)), d => d.X, [
+      { id: "steep-shared", text: "the gradient's top number and the y-intercept's top number share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(d.p, d.r) },
+    ]),
+    fam("smooth-gradient", "Smooth Gradient", "the gradient as close as possible to a number made only from 2s, 3s, 5s and 7s", d => -Math.abs(d.m - nearestSmooth(d.m)), d => nearestSmooth(d.m), [
+      { id: "shares-c", text: "that number and the whole number nearest the y-intercept share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(nearestSmooth(d.m), Math.round(d.k)) },
+    ]),
+    fam("steep-and-tall", "Steep and Tall", "the gradient and the y-intercept both positive and both as big as possible: the smaller of the two counts", d => Math.min(d.m, d.k), d => Math.min(d.m, d.k), [
+      { id: "shared", text: "the whole parts of the gradient and the y-intercept share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(Math.floor(d.m), Math.floor(d.k)) },
+    ]),
+    fam("smooth-root", "Smooth Square", "the triangle with the axes has an area as close as possible to a square number", d => -dZ(Math.sqrt(d.A)), d => Math.sqrt(d.A), [
+      { id: "root-shares-x", text: "that square's root and the whole number nearest the x-intercept share as many prime factors as possible (with repeats)", f: d => (Number.isFinite(d.X) ? omegaOfGcd(Math.round(Math.sqrt(d.A)), Math.round(d.X)) : W) },
+    ]),
+  ];
+}
 const rulesOf = (fs: Fam[]): Rule[] => fs.flatMap(f => f.secs.map(s => ({ id: `${f.id}/${s.id}`, fam: f.id, P: f.P, S: (d: D) => fin(s.f(d)) })));
 
 // ---------------------------------------------------------------- the law and the ladders
@@ -361,13 +397,24 @@ function distinctTest(vs: Valuer[], win: L[]) {
 
 /** Test 4: scripted seats on 24 objects for 300 s. Each second each seat makes its best affordable unit move by
  * gain per ⚡ in its own points rate (n_i · Σ_{j≠i} n_j summed over objects), uniqueness enforced. */
-function dynamicsTest(vs: Valuer[], seed: string) {
+function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) => Valuer[]; rebirthEvery?: number } = {}) {
+  let vs = vs0;
   const r = rng("v3-dyn", seed); const objs: L[] = []; const occ = new Set<number>();
   while (objs.length < 24) { const l = birth(r); if (!occ.has(key(l))) { occ.add(key(l)); objs.push(l); } }
   const rate = SEAT_GAME / 300; const energy = vs.map(() => 600);
   const own = (i: number, l: L) => { const ns = vs.map(v => v.bits(l)); return ns[i]! * (ns.reduce((a, b) => a + b, 0) - ns[i]!); };
   const changedLate = new Set<number>(); let movesLate = 0, idleLate = 0, nMoves = 0; const Ft: number[] = [];
+  /** destroyed[i][j]: bits seat i's moves took from seat j (summed over moves that lowered j). */
+  const destroyed = vs.map(() => vs.map(() => 0)); const movesBy = vs.map(() => 0);
+  const movedAt = new Map<number, number>();
   for (let t = 0; t < 300; t++) {
+    if (opt.phase) vs = opt.phase(t);
+    if (opt.rebirthEvery && t > 0 && t % opt.rebirthEvery === 0) {
+      // A death and a birth: the object worth least to the table is replaced by a newborn.
+      let worst = 0, wf = Infinity; objs.forEach((l, o) => { const f = tableF(vs.map(v => v.bits(l))); if (f < wf) { wf = f; worst = o; } });
+      let nb = birth(r); while (occ.has(key(nb))) nb = birth(r);
+      occ.delete(key(objs[worst]!)); objs[worst] = nb; occ.add(key(nb));
+    }
     let movedThisSecond = 0;
     for (let i = 0; i < vs.length; i++) {
       energy[i] = Math.min(1920, energy[i]! + rate);
@@ -383,14 +430,20 @@ function dynamicsTest(vs: Valuer[], seed: string) {
         }
       }
       if (pick) {
-        const [, o, n, cost] = pick; occ.delete(key(objs[o]!)); objs[o] = n; occ.add(key(n)); energy[i]! -= cost; nMoves++; movedThisSecond++;
+        const [, o, n, cost] = pick;
+        vs.forEach((v, j) => { const d = v.bits(n) - v.bits(objs[o]!); if (j !== i && d < 0) destroyed[i]![j]! -= d; });
+        movesBy[i]!++;
+        occ.delete(key(objs[o]!)); objs[o] = n; occ.add(key(n)); energy[i]! -= cost; nMoves++; movedThisSecond++;
         if (t >= 200) { changedLate.add(o); movesLate++; }
+        movedAt.set(o, (movedAt.get(o) ?? 0) + 1);
       }
     }
     if (t >= 200 && movedThisSecond === 0) idleLate++;
     if (t % 50 === 49) Ft.push(objs.reduce((s, l) => s + tableF(vs.map(v => v.bits(l))), 0));
   }
-  return { moves: nMoves, movesLate, changedLate: changedLate.size / 24, idleLate, Ft, slopes: new Set(objs.map(l => `${l[0]}/${l[1]}`)).size, maxH: Math.max(...objs.map(height)) };
+  const seatBits = vs.map(v => objs.reduce((a, l) => a + v.bits(l), 0));
+  const maxX = Math.max(...objs.map(l => { const d = derive(l); return d && Number.isFinite(d.X) ? Math.abs(d.X) : 0; }));
+  return { touched: movedAt.size, destroyed, movesBy, seatBits, maxX, moves: nMoves, movesLate, changedLate: changedLate.size / 24, idleLate, Ft, slopes: new Set(objs.map(l => `${l[0]}/${l[1]}`)).size, maxH: Math.max(...objs.map(height)) };
 }
 
 /** Test 5: probes until a seat that knows its own rule identifies the others' rules from disclosed sums ± σ. */
@@ -535,4 +588,81 @@ if (want("entangle")) {
   const ks = [...new Set(kinds)];
   say(`| mutator (moves) | ${reps.map(v => v.rule.fam).join(" | ")} |`); say(`|---|${reps.map(() => "---").join("|")}|`);
   for (const k of ks) { const ds = dels.filter((_, i) => kinds[i] === k); say(`| ${k} (${ds.length}) | ${reps.map((_, j) => f1(ds.reduce((s, d) => s + Math.abs(d[j]!), 0) / ds.length)).join(" | ")} |`); }
+}
+
+if (want("adversary")) {
+  // Bits along the climbs the big-prime rules make, for the climbers and the proposed adversaries.
+  say("\n## Adversaries: bits along big-prime climbs\n");
+  const climbers = rulesOf(families(T6, T7)).filter(r => ["whole-crossing/spf", "square-area/spf", "whole-intercept/spf"].includes(r.id));
+  const vs = valuers([...climbers, ...rulesOf(adversaryFamilies())], smp);
+  const primes = [11, 23, 47, 97, 191, 367, 733, 1471];
+  const paths: [string, (p: number) => L][] = [
+    ["stretch case y = −2x + 2p (crossing p, area root p)", p => canon(2, 1, -2 * p)!],
+    ["y = −x + p (c = p, crossing p)", p => canon(1, 1, -p)!],
+    ["smooth path y = −2x + 2·2^k (crossing 2^k)", p => canon(2, 1, -2 * 2 ** Math.round(Math.log2(p)))!],
+    ["steep path y = 2^k·x + 2^k", p => canon(-(2 ** Math.round(Math.log2(p))), 1, -(2 ** Math.round(Math.log2(p))))!],
+  ];
+  for (const [name, f] of paths) {
+    say(`### ${name}\n`);
+    say(`| rule | ${primes.map(p => `p≈${p}`).join(" | ")} | bits per doubling |`); say(`|---|${primes.map(() => "---").join("|")}|---|`);
+    for (const v of vs) {
+      const b = primes.map(p => v.bits(f(p)));
+      say(`| ${v.rule.id} | ${b.map(f1).join(" | ")} | ${f1((b[b.length - 1]! - b[0]!) / Math.log2(primes[primes.length - 1]! / primes[0]!))} |`);
+    }
+    say();
+  }
+  say(`Median bits of each rule at 200 births: ${vs.map(v => `${v.rule.id} ${f1(median(Array.from({ length: 200 }, (_, i) => v.bits(birth(rng("adv-birth", i))))))}`).join("; ")}`);
+}
+
+if (want("contest")) {
+  // The stretch-case climbers with and without an adversary seated (owner decision 30: adversaries to expensive climbs).
+  say("\n## Contest: the big-prime climbers with and without an adversary\n");
+  const climberIds = ["whole-crossing/spf", "square-area/spf", "whole-intercept/spf"];
+  const all = valuers([...rulesOf(families(T6, T7)).filter(r => climberIds.includes(r.id)), ...rulesOf(adversaryFamilies())], smp);
+  const get = (id: string) => all.find(v => v.rule.id === id)!;
+  const configs: [string, string[]][] = [
+    ["climbers alone", climberIds],
+    ["+ Smooth Crossing", [...climberIds, "smooth-crossing/shared-factors"]],
+    ["+ Steep and Tall", [...climberIds, "steep-and-tall/shared"]],
+    ["+ Smooth Square", [...climberIds, "smooth-root/root-shares-x"]],
+    ["two climbers + Smooth Crossing + Steep and Tall", ["whole-crossing/spf", "square-area/spf", "smooth-crossing/shared-factors", "steep-and-tall/shared"]],
+  ];
+  for (const [name, ids] of configs) {
+    for (const seed of ["s1", "s2"]) {
+      const vs = ids.map(get); const dy = dynamicsTest(vs, `contest-${seed}`);
+      say(`**${name}** (${seed}): seat bits at the end ${ids.map((id, i) => `${id} ${f1(dy.seatBits[i]!)}`).join(", ")}; moves by seat ${dy.movesBy.join(", ")}; largest |crossing| ${f1(dy.maxX)}; F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}`);
+      say(`  bits destroyed (row seat's moves → column seat): ${dy.destroyed.map((row, i) => `${ids[i]} → [${row.map(f1).join(", ")}]`).join("; ")}`);
+    }
+  }
+}
+
+if (want("flatlaw")) {
+  // A flatter law near 0 and ±1 (proposal only): each coordinate with |n| ≤ 1 costs δ more bits, the rest renormalised.
+  // Measured by reweighting the same draws: tops of the bounded rules, where they sit, and the share of vertical lines.
+  say("\n## A flatter law at 0 and ±1 (reweighted draws)\n");
+  const ids = ["whole-intercept/rep", "whole-intercept/x-whole", "whole-crossing/sq", "whole-crossing/area-whole", "whole-distance/hyp-whole", "square-area/k-whole", "peg-line/two-pegs", "whole-at-t/next-whole", "whole-product/x-whole", "whole-intercept/spf"];
+  const rules = rulesOf(families(T6, T7)).filter(r => ids.includes(r.id));
+  const win = windowLines(24);
+  for (const delta of [0, 2, 4, 6]) {
+    const lw = Float64Array.from(smp.logw, (w, i) => w - delta * smp.ls[i]!.filter(x => Math.abs(x) <= 1).length);
+    const s2: Sample = { ls: smp.ls, logw: lw, total: lw.reduce((a, x) => a + 2 ** x, 0) };
+    const vertical = smp.ls.reduce((a, l, i) => a + (l[1] === 0 ? 2 ** lw[i]! : 0), 0) / s2.total;
+    const vs = valuers(rules, s2);
+    say(`δ = ${delta}: vertical share ${f2(100 * vertical)}%; tops (window 24): ${vs.map(v => { const tb = win.reduce((m, l) => Math.max(m, v.bits(l)), 0); const t = win.filter(l => v.bits(l) >= tb - 1e-9).reduce((a, l) => (height(l) < height(a) ? l : a)); return `${v.rule.id} ${f1(tb)} @ ${show(t)}`; }).join("; ")}`);
+  }
+}
+
+if (want("unfreeze")) {
+  // What unfreezes play: opposing seats, a drifting dealt target, births and deaths. Rational pool, mutator moves.
+  say("\n## Unfreezing play\n");
+  const base = ["whole-intercept/gcd-den-m", "farey-pair/mediant-x", "target-gradient/gcd-tops"];
+  const drift = [5 / 3, 3 / 4, -2 / 5, 7 / 2, 1 / 3, -3 / 2];
+  const phases = drift.map(T => valuers(rulesOf(rationalFamilies(T, RTX, RPT, RD)).filter(r => base.includes(r.id)), smp));
+  const fixed = phases[0]!;
+  const report = (name: string, dy: ReturnType<typeof dynamicsTest>) => say(`**${name}**: F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}; objects ever moved ${dy.touched}/24; moves ${dy.moves}`);
+  for (const seed of ["u1", "u2"]) {
+    report(`fixed (${seed})`, dynamicsTest(fixed, seed));
+    report(`target T redrawn every 50 s (${seed})`, dynamicsTest(fixed, seed, { phase: t => phases[Math.floor(t / 50) % phases.length]! }));
+    report(`a death and a birth every 10 s (${seed})`, dynamicsTest(fixed, seed, { rebirthEvery: 10 }));
+  }
 }
