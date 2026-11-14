@@ -59,6 +59,21 @@ async function shorten(page: Page, code: string) {
   assert.ok(out.ok, `room.settings: ${out.error?.message}`);
 }
 
+/**
+ * Whether the running engine's functions know `replay.watchAs` (the local engine may run another checkout's functions):
+ * it is applied once through the human's own session, for their own seat, which changes nothing they see.
+ */
+async function serverKnowsWatchAs(page: Page, code: string, gameId: string): Promise<boolean> {
+  const token = await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token);
+  const client = new ConvexHttpClient(CLOUD);
+  client.setAuth(token);
+  const { roomId } = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
+  const { me } = await client.query("v2/games:header" as never, { gameId } as never) as { me: string };
+  const out = await client.mutation("v2/ops/view:apply" as never, { id: "replay.watchAs", args: { memberId: me }, roomId, gameId, replay: true } as never) as { ok: boolean; error?: { code: string; message: string } };
+  if (!out.ok && out.error?.code !== "unknown") throw new Error(`replay.watchAs: ${out.error?.message}`);
+  return out.ok;
+}
+
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 
 /** memberId → points as a list of standings rows shows them. */
@@ -79,7 +94,7 @@ async function waitApplied(page: Page, ok: (n: number) => boolean, what: string)
 }
 
 /** Steps, seeks to the end with the slider, and checks the standings against the results'. */
-async function driveReplay(page: Page, label: string, final: Record<string, string>, distinctRules: boolean) {
+async function driveReplay(page: Page, label: string, final: Record<string, string>, distinctRules: boolean, watchAs: boolean) {
   const bar = page.getByTestId("replay-bar");
   await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 60_000 });
   assert.match(await page.getByTestId("text-phase").innerText(), /replay/i);
@@ -109,20 +124,25 @@ async function driveReplay(page: Page, label: string, final: Record<string, stri
   assert.equal(await applied(page), paused, `${label}: a paused replay stays put`);
   assert.ok(paused > second, `${label}: the pause kept the playhead (${paused})`);
 
-  // Through another player's eyes: their points (and their rule, in the goal card).
-  const as = page.getByTestId("select-replay-as");
-  const other = as.locator("option:not(:checked)").first();
-  const name = (await other.innerText()).trim();
-  const card = page.getByTestId("goal-card").locator(".v2v-goal-card");
-  const myCard = await card.innerText();
-  await as.selectOption(await other.getAttribute("value"));
-  await page.getByTestId("text-my-total").getByText(`${name}:`).waitFor({ timeout: 10_000 });
-  const theirCard = await card.innerText();
-  console.log(`${label}: as ${name}: "${theirCard.slice(0, 70)}" (yours: "${myCard.slice(0, 70)}")`);
-  // Two seats can be dealt the same rule (then the same card): only distinct rules must read differently.
-  if (distinctRules) assert.notEqual(theirCard, myCard, `${label}: watching as another player shows their rule`);
-  await as.selectOption(await as.locator("option", { hasText: "(you)" }).getAttribute("value"));
-  await page.getByTestId("text-my-total").getByText("You:").waitFor({ timeout: 10_000 });
+  // Through another player's eyes: their points (and their rule, in the goal card), kept once the server has it.
+  if (!watchAs) console.log(`${label}: SKIPPED watch as: the running engine's functions predate replay.watchAs (it refuses the operation)`);
+  else {
+    const as = page.getByTestId("select-replay-as");
+    const other = as.locator("option:not(:checked)").first();
+    const name = (await other.innerText()).trim();
+    const card = page.getByTestId("goal-card").locator(".v2v-goal-card");
+    const myCard = await card.innerText();
+    await as.selectOption(await other.getAttribute("value"));
+    await page.getByTestId("text-my-total").getByText(`${name}:`).waitFor({ timeout: 10_000 });
+    await page.waitForTimeout(1500);
+    assert.match(await page.getByTestId("text-my-total").innerText(), new RegExp(`^${name}:`), `${label}: the server kept the point of view`);
+    const theirCard = await card.innerText();
+    console.log(`${label}: as ${name}: "${theirCard.slice(0, 70)}" (yours: "${myCard.slice(0, 70)}")`);
+    // Two seats can be dealt the same rule (then the same card): only distinct rules must read differently.
+    if (distinctRules) assert.notEqual(theirCard, myCard, `${label}: watching as another player shows their rule`);
+    await as.selectOption(await as.locator("option", { hasText: "(you)" }).getAttribute("value"));
+    await page.getByTestId("text-my-total").getByText("You:").waitFor({ timeout: 10_000 });
+  }
 
   const slider = page.getByTestId("input-replay-seek");
   await slider.focus();
@@ -163,14 +183,21 @@ try {
   console.log(`desktop: game ${gameId} ended: ${JSON.stringify(final)}`);
   const rules = await page.evaluate(async (id: string) => {
     const { token } = await (await fetch("/api/auth/convex/token")).json() as { token: string };
-    const file = await (await fetch(`/api/v2/replay/${id}`, { headers: { Authorization: `Bearer ${token}` } })).json() as { rules: { family: string; ruleKey: string }[] };
-    return file.rules.map(r => r.ruleKey);
+    // The file is built just after the end: a 404 until then.
+    for (let i = 0; i < 100; i++) {
+      const r = await fetch(`/api/v2/replay/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) return ((await r.json()) as { rules: { ruleKey: string }[] }).rules.map(x => x.ruleKey);
+      await new Promise(done => setTimeout(done, 200));
+    }
+    throw new Error("the stored replay never arrived");
   }, gameId);
   console.log(`desktop: the stored replay holds every player's rule: ${rules.join(", ")}`);
   assert.equal(rules.length, 3, "every player's rule is in the stored replay");
   const distinct = new Set(rules).size === rules.length;
-  await results.getByTestId("button-watch-replay").click();
-  await driveReplay(page, "desktop", final, distinct);
+  await results.getByTestId("button-watch-replay").click().catch(async (e: Error) => { await shot(page, "replay-desktop-failed"); throw e; });
+  await page.locator('[data-testid="replay-bar"]').waitFor({ timeout: 30_000 });
+  const watchAs = await serverKnowsWatchAs(page, code, gameId);
+  await driveReplay(page, "desktop", final, distinct, watchAs);
   assert.deepEqual(desk.errors, [], "desktop: no page errors");
   await desk.context.close();
 
@@ -180,10 +207,14 @@ try {
   await page.goto(`${SITE}/rooms/${code}`);
   await page.getByTestId(`button-replay-${gameId}`).click();
   await page.waitForURL(new RegExp(`/games/${gameId}`), { timeout: 15_000 });
-  await driveReplay(page, "phone", final, distinct);
+  await driveReplay(page, "phone", final, distinct, watchAs);
   await page.getByTestId("button-replay-close").click();
   await page.getByTestId("text-phase").getByText("Ended").waitFor({ timeout: 10_000 });
   assert.equal(await page.getByTestId("replay-bar").count(), 0, "closing the replay leaves the ended game");
+  // The replay route: ?replay on the game's URL opens it, and leaves the URL.
+  await page.goto(`${SITE}/rooms/${code}/games/${gameId}?replay`);
+  await page.locator('[data-testid="replay-bar"][data-status="ready"]').waitFor({ timeout: 30_000 });
+  await page.waitForURL(u => !new URL(u).searchParams.has("replay"), { timeout: 10_000 });
   assert.deepEqual(phone.errors, [], "phone: no page errors");
   await phone.context.close();
 } finally {

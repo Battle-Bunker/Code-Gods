@@ -64,7 +64,8 @@ function Palette({ open, init, onOpenChange, placeholder, suggested, chip, roomP
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const paneOps = usePaneOps(dockPhase ?? "planning");
+  // An ended game shown in replay has the replay's arrangement.
+  const paneOps = usePaneOps(dockPhase === "ended" && rt.context.context === "replay" ? "replay" : dockPhase ?? "planning");
   const panes = dockPhase ? paneOps : undefined;
   const commands = useMemo(() => paletteCommands(rt.context, { perform: rt.perform, navigate, roomPath, ...(panes ? { panes } : {}) }), [rt, navigate, roomPath, panes]);
   const p = rt.context.principal;

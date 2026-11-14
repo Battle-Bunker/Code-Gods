@@ -8,7 +8,7 @@
  * every pane answers from the replay at the playhead (src/replay/controller.tsx).
  */
 import { summonFirst } from "@/panes/first-summon";
-import { useEffect, useMemo, useRef, type ReactNode } from "react";
+import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import type { GamePhase } from "@workspace/v2-client";
@@ -27,7 +27,7 @@ import { ReplayBar } from "@/replay/bar";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
 import { toast } from "@/hooks/use-toast";
 import { affordanceContext } from "./affordance-context";
-import { useStoredView } from "./affordance-runtime";
+import { useReplaying } from "./affordance-runtime";
 import { GameTimer, useNow } from "./game-timer";
 import { navigate } from "./navigation";
 import { planningLine, SUMMON_FIRST } from "./planning-line";
@@ -77,27 +77,49 @@ function BarError({ error }: ErrorFallbackProps) {
   return <p className="border-b px-3 py-1.5 text-xs text-destructive" role="alert">Your totals could not load: {error instanceof Error ? error.message : String(error)}</p>;
 }
 
-/** `?replay` on an ended game's URL opens its replay (`replay.open`), once, then leaves the URL. */
-function ReplayRoute({ gameId, ended, replaying }: { gameId: string; ended: boolean; replaying: boolean }) {
+/**
+ * `?replay` on a game's URL opens its replay (`replay.open`) when the game has ended, once; the parameter then leaves
+ * the URL whatever happened (a game still running has no replay yet, and must not open one by itself when it ends).
+ */
+function ReplayRoute({ header }: { header: Header }) {
+  const { gameId } = header, ended = header.phase === "ended";
+  const replaying = useReplaying();
   const open = useAffordance("replay.open");
   const done = useRef(false);
   useEffect(() => {
     const q = new URLSearchParams(location.search);
-    if (done.current || !ended || !q.has("replay") || (!replaying && !open.available)) return;
+    if (done.current || !q.has("replay")) return;
+    if (ended && !replaying && !open.available) return;   // the room is still loading
     done.current = true;
     q.delete("replay");
     const leave = () => navigate(`${location.pathname}${q.size ? `?${q}` : ""}`, { replace: true });
-    if (replaying) { leave(); return; }
-    open.run({ gameId }).then(leave, (e: unknown) => toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }));
+    if (!ended || replaying) { leave(); return; }
+    open.run({ gameId }).then(leave, (e: unknown) => { leave(); toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }); });
   }, [gameId, ended, replaying, open]);
   return null;
 }
 
+/** The dock never re-renders for the replay's clock alone (only what its panes read: the view and the replay's frame). */
+const StableDock = memo(Dock);
+
+/** The screen under the site header: the bars and the dock, in play or, for an ended game, in its replay. */
+function GameBody({ header, owner }: { header: Header; owner: boolean }) {
+  const replaying = useReplaying();
+  return (
+    <ReplayProvider gameId={header.gameId} active={replaying} seat={header.me}>
+      <ErrorBoundary FallbackComponent={BarError}><GameBar header={header} /></ErrorBoundary>
+      {replaying ? <ReplayBar /> : <GameTimer header={header} />}
+      {!replaying && <ErrorBoundary FallbackComponent={BarError}><PlanningBar header={header} owner={owner} /></ErrorBoundary>}
+      <GameDock phase={replaying ? "replay" : header.phase} />
+    </ReplayProvider>
+  );
+}
+
 /** The dock, once a replay's file is folded (until then the replay bar says where it is). */
 function GameDock({ phase }: { phase: GamePhase }): ReactNode {
-  const replay = useReplayControls();
-  if (replay && !replay.index) return null;
-  return <div className="min-h-0 flex-1" data-testid="dock"><Dock phase={phase} panes={PANE_COMPONENTS} /></div>;
+  const waiting = useReplayControls()?.index === null;
+  if (waiting) return null;
+  return <div className="min-h-0 flex-1" data-testid="dock"><StableDock phase={phase} panes={PANE_COMPONENTS} /></div>;
 }
 
 function Screen({ header }: { header: Header }) {
@@ -107,24 +129,16 @@ function Screen({ header }: { header: Header }) {
   const room = useLive(api.v2.rooms.get, { roomId: header.roomId }).data as Room | undefined;
   const me = useLive(api.v2.play.me, header.me ? { gameId: header.gameId } : "skip").data;
   const live = useLive(api.v2.games.header, { gameId: header.gameId }).data ?? header;
-  const stored = useStoredView(header.roomId);
-  const replaying = live.phase === "ended" && stored.replay?.gameId === header.gameId;
-  const context = useMemo(() => affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, header: live, me: me ?? null, replay: replaying }),
-    [isAuthenticated, user?.isAdmin, room, live, me?.energy, me?.pauseUsed, me?.agents, replaying]); // eslint-disable-line react-hooks/exhaustive-deps
+  const context = useMemo(() => affordanceContext({ signedIn: isAuthenticated, admin: !!user?.isAdmin, room: room ?? null, header: live, me: me ?? null }),
+    [isAuthenticated, user?.isAdmin, room, live, me?.energy, me?.pauseUsed, me?.agents]); // eslint-disable-line react-hooks/exhaustive-deps
   const code = room?.code ?? "";
   const owner = !!room?.members.find(m => m.me)?.owner;
-  const phase: GamePhase = replaying ? "replay" : live.phase;
   return (
-    <Page context={context} scope={{ roomId: header.roomId, gameId: header.gameId, replay: replaying }} fill dockPhase={phase} roomPath={code ? roomPath(code) : undefined}
+    <Page context={context} scope={{ roomId: header.roomId, gameId: header.gameId }} fill dockPhase={live.phase} roomPath={code ? roomPath(code) : undefined}
       crumbs={[{ label: code || "Room", href: code ? roomPath(code) : undefined }, { label: `Game ${header.number}` }]} chip={`Game ${header.number}`}
       placeholder="Search or do anything in this game">
-      <ReplayRoute gameId={header.gameId} ended={live.phase === "ended"} replaying={replaying} />
-      <ReplayProvider gameId={header.gameId} active={replaying} seat={header.me}>
-        <ErrorBoundary FallbackComponent={BarError}><GameBar header={live} /></ErrorBoundary>
-        {replaying ? <ReplayBar /> : <GameTimer header={live} />}
-        {!replaying && <ErrorBoundary FallbackComponent={BarError}><PlanningBar header={live} owner={owner} /></ErrorBoundary>}
-        <GameDock phase={phase} />
-      </ReplayProvider>
+      <ReplayRoute header={live} />
+      <GameBody header={live} owner={owner} />
     </Page>
   );
 }

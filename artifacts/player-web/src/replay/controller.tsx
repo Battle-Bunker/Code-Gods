@@ -92,23 +92,36 @@ export function ReplayProvider({ gameId, active, seat, children }: { gameId: str
   const { load, retry } = useReplayFile(gameId, active);
   const index = active && load.status === "ready" ? load.index : null;
   const shown = useView().replay;
-  // A replay closed here stays on screen as it was until the page leaves it (no jump back to the start on the way out).
-  const last = useRef<typeof shown>(null);
-  if (shown && shown.gameId === gameId) last.current = shown;
-  const view = shown && shown.gameId === gameId ? shown : last.current;
+  const view = shown && shown.gameId === gameId ? shown : null;
   const cursor = view?.cursor ?? { seq: 0 };
   const cursorKey = JSON.stringify(cursor);
   const playing = !!view?.playing && !!index;
   const speed = view?.speed ?? 1;
   const cursorAt = index ? resolveCursor(index, cursor) : 0;
 
-  // The playhead while playing: anchored where the cursor was put (or where it was when the speed changed).
+  // The playhead while playing: anchored where the cursor was put (or where it was when the speed changed). `moving`
+  // is where it is; after a pause it holds there until the cursor written at it arrives.
   const anchor = useRef<Anchor | null>(null);
+  const anchoredAt = useRef<string | null>(null);
   const [moving, setMoving] = useState<{ world: number; applied: number } | null>(null);
+  const seek = useAffordance("replay.seek"), pause = useAffordance("replay.pause");
+  const seekNow = useRef(seek.run);
+  seekNow.current = seek.run;
   useEffect(() => {
-    if (!index || !playing) { anchor.current = null; setMoving(null); return; }
-    anchor.current = { world: cursorWorld(index, cursor), at: performance.now(), speed };
-    setMoving(null);
+    if (!index) return;
+    if (playing) {
+      anchor.current = { world: cursorWorld(index, cursor), at: performance.now(), speed };
+      anchoredAt.current = cursorKey;
+      setMoving(null);
+      return;
+    }
+    // Stopped. A pause from anywhere (this bar, the palette, an assistant, another client) leaves the cursor where play
+    // began: the playhead stays where it was, and is written as the cursor (an exact world time).
+    const held = anchor.current && anchoredAt.current === cursorKey ? playheadAt(index, anchor.current, performance.now()) : null;
+    anchor.current = null;
+    anchoredAt.current = null;
+    setMoving(held ? { world: held.world, applied: held.applied } : null);
+    if (held) seekNow.current({ worldSeconds: held.world }).catch(() => setMoving(null));
   }, [index, cursorKey, playing]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!index || !anchor.current || anchor.current.speed === speed) return;
@@ -116,22 +129,18 @@ export function ReplayProvider({ gameId, active, seat, children }: { gameId: str
     anchor.current = { world: p.world, at: now, speed };
   }, [index, speed]);
 
-  // At the end, the cursor is written there and the replay stops (the human's other clients stop with it).
-  const seek = useAffordance("replay.seek"), pause = useAffordance("replay.pause");
-  const finish = useRef(async () => {});
-  finish.current = async () => {
-    if (!index) return;
-    try { await seek.run({ seq: index.end }); await pause.run({}); } catch { /* another client moved it: theirs stands */ }
-  };
+  // At the end the replay stops (and so the end is written as the cursor, above).
+  const pauseNow = useRef(pause.run);
+  pauseNow.current = pause.run;
   useEffect(() => {
     if (!index || !playing) return;
-    let raf = 0, last = -Infinity, done = false;
+    let raf = 0, last = -Infinity;
     const frame = (now: number) => {
       const a = anchor.current;
       if (a) {
         const p = playheadAt(index, a, now);
         if (now - last >= ANSWER_MS || p.done) { last = now; setMoving({ world: p.world, applied: p.applied }); }
-        if (p.done) { if (!done) { done = true; void finish.current(); } return; }
+        if (p.done) { pauseNow.current({}).catch(() => { /* another client moved it: theirs stands */ }); return; }
       }
       raf = requestAnimationFrame(frame);
     };
@@ -139,8 +148,8 @@ export function ReplayProvider({ gameId, active, seat, children }: { gameId: str
     return () => cancelAnimationFrame(raf);
   }, [index, playing]);
 
-  const applied = playing && moving ? moving.applied : cursorAt;
-  const world = index ? (playing && moving ? moving.world : cursorWorld(index, cursor)) : 0;
+  const applied = moving ? moving.applied : cursorAt;
+  const world = index ? (moving ? moving.world : cursorWorld(index, cursor)) : 0;
   const roster = index?.roster ?? [];
   const inRoster = (m: string | null | undefined): m is string => !!m && roster.some(r => r.memberId === m);
   const member = inRoster(view?.as) ? view!.as! : inRoster(seat) ? seat : roster[0]?.memberId ?? null;

@@ -97,7 +97,7 @@ export const viewOps = [
   }),
   affordance({
     id: "replay.pause", title: "Pause the replay", group: "replay", scope: "game",
-    description: "Stops the replay at its cursor.", tooltip: "Pause.", keywords: ["pause replay", "stop"],
+    description: "Stops the replay where it is playing (the page showing it writes that moment as its cursor).", tooltip: "Pause.", keywords: ["pause replay", "stop"],
     params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
@@ -109,7 +109,8 @@ export const viewOps = [
   }),
   affordance({
     id: "replay.step", title: "Step the replay", group: "replay", scope: "game",
-    description: "Moves the replay's cursor by a number of moves, backwards when negative.", tooltip: "Step forwards or back.", keywords: ["step", "next move", "previous move"],
+    description: "Stops the replay and moves its cursor by a number of events of the game's record (a move is a few events), backwards when negative. While it plays, the cursor is where play began; to go to an exact moment, use replay.seek.",
+    tooltip: "Step forwards or back.", keywords: ["step", "next move", "previous move"],
     params: obj({ by: z.number().int().min(-100).max(100).default(1) }), result: done,
     contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),

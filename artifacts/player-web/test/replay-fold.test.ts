@@ -98,6 +98,9 @@ test("the playhead shows each line, value and move as it was, and nothing that c
   assert.deepEqual(end.moves("m1").map(m => m.seq), [1, 0], "newest first");
   assert.deepEqual(end.moves("m2").map(m => m.seq), [0], "line 2's move left Bo's points at 0: not his");
   assert.equal(frameAt(ix, 0).object("o1", "m1"), null, "no line before its birth");
+  // Catches: every row drawing again on every frame of a playing replay.
+  assert.equal(frameAt(ix, 13).object("o1", "m1"), mid.object("o1", "m1"), "a line the playhead did not change is the same answer");
+  assert.notEqual(frameAt(ix, 13).object("o2", "m1"), mid.object("o2", "m1"));
   assert.deepEqual(frameAt(ix, 0).objectIds("m1", "points"), []);
 });
 

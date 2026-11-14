@@ -4,7 +4,7 @@
  * with the caption that points rise and fall (ux-lessons 2.9). Also drawn on the results pane.
  */
 import { useMemo, useState } from "react";
-import { useGame, useStandingsHistory } from "@/sdk";
+import { useGame, useReplaySource, useStandingsHistory } from "@/sdk";
 import { LineChart } from "@/components/charts";
 import { clock, pointsText } from "@/core/words";
 import { riseAndFall, seriesOf, type Series } from "./chart-model";
@@ -38,7 +38,10 @@ export function MyPointsChart({ me, slot, ended, testId = "points-over-time" }: 
 
 export function PointsOverTimePane() {
   const header = useGame();
+  const replay = useReplaySource();
   if (!header) return null;
   if (!header.me) return <p className="p-4 text-sm text-muted-foreground">You are watching: the Leaderboard shows every player's points over time.</p>;
-  return <div className="p-3"><MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={header.phase === "ended"} /></div>;
+  // In a replay the game has ended only once the playhead reaches its end.
+  const ended = header.phase === "ended" && (!replay || replay.frame.applied >= replay.index.end);
+  return <div className="p-3"><MyPointsChart me={header.me} slot={header.roster.findIndex(m => m.memberId === header.me)} ended={ended} /></div>;
 }

@@ -11,6 +11,7 @@ import { REPLAY_PANE } from "@workspace/v2-client";
 import { clock } from "@/core/words";
 import { toast } from "@/hooks/use-toast";
 import { useReplayControls } from "./controller";
+import { nextStop, prevStop } from "./fold";
 import { stepOp } from "./playhead";
 
 const SPEEDS = [0.5, 1, 2, 4, 8] as const;
@@ -59,16 +60,20 @@ export function ReplayBar() {
       </div>
     );
   }
-  const go = (op: ReturnType<typeof stepOp>) => {
-    if (!op) return;
-    const done = op.id === "replay.step" ? step.run(op.args) : seek.run(op.args).then(() => (c.playing ? pause.run({}) : undefined));
-    void done.catch(failed);
+  /** A step to the move before or after stops the replay there. */
+  const go = (direction: 1 | -1) => {
+    if (c.playing) {
+      const target = direction > 0 ? nextStop(ix, c.applied) : prevStop(ix, c.applied);
+      void pause.run({}).then(() => seek.run({ seq: target })).catch(failed);
+      return;
+    }
+    const op = stepOp(ix, c.applied, c.cursorAt, direction);
+    if (op) void (op.id === "replay.step" ? step.run(op.args) : seek.run(op.args)).catch(failed);
   };
   const toggle = () => {
-    if (c.playing) {
-      // Stop where the playhead is: the cursor first, so the pause does not jump back to where play began.
-      void seek.run({ seq: c.applied }).then(() => pause.run({})).catch(failed);
-    } else if (c.applied >= ix.end) {
+    // A pause stops where the playhead is (the controller writes it as the cursor).
+    if (c.playing) void pause.run({}).catch(failed);
+    else if (c.applied >= ix.end) {
       void seek.run({ seq: 0 }).then(() => play.run({})).catch(failed);
     } else void play.run({}).catch(failed);
   };
@@ -83,13 +88,13 @@ export function ReplayBar() {
           <button type="button" className={btn} aria-label="Go to the start" title="Go to the start" disabled={atStart || !seek.available}
             onClick={() => void seek.run({ seq: 0 }).catch(failed)} data-testid="button-replay-start"><SkipBack className="h-4 w-4" aria-hidden /></button>
           <button type="button" className={btn} aria-label="Back one move" title="Back one move" disabled={atStart || !step.available}
-            onClick={() => go(stepOp(ix, c.applied, c.cursorAt, -1))} data-testid="button-replay-back"><StepBack className="h-4 w-4" aria-hidden /></button>
+            onClick={() => go(-1)} data-testid="button-replay-back"><StepBack className="h-4 w-4" aria-hidden /></button>
           <button type="button" className={`${btn} px-3 font-medium`} aria-label={c.playing ? "Pause" : "Play"} disabled={!(c.playing ? pause : play).available}
             onClick={toggle} data-testid={c.playing ? "button-replay-pause" : "button-replay-play"}>
             {c.playing ? <Pause className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" aria-hidden />}{c.playing ? "Pause" : "Play"}
           </button>
           <button type="button" className={btn} aria-label="Forward one move" title="Forward one move" disabled={atEnd || !step.available}
-            onClick={() => go(stepOp(ix, c.applied, c.cursorAt, 1))} data-testid="button-replay-forward"><StepForward className="h-4 w-4" aria-hidden /></button>
+            onClick={() => go(1)} data-testid="button-replay-forward"><StepForward className="h-4 w-4" aria-hidden /></button>
           <button type="button" className={btn} aria-label="Go to the end" title="Go to the end" disabled={atEnd || !seek.available}
             onClick={() => void seek.run({ seq: ix.end }).catch(failed)} data-testid="button-replay-end"><SkipForward className="h-4 w-4" aria-hidden /></button>
         </div>

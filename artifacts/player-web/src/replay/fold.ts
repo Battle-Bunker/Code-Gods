@@ -35,7 +35,7 @@ export interface ReplayIndex {
   gameId: string;
   /** Events in the file: the cursor's last position. */
   end: number;
-  /** The world time of the last event, or the game's length if later. */
+  /** The world time of the last event (`gameEnded`, at the game's end: early when the owner ended it). */
   endWorld: number;
   roster: { memberId: string; name: string }[];
   /** After each event, the world time (an event without one keeps the time before it). */
@@ -50,6 +50,8 @@ export interface ReplayIndex {
   rules: Map<string, MyRuleRow>;
   /** Standings history prefixes by length, so an unchanged prefix keeps its identity across frames. */
   histories: Map<number, StandingsPoint[]>;
+  /** Each line's answers by (member, state, value), likewise. */
+  answers: Map<string, PlayObject>;
 }
 
 /** The last index in a sorted-by-`at` list whose position is applied, or -1. */
@@ -92,7 +94,7 @@ export function indexReplay(file: unknown): ReplayIndex {
 
   const ix: ReplayIndex = {
     gameId: game.gameId, end: f.events.length, endWorld: game.settings?.worldSeconds ?? 0, roster: game.roster,
-    world: [], stops: [], objects: [], byId: new Map(), ticks: [], moves: new Map(), commands: new Map(), rules, histories: new Map(),
+    world: [], stops: [], objects: [], byId: new Map(), ticks: [], moves: new Map(), commands: new Map(), rules, histories: new Map(), answers: new Map(),
   };
   const events = [...f.events].sort((a, b) => a.seq - b.seq);
   let world = 0, moveSeq = 0;
@@ -219,26 +221,27 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
   const count = tick + 1;
   let history = ix.histories.get(count);
   if (!history) ix.histories.set(count, history = ix.ticks.slice(0, count).map(t => t.point));
-  const objects = new Map<string, PlayObject | null>();
   return {
     applied: a,
     worldSeconds: worldAt(ix, a),
     standings: tick >= 0 ? ix.ticks[tick]!.standings : null,
     history,
     object(objectId, member) {
-      const key = `${objectId}|${member ?? ""}`;
-      if (objects.has(key)) return objects.get(key)!;
       const t = ix.byId.get(objectId);
-      let out: PlayObject | null = null;
-      if (t && t.born <= a) {
-        const i = lastAt(t.states, a), s = t.states[i]!;
-        const v = member ? valueOf(t, member) : null;
+      if (!t || t.born > a) return null;
+      const i = lastAt(t.states, a), s = t.states[i]!;
+      const v = member ? valueOf(t, member) : null;
+      // One answer per (state, value) a line ever had: a line the playhead did not change keeps its identity, so its row
+      // does not draw again.
+      const key = `${objectId}|${member ?? ""}|${i}|${v?.version ?? 0}`;
+      let out = ix.answers.get(key);
+      if (!out) {
         out = {
           objectId: t.objectId, number: t.number, bornAt: t.bornAt, state: s.state, version: i + 1, changedAt: s.changedAt,
           value: v ? { score: v.score, level: v.level, rarityBits: v.rarityBits, want: v.want, points: v.points, version: v.version } : null,
         } as unknown as PlayObject;
+        ix.answers.set(key, out);
       }
-      objects.set(key, out);
       return out;
     },
     objectIds(member, sort) {
