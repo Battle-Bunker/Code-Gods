@@ -49,6 +49,8 @@ export interface Artefact {
     readonly levelMatrix: readonly (readonly number[])[];
     /** Per rung: [drift of the chain's rate into the next rung between the halves of its samples, in standard errors]. */
     readonly drift: readonly (readonly [number, number] | null)[];
+    /** Every rung up to this one is within the error target. */
+    readonly convergedThrough: number;
   };
   readonly contentHash: string;
 }
@@ -92,6 +94,7 @@ export function calibrate<S, P>(type: ObjectType<S>, variant: Variant, family: R
       distinctLevels: est.distinctLevels, examples: est.examples,
       split: est.rungs.map(r => r4(r.split)), direct: est.rungs.map(r => (r.direct === null ? null : r4(r.direct))),
       levelMatrix: est.levelMatrix,
+      convergedThrough: est.convergedThrough,
       drift: est.drift.map(d => (d === null ? null : [r4(d[0]), Number.isFinite(d[1]) ? r4(d[1]) : null] as const)) as never,
     },
   };

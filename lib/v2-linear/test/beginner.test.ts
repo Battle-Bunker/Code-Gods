@@ -27,10 +27,10 @@ test("worked examples, one line per family", () => {
   assert.deepEqual(terms(primeStaircase, {}, mc(30, 7)),
     { run: "6", "first-prime": "7", "last-prime": "157", "near-miss": "4", "step-back": "0" });   // 7, 37, 67, 97, 127, 157, then 187 = 11·17
   assert.deepEqual(terms(squareArea, {}, mc(-2, 6)),
-    { square: "0", "root-spf": "3", "root-lpf": "3", "root-factors": "1", "slanted-square": "4" });   // legs 3 and 6: area 9
+    { square: "0", "spf": "3", "lpf": "3", "omega": "1" });   // legs 3 and 6: area 9
   // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
   const t12 = terms(squareArea, {}, mc(-2, 24));
-  assert.deepEqual([t12.square, t12["root-spf"], t12["root-lpf"], t12["root-factors"]], ["0", "2", "3", "3"]);
+  assert.deepEqual([t12.square, t12["spf"], t12["lpf"], t12["omega"]], ["0", "2", "3", "3"]);
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, mc(30, -23)),
     { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23" });
   assert.deepEqual(terms(ruler, {}, mc(2, 5)),

@@ -70,6 +70,10 @@ test("the same seed gives the same artefact; values are non-decreasing up the la
   // Value follows the order: a better tie-breaker at the same main level is a higher rung, so never fewer bits.
   assert.equal(at(18, 0), rungOf("gradient to a prime within 1; the prime at least 17"));
   assert.ok(at(18, 0) >= at(4, 0));
+  // At this small budget the rarest rungs (primes 29, 31) are not reached by every replicate: the rungs below still have
+  // their own finite errors, and the artefact says how far up the ladder the target was met.
+  assert.ok(a.rungs.slice(1, 10).every(r => Number.isFinite(r.error)), a.rungs.slice(1, 10).map(r => r.error).join(" "));
+  assert.ok(a.diagnostics.convergedThrough < a.rungs.length - 1);
 });
 
 test("a layer with too few distinct values where it counts makes the rule too coarse (owner decision 13)", () => {

@@ -77,6 +77,8 @@ export interface Estimate {
    * A seeded chain still drifting away from its start shows a nonzero drift; null where it cannot be measured.
    */
   readonly drift: readonly (readonly [number, number] | null)[];
+  /** The highest rung r such that every rung 1 … r is within the error target (n when converged). */
+  readonly convergedThrough: number;
 }
 
 export function ruleKey(type: ObjectType<unknown>, variant: Variant, familyId: string, params: unknown, tieBreaker: string): string {
@@ -238,7 +240,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     if (reached === 0) {
       return {
         status: "unreachable", reasons: truncation,
-        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [], examples: [], drift: [],
+        rungs: [], reversibility: NaN, mixingSteps: NaN, samplesPerChain: 0, steps, distinctLevels: [], levelMatrix: [], examples: [], drift: [], convergedThrough: 0,
       };
     }
     rungs = rungs.slice(0, reached + 1);
@@ -322,15 +324,32 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   const rowsOf = (C: readonly (readonly (readonly number[])[])[], upTo: readonly number[]): number[][] => rungs.map((_, l) =>
     Array.from({ length: n + 1 }, (_, j) => { let a = 0; for (let k = 0; k <= upTo[l]!; k++) a += C[k]![l]![j]!; return a; }));
 
-  /** 4. Values from a level matrix; NaN while its sampled levels do not yet form one complete communicating class. */
+  /**
+   * 4. Values from a level matrix. The levels valued are those of the communicating class that holds level 0 (sampled
+   * levels that reach level 0 and are reached from it); transitions out of the class (into a level entered but never
+   * sampled, or one that never leads back) are dropped and their rows renormalised. A level outside the class has mass
+   * 0, so a rung that only such levels meet is worth Infinity bits: unconverged, while every rung below it keeps its own
+   * finite value and error (a rare top rung that some replicate never saw no longer hides the errors of the rest).
+   */
   const valuesOf = (C: readonly (readonly number[])[]): number[] => {
-    const active = rungs.map((_, i) => i).filter(i => C[i]!.some(x => x > 0));
-    // A level entered from a sampled row but never sampled itself has no row: the matrix is not yet complete.
-    const leaks = active.some(i => C[i]!.some((x, j) => x > 0 && !active.includes(j)));
-    const T = active.map(i => { const row = C[i]!.reduce((a, b) => a + b, 0); return active.map(j => C[i]![j]! / row); });
-    const w = !leaks && irreducible(T) ? stationary(T) : null;
-    const full = new Array<number>(n + 1).fill(0);
-    active.forEach((i, k) => { full[i] = w ? w[k]! : NaN; });
+    const sampled = rungs.map((_, i) => C[i]!.some(x => x > 0));
+    const reach = (forward: boolean): boolean[] => {
+      const seen = rungs.map(() => false);
+      if (!sampled[0]) return seen;
+      const stack = [0];
+      seen[0] = true;
+      while (stack.length) {
+        const a = stack.pop()!;
+        for (let b = 0; b <= n; b++) if (!seen[b] && sampled[b] && (forward ? C[a]![b]! : C[b]![a]!) > 0) { seen[b] = true; stack.push(b); }
+      }
+      return seen;
+    };
+    const fwd = reach(true), back = reach(false);
+    const cls = rungs.map((_, i) => i).filter(i => fwd[i] && back[i]);
+    const T = cls.map(i => { const row = cls.reduce((a, j) => a + C[i]![j]!, 0); return cls.map(j => C[i]![j]! / row); });
+    const w = cls.length ? stationary(T) : null;
+    const full = new Array<number>(n + 1).fill(w ? 0 : NaN);
+    if (w) cls.forEach((i, k) => { full[i] = w[k]!; });
     return rungs.map((_, i) => (i === 0 ? 0 : -Math.log2(tail(full, i))));
   };
 
@@ -356,12 +375,13 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
       return Math.sqrt(((R - 1) / R) * xs.reduce((a, x) => a + (x - m) ** 2, 0));
     });
     const empty = rungs.map((_, i) => pooled[i]!.every(x => x === 0) && pooled.every(row => row[i] === 0));
-    const ok = rungs.every((_, i) => {
+    const within = rungs.map((_, i) => {
       if (i === 0 || empty[i]) return true;
       if (!Number.isFinite(point[i]!) || !Number.isFinite(error[i]!)) return false;
       return error[i]! <= Math.max(cfg.targetRelError * point[i]!, cfg.absFloorBits);
     });
-    return { point, error, pooled, empty, ok };
+    const firstMiss = within.indexOf(false);
+    return { point, error, pooled, empty, ok: firstMiss === -1, through: firstMiss === -1 ? n : firstMiss - 1 };
   };
   let st = measure();
   while (!st.ok && steps + extendCost(N, 2 * N) <= cfg.computeBudget) {
@@ -434,6 +454,6 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
       status = "too-coarse";   // a design fault, whatever the budget did
     }
   });
-  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled, drift,
+  return { status, reasons, rungs: rungsOut, reversibility: flow > 0 ? circ / flow : 0, mixingSteps: result.mixing, samplesPerChain: N, steps, distinctLevels, levelMatrix: st.pooled, drift, convergedThrough: st.through,
     examples: reps[0]!.chains.map(c => type.encode(c.state)) };
 }

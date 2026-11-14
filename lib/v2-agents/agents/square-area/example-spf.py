@@ -1,5 +1,5 @@
-# Square Area · Example: smallest prime factor of that root
-# Main part: triangle area close to a square number. Tie-breaker: smallest prime factor of that root.
+# Square Area · Example: that square's root's smallest prime factor
+# Main part: area close to a square number. Tie-breaker: that square's root's smallest prime factor.
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
 # Try this: add the "stretch" lens from the Thorough starter.

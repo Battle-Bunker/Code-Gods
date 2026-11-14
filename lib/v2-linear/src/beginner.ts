@@ -90,24 +90,21 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
 const squareShape: Shape<object> = {
   main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri", ds("8", "4", "2", "1", "1/2", "1/4", "1/8", "1/16", "0"), "the area to a square"),
   tieBreakers: [
-    more("root-spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's smallest prime factor"),
-    more("root-lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's largest prime factor"),
-    more("root-factors", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri", upTo(7), "prime factors of the root", "count"),
-    distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri", ds("16", "8", "4", "2", "1", "1/2", "0"), "side² to a square"),
+    more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's smallest prime factor"),
+    more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri", primes(2, 31), "the root's largest prime factor"),
+    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri", upTo(7), "prime factors of the root", "count"),
   ],
 };
 export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {
-  const area = ref("tri", "area"), hyp = ref("tri", "hyp2");
+  const area = ref("tri", "area");
   const av = ctx.read(area);
   const a = num(av);
   if (a === null) return allUndefined(ctx, squareShape, av, area);
-  const h = num(ctx.read(hyp))!;
-  const sq = squareGap(a), hs = squareGap(h);
+  const sq = squareGap(a);
   ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
-  ctx.term("root-spf", `smallest prime factor of ${sq.root}`, q(smallestPrimeFactor(sq.root)), [area]);
-  ctx.term("root-lpf", `largest prime factor of ${sq.root}`, q(largestPrimeFactor(sq.root)), [area]);
-  ctx.term("root-factors", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
-  ctx.term("slanted-square", `distance from side² to ${hs.root * hs.root}`, hs.d, [hyp]);
+  ctx.term("spf", `smallest prime factor of ${sq.root}`, q(smallestPrimeFactor(sq.root)), [area]);
+  ctx.term("lpf", `largest prime factor of ${sq.root}`, q(largestPrimeFactor(sq.root)), [area]);
+  ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
   ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
 });
 

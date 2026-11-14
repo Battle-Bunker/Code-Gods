@@ -15,7 +15,7 @@ import { evaluateSite, layerLadders, levelOf, scoreToWire, type Variant } from "
 import { lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
-  BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
+  AWAITING_AGENTS, BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
   summonBits, type ShippedAgent,
 } from "../src/index.ts";
 
@@ -26,7 +26,9 @@ const familyOf = (id: string) => lineType.families.find(f => f.id === id)!;
 const paramsOf = (id: string) => familyOf(id).dealable(lineZ)[0] as Record<string, unknown>;
 
 test("every family and tie-breaker has an example, and every family the three starters, in both languages", () => {
-  for (const f of lineType.families) {
+  // Every family of the line is either catalogued or declared as awaiting its agents, never both.
+  assert.deepEqual(lineType.families.map(f => f.id).filter(id => !CATALOGUE.some(e => e.family === id)).sort(), [...AWAITING_AGENTS].sort());
+  for (const f of lineType.families.filter(x => !AWAITING_AGENTS.includes(x.id))) {
     for (const language of ["typescript", "python"] as const) {
       for (const tb of f.tieBreakers) assert.ok(exampleFor(f.id, tb.id, language), `${f.id}: no ${language} example for ${tb.id}`);
       assert.deepEqual(all.filter(a => a.family === f.id && a.language === language && a.kind !== "example").map(a => a.title), ["Simple", "Thorough", "Bold"]);

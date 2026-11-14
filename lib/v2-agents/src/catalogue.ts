@@ -216,14 +216,27 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       ],
     },
     tieBreakers: {
-      factors: {
+      "omega": {
         ts: "f.length", py: "len(f)", says: "more prime factors in the root are better",
         lenses: ["shift", "tilt", "turnAtMinusOne", "stretch"], steps: 3, tryThis: "change FAR = 3 to 5 so it can reach bigger squares.",
       },
-      rootSpf: {
-        ts: "f.length ? f[0] : 1", py: "f[0] if f else 1", says: "a root whose smallest prime factor is big is better",
+      "lpf": {
+        ts: "f.at(-1) ?? 1", py: "f[-1] if f else 1", says: "a root whose largest prime factor is big is better",
+        lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter.",
+      },
+      "spf": {
+        ts: "f[0] ?? 1", py: "f[0] if f else 1", says: "a root whose smallest prime factor is big is better",
         lenses: ["shift", "tilt", "turnAtMinusOne"], steps: 4, tryThis: "add the \"stretch\" lens from the Thorough starter.",
       },
     },
   },
+];
+
+/**
+ * The beginner pool's families (lib/v2-linear/src/beginner.ts) that have no shipped agents yet: the agents workstream
+ * writes them next. The starters test checks that every family of the line has an entry here or in CATALOGUE, so a
+ * family added to the engine without agents, or an entry left here once written, fails it.
+ */
+export const AWAITING_AGENTS: readonly string[] = [
+  "prime-staircase", "treasure", "ruler", "exact-change", "prime-landing", "same-on-both-rulers", "pythagorean-area",
 ];

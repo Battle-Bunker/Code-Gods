@@ -1,8 +1,8 @@
-# Square Area · Example: prime factors of that square's root
-# Main part: triangle area close to a square number. Tie-breaker: prime factors of that square's root.
+# Square Area · Example: that square's root's largest prime factor
+# Main part: area close to a square number. Tie-breaker: that square's root's largest prime factor.
 # What it does: reads the line once as y = mx + c (a small read), tries changes in its own head (thinking costs
 # no energy, only time), keeps the plans that make the line best for your rule, and pays for the cheapest of them.
-# Try this: change FAR = 3 to 5 so it can reach bigger squares.
+# Try this: add the "stretch" lens from the Thorough starter.
 
 
 def score(m, c, p):
@@ -15,10 +15,10 @@ def score(m, c, p):
         return None
     main = -abs(area - sq)
     f = factors(root(sq))                           # the prime factors of that square's root
-    return [main, len(f)]   # main: how far the triangle's area is from a square number (closer is better); tie-breaker: more prime factors in the root are better
+    return [main, f[-1] if f else 1]   # main: how far the triangle's area is from a square number (closer is better); tie-breaker: a root whose largest prime factor is big is better
 
 
-FAR = 3      # how far one change may go
+FAR = 4      # how far one change may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 
 
@@ -35,8 +35,6 @@ def agent(offer):
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
         tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
-        f = k + 1 if k > 0 else k - 1
-        tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     top, plans = score(m, c, p), []
     for plan, m2, c2 in tries:
         s = score(m2, c2, p)

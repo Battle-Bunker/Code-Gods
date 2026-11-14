@@ -975,7 +975,7 @@ A family's first tie-breaker is its default:
 | Family | Main layer (rep) | Tie-breakers (alternatives) | Params |
 |---|---|---|---|
 | `prime-staircase` | the run of different primes from y(0): max (seq) | `first-prime`, `last-prime` (sizes), `near-miss`, `step-back` (distances to a prime) | — |
-| `square-area` | the triangle's area close to a square: min (tri) | `root-spf` (the root's smallest prime factor, default), `root-lpf` (its largest), `root-factors` (Ω of the root), `slanted-square` | — |
+| `square-area` | the triangle's area close to a square: min (tri) | `spf` (the root's smallest prime factor, default), `lpf` (its largest), `omega` (Ω of the root) | — |
 | `treasure` | y(k) close to T: min (table) | `prime-terms` (different primes among y(1)…y(8)), `prime-gradient`, `square-start` | (k, T) = (2, 37) |
 | `ruler` | distance² from (0, 0) close to a square: min (norm) | `far` (that distance), `prime-gradient`, `square-area` | — |
 | `exact-change` | ways to pay N with coins a and b close to 6: min (coins) | `big-piles`, `big-bill`, `prime-coins` | ways = 6 |
