@@ -61,6 +61,7 @@ function agent(offer) {
     tries.push([move("seq.step", { k }), Q.add(m, k), Q.sub(c, k)]);   // change the pattern's step, keeping y(1)
     tries.push([move("cart.pivot", { x0: p.T, k }), Q.add(m, k), Q.sub(c, Q.mul(k, p.T))]);   // turn the line about its point at x = T (if it crosses y = x there, it still does)
   }
+  tries.push(...rounding(m, c));   // on a line with fractions: to a whole number, by one part, or stretched
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

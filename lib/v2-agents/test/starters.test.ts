@@ -13,14 +13,14 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { isGridTypeFamily } from "../src/grid-starters.ts";
 import { readFileSync } from "node:fs";
-import { evaluateSite, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
+import { evaluateSite, q, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
 import { firstAgentShare, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
-import { lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
   BEGINNER_STARTING_ENERGY, GRID_BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
-  summonBits, type ShippedAgent,
+  startersFor, summonBits, type ShippedAgent,
 } from "../src/index.ts";
 import { findValues } from "../src/harness.ts";
 
@@ -98,19 +98,18 @@ test("an agent's own score is the engine's, for every family, its dealable numbe
 
 const program = (a: ShippedAgent) => ({ language: a.language, source: a.source });
 
-test("both languages make the same moves, and no shipped agent fails on newborn lines", async () => {
-  const states = births(lineType, lineZ, "parity", 3);
-  for (const ts of all.filter(a => a.language === "typescript" && LIVE.some(e => e.family === a.family))) {   // lines; grids: grid.test.ts
+test("both languages make the same moves, and no shipped agent fails on newborn lines, whole and rational", async () => {
+  for (const variant of [lineZ, lineQ]) for (const ts of all.filter(a => a.language === "typescript" && LIVE.some(e => e.family === a.family))) {   // lines; grids: grid.test.ts
     const py = all.find(a => a.language === "python" && a.family === ts.family && a.kind === ts.kind && a.tieBreaker === ts.tieBreaker)!;
     const live = Object.keys(CATALOGUE.find(e => e.family === ts.family)!.tieBreakers).filter(tb => familyOf(ts.family).tieBreakers.some(t => t.id === tb));
     const tieBreaker = ts.tieBreaker ?? live[1] ?? live[0]!;   // starters: the second the family still has, not the default
-    for (const [i, state] of states.entries()) {
+    for (const [i, state] of births(lineType, variant, "parity", 3).entries()) {
       const records = [];
       for (const a of [ts, py]) {
         const { record } = await runAct(await boxes.get(a.language), {
-          type: lineType, variant: lineZ, state, rule: { family: a.family, params: paramsOf(a.family), tieBreaker }, program: program(a), seed: String(i), energy: 500,
+          type: lineType, variant, state, rule: { family: a.family, params: paramsOf(a.family), tieBreaker }, program: program(a), seed: String(i), energy: 500,
         });
-        assert.notEqual(record.outcome, "failed", `${shippedPath(a)} on ${lineType.encode(state)}: ${record.reason}`);
+        assert.notEqual(record.outcome, "failed", `${shippedPath(a)} on ${variant.id} ${lineType.encode(state)}: ${record.reason}`);
         const { steps: _s, ...rest } = record;
         records.push(rest);
       }
@@ -203,4 +202,18 @@ test("after a first summon at the first-agent share, the player's store can stil
   const share = firstAgentShare({ allocated: 0, powerPerSecond: e.powerPerSecond, fullChargeSeconds: e.fullChargeSeconds, need: dearest });
   assert.ok(share !== undefined && share >= 0.65, `first agent's share ${share}`);
   assert.ok((1 - share) * e.powerPerSecond * e.fullChargeSeconds >= dearest, "the store's capacity holds the dearest agent");
+});
+
+test("on a rational line the starters clear a fraction their rule cares about: y = 2x + 7/3 goes to a whole intercept", async () => {
+  const at = { lines: [fromMC(q(2), q(7, 3))] };
+  for (const language of ["typescript", "python"] as const) {
+    const simple = startersFor("whole-intercept", language).find(a => a.kind === "simple")!;
+    const tieBreaker = familyOf("whole-intercept").tieBreakers[0]!.id;
+    const { record, state } = await runAct(await boxes.get(language), {
+      type: lineType, variant: lineQ, state: at, rule: { family: "whole-intercept", params: paramsOf("whole-intercept"), tieBreaker }, program: program(simple), seed: "1", energy: 500,
+    });
+    assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
+    const v = new EngineHost({ type: lineType, variant: lineQ, state, rule: { family: "m-meets-c", params: {} }, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { c: { q: string } } } };
+    assert.ok(!v.result.elements.c.q.includes("/"), `${language}: the intercept is whole now (${v.result.elements.c.q})`);
+  }
 });

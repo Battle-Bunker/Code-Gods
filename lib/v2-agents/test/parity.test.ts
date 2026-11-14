@@ -236,3 +236,30 @@ test("climb: the step that raises my points most (rarity × the others' total), 
   assert.deepEqual(out[0]!.slice(1), ["si.tilt", "true"], "most = 1 weighs only the rule's best; a step worth nothing to my rule (no score) is null");
   assert.deepEqual(out[2], ["si.tilt", "si.tilt", "true"], "without values: the rule's best, or null when nothing beats now");
 });
+
+test("rounding: on a line with fractions, the steps to the whole number below and above, by one part, and a stretch by each denominator; the same in both languages", async () => {
+  const ts = `function agent(offer) {
+  const a = rounding(Q.of(2), Q.of(7, 3)), b = rounding(Q.of(1, 2), Q.of(3, 2)), z = rounding(Q.of(2), Q.of(5));
+  const say = t => t.map(([p, m, c]) => p.mutator + ":" + Object.values(p.args).join(",") + ":" + Q.toString(m) + ":" + Q.toString(c)).join(" ");
+  return [move("probe", { r: [say(a), say(b), z.length].join("|") })];
+}`;
+  const py = `def agent(offer):
+    a, b, z = rounding(Fraction(2), Fraction(7, 3)), rounding(Fraction(1, 2), Fraction(3, 2)), rounding(Fraction(2), Fraction(5))
+    def say(t):
+        return " ".join(p["mutator"] + ":" + ",".join(str(v) for v in p["args"].values()) + ":" + str(m) + ":" + str(c) for p, m, c in t)
+    return [move("probe", r="|".join([say(a), say(b), str(len(z))]))]
+`;
+  const out: string[] = [];
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, ...line(1, 1), rule: { family: "m-meets-c", params: {} }, energy: 10 });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r);
+  }
+  assert.equal(out[1], out[0], "Python and TypeScript differ");
+  const [a, b, z] = out[0]!.split("|");
+  assert.equal(a, "si.shift:-1/3:2:2 si.shift:2/3:2:3 si.shift:1/3:2:8/3 si.shift:-1/3:2:2 mach.stretch:3:6:7");
+  assert.equal(b!.split(" ").length, 9, "both parts fractional, one shared denominator: 4 shifts, 4 tilts, one stretch");
+  assert.ok(b!.endsWith("mach.stretch:2:1:3"), b);
+  assert.equal(z, "0", "whole numbers: nothing to round");
+});

@@ -34,6 +34,10 @@
 #                                on this line (a tug-of-war).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
 #                                (True when the game does not say). Costs a small read each time.
+#   rounding(m, c)               for a line y = mx + c with a fraction in it (rational lines): the steps that bring the
+#                                gradient or the y-intercept to the whole number below or above, nudge it by one part
+#                                (±1/d), or stretch the line by a denominator d; each (plan, m after, c after). [] when
+#                                both are whole numbers.
 #   climb(offer, options, now, most)
 #                                the step that raises your points here most (your rarity × the others' rarity, added
 #                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
@@ -190,6 +194,29 @@ def worth(offer):
         return offer.worth()
     except HostError:
         return None
+
+
+def rounding(m, c):
+    out = []
+    if not isinstance(m, Fraction) or not isinstance(c, Fraction):
+        return out
+    parts = []
+    if c.denominator != 1:
+        for to in (Fraction(c.numerator // c.denominator), Fraction(c.numerator // c.denominator + 1)):
+            out.append((call("si.shift", k=to - c), m, to))
+        for k in (Fraction(1, c.denominator), Fraction(-1, c.denominator)):
+            out.append((call("si.shift", k=k), m, c + k))
+        parts.append(c.denominator)
+    if m.denominator != 1:
+        for to in (Fraction(m.numerator // m.denominator), Fraction(m.numerator // m.denominator + 1)):
+            out.append((call("si.tilt", k=to - m), to, c))
+        for k in (Fraction(1, m.denominator), Fraction(-1, m.denominator)):
+            out.append((call("si.tilt", k=k), m + k, c))
+        if m.denominator != c.denominator:
+            parts.append(m.denominator)
+    for d in parts:
+        out.append((call("mach.stretch", f=Fraction(d)), m * d, c * d))
+    return out
 
 
 def climb(offer, options, now, most=None):

@@ -46,6 +46,7 @@ def agent(offer):
             continue
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+    tries += rounding(m, c)   # on a line with fractions: to a whole number, by one part, or stretched
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
