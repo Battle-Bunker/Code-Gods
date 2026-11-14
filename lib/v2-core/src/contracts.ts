@@ -104,8 +104,11 @@ export interface Representation<S> {
 
 // ---------------------------------------------------------------- rules (§4)
 
-/** Bigger is better, compared lexicographically; null is WORST, below everything. */
-export type Score = readonly Q[] | null;
+/**
+ * Bigger is better, compared lexicographically, one component per layer. null is WORST, below everything (the primary
+ * layer is undefined); a null component ranks last in its own component only (a secondary layer that is undefined).
+ */
+export type Score = readonly (Q | null)[] | null;
 
 export interface Undef {
   readonly undefined: string;
@@ -125,19 +128,14 @@ export type Mark =
   | { readonly kind: "candidate"; readonly ref: ElementRef; readonly term?: TermId }
   | { readonly kind: "note"; readonly ref: ElementRef; readonly text: string };
 
-export interface ScoreComponent {
-  readonly term: TermId;
-  readonly sense: "max" | "min";
-}
-
 export interface EvalContext<S> {
   readonly state: S;
   /** The line (site) being evaluated; refs without a site mean this one. */
   readonly site: number;
   readonly variant: Variant;
   read(ref: ElementRef): ElementValue;
+  /** Record a term. A term whose id is a layer's id is that layer's measure: the score is made of them. */
   term(id: TermId, label: string, value: Q | Undef, from: readonly ElementRef[]): TermId;
-  score(components: readonly ScoreComponent[]): void;
   mark(mark: Mark): void;
 }
 
@@ -152,6 +150,30 @@ export interface Rung {
   /** Threshold: a state meets the rung when its score meets or beats this on the threshold's components. */
   readonly score: Score;
   readonly label: string;
+  /** The layer this rung belongs to (−1 for the bottom rung, "anything"). */
+  readonly layer: number;
+}
+
+/**
+ * One layer of a rule (spec §4.4): a graded quantity with a direction, never a yes/no test (owner decision 13). The
+ * primary layer is layer 0; a later layer only counts once every earlier layer is at its top.
+ */
+export interface Layer<P> {
+  /** Also the id of the term that measures it. */
+  readonly id: string;
+  /** "gradient near a prime", in a 12-year-old's words for the primary (owner decision 14). */
+  readonly title: string;
+  sentence(params: P): string;
+  /** The representation this layer is read in: the compact view of the layer. */
+  readonly rep: string;
+  /** min: smaller is better (a distance); max: bigger is better (a count, a size). */
+  readonly sense: "min" | "max";
+  /** distance and count/size tell calibration which curve to fit (§7.4). */
+  readonly measure: "distance" | "count" | "size";
+  /** The rung thresholds, from the easiest to the top. The last is the layer's top. */
+  thresholds(params: P, variant: Variant): readonly Q[];
+  /** Words for a rung: "within 1/4 of a prime". */
+  rungLabel(threshold: Q, params: P): string;
 }
 
 export interface RuleFamily<S, P> {
@@ -162,10 +184,10 @@ export interface RuleFamily<S, P> {
   dealable(variant: Variant): readonly P[];
   readonly depends: readonly string[];
   readonly primary: string;
-  /** How calibration fits a curve to the ladder (§7.4): the primary score is −distance, or a count. */
-  readonly curve: "distance" | "count";
+  /** The ladder, primary first; a pool deals a prefix of it (the beginner pool deals two). */
+  readonly layers: readonly Layer<P>[];
+  /** Reads elements, records one term per layer (by the layer's id) and any others, adds marks. */
   evaluate(ctx: EvalContext<S>, params: P): void;
-  ladder(params: P, variant: Variant): readonly Rung[];
 }
 
 // ---------------------------------------------------------------- mutators (§5)

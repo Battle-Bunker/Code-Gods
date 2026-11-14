@@ -44,14 +44,28 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     (full level matrix / eigenvector, not only adjacent ratios). The owner wants mutator pricing to matter to value and
     accepts that the same state change costs different amounts through different representations.
 
+11. On confining prices (moving to larger or more complex numbers must cost more than coming back, so the walk has a
+    stationary law and energy becomes a description length): "this appeals to my intuition. I don't care if adhering to
+    this principle reduces our options in some places. This sounds right. It lets us have infinite state spaces with sort
+    of gravitational centres that are expensive to depart from which naturally provides dimensions to define higher
+    utility/energy with respect to as well."
+12. On resolution (rule tops of 2–5 bits mean the rules are not creative enough, not that the object is too small):
+    "Consider secondary preferences like we started designing for grids. For example primary utility is distance of c
+    from the nearest integer and secondary is the size of the smallest prime factor of that integer. Or primary is
+    distance of area with origin to a perfect square and secondary is the number of prime factors in the root of that
+    nearest perfect square."
+13. "binary decisions are worthless for extending the ladder. Require all rules to be continuous"
+14. "optimise for the primary rules being maximally accessible to 12yos currently learning a standard linear equations
+    curriculum at school. Secondary rules can be more advanced. Don't include tertiary rules for the beginner set."
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** Mutator price lists are NOT required to satisfy detailed balance; value is
   whatever the stationary law of the actual priced walk gives, and the cycle test from #347 is reported per price list
   as a diagnostic, because requiring consistency makes prices drop out of value, which is the opposite of what the
   owner asked for.
-- **(b) Confining prices.** Unbounded number domains need confining prices (cost grows with the description length of
-  the target) so the stationary law exists.
+- **(b) Confining prices.** Promoted to the owner's decision 11 (14 November): confinement is a principle of every v2
+  price list, bounded variants included.
 - **(c) Lines per object.** "Lines per object" is an object-variant parameter, default 1. #347 found one line holds few
   bits (rule tops 2–5), so the spec must say how rule-score ladders, rational domains and multi-line variants give
   enough resolution.

@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { intBits } from "@workspace/v2-core";
-import { lineType, lineZ, mMeetsC, primeGradient } from "@workspace/v2-linear";
+import { lineType, lineZ, mMeetsC, primeGradient, wholeIntercept } from "@workspace/v2-linear";
 import { estimate, irreducible } from "../src/estimate.ts";
 import { stationary } from "../src/linalg.ts";
 import { calibrate, bitsFor } from "../src/artefact.ts";
@@ -39,7 +39,7 @@ test("the stationary vector of a small chain", () => {
 
 test("on a reversible price list the estimate matches the exact values within three errors", () => {
   const exact = exactMMeetsC();
-  const e = estimate({ type: lineType, variant: reversible, family: mMeetsC, params: {}, config: { computeBudget: 6_000_000 } });
+  const e = estimate({ type: lineType, variant: reversible, family: mMeetsC, params: {}, layers: 1, config: { computeBudget: 6_000_000 } });
   assert.notEqual(e.status, "unreachable");
   e.rungs.slice(1).forEach((r, i) => {
     assert.ok(Math.abs(r.bits - exact[i]!) <= 3 * r.error + 0.01, `rung ${i + 1}: ${r.bits.toFixed(3)} ± ${r.error.toFixed(3)} against ${exact[i]!.toFixed(3)}`);
@@ -56,7 +56,17 @@ test("the same seed gives the same artefact; values are non-decreasing up the la
   assert.notEqual(a.contentHash, c.contentHash);
   for (let i = 1; i < a.rungs.length; i++) assert.ok(a.rungs[i]!.bits >= a.rungs[i - 1]!.bits - 1e-9);
   const at = (m: number, cc: number) => bitsFor(a, evaluateObject(lineType, primeGradient, {}, { lines: [{ a: BigInt(-m), b: 1n, c: BigInt(-cc) }] }, lineZ).score);
-  assert.equal(at(5, 0), a.rungs[a.rungs.length - 1]!.bits);   // 5 is prime: the top
-  assert.equal(at(-40, 0), a.rungs[0]!.bits);                    // 42 from the nearest prime: below every rung
-  assert.equal(at(4, 0), a.rungs[a.rungs.length - 2]!.bits);     // within 1
+  const rungOf = (label: string) => a.rungs.find(r => r.label === label)!.bits;
+  assert.equal(at(-40, 0), a.rungs[0]!.bits);                             // 42 from the nearest prime: below every rung
+  assert.equal(at(4, 0), rungOf("gradient to a prime within 1"));
+  assert.equal(at(5, 0), rungOf("the prime at least 5"));                  // prime: the secondary ladder
+  assert.equal(at(23, 0), a.rungs[a.rungs.length - 1]!.bits);             // the top of the whole ladder
+  assert.deepEqual(a.rungs.map(r => r.layer), [-1, ...Array(7).fill(0), ...Array(8).fill(1)]);
+});
+
+test("a layer with too few distinct values where it counts makes the rule too coarse (owner decision 13)", () => {
+  // On whole-number lines the y-intercept is always whole: Whole Intercept's primary takes one value.
+  const e = estimate({ type: lineType, variant: lineZ, family: wholeIntercept, params: {}, config: { computeBudget: 300_000, replicates: 2, burnIn: 100 } });
+  assert.equal(e.status, "too-coarse");
+  assert.equal(e.distinctLevels[0], 1);
 });

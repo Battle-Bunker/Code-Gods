@@ -18,6 +18,6 @@ test("every committed artefact matches its hash and its rule key", () => {
     const { contentHash: h, ...body } = a;
     assert.equal(contentHash(body), h, f);
     const { type, variant } = findVariant(a.variant);
-    assert.equal(a.ruleKey, ruleKey(type, variant, a.family, a.params), `${f}: stale variant or object type version`);
+    assert.equal(a.ruleKey, ruleKey(type, variant, a.family, a.params, a.layers), `${f}: stale variant or object type version`);
   }
 });
