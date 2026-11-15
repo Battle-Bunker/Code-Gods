@@ -381,7 +381,8 @@ strongly, from +2 to +8 bits:
 - small or equal digits: Mirrormancer, Two Pair, Spread of Three, Leapfrog;
 - monotone runs: Uphill, Staircase, Mountain Climb.
 
-Crosswise Threes, Kings and Subjects, Stepping Stones and Fillomino are near 0 with almost everything. The dealer
+Crosswise Threes, Kings and Subjects, Stepping Stones and Fillomino are near 0 with almost everything. Opposite Nines and
+Staircase, in different clusters, are blocked too: annealing reached both their exact tops at once. The dealer
 (artifacts/engine/convex/v2/deal.ts, lib/v2-grid seating.ts) seats at most one family from each cluster and never one
 family twice: every grid deal is the seed's first shuffle with no clash, else the one with the fewest over 200
 shuffles, and the game records the clashes left (`seating`, private). The beginner pool seats three players without
