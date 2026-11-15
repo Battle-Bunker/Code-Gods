@@ -17,7 +17,7 @@ function terms<P>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ): R
 }
 
 test("the beginner pool: the curator's eight families and two restored ones (Exact Change undealt), each a textbook main layer and secondaries", () => {
-  assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
+  assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   // How many secondaries each deals (row 3a: at least three) is checked on the dealt pools, with its known exemptions:
   // artifacts/engine test/unit/v2-rule-check.test.ts.
   for (const f of beginnerPool) assert.ok(f.tieBreakers.length >= 1, f.id);

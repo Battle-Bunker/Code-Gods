@@ -41,7 +41,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "smooth-intercept 3a": "15 Nov, spec lead: repertoire in progress",
   "square-area 3a": "15 Nov, grids session: Square Area redesign",
   "whole-crossing 3a": "15 Nov, spec lead: repertoire in progress",
-  "divisibility-ladder 3a": "15 Nov, spec lead: repertoire in progress",
   "treasure 3a": "15 Nov, spec lead: repertoire in progress",
   "same-on-both-rulers 3a": "15 Nov, spec lead: repertoire in progress",
   "prime-gradient 3a": "15 Nov, spec lead: repertoire in progress",
@@ -60,7 +59,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "leading-digits 3a": "15 Nov, grids session",
   // Row 4: one dealt parameter set.
   "square-area 4": "15 Nov, grids session: Square Area redesign",
-  "divisibility-ladder 4": "15 Nov, spec lead: Divisibility Ladder versions (residue r, shifted reading)",
   "mirrormancer 4": "15 Nov, grids session", "magic-eighteen 4": "15 Nov, grids session", "opposite-nines 4": "15 Nov, grids session",
   "two-pair 4": "15 Nov, grids session", "spread-of-three 4": "15 Nov, grids session", "strangers 4": "15 Nov, grids session",
   "leapfrog 4": "15 Nov, grids session", "crosswise-threes 4": "15 Nov, grids session",
