@@ -122,7 +122,7 @@ test("grid seating: a grid game records the pairs its deal left (no forbidden on
     const stored = await admin.query("v2/testing:header", { gameId });
     if (grid) {
       assert.deepEqual(stored.seating.clashes, [], "three seats: no forbidden pair");
-      assert.equal(stored.seating.aligned.length, 1, "the beginner pool's three seats hold one aligned pair (small digits, call 19)");
+      assert.equal(stored.seating.aligned.length, 1, "the beginner pool's three seats hold one aligned pair (one digit cluster and Crosswise Threes, call 19)");
     }
     else assert.equal(stored.seating, undefined);
     const header = await ada!.query("v2/games:header", { gameId });

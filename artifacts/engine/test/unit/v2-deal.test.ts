@@ -133,8 +133,8 @@ test("only a game of one human and practice partners is a practice game", () => 
 
 // Grid seating (the coordinator's calls following owner decision 39; lib/v2-grid seating.ts): no forbidden pair (one
 // family twice, the same main part, big digits against small digits, a blocked pair), and among the deals without one
-// the fewest aligned pairs (two families of one cluster). The beginner pool deals no big-digit family (call 19), so a
-// beginner table holds small-digit families and Crosswise Threes: one aligned pair at three seats, three at four.
+// the fewest aligned pairs (two families of one cluster). A beginner table is one digit cluster plus Crosswise Threes
+// (call 19): one aligned pair at three seats, three at four.
 test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the pool allows", async () => {
   const { gridAlignedPairs, gridClashes } = await import("@workspace/v2-grid");
   const { dealWithBids } = await import("@workspace/v2-economy");
