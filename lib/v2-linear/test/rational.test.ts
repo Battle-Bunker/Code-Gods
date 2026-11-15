@@ -136,3 +136,25 @@ test("Steady Gradient: m close to whole, then that number's divisors", () => {
   assert.equal(divisorCount(-12n), 6n);
   assert.equal(divisorCount(60n), 12n);
 });
+
+test("the §A2 tie-breakers on Whole Intercept, Pell Gradient and Farey Neighbours (worked by hand)", () => {
+  // Whole Intercept, gcd-den-m: the whole number nearest c against the gradient's bottom.
+  assert.equal(score(ev(wholeIntercept, {}, mc(f(5, 4), 12), "gcd-den-m")), "0,4");      // gcd(12, 4)
+  assert.equal(score(ev(wholeIntercept, {}, mc(f(3, 7), 10), "gcd-den-m")), "0,1");
+  assert.equal(score(ev(wholeIntercept, {}, mc(f(1, 6), f(31, 2)), "gcd-den-m")), "-1/2,3");   // 15½: 15 (spf 3) beats 16 (spf 2); gcd(15, 6)
+  assert.equal(score(ev(wholeIntercept, {}, mc(f(1, 3), 0), "gcd-den-m")), "0,_");      // 0 shares every factor
+  // Pell Gradient (D = 2), pell-c: |p² − 2q² − top(c)|; share-den: c·q's distance from whole.
+  const two = { D: 2, k: 0 };
+  assert.equal(score(ev(pellGradient, two, mc(f(7, 5), -1), "pell-c")), "-1/25,0");     // 49 − 50 = −1 = top of −1
+  assert.equal(score(ev(pellGradient, two, mc(f(7, 5), 1), "pell-c")), "-1/25,-2");     // |−1 − 1|
+  assert.equal(score(ev(pellGradient, two, mc(f(3, 2), f(1, 7)), "pell-c")), "-1/4,0");  // 9 − 8 = 1 = top of 1/7; 9/4 − 2 = 1/4
+  assert.equal(score(ev(pellGradient, { D: 1, k: 1 }, mc(f(8, 5), f(-1, 3)), "pell-c")), "-1/25,0");   // 64 − 40 − 25 = −1
+  assert.equal(score(ev(pellGradient, two, mc(f(7, 5), f(3, 5)), "share-den")), "-1/25,0");     // 3/5 × 5 = 3
+  assert.equal(score(ev(pellGradient, two, mc(f(7, 5), f(1, 2)), "share-den")), "-1/25,-1/2"); // 5/2
+  assert.equal(score(ev(pellGradient, two, mc(f(7, 5), f(2, 15)), "share-den")), "-1/25,-1/3"); // 2/3
+  // Farey Neighbours, mediant-x: gcd(q + s, the x-intercept's bottom).
+  assert.equal(score(ev(fareyNeighbours, {}, mc(2, 1), "mediant-x")), "0,2");           // 2·1 − 1·1 = 1; q + s = 2; x-intercept −1/2
+  assert.equal(score(ev(fareyNeighbours, {}, mc(3, f(1, 2)), "mediant-x")), "-4,3");    // 3·2 − 1·1 = 5; q + s = 3; x-intercept −1/6
+  assert.equal(score(ev(fareyNeighbours, {}, mc(f(1, 2), f(1, 3)), "mediant-x")), "0,1");   // q + s = 5; x-intercept −2/3
+  assert.equal(score(ev(fareyNeighbours, {}, mc(0, f(1, 2)), "mediant-x")), "0,_");     // flat: never crosses
+});

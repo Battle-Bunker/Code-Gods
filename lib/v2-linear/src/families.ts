@@ -8,6 +8,7 @@ import type { LineState } from "./line.ts";
 import { largestPrimeFactor, nearbyPrimes, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
 import { rationalFamilies } from "./rational.ts";
+import { rational2Families } from "./rational2.ts";
 
 type Ctx = EvalContext<LineState>;
 type L<P> = Layer<P>;
@@ -171,4 +172,4 @@ export const crossingCheck: RuleFamily<LineState, KQ> = {
 /** The owner's first examples: a second tier beside the beginner pool (beginner.ts). Whole Intercept is in rational.ts. */
 export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck] as const;
 /** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies] as const;
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families] as const;

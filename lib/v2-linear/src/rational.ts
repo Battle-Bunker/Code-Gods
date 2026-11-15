@@ -15,10 +15,10 @@
  */
 import { Qn, q, ref, type ElementRef, type Q, type Variant } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
-import { allUndefined, distance, family, gap, more, num, type Ctx, type Shape } from "./layers.ts";
+import { allUndefined, distance, family, gap, more, num, undef, type Ctx, type Shape } from "./layers.ts";
 import { distanceToPrime, distanceToWhole, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor, TRIAL_DIVISION_LIMIT } from "./numbers.ts";
 
-const onRationals = <P,>(params: P[]) => (v: Variant): P[] => (lineParams(v).domain === "Q" ? params : []);
+export const onRationals = <P,>(params: P[]) => (v: Variant): P[] => (lineParams(v).domain === "Q" ? params : []);
 const abs = (x: bigint): bigint => (x < 0n ? -x : x);
 
 /** Prime-Factor Intercept's smallest prime factor: spf(0) = 2 (every prime divides 0; the smallest is 2), spf(±1) = 1. */
@@ -99,7 +99,7 @@ const gcdB = (a: bigint, b: bigint): bigint => { let x = abs(a), y = abs(b); whi
  * gcd(a, b) as a term. With a 0 it is undefined (ranks last): 0 shares every factor, so gcd(0, k) = |k| would turn a
  * line through c = 0 (or a flat step) into an independent wish for one big number, untied from the anchor (decision 29).
  */
-function gcdTerm(a: bigint, b: bigint, what: string): { label: string; value: Q | { undefined: string } } {
+export function gcdTerm(a: bigint, b: bigint, what: string): { label: string; value: Q | { undefined: string } } {
   if (a === 0n || b === 0n) return { label: `${what}: one is 0, which shares every factor, so it does not count`, value: { undefined: "0 shares every factor with every number: no common factor to compare" } };
   const g = gcdB(a, b);
   return { label: `${what}: gcd(${a}, ${b}) = ${g}`, value: q(g) };
@@ -132,6 +132,9 @@ const wholeShape: Shape<object> = {
     // Owner decision 29's own example: tie the anchor (that whole number) to another aspect of the line.
     more("gcd-floor-m", "common factor of that whole number and the gradient rounded down",
       "That whole number and the gradient rounded down should have as big a common factor as possible.", "si"),
+    // §A2 (line-rules-v3-proposals.md): the anchor against the gradient's bottom number.
+    more("gcd-den-m", "common factor of that whole number and the gradient's bottom",
+      "That whole number and the gradient's bottom number (in lowest terms) should have as big a common factor as possible.", "si"),
   ],
 };
 export const wholeIntercept = family("whole-intercept", "Whole Intercept", ["si", "cart"], wholeShape, [{}], ctx => {
@@ -156,6 +159,8 @@ export const wholeIntercept = family("whole-intercept", "Whole Intercept", ["si"
   ctx.term("omega", n === 0n || abs(n) === 1n ? `${n} has no prime factors (counted as 0)` : `prime factors of ${n}`, q(primeFactorCount(n)), [cRef]);
   const g = gcdTerm(n, Qn.floor(m), `common factor of ${n} and ⌊m⌋ = ${Qn.floor(m)}`);
   ctx.term("gcd-floor-m", g.label, g.value, [mRef, cRef]);
+  const gq = gcdTerm(n, m.d, `common factor of ${n} and the gradient's bottom ${m.d}`);
+  ctx.term("gcd-den-m", gq.label, gq.value, [mRef, cRef]);
   ctx.mark({ kind: "focus", ref: cRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "frac" });
 });
@@ -176,6 +181,13 @@ const pellShape: Shape<PellParams> = {
       sentence: p => (p.k === 0
         ? `Writing the gradient as a fraction top/bottom in lowest terms, top × top and ${p.D} × bottom × bottom should be as close as possible to each other.`
         : "Writing the gradient as a fraction top/bottom in lowest terms, top × top − top × bottom and bottom × bottom should be as close as possible to each other.") },
+    // §A2 (line-rules-v3-proposals.md): Pell's leftover tied to the y-intercept's top number.
+    { ...distance<PellParams>("pell-c", "the leftover equal to the y-intercept's top", "", "si"),
+      sentence: p => (p.k === 0
+        ? `Writing the gradient as top/bottom and the y-intercept as top/bottom in lowest terms, the gradient's top × top − ${p.D} × bottom × bottom should be as close as possible to the y-intercept's top number.`
+        : `Writing the gradient as top/bottom and the y-intercept as top/bottom in lowest terms, the gradient's top × top − top × bottom − ${p.D} × bottom × bottom should be as close as possible to the y-intercept's top number.`) },
+    distance("share-den", "the y-intercept a multiple of 1 over the gradient's bottom",
+      "The y-intercept times the gradient's bottom number (in lowest terms) should be as close as possible to a whole number: the y-intercept a multiple of 1/bottom.", "si"),
   ],
 };
 export const pellGradient = family<PellParams>("pell-gradient", "Pell Gradient", ["si"], pellShape,
@@ -187,6 +199,10 @@ export const pellGradient = family<PellParams>("pell-gradient", "Pell Gradient",
     const top = m.n * m.n - k * m.n * m.d, bottom = D * m.d * m.d;
     ctx.term("pell", p.k === 0 ? `distance from m² to ${p.D}` : `distance from m² − m to ${p.D}`, err, [mRef]);
     ctx.term("difference", `|${top} − ${bottom}|`, q(abs(top - bottom)), [mRef]);
+    const cRef = ref("si", "c");
+    const c = num(ctx.read(cRef))!;
+    ctx.term("pell-c", `|${top - bottom} − ${c.n}| (the leftover against the y-intercept's top)`, q(abs(top - bottom - c.n)), [mRef, cRef]);
+    ctx.term("share-den", `distance from ${Qn.toWire(c)} × ${m.d} to a whole number`, distanceToWhole(Qn.mul(c, q(m.d))), [mRef, cRef]);
     ctx.mark({ kind: "focus", ref: mRef });
     ctx.mark({ kind: "note", ref: mRef, text: `${Qn.toWire(m)}: ${top} against ${bottom}, off by ${abs(top - bottom)} over ${m.d * m.d}` });
   });
@@ -217,9 +233,12 @@ const fareyShape: Shape<object> = {
     "Write the gradient and the y-intercept as fractions p/q and r/s in lowest terms: p·s − q·r should be as close as possible to 1 or −1 (then they are neighbours: no simpler fraction fits between them).", "si"),
   tieBreakers: [
     more("bottoms", "the smaller bottom", "The smaller of the two bottom numbers should be as big as possible.", "si"),
+    // §A2 (line-rules-v3-proposals.md): the anchor (the mediant (p + r)/(q + s)) against the x-intercept.
+    more("mediant-x", "common factor of the in-between fraction's bottom and the x-intercept's bottom",
+      "The in-between fraction (p + r)/(q + s) has bottom number q + s: it and the bottom number of the x-intercept (where the line crosses the x-axis, in lowest terms) should have as big a common factor as possible.", "crossing"),
   ],
 };
-export const fareyNeighbours = family("farey-neighbours", "Farey Neighbours", ["si"], fareyShape, onRationals([{}]), ctx => {
+export const fareyNeighbours = family("farey-neighbours", "Farey Neighbours", ["si", "crossing"], fareyShape, onRationals([{}]), ctx => {
   const r = readM(ctx, fareyShape);
   if (!r) return;
   const cRef = ref("si", "c");
@@ -227,6 +246,11 @@ export const fareyNeighbours = family("farey-neighbours", "Farey Neighbours", ["
   const det = m.n * c.d - m.d * c.n;
   ctx.term("neighbours", `| |${det}| − 1 |`, q(abs(abs(det) - 1n)), [r.mRef, cRef]);
   ctx.term("bottoms", "the smaller bottom", q(m.d < c.d ? m.d : c.d), [r.mRef, cRef]);
+  // The x-intercept −c/m: a flat line never crosses, so its term is undefined (ranks last). q + s ≥ 2, never 0.
+  const xRef = ref("crossing", "x0");
+  const xv = ctx.read(xRef), x = num(xv);
+  const g = x === null ? null : gcdTerm(m.d + c.d, x.d, `common factor of ${m.d} + ${c.d} = ${m.d + c.d} and the x-intercept ${Qn.toWire(x)}'s bottom ${x.d}`);
+  ctx.term("mediant-x", g ? g.label : "the x-intercept's bottom", g ? g.value : undef(xv), [r.mRef, cRef, xRef]);
   ctx.mark({ kind: "focus", ref: r.mRef });
   ctx.mark({ kind: "focus", ref: cRef });
 });
