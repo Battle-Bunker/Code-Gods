@@ -45,9 +45,8 @@ export interface Preset {
 
 const ECONOMY: PresetEconomy = {
   powerPerSecond: LINES_BEGINNER_ECONOMY.powerPerSecond, fullChargeSeconds: LINES_BEGINNER_ECONOMY.fullChargeSeconds,
-  // Births: the coordinator's TRIAL (14 Nov, declared to the owner, who wants fewer objects in the beginner game): 0.05/s
-  // instead of v1 Annotated basics' 0.1/s.
-  opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 0.05,
+  // Births: owner decision 31, "1 spawn per 4 minutes" (one birth per 240 s).
+  opportunitiesPerSecond: LINES_BEGINNER_ECONOMY.opportunitiesPerSecond, birthsPerSecond: 1 / 240,
 };
 
 /** A pool by id: the line presets' (v2-linear) or the grid's (v2-grid). */
@@ -62,9 +61,10 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
   return {
     id: p.id, title: p.title, variant: p.variant, pool, families: [...new Set(pool.map(r => r.family))],
     minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
-    // v1 Annotated basics' starting count, restored (coordinator's call, 14 Nov).
+    // Owner decision 31: "Let's shrink object quantity for the beginner game to 3 ... I want to concentrate human
+    // attention more on specific battlefields for the beginner game."
     // peerNoiseBits 8 (the owner's 1 Nov ruling; the coordinator's call 15 with exact published totals).
-    startingObjects: 10, durationMode: "fixed", peerNoiseBits: 8,
+    startingObjects: 3, durationMode: "fixed", peerNoiseBits: 8,
     economy: ECONOMY, ...extra,
   };
 }

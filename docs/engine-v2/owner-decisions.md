@@ -168,6 +168,12 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     magnitude tie-breakers: they stay dealt, tied to the primary per decision 29. The fix for aligned hills is in the
     pool and the deal: rules in tension, diversity of goals.)
 
+31. On the beginner game's objects (relayed by the coordinator, 15 November): "Let's shrink object quantity for the
+    beginner game to 3 and 1 spawn per 4 minutes so it ends at 5. I want to concentrate human attention more on specific
+    battlefields for the beginner game." (Both beginner presets: 3 starting objects, one birth per 240 s; it replaces the
+    coordinator's calls 8 and 9 on the count and births. At the beginner length of 300 s that ends at 4 objects, not 5;
+    the coordinator is asking the owner whether the game should be longer.)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact

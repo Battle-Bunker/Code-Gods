@@ -5,7 +5,7 @@
  *
  *   pnpm --filter @workspace/v2-agents collapse-check [-- --variant line-q,line-z,grid-4-d10] [--tests 1,2,3,4,5]
  *     [--beta 0.02,0.05,0.1] [--tables 8] [--grid-tables 3] [--evals 100000] [--ref-mult 10] [--ramp-evals 30000]
- *     [--games 3] [--seconds 300] [--objects 10] [--births 0.05] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
+ *     [--games 3] [--seconds 300] [--objects 3] [--births 0.004167] [--old-row yes|no] [--reach-births 2] [--direction-starts 60] [--jobs 3] [--json]
  *
  * Tests (thresholds in src/collapse.ts):
  *   1 joint rise     per dealt table (owner decision 30, thresholds set 14 Nov): directions (one call, repeated 8 times;
@@ -20,8 +20,8 @@
  *                    fails at ≥ 95%, the variant when more than a quarter do
  *   3 single answer  per table: the best 24 distinct states in W keep ≥ 70% of 24 × the best and lie in one closed form
  *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play 300 s under
- *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 10 and
- *                    0.05; one comparison row at the old 24 and 0.1, middle β, not counted). Fails on (a) < 25% of
+ *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 3 and
+ *                    1/240, owner decision 31; one comparison row at the old 24 and 0.1, middle β, not counted). Fails on (a) < 25% of
  *                    objects changing in the last minute under the plain starters, (b) a shortcut search finding no
  *                    improving move on > half the final objects, (c) gains stopping by the midpoint for every climber.
  *                    Idle shares are reported, not failed
@@ -65,8 +65,8 @@ const { values: o } = parseArgs({ options: {
   seconds: { type: "string", default: "300" },
   "reach-births": { type: "string", default: "2" },
   "direction-starts": { type: "string", default: "60" },
-  objects: { type: "string", default: "10" },
-  births: { type: "string", default: "0.05" },
+  objects: { type: "string", default: "3" },
+  births: { type: "string", default: String(1 / 240) },
   "old-row": { type: "string", default: "yes" },
   jobs: { type: "string", default: String(Math.min(3, availableParallelism())) },
   json: { type: "boolean", default: false },
