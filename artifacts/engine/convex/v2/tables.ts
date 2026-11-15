@@ -38,6 +38,8 @@ export const overridesV = v.object({
   driftSeconds: v.optional(v.number()),
   /** How long a player's pause lasts, wall seconds (v1's pauseSeconds; absent: 180). */
   pauseSeconds: v.optional(v.number()),
+  /** Offer the commit clause (v1, off by default): agents may mark acts only-if-better. */
+  commitClause: v.optional(v.boolean()),
   /**
    * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
    * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
@@ -127,6 +129,8 @@ export const v2Tables = {
       driftSeconds: v.optional(v.number()),
       /** How long a player's pause lasts, wall seconds (v1's pauseSeconds; absent: 180). */
       pauseSeconds: v.optional(v.number()),
+      /** The commit clause is offered (v1, off by default): an only-if-better act commits only if its owner gains. */
+      commitClause: v.optional(v.boolean()),
       /** Births on a regular schedule, birth j at j / rate (decision 31; duration.ts regularBirths); absent: stochastic. */
       regularBirths: v.optional(v.boolean()),
       /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */

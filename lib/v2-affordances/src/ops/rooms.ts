@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how the game ends (durationMode \"fixed\": at the length, public; \"halfLife\": at a hidden random moment, half of games within the length); seconds between published standings (scoreIntervalSeconds, default 10); the variance of each reading of the others' sums while live (peerNoiseVariance: 0, 4, 16, 64 or 256 bits²); the look price weight (readPriceWeight, 0 to 4; 0 free); rule drift (driftSeconds, 0 off); pause length (pauseSeconds, default 180). Unset values are the preset's.",
+    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how it ends (durationMode \"fixed\" at the length, or \"halfLife\" at a hidden random moment); seconds between published standings (scoreIntervalSeconds, default 10); reading noise on the others' sums (peerNoiseVariance: 0, 4, 16, 64 or 256 bits²); the look price weight (readPriceWeight, 0 to 4; 0 free); rule drift (driftSeconds, 0 off); pause length (pauseSeconds, default 180); the commit clause (commitClause). Unset values are the preset's.",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -95,6 +95,7 @@ export const roomOps = [
         readPriceWeight: z.number().min(0).max(4),
         driftSeconds: z.number().int().min(0).max(3600),
         pauseSeconds: z.number().int().min(1).max(1800),
+        commitClause: z.boolean(),
       }).partial().strict().optional(),
       requestId: requestId.optional(),
     }), result: ok,
