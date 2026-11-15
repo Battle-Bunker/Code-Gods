@@ -1,5 +1,5 @@
 # High Start · Bold
-# Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
+# Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line's y-intercept a multiple of q to your level; the lines cross at an x that is a multiple of q to your level).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -15,10 +15,10 @@ def score(L, p, tie):
         return None
     main, H = valuation_ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
     # main: the level of the gentler line's y-intercept on your ladder (higher is better)
-    if tie == "high-and-rising":   # the smaller of the gentler line's y-intercept and its gradient's whole part big is better
-        return [main, min(H, floor(f.mg))]
-    if tie == "start-factors":   # a y-intercept sharing many prime factors with the number you divide by is better
-        return [main, omega(common(H, f.D))]
+    if tie == "start-echo":   # the steeper line's y-intercept near a multiple of q to the power one above your level is better
+        return [main, None if f.cs is None else -off_multiple(f.cs, p["q"] ** (level_of(main, p["q"]) + 1))]
+    if tie == "start-crossing":   # a crossing whose x is near a multiple of q to the power one above your level is better
+        return [main, None if f.x is None else -off_multiple(f.x, p["q"] ** (level_of(main, p["q"]) + 1))]
     return [main]
 
 

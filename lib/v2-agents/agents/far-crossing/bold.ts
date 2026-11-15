@@ -1,5 +1,5 @@
 // Far Crossing · Bold
-// Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+// Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the x-intercepts a multiple of q to your level; the lines cross at a height that is a multiple of q to your level).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -12,8 +12,8 @@ function score(L, p, tie) {
   if (f.rs === null) return null;   // the steeper line is flat: no score
   const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder
   // main: the level of the steeper line's x-intercept on your ladder (higher is better)
-  if (tie === "far-right") return [main, R];   // an x-intercept far to the right is better
-  if (tie === "far-prime") return [main, spf(R)];   // an x-intercept with a big smallest prime factor is better
+  if (tie === "far-gap") return [main, f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the x-intercepts near a multiple of q to the power one above your level is better
+  if (tie === "far-height") return [main, f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing height near a multiple of q to the power one above your level is better
   return [main];
 }
 

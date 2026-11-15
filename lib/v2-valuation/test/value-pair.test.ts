@@ -31,14 +31,16 @@ test("Divide By's first rung (the number you divide by is ±3, ±9, …) is valu
 
 test("a pair's size tail never outruns the law: High Start at an intercept of 52,488 is worth less than the state's φ", async () => {
   // Found by the tension matrix (two-line-systems.md §8.3): stretching y = 9x + 8 by 3 eight times, beside x = −12, gave
-  // High Start (high and rising) 8,238 bits through a linear tail. A pair's numbers cost log₂ of their size.
+  // High Start (then with the tie-breaker "high and rising") 8,238 bits through a linear tail. A pair's numbers cost log₂ of their size.
   const { readdirSync, readFileSync } = await import("node:fs");
   const { highStart } = await import("@workspace/v2-pair");
   const dir = new URL("../values/pair-q/high-start/", import.meta.url);
   const s = pairType.decode("-59049,1,-52488;1,0,12");
-  for (const file of readdirSync(dir).filter(x => x.endsWith("-high-and-rising.json"))) {
+  const files = readdirSync(dir).filter(x => x.endsWith(".json"));
+  assert.ok(files.length > 0);
+  for (const file of files) {
     const vf = JSON.parse(readFileSync(new URL(file, dir), "utf8"));
-    const bits = valueLookup(vf)(evaluateObject(pairType, highStart, vf.params, s, pairQ, "high-and-rising").score).bits;
+    const bits = valueLookup(vf)(evaluateObject(pairType, highStart, vf.params, s, pairQ, vf.tieBreaker).score).bits;
     assert.ok(bits <= pairType.readLength(s, pairQ), `${file}: ${bits} bits against φ ${pairType.readLength(s, pairQ)}`);
   }
 });

@@ -102,6 +102,8 @@
 #   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
 #                                number is t; level L at an exact k^L, d to k^(L+1) (on no level: to the nearest
 #                                power); returns the score.
+#   level_of(score, q)           the level a ladder's score stands for: the largest L with q^L <= score (-1 below 1).
+#   off_multiple(v, m)           how far v is from the nearest whole multiple of m.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -271,6 +273,23 @@ def _climb(base, off):
         level += 1
         d = off(level + 1)
     return base ** level * (1 + Fraction(1) / (1 + d))
+
+
+def level_of(score, q):
+    s = Fraction(score)
+    if s < 1:
+        return -1
+    L = 0
+    while Fraction(q) ** (L + 1) <= s:
+        L += 1
+    return L
+
+
+def off_multiple(v, m):
+    x = Fraction(v)
+    f = (x / m) // 1
+    below, above = x - f * m, (f + 1) * m - x
+    return below if below <= above else above
 
 
 def nearest_leaving(x, q, r, at_least=0):

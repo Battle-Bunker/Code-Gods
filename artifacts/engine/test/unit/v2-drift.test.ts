@@ -79,7 +79,7 @@ test("a pair redraw never seats a pair the seating rule forbids (lib/v2-pair sea
     const next = redrawParams("pair-q", ra.family, "corner-prime", ra.params, "seed", 1, tick, [wa]);
     if (next) { moved++; assert.ok(!pairClash({ family: ra.family, params: next.params }, wa), JSON.stringify(next.params)); }
     const others = [{ family: "whole-answer", params: { q: 7, r: 4 } }, { family: "steep-ratio", params: { q: 5, r: 4 } }];
-    assert.equal(redrawParams("pair-q", "high-start", "high-and-rising", { q: 5, r: 2 }, "seed", 1, tick, others), null);
+    assert.equal(redrawParams("pair-q", "high-start", "start-echo", { q: 5, r: 2 }, "seed", 1, tick, others), null);
   }
   assert.ok(moved > 0, "Right Angle still drifts");
 });

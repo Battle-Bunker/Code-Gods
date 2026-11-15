@@ -9,7 +9,7 @@
  * reach a state is then a sum of one-dimensional cheapest paths (jumps of up to K per act). Other mutators (pivots,
  * slides, stretches, swaps…) can only make a state cheaper, so the sets below are subsets of what is truly reachable.
  */
-import { applyPriced, rng, variantMutators, type ObjectType, type Rng, type Variant } from "@workspace/v2-core";
+import { applyPriced, canonicalJson, rng, variantMutators, type ObjectType, type Rng, type Variant } from "@workspace/v2-core";
 import { gridPresets, gridType, grid4, type GridState } from "@workspace/v2-grid";
 import { lineQ, lineType, lineZ, normalise, presets, type LineState } from "@workspace/v2-linear";
 import { canonicalPair, encodePair, pairPresets, pairQ, pairType, type PairState } from "@workspace/v2-pair";
@@ -125,7 +125,8 @@ function makeSpace<S>(id: VariantId, type: ObjectType<S>, variant: Variant, o: {
   return {
     id, type, variant, dims: o.dims, K: o.K, bounds: o.bounds, coords: o.coords, state: o.state, fee, phi: (d, v) => phis[d]!(v),
     bits: rule => {
-      const k = ruleName(rule);
+      // Keyed by the parameters too: one family's dealt numbers are different value functions.
+      const k = `${ruleName(rule)} ${canonicalJson(rule.params ?? null)}`;
       let b = bitsMemo.get(k);
       if (!b) {
         const raw = valuer(type, variant, rule).bits, cache = new Map<string, number>();

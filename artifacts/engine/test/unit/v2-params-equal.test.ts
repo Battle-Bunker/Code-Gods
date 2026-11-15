@@ -43,6 +43,13 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
   // whatever r: the climb between levels is the same ×5 (a stretch or zoom), so peers are compared level by level on
   // their bits (cost 0). Subtracting the cheapest y-intercept's code instead over-corrects (t = 1 against t = 2).
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
+  // The two-line valuation ladders (Whole Answer, High Start, Steep Ratio; lib/v2-pair families.ts): the score is
+  // q^L × (1 + 1/(1 + d)) on level L ≥ 0 (below 1 off the ladder), so the rung is L, the largest with q^L ≤ the score,
+  // costed as its cheapest number's code (the coordinator's call 19). Unlike Whole Crossing's one base, peers here have
+  // q 5 or 7: at cost 0 a q-7 level is about 2 bits rarer than a q-5 one, which its bigger number pays for.
+  "whole-answer": (u, p) => valuationRung(u, p),
+  "high-start": (u, p) => valuationRung(u, p),
+  "steep-ratio": (u, p) => valuationRung(u, p),
   "smooth-intercept": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
@@ -50,6 +57,16 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     return cost === undefined ? null : [String(L), cost];
   },
 };
+/** A valuation ladder's level from its score (null off the ladder, below 1). */
+function valuationRung(u: string, p: Record<string, unknown>): Rung | null {
+  const [n, d = "1"] = u.split("/"), num = BigInt(n!), den = BigInt(d), q = BigInt(p.q as number);
+  if (num < den) return null;
+  let L = 0;
+  while (q ** BigInt(L + 1) * den <= num) L++;
+  // The cheapest number on rung L: q^T(L) × m, T(L) = L(L + 1)/2, m the smallest |m| leaving r (r or r − q).
+  const r = BigInt(p.r as number), m = r < q - r ? r : q - r, cheapest = q ** BigInt((L * (L + 1)) / 2) * m;
+  return [String(L), LINE_Q_CODES.c.bits(cheapest)];
+}
 const isPrime = (n: bigint) => { if (n < 2n) return false; for (let i = 2n; i * i <= n; i++) if (n % i === 0n) return false; return true; };
 const STAIRCASE_COSTS = new Map<number, number[]>();
 /** costs[L]: the least code cost of a whole line (m, c) whose y(0), y(1), … start with at least L different primes ending in k. */

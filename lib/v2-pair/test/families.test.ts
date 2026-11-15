@@ -87,7 +87,7 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["110/21", "5"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\); better still 9, then 27, and so on/);
   assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap between their x-intercepts; better still 16 times/);
-  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-prime"), /leaves 2 when divided by 7; better still, leaves 16 when divided by 49, then 114 when divided by 343, and so on\..*Tie-breaker/);
+  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaves 2 when divided by 7; better still, leaves 16 when divided by 49, then 114 when divided by 343, and so on\..*Tie-breaker/);
   // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap 4; 2 = ½ × 4, no power of k fits (level 0).
   for (const k of [2, 3]) assert.ok(Qn.cmp(Qn.parse(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k })![0]!), Qn.q(k)) < 0);
 });
@@ -111,10 +111,28 @@ test("Steep Ratio reads the whole number of times on its ladder, at least 2 eith
   assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["78/25", "3"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
+test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1), L the level the main part reached (row 3)", () => {
+  // Far Crossing {7, 2}: the steeper line y = 3x − 6 meets the x-axis at 2 (level 1: 2 leaves 2 by 7, not 16 by 49), so
+  // the target is 49. The gentler y = x − 51 meets it at 51: the gap 49 is on target; they cross at (−22.5, −73.5).
+  const fc = { q: 7, r: 2 }, lo = sys(Y(3, -6), Y(1, -51));
+  assert.equal(score("far-crossing", "far-gap", lo, fc)![1], "0");
+  assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-49/2");   // a distance: smaller is better, stored negated
+  // One level up (16 leaves 16 by 49): the same gap of 49 is now 49 from a multiple of 343, so the climb restarts.
+  assert.equal(score("far-crossing", "far-gap", sys(Y(3, -48), Y(1, -65)), fc)![1], "-49");
+  // High Start {5, 4}: the gentler line's y-intercept 20 = 5 × 4 is level 1, target 25. The steeper y = 3x + 50 has
+  // y-intercept 50, on target; they cross at x = −15, 10 from −25 (or 0, well 15).
+  const hs = { q: 5, r: 4 }, up = sys(Y(3, 50), Y(1, 20));
+  assert.equal(score("high-start", "start-echo", up, hs)![1], "0");
+  assert.equal(score("high-start", "start-crossing", up, hs)![1], "-10");
+  // Off the ladder (3 does not leave 4 by 5) the target is 1: whole numbers.
+  assert.equal(score("high-start", "start-crossing", sys(Y(3, 50), Y(1, 3)), hs)![1], "-1/2");
+  assert.match(familyOf("far-crossing").card(fc, "far-gap"), /multiple of 7.*49/);
+});
+
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
   // y = 2x + 3 and y = −x + 6 cross at (1, 4); zoom × 96 (a smooth number): c × 96.
   const base = sys(Y(2, 3), Y(-1, 6)), zoomed = sys(Y(2, 288), Y(-1, 576));
-  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-factors"]] as const) {
+  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-echo"]] as const) {
     const before = score(id, tb, base), after = score(id, tb, zoomed);
     if (!before || !after) continue;
     // D is unchanged by a zoom, so a common factor with D stays at most |D| = 3.

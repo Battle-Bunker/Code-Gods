@@ -105,8 +105,8 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: ["if f.rs is None:   # the steeper line is flat: no score", "    return None", "main, R = ladder(f.rs, p[\"q\"], p[\"r\"])   # the x-intercept on your ladder"],
     },
     tieBreakers: {
-      "far-right": T("R", "R", "an x-intercept far to the right is better", "add \"stretch\" to KINDS and see if it moves faster."),
-      "far-prime": T("spf(R)", "spf(R)", "an x-intercept with a big smallest prime factor is better", "change FAR = 3 to 5 so the crossing can jump to a bigger prime."),
+      "far-gap": T("f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.xgap is None else -off_multiple(f.xgap, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the gap between the x-intercepts near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one x-intercept alone."),
+      "far-height": T("f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.y is None else -off_multiple(f.y, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "a crossing height near a multiple of q to the power one above your level is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
     },
   },
   {
@@ -116,8 +116,8 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [FLOOR.py, "if f.cg is None or f.mg is None:   # the gentler line is upright: no score", "    return None", "main, H = valuation_ladder(f.cg, p[\"q\"], p[\"r\"])   # the y-intercept on your ladder"],
     },
     tieBreakers: {
-      "high-and-rising": T("Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)", "min(H, floor(f.mg))", "the smaller of the gentler line's y-intercept and its gradient's whole part big is better", "add \"stretch\" to KINDS: it raises both, but a steeper gentler line can stop being the gentler one."),
-      "start-factors": T("omega(common(H, f.D))", "omega(common(H, f.D))", "a y-intercept sharing many prime factors with the number you divide by is better", "add \"combine\" to KINDS and compare."),
+      "start-echo": T("f.cs === null ? null : Q.neg(offMultiple(f.cs, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.cs is None else -off_multiple(f.cs, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the steeper line's y-intercept near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one y-intercept alone."),
+      "start-crossing": T("f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.x is None else -off_multiple(f.x, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "a crossing whose x is near a multiple of q to the power one above your level is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
     },
   },
   {
