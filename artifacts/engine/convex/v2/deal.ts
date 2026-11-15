@@ -25,7 +25,7 @@ import type { BidDealer } from "@workspace/v2-economy";
 import { hasStarters, pairPmi, pairVerdict, unopposedDirections, type PairVerdict, type UnopposedDirection } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
-import { lineClashes, lineSeatingCost, type SeatedRule } from "@workspace/v2-linear";
+import { LINE_OPPONENTS, lineClashes, lineSeatingCost, type SeatedRule } from "@workspace/v2-linear";
 import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
 import { measuredToBits, valueHead, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
@@ -80,11 +80,41 @@ export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
 }
 
 /**
- * A fresh deal for `seats` seats from `pool`: a seeded shuffle, dealt in order, so seats hold different rules while
- * the pool lasts (the pool is reused from its start when there are more seats than rules).
+ * A fresh deal for `seats` seats from `pool`, reproducible from the seed: each family equally likely, no family twice
+ * while the pool lasts (`dealFrom`), the seating rule honoured. On a line table, an anchored deal: one seat, uniform over
+ * the seats, has its family drawn first and sits with one of its named opponents (`anchoredDeal`).
  */
 export function freshDeal(pool: readonly DealtRule[], seats: number, seed: string, variant?: string): DealtRule[] {
-  return dealFrom(pool, seats, dealRng(seed), variant ? rules => seatingCost(variant, rules) : undefined);
+  const r = dealRng(seed);
+  if (variant && hasOpponents(variant) && seats > 1) {
+    // The named-opponent rule, anchored (the coordinator's (b)): only the anchor's opponent is sought. Seeking the
+    // other seats' too pushed the families out of the uniformity band (test/unit/v2-deal-families.test.ts).
+    return anchoredDeal(pool, seats, r.below(seats), r, variant, (deal, anchorGap) => [seatingCost(variant, deal), anchorGap]);
+  }
+  return dealFrom(pool, seats, r, variant ? rules => seatingCost(variant, rules) : undefined);
+}
+
+/**
+ * A deal around an anchor seat `a` (the human's in a practice game): the anchor's family drawn uniformly over the
+ * pool's families first, so its frequency never follows the constraints; then, ANCHOR_TRIES times at most, one of its
+ * entries and the other seats from the other families (uniform, no family twice), keeping the table `rank` puts
+ * first; it is given 1 when the anchor has none of its named opponents at the table, else 0 (`opponentGaps`). Ranks
+ * compare in order; a table ranked all zeros ends the search. Reproducible from the stream `r`.
+ */
+function anchoredDeal(pool: readonly DealtRule[], seats: number, a: number, r: Rng, variant: string,
+  rank: (deal: DealtRule[], anchorGap: number) => number[]): DealtRule[] {
+  const family = dealFrom(pool, 1, r)[0]!.family, families = familySet(pool);
+  const mine = pool.filter(x => x.family === family), others = pool.filter(x => x.family !== family);
+  const rest = others.length ? others : pool;
+  let best: DealtRule[] | undefined, bestRank: number[] | undefined;
+  for (let i = 0; i < ANCHOR_TRIES; i++) {
+    const anchor = mine[r.below(mine.length)]!, partners = dealFrom(rest, seats - 1, r);
+    const deal = [...partners.slice(0, a), anchor, ...partners.slice(a)];
+    const k = rank(deal, opponentGaps(variant, deal, families).includes(family) ? 1 : 0);
+    if (!bestRank || before(k, bestRank)) { best = deal; bestRank = k; }
+    if (k.every(x => x === 0)) break;
+  }
+  return best!;
 }
 
 /**
@@ -107,6 +137,23 @@ export function seatingAligned(variant: string, rules: readonly SeatedRule[]): s
 export function seatingCost(variant: string, rules: readonly SeatedRule[]): number {
   return !hasSeatingRule(variant) ? 0 : isGrid(variant) ? gridSeatingCost(familiesOf(rules)) : isPair(variant) ? pairSeatingCost(rules) : lineSeatingCost(rules);
 }
+/**
+ * The named-opponent seating rule (the coordinator's, from the spec lead's opponent table, lib/v2-linear
+ * opponents.gen.ts; design-principles.md "named adversaries"): on a line table, each seated family whose named
+ * opponents include one the pool can deal should sit with at least one of them. The seated families that do not: one
+ * each. A family the table does not name (not measured) has no constraint; other object types have none yet.
+ */
+export function opponentGaps(variant: string, rules: readonly SeatedRule[], poolFamilies: ReadonlySet<string>): string[] {
+  if (findVariant(variant).type.id !== "line") return [];
+  const seated = new Set(rules.map(r => r.family));
+  return [...seated].filter(f => {
+    const named = (LINE_OPPONENTS[f] ?? []).filter(o => poolFamilies.has(o));
+    return named.length > 0 && !named.some(o => seated.has(o));
+  });
+}
+/** Whether the variant deals by the named-opponent rule (the anchored deal): lines, whose opponent table exists. */
+const hasOpponents = (variant: string) => findVariant(variant).type.id === "line";
+const familySet = (pool: readonly { family: string }[]) => new Set(pool.map(r => r.family));
 /** Shuffles a seating rule may draw before it settles for the deal with the fewest clashes. */
 const SEATING_TRIES = 200;
 /** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
@@ -144,8 +191,8 @@ export type SeatKind = "human" | "practice" | "ai";
 export const isPracticeGame = (kinds: readonly SeatKind[]): boolean =>
   kinds.length > 1 && kinds.filter(k => k === "human").length === 1 && kinds.every(k => k !== "ai");
 
-/** Seeded deals a practice deal draws before it settles for the first (a pool too small to satisfy it). */
-const PRACTICE_TRIES = 200;
+/** Seeded tables an anchored deal (fresh line deals, practice deals) draws before it settles for the best. */
+const ANCHOR_TRIES = 200;
 /** Two dealt rules' verdict (lib/v2-agents compat.gen.ts); the same rule shares its own goal. */
 function verdictOf(variant: string, a: DealtRule, b: DealtRule): PairVerdict | undefined {
   return a.ruleKey === b.ruleKey ? "compatible" : pairVerdict(variant, `${a.family}/${a.tieBreaker}`, `${b.family}/${b.tieBreaker}`);
@@ -176,27 +223,18 @@ const before = (a: readonly number[], b: readonly number[]): boolean => {
 /**
  * A practice game's deal (playtest round 21: redrawing whole tables until they fit skewed the human's family, so
  * Smooth Intercept took 21.5% of practice games and Prime Staircase 0.6%). The human's family is drawn uniformly over
- * the pool's families, first; then, PRACTICE_TRIES times at most, one of its entries and the partners from the other
- * families, keeping the best table by: no pair the seating rule forbids, then no two partners against the human, then
- * a partner sharing the human's goal (together `practiceFits`), then the seating rule's cost (aligned pairs). So the entry leans to those that can share a goal; the family never does.
+ * the pool's families, first (an anchored deal, the human the anchor); then the best table by: no pair the seating rule
+ * forbids, then no two partners against the human, then a partner sharing the human's goal (together `practiceFits`),
+ * then the human with a named opponent seated (`opponentGaps`), then the seating rule's cost (aligned pairs). So the entry leans to those that can share a goal; the family never does.
  * Reproducible from the seed.
  */
 export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): DealtRule[] {
   const r = dealRng(seed), h = kinds.indexOf("human");
-  const family = dealFrom(pool, 1, r)[0]!.family;
-  const mine = pool.filter(x => x.family === family), others = pool.filter(x => x.family !== family);
-  const rest = others.length ? others : pool;
-  let best: DealtRule[] | undefined, bestRank: number[] | undefined;
-  for (let i = 0; i < PRACTICE_TRIES; i++) {
-    const human = mine[r.below(mine.length)]!, partners = dealFrom(rest, kinds.length - 1, r);
-    const deal = [...partners.slice(0, h), human, ...partners.slice(h)];
-    // Never two partners against the human, even where no partner can share the human's goal (a family with no
-    // compatible partner in the pool, e.g. Square Area while Divisibility Ladder's "steep" is undealt); then sharing.
-    const rank = [seatingClashes(variant, deal).length, ganged(variant, deal, h) ? 1 : 0, sharesGoal(variant, deal, h) ? 0 : 1, seatingCost(variant, deal)];
-    if (!bestRank || before(rank, bestRank)) { best = deal; bestRank = rank; }
-    if (rank.every(x => x === 0)) break;
-  }
-  return best!;
+  // Never two partners against the human, even where no partner can share the human's goal (a family with no
+  // compatible partner in the pool, e.g. Square Area while Divisibility Ladder's "steep" is undealt); then sharing;
+  // then the human sitting with a named opponent (the named-opponent rule); then the seating cost.
+  return anchoredDeal(pool, kinds.length, h, r, variant, (deal, anchorGap) =>
+    [seatingClashes(variant, deal).length, ganged(variant, deal, h) ? 1 : 0, sharesGoal(variant, deal, h) ? 0 : 1, anchorGap, seatingCost(variant, deal)]);
 }
 
 // ---------------------------------------------------------------- the dealing trial, step 2 (logging only)
