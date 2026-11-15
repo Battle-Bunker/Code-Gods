@@ -22,6 +22,8 @@
 #   near(x, test, k)             the same among positive whole numbers ending in the digit k: near(c, prime, 3) is
 #                                the prime ending in 3 nearest c (below the smallest such prime, that prime).
 #   whole(x)                     the whole number nearest to x (a half rounds up).
+#   simplest(a, b)               the simplest fraction from a to b (either way round): the smallest denominator, then
+#                                the numerator nearest 0. simplest(18.5, 19.5) is 19; simplest(-0.81, -0.77) is -4/5.
 #   smooth(n)                    is n made only by multiplying 2s, 3s, 5s and 7s (1 included; the sign ignored)?
 #                                e.g. near(x, smooth).
 #   shared(a, b)                 how many prime factors whole numbers a and b share, counting repeats (the factors of
@@ -241,6 +243,15 @@ def shared(a, b):
 
 def whole(x):
     return int((Fraction(x) + Fraction(1, 2)) // 1)
+
+
+def simplest(a, b):
+    lo, hi = sorted((Fraction(a), Fraction(b)))
+    for d in range(1, 100001):
+        nlo, nhi = -((-lo * d) // 1), (hi * d) // 1
+        if nlo <= nhi:
+            return Fraction(nlo if nlo > 0 else nhi if nhi < 0 else 0, d)
+    return lo
 
 
 def _anchor(v, q, r, at_least):
@@ -638,18 +649,13 @@ def climb(offer, options, now, most=None):
     # The best step it can pay for within its allowance (its energy, and a few seconds of its income).
     ranked.sort(key=lambda x: -x[0])
     cap = allowance(offer)
-    quoted = []
-    for _, plan in ranked[:4]:
-        p = price(offer, plan)
-        if p is not None and p <= cap:
-            return _as_plan(plan)
-        quoted.append((p, plan))
-    # Nothing within it: a bigger step (the next rung of a ladder) paid from energy saved up in hand, no debt.
-    saved = offer.budget().energy
-    for p, plan in quoted:
-        if p is not None and p <= saved:
-            return _as_plan(plan)
-    return None
+    b = offer.budget()
+    saved = b.energy
+    quoted = [(v, plan, price(offer, plan)) for v, plan in ranked[:4]]
+    # The best step it can pay for within its allowance; else a bigger one (the next rung of a ladder) paid from
+    # energy saved up in hand, no debt.
+    pick = next((q for q in quoted if q[2] is not None and q[2] <= cap), None) or next((q for q in quoted if q[2] is not None and q[2] <= saved), None)
+    return _as_plan(pick[1]) if pick else None
 
 
 def fair(offer, plan):

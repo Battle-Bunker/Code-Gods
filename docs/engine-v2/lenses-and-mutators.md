@@ -1,7 +1,11 @@
 # Lenses and mutators on a line (14 November 2026)
 
-Status: design and measurement. **The first five of §5 are built** (15 November) as a trial: variant `line-q-lenses`,
-preset `lines-lenses`, not dealt by default (spec §12.4; the balance and collapse runs are in §7 below). Nothing else
+Status: design and measurement. **The first five of §5 are built** (15 November). `rot.turn` is in the beginner line
+set (`line-q`, coordinator's call 23, after [scripts/stretch-lens-pool-dynamics.md](scripts/stretch-lens-pool-dynamics.md));
+`basis.zoom` joined it and was taken out the same day (a straight hill on Prime Landing). `coef.swap` (its fee now
+floored at φ of the dearer number it swaps), `basis.lean`, `basis.zoom` and `fold` stay a trial in variant
+`line-q-lenses`, preset `lines-lenses`
+(spec §12.4; the balance and collapse runs are in §7 below). Nothing else
 here changes the engine's dealt rules, mutators or prices. Every proposal is
 for the coordinator and the owner to choose from. The script is `lib/v2-agents/scripts/lenses.ts`
 (`node --experimental-strip-types scripts/lenses.ts [--H 16] [--sources 30]` from `lib/v2-agents`, about two

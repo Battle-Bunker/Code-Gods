@@ -8,12 +8,14 @@ import {
   amountCode, applyCall, applyPriced, cycleDiagnostic, factorCode, isInvalid, mixedIntBits, nonzeroRatBits, Qn, q, ratBits, rng, stepsRatBits,
   drawMutator, variantMutators, walkStep, type Q,
 } from "@workspace/v2-core";
-import { describeLine, lensMutators, lineQ, lineQLenses, lineType, normalise, preset, type Line, type LineState } from "../src/index.ts";
+import { describeLine, LINE_Q_CODES, lensMutators, lineQ, lineQLenses, lineType, normalise, preset, type Line, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const v = lineQLenses;
-/** The five's "which" bits under line-q-lenses' weighted code (the nine pay log2 12). */
-const which = Math.log2(20);
+/** A mutator's "which" bits under line-q-lenses' weighted code. */
+const W = (id: string) => v.which![id]!;
+/** coef.swap's floor: φ of the dearer number it swaps (line-q's code for a and c), in ax + by + c = 0 (the same pair before and after). */
+const swapFloor = (l: Line, pair: string) => Math.max(...(pair === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => LINE_Q_CODES.c.bits(n)));
 const run = (s: LineState, mutator: string, args: Record<string, string>) => applyCall(lineType, v, s, { mutator, site: 0, args });
 const to = (s: LineState, mutator: string, args: Record<string, string>) => {
   const r = run(s, mutator, args);
@@ -30,17 +32,24 @@ test("the weighted which code is a complete prefix code; the walk draws each mut
   const w = v.which!;
   assert.deepEqual(Object.keys(w).sort(), [...v.mutators].sort());
   near(Object.values(w).reduce((a, b) => a + 2 ** -b, 0), 1, "Kraft");
-  near(w["si.shift"]!, Math.log2(12)); near(w["rot.turn"]!, Math.log2(20));
-  // A unit shift costs which + its size code at o = log2 12.
-  near(fee(mc(1, 1), "si.shift", { k: "1" }), amountCode(Math.log2(12), 1, true).rate);
+  // line-q's eleven keep their proportions in 3/4 of the mass; the three trial lenses share 1/4.
+  near(w["si.shift"]!, Math.log2(9 / 0.95) + Math.log2(4 / 3)); near(w["rot.turn"]!, Math.log2(80 / 3)); near(w["coef.swap"]!, Math.log2(16)); near(w["basis.zoom"]!, Math.log2(16));
+  // A unit shift costs which + its size code at o = which.
+  near(fee(mc(1, 1), "si.shift", { k: "1" }), amountCode(Math.log2(9 / 0.95) + Math.log2(4 / 3), 1, true).rate);
   // The walk's draw: each mutator with probability 2^−which.
   const r = rng("which-draws"), n = 200_000, ms = variantMutators(lineType, v), count = new Map<string, number>();
   for (let i = 0; i < n; i++) { const m = drawMutator(ms, v, r); count.set(m.id, (count.get(m.id) ?? 0) + 1); }
   for (const m of ms) { const p = 2 ** -w[m.id]!; assert.ok(Math.abs(count.get(m.id)! / n - p) < 4 * Math.sqrt(p * (1 - p) / n), `${m.id}`); }
 });
 
-test("line-q is untouched: nine mutators, which = log2 9; the lens variant offers fourteen and is dealt only by its own preset", () => {
-  assert.equal(lineQ.mutators.length, 9);
+test("line-q offers the nine and the turn (the beginner set); the lens variant adds the other four and is dealt only by its own preset", () => {
+  // The zoom was taken out the same day (a straight hill on Prime Landing): it is a trial again.
+  assert.deepEqual(lineQ.mutators.slice(9), ["rot.turn"]);
+  assert.equal(lineQ.mutators.length, 10);
+  assert.ok(isInvalid(applyCall(lineType, lineQ, mc(2, 5), { mutator: "basis.zoom", site: 0, args: { f: "2" } })));
+  // The turn at the price it was measured at (log2 20); the nine share the rest (log2 (9 / 0.95)).
+  near(Object.values(lineQ.which!).reduce((a, b) => a + 2 ** -b, 0), 1, "Kraft");
+  near(lineQ.which!["si.tilt"]!, Math.log2(9 / 0.95)); near(lineQ.which!["rot.turn"]!, Math.log2(20));
   assert.equal(v.mutators.length, 14);
   assert.deepEqual(v.params, lineQ.params);
   assert.ok(isInvalid(applyCall(lineType, lineQ, mc(2, 5), { mutator: "coef.swap", site: 0, args: { pair: "m-c" } })));
@@ -52,7 +61,14 @@ test("coef.swap: y = mx + c ↦ y = cx + m, and b ↔ c; a choice of 2", () => {
   assert.equal(to(mc(2, 5), "coef.swap", { pair: "m-c" }), "y = 5x + 2");
   assert.equal(to(mc(-4, 0), "coef.swap", { pair: "b-c" }), "x = -1/4");      // y = −4x (4, 1, 0) ↦ 4x + 1 = 0
   assert.equal(to(abc(0, 1, 4), "coef.swap", { pair: "b-c" }), "y = -1/4");   // y = −4 ↦ y = −¼ (the study's 4.2× shortcut)
-  near(fee(mc(2, 5), "coef.swap", { pair: "m-c" }), which + 1);
+  // A swap costs at least φ of the dearer number it swaps: y = 2x + 5 is 2x − y + 5 = 0, so φ(5) against φ(2).
+  near(fee(mc(2, 5), "coef.swap", { pair: "m-c" }), Math.max(W("coef.swap") + 1, LINE_Q_CODES.c.bits(5n)));
+  near(fee(mc(2, 517), "coef.swap", { pair: "m-c" }), LINE_Q_CODES.c.bits(517n));
+  // The dearer, not the larger: 1009 (a prime) costs more to write than 1024 (2^10).
+  near(fee(mc(1024, 1009), "coef.swap", { pair: "m-c" }), LINE_Q_CODES.c.bits(1009n));
+  assert.ok(LINE_Q_CODES.c.bits(1009n) > LINE_Q_CODES.c.bits(1024n));
+  // The same fee both ways (the exact potential): y = 517x + 2 back to y = 2x + 517.
+  near(fee(mc(517, 2), "coef.swap", { pair: "m-c" }), fee(mc(2, 517), "coef.swap", { pair: "m-c" }));
   // The swap and its line cross at x = 1.
   assert.equal(to(mc(3, 3), "coef.swap", { pair: "m-c" }), "that call does not change the object");
 });
@@ -72,9 +88,9 @@ test("rot.turn: about a pin of the line by any rational tangent, or about the or
   assert.match(to(mc(1, 0), "rot.turn", { centre: "0", turn: "1" }), /vertical/);
   assert.match(to(mc(0, 2), "rot.turn", { centre: "0", turn: "right" }), /upright/);
   // Prices: centre (1 bit, then x0 by steps) + turn (2 bits for a quarter, else 1 + digits).
-  near(fee(mc(2, 1), "rot.turn", { centre: "0", turn: "left" }), which + 1 + stepsRatBits(q(0)) + 2);
-  near(fee(mc(0, 0), "rot.turn", { centre: "3", turn: "1" }), which + 1 + stepsRatBits(q(3)) + 1 + nonzeroRatBits(q(1)));
-  near(fee(mc(0, 5), "rot.turn", { centre: "origin", turn: "3/4" }), which + 1 + 1 + nonzeroRatBits(q(3, 4)));
+  near(fee(mc(2, 1), "rot.turn", { centre: "0", turn: "left" }), W("rot.turn") + 1 + stepsRatBits(q(0)) + 2);
+  near(fee(mc(0, 0), "rot.turn", { centre: "3", turn: "1" }), W("rot.turn") + 1 + stepsRatBits(q(3)) + 1 + nonzeroRatBits(q(1)));
+  near(fee(mc(0, 5), "rot.turn", { centre: "origin", turn: "3/4" }), W("rot.turn") + 1 + 1 + nonzeroRatBits(q(3, 4)));
 });
 
 test("basis.lean keeps the x-intercept; basis.zoom keeps the gradient; both are priced by size", () => {
@@ -85,9 +101,9 @@ test("basis.lean keeps the x-intercept; basis.zoom keeps the gradient; both are 
   assert.equal(to(mc(2, 3), "basis.zoom", { f: "2" }), "y = 2x + 6");
   assert.equal(to(mc(2, 3), "basis.zoom", { f: "-1/3" }), "y = 2x - 1");
   assert.match(to(mc(2, 0), "basis.zoom", { f: "2" }), /origin/);
-  const rateQ = amountCode(which, 1, true).rate;
+  const rateQ = amountCode(W("basis.lean"), 1, true).rate;
   near(fee(mc(1, -2), "basis.lean", { k: "3" }), 3 * rateQ);                // far moves are dear: 3 unit leans
-  near(fee(mc(2, 3), "basis.zoom", { f: "6" }), factorCode(which).rate * Math.log2(6));
+  near(fee(mc(2, 3), "basis.zoom", { f: "6" }), factorCode(W("basis.zoom")).rate * Math.log2(6));
 });
 
 test("fold: a crease through a pin is a choice; any other mirror is paid for from scratch (its read length)", () => {
@@ -100,10 +116,10 @@ test("fold: a crease through a pin is a choice; any other mirror is paid for fro
   // The mirror y = x + 1, given in any scale: y = 0 ↦ x = −1.
   assert.equal(to(mc(0, 0), "fold", { mirror: "-2,2,-2" }), "x = -1");
   assert.match(to(mc(0, 0), "fold", { x0: "0", s: "1" }), /upright/);
-  near(fee(mc(2, 1), "fold", { x0: "0", s: "0" }), which + 1 + stepsRatBits(q(0)) + ratBits(q(0)));
-  near(fee(mc(2, 1), "fold", { mirror: "0,1,0" }), which + 1 + mixedIntBits(0n) + mixedIntBits(1n) + mixedIntBits(0n));
+  near(fee(mc(2, 1), "fold", { x0: "0", s: "0" }), W("fold") + 1 + stepsRatBits(q(0)) + ratBits(q(0)));
+  near(fee(mc(2, 1), "fold", { mirror: "0,1,0" }), W("fold") + 1 + mixedIntBits(0n) + mixedIntBits(1n) + mixedIntBits(0n));
   // A rich mirror is dear: y = 7x + 11 costs about 21 bits on top.
-  assert.ok(fee(mc(2, 1), "fold", { mirror: "-7,1,-11" }) > which + 21);
+  assert.ok(fee(mc(2, 1), "fold", { mirror: "-7,1,-11" }) > W("fold") + 21);
   assert.ok(isInvalid(run(mc(2, 1), "fold", { mirror: "0,1,0", x0: "0" })));
 });
 
@@ -118,9 +134,9 @@ const through = (x0: R, y0: R, m: R) => fromMCr(m, Qn.sub(y0, Qn.mul(m, x0)));
 /** The lenses study's formulas (lib/v2-agents/scripts/lenses.ts), written independently of the engine's geometry. */
 function model(l: Line, id: string, a: Record<string, string>): { line: Line | null; fee: number } {
   const m = l.b === 0n ? null : q(-l.a, l.b), c = l.b === 0n ? null : q(-l.c, l.b);
-  const bad = { line: null, fee: 0 };
+  const bad = { line: null, fee: 0 }, which = W(id);
   switch (id) {
-    case "coef.swap": return { line: (a.pair === "m-c" ? normalise(l.c, l.b, l.a) : normalise(l.a, l.c, l.b)) as Line, fee: which + 1 };
+    case "coef.swap": return { line: (a.pair === "m-c" ? normalise(l.c, l.b, l.a) : normalise(l.a, l.c, l.b)) as Line, fee: Math.max(which + 1, swapFloor(l, a.pair!)) };
     case "basis.lean": {
       const s = Qn.from(a.k!);
       if (l.a === 0n) return bad;
@@ -274,4 +290,13 @@ test("line-q-lenses: every proposal has a reverse of the same weight, level, upr
   for (const [id, x] of Object.entries(r.perMutator)) assert.equal(x.asymmetric, 0, `${id}: ${x.asymmetric} asymmetric pairs, worst ${x.worst} bits`);
   for (const mu of lensMutators) assert.ok((r.perMutator[mu.id]?.edges ?? 0) > 20, `${mu.id} proposed moves`);
   assert.ok(r.worstEdge < 1e-9 && r.worstCycle < 1e-9, `edge ${r.worstEdge}, loop ${r.worstCycle}`);
+});
+
+test("the turn is said as a child would: degrees and the plain fraction of a turn, the pin by where it is (playtest round 23)", () => {
+  const say = (args: Record<string, unknown>) => lensMutators.find(m => m.id === "rot.turn")!.describe(args as never);
+  assert.equal(say({ centre: q(0), turn: q(-1) }), "turn the line 45° (one eighth turn) clockwise around the point where it crosses the y-axis");
+  assert.equal(say({ centre: q(3), turn: "left" }), "turn the line 90° (one quarter turn) around its point straight above or below 3 on the x-axis");
+  assert.equal(say({ centre: "origin", turn: q(3, 4) }), "turn the line about 37° anticlockwise around the origin (0, 0)");
+  // No article "a": the move lists keep single letters for names.
+  for (const t of [q(1), q(-1), q(3, 4), q(1, 2), "left", "right"]) assert.doesNotMatch(say({ centre: "origin", turn: t }), /\b(a|b|k) /);
 });

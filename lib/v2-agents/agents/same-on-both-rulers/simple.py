@@ -67,6 +67,8 @@ def agent(offer):
                 continue
             tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
             tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+            den = 1 - m * k
+            if den != 0: tries.append((move("rot.turn", centre=0, turn=k), (m + k) / den, c))   # turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.

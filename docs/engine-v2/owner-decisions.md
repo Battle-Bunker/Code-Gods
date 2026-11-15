@@ -475,6 +475,34 @@ back) or TRIAL (a declared experiment, measured and reported).
       Prime Landing (ending k, side s) is never seated, nor redrawn by drift, beside Whole Crossing with r ≡ s·k
       (mod 5), where every rung of the one is exact for the other. With r ≢ s·k they pull the landing apart.
 
+24. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator): Whole
+    Crossing is a ladder of 5s on the crossing. Its main part is the level j when the crossing is 5^j × t with t leaving
+    r when divided by 5 (u = j, bigger is better); any other crossing scores −(its distance to the nearest such number),
+    so the old rule (close to a whole number leaving r) is the ground floor. A stretch or zoom by 5 climbs a level
+    (decision 25). Its tie-breaker is gcd(|t| + 1, the gradient's whole part ignoring sign); a stretch to the next level
+    divides the gradient by 5, so the climb starts again. The tie-breakers k-spf, k-gpf and m-spf (and the undealt gcd-c
+    and gcd-num-m) leave it.
+    - **Motivation.** k-spf and k-gpf rewarded a crossing number with big prime factors, exactly Prime Landing's rungs
+      (PMI 2.4–3.6 against every Prime Landing instance), and the old main was a distance with an exact top (row 1);
+      the pool's 71-bit seat was a Whole Crossing seat.
+    - **Effects** (values: about 2.5 bits a level to level 5, r = 1 and 2 within 0.4 bits a level, then +0.5 a level;
+      40 games, drift off): its seats peak at 9 bits; 52% still climbing late, 15% plateaued early, mean gain 216–303
+      across r. Seated with Prime Landing and Treasure (40 games): balance 1.2–1.3, peak seat 16.4 bits. Static PMI
+      against Prime Landing is still 1.3–3.1, from near misses (both pay for the crossing close to one whole number);
+      the seating rule (call 23) stays.
+
+23. **TRIAL** (declared 15 Nov, on the lens worker's pool-dynamics check, docs/engine-v2/scripts/stretch-lens-pool-dynamics.md,
+    following decisions 25, 27 and 28; the owner asked by name for "rotating the line about a point"): `rot.turn` and
+    `basis.zoom` join the beginner line set. `line-q` offers eleven mutators: the turn and the zoom at the price they
+    were measured at (which = log2 20), the nine at log2 10 (Kraft sum 1). `coef.swap`, `basis.lean` and `fold` stay in
+    `lines-lenses`. `coef.swap`'s fee is floored at φ of the dearer number it swaps (in play two swaps in three had
+    gained more than their fee); it joins nothing until a re-measure shows fewer than one swap in ten above its fee.
+    **Amended the same day** (the coordinator): `basis.zoom` is taken out of `line-q` again, the turn stays. Thirty zooms
+    by 7 climbed Prime Landing 227 bits on `lines-lenses` (the spec lead's "no straight hill" check): an easy high peak
+    a player finds by pressing one button. The zoom returns only when that check passes on develop for every dealt
+    family against zoom, stretch and turn. `line-q` offers ten (the turn at log2 20, the nine at log2 (9/0.95));
+    the swap's floor (re-measured: 3% of swaps above their fee) stands.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

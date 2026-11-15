@@ -39,6 +39,10 @@ import { LINE_Q_CODES } from "@workspace/v2-linear";
 /** A rung: its key (knots with one key are on one rung) and its code cost. */
 type Rung = readonly [key: string, cost: number];
 const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, unknown>) => Rung | null>> = {
+  // Whole Crossing: the rung is the level j (the crossing 5^j × t, t leaving r when divided by 5). A level is a level
+  // whatever r: the climb between levels is the same ×5 (a stretch or zoom), so peers are compared level by level on
+  // their bits (cost 0). Subtracting the cheapest y-intercept's code instead over-corrects (t = 1 against t = 2).
+  "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   "smooth-intercept": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));

@@ -5,7 +5,7 @@ import {
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
 import { isqrt as isqrtBig } from "./numbers.ts";
-import { decodeLine, describeLine, encodeLine, fromMC, inDomain, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
+import { decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
 
 export type Args = Readonly<Record<string, Q | string>>;
 
@@ -352,7 +352,20 @@ function reflectLine(l: Line, A: Q, B: Q, C: Q): Line | Invalid {
 }
 /** A rational with no sign: "1/2" for ½. */
 const unsigned = (x: Q) => w(Qn.abs(x));
-const pinWords = (x0: Q) => `its point at x = ${w(x0)}`;
+/** The pin of a turn or a fold, said plainly: where the line crosses the y-axis, or its point above or below x0. */
+const pinWords = (x0: Q) => (Qn.isZero(x0) ? "the point where it crosses the y-axis" : `its point straight above or below ${w(x0)} on the x-axis`);
+/**
+ * A turn's angle as a child would say it (playtest round 23): degrees, with the fraction of a whole turn when there is a
+ * plain one ("90° (one quarter turn)", "45° (one eighth turn)"), else "about 37°" for tan θ = 3/4. No article "a" (the
+ * move lists keep single letters for names).
+ */
+export function turnAngleWords(t: Q | string): string {
+  if (typeof t === "string") return "90° (one quarter turn)";
+  const a = Qn.abs(t);
+  if (Qn.eq(a, Qn.ONE)) return "45° (one eighth turn)";
+  const deg = (Math.atan(Number(a.n) / Number(a.d)) * 180) / Math.PI;
+  return `about ${Math.round(deg)}°`;
+}
 
 /** A turn's centre: the origin, or the pin of the line at x = x0 (1 bit, then x0 by steps). */
 const centre = (d: Domain): Field => {
@@ -379,12 +392,13 @@ const turnField: Field = {
 };
 // About a pin, a quarter turn either way gives the same line (the perpendicular through the pin), so no direction is said.
 const turnWords = (t: Q | string, aboutPin: boolean): string =>
-  typeof t === "string" ? (aboutPin ? "a quarter turn" : `a quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`)
-    : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of a ${unsigned(t)} gradient`;
+  // About a pin either quarter turn gives the same line, so its sense is not said.
+  typeof t === "string" ? (aboutPin ? turnAngleWords(t) : `${turnAngleWords(t)} ${t === "left" ? "anticlockwise" : "clockwise"}`)
+    : `${turnAngleWords(t)} ${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"}`;
 
 export const turn: M = {
-  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line about a point", perSite: true,
-  describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
+  id: "rot.turn", reps: ["cart", "norm"], title: "turn the line around a pin, like a clock hand", perSite: true,
+  describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} around ${a.centre === "origin" ? "the origin (0, 0)" : pinWords(Qa(a, "centre"))}`,
   args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
@@ -416,7 +430,7 @@ export const turn: M = {
 
 const PAIRS = ["m-c", "b-c"] as const;
 export const swap: M = {
-  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation", perSite: true,
+  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation (it costs at least what the dearer of the two costs to write)", perSite: true,
   describe: a => (S(a, "pair") === "m-c" ? "swap the gradient and the y-intercept (y = mx + c becomes y = cx + m)" : "swap b and c in ax + by + c = 0"),
   args: v => fields(baseBits(v, true, "coef.swap"), { pair: oneOf(PAIRS) }),
   apply: (state, site, a, v) => {
@@ -425,6 +439,14 @@ export const swap: M = {
     return replace(state, site, S(a, "pair") === "m-c" ? normalise(C, B, A) : normalise(A, C, B), v);
   },
   inverse: { kind: "self" },
+  // Swapping two numbers keeps every digit, so Δφ is about 0 and a swap was nearly free: in play two swaps in three gained
+  // more than their fee (coordinator's call 23, 15 Nov). Its fee is at least φ of the dearer number it swaps, each read
+  // with line-q's code for a and c (the mixed code, LINE_Q_CODES.c), from both lines (the same pair, so the same floor
+  // for the swap back).
+  floor: (before, after, site, a) => Math.max(...[before, after].flatMap(s => {
+    const l = s.lines[site]!;
+    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => LINE_Q_CODES.c.bits(n));
+  })),
 };
 
 export const lean: M = {
@@ -441,8 +463,8 @@ export const lean: M = {
 };
 
 export const zoom: M = {
-  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom in or out from the origin", perSite: true,
-  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin (both crossings × ${w(Qa(a, "f"))}, same gradient)`,
+  id: "basis.zoom", reps: ["tri", "norm"], title: "zoom the line away from the origin or towards it, keeping its steepness", perSite: true,
+  describe: a => `zoom by ${w(Qa(a, "f"))} from the origin: where the line crosses each axis moves × ${w(Qa(a, "f"))}, and it keeps its steepness`,
   args: v => fields(baseBits(v, true, "basis.zoom"), {}, factor),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
@@ -531,7 +553,7 @@ export const fold: M = {
   describe: a => {
     if (typeof a.mirror === "string") return `reflect the line in the mirror ${describeLine(decodeLine(S(a, "mirror")))}`;
     const s = Qa(a, "s");
-    return `fold the line in a ${Qn.isZero(s) ? "level crease" : `crease of gradient ${w(s)}`} through ${pinWords(Qa(a, "x0"))}`;
+    return `fold the line along ${Qn.isZero(s) ? "the level crease" : `the crease of gradient ${w(s)}`} through ${pinWords(Qa(a, "x0"))}`;
   },
   args: foldArgs,
   apply: (state, site, a, v) => {

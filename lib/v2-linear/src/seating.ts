@@ -3,11 +3,12 @@
  * rule is lib/v2-grid seating.ts). Two seated rules that reward the same number in the same direction, with nothing in
  * tension, are the 14 November failure (two rules raised by one move).
  *
- * Prime Landing and Whole Crossing read the same number, where the line crosses the x-axis. Whole Crossing wants it
- * near a whole number leaving r when divided by 5; Prime Landing (ending k, side s) wants it to round to s·p for a prime
- * p ending in k, so on Prime Landing's rungs X ≡ s·k (mod 5). When r ≡ s·k (mod 5), every rung of the one is exact for
- * the other and climbing it keeps the other exact: an aligned pair, forbidden. When r ≢ s·k they pull the landing
- * apart (a rung is never exact for Whole Crossing), which is the tension the pool wants.
+ * Prime Landing and Whole Crossing read the same number, where the line crosses the x-axis. Whole Crossing wants it on
+ * 5^j × t with t leaving r when divided by 5 (level j, the higher the better); Prime Landing (ending k, side s) wants it
+ * to round to s·p for a prime p ending in k, so on Prime Landing's rungs X ≡ s·k (mod 5), on Whole Crossing's ground
+ * level when r ≡ s·k. Then every rung of the one holds the other's ground level and climbing it keeps it there: an
+ * aligned pair, forbidden. When r ≢ s·k a rung is off Whole Crossing's ladder; and its levels above 0 (multiples of
+ * 5) are never Prime Landing's rungs, so the two climbs pull the landing apart.
  */
 /** A seated rule as the seating rule reads it: its family and, where known, its dealt parameters. */
 export interface SeatedRule { readonly family: string; readonly params?: unknown }

@@ -18,6 +18,8 @@ export interface Lens {
   readonly pre?: { readonly ts: string; readonly py: string };
   /** The families whose rule parameters the move uses (the move is only offered to them). */
   readonly only?: readonly string[];
+  /** A condition (both languages) under which the move is tried; it is skipped otherwise (the engine would refuse it). */
+  readonly when?: { readonly ts: string; readonly py: string };
 }
 
 export const LENSES = {
@@ -42,6 +44,25 @@ export const LENSES = {
     comment: "multiply every output by f (m and c both)",
     pre: { ts: "const f = k > 0 ? k + 1 : k - 1;", py: "f = k + 1 if k > 0 else k - 1" },
     ts: `[move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]`, py: `(move("mach.stretch", f=f), m * f, c * f)`,
+  },
+  // The beginner lenses (coordinator's call 23, 15 Nov): offered only where they serve the main part, so the other
+  // families' Thorough starters keep their QUOTES for their own moves.
+  zoom: {
+    comment: "zoom from the origin by f: the y-intercept times f, the same gradient",
+    // The same factor as the stretch's (one line in the loop when both are tried).
+    pre: { ts: "const f = k > 0 ? k + 1 : k - 1;", py: "f = k + 1 if k > 0 else k - 1" },
+    when: { ts: "!Q.isZero(c)", py: "c != 0" },   // through the origin a zoom changes nothing
+    ts: `[move("basis.zoom", { f }), m, Q.mul(c, f)]`, py: `(move("basis.zoom", f=f), m, c * f)`,
+    // Offered to no family while basis.zoom is out of line-q (a straight hill on Prime Landing, 15 Nov); it returns to
+    // Smooth Intercept and Divisibility Ladder with the zoom.
+    only: [],
+  },
+  turn: {
+    comment: "turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)",
+    pre: { ts: "const den = Q.sub(1, Q.mul(m, k));", py: "den = 1 - m * k" },
+    when: { ts: "!Q.isZero(den)", py: "den != 0" },   // a turn that would stand the line upright is refused
+    ts: `[move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]`, py: `(move("rot.turn", centre=0, turn=k), (m + k) / den, c)`,
+    only: ["prime-gradient", "same-on-both-rulers"],
   },
 } satisfies Record<string, Lens>;
 export type LensId = keyof typeof LENSES;
@@ -95,6 +116,7 @@ const neg = (ts: string) => `Q.neg(${ts})`;
 export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "prime-gradient",
+    simple: ["shift", "tilt", "turn"],
     mainSays: "how far the gradient is from the nearest prime ending in the rule's digit (closer is better)",
     main: {
       ts: [
@@ -394,31 +416,44 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     family: "prime-landing",
     rungs: {
       ts: [
-        "// The next rung up (the ladder has no top): the next prime ending in p.ends beyond where it lands, by a small tilt",
-        "// that keeps the y-intercept (m = -c/X), or by a shift that keeps the gradient (c = -mX).",
+        "// Rungs (the ladder has no top): the nearest prime ending in p.ends, if the line does not round there yet, and",
+        "// the next one beyond it. For each, the simplest gradient that lands there keeping c, and the simplest",
+        "// y-intercept that lands there keeping m: anywhere that rounds to the rung will do.",
         "if (!Q.isZero(m) && !Q.isZero(c)) {",
-        "  const x = Q.mul(p.side ?? 1, Q.neg(Q.div(c, m)));",
-        "  for (let t = Q.add(near(x, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) {",
-        "    const to = Q.mul(p.side ?? 1, t);             // the landing that rounds to it (minus it, on the mirror)",
-        "    tries.push([move(\"si.tilt\", { k: Q.sub(Q.neg(Q.div(c, to)), m) }), Q.neg(Q.div(c, to)), c]);",
-        "    tries.push([move(\"si.shift\", { k: Q.sub(Q.neg(Q.mul(m, to)), c) }), m, Q.neg(Q.mul(m, to))]);",
-        "    break;",
+        "  const s = p.side ?? 1, x = Q.mul(s, Q.neg(Q.div(c, m))), here = near(x, prime, p.ends);",
+        "  let next = null;",
+        "  for (let t = Q.add(here, 10), i = 0; i < 100 && next === null; t = Q.add(t, 10), i++) if (prime(t)) next = t;",
+        "  for (const r of [here, next]) {",
+        "    if (r === null) continue;",
+        "    const a = Q.mul(s, Q.sub(r, Q.of(49, 100))), b = Q.mul(s, Q.add(r, Q.of(49, 100)));   // landings that round to r",
+        "    const m2 = simplest(Q.neg(Q.div(c, a)), Q.neg(Q.div(c, b))), c2 = simplest(Q.neg(Q.mul(m, a)), Q.neg(Q.mul(m, b)));",
+        "    if (!Q.eq(m2, m)) tries.push([move(\"si.tilt\", { k: Q.sub(m2, m) }), m2, c]);",
+        "    if (!Q.eq(c2, c)) tries.push([move(\"si.shift\", { k: Q.sub(c2, c) }), m, c2]);",
         "  }",
         "}",
       ],
       py: [
-        "# The next rung up (the ladder has no top): the next prime ending in p[\"ends\"] beyond where it lands, by a small tilt",
-        "# that keeps the y-intercept (m = -c/X), or by a shift that keeps the gradient (c = -mX).",
+        "# Rungs (the ladder has no top): the nearest prime ending in p[\"ends\"], if the line does not round there yet, and",
+        "# the next one beyond it. For each, the simplest gradient that lands there keeping c, and the simplest",
+        "# y-intercept that lands there keeping m: anywhere that rounds to the rung will do.",
         "if m != 0 and c != 0:",
-        "    x = p.get(\"side\", 1) * (-c / m)",
-        "    t = near(x, prime, p[\"ends\"]) + 10",
+        "    s = p.get(\"side\", 1)",
+        "    here = near(s * (-c / m), prime, p[\"ends\"])",
+        "    t, nxt = here + 10, None",
         "    for _ in range(100):",
         "        if prime(t):",
-        "            to = p.get(\"side\", 1) * t          # the landing that rounds to it (minus it, on the mirror)",
-        "            tries.append((move(\"si.tilt\", k=-c / to - m), -c / to, c))",
-        "            tries.append((move(\"si.shift\", k=-m * to - c), m, -m * to))",
+        "            nxt = t",
         "            break",
         "        t += 10",
+        "    for r in (here, nxt):",
+        "        if r is None:",
+        "            continue",
+        "        a, b = s * (r - Fraction(49, 100)), s * (r + Fraction(49, 100))   # landings that round to r",
+        "        m2, c2 = simplest(-c / a, -c / b), simplest(-m * a, -m * b)",
+        "        if m2 != m:",
+        "            tries.append((move(\"si.tilt\", k=m2 - m), m2, c))",
+        "        if c2 != c:",
+        "            tries.append((move(\"si.shift\", k=c2 - c), m, c2))",
       ],
     },
     mainSays: "the prime ending in the rule's digit that where the line lands on the x-axis rounds to (bigger is better: a ladder with no top), else minus how far it is from rounding to one",
@@ -465,6 +500,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "same-on-both-rulers",
+    simple: ["shift", "tilt", "turn"],
     thorough: ["shift", "tilt", "step", "turnAtT"],   // all of them would not fit the starting energy beside these tie-breakers
     mainSays: "how far the number the machine leaves unchanged is from T (closer is better)",
     main: {
@@ -524,68 +560,119 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "whole-crossing",
-    mainSays: "how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better)",
+    // A stretch or zoom by 5 takes a level to the next (decision 25's shortcut).
+    simple: ["shift", "tilt", "stretch"],
+    rungs: {
+      ts: [
+        "// The next level up (the ladder has no top): the nearest number with one more 5, by a shift that keeps the gradient.",
+        "if (!Q.isZero(m)) {",
+        "  const x = Q.neg(Q.div(c, m));",
+        "  let s = Q.of(5); while (Q.cmp(Q.abs(Q.div(x, s)), 1) > 0 && Q.isInteger(Q.div(x, s))) s = Q.mul(s, 5);   // one more 5 than x holds",
+        "  const t = Q.add(p.r, Q.mul(5, whole(Q.div(Q.sub(Q.div(x, s), p.r), 5)))), to = Q.mul(s, t);",
+        "  tries.push([move(\"si.shift\", { k: Q.sub(Q.neg(Q.mul(m, to)), c) }), m, Q.neg(Q.mul(m, to))]);",
+        "}",
+      ],
+      py: [
+        "# The next level up (the ladder has no top): the nearest number with one more 5, by a shift that keeps the gradient.",
+        "if m != 0:",
+        "    x, s = -c / m, 5",
+        "    while abs(x / s) > 1 and (x / s).denominator == 1:   # one more 5 than x holds",
+        "        s *= 5",
+        "    to = s * (p[\"r\"] + 5 * whole((x / s - p[\"r\"]) / 5))",
+        "    tries.append((move(\"si.shift\", k=-m * to - c), m, -m * to))",
+      ],
+    },
+    mainSays: "how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number",
     main: {
       ts: [
         "if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score",
-        "const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis",
-        "const t = Q.div(Q.sub(x, p.r), p.q), j = whole(t);",
-        "let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest",
-        "if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);",
-        `const main = ${neg("Q.abs(Q.sub(x, k))")};`,
-        "const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)",
+        "const x = Q.neg(Q.div(c, m))                         // where y = mx + c crosses the x-axis;",
+        "// The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, … times t). The nearest such number, any level,",
+        "// in whole numbers: x = n/dd, and every distance is counted in 1/dd.",
+        "const n = x.n, dd = x.d, r = BigInt(p.r), ab = v => (v < 0n ? -v : v), fl = (a, b) => (a - (((a % b) + b) % b)) / b;   // fl: rounded down",
+        "let best = null;",
+        "for (let j = 0, s = 1n; ; j++, s *= 5n) {",
+        "  const D = dd * s;",
+        "  let t = r + 5n * fl(2n * (n - r * D) + 5n * D, 10n * D);   // the nearest t leaving r at this level (halfway: up)",
+        "  if (2n * (t * D - n) === 5n * D && ab(t - 5n) <= ab(t)) t -= 5n;   // halfway: the smaller",
+        "  const dist = ab(n - s * t * dd);                 // the nearer wins; on a tie the higher level",
+        "  if (best === null || dist <= best.dist) best = { j, t, dist };",
+        "  if (s * dd - ab(n) > best.dist) break;           // every further level is farther",
+        "}",
+        "const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all",
       ],
       py: [
         "if m == 0:                                      # a flat line never crosses: the worst score",
         "    return None",
-        "x = -c / m                                      # where y = mx + c crosses the x-axis",
-        "t = (x - p[\"r\"]) / p[\"q\"]",
-        "j = whole(t)",
-        "k = p[\"r\"] + p[\"q\"] * j   # the dealt number nearest",
-        "if 2 * (j - t) == 1 and abs(k - p[\"q\"]) <= abs(k):",
-        "    k = k - p[\"q\"]",
-        "main = -abs(x - k)",
-        "fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)",
+        "x = -c / m                                     # where y = mx + c crosses the x-axis",
+        "# The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, ... times t). The nearest such number, any level,",
+        "# in whole numbers: x = n/dd, and every distance is counted in 1/dd.",
+        "n, dd, r = x.numerator, x.denominator, p[\"r\"]",
+        "best, j, s = None, 0, 1",
+        "while True:",
+        "    D = dd * s",
+        "    t = r + 5 * ((2 * (n - r * D) + 5 * D) // (10 * D))   # the nearest t leaving r at this level (halfway: up)",
+        "    if 2 * (t * D - n) == 5 * D and abs(t - 5) <= abs(t):   # halfway: the smaller",
+        "        t -= 5",
+        "    dist = abs(n - s * t * dd)                  # the nearer wins; on a tie the higher level",
+        "    if best is None or dist <= best[2]:",
+        "        best = (j, t, dist)",
+        "    if s * dd - abs(n) > best[2]:               # every further level is farther",
+        "        break",
+        "    j, s = j + 1, s * 5",
+        "main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all",
       ],
     },
     vertical: {
       main: {
         ts: [
-          "const t = Q.div(Q.sub(c, p.r), p.q), j = whole(t);",
-          "let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest",
-          "if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);",
-          "const main = Q.neg(Q.abs(Q.sub(c, k)));",
-          "const fk = factors(k);                          // its prime factors, smallest first",
+          "const x = c                                          // it stands on the x-axis at x = c;",
+          "// The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, … times t). The nearest such number, any level,",
+          "// in whole numbers: x = n/dd, and every distance is counted in 1/dd.",
+          "const n = x.n, dd = x.d, r = BigInt(p.r), ab = v => (v < 0n ? -v : v), fl = (a, b) => (a - (((a % b) + b) % b)) / b;   // fl: rounded down",
+          "let best = null;",
+          "for (let j = 0, s = 1n; ; j++, s *= 5n) {",
+          "  const D = dd * s;",
+          "  let t = r + 5n * fl(2n * (n - r * D) + 5n * D, 10n * D);   // the nearest t leaving r at this level (halfway: up)",
+          "  if (2n * (t * D - n) === 5n * D && ab(t - 5n) <= ab(t)) t -= 5n;   // halfway: the smaller",
+          "  const dist = ab(n - s * t * dd);                 // the nearer wins; on a tie the higher level",
+          "  if (best === null || dist <= best.dist) best = { j, t, dist };",
+          "  if (s * dd - ab(n) > best.dist) break;           // every further level is farther",
+          "}",
+          "const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all",
         ],
         py: [
-          "t = (c - p[\"r\"]) / p[\"q\"]",
-          "j = whole(t)",
-          "k = p[\"r\"] + p[\"q\"] * j   # the dealt number nearest",
-          "if 2 * (j - t) == 1 and abs(k - p[\"q\"]) <= abs(k):",
-          "    k = k - p[\"q\"]",
-          "main = -abs(c - k)",
-          "fk = factors(k)                                 # its prime factors, smallest first",
+          "x = c                                          # it stands on the x-axis at x = c",
+          "# The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, ... times t). The nearest such number, any level,",
+          "# in whole numbers: x = n/dd, and every distance is counted in 1/dd.",
+          "n, dd, r = x.numerator, x.denominator, p[\"r\"]",
+          "best, j, s = None, 0, 1",
+          "while True:",
+          "    D = dd * s",
+          "    t = r + 5 * ((2 * (n - r * D) + 5 * D) // (10 * D))   # the nearest t leaving r at this level (halfway: up)",
+          "    if 2 * (t * D - n) == 5 * D and abs(t - 5) <= abs(t):   # halfway: the smaller",
+          "        t -= 5",
+          "    dist = abs(n - s * t * dd)                  # the nearer wins; on a tie the higher level",
+          "    if best is None or dist <= best[2]:",
+          "        best = (j, t, dist)",
+          "    if s * dd - abs(n) > best[2]:               # every further level is farther",
+          "        break",
+          "    j, s = j + 1, s * 5",
+          "main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all",
         ],
       },
-      defined: ["k-spf", "k-gpf"],
     },
     tieBreakers: {
-      "k-spf": {
-        ts: "fk[0] ?? 1", py: "fk[0] if fk else 1", says: "that whole number's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach crossings further out?",
-      },
-      "k-gpf": {
-        ts: "fk.at(-1) ?? 1", py: "fk[-1] if fk else 1", says: "that whole number's largest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"tilt\" line: moving the line up and down alone walks the crossing in steps of 1/m.",
-      },
-      "m-spf": {
-        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less (a step of n costs more than n steps of 1); does it still climb?",
+      "shared-factor": {
+        pre: { ts: ["const t1 = (best.t < 0n ? -best.t : best.t) + 1n, wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // |t| + 1, and the gradient's whole part ignoring sign"], py: ["t1, wm = abs(best[1]) + 1, whole(abs(m) - Fraction(1, 2))   # |t| + 1, and the gradient's whole part ignoring sign"] },
+        ts: "common(t1, wm)", py: "common(t1, wm)", says: "take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: a stretch by 5 divides the gradient by 5; does the factor start again?",
       },
     },
   },
   {
     family: "divisibility-ladder",
+    simple: ["shift", "tilt"],
     mainSays: "how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)",
     main: {
       ts: [

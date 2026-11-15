@@ -12,7 +12,7 @@
  * really makes; `MoveSketch` draws it. Any other move draws nothing (null): its own view already shows it.
  */
 import { Qn, q, type Q } from "@workspace/v2-core";
-import type { Line } from "@workspace/v2-linear";
+import { turnAngleWords, type Line } from "@workspace/v2-linear";
 import { fmtQ, MINUS } from "./format.ts";
 import { clipLine, fitViewport, type XY } from "./plot/viewport.ts";
 
@@ -90,7 +90,9 @@ function turnSketch(before: Line, after: Line, a: SketchCall["args"]): Sketch | 
   if (!quarter && !t) return null;
   const ccw = quarter ? a.turn === "left" : Qn.sign(t!) > 0;
   const sweep = quarter ? Math.PI / 2 : Math.atan(Math.abs(N(t!)));
-  const angle = quarter ? "a quarter turn (a right angle)" : `the angle of a ${fmtQ(Qn.abs(t!))} gradient (the slope of a line that goes ${riseRun(t!)})`;
+  // The angle as the log note says it (turnAngleWords: "45° (one eighth turn)", "about 37°"), and the slope it matches.
+  const angle = quarter ? `${turnAngleWords(a.turn!)}, a right angle` : `${turnAngleWords(t!)} (the angle of a slope that goes ${riseRun(t!)})`;
+  const arcLabel = quarter ? "¼ turn" : turnAngleWords(t!).replace(/^about /, "≈").replace(/ \(.*\)$/, "");
   const sense = ccw ? "anticlockwise" : "clockwise";
   const slopeNow = slopeOf(after);
   const ends = slopeNow ? ` Now the line goes ${slopeNow.n < 0n ? "down" : "up"} ${fmtQ(Qn.abs(slopeNow))} for every 1 across: ${lineWords(after)}.` : ` Now it stands upright: ${lineWords(after)}.`;
@@ -102,8 +104,8 @@ function turnSketch(before: Line, after: Line, a: SketchCall["args"]): Sketch | 
       kind: "turn", before, after,
       points: [{ ...O, role: "origin", label: "O" }],
       guides: [{ role: "perp", from: O, to: f0 }, { role: "perp", from: O, to: f1 }],
-      arc: { centre: O, start: Math.atan2(f0.y, f0.x), sweep, ccw, label: quarter ? "¼ turn" : `${fmtQ(Qn.abs(t!))} gradient's angle` },
-      words: `Turn the whole line around the origin O, like a clock hand pinned at O, ${quarter ? "a quarter turn" : `by ${angle}`}, ${sense}. The line stays the same distance from O: the two dotted lines from O are the same length.${ends}`,
+      arc: { centre: O, start: Math.atan2(f0.y, f0.x), sweep, ccw, label: arcLabel },
+      words: `Turn the whole line around the origin O, like a clock hand pinned at O, ${quarter ? turnAngleWords(a.turn!) : `by ${angle}`}, ${sense}. The line stays the same distance from O: the two dotted lines from O are the same length.${ends}`,
     };
   }
   const x0 = parse(a.centre);
@@ -114,7 +116,7 @@ function turnSketch(before: Line, after: Line, a: SketchCall["args"]): Sketch | 
     kind: "turn", before, after,
     points: [{ ...pt(x0, y0), role: "pin", label: at(x0, y0) }],
     guides: [],
-    arc: { centre: pt(x0, y0), start: dirAngle(before), sweep, ccw: quarter ? true : ccw, label: quarter ? "¼ turn" : `${fmtQ(Qn.abs(t!))} gradient's angle` },
+    arc: { centre: pt(x0, y0), start: dirAngle(before), sweep, ccw: quarter ? true : ccw, label: arcLabel },
     words: `Stick a pin in the line at ${at(x0, y0)} and turn the line around it${quarter ? `, ${angle}` : `, ${sense}, by ${angle}`}. The pin stays put.${ends}`,
   };
 }

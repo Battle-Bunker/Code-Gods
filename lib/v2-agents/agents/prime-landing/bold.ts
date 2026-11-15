@@ -58,15 +58,19 @@ function agent(offer) {
         if (j !== 0) tries.push([[move("si.shift", { k }), move("si.tilt", { k: j })], Q.add(m, j), Q.add(c, k)]);
       }
     }
-    // The next rung up (the ladder has no top): the next prime ending in p.ends beyond where it lands, by a small tilt
-    // that keeps the y-intercept (m = -c/X), or by a shift that keeps the gradient (c = -mX).
+    // Rungs (the ladder has no top): the nearest prime ending in p.ends, if the line does not round there yet, and
+    // the next one beyond it. For each, the simplest gradient that lands there keeping c, and the simplest
+    // y-intercept that lands there keeping m: anywhere that rounds to the rung will do.
     if (!Q.isZero(m) && !Q.isZero(c)) {
-      const x = Q.mul(p.side ?? 1, Q.neg(Q.div(c, m)));
-      for (let t = Q.add(near(x, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) {
-        const to = Q.mul(p.side ?? 1, t);             // the landing that rounds to it (minus it, on the mirror)
-        tries.push([move("si.tilt", { k: Q.sub(Q.neg(Q.div(c, to)), m) }), Q.neg(Q.div(c, to)), c]);
-        tries.push([move("si.shift", { k: Q.sub(Q.neg(Q.mul(m, to)), c) }), m, Q.neg(Q.mul(m, to))]);
-        break;
+      const s = p.side ?? 1, x = Q.mul(s, Q.neg(Q.div(c, m))), here = near(x, prime, p.ends);
+      let next = null;
+      for (let t = Q.add(here, 10), i = 0; i < 100 && next === null; t = Q.add(t, 10), i++) if (prime(t)) next = t;
+      for (const r of [here, next]) {
+        if (r === null) continue;
+        const a = Q.mul(s, Q.sub(r, Q.of(49, 100))), b = Q.mul(s, Q.add(r, Q.of(49, 100)));   // landings that round to r
+        const m2 = simplest(Q.neg(Q.div(c, a)), Q.neg(Q.div(c, b))), c2 = simplest(Q.neg(Q.mul(m, a)), Q.neg(Q.mul(m, b)));
+        if (!Q.eq(m2, m)) tries.push([move("si.tilt", { k: Q.sub(m2, m) }), m2, c]);
+        if (!Q.eq(c2, c)) tries.push([move("si.shift", { k: Q.sub(c2, c) }), m, c2]);
       }
     }
     tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds

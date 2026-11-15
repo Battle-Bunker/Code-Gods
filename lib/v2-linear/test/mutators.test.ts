@@ -11,7 +11,8 @@ const after = (v: Variant, s: ReturnType<typeof mc>, mutator: string, args: Reco
 };
 
 test("each mutator's effect and price on worked examples (spec §12.4)", () => {
-  const which = Math.log2(9);
+  // line-z offers the nine (log2 9 each); line-q adds the turn, and the nine pay log2 (9 / 0.95) there.
+  const which = Math.log2(9), whichQ = Math.log2(9 / 0.95);
   const phi = (st: ReturnType<typeof mc>, v: Variant) => lineType.readLength(st, v);
   const up = (from: ReturnType<typeof mc>, to: ReturnType<typeof mc>, v: Variant) => Math.max(0, phi(to, v) - phi(from, v));
   // A sized call's whole fee is rate(o)·size, o the bits of the rest of the call (v2-core codes.ts, far moves are dear).
@@ -26,15 +27,15 @@ test("each mutator's effect and price on worked examples (spec §12.4)", () => {
   assert.equal(after(lineZ, mc(2, 1), "cart.slide", { u: "1", v: "0" }), "y = 2x - 1 @ " + (rate(which, 2) + up(mc(2, 1), mc(2, -1), lineZ)).toFixed(2));
   assert.equal(after(lineZ, mc(2, 1), "cart.mirror", { axis: "x" }), "y = -2x - 1 @ " + (which + 2 + up(mc(2, 1), mc(-2, -1), lineZ)).toFixed(2));
   assert.equal(after(lineZ, mc(2, 1), "cart.mirror", { axis: "diagonal" }), "this board only has whole-number gradients and intercepts");
-  assert.equal(after(lineQ, abc(0, 1, -3), "cart.mirror", { axis: "diagonal" }), "x = 3 @ " + (which + 2 + up(abc(0, 1, -3), abc(1, 0, -3), lineQ)).toFixed(2));
+  assert.equal(after(lineQ, abc(0, 1, -3), "cart.mirror", { axis: "diagonal" }), "x = 3 @ " + (whichQ + 2 + up(abc(0, 1, -3), abc(1, 0, -3), lineQ)).toFixed(2));
   // Multiplicative moves pay for their digits: rate·log2(|p|·q), so a factor costs what its prime factors cost in turn.
   const f = factorCode(which).rate;
   assert.equal(after(lineZ, mc(2, 2), "mach.stretch", { f: "1/2" }), "y = x + 1 @ " + f.toFixed(2));
   assert.equal(after(lineZ, mc(4, 8), "mach.stretch", { f: "6" }), "y = 24x + 48 @ " + (f * Math.log2(6) + up(mc(4, 8), mc(24, 48), lineZ)).toFixed(2));
-  assert.equal(after(lineQ, mc(2, 1), "gen.nudge", { which: "b", k: "1" }), "y = x + 1/2 @ " + (rate(which + Math.log2(3)) + up(mc(2, 1), mc(1, Qn.q(1, 2)), lineQ)).toFixed(2));
-  assert.equal(after(lineQ, mc(1, 4), "int.move", { axis: "x", k: "2" }), "y = 2x + 4 @ " + (2 * rate(which + 1, 1, true) + up(mc(1, 4), mc(2, 4), lineQ)).toFixed(2));
+  assert.equal(after(lineQ, mc(2, 1), "gen.nudge", { which: "b", k: "1" }), "y = x + 1/2 @ " + (rate(whichQ + Math.log2(3)) + up(mc(2, 1), mc(1, Qn.q(1, 2)), lineQ)).toFixed(2));
+  assert.equal(after(lineQ, mc(1, 4), "int.move", { axis: "x", k: "2" }), "y = 2x + 4 @ " + (2 * rate(whichQ + 1, 1, true) + up(mc(1, 4), mc(2, 4), lineQ)).toFixed(2));
   // On line-q a fraction pays for its denominator: k = 1/2 has size 2, k = 3/2 size 4.
-  assert.equal(after(lineQ, s, "si.shift", { k: "3/2" }), `y = x + 13/2 @ ${(4 * rate(which, 1, true) + up(s, mc(1, Qn.q(13, 2)), lineQ)).toFixed(2)}`);
+  assert.equal(after(lineQ, s, "si.shift", { k: "3/2" }), `y = x + 13/2 @ ${(4 * rate(whichQ, 1, true) + up(s, mc(1, Qn.q(13, 2)), lineQ)).toFixed(2)}`);
 });
 
 test("far moves are dear: a call's fee is exactly its size times the fee of a unit move", () => {
