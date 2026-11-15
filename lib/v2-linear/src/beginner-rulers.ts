@@ -138,10 +138,10 @@ const palindromes = (p: PD) => {
   return `${m}a number reading the same backwards with an ${p.digits} number of digits, like ${e}${a} or ${e}${b}`;
 };
 const rulersShape: Shape<PD> = {
-  main: { ...more<PD>("palindrome", "the unchanged number on as big a palindrome as possible", "", "mach"),
+  main: { ...more<PD>("palindrome", "where the line meets y = x, on as big a number reading the same backwards as possible", "", "mach"),
     sentence: p => `Where the line meets y = x should round to ${palindromes(p)}. Bigger is better.` },
   tieBreakers: [
-    more<PD>("shared-factor", "the biggest number dividing both the palindrome's digit sum and the gradient's whole part",
+    more<PD>("shared-factor", "the biggest number dividing both that number's digits added up and the gradient's whole part",
       "That number's digits added up and the gradient's whole part should share the biggest factor possible.", "si"),
   ],
 };
@@ -150,7 +150,7 @@ export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same o
   const vx = verticalAt(ctx);
   if (vx) {
     const { t, u } = palindromeRung(flipR(p, vx.x), p.digits);
-    return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}: ${Qn.sign(u) > 0 ? "on" : "near"} ${p.side === -1 ? "minus " : ""}${t}`, u, vx.from);
+    return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}, ${Qn.sign(u) > 0 ? "which rounds to" : "nearest"} ${p.side === -1 ? "−" : ""}${t} (reads the same backwards)`, u, vx.from);
   }
   const fRef = ref("mach", "fixed");
   const fv = ctx.read(fRef);
@@ -159,8 +159,8 @@ export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same o
   const mRef = ref("si", "m");
   const wm = Qn.floor(Qn.abs(num(ctx.read(mRef))!));   // the whole part of |m|: the mirror (m, c) → (m, −c) keeps it
   const { t, u } = palindromeRung(flipR(p, f), p.digits), sum = digitSum(t), g = wm === 0n ? 0n : gcd(sum, wm);
-  const minus = p.side === -1 ? "minus " : "";
-  ctx.term("palindrome", Qn.sign(u) > 0 ? `the unchanged number ${Qn.toWire(f)} rounds to ${minus}the palindrome ${t}` : `the unchanged number ${Qn.toWire(f)} is ${Qn.toWire(Qn.abs(Qn.sub(flipR(p, f), q(t))))} from ${minus}the palindrome ${t}`, u, [fRef]);
+  const near = `${p.side === -1 ? "−" : ""}${t} (reads the same backwards)`;
+  ctx.term("palindrome", Qn.sign(u) > 0 ? `meets y = x at ${Qn.toWire(f)}, which rounds to ${near}` : `meets y = x at ${Qn.toWire(f)}, ${Qn.toWire(Qn.abs(Qn.sub(flipR(p, f), q(t))))} from ${near}`, u, [fRef]);
   ctx.term("shared-factor", `${t}'s digits add up to ${sum}; the gradient's whole part is ${wm}: the biggest number dividing both is ${g}`, q(g), [fRef, mRef]);
   ctx.mark({ kind: "focus", ref: fRef });
 }), rulersWitness);
