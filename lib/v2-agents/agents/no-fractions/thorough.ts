@@ -1,5 +1,5 @@
 // Divide By · Thorough
-// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by shares a factor with your next power).
+// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by near a multiple of your next power).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -14,8 +14,8 @@ function score(L, p, tie) {
   const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
   const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
-  if (tie === "numerator-step") return [main, Q.neg(offMultiple(nx, N))];   // x times the number you divide by near a multiple of k times your power reached (not 0) is better
-  if (tie === "numerator-power") return [main, common(ny, N)];   // y times the number you divide by sharing a big factor with k times your power reached is better
+  if (tie === "numerator-step") return [main, Q.neg(Q.div(offMultiple(nx, N), Q.of(N)))];   // x times the number you divide by near a multiple of k times your power reached (not 0) is better
+  if (tie === "numerator-power") return [main, Q.neg(Q.div(offMultiple(ny, N), Q.of(N)))];   // y times the number you divide by near a multiple of k times your power reached (not 0) is better
   return [main];
 }
 

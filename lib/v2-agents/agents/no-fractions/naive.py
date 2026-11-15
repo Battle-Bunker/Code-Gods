@@ -1,5 +1,5 @@
 # Divide By · Naive (for learning)
-# Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by shares a factor with your next power).
+# Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by near a multiple of your next power).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -16,9 +16,9 @@ def score(L, p, tie):
     lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
     # main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
     if tie == "numerator-step":   # x times the number you divide by near a multiple of k times your power reached (not 0) is better
-        return [main, -off_multiple(nx, N)]
-    if tie == "numerator-power":   # y times the number you divide by sharing a big factor with k times your power reached is better
-        return [main, common(ny, N)]
+        return [main, -off_multiple(nx, N) / N]
+    if tie == "numerator-power":   # y times the number you divide by near a multiple of k times your power reached (not 0) is better
+        return [main, -off_multiple(ny, N) / N]
     return [main]
 
 

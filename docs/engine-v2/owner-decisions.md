@@ -705,7 +705,8 @@ back) or TRIAL (a declared experiment, measured and reported).
       a factor". Those tie-breakers became "near a multiple", whose distance grows with the same stretch.
     - **The new tie-breakers.**
       - Whole Answer: D near a multiple of y's number; x near a multiple of y.
-      - Divide By: x·D near a multiple of N; y·D shares a factor with N.
+      - Divide By: x·D and y·D near a multiple of N, each as a share of N. A whole-number relation to N is about
+        log₂ k rarer for a bigger k, which made peers unequal by 3.85 bits.
       - Right Angle: the corner's x near a multiple of its y; its y shares a factor with the steeper gradient.
       - Forty-Five: |x| + |y| shares a factor with D; the y-intercepts' gap near a multiple of |x| + |y|.
       - Gap Ratio: D shares a factor with N; the y-intercepts' gap near a multiple of N.

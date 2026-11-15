@@ -1,5 +1,5 @@
 # Divide By · Bold
-# Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by shares a factor with your next power).
+# Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (x times the number you divide by near a multiple of your next power; y times the number you divide by near a multiple of your next power).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -17,9 +17,9 @@ def score(L, p, tie):
     lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
     # main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
     if tie == "numerator-step":   # x times the number you divide by near a multiple of k times your power reached (not 0) is better
-        return [main, -off_multiple(nx, N)]
-    if tie == "numerator-power":   # y times the number you divide by sharing a big factor with k times your power reached is better
-        return [main, common(ny, N)]
+        return [main, -off_multiple(nx, N) / N]
+    if tie == "numerator-power":   # y times the number you divide by near a multiple of k times your power reached (not 0) is better
+        return [main, -off_multiple(ny, N) / N]
     return [main]
 
 

@@ -1,5 +1,5 @@
-# Divide By · Example: y times the number you divide by shares a factor with your next power
-# Main part: the number you divide by on your powers. Tie-breaker: y times the number you divide by shares a factor with your next power.
+# Divide By · Example: y times the number you divide by near a multiple of your next power
+# Main part: the number you divide by on your powers. Tie-breaker: y times the number you divide by near a multiple of your next power.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -14,7 +14,7 @@ def score(L, p):
     main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
     lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
-    return [main, common(ny, N)]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: y times the number you divide by sharing a big factor with k times your power reached is better
+    return [main, -off_multiple(ny, N) / N]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: y times the number you divide by near a multiple of k times your power reached (not 0) is better
 
 
 FAR = 3      # how far one move may go

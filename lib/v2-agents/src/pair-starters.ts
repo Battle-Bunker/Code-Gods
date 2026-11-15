@@ -64,8 +64,8 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators", POWER_N.py],
     },
     tieBreakers: {
-      "numerator-step": T("Q.neg(offMultiple(nx, N))", "-off_multiple(nx, N)", "x times the number you divide by near a multiple of k times your power reached (not 0) is better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
-      "numerator-power": T("common(ny, N)", "common(ny, N)", "y times the number you divide by sharing a big factor with k times your power reached is better", "add \"stretch\" to KINDS and compare."),
+      "numerator-step": T("Q.neg(Q.div(offMultiple(nx, N), Q.of(N)))", "-off_multiple(nx, N) / N", "x times the number you divide by near a multiple of k times your power reached (not 0) is better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
+      "numerator-power": T("Q.neg(Q.div(offMultiple(ny, N), Q.of(N)))", "-off_multiple(ny, N) / N", "y times the number you divide by near a multiple of k times your power reached (not 0) is better", "add \"stretch\" to KINDS and compare."),
     },
   },
   {

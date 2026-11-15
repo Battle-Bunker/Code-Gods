@@ -14,7 +14,7 @@ def score(L, p):
     main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
     lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
-    return [main, -off_multiple(nx, N)]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: x times the number you divide by near a multiple of k times your power reached (not 0) is better
+    return [main, -off_multiple(nx, N) / N]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: x times the number you divide by near a multiple of k times your power reached (not 0) is better
 
 
 FAR = 3      # how far one move may go

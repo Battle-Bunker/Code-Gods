@@ -91,10 +91,10 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   assert.equal(at(25).level, 0, "25 is no rung");
   assert.deepEqual([at(124).level, Qn.toWire(at(124).u)], [0, "3/2"]);
   assert.ok(Qn.cmp(at(125).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(124).u) > 0);
-  // Its tie-breakers read the numerators x·D = −15 and y·D = −10 against the level's number, k^T(1) × k = 25 (trial 35):
-  // −15 is 10 from −25, the nearest multiple other than 0; −10 shares 5 with 25.
-  assert.deepEqual(score("no-fractions", "numerator-step", school, { k: 5 }), ["610/121", "-10"]);
-  assert.deepEqual(score("no-fractions", "numerator-power", school, { k: 5 }), ["610/121", "5"]);
+  // Its tie-breakers read the numerators x·D = −15 and y·D = −10 against the level's number, k^T(1) × k = 25 (trial 35),
+  // as a share of it: −15 is 10 from −25 (2/5); −10 is 15 from −25, the nearest multiple other than 0 (3/5).
+  assert.deepEqual(score("no-fractions", "numerator-step", school, { k: 5 }), ["610/121", "-2/5"]);
+  assert.deepEqual(score("no-fractions", "numerator-power", school, { k: 5 }), ["610/121", "-3/5"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 or −3; better, 27; then 729/);
   assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the x-intercepts' gap; better 64 times; then 4,096 times/);
   assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\..*Tie-breaker/);
@@ -127,7 +127,7 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
   // the target is 49. The gentler y = x − 51 meets it at 51: the gap 49 is on target; they cross at (−22.5, −73.5).
   const fc = { q: 7, r: 2 }, lo = sys(Y(3, -6), Y(1, -51));
   assert.equal(score("far-crossing", "far-gap", lo, fc)![1], "0");
-  assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-24");   // 24½, counted whole (trial 34); smaller is better, stored negated
+  assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-49/2");   // a distance: smaller is better, stored negated
   // One level up (16 leaves 16 by 49): the same gap of 49 is now 294 from 343, the nearest non-zero multiple, so the
   // climb restarts.
   assert.equal(score("far-crossing", "far-gap", sys(Y(3, -48), Y(1, -65)), fc)![1], "-294");

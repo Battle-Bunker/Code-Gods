@@ -12,7 +12,7 @@ function score(L, p) {
   const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
   const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
   const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k
-  return [main, Q.neg(offMultiple(nx, N))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: x times the number you divide by near a multiple of k times your power reached (not 0) is better
+  return [main, Q.neg(Q.div(offMultiple(nx, N), Q.of(N)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: x times the number you divide by near a multiple of k times your power reached (not 0) is better
 }
 
 const FAR = 3;      // how far one move may go

@@ -324,11 +324,7 @@ def off_multiple(v, m):
     f = (x / m) // 1
     lo, hi = (-1 if f == 0 else f), (1 if f + 1 == 0 else f + 1)   # 0 is no multiple
     below, above = abs(x - lo * m), abs(hi * m - x)
-    d = below if below <= above else above
-    if m == 1:   # a target of 1 keeps the exact distance
-        return d
-    w = d.numerator // d.denominator   # in whole numbers, the nearer on a half (trial 34), as the engine's
-    return Fraction(w if d - w <= Fraction(1, 2) else w + 1)
+    return below if below <= above else above
 
 
 def nearest_leaving(x, q, r, at_least=0):

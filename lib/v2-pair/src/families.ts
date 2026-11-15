@@ -32,20 +32,14 @@ const main = (id: string, title: string, sentence: string | ((p: P) => string), 
 const tb = (id: string, title: string, sentence: string | ((p: P) => string), rep: string, hill: Sense): PairLayer =>
   ({ id, title, sentence: typeof sentence === "string" ? () => sentence : sentence, rep, sense: hill === "small" ? "min" : "max", hill });
 /**
- * How far v is from the nearest non-zero whole multiple of m (m ≥ 1), rounded to a whole number. 0 is no multiple: two lines through one point of
+ * How far v is from the nearest non-zero whole multiple of m (m ≥ 1). 0 is no multiple: two lines through one point of
  * an axis would otherwise meet every level's target at once (a top the climb never leaves; the review of §10).
  */
 export function offMultiple(v: Q, m: bigint): Q {
   const t = Qn.div(v, q(m)), f = t.n / t.d - (t.n % t.d < 0n ? 1n : 0n);   // ⌊v / m⌋, rounding down for negatives too
   const lo = f === 0n ? -1n : f, hi = f + 1n === 0n ? 1n : f + 1n;
-  const below = Qn.abs(Qn.sub(v, q(lo * m))), above = Qn.abs(Qn.sub(q(hi * m), v)), d = Qn.cmp(below, above) <= 0 ? below : above;
-  // In whole numbers, the nearer on a half (trial 34, "rounds to"): a distance on a continuous number paid for precision a
-  // single tilt could tune (Far Crossing's height within a hair of a multiple of 1,331: +22 bits in two tilts on the
-  // energy gate). Counted whole, hitting a multiple is worth about log₂ m bits, its rarity among whole numbers.
-  // A target of 1 (High Start below its pattern: "near a whole number") keeps the exact distance, at most ½.
-  if (m === 1n) return d;
-  const w = Qn.floor(d);
-  return q(Qn.cmp(Qn.sub(d, q(w)), q(1n, 2n)) <= 0 ? w : w + 1n);
+  const below = Qn.abs(Qn.sub(v, q(lo * m))), above = Qn.abs(Qn.sub(q(hi * m), v));
+  return Qn.cmp(below, above) <= 0 ? below : above;
 }
 /**
  * A tie-breaker that reads the level the main part reached (design-principles.md row 3; the coordinator, 15 Nov):
@@ -298,7 +292,7 @@ export const noFractions = family({
   main: main("divisor", "the number you divide by on your powers", p => `When you solve, you divide by a number: it should be ${p.k} or −${p.k}; better, ${big(p.k! ** 3)}; then ${big(p.k! ** 6)}.`, "solve", "max"),
   tieBreakers: [
     tb("numerator-step", "x times the number you divide by near a multiple of your next power", p => `x times the number you divide by: near a multiple of ${p.k} times your power reached, other than 0.`, "pair", "small"),
-    tb("numerator-power", "y times the number you divide by shares a factor with your next power", p => `y times the number you divide by, and ${p.k} times your power reached: their biggest common factor.`, "pair", "shared"),
+    tb("numerator-power", "y times the number you divide by near a multiple of your next power", p => `y times the number you divide by: near a multiple of ${p.k} times your power reached, other than 0.`, "pair", "small"),
   ],
   params: DEALT_NUMBERS["no-fractions"],
   witness: (p, n) => { const K = BigInt(p.k!) ** BigInt(triangle(n)); return [sysOf(normalise(K + 1n, 1n, 0n) as Line, normalise(1n, 1n, -1n) as Line)]; },   // you divide by K
@@ -309,8 +303,10 @@ export const noFractions = family({
     const pl = powerLadder(p.k!, t => q(absB(size - t)));
     ctx.term("divisor", `the number you divide by: ${stepsUp(pl.level)}`, pl.u, [D]);
     const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n, N = powerNumber(p.k!, pl.level);   // k^T(L) × k (trial 35)
-    ctx.term("numerator-step", "how far x·D is from a multiple of k^T(L) × k, other than 0", offMultiple(q(nx), N), [PX, D]);
-    ctx.term("numerator-power", "the common factor of y·D and k^T(L) × k", shared(ny, N), [PY, D]);
+    // As a share of N: a whole-number relation to N is about log₂ k rarer for a bigger k, unfair between peers (the
+    // parameter-equality audit: 3.85 bits apart); a share of the target is the same for every k.
+    ctx.term("numerator-step", "how far x·D is from a multiple of k^T(L) × k, other than 0, as a share of it", Qn.div(offMultiple(q(nx), N), q(N)), [PX, D]);
+    ctx.term("numerator-power", "how far y·D is from a multiple of k^T(L) × k, other than 0, as a share of it", Qn.div(offMultiple(q(ny), N), q(N)), [PY, D]);
   },
 });
 
