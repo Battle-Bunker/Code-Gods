@@ -5,7 +5,7 @@
  */
 import { applyCalls, isInvalid, type ObjectType, type Price, type Variant } from "@workspace/v2-core";
 import type { ActLimits, Language, Sandbox, TranscriptEntry } from "@workspace/v2-sandbox";
-import { changeCharge, EngineHost, lensOf, OTHERS_AFTER_BITS, parseCalls, SPEC_ECONOMY, type Economy, type HostInput, type RuleRef } from "./host.ts";
+import { changeCharge, EngineHost, lensOf, parseCalls, SPEC_ECONOMY, type Economy, type HostInput, type RuleRef } from "./host.ts";
 
 export interface Program {
   readonly language: Language;
@@ -117,16 +117,21 @@ export async function runAct<S>(sandbox: Sandbox, input: ActInput<S>): Promise<{
   }
   const calls = parseCalls(parsed);
   if (typeof calls === "string") return nothing("failed", { reason: calls }, result.steps);
+  if (clause && calls.length === 0) return nothing("skipped", {}, result.steps);   // onlyIfBetter([]): nothing to make
   const applied = applyCalls(input.type, input.variant, input.state, calls);
-  if (!isInvalid(applied) && input.occupied?.(input.type.encode(applied.result))) return nothing("failed", { reason: "another object is already in that state" }, result.steps);
   if (isInvalid(applied)) return nothing("failed", { reason: applied.invalid }, result.steps);
+  if (input.occupied?.(input.type.encode(applied.result))) return nothing("failed", { reason: "another object is already in that state" }, result.steps);
   if (clause) {
     // Decided on what the player is shown (own exact, the others as disclosed), and read like othersAfter: the clause
     // is never a cheaper or sharper probe of the others than asking (archive public-log-design.md §5.2).
-    const before0 = host.payoffAt(input.state), after0 = host.payoffAt(applied.result);
+    let before0: ReturnType<typeof host.payoffAt>, after0: ReturnType<typeof host.payoffAt>;
+    // Scoring another player's rule can fail; the reason must not name it (as othersAfter's).
+    try { before0 = host.payoffAt(input.state); after0 = host.payoffAt(applied.result); }
+    catch { return nothing("failed", { reason: "the commit clause could not work out the others' worth for this plan" }, result.steps); }
     if (before0 === null || after0 === null) return nothing("failed", { reason: "this game does not say what lines are worth, so the commit clause cannot judge" }, result.steps);
-    base.readBits += OTHERS_AFTER_BITS;
-    base.readsByRep.othersAfter = (base.readsByRep.othersAfter ?? 0) + OTHERS_AFTER_BITS;
+    const bits = host.clauseRead(calls);
+    base.readBits += bits;
+    if (bits > 0) base.readsByRep.othersAfter = (base.readsByRep.othersAfter ?? 0) + bits;
     if (!(after0.points > before0.points)) return nothing("failed", { reason: COMMIT_KEPT }, result.steps);
   }
 

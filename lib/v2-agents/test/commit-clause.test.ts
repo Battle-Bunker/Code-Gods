@@ -86,3 +86,22 @@ for (const language of ["typescript", "python"] as const) {
     assert.match(record.reason ?? "", /does not say what lines are worth/);
   });
 }
+
+for (const language of ["typescript", "python"] as const) {
+  const run = (src: string) => boxes.get(language).then(box => runAct(box, {
+    type: lineType, variant: lineQ, state, rule, program: { language, source: src }, seed: "7", energy: 100, values, others, commitClause: true,
+  }));
+  test(`${language}: an empty clause is a skip, charged no othersAfter read`, async () => {
+    const empty = await run(language === "typescript" ? "function agent(offer) { return onlyIfBetter([]); }" : "def agent(offer):\n    return only_if_better([])\n");
+    assert.equal(empty.record.outcome, "skipped");
+    assert.ok(empty.record.readBits < OTHERS_AFTER_BITS);
+  });
+  test(`${language}: asking othersAfter on the plan first, the clause charges nothing more for it`, async () => {
+    const src = language === "typescript"
+      ? `function agent(offer) { const plan = [move("si.shift", { k: ${up} })]; offer.othersAfter(plan); return onlyIfBetter(plan); }`
+      : `def agent(offer):\n    plan = [move("si.shift", k=${up})]\n    offer.others_after(plan)\n    return only_if_better(plan)\n`;
+    const asked = await run(src), plain = await act(language, up!, { commitClause: true });
+    assert.equal(asked.record.outcome, "committed");
+    assert.ok(Math.abs(asked.record.readBits - plain.record.readBits) < 1e-9, `${asked.record.readBits} against ${plain.record.readBits}`);
+  });
+}
