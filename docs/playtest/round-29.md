@@ -60,6 +60,6 @@ Each game names its own tug. The second half is still the same sentence in every
 |---|---|---|
 | 1 | **Some tables still go still.** Bob's table (Same on Both Rulers, Pythagorean Area, Prime Staircase) had 3 still minutes, and its partners skipped 97–98% of turns. In rounds 28–29 both still tables held Same on Both Rulers for the human | 03 |
 | 2 | **Busy boards are mostly tugs.** On carol's board, line 1 moved 71 times and ended where it began, and her chart is a nine-minute sawtooth. The board moves, but the player's own points stand still | 02 |
-| 3 | **Same on Both Rulers has an exact target.** "As close as possible to −6": alice's lines sat "−6 · exactly" from mid-game. That is a reachable top (design principle 1), and it may be why its tables stall once the target is hit | 01 |
+| 3 | **Same on Both Rulers has an exact target.** "As close as possible to −6": two of alice's lines ended "−6 · exactly". That is a reachable top (design principle 1), and it may be why its tables stall once the target is hit | 01 |
 | 4 | **Prime Gradient sits between rungs.** Carol's lines ended at gradients 10, 4 and 3 ("−½", "−6½" and "−7½" from the nearest rung); none landed on 11 | 02 |
 | 5 | **A shared slow tick** (5–6 s) hits all three games at the same moment once a game (minute 4–5 in round 28, minute 7 here) | — |
