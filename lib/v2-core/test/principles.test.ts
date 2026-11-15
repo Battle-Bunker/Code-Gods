@@ -5,8 +5,9 @@ import { enoughInstances, mainUnbounded, tieEntangled, type Reading } from "../s
 
 const r = (key: [number, number], main: number | null, t: number | null): Reading<[number, number]> => ({ key, main, ties: { t } });
 
-test("row 1: a rising best is unbounded; a plateau or a distance reaching 0 is not", () => {
+test("row 1: a best still rising at the widest radius is unbounded (a sparse ladder may pause); a final plateau or a distance reaching 0 is not", () => {
   assert.equal(mainUnbounded("max", [[r([0, 1], 1, 0)], [r([0, 3], 3, 0)], [r([0, 9], 9, 0)]]).ok, true);
+  assert.equal(mainUnbounded("max", [[r([0, 1], 1, 0)], [r([0, 3], 3, 0)], [r([0, 4], 3, 0)], [r([0, 9], 6, 0)]]).ok, true);
   assert.equal(mainUnbounded("max", [[r([0, 1], 1, 0)], [r([0, 3], 3, 0)], [r([0, 4], 3, 0)]]).ok, false);
   assert.equal(mainUnbounded("min", [[r([0, 1], 2, 0)], [r([0, 3], 0, 0)]]).ok, false);
 });

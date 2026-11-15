@@ -47,7 +47,7 @@ test("model seats play through the directory's tools on the server's economy: th
     // The scenario's timing (24 s, 25 opportunities a second, a summon payable after the manoeuvre) is the 25 Hz economy;
     // the beginner preset now runs at 3 Hz with power 8 (the coordinator's call 13), which this tool-plumbing test does not need.
     economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 600, opportunitiesPerSecond: 25 },
-    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "first-prime"), seat("Cy", "naive", "prime-landing", "shared-factor")],
+    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: (p => (name: string) => p[name === "Ada" ? 0 : 1]!)([perTurn(ada), perTurn(bo)]), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
   });
   const [a, b, c] = report.seats;

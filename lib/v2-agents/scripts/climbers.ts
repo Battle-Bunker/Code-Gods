@@ -23,6 +23,66 @@ export const SHORTCUT = `  const now = score(m, c, p, tie), step = climb(offer, 
   if (!Q.eq(m, Q.of(0))) sc.push([move("cart.mirror", { axis: "diagonal" }), Q.div(Q.of(1), m), Q.neg(Q.div(c, m))]);
   return climb(offer, sc.map(([pl, m2, c2]) => [pl, score(m2, c2, p, tie)]), now, QUOTES);`;
 
+/** The five lens mutators of line-q-lenses (lenses-and-mutators.md §5). */
+export const LENS_IDS = ["rot.turn", "coef.swap", "basis.lean", "basis.zoom", "fold"] as const;
+/**
+ * lens: when stuck, the shortcuts above plus lens moves of line-q-lenses (all five, or those in `only`): a turn about a pin,
+ * the m ↔ c swap, a lean, a zoom, a level fold about a pin. Each option carries the (m, c) it reaches. `mirrors: false`
+ * drops cart.mirror from the shortcuts (to measure what the reflections add).
+ */
+export function lensClimber(only: readonly string[] = LENS_IDS, mirrors = true): string {
+  let base = SHORTCUT;
+  if (!mirrors) {
+    base = base.replace(/  sc\.push\(\[move\("cart\.mirror", \{ axis: "y" \}\).*\n/, "").replace(/  if \(!Q\.eq\(m, Q\.of\(0\)\)\) sc\.push\(\[move\("cart\.mirror".*\n/, "");
+    if (base.includes("cart.mirror")) throw new Error("the shortcut climber's mirror lines moved");
+  }
+  const out = base.replace("  return climb(offer, sc.map(", `${lensLines(only)}\n  return climb(offer, sc.map(`);
+  if (out === base) throw new Error("the shortcut climber's last line moved");
+  return out;
+}
+
+/** Lines that push the lens moves in `only` onto `sc` as [plan, m, c] (the line each reaches), for a climber's body. */
+function lensLines(only: readonly string[]): string {
+  const has = (id: string) => only.includes(id);
+  return [
+    "  const one = Q.of(1), zero = Q.of(0);",
+    has("coef.swap") ? '  sc.push([move("coef.swap", { pair: "m-c" }), c, m]);' : "",
+    has("rot.turn") || has("fold") ? `  for (const x0 of [0, 1, -1]) {
+    const X = Q.from(x0), y0 = Q.add(Q.mul(m, X), c);${has("rot.turn") ? `
+    for (const t of ["left", 1, -1, 2, -2, Q.of(1, 2), Q.of(-1, 2), Q.of(3, 4), Q.of(-3, 4)]) {
+      let m2 = null;
+      if (t === "left") { if (!Q.eq(m, zero)) m2 = Q.neg(Q.div(one, m)); }
+      else { const den = Q.sub(one, Q.mul(m, Q.from(t))); if (!Q.eq(den, zero)) m2 = Q.div(Q.add(m, Q.from(t)), den); }
+      if (m2 !== null) sc.push([move("rot.turn", { centre: x0, turn: t }), m2, Q.sub(y0, Q.mul(m2, X))]);
+    }` : ""}${has("fold") ? `
+    sc.push([move("fold", { x0, s: 0 }), Q.neg(m), Q.add(y0, Q.mul(m, X))]);` : ""}
+  }` : "",
+    has("basis.lean") ? `  if (!Q.eq(m, zero)) {
+    const run = Q.div(one, m), xi = Q.neg(Q.div(c, m));
+    for (const k of [1, -1, Q.of(1, 2), Q.of(-1, 2)]) { const r2 = Q.sub(run, Q.from(k)); if (!Q.eq(r2, zero)) { const m2 = Q.div(one, r2); sc.push([move("basis.lean", { k }), m2, Q.neg(Q.mul(m2, xi))]); } }
+  }` : "",
+    has("basis.zoom") ? '  if (!Q.eq(c, zero)) for (const f of [2, 3, -2, Q.of(1, 2), Q.of(1, 3)]) sc.push([move("basis.zoom", { f }), m, Q.mul(c, Q.from(f))]);' : "",
+  ].filter(Boolean).join("\n");
+}
+
+/** The stretch factors offered beside the steps (the coordinator's ask, 15 Nov: stretch by 2, 3, 5, 7), and their inverses. */
+export const STRETCH_FACTORS = "[2, 3, 5, 7, Q.of(1, 2), Q.of(1, 3), Q.of(1, 5), Q.of(1, 7)]";
+/**
+ * Moves offered beside the starter's own steps, every act (not only when stuck), each scored and then priced by the
+ * starter's own climb: a stretch by the STRETCH_FACTORS when `stretch`, and the lens moves in `lens` (line-q-lenses).
+ * The starter's promise (PROTECT) filters them too.
+ */
+export function optionsClimber(stretch: boolean, lens: readonly string[] = []): string {
+  return [
+    "  const sc = [];",
+    stretch ? `  for (const f of ${STRETCH_FACTORS}) sc.push([move("mach.stretch", { f }), Q.mul(m, Q.from(f)), Q.mul(c, Q.from(f))]);` : "",
+    lens.length ? lensLines(lens) : "",
+    "  for (const [pl, m2, c2] of sc) options.push([pl, score(m2, c2, p, tie)]);",
+    "  if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));",
+    RETURN,
+  ].filter(Boolean).join("\n");
+}
+
 /** The plain ("simple") line starter with its last line swapped for `with_` (or unchanged). */
 export function lineStarter(family: string, with_?: string) {
   const a = startersFor(family, "typescript").find(x => x.kind === "simple")!;

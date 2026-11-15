@@ -48,5 +48,5 @@ export function pairClashes(rules: readonly SeatedPairRule[]): string[] {
   for (let i = 0; i < rules.length; i++) for (let j = i + 1; j < rules.length; j++) if (pairClash(rules[i]!, rules[j]!)) out.push(`${name(rules[i]!)} × ${name(rules[j]!)}`);
   return out;
 }
-/** A table's seating cost: the forbidden pairs (lower is better; 0 is a perfect table). */
-export const pairSeatingCost = (rules: readonly SeatedPairRule[]): number => pairClashes(rules).length;
+/** A table's seating cost: 1000 per forbidden pair, as the other seating rules (lower is better; 0 is a perfect table). */
+export const pairSeatingCost = (rules: readonly SeatedPairRule[]): number => 1000 * pairClashes(rules).length;

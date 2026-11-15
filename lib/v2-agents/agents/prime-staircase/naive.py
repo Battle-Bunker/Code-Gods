@@ -1,5 +1,5 @@
 # Prime Staircase · Naive (for learning)
-# Main part: a run of different dealt primes from y(0). Tie-breaker: whichever you were dealt (the first prime; the last prime of the run; the first term that breaks the run, close to such a prime; y(−1) close to such a prime).
+# Main part: a run of different dealt primes from y(0). Tie-breaker: whichever you were dealt (the factor the run's last prime minus 1 shares with its first prime minus 1; y(−1) close to such a prime).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -9,24 +9,19 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    run, stopped, miss = [], False, None            # miss: the size of the first term that is not such a prime
-    for n in range(12):                             # y(0) ... y(11)
-        t = p.get("side", 1) * (m * n + c)        # y(n), or -y(n) on the mirror (minus primes)
-        is_prime = prime(t) and t % 10 == p["ends"]
-        if not stopped and is_prime and t not in run:
-            run.append(t)                           # the different primes ending in p["ends"] it starts with
+    run, t = [], c                                  # run: the different primes ending in p["ends"] it starts with
+    for n in range(256):                            # y(0), y(1), ...
+        t = m * n + c
+        if t == near(t, prime, p["ends"]) and t not in run:
+            run.append(t)
         else:
-            stopped = True
-        if not is_prime and miss is None:
-            miss = abs(t)
-    main = len(run)
-    # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better)
-    if tie == "first-prime":   # a bigger first prime is better
-        return [main, run[0] if run else 0]
-    if tie == "last-prime":   # a bigger last prime of the run is better
-        return [main, run[-1] if run else 0]
-    if tie == "near-miss":   # a first term that breaks the run (ignoring sign) close to such a prime is better (none in twelve terms: no tie-breaker)
-        return [main, None if miss is None else -abs(miss - near(miss, prime, p["ends"]))]
+            break                                   # t is the first term that breaks the run
+    miss = abs(t)                                   # ignoring its sign
+    d = abs(miss - near(miss, prime, p["ends"]))
+    main = len(run) + Fraction(1) / (2 + d)        # a longer run always wins; a near miss beats a far one
+    # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime
+    if tie == "shared-factor":   # the run's last prime minus 1 sharing a bigger factor with its first prime minus 1 is better (it starts again when the run grows)
+        return [main, common(run[-1] - 1, run[0] - 1) if len(run) >= 2 else 0]
     if tie == "step-back":   # y(-1) (ignoring sign) close to such a prime is better
         back = abs(c - m)                          # y(-1), ignoring its sign
         return [main, -abs(back - near(back, prime, p["ends"]))]

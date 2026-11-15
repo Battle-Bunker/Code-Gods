@@ -53,16 +53,33 @@ test("a redraw keeps the family and tie-breaker, may keep or change the paramete
   assert.equal(redrawParams(r.variant, "no-such-family", null, {}, "seed", 0, 1), null, "no grid: no drift");
 });
 
+test("a redraw never seats a pair the line seating rule forbids (Prime Landing beside Whole Crossing on the same landings)", async () => {
+  const { lineClashes } = await import("@workspace/v2-linear");
+  const wc = { family: "whole-crossing", params: { q: 5, r: 1 } };   // forbidden beside Prime Landing ending 1 (side 1) and 9 (side −1)
+  let changed = 0;
+  for (let tick = 1; tick <= 60; tick++) {
+    const drawn = redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, tick, [wc]);
+    const params = drawn?.params ?? { ends: 9 };
+    assert.deepEqual(lineClashes([wc, { family: "prime-landing", params }]), [], `tick ${tick}: ${JSON.stringify(params)}`);
+    if (drawn) changed++;
+  }
+  assert.ok(changed > 0, "it still redraws among the allowed values");
+  // Without the other seats the forbidden values are drawn too.
+  const free = Array.from({ length: 60 }, (_, t) => redrawParams("line-q", "prime-landing", "shared-factor", { ends: 9 }, "seed", 1, t + 1)?.params);
+  assert.ok(free.some(p => lineClashes([wc, { family: "prime-landing", params: p }]).length > 0));
+});
+
 test("a pair redraw never seats a pair the seating rule forbids (lib/v2-pair seating.ts)", async () => {
   const { pairClash } = await import("@workspace/v2-pair");
-  // Right Angle beside Whole Answer {q 5, r 1}: never r 1. High Start at {q 5, r 2} already clashes with Steep Ratio at
-  // q 5; beside Whole Answer {q 7, r 3} it stays at q 5 and off r 3 (a redraw adds no clash).
+  // Right Angle beside Whole Answer {q 5, r 1}: never r 1. High Start beside Whole Answer at q 7 and Steep Ratio at
+  // q 5: every High Start value shares a q with one of them, so it keeps its parameters.
   const ra = { family: "right-angle", params: { q: 5, r: 2 } }, wa = { family: "whole-answer", params: { q: 5, r: 1 } };
+  let moved = 0;
   for (let tick = 1; tick <= 40; tick++) {
     const next = redrawParams("pair-q", ra.family, "corner-prime", ra.params, "seed", 1, tick, [wa]);
-    if (next) assert.ok(!pairClash({ family: ra.family, params: next.params }, wa), JSON.stringify(next.params));
-    const others = [{ family: "whole-answer", params: { q: 7, r: 3 } }, { family: "steep-ratio", params: { q: 5, r: 3 } }];
-    const hs = redrawParams("pair-q", "high-start", "high-and-rising", { q: 5, r: 2 }, "seed", 1, tick, others);
-    if (hs) assert.equal(others.filter(o => pairClash({ family: "high-start", params: hs.params }, o)).length, 1, `${JSON.stringify(hs.params)}: no clash added`);
+    if (next) { moved++; assert.ok(!pairClash({ family: ra.family, params: next.params }, wa), JSON.stringify(next.params)); }
+    const others = [{ family: "whole-answer", params: { q: 7, r: 4 } }, { family: "steep-ratio", params: { q: 5, r: 4 } }];
+    assert.equal(redrawParams("pair-q", "high-start", "high-and-rising", { q: 5, r: 2 }, "seed", 1, tick, others), null);
   }
+  assert.ok(moved > 0, "Right Angle still drifts");
 });

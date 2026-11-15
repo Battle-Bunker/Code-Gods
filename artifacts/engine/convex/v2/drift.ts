@@ -15,7 +15,8 @@
  */
 import { canonicalJson, driftParams } from "@workspace/v2-core";
 import { findVariant, ruleKey } from "@workspace/v2-valuation";
-import { familyOf, seatingClashes, type Seated } from "./deal.ts";
+import { familyOf, seatingClashes } from "./deal.ts";
+import type { SeatedRule } from "@workspace/v2-linear";
 import { valueRecord } from "./values.ts";
 
 /** A game's drift interval in world seconds (0: off; games stored before drift have none). */
@@ -28,19 +29,17 @@ export { END_GUARD_SECONDS, driftEventsDue, nextDriftAt } from "@workspace/v2-co
  * A seat's redrawn parameters at drift `tick`, or null when it keeps them: the spec lead's `driftParams` (v2-core),
  * uniform over the family's dealable parameter values on the variant that have precomputed values (with its
  * tie-breaker), the current ones included (a two-value grid is no predictable flip), seeded by the game, the seat's index and the tick, so the record replays it.
- * A redraw never seats a pair the seating rule forbids (deal.ts; pairs: the same residue or base as another seat's
- * rule) that the current parameters do not already: `others` are the other seats' current rules.
+ * With `others` (the other seats' rules as they stand), a value the seating rule forbids beside them is not drawn
+ * (lines: Prime Landing beside Whole Crossing on the same landings; deal.ts seatingClashes).
  */
 export function redrawParams(variantId: string, family: string, tieBreaker: string | null, current: unknown, seed: string, seat: number, tick: number,
-  others: readonly Seated[] = []):
-  { params: unknown; ruleKey: string; contentHash: string } | null {
+  others: readonly SeatedRule[] = []): { params: unknown; ruleKey: string; contentHash: string } | null {
   let f;
   try { f = familyOf(family); } catch { return null; }
   const { type, variant } = findVariant(variantId);
   const keyOf = (p: unknown) => ruleKey(type, variant, family, p, tieBreaker ?? "none");
-  const clashes = (p: unknown) => others.filter(o => seatingClashes(variantId, [{ family, params: p }, o]).length > 0).length;
-  const now = clashes(current);
-  const next = driftParams(f, variant, current, seed, seat, tick, p => valueRecord(keyOf(p)) !== null && clashes(p) <= now);
+  const seatable = (p: unknown) => seatingClashes(variantId, [...others, { family, params: p }]).length === seatingClashes(variantId, others).length;
+  const next = driftParams(f, variant, current, seed, seat, tick, p => valueRecord(keyOf(p)) !== null && seatable(p));
   if (canonicalJson(next) === canonicalJson(current)) return null;
   const key = keyOf(next), record = valueRecord(key)!;
   return { params: next, ruleKey: key, contentHash: record.contentHash };

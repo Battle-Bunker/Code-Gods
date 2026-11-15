@@ -18,7 +18,7 @@ import { valueLookup } from "@workspace/v2-valuation";
 import { changeCharge, EngineHost, sandboxes, startersFor } from "../src/index.ts";
 import { findValues } from "../src/harness.ts";
 import { runTable } from "../src/table.ts";
-import { RETURN, rounding as roundingOf, SHORTCUT, SHORTCUTS, steps } from "./climbers.ts";
+import { lensClimber, RETURN, rounding as roundingOf, SHORTCUT, SHORTCUTS, steps } from "./climbers.ts";
 
 const { values: o } = parseArgs({ options: {
   table: { type: "string", default: "mixed" }, agents: { type: "string", default: "climb" }, variant: { type: "string", default: "line-q" },
@@ -44,27 +44,7 @@ const WIDE = `  const now = score(m, c, p, tie), step = climb(offer, options, no
   for (let k = -2 * FAR; k <= 2 * FAR; k++) { if (Math.abs(k) <= FAR) continue;
     wide.push([move("si.shift", { k }), score(m, Q.add(c, k), p, tie)]); wide.push([move("si.tilt", { k }), score(Q.add(m, k), c, p, tie)]); }
   return climb(offer, wide, now, QUOTES);`;
-// lens: when stuck, the shortcuts above plus the five lens moves of line-q-lenses (lenses-and-mutators.md §5): a turn about
-// a pin or the origin, the m ↔ c swap, a lean, a zoom, a level fold about a pin. Each option carries the (m, c) it reaches.
-const LENS = SHORTCUT.replace("  return climb(offer, sc.map(", `  const one = Q.of(1), zero = Q.of(0);
-  sc.push([move("coef.swap", { pair: "m-c" }), c, m]);
-  for (const x0 of [0, 1, -1]) {
-    const X = Q.from(x0), y0 = Q.add(Q.mul(m, X), c);
-    for (const t of ["left", 1, -1, 2, -2, Q.of(1, 2), Q.of(-1, 2), Q.of(3, 4), Q.of(-3, 4)]) {
-      let m2 = null;
-      if (t === "left") { if (!Q.eq(m, zero)) m2 = Q.neg(Q.div(one, m)); }
-      else { const den = Q.sub(one, Q.mul(m, Q.from(t))); if (!Q.eq(den, zero)) m2 = Q.div(Q.add(m, Q.from(t)), den); }
-      if (m2 !== null) sc.push([move("rot.turn", { centre: x0, turn: t }), m2, Q.sub(y0, Q.mul(m2, X))]);
-    }
-    sc.push([move("fold", { x0, s: 0 }), Q.neg(m), Q.add(y0, Q.mul(m, X))]);
-  }
-  if (!Q.eq(m, zero)) {
-    const run = Q.div(one, m), xi = Q.neg(Q.div(c, m));
-    for (const k of [1, -1, Q.of(1, 2), Q.of(-1, 2)]) { const r2 = Q.sub(run, Q.from(k)); if (!Q.eq(r2, zero)) { const m2 = Q.div(one, r2); sc.push([move("basis.lean", { k }), m2, Q.neg(Q.mul(m2, xi))]); } }
-  }
-  if (!Q.eq(c, zero)) for (const f of [2, 3, -2, Q.of(1, 2), Q.of(1, 3)]) sc.push([move("basis.zoom", { f }), m, Q.mul(c, Q.from(f))]);
-  return climb(offer, sc.map(`);
-if (LENS === SHORTCUT) throw new Error("the shortcut climber's last line moved");
+const LENS = lensClimber();
 const ROUNDING = "  tries.push(...rounding(m, c));";
 // own: v1's starters climbed only their own rule (never the others' disclosed sum).
 const OWN = `  const now = score(m, c, p, tie);

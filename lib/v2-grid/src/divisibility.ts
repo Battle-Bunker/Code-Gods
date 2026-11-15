@@ -84,8 +84,14 @@ export function divisibility(n: number): RuleFamily<GridState, DivisibilityParam
   }, n);
 }
 
-/** Dealt on 4×4: two lenses × two layouts (the gate of grid-params.md §12: starters reach 9–10 bits on each). */
+/**
+ * Dealt on 4×4: each lens with two q's on each layout, so a redraw keeps the layout and the lens and changes q
+ * (drift.ts keeps `lens` and `layout`; a layout switch would read four new numbers and reset the board's worth).
+ * Starter reach (200 climbs, median stop): powers of 3 9.1 bits, of 7 6.7; matching by 2 8.2–9.2, by 3 7.3.
+ */
 export const DIVISIBILITY_DEALT: readonly DivisibilityParams[] = [
-  { lens: "powers", q: 3, layout: "halves" }, { lens: "powers", q: 3, layout: "alternate" },
-  { lens: "matching", q: 2, layout: "halves" }, { lens: "matching", q: 2, layout: "alternate" },
+  { lens: "powers", q: 3, layout: "halves" }, { lens: "powers", q: 7, layout: "halves" },
+  { lens: "powers", q: 3, layout: "alternate" }, { lens: "powers", q: 7, layout: "alternate" },
+  { lens: "matching", q: 2, layout: "halves" }, { lens: "matching", q: 3, layout: "halves" },
+  { lens: "matching", q: 2, layout: "alternate" }, { lens: "matching", q: 3, layout: "alternate" },
 ];

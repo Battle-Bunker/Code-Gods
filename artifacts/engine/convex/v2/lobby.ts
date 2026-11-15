@@ -302,7 +302,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     // real deal, for fresh and practice deals (a rotation, a rematch or a won bid deals what it must).
     ...(!again && !rotation && wins.length === 0
       ? { unopposedPolicy: policyDeal(dealablePool(preset), seats.map(m => m.kind as SeatKind), seed, preset.variant) } : {}),
-    // The seating rule's pairs this deal left (grids and pairs; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
+    // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
     ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules), aligned: seatingAligned(preset.variant, rules) } } : {}),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),

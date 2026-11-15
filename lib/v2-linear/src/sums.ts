@@ -40,9 +40,7 @@ export interface LineSums<P> {
 
 const abs = (x: bigint) => (x < 0n ? -x : x);
 const BIG = 10n ** 40n;
-const PRIMES_TO = (n: number): bigint[] => { const out: bigint[] = []; for (let k = 2; k <= n; k++) if (out.every(p => BigInt(k) % p !== 0n)) out.push(BigInt(k)); return out; };
 /** Every prime a whole-number line's coefficient can be within any budget the valuation uses (a prime p costs 4.1 + p/2 bits). */
-const SMALL_PRIMES = PRIMES_TO(400);
 
 /** c with c²/(2|m|) in [A − d, A + d]: both signs, from the square roots (rounded outwards). */
 function areaBand(m: bigint, A: number, d: number): CRange[] {
@@ -94,8 +92,5 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   } }] },
   // Whole Crossing has no plan since its dealt residue (the crossing near a whole number leaving r when divided by q):
   // valued by sampling (owner decision 22).
-  // A run of one or more different primes ending in the dealt digit from y(0) needs c such a prime: every score from a
-  // run of 1 is a sum over those primes.
-  "prime-staircase": { bands: [{ atLeast: () => q(1), points: "same",
-    ranges: (_m: bigint, p: { ends: number }) => SMALL_PRIMES.filter(x => x % 10n === BigInt(p.ends)).map(x => ({ lo: x, hi: x })) }] },
+  // Prime Staircase is a graded ladder since 15 Nov (design-principles.md): valued by sampling.
 };

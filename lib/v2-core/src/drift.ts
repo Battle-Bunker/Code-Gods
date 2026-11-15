@@ -1,8 +1,9 @@
 /**
  * Parameter drift (the coordinator's trial call 18, beginner default 120 s): at every drift tick each seat's dealt
  * params are redrawn from its family's `dealable()` list (the current params included), never the family, the
- * tie-breaker or a `lens` param (a family whose params name a lens, such as Divisibility's powers or matching, deals
- * goals that read differently; drift moves within one). One pure function, so
+ * tie-breaker, a `lens` param (a family whose params name a lens, such as Divisibility's powers or matching, deals
+ * goals that read differently; drift moves within one) or a `layout` param (which cells a rule reads: a redraw that
+ * switched it would read new numbers and reset the board's worth). One pure function, so
  * the server and the in-memory table (lib/v2-agents src/table.ts) redraw alike.
  */
 import type { RuleFamily, Variant } from "./contracts.ts";
@@ -18,8 +19,8 @@ export function driftParams<P>(
   family: Pick<RuleFamily<unknown, P>, "dealable">, variant: Variant, current: P, seed: string, seat: number, tick: number,
   allowed?: (params: P) => boolean,
 ): P {
-  const lens = (p: P) => (p !== null && typeof p === "object" && "lens" in p ? (p as { lens: unknown }).lens : undefined);
-  const all = family.dealable(variant).filter(p => lens(p) === lens(current) && (allowed?.(p) ?? true));
+  const kept = (p: P) => (p !== null && typeof p === "object" ? JSON.stringify([(p as { lens?: unknown }).lens, (p as { layout?: unknown }).layout]) : "");
+  const all = family.dealable(variant).filter(p => kept(p) === kept(current) && (allowed?.(p) ?? true));
   return all.length ? all[rng("drift", seed, seat, tick).below(all.length)]! : current;
 }
 

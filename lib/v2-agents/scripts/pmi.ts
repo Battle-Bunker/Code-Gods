@@ -1,5 +1,6 @@
 /**
  * pnpm --filter @workspace/v2-agents pmi -- [--variant line-q] [--draws 1000000] [--workers n] [--seed v2] [--depths 4,6,8,10,12] [--min-ess 30] [--dry]
+ *   [--families a,b]   (only those families' rules; implies --dry: a partial table is never written)
  *
  * Independence of every pair of rules with a committed value function on a line or two-line (pair) variant (owner decision 39: "two other
  * players with 20 bits represents an object that's as rare and hard to reach as 40 bits"). For rules A, B and a depth t:
@@ -87,7 +88,8 @@ async function main() {
   const DRAWS = Number(opt("draws", "1000000")), SEED = opt("seed", "v2"), MIN_ESS = Number(opt("min-ess", "30"));
   const DEPTHS = opt("depths", "4,6,8,10,12").split(",").map(Number);
   const WORKERS = Number(opt("workers", String(Math.max(1, availableParallelism()))));
-  const dry = args.includes("--dry");
+  const only = args.includes("--families") ? new Set(opt("families", "").split(",")) : null;
+  const dry = args.includes("--dry") || only !== null;
   const { type, variant } = findVariant(variantId);
   if (type.id !== "line" && type.id !== "pair") throw new Error(`pmi reads line and pair variants (grids: pnpm --filter @workspace/v2-valuation pmi); ${variantId} is a ${type.id}`);
   const valuesId = valuesVariant(type, variant).id;
@@ -99,6 +101,7 @@ async function main() {
   const rules: RuleFile[] = [];
   for (const fam of readdirSync(dir).sort()) for (const f of readdirSync(join(dir, fam)).sort()) {
     const v = JSON.parse(readFileSync(join(dir, fam, f), "utf8")) as RuleFile;
+    if (only && !only.has(v.family)) continue;
     rules.push({ family: v.family, params: v.params, tieBreaker: v.tieBreaker });
   }
   rules.sort((a, b) => a.family.localeCompare(b.family) || a.tieBreaker.localeCompare(b.tieBreaker) || canonicalJson(a.params).localeCompare(canonicalJson(b.params)));
@@ -399,7 +402,7 @@ const READS: Readonly<Record<string, readonly string[]>> = {
   "treasure/m-spf": ["m:spf"], "treasure/m-gpf": ["m:gpf"], "treasure/prime-gradient": ["m:prime"],
   "same-on-both-rulers/m-spf": ["m:spf"], "same-on-both-rulers/m-gpf": ["m:gpf"], "same-on-both-rulers/prime-start": ["c:prime"],
   "ruler/prime-gradient": ["m:prime"], "pythagorean-area/prime-height": ["c:prime"],
-  "prime-staircase/first-prime": ["c:prime"],
+  "prime-staircase/shared-factor": ["c:prime"], "prime-staircase/step-back": ["c:prime"],
   "long-division/m-bottom-spf": ["m.d:spf"],
 };
 

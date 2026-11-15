@@ -15,7 +15,7 @@ def score(m, c, p, tie):
         return None
     main = a if a == s else -abs(a - s)             # on a rung: the rung; else below every rung
     # main: the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number
-    if tie == "shared-factor":   # that number plus 1 sharing a bigger factor with the gradient's whole part is better
+    if tie == "shared-factor":   # take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
         wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)
         return [main, common(s + 1, wm)]
     return [main]
@@ -37,6 +37,8 @@ def agent(offer):
             continue
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+        f = k + 1 if k > 0 else k - 1
+        tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     top, plans = score(m, c, p, tie), []
     for plan, m2, c2 in tries:
         s = score(m2, c2, p, tie)

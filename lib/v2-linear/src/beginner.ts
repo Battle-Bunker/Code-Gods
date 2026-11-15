@@ -6,61 +6,33 @@
  */
 import { gcd, Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
-import { allUndefined, distance, family, gap, more, num, prime, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
+import { allUndefined, distance, factorLabel, family, gap, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, verticalMain, type Ctx, type L, type Shape } from "./layers.ts";
+import { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
+
+export { factorLabel } from "./layers.ts";
+export { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
 import { gcdTerm } from "./rational.ts";
 import { nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
 const gpfQ = (x: Q): Q => q(x.d === 1n ? largestPrimeFactor(x.n) : 1n);
-/**
- * A prime-factor term's label: 0, 1, −1 and fractions have no prime factor, and the term then counts as 1 (the lowest
- * a whole number with a factor can score is 2), so the label says so rather than showing a bare "smallest prime factor: 1".
- */
-export function factorLabel(which: "smallest" | "largest", what: string, x: Q): string {
-  if (x.d !== 1n) return `${what} (${Qn.toWire(x)}) is not a whole number, so it has no prime factor: counts as 1`;
-  if (x.n >= -1n && x.n <= 1n) return `${what} (${x.n}) has no prime factor: counts as 1`;
-  return `${what}'s ${which} prime factor`;
-}
 /** Tie-breakers on the prime factors of a coefficient (the curator's §10.5: graded, an exact Euler-type sum). */
 const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
   prime(more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si")),
   prime(more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si")),
 ];
 
-const squareGap = (x: Q): { root: bigint; d: Q } => { const r = nearestSquareRoot(x); return { root: r, d: gap(x, q(r * r)) }; };
-
-// ---------------------------------------------------------------- vertical lines (the coordinator's call, 15 Nov)
-// A vertical line x = k is a real line a 12-year-old knows. Rules with an honest reading of it score it (its main part
-// read through another lens); its tie-breakers that need a gradient or a y-intercept stay undefined (the worst).
-
-const VERTICAL_NO = "a vertical line has no gradient or y-intercept";
-/** Where a vertical line stands (x = −c/a), read from the general form; null for any other line. */
-function verticalAt(ctx: Ctx): { x: Q; from: ElementRef[] } | null {
-  const bRef = ref("gen", "b");
-  if (num(ctx.read(bRef))!.n !== 0n) return null;
-  const aRef = ref("gen", "a"), cRef = ref("gen", "c");
-  const a = num(ctx.read(aRef))!, c = num(ctx.read(cRef))!;
-  return { x: Qn.neg(Qn.div(c, a)), from: [aRef, bRef, cRef] };
-}
-/** Score only the main part (the tie-breakers undefined) for a vertical line. */
-function verticalMain<P>(ctx: Ctx, f: Shape<P>, label: string, value: Q, from: ElementRef[]): void {
-  ctx.term(f.main.id, label, value, from);
-  for (const l of f.tieBreakers) ctx.term(l.id, l.title, { undefined: VERTICAL_NO }, from);
-  ctx.mark({ kind: "note", ref: from[0]!, text: `a vertical line: ${label}` });
-}
 
 // ---------------------------------------------------------------- 1. Prime Staircase
 
 /** A dealt prime filter (owner decision 41): the primes this rule counts end in this digit. */
 type Ends = { ends: number; side?: 1 | -1 };
 /**
- * Each prime family deals ONE ending (a different one per family) until a set of peers passes v1's equal-opportunity
- * audit (artifacts/engine test v2-params-equal, 0.5 bits): the law favours small numbers, so an exact main is worth
- * 5.8, 7.8, 9.9 and 13.7 bits for endings 3, 7, 1 and 9 (the smallest qualifying primes are 3, 7, 11, 19).
- * PRIME_ENDINGS (numbers.ts) stays the declared grid.
+ * Ladder families (Prime Staircase, Prime Landing) deal every ending in PRIME_ENDINGS (numbers.ts): the
+ * equal-opportunity audit compares a rung's bits minus its code cost (coordinator's call 19), so the law's favour for
+ * small primes does not rule an ending out. `side` is the mirror (minus the primes) that Prime Gradient deals.
  */
-const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }, { ends: 3, side: -1 }];   // and its mirror: minus primes (y → −y)
 /** "minus " for the mirror (side −1). */
 const minus = (p: Ends) => (p.side === -1 ? "minus " : "");
 /** x, or −x on the mirror. */
@@ -69,15 +41,21 @@ const primeEnding = (p: Ends) => `a prime ending in ${p.ends}`;
 /** A layer whose sentence names the dealt filter. */
 const withEnds = <X extends { sentence: (p: Ends) => string }>(l: X, sentence: (p: Ends) => string): X => ({ ...l, sentence });
 
+/**
+ * Prime Staircase as a ladder (design-principles.md). Main part, unbounded: the run L of different primes ending in k
+ * that y(0), y(1), … start with, graded towards the next rung by how near the breaking term y(L) is to such a prime
+ * (u = L + 1/(2 + d), so a longer run always wins and a near miss beats a far one). Tie-breakers read the run: the factor
+ * its last prime minus 1 shares with its first prime minus 1 (gcd(m(L − 1), c − 1): a longer run changes it, so the
+ * climb starts again), and y(−1) as near such a prime as possible (the run's step taken backwards).
+ * Dealt: k = 1, 3, 7, 9.
+ */
+const ENDS_STAIRCASE: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const staircase: Shape<Ends> = {
   main: withEnds(more<Ends>("run", "a run of different dealt primes from y(0)", "", "seq"),
-    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different ${p.side === -1 ? "minus " : ""}primes ending in ${p.ends}.`),
-  // The old game's four tie-breakers, restored (coordinator's call under the owner's delegation, 14 Nov).
+    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different primes ending in ${p.ends}; the term that breaks the run counts a little for being near such a prime.`),
   tieBreakers: [
-    prime(more<Ends>("first-prime", "the first prime", "The first prime should be as big as possible.", "seq")),
-    prime(more<Ends>("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq")),
-    withEnds(distance<Ends>("near-miss", "the first term that breaks the run, close to such a prime", "", "seq"),
-      p => `The first term that is not ${minus(p)}${primeEnding(p)} should be as close as possible to one.`),
+    more<Ends>("shared-factor", "the factor the run's last prime minus 1 shares with its first prime minus 1",
+      "The run's last prime minus 1 and its first prime minus 1 should share as big a factor as possible.", "seq"),
     withEnds(distance<Ends>("step-back", "y(−1) close to such a prime", "", "seq"),
       p => `The term before the start, y(−1), should be as close as possible to ${primeEnding(p)}.`),
   ],
@@ -86,57 +64,29 @@ export const primeStaircase = family<Ends>("prime-staircase", "Prime Staircase",
   const first = ref("seq", "term", { n: 0 });
   const v0 = ctx.read(first);
   if (num(v0) === null) return allUndefined(ctx, staircase, v0, first);
-  const seen = new Set<bigint>();
-  let run = 0;
-  // The run stops at the first term that is not a new prime (a repeated prime stops it too); the near miss is the first
-  // term that is not prime at all, which may come later or not within twelve terms (y = 7 repeats a prime forever).
-  let stop: ElementRef | null = null;
-  let miss: { ref: ElementRef; v: Q } | null = null;
-  for (let n = 0; n < 12 && (stop === null || miss === null); n++) {
+  const seen: bigint[] = [];
+  // The run stops at the first term that is not a new prime ending in k (a repeat stops it: y = 7 repeats forever).
+  // With a whole step m ≠ 0, y(|c|) is a multiple of c, so a run ends; 256 terms bound it all the same.
+  let n = 0, brk: { ref: ElementRef; v: Q } | null = null;
+  for (; n < 256; n++) {
     const r = ref("seq", "term", { n });
-    const v = sided(pr, num(ctx.read(r))!);   // on the mirror (side −1) the run is of minus primes: −y(n) is prime
-    const prime = v.d === 1n && isPrimeEnding(v.n, pr.ends);
-    if (stop === null) {
-      if (prime && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
-    }
-    if (!prime && miss === null) miss = { ref: r, v };
+    const v = num(ctx.read(r))!;
+    if (v.d === 1n && isPrimeEnding(v.n, pr.ends) && !seen.includes(v.n)) { seen.push(v.n); ctx.mark({ kind: "focus", ref: r }); continue; }
+    brk = { ref: r, v };
+    break;
   }
+  const run = seen.length;
+  const d = brk ? distanceToPrimeEnding(Qn.abs(brk.v), pr.ends) : Qn.ZERO;
+  const terms = Array.from({ length: run }, (_, i) => ref("seq", "term", { n: i }));
+  ctx.term("run", `${run} different primes ending in ${pr.ends} from y(0), then a term ${Qn.toWire(d)} from such a prime`,
+    Qn.add(q(run), Qn.div(Qn.ONE, Qn.add(q(2), d))), [...terms, ...(brk ? [brk.ref] : [])]);
+  const [p0, pl] = [seen[0], seen[run - 1]];
+  ctx.term("shared-factor", run >= 2 ? `the factor ${pl! - 1n} shares with ${p0! - 1n}` : "a run of fewer than two primes shares nothing (counted as 0)",
+    q(run >= 2 ? gcd(pl! - 1n, p0! - 1n) : 0n), terms.length ? terms : [first]);
   const back = ref("seq", "term", { n: -1 });
   const vb = num(ctx.read(back))!;
-  const terms = Array.from({ length: run }, (_, n) => ref("seq", "term", { n }));
-  ctx.term("run", `different ${minus(pr)}primes ending in ${pr.ends} from y(0)`, q(run), terms.length ? terms : [first]);
-  ctx.term("first-prime", "the first prime", run ? sided(pr, num(v0)!) : Qn.ZERO, [first]);
-  ctx.term("last-prime", "the last prime of the run", run ? q([...seen][run - 1]!) : Qn.ZERO, terms.length ? [terms[run - 1]!] : [first]);
-  ctx.term("near-miss", `distance from the first term that is not ${primeEnding(pr)} to one`, miss ? distanceToPrimeEnding(Qn.abs(miss.v), pr.ends) : { undefined: `the first twelve terms are all primes ending in ${pr.ends}` }, miss ? [miss.ref] : [first]);
   ctx.term("step-back", `distance from y(−1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(vb), pr.ends), [back]);
-  if (stop) ctx.mark({ kind: "note", ref: stop, text: "the run stops here" });
-});
-
-// ---------------------------------------------------------------- 2. Square Area (the owner's example 2)
-
-const squareShape: Shape<object> = {
-  main: distance("square", "area close to a square number", "The triangle the line cuts off the axes should have an area as close as possible to a square number.", "tri"),
-  tieBreakers: [
-    prime(more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri")),
-    prime(more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri")),
-    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri"),
-  ],
-};
-export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {
-  const area = ref("tri", "area");
-  const av = ctx.read(area);
-  const a = num(av);
-  if (a === null) return allUndefined(ctx, squareShape, av, area);
-  const sq = squareGap(a);
-  ctx.term("square", `distance from the area to ${sq.root * sq.root}`, sq.d, [area]);
-  ctx.term("spf", factorLabel("smallest", "the root", q(sq.root)), q(smallestPrimeFactor(sq.root)), [area]);
-  ctx.term("lpf", factorLabel("largest", "the root", q(sq.root)), q(largestPrimeFactor(sq.root)), [area]);
-  ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
-  ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
-  // The nearest square itself, as a shape the plane draws beside the triangle (marks only: no term changes).
-  const sqRef = ref("tri", "square", { s: sq.root });
-  ctx.read(sqRef);
-  ctx.mark({ kind: "candidate", ref: sqRef, term: "square" });
+  if (brk) ctx.mark({ kind: "note", ref: brk.ref, text: "the run stops here" });
 });
 
 // ---------------------------------------------------------------- 3. Treasure
@@ -203,55 +153,53 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
  * hard to climb ... secondary rules that are entangled with the primary rule so that ... moving to a higher primary
  * energy requires starting over to climb higher on the secondary dimension").
  *
- * Main part, unbounded: the y-intercept should be a prime ending in k, the bigger the better (u = c on such a prime);
- * any other line scores below every rung, graded by its distance to the nearest one (u = −d). Every rung has a higher
- * one, each rarer under the law (a prime coefficient costs the code about ½ bit a unit, so a rung's bits rise with it and
- * the climb's price, Δφ, rises with them); a climber reaches the next rung only by landing on it, through no gentler
- * slope. (A first version scored u = p − d; sampled to 5 million, it was "make c big": the primes did not matter.)
- * Tie-breakers, read from that prime p: the factor p − 1 shares with the gradient's whole part (the best gradient
- * depends on p, so a new rung restarts the climb), and how long y(1), y(2), … go on being primes ending in k from p.
- * Dealt: k = 1, 3, 7, 9.
+ * Main part, unbounded: where the line lands on the x-axis, X = −c/m, should round to a prime ending in k, the bigger
+ * the better (u = p); any other line scores below every rung, graded by how far it is from rounding to one. Spec
+ * lead's trial (15 Nov, declared to the coordinator): it read the y-intercept until the play measurements of row 2
+ * (design-principles.md) showed the ladder was not climbed, because the next prime was a shift of c by 10 or more and
+ * every rule reading c lost its bits. On the x-axis the next rung is a small tilt, Δm = c/p − c/p′, that leaves
+ * c alone (and a shift keeps working too: c = −pm). A vertical line lands at x = k, a flat one never lands.
+ * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (the best intercept
+ * depends on p, so a new rung restarts the climb). Dealt: k = 1 and 9, each on both sides (the mirror lands on minus
+ * such a prime: the reflection x → −x keeps the law, so mirrors are exact peers). Endings 3 and 7 are not dealt: at equal
+ * size their rungs are 1.4 and 0.5 bits cheaper under the law than 1 and 9 (fitted bits ≈ α + log2 p, 15 Nov).
  */
-const LANDING_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
+const LANDING_ENDS: Ends[] = [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 as const }]);
 const landingShape: Shape<Ends> = {
-  main: withEnds(more<Ends>("landing", "the y-intercept on as big a dealt prime as possible", "", "si"),
-    p => `The y-intercept should be a prime ending in ${p.ends}, the bigger the better; any other line scores below them all, the closer to one the better.`),
+  main: withEnds(more<Ends>("landing", "where the line lands on the x-axis, on as big a dealt prime as possible", "", "crossing"),
+    p => `Where the line crosses the x-axis should round to ${minus(p)}a prime ending in ${p.ends}, the bigger the better; any other line scores below them all, the closer to one the better.`),
   tieBreakers: [
-    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the gradient's whole part",
-      "That prime minus 1 and the whole part of the gradient should share as big a factor as possible (a whole part of 0 shares nothing).", "si"),
-    withEnds(more<Ends>("climb-on", "how long y(1), y(2), … go on being such primes", "", "table"),
-      p => `From that prime, y(1), y(2), y(3), … should go on being new primes ending in ${p.ends} for as long as possible.`),
+    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
+      "Take the number just before that prime. The biggest number that divides both it and the y-intercept's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
   ],
 };
-/** The ladder's value: x itself on a prime ending in k, else minus its distance to the nearest one. */
+/**
+ * The ladder's value: the prime p ending in k that x rounds to (|x − p| ≤ ½, ties up), else minus how far x is from
+ * rounding to the nearest one (|x − p| − ½). A rung is a window, not a point: under C3 an exact prime p costs the code
+ * about p/2 bits, so exact rungs gave a ladder whose next rung cost about 5 bits of φ for under a bit of value
+ * (80 games: 2 rungs climbed); a window costs about log p.
+ */
 const rung = (x: Q, k: number): { p: bigint; u: Q } => {
+  const n = nearestInteger(x);
+  if (n > 0n && isPrimeEnding(n, k)) return { p: n, u: q(n) };
   const p = nearestPrimeEnding(x, k);
-  return { p, u: x.d === 1n && x.n === p ? x : Qn.neg(Qn.abs(Qn.sub(x, q(p)))) };
+  return { p, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(p))), q(1, 2))) };
 };
-export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, LANDING_ENDS, (ctx, pr) => {
-  // A vertical line never meets the y-axis: it lands on the x-axis instead, and that number climbs the same ladder.
-  const vx = verticalAt(ctx);
-  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: the ladder of primes ending in ${pr.ends}`, rung(vx.x, pr.ends).u, vx.from);
-  const cRef = ref("si", "c"), mRef = ref("si", "m");
-  const cv = ctx.read(cRef);
-  const c = num(cv);
-  if (c === null) return allUndefined(ctx, landingShape, cv, cRef);
-  const m = num(ctx.read(mRef))!;
-  const { p, u } = rung(c, pr.ends);
-  const mark = ref("cart", "yAxisMark", { y: p });
+export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["crossing", "si", "cart"], landingShape, LANDING_ENDS, (ctx, pr) => {
+  const xRef = ref("crossing", "x0"), cRef = ref("si", "c");
+  const xv = ctx.read(xRef);
+  const x = num(xv);
+  if (x === null) return allUndefined(ctx, landingShape, xv, xRef);   // a flat line never lands (or lies along the axis)
+  const { p, u } = rung(sided(pr, x), pr.ends);   // on the mirror, −x climbs the ladder
+  const mark = ref("cart", "xAxisMark", { x: sided(pr, q(p)) });
   ctx.read(mark);
-  ctx.term("landing", Qn.isZero(Qn.sub(c, q(p))) ? `on the prime ${p}` : `off the prime ${p} by ${Qn.toWire(Qn.abs(Qn.sub(c, q(p))))}`, u, [cRef]);
-  const w = Qn.floor(m), aw = w < 0n ? -w : w;
-  ctx.term("shared-factor", `the factor ${p - 1n} shares with the gradient's whole part ${w}`, q(aw === 0n ? 0n : gcd(p - 1n, aw)), [cRef, mRef]);
-  const run: ElementRef[] = [], seen = new Set<bigint>([p]);   // new primes only: a flat line repeats p forever
-  for (let n = 1; n <= 12; n++) {
-    const r = ref("table", "y", { x: n }), v = num(ctx.read(r))!;
-    if (v.d !== 1n || !isPrimeEnding(v.n, pr.ends) || seen.has(v.n)) break;
-    seen.add(v.n);
-    run.push(r);
-  }
-  ctx.term("climb-on", `y(1), y(2), … primes ending in ${pr.ends} from ${p}`, q(run.length), run.length ? run : [ref("table", "y", { x: 1 })]);
-  ctx.mark({ kind: "focus", ref: cRef });
+  ctx.term("landing", Qn.sign(u) > 0 ? `lands at ${Qn.toWire(x)}, which rounds to ${minus(pr)}the prime ${p}` : `lands ${Qn.toWire(Qn.abs(Qn.sub(sided(pr, x), q(p))))} from ${minus(pr)}the prime ${p}`, u, [xRef]);
+  // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its landing.
+  const cv = ctx.read(cRef), c = num(cv);
+  const w = c === null ? 0n : Qn.floor(c), aw = w < 0n ? -w : w;
+  ctx.term("shared-factor", c === null ? "the y-intercept's whole part" : `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${aw === 0n ? 0n : gcd(p - 1n, aw)}`,
+    c === null ? undef(cv) : q(aw === 0n ? 0n : gcd(p - 1n, aw)), [xRef, cRef]);
+  ctx.mark({ kind: "focus", ref: xRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });
 });
 
@@ -389,50 +337,7 @@ export const divisibilityLadder = family("divisibility-ladder", "Divisibility La
   ctx.term("m-prime", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
 });
 
-// ---------------------------------------------------------------- Ruler, Exact Change, Pythagorean Area (restored, decision 22)
-// Deleted on 14 November because no exact sum valued them; owner decision 22 keeps rules whose values are sampled.
-
-/** Not dealt on whole-number lines, where it cannot decide anything (Ruler's distance is never whole there; b is always 1). */
-const notOnWhole = <P,>(l: L<P>): L<P> => ({ ...l, dealtOn: v => lineParams(v).domain !== "Z" });
-
-const rulerShape: Shape<object> = {
-  main: distance("ruler", "distance² from (0, 0) close to a square", "The shortest distance from (0, 0) to the line, squared, should be as close as possible to a square number.", "norm"),
-  tieBreakers: [
-    notOnWhole(more("far", "that whole distance", "That distance should be as big as possible.", "norm")),
-    distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
-    distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri"),
-  ],
-};
-export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rulerShape, [{}], ctx => {
-  const mRef = ref("si", "m"), d2Ref = ref("norm", "dist2"), area = ref("tri", "area");
-  // A vertical line x = k is |k| from (0, 0): its distance² reads honestly; the gradient and the triangle do not exist.
-  const vx = verticalAt(ctx);
-  if (vx) {
-    const d2 = num(ctx.read(d2Ref))!;
-    let kv = nearestSquareRoot(d2);
-    if (kv === 0n) kv = 1n;
-    ctx.term("ruler", `distance from distance² to ${kv * kv}`, gap(d2, q(kv * kv)), [d2Ref]);
-    ctx.term("far", "the whole distance nearest", q(kv), [d2Ref]);
-    for (const id of ["prime-gradient", "square-area"]) ctx.term(id, id, { undefined: VERTICAL_NO }, vx.from);
-    ctx.mark({ kind: "note", ref: d2Ref, text: `a vertical line: distance² ${Qn.toWire(d2)}, nearest square ${kv * kv}` });
-    return;
-  }
-  const mv = ctx.read(mRef);
-  const m = num(mv);
-  if (m === null || Qn.isZero(m)) return allUndefined(ctx, rulerShape, m === null ? mv : { kind: "undefined", reason: "a flat line's distance is its height: the rule wants a sloping line" }, mRef);
-  const d2 = num(ctx.read(d2Ref))!;
-  ctx.read(ref("norm", "foot"));
-  // The nearest square k² with k ≥ 1.
-  let k = nearestSquareRoot(d2);
-  if (k === 0n) k = 1n;
-  const av = ctx.read(area);
-  ctx.term("ruler", `distance from distance² to ${k * k}`, gap(d2, q(k * k)), [d2Ref]);
-  ctx.term("far", "the whole distance nearest", q(k), [d2Ref]);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
-  ctx.term("square-area", "distance from the area to a square", num(av) === null ? undef(av) : squareGap(num(av)!).d, [area]);
-  ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
-  ctx.mark({ kind: "note", ref: d2Ref, text: `distance² ${Qn.toWire(d2)}, nearest square ${k * k}` });
-});
+// ---------------------------------------------------------------- Exact Change (restored, decision 22)
 
 type W = { ways: number };
 const changeShape: Shape<W> = {
@@ -457,31 +362,6 @@ export const exactChange = family<W>("exact-change", "Exact Change", ["coins", "
   ctx.term("prime-coins", "distance of the coins from primes", Qn.add(distanceToPrime(a), distanceToPrime(b)), [ref("gen", "a"), ref("gen", "b")]);
   ctx.mark({ kind: "focus", ref: ways });
   ctx.mark({ kind: "note", ref: bill, text: `pay ${Qn.toWire(N)} with coins of ${Qn.toWire(a)} and ${Qn.toWire(b)}: ${Qn.toWire(w)} ways` });
-});
-
-type A = { A: number };
-const pythShape: Shape<A> = {
-  main: { ...distance<A>("area", "the area close to A", "", "tri"),
-    sentence: p => `The triangle the line cuts off the axes should have an area as close as possible to ${p.A}.` },
-  tieBreakers: [
-    distance("slanted-square", "the slanted side squared close to a square", "The slanted side, squared, should be as close as possible to a square number.", "tri"),
-    distance("prime-height", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si"),
-    distance("whole-legs", "both legs close to whole numbers", "Both legs should be as close as possible to whole numbers (distances added).", "tri"),
-  ],
-};
-export const pythagoreanArea = family<A>("pythagorean-area", "Pythagorean Area", ["tri", "si"], pythShape, [{ A: 6 }], (ctx, p) => {
-  const area = ref("tri", "area");
-  const av = ctx.read(area);
-  const a = num(av);
-  if (a === null) return allUndefined(ctx, pythShape, av, area);
-  const hyp = ref("tri", "hyp2"), lx = ref("tri", "legX"), ly = ref("tri", "legY"), cRef = ref("si", "c");
-  const h = num(ctx.read(hyp))!, x = num(ctx.read(lx))!, y = num(ctx.read(ly))!, c = num(ctx.read(cRef))!;
-  ctx.term("area", `distance from the area to ${p.A}`, gap(a, q(p.A)), [area]);
-  ctx.term("slanted-square", "distance from side² to a square", squareGap(h).d, [hyp]);
-  ctx.term("prime-height", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [cRef]);
-  ctx.term("whole-legs", "distance of the legs from whole numbers", Qn.add(distanceToWhole(x), distanceToWhole(y)), [lx, ly]);
-  ctx.mark({ kind: "focus", ref: lx });
-  ctx.mark({ kind: "focus", ref: ly });
 });
 
 /** The beginner families of this file; the dealt pool (presets.ts) adds Prime Gradient from families.ts. */
