@@ -171,7 +171,7 @@ test("committed value functions are intact: each content hash matches, knots ris
     assert.equal(body.schema, 7, `${v}/${f}/${x}: schema`);
     const family = (findVariant(v).type.families as RuleFamily<unknown, unknown>[]).find(y => y.id === body.family)!;
     const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
-    assert.deepEqual(body.tail, tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures), `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
+    assert.deepEqual(body.tail, tailOf(body.knots, body.objectType === "line" || body.objectType === "pair" ? TAIL_CEILING : Infinity, measures), `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;
   }
