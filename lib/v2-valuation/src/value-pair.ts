@@ -54,7 +54,7 @@ export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P
 }
 
 /** A ladder's tail with its tie-breaker measured at each main level (TieBreakerLevels), from the value function's own draws. */
-function withLevels(tail: ValueTail, family: RuleFamily<any, any>, tb: TieBreaker, params: unknown, draws: readonly { u: Score; w: number }[]): ValueTail {
+function withLevels(tail: ValueTail, _family: RuleFamily<any, any>, tb: TieBreaker, params: unknown, draws: readonly { u: Score; w: number }[]): ValueTail {
   const p = params as { q?: number; k?: number } | undefined, base = p?.q ?? p?.k;
-  return tb !== null && family.keepsParams && base && base > 1 ? { ...tail, levels: tieBreakerLevels(draws, base) } : tail;
+  return tb !== null && tail.primary.measure === "ladder-log" && base && base > 1 ? { ...tail, levels: tieBreakerLevels(draws, base) } : tail;
 }

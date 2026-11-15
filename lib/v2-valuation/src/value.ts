@@ -269,7 +269,8 @@ export const ladderLevel = (v: number, base: number): number => Math.floor(Math.
 export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): number {
   const cs = lv.curves;
   if (!cs.length || !Number.isFinite(t)) return 0;
-  const c = [...cs].reverse().find(x => x.level <= level) ?? cs[0]!;
+  let c = cs[0]!;
+  for (let i = cs.length - 1; i >= 0; i--) if (cs[i]!.level <= level) { c = cs[i]!; break; }
   const pts = c.pts;
   if (t <= pts[0]![0]) return 0;
   for (let i = 1; i < pts.length; i++) {
@@ -629,15 +630,16 @@ export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" |
     let bits = k.bits;
     const s = k.s;
     if (s !== null && u[0] && s[0]) {
-      const same = compareScores([u[0]], [s[0]]) === 0;
-      const t = same ? (u[1] && s[1] ? { fit: tail.secondary, from: s[1], to: u[1] } : null) : { fit: tail.primary, from: s[0], to: u[0] };
-      if (t) bits += t.fit.slope * (along(t.fit.form, t.to) - along(t.fit.form, t.from));
-      // A ladder's tie-breaker past the best main part: worth its rarity given the level reached (TieBreakerLevels), so
-      // the top still gives work and a step up the ladder starts the tie-breaker's climb again at the new level.
-      if (!same && tail.levels && u[1]) {
-        const v = toNumber(u[0]);
-        if (v > 0) bits += tieBreakerBits(tail.levels, ladderLevel(v, tail.levels.base), toNumber(u[1]));
-      }
+      const same = compareScores([u[0]], [s[0]]) === 0, lv = tail.levels;
+      if (!same) bits += tail.primary.slope * (along(tail.primary.form, u[0]) - along(tail.primary.form, s[0]));
+      if (lv) {
+        // A ladder's tie-breaker past the best knot, at its main part or above: worth its rarity given the level reached
+        // (TieBreakerLevels), so the top still gives work and a step up the ladder starts the tie-breaker's climb again
+        // at the new level. Counted beyond what the best knot's own tie-breaker is worth at its level (its bits hold
+        // that already): no jump for crossing the best knot, and a worse tie-breaker is never paid for.
+        const v = toNumber(u[0]), at = (x: Q, y: Q | null | undefined) => (y ? tieBreakerBits(lv, ladderLevel(toNumber(x), lv.base), toNumber(y)) : 0);
+        if (v > 0 && u[1]) bits += Math.max(0, at(u[0], u[1]) - (toNumber(s[0]) > 0 ? at(s[0], s[1]) : 0));
+      } else if (same && u[1] && s[1]) bits += tail.secondary.slope * (along(tail.secondary.form, u[1]) - along(tail.secondary.form, s[1]));
       // A ladder's cap: never more than the code length of a cheap state at this rung or above (TailFit.caps), whether
       // the tail runs along the main part or along the tie-breaker at the best knot's rung.
       if (tail.primary.caps) {
