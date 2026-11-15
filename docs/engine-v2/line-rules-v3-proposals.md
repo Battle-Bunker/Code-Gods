@@ -6,7 +6,7 @@ Status: proposals and measurements only. Nothing here changes the dealt rule poo
 - the first pass: `node --experimental-strip-types scripts/line-rules-v3.ts --part all` (about 25 minutes);
 - the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour);
 - adversaries, contests, unfreezing and the flatter law: `--part adversary`, `--moves mutators --part contest`,
-  `--pool rational --moves mutators --part unfreeze`, `--part flatlaw` (minutes each).
+  `--pool rational --moves mutators --part unfreeze`, `--part flatlaw`, `--part pmi [--set channels]` (minutes each).
 
 It follows [landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here. Part A is the
 second round, done after the owner's questions about rational lines; Part B is the first round, merged earlier as #607,
@@ -64,6 +64,11 @@ adversary cards (Smooth Crossing, Smooth Intercept, Steep and Tall, Smooth Gradi
 With any one of them seated, the largest crossing a climber reached stayed under 100, against 2,117 without. A
 dealt target that is redrawn every 50 s is the one change that kept the whole board moving (79–88% of objects moving
 late, against 4–8%). A flatter law at 0 and ±1 fixes the 27% vertical births but not the degenerate tops.
+
+**Independence (§A10, owner decision 39).** Most pairs in my pools are aligned, with upper-set PMI of 2–8.5 bits,
+because almost every rule rewards "the line is simple" (a whole, smooth bottom number). Smooth Intercept and Smooth
+Crossing pay twice for the same power of 2 (8.5 bits). Rules that each read one coordinate of ax + by + c = 0 and one
+prime's exponent measure as near-perpendicular (0–1.5 bits).
 
 The audit of all 46 current tie-breakers against the "tied" rule is §A3: 6 are tied, 22 read the anchor alone, 18 are
 independent, and all 24 ramps are among the untied ones.
@@ -443,6 +448,74 @@ Each coordinate with |n| ≤ 1 is charged δ more bits, and the rest is renormal
 **Limits of A7–A9.** Vertical lines score worst on every rule here that reads m or c (the general form would give some
 of them a value, e.g. Ruler's distance). The seats are greedy and selfish. The ladder caps near 33 bits, so the climbers'
 gains past p ≈ 47 are understated.
+
+
+## A10. Independence: PMI of the upper sets (owner decision 39)
+
+The owner: "two other players with 20 bits represents an object that's as rare and hard to reach as 40 bits". So for two
+seated rules A and B, the joint rarity of their upper sets should be close to the sum of their bits. That holds when
+the pointwise mutual information PMI = log2 π(U_A ∩ U_B) / (π(U_A) π(U_B)) is near 0, where U_r is the set of lines
+worth at least d bits to r. PMI > 0 means one structure is paid for twice; PMI < 0 means it is hard to hold both.
+Measured on 216,446 weighted draws of the line-q law, at d = 4 and 8 bits, `--part pmi`. The full matrices are in
+`scripts/line-pmi-results.md`.
+
+**My pools are strongly aligned.** At d = 8 there are 45 pairs with PMI ≥ 2 bits, among them:
+
+| Pair | PMI at d = 8 | Why |
+|---|---|---|
+| Smooth Intercept × Smooth Crossing | **8.5** | both pay for the same power of 2 (y = −2x + 2^(k+1)): one number paid twice |
+| Target Gradient/k-whole × Target Gradient/gcd-tops | 8.2 | the same primary |
+| Smooth Intercept × Smooth Square, Smooth Crossing × Smooth Square | 6.3 | the same smooth number again |
+| Whole Intercept/gcd-den-m × Whole Area/gcd-den-m | 6.1 | both reward a small whole denominator sharing factors |
+| Whole Crossing/gcd-num-m × Smooth Gradient | 6.2 | smooth m |
+| Smooth Gradient × Steep and Tall | 6.1 | a big smooth m with a shared c |
+| Whole Intercept/spf × Whole Intercept/rep | 5.2 | the same anchor |
+| Square Area/spf × Smooth Square | 5.3 | the same primary (the tension is only in the tie-breaker) |
+| Whole Crossing/spf × Square Area/spf | 4.1 | **the stretch-to-367 pair**: the crossing and the area's root are the same prime |
+
+Only one pair is clearly in tension (Near the Point/lattice × Sunken Intercept, −3.4 at d = 4).
+
+**Why.** Nearly every rule rewards whole-number structure in some representation: "nearly whole", shared factors,
+smooth numbers. On a fraction line all of those load on the same hidden variable: a small bottom number b (a whole
+gradient and intercept) and coefficients rich in small primes. So the rules are not perpendicular; they are mostly
+different readings of "the line is simple". My adversaries are aligned with each other and with the gcd rules. They
+are adversaries to the big-prime hills only in the direction of their pull (§A7), not in rarity.
+
+**What is perpendicular, measured.** The mixed code draws a, b and c independently, and within each number it draws
+each prime's exponent independently. So a rule that reads one coordinate of ax + by + c = 0 and one prime's exponent is
+statistically independent of a rule reading another coordinate or another prime. Five such "channel" rules (factors of 2
+in a, factors of 3 in b, factors of 5 in c, factors of 2 in c, c a big prime):
+
+PMI at depth 4 (upper half of the cell) and depth 8 (after the slash); blank where under 30 draws are in the joint set:
+
+| | threes in b | fives in c | twos in c | c a big prime |
+|---|---|---|---|---|
+| twos in a | 0.7 / 0.8 | 0.6 / 0.3 | 0.2 / −0.0 | 0.6 / 0.2 |
+| threes in b | | 0.7 / 1.5 | 0.7 / 1.2 | 0.9 / 0.7 |
+| fives in c | | | −0.0 / – | 3.2 (c = 5 counts as both) / – |
+| twos in c | | | | – / – |
+
+All are within 0–1.5 bits, apart from one small-number artefact. The residue comes from the "rest of the number as
+small as possible" tie-breakers I used, which all like small numbers.
+
+**What this means for the pool (proposal).**
+
+1. **Give each seated rule its own channel**: a coordinate of the standard form (a, b or c), or a prime it reads (2s,
+   3s, 5s, big primes), or both. Two rules on the same number reading different primes are perpendicular (a stretch by
+   2 helps one and not the other). Two rules reading the same prime of the same number pay twice (the stretch case).
+2. **At most one "nearly whole" (integrality) primary per table.** Integrality is the common factor of almost the
+   whole pool.
+3. **Tension still comes from the moves.** A stretch by 2 multiplies a and c, a shift moves c through every prime's
+   exponent at once, and a nudge changes one coordinate. So rules can be perpendicular in value and still collide
+   through the mutators, which is the political structure decision 30 asks for.
+4. **The cost to flag for the owner.** Perpendicular rules make the table's value close to separable, and the landscape
+   analysis found that rules reading one coordinate each make a fixed point easier to reach (each rule's best is found
+   on its own). Decisions 39 and 30 pull opposite ways here. What keeps it hard is each rule's own climb being priced
+   and unbounded, uniqueness, and collisions through mutators, not entangled value.
+5. **Decision 29 (tied tie-breakers) inside a channel.** A tie-breaker can stay in its rule's channel and still tie to
+   the anchor, for example "the factors of 2 in a, and then the factors of 2 in the gradient's bottom number". Any tie
+   to another coordinate's or prime's structure costs some perpendicularity. The size of that trade has not been
+   measured yet.
 
 
 ---
