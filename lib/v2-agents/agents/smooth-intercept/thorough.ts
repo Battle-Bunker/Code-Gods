@@ -48,6 +48,10 @@ function agent(offer) {
     const f = k > 0 ? k + 1 : k - 1;
     tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
   }
+  // The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.
+  const rung = Q.abs(c), up = Q.cmp(c, 0) < 0 ? -1 : 1, onRung = n => factors(n).every(f => p.primes.includes(Number(f)));
+  const below = near(rung, n => n >= 2 && onRung(n));
+  if (below !== null) for (let t = Q.add(below, 1), i = 0; i < 3000; t = Q.add(t, 1), i++) if (onRung(t)) { tries.push([move("si.shift", { k: Q.sub(Q.mul(up, t), c) }), m, Q.mul(up, t)]); break; }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
