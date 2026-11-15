@@ -70,6 +70,7 @@ def agent(offer):
             tries.append((move("seq.step", k=k), m + k, c - k))   # change the pattern's step, keeping y(1)
             tries.append((move("cart.pivot", x0=p["T"], k=k), m + k, c - k * p["T"]))   # turn the line about its point at x = T (if it crosses y = x there, it still does)
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
+    tries += shortcuts(m, c)   # other views: mirrors, a slide, turns, one intercept moved
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

@@ -191,7 +191,7 @@ function agentTs(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   out.push(
     "  }",
     ...(kind !== "naive" && e.rungs ? e.rungs.ts.map(l => `  ${l}`) : []),
-    ...(kind === "naive" ? [] : ["  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds"]),
+    ...(kind === "naive" ? [] : ["  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds", ...(kind === "simple" || kind === "thorough" ? ["  tries.push(...shortcuts(m, c));   // other views: mirrors, a slide, turns, one intercept moved"] : [])]),
     ...(kind === "naive" ? [
       `  let top = score(m, c, ${args}), plans = [];`,
       "  for (const [plan, m2, c2] of tries) {",
@@ -335,7 +335,7 @@ function agentPy(kind: AgentKind, e: FamilyEntry, tieBreaker: string | null, far
   }
   out.push(
     ...(kind !== "naive" && e.rungs ? e.rungs.py.map(l => `    ${l}`) : []),
-    ...(kind === "naive" ? [] : ["    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds"]),
+    ...(kind === "naive" ? [] : ["    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds", ...(kind === "simple" || kind === "thorough" ? ["    tries += shortcuts(m, c)   # other views: mirrors, a slide, turns, one intercept moved"] : [])]),
     ...(kind === "naive" ? [
       `    top, plans = score(m, c, ${args}), []`,
       "    for plan, m2, c2 in tries:",

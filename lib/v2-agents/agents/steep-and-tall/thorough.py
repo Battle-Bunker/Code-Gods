@@ -51,6 +51,7 @@ def agent(offer):
         f = k + 1 if k > 0 else k - 1
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
+    tries += shortcuts(m, c)   # other views: mirrors, a slide, turns, one intercept moved
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

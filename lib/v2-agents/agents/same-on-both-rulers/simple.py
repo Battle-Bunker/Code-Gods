@@ -70,6 +70,7 @@ def agent(offer):
             den = 1 - m * k
             if den != 0: tries.append((move("rot.turn", centre=0, turn=k), (m + k) / den, c))   # turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
+    tries += shortcuts(m, c)   # other views: mirrors, a slide, turns, one intercept moved
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:

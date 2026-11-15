@@ -24,6 +24,8 @@
 #   whole(x)                     the whole number nearest to x (a half rounds up).
 #   near_made_of(x, primes)      the whole number (2 or more) made only by multiplying the given primes that is nearest
 #                                x, the smaller on a tie: near_made_of(100, [3, 7]) is 81. Fast at any size.
+#   shortcuts(m, c)              steps in other views of y = mx + c, each (plan, m after, c after): mirrors, a slide by 1,
+#                                turns about x = ±2, and moving one intercept by 1 while the other stays.
 #   simplest(a, b)               the simplest fraction from a to b (either way round): the smallest denominator, then
 #                                the numerator nearest 0. simplest(18.5, 19.5) is 19; simplest(-0.81, -0.77) is -4/5.
 #   smooth(n)                    is n made only by multiplying 2s, 3s, 5s and 7s (1 included; the sign ignored)?
@@ -420,6 +422,31 @@ def rounding(m, c):
     for d in parts:
         out.append((call("mach.stretch", f=Fraction(d)), m * d, c * d))
     return out
+
+
+def shortcuts(m, c):
+    if m is None or c is None:
+        return []
+    m, c = Fraction(m), Fraction(c)
+    # On a line with huge numbers (stretched past a million) scoring two dozen more lines costs too much: none.
+    if any(abs(x.numerator) > 1000000 or x.denominator > 1000000 for x in (m, c)):
+        return []
+    out = [(move("cart.mirror", axis="x"), -m, -c), (move("cart.mirror", axis="y"), -m, c), (move("cart.mirror", axis="origin"), m, -c)]
+    if m != 0:
+        out.append((move("cart.mirror", axis="diagonal"), 1 / m, -c / m))
+    for u in (-1, 1):
+        out.append((move("cart.slide", u=u, v=0), m, c - m * u))
+    for x0 in (-2, 2):
+        for k in (-1, 1):
+            out.append((move("cart.pivot", x0=x0, k=k), m + k, c - k * x0))
+    if m != 0 and c != 0:
+        X = -c / m
+        for k in (Fraction(-1), Fraction(1)):
+            if X + k != 0:
+                out.append((move("int.move", axis="x", k=k), -c / (X + k), c))
+            if c + k != 0:
+                out.append((move("int.move", axis="y", k=k), m * (c + k) / c, c + k))
+    return [t for t in out if not (t[1] == m and t[2] == c)]
 
 
 def fractions(m, c):
