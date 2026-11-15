@@ -23,6 +23,7 @@ import { EngineProvider, SIGN_OUT_UNCONFIRMED, useSession, type EngineAuth } fro
 import NotFound from "@/site/pages/not-found";
 import Home from "@/site/pages/home";
 import Room from "@/site/pages/room";
+import Configure from "@/site/pages/configure";
 import Game from "@/site/pages/game";
 import Device from "@/site/pages/device";
 import Connect from "@/site/pages/connect";
@@ -103,6 +104,7 @@ function Routes({ mode }: { mode: Connection["mode"] }) {
       <Switch>
         <Route path={ROUTE_PATTERNS.home} component={Home} />
         <Route path={ROUTE_PATTERNS.game} component={Game} />
+        <Route path={ROUTE_PATTERNS.configure} component={Configure} />
         <Route path={ROUTE_PATTERNS.room} component={Room} />
         <Route path={ROUTE_PATTERNS.device} component={offSite ? siteOnly("Approve a device") : Device} />
         <Route path={ROUTE_PATTERNS.connect} component={offSite ? siteOnly("Approve a connection") : Connect} />
