@@ -352,7 +352,20 @@ function reflectLine(l: Line, A: Q, B: Q, C: Q): Line | Invalid {
 }
 /** A rational with no sign: "1/2" for ½. */
 const unsigned = (x: Q) => w(Qn.abs(x));
-const pinWords = (x0: Q) => `its point at x = ${w(x0)}`;
+/** The pin of a turn or a fold, said plainly: where the line crosses the y-axis, or its point above or below x0. */
+const pinWords = (x0: Q) => (Qn.isZero(x0) ? "the point where it crosses the y-axis" : `its point straight above or below ${w(x0)} on the x-axis`);
+/**
+ * A turn's angle as a child would say it (playtest round 23): degrees, with the fraction of a whole turn when there is a
+ * plain one ("90° (one quarter turn)", "45° (one eighth turn)"), else "about 37°" for tan θ = 3/4. No article "a" (the
+ * move lists keep single letters for names).
+ */
+export function turnAngleWords(t: Q | string): string {
+  if (typeof t === "string") return "90° (one quarter turn)";
+  const a = Qn.abs(t);
+  if (Qn.eq(a, Qn.ONE)) return "45° (one eighth turn)";
+  const deg = (Math.atan(Number(a.n) / Number(a.d)) * 180) / Math.PI;
+  return `about ${Math.round(deg)}°`;
+}
 
 /** A turn's centre: the origin, or the pin of the line at x = x0 (1 bit, then x0 by steps). */
 const centre = (d: Domain): Field => {
@@ -379,13 +392,13 @@ const turnField: Field = {
 };
 // About a pin, a quarter turn either way gives the same line (the perpendicular through the pin), so no direction is said.
 const turnWords = (t: Q | string, aboutPin: boolean): string =>
-  // No article "a" (the move lists keep single letters for names): "one quarter turn", "the angle of gradient 3/4".
-  typeof t === "string" ? (aboutPin ? "one quarter turn" : `one quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`)
-    : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of gradient ${unsigned(t)}`;
+  // About a pin either quarter turn gives the same line, so its sense is not said.
+  typeof t === "string" ? (aboutPin ? turnAngleWords(t) : `${turnAngleWords(t)} ${t === "left" ? "anticlockwise" : "clockwise"}`)
+    : `${turnAngleWords(t)} ${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"}`;
 
 export const turn: M = {
   id: "rot.turn", reps: ["cart", "norm"], title: "turn the line around a pin, like a clock hand", perSite: true,
-  describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
+  describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} around ${a.centre === "origin" ? "the origin (0, 0)" : pinWords(Qa(a, "centre"))}`,
   args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;

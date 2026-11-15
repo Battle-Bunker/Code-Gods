@@ -291,3 +291,12 @@ test("line-q-lenses: every proposal has a reverse of the same weight, level, upr
   for (const mu of lensMutators) assert.ok((r.perMutator[mu.id]?.edges ?? 0) > 20, `${mu.id} proposed moves`);
   assert.ok(r.worstEdge < 1e-9 && r.worstCycle < 1e-9, `edge ${r.worstEdge}, loop ${r.worstCycle}`);
 });
+
+test("the turn is said as a child would: degrees and the plain fraction of a turn, the pin by where it is (playtest round 23)", () => {
+  const say = (args: Record<string, unknown>) => lensMutators.find(m => m.id === "rot.turn")!.describe(args as never);
+  assert.equal(say({ centre: q(0), turn: q(-1) }), "turn the line 45° (one eighth turn) clockwise around the point where it crosses the y-axis");
+  assert.equal(say({ centre: q(3), turn: "left" }), "turn the line 90° (one quarter turn) around its point straight above or below 3 on the x-axis");
+  assert.equal(say({ centre: "origin", turn: q(3, 4) }), "turn the line about 37° anticlockwise around the origin (0, 0)");
+  // No article "a": the move lists keep single letters for names.
+  for (const t of [q(1), q(-1), q(3, 4), q(1, 2), "left", "right"]) assert.doesNotMatch(say({ centre: "origin", turn: t }), /\b(a|b|k) /);
+});
