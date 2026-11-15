@@ -5,7 +5,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, playable, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, policyDeal, practiceDeal, type SeatKind, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { typeOf } from "./world.ts";
@@ -87,17 +87,26 @@ export async function setSpectator(ctx: MutationCtx, room: Doc<"v2Rooms">, membe
   await closeIfAllDone(ctx, room._id);
 }
 
+/** A deployed preset (v2/setups:presets lists them) that can deal: room.create, room.settings and setups.save. */
+export function checkPreset(preset: string | undefined) {
+  if (preset !== undefined && !isPreset(preset)) throw new OpFailure(`No preset ${preset}.`, "Pick one of the deployed presets (v2/setups:presets).");
+  if (preset !== undefined && !playable(presetOf(preset))) throw new OpFailure(`${presetOf(preset).title} is not playable yet: its rules have no value functions on this deployment.`, "Pick one of the deployed presets (v2/setups:presets).");
+}
+
 /**
  * Sets the preset and the overrides. Overrides, when given, replace the old ones (`{}` restores the preset's values);
- * a new preset starts without the old preset's overrides unless the call gives some.
+ * a new preset starts without the old preset's overrides unless the call gives some. `setup`: they come from that
+ * saved setup (room.settings `setupId`), whose name the room then shows; without it the change is by hand and the
+ * room shows no setup.
  */
-export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: { preset?: string; overrides?: Doc<"v2Rooms">["overrides"] }) {
+export async function changeSettings(ctx: MutationCtx, room: Doc<"v2Rooms">, a: { preset?: string; overrides?: Doc<"v2Rooms">["overrides"]; setup?: Doc<"v2Rooms">["setup"] }) {
   if (a.preset !== undefined && !isPreset(a.preset)) throw new OpFailure(`No preset ${a.preset}.`, "Pick one of the deployed presets.");
   if (room.bidding) throw new OpFailure("The bid phase is open: the settings change once it closes.");
   const presetChanged = a.preset !== undefined && a.preset !== room.preset;
   await ctx.db.patch(room._id, {
     ...(a.preset !== undefined ? { preset: a.preset } : {}),
     overrides: a.overrides ?? (presetChanged ? {} : room.overrides),
+    setup: a.setup,
     revision: room.revision + 1,
   });
 }

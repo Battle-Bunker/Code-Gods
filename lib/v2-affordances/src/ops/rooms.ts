@@ -8,6 +8,20 @@ const member = z.object({
   memberId: id, name: z.string(), kind: z.enum(["human", "practice", "ai"]), spectator: z.boolean(), owner: z.boolean(),
 });
 
+/**
+ * The overrides a room (room.settings) or a saved setup (setups.save) may set on its preset: one schema, so a setup
+ * holds exactly what a room accepts. `timeScale` is internal (simulations), never offered.
+ */
+export const overrides = z.object({
+  planningSeconds: z.number().int().min(5).max(900), worldSeconds: z.number().int().min(30).max(7200), startingEnergy: z.number().min(0),
+  durationMode: z.enum(["fixed", "halfLife"]), scoreIntervalSeconds: z.number().int().min(1).max(3600),
+  peerNoiseVariance: z.union([z.literal(0), z.literal(4), z.literal(16), z.literal(64), z.literal(256)]),
+  readPriceWeight: z.number().min(0).max(4),
+  driftSeconds: z.number().int().min(0).max(3600),
+  pauseSeconds: z.number().int().min(1).max(1800),
+  commitClause: z.boolean(),
+}).partial().strict();
+
 export const roomOps = [
   affordance({
     id: "room.list", title: "List my rooms", group: "room", scope: "none",
@@ -84,19 +98,12 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how it ends (durationMode \"fixed\" at the length, or \"halfLife\" at a hidden random moment); seconds between published standings (scoreIntervalSeconds, default 10); reading noise on the others' sums (peerNoiseVariance: 0, 4, 16, 64 or 256 bits²); the look price weight (readPriceWeight, 0 to 4; 0 free); rule drift (driftSeconds, 0 off); pause length (pauseSeconds, default 180); the commit clause (commitClause). Unset values are the preset's.",
+    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how it ends (durationMode \"fixed\" at the length, or \"halfLife\" at a hidden random moment); seconds between published standings (scoreIntervalSeconds, default 10); reading noise on the others' sums (peerNoiseVariance: 0, 4, 16, 64 or 256 bits²); the look price weight (readPriceWeight, 0 to 4; 0 free); rule drift (driftSeconds, 0 off); pause length (pauseSeconds, default 180); the commit clause (commitClause). Unset values are the preset's. setupId applies a saved setup instead.",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
-      overrides: z.object({
-        planningSeconds: z.number().int().min(5).max(900), worldSeconds: z.number().int().min(30).max(7200), startingEnergy: z.number().min(0),
-        durationMode: z.enum(["fixed", "halfLife"]), scoreIntervalSeconds: z.number().int().min(1).max(3600),
-        peerNoiseVariance: z.union([z.literal(0), z.literal(4), z.literal(16), z.literal(64), z.literal(256)]),
-        readPriceWeight: z.number().min(0).max(4),
-        driftSeconds: z.number().int().min(0).max(3600),
-        pauseSeconds: z.number().int().min(1).max(1800),
-        commitClause: z.boolean(),
-      }).partial().strict().optional(),
+      overrides: overrides.optional(),
+      setupId: id.optional().describe("One of your saved setups (setups.page): the room takes its preset and overrides. Not with preset or overrides."),
       requestId: requestId.optional(),
     }), result: ok,
     contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server",

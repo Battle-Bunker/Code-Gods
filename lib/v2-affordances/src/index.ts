@@ -8,3 +8,4 @@ export * from "./server.ts";
 export * from "./mcp.ts";
 export * from "./layout.ts";
 export * from "./dock.ts";
+export { freeSetupName, MAX_OWN_SETUPS, SETUP_NAME_MAX } from "./ops/setups.ts";
