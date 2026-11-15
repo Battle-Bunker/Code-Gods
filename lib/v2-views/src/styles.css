@@ -424,3 +424,19 @@
 .v2v-undef-what { font-family: var(--v2v-math, inherit); font-size: 15px; color: var(--v2v-ink); margin-bottom: 2px; }
 /* What makes a non-scoring object score: the whole move, wrapped, never cut short. */
 .v2v-face-next[data-testid="text-to-score"] { white-space: normal; overflow: visible; text-overflow: clip; }
+/* A lens move sketched on the plane (move-sketch.tsx): the old line faint, the new line bold, the move's own marks. */
+.v2v-sketch { margin: 0; display: flex; flex-direction: column; gap: 6px; max-width: 360px; }
+.v2v-sketch svg { display: block; width: 100%; height: auto; background: var(--v2v-card); border: 1px solid var(--v2v-rule); border-radius: 8px; }
+.v2v-sketch .axis { stroke: var(--v2v-axis); stroke-width: 1; }
+.v2v-sketch .old { stroke: var(--v2v-faint); stroke-width: 2; stroke-dasharray: 5 4; }
+.v2v-sketch .new { stroke: var(--v2v-line); stroke-width: 2.5; }
+.v2v-sketch .crease { stroke: var(--v2v-changed); stroke-width: 1.5; stroke-dasharray: 8 5; }
+.v2v-sketch .perp, .v2v-sketch .pair, .v2v-sketch .guide { stroke: var(--v2v-measure); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.v2v-sketch .tick { stroke: var(--v2v-measure); stroke-width: 1.5; }
+.v2v-sketch .arrow, .v2v-sketch .arc { stroke: var(--v2v-focus); stroke-width: 2; fill: none; }
+.v2v-sketch .head { fill: var(--v2v-focus); }
+.v2v-sketch .dot { fill: var(--v2v-measure); }
+.v2v-sketch .dot.pin, .v2v-sketch .dot.shared, .v2v-sketch .dot.origin { fill: var(--v2v-focus); stroke: var(--v2v-card); stroke-width: 1.5; }
+.v2v-sketch .dot.old { fill: var(--v2v-faint); }
+.v2v-sketch .label { font-size: 11px; fill: var(--v2v-ink); paint-order: stroke; stroke: var(--v2v-card); stroke-width: 3px; }
+.v2v-sketch-words { margin: 0; font-size: 13px; line-height: 1.4; color: var(--v2v-ink); }

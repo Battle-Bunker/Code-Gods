@@ -8,14 +8,14 @@
  * 3. Every dealable rule (family × parameters) as a compact face.
  * 4. Grids (v2-grids.tsx): a board in every representation, a storyboard, and every grid family on example boards.
  *
- * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids` for one section.
+ * `?scheme=dark` for the dark scheme, `?family=<id>` for one family, `?section=story|families|dealt|grids|lenses` for one section.
  * e2e/v2-views.ts takes the screenshots in docs/screenshots/v2-views/.
  */
 import { StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { evaluateObject, q, rng, walkStep, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
-import { divisibilityLadder, fromMC, lineQ, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
-import { annotate, bitsLine, CompactFace, ExpandedFace, GoalCard, MoveLine, ObjectChip, type RuleRef } from "@workspace/v2-views";
+import { divisibilityLadder, encodeLine, fromMC, lensMutators, lineQ, lineQLenses, lineType, lineZ, normalise, primeGradient, primeLanding, squareArea, treasure, wholeCrossing, type Line, type LineState } from "@workspace/v2-linear";
+import { annotate, bitsLine, CompactFace, ExpandedFace, GoalCard, MoveLine, MoveSketch, ObjectChip, type RuleRef } from "@workspace/v2-views";
 import { pickExamples, valueFor } from "./values";
 import { emptyTank } from "@workspace/v2-views/demo";
 import "@workspace/v2-views/styles.css";
@@ -178,6 +178,36 @@ function Hard() {
   );
 }
 
+// ------------------------------------------------------------------ the five lens moves
+
+/** Each lens move on a line, as the What if pane draws it (lenses-and-mutators.md §5). */
+const LENS_MOVES: { title: string; line: Line; mutator: string; args: Record<string, string> }[] = [
+  { title: "turn about a pin", line: fromMC(q(1, 2), q(1)) as Line, mutator: "rot.turn", args: { centre: "2", turn: "3/4" } },
+  { title: "turn about the origin", line: fromMC(q(0), q(5)) as Line, mutator: "rot.turn", args: { centre: "origin", turn: "-3/4" } },
+  { title: "fold in a crease", line: fromMC(q(2), q(-1)) as Line, mutator: "fold", args: { x0: "1", s: "0" } },
+  { title: "fold in a mirror", line: fromMC(q(3), q(1)) as Line, mutator: "fold", args: { mirror: encodeLine(normalise(-1n, 1n, 0n) as Line) } },
+  { title: "swap gradient and y-intercept", line: fromMC(q(2), q(5)) as Line, mutator: "coef.swap", args: { pair: "m-c" } },
+  { title: "swap b and c", line: fromMC(q(1, 2), q(3)) as Line, mutator: "coef.swap", args: { pair: "b-c" } },
+  { title: "lean", line: fromMC(q(1), q(-2)) as Line, mutator: "basis.lean", args: { k: "1/2" } },
+  { title: "zoom", line: fromMC(q(-1), q(3)) as Line, mutator: "basis.zoom", args: { f: "2" } },
+];
+
+function Lenses() {
+  return (
+    <section className="g-section" id="lenses" data-section="lenses">
+      <h2>The five lens moves, drawn</h2>
+      <p className="g-note">The old line dashed and faint, the new line bold, and what the move keeps or measures (line-q-lenses).</p>
+      <div className="g-dealt-grid">
+        {LENS_MOVES.map(l => {
+          const m = lensMutators.find(x => x.id === l.mutator)!;
+          const r = m.apply({ lines: [l.line] }, 0, m.args(lineQLenses).decode(l.args), lineQLenses) as LineState;
+          return <Cell key={l.title} title={l.title}><MoveSketch before={l.line} after={r.lines[0]!} call={l} /></Cell>;
+        })}
+      </div>
+    </section>
+  );
+}
+
 // ------------------------------------------------------------------ 3. every dealable rule
 
 function Dealt() {
@@ -246,7 +276,7 @@ function Gallery() {
         <h1>Engine v2 views</h1>
         <p className="g-note">The chip, the compact face and the expanded face for every rule of the line and of the grid. Point at a number to light the same quantity in every view; point at a part to see only its marks.</p>
         <nav className="g-nav">
-          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a>
+          <a href="#story">Storyboards</a><a href="#families">Families</a><a href="#dealt">Every dealable rule</a><a href="#grids">Grids</a><a href="#lenses">Lens moves</a>
           <a href={link({ scheme: other })}>{other} scheme</a>
         </nav>
         {show("story") && !only && <Storyboards />}
@@ -258,6 +288,7 @@ function Gallery() {
         )}
         {show("dealt") && <Dealt />}
         {show("grids") && <GridsSection only={only} />}
+        {show("lenses") && !only && <Lenses />}
         {section === "plot" && <Hard />}
       </main>
     </div>
