@@ -17,12 +17,13 @@ test("well past its end and still running, the clock says the server is late (ro
 });
 
 test("a half-life game shows v1's 90% range of the time left, which never moves; never a countdown to its hidden end", () => {
-  const h = (now: number) => timerText({ phase: "live", endsAt: null, durationMode: "halfLife", worldSeconds: 300, planningEndsAt: null, planningSeconds: 60 } as never, now)!;
+  // Started 100 s before: past the floor (h/10 = 30 s), the time left has the same spread whatever the clock says.
+  const h = (now: number) => timerText({ phase: "live", endsAt: null, durationMode: "halfLife", worldSeconds: 300, startedAt: -100_000, planningEndsAt: null, planningSeconds: 60 } as never, now)!;
   // τ = 300 / ln 2; [τ·ln(1/0.95), τ·ln(1/0.05)] = [22.2, 1296.6] s.
   // In words a 12-year-old reads (round 11: "0:13–12:58 90%" looked frozen and "90%" said nothing).
   assert.deepEqual([h(0).label, h(0).value, h(0).note], ["Game ends", "any moment", "at a hidden time: 9 times in 10 within the next 21:37"]);
   assert.equal(h(600_000).note, h(0).note, "how long it has run tells you nothing");
-  assert.match(h(0).tip, /same chance of ending .*so the clock never counts down/);
+  assert.match(h(0).tip, /same chance of ending.*so the clock never counts down/);
   assert.doesNotMatch(h(0).tip, /exactly/);
 });
 
@@ -30,4 +31,13 @@ test("only a fixed game has a length to count time left against (a half-life gam
   const { fixedLength } = await import("../src/core/timer-text.ts");
   assert.equal(fixedLength({ durationMode: "fixed", worldSeconds: 300 }), 300);
   assert.equal(fixedLength({ durationMode: "halfLife", worldSeconds: 300 }), null);
+});
+
+test("a half-life game cannot end in its first tenth of the half-life (trial 16): the clock says so, then any moment", async () => {
+  const { timerText } = await import("../src/core/timer-text.ts");
+  // h = 300 s: the floor is 30 s. 10 s in: it cannot end for 20 s more; 9 times in 10 within 20 s + τ·ln 20 ≈ 21:17.
+  const h = (now: number) => timerText({ phase: "live", endsAt: null, durationMode: "halfLife", worldSeconds: 300, startedAt: 0, planningEndsAt: null, planningSeconds: 60 } as never, now)!;
+  assert.deepEqual([h(10_000).value, h(10_000).note], ["not yet", "it cannot end for 0:20; then any moment: 9 times in 10 within the next 21:57"]);
+  assert.equal(h(40_000).value, "any moment", "past the floor");
+  assert.equal(h(40_000).note, "at a hidden time: 9 times in 10 within the next 21:37");
 });
