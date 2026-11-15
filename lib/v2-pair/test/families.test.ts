@@ -127,7 +127,7 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
   // the target is 49. The gentler y = x − 51 meets it at 51: the gap 49 is on target; they cross at (−22.5, −73.5).
   const fc = { q: 7, r: 2 }, lo = sys(Y(3, -6), Y(1, -51));
   assert.equal(score("far-crossing", "far-gap", lo, fc)![1], "0");
-  assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-49/2");   // a distance: smaller is better, stored negated
+  assert.equal(score("far-crossing", "far-height", lo, fc)![1], "-24");   // 24½, counted whole (trial 34); smaller is better, stored negated
   // One level up (16 leaves 16 by 49): the same gap of 49 is now 294 from 343, the nearest non-zero multiple, so the
   // climb restarts.
   assert.equal(score("far-crossing", "far-gap", sys(Y(3, -48), Y(1, -65)), fc)![1], "-294");

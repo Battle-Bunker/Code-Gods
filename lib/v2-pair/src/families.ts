@@ -32,14 +32,20 @@ const main = (id: string, title: string, sentence: string | ((p: P) => string), 
 const tb = (id: string, title: string, sentence: string | ((p: P) => string), rep: string, hill: Sense): PairLayer =>
   ({ id, title, sentence: typeof sentence === "string" ? () => sentence : sentence, rep, sense: hill === "small" ? "min" : "max", hill });
 /**
- * How far v is from the nearest non-zero whole multiple of m (m ≥ 1). 0 is no multiple: two lines through one point of
+ * How far v is from the nearest non-zero whole multiple of m (m ≥ 1), rounded to a whole number. 0 is no multiple: two lines through one point of
  * an axis would otherwise meet every level's target at once (a top the climb never leaves; the review of §10).
  */
 export function offMultiple(v: Q, m: bigint): Q {
   const t = Qn.div(v, q(m)), f = t.n / t.d - (t.n % t.d < 0n ? 1n : 0n);   // ⌊v / m⌋, rounding down for negatives too
   const lo = f === 0n ? -1n : f, hi = f + 1n === 0n ? 1n : f + 1n;
-  const below = Qn.abs(Qn.sub(v, q(lo * m))), above = Qn.abs(Qn.sub(q(hi * m), v));
-  return Qn.cmp(below, above) <= 0 ? below : above;
+  const below = Qn.abs(Qn.sub(v, q(lo * m))), above = Qn.abs(Qn.sub(q(hi * m), v)), d = Qn.cmp(below, above) <= 0 ? below : above;
+  // In whole numbers, the nearer on a half (trial 34, "rounds to"): a distance on a continuous number paid for precision a
+  // single tilt could tune (Far Crossing's height within a hair of a multiple of 1,331: +22 bits in two tilts on the
+  // energy gate). Counted whole, hitting a multiple is worth about log₂ m bits, its rarity among whole numbers.
+  // A target of 1 (High Start below its pattern: "near a whole number") keeps the exact distance, at most ½.
+  if (m === 1n) return d;
+  const w = Qn.floor(d);
+  return q(Qn.cmp(Qn.sub(d, q(w)), q(1n, 2n)) <= 0 ? w : w + 1n);
 }
 /**
  * A tie-breaker that reads the level the main part reached (design-principles.md row 3; the coordinator, 15 Nov):
