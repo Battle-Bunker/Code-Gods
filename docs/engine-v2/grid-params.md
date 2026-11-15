@@ -107,3 +107,63 @@ share only (score levels per parameter range from 13 to 135).
   (the first two examples) reads better than mixed qualifiers per unit (the fourth).
 - Joint hardness improves (0.81 → 0.67 kept; 15 → 8 of 40 near-joint-optima) but the median best min(A, B) is unchanged
   (15.7 vs 15.6): the shallower rule's top bounds it, so deeper tops (B ≥ 20) matter as much as perpendicularity.
+
+## 8. Second pass: shared relations, banded on reach in play (decision 42)
+
+Cards carry one relation and at most four numbers; each family is banded on reach in play: a first-improvement
+climber of at most 100 moves (±1 on a cell, a swap) from 64 π boards, median bits within ±0.5 across a family's kept
+values. Bits are exact for rules over disjoint units (enumeration, transfer matrix or DP), else from 2 million π boards
+with the exact top at the best score. Values whose top is a uniform board, and near-duplicates ("sum ≡ 9 mod 10" is
+"sum 9"), were dropped.
+
+| family | kept values | top bits | median reach (p90) | card |
+|---|---|---|---|---|
+| Residue (Magic Accountant) | 19: rows + columns with (q, r) = (8, 1/2/6), (12, 9/10); rows + boxes and columns + boxes with (6, 1/3/5), (10, 1/9), (12, 3/11) | 15.1–25.2 | 14.6–15.6 (to 25) | "Every row's and every column's total should leave 2 when divided by 8." |
+| Spread | 10: squares s = 1 or 5; squares + rows (or columns) s = 4; three-in-a-rows along rows or columns s = 2 or 3; squares + three-in-a-rows s = 3 | 14.7–19.2 | 14.6–15.5 | "Every 2×2 square should spread by exactly 5." |
+| Number Lines (new) | 20: rows or columns, q = 11 with r = 3–8, q = 13 with r = 1, 7, 8; rows + columns q = 11 with r = 3 or 8 | 14.1–24.6 | 14.1–14.9 | "Read each row as a number (0 3 1 7 is 317): each should be as close as possible to a number that leaves 5 when divided by 11." |
+| Opposite Nines | 16: 8 pairings × {add up to 9, add up to at least 11} | 37.0–37.3 | 37.0 (reach = top) | "Every cell and its opposite should add up to 9." |
+| Magic Eighteen | 5: rows, columns, corner boxes, slanting lines, same-spot sets, T = 18 | 26.1 | 26.1 (reach = top) | "Every column should add up to 18." |
+
+- Climbers stall after 6–9 moves on the residue family and Number Lines (local optima), which is dynamism.
+- No common band: keeping "add up to 9" and "add up to 18" fixes those families at 37 and 26 bits, and a 100-move
+  climber reaches their tops every time, so as kept they are solved rules. Opposite Nines has a 22.6–23.6-bit band of
+  12 relations ("add up to a multiple of 9", "add up to 2", …) × 8 pairings, without the current main.
+
+**PMI** (the spec lead's method, 2 million π boards, depths 4–12, depth average):
+
+| pairs | median | mean \|PMI\| | independent / mild / aligned / anti-aligned |
+|---|---|---|---|
+| new × new (300) | 0.03 | 1.42 | 67 / 8 / 9 / 15 % |
+| new × the 11 other current mains (220) | −0.12 | 1.14 | 60 / 20 / 6 / 13 % |
+
+Mean |PMI| by family (against new / against current): Number Lines 0.36 / 0.31, residue 0.53 / 0.41, Spread 1.64 / 1.37,
+Opposite Nines 2.16 / 1.72, Magic Eighteen 2.59 / 1.84. The kept anchors keep the old cluster: Magic Eighteen with
+Opposite Nines is about +7, Spread (s = 1) with Magic Eighteen −7.5.
+
+**Drift** (climb under one value, score under a random other value of the family): share of bits kept, median
+(p10–p90): residue 0.05 (0–0.27), Number Lines 0.07 (0–0.30), Spread 0.15 (0.02–0.36), Opposite Nines 0.31 (0.12–0.68),
+Magic Eighteen 0.45 (0.23–0.58). In every family 30 recovery moves restore the pre-drift bits: a redraw is a short
+re-solve, not a long climb. A family's values align with each other (median within-family PMI 4.4).
+
+**Joint hardness** (annealing, 30 pairs each): new × new, the worse rule keeps a median 0.78 of its solo best, 6 of 30
+pairs reach ≥ 95 % of both; new × current 0.81, 12 of 30 (today's pool: 0.81, 15 of 40). 17 of 30 pairs include a rule
+capped at 20.9 bits.
+
+**Tied tie-breakers** (each family's first kept value; a lexicographic climb never hurt the main):
+
+| family: tie-breaker | PMI with the main | tie-breaker bits, main-only climb → lexicographic climb |
+|---|---|---|
+| Residue: the totals divided by q give the same whole number | too coarse to read | 2.1 → 2.1 |
+| Spread: biggest and smallest on a diagonal of each square | +0.19 | 0.5 → 2.7 |
+| Number Lines: the nearest such numbers end in the same digit | +0.49 | 1.0 → 1.0 |
+| Opposite Nines: the pair's numbers differ by a multiple of 3 | −0.45 | 0.7 → 0.7 |
+| Magic Eighteen: biggest − smallest is 4 in each unit | −2.0 | 0.5 → 1.8 |
+
+**The optimum found on today's pool (Opposite Nines × Staircase, both exact tops, 37.0 and 38.0 bits)** has a closed
+form: every row counts up by 1 and the bottom two rows are the top two's complements to 9 in reverse, so they count up
+too (3456 / 6789 / 0123 / 3456). Annealing reached it in 21 of 21 seeds (median about 8,000 steps, 6,436–47,516);
+greedy steepest ascent from π boards in 6 of 300 runs (median 36 moves); a first-improvement climber in 17 of 300 with
+100 moves. Rare for a greedy player, certain for a searcher. The pair is blocked at the table (lib/v2-grid seating.ts).
+
+Not done: tilted draws in this pass; path prices beyond the move cap; columns versions' reach is taken from the rows
+versions by symmetry; uniform-board tops were the only easy routes checked.
