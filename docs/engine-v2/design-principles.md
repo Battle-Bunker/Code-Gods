@@ -56,6 +56,7 @@ A pull request that adds or changes a dealt rule family carries this table fille
 | 4 | How many dealable instances? | Count of dealt parameter sets within the equal-opportunity band; at least 4. |
 | 5 | Are instances perpendicular? | Pairwise dependence within the family and against the pool (the PMI table). |
 | 6 | Which families oppose it? | At least one named family in tension, from the tension matrix. |
+| 7 | Does it add a goal the pool lacks? | Name the kind of number the main part rewards (large primes, squares, smooth numbers, many small factors, digit patterns, sizes) and the form of the tie-breaker, and count the dealt families that already share each. No more than three dealt families share one kind, and a new family never copies another's tie-breaker form. On 15 November five of eleven dealt line rules read "some reading rounds to a prime ending in k; tie-breaker: that prime minus 1 shares a factor with the y-intercept": each passed rows 1 to 6 alone, and together they failed principle 6. |
 | 8 | What does it reach? | Starter's bits unopposed and opposed; nothing in the hundreds. |
 | 9 | Is it balanced and does it keep moving? | Mean gain against the pool's best and worst; share of objects moving in the last third. |
 
