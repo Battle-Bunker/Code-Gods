@@ -442,6 +442,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     Fractions; the gap ratio (k) on Double Gap. Right Angle and Forty-Five keep none. Only the numbers of equal reach
     and equal value are dealt (two-line-systems.md §8.3). `lines-pairs` stays non-default.
 
+19. **TRIAL** (declared 15 Nov): for a ladder main part (design-principles.md: a main with no top whose rungs are numbers
+    the code prices), the equal-opportunity audit (v2-params-equal) compares bits minus the rung's code cost within 0.5
+    bits, not the best and median knots: a climb pays Δφ to reach a rung, so equal bits per unit of cost is equal
+    opportunity per unit of energy. Play is the judge: pool-dynamics per dealt value, best to worst mean gain within
+    1.5 inside a family. First applied to Prime Landing's ladder (endings 1, 3, 7, 9: every rung's bits are its code
+    cost plus 1.0).
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

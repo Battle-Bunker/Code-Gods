@@ -86,7 +86,7 @@ test("the weak threshold is under a tenth of the stretch-to-367 reference", () =
 });
 
 test("the 247k table holds a strong unopposed rise: the prime ladder for Square Area and Whole Crossing", () => {
-  const un = unopposedDirections("line-q", ["prime-landing/big-prime", "square-area/spf", "whole-crossing/k-spf"]);
+  const un = unopposedDirections("line-q", ["prime-landing/shared-factor", "square-area/spf", "whole-crossing/k-spf"]);
   const top = un[0]!;
   assert.equal(top.direction, "ladder (p, 2p)");
   assert.equal(top.kind, "ladder");

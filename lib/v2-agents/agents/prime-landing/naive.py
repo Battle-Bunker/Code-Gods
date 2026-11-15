@@ -1,5 +1,5 @@
 # Prime Landing · Naive (for learning)
-# Main part: the y-intercept close to the dealt prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to such a prime too; y(1) close to such a prime too; the gradient's smallest prime factor; the gradient's largest prime factor).
+# Main part: the y-intercept on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the gradient's whole part; how long y(1), y(2), … go on being such primes).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -10,27 +10,23 @@
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the prime ending in p["ends"] nearest
-        main = -abs(c - landing)
+        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the rung nearest there
+        main = landing if c == landing else -abs(c - landing)
         return [main, None]
-    s = p.get("side", 1)                           # 1, or -1 on the mirror: minus a prime
-    landing = s * near(s * c, prime, p["ends"])   # the (minus) prime ending in p["ends"] nearest
-    main = -abs(c - landing)
-    # main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better)
-    if tie == "big-prime":   # a bigger prime is better
-        return [main, abs(landing)]
-    if tie == "prime-gradient":   # a gradient close to such a prime too is better
-        mp = p.get("side", 1) * near(p.get("side", 1) * m, prime, p["ends"])   # the (minus) prime ending in p["ends"] nearest the gradient
-        return [main, -abs(m - mp)]
-    if tie == "next-prime":   # y(1) (ignoring sign) close to such a prime too is better
-        y1 = abs(m + c)                            # y(1) = m + c, ignoring its sign
-        return [main, -abs(y1 - near(y1, prime, p["ends"]))]
-    if tie == "m-spf":   # the gradient's smallest prime factor big is better
-        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
-        return [main, fm[0] if fm else 1]
-    if tie == "m-gpf":   # the gradient's largest prime factor big is better
-        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
-        return [main, fm[-1] if fm else 1]
+    landing = near(c, prime, p["ends"])             # the prime ending in p["ends"] nearest the y-intercept: the rung
+    main = landing if c == landing else -abs(c - landing)   # on a rung: the rung; else below every rung
+    # main: the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one
+    if tie == "shared-factor":   # that prime minus 1 sharing a bigger factor with the gradient's whole part is better
+        wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)
+        return [main, common(landing - 1, wm)]
+    if tie == "climb-on":   # y(1), y(2), ... going on longer as primes ending in the rule's digit is better
+        on = 0                                          # y(1), y(2), ... new primes ending in p["ends"], in a row
+        for n in range(1, 13):
+            t = m * n + c
+            if m == 0 or t == landing or not prime(t) or t % 10 != p["ends"]:
+                break
+            on += 1
+        return [main, on]
     return [main]
 
 

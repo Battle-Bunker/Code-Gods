@@ -1,5 +1,5 @@
-// Prime Landing · Example: that prime
-// Main part: the y-intercept close to the dealt prime. Tie-breaker: that prime.
+// Prime Landing · Example: the factor that prime minus 1 shares with the gradient's whole part
+// Main part: the y-intercept on as big a dealt prime as possible. Tie-breaker: the factor that prime minus 1 shares with the gradient's whole part.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,19 +7,19 @@
 // with that player and put the line in LEAVE to keep it.
 // Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 // own store (energy moves with it), pay, then share the power out again.
-// Try this: change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?
+// Try this: change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
   if (m === null) {               // the vertical line x = c
-    const landing = near(c, prime, p.ends);         // it lands on the x-axis: the prime ending in p.ends nearest
-    const main = Q.neg(Q.abs(Q.sub(c, landing)));
+    const landing = near(c, prime, p.ends);         // it lands on the x-axis: the rung nearest there
+    const main = Q.eq(c, landing) ? landing : Q.neg(Q.abs(Q.sub(c, landing)));
     return [main, null];
   }
-  const s = p.side ?? 1;                           // 1, or −1 on the mirror: minus a prime
-  const landing = Q.mul(s, near(Q.mul(s, c), prime, p.ends));   // the (minus) prime ending in p.ends nearest
-  const main = Q.neg(Q.abs(Q.sub(c, landing)));
-  return [main, Q.abs(landing)];   // main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better); tie-breaker: a bigger prime is better
+  const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept: the rung
+  const main = Q.eq(c, landing) ? landing : Q.neg(Q.abs(Q.sub(c, landing)));   // on a rung: the rung; else below every rung
+  const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
+  return [main, common(Q.sub(landing, 1), wm)];   // main: the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one; tie-breaker: that prime minus 1 sharing a bigger factor with the gradient's whole part is better
 }
 
 const FAR = 3;      // how far one change may go
@@ -43,6 +43,7 @@ function agent(offer) {
   } else {
     for (let k = -FAR; k <= FAR; k++) {
       if (k === 0) continue;
+      tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
       tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     }
     tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
