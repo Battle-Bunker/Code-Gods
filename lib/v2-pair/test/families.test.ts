@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateObject, Qn, scoreToWire, tieBreakersOn } from "@workspace/v2-core";
-import { LADDERS, pairFamilies, pairPresets, pairQ, pairType, residueAnchor, residueLadder, valuationLadder, type PairParams, type PairState } from "../src/index.ts";
+import { LADDERS, pairFamilies, powerLadder, pairPresets, pairQ, pairType, residueAnchor, residueLadder, valuationLadder, type PairParams, type PairState } from "../src/index.ts";
 import { L, Y, sys } from "./helpers.ts";
 
 const school = sys(L(2, 3, -12), L(1, -1, -1));   // 2x + 3y = 12, x − y = 1: the answer (3, 2), D = ±5
@@ -73,9 +73,15 @@ test("the dealt remainder's whole number: nearest, negatives counted (−2 leave
 });
 
 test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say so", () => {
-  // D = ±5: with k 5 it is level 1 (next 25, 20 away): 5 × (1 + 1/21); with k 2, level 0, 3 away from 2: 1 + 1/4.
+  // D = ±5: with k 5 it is level 1 (next 25, 20 away): 5 × (1 + 1/21); with k 2, level 0, 1 away from 4: 1 + 1/2.
   assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["110/21"]);
-  assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["5/4"]);
+  assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["3/2"]);
+  // The powers are not nested: 25 is level 2 (it is not 5), above 5 and above 24, which is 1 from 25 on no level.
+  const at = (n: number) => powerLadder(5, t => Qn.q(BigInt(Math.abs(n)) > t ? BigInt(Math.abs(n)) - t : t - BigInt(Math.abs(n))));
+  assert.equal(at(25).level, 2);
+  assert.equal(at(125).level, 3);
+  assert.deepEqual([at(24).level, Qn.toWire(at(24).u)], [0, "3/2"]);
+  assert.ok(Qn.cmp(at(25).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(24).u) > 0);
   // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has two prime factors; they share 5.
   assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["110/21", "2"]);   // 25 = 5 × 5
   assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["110/21", "5"]);

@@ -31,8 +31,7 @@ function agent(offer) {
   contested(offer, 3);
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
   const { params: p, tieBreaker: tie } = goal(offer);   // your rule and tie-breaker (free)
-  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
-  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
+  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head
   let options = tries.map(([plan, L2]) => [plan, score(L2, p, tie)]);   // each move and the score it reaches
   // A promise: on these pairs, only moves that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

@@ -33,6 +33,8 @@ export interface PairFamilyEntry {
   readonly simple: readonly PairKind[];
   /** How far a move may go for this family's starters, when more than the kind's own (the corner families slide far). */
   readonly far?: number;
+  /** Whether a stretch by the dealt number (q or k) climbs its ladder (valuation and power ladders; a residue ladder's is not). */
+  readonly stretchBy?: boolean;
 }
 
 const DIST = { ts: "const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it", py: "dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it" };
@@ -42,7 +44,7 @@ const T = (ts: string, py: string, says: string, tryThis: string): PairTieBreake
 
 export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
-    family: "whole-answer", mainSays: "the answer's level: whole numbers, y on your ladder (higher is better)", simple: ["slide", "turn", "stretch"],
+    family: "whole-answer", stretchBy: true, mainSays: "the answer's level: whole numbers, y on your ladder (higher is better)", simple: ["slide", "turn", "stretch"],
     main: {
       ts: [DIST.ts, PARALLEL.ts, "const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x a whole number"],
       py: [DIST.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x a whole number"],
@@ -53,7 +55,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "no-fractions", mainSays: "the level of the number you divide by on k, k², k³, … (higher is better)", simple: ["combine", "turn", "stretch"],
+    family: "no-fractions", stretchBy: true, mainSays: "the level of the number you divide by on k, k², k³, … (higher is better)", simple: ["combine", "turn", "stretch"],
     main: {
       ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k², k³, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators"],
       py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
@@ -86,7 +88,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "double-gap", mainSays: "the gaps' level: the y-intercepts' gap whole and k, k², … times the x-intercepts' gap (higher is better)", simple: ["shift", "tilt", "stretch"],
+    family: "double-gap", stretchBy: true, mainSays: "the gaps' level: the y-intercepts' gap whole and k, k², … times the x-intercepts' gap (higher is better)", simple: ["shift", "tilt", "stretch"],
     main: {
       ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));"],
       py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = power_ladder(p[\"k\"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))"],
@@ -108,7 +110,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "high-start", mainSays: "the level of the gentler line's y-intercept on your ladder (higher is better)", simple: ["shift", "tilt", "stretch"],
+    family: "high-start", stretchBy: true, mainSays: "the level of the gentler line's y-intercept on your ladder (higher is better)", simple: ["shift", "tilt", "stretch"],
     main: {
       ts: [FLOOR.ts, "if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score", "const { score: main, n: H } = valuationLadder(f.cg, p.q, p.r);   // the y-intercept on your ladder"],
       py: [FLOOR.py, "if f.cg is None or f.mg is None:   # the gentler line is upright: no score", "    return None", "main, H = valuation_ladder(f.cg, p[\"q\"], p[\"r\"])   # the y-intercept on your ladder"],
@@ -119,7 +121,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "steep-ratio", mainSays: "the level of the whole number of times as steep on your ladder (higher is better)", simple: ["tilt", "stretch"],
+    family: "steep-ratio", stretchBy: true, mainSays: "the level of the whole number of times as steep on your ladder (higher is better)", simple: ["tilt", "stretch"],
     main: {
       ts: ["if (f.ratio === null) return null;   // no ratio of gradients: no score", "const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder"],
       py: ["if f.ratio is None:   # no ratio of gradients: no score", "    return None", "main, k = valuation_ladder(f.ratio, p[\"q\"], p[\"r\"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder"],
@@ -245,8 +247,10 @@ function agentTs(kind: AgentKind, e: PairFamilyEntry, tieBreaker: string | null,
     ]),
     "  const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each",
     `  const { params: p${tieBreaker !== null ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule${tieBreaker !== null ? "" : " and tie-breaker"} (free)`,
-    "  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
-    "  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head",
+    ...(e.stretchBy ? [
+      "  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
+      "  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head",
+    ] : ["  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head"]),
     ...(kind === "naive" ? [
       `  let top = score(L, ${args}), plans = [];`,
       "  for (const [plan, L2] of tries) {",
@@ -291,8 +295,10 @@ function agentPy(kind: AgentKind, e: PairFamilyEntry, tieBreaker: string | null,
     "    L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each",
     "    rule = goal(offer)          # your rule (free)",
     tieBreaker !== null ? "    p = rule.params" : "    p, tie = rule.params, rule.tie_breaker",
-    "    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
-    "    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get(\"q\"), p.get(\"k\")) if f])   # (plan, lines after): moves tried in the agent's own head",
+    ...(e.stretchBy ? [
+      "    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
+      "    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get(\"q\"), p.get(\"k\")) if f])   # (plan, lines after): moves tried in the agent's own head",
+    ] : ["    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head"]),
     ...(kind === "naive" ? [
       `    top, plans = score(L, ${args}), []`,
       "    for plan, L2 in tries:",

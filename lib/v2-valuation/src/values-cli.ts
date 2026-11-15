@@ -25,6 +25,7 @@ const where = opt("where") ? (JSON.parse(opt("where")!) as Record<string, unknow
 const matches = (p: unknown) => !where || Object.entries(where).every(([k, v]) => (p as Record<string, unknown>)[k] === v);
 // --params '[{"q":11,"r":1}]': exactly these parameter sets (candidates to measure before they are dealt).
 const explicit = opt("params") ? (JSON.parse(opt("params")!) as unknown[]) : null;
+if (explicit && !opt("family")) throw new Error("--params needs --family: parameter sets differ between families");
 const paramsOf = (family: RuleFamily<any, unknown>) =>
   explicit ?? (args.includes("--all-params") ? family.dealable(variant).filter(matches) : family.dealable(variant).slice(0, 1));
 for (const family of families) for (const params of paramsOf(family)) {

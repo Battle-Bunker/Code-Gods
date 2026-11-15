@@ -90,8 +90,24 @@ export function valuationLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { lev
 }
 /** "a whole number leaving 2 when divided by 7; better still 7 times such a number, then 343 times, then 117,649 times, and so on". */
 export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${(p.q! ** 3).toLocaleString("en")} times, then ${(p.q! ** 6).toLocaleString("en")} times, and so on`;
-/** The power ladder: off(j) is the distance from k^j (with `other` added). */
-export const powerLadder = (k: number, off: (target: bigint) => Q): { level: number; u: Q } => climb(BigInt(k), j => off(BigInt(k) ** BigInt(j)));
+/**
+ * The power ladder: off(t) is the distance from the level whose number is t (with `other` added), V-shaped in t. Its
+ * levels are not nested (k² is not k), so level L is met at an exact k^L (off 0; the highest such, L ≥ 1), and d is the
+ * distance to k^(L+1); a state on no level (L 0) takes d to the nearest power, so a climber near k³ is rewarded as near
+ * k. The scan stops where off stops falling, past the state's size.
+ */
+export function powerLadder(k: number, off: (target: bigint) => Q): { level: number; u: Q } {
+  const kb = BigInt(k);
+  let level = 0, best: Q | null = null, prev: Q | null = null;
+  for (let j = 1; j <= 4096; j++) {
+    const o = off(kb ** BigInt(j));
+    if (Qn.isZero(o)) level = j;
+    if (best === null || Qn.cmp(o, best) < 0) best = o;
+    if (prev !== null && Qn.cmp(o, prev) >= 0) break;
+    prev = o;
+  }
+  return { level, u: ladderScore(kb, level, level > 0 ? off(kb ** BigInt(level + 1)) : best!) };
+}
 /** "leaves 3 when divided by 7; better still, leaves 24 when divided by 49, then 171 when divided by 343, and so on". */
 export function ladderWords(p: P): string {
   const qq = BigInt(p.q!), r = BigInt(p.r!);
@@ -99,18 +115,18 @@ export function ladderWords(p: P): string {
 }
 /** "4 (or −4); better still 16, then 64, and so on". */
 const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${k * k}, then ${k ** 3}, and so on`;
-/** The residue ladders measured for the pool: q 5, 7 or 11, r from 1 to q − 2 (never 0 or q − 1: those have a top). */
 /**
  * The valuation ladders dealt: q 5 or 7 and every r from 1 to q − 1 (a level never meets 0). q 3 was measured and is not
  * dealt: a stretch by 3 is so cheap a move that a climber blind to cost reached 34–51 bits on Steep Ratio in 30 moves
  * (two-line-systems.md §9).
  */
 export const VALUATIONS: readonly P[] = [5, 7].flatMap(q => Array.from({ length: q - 1 }, (_, i) => ({ q, r: i + 1 })));
+/** The residue ladders measured for the pool: q 5, 7 or 11, r from 1 to q − 2 (never 0 or q − 1: those have a top). */
 export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length: q - 2 }, (_, i) => ({ q, r: i + 1 })));
 
 /**
  * The dealt numbers (two-line-systems.md §9.2, lib/v2-agents scripts/pair-reach.ts). Measured over LADDERS, VALUATIONS,
- * k 2–11 (Divide By) and 2–5 (Gap Ratio). Dealt: per family, the largest set where for every tie-breaker
+ * k 2–11 (Divide By) and 2–7 (Gap Ratio). Dealt: per family, the largest set where for every tie-breaker
  *  - a greedy climber from 40 births reaches within 1 bit of the family's median;
  *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts: top and
  *    median knots within 1 bit as intervals, the band under drift).
@@ -119,10 +135,10 @@ export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length
 const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
   "whole-answer": [...R(5, 1, 2, 3, 4), ...R(7, 2, 3, 4, 5)],
-  "no-fractions": [3, 4, 6, 9, 10, 11].map(k => ({ k })),
+  "no-fractions": [4, 5, 8, 9].map(k => ({ k })),
   "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
   "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
-  "double-gap": [2, 3, 4, 5].map(k => ({ k })),
+  "double-gap": [3, 4, 5, 6].map(k => ({ k })),
   "far-crossing": [...R(7, 4), ...R(11, 2, 3, 4, 5, 6, 8, 9)],
   "high-start": [...R(5, 2, 3), ...R(7, 3)],
   "steep-ratio": [...R(5, 1, 4), ...R(7, 2, 3, 4, 5)],

@@ -33,8 +33,7 @@ def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p = rule.params
-    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
-    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
+    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
     options = [(plan, score(L2, p)) for plan, L2 in tries]   # each move and the score it reaches
     # A promise: on these pairs, only moves that leave the other players at least as well off.
     if offer.object in PROTECT:

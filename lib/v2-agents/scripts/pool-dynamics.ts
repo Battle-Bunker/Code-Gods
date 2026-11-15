@@ -15,8 +15,9 @@
  * - row 3, entanglement: the share of its own main-part steps that lowered the tie-breaker, and, for those, the share
  *   recovered (its later moves on that object brought the tie-breaker back to where it was, the main part held) and the
  *   median seconds to recover;
- * - contest: how often another seat's move lowered its main part on an object it had climbed, and the share it climbed
- *   back (an uncontested hill is the old bug on a slower clock);
+ * - contest: how often another seat's move took main-part progress on an object it had climbed (one episode until it
+ *   climbs back; a redraw ends it), and the share of episodes it climbed back (an uncontested hill is the old bug on a
+ *   slower clock);
  * - drift: how fast its seat moved again after each redraw, and, at the end, its mean bits on the final objects under
  *   its current parameters and under the other value it drifts between (a seat that tracks the redraws scores more
  *   under the current one; one parked between the two scores little under both).
@@ -82,7 +83,7 @@ interface Stat {
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
-  /** Contest: another seat's move lowered this seat's main part on an object it had climbed; and how often it climbed back. */
+  /** Contest: episodes where another seat's move lowered this seat's main part on an object it had climbed; those it climbed back. */
   taken: number; reclimbed: number;
 }
 const stats = new Map<string, Stat>();
@@ -169,7 +170,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         const cj = climbs[j]!.get(e.object);
         if (!cj || cj.levels === 0) return;
         const b = head(scoreOf(j, e.before)), a = head(scoreOf(j, e.state));
-        if (compareScores(a, b) < 0) { stat(keys[j]!).taken++; if (!cj.lost) cj.lost = b; }
+        if (compareScores(a, b) < 0 && cj.lost === undefined) { stat(keys[j]!).taken++; cj.lost = b; }
       });
       {
         const b = seats.map((_, j) => seatBits(j, e.before)), a = seats.map((_, j) => seatBits(j, e.state));
@@ -243,7 +244,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, climber ${climber}, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | seats whose last main-part step came in the first 120 s | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params | main-part progress taken by others (climbed back) |");
+console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | seats whose last main-part step came in the first 120 s | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params | main-part progress taken by others: episodes (climbed back) |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([

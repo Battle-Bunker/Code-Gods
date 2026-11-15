@@ -98,7 +98,8 @@
 #                                q (and other 0) is at level L, the highest with L(L + 1)/2 <= t (a stretch by q adds 1
 #                                to t); score = q^L * (1 + 1/(1 + d)), d how far from level L + 1 (off the ladder: below).
 #   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
-#                                number is t; returns the score.
+#                                number is t; level L at an exact k^L, d to k^(L+1) (on no level: to the nearest
+#                                power); returns the score.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -295,7 +296,19 @@ def valuation_ladder(x, q, r, other=0, at_least=0):
 
 
 def power_ladder(k, off):
-    return _climb(k, lambda j: Fraction(off(k ** j)))
+    # Levels are not nested: L at an exact k^L (d: the distance to k^(L+1)); on no level, d to the nearest power.
+    level, best, prev = 0, None, None
+    for j in range(1, 4097):
+        o = Fraction(off(k ** j))
+        if o == 0:
+            level = j
+        if best is None or o < best:
+            best = o
+        if prev is not None and o >= prev:
+            break
+        prev = o
+    d = Fraction(off(k ** (level + 1))) if level > 0 else best
+    return Fraction(k) ** level * (1 + Fraction(1) / (1 + d))
 
 
 def root(n):
