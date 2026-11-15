@@ -118,7 +118,7 @@ interface Stat {
   taken: number; reclimbed: number;
 }
 const stats = new Map<string, Stat>();
-const objectsPerMinute: number[][] = [[], [], []];
+const objectsPerMinute: number[][] = [[], [], []], quietShare: number[] = [];
 const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   games: 0, gained: [], lastThird: [], latency: [], redraws: 0, answered: 0, grids: 0, cur: [], alt: [],
   levels: [], endBits: [], seats: 0, climbingLate: 0, plateauEarly: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
@@ -212,7 +212,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const bestJoint = seats.map(() => 0), peak = seats.map(() => 0);   // per seat: its highest bits on a state that also holds at least 10 of the others' bits
   const rep = await runTable(boxes, {
     type, variant, lines: Number(o.objects), seed: `pool-${o.type}-${g}`, seconds, seats, unique: true, economy: E,
-    birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}), ...(o["drift-ladders"] ? { driftLadders: true } : {}),
+    birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}), ...(o["drift-ladders"] ? { driftLadders: true } : {}), ...(o.server ? { regularBirths: true } : {}),
     onAct: e => {
       live = Math.max(live, e.objects);
       lastBalance[e.seat] = e.balance; income[e.seat] = e.income; spent[e.seat]! += e.charge;
@@ -267,6 +267,8 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     },
   });
   const finalBits = seats.map((s, k) => { const v = valuer(type, variant, { ...s.rule, params: params[k]! }); return (x: unknown) => v.bits(x); });
+  // The share of the game's minutes in which no object changed.
+  { const mins = Math.round(seconds / 60); let q = 0; for (let m = 0; m < mins; m++) if (!moves.some(x => x.at >= 60 * m && x.at < 60 * (m + 1))) q++; quietShare.push(q / mins); }
   // Objects changed per minute (the playtest's measure), averaged over each third's minutes.
   for (let t = 0; t < 3; t++) {
     const mins = Array.from({ length: Math.round(seconds / 180) }, (_, j) => t * (seconds / 3) + j * 60);
@@ -338,4 +340,4 @@ console.log(`\npeak bits by family (game): ${[...peakBy.entries()].sort((x, y) =
 const ps = peaks.map(p => p.seat), pt = peaks.map(p => p.table), pr = peaks.map(p => p.stretchRun);
 console.log(`\npeaks per game: a seat's bits median ${fmt(median(ps))}, max ${fmt(Math.max(...ps))}; an object's table total median ${fmt(median(pt))}, max ${fmt(Math.max(...pt))}; longest run of one seat's stretches on one object median ${median(pr)}, max ${Math.max(...pr)}`);
 console.log(`objects changed per minute, by third: ${objectsPerMinute.map(x => (x.reduce((a, b) => a + b, 0) / x.length).toFixed(2)).join(" / ")}`);
-if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify({ ...Object.fromEntries(stats), _objectsPerMinute: objectsPerMinute }));
+if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify({ ...Object.fromEntries(stats), _objectsPerMinute: objectsPerMinute, _quiet: quietShare }));
