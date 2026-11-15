@@ -1,6 +1,7 @@
 /** Live game queries every member reads: the header, the scoreboard and its history (integration plan §2.2). */
 import { durationModeOf, scoreIntervalOf } from "./duration";
 import { peerNoiseBitsOf } from "./disclose";
+import { observationOf } from "./knowledge";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
@@ -20,6 +21,8 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     roster: game.roster, pausedBy: game.pausedBy ?? null, me, summary: game.summary ?? null,
     // σ of the disclosure noise on the others' sums while live (disclose.ts); 0: exact (a game without a key).
     peerNoiseBits: peerNoiseBitsOf(game),
+    // Whether a seated player sees objects as last told and pays to look (knowledge.ts).
+    observation: observationOf(game),
   };
 }
 

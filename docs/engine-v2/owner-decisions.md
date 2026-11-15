@@ -265,6 +265,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     bigger numbers", and get tied replacements for the 22 independent ones (primes, zeros, corners, odd, "X big"),
     which leave the dealt pool but stay in the code, undealt, until the coordinator reports the effect (grids.md §6).
 
+15. **TRIAL** (declared 15 Nov, departing from v1): the published standings are EXACT. Standings, their history and
+    the leaderboard chart are the exact totals, published together every `scoreIntervalSeconds` (batched, as v1's
+    scoreboard), with `peerNoiseBits` 8 on the beginner presets; every per-object figure stays blurred with v1's floor
+    at 0. v1's totals came from the disclosed sums (`disclosedTotalsOf`). Motive: a child's leaderboard must agree with
+    the final result (round 10: live totals read 1.5–2.5× the final count; at σ 8 a total from disclosed sums cannot
+    track it, floored or not), and a batched exact total leaks only an aggregate over all objects.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

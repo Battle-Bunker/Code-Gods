@@ -56,6 +56,8 @@ export const headerV = v.object({
   durationMode: v.union(v.literal("fixed"), v.literal("halfLife")),
   /** World seconds between published standings. */
   scoreIntervalSeconds: v.number(),
+  /** "paid": a seated player sees each object as last told and pays to look (knowledge.ts); "free": as it is. */
+  observation: v.union(v.literal("free"), v.literal("paid")),
   /** Paused because nobody acted for 30 minutes: any human activity (`account.touch`) resumes it. */
   parked: v.boolean(),
 });
