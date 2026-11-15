@@ -79,6 +79,8 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   // Each row: when you last saw it, with its mark; the list: look at all (priced) and keep them fresh.
   await page.locator("[data-testid^=text-seen-line-]").first().waitFor({ timeout: 30_000 });
   await page.locator("[data-testid^=mark-fresh-line-]").first().waitFor();
+  // Looking is an extra (decision 36): behind "Want to see them sooner?".
+  await page.getByTestId("details-look-more").click();
   const all = page.getByTestId("button-look-all");
   await all.waitFor();
   assert.match(await all.innerText(), new RegExp(`^Look at all \\d+ ${noun.many} \\([\\d.]+ energy\\)$`), "look at all is priced");
@@ -108,6 +110,7 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   await page.screenshot({ path: path.join(shots, `paid-${preset}-look.png`) });
   // Keep them fresh: one press (and its summary page) summons a Watcher.
   if (await page.getByTestId("tab-objects").count()) await page.getByTestId("tab-objects").click({ position: { x: 6, y: 10 } });
+  if (!await page.getByTestId("button-keep-fresh").isVisible()) await page.getByTestId("details-look-more").click();
   await page.getByTestId("button-keep-fresh").click();
   await page.getByTestId("button-keep-fresh-confirm-ok").click();
   await page.getByTestId("text-watching").waitFor({ timeout: 30_000 });
