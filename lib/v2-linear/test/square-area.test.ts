@@ -46,6 +46,11 @@ test("no top: y = −2x + 2r has area r², so every square ending in d is a rung
   }
 });
 
+test("off the ladder the window is the nearest root's, by root: area 120 is 3 above 7 and 3 below 13, so 7² = 49 (the lower), 70 away", () => {
+  // y = −2x + c with (c/2)² = 120 is irrational; y = −(5/12)x + 10: crossing 24, area 120.
+  assert.deepEqual(terms(9, mc(q(-5, 12), 10)), { square: "-70", "shared-factor": "8" });   // 8 and 24 share 8
+});
+
 test("rounded to the nearest: the window is [r² − ½, r² + ½), so an area just under a square is on it and one ½ over is not", () => {
   // y = −2x + 2603/100: area 13.015² = 169.39, which rounds to 169 = 13²; 14 and 13 share 1.
   assert.deepEqual(terms(9, mc(-2, q(2603, 100)), true), { square: "6169/3000", "shared-factor": "1" });

@@ -34,6 +34,22 @@ differ, the owner's words win.
    Some pairs being more entangled than others is wanted: it makes political structure [27].
 6. **Adversaries and diversity.** Every unbounded climb has rules in tension with it (small values against large,
    many prime factors against large primes, high gradient and intercept against a far x-intercept) [30].
+   **An adversary must oppose on the size or the direction of a shared reading, not only on the number's class**
+   (15 Nov). Readings round, so a class conflict between two readings dissolves. A smooth y-intercept and a crossing
+   that rounds to a big prime coexist through the gradient: m = −c/X need not be whole, so neither number constrains the
+   other's factors. Size does not dissolve. Almost every dealt line rule rewards a big number (crossing, area,
+   distance², intercept), and on line-q's PMI matrix the prime-ending rules are aligned with the families named as
+   their adversaries: Prime Landing +2.1 with Whole Crossing and +1.2 with Smooth Intercept. The pool's real adversary
+   of large primes is Prime Gradient, by size: a steep line shrinks the crossing, the area and the distance (mean PMI
+   −2.33). So a new adversary should reward a small reading, or the opposite direction of a shared one. A class adversary
+   is at best a weak one, even on the same reading: Whole Crossing reads Prime Landing's own crossing, and the two still
+   measure +2.1, because both pay for size. Check every adversary on the PMI matrix; never assume one.
+   **Opposite directions on one reading are zero-sum on every object.** A small crossing against a big one (Close
+   Landing against Prime Landing, PMI ≤ −6.4: no line holds 4 bits of both) is a two-state tug of war built in. The
+   adversary wanted is coupled through another number, with Prime Gradient's profile: a mean PMI of about −1 to −0.3
+   against the pool, and no exclusions. A "small" goal on the rationals also puts its number in a denominator, which the
+   law makes rare but a unit nudge of one coefficient reaches cheaply. Close Intercept and Close Gradient reached
+   26–35 bits for 550–1,300⚡ (docs/engine-v2/close-landing-prototype.md).
 7. **Shortcuts in representations.** Mutators that act in one representation (swap, rotate about a point, reverse,
    stretch, reflections) are priced as choices, not by path; they cause collateral damage to other rules [25, 27, 28].
 8. **Energy scale.** It is hard to reach 20 or 30 bits on an object and nothing reaches hundreds. One unopposed
@@ -56,6 +72,7 @@ A pull request that adds or changes a dealt rule family carries this table fille
 | 4 | How many dealable instances? | Count of dealt parameter sets within the equal-opportunity band; at least 4. |
 | 5 | Are instances perpendicular? | Pairwise dependence within the family and against the pool (the PMI table). |
 | 6 | Which families oppose it? | At least one named family in tension, from the tension matrix. |
+| 7 | Does it add a goal the pool lacks? | Name the kind of number the main part rewards (large primes, squares, smooth numbers, many small factors, digit patterns, sizes) and the form of the tie-breaker, and count the dealt families that already share each. No more than three dealt families share one kind, and a new family never copies another's tie-breaker form. On 15 November five of eleven dealt line rules read "some reading rounds to a prime ending in k; tie-breaker: that prime minus 1 shares a factor with the y-intercept": each passed rows 1 to 6 alone, and together they failed principle 6. |
 | 8 | What does it reach? | Starter's bits unopposed and opposed; nothing in the hundreds. |
 | 9 | Is it balanced and does it keep moving? | Mean gain against the pool's best and worst; share of objects moving in the last third. |
 

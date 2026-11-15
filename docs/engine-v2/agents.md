@@ -29,7 +29,7 @@ const { record, state } = await runAct(await pool.get(program.language), {
 | `readBits`, `offerBits`, `readsByRep` | R (offer included) and its split by view (`offer` for the offer's bits) |
 | `charge` | R/κ + (committed ? W + βW² : 0), in energy |
 | `before`, `after` | the state, encoded by the object type |
-| `transcript`, `steps` | every host request and reply; sandbox steps used |
+| `transcript`, `steps` | every host request and reply; sandbox steps used. The server stores the transcript only on acts that moved or failed (a skipped act's event omits it; any act can be re-run from its seed and inputs) |
 | `notes` | up to 3 short notes the agent left its owner this act (e.g. why it left a line); show them in the act log, folding repeats |
 
 `state` is the new state (the old one unless committed). A failed or skipped act is still charged its reads. All

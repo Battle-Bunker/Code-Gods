@@ -64,6 +64,9 @@ export interface TableInput<S> {
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
   /** Births on a regular schedule (the beginner presets) rather than at random at that rate. */
+  /** An experiment, not in the engine: at most this many live lines. When a birth passes it the oldest live line retires:
+   *  no one acts on it again and its points stay banked in every seat's total. Absent: no cap. */
+  readonly objectCap?: number;
   readonly regularBirths?: boolean;
   /** Parameter drift (the coordinator's call 18, server #723): every this many seconds each seat's rule parameters are
    *  redrawn among the dealable ones with a value record (driftParams); the family and tie-breaker stay. Absent: none.
@@ -111,6 +114,8 @@ export interface TableAct<S> {
   readonly before: S;
   readonly state: S;
   readonly objects: number;
+  /** The world second the line was born (0 for the starting lines). */
+  readonly born: number;
   /** The calls the act returned (applied only when committed). */
   readonly calls: ActRecord["calls"];
   /** What the act cost, the agent's balance after it, and its income a second. */
@@ -192,6 +197,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const bitsAll = (s: S) => vals.map(v => v.bits(s));
   const pointsOf = (s: S) => { const n = bitsAll(s); const t = n.reduce((a, b) => a + b, 0); return n.map(x => x * (t - x)); };
   let points = lines.map(pointsOf);
+  // Live lines (objectCap retires the oldest; a retired line's points stay banked) and each line's birth second.
+  const retired = new Set<number>(), bornAt: number[] = lines.map(() => 0);
+  const live = () => lines.map((_, k) => k).filter(k => !retired.has(k));
   let startTotals = seats.map((_, i) => points.reduce((t, p) => t + p[i]!, 0));
   const sandboxOf = new Map<string, Sandbox>();
   const sandbox = async (language: Program["language"]) => {
@@ -283,7 +291,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const box = await sandbox(a.program.language), started = performance.now();
     const { record, state } = await runAct(box, {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
-      seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, income: agentIncome(P, a.share), object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
+      seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, income: agentIncome(P, a.share), object, liveObjects: live().length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
       value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
       ...(input.noise ? { disclosed: () => noiseAt(`${actKey}:read:${reads++}`) } : {}),
@@ -298,7 +306,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (world >= input.seconds - 60) { stats[i]!.lateActs++; if (verdict !== "committed") stats[i]!.lateIdle++; }
     a.acc = { balance: energy - charge, settledWorldSeconds: world };
     a.acts++; stats[i]!.acts++; stats[i]!.spentActs += charge;
-    input.onAct?.({ at: world, ms: performance.now() - started, steps: record.steps, object, seat: i, outcome: record.outcome, ...(record.reason ? { reason: record.reason } : {}), committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: lines.length, calls: record.calls, charge, balance: energy - charge, income: agentIncome(P, a.share) });
+    input.onAct?.({ at: world, ms: performance.now() - started, steps: record.steps, object, seat: i, outcome: record.outcome, ...(record.reason ? { reason: record.reason } : {}), committed: verdict === "committed", before: lines[object]!, state: verdict === "committed" ? state : lines[object]!, objects: live().length, born: bornAt[object]!, calls: record.calls, charge, balance: energy - charge, income: agentIncome(P, a.share) });
     if (verdict !== "committed") return;
     const from = type.encode(lines[object]!), to = type.encode(state), last = lastMove.get(object);
     if (last && last.by !== i && last.from === to) stats[i]!.flips++;
@@ -330,6 +338,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   };
   const objectArg = (args: Record<string, unknown>) => {
     const j = Number(args.objectId);
+    if (retired.has(j)) throw new Error(`Line ${j} has retired.`);
     if (!Number.isInteger(j) || j < 0 || j >= lines.length) throw new Error(`No line ${String(args.objectId)}: lines are numbered 0 to ${lines.length - 1}.`);
     return j;
   };
@@ -510,7 +519,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     if (redrawn) {
       redrawn = false;
       // The redraw changes everyone's points on every line: not a gain or a loss of play, so the baseline moves with it.
-      const next = lines.map(pointsOf);
+      const next = lines.map((l, k) => (retired.has(k) ? points[k]! : pointsOf(l)));   // a retired line's points stay banked
       startTotals = startTotals.map((t, i) => t + next.reduce((a, p) => a + p[i]!, 0) - points.reduce((a, p) => a + p[i]!, 0));
       points = next;
     }
@@ -520,9 +529,11 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       const born = births(type, variant, `${input.seed}:${lines.length + 1}`, 1)[0]!;
       lines = [...lines, born]; points = [...points, pointsOf(born)];
       startTotals = startTotals.map((t, i) => t + points.at(-1)![i]!);   // a newborn line's points are no one's gain
+      bornAt.push(world);
+      if (input.objectCap !== undefined) for (let alive = live(); alive.length > input.objectCap; alive = live()) retired.add(alive[0]!);
     }
     const offers = opportunities(econ.opportunitiesPerSecond, TICK_SECONDS, r);
-    for (let o = 0; o < offers; o++) await act(r.below(lines.length));
+    for (let o = 0; o < offers; o++) { const alive = live(); await act(alive[r.below(alive.length)]!); }
   }
 
   const found = deals(chat, log, 2 * AI_TURN_SECONDS);

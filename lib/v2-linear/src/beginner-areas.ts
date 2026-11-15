@@ -43,25 +43,22 @@ const squareShape: Shape<SquareEnds> = {
 };
 /**
  * The ladder's value: on a rung, digitLevel(r²) when the area rounds down (to the nearest, for `round: "nearest"`) to a square r²
- * (r ≥ 1) ending in d; else minus how far the area is from the nearest such window, [r², r² + 1) rounding down or
- * [r² − ½, r² + ½) to the nearest (on a tie the lower one), below every rung.
+ * (r ≥ 2) ending in d; else minus how far the area is from the window, [r², r² + 1) rounding down or [r² − ½, r² + ½) to
+ * the nearest, of the root r nearest √(the area, rounded) whose square is on the ladder (on a tie the lower root), below
+ * every rung. (Nearest by root rather than by area, so a starter finds it with the helper near(): 15 Nov.)
  */
 export function squareRung(area: Q, d: number, near = false): { r: bigint; u: Q } {
   // The window of r² is [r² + a, r² + a + 1): a = 0 rounding down, −½ to the nearest (a half rounds up).
   const a = near ? q(-1, 2) : q(0);
   const f = Qn.floor(Qn.sub(area, a));
   const s = isqrt(f < 0n ? 0n : f), D = BigInt(d);
-  const ends = (r: bigint) => (r * r) % 10n === D;
-  if (s >= 2n && s * s === f && ends(s)) return { r: s, u: digitLevel(f) };
-  let lo = s;
-  while (lo >= 2n && !ends(lo)) lo--;
-  let hi = s + 1n < 2n ? 2n : s + 1n;
-  while (!ends(hi)) hi++;
-  // Up to the window above, and past the window below.
-  const above = Qn.sub(Qn.add(q(hi * hi), a), area);
-  if (lo < 2n) return { r: hi, u: Qn.neg(above) };
-  const below = Qn.sub(area, Qn.add(q(lo * lo + 1n), a));
-  return Qn.cmp(below, above) <= 0 ? { r: lo, u: Qn.neg(below) } : { r: hi, u: Qn.neg(above) };
+  const ok = (r: bigint) => r >= 2n && (r * r) % 10n === D;   // the ladder starts above 1
+  if (ok(s) && s * s === f) return { r: s, u: digitLevel(f) };
+  // Off the ladder: the root nearest s whose square is on it (on a tie the lower), and how far the area is from its window.
+  let r = s;
+  for (let k = 0n; ; k++) { if (ok(s - k)) { r = s - k; break; } if (ok(s + k)) { r = s + k; break; } }
+  const w = Qn.add(q(r * r), a);
+  return { r, u: Qn.neg(Qn.cmp(area, w) < 0 ? Qn.sub(w, area) : Qn.sub(area, Qn.add(w, q(1)))) };
 }
 /**
  * Witnesses for the tail cap (as Pythagorean Area's areaWitness): for n digits, up to three lines y = −2x + 2r, whose area
@@ -124,11 +121,11 @@ export const squareArea = ladder(family<SquareEnds>("square-area", "Square Area"
 const RULER_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const rulerShape: Shape<Ends> = {
   main: { ...more<Ends>("ruler", "distance² from (0, 0) on as big a dealt prime as possible", "", "norm"),
-    // Under 30 words with the tie-breaker (the coordinator's ask).
-    sentence: p => `Distance² from (0,0), rounded down: a prime ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
+    // Plain sentences, the main one under 30 words (the coordinator's ask): whose distance, and what is done to it.
+    sentence: p => `Square the line's closest distance to (0, 0) and round down: it should be a prime ending in ${p.ends}. Bigger primes are better, each extra digit counts for less.` },
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
-      "Prime minus 1 and y-intercept share a big factor.", "si"),
+      "Prime minus 1 and the y-intercept's whole part should share as big a factor as possible.", "si"),
   ],
 };
 /**
@@ -206,6 +203,9 @@ const pythShape: Shape<Ends> = {
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the slanted side squared",
       "Prime minus 1 and slanted side² share a big factor.", "tri"),
+    // A candidate (the coordinator's row 7, 15 Nov): a digit pattern, not a shared factor. Undealt until measured.
+    undealt(more<Ends>("same-ending", "the height ending in that prime's last digits",
+      "The height's whole part should end in the same digits as that prime: the more digits, the better.", "tri")),
   ],
 };
 /**
@@ -265,6 +265,11 @@ export const pythagoreanArea = ladder(family<Ends>("pythagorean-area", "Pythagor
   ctx.term("area", Qn.sign(u) > 0 ? `area ${Qn.toWire(a)}, which rounds down to the prime ${p}` : `area ${Qn.toWire(a)}, ${Qn.toWire(Qn.neg(u))} from the window of the prime ${p}`, u, [area]);
   const w = Qn.floor(h);   // 0 only on a tiny triangle (side² < 1): it shares nothing
   ctx.term("shared-factor", `the factor ${p - 1n} shares with the slanted side squared's whole part ${w}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [area, hyp]);
+  // How many trailing digits the height's whole part shares with p (0 for a height under 1).
+  const legY = ref("tri", "legY"), hy = Qn.floor(num(ctx.read(legY))!);
+  let same = 0;
+  if (hy > 0n) for (let x = hy, y = p; x > 0n && y > 0n && x % 10n === y % 10n; x /= 10n, y /= 10n) same++;
+  ctx.term("same-ending", hy > 0n ? `the height's whole part ${hy} ends in the same ${same} digit${same === 1 ? "" : "s"} as ${p}` : "a height under 1 ends in nothing", q(same), [area, legY]);
   ctx.mark({ kind: "focus", ref: area });
   ctx.mark({ kind: "focus", ref: hyp });
 }), areaWitness);

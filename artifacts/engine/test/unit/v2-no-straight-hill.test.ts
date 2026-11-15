@@ -4,8 +4,9 @@
  *
  * For every dealt line rule of every line preset, from law draws and (for a ladder family) from rung starts (a law draw
  * moved by the cheapest shift or tilt onto its first rung), the climber repeatedly takes the move that raises the rule
- * most per energy among the variant's shortcuts (stretch, zoom and turn by small factors and turns) and shifts and
- * tilts of every size (1 to 1000, and ½), never repeating a state, until the income (power × game length + start) is
+ * most per energy among the variant's shortcuts (stretch, zoom and turn by small factors and turns), shifts and tilts
+ * of every size (1 to 1000, and ½), and the rest of the menu (mirrors, slides, pivots, moves along an axis, steps,
+ * nudges; the starters search mirrors, slides and pivots since #855), never repeating a state, until the income (power × game length + start) is
  * spent or no move helps. It fails when the rule's bits pass 35 anywhere on the way. What keeps ladders under it is the
  * price of a shortcut on a big line (v2-linear mutators.ts shortcutFloor) and the cap on a ladder's value tail (v2-
  * valuation value.ts ladderCaps). Breaks caught: Smooth Intercept by repeated "multiply by 3" (playtest round 21: 59-bit
@@ -36,6 +37,14 @@ const CALLS: Record<string, readonly Record<string, string>[]> = {
     ...["0", "1", "-1"].flatMap(centre => ["1", "-1", "1/2", "-1/2", "left"].map(turn => ({ centre, turn })))],
   "si.shift": AMOUNTS.map(k => ({ k })),
   "si.tilt": AMOUNTS.map(k => ({ k })),
+  // The moves the starters search since #855, and the rest of the beginner menu: mirrors, slides, pivots, moves along
+  // an axis, steps along the sequence and nudges of a coefficient.
+  "cart.mirror": ["x", "y", "origin", "diagonal"].map(axis => ({ axis })),
+  "cart.slide": [["1", "0"], ["-1", "0"], ["0", "1"], ["0", "-1"]].map(([u, v]) => ({ u: u!, v: v! })),
+  "cart.pivot": ["-2", "-1", "1", "2"].flatMap(x0 => ["1", "-1"].map(k => ({ x0, k }))),
+  "int.move": ["x", "y"].flatMap(axis => ["1", "-1"].map(k => ({ axis, k }))),
+  "seq.step": ["1", "-1", "2", "-2"].map(k => ({ k })),
+  "gen.nudge": ["a", "b", "c"].flatMap(which => ["1", "-1"].map(k => ({ which, k }))),
 };
 
 /** Pairs (the coordinator's adoption of trials 28 and 29 for pairs, 15 Nov): the line's calls on either line, and the pair's shortcuts. */
