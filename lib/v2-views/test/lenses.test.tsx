@@ -63,12 +63,12 @@ test("table: the y ÷ x row is drawn only when a rule cites it, ticks the run an
   assert.match(html, /<th scope="row">y ÷ x<\/th>/);
   for (const x of [1, 2, 3]) {
     assert.match(node(html, `table.q(x=${x})`), /data-focus=""/);
-    assert.match(html, new RegExp(`<td[^>]*data-run=""[^>]*>(?:(?!</td>).)*data-ref="table\\.q\\(x=${x}\\)"(?:(?!</td>).)*✓`), `x = ${x} ticked and in the run`);
+    assert.match(html, new RegExp(`<td[^>]*data-run=""[^>]*>(?:(?!</td>).)*data-ref="table\\.q\\(x=${x}\\)"(?:(?!</td>).)*>whole<`), `x = ${x} ticked and in the run`);
   }
-  assert.match(html, /<td[^>]*data-miss=""[^>]*>(?:(?!<\/td>).)*data-ref="table\.q\(x=4\)"(?:(?!<\/td>).)*✗/, "x = 4 is the miss");
-  assert.equal((html.match(/✗/g) ?? []).length, 1, "only the first miss is crossed");
+  assert.match(html, /<td[^>]*data-miss=""[^>]*>(?:(?!<\/td>).)*data-ref="table\.q\(x=4\)"(?:(?!<\/td>).)*>not whole</, "x = 4 is the miss");
+  assert.equal((html.match(/>not whole</g) ?? []).length, 1, "only the first miss is crossed");
   assert.equal((html.match(/data-run=""/g) ?? []).length, 9, "the run's three columns: header, y and y ÷ x");
-  assert.match(html, /data-ref="table\.q\(x=6\)"(?:(?!<\/td>).)*✓/, "a later whole quotient is still ticked");
+  assert.match(html, /data-ref="table\.q\(x=6\)"(?:(?!<\/td>).)*>whole</, "a later whole quotient is still ticked");
   assert.match(html, /4 does not divide y\(4\): the run stops here/);
   // The compact table starts at x = 1, where the row has cells, and keeps the run's focus.
   const compact = view(s, "table", "compact", e.marks);

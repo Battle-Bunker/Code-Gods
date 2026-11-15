@@ -34,14 +34,16 @@ test("expanded face: the rule's views, both parts with their rulers, the moves w
   assert.match(t, /Tie-breaker:/);
   assert.match(t, /the closer, the better/);
   assert.match(t, /What would make it rarer/);
-  assert.match(t, /⚡/);
+  assert.match(t, /\d energy/);
+  // A concept has a name, never only a symbol (the owner, 15 Nov): no ⚡, ★, ↑ or ▾ standing alone.
+  assert.doesNotMatch(t, /[⚡★↑↓▾✕✓✗]/u);
   assert.match(t, /→ [\d.]+ bits \(1 in/);
   assert.match(t, /your rule's main view/);
   assert.match(html, /class="v2v-ruler"/);
   assert.doesNotMatch(t, /\bstep \d|Steps to the top|within \d/);
   // The rule's own views are tabs (its main view first, ★); the rest are under "More views".
   assert.equal((html.match(/role="tab"/g) ?? []).length, new Set([tank.family.main.rep, ...tank.family.depends]).size);
-  assert.match(html, /data-depends=""[^>]*data-primary=""[^>]*>line on the plane/);
+  assert.match(html, /data-depends=""[^>]*data-primary=""[^>]*>line on the plane<span class="v2v-tab-main"> · main view<\/span>/);
   assert.match(t, /More views/);
 });
 
@@ -150,7 +152,7 @@ test("a triangle too thin to see is drawn stretched in a labelled inset: its leg
   }
 });
 
-test("the climb: each move's points with the others' total and the change from now, best for points first, ↑ both marked, unavailable when another line holds it", async () => {
+test("the climb: each move's points with the others' total and the change from now, best for points first, “good for both” marked, unavailable when another line holds it", async () => {
   const { moves } = await import("../src/index.ts");
   const s = mc(-3, 10);
   const list = moves(tank, s, VALUE, { k: 4 });
