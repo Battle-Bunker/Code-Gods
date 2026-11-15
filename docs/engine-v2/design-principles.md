@@ -66,6 +66,14 @@ differ, the owner's words win.
 10. **Incremental hill climbing on unique objects.** No two objects share a state; a far additive move costs at
     least its path [24].
 
+11. **Robust to modest perturbation.** A rule keeps some of its value when another player bumps the object a little.
+    The owner, 15 November, on Divisibility Ladder: "it's absurdly fragile. Anyone who bumps values a tiny bit into
+    fractional parameters wipes out this player's score to zero. Rules should still keep some of their value when
+    modest sized perturbations occur." A ladder whose every state off a rung scores below the lowest rung fails: a
+    near miss of a high rung must stay well above the foot of the ladder, and value must fall off gradually with the
+    size of the bump. The same message restates principle 4: "it's important for rules to be genuine parameters with
+    a substantial state space"; a family with no parameters is not dealt.
+
 ## The check (every rule family, before it is dealt and whenever it changes)
 
 A pull request that adds or changes a dealt rule family carries this table filled in, with evidence, and
@@ -81,6 +89,7 @@ A pull request that adds or changes a dealt rule family carries this table fille
 | 5 | Are instances perpendicular? | Pairwise dependence within the family and against the pool (the PMI table). |
 | 6 | Which families oppose it? | At least one named family in tension, from the tension matrix. |
 | 7 | Does it add a goal the pool lacks? | Name the kind of number the main part rewards (large primes, squares, smooth numbers, many small factors, digit patterns, sizes) and the form of the tie-breaker, and count the dealt families that already share each. No more than three dealt families share one kind, and a new family never copies another's tie-breaker form. On 15 November five of eleven dealt line rules read "some reading rounds to a prime ending in k; tie-breaker: that prime minus 1 shares a factor with the y-intercept": each passed rows 1 to 6 alone, and together they failed principle 6. |
+| 10 | Does it survive a small bump? | From the family's good states (each rung reached in play), apply every single cheap move of the preset (unit shift, unit tilt, a small fractional nudge, each reflection). Report the share of the seat's bits kept: the median must be well above zero (as a guide, at least half kept after the median cheap move, and no cheap move from a high rung leaves less than the first rung's value). A rule whose value needs whole numbers and collapses on any fraction fails. |
 | 8 | What does it reach? | Starter's bits unopposed and opposed; nothing in the hundreds. |
 | 9 | Is it balanced and does it keep moving? | Mean gain against the pool's best and worst; share of objects moving in the last third. |
 
