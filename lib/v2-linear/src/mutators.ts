@@ -379,8 +379,9 @@ const turnField: Field = {
 };
 // About a pin, a quarter turn either way gives the same line (the perpendicular through the pin), so no direction is said.
 const turnWords = (t: Q | string, aboutPin: boolean): string =>
-  typeof t === "string" ? (aboutPin ? "a quarter turn" : `a quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`)
-    : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of a ${unsigned(t)} gradient`;
+  // No article "a" (the move lists keep single letters for names): "one quarter turn", "the angle of gradient 3/4".
+  typeof t === "string" ? (aboutPin ? "one quarter turn" : `one quarter turn ${t === "left" ? "anticlockwise" : "clockwise"}`)
+    : `${Qn.sign(t) > 0 ? "anticlockwise" : "clockwise"} by the angle of gradient ${unsigned(t)}`;
 
 export const turn: M = {
   id: "rot.turn", reps: ["cart", "norm"], title: "turn the line around a pin, like a clock hand", perSite: true,
@@ -539,7 +540,7 @@ export const fold: M = {
   describe: a => {
     if (typeof a.mirror === "string") return `reflect the line in the mirror ${describeLine(decodeLine(S(a, "mirror")))}`;
     const s = Qa(a, "s");
-    return `fold the line in a ${Qn.isZero(s) ? "level crease" : `crease of gradient ${w(s)}`} through ${pinWords(Qa(a, "x0"))}`;
+    return `fold the line along ${Qn.isZero(s) ? "the level crease" : `the crease of gradient ${w(s)}`} through ${pinWords(Qa(a, "x0"))}`;
   },
   args: foldArgs,
   apply: (state, site, a, v) => {
