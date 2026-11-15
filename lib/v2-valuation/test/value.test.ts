@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { compareScores, q, rng, scoreToWire, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
 import { lineZ, primeLanding } from "@workspace/v2-linear";
 import { findVariant, knotsFrom, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
+import { PAIR_SIZE_RATE } from "../src/value-pair.ts";
 
 /** A finite law over random scores (some components null), every state's true value by brute force. */
 function finiteLaw(seed: string, n: number) {
@@ -171,7 +172,8 @@ test("committed value functions are intact: each content hash matches, knots ris
     assert.equal(body.schema, 7, `${v}/${f}/${x}: schema`);
     const family = (findVariant(v).type.families as RuleFamily<unknown, unknown>[]).find(y => y.id === body.family)!;
     const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
-    assert.deepEqual(body.tail, tailOf(body.knots, body.objectType === "line" || body.objectType === "pair" ? TAIL_CEILING : Infinity, measures), `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
+    const ceiling = body.objectType === "line" || body.objectType === "pair" ? TAIL_CEILING : Infinity;
+    assert.deepEqual(body.tail, tailOf(body.knots, ceiling, measures, body.objectType === "pair" ? PAIR_SIZE_RATE : undefined), `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;
   }

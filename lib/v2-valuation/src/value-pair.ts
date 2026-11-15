@@ -12,6 +12,12 @@ import { ruleKey } from "./keys.ts";
  * so a pair takes five times line-q's draws per tilt for a comparable sample.
  */
 export const PAIR_DRAWS_PER_TILT = 300_000;
+/**
+ * A pair's size tails rise at most 1 bit per doubling: the law charges 1 bit of φ per doubling of a coefficient, and a
+ * derived number (an intercept, the answer, a gap) of size N is reached for about log₂ N bits. A linear tail here paid
+ * High Start 8,238 bits for an intercept of 52,488 (two-line-systems.md §8.3).
+ */
+export const PAIR_SIZE_RATE = 1;
 
 export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P, variant: Variant,
   options: { tieBreaker?: TieBreaker; seed?: string; config?: Partial<ValueConfig> } = {}): ValueFunction {
@@ -27,7 +33,7 @@ export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(pairType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: pairType.id, objectTypeVersion: pairType.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
-    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb)),
+    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), PAIR_SIZE_RATE),
     diagnostics: { exact: [], sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };

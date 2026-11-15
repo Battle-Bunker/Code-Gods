@@ -25,3 +25,17 @@ test("No Fractions' top (the number you divide by is ±1) is valued at its survi
   assert.ok(Math.abs(look.bits - want) < 3 * sd + (look.hi - look.lo), `${look.bits} [${look.lo}, ${look.hi}] against ${want} ± ${sd}`);
   assert.equal(vf.objectType, "pair");
 });
+
+test("a pair's size tail never outruns the law: High Start at an intercept of 52,488 is worth less than the state's φ", async () => {
+  // Found by the tension matrix (two-line-systems.md §8.3): stretching y = 9x + 8 by 3 eight times, beside x = −12, gave
+  // High Start (high and rising) 8,238 bits through a linear tail. A pair's numbers cost log₂ of their size.
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { highStart } = await import("@workspace/v2-pair");
+  const dir = new URL("../values/pair-q/high-start/", import.meta.url);
+  const s = pairType.decode("-59049,1,-52488;1,0,12");
+  for (const file of readdirSync(dir).filter(x => x.endsWith("-high-and-rising.json"))) {
+    const vf = JSON.parse(readFileSync(new URL(file, dir), "utf8"));
+    const bits = valueLookup(vf)(evaluateObject(pairType, highStart, vf.params, s, pairQ, "high-and-rising").score).bits;
+    assert.ok(bits <= pairType.readLength(s, pairQ), `${file}: ${bits} bits against φ ${pairType.readLength(s, pairQ)}`);
+  }
+});
