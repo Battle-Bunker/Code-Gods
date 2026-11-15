@@ -1,5 +1,5 @@
 // High Start · Bold
-// Main part: the steeper line crosses the y-axis at a whole number. Tie-breaker: whichever you were dealt (the steeper line high and steep; that y-intercept shares many prime factors with the number you divide by).
+// Main part: the gentler line crosses the y-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -9,13 +9,13 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
-  if (f.cs === null || f.ms === null) return null;   // the steeper line is upright: no score
-  const main = Q.neg(dist(f.cs));
-  // main: how far the steeper line's y-intercept is from a whole number (closer is better)
-  if (tie === "steep-and-high") return [main, Q.cmp(whole(f.cs), floor(f.ms)) < 0 ? whole(f.cs) : floor(f.ms)];   // the smaller of the y-intercept and the gradient's whole part big is better
-  if (tie === "start-factors") return [main, omega(common(whole(f.cs), f.D))];   // a y-intercept sharing many prime factors with the number you divide by is better
+  if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
+  const H = nearestLeaving(f.cg, p.q, p.r);   // the whole number that leaves your remainder
+  const main = Q.neg(Q.abs(Q.sub(f.cg, H)));
+  // main: how far the gentler line's y-intercept is from a whole number with your remainder (closer is better)
+  if (tie === "high-and-rising") return [main, Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)];   // the smaller of the gentler line's y-intercept and its gradient's whole part big is better
+  if (tie === "start-factors") return [main, omega(common(H, f.D))];   // a y-intercept sharing many prime factors with the number you divide by is better
   return [main];
 }
 

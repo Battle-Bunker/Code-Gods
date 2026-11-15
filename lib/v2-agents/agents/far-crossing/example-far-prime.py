@@ -1,5 +1,5 @@
 # Far Crossing · Example: the steeper line's x-intercept is a big prime
-# Main part: the steeper line crosses the x-axis at a whole number. Tie-breaker: the steeper line's x-intercept is a big prime.
+# Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: the steeper line's x-intercept is a big prime.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -9,11 +9,11 @@
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.rs is None:   # the steeper line is flat: no score
         return None
-    main = -dist(f.rs)
-    return [main, spf(whole(f.rs))]   # main: how far the steeper line's x-intercept is from a whole number (closer is better); tie-breaker: an x-intercept with a big smallest prime factor is better
+    R = nearest_leaving(f.rs, p["q"], p["r"])   # the whole number that leaves your remainder
+    main = -abs(f.rs - R)
+    return [main, spf(R)]   # main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better); tie-breaker: an x-intercept with a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go

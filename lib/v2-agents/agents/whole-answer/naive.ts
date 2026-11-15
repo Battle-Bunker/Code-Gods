@@ -10,10 +10,11 @@ function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (f.x === null) return null;   // parallel lines never cross: no score
-  const main = Q.neg(Q.add(dist(f.x), dist(f.y)));
-  // main: how far the answer (x, y) is from whole numbers (closer is better)
-  if (tie === "peg-divisor") return [main, common(Q.add(Q.abs(f.X), Q.abs(f.Y)), f.D)];   // |X| + |Y| sharing a big factor with the number you divide by is better
-  if (tie === "south-west") return [main, Q.neg(Q.add(f.X, f.Y))];   // an answer far down and to the left is better
+  const X = nearestLeaving(f.x, p.q, p.r);   // x's whole number that leaves your remainder
+  const main = Q.neg(Q.add(Q.abs(Q.sub(f.x, X)), dist(f.y)));
+  // main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)
+  if (tie === "peg-divisor") return [main, common(Q.add(Q.abs(X), Q.abs(f.Y)), f.D)];   // |X| + |Y| sharing a big factor with the number you divide by is better
+  if (tie === "south-west") return [main, Q.neg(Q.add(X, f.Y))];   // an answer far down and to the left is better
   return [main];
 }
 

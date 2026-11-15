@@ -379,7 +379,7 @@ export const TAIL_CEILING = STEP;
  * floor, or not at all (too few knots, noise), takes the floor: a ramp of TAIL_FLOOR bits per doubling, or for a
  * distance a line on which closing the rest of the gap to 0 is worth TAIL_FLOOR bits. The ceiling wins over the floor.
  */
-function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime"): TailFit {
+function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime", sizeRate?: number): TailFit {
   const best = pts[pts.length - 1];
   if (measure === "prime" && (!best || best.u.n >= 0n)) {
     // A prime or a prime factor: the cheapest state whose value is the prime p pays about p/2 bits for it, so past the
@@ -399,10 +399,11 @@ function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?:
     const pos = pts.filter(p => p.u.n >= 0n);
     const lin = leastSquares(pos.map(p => ({ x: toNumber(p.u), y: p.y })));
     const ramp = leastSquares(pos.map(p => ({ x: log2OnePlus(p.u), y: p.y })));
-    const lineFits = pos.length >= 3 && lin !== null && lin.slope >= TAIL_CEILING / 4
+    // With a size rate (a variant whose numbers cost log₂ of their size), a size takes the log ramp, never a line.
+    const lineFits = sizeRate === undefined && pos.length >= 3 && lin !== null && lin.slope >= TAIL_CEILING / 4
       && (ramp === null || ramp.slope <= 0 || lin.sse <= ramp.sse);
     const fit: TailFit = lineFits ? { form: "linear", slope: lin!.slope } : { form: "log", slope: Math.max(ramp?.slope ?? 0, TAIL_FLOOR) };
-    const most = fit.form === "linear" ? ceiling : ceiling * (1 + toNumber(best.u)) * Math.LN2;
+    const most = fit.form === "linear" ? ceiling : Math.min(ceiling * (1 + toNumber(best.u)) * Math.LN2, sizeRate ?? Infinity);
     return fit.slope > most ? { form: fit.form, slope: most, unclamped: fit.slope } : fit;
   }
   const gap = Math.max(-toNumber(best.u), 0) || 1;
@@ -413,19 +414,22 @@ function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?:
 /**
  * The tail rule: fits through the last knots (at most six), along the secondary utility and along the primary, held
  * under `ceiling` bits per unit (TAIL_CEILING on lines, whose coordinates take the mixed integer code; none elsewhere).
+ * `sizeRate`, for a variant whose law charges about log₂ of a number's size (pairs: 1 bit of φ per doubling of a
+ * coefficient), makes every size tail a log ramp of at most that many bits per doubling, so a value never grows faster
+ * than the φ of the cheapest state that reaches it (CLAUDE.md, decision 30).
  */
-export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity, measures: TailMeasures = {}): ValueTail {
+export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity, measures: TailMeasures = {}, sizeRate?: number): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
   const best = parsed[parsed.length - 1];
-  if (!best) return { secondary: fitTail([], ceiling, measures.secondary), primary: fitTail([], ceiling, measures.primary) };
+  if (!best) return { secondary: fitTail([], ceiling, measures.secondary, sizeRate), primary: fitTail([], ceiling, measures.primary, sizeRate) };
   const b = best.u!;
   const same = b.length > 1 && b[1] !== null
     ? parsed.filter(k => compareScores([k.u![0]!], [b[0]!]) === 0 && k.u!.length > 1 && k.u![1] !== null).slice(-6) : [];
   // Along the primary: the first (worst) knot at each primary, the survival of "primary at least this".
   const firsts: { u: Q; y: number }[] = [];
   for (const k of parsed) if (!firsts.length || compareScores([firsts[firsts.length - 1]!.u], [k.u![0]!]) !== 0) firsts.push({ u: k.u![0]!, y: k.bits });
-  return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary),
-    primary: fitTail(firsts.slice(-6), ceiling, measures.primary) };
+  return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary, sizeRate),
+    primary: fitTail(firsts.slice(-6), ceiling, measures.primary, sizeRate) };
 }
 
 export interface Lookup {

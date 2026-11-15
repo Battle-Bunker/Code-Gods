@@ -429,6 +429,16 @@ back) or TRIAL (a declared experiment, measured and reported).
     the leaderboard a sawtooth (alice's game: about 85 to about 10 at 2:00). In a fixed-length game no redraw falls in
     the last 90 world seconds: the redraw at 10:00 of a 600 s game collapsed the final scores (winner 69.86 after being
     near 100). (convex/v2/drift.ts `driftEventsDue`, `nextDriftAt`.)
+21. **TRIAL** (declared 15 Nov, departing from the two-line design of 14 Nov): High Start reads the GENTLER line's
+    y-intercept (and its tie-breaker "high and rising" the gentler gradient), not the steeper line's. Motive: on the
+    steeper line it shared Steep Ratio's hill (repeating "stretch the steeper line × 3" raised both by about 1.7 bits a
+    step, unopposed; two-line-systems.md §8.1). On the gentler line, a stretch that raises High Start lowers the ratio
+    of gradients. Effects measured in two-line-systems.md §8.2.
+22. **TRIAL** (declared 15 Nov, following decision 41 and call 18): the two-line families carry dealt numbers where
+    the card has one, redrawn every 120 s on `lines-pairs`. A remainder (the whole number aimed at leaves r when
+    divided by q) on Whole Answer's x, Far Crossing, High Start and Steep Ratio; the number you divide by (k) on No
+    Fractions; the gap ratio (k) on Double Gap. Right Angle and Forty-Five keep none. Only the numbers of equal reach
+    and equal value are dealt (two-line-systems.md §8.3). `lines-pairs` stays non-default.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
