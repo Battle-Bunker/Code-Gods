@@ -4,12 +4,13 @@
  * read in full, at one look's price from the agent's own energy, so a Watcher keeps a player's objects fresh without
  * the player looking themselves.
  *
- * One view is a full read: `gen` (a·x + b·y + c = 0) for a line, `cells` for a board (test/watcher.test.ts checks it).
+ * One view is a full read: `gen` (a·x + b·y + c = 0) for a line, `cells` for a board, `eqs` for a pair of lines
+ * (test/watcher.test.ts checks it).
  */
 import type { ShippedLanguage } from "./starters.ts";
 
 /** The object types a Watcher is written for. */
-export type WatcherType = "lines" | "grids";
+export type WatcherType = "lines" | "grids" | "pairs";
 
 export interface WatcherAgent {
   readonly kind: "watch";
@@ -22,6 +23,7 @@ export interface WatcherAgent {
 const VIEW: Record<WatcherType, { rep: string; noun: string; says: string }> = {
   lines: { rep: "gen", noun: "line", says: "the line as a·x + b·y + c = 0: the whole line in one view" },
   grids: { rep: "cells", noun: "board", says: "every cell of the board: the whole board in one view" },
+  pairs: { rep: "eqs", noun: "pair", says: "both lines as a·x + b·y = e: the whole pair in one view" },
 };
 
 /** The Watcher for an object type, in TypeScript or Python. */

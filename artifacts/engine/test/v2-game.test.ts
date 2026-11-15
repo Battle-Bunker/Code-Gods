@@ -42,7 +42,8 @@ before(async () => {
   ({ roomId } = (await perform(host!, "room.create", { name: `${preset} room`, preset })).result);
   await perform(host!, "room.setSpectator", { spectator: true }, { roomId });
   assert.deepEqual((await perform(host!, "seats.fillPracticePartners", {}, { roomId })).result, { added: 3 });
-  await perform(host!, "room.settings", { overrides: { planningSeconds: 5, worldSeconds: 60 } }, { roomId });
+  // A fixed length (some presets end at a hidden random moment: durationMode "halfLife"), so the end is checkable.
+  await perform(host!, "room.settings", { overrides: { planningSeconds: 5, worldSeconds: 60, durationMode: "fixed" } }, { roomId });
   const started = await perform(host!, "game.start", {}, { roomId });
   assert.equal(started.ok, true, JSON.stringify(started));
   gameId = started.result.gameId;
