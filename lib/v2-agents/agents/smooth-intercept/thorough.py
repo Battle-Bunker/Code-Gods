@@ -1,5 +1,5 @@
 # Smooth Intercept · Thorough
-# Main part: the y-intercept on as big a number of the dealt primes as possible. Tie-breaker: whichever you were dealt (the factor that number plus 1 shares with the gradient's whole part).
+# Main part: the y-intercept made of as many of the dealt primes as possible. Tie-breaker: whichever you were dealt (the factor that number plus 1 shares with the gradient's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -16,8 +16,13 @@ def score(m, c, p, tie):
     s = near(a, lambda n: n >= 2 and all(f in p["primes"] for f in factors(n)))   # the nearest rung
     if s is None:                                   # none within 10,000: hopeless
         return None
-    main = a if a == s else -abs(a - s)             # on a rung: the rung; else below every rung
-    # main: the y-intercept's size itself when it is made only of the rule's primes (bigger is better: a ladder with no top), else minus how far it is from the nearest such number
+    main = -abs(a - s)                              # off every rung: below them all
+    if a == s:                                      # on a rung: the dealt primes multiplied (omega), in levels
+        omega, level = len(factors(s)), 0
+        while (level + 1) * (level + 2) // 2 <= omega:   # level L needs L(L + 1)/2 of them
+            level += 1
+        main = level + (omega - level * (level + 1) // 2 + Fraction(1, 2 + s)) / (level + 1)
+    # main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number
     if tie == "shared-factor":   # take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
         wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)
         return [main, common(s + 1, wm)]
@@ -54,16 +59,10 @@ def agent(offer):
         tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
         f = k + 1 if k > 0 else k - 1
         tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
-    # The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.
-    up = -1 if c < 0 else 1
-    below = near(abs(c), lambda n: n >= 2 and all(f in p["primes"] for f in factors(n)))
-    if below is not None:
-        t = below + 1
-        for _ in range(3000):
-            if all(f in p["primes"] for f in factors(t)):
-                tries.append((move("si.shift", k=up * t - c), m, up * t))
-                break
-            t += 1
+    # The next level up (the ladder has no top): one more of the dealt primes multiplied in, by a shift.
+    if c.denominator == 1 and c != 0:
+        for pr in p["primes"]:
+            tries.append((move("si.shift", k=c * (pr - 1)), m, c * pr))
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
