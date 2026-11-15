@@ -8,6 +8,7 @@
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
 import { isPaid, seenShort, seenWords } from "./seen";
+import { FreshMark } from "./fresh-mark";
 import { bitsText, num, othersNote, pointsText, scoreFormula, blurredNote } from "@/core/words";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { stableOrder } from "./stable-order";
@@ -113,7 +114,7 @@ function LineRow({ objectId, number, rule, value, rep, scale, focused, contested
         {contested && <span className="border border-destructive/60 px-1 text-[10px] font-medium uppercase text-destructive" data-testid={`badge-contested-line-${number}`}
           title={`Your agent and another player's keep moving this ${word.one} back and forth: both of you burn energy. Talk to them.`}>tug-of-war</span>}
         {v && <span data-testid={`text-points-line-${number}`}>{bitsText(v.rarityBits)} · <b>{pointsText(v.points)}</b></span>}
-        {isPaid(o) && <span className="text-muted-foreground" data-testid={`text-seen-line-${number}`} title={seenWords(o) ?? undefined}>{seenShort(o)}</span>}
+        {isPaid(o) && <span className="inline-flex items-center gap-1 text-muted-foreground" data-testid={`text-seen-line-${number}`} title={seenWords(o) ?? undefined}><FreshMark o={o} testId={`mark-fresh-line-${number}`} />{seenShort(o)}</span>}
       </p>
       {v && <PointsRectangle number={number} rarity={v.rarityBits} want={v.want} scale={widen(scale, v.rarityBits, v.want)} approx={blurred} />}
       {v && (

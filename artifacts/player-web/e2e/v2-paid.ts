@@ -97,7 +97,7 @@ try {
     for (;;) {
       const t = await seen.innerText();
       // Seen now: nothing has changed since (or one change landed in the moment after the look, seen at a later time).
-      if (/unchanged since/.test(t) || (t !== before && /changed once since/.test(t))) return t;
+      if (/up to date/.test(t) || (t !== before && /changed once since/.test(t))) return t;
       if (Date.now() > until) throw new Error(`the look did not update the line: ${t}; toasts: ${(await page.locator("[data-state=open]").allInnerTexts()).join(" | ")}`);
       await page.waitForTimeout(200);
     }

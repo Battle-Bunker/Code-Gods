@@ -17,12 +17,18 @@ export function seenWords(o: Seen): string | null {
   if (!isPaid(o)) return null;
   const n = o.changesSince ?? 0;
   if (o.knownAt === null) return `Not seen yet · ${n ? `changed ${times(n)} since it was born` : "unchanged since it was born"}`;
-  return `As you saw it at ${clock(o.knownAt!)} · ${n ? `changed ${times(n)} since` : "unchanged since"}`;
+  return `As you saw it at ${clock(o.knownAt!)} · ${n ? `changed ${times(n)} since` : "up to date"}`;
 }
 
 /** The row's short form: "seen 0:40 · changed 3×", "seen 0:40", or null in a free game. */
 export function seenShort(o: Seen): string | null {
   if (!isPaid(o)) return null;
   const n = o.changesSince ?? 0;
-  return `${o.knownAt === null ? "not seen yet" : `seen ${clock(o.knownAt!)}`}${n ? ` · changed ${n}×` : ""}`;
+  return `${o.knownAt === null ? "not seen yet" : `seen ${clock(o.knownAt!)}`}${n ? ` · changed ${n}×` : o.knownAt === null ? "" : " · up to date"}`;
+}
+
+/** The mark beside it: "fresh" when nothing changed since you last saw it, "stale" otherwise; null in a free game. */
+export function freshness(o: Seen): "fresh" | "stale" | null {
+  if (!isPaid(o)) return null;
+  return o.knownAt !== null && (o.changesSince ?? 0) === 0 ? "fresh" : "stale";
 }

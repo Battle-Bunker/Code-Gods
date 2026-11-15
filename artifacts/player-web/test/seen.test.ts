@@ -12,7 +12,7 @@ test("a paid game says when the object was last seen and how often it changed si
   assert.equal(isPaid({ knownAt: 40, changesSince: 3 }), true);
   assert.equal(seenWords({ knownAt: 40, changesSince: 3 }), "As you saw it at 0:40 · changed 3 times since");
   assert.equal(seenWords({ knownAt: 40, changesSince: 1 }), "As you saw it at 0:40 · changed once since");
-  assert.equal(seenWords({ knownAt: 75, changesSince: 0 }), "As you saw it at 1:15 · unchanged since");
+  assert.equal(seenWords({ knownAt: 75, changesSince: 0 }), "As you saw it at 1:15 · up to date");
   assert.equal(seenWords({ knownAt: null, changesSince: 2 }), "Not seen yet · changed twice since it was born");
 });
 
@@ -20,5 +20,13 @@ test("a row says it short", async () => {
   const { seenShort } = await import("../src/panes/seen.ts");
   assert.equal(seenShort({}), null);
   assert.equal(seenShort({ knownAt: 40, changesSince: 3 }), "seen 0:40 · changed 3×");
-  assert.equal(seenShort({ knownAt: 40, changesSince: 0 }), "seen 0:40");
+  assert.equal(seenShort({ knownAt: 40, changesSince: 0 }), "seen 0:40 · up to date");
+});
+
+test("a clear mark: up to date, or changed since you looked (owner decision 33: every game)", async () => {
+  const { freshness } = await import("../src/panes/seen.ts");
+  assert.equal(freshness({}), null);
+  assert.equal(freshness({ knownAt: 40, changesSince: 0 }), "fresh");
+  assert.equal(freshness({ knownAt: 40, changesSince: 2 }), "stale");
+  assert.equal(freshness({ knownAt: null, changesSince: 0 }), "stale");
 });
