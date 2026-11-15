@@ -154,3 +154,23 @@ test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·
     assert.ok(e.at <= seconds - 90, `no redraw in the last 90 s (${e.at})`);
   }
 });
+
+test("objectCap retires the oldest live line at each birth past the cap: no one acts on it again and its points stay banked", async () => {
+  const acts: { at: number; object: number; objects: number; born: number }[] = [];
+  const report = await runTable(boxes, {
+    type: lineType, variant: lineQ, lines: 3, seed: "cap", seconds: 40, birthsPerSecond: 0.2, regularBirths: true, objectCap: 4, unique: true,
+    seats: [seat("Ada", "starter", "treasure", "shared-factor"), seat("Bo", "starter", "prime-staircase", "shared-factor")],
+    onAct: e => acts.push({ at: e.at, object: e.object, objects: e.objects, born: e.born }),
+  });
+  assert.equal(report.objects, 11, "3 starting lines and a birth every 5 s");
+  assert.ok(acts.every(a => a.objects <= 4), "never more than 4 live lines");
+  // Births land on the first tick (1.5 s) at or after each 5 s. At a birth past the cap the oldest live line retires, so an
+  // act at world second t is on one of the 4 newest lines born by then (at least those born by t − 1.5).
+  for (const a of acts) {
+    const bornBy = 3 + Math.floor((a.at - 1.5) / 5 + 1e-9);
+    assert.ok(a.object >= bornBy - 4, `line ${a.object} acted at ${a.at.toFixed(1)} s after it retired`);
+    if (a.object < 3) assert.equal(a.born, 0);
+    else assert.ok(a.born >= 5 * (a.object - 2) && a.born < 5 * (a.object - 2) + 1.5, `line ${a.object} born at ${a.born}`);
+  }
+  assert.ok(acts.some(a => a.object >= 8), "the newest lines are played");
+});
