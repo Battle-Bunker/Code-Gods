@@ -60,8 +60,8 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   // D = ±5: with k 5 it is level 1 (next 25, 20 away): 5 × (1 + 1/21); with k 2, level 0, 3 away from 2: 1 + 1/4.
   assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["110/21"]);
   assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["5/4"]);
-  // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has smallest prime factor 5; they share 5.
-  assert.deepEqual(score("no-fractions", "numerator-prime", school, { k: 5 }), ["110/21", "5"]);
+  // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has two prime factors; they share 5.
+  assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["110/21", "2"]);   // 25 = 5 × 5
   assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["110/21", "5"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\); better still 9, then 27, and so on/);
   assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap between their x-intercepts; better still 16 times/);

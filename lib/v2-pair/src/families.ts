@@ -72,22 +72,28 @@ export function ladderWords(p: P): string {
 }
 /** "4 (or −4); better still 16, then 64, and so on". */
 const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${k * k}, then ${k ** 3}, and so on`;
-/** Every residue ladder this pool may deal: q 5, 7 or 11, r from 1 to q − 2 (never 0 or q − 1: those have a top). */
+/** The residue ladders measured for the pool: q 5, 7 or 11, r from 1 to q − 2 (never 0 or q − 1: those have a top). */
 export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length: q - 2 }, (_, i) => ({ q, r: i + 1 })));
 
 /**
- * The dealt numbers (two-line-systems.md §8.4, lib/v2-agents scripts/pair-reach.ts). Measured over a residue grid
- * (q 3, 5, 7, 11 or 13, r coprime to q: a remainder of 0 would cap the prime tie-breakers at q) and k 1–6 (Divide By) or
- * 2–5 (Gap Ratio). Dealt: the largest set where, for every tie-breaker,
- *  - a greedy climber from 40 births reaches between 5.6 and 10.9 bits, so every seat's rule is within a factor of 2
- *    of every other's (the coordinator's balance call, decision 42);
+ * The dealt numbers (two-line-systems.md §9, lib/v2-agents scripts/pair-reach.ts). Measured over LADDERS (and r = 1 at
+ * q 3, 13, 17, 19, 23 for Steep Ratio), k 2–11 (Divide By) and 2–5 (Gap Ratio). Dealt: per family, the largest set where
+ * for every tie-breaker
+ *  - a greedy climber from 40 births reaches between 5.6 and 11.1 bits, so every seat's rule is within a factor of 2
+ *    of every other's (the coordinator's balance call, decision 42; measured 5.7–11.0);
  *  - within 1 bit of the family's median;
  *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts).
  */
+const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
-  "whole-answer": LADDERS, "right-angle": LADDERS, "forty-five": LADDERS, "far-crossing": LADDERS, "high-start": LADDERS, "steep-ratio": LADDERS,
-  "no-fractions": [2, 3, 4, 5, 6, 7].map(k => ({ k })),
+  "whole-answer": [...R(5, 1, 2, 3), ...R(7, 2, 3, 4), ...R(11, 2, 3, 4, 5, 6, 7, 8, 9)],
+  "no-fractions": [3, 4, 6, 9, 10, 11].map(k => ({ k })),
+  "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
+  "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
   "double-gap": [2, 3, 4, 5].map(k => ({ k })),
+  "far-crossing": [...R(7, 4), ...R(11, 2, 3, 4, 5, 6, 8, 9)],
+  "high-start": [...R(5, 2), ...R(7, 3), ...R(11, 2, 3, 4, 5, 6, 7)],
+  "steep-ratio": [11, 13, 17, 19, 23].map(q => ({ q, r: 1 })),
 };
 /**
  * The whole number n leaving r when divided by q (n − r a multiple of q, negatives included: −2 leaves 1 when divided
@@ -183,17 +189,19 @@ export const noFractions = family({
   id: "no-fractions", title: "Divide By", depends: ["pair", "solve"],
   main: main("divisor", "the number you divide by on the dealt powers", p => `When you solve the two equations you divide by a number: it should be ${powerWords(p.k!)}. The closer, the better.`, "solve", "max"),
   tieBreakers: [
-    tb("numerator-prime", "the answer's numerators add up to a big prime", "The answer's numerators (x and y times the number you divide by), added up as distances, should have as big a smallest prime factor as possible.", "pair", "prime"),
+    tb("numerator-smooth", "the answer's numerators add up to a number with many prime factors", "The answer's numerators (x and y times the number you divide by), added up as distances, should have as many prime factors as possible.", "pair", "smooth"),
     tb("numerator-shared", "the answer's numerators share a big factor", "The answer's two numerators (x and y times the number you divide by) should share as big a factor as possible.", "pair", "shared"),
   ],
   params: DEALT_NUMBERS["no-fractions"],
   evaluate: (ctx, p) => {
     const d = read(ctx, D)!, a = answer(ctx);
-    if (!a) return void (ctx.term("divisor", "the number you divide by's level", PARALLEL, [D]), allUndefined(ctx, ["numerator-prime", "numerator-shared"], PARALLEL, [PX, PY]));
+    if (!a) return void (ctx.term("divisor", "the number you divide by's level", PARALLEL, [D]), allUndefined(ctx, ["numerator-smooth", "numerator-shared"], PARALLEL, [PX, PY]));
     const size = absB(d.n);
     ctx.term("divisor", `the level of the number you divide by on ${powerWords(p.k!)}`, powerLadder(p.k!, t => q(absB(size - t))).u, [D]);
     const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n;
-    ctx.term("numerator-prime", "the smallest prime factor of |x·D| + |y·D|", spf(absB(nx) + absB(ny)), [PX, PY, D]);
+    // Many prime factors, not a big prime: a prime built from derived numbers is cheap (its reach was 11–13 bits against
+    // the pool's 6–11; two-line-systems.md §9).
+    ctx.term("numerator-smooth", "how many prime factors |x·D| + |y·D| has", omega(absB(nx) + absB(ny)), [PX, PY, D]);
     ctx.term("numerator-shared", "the common factor of x·D and y·D", shared(nx, ny), [PX, PY, D]);
   },
 });

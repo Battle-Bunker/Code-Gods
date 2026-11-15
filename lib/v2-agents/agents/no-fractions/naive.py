@@ -1,5 +1,5 @@
 # Divide By · Naive (for learning)
-# Main part: the number you divide by on the dealt powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a big prime; the answer's numerators share a big factor).
+# Main part: the number you divide by on the dealt powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -14,8 +14,8 @@ def score(L, p, tie):
     main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
     # main: the level of the number you divide by on k, k², k³, … (higher is better)
-    if tie == "numerator-prime":   # numerators adding up to a number with a big smallest prime factor are better
-        return [main, spf(abs(nx) + abs(ny))]
+    if tie == "numerator-smooth":   # numerators adding up to a number with many prime factors are better
+        return [main, omega(abs(nx) + abs(ny))]
     if tie == "numerator-shared":   # numerators sharing a big factor are better
         return [main, common(nx, ny)]
     return [main]

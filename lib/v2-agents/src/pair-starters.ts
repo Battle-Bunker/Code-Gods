@@ -57,7 +57,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
       py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
     },
     tieBreakers: {
-      "numerator-prime": T("spf(Q.add(Q.abs(nx), Q.abs(ny)))", "spf(abs(nx) + abs(ny))", "numerators adding up to a number with a big smallest prime factor are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
+      "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
       "numerator-shared": T("common(nx, ny)", "common(nx, ny)", "numerators sharing a big factor are better", "add \"stretch\" to KINDS and compare."),
     },
   },
