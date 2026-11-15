@@ -3,9 +3,9 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
-import { fromMC, normalise, type LineState } from "./line.ts";
+import { fromMC, LINE_Q_CODES, normalise, type LineState } from "./line.ts";
 import { allUndefined, distance, factorLabel, family, gap, ladder, more, num, prime, squareGap, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, isSameLengthEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSameLengthEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, sameLengthPrimes, SEMIPRIME_EXACT_DIGITS, smallestFactor, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
 
@@ -36,77 +36,135 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
   ctx.mark({ kind: "candidate", ref: sqRef, term: "square" });
 });
 
-// ---------------------------------------------------------------- Ruler (restored, decision 22; a ladder since 15 Nov)
+// ---------------------------------------------------------------- Ruler (restored, decision 22; a ladder since 15 Nov; two primes since 16 Nov)
 
 /**
- * Ruler as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.8, on Pythagorean Area's
- * pattern). Main part, unbounded: the distance from (0, 0) to the line, squared (c²/(a² + b²), so a vertical or level
- * line reads honestly too), rounded down, should be a prime ending in k, the bigger the better, in levels of digits
- * (u = digitLevel(p), as Prime Landing's); any other line scores below every rung, minus how far its distance² is from
- * the nearest window [p, p + 1). A rung is a window, not a point: the next one is a small shift or tilt away, and no
- * repeated stretch or turn keeps the distance² on a prime. The §4.8 draft (how many times q divides the distance²) was a
- * v_q ladder, which a repeated zoom or stretch by q climbs a bit a step with no end (Pythagorean Area's lesson); the old
- * main part (distance² close to a square) had a top.
- * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (ignoring its sign). A new
- * rung changes p − 1, so the y-intercept that shared most no longer does and the climb starts again; a turn about (0, 0)
- * keeps the distance (the ruler's own shortcut) and moves the y-intercept, so the tie-breaker climbs on a rung.
- * Adversary, by construction: Pythagorean Area, on the same number on a 45° line (y = ±x + c: distance² and the
- * triangle's area are both c²/2), so another ending there excludes it and the same ending is a forbidden pair (seating.ts).
- * Measured (scripts/tension.ts, regenerated 15 Nov with the pool's ladders): Treasure (0.66) and Prime Landing (0.66) are
- * its named opponents, the share of their dealt rules that a Ruler climb lowers; Pythagorean Area 0.49. A Ruler that wants
- * the line close to (0, 0) (1 ÷ distance²) would fail the mechanical row 1 check, which searches whole y-intercepts
- * outward from 0.
- * Dealt: k = 1, 3, 7, 9.
+ * Ruler as a ladder of two-prime products (design-principles.md; the coordinator's declared trial of 16 Nov, replacing
+ * "distance² rounded down is a prime ending in k"). Main part, unbounded: the distance from (0, 0) to the line, squared
+ * (c²/(a² + b²), so a vertical or level line reads honestly too), rounded down, should be N = p·q, two different primes
+ * p < q with the same number of digits (143 = 11 × 13), ending in k, the bigger the better, in levels of digits
+ * (u = digitLevel(N)); any other line scores below every rung, minus how far its distance² is from the nearest window
+ * [N, N + 1). A rung is a window, as before: the next one is a small shift or tilt away.
+ * Why the change (the spec lead): the prime form was aligned with Pythagorean Area (on a 45° line distance² and the
+ * triangle's area are both c²/2) and shared the pool's commonest goal (a reading rounding to a prime ending in k). Now a
+ * Ruler rung is never a prime, so on a 45° line the two exclude each other; and with whole c, ⌊c²/2⌋ is (c − 1)(c + 1)/2,
+ * a multiple of 4, or 2·(c/2)², never such a product.
+ * Different primes (p < q, not p ≤ q): with p = q allowed, endings 1 and 9 alone would have the primes' squares (every
+ * level line y = P at a prime height is one), and the closeness tie-breaker's target q/p = 1 would be hit exactly at
+ * gradient ±1, a top.
+ * Tie-breakers, each read from the rung's p and q, so a new rung restarts its climb (row 3), each of a different form
+ * (row 3a): closeness (dealt), p·m² as close as possible to q: √(q/p) is irrational for p ≠ q, so it is never hit (no
+ * top); measured in p·m², not m² against q/p, so a twin-prime product p(p + 2) on a 45° line scores |p − q| = 2 at
+ * every size rather than 2/p, better with every rung for free; near-miss (undealt), Prime Staircase's form tied to p:
+ * p, p + w, p + 2w, … with w the y-intercept's whole part, the first that is not prime as nearly prime as possible;
+ * reading-at-index (undealt), the line's height at x = p, rounded down, divisible by q as many times as possible. A turn
+ * about (0, 0) keeps the distance (the ruler's own shortcut) and moves the gradient and the y-intercept, so each climbs
+ * on a rung.
+ * Dealt: k = 1, 3, 7, 9 (two primes ending in 1, 3, 7 or 9 multiply to each ending equally often).
  */
 const RULER_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
+const RULER_EXAMPLE: Record<number, string> = { 1: "221 = 13 × 17", 3: "143 = 11 × 13", 7: "187 = 11 × 17", 9: "209 = 11 × 19" };
 const rulerShape: Shape<Ends> = {
-  main: { ...more<Ends>("ruler", "distance² from (0, 0) on as big a dealt prime as possible", "", "norm"),
-    // Plain sentences, the main one under 30 words (the coordinator's ask): whose distance, and what is done to it.
-    sentence: p => `Square the line's closest distance to (0, 0) and round down: it should be a prime ending in ${p.ends}. Bigger primes are better, each extra digit counts for less.` },
+  main: { ...more<Ends>("ruler", "distance² from (0, 0) on as big a product of two same-length primes as possible", "", "norm"),
+    // Plain sentences, the main one under 30 words with an example (the coordinator's ask): whose distance, what is done to it.
+    sentence: p => `Square the line's closest distance to (0, 0), round down: two different same-length primes multiplied, ending in ${p.ends}, like ${RULER_EXAMPLE[p.ends]}. Bigger is better.` },
   tieBreakers: [
-    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
-      "Prime minus 1 and the y-intercept's whole part should share as big a factor as possible.", "si"),
+    distance<Ends>("closeness", "the smaller prime times the gradient squared close to the bigger prime",
+      "The smaller prime times the gradient squared should be as close as possible to the bigger prime.", "si"),
+    undealt(prime(more<Ends>("near-miss", "the first non-prime stepping from the smaller prime by the y-intercept's whole part, as nearly prime as possible",
+      "From the smaller prime, keep adding the y-intercept's whole part. The first non-prime should have a big smallest factor.", "si"))),
+    undealt(more<Ends>("reading-at-index", "the height at x = the smaller prime, rounded down, divisible by the bigger prime many times",
+      "The height at x = the smaller prime, rounded down: as many factors of the bigger prime as possible.", "si")),
   ],
 };
 /**
- * Witnesses for the tail cap (as Pythagorean Area's areaWitness): for n digits, up to three lines a·x + b·y + c = 0 whose
- * distance², c²/(a² + b²), rounds down to an n-digit prime ending in k, with c = 2^i·3^j (cheap under the code), a ≤ 12
- * and b ≤ 8: φ grows by about 1.7 bits a digit. Empty for a number of digits no such line reaches.
+ * The ladder's value: on a rung, digitLevel(N) of the product N of two different same-length primes ending in k that
+ * d2 rounds down to; else minus how far d2 is from the nearest such window [N, N + 1) (on a tie the lower one), below
+ * every rung, with that N's primes for the tie-breakers. Past SEMIPRIME_SEARCH_DIGITS digits a miss is graded by the
+ * nearest other number ending in k instead (no search: each candidate there may need thousands of factoring steps, and
+ * the law's tilted draws reach such lines often; no climb within a game's income gets near), whose primes are then
+ * unknown (null): its tie-breakers are undefined. A rung is still exact up to SEMIPRIME_EXACT_DIGITS digits.
  */
-const RULER_SMOOTH23: bigint[] = (() => {
+export const SEMIPRIME_SEARCH_DIGITS = 14;
+export function semiRung(d2: Q, k: number): { n: bigint; pq: { p: bigint; q: bigint } | null; u: Q } {
+  const x = Qn.sub(d2, q(1, 2));
+  const n0 = nearestInteger(x);   // ⌊d2⌋
+  const at = n0 > 0n && isSameLengthEnding(n0, k) ? sameLengthPrimes(n0) : null;
+  if (at) return { n: n0, pq: at, u: digitLevel(n0) };
+  const n = n0.toString().length > SEMIPRIME_SEARCH_DIGITS ? nearestOtherEnding(x, k, n0) : nearestSameLengthEnding(x, k);
+  return { n, pq: sameLengthPrimes(n), u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(n))), q(1, 2))) };
+}
+/** The whole number ending in k nearest x other than n0 (x > 0; on a tie the lower one). */
+function nearestOtherEnding(x: Q, k: number, n0: bigint): bigint {
+  const K = BigInt(k), f = Qn.floor(x);
+  let lo = f - ((((f - K) % 10n) + 10n) % 10n), hi = lo + 10n;
+  if (lo === n0) lo -= 10n;
+  if (hi === n0) hi += 10n;
+  return Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0 ? lo : hi;
+}
+/**
+ * Witnesses for the tail cap (as Pythagorean Area's areaWitness): for n digits, the three cheapest of the first dozen lines
+ * a·x + b·y + c = 0 found whose distance², c²/(a² + b²), rounds down to an n-digit product of two different same-length
+ * primes ending in k, with c = 2^i·3^j·5^l (cheap under the code), a ≤ 24 and b ≤ 12. Empty for a number of digits no
+ * such line reaches, and past SEMIPRIME_EXACT_DIGITS digits (the budgeted factor search finds few there, slowly: the cap
+ * stops and the ladder's tail runs on).
+ */
+const RULER_SMOOTH: bigint[] = (() => {
   const out: bigint[] = [];
-  for (let t = 1n; t < 10n ** 48n; t *= 2n) for (let u = t; u < 10n ** 48n; u *= 3n) out.push(u);
+  for (let t = 1n; t < 10n ** 13n; t *= 2n) for (let u = t; u < 10n ** 13n; u *= 3n) for (let v = u; v < 10n ** 13n; v *= 5n) out.push(v);
   return out.sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
 })();
 export function rulerWitness(p: Ends, n: number): LineState[] {
-  const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n), out: LineState[] = [];
-  for (let b = 0n; b <= 8n && out.length < 3; b++) for (let a = 0n; a <= 12n && out.length < 3; a++) {
+  if (n > SEMIPRIME_EXACT_DIGITS) return [];
+  const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n), found: { s: LineState; phi: number }[] = [];
+  for (let b = 0n; b <= 12n && found.length < 12; b++) for (let a = 0n; a <= 24n && found.length < 12; a++) {
     if (a === 0n && b === 0n) continue;
     const D = a * a + b * b;
-    for (const c of RULER_SMOOTH23) {
+    for (const c of RULER_SMOOTH) {
       const d2 = (c * c) / D;
       if (d2 >= hi) break;
-      if (d2 < lo || !isPrimeEnding(d2, p.ends)) continue;
+      if (d2 < lo || !isSameLengthEnding(d2, p.ends)) continue;
       const l = normalise(a, b, c);
-      if (!("invalid" in l)) out.push({ lines: [l] });
+      if ("invalid" in l) continue;
+      const s = { lines: [l] };
+      found.push({ s, phi: LINE_Q_CODES.a.bits(l.a) + LINE_Q_CODES.b.bits(l.b) + LINE_Q_CODES.c.bits(l.c) });   // its length on line-q
       break;
     }
   }
-  return out;
+  return found.sort((x, y) => x.phi - y.phi).slice(0, 3).map(f => f.s);
 }
 export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"], rulerShape, RULER_ENDS, (ctx, pr) => {
-  const d2Ref = ref("norm", "dist2"), cRef = ref("si", "c");
+  const d2Ref = ref("norm", "dist2"), mRef = ref("si", "m"), cRef = ref("si", "c");
   const d2 = num(ctx.read(d2Ref))!;
   ctx.read(ref("norm", "foot"));
-  const { p, u } = areaRung(d2, pr.ends);   // the same floor window as the area's
-  ctx.term("ruler", Qn.sign(u) > 0 ? `distance² ${Qn.toWire(d2)}, which rounds down to the prime ${p}: ${digitNote(p)}` : `distance² ${Qn.toWire(d2)}, ${Qn.toWire(Qn.neg(u))} from the window of the prime ${p}`, u, [d2Ref]);
-  // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its distance.
+  const { n, pq, u } = semiRung(d2, pr.ends);
+  const says = pq ? `${n} = ${pq.p} × ${pq.q}` : `${n}`;
+  ctx.term("ruler", Qn.sign(u) > 0 ? `distance² ${Qn.toWire(d2)}, which rounds down to ${says}: ${digitNote(n)}` : `distance² ${Qn.toWire(d2)}, ${Qn.toWire(Qn.neg(u))} from the window of ${says}`, u, [d2Ref]);
+  // A vertical line has no gradient or y-intercept: its tie-breakers are undefined (they rank last), not its distance.
   const vx = verticalAt(ctx);
-  if (vx) ctx.term("shared-factor", "the y-intercept's whole part", { undefined: VERTICAL_NO }, vx.from);
-  else {
-    const c = num(ctx.read(cRef))!, w = Qn.floor(Qn.abs(c));
-    ctx.term("shared-factor", `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p - 1n, w)}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [d2Ref, cRef]);
+  if (vx || !pq) {
+    const why = vx ? VERTICAL_NO : `${n} is too big to split into its primes`;
+    for (const t of rulerShape.tieBreakers) ctx.term(t.id, t.title, { undefined: why }, vx ? vx.from : [d2Ref]);
+    ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
+    return;
   }
+  const { p, q: qq } = pq;
+  const m = num(ctx.read(mRef))!, c = num(ctx.read(cRef))!;
+  // closeness: |p·m² − q|, never 0 (q/p is no square of a fraction).
+  const close = Qn.abs(Qn.sub(Qn.mul(q(p), Qn.mul(m, m)), q(qq)));
+  ctx.term("closeness", `${p} × gradient² is ${Qn.toWire(Qn.mul(q(p), Qn.mul(m, m)))}, ${Qn.toWire(close)} from ${qq}`, close, [d2Ref, mRef]);
+  // near-miss: p, p + w, p + 2w, … (w the y-intercept's whole part, ignoring its sign); the first that is not prime, its
+  // smallest prime factor. w = 0 never leaves p: nothing breaks (0), as a run of 256 primes would.
+  const w = Qn.floor(Qn.abs(c));
+  let brk: bigint | null = null;
+  if (w > 0n) for (let j = 1n; j <= 256n; j++) if (!isPrime(p + j * w)) { brk = p + j * w; break; }
+  const bw = brk === null ? 0n : smallestFactor(brk);
+  ctx.term("near-miss", brk === null ? (w === 0n ? "a y-intercept under 1 never steps away from the smaller prime" : "no number breaks the run") : `${p} stepping by ${w}: the first non-prime is ${brk}, whose smallest prime factor is ${bw}`, q(bw), [d2Ref, cRef]);
+  // reading-at-index: the height at x = p, rounded down, ignoring its sign; how many times q divides it (0 for 0).
+  const h = Qn.floor(Qn.abs(Qn.add(Qn.mul(m, q(p)), c)));
+  let j = 0;
+  for (let v = h; v > 0n && v % qq === 0n; v /= qq) j++;
+  ctx.term("reading-at-index", `the height at x = ${p}, rounded down, is ${h}: ${qq} divides it ${j} time${j === 1 ? "" : "s"}`, q(j), [d2Ref, mRef, cRef]);
   ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
 }), rulerWitness);
 

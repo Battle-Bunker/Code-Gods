@@ -1,5 +1,5 @@
 # Ruler · Naive (for learning)
-# Main part: distance² from (0, 0) on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
+# Main part: distance² from (0, 0) on as big a product of two same-length primes as possible. Tie-breaker: whichever you were dealt (the smaller prime times the gradient squared close to the bigger prime).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -7,26 +7,98 @@
 # Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
 
+# Two different primes with the same number of digits whose product is n (143 = 11 x 13): (p, q), else None. Exact up
+# to 20 digits (Pollard's rho finds a factor); past that rho gives up after 16384 steps, as the game's does.
+def rho(n, c, budget):
+    x = y = 2
+    done = 0
+    while done < budget:
+        x0, y0, prod = x, y, 1
+        for _ in range(32):
+            x = (x * x + c) % n
+            y = (y * y + c) % n
+            y = (y * y + c) % n
+            prod = prod * abs(x - y) % n
+        g = common(prod, n) if prod else n
+        if g == 1:
+            done += 32
+            continue
+        if g == n:
+            x, y = x0, y0
+            for _ in range(32):
+                x = (x * x + c) % n
+                y = (y * y + c) % n
+                y = (y * y + c) % n
+                g = common(x - y, n) if x != y else n
+                if g != 1:
+                    break
+        return None if g in (1, n) else g
+    return None
+
+def pq(n):
+    n = int(n)
+    if n < 6:
+        return None
+    def pair(a):
+        s, t = sorted((a, n // a))
+        return (s, t) if s != t and len(str(s)) == len(str(t)) and prime(s) and prime(t) else None
+    for d in range(2, 2000):                    # its smallest prime factor
+        if n % d == 0:
+            return pair(d)
+    if n < 4000000 or prime(n):
+        return None
+    if n < 10000000000:
+        d = 2001
+        while d * d <= n:
+            if n % d == 0:
+                return pair(d)
+            d += 2
+        return None
+    exact = len(str(n)) <= 20
+    for c in range(1, 65 if exact else 2):
+        g = rho(n, c, float("inf") if exact else 16384)
+        if g is not None:
+            return pair(g)
+    return None
+
+# The rung: the product ending in `ends` that d2 rounds down to, else the nearest one's window (the lower on a tie; past
+# 14 digits the nearest other number ending in `ends`, as the game grades it). (that number, its primes or None, main)
+def rung_of(d2, ends):
+    x = d2 - Fraction(1, 2)
+    n0 = whole(x)                               # d2 rounded down
+    level = lambda n: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(n, 10 ** D)) / (L + 1))(len(str(n)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(n))))   # levels of digits: level L needs L(L + 1)/2
+    if n0 > 0 and n0 % 10 == ends and pq(n0):
+        return n0, pq(n0), level(n0)
+    f = whole(x - Fraction(1, 2))               # x rounded down
+    lo = f - (f - ends) % 10
+    hi = lo + 10
+    nearer = lambda a, b: x - a <= b - x        # a (below x) at least as near as b (above)
+    if len(str(n0)) > 14:
+        lo -= 10 if lo == n0 else 0
+        hi += 10 if hi == n0 else 0
+        n = lo if nearer(lo, hi) else hi
+    else:
+        while True:
+            below = lo >= 6 and nearer(lo, hi)
+            n = lo if below else hi
+            if pq(n):
+                break
+            if below:
+                lo -= 10
+            else:
+                hi += 10
+    return n, pq(n), -(abs(x - n) - Fraction(1, 2))
+
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        d2 = c * c                                      # its distance from (0, 0), squared
-        x = d2 - Fraction(1, 2)
-        rung = near(x, prime, p["ends"])
-        gap = abs(x - rung)
-        level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
-        main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+        rung, two, main = rung_of(c * c, p["ends"])        # its distance from (0, 0) is |c|
         return [main, None]
     d2 = c * c / (m * m + 1)                        # the distance from (0, 0), squared
-    x = d2 - Fraction(1, 2)                         # d2 rounds down to n when x rounds to n (ties up)
-    rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest there: the rung
-    gap = abs(x - rung)                             # on the rung when d2 rounds down to it
-    level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
-    main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
-    # main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
-    if tie == "shared-factor":   # that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
-        wc = whole((2 * abs(c) - 1) / 2)          # the y-intercept's whole part, ignoring its sign
-        return [main, common(rung - 1, wc)]
+    rung, two, main = rung_of(d2, p["ends"])         # the product it rounds down to (or the nearest one's window), its two primes
+    # main: the product of two different same-length primes ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
+    if tie == "closeness":   # the smaller prime times the gradient squared, as close as possible to the bigger prime (never equal: the closer the better, without end)
+        return [main, None if two is None else -abs(two[0] * m * m - two[1])]
     return [main]
 
 

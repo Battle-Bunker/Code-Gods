@@ -91,9 +91,9 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const cost = areaCosts().get(p);
     return cost === undefined ? null : [String(p), cost];
   },
-  // Ruler: the rung is the prime p (u = digitLevel(p) on a rung), costed as the cheapest line whose distance² from (0, 0)
-  // rounds down to p. Like Pythagorean Area's endings, they differ in bits at equal size and by as much in what a rung
-  // costs, so bits less cost is what is equal.
+  // Ruler: the rung is the product N of two different same-length primes (u = digitLevel(N) on a rung), costed as the
+  // cheapest line whose distance² from (0, 0) rounds down to N. Like Pythagorean Area's endings, they differ in bits at
+  // equal size and by as much in what a rung costs, so bits less cost is what is equal.
   ruler: u => {
     const p = primeOfLevel(u);
     if (p === null) return null;

@@ -244,3 +244,99 @@ export function stepNote(n: number, one: string, many: string): string {
 }
 /** stepNote for a prime's digits (Prime Landing, Prime Gradient). */
 export const digitNote = (p: bigint): string => stepNote((p < 0n ? -p : p).toString().length, "digit", "digits");
+
+// ---------------------------------------------------------------- two primes of one length (Ruler, the semiprime trial)
+
+/**
+ * Up to this many digits the factor search below is exact: a number's two primes are always found. Past it the search
+ * stops after RHO_BUDGET steps, and a number whose primes it has not found counts as no such product (a deterministic
+ * rule; such products are rarer there, harder to reach, never absent: no top). A 20-digit product takes at most about
+ * 0.1 s (Pollard's rho needs about √p steps for its smaller prime p, ≤ 10^10 here).
+ */
+export const SEMIPRIME_EXACT_DIGITS = 20;
+export const RHO_BUDGET = 1 << 14;
+const RHO_BATCH = 32;
+const gcdB = (a: bigint, b: bigint): bigint => { while (b) [a, b] = [b, a % b]; return a; };
+/**
+ * Pollard's rho with Floyd's cycle finding (x ↦ x² + c mod n, from 2), the differences multiplied in batches of
+ * RHO_BATCH steps between gcds; a batch whose gcd is n is replayed one step at a time. A proper factor of n, or null when
+ * `budget` steps pass or the walk closes on n. The agents' helpers copy it step for step (catalogue.ts).
+ */
+export function rhoFactor(n: bigint, c: bigint, budget: number): bigint | null {
+  const f = (v: bigint) => (v * v + c) % n;
+  let x = 2n, y = 2n;
+  for (let done = 0; done < budget; done += RHO_BATCH) {
+    const x0 = x, y0 = y;
+    let prod = 1n;
+    for (let i = 0; i < RHO_BATCH; i++) { x = f(x); y = f(f(y)); prod = (prod * (x > y ? x - y : y - x)) % n; }
+    let g = gcdB(prod, n);
+    if (g === 1n) continue;
+    if (g === n) {
+      x = x0; y = y0;
+      for (let i = 0; i < RHO_BATCH; i++) { x = f(x); y = f(f(y)); g = gcdB(x > y ? x - y : y - x, n); if (g !== 1n) break; }
+    }
+    return g === n || g === 1n ? null : g;
+  }
+  return null;
+}
+const digitCount = (n: bigint): number => n.toString().length;
+/**
+ * The two different primes p < q with the same number of digits whose product is n (15 = 3 × 5, 143 = 11 × 13), or
+ * null. Exact up to SEMIPRIME_EXACT_DIGITS digits; past it, only products whose primes rho finds within RHO_BUDGET steps.
+ */
+export function sameLengthPrimes(n: bigint): { p: bigint; q: bigint } | null {
+  if (n < 6n) return null;
+  const D = digitCount(n);
+  const pair = (a: bigint): { p: bigint; q: bigint } | null => {
+    const b = n / a, [p, q] = a < b ? [a, b] : [b, a];
+    return p !== q && digitCount(p) === digitCount(q) && isPrime(p) && isPrime(q) ? { p, q } : null;
+  };
+  // The smallest prime factor below 2000, if any: then the other part must be a prime of its length.
+  for (const p of SMALL_PRIMES) if (n % p === 0n) return digitCount(p) === D - digitCount(p) || digitCount(p) === D + 1 - digitCount(p) ? pair(p) : null;
+  if (n < 4_000_000n || isPrime(n)) return null;   // below 2000², no factor below 2000 means prime
+  if (n < 10_000_000_000n) {
+    // Trial division on, in floating point (exact here), to the smallest factor: at most √n < 10^5.
+    const x = Number(n);
+    for (let d = 2003; d * d <= x; d += 2) if (x % d === 0) return pair(BigInt(d));
+    return null;
+  }
+  // No factor below 2000 and not prime: rho finds a proper factor; both parts prime is the product.
+  const exact = D <= SEMIPRIME_EXACT_DIGITS;
+  for (let c = 1n; c <= (exact ? 64n : 1n); c++) {
+    const g = rhoFactor(n, c, exact ? Number.MAX_SAFE_INTEGER : RHO_BUDGET);
+    if (g !== null) return pair(g);
+  }
+  return null;
+}
+/** Whether n is a product of two different primes with one number of digits, ending in k. */
+export const isSameLengthEnding = (n: bigint, k: number): boolean => endsIn(n, k) && sameLengthPrimes(n) !== null;
+/**
+ * The product of two different same-length primes ending in k nearest x (x ≥ 0; on a tie, the smaller), searched
+ * outward over the numbers ending in k, so only the answer is fully factored.
+ */
+export function nearestSameLengthEnding(x: Q, k: number): bigint {
+  const K = BigInt(k), f = Qn.floor(x);
+  let lo = f - ((((f - K) % 10n) + 10n) % 10n), hi = lo + 10n;   // the numbers ending in k at or below x, and above it
+  for (;;) {
+    const below = lo >= 6n && Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0;
+    const n = below ? lo : hi;
+    if (sameLengthPrimes(n) !== null) return n;
+    if (below) lo -= 10n; else hi += 10n;
+  }
+}
+/**
+ * The smallest prime factor of n ≥ 2 (n itself when prime), exact up to SEMIPRIME_EXACT_DIGITS digits: the primes below
+ * 2000 first, then rho splits n and each part until every part is prime. Past that size a part rho does not split within
+ * RHO_BUDGET steps counts as prime.
+ */
+export function smallestFactor(n: bigint): bigint {
+  if (n < 2n) return n;
+  for (const p of SMALL_PRIMES) if (n % p === 0n) return p;
+  if (isPrime(n)) return n;
+  const exact = digitCount(n) <= SEMIPRIME_EXACT_DIGITS;
+  for (let c = 1n; c <= (exact ? 64n : 1n); c++) {
+    const g = rhoFactor(n, c, exact ? Number.MAX_SAFE_INTEGER : RHO_BUDGET);
+    if (g !== null) { const a = smallestFactor(g), b = smallestFactor(n / g); return a < b ? a : b; }
+  }
+  return n;
+}

@@ -10,10 +10,9 @@
  * aligned pair, forbidden. When r ≢ s·k a rung is off Whole Crossing's ladder; and its levels above 0 (multiples of
  * 5) are never Prime Landing's rungs, so the two climbs pull the landing apart.
  *
- * Ruler and Pythagorean Area (each dealt a prime ending k) read one number on a 45° line: y = ±x + c is c/√2 from (0, 0),
- * so its distance² is c²/2, the area of the triangle it cuts off the axes. With one ending every such line on the one's
- * rung is on the other's, and a shift climbs both: an aligned pair, forbidden. With two endings the number rounds down to
- * one prime only, so on those lines each excludes the other.
+ * Ruler and Pythagorean Area read one number on a 45° line (distance² and the triangle's area are both c²/2). They were
+ * a forbidden pair while both wanted it on a prime ending in k; since Ruler's trial of 16 Nov a Ruler rung is a product
+ * of two primes, never a prime, so on those lines each excludes the other and the pair is allowed.
  */
 /** A seated rule as the seating rule reads it: its family and, where known, its dealt parameters. */
 export interface SeatedRule { readonly family: string; readonly params?: unknown }
@@ -26,18 +25,10 @@ function landingAligned(landing: unknown, crossing: unknown): boolean {
   return mod5((l.side ?? 1) * l.ends) === mod5(c.r);
 }
 
-/** Whether a Ruler rule and a Pythagorean Area rule have one ending (see the header). */
-function sameEnding(x: unknown, y: unknown): boolean {
-  const e = (r: unknown) => (r as { ends?: number } | undefined)?.ends;
-  return e(x) !== undefined && e(x) === e(y);
-}
-
 /** Whether two seated line rules are a forbidden pair. */
 export function lineClash(a: SeatedRule, b: SeatedRule): boolean {
   if (a.family === "prime-landing" && b.family === "whole-crossing") return landingAligned(a.params, b.params);
   if (b.family === "prime-landing" && a.family === "whole-crossing") return landingAligned(b.params, a.params);
-  const pair = new Set([a.family, b.family]);
-  if (pair.has("ruler") && pair.has("pythagorean-area") && a.family !== b.family) return sameEnding(a.params, b.params);
   return false;
 }
 
