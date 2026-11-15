@@ -48,6 +48,9 @@ test("every driftSeconds, a seat's parameters are redrawn; the rule, the values 
   assert.ok(after.drifts >= 1);
   assert.ok(after.driftedAt % 10 < 3, `drifted at ${after.driftedAt}, on a drift tick`);
   assert.deepEqual([after.family, after.tieBreaker], [before.family, before.tieBreaker], "never the family or tie-breaker");
+  // The rule before the redraw, so a notice "changed from … to …" survives a reload (W5).
+  assert.ok(after.previous && after.previous.card.length > 0, "the previous rule is kept");
+  if (after.drifts === 1) assert.deepEqual([after.previous.params, after.previous.card], [before.params, before.card]);
   assert.notEqual(after.ruleKey, before.ruleKey);
 
   const events = await admin.query("v2/testing:events", { gameId, after: -1 });

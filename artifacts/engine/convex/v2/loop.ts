@@ -213,7 +213,7 @@ async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number,
     const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, e);
     if (!next) continue;
     const view = ruleView({ family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash });
-    await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: (r.drifts ?? 0) + 1, driftedAt: world });
+    await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: (r.drifts ?? 0) + 1, driftedAt: world, previous: { params: r.params, card: r.card } });
     drifted.push({ memberId: s.memberId, family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash, card: view.card });
   }
   if (drifted.length === 0) return;
