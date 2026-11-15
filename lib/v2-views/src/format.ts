@@ -28,7 +28,12 @@ export function fmtQ(x: Q): string {
 }
 
 /** The largest denominator written as an exact fraction; beyond it a number is written "≈ 2.37". */
-const EXACT_DENOMINATOR = 100n;
+/**
+ * The one limit for exact fractions, everywhere a number is written (playtest round 12: "≈ 3.07" beside "3¹¹⁄₁₆₂x" on
+ * one card): a denominator up to three digits is written exact ("3¹¹⁄₁₆₂"); beyond it, as a decimal with "≈", and an
+ * equation holding one reads "≈" for "=" (equation-text.ts).
+ */
+export const EXACT_DENOMINATOR = 999n;
 
 /**
  * A number on a ruler, a plot or a part: exact while its denominator is at most 100 ("2¹⁹⁄₆₄", "⅓"), else approximate

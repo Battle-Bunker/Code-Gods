@@ -71,3 +71,16 @@ test("the act log names a vertical line too: x = 3 → y = 3, never its reason s
   assert.match(t, /x = 3 → y = 3/, t);
   assert.doesNotMatch(t, /vertical line has no gradient or y-intercept →/, t);
 });
+
+test("one form per place (playtest round 12): a three-digit denominator is exact; beyond it a decimal, and the equation says ≈", () => {
+  assert.equal(repText(lineType, mc(q(497, 162), q(1, 108)), "si"), "y = 3¹¹⁄₁₆₂x + ¹⁄₁₀₈");
+  const far = repText(lineType, mc(q(3001, 1000), q(1)), "si");
+  assert.equal(far, "y ≈ 3.00x + 1");
+  assert.doesNotMatch(far, /=/);
+});
+
+test("a long equation in a compact face is set smaller, never pushed past the card's edge (playtest round 12)", () => {
+  const html = renderToStaticMarkup(<RepView type={lineType} state={mc(q(497, 162), q(1, 108))} rep="si" size="compact" />);
+  const size = /class="v2v-eq-line"[^>]*style="font-size:(\d+)px"/.exec(html);
+  assert.ok(size && Number(size[1]) < 21, html.slice(0, 300));
+});

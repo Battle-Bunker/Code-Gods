@@ -8,7 +8,7 @@
  */
 import { Qn, ref, type ElementRef, type ElementValue, type Q } from "@workspace/v2-core";
 import type { EquationScene, EquationTemplate } from "@workspace/v2-linear";
-import { fmtQ, fmtValue, MINUS } from "./format.ts";
+import { EXACT_DENOMINATOR, fmtNum, fmtQ, fmtValue, MINUS } from "./format.ts";
 
 export type Eq = EquationScene;
 /** An element piece; a coefficient of ±1 carries its variable instead of a "1" ("−x" is one node). */
@@ -40,9 +40,12 @@ export function pieces(t: EquationTemplate, rep: string, values: (r: ElementRef)
     }
     const implied = coef && x.n === x.d; // a coefficient of ±1 (its sign is already taken off): "x", "−x"
     absorbed = implied;
-    out.push({ kind: "el", r, v, op, mag: implied ? "" : fmtQ(x), variable: implied ? (next as string)[0]! : "" });
+    out.push({ kind: "el", r, v, op, mag: implied ? "" : x.d > EXACT_DENOMINATOR ? fmtNum(Number(x.n) / Number(x.d)) : fmtQ(x), variable: implied ? (next as string)[0]! : "" });
   }
-  return tidy(out);
+  const ps = tidy(out);
+  // A number past the exact limit is written as a decimal: the equation then says "≈", never "=" (one form per place).
+  const approx = out.some(p => p.kind === "el" && p.v.kind === "number" && p.v.q.d > EXACT_DENOMINATOR);
+  return approx ? ps.map(p => (p.kind === "text" ? { ...p, text: p.text.replace(/ = /g, " ≈ ") } : p)) : ps;
 }
 
 /** One token of an equation: an element (with its variable when it is a coefficient), an operator, "=", or other words. */

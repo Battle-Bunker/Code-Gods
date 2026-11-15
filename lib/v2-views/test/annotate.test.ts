@@ -26,7 +26,8 @@ test("readable: exact fractions up to a denominator of 100, an approximate decim
   const { readable } = await import("../src/format.ts");
   assert.equal(readable(q(147, 64)), "2¹⁹⁄₆₄");
   assert.equal(readable(q(1, 3)), "⅓");
-  assert.equal(readable(q(1000, 101)), "≈ 9.90");
+  assert.equal(readable(q(1000, 101)), "9⁹¹⁄₁₀₁", "a three-digit denominator is written exact");
+  assert.equal(readable(q(10000, 1001)), "≈ 9.99");
   assert.equal(readable(q(27720)), "27,720");
 });
 

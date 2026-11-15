@@ -117,7 +117,9 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
       : `Next game, ${lesson}. This game it was ${noun} ${top.number}.` };
   } else {
     const wanted = [...input.objects].sort((a, b) => b.want - a.want)[0];
-    const m = wanted ? moves(rule, wanted.state, input.value ?? null, { k: 1 })[0] : undefined;
+    // A line your rule does not score: the move that makes it score (playtest round 12: Exact Change had no way forward).
+    const options = wanted ? moves(rule, wanted.state, input.value ?? null, { k: 1 }) : [];
+    const m = options.find(x => x.utility !== null) ?? options[0];
     next = wanted && m
       ? { number: wanted.number, text: `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.` }
       : { number: null, text: `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.` };
