@@ -1,5 +1,5 @@
 # Right Angle · Naive (for learning)
-# Main part: the lines cross at a right angle at a grid point, y on the dealt ladder. Tie-breaker: whichever you were dealt (the corner's distance is a big prime; the corner's distance shares a factor with the steeper gradient).
+# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's |x| + |y| has a big smallest prime factor; the corner's |x| + |y| shares a factor with the steeper gradient).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.

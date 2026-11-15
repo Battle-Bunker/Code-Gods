@@ -1,5 +1,5 @@
 // Steep Ratio · Example: that number shares a factor with the y-intercepts' gap
-// Main part: one line a whole number of times as steep as the other, on the dealt ladder. Tie-breaker: that number shares a factor with the y-intercepts' gap.
+// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: that number shares a factor with the y-intercepts' gap.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.

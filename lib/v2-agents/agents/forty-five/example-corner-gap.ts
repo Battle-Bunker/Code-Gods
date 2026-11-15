@@ -1,5 +1,5 @@
-// Forty-Five · Example: that distance shares a factor with the y-intercepts' gap
-// Main part: the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder. Tie-breaker: that distance shares a factor with the y-intercepts' gap.
+// Forty-Five · Example: that |x| + |y| shares a factor with the y-intercepts' gap
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: that |x| + |y| shares a factor with the y-intercepts' gap.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.

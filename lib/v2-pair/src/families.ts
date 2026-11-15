@@ -7,7 +7,7 @@
  * picture, a big prime on an axis) does not climb most of a table at once (decision 30); §4 of the doc measures it.
  */
 import { Qn, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
-import { distanceToWhole, nearestInteger, primeFactorCount, smallestPrimeFactor } from "@workspace/v2-linear";
+import { distanceToWhole, fromMC, nearestInteger, normalise, primeFactorCount, smallestPrimeFactor, type Line } from "@workspace/v2-linear";
 import type { PairState } from "./pair.ts";
 
 type Ctx = EvalContext<PairState>;
@@ -46,10 +46,14 @@ export function offMultiple(v: Q, m: bigint): Q {
  * a number should be a multiple of q^(L+1), L the level (q⁰ = 1 below level 0), so each step up the ladder makes the
  * target q times coarser and restarts the tie-breaker's climb.
  */
+/** Word helpers for the cards (round 24: at most 30 words, the pattern shown by numbers). */
+const big = (n: number) => n.toLocaleString("en");
+const times = (qq: number, e: number) => `${big(qq ** e)} times`;
+/** "(that − 4) ÷ 7 does too, and so on": the residue ladder's next step said as a rule a child can follow. */
+const again = (what: string, p: P) => `(${what} − ${p.r}) ÷ ${p.q} does too, and so on.`;
+/** A ladder's place said in words for the card (no "level"): a residue or power ladder from 1 up, a valuation from 0. */
+const stepsUp = (L: number, from = 1) => (L < from ? "not on your pattern yet" : L === 0 ? "on your pattern" : `on your pattern, ${L} step${L === 1 ? "" : "s"} up`);
 const levelTarget = (qq: number, level: number): bigint => BigInt(qq) ** BigInt(Math.max(0, level + 1));
-const targetWords = (qq: number, below = false) => below
-  ? `a whole number other than 0; once your number is on your ladder, a whole multiple of ${qq}; a level up, of ${qq * qq}; then of ${qq ** 3}, and so on`
-  : `a whole multiple of ${qq} other than 0; once your number climbs a level, of ${qq * qq}; then of ${qq ** 3}, and so on`;
 
 /**
  * The ladder with no top (docs/engine-v2/design-principles.md row 1, the coordinator's call applying the owner's
@@ -107,8 +111,6 @@ export function valuationLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { lev
   const u = Qn.mul(level >= 0 ? q(qq ** BigInt(level)) : q(1n, qq), Qn.add(q(1), Qn.inv(Qn.add(q(1), d))));
   return { level, u, n: level >= 0 ? v.n : anchorB(v, qq, r, minAbs).n };
 }
-/** "a whole number leaving 2 when divided by 7; better still 7 times such a number, then 343 times, then 117,649 times, and so on". */
-export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${(p.q! ** 3).toLocaleString("en")} times, then ${(p.q! ** 6).toLocaleString("en")} times, and so on`;
 /**
  * The power ladder: off(t) is the distance from the rung whose number is t (with `other` added), V-shaped in t. Its
  * rungs are triangular, as the valuation ladder's: level L at k^T(L), T(L) = L(L + 1)/2 (k, k³, k⁶, …), so each level
@@ -129,13 +131,6 @@ export function powerLadder(k: number, off: (target: bigint) => Q): { level: num
   }
   return { level, u: ladderScore(kb, level, level > 0 ? off(rung(level + 1)) : best!) };
 }
-/** "leaves 3 when divided by 7; better still, leaves 24 when divided by 49, then 171 when divided by 343, and so on". */
-export function ladderWords(p: P): string {
-  const qq = BigInt(p.q!), r = BigInt(p.r!);
-  return `leaves ${r} when divided by ${qq}; better still, leaves ${rungRemainder(qq, r, 2)} when divided by ${qq ** 2n}, then ${rungRemainder(qq, r, 3)} when divided by ${qq ** 3n}, and so on`;
-}
-/** "4 (or −4); better still 64, then 4,096, and so on" (the rungs k, k³, k⁶, …). */
-const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${(k ** 3).toLocaleString("en")}, then ${(k ** 6).toLocaleString("en")}, and so on`;
 /**
  * The valuation ladders dealt: q 5 or 7 and every r from 1 to q − 1 (a level never meets 0). q 3 was measured and is not
  * dealt: a stretch by 3 is so cheap a move that a climber blind to cost reached 34–51 bits on Steep Ratio in 30 moves
@@ -156,8 +151,8 @@ export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length
  */
 const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
-  "whole-answer": [...R(5, 1, 4), ...R(7, 2, 4, 5)],
-  "no-fractions": [5, 6, 10, 11].map(k => ({ k })),
+  "whole-answer": [...R(5, 3), ...R(7, 2, 3, 4, 5)],
+  "no-fractions": [3, 6, 7, 8, 9, 11].map(k => ({ k })),
   "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
   "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
   "double-gap": [3, 4, 5, 6].map(k => ({ k })),
@@ -200,6 +195,8 @@ interface Spec {
   readonly main: Layer<P>; readonly tieBreakers: readonly PairLayer[];
   /** The dealt numbers (decision 41); [{}] when the card has none. */
   readonly params?: readonly P[];
+  /** A ladder family's cheap states reaching level n (the tail cap of trial 28, RuleFamily.witness). */
+  readonly witness?: (p: P, n: number) => readonly PairState[];
   evaluate(ctx: Ctx, p: P): void;
 }
 function family(s: Spec): RuleFamily<PairState, P> {
@@ -208,8 +205,25 @@ function family(s: Spec): RuleFamily<PairState, P> {
     id: s.id, title: s.title, params: decls, dealable: () => s.params ?? [{}], depends: [...s.depends], main: s.main, tieBreakers: s.tieBreakers,
     card: (p, t: TieBreaker) => { const x = t === null ? undefined : s.tieBreakers.find(l => l.id === t); return x ? `${s.main.sentence(p)} Tie-breaker: ${x.sentence(p)}` : s.main.sentence(p); },
     evaluate: (ctx, p) => s.evaluate(ctx, p),
+    // Every dealt two-line family is a ladder (§9.1): its numbers are never redrawn (a redraw reset the climb, the
+    // coordinator's amendment of call 18) and its value tail runs along the level, capped by its witnesses (trial 28).
+    ...(s.witness ? { keepsParams: true, witness: s.witness } : {}),
   };
 }
+
+// ---------------------------------------------------------------- witnesses (trial 28: a tail never outgrows φ)
+//
+// For level n of a ladder, a few cheap systems that reach it: two lines through a point (0, N), or a pair whose number
+// to divide by or whose gaps are set. They need not be the cheapest; a cheaper one only tightens the cap.
+const mc = (m: Q, c: Q): Line => fromMC(m, c);
+const sysOf = (a: Line, b: Line): PairState => ({ lines: [a, b] });
+/** The residue ladder's numbers at level n: n digits r in base q, and that less q^n (the nearest on the other side). */
+const residueAt = (p: P, n: number): bigint[] => { const qq = BigInt(p.q!), R = rungRemainder(qq, BigInt(p.r!), n); return [R, R - qq ** BigInt(n)]; };
+/** The valuation ladder's numbers at level n: q^T(n) × m, m leaving r (r or r − q). */
+const valuationAt = (p: P, n: number): bigint[] => { const t = BigInt(p.q!) ** BigInt(triangle(n)); return [t * BigInt(p.r!), t * BigInt(p.r! - p.q!)]; };
+/** Two lines crossing at (0, N) at a right angle (gradients 1 and −1), and at 45° (gradients 3 and ½). */
+const squareAt = (N: bigint): PairState => sysOf(mc(q(1), q(N)), mc(q(-1), q(N)));
+const fortyFiveAt = (N: bigint): PairState => sysOf(mc(q(3), q(N)), mc(q(1, 2), q(N)));
 
 // Refs every family reads.
 const X = ref("pair", "X"), Y = ref("pair", "Y"), PX = ref("pair", "x"), PY = ref("pair", "y"), P = ref("pair", "P");
@@ -233,18 +247,19 @@ function answer(ctx: Ctx): { x: Q; y: Q; X: bigint; Y: bigint } | null {
 
 export const wholeAnswer = family({
   id: "whole-answer", title: "Whole Answer", depends: ["pair", "solve"],
-  main: main("answer", "the answer is whole numbers, y on the dealt ladder", p => `Solve the two equations: the answer (x, y) should be whole numbers, y ${valuationWords(p)}. The closer, the better.`, "pair", "max"),
+  main: main("answer", "the answer's y on your pattern", p => `The answer: x whole, and y a whole number leaving ${p.r} when divided by ${p.q}; better, ${p.q} times one; then ${times(p.q!, 3)}; then ${times(p.q!, 6)}.`, "pair", "max"),
   tieBreakers: [
-    tb("peg-divisor", "the answer shares a factor with the number you divide by", "The answer's whole numbers, added up as distances (|x| + |y|), should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
-    tb("south-west", "the answer far down and to the left", "The answer's x + y should be as small (as negative) as possible.", "pair", "small"),
+    tb("peg-divisor", "the answer's |x| + |y| and the number you divide by share a factor", "The answer's |x| + |y| and the number you divide by: their biggest common factor.", "solve", "shared"),
+    tb("south-west", "the answer far down and to the left", "The answer's x + y, as far below zero as it goes.", "pair", "small"),
   ],
   params: DEALT_NUMBERS["whole-answer"],
+  witness: (p, n) => valuationAt(p, n).flatMap(N => [squareAt(N), fortyFiveAt(N)]),
   evaluate: (ctx, p) => {
     const a = answer(ctx), d = read(ctx, D)!;
-    if (!a) return void (ctx.term("answer", "the answer's ladder", PARALLEL, [PX, PY]), allUndefined(ctx, ["peg-divisor", "south-west"], PARALLEL, [X, Y]));
+    if (!a) return void (ctx.term("answer", "the answer", PARALLEL, [PX, PY]), allUndefined(ctx, ["peg-divisor", "south-west"], PARALLEL, [X, Y]));
     // The peg: y's number on the ladder (stretching both lines by q multiplies it by q), x's nearest whole number.
     const l = valuationLadder(a.y, p, distanceToWhole(a.x));
-    ctx.term("answer", `the answer's level: whole numbers, y ${valuationWords(p)}`, l.u, [PX, PY]);
+    ctx.term("answer", `the answer's y: ${stepsUp(l.level, 0)}`, l.u, [PX, PY]);
     ctx.term("peg-divisor", "the common factor of |X| + |Y| (Y on the ladder) and the number you divide by", shared(absB(a.X) + absB(l.n), d.n), [X, PY, D]);
     ctx.term("south-west", "X + Y (Y on the ladder)", q(a.X + l.n), [X, PY]);
     ctx.mark({ kind: "focus", ref: P });
@@ -257,17 +272,19 @@ export const wholeAnswer = family({
  */
 export const noFractions = family({
   id: "no-fractions", title: "Divide By", depends: ["pair", "solve"],
-  main: main("divisor", "the number you divide by on the dealt powers", p => `When you solve the two equations you divide by a number: it should be ${powerWords(p.k!)}. The closer, the better.`, "solve", "max"),
+  main: main("divisor", "the number you divide by on your powers", p => `When you solve, you divide by a number: it should be ${p.k} or −${p.k}; better, ${big(p.k! ** 3)}; then ${big(p.k! ** 6)}.`, "solve", "max"),
   tieBreakers: [
-    tb("numerator-smooth", "the answer's numerators add up to a number with many prime factors", "The answer's numerators (x and y times the number you divide by), added up as distances, should have as many prime factors as possible.", "pair", "smooth"),
-    tb("numerator-shared", "the answer's numerators share a big factor", "The answer's two numerators (x and y times the number you divide by) should share as big a factor as possible.", "pair", "shared"),
+    tb("numerator-smooth", "the answer's numerators add up to a number with many prime factors", "x and y times the number you divide by, added as distances: how many prime factors it has.", "pair", "smooth"),
+    tb("numerator-shared", "the answer's numerators share a big factor", "x and y times the number you divide by: their biggest common factor.", "pair", "shared"),
   ],
   params: DEALT_NUMBERS["no-fractions"],
+  witness: (p, n) => { const K = BigInt(p.k!) ** BigInt(triangle(n)); return [sysOf(normalise(K + 1n, 1n, 0n) as Line, normalise(1n, 1n, -1n) as Line)]; },   // you divide by K
   evaluate: (ctx, p) => {
     const d = read(ctx, D)!, a = answer(ctx);
-    if (!a) return void (ctx.term("divisor", "the number you divide by's level", PARALLEL, [D]), allUndefined(ctx, ["numerator-smooth", "numerator-shared"], PARALLEL, [PX, PY]));
+    if (!a) return void (ctx.term("divisor", "the number you divide by", PARALLEL, [D]), allUndefined(ctx, ["numerator-smooth", "numerator-shared"], PARALLEL, [PX, PY]));
     const size = absB(d.n);
-    ctx.term("divisor", `the level of the number you divide by on ${powerWords(p.k!)}`, powerLadder(p.k!, t => q(absB(size - t))).u, [D]);
+    const pl = powerLadder(p.k!, t => q(absB(size - t)));
+    ctx.term("divisor", `the number you divide by: ${stepsUp(pl.level)}`, pl.u, [D]);
     const nx = Qn.mul(a.x, d).n, ny = Qn.mul(a.y, d).n;
     // Many prime factors, not a big prime: a prime built from derived numbers is cheap (its reach was 11–13 bits against
     // the pool's 6–11; two-line-systems.md §9).
@@ -280,17 +297,18 @@ const OFF_RIGHT = ref("angle", "offRight"), OFF45 = ref("angle", "off45"), YGAP 
 /** Right Angle: perpendicular lines crossing at a grid point whose y is on the dealt ladder; the tie-breakers read that corner. */
 export const rightAngle = family({
   id: "right-angle", title: "Right Angle", depends: ["angle", "pair", "si"],
-  main: main("right", "the lines cross at a right angle at a grid point, y on the dealt ladder", p => `The two lines should cross at a right angle (their gradients multiply to −1) at a grid point (whole x and y) whose y ${ladderWords(p)}. The closer, the better.`, "angle", "max"),
+  main: main("right", "a right angle at whole x and y, y on your pattern", p => `Lines cross at a right angle at whole x and y, y leaving ${p.r} when divided by ${p.q}; better if ${again("y", p)}`, "angle", "max"),
   tieBreakers: [
-    tb("corner-prime", "the corner's distance is a big prime", "The corner's whole numbers, added up as distances (|x| + |y|), should have as big a smallest prime factor as possible.", "pair", "prime"),
-    tb("corner-steep", "the corner's distance shares a factor with the steeper gradient", "The corner's |x| + |y| should share as big a factor as possible with the steeper line's gradient (its whole part, ignoring the sign).", "si", "shared"),
+    tb("corner-prime", "the corner's |x| + |y| has a big smallest prime factor", "The corner's |x| + |y|: its smallest prime factor.", "pair", "prime"),
+    tb("corner-steep", "the corner's |x| + |y| shares a factor with the steeper gradient", "The corner's |x| + |y| and the steeper gradient's whole part: their biggest common factor.", "si", "shared"),
   ],
   params: DEALT_NUMBERS["right-angle"],
+  witness: (p, n) => residueAt(p, n).map(squareAt),
   evaluate: (ctx, p) => {
     const off = read(ctx, OFF_RIGHT), a = answer(ctx);
-    if (off === null || !a) return void (ctx.term("right", "the corner's level", PARALLEL, [OFF_RIGHT]), allUndefined(ctx, ["corner-prime", "corner-steep"], PARALLEL, [PX, PY]));
+    if (off === null || !a) return void (ctx.term("right", "the corner", PARALLEL, [OFF_RIGHT]), allUndefined(ctx, ["corner-prime", "corner-steep"], PARALLEL, [PX, PY]));
     const l = residueLadder(a.y, p, Qn.add(off, distanceToWhole(a.x))), t = absB(a.X) + absB(l.n), m = read(ctx, MS);
-    ctx.term("right", `the corner's level: a right angle at a grid point whose y ${ladderWords(p)}`, l.u, [OFF_RIGHT, PX, PY]);
+    ctx.term("right", `the corner's y: ${stepsUp(l.level)}`, l.u, [OFF_RIGHT, PX, PY]);
     ctx.term("corner-prime", "the smallest prime factor of |X| + |Y| (Y with the remainder)", spf(t), [PX, PY]);
     ctx.term("corner-steep", "the common factor of |X| + |Y| and the steeper gradient's whole part", m === null ? q(0) : shared(t, Qn.floor(Qn.abs(m))), [PX, PY, MS]);
     ctx.mark({ kind: "focus", ref: P });
@@ -300,18 +318,19 @@ export const rightAngle = family({
 /** Forty-Five: lines crossing at 45° at a grid point whose |x| + |y| is on the dealt ladder; the tie-breakers read that number. */
 export const fortyFive = family({
   id: "forty-five", title: "Forty-Five", depends: ["angle", "pair", "solve", "si"],
-  main: main("forty-five", "the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder", p => `The two lines should cross at 45° (half a right angle) at a grid point (whole x and y) whose |x| + |y| ${ladderWords(p)}. The closer, the better.`, "angle", "max"),
+  main: main("forty-five", "45° at whole x and y, |x| + |y| on your pattern", p => `Lines cross at 45° at whole x and y, |x| + |y| leaving ${p.r} when divided by ${p.q}; better if ${again("that", p)}`, "angle", "max"),
   tieBreakers: [
-    tb("corner-smooth", "that distance has many prime factors", "That |x| + |y| should have as many prime factors as possible.", "pair", "smooth"),
-    tb("corner-gap", "that distance shares a factor with the y-intercepts' gap", "That |x| + |y| should share as big a factor as possible with the gap between the y-intercepts (to the nearest whole number).", "si", "shared"),
+    tb("corner-smooth", "that |x| + |y| has many prime factors", "That |x| + |y|: how many prime factors it has.", "pair", "smooth"),
+    tb("corner-gap", "that |x| + |y| shares a factor with the y-intercepts' gap", "That |x| + |y| and the y-intercepts' gap (rounded): their biggest common factor.", "si", "shared"),
   ],
   params: DEALT_NUMBERS["forty-five"],
+  witness: (p, n) => residueAt(p, n).filter(N => N > 0n).map(fortyFiveAt),
   evaluate: (ctx, p) => {
     const off = read(ctx, OFF45)!, d = read(ctx, D)!, a = answer(ctx), g = read(ctx, YGAP);
     // Parallel lines never cross, so they have no angle (as in every other family that reads the crossing or the angle).
-    if (d.n === 0n || !a) return void (ctx.term("forty-five", "the corner's level", PARALLEL, [OFF45]), allUndefined(ctx, ["corner-smooth", "corner-gap"], PARALLEL, [PX, PY]));
+    if (d.n === 0n || !a) return void (ctx.term("forty-five", "the corner", PARALLEL, [OFF45]), allUndefined(ctx, ["corner-smooth", "corner-gap"], PARALLEL, [PX, PY]));
     const l = residueLadder(Qn.add(Qn.abs(a.x), Qn.abs(a.y)), p, Qn.add(off, distanceToWhole(a.x)));
-    ctx.term("forty-five", `the corner's level: 45° at a grid point whose |x| + |y| ${ladderWords(p)}`, l.u, [OFF45, PX, PY]);
+    ctx.term("forty-five", `the corner's |x| + |y|: ${stepsUp(l.level)}`, l.u, [OFF45, PX, PY]);
     ctx.term("corner-smooth", "how many prime factors |X| + |Y| has (with the remainder)", omega(l.n), [PX, PY]);
     ctx.term("corner-gap", "the common factor of |X| + |Y| and the y-intercepts' gap", g === null ? U("a vertical line has no y-intercept") : shared(l.n, near(g)), [PX, PY, YGAP]);
     ctx.mark({ kind: "focus", ref: P });
@@ -320,10 +339,10 @@ export const fortyFive = family({
 
 export const onTheDiagonal = family({
   id: "on-the-diagonal", title: "On the Diagonal", depends: ["pair", "si"],
-  main: main("diagonal", "the lines cross on the line y = x at a grid point", "The two lines should cross on the diagonal y = x at a grid point (x and y the same whole number), and neither line may be the diagonal itself. The closer, the better.", "pair"),
+  main: main("diagonal", "the lines cross on y = x at whole x and y", "The lines cross on the diagonal y = x at whole x and y; neither line may be the diagonal itself.", "pair"),
   tieBreakers: [
-    tb("north-east", "the crossing far up the diagonal", "The crossing's x (to the nearest whole number) should be as big as possible.", "pair", "big"),
-    tb("diagonal-prime", "the crossing's x is a big prime", "The crossing's x (to the nearest whole number) should have as big a smallest prime factor as possible.", "pair", "prime"),
+    tb("north-east", "the crossing far up the diagonal", "The crossing's x, rounded.", "pair", "big"),
+    tb("diagonal-prime", "the crossing's x has a big smallest prime factor", "The crossing's x, rounded: its smallest prime factor.", "pair", "prime"),
   ],
   evaluate: ctx => {
     const a = answer(ctx);
@@ -342,21 +361,23 @@ export const onTheDiagonal = family({
 
 export const doubleGap = family({
   id: "double-gap", title: "Gap Ratio", depends: ["si", "solve"],
-  main: main("gaps", "the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis", p => `The gap between the lines' y-intercepts should be a whole number and ${p.k} times the gap between their x-intercepts; better still ${(p.k! ** 3).toLocaleString("en")} times, then ${(p.k! ** 6).toLocaleString("en")} times, and so on. Neither line may pass through (0, 0). The closer, the better.`, "si", "max"),
+  main: main("gaps", "the y-intercepts' gap whole and your power times the x-intercepts' gap", p => `The y-intercepts' gap whole and ${p.k} times the x-intercepts' gap; better ${times(p.k!, 3)}; then ${times(p.k!, 6)}. Neither line through (0, 0).`, "si", "max"),
   tieBreakers: [
-    tb("gap-divisor", "the gap shares a factor with the number you divide by", "The gap between the y-intercepts (to the nearest whole number) should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
-    tb("gap-prime", "the gap is a big prime", "The gap between the y-intercepts (to the nearest whole number) should have as big a smallest prime factor as possible.", "si", "prime"),
+    tb("gap-divisor", "the gap shares a factor with the number you divide by", "The y-intercepts' gap (rounded) and the number you divide by: their biggest common factor.", "solve", "shared"),
+    tb("gap-prime", "the gap has a big smallest prime factor", "The y-intercepts' gap, rounded: its smallest prime factor.", "si", "prime"),
   ],
   params: DEALT_NUMBERS["double-gap"],
+  witness: (p, n) => { const K = BigInt(p.k!) ** BigInt(triangle(n)); return [sysOf(mc(q(1), q(1)), mc(q(K + 1n, 2n), q(K + 1n)))]; },   // gaps K and 1
   evaluate: (ctx, p) => {
     const yg = read(ctx, YGAP), xg = read(ctx, XGAP);
     // A line through the origin has both intercepts 0, and would meet any gap rule for free.
     if (yg === null || xg === null || ctx.state.lines.some(l => l.c === 0n)) {
       const why = U(yg === null || xg === null ? "a gap needs both lines to cross both axes once" : "a line through the origin has no gap to give");
-      return void (ctx.term("gaps", "the gaps' level", why, [YGAP, XGAP]), allUndefined(ctx, ["gap-divisor", "gap-prime"], why, [YGAP]));
+      return void (ctx.term("gaps", "the gaps", why, [YGAP, XGAP]), allUndefined(ctx, ["gap-divisor", "gap-prime"], why, [YGAP]));
     }
     const whole = distanceToWhole(yg);
-    ctx.term("gaps", `the gaps' level: the y-intercepts' gap whole and ${p.k}, ${p.k! ** 3}, ${p.k! ** 6}, … times the x-intercepts' gap`, powerLadder(p.k!, t => Qn.add(whole, Qn.abs(Qn.sub(yg, Qn.mul(q(t), xg))))).u, [YGAP, XGAP]);
+    const gl = powerLadder(p.k!, t => Qn.add(whole, Qn.abs(Qn.sub(yg, Qn.mul(q(t), xg)))));
+    ctx.term("gaps", `the gaps: ${stepsUp(gl.level)}`, gl.u, [YGAP, XGAP]);
     ctx.term("gap-divisor", "the common factor of the y-intercepts' gap and D", shared(near(yg), read(ctx, D)!.n), [YGAP, D]);
     ctx.term("gap-prime", "the smallest prime factor of the y-intercepts' gap", spf(near(yg)), [YGAP]);
   },
@@ -364,17 +385,18 @@ export const doubleGap = family({
 
 export const farCrossing = family({
   id: "far-crossing", title: "Far Crossing", depends: ["si", "pair"],
-  main: main("far", "the steeper line crosses the x-axis at a whole number on the dealt ladder", p => `The steeper line should cross the x-axis at a whole number that ${ladderWords(p)}. The closer, the better.`, "si", "max"),
+  main: main("far", "the steeper line crosses the x-axis on your pattern", p => `The steeper line crosses the x-axis at a whole number leaving ${p.r} when divided by ${p.q}; better if ${again("that number", p)}`, "si", "max"),
   tieBreakers: [
-    tb("far-gap", "the gap between the x-intercepts a multiple of q to your level", p => `The gap between the two lines' x-intercepts should be ${targetWords(p.q!)}. The closer, the better.`, "si", "small"),
-    tb("far-height", "the lines cross at a height that is a multiple of q to your level", p => `The two lines should cross at a height (y) that is ${targetWords(p.q!)}. The closer, the better.`, "pair", "small"),
+    tb("far-gap", "the x-intercepts' gap near a multiple of your number", p => `The x-intercepts' gap: near a multiple of ${p.q} other than 0; of ${p.q! ** 2} once you step up, then ${p.q! ** 3}.`, "si", "small"),
+    tb("far-height", "the crossing's height near a multiple of your number", p => `The crossing's height: near a multiple of ${p.q} other than 0; of ${p.q! ** 2} once you step up, then ${p.q! ** 3}.`, "pair", "small"),
   ],
   params: DEALT_NUMBERS["far-crossing"],
+  witness: (p, n) => residueAt(p, n).map(N => sysOf(mc(q(2), q(-2n * N)), mc(q(1, 2), q(1)))),   // the steeper line meets the x-axis at N
   evaluate: (ctx, p) => {
     const r = read(ctx, RS);
     if (r === null) { const why = U("the steeper line is flat: it never meets the x-axis"); return void (ctx.term("far", "x-intercept", why, [RS]), allUndefined(ctx, ["far-gap", "far-height"], why, [RS])); }
     const l = residueLadder(r, p), m = levelTarget(p.q!, l.level), xg = read(ctx, XGAP), y = read(ctx, PY);
-    ctx.term("far", `the steeper line's x-intercept's level: a whole number that ${ladderWords(p)}`, l.u, [RS]);
+    ctx.term("far", `the steeper line's x-intercept: ${stepsUp(l.level)}`, l.u, [RS]);
     ctx.term("far-gap", `how far the x-intercepts' gap is from a multiple of ${m}`, xg === null ? U("a flat line has no x-intercept") : offMultiple(xg, m), [RS, XGAP]);
     ctx.term("far-height", `how far the crossing's height is from a multiple of ${m}`, y === null ? PARALLEL : offMultiple(y, m), [RS, PY]);
   },
@@ -387,17 +409,18 @@ export const farCrossing = family({
  */
 export const highStart = family({
   id: "high-start", title: "High Start", depends: ["si", "pair"],
-  main: main("start", "the gentler line crosses the y-axis on the dealt ladder", p => `The gentler line should cross the y-axis at ${valuationWords(p)}. The closer, the better.`, "si", "max"),
+  main: main("start", "the gentler line crosses the y-axis on your pattern", p => `The gentler line crosses the y-axis at a whole number leaving ${p.r} when divided by ${p.q}; better, ${p.q} times one; then ${times(p.q!, 3)}; then ${times(p.q!, 6)}.`, "si", "max"),
   tieBreakers: [
-    tb("start-echo", "the gap between the y-intercepts a multiple of q to your level", p => `The gap between the two lines' y-intercepts should be ${targetWords(p.q!, true)}. The closer, the better.`, "si", "small"),
-    tb("start-crossing", "the lines cross at an x that is a multiple of q to your level", p => `The two lines should cross at an x that is ${targetWords(p.q!, true)}. The closer, the better.`, "pair", "small"),
+    tb("start-echo", "the y-intercepts' gap near a multiple of your number", p => `The y-intercepts' gap: near a whole number other than 0; on your pattern, a multiple of ${p.q}; then ${p.q! ** 2}.`, "si", "small"),
+    tb("start-crossing", "the crossing's x near a multiple of your number", p => `The crossing's x: near a whole number other than 0; on your pattern, a multiple of ${p.q}; then ${p.q! ** 2}.`, "pair", "small"),
   ],
   params: DEALT_NUMBERS["high-start"],
+  witness: (p, n) => valuationAt(p, n).map(N => sysOf(mc(q(1, 2), q(N)), mc(q(2), q(1)))),   // the gentler line meets the y-axis at N
   evaluate: (ctx, p) => {
     const c = read(ctx, CG), m = read(ctx, MG);
     if (c === null || m === null) { const why = U("the gentler line is vertical: it has no y-intercept"); return void (ctx.term("start", "y-intercept", why, [CG]), allUndefined(ctx, ["start-echo", "start-crossing"], why, [CG])); }
     const l = valuationLadder(c, p), t = levelTarget(p.q!, l.level), yg = read(ctx, YGAP), x = read(ctx, PX);
-    ctx.term("start", `the gentler line's y-intercept's level: ${valuationWords(p)}`, l.u, [CG]);
+    ctx.term("start", `the gentler line's y-intercept: ${stepsUp(l.level, 0)}`, l.u, [CG]);
     ctx.term("start-echo", `how far the gap between the y-intercepts is from a multiple of ${t}`, yg === null ? U("a vertical line has no y-intercept") : offMultiple(yg, t), [CG, YGAP]);
     ctx.term("start-crossing", `how far the crossing's x is from a multiple of ${t}`, x === null ? PARALLEL : offMultiple(x, t), [CG, PX]);
   },
@@ -405,17 +428,18 @@ export const highStart = family({
 
 export const steepRatio = family({
   id: "steep-ratio", title: "Steep Ratio", depends: ["si"],
-  main: main("ratio", "one line a whole number of times as steep as the other, on the dealt ladder", p => `The steeper line should be a whole number of times as steep as the other (2, 3, … or −2, −3, … times): ${valuationWords(p)}. The closer, the better.`, "si", "max"),
+  main: main("ratio", "one line a whole number of times as steep, on your pattern", p => `The steeper line is a whole number of times as steep as the other, that number leaving ${p.r} when divided by ${p.q}; better, ${p.q} times one; then ${times(p.q!, 3)}.`, "si", "max"),
   tieBreakers: [
-    tb("ratio-gap", "that number shares a factor with the y-intercepts' gap", "That whole number of times should share as big a factor as possible with the gap between the y-intercepts.", "si", "shared"),
-    tb("ratio-prime", "that number is a big prime", "That whole number of times should have as big a smallest prime factor as possible.", "si", "prime"),
+    tb("ratio-gap", "that number shares a factor with the y-intercepts' gap", "That number of times and the y-intercepts' gap: their biggest common factor.", "si", "shared"),
+    tb("ratio-prime", "that number has a big smallest prime factor", "That number of times: its smallest prime factor.", "si", "prime"),
   ],
   params: DEALT_NUMBERS["steep-ratio"],
+  witness: (p, n) => valuationAt(p, n).filter(K => K >= 2n || K <= -2n).map(K => sysOf(mc(q(K), q(1)), mc(q(1), q(0)))),   // K times as steep
   evaluate: (ctx, p) => {
     const r = read(ctx, RATIO), g = read(ctx, YGAP);
     if (r === null) { const why = U("a ratio needs two lines with gradients, the gentler not flat"); return void (ctx.term("ratio", "ratio", why, [RATIO]), allUndefined(ctx, ["ratio-gap", "ratio-prime"], why, [RATIO])); }
     const l = valuationLadder(r, p, q(0), 2n), k = l.n;
-    ctx.term("ratio", `the ratio of gradients' level: ${valuationWords(p)}`, l.u, [RATIO]);
+    ctx.term("ratio", `the number of times as steep: ${stepsUp(l.level, 0)}`, l.u, [RATIO]);
     ctx.term("ratio-gap", "the common factor of that number and the y-intercepts' gap", g === null ? U("a vertical line has no y-intercept") : shared(k, near(g)), [RATIO, YGAP]);
     ctx.term("ratio-prime", "the smallest prime factor of that number", spf(k), [RATIO]);
   },

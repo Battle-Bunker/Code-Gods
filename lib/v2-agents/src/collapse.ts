@@ -36,13 +36,23 @@ export function riseTogether(start: readonly number[], mid: readonly number[], e
 /** A table fails test 1 when a direction raises rules together, unopposed, from at least TOGETHER.starts of the starts. */
 export const togetherFails = (unopposedStarts: number, starts: number): boolean => starts > 0 && unopposedStarts >= TOGETHER.starts * starts;
 
-/** Test 2, no cheap optimum: a B-evaluation search with full rule knowledge against a reference search. */
+/**
+ * Test 2, no cheap optimum: searches of B evaluations with full rule knowledge, against the best state known (theirs and a
+ * reference search's). One search is a coin toss near any threshold (two-line-systems.md §10: the verdict flipped
+ * between runs), so the statistic is a hit rate (the coordinator, 15 Nov): a table is cheap when at least `hitShare` of
+ * `searches` independent searches reach `reach` of the best known; the variant fails when more than `tablesShare` of its
+ * tables are cheap.
+ */
 export const CHEAP = Object.freeze({
-  /** B, the searcher's evaluations. */
+  /** B, one search's evaluations. */
   evals: 100_000,
-  /** The table fails when the B-search reaches this share of the reference. */
+  /** Independent searches per table. */
+  searches: 12,
+  /** A search hits when it reaches this share of the best known. */
   reach: 0.95,
-  /** The variant fails when more than this share of its tables fail. */
+  /** The table is cheap when at least this share of its searches hit. */
+  hitShare: 0.5,
+  /** The variant fails when more than this share of its tables are cheap. */
   tablesShare: 0.25,
 });
 /** Test 3, no single answer: the best N distinct states keep less than `keep` of N × the best, or are not one closed form. */
@@ -67,7 +77,8 @@ export const DISCLOSE = Object.freeze({ floor: 200, sigma: 8 });
 
 export const rampFails = (m: { topCostShare: number; growth: number; corr: number }): boolean =>
   m.topCostShare > RAMP.edgeShare && m.growth > RAMP.growth && m.corr > RAMP.corr;
-export const tableCheap = (searched: number, reference: number): boolean => reference <= 0 || searched >= CHEAP.reach * reference;
+/** Whether a table is cheap: `hits` of `searches` searches reached CHEAP.reach of the best known. */
+export const tableCheap = (hits: number, searches: number): boolean => hits >= CHEAP.hitShare * searches;
 export const cheapFails = (failedTables: number, tables: number): boolean => tables > 0 && failedTables > CHEAP.tablesShare * tables;
 export const singleFails = (m: { keep: number; closedForm: boolean }): boolean => m.keep >= SINGLE.keep && m.closedForm;
 /** Has the table stopped gaining? Gains after the midpoint are at most stallShare of the whole game's. */

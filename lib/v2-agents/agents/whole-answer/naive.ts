@@ -1,5 +1,5 @@
 // Whole Answer · Naive (for learning)
-// Main part: the answer is whole numbers, y on the dealt ladder. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
+// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the answer's |x| + |y| and the number you divide by share a factor; the answer far down and to the left).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.

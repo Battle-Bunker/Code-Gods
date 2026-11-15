@@ -1,5 +1,5 @@
 // High Start · Simple
-// Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the y-intercepts a multiple of q to your level; the lines cross at an x that is a multiple of q to your level).
+// Main part: the gentler line crosses the y-axis on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of your number; the crossing's x near a multiple of your number).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others

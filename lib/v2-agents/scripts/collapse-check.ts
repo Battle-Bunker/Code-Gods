@@ -15,9 +15,11 @@
  *                    growing > 10% to 2W, tail tracking read length) are reported as information, and so are each
  *                    table's "unopposed directions (logged)" from the tension table (src/unopposed.ts): count, strongest
  *                    gain per energy, strong / weak
- *   2 cheap optimum  per dealt 3-seat table: a searcher with the rules and B evaluations in W (enumerates when W ≤ B, else
- *                    anneals with 10 restarts) against a reference (W enumerated, or ref-mult·B of annealing); a table
- *                    fails at ≥ 95%, the variant when more than a quarter do
+ *   2 cheap optimum  per dealt 3-seat table: 12 searchers with the rules and B evaluations each in W (enumerating when
+ *                    W ≤ B, else annealing with 10 restarts) against the best state known (theirs, and a reference of W
+ *                    enumerated or ref-mult·B of annealing); a table is cheap when at least half the searches reach 95%
+ *                    of it (a hit rate: one search is a coin toss near the threshold), the variant fails when more
+ *                    than a quarter of its tables are cheap
  *   3 single answer  per table: the best 24 distinct states in W keep ≥ 70% of 24 × the best and lie in one closed form
  *   4 dynamics       the plain starters and, on lines, the shortcut climber (scripts/climbers.ts) play --seconds (600) under
  *                    unique objects at this β, at --objects starting objects and --births a second (the presets' 3 and
@@ -206,10 +208,16 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
           });
           refBest = res.best; top = [...seen.values()].sort((a, b) => b.v - a.v).slice(0, SINGLE.n);
         }
-        const searched = size <= B && set ? refBest : anneal(space, r, F, B, 10, `${v}:${beta}:${t}:B`).best;
-        const isCheap = tableCheap(searched, refBest);
+        // CHEAP.searches independent searches of B evaluations (an enumerated W ≤ B is found by every one).
+        const finds = size <= B && set ? Array.from({ length: CHEAP.searches }, () => ({ best: refBest, at: top[0]?.x ?? [] }))
+          : Array.from({ length: CHEAP.searches }, (_, i) => anneal(space, r, F, B, 10, `${v}:${beta}:${t}:B:${i}`));
+        const known = Math.max(refBest, ...finds.map(x => x.best));
+        if (known > refBest && top[0]) top[0] = { x: finds.reduce((a, b) => (b.best > a.best ? b : a)).at, v: known };   // the best known leads the drift check
+        refBest = known;
+        const hits = finds.filter(x => known <= 0 || x.best >= CHEAP.reach * known).length, searched = median(finds.map(x => x.best));
+        const isCheap = tableCheap(hits, CHEAP.searches);
         if (isCheap) cheap++;
-        ratios.push(refBest > 0 ? searched / refBest : 1);
+        ratios.push(known > 0 ? searched / known : 1);
         let driftNote = "";
         if (o.drift === "yes" && isCheap && top[0]) {
           const best = top[0].x, kept: string[] = [];
@@ -232,11 +240,11 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
         const closed = oneClosedForm(top.map(s => s.x));
         keeps.push(keep);
         if (singleFails({ keep, closedForm: closed })) single++;
-        details.push(`${v} β ${beta} table ${t} (${table.map(ruleName).join(", ")}): W ≈ ${size.toExponential(1)} states${set ? " (enumerated)" : ""}, best F ${f1(refBest)} at (${top[0]?.x.join(", ")}), B-search ${f1(searched)} (${pct(searched / (refBest || 1))})${isCheap ? " CHEAP" : ""}${driftNote}; 24 best keep ${pct(keep)}${closed ? ", one closed form" : ""}; top 3 ${top.slice(0, 3).map(s => `(${s.x.join(", ")})`).join(" ")}`);
+        details.push(`${v} β ${beta} table ${t} (${table.map(ruleName).join(", ")}): W ≈ ${size.toExponential(1)} states${set ? " (enumerated)" : ""}, best F ${f1(refBest)} at (${top[0]?.x.join(", ")}), searches hitting 95%: ${hits}/${CHEAP.searches}, median ${f1(searched)} (${pct(searched / (refBest || 1))})${isCheap ? " CHEAP" : ""}${driftNote}; 24 best keep ${pct(keep)}${closed ? ", one closed form" : ""}; top 3 ${top.slice(0, 3).map(s => `(${s.x.join(", ")})`).join(" ")}`);
       }
       if (tests.has(2)) {
         row.verdicts["2"] = cheapFails(cheap, tables.length) ? "FAIL" : "PASS";
-        row.notes["2"] = `${cheap}/${tables.length} tables cheap; B-search median ${pct(median(ratios))} of best; W ≈ ${median(sizes).toExponential(1)}` +
+        row.notes["2"] = `${cheap}/${tables.length} tables cheap (≥ ${pct(CHEAP.hitShare)} of ${CHEAP.searches} searches reach ${pct(CHEAP.reach)} of the best known); search median ${pct(median(ratios))} of best; W ≈ ${median(sizes).toExponential(1)}` +
           (o.drift === "yes" ? `; under drift ${survived}/${redraws} one-seat redraws leave a cheap best still at ${pct(CHEAP.reach)} of the new best` : "");
       }
       if (tests.has(3)) {

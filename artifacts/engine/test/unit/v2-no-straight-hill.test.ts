@@ -15,6 +15,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { applyCall, evaluateSite, isInvalid, rng, variantMutators, type ObjectType } from "@workspace/v2-core";
 import { lineLaw, type LineState } from "@workspace/v2-linear";
+import { pairLaw, type PairState } from "@workspace/v2-pair";
 import { findVariant, valueLookup } from "@workspace/v2-valuation";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
@@ -41,22 +42,30 @@ const CALLS: Record<string, readonly Record<string, string>[]> = {
   "si.tilt": AMOUNTS.map(k => ({ k })),
 };
 
-test(`no dealt line rule passes ${LIMIT} bits on one seat's whole-game income spent on one object`, () => {
+/** Pairs (the coordinator's adoption of trials 28 and 29 for pairs, 15 Nov): the line's calls on either line, and the pair's shortcuts. */
+const PAIR_CALLS: Record<string, readonly Record<string, string>[]> = {
+  ...Object.fromEntries(Object.entries(CALLS).map(([m, list]) => [m, ["1", "2"].flatMap(line => list.map(a => ({ line, ...a })))])),
+  "pair.reflect": [{ line: "1" }, { line: "2" }],
+  "pair.quarter": [{ line: "1" }, { line: "2" }],
+};
+
+test(`no dealt line or pair rule passes ${LIMIT} bits on one seat's whole-game income spent on one object`, () => {
   const failures: string[] = [], report: string[] = [];
   const seen = new Set<string>(), openWorst = new Map<string, number>();
   let chains = 0;
   for (const preset of PRESETS) {
     const { type, variant } = findVariant(preset.variant);
-    if (type.id !== "line") continue;
-    const T = type as ObjectType<LineState>;
+    if (type.id !== "line" && type.id !== "pair") continue;
+    type S = LineState | PairState;
+    const T = type as ObjectType<S>, pair = type.id === "pair";
     const income = preset.economy.powerPerSecond * preset.worldSeconds + preset.startingEnergy;
     const offered = new Set(variantMutators(type, variant).map(m => m.id));
-    const calls = Object.entries(CALLS).filter(([m]) => offered.has(m)).flatMap(([mutator, list]) => list.map(args => ({ mutator, args })));
-    const step = (s: LineState, c: { mutator: string; args: Record<string, string> }) => {
+    const calls = Object.entries(pair ? PAIR_CALLS : CALLS).filter(([m]) => offered.has(m)).flatMap(([mutator, list]) => list.map(args => ({ mutator, args })));
+    const step = (s: S, c: { mutator: string; args: Record<string, string> }) => {
       const a = applyCall(T, variant, s, { mutator: c.mutator, site: 0, args: c.args });
       return isInvalid(a) ? null : { s: a.result, fee: a.price.total };
     };
-    const law = lineLaw(variant);
+    const law = pair ? pairLaw(variant) : lineLaw(variant);
     for (const rule of dealablePool(preset)) {
       // One run per variant, rule and income (the bidding preset shares the beginner's).
       const key = `${variant.id}|${rule.ruleKey}|${income}|${[...offered].sort().join()}`;
@@ -65,21 +74,23 @@ test(`no dealt line rule passes ${LIMIT} bits on one seat's whole-game income sp
       const rec = valueRecord(rule.ruleKey);
       if (!rec) continue;
       const look = valueLookup(rec), fam = familyOf(rule.family);
-      const ev = (s: LineState) => evaluateSite(T, fam as never, rule.params, s, variant, 0, rule.tieBreaker);
-      const bitsOf = (s: LineState) => { const e = ev(s); return e.score === null ? 0 : look(e.score).bits; };
-      const main = (s: LineState) => { const v = ev(s).terms[0]?.value; return v && typeof v === "object" && "n" in v ? Number(v.n) / Number(v.d) : -Infinity; };
+      const ev = (s: S) => evaluateSite(T, fam as never, rule.params, s, variant, 0, rule.tieBreaker);
+      const bitsOf = (s: S) => { const e = ev(s); return e.score === null ? 0 : look(e.score).bits; };
+      const main = (s: S) => { const v = ev(s).terms[0]?.value; return v && typeof v === "object" && "n" in v ? Number(v.n) / Number(v.d) : -Infinity; };
       const r = rng("energy-gate", preset.id, rule.ruleKey);
-      const starts: LineState[] = [];
-      for (let k = 0; starts.length < STARTS && k < 50; k++) { const d = law.draw(r, 1); if (d.state) starts.push(d.state as LineState); }
+      const starts: S[] = [];
+      for (let k = 0; starts.length < STARTS && k < 50; k++) { const d = law.draw(r, 1); if (d.state) starts.push(d.state as S); }
+      // On a rung: a line ladder's main part is its level (≥ 1); a pair ladder's is base^level × (1, 2] (level ≥ 1: ≥ q or k).
+      const p = rule.params as { q?: number; k?: number }, rung = pair ? (p.q ?? p.k ?? 2) : 1;
       if (fam.keepsParams) {
         for (let k = 0, found = 0; found < STARTS && k < 30; k++) {
           const d = law.draw(r, 1);
           if (!d.state) continue;
-          let best: { s: LineState; fee: number } | null = null;
-          for (const m of ["si.shift", "si.tilt"]) for (let j = -60; j <= 60; j++) {
+          let best: { s: S; fee: number } | null = null;
+          for (const m of ["si.shift", "si.tilt"]) for (const line of pair ? ["1", "2"] : [undefined]) for (let j = -60; j <= 60; j++) {
             if (!j) continue;
-            const o = step(d.state as LineState, { mutator: m, args: { k: String(j) } });
-            if (o && main(o.s) >= 1 && (!best || o.fee < best.fee)) best = o;
+            const o = step(d.state as S, { mutator: m, args: { k: String(j), ...(line ? { line } : {}) } });
+            if (o && main(o.s) >= rung && (!best || o.fee < best.fee)) best = o;
           }
           if (best) { starts.push(best.s); found++; }
         }
@@ -89,7 +100,7 @@ test(`no dealt line rule passes ${LIMIT} bits on one seat's whole-game income sp
         let s = start, spent = 0, top = bitsOf(s);
         const visited = new Set([T.encode(s)]);
         for (let i = 0; i < MAX_STEPS; i++) {
-          let pick: { s: LineState; fee: number; g: number; b: number } | null = null;
+          let pick: { s: S; fee: number; g: number; b: number } | null = null;
           const b0 = bitsOf(s);
           for (const c of calls) {
             const o = step(s, c);
