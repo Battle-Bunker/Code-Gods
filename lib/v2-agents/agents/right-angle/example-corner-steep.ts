@@ -16,7 +16,7 @@ function score(L, p) {
   return [main, f.ms === null ? 0 : common(t, floor(Q.abs(f.ms)))];   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| shares a big factor with the steeper gradient is better
 }
 
-const FAR = 3;      // how far one move may go
+const FAR = 4;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them

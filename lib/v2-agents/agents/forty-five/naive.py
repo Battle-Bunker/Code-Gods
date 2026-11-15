@@ -21,7 +21,7 @@ def score(L, p, tie):
     return [main]
 
 
-FAR = 2      # how far one move may go
+FAR = 4      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 

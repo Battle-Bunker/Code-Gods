@@ -19,7 +19,7 @@ function score(L, p, tie) {
   return [main];
 }
 
-const FAR = 2;      // how far one move may go
+const FAR = 4;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
 const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 

@@ -16,7 +16,7 @@ def score(L, p):
     return [main, omega(S)]   # main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| has many prime factors is better
 
 
-FAR = 3      # how far one move may go
+FAR = 4      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
 KINDS = ["turn","slide","translate"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them

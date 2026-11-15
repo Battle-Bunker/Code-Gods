@@ -31,6 +31,8 @@ export interface PairFamilyEntry {
   readonly tieBreakers: Readonly<Record<string, PairTieBreakerEntry>>;
   /** The Simple starter's and the examples' moves (Thorough tries every kind). */
   readonly simple: readonly PairKind[];
+  /** How far a move may go for this family's starters, when more than the kind's own (the corner families slide far). */
+  readonly far?: number;
 }
 
 const DIST = { ts: "const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it", py: "dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it" };
@@ -62,7 +64,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "right-angle", mainSays: "the corner's level: a right angle at a grid point, y on your ladder (higher is better)", simple: ["turn", "slide", "translate"],
+    family: "right-angle", mainSays: "the corner's level: a right angle at a grid point, y on your ladder (higher is better)", simple: ["turn", "slide", "translate"], far: 4,
     main: {
       ts: [DIST.ts, FLOOR.ts, "if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score", "const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder", "const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|"],
       py: [DIST.py, FLOOR.py, "if f.off_right is None or f.x is None:   # parallel lines never cross: no score", "    return None", "main, Yc = ladder(f.y, p[\"q\"], p[\"r\"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder", "t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|"],
@@ -73,7 +75,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "forty-five", mainSays: "the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)", simple: ["turn", "slide", "translate"],
+    family: "forty-five", mainSays: "the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)", simple: ["turn", "slide", "translate"], far: 4,
     main: {
       ts: [DIST.ts, "if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score", "const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder"],
       py: [DIST.py, "if f.D == 0:   # parallel lines never cross: no score", "    return None", "main, S = ladder(abs(f.x) + abs(f.y), p[\"q\"], p[\"r\"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder"],
@@ -325,12 +327,14 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   const how = kind === "naive" ? HOW_NAIVE : kind === "example" ? HOW_EXAMPLE : HOW_POINTS;
   const header = [`${f.title} · ${meta.title}`, rule, ...how, `Try this: ${meta.tryThis}`];
   const ts = language === "typescript", c = ts ? "//" : "#";
+  // A family's own reach widens its few kinds of move (Thorough tries every kind, within its step budget, at its own).
+  const reach = kind === "thorough" ? meta.far : Math.max(meta.far, e.far ?? 0);
   const lines = [
     ...header.map(l => `${c} ${l}`),
     ...(ts ? [""] : ["", ""]),
     ...(ts ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)),
     ...(ts ? [""] : ["", ""]),
-    ...(ts ? agentTs(kind, e, tieBreaker, meta.far, meta.quotes) : agentPy(kind, e, tieBreaker, meta.far, meta.quotes)),
+    ...(ts ? agentTs(kind, e, tieBreaker, reach, meta.quotes) : agentPy(kind, e, tieBreaker, reach, meta.quotes)),
   ];
   return { family: familyId, kind, tieBreaker, language, title: meta.title, summary: meta.summary, source: lines.join("\n") + "\n" };
 }
