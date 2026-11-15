@@ -9,6 +9,7 @@ import { compareScores, q, rng, scoreToWire, type Q, type RuleFamily, type Score
 import { lineZ, wholeCrossing } from "@workspace/v2-linear";
 import { findVariant, knotsFrom, ladderCaps, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 import { pairTail } from "../src/value-pair.ts";
+import { tieBreakerBits, tieBreakerLevels } from "../src/value.ts";
 
 /** A finite law over random scores (some components null), every state's true value by brute force. */
 function finiteLaw(seed: string, n: number) {
@@ -175,8 +176,11 @@ test("committed value functions are intact: each content hash matches, knots ris
     const tb = body.tieBreaker === "none" ? null : body.tieBreaker;
     const { type, variant } = findVariant(v);
     const caps = body.objectType === "line" || body.objectType === "pair" ? ladderCaps(type as never, family as never, body.params, variant) : undefined;
-    const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots, caps) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures, undefined, caps);
-    assert.deepEqual(body.tail, tail, `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
+    const tail = body.objectType === "pair" ? pairTail(family, tb, body.knots, caps, body.params) : tailOf(body.knots, body.objectType === "line" ? TAIL_CEILING : Infinity, measures, undefined, caps);
+    // A ladder's per-level tie-breaker (TieBreakerLevels) is measured from draws, not knots: checked for shape only.
+    const { levels, ...fromKnots } = body.tail;
+    assert.deepEqual(fromKnots, tail, `${v}/${f}/${x}: the tail is the one its knots and layers imply`);
+    if (levels) for (const c of levels.curves) assert.ok(c.pts.every((p: number[], i: number) => i === 0 || (p[0]! > c.pts[i - 1][0] && p[1]! > c.pts[i - 1][1])) && c.slope > 0, `${v}/${f}/${x}: level ${c.level}'s tie-breaker curve rises`);
     for (const t of [body.tail.secondary, body.tail.primary]) assert.ok(t.slope > 0 && Number.isFinite(t.slope), `${v}/${f}/${x}: tail ${JSON.stringify(t)}`);
     n++;
   }
@@ -211,4 +215,21 @@ test("the tail never over-pays the law: on lines it rises at most STEP bits per 
   assert.deepEqual([t2.secondary.form, t2.secondary.slope], ["linear", TAIL_CEILING]);
   assert.equal(tailOf([{ u: null, bits: 0 }, { u: ["0", "5"], bits: 4 }], TAIL_CEILING, { secondary: "prime" }).secondary.slope, TAIL_CEILING,
     "one knot: the code's rate");
+});
+
+test("a ladder's tie-breaker is worth its rarity given the level past the best knot (no flat top)", () => {
+  // Frozen tops (the coordinator, 15 Nov): past the best knot the tie-breaker was worth 0 unless the main part tied the
+  // knot exactly, which a near-continuous ladder score almost never does. Draws: level 1 (score in [3, 9)) with
+  // tie-breaker t at weight 2^−t, so −log₂ P(tb ≥ t | level 1) rises about 1 bit a unit.
+  const draws: { u: Score; w: number }[] = [];
+  for (let i = 0; i < 4000; i++) { const t = i % 12; draws.push({ u: [q(4), q(t)], w: 2 ** -t }); }
+  const lv = tieBreakerLevels(draws, 3);
+  assert.equal(lv.curves.length, 1);
+  assert.ok(Math.abs(tieBreakerBits(lv, 1, 6) - 6) < 0.6, `${tieBreakerBits(lv, 1, 6)} bits at t = 6`);
+  assert.ok(tieBreakerBits(lv, 1, 40) > tieBreakerBits(lv, 1, 20), "past the measured range it still rises");
+  assert.equal(tieBreakerBits(lv, 1, 0), 0);
+  assert.equal(tieBreakerBits(lv, 5, 6), tieBreakerBits(lv, 1, 6), "an unmeasured level carries the one below");
+  const vf = { knots: [{ u: ["1"], bits: 0, lo: 0, hi: 0 }, { u: ["2", "0"], bits: 1, lo: 1, hi: 1 }], tail: { ...tailOf([{ u: ["1"], bits: 0 }, { u: ["2", "0"], bits: 1 }]), levels: lv } };
+  const look = valueLookup(vf);
+  assert.ok(look([q(5), q(8)]).bits > look([q(5), q(2)]).bits + 4, "at the top a better tie-breaker is worth more");
 });
