@@ -498,6 +498,9 @@ importers:
       '@workspace/v2-linear':
         specifier: workspace:*
         version: link:../v2-linear
+      '@workspace/v2-pair':
+        specifier: workspace:*
+        version: link:../v2-pair
       '@workspace/v2-sandbox':
         specifier: workspace:*
         version: link:../v2-sandbox
