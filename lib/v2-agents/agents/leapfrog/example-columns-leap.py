@@ -1,5 +1,5 @@
-# Leapfrog · Example: each number one apart from the number two cells down
-# Main part: each number one apart from the number two cells along. Tie-breaker: each number one apart from the number two cells down.
+# Leapfrog · Example: down the columns: each number one apart from the number two cells below
+# Main part: each number one apart from the number two cells along. Tie-breaker: down the columns: each number one apart from the number two cells below.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you

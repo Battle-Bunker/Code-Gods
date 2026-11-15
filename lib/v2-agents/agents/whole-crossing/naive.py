@@ -9,6 +9,11 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        k = whole(c)                                    # the whole number nearest where it stands (x = c)
+        main = -abs(c - k)
+        fk = factors(k)                                 # its prime factors, smallest first
+        return [main, (fk[0] if fk else 1) if tie == "k-spf" else (fk[-1] if fk else 1) if tie == "k-gpf" else None]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
     x = -c / m                                      # where y = mx + c crosses the x-axis

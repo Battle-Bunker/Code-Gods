@@ -8,6 +8,12 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
+  if (m === null) {               // the vertical line x = c
+    const k = whole(c);                             // the whole number nearest where it stands (x = c)
+    const main = Q.neg(Q.abs(Q.sub(c, k)));
+    const fk = factors(k);                          // its prime factors, smallest first
+    return [main, tie === "k-spf" ? (fk[0] ?? 1) : tie === "k-gpf" ? (fk.at(-1) ?? 1) : null];
+  }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
   const k = whole(x);                             // the whole number nearest the crossing

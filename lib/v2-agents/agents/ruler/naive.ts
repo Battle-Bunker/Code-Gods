@@ -8,6 +8,13 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
+  if (m === null) {               // the vertical line x = c
+    const d2 = Q.mul(c, c);                         // its distance from (0, 0), squared
+    const sq = near(d2, square) || 1;               // the square number nearest it (1 at the least)
+    const main = Q.neg(Q.abs(Q.sub(d2, sq)));
+    const far = root(sq);                           // that square's root: a whole distance
+    return [main, tie === "far" ? (far) : null];
+  }
   if (Q.isZero(m)) return null;                   // a flat line: the rule wants a sloping one
   const d2 = Q.div(Q.mul(c, c), Q.add(Q.mul(m, m), 1));   // the distance from (0, 0), squared: c² / (m² + 1)
   const sq = near(d2, square) || 1;               // the square number nearest it (1 at the least)

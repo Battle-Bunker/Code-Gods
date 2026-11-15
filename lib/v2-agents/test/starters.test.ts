@@ -58,12 +58,13 @@ test("every described family has an example per described tie-breaker and the fo
 
 /** Score lines with an agent's own score function, in the sandbox, as wire strings ("worst" for WORST). */
 async function agentScores(language: Language, family: string, params: Record<string, unknown>, tb: string | null, tie: string, lines: LineState[]): Promise<string[]> {
-  const mc = lines.map(s => { const l = s.lines[0]!; return [`${-l.a}/${l.b}`, `${-l.c}/${l.b}`]; });
+  // A vertical line x = k goes to the agent's score(null, k) as ["v", k].
+  const mc = lines.map(s => { const l = s.lines[0]!; return l.b === 0n ? ["v", `${-l.c}/${l.a}`] : [`${-l.a}/${l.b}`, `${-l.c}/${l.b}`]; });
   const P = JSON.stringify(params);
   const args = tb === null ? `P, ${JSON.stringify(tie)}` : "P";
   const probe = language === "python"
-    ? `\nP = ${P}\nPAIRS = ${JSON.stringify(mc)}\n\n\ndef agent(offer):\n    out = []\n    for m, c in PAIRS:\n        s = score(Fraction(m), Fraction(c), ${args})\n        out.append("worst" if s is None else ",".join("null" if x is None else str(Fraction(x)) for x in s))\n    return [move("probe", r=";".join(out))]\n`
-    : `\nconst P = ${P}, PAIRS = ${JSON.stringify(mc)};\nfunction agent(offer) {\n  return [move("probe", { r: PAIRS.map(([m, c]) => { const s = score(Q.from(m), Q.from(c), ${args}); return s === null ? "worst" : s.map(x => x === null ? "null" : Q.toString(x)).join(","); }).join(";") })];\n}\n`;
+    ? `\nP = ${P}\nPAIRS = ${JSON.stringify(mc)}\n\n\ndef agent(offer):\n    out = []\n    for m, c in PAIRS:\n        s = score(None if m == "v" else Fraction(m), Fraction(c), ${args})\n        out.append("worst" if s is None else ",".join("null" if x is None else str(Fraction(x)) for x in s))\n    return [move("probe", r=";".join(out))]\n`
+    : `\nconst P = ${P}, PAIRS = ${JSON.stringify(mc)};\nfunction agent(offer) {\n  return [move("probe", { r: PAIRS.map(([m, c]) => { const s = score(m === "v" ? null : Q.from(m), Q.from(c), ${args}); return s === null ? "worst" : s.map(x => x === null ? "null" : Q.toString(x)).join(","); }).join(";") })];\n}\n`;
   const source = scoreSource(family, tb, language as "typescript" | "python") + probe;
   const host = new EngineHost({ type: lineType, variant: lineZ, state: lines[0]!, rule: { family, params }, energy: 0 });
   const res = await (await boxes.get(language)).act({ source, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
@@ -75,11 +76,12 @@ test("an agent's own score is the engine's, for every family, its dealable numbe
   const lines = (v: Variant, n: number) => births(lineType, v, "scores", n);
   const edge = [[0n, 1n, 0n], [0n, 1n, 5n], [-3n, 1n, 0n], [2n, 1n, -7n]].map(([a, b, c]) => ({ lines: [{ a: a!, b: b!, c: c! }] }));
   const sample = [...edge, ...lines(lineZ, 30), ...lines(lineQ, 30).filter(s => s.lines[0]!.b !== 0n)];   // y = mx + c only
+  const verticals = [[1n, -3n], [2n, -7n], [1n, 0n], [1n, 5n], [3n, -1n], [1n, -13n], [1n, -12n], [2n, 9n]].map(([a, c]) => ({ lines: [{ a: a!, b: 0n, c: c! }] }));
   for (const e of LIVE) {
     const f = familyOf(e.family);
     const v = variantOf(e.family);
     for (const params of f.dealable(v) as Record<string, unknown>[]) {
-      const lines = e.wholeLines ? sample.filter(s => s.lines[0]!.b === 1n) : sample;
+      const lines = [...(e.wholeLines ? sample.filter(s => s.lines[0]!.b === 1n) : sample), ...(e.vertical ? verticals : [])];
       for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
         const engine = lines.map(s => {
           const ev = evaluateSite(lineType, f, params, s, v, 0, tb.id), score = scoreToWire(ev.score);   // the utilities (decision 23)
@@ -138,7 +140,7 @@ test("each example gains value: on some newborn line its bits rise and the main 
           const { record, state } = await runAct(await boxes.get("typescript"), {
             type: lineType, variant: v, state: s, rule, program: program(a), seed: String(t), energy: 1000,
           });
-          assert.notEqual(record.outcome, "failed", record.reason);
+          assert.notEqual(record.outcome, "failed", `${e.family}/${tb} on ${lineType.encode(s)}: ${record.reason}`);
           if (record.outcome === "skipped") break;
           s = state;
         }
@@ -221,14 +223,31 @@ test("on a rational line the starters clear a fraction their rule cares about: y
   }
 });
 
-test("a vertical line is tipped, not skipped: the starters climb the tips (mirror or nudge b) in both languages", async () => {
+test("a vertical line is tipped, not skipped, where the rule cannot read it: the starters climb the tips (mirror or nudge b)", async () => {
   const at = { lines: [{ a: 1n, b: 0n, c: -3n }] };   // x = 3
+  assert.equal(CATALOGUE.find(e => e.family === "whole-intercept")!.vertical, undefined);
   for (const language of ["typescript", "python"] as const) {
-    const simple = startersFor("prime-landing", language).find(a => a.kind === "simple")!;
+    const simple = startersFor("whole-intercept", language).find(a => a.kind === "simple")!;
     const { record } = await runAct(await boxes.get(language), {
-      type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: paramsOf("prime-landing"), tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(simple), seed: "1", energy: 500,
+      type: lineType, variant: lineQ, state: at, rule: { family: "whole-intercept", params: paramsOf("whole-intercept"), tieBreaker: familyOf("whole-intercept").tieBreakers[0]!.id }, program: program(simple), seed: "1", energy: 500,
     });
     assert.equal(record.outcome, "committed", `${language}: ${record.reason}`);
     assert.ok(["cart.mirror", "gen.nudge"].includes(record.calls[0]!.mutator), `${language}: ${record.calls[0]!.mutator}`);
+  }
+});
+
+test("a vertical line the rule reads is scored where it stands: x = 9/2 slides to a prime landing (Prime Landing)", async () => {
+  const at = { lines: [{ a: 2n, b: 0n, c: -9n }] };   // x = 9/2
+  for (const language of ["typescript", "python"] as const) {
+    for (const kind of ["simple", "thorough"] as const) {
+      const a = startersFor("prime-landing", language).find(x => x.kind === kind)!;
+      const { record, state } = await runAct(await boxes.get(language), {
+        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: paramsOf("prime-landing"), tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
+      });
+      assert.equal(record.outcome, "committed", `${language} ${kind}: ${record.reason}`);
+      assert.equal(record.calls[0]!.mutator, "cart.slide", `${language} ${kind}: ${record.calls[0]!.mutator}`);
+      const l = state.lines[0]!;
+      assert.ok(l.b === 0n && [2n, 3n, 5n, 7n].includes(-l.c / l.a) && l.c % l.a === 0n, `${language} ${kind}: lands on a prime (${l.a}x + ${l.c} = 0)`);
+    }
   }
 });

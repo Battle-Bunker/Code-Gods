@@ -9,6 +9,12 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        d2 = c * c                                      # its distance from (0, 0), squared
+        sq = near(d2, square) or 1                      # the square number nearest it (1 at the least)
+        main = -abs(d2 - sq)
+        far = root(sq)                                  # that square's root: a whole distance
+        return [main, (far) if tie == "far" else None]
     if m == 0:                                      # a flat line: the rule wants a sloping one
         return None
     d2 = c * c / (m * m + 1)                        # the distance from (0, 0), squared

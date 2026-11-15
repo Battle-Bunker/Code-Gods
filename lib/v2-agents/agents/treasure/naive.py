@@ -9,6 +9,9 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        main = -abs(c - p["k"])                        # how far across from (k, T) it passes
+        return [main, None]
     main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
     # main: how far y(k) is from T (closer is better)
     if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better

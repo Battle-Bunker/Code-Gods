@@ -9,6 +9,10 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        landing = near(c, prime)                        # it lands on the x-axis: the prime nearest
+        main = -abs(c - landing)
+        return [main, None]
     landing = near(c, prime)                        # the prime nearest the y-intercept
     main = -abs(c - landing)
     # main: how far the y-intercept is from the nearest prime (closer is better)

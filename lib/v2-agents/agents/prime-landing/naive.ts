@@ -8,6 +8,11 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
+  if (m === null) {               // the vertical line x = c
+    const landing = near(c, prime);                 // it lands on the x-axis: the prime nearest
+    const main = Q.neg(Q.abs(Q.sub(c, landing)));
+    return [main, null];
+  }
   const landing = near(c, prime);                 // the prime nearest the y-intercept
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
   // main: how far the y-intercept is from the nearest prime (closer is better)

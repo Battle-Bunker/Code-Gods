@@ -11,6 +11,12 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
+  if (m === null) {               // the vertical line x = c
+    const k = whole(c);                             // the whole number nearest where it stands (x = c)
+    const main = Q.neg(Q.abs(Q.sub(c, k)));
+    const fk = factors(k);                          // its prime factors, smallest first
+    return [main, tie === "k-spf" ? (fk[0] ?? 1) : tie === "k-gpf" ? (fk.at(-1) ?? 1) : null];
+  }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
   const k = whole(x);                             // the whole number nearest the crossing
@@ -35,19 +41,22 @@ function agent(offer) {
   contested(offer, 3);
   const v = look(offer, "si");      // the line as y = mx + c
   const rule = goal(offer);         // your rule (free)
-  const m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
-  // A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
-  if (!Q.isQ(m)) return climb(offer, tips(offer).filter(([plan]) => !PROTECT.includes(offer.object) || fair(offer, plan)).map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]), null, QUOTES);
+  let m = v.m, c = v.c, p = rule.params, tie = rule.tieBreaker;
   const tries = [];                 // [plan, m after, c after]: changes tried in the agent's own head
-  for (let k = -FAR; k <= FAR; k++) {
-    if (k === 0) continue;
-    tries.push([move("si.shift", { k }), m, Q.add(c, k)]);     // move the line up or down
-    tries.push([move("si.tilt", { k }), Q.add(m, k), c]);      // make it steeper or flatter
-    for (let j = -FAR; j <= FAR; j++) {                          // both at once
-      if (j !== 0) tries.push([[move("si.shift", { k }), move("si.tilt", { k: j })], Q.add(m, j), Q.add(c, k)]);
+  if (!Q.isQ(m)) {                  // a vertical line (x = k): tip it into y = mx + c, or slide it sideways
+    m = null, c = look(offer, "crossing").x0;   // where it stands: score(null, k) reads the line x = k
+    tries.push(...vertical(offer, FAR));   // its tips into y = mx + c and its slides sideways
+  } else {
+    for (let k = -FAR; k <= FAR; k++) {
+      if (k === 0) continue;
+      tries.push([move("si.shift", { k }), m, Q.add(c, k)]);     // move the line up or down
+      tries.push([move("si.tilt", { k }), Q.add(m, k), c]);      // make it steeper or flatter
+      for (let j = -FAR; j <= FAR; j++) {                          // both at once
+        if (j !== 0) tries.push([[move("si.shift", { k }), move("si.tilt", { k: j })], Q.add(m, j), Q.add(c, k)]);
+      }
     }
+    tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   }
-  tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

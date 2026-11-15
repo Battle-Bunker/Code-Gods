@@ -9,6 +9,13 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    if m is None:              # the vertical line x = c
+        s0 = 1 if c == 0 else near(abs(c), smooth)   # the 7-smooth number nearest its size (1 for 0)
+        if s0 is None:                              # none within 10,000: hopeless
+            return None
+        s = -s0 if c < 0 else s0                # the sign kept
+        main = -abs(c - s)
+        return [main, None]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
     x = -c / m                                      # where y = mx + c crosses the x-axis

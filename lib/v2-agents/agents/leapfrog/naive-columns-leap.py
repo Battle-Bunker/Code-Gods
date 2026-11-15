@@ -1,5 +1,5 @@
 # Leapfrog · Naive (for learning)
-# Main part: each number one apart from the number two cells along. Tie-breaker: each number one apart from the number two cells down.
+# Main part: each number one apart from the number two cells along. Tie-breaker: down the columns: each number one apart from the number two cells below.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn

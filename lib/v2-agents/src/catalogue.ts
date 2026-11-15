@@ -77,6 +77,12 @@ export interface FamilyEntry {
   readonly thorough?: readonly LensId[];
   /** The score is written for whole-number lines only (line-z: y = mx + c with whole m and c). */
   readonly wholeLines?: boolean;
+  /**
+   * How the rule reads a vertical line x = c: lines computing `main` from `c` (the vertical line is x = c) (and the values the defined tie-breakers
+   * use); `defined` lists the tie-breakers that still mean something there (the rest are undefined: the worst).
+   * Without it, a vertical line scores nothing and a starter only tips it.
+   */
+  readonly vertical?: { readonly main: Lines; readonly defined?: readonly string[] };
 }
 
 const neg = (ts: string) => `Q.neg(${ts})`;
@@ -322,6 +328,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       ts: [`const main = ${neg("Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T))")};   // y(k) = m·k + c`],
       py: ["main = -abs(m * p[\"k\"] + c - p[\"T\"])           # y(k) = m*k + c"],
     },
+    vertical: {
+      main: {
+        ts: [
+          "const main = Q.neg(Q.abs(Q.sub(c, p.k)));      // how far across from (k, T) it passes",
+        ],
+        py: [
+          "main = -abs(c - p[\"k\"])                        # how far across from (k, T) it passes",
+        ],
+      },
+    },
     tieBreakers: {
       "prime-terms": {
         pre: {
@@ -359,6 +375,18 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     main: {
       ts: ["const landing = near(c, prime);                 // the prime nearest the y-intercept", `const main = ${neg("Q.abs(Q.sub(c, landing))")};`],
       py: ["landing = near(c, prime)                        # the prime nearest the y-intercept", "main = -abs(c - landing)"],
+    },
+    vertical: {
+      main: {
+        ts: [
+          "const landing = near(c, prime);                 // it lands on the x-axis: the prime nearest",
+          "const main = Q.neg(Q.abs(Q.sub(c, landing)));",
+        ],
+        py: [
+          "landing = near(c, prime)                        # it lands on the x-axis: the prime nearest",
+          "main = -abs(c - landing)",
+        ],
+      },
     },
     tieBreakers: {
       "big-prime": { ts: "landing", py: "landing", says: "a bigger prime is better", lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
@@ -400,6 +428,16 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "fixed = c / (1 - m)                             # where y = mx + c meets y = x",
         "main = -abs(fixed - p[\"T\"])",
       ],
+    },
+    vertical: {
+      main: {
+        ts: [
+          "const main = Q.neg(Q.abs(Q.sub(c, p.T)));      // x = c meets y = x at c",
+        ],
+        py: [
+          "main = -abs(c - p[\"T\"])                        # x = c meets y = x at c",
+        ],
+      },
     },
     tieBreakers: {
       steep: { ts: "Q.abs(Q.sub(m, 1))", py: "abs(m - 1)", says: "a gradient far from 1 is better", lenses: ["shift", "tilt", "turnAtT"], steps: 3, tryThis: "remove the \"turn\" line: can it get steep without losing T?" },
@@ -452,6 +490,21 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "main = -abs(x - k)",
         "fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)",
       ],
+    },
+    vertical: {
+      main: {
+        ts: [
+          "const k = whole(c);                             // the whole number nearest where it stands (x = c)",
+          "const main = Q.neg(Q.abs(Q.sub(c, k)));",
+          "const fk = factors(k);                          // its prime factors, smallest first",
+        ],
+        py: [
+          "k = whole(c)                                    # the whole number nearest where it stands (x = c)",
+          "main = -abs(c - k)",
+          "fk = factors(k)                                 # its prime factors, smallest first",
+        ],
+      },
+      defined: ["k-spf", "k-gpf"],
     },
     tieBreakers: {
       "k-spf": {
@@ -534,6 +587,23 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "main = -abs(d2 - sq)",
         "far = root(sq)                                  # that square's root: a whole distance",
       ],
+    },
+    vertical: {
+      main: {
+        ts: [
+          "const d2 = Q.mul(c, c);                         // its distance from (0, 0), squared",
+          "const sq = near(d2, square) || 1;               // the square number nearest it (1 at the least)",
+          "const main = Q.neg(Q.abs(Q.sub(d2, sq)));",
+          "const far = root(sq);                           // that square's root: a whole distance",
+        ],
+        py: [
+          "d2 = c * c                                      # its distance from (0, 0), squared",
+          "sq = near(d2, square) or 1                      # the square number nearest it (1 at the least)",
+          "main = -abs(d2 - sq)",
+          "far = root(sq)                                  # that square's root: a whole distance",
+        ],
+      },
+      defined: ["far"],
     },
     tieBreakers: {
       far: {
@@ -661,6 +731,23 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "s = -s0 if x < 0 else s0                # the sign kept",
         "main = -abs(x - s)",
       ],
+    },
+    vertical: {
+      main: {
+        ts: [
+          "const s0 = Q.isZero(c) ? 1 : near(Q.abs(c), smooth);   // the 7-smooth number nearest its size (1 for 0)",
+          "if (s0 === null) return null;                // none within 10,000: hopeless",
+          "const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept",
+          "const main = Q.neg(Q.abs(Q.sub(c, s)));",
+        ],
+        py: [
+          "s0 = 1 if c == 0 else near(abs(c), smooth)   # the 7-smooth number nearest its size (1 for 0)",
+          "if s0 is None:                              # none within 10,000: hopeless",
+          "    return None",
+          "s = -s0 if c < 0 else s0                # the sign kept",
+          "main = -abs(c - s)",
+        ],
+      },
     },
     tieBreakers: {
       shared: {
