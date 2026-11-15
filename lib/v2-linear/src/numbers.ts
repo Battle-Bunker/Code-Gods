@@ -244,3 +244,55 @@ export function stepNote(n: number, one: string, many: string): string {
 }
 /** stepNote for a prime's digits (Prime Landing, Prime Gradient). */
 export const digitNote = (p: bigint): string => stepNote((p < 0n ? -p : p).toString().length, "digit", "digits");
+
+// ---------------------------------------------------------------- factor search (Ruler's near-miss)
+
+/**
+ * Up to this many digits the factor search below is exact. Past it the search stops after RHO_BUDGET steps, and a part
+ * it has not split counts as prime (a deterministic rule, as TRIAL_DIVISION_LIMIT's). A 20-digit number with two
+ * 10-digit primes takes about 0.1 s (Pollard's rho needs about √p steps for its smaller prime p).
+ */
+export const FACTOR_EXACT_DIGITS = 20;
+export const RHO_BUDGET = 1 << 14;
+const RHO_BATCH = 32;
+const gcdB = (a: bigint, b: bigint): bigint => { while (b) [a, b] = [b, a % b]; return a; };
+/**
+ * Pollard's rho with Floyd's cycle finding (x ↦ x² + c mod n, from 2), the differences multiplied in batches of
+ * RHO_BATCH steps between gcds; a batch whose gcd is n is replayed one step at a time. A proper factor of n, or null when
+ * `budget` steps pass or the walk closes on n. The agents' helpers copy it step for step (catalogue.ts).
+ */
+export function rhoFactor(n: bigint, c: bigint, budget: number): bigint | null {
+  const f = (v: bigint) => (v * v + c) % n;
+  let x = 2n, y = 2n;
+  for (let done = 0; done < budget; done += RHO_BATCH) {
+    const x0 = x, y0 = y;
+    let prod = 1n;
+    for (let i = 0; i < RHO_BATCH; i++) { x = f(x); y = f(f(y)); prod = (prod * (x > y ? x - y : y - x)) % n; }
+    let g = gcdB(prod, n);
+    if (g === 1n) continue;
+    if (g === n) {
+      x = x0; y = y0;
+      for (let i = 0; i < RHO_BATCH; i++) { x = f(x); y = f(f(y)); g = gcdB(x > y ? x - y : y - x, n); if (g !== 1n) break; }
+    }
+    return g === n || g === 1n ? null : g;
+  }
+  return null;
+}
+const digitCount = (n: bigint): number => n.toString().length;
+/**
+ * The smallest prime factor of n ≥ 2 (n itself when prime), exact up to FACTOR_EXACT_DIGITS digits: the primes below
+ * 2000 first, then rho splits n and each part until every part is prime. Past that size a part rho does not split within
+ * RHO_BUDGET steps counts as prime.
+ */
+export function smallestFactor(n: bigint): bigint {
+  if (n < 2n) return n;
+  for (const p of SMALL_PRIMES) if (n % p === 0n) return p;
+  if (isPrime(n)) return n;
+  const exact = digitCount(n) <= FACTOR_EXACT_DIGITS;
+  for (let c = 1n; c <= (exact ? 64n : 1n); c++) {
+    const g = rhoFactor(n, c, exact ? Number.MAX_SAFE_INTEGER : RHO_BUDGET);
+    if (g !== null) { const a = smallestFactor(g), b = smallestFactor(n / g); return a < b ? a : b; }
+  }
+  return n;
+}
+

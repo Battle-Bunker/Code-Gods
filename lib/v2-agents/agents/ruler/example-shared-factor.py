@@ -10,6 +10,63 @@
 # Try this: change FAR = 3 to 4: a turn about (0, 0) keeps the distance and moves the y-intercept, and |k| = 4 tries the fourth angle.
 
 
+# Pollard's rho (x -> x^2 + c mod n, from 2), batches of 32 steps between gcds: a proper factor of n, or None, as the game's.
+def rho(n, c, budget):
+    x = y = 2
+    done = 0
+    while done < budget:
+        x0, y0, prod = x, y, 1
+        for _ in range(32):
+            x = (x * x + c) % n
+            y = (y * y + c) % n
+            y = (y * y + c) % n
+            prod = prod * abs(x - y) % n
+        g = common(prod, n) if prod else n
+        if g == 1:
+            done += 32
+            continue
+        if g == n:
+            x, y = x0, y0
+            for _ in range(32):
+                x = (x * x + c) % n
+                y = (y * y + c) % n
+                y = (y * y + c) % n
+                g = common(x - y, n) if x != y else n
+                if g != 1:
+                    break
+        return None if g in (1, n) else g
+    return None
+
+# The smallest prime factor of n (n itself when prime), as the game finds it: rho splits n until every part is prime.
+def smallest(n):
+    for d in range(2, 2000):
+        if n % d == 0:
+            return d
+    if prime(n):
+        return n
+    exact = len(str(n)) <= 20
+    for c in range(1, 65 if exact else 2):
+        g = rho(n, c, float("inf") if exact else 16384)
+        if g is not None:
+            return min(smallest(g), smallest(n // g))
+    return n
+
+# p, p + w, p + 2w, ... (p the prime, w the y-intercept's whole part): the first that is not prime, its smallest prime
+# factor (0 when w is 0 or 256 steps stay prime).
+def near_miss(p, c):
+    p, w = int(p), whole(abs(c) - Fraction(1, 2))   # |c| rounded down
+    for j in range(1, 257 if w > 0 else 1):
+        if not prime(p + j * w):
+            return smallest(p + j * w)
+    return 0
+
+# The height at x = p, rounded down (its size): how many of its last digits follow p written again and again.
+def at_index(p, m, c):
+    h, ps, j = str(whole(abs(m * p + c) - Fraction(1, 2))), str(int(p)), 0
+    while h != "0" and j < len(h) and h[-1 - j] == ps[-1 - j % len(ps)]:
+        j += 1
+    return j
+
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c

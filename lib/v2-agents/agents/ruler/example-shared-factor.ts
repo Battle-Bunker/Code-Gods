@@ -9,6 +9,46 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 3 to 4: a turn about (0, 0) keeps the distance and moves the y-intercept, and |k| = 4 tries the fourth angle.
 
+// Pollard's rho (x -> x² + c mod n, from 2), batches of 32 steps between gcds: a proper factor of n, or null, as the game's.
+function rho(n, c, budget) {
+  const f = v => (v * v + c) % n, gcd = (a, b) => { while (b) [a, b] = [b, a % b]; return a; };
+  let x = 2n, y = 2n;
+  for (let done = 0; done < budget; done += 32) {
+    const x0 = x, y0 = y; let prod = 1n;
+    for (let i = 0; i < 32; i++) { x = f(x); y = f(f(y)); prod = prod * (x > y ? x - y : y - x) % n; }
+    let g = gcd(prod, n);
+    if (g === 1n) continue;
+    if (g === n) { x = x0; y = y0; for (let i = 0; i < 32; i++) { x = f(x); y = f(f(y)); g = gcd(x > y ? x - y : y - x, n); if (g !== 1n) break; } }
+    return g === n || g === 1n ? null : g;
+  }
+  return null;
+}
+// The smallest prime factor of n (n itself when prime), as the game finds it: rho splits n until every part is prime.
+function smallest(n) {
+  for (let d = 2n; d < 2000n; d++) if (n % d === 0n) return d;
+  if (prime(n)) return n;
+  for (let c = 1n, exact = String(n).length <= 20; c <= (exact ? 64n : 1n); c++) {
+    const g = rho(n, c, exact ? Infinity : 16384);
+    if (g !== null) { const a = smallest(g), b = smallest(n / g); return a < b ? a : b; }
+  }
+  return n;
+}
+// p, p + w, p + 2w, … (p the prime, w the y-intercept's whole part): the first that is not prime, its smallest prime
+// factor (0 when w is 0 or 256 steps stay prime).
+function nearMiss(p, c) {
+  p = BigInt(p);
+  const w = BigInt(whole(Q.sub(Q.abs(c), Q.div(1, 2))));   // |c| rounded down
+  if (w > 0n) for (let j = 1n; j <= 256n; j++) if (!prime(p + j * w)) return Q.of(smallest(p + j * w));
+  return 0;
+}
+// The height at x = p, rounded down (its size): how many of its last digits follow p written again and again.
+function atIndex(p, m, c) {
+  const h = String(whole(Q.sub(Q.abs(Q.add(Q.mul(m, p), c)), Q.div(1, 2)))), ps = String(p);
+  let j = 0;
+  if (h !== "0") while (j < h.length && h[h.length - 1 - j] === ps[ps.length - 1 - (j % ps.length)]) j++;
+  return j;
+}
+
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
   if (m === null) {               // the vertical line x = c

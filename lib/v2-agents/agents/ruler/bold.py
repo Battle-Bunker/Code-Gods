@@ -1,5 +1,5 @@
 # Ruler · Bold
-# Main part: distance² from (0, 0) on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
+# Main part: distance² from (0, 0) on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the first non-prime stepping from that prime by the y-intercept's whole part, as nearly prime as possible; the gradient squared close to that prime; the height at x = that prime, rounded down, ending in that prime repeated; the factor that prime minus 1 shares with the y-intercept's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,6 +9,63 @@
 # own store (energy moves with it), pay, then share the power out again.
 # Try this: change FAR = 4 to 2: shorter steps, cheaper moves.
 
+
+# Pollard's rho (x -> x^2 + c mod n, from 2), batches of 32 steps between gcds: a proper factor of n, or None, as the game's.
+def rho(n, c, budget):
+    x = y = 2
+    done = 0
+    while done < budget:
+        x0, y0, prod = x, y, 1
+        for _ in range(32):
+            x = (x * x + c) % n
+            y = (y * y + c) % n
+            y = (y * y + c) % n
+            prod = prod * abs(x - y) % n
+        g = common(prod, n) if prod else n
+        if g == 1:
+            done += 32
+            continue
+        if g == n:
+            x, y = x0, y0
+            for _ in range(32):
+                x = (x * x + c) % n
+                y = (y * y + c) % n
+                y = (y * y + c) % n
+                g = common(x - y, n) if x != y else n
+                if g != 1:
+                    break
+        return None if g in (1, n) else g
+    return None
+
+# The smallest prime factor of n (n itself when prime), as the game finds it: rho splits n until every part is prime.
+def smallest(n):
+    for d in range(2, 2000):
+        if n % d == 0:
+            return d
+    if prime(n):
+        return n
+    exact = len(str(n)) <= 20
+    for c in range(1, 65 if exact else 2):
+        g = rho(n, c, float("inf") if exact else 16384)
+        if g is not None:
+            return min(smallest(g), smallest(n // g))
+    return n
+
+# p, p + w, p + 2w, ... (p the prime, w the y-intercept's whole part): the first that is not prime, its smallest prime
+# factor (0 when w is 0 or 256 steps stay prime).
+def near_miss(p, c):
+    p, w = int(p), whole(abs(c) - Fraction(1, 2))   # |c| rounded down
+    for j in range(1, 257 if w > 0 else 1):
+        if not prime(p + j * w):
+            return smallest(p + j * w)
+    return 0
+
+# The height at x = p, rounded down (its size): how many of its last digits follow p written again and again.
+def at_index(p, m, c):
+    h, ps, j = str(whole(abs(m * p + c) - Fraction(1, 2))), str(int(p)), 0
+    while h != "0" and j < len(h) and h[-1 - j] == ps[-1 - j % len(ps)]:
+        j += 1
+    return j
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
@@ -28,6 +85,12 @@ def score(m, c, p, tie):
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
     def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "near-miss":   # from that prime, keep adding the y-intercept's whole part: the first number that is not prime should have as big a smallest prime factor as possible
+            return near_miss(rung, c)
+        if t == "closeness":   # the gradient squared, as close as possible to that prime (never equal: the closer the better, without end)
+            return -abs(m * m - rung)
+        if t == "reading-at-index":   # the height at x = that prime, rounded down, should end in that prime written again and again, as many digits as possible
+            return at_index(rung, m, c)
         if t == "shared-factor":   # that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
             wc = whole((2 * abs(c) - 1) / 2)          # the y-intercept's whole part, ignoring its sign
             return common(rung - 1, wc)

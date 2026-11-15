@@ -126,7 +126,7 @@ test("vertical lines score where the rule has an honest reading (the coordinator
   assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits: "odd" }, x(-2n, 13n), lineQ), { palindrome: "27/20", "shared-factor": "—" });   // meets y = x at 6½, which rounds to 7
   assert.deepEqual(terms(sameOnBothRulers, { meets: -1, digits: "even" }, x(-2n, 13n), lineQ), { palindrome: "-4", "shared-factor": "—" });   // 4½ from 11
   // Ruler: distance² 169/4 = 42¼, ¼ above the window [41, 42) of ending 1; no y-intercept.
-  assert.deepEqual(terms(ruler, { ends: 1 }, x(-2n, 13n), lineQ), { ruler: "-1/4", "shared-factor": "—" });
+  assert.deepEqual(terms(ruler, { ends: 1 }, x(-2n, 13n), lineQ), { ruler: "-1/4", closeness: "—", "near-miss": "—", "reading-at-index": "—", "shared-factor": "—" });
   // x = 3: on the prime 3, distance² 9 exactly.
   assert.equal(terms(primeLanding, { ends: 3 }, x(-1n, 3n), lineQ).landing, "23/20");
   assert.equal(terms(ruler, { ends: 3 }, x(-1n, 3n), lineQ).ruler, "-4");   // distance² 9: 4 below ending 3's window [13, 14)

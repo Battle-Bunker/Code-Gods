@@ -5,7 +5,7 @@
 import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
 import { fromMC, normalise, type LineState } from "./line.ts";
 import { allUndefined, distance, factorLabel, family, gap, ladder, more, num, prime, squareGap, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
-import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { digitLevel, digitNote, distanceToPrime, isPrime, isPrimeEnding, largestPrimeFactor, nearestInteger, nearestPrimeEnding, nearestSquareRoot, PRIME_ENDINGS, primeFactorCount, smallestFactor, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
 
@@ -47,9 +47,12 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
  * repeated stretch or turn keeps the distance² on a prime. The §4.8 draft (how many times q divides the distance²) was a
  * v_q ladder, which a repeated zoom or stretch by q climbs a bit a step with no end (Pythagorean Area's lesson); the old
  * main part (distance² close to a square) had a top.
- * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (ignoring its sign). A new
- * rung changes p − 1, so the y-intercept that shared most no longer does and the climb starts again; a turn about (0, 0)
- * keeps the distance (the ruler's own shortcut) and moves the y-intercept, so the tie-breaker climbs on a rung.
+ * Tie-breakers, a repertoire of four forms (row 3a; the coordinator, 16 Nov), each read from that prime p, so a new rung
+ * restarts its climb: near-miss (dealt), the first non-prime of p, p + w, p + 2w, … (w the y-intercept's whole part) as
+ * nearly prime as possible; closeness, the gradient squared as close as possible to p; reading-at-index, the height at
+ * x = p ending in p repeated; and the old shared factor of p − 1 and the y-intercept's whole part (undealt: it is
+ * Pythagorean Area's form). A turn about (0, 0) keeps the distance (the ruler's own shortcut) and moves the gradient and
+ * the y-intercept, so each climbs on a rung.
  * Adversary, by construction: Pythagorean Area, on the same number on a 45° line (y = ±x + c: distance² and the
  * triangle's area are both c²/2), so another ending there excludes it and the same ending is a forbidden pair (seating.ts).
  * Measured (scripts/tension.ts, regenerated 15 Nov with the pool's ladders): Treasure (0.66) and Prime Landing (0.66) are
@@ -63,9 +66,26 @@ const rulerShape: Shape<Ends> = {
   main: { ...more<Ends>("ruler", "distance² from (0, 0) on as big a dealt prime as possible", "", "norm"),
     // Plain sentences, the main one under 30 words (the coordinator's ask): whose distance, and what is done to it.
     sentence: p => `Square the line's closest distance to (0, 0) and round down: it should be a prime ending in ${p.ends}. Bigger primes are better, each extra digit counts for less.` },
+  // A repertoire (design-principles.md row 3a; the coordinator, 16 Nov), each read from the rung's prime p, so a new rung
+  // restarts its climb (row 3), each of a different form. Closeness is dealt; the others are candidates with values.
   tieBreakers: [
-    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
-      "Prime minus 1 and the y-intercept's whole part should share as big a factor as possible.", "si"),
+    // near-miss (dealt; Prime Staircase's form, tied to p): p, p + w, p + 2w, … with w the y-intercept's whole part; the
+    // first that is not prime should be as nearly prime as possible (its smallest prime factor as big as possible).
+    prime(more<Ends>("near-miss", "the first non-prime stepping from that prime by the y-intercept's whole part, as nearly prime as possible",
+      "From that prime, keep adding the y-intercept's whole part. The first non-prime should have a big smallest factor.", "si")),
+    // closeness: the gradient squared as close as possible to p. √p is irrational, so no gradient hits it (no top);
+    // each closer one needs a bigger denominator (Pell's equation r² − p·s² = ±1 gives 1/s², no better).
+    // Undealt: neighbouring rungs share the best coarse gradient (round(√p) moves slowly with p), so the mechanical row 3
+    // check on whole gradients fails; a fine climb (1/25 from 13) is lost on the next rung (7 from 23), but the target moves smoothly.
+    undealt(distance<Ends>("closeness", "the gradient squared close to that prime",
+      "The gradient squared should be as close as possible to that prime.", "si")),
+    // reading-at-index: the line's height at x = p, rounded down, should end in p written again and again (…131313 for
+    // 13), as many digits as possible: no top (the height can grow), and a new p is a new pattern.
+    undealt(more<Ends>("reading-at-index", "the height at x = that prime, rounded down, ending in that prime repeated",
+      "Round down the height at x = that prime: it should end in that prime repeated, longer is better.", "si")),
+    // The old tie-breaker, kept as a fourth candidate: Pythagorean Area deals this form ("minus 1 shares a factor").
+    undealt(more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
+      "Prime minus 1 and the y-intercept's whole part should share as big a factor as possible.", "si")),
   ],
 };
 /**
@@ -102,9 +122,24 @@ export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"]
   ctx.term("ruler", Qn.sign(u) > 0 ? `distance² ${Qn.toWire(d2)}, which rounds down to the prime ${p}: ${digitNote(p)}` : `distance² ${Qn.toWire(d2)}, ${Qn.toWire(Qn.neg(u))} from the window of the prime ${p}`, u, [d2Ref]);
   // A vertical line has no y-intercept: its tie-breaker is undefined (it ranks last), not its distance.
   const vx = verticalAt(ctx);
-  if (vx) ctx.term("shared-factor", "the y-intercept's whole part", { undefined: VERTICAL_NO }, vx.from);
+  if (vx) for (const t of rulerShape.tieBreakers) ctx.term(t.id, t.title, { undefined: VERTICAL_NO }, vx.from);
   else {
-    const c = num(ctx.read(cRef))!, w = Qn.floor(Qn.abs(c));
+    const mRef = ref("si", "m"), m = num(ctx.read(mRef))!, c = num(ctx.read(cRef))!, w = Qn.floor(Qn.abs(c));
+    // closeness: |m² − p|, never 0 (p is no square of a fraction).
+    const close = Qn.abs(Qn.sub(Qn.mul(m, m), q(p)));
+    ctx.term("closeness", `the gradient squared ${Qn.toWire(Qn.mul(m, m))} is ${Qn.toWire(close)} from ${p}`, close, [d2Ref, mRef]);
+    // near-miss: p, p + w, p + 2w, …; the first that is not prime, its smallest prime factor. w = 0 never leaves p:
+    // nothing breaks (0), as a run of 256 primes would.
+    let brk: bigint | null = null;
+    if (w > 0n) for (let j = 1n; j <= 256n; j++) if (!isPrime(p + j * w)) { brk = p + j * w; break; }
+    const bw = brk === null ? 0n : smallestFactor(brk);
+    ctx.term("near-miss", brk === null ? (w === 0n ? "a y-intercept under 1 never steps away from the prime" : "no number breaks the run") : `${p} stepping by ${w}: the first non-prime is ${brk}, whose smallest prime factor is ${bw}`, q(bw), [d2Ref, cRef]);
+    // reading-at-index: the height at x = p, rounded down, ignoring its sign; how many of its last digits follow p
+    // written again and again (0 for a height under 1).
+    const h = Qn.floor(Qn.abs(Qn.add(Qn.mul(m, q(p)), c))), hs = h.toString(), ps = p.toString();
+    let j = 0;
+    if (h > 0n) while (j < hs.length && hs[hs.length - 1 - j] === ps[ps.length - 1 - (j % ps.length)]) j++;
+    ctx.term("reading-at-index", `the height at x = ${p}, rounded down, is ${h}: its last ${j} digit${j === 1 ? "" : "s"} follow ${p} repeated`, q(j), [d2Ref, mRef, cRef]);
     ctx.term("shared-factor", `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p - 1n, w)}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [d2Ref, cRef]);
   }
   ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
