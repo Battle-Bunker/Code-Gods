@@ -1,5 +1,5 @@
 # High Start · Bold
-# Main part: the gentler line crosses the y-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
+# Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -13,9 +13,8 @@ def score(L, p, tie):
     floor = lambda v: v // 1   # rounded down
     if f.cg is None or f.mg is None:   # the gentler line is upright: no score
         return None
-    H = nearest_leaving(f.cg, p["q"], p["r"])   # the whole number that leaves your remainder
-    main = -abs(f.cg - H)
-    # main: how far the gentler line's y-intercept is from a whole number with your remainder (closer is better)
+    main, H = valuation_ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
+    # main: the level of the gentler line's y-intercept on your ladder (higher is better)
     if tie == "high-and-rising":   # the smaller of the gentler line's y-intercept and its gradient's whole part big is better
         return [main, min(H, floor(f.mg))]
     if tie == "start-factors":   # a y-intercept sharing many prime factors with the number you divide by is better
@@ -25,7 +24,7 @@ def score(L, p, tie):
 
 FAR = 4      # how far one move may go
 QUOTES = 12  # at most this many plans are priced (each price is a host call)
-KINDS = ["shift","tilt"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["shift","tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -41,7 +40,8 @@ def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     options = [(plan, score(L2, p, tie)) for plan, L2 in tries]   # each move and the score it reaches
     # A promise: on these pairs, only moves that leave the other players at least as well off.
     if offer.object in PROTECT:

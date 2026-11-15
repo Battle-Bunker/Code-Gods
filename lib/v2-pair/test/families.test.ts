@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateObject, Qn, scoreToWire, tieBreakersOn } from "@workspace/v2-core";
-import { pairFamilies, pairPresets, pairQ, pairType, residueAnchor, type PairParams, type PairState } from "../src/index.ts";
+import { LADDERS, pairFamilies, powerLadder, pairPresets, pairQ, pairType, residueAnchor, residueLadder, valuationLadder, type PairParams, type PairState } from "../src/index.ts";
 import { L, Y, sys } from "./helpers.ts";
 
 const school = sys(L(2, 3, -12), L(1, -1, -1));   // 2x + 3y = 12, x − y = 1: the answer (3, 2), D = ±5
@@ -25,12 +25,43 @@ test("every family scores every kind of system (parallel, vertical, horizontal) 
   }
 });
 
-test("Whole Answer on 2x + 3y = 12, x − y = 1: whole answer, |X| + |Y| = 5 shares 5 with D, X + Y = 5", () => {
-  const p = { q: 5, r: 3 };   // x = 3 leaves 3 when divided by 5
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, p), ["0", "5"]);
-  assert.deepEqual(score("whole-answer", "south-west", school, p), ["0", "-5"]);
-  // Dealt "x leaves 1 when divided by 3": the peg is x = 4, one away; |4| + |2| = 6 shares 1 with D = ±5.
-  assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["-1", "1"]);
+test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the valuation ladder; |X| + |Y| = 5 shares 5 with D", () => {
+  // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
+  // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
+  const p = { q: 5, r: 2 };
+  assert.deepEqual(score("whole-answer", "peg-divisor", school, p), ["10/9", "5"]);
+  assert.deepEqual(score("whole-answer", "south-west", school, p), ["10/9", "-5"]);
+  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); |3| + |1| = 4 shares 1 with D.
+  assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
+});
+
+test("the valuation ladder: level L needs L(L + 1)/2 stretches by q, each level dearer; 0 is on none; off the ladder is below all", () => {
+  const at = (v: number, p: PairParams) => { const l = valuationLadder(Qn.q(v), p); return [l.level, Qn.toWire(l.u)]; };
+  // 2 × 5^t (q 5, r 2) for t = 0 … 6: levels 0, 1, 1, 2, 2, 2, 3 (level L at t = 0, 1, 3, 6, …).
+  assert.deepEqual([2, 10, 50, 250, 1250, 6250, 31250].map(v => at(v, { q: 5, r: 2 })[0]), [0, 1, 1, 2, 2, 2, 3]);
+  // 0 and 7 (7 = 5⁰ × 7 leaves 2, so level 0 too) and 3 (leaves 3: off the ladder).
+  assert.equal(at(0, { q: 5, r: 2 })[0], -1);
+  assert.equal(at(3, { q: 5, r: 2 })[0], -1);
+  // Every level beats every lower one: 10 (level 1) beats 2 (level 0) beats 3 (off).
+  const u = (v: number) => valuationLadder(Qn.q(v), { q: 5, r: 2 }).u;
+  assert.ok(Qn.cmp(u(10), u(2)) > 0 && Qn.cmp(u(2), u(3)) > 0 && Qn.cmp(u(250), u(50)) > 0);
+  // Within a level a stretch brings the next level nearer: 50 (t = 2) is nearer 250's rung than 10 (t = 1) is.
+  assert.ok(Qn.cmp(u(50), u(10)) > 0);
+  // Level L scores in (5^L, 2 × 5^L]: the score grows one factor 5 per level, not per stretch.
+  assert.ok(Qn.cmp(u(6250), Qn.q(50)) <= 0 && Qn.cmp(u(6250), Qn.q(25)) > 0);
+});
+
+test("the residue ladder has no top: each level is q times rarer, every met level beats every state below it", () => {
+  const at = (v: number, p: PairParams) => { const l = residueLadder(Qn.q(v), p); return [l.level, Qn.toWire(l.u), l.n]; };
+  // 18 leaves 3 when divided by 5 and 18 when divided by 25 (level 2); level 3 wants 93 when divided by 125, nearest −32, 50 away.
+  assert.deepEqual(at(18, { q: 5, r: 3 }), [2, "1300/51", 18n]);
+  assert.deepEqual(at(93, { q: 5, r: 3 }), [3, Qn.toWire(Qn.mul(Qn.q(125), Qn.add(Qn.q(1), Qn.inv(Qn.q(1 + Math.min(Math.abs(93 - 468), Math.abs(93 + 157))))))), 93n]);
+  // A level met beats the nearest miss of the level above: 3 (level 1) against 17.9 (level 0... of 25's 18).
+  const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).u;
+  assert.ok(Qn.cmp(met, near) > 0, `${Qn.toWire(met)} > ${Qn.toWire(near)}`);
+  // No dealt remainder is 0 or q − 1, the two that one number (0 or −1) meets at every level.
+  for (const p of LADDERS) assert.ok(p.r! >= 1 && p.r! <= p.q! - 2, JSON.stringify(p));
+  assert.ok(residueLadder(Qn.q(-1), { q: 5, r: 3 }).level < 2);
 });
 
 test("the dealt remainder's whole number: nearest, negatives counted (−2 leaves 1 when divided by 3), at least 2 when asked", () => {
@@ -41,14 +72,24 @@ test("the dealt remainder's whole number: nearest, negatives counted (−2 leave
   assert.deepEqual(at(13, 2, { q: 7, r: 6 }), [6n, "1/2"]);
 });
 
-test("Divide By (no-fractions) and Gap Ratio (double-gap) read the dealt k; the card says it", () => {
-  assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["0"]);   // D = ±5
-  assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["-3"]);
-  assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\), so the answer's fractions are thirds/);
-  assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap/);
-  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-prime"), /a whole number that leaves 2 when divided by 7\..*Tie-breaker/);
-  // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap |−2 − 2| = 4; 2 = ½ × 4, no k fits.
-  for (const k of [2, 3]) assert.notDeepEqual(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k }), ["0"]);
+test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say so", () => {
+  // D = ±5: with k 5 it is level 1 (next 25, 20 away): 5 × (1 + 1/21); with k 2, level 0, 1 away from 4: 1 + 1/2.
+  assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["110/21"]);
+  assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["3/2"]);
+  // The powers are not nested: 25 is level 2 (it is not 5), above 5 and above 24, which is 1 from 25 on no level.
+  const at = (n: number) => powerLadder(5, t => Qn.q(BigInt(Math.abs(n)) > t ? BigInt(Math.abs(n)) - t : t - BigInt(Math.abs(n))));
+  assert.equal(at(25).level, 2);
+  assert.equal(at(125).level, 3);
+  assert.deepEqual([at(24).level, Qn.toWire(at(24).u)], [0, "3/2"]);
+  assert.ok(Qn.cmp(at(25).u, at(5).u) > 0 && Qn.cmp(at(5).u, at(24).u) > 0);
+  // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has two prime factors; they share 5.
+  assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["110/21", "2"]);   // 25 = 5 × 5
+  assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["110/21", "5"]);
+  assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\); better still 9, then 27, and so on/);
+  assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap between their x-intercepts; better still 16 times/);
+  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-prime"), /leaves 2 when divided by 7; better still, leaves 16 when divided by 49, then 114 when divided by 343, and so on\..*Tie-breaker/);
+  // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap 4; 2 = ½ × 4, no power of k fits (level 0).
+  for (const k of [2, 3]) assert.ok(Qn.cmp(Qn.parse(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k })![0]!), Qn.q(k)) < 0);
 });
 
 test("parallel lines have no answer: the crossing families score worst", () => {
@@ -56,23 +97,24 @@ test("parallel lines have no answer: the crossing families score worst", () => {
   for (const id of ["whole-answer", "no-fractions", "right-angle", "forty-five", "on-the-diagonal"]) assert.equal(score(id, null, par), null, id);
 });
 
-test("the axes are the centre: Right Angle at its top, its tie-breakers at the bottom (the trivial anchor earns nothing)", () => {
+test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt ladder, and the trivial corner earns nothing", () => {
   const axes = sys(L(0, 1, 0), L(1, 0, 0));
-  assert.deepEqual(score("right-angle", "prime-divisor", axes), ["0", "1"]);
-  // A dealt remainder coprime to q keeps the peg off the origin: x = 0 pegs to 1 (q 3, r 1), and |1| + |0| shares 1 with D.
-  assert.deepEqual(score("whole-answer", "peg-divisor", axes, { q: 3, r: 1 }), ["-1", "1"]);
+  // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; the corner pegs to (0, 1), spf(1) = 1.
+  assert.deepEqual(score("right-angle", "corner-prime", axes, { q: 5, r: 1 }), ["3/2", "1"]);
+  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); |0| + |1| shares 1 with D.
+  assert.deepEqual(score("whole-answer", "peg-divisor", axes, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
-test("Steep Ratio reads the whole number of times nearest the ratio, at least 2 either way", () => {
+test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["0", "3"]);
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["-1", "2"]);   // −2 is 5 away, 4 is 1 away: 4, spf 2
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["14/13", "3"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["78/25", "3"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
   // y = 2x + 3 and y = −x + 6 cross at (1, 4); zoom × 96 (a smooth number): c × 96.
   const base = sys(Y(2, 3), Y(-1, 6)), zoomed = sys(Y(2, 288), Y(-1, 576));
-  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["forty-five", "divisor-gap"], ["high-start", "start-factors"]] as const) {
+  for (const [id, tb] of [["whole-answer", "peg-divisor"], ["double-gap", "gap-divisor"], ["high-start", "start-factors"]] as const) {
     const before = score(id, tb, base), after = score(id, tb, zoomed);
     if (!before || !after) continue;
     // D is unchanged by a zoom, so a common factor with D stays at most |D| = 3.
@@ -92,4 +134,26 @@ test("a primary is never met by one line alone: the diagonal itself, a line thro
   assert.equal(score("on-the-diagonal", null, sys(Y(1, 0), Y(2, 53))), null);   // y = x would meet every line on the diagonal
   assert.equal(score("double-gap", null, sys(Y(1, 0), Y(2, 53))), null);        // and double any line's gaps
   assert.deepEqual(score("on-the-diagonal", null, sys(Y(2, -3), Y(-1, 6))), ["0"]);   // (3, 3)
+});
+
+test("seating: no two rules one move climbs together (the same r on the y readers, the same q on the valuation ladders, one base for Gap Ratio and Divide By)", async () => {
+  const { pairClash, pairClashes } = await import("../src/seating.ts");
+  const rule = (family: string, params?: unknown) => ({ family, params });
+  assert.ok(pairClash(rule("whole-answer", { q: 7, r: 3 }), rule("right-angle", { q: 7, r: 3 })), "PMI 3.3 bits");
+  assert.ok(pairClash(rule("right-angle", { q: 11, r: 1 }), rule("high-start", { q: 7, r: 1 })), "the same r, another q");
+  assert.ok(pairClash(rule("whole-answer", { q: 5, r: 1 }), rule("forty-five", { q: 5, r: 1 })));
+  assert.ok(pairClash(rule("high-start", { q: 5, r: 1 }), rule("steep-ratio", { q: 5, r: 4 })), "a stretch by 5 climbs both");
+  assert.ok(pairClash(rule("double-gap", { k: 3 }), rule("no-fractions", { k: 9 })), "a turn climbs both (tension matrix, +10.9 bits)");
+  assert.ok(pairClash(rule("far-crossing", { q: 7, r: 4 }), rule("far-crossing", { q: 11, r: 2 })), "one family twice");
+  // Classes that meet near zero: y = −2 leaves 9 by 11, 3 by 5 and 5 by 7 (PMI 2.0–2.3 bits); (0, −1) for Forty-Five.
+  assert.ok(pairClash(rule("right-angle", { q: 11, r: 9 }), rule("whole-answer", { q: 7, r: 5 })));
+  assert.ok(pairClash(rule("right-angle", { q: 5, r: 3 }), rule("whole-answer", { q: 7, r: 5 })));
+  assert.ok(pairClash(rule("forty-five", { q: 5, r: 1 }), rule("whole-answer", { q: 5, r: 4 })));
+  assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("right-angle", { q: 7, r: 1 })), "2 or −3 against 1: no small number in both");
+  assert.ok(!pairClash(rule("high-start", { q: 5, r: 2 }), rule("steep-ratio", { q: 7, r: 2 })));
+  assert.ok(!pairClash(rule("double-gap", { k: 2 }), rule("no-fractions", { k: 6 })));
+  assert.ok(pairClash(rule("whole-answer", { q: 5, r: 1 }), rule("forty-five", { q: 7, r: 1 })), "both at (0, 1)");
+  assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("forty-five", { q: 7, r: 4 })));
+  assert.ok(!pairClash(rule("whole-answer"), rule("right-angle", { q: 5, r: 1 })), "unknown parameters clash only as one family");
+  assert.deepEqual(pairClashes([rule("double-gap", { k: 2 }), rule("steep-ratio", { q: 5, r: 1 }), rule("no-fractions", { k: 4 })]), ['double-gap {"k":2} × no-fractions {"k":4}']);
 });

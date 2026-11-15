@@ -3,19 +3,39 @@ import { Qn, q, type Q } from "@workspace/v2-core";
 
 /** Numbers up to this are trial-divided in floating point (exact below 2^53), the same divisors in the same order. */
 const SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+
 const LIMIT = 100_000;
 
 export function isPrime(n: bigint): boolean {
+  // Trial division where it is cheap and exact (below 10^10, every divisor up to the square root is tried); above it,
+  // Miller–Rabin with the first thirteen primes as witnesses, as the agents' helper does (lib/v2-sandbox guest
+  // helpers: exact below 3.3·10^24), so the engine and the starters agree. (Trial division to 10^5 alone called the
+  // composites above 10^10 with no small factor prime: the grids session, 15 Nov.)
   if (n < 2n) return false;
   if (n < 4n) return true;
   if (n % 2n === 0n || n % 3n === 0n) return false;
-  if (n <= SAFE) {
+  if (n < 10_000_000_000n) {
     const x = Number(n);
-    for (let d = 5; d * d <= x && d <= LIMIT; d += 6) if (x % d === 0 || x % (d + 2) === 0) return false;
+    for (let d = 5; d * d <= x; d += 6) if (x % d === 0 || x % (d + 2) === 0) return false;
     return true;
   }
-  for (let d = 5n; d * d <= n && d <= TRIAL_DIVISION_LIMIT; d += 6n) if (n % d === 0n || n % (d + 2n) === 0n) return false;
+  for (const p of WITNESSES) if (n % p === 0n) return n === p;
+  let d = n - 1n, s = 0;
+  while (d % 2n === 0n) { d /= 2n; s++; }
+  witness: for (const a of WITNESSES) {
+    let y = modPow(a, d, n);
+    if (y === 1n || y === n - 1n) continue;
+    for (let i = 1; i < s; i++) { y = (y * y) % n; if (y === n - 1n) continue witness; }
+    return false;
+  }
   return true;
+}
+const WITNESSES = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n];
+/** b^e mod m, for m > 1. */
+function modPow(b: bigint, e: bigint, m: bigint): bigint {
+  let r = 1n, x = b % m;
+  for (let k = e; k > 0n; k >>= 1n) { if (k & 1n) r = (r * x) % m; x = (x * x) % m; }
+  return r;
 }
 
 /** The largest prime ≤ x, or null when x < 2. */

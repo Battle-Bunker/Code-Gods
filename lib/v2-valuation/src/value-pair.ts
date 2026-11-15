@@ -5,7 +5,7 @@
 import { canonicalJson, hashHex, tieBreakerId, type ObjectType, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { pairLaw, pairType, type PairState } from "@workspace/v2-pair";
 import { knotsFrom, layerMeasures, sampledDraws, sampledOracle, TAIL_CEILING, tailOf, VALUE_CONFIG, type ValueConfig, type ValueFunction, type ValueTail } from "./value.ts";
-import { ruleKey } from "./keys.ts";
+import { ruleKey, valuesHash } from "./keys.ts";
 
 /**
  * About one raw draw in twenty-five is a canonical pair of different lines (a line is canonical in about one in five),
@@ -42,7 +42,7 @@ export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P
   const body = {
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(pairType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
-    objectType: pairType.id, objectTypeVersion: pairType.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
+    objectType: pairType.id, objectTypeVersion: pairType.version, variant: variant.id, variantHash: valuesHash(variant),
     family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: pairTail(family, tb, knots),
     diagnostics: { exact: [], sampled, candidates },
   };

@@ -1,5 +1,5 @@
 # Steep Ratio · Naive (for learning)
-# Main part: one line a whole number of times as steep as the other, with the dealt remainder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
+# Main part: one line a whole number of times as steep as the other, on the dealt ladder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -11,9 +11,8 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.ratio is None:   # no ratio of gradients: no score
         return None
-    k = nearest_leaving(f.ratio, p["q"], p["r"], 2)   # the whole number of times with your remainder (at least 2 either way)
-    main = -abs(f.ratio - k)
-    # main: how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better)
+    main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
+    # main: the level of the whole number of times as steep on your ladder (higher is better)
     if tie == "ratio-gap":   # that number sharing a big factor with the y-intercepts' gap is better
         return [main, None if f.ygap is None else common(k, whole(f.ygap))]
     if tie == "ratio-prime":   # that number with a big smallest prime factor is better
@@ -23,14 +22,15 @@ def score(L, p, tie):
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     top, plans = score(L, p, tie), []
     for plan, L2 in tries:
         s = score(L2, p, tie)

@@ -242,6 +242,11 @@ export interface RuleFamily<S, P> {
   evaluate(ctx: EvalContext<S>, params: P): void;
   /** Worked examples for the goal card (integration plan §5.7); a seeded search when absent. */
   examples?(params: P, variant: Variant): readonly S[];
+  /**
+   * A ladder family (design-principles.md rows 1 to 3 pass) keeps its dealt parameters all game: parameter drift never
+   * redraws it (the coordinator's amendment of call 18, 15 Nov: a redraw reset the climb). Absent: drift may redraw it.
+   */
+  readonly keepsParams?: boolean;
 }
 
 /** Which tie-breaker a dealt rule uses: an id of the family's, or null for the main layer alone. */
