@@ -372,7 +372,7 @@ back) or TRIAL (a declared experiment, measured and reported).
     "a game that ends before anyone can act is no game."
 17. The beginner economy, following decision 42 (replaces call 13's numbers): power 4 ⚡/s, fullChargeSeconds 240,
     summon and edit prices bits × power/64 (#695: a starter is about 9 s of full power, the owner's "seconds of full God
-    power"), startingEnergy derived as about three typical starters (about 100 on lines), the read-price weight derived
+    power"), startingEnergy derived as three median starters at the scaled price (3 × median starter bits × power/64, rounded to 10: 90 on lines, 130 on grids), the read-price weight derived
     from power. Motive, on the owner's two
     virtues (`power-calibration.md`): the long climb past about 40 bits stops at any power below 8 (at 8 a climber
     reached 131.8 bits), and 4 keeps about three committed moves per seat-minute where 2 leaves the board looking dead.
