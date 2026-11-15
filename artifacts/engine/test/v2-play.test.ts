@@ -84,7 +84,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal(second.ok, true, JSON.stringify(second));
   // Absolute shares: each named agent gets that fraction of Ada's power; what no agent holds feeds Ada's own store.
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0.6, [second.result.agentId]: 0.2 } }, scope())).ok, true);
-  const agents = await ada!.query("v2/play:agents", { gameId });
+  const agents = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.deepEqual(agents.map((a: any) => a.share).sort(), [0.2, 0.6]);
   const kept = await me(ada!);
   assert.ok(Math.abs(kept.ownPerSecond - kept.power * 0.2) < 1e-6, `the store keeps the 20% no agent holds: ${JSON.stringify(kept)}`);
@@ -96,7 +96,7 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal(over.error.code, "failed", "with the other agent's 20%, 90% is more than all of Ada's power");
   assert.equal((await perform(ada!, "power.allocate", { shares: { [agentId]: 0 } }, scope())).error.code, "invalid_args", "a zero share is a destroy, not an allocation");
   assert.equal((await perform(ada!, "agent.destroy", { agentId: second.result.agentId }, scope())).ok, true);
-  assert.equal((await ada!.query("v2/play:agents", { gameId })).length, 1);
+  assert.equal((await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length, 1);
 
   assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).error.code, "refused", "another player's agent");
 });
@@ -176,7 +176,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   await perform(late!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code });
   assert.equal((await ada!.query("v2/rooms:get", { roomId })).members.find((m: any) => m.name === "Play Late").spectator, true, "joining mid-game: watching");
   // Ada's agent stops moving lines for a while, so it saves up energy (for the pay-now summon below, while paused).
-  const saver = (await ada!.query("v2/play:agents", { gameId }))[0].agentId;
+  const saver = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId;
   assert.equal((await perform(ada!, "agent.replace", { agentId: saver, language: "typescript", source: "function agent(offer) {\n  return null;\n}\n" }, scope(), "action")).ok, true);
   assert.equal((await perform(ada!, "power.allocate", { shares: { [saver]: 0.9 } }, scope())).ok, true);
   await new Promise(r => setTimeout(r, 4000));
@@ -190,7 +190,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   // While paused (nothing accrues or acts): a summon the store cannot pay: the refusal carries the numbers and the split that pays now; that split does.
   const store = (await me(ada!)).energy, held = await energyOf(agentId);
   assert.ok(held.energy > 0, "the agent holds energy");
-  const share = (await ada!.query("v2/play:agents", { gameId }))[0].share, whole = held.capacity / share, release = held.energy - 0.001 * whole;
+  const share = (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].share, whole = held.capacity / share, release = held.energy - 0.001 * whole;
   const priceOf = async (k: number) => (await perform(ada!, "agent.check", { language: "typescript", source: small + Array.from({ length: k }, (_, i) => `const pad${i} = ${i};\n`).join("") }, scope(), "action")).result.price;
   let lo = 0, hi = 256;   // the fewest padding lines whose price is above the store
   while (lo < hi) { const mid = (lo + hi) >> 1; if (await priceOf(mid) > store + 1) hi = mid; else lo = mid + 1; }
@@ -218,7 +218,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   assert.equal((await perform(bo!, "game.pause", {}, scope())).error.code, "refused", "one pause each");
   await new Promise(r => setTimeout(r, 4000));
   const moves = await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } });
-  const energy = await ada!.query("v2/play:agentEnergy", { agentId: (await ada!.query("v2/play:agents", { gameId }))[0].agentId });
+  const energy = await ada!.query("v2/play:agentEnergy", { agentId: (await ada!.query("v2/play:agents", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page[0].agentId });
   assert.ok(energy.acts > 0 || moves.page.length > 0, "Ada's agent acts once the world runs");
   for (const m of moves.page) {
     // Live, only Ada's own moves name their mover; another player's move is unattributed (v1's public log).

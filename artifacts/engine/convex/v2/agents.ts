@@ -14,8 +14,8 @@ import {
 } from "@workspace/v2-economy";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { appendEvent, clockOf, powerTerms } from "./loop.ts";
-import { MAX_AGENTS } from "./play.ts";
+import { appendEvent, clockOf, powerTerms, programOf } from "./loop.ts";
+import { liveAgentsOf, MAX_AGENTS } from "./play.ts";
 
 type Language = "typescript" | "python";
 
@@ -63,8 +63,7 @@ export async function pay(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v
 async function payNowShares(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, world: number, need: number): Promise<Record<string, number> | null> {
   const whole = player.power * game.settings.economy.fullChargeSeconds;
   if (!(whole > 0)) return null;
-  const agents = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", player.memberId)).take(MAX_AGENTS))
-    .filter(a => a.destroyedAt === undefined);
+  const agents = await liveAgentsOf(ctx, game._id, player.memberId).take(MAX_AGENTS);
   const held = await Promise.all(agents.map(async a => ({ a, balance: settledAgent(game, a, await energyRow(ctx, a._id), world).balance })));
   held.sort((x, y) => y.balance - x.balance);
   const shares: Record<string, number> = {};
@@ -83,6 +82,7 @@ async function payNowShares(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<
 export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">,
   a: { language: Language; source: string; name?: string; share?: number }): Promise<{ agentId: Id<"v2Agents">; price: number }> {
   if (game.phase === "ended") throw new OpFailure("The game is over.");
+  // v1's cap (call 35): 200 live agents a player; destroying one frees a place.
   if (player.agents >= MAX_AGENTS) throw new OpFailure(`You have ${MAX_AGENTS} agents, the most a player may have.`, "agent.destroy");
   const world = (await clockOf(ctx, game._id)).worldSeconds, price = priceOf(a.language, a.source, priceScaleOf(game));
   const share = roundShare(a.share ?? defaultShare(player.allocated));
@@ -94,7 +94,7 @@ export async function summonAgent(ctx: MutationCtx, game: Doc<"v2Games">, player
   const name = a.name ?? `Agent ${player.agents + 1}`;
   const agentId = await ctx.db.insert("v2Agents", {
     gameId: game._id, memberId: player.memberId, name, language: a.language, sourceHash,
-    version: 0, share, createdAt: now, source: a.source,
+    version: 0, share, createdAt: now,
   });
   await ctx.db.insert("v2AgentEnergy", { agentId, gameId: game._id, energy: moved.agent.balance, acts: 0, skips: 0, failures: 0, spend: 0, pointsGained: 0, settledAt: world });
   await ctx.db.insert("v2AgentPrograms", { agentId, version: 0, language: a.language, source: a.source, sourceHash, price, summonedAt: now, acts: 0, pointsGained: 0 });
@@ -116,10 +116,10 @@ export async function ownAgent(ctx: MutationCtx, player: Doc<"v2Players">, agent
 /** Swaps a new program into an agent (a replace, or an earlier version put back), paying only for the change. */
 export async function reprogram(ctx: MutationCtx, game: Doc<"v2Games">, player: Doc<"v2Players">, agent: Doc<"v2Agents">,
   a: { language: Language; source: string; kind: "replace" | "putBack"; from?: number }): Promise<{ version: number; price: number }> {
-  const world = (await clockOf(ctx, game._id)).worldSeconds, price = editPriceOf(agent, a.language, a.source, priceScaleOf(game));
+  const world = (await clockOf(ctx, game._id)).worldSeconds, price = editPriceOf(await programOf(ctx, agent), a.language, a.source, priceScaleOf(game));
   const own = await pay(ctx, game, player, world, price);
   const version = agent.version + 1, sourceHash = hashHex(a.source);
-  await ctx.db.patch(agent._id, { language: a.language, source: a.source, sourceHash, version });
+  await ctx.db.patch(agent._id, { language: a.language, sourceHash, version });
   await ctx.db.insert("v2AgentPrograms", { agentId: agent._id, version, language: a.language, source: a.source, sourceHash, price, summonedAt: Date.now(), acts: 0, pointsGained: 0 });
   await ctx.db.patch(player._id, { energy: own.balance, settledAt: own.settledWorldSeconds });
   await appendEvent(ctx, game._id, "command", { kind: a.kind, memberId: player.memberId, agentId: agent._id, language: a.language, sourceHash, version, price, ...(a.from !== undefined ? { from: a.from } : {}), worldSeconds: world });
@@ -154,8 +154,7 @@ export async function allocatePower(ctx: MutationCtx, game: Doc<"v2Games">, play
   if (Object.values(shares).some(x => !(x > 0) || x > 1)) throw new OpFailure("Every agent you name needs a share above 0 and at most all of your power.", "agent.destroy");
   const named: Doc<"v2Agents">[] = [];
   for (const id of Object.keys(shares)) named.push(await ownAgent(ctx, player, id));
-  const others = (await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", player.memberId)).take(MAX_AGENTS))
-    .filter(a => a.destroyedAt === undefined && !named.some(n => n._id === a._id));
+  const others = (await liveAgentsOf(ctx, game._id, player.memberId).take(MAX_AGENTS)).filter(a => !named.some(n => n._id === a._id));
   const agents = named.map(agent => ({ agent, to: floorShare(shares[agent._id]!) }));
   if (agents.some(x => x.to <= 0)) throw new OpFailure("That share rounds to nothing; give each agent you name at least 0.1% of your power.", "agent.destroy");
   const total = others.reduce((t, a) => t + a.share, 0) + agents.reduce((t, x) => t + x.to, 0);

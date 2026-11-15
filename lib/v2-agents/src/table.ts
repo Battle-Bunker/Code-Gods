@@ -32,7 +32,8 @@ import { editBits, summonBits } from "./summon.ts";
 
 /** The server's cadences (convex/v2/loop.ts TICK_MS, convex/v2/aiTurn.ts AI_TURN_MS). */
 export const TICK_SECONDS = 1.5, AI_TURN_SECONDS = 20;
-const MAX_AGENTS = 20;
+/** The server's cap (convex/v2/play.ts MAX_AGENTS: v1's 200 a player, call 35). */
+const MAX_AGENTS = 200;
 
 export type SeatKind = "naive" | "starter" | "model";
 export interface TableSeat {
@@ -425,9 +426,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
           return { ok: true };
         }
         case "chat.list": return pageOf(chat.slice().reverse().map(m => ({ from: m.from, text: m.text, at: m.at })), args);
-        case "agents.list": return {
-          agents: mine(i).map(x => ({ agentId: x.id, name: x.name, language: lang(x.program.language), share: x.share, energy: settledAgent(x).balance, acts: x.acts, version: x.programs.length - 1 })),
-        };
+        case "agents.list": return pageOf(mine(i).map(x => ({ agentId: x.id, name: x.name, language: lang(x.program.language), share: x.share, energy: settledAgent(x).balance, acts: x.acts, version: x.programs.length - 1 })), args);
         case "agent.programs": {
           const x = agentArg(i, args);
           return { versions: x.programs.map((p, k) => ({ version: k, language: lang(p.language), source: p.source, acts: 0 })).reverse() };

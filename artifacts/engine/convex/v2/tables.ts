@@ -280,9 +280,14 @@ export const v2Tables = {
   v2Agents: defineTable({
     gameId: v.id("v2Games"), memberId: v.id("v2Members"), name: v.string(), language: languageV,
     sourceHash: v.string(), version: v.number(), share: v.number(), createdAt: v.number(), destroyedAt: v.optional(v.number()),
-    /** The current program (also in v2AgentPrograms), read by the tick without another lookup. */
-    source: v.string(),
-  }).index("by_game_member", ["gameId", "memberId"]).index("by_game", ["gameId"]),
+    /**
+     * No longer written: the current program is v2AgentPrograms at (agentId, version) (`programOf`), so a page of a
+     * player's agents (up to 200, call 35) stays a few KiB however long their programs are. Rows stored before keep it.
+     */
+    source: v.optional(v.string()),
+  })
+    // Live agents (destroyedAt unset) by player and by game: the paginated lists and the tick read only these.
+    .index("by_game_member_live", ["gameId", "memberId", "destroyedAt"]).index("by_game_live", ["gameId", "destroyedAt"]),
   /** An agent's hot part. */
   v2AgentEnergy: defineTable({
     agentId: v.id("v2Agents"), gameId: v.id("v2Games"), energy: v.number(), acts: v.number(), skips: v.number(),
