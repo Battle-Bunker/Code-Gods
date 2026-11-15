@@ -215,6 +215,7 @@ const w = (x: Q) => Qn.toWire(x);
 
 export const shift: M = {
   id: "si.shift", reps: ["si", "cart"], title: "move the line up or down", perSite: true,
+  argHelp: () => ({ k: { label: "How far up", hint: "a number such as 2, −3 or 1/2: 2 moves the line up 2, −3 moves it down 3", example: "1" } }),
   describe: a => `move the line ${Qn.sign(k(a)) > 0 ? "up" : "down"} ${w(Qn.abs(k(a)))}`,
   args: v => fields(baseBits(v, true, "si.shift"), {}, amount(argD(v))),
   apply: viaMC((m, c, a) => [m, Qn.add(c, k(a))]),
@@ -223,6 +224,7 @@ export const shift: M = {
 
 export const tilt: M = {
   id: "si.tilt", reps: ["si", "mach"], title: "change the gradient, keeping the y-intercept", perSite: true,
+  argHelp: () => ({ k: { label: "Add to the gradient", hint: "a number such as 2, −3 or 1/2: 1 makes it go 1 more up for every 1 across; the y-intercept stays", example: "1" } }),
   describe: a => `add ${w(k(a))} to the gradient`,
   args: v => fields(baseBits(v, true, "si.tilt"), {}, amount(argD(v))),
   apply: viaMC((m, c, a) => [Qn.add(m, k(a)), c]),
@@ -231,6 +233,7 @@ export const tilt: M = {
 
 export const step: M = {
   id: "seq.step", reps: ["seq"], title: "change the pattern's step, keeping term 1", perSite: true,
+  argHelp: () => ({ k: { label: "Add to the step", hint: "a number such as 2, −3 or 1/2: every term after term 1 moves by this much more than the last", example: "1" } }),
   describe: a => `add ${w(k(a))} to the step`,
   args: v => fields(baseBits(v, true, "seq.step"), {}, amount(argD(v))),
   apply: viaMC((m, c, a) => [Qn.add(m, k(a)), Qn.sub(c, k(a))]),
@@ -238,7 +241,8 @@ export const step: M = {
 };
 
 export const pivot: M = {
-  id: "cart.pivot", reps: ["cart"], title: "turn the line about its point at x = x0", perSite: true,
+  id: "cart.pivot", reps: ["cart"], title: "change the gradient, keeping one point", perSite: true,
+  argHelp: () => ({ x0: { label: "Point that stays (its x)", hint: "the line keeps its point above or below this x; 0 is where it crosses the y-axis", example: "0" }, k: { label: "Add to the gradient", hint: "a number such as 2, −3 or 1/2", example: "1" } }),
   describe: a => `turn about the point at x = ${w(Qa(a, "x0"))}, gradient ${Qn.sign(k(a)) > 0 ? "+" : "−"}${w(Qn.abs(k(a)))}`,
   args: v => fields(baseBits(v, true, "cart.pivot"), { x0: position(argD(v)) }, amount(argD(v))),
   apply: viaMC((m, c, a) => [Qn.add(m, k(a)), Qn.sub(c, Qn.mul(k(a), Qa(a, "x0")))]),
@@ -247,6 +251,7 @@ export const pivot: M = {
 
 export const slide: M = {
   id: "cart.slide", reps: ["cart"], title: "slide the line across the plane", perSite: true,
+  argHelp: () => ({ u: { label: "How far right", hint: "a number such as 2, −3 or 1/2 (below 0 goes left)", example: "1" }, v: { label: "How far up", hint: "a number such as 2, −3 or 1/2 (below 0 goes down)", example: "1" } }),
   describe: a => `slide by (${w(Qa(a, "u"))}, ${w(Qa(a, "v"))})`,
   args: v => fields(baseBits(v, true, "cart.slide"), {}, displacement(argD(v))),
   apply: (state, site, a, v) => {
@@ -261,6 +266,7 @@ export const slide: M = {
 const AXES = ["x", "y", "origin", "diagonal"] as const;
 export const mirror: M = {
   id: "cart.mirror", reps: ["cart"], title: "reflect the line", perSite: true,
+  argHelp: () => ({ axis: { label: "Reflect in", hint: "pick the mirror", example: "y", choices: { x: "the x-axis", y: "the y-axis", origin: "the origin (half a turn)", diagonal: "the diagonal y = x" } } }),
   describe: a => ({ x: "reflect in the x-axis", y: "reflect in the y-axis", origin: "turn half a turn about the origin", diagonal: "reflect in y = x (swap x and y)" })[S(a, "axis") as (typeof AXES)[number]],
   args: v => fields(baseBits(v, true, "cart.mirror"), { axis: oneOf(AXES) }),
   apply: (state, site, a, v) => {
@@ -274,6 +280,7 @@ export const mirror: M = {
 const COEFS = ["a", "b", "c"] as const;
 export const nudge: M = {
   id: "gen.nudge", reps: ["gen"], title: "add to one number of ax + by + c = 0", perSite: true,
+  argHelp: () => ({ which: { label: "Which number", hint: "one of a, b and c in ax + by + c = 0", example: "c", choices: { a: "a (the number with x)", b: "b (the number with y)", c: "c (the number on its own)" } }, k: { label: "Add", hint: "a whole number such as 1 or −2", example: "1" } }),
   describe: a => `add ${w(k(a))} to ${S(a, "which")}`,
   args: v => fields(baseBits(v, true, "gen.nudge"), { which: oneOf(COEFS) }, amount("Z")),
   apply: (state, site, a, v) => {
@@ -292,6 +299,7 @@ export const nudge: M = {
 
 export const move: M = {
   id: "int.move", reps: ["int"], title: "move one intercept, keeping the other", perSite: true,
+  argHelp: () => ({ axis: { label: "Which crossing", hint: "the other crossing stays where it is", example: "y", choices: { x: "where it crosses the x-axis", y: "where it crosses the y-axis" } }, k: { label: "Move it by", hint: "a number such as 2, −3 or 1/2 along that axis", example: "1" } }),
   describe: a => `move the ${S(a, "axis")}-intercept by ${w(k(a))}`,
   args: v => fields(baseBits(v, true, "int.move"), { axis: oneOf(["x", "y"]) }, amount(argD(v))),
   apply: (state, site, a, v) => {
@@ -308,6 +316,7 @@ export const move: M = {
 
 export const stretch: M = {
   id: "mach.stretch", reps: ["mach"], title: "multiply every output by a factor", perSite: true,
+  argHelp: () => ({ f: { label: "Multiply by", hint: "2 doubles every output, 1/2 halves it, −1 turns it upside down", example: "2" } }),
   describe: a => `multiply every output by ${w(Qa(a, "f"))}`,
   args: v => fields(baseBits(v, true, "mach.stretch"), {}, factor),
   apply: viaMC((m, c, a) => [Qn.mul(m, Qa(a, "f")), Qn.mul(c, Qa(a, "f"))]),
@@ -398,6 +407,7 @@ const turnWords = (t: Q | string, aboutPin: boolean): string =>
 
 export const turn: M = {
   id: "rot.turn", reps: ["cart", "norm"], title: "turn the line around a pin, like a clock hand", perSite: true,
+  argHelp: () => ({ centre: { label: "Where to pin it", hint: "origin, or a number: the point of the line above or below it on the x-axis (0 is where it crosses the y-axis)", example: "0" }, turn: { label: "How far to turn", hint: `left or right for one quarter turn (90°), or a gradient: 1 is ${turnAngleWords(q(1))}, 3/4 is ${turnAngleWords(q(3, 4))}; below 0 turns clockwise`, example: "1" } }),
   describe: a => `turn the line ${turnWords(a.turn!, a.centre !== "origin")} around ${a.centre === "origin" ? "the origin (0, 0)" : pinWords(Qa(a, "centre"))}`,
   args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
@@ -431,6 +441,7 @@ export const turn: M = {
 const PAIRS = ["m-c", "b-c"] as const;
 export const swap: M = {
   id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation (it costs at least what the dearer of the two costs to write)", perSite: true,
+  argHelp: () => ({ pair: { label: "Which two numbers", hint: "the two numbers trade places", example: "m-c", choices: { "m-c": "the gradient and the y-intercept", "b-c": "b and c in ax + by + c = 0" } } }),
   describe: a => (S(a, "pair") === "m-c" ? "swap the gradient and the y-intercept (y = mx + c becomes y = cx + m)" : "swap b and c in ax + by + c = 0"),
   args: v => fields(baseBits(v, true, "coef.swap"), { pair: oneOf(PAIRS) }),
   apply: (state, site, a, v) => {
@@ -451,6 +462,7 @@ export const swap: M = {
 
 export const lean: M = {
   id: "basis.lean", reps: ["crossing", "cart"], title: "lean the line, keeping where it crosses the x-axis", perSite: true,
+  argHelp: () => ({ k: { label: "How much further sideways", hint: "a number such as 2, −3 or 1/2: for every 1 up the line goes this much further left (below 0: right)", example: "1" } }),
   describe: a => `lean the line ${w(Qn.abs(k(a)))} ${Qn.sign(k(a)) > 0 ? "further left" : "further right"} for every 1 up, keeping its x-axis crossing`,
   args: v => fields(baseBits(v, true, "basis.lean"), {}, amount(argD(v))),
   apply: (state, site, a, v) => {
@@ -464,6 +476,7 @@ export const lean: M = {
 
 export const zoom: M = {
   id: "basis.zoom", reps: ["tri", "norm"], title: "zoom the line away from the origin or towards it, keeping its steepness", perSite: true,
+  argHelp: () => ({ f: { label: "How many times as far", hint: "2 takes the line twice as far from the origin, 1/2 half as far; below 0 also flips it to the other side", example: "2" } }),
   describe: a => `zoom by ${w(Qa(a, "f"))} from the origin: where the line crosses each axis moves × ${w(Qa(a, "f"))}, and it keeps its steepness`,
   args: v => fields(baseBits(v, true, "basis.zoom"), {}, factor),
   apply: (state, site, a, v) => {
@@ -550,6 +563,7 @@ function foldArgs(v: Variant): ArgCode<Args> {
 
 export const fold: M = {
   id: "fold", reps: ["cart"], title: "fold the line in a mirror", perSite: true,
+  argHelp: () => ({ x0: { label: "Crease through the line at x", hint: "the crease goes through the line's point at this x; 0 is where it crosses the y-axis", example: "0" }, s: { label: "Slope of the crease", hint: "0 for a level crease, or a slope such as 1, −2 or 1/2", example: "0" }, mirror: { label: "Or a mirror line", hint: "instead of a crease: three whole numbers a,b,c for ax + by + c = 0, such as 1,-1,0 for y = x", example: "1,-1,0" } }),
   describe: a => {
     if (typeof a.mirror === "string") return `reflect the line in the mirror ${describeLine(decodeLine(S(a, "mirror")))}`;
     const s = Qa(a, "s");

@@ -18,11 +18,15 @@ test("the choices are the board's mutators, grouped by the representation they b
   assert.deepEqual(cs.map(c => c.id).sort(), [...lineZ.mutators].sort());
   const shift = cs.find(c => c.id === "si.shift")!;
   assert.equal(shift.rep, "si");
-  assert.deepEqual(shift.args, [{ name: "k", kind: "number", fractions: false, start: "1" }]);
+  const bare = (a: object) => { const { label: _l, hint: _h, choiceWords: _c, ...r } = a as Record<string, unknown>; return r; };
+  assert.deepEqual(shift.args.map(bare), [{ name: "k", kind: "number", fractions: false, start: "1" }]);
+  // Said for a person (round 23), from the move's own help: never the raw name alone.
+  assert.equal(shift.args[0]!.label, "How far up");
   const pivot = cs.find(c => c.id === "cart.pivot")!;
   assert.deepEqual(pivot.args.map(a => [a.name, a.start]), [["x0", "0"], ["k", "1"]]);
   const mirror = cs.find(c => c.id === "cart.mirror")!;
-  assert.deepEqual(mirror.args, [{ name: "axis", kind: "choice", choices: ["x", "y", "origin", "diagonal"], start: "x" }]);
+  assert.deepEqual(mirror.args.map(bare), [{ name: "axis", kind: "choice", choices: ["x", "y", "origin", "diagonal"], start: "y" }]);
+  assert.equal(mirror.args[0]!.choiceWords?.diagonal, "the diagonal y = x");
 });
 
 test("a number may be a fraction where the move takes one: everywhere on a fraction board, a stretch factor on any board", () => {

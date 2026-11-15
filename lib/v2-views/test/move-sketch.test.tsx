@@ -125,3 +125,20 @@ test("drawn: the old line faint, the new line, each part named for a reader; a m
   assert.match(html, /data-testid="text-move-sketch"/);
   assert.equal(sketchMove(before, after, { mutator: "si.shift", args: { k: "1" } }), null);
 });
+
+test("round 23: the sketch carries its own colours (a .v2v root), and the arc's label sits clear of the arrowhead", () => {
+  for (const turn of ["left", "1", "3/4"]) {
+    const before = mc(q(-1), q(-5));
+    const after = apply("rot.turn", before, { centre: "0", turn });
+    const html = renderToStaticMarkup(<MoveSketch before={before} after={after} call={{ mutator: "rot.turn", args: { centre: "0", turn } }} />);
+    assert.match(html, /class="v2v v2v-sketch"/, "inside a pane that is not .v2v, the lines still get a colour");
+    const head = [...html.matchAll(/<path class="arc" d="([^"]+)"/g)][0]![1]!.split(/[ML]/).filter(Boolean).at(-1)!.split(",").map(Number);
+    const lab = html.match(/data-part="arc-label" x="([\d.]+)" y="([\d.]+)" text-anchor="(\w+)"/)!;
+    const [x, y, anchor] = [Number(lab[1]), Number(lab[2]), lab[3]];
+    const width = (turn === "left" ? "¼ turn" : html.match(/data-part="arc-label"[^>]*>([^<]+)</)![1]!).length * 6.5;
+    const left = anchor === "start" ? x : anchor === "end" ? x - width : x - width / 2;
+    const clear = head[0]! < left - 4 || head[0]! > left + width + 4 || head[1]! < y - 14 || head[1]! > y + 4;
+    assert.ok(clear, `turn ${turn}: the arrowhead at (${head}) is clear of the label box at x ${left}–${left + width}, y ${y}`);
+    assert.ok(left >= 0 && left + width <= 320, `turn ${turn}: the label fits the window`);
+  }
+});

@@ -248,7 +248,7 @@ export function MoveSketch({ before, after, call }: { before: Line; after: Line;
   const P = (p: XY) => ({ x: v.sx(p.x), y: v.sy(p.y) });
   // Screen scale per world unit, across and up (the y axis points down on screen).
   const kx = v.sx(1) - v.sx(0), ky = v.sy(0) - v.sy(1);
-  let arcPath: string | null = null, arcLabel: XY | null = null;
+  let arcPath: string | null = null, arcLabel: XY | null = null, arcAnchor: "start" | "end" | "middle" = "middle";
   if (s.arc) {
     const c = P(s.arc.centre), n = 24, dir = s.arc.ccw ? 1 : -1;
     // Between the perpendiculars about the origin (half their length), else a fixed size about the pin.
@@ -257,13 +257,22 @@ export function MoveSketch({ before, after, call }: { before: Line; after: Line;
     const onArc = (th: number) => { const dx = Math.cos(th) * kx, dy = Math.sin(th) * ky, len = Math.hypot(dx, dy) || 1; return { x: c.x + (r * dx) / len, y: c.y - (r * dy) / len }; };
     const pts = Array.from({ length: n + 1 }, (_, i) => onArc(s.arc!.start + (dir * s.arc!.sweep * i) / n));
     arcPath = pts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    // The label outside the arc's middle, anchored away from the centre, so neither the arrowhead at the arc's end nor
+    // the window's edge covers it (round 23: "¼ TUR▶").
     const mid = onArc(s.arc.start + (dir * s.arc.sweep) / 2);
-    const half = (s.arc.label.length * 6) / 2;
-    arcLabel = { x: Math.min(W - 4 - half, Math.max(4 + half, c.x + (mid.x - c.x) * 1.6)), y: Math.min(H - 6, Math.max(14, c.y + (mid.y - c.y) * 1.6)) };
+    const ux = (mid.x - c.x) / r, uy = (mid.y - c.y) / r;
+    const w = s.arc.label.length * 6.5;
+    const anchor: "start" | "end" | "middle" = ux > 0.3 ? "start" : ux < -0.3 ? "end" : "middle";
+    const lx = c.x + ux * (r + 10), ly = c.y + uy * (r + 10) + (uy > 0.3 ? 10 : uy < -0.3 ? 0 : 4);
+    const lo = anchor === "start" ? 4 : anchor === "end" ? 4 + w : 4 + w / 2, hi = anchor === "start" ? W - 4 - w : anchor === "end" ? W - 4 : W - 4 - w / 2;
+    arcLabel = { x: Math.min(hi, Math.max(lo, lx)), y: Math.min(H - 6, Math.max(14, ly)) };
+    arcAnchor = anchor;
   }
   const ox = v.x0 <= 0 && v.x1 >= 0 ? v.sx(0) : null, oy = v.y0 <= 0 && v.y1 >= 0 ? v.sy(0) : null;
   return (
-    <div className="v2v-sketch" data-kind={s.kind} data-testid="move-sketch">
+    // Its own .v2v root: the colours are variables set there, and a host pane need not be inside one (round 23: in What
+    // if the axes and both lines were drawn without a colour, so only the dots and labels showed).
+    <div className="v2v v2v-sketch" data-kind={s.kind} data-testid="move-sketch">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s.words}>
         <defs>
           <marker id="v2v-sketch-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -297,7 +306,7 @@ export function MoveSketch({ before, after, call }: { before: Line; after: Line;
         {arcPath && (
           <g data-part="arc">
             <path className="arc" d={arcPath} markerEnd="url(#v2v-sketch-head)" />
-            {arcLabel && <text className="label" x={arcLabel.x} y={arcLabel.y} textAnchor="middle">{s.arc!.label}</text>}
+            {arcLabel && <text className="label" data-part="arc-label" x={arcLabel.x} y={arcLabel.y} textAnchor={arcAnchor}>{s.arc!.label}</text>}
           </g>
         )}
         {s.points.map((p, i) => {
