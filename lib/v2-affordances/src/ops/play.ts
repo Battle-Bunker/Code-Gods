@@ -67,6 +67,14 @@ export const playOps = [
     contexts: GAME, caller: "seated", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({
+    id: "rule.candidates", title: "List the rules that could be dealt", group: "play", scope: "game",
+    description: "Every rule this game's dealer could deal to a player (v1's list_utility_candidates): family, parameters, tie-breaker and the card a player holding it reads. The other players' rules are among these; the list never says who holds which. Read it with log.list to work out what the others want.",
+    tooltip: "Every rule anyone could hold here.", keywords: ["candidates", "possible rules", "rivals", "what could the others want", "rule list"],
+    params: none,
+    result: z.object({ rules: z.array(z.object({ family: z.string(), params: z.record(z.string(), z.unknown()), tieBreaker: z.string().nullable(), card: z.string() })) }),
+    contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
+  }),
+  affordance({
     id: "rule.worth", title: "Look up what a score is worth", group: "play", scope: "game",
     description: "The value in bits of one score of the caller's rule (a score tuple as object.score returns it), with the calibration's lower and upper bounds.",
     tooltip: "How rare a score is.", keywords: ["worth", "rarity", "bits", "how rare", "value"],
