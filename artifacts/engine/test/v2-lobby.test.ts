@@ -141,5 +141,10 @@ test("the dealing trial's measurement: a game stores its table's unopposed direc
   for (const d of stored.unopposed) assert.ok(typeof d.direction === "string" && Array.isArray(d.rules) && ["weak", "strong"].includes(d.strength));
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal("unopposed" in header, false, "players are not shown it");
+  // Step 2, logging only: what the policy would have dealt this table, beside the real deal (line-q has a W table).
+  const policy = stored.unopposedPolicy;
+  assert.ok(policy && policy.wouldDeal.length === stored.roster.length && typeof policy.score === "number", JSON.stringify(policy));
+  assert.ok(!policy.fallback || /none of|company/.test(policy.fallback), `line-q is measured: ${policy.fallback}`);
+  assert.equal("unopposedPolicy" in header, false, "players are not shown it either");
   await perform(ada!, "game.end", {}, { gameId });
 });

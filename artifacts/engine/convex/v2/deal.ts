@@ -20,7 +20,7 @@
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
-import { hasStarters, pairVerdict, type PairVerdict } from "@workspace/v2-agents/pure";
+import { hasStarters, pairPmi, pairVerdict, unopposedDirections, type PairVerdict, type UnopposedDirection } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
 import { measuredToBits, valueRecord } from "./values.ts";
@@ -155,6 +155,67 @@ export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKin
     if (practiceFits(variant, deal, h)) return deal;
   }
   return first!;
+}
+
+// ---------------------------------------------------------------- the dealing trial, step 2 (logging only)
+
+/** A pair the W table has not read counts as this much PMI, in bits (the spec lead's policy). */
+export const MISSING_PMI = 1.5;
+/** Seeded candidate tables the policy weighs (v1's fair-aligned dealer: the best of 32). */
+export const POLICY_CANDIDATES = 32;
+const ruleId = (r: DealtRule) => `${r.family}/${r.tieBreaker}`;
+
+/**
+ * v1's fair-aligned score of a table on the W table (lib/v2-agents pairPmi, depth-averaged PMI in bits): the mean
+ * pairwise W minus the spread of each seat's mean W to the rest of the table; a missing pair counts MISSING_PMI.
+ */
+export function fairAlignedScore(variant: string, deal: readonly DealtRule[]): number {
+  const n = deal.length;
+  if (n < 2) return 0;
+  const w = (a: DealtRule, b: DealtRule) => pairPmi(variant, ruleId(a), ruleId(b))?.pmi ?? MISSING_PMI;
+  let pairSum = 0;
+  const perSeat = deal.map((a, i) => deal.reduce((t, b, j) => (j === i ? t : t + w(a, b)), 0) / (n - 1));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) pairSum += w(deal[i]!, deal[j]!);
+  const mean = pairSum / (n * (n - 1) / 2), avg = perSeat.reduce((t, x) => t + x, 0) / n;
+  return mean - Math.sqrt(perSeat.reduce((t, x) => t + (x - avg) ** 2, 0) / n);
+}
+
+/** What the policy would have dealt, and why (stored on the game; the deal itself is unchanged until the coordinator turns it on). */
+export interface PolicyChoice {
+  wouldDeal: string[];
+  unopposed: UnopposedDirection[];
+  score: number;
+  /** Why the choice is not a qualifying table: no W table for the variant (the lottery), or none of the candidates qualified. */
+  fallback?: string;
+}
+
+/**
+ * The dealing trial's step 2 (the spec lead's policy, logging only): POLICY_CANDIDATES seeded tables (the seating rule
+ * honoured; in a practice game, tables that leave the human in company first). A table qualifies with no strong
+ * unopposed shared direction and at most one weak; among those, the fewest unopposed directions, ties to the higher
+ * fair-aligned score. None qualifying: the best by the same order, with the reason. No W table: the lottery's first.
+ * Drawn from its own stream, so the real deal is untouched.
+ */
+export function policyDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): PolicyChoice {
+  const r = rng(seed, "deal-policy"), h = kinds.indexOf("human"), practice = isPracticeGame(kinds);
+  const candidates = Array.from({ length: POLICY_CANDIDATES }, () => dealFrom(pool, kinds.length, r, fams => seatingCost(variant, fams)));
+  const fits = practice ? candidates.filter(d => practiceFits(variant, d, h)) : candidates;
+  const tables = fits.length ? fits : candidates;
+  const ids = [...new Set(pool.map(ruleId))];
+  const measured = ids.some((a, i) => ids.some((b, j) => j > i && pairPmi(variant, a, b) !== null));
+  const shaped = tables.map(deal => {
+    const unopposed = unopposedDirections(variant, deal.map(ruleId));
+    const strong = unopposed.filter(u => u.strength === "strong").length, weak = unopposed.length - strong;
+    return { deal, unopposed, strong, weak, score: measured ? fairAlignedScore(variant, deal) : 0 };
+  });
+  const pick = (cs: typeof shaped) => cs.reduce((best, c) => (c.unopposed.length < best.unopposed.length || (c.unopposed.length === best.unopposed.length && c.score > best.score) ? c : best));
+  const out = (c: typeof shaped[number], fallback?: string): PolicyChoice =>
+    ({ wouldDeal: c.deal.map(x => x.ruleKey), unopposed: c.unopposed, score: c.score, ...(fallback ? { fallback } : {}) });
+  if (!measured) return out(shaped[0]!, `no W table for ${variant}: the lottery`);
+  const qualifying = shaped.filter(c => c.strong === 0 && c.weak <= 1);
+  if (qualifying.length) return out(pick(qualifying), practice && !fits.length ? "no table left the human in company" : undefined);
+  const best = shaped.reduce((b, c) => (c.strong < b.strong || (c.strong === b.strong && c.weak < b.weak) || (c.strong === b.strong && c.weak === b.weak && c.score > b.score) ? c : b));
+  return out(best, `none of ${shaped.length} tables had no strong and at most one weak unopposed direction`);
 }
 
 /**

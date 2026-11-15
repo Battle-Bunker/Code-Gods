@@ -135,6 +135,11 @@ export const v2Tables = {
      * (lib/v2-agents unopposedDirections), computed at the deal. Never shown to players; for the collapse analysis.
      */
     unopposed: v.optional(v.array(v.any())),
+    /**
+     * The dealing trial's step 2 (deal.ts policyDeal), logging only: the table the policy would have dealt (rule keys by
+     * seat), its unopposed directions, its fair-aligned score and any fallback. Private, like `unopposed`.
+     */
+    unopposedPolicy: v.optional(v.object({ wouldDeal: v.array(v.string()), unopposed: v.array(v.any()), score: v.number(), fallback: v.optional(v.string()) })),
     /** Grid seating (deal.ts, lib/v2-grid seating.ts): the forbidden and the aligned pairs of seated families the deal left. */
     seating: v.optional(v.object({ clashes: v.array(v.string()), aligned: v.optional(v.array(v.string())) })),
     /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
