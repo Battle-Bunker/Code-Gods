@@ -2,6 +2,7 @@
  * The forge's leave-alone control (./leave-alone.ts): "Simple leaves these lines alone: [3, 19] Save". Only the code's
  * leave-alone list changes, through the directory's `agent.leaveAlone` (so the palette and assistants do the same).
  */
+import { useGame } from "@/sdk";
 import { useEffect, useRef, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { readLeave, setLeave } from "@workspace/v2-agents/pure";
@@ -31,6 +32,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
   agentId: string; name: string; language: Language; source: string; one: string; many: string;
 }) {
   const op = useAffordance("agent.leaveAlone");
+  const header = useGame();
   const now = readLeave(source);
   const [text, setText] = useState(now?.join(", ") ?? "");
   const [said, setSaid] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -61,7 +63,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
   const parsed = parseNumbers(text, one);
   const next = "numbers" in parsed ? parsed.numbers : null;
   const changed = next !== null && next.join(",") !== now.join(",");
-  const price = next && changed ? editPrice(language, source, setLeave(source, next)!) : 0;
+  const price = next && changed ? editPrice(language, source, setLeave(source, next)!, header?.priceScale ?? 1) : 0;
   const save = async () => {
     if (!next || !changed || busy) return;
     setBusy(true); setSaid(null);

@@ -14,7 +14,7 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 /** The player-facing sources: the app, the operation directory, the client library, the glossary, the views, and the agents' notes, prompts and helpers. */
-const DIRS = ["artifacts/player-web/src", "lib/v2-affordances/src", "lib/v2-client/src", "lib/ui-kit/src", "lib/v2-views/src", "lib/v2-agents/src", "lib/v2-sandbox/guest"];
+const DIRS = ["artifacts/player-web/src", "lib/v2-affordances/src", "lib/v2-client/src", "lib/ui-kit/src", "lib/v2-views/src", "lib/v2-agents/src", "lib/v2-sandbox/guest", "artifacts/engine/convex/v2"];
 const PICTOGRAPH = /\p{Extended_Pictographic}/u;
 /** A name attached on the line: a tooltip, an accessible label or a glossary term. */
 const NAMED = /\btitle=|aria-label=|<Term\b/;

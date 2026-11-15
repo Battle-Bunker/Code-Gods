@@ -79,6 +79,20 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   // Each row: when you last saw it, with its mark; the list: look at all (priced) and keep them fresh.
   await page.locator("[data-testid^=text-seen-line-]").first().waitFor({ timeout: 30_000 });
   await page.locator("[data-testid^=mark-fresh-line-]").first().waitFor();
+  // Decision 36: your agents tell you every object they act on, free. How stale does a beginner's view get with only the
+  // Simple starter? Every 2 s for 30 s, each row's age ("seen N s ago").
+  const ages: number[] = [];
+  for (let i = 0; i < 15; i++) {
+    for (const t of await page.locator("[data-testid^=text-seen-line-]").allInnerTexts()) {
+      const m = /seen (\d+) (s|min) ago/.exec(t);
+      if (m) ages.push(Number(m[1]) * (m[2] === "min" ? 60 : 1));
+    }
+    await page.waitForTimeout(2000);
+  }
+  ages.sort((a, b) => a - b);
+  const q = (p: number) => ages[Math.min(ages.length - 1, Math.floor(p * ages.length))];
+  console.log(`${preset}: view age with one Simple starter over 30 s (${ages.length} samples): median ${q(0.5)} s, 90% ${q(0.9)} s, max ${ages.at(-1)} s; calm (≤ 10 s) ${Math.round(100 * ages.filter(a => a <= 10).length / ages.length)}%`);
+  await page.screenshot({ path: path.join(shots, `paid-${preset}-beginner-view.png`) });
   // Looking is an extra (decision 36): behind "Want to see them sooner?".
   await page.getByTestId("details-look-more").click();
   const all = page.getByTestId("button-look-all");
@@ -86,14 +100,16 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   assert.match(await all.innerText(), new RegExp(`^Look at all \\d+ ${noun.many} \\([\\d.]+ energy\\)$`), "look at all is priced");
   await page.screenshot({ path: path.join(shots, `paid-${preset}-list.png`) });
   // One the practice partners changed since you saw it: its own Look, priced, shows it as it is now.
+  // One that changed since you saw it, if any does within a minute (decision 36 keeps most views fresh); else the first.
   const changed = page.locator("[data-testid^=text-seen-line-]", { hasText: /changed \d+×/ }).first();
-  await changed.waitFor({ timeout: 90_000 });
-  const n = (await changed.getAttribute("data-testid"))!.slice("text-seen-line-".length);
-  assert.equal(await page.getByTestId(`mark-fresh-line-${n}`).getAttribute("data-fresh"), "stale");
-  console.log(`${preset}: ${noun.one} ${n}: ${await changed.innerText()}`);
+  const stale = await changed.waitFor({ timeout: 60_000 }).then(() => true, () => false);
+  const row = stale ? changed : page.locator("[data-testid^=text-seen-line-]").first();
+  const n = (await row.getAttribute("data-testid"))!.slice("text-seen-line-".length);
+  if (stale) assert.equal(await page.getByTestId(`mark-fresh-line-${n}`).getAttribute("data-fresh"), "stale");
+  console.log(`${preset}: ${noun.one} ${n}: ${await row.innerText()}${stale ? "" : " (none went stale within a minute)"}`);
   await page.getByTestId(`row-line-${n}`).click();
   const seen = page.getByTestId("text-line-seen");
-  await seen.getByText(/As you saw it at \d+:\d\d · changed (once|twice|\d+ times) since/).waitFor({ timeout: 15_000 });
+  await seen.getByText(/As you saw it at \d+:\d\d · /).waitFor({ timeout: 15_000 });
   const before = await seen.innerText();
   const look = page.getByTestId("button-look-line");
   assert.match(await look.innerText(), /^Look now \([\d.]+ energy\)$/, "a look shows its price");
@@ -103,7 +119,7 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   const until = Date.now() + 15_000;
   for (;;) {
     const t = await seen.innerText();
-    if (/up to date/.test(t) || (t !== before && /changed once since/.test(t))) { console.log(`${preset}: after a look: ${t}`); break; }
+    if ((/up to date/.test(t) && (stale || t !== before)) || (t !== before && /changed once since/.test(t))) { console.log(`${preset}: after a look: ${t}`); break; }
     if (Date.now() > until) throw new Error(`the look did not update the ${noun.one}: ${t}`);
     await page.waitForTimeout(200);
   }

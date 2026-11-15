@@ -6,6 +6,8 @@ import { PRESETS } from "@workspace/engine/convex/v2/presets.ts";
 import { affordLine, comparisonText, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonPrice, summonedText } from "../src/panes/forge-model.ts";
 
 const beginner = PRESETS.find(p => p.id === "lines-beginner")!;
+/** The beginner game's price scale: power ÷ 64 (W3 #695). */
+const SCALE = beginner.economy.powerPerSecond / 64;
 
 test("every dealt family opens with a program that has one 'Try this:' and is payable from the starting energy (ux 1.3, 1.4)", () => {
   for (const id of beginner.families) {
@@ -14,7 +16,7 @@ test("every dealt family opens with a program that has one 'Try this:' and is pa
       const p = openingProgram(id, tb, lang);
       assert.ok(p, `${id}/${tb}/${lang} has a program`);
       assert.equal(p.source.match(/Try this:/g)?.length, 1, `${id}/${tb}/${lang}: one Try this`);
-      assert.ok(summonPrice(lang, p.source) <= beginner.startingEnergy, `${id}/${tb}/${lang} costs ${summonPrice(lang, p.source)} > ${beginner.startingEnergy}`);
+      assert.ok(summonPrice(lang, p.source, SCALE) <= beginner.startingEnergy, `${id}/${tb}/${lang} costs ${summonPrice(lang, p.source, SCALE)} > ${beginner.startingEnergy}`);
     }
   }
 });
@@ -44,9 +46,9 @@ test("an edit is priced by what changed, beside the whole program's price; an un
   const { editPrice, editLine } = await import("../src/panes/forge-model.ts");
   const old = "function agent(offer) {\n  const FAR = 4;\n  return null;\n}\n";
   const changed = old.replace("FAR = 4", "FAR = 2");
-  const e = editPrice("typescript", old, changed), full = summonPrice("typescript", changed);
+  const e = editPrice("typescript", old, changed, 1), full = summonPrice("typescript", changed, 1);
   assert.ok(e > 0 && e < full, `a one-number change costs less than the whole program (${e} < ${full})`);
-  assert.equal(editPrice("typescript", old, old), 0);
+  assert.equal(editPrice("typescript", old, old, 1), 0);
   assert.equal(editLine({ edit: 12.5, full: 300, energy: 100 }), "Replacing costs changes only: 12.50 energy (the whole program would be 300.00 energy); you have 100.00 energy.");
 });
 
@@ -60,4 +62,11 @@ test("a beginner's first summon opens with the Simple starter; the example stays
     const others = otherStartingPoints(id, "typescript", tb);
     if (tb) assert.ok(others.some(o => o.kind === "example" && o.title === "See how a rule is climbed"), `${id}/${tb}: the example is offered`);
   }
+});
+
+test("prices are scaled by the game's power, as the server charges them (W3 #695: bits × power ÷ 64)", async () => {
+  const { summonPrice, editPrice } = await import("../src/panes/forge-model.ts");
+  const src = "export function agent() { return []; }";
+  assert.ok(Math.abs(summonPrice("typescript", src, 0.125) * 8 - summonPrice("typescript", src, 1)) < 1e-9, "the beginner's power of 8 pays an eighth");
+  assert.ok(Math.abs(editPrice("typescript", src, src + "\n// x", 0.125) * 8 - editPrice("typescript", src, src + "\n// x", 1)) < 1e-9);
 });

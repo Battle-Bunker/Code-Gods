@@ -79,9 +79,11 @@ export function ForgePane() {
   const source = draft ?? base;
   const changed = !!agent && !!current && source !== current.source;
   const primary = primaryAction({ agents: count, selected: !!agent, draftChanged: changed });
-  const price = summonPrice(language, source);
+  // The server charges bits × the game's price scale (power ÷ 64, W3 #695): the forge shows the same.
+  const scale = header?.priceScale ?? 1;
+  const price = summonPrice(language, source, scale);
   // A replace charges only what changed (owner decision 21; agent.replace's editPrice), from the agent's running program.
-  const replacePrice = primary === "replace" && current ? editPrice(language, current.source, source) : null;
+  const replacePrice = primary === "replace" && current ? editPrice(language, current.source, source, scale) : null;
   useEffect(() => { statusRef.current?.scrollIntoView({ block: "nearest" }); }, [status]);   // ux-lessons 5.3
   // A "Summon my first agent" pressed elsewhere on the screen (the planning line, Where am I) is performed here, once.
   const firstSummonRef = useRef<() => void>(() => {});
@@ -203,7 +205,7 @@ export function ForgePane() {
             <ul className="mt-1 w-[min(22rem,90vw)] divide-y border bg-card">
               {others.map(o => (
                 <li key={o.title} className="space-y-1 p-2">
-                  <p><span className="font-medium">{o.title}</span>: {o.summary} <span className="text-muted-foreground">({energyText(summonPrice(language, o.source))})</span></p>
+                  <p><span className="font-medium">{o.title}</span>: {o.summary} <span className="text-muted-foreground">({energyText(summonPrice(language, o.source, scale))})</span></p>
                   {agent ? <button type="button" className="underline underline-offset-4" aria-disabled={!replace.available || !!runner.busy || undefined} onClick={() => replace.available && !runner.busy && void doReplace(o.source)} data-testid={`button-replace-with-${o.kind}`}>Replace {agent.name} with {o.title}</button>
                     : <button type="button" className="underline underline-offset-4" onClick={() => setDraft(o.source)} data-testid={`button-open-${o.kind}`}>Open in the editor</button>}
                 </li>

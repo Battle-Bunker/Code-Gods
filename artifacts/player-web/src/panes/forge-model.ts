@@ -33,10 +33,13 @@ export function otherStartingPoints(family: string, language: Language, tieBreak
   } catch { return []; }
 }
 
-/** The summon (or replace) price of a program, in energy. */
-export const summonPrice = (language: Language, source: string) => summonBits(language, source).energy;
-/** What replacing an agent's program costs (owner decision 21): only what changed, as agent.replace charges it. */
-export const editPrice = (language: Language, oldSource: string, newSource: string) => editBits(language, oldSource, newSource).energy;
+/**
+ * The summon (or replace) price of a program, in energy: its bits times the game's price scale (the header's
+ * `priceScale`, power ÷ 64; W3 #695), as agent.summon charges it.
+ */
+export const summonPrice = (language: Language, source: string, scale: number) => summonBits(language, source).energy * scale;
+/** What replacing an agent's program costs (owner decision 21): only what changed, scaled as agent.replace charges it. */
+export const editPrice = (language: Language, oldSource: string, newSource: string, scale: number) => editBits(language, oldSource, newSource).energy * scale;
 /** The edit's price beside the whole program's, and the energy to pay it. */
 export function editLine(o: { edit: number; full: number; energy: number }): string {
   return `Replacing costs changes only: ${energyText(o.edit)} (the whole program would be ${energyText(o.full)}); you have ${energyText(o.energy)}.`;
