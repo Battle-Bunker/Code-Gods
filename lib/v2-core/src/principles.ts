@@ -55,11 +55,14 @@ export const enoughInstances = (dealable: readonly unknown[], min = 4): boolean 
  * 12-bit stretch, 0.075 per fee bit, at every size.)
  */
 export const STRAIGHT_FLOOR = 0.02;
+/** The fewest applications whose bits-per-fee slope `straightHill` reads (shorter chains face only the cap). */
+export const STRAIGHT_MIN_CHAIN = 10;
 export function straightHill(bits: readonly number[], fees: readonly number[], cap = 30): string | null {
   const n = fees.length;
-  if (n < 3 || bits.length !== n + 1) return null;
+  if (n < 1 || bits.length !== n + 1) return null;
   const gained = Math.max(...bits) - bits[0]!;
   if (gained > cap) return `gains ${gained.toFixed(1)} bits over ${n} applications (at most ${cap})`;
+  if (n < STRAIGHT_MIN_CHAIN) return null;   // too short a chain (a cycle cut short, a refusal) to read a slope from
   const paid = [0];
   for (const f of fees) paid.push(paid.at(-1)! + f);
   /** The least-squares slope of bits against fees paid, over points from..to (inclusive). */

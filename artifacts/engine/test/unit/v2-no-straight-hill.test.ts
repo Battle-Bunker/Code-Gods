@@ -2,7 +2,7 @@
  * No straight hill (the coordinator's mechanical check, 15 Nov; lib/v2-core principles.ts straightHill): for every dealt
  * line rule of every line preset, every shortcut its variant offers (a stretch or zoom by a factor and by its inverse, a
  * turn about the origin) applied 30 times from typical lines (draws of the variant's law) must gain less per fee as the
- * chain goes on, and at most 30 bits in all. Breaks caught: Smooth Intercept scored by the y-intercept's size, where a
+ * chain goes on, and at most 30 bits in all. A chain back at a state it held is a cycle and stops there. Breaks caught: Smooth Intercept scored by the y-intercept's size, where a
  * stretch by a dealt prime added the same 0.9 bits at every size (playtest round 21: 3⁸ by "multiply by −3", 59-bit
  * seats). A family that fails is not dealt.
  */
@@ -44,10 +44,14 @@ test("no dealt line rule is a straight hill along any shortcut its preset offers
       };
       for (const m of offered) for (const args of SHORTCUTS[m.id]!) for (const [k, start] of starts.entries()) {
         const bits = [bitsOf(start)], fees: number[] = [];
+        const seen = new Set([type.encode(start)]);
         let s = start;
         for (let i = 0; i < CHAIN; i++) {
           const a = applyCall(type as ObjectType<LineState>, variant, s, { mutator: m.id, site: 0, args });
           if (isInvalid(a)) break;
+          // Back to a state it held: a cycle (four quarter turns), which repeats rather than climbs.
+          if (seen.has(type.encode(a.result))) break;
+          seen.add(type.encode(a.result));
           s = a.result;
           fees.push(a.price.total);
           bits.push(bitsOf(s));
