@@ -33,8 +33,6 @@ export function ResultsPane() {
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
       {header.phase === "ended" && endNote(header) && <p className="text-sm text-muted-foreground" data-testid="text-results-end">{endNote(header)}</p>}
-      {/* The next step right under the headline (on a phone, above the fold): what to try, then why. */}
-      {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       {header.phase === "ended" && code && (
         <Link href={roomPath(code)} className="inline-flex items-center bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground" data-testid="link-back-to-room">
           Back to the room for the next game
@@ -44,6 +42,9 @@ export function ResultsPane() {
         <AffordanceButton id="replay.open" args={{ gameId: header.gameId }} label="Watch the replay" busyLabel="Opening the replay…" tone="secondary" testId="button-watch-replay"
           icon={<Play className="mr-1.5 h-4 w-4" aria-hidden />} />
       )}
+      {/* The next step under the actions (round 13's dock check: a summary above them pushed "Watch the replay" out of
+          view): what to try, then why. */}
+      {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       <Rotation summary={header.phase === "ended" ? rotationSummary(round, header.me, header.gameId) : null} />
       {header.phase === "ended" && round === null && rows.some(r => r.handicap > 0) && (
         <p className="text-muted-foreground" data-testid="text-results-no-rotation">A rule was won in the bid this game, so there is no rotation this round: the next game deals new rules.</p>
