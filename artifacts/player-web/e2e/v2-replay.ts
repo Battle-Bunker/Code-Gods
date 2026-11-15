@@ -69,7 +69,13 @@ async function serverKnowsWatchAs(page: Page, code: string, gameId: string): Pro
   client.setAuth(token);
   const { roomId } = await client.query("v2/rooms:byCode" as never, { code } as never) as { roomId: string };
   const { me } = await client.query("v2/games:header" as never, { gameId } as never) as { me: string };
-  const out = await client.mutation("v2/ops/view:apply" as never, { id: "replay.watchAs", args: { memberId: me }, roomId, gameId, replay: true } as never) as { ok: boolean; error?: { code: string; message: string } };
+  // The bar can show before replay.open's write lands in the stored view: a few tries while it says "open one first".
+  let out: { ok: boolean; error?: { code: string; message: string; fix?: string } } = { ok: false };
+  for (let i = 0; i < 20; i++) {
+    out = await client.mutation("v2/ops/view:apply" as never, { id: "replay.watchAs", args: { memberId: me }, roomId, gameId, replay: true } as never) as typeof out;
+    if (out.ok || out.error?.fix !== "replay.open") break;
+    await new Promise(done => setTimeout(done, 250));
+  }
   if (!out.ok && out.error?.code !== "unknown") throw new Error(`replay.watchAs: ${out.error?.message}`);
   return out.ok;
 }

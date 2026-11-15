@@ -49,6 +49,8 @@ export interface ReplayIndex {
   moves: Map<string, { at: number; move: Move }[]>;
   commands: Map<string, Command[]>;
   rules: Map<string, MyRuleRow>;
+  /** Each seat's rule over the game (parameter drift, call 18): from gameStarted, then each drift; sorted by position. */
+  ruleTimes: Map<string, { at: number; row: MyRuleRow }[]>;
   /** Standings history prefixes by length, so an unchanged prefix keeps its identity across frames. */
   histories: Map<number, StandingsPoint[]>;
   /** Each line's answers by (member, state, value), likewise. */
@@ -82,6 +84,19 @@ function ruleRow(r: RawRule, variant: string | undefined): MyRuleRow {
   };
 }
 
+type RawStart = { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string; card?: string };
+
+/**
+ * A seat's rule at one point: the end rule with the parameters then in force. The card is the event's, else the
+ * family's own sentence for those numbers; the value curve is the end rule's when it is the same rule, else kept.
+ */
+function drifted(end: MyRuleRow, p: RawStart, card: string | null, drifts: number, at: number | null): MyRuleRow {
+  const f = familyOf(p.family);
+  let text = card;
+  if (!text) { try { text = f ? f.card(p.params as never, p.tieBreaker as never) : end.card; } catch { text = end.card; } }
+  return { ...end, family: p.family, params: p.params, tieBreaker: p.tieBreaker, ruleKey: p.ruleKey, contentHash: p.contentHash, card: text ?? end.card, drifts, driftedAt: at };
+}
+
 /** Reads a downloaded file and folds it once; throws a sentence when it is not a replay this page reads. */
 export function indexReplay(file: unknown): ReplayIndex {
   const f = file as { version?: unknown; game?: Record<string, unknown>; rules?: RawRule[]; events?: RawEvent[] } | null;
@@ -95,7 +110,7 @@ export function indexReplay(file: unknown): ReplayIndex {
 
   const ix: ReplayIndex = {
     gameId: game.gameId, end: f.events.length, endWorld: game.settings?.worldSeconds ?? 0, roster: game.roster,
-    world: [], stops: [], objects: [], byId: new Map(), ticks: [], moves: new Map(), commands: new Map(), rules, histories: new Map(), answers: new Map(),
+    world: [], stops: [], objects: [], byId: new Map(), ticks: [], moves: new Map(), commands: new Map(), rules, ruleTimes: new Map(), histories: new Map(), answers: new Map(),
   };
   const events = [...f.events].sort((a, b) => a.seq - b.seq);
   let world = 0, moveSeq = 0;
@@ -106,6 +121,21 @@ export function indexReplay(file: unknown): ReplayIndex {
     if (typeof d.worldSeconds === "number") world = Math.max(world, d.worldSeconds);
     ix.world.push(world);
     switch (e.kind) {
+      case "gameStarted": {
+        // The rules as dealt (the file's rules are the END state: a drift changed some since).
+        for (const p of (d.players as RawStart[] | undefined) ?? []) {
+          const end = rules.get(p.memberId);
+          if (end) push(ix.ruleTimes, p.memberId, { at, row: drifted(end, p, null, 0, null) });
+        }
+        break;
+      }
+      case "drift": {
+        for (const p of (d.seats as RawStart[] | undefined) ?? []) {
+          const end = rules.get(p.memberId);
+          if (end) push(ix.ruleTimes, p.memberId, { at, row: drifted(end, p, p.card ?? null, Number(d.k ?? 0), world) });
+        }
+        break;
+      }
       case "objectBorn": {
         const t: Timeline = { objectId: String(d.objectId), number: Number(d.number), bornAt: world, born: at, states: [{ at, state: String(d.state), changedAt: world }], values: new Map() };
         ix.objects.push(t);
@@ -274,7 +304,11 @@ export function frameAt(ix: ReplayIndex, applied: number): ReplayFrame {
       }
       return { version: a, packed };
     },
-    rule: member => ix.rules.get(member) ?? null,
+    rule: member => {
+      const times = ix.ruleTimes.get(member);
+      const i = times ? lastAt(times, a) : -1;
+      return i >= 0 ? times![i]!.row : ix.rules.get(member) ?? null;
+    },
     agents(member) {
       const live = new Map<string, { agentId: string; name: string; language: string; version: number; share: number; createdAt: number }>();
       let named = 0;

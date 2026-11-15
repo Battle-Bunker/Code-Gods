@@ -120,6 +120,11 @@ test("the rules say looking costs energy at the room's weight, or is free (owner
   assert.equal(Object.fromEntries(rulesFacts({ ...BEGINNER, readPriceWeight: 0 }))["Looking"], "free: you see everything as it is");
 });
 
+test("the rules say how often a rule gets new numbers (call 18), and nothing when it never does", () => {
+  assert.equal(Object.fromEntries(rulesFacts({ ...BEGINNER, driftSeconds: 120 }))["Rules' numbers"], "may change every 2 minutes: the same kind of rule, a new target (a rule with one set of numbers keeps it)");
+  assert.equal(Object.fromEntries(rulesFacts({ ...BEGINNER, driftSeconds: 0 }))["Rules' numbers"], undefined);
+});
+
 test("durations in words", () => {
   assert.deepEqual([0, 1, 45, 60, 150, 300].map(duration), ["0 seconds", "1 second", "45 seconds", "1 minute", "2 minutes 30 seconds", "5 minutes"]);
 });

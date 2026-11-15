@@ -65,7 +65,7 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   await page.getByTestId("button-create-room").first().click();
   await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
   const code = page.url().split("/").at(-1)!;
-  await setUp(page, code, { preset }, { planningSeconds: 5, worldSeconds: 180 });
+  await setUp(page, code, { preset }, { planningSeconds: 5, worldSeconds: 180, driftSeconds: 20 });
   await page.getByTestId("text-next-game-summary").getByText(/a look costs [\d.]+× the read price/).waitFor({ timeout: 15_000 });
   assert.equal(await page.getByTestId("select-setting-observation").count(), 0, "no free/paid choice");
   await page.getByTestId("button-practice-game").click();
@@ -75,6 +75,21 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   const startNow = page.getByTestId("button-start-world");
   if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
   await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
+  // Parameter drift (call 18): the goal card counts down to its rule's new numbers, and says so when they change.
+  if (await page.getByTestId("tab-my-card").count()) await page.getByTestId("tab-my-card").click({ position: { x: 6, y: 10 } });
+  // A rule with only one set of numbers it could be dealt never changes, so it shows no countdown (W3 drift.ts).
+  await page.getByTestId("goal-card").waitFor({ timeout: 20_000 });
+  const countdown = page.getByTestId("text-drift-countdown");
+  await countdown.waitFor({ timeout: 5_000 }).catch(() => {});
+  if (await countdown.count()) {
+    assert.match(await countdown.innerText(), /^Your rule may get new numbers in 0:[0-2]\d\.$/, "a countdown within the 20 s drift");
+    // A redraw can land on the same numbers: a few chances.
+    const notice = page.getByTestId("text-drift-notice");
+    await notice.waitFor({ timeout: 75_000 });
+    assert.match(await notice.innerText(), /^Your rule's numbers just changed \(\d+ s ago\)\. Your rule now: \S/);
+    console.log(`${preset}: ${await notice.innerText()}`);
+  } else console.log(`${preset}: this rule has one set of numbers: no drift countdown`);
+  await page.screenshot({ path: path.join(shots, `drift-${preset}.png`) });
   if (await page.getByTestId("tab-objects").count()) await page.getByTestId("tab-objects").click({ position: { x: 6, y: 10 } });
   // Each row: when you last saw it, with its mark; the list: look at all (priced) and keep them fresh.
   await page.locator("[data-testid^=text-seen-line-]").first().waitFor({ timeout: 30_000 });
