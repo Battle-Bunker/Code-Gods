@@ -56,6 +56,12 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const level = BigInt(n!) / BigInt(d);
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
+  // Treasure: the rung is the level of digits of the coin pile y(k) rounds to (the whole part of u, u ≥ 1), as Prime Gradient.
+  "treasure": u => {
+    const [n, d = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(d);
+    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   // The two-line valuation ladders (Whole Answer, High Start, Steep Ratio; lib/v2-pair families.ts): the score is
   // q^L × (1 + 1/(1 + d)) on level L ≥ 0 (below 1 off the ladder), so the rung is L, the largest with q^L ≤ the score,

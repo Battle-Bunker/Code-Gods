@@ -46,8 +46,8 @@ test("model seats play through the directory's tools on the server's economy: th
     type: lineType, variant: lineZ, lines: 6, seed: "t", seconds: 24,
     // The scenario's timing (24 s, 25 opportunities a second, a summon payable after the manoeuvre) is the 25 Hz economy;
     // the beginner preset now runs at 3 Hz with power 8 (the coordinator's call 13), which this tool-plumbing test does not need.
-    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 600, opportunitiesPerSecond: 25 },
-    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 700, opportunitiesPerSecond: 25 },
+    seats: [seat("Ada", "model", "treasure", "shared-factor"), seat("Bo", "model", "prime-staircase", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: (p => (name: string) => p[name === "Ada" ? 0 : 1]!)([perTurn(ada), perTurn(bo)]), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
   });
   const [a, b, c] = report.seats;
@@ -73,10 +73,10 @@ test("without the manoeuvre a second summon is refused: the store holds too litt
   const ada: MockStep[] = [{ tools: [t("agent.summon", { language: "typescript", source: simple, share: 0.2 })] }, { text: "tried" }];
   const report = await runTable(boxes, {
     type: lineType, variant: lineZ, lines: 4, seed: "u", seconds: 1.5,
-    seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Cy", "naive", "prime-landing", "shared-factor")],
+    seats: [seat("Ada", "model", "treasure", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: mockProvider(ada), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
     // At power 64 (summon prices at their calibrated bits) the store after the first summon holds less than a second one.
-    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 600, opportunitiesPerSecond: 25 },
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 700, opportunitiesPerSecond: 25 },
   });
   assert.equal(report.seats[0]!.failedToolCalls, 1);
   assert.equal(report.seats[0]!.summoned, 0);
@@ -122,7 +122,7 @@ test("unique objects: a move onto a state another line already holds is refused,
 
 test("on the beginner economy (power 4) starters live within their income: no agent owes more than about 5 seconds of it", async () => {
   let worst = 0, acts = 0;
-  const rules = [["prime-landing", "shared-factor"], ["treasure", "prime-terms"], ["whole-crossing", "shared-factor"]] as const;
+  const rules = [["prime-landing", "shared-factor"], ["treasure", "shared-factor"], ["whole-crossing", "shared-factor"]] as const;
   await runTable(boxes, {
     type: lineType, variant: lineQ, lines: 3, seed: "income", seconds: 90, unique: true,
     seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),
@@ -134,7 +134,7 @@ test("on the beginner economy (power 4) starters live within their income: no ag
 
 test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·D/n, and nobody in the last 90 s", async () => {
   const D = 120, seconds = 400, at: { at: number; seat: number }[] = [];
-  const rules = [["prime-landing", "shared-factor"], ["treasure", "prime-terms"], ["same-on-both-rulers", "steep"]] as const;
+  const rules = [["prime-landing", "shared-factor"], ["treasure", "shared-factor"], ["same-on-both-rulers", "steep"]] as const;
   await runTable(boxes, {
     type: lineType, variant: lineQ, lines: 3, seed: "stagger", seconds, unique: true, driftSeconds: D,
     seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),

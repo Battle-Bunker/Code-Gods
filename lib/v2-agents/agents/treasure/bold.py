@@ -1,5 +1,5 @@
 # Treasure · Bold
-# Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8); the gradient close to a prime; the y-intercept close to a square; the gradient's smallest prime factor; the gradient's largest prime factor).
+# Main part: y(k) on as big a coin pile as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both the pile's height and the gradient's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,29 +12,19 @@
 
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    if m is None:              # the vertical line x = c
-        main = -abs(c - p["k"])                        # how far across from (k, T) it passes
-        return [main, None]
-    main = -abs(m * p["k"] + c - p["T"])           # y(k) = m*k + c
-    # main: how far y(k) is from T (closer is better)
-    if tie == "prime-terms":   # more different primes among y(1) ... y(8) is better
-        sg = -1 if p["T"] < 0 else 1
-        primes = {sg * (m * x + c) for x in range(1, 9) if prime(sg * (m * x + c))}   # y(1) ... y(8), minus them when T is below zero
-        return [main, len(primes)]
-    if tie == "prime-gradient":   # a gradient close to a prime is better
-        sg = -1 if p["T"] < 0 else 1
-        mp = sg * near(sg * m, prime)               # the prime (minus a prime when T is below zero) nearest the gradient
-        return [main, -abs(m - mp)]
-    if tie == "square-start":   # a y-intercept close to a square number is better
-        sg = -1 if p["T"] < 0 else 1
-        sq = sg * near(sg * c, square)              # the square (minus a square when T is below zero) nearest the y-intercept
-        return [main, -abs(c - sq)]
-    if tie == "m-spf":   # the gradient's smallest prime factor big is better
-        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
-        return [main, fm[0] if fm else 1]
-    if tie == "m-gpf":   # the gradient's largest prime factor big is better
-        fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)
-        return [main, fm[-1] if fm else 1]
+    level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2
+    s = p.get("side", 1)
+    y = s * (m * p["k"] + c)                         # y(k) = m*k + c, or minus it on the mirror
+    T = lambda h: h * (h + 1) // 2                   # the coin pile h coins high: h(h + 1)/2
+    hf = 1 if y < 1 else (root(8 * whole(y - Fraction(1, 2)) + 1) - 1) // 2   # the biggest pile's height up to y(k)
+    lo, hi = T(hf), T(hf + 1)
+    rung, height = (hi, hf + 1) if hi - y < y - lo else (lo, hf)   # the coin pile nearest y(k) (the smaller on a tie): the rung
+    gap = abs(y - rung)                              # on the rung when it rounds there (within 1/2, ties up)
+    main = level(rung) if 2 * gap < 1 or rung - y == Fraction(1, 2) else -(gap - Fraction(1, 2))
+    # main: the coin pile (1, 3, 6, 10, ...) y(k) rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
+    if tie == "shared-factor":   # the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
+        wm = whole(abs(m) - Fraction(1, 2))             # the whole part of the gradient's size
+        return [main, common(height, wm)]
     return [main]
 
 
@@ -55,20 +45,26 @@ def agent(offer):
     v = look(offer, "si")      # the line as y = mx + c
     rule = goal(offer)         # your rule (free)
     m, c, p, tie = v.m, v.c, rule.params, rule.tie_breaker
+    # A vertical line (x = k) has no y = mx + c: the step that tips it into one, if that raises your points.
+    if m == None:
+        return climb(offer, [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tips(offer) if offer.object not in PROTECT or fair(offer, plan)], None, QUOTES)
     tries = []                 # (plan, m after, c after): changes tried in the agent's own head
-    if m == None:              # a vertical line (x = k): tip it into y = mx + c, or slide it sideways
-        m, c = None, look(offer, "crossing").x0   # where it stands: score(None, k) reads the line x = k
-        tries += vertical(offer, FAR)   # its tips into y = mx + c and its slides sideways
-    else:
-        for k in range(-FAR, FAR + 1):
-            if k == 0:
-                continue
-            tries.append((move("si.shift", k=k), m, c + k))     # move the line up or down
-            tries.append((move("si.tilt", k=k), m + k, c))      # make it steeper or flatter
-            for j in range(-FAR, FAR + 1):                         # both at once
-                if j != 0:
-                    tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
-        tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
+    for k in range(-FAR, FAR + 1):
+        if k == 0:
+            continue
+        tries.append((move("si.shift", k=k), m, c + k))     # move the line up or down
+        tries.append((move("si.tilt", k=k), m + k, c))      # make it steeper or flatter
+        for j in range(-FAR, FAR + 1):                         # both at once
+            if j != 0:
+                tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
+    # The next pile up (the ladder has no top): the coin pile just above y(k), by a shift or by a tilt.
+    s = p.get("side", 1)
+    yk = m * p["k"] + c
+    h = 0 if s * yk < 1 else (root(8 * whole(s * yk) + 1) - 1) // 2   # the biggest pile's height up to y(k)
+    d = s * Fraction((h + 1) * (h + 2), 2) - yk      # how far y(k) must move to the next pile
+    tries.append((move("si.shift", k=d), m, c + d))
+    tries.append((move("si.tilt", k=d / p["k"]), m + d / p["k"], c))
+    tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
     if offer.object in PROTECT:
