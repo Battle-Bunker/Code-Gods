@@ -17,6 +17,8 @@ import { AI_PRINCIPAL } from "./access";
 import { OpFailure } from "@workspace/v2-affordances";
 import { providerFor, spendWithin } from "./ai";
 import { performAs } from "./perform";
+import { liveAgentsOf, MAX_AGENTS } from "./play";
+import { programOf } from "./loop";
 import { startersFor } from "@workspace/v2-agents/pure";
 
 export const AI_TURN_MS = 20_000;
@@ -71,8 +73,9 @@ export const deals = internalQuery({
     const rows = await ctx.db.query("v2Moves").withIndex("by_game_member_seq", q => q.eq("gameId", gameId).eq("memberId", memberId)).order("desc").take(MOVE_ROWS);
     for (const m of rows) if (m.mine && disclosed(game, m.after).want < disclosed(game, m.before).want)
       moves.push({ by: me.name, line: m.number, at: m.worldSeconds, lowered: others });
-    const agents = await ctx.db.query("v2Agents").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).collect();
-    return { me: me.name, chat, moves, programs: agents.filter(a => a.destroyedAt === undefined).map(a => a.source) };
+    const programs: string[] = [];
+    for (const a of await liveAgentsOf(ctx, gameId, memberId).take(MAX_AGENTS)) programs.push((await programOf(ctx, a)).source);
+    return { me: me.name, chat, moves, programs };
   },
 });
 

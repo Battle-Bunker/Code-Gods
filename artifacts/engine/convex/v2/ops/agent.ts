@@ -7,7 +7,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import { makeFunctionReference } from "convex/server";
 import { destroyAgent, ownAgent } from "../agents.ts";
 import { failureOf } from "../failure";
-import { MAX_AGENTS } from "../play";
+import { MAX_PROGRAMS } from "../play";
 import { callerOf, defineOp, seated } from "./define";
 
 const SUMMON = makeFunctionReference<"mutation", Record<string, unknown>, { agentId: string; price: number }>("v2/commands:summon");
@@ -24,7 +24,7 @@ export const { op: programs, as: programsAs } = defineOp("agent.programs", "quer
   const id = env.ctx.db.normalizeId("v2Agents", a.agentId);
   const agent = id ? await env.ctx.db.get(id) : null;
   if (!agent || agent.memberId !== member._id) throw new OpFailure("That agent is not yours.");
-  const rows = await env.ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").take(MAX_AGENTS);
+  const rows = await env.ctx.db.query("v2AgentPrograms").withIndex("by_agent", q => q.eq("agentId", agent._id)).order("desc").take(MAX_PROGRAMS);
   return { versions: rows.map(p => ({ version: p.version, language: p.language, source: p.source, acts: p.acts })) };
 });
 
