@@ -172,3 +172,13 @@ test("a ruler marks only the values the dealt rule asks for (playtest round 15: 
   assert.deepEqual(neighbours("prime", -50, 0, refFilter({ ends: 7 }, -17)), [-47, -37, -17, -7]);
   assert.deepEqual(neighbours("prime", 0, 20), [2, 3, 5, 7, 11, 13, 17, 19]);
 });
+
+test("a ladder reading that counts as on its rung says so first (round 24: 10.51 read '≈ 0.49 below 11', which looked like a miss)", () => {
+  const r = rule(primeLanding, "shared-factor", { ends: 1 });
+  // y = −x + 31.4 crosses the x-axis at 31.4, which rounds to the prime 31: on the rung.
+  const on = contributors(r, mc(-1, q(157, 5))).parts[0]!;
+  assert.equal(on.distance, "rounds to 31: on the rung");
+  assert.equal(contributors(r, mc(-1, 31)).parts[0]!.distance, "on 31", "exactly on it");
+  // Off every rung (33 rounds to 33, not a prime): how far off, as before.
+  assert.match(contributors(r, mc(-1, 33)).parts[0]!.distance ?? "", /^\S+ above 31$/);
+});
