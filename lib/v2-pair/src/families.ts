@@ -104,30 +104,32 @@ export function valuationLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { lev
 /** "a whole number leaving 2 when divided by 7; better still 7 times such a number, then 343 times, then 117,649 times, and so on". */
 export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${(p.q! ** 3).toLocaleString("en")} times, then ${(p.q! ** 6).toLocaleString("en")} times, and so on`;
 /**
- * The power ladder: off(t) is the distance from the level whose number is t (with `other` added), V-shaped in t. Its
- * levels are not nested (k² is not k), so level L is met at an exact k^L (off 0; the highest such, L ≥ 1), and d is the
- * distance to k^(L+1); a state on no level (L 0) takes d to the nearest power, so a climber near k³ is rewarded as near
- * k. The scan stops where off stops falling, past the state's size.
+ * The power ladder: off(t) is the distance from the rung whose number is t (with `other` added), V-shaped in t. Its
+ * rungs are triangular, as the valuation ladder's: level L at k^T(L), T(L) = L(L + 1)/2 (k, k³, k⁶, …), so each level
+ * takes one more multiplication by k than the last (with a rung at every power, one stretch or turn a level, a Divide By
+ * object climbed 40 levels and 84 bits in a game). The rungs are not nested (k³ is not k), so level L is met at an exact
+ * k^T(L) (off 0), and d is the distance to the next rung; a state on no rung (L 0) takes d to the nearest rung. The scan
+ * stops where off stops falling, past the state's size.
  */
 export function powerLadder(k: number, off: (target: bigint) => Q): { level: number; u: Q } {
-  const kb = BigInt(k);
+  const kb = BigInt(k), rung = (L: number) => kb ** BigInt(triangle(L));
   let level = 0, best: Q | null = null, prev: Q | null = null;
   for (let j = 1; j <= 4096; j++) {
-    const o = off(kb ** BigInt(j));
+    const o = off(rung(j));
     if (Qn.isZero(o)) level = j;
     if (best === null || Qn.cmp(o, best) < 0) best = o;
     if (prev !== null && Qn.cmp(o, prev) >= 0) break;
     prev = o;
   }
-  return { level, u: ladderScore(kb, level, level > 0 ? off(kb ** BigInt(level + 1)) : best!) };
+  return { level, u: ladderScore(kb, level, level > 0 ? off(rung(level + 1)) : best!) };
 }
 /** "leaves 3 when divided by 7; better still, leaves 24 when divided by 49, then 171 when divided by 343, and so on". */
 export function ladderWords(p: P): string {
   const qq = BigInt(p.q!), r = BigInt(p.r!);
   return `leaves ${r} when divided by ${qq}; better still, leaves ${rungRemainder(qq, r, 2)} when divided by ${qq ** 2n}, then ${rungRemainder(qq, r, 3)} when divided by ${qq ** 3n}, and so on`;
 }
-/** "4 (or −4); better still 16, then 64, and so on". */
-const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${k * k}, then ${k ** 3}, and so on`;
+/** "4 (or −4); better still 64, then 4,096, and so on" (the rungs k, k³, k⁶, …). */
+const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${(k ** 3).toLocaleString("en")}, then ${(k ** 6).toLocaleString("en")}, and so on`;
 /**
  * The valuation ladders dealt: q 5 or 7 and every r from 1 to q − 1 (a level never meets 0). q 3 was measured and is not
  * dealt: a stretch by 3 is so cheap a move that a climber blind to cost reached 34–51 bits on Steep Ratio in 30 moves
@@ -149,7 +151,7 @@ export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length
 const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
   "whole-answer": [...R(5, 1, 4), ...R(7, 2, 4, 5)],
-  "no-fractions": [4, 5, 8, 9].map(k => ({ k })),
+  "no-fractions": [5, 6, 10, 11].map(k => ({ k })),
   "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
   "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
   "double-gap": [3, 4, 5, 6].map(k => ({ k })),
@@ -334,7 +336,7 @@ export const onTheDiagonal = family({
 
 export const doubleGap = family({
   id: "double-gap", title: "Gap Ratio", depends: ["si", "solve"],
-  main: main("gaps", "the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis", p => `The gap between the lines' y-intercepts should be a whole number and ${p.k} times the gap between their x-intercepts; better still ${p.k! * p.k!} times, then ${p.k! ** 3} times, and so on. Neither line may pass through (0, 0). The closer, the better.`, "si", "max"),
+  main: main("gaps", "the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis", p => `The gap between the lines' y-intercepts should be a whole number and ${p.k} times the gap between their x-intercepts; better still ${(p.k! ** 3).toLocaleString("en")} times, then ${(p.k! ** 6).toLocaleString("en")} times, and so on. Neither line may pass through (0, 0). The closer, the better.`, "si", "max"),
   tieBreakers: [
     tb("gap-divisor", "the gap shares a factor with the number you divide by", "The gap between the y-intercepts (to the nearest whole number) should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
     tb("gap-prime", "the gap is a big prime", "The gap between the y-intercepts (to the nearest whole number) should have as big a smallest prime factor as possible.", "si", "prime"),

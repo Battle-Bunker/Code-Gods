@@ -13,7 +13,7 @@ def score(L, p):
         return None
     main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
-    return [main, common(nx, ny)]   # main: the level of the number you divide by on k, k², k³, … (higher is better); tie-breaker: numerators sharing a big factor are better
+    return [main, common(nx, ny)]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators sharing a big factor are better
 
 
 FAR = 3      # how far one move may go

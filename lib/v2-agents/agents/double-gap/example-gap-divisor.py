@@ -13,7 +13,7 @@ def score(L, p):
     if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
         return None
     main = power_ladder(p["k"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))
-    return [main, common(whole(f.ygap), f.D)]   # main: the gaps' level: the y-intercepts' gap whole and k, k², … times the x-intercepts' gap (higher is better); tie-breaker: the gap sharing a big factor with the number you divide by is better
+    return [main, common(whole(f.ygap), f.D)]   # main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); tie-breaker: the gap sharing a big factor with the number you divide by is better
 
 
 FAR = 3      # how far one move may go

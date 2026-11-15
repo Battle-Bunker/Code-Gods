@@ -9,12 +9,13 @@ import { noFractions, pairLaw, pairQ, pairType } from "@workspace/v2-pair";
 import { pairValueFunction } from "../src/value-pair.ts";
 import { valueLookup } from "../src/value.ts";
 
-test("Divide By's first rung (the number you divide by is ±3, ±9, …) is valued at its survival under π", () => {
-  // The power ladder scores level 0 in (1, 2] and level 1 in (3, 6], so "score at least 3" is "level at least 1".
+test("Divide By's first rung (the number you divide by is ±3, ±27, ±729, …) is valued at its survival under π", () => {
+  // The power ladder scores level 0 in (1, 2] and level L at 3^L × (1, 2], so "score at least 3" is "level at least 1":
+  // the number you divide by on a rung 3^T(L), T(L) = L(L + 1)/2.
   const vf = pairValueFunction(noFractions, { k: 3 }, pairQ, { tieBreaker: null, config: { drawsPerTilt: 40_000 } });
   const look = valueLookup(vf)(scoreFromWire(["3"]));
   const law = pairLaw(pairQ), r = rng("independent");
-  const power = (n: bigint) => { if (n < 3n) return false; while (n % 3n === 0n) n /= 3n; return n === 1n; };
+  const power = (n: bigint) => { let t = 0; while (n > 1n && n % 3n === 0n) { n /= 3n; t++; } return n === 1n && t > 0 && Number.isInteger((Math.sqrt(8 * t + 1) - 1) / 2); };
   let n = 0, top = 0;
   while (n < 6000) {
     const d = law.draw(r, 1);
