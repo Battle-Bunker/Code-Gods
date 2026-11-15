@@ -34,6 +34,16 @@ differ, the owner's words win.
    Some pairs being more entangled than others is wanted: it makes political structure [27].
 6. **Adversaries and diversity.** Every unbounded climb has rules in tension with it (small values against large,
    many prime factors against large primes, high gradient and intercept against a far x-intercept) [30].
+   **An adversary must oppose on the size or the direction of a shared reading, not only on the number's class**
+   (15 Nov). Readings round, so a class conflict between two readings dissolves. A smooth y-intercept and a crossing
+   that rounds to a big prime coexist through the gradient: m = −c/X need not be whole, so neither number constrains the
+   other's factors. Size does not dissolve. Almost every dealt line rule rewards a big number (crossing, area,
+   distance², intercept), and on line-q's PMI matrix the prime-ending rules are aligned with the families named as
+   their adversaries: Prime Landing +2.1 with Whole Crossing and +1.2 with Smooth Intercept. The pool's real adversary
+   of large primes is Prime Gradient, by size: a steep line shrinks the crossing, the area and the distance (mean PMI
+   −2.33). So a new adversary should reward a small reading, or the opposite direction of a shared one. A class adversary
+   is at best a weak one, even on the same reading: Whole Crossing reads Prime Landing's own crossing, and the two still
+   measure +2.1, because both pay for size. Check every adversary on the PMI matrix; never assume one.
 7. **Shortcuts in representations.** Mutators that act in one representation (swap, rotate about a point, reverse,
    stretch, reflections) are priced as choices, not by path; they cause collateral damage to other rules [25, 27, 28].
 8. **Energy scale.** It is hard to reach 20 or 30 bits on an object and nothing reaches hundreds. One unopposed

@@ -88,8 +88,14 @@ reading, so their bits are off by about one bit. That is enough for dynamics, no
 Main-part levels per object climbed stay at a median of 2 in every row.
 
 Readings:
-- **Reflections are the cheapest weapon in the tug, not its cause.** With no seat reflecting, flips are 2,100 against
-  2,125. The flips that #855 doubled come from its other one-step moves (slides, pivots and moves along an axis).
+- **Over the pool, reflections are the cheapest weapon in the tug, not its cause.** With no seat reflecting, flips are
+  2,100 against 2,125. The flips that #855 doubled come from its other one-step moves (slides, pivots and moves along an
+  axis).
+- **On some deals, reflections are the whole of the movement** (W2's run of playtest round 32's deal, Same on Both
+  Rulers / Prime Landing / Prime Staircase, `--server`, 6 games). The shipped starters made 1,369 moves, 43% of them
+  reflections, with 918 flips and 67% of objects moving in the last third. With `--no-mirror` they made 87 moves and 0
+  flips, 17% of objects moved late, and the seats ended on 571–720 energy. Taking reflections out of the starters
+  freezes this board. The remedy has to be in the rules or the deal, such as (b), and not in the starters.
 - **Repairs answer reflections, not tilts across a pole.** 557 of 593 repairing reflections came right after another
   seat's reflection. 36 came after any other move. The sign repair after a tilt across a pole is real but rare.
 - **(c) barely changes the price of an ordinary reflection.** On law draws the floor leaves the median at 5.2⚡ (9.7⚡ at
