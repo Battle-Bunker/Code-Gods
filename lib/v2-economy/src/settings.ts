@@ -15,15 +15,16 @@ export interface Economy {
 }
 
 /**
- * `Lines · beginner`: today's beginner economy (game-core's Annotated basics on the Grid defaults): power 64 bits/s,
- * a 30 s store, 600 starting energy (the dearest beginner starter must be payable in planning, under the planning store
- * of 64 × 30 = 1920), 25 opportunities a second.
+ * `Lines · beginner`. Owner decision 37: 3 opportunities a second (room-wide). The coordinator's call 13 (15 Nov) keeps
+ * energy binding per act as at 25 Hz: power 8 bits/s (64 × 3/25), so a seat at 1 act/s has about 8 ⚡ an act, about 1.5
+ * unit moves; a 240 s store keeps the capacity at 8 × 240 = 1920, as before, so the dearest beginner starter is still
+ * payable in planning; 600 starting energy.
  */
 export const LINES_BEGINNER_ECONOMY: Economy = Object.freeze({
-  powerPerSecond: 64,
-  fullChargeSeconds: 30,
+  powerPerSecond: 8,
+  fullChargeSeconds: 240,
   startingEnergy: 600,
-  opportunitiesPerSecond: 25,
+  opportunitiesPerSecond: 3,
 });
 
 /**

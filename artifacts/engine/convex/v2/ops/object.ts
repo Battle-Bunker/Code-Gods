@@ -4,7 +4,7 @@ import { ask, hostFor, objectIn } from "../reads.ts";
 import { decode, encode, scopeOf, typeOf, valueOf } from "../world.ts";
 import { elementValue, representation } from "@workspace/v2-core";
 import { text as equationText } from "@workspace/v2-views/equation-text";
-import { disclosed } from "../disclose.ts";
+import { disclosed, measured } from "../disclose.ts";
 import { knownOf, lookPrice, observationOf, readsKnowledge, tell } from "../knowledge.ts";
 import { OpFailure } from "@workspace/v2-affordances";
 import { pay } from "../agents.ts";
@@ -89,7 +89,7 @@ export const { op: look, as: lookAs } = defineOp("object.look", "mutation", asyn
   const paid = await pay(env.ctx, game, player, clock.worldSeconds, price, seen.length === 1 ? "That look" : `Looking at all ${seen.length}`);
   await env.ctx.db.patch(player._id, { energy: paid.balance, settledAt: paid.settledWorldSeconds });
   for (const { o, st, value } of seen) {
-    await tell(env.ctx, game, member._id, { objectId: o._id, number: o.number, state: st.state, version: st.version, score: value.score, rarityBits: value.rarityBits, want: value.shownWant ?? value.want, points: value.shownPoints ?? value.points }, clock.worldSeconds);
+    await tell(env.ctx, game, member._id, { objectId: o._id, number: o.number, state: st.state, version: st.version, score: value.score, rarityBits: value.rarityBits, ...measured(game, value) }, clock.worldSeconds);   // each look measures afresh (decision 32)
   }
   await appendEvent(env.ctx, game._id, "command", { kind: "look", memberId: member._id, objects: seen.map(s => s.o._id), price, worldSeconds: clock.worldSeconds });
   return { looked: seen.length, price };

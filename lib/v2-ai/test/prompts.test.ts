@@ -13,7 +13,7 @@ const tools = assistantTools(ctx);
 const RULE = "Make the gradient close to a prime; tie-breaker: the bigger that prime, the better.";
 const STARTERS = [{ title: "Simple", summary: "One small step a turn.", language: "python", source: "def agent(offer):\n    return None\n" }];
 
-const VOCAB = ["points", "rarity, in bits (each bit = twice as rare)", "your rarity × theirs. Your total adds up all the lines.", "⚡ energy", "power", "main part", "tie-breaker", "line"];
+const VOCAB = ["points", "rarity, in bits (each bit = twice as rare)", "your rarity × theirs. Your total adds up all the lines.", "energy", "power", "main part", "tie-breaker", "line"];
 
 for (const [name, prompt] of [
   ["assistant", assistantSystemPrompt({ context: "planning", playerName: "Ada", rule: RULE, affordances: tools, starters: STARTERS })],

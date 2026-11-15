@@ -251,7 +251,7 @@
 .v2v-tab { font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--v2v-rule);
   background: var(--v2v-card); color: var(--v2v-muted); white-space: nowrap; cursor: pointer; }
 .v2v-tab[data-depends] { color: var(--v2v-ink); border-color: var(--v2v-axis); }
-.v2v-tab[data-primary]::before { content: "★ "; color: var(--v2v-focus); }
+.v2v-tab-main { color: var(--v2v-focus); font-size: 0.85em; }
 .v2v-tab[aria-selected="true"] { background: var(--v2v-ink); color: var(--v2v-paper); border-color: var(--v2v-ink); }
 .v2v-tab:focus-visible { outline: 2px solid var(--v2v-focus); outline-offset: 1px; }
 .v2v-compare { font-size: 12px; color: var(--v2v-muted); display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
@@ -381,7 +381,7 @@
 /* The units a part adds up, each with its own amount ("row 1 5 short · row 2 7 short"): the chain from cells to the sum. */
 .v2v-part-units { font-size: 12px; color: var(--v2v-muted); margin-top: 2px; }
 
-/* The end of a game: the next step first and strongest, then what earned (faces and the ● chain), then what cost. */
+/* The end of a game: the next step first and strongest, then what earned (faces and the main part's chain), then what cost. */
 .v2v-summary { display: grid; gap: 8px; }
 .v2v-summary-title { margin: 6px 0 0; font-size: 13px; font-weight: 700; }
 .v2v-summary-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
@@ -404,7 +404,7 @@
 /* The moves column: the candidate moves, then the last moves on the object. */
 .v2v-moves-col { display: grid; gap: 8px; align-content: start; }
 
-/* Candidates with the others' totals (playtest round 8): the ordering toggle, the "↑ both" mark, the climb from here. */
+/* Candidates with the others' totals (playtest round 8): the ordering toggle, the "good for both" mark, the climb from here. */
 .v2v-move-order { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px; }
 .v2v-move-order button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--v2v-rule); background: var(--v2v-card); color: var(--v2v-ink); font: inherit; cursor: pointer; }
 .v2v-move-order button[aria-pressed="true"] { background: var(--v2v-ink); border-color: var(--v2v-ink); color: var(--v2v-paper); font-weight: 600; }

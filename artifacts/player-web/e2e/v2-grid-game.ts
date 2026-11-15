@@ -258,8 +258,7 @@ try {
       // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
       await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
-      // "energy" (lib/v2-views writes the bolt, \u26A1, until the annotations' sweep lands).
-      assert.match(first, /[\d,]+\.\d\d (energy|\u26A1)/u, `a move has its price: ${first}`);
+      assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this grid rarer/).waitFor();
     await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
@@ -282,7 +281,7 @@ try {
     const summed = await summary.innerText();
     assert.match(summed, /What earned your points/i);
     assert.match(summed, /What cost you/);
-    assert.match(summed, /(moves marked ↑ both|is the one the others want most|Open your secret goal)/, summed);
+    assert.match(summed, /(moves marked “good for both”|is the one the others want most|Open your secret goal)/, summed);
     await summary.screenshot({ path: path.join(shots, `grid-${label}-summary.png`) });
     await assertNoLineWord(page, `${label}: the results`);
     // The results say what a total is, and step to the line-by-line list.

@@ -53,7 +53,7 @@ try {
       await face.locator('[data-rep="si"] [data-ref="si.c"]').hover();
       const lit = await face.locator("[data-lit]").evaluateAll(es => es.map(e => e.getAttribute("data-ref")));
       assert.ok(lit.includes("si.c") && lit.includes("cart.yInt"), `cross-highlight lit ${lit}`);
-      // Tapping the tie-breaker leaves only its marks (no gap bracket), says so in a chip, and ✕ clears it.
+      // Tapping the tie-breaker leaves only its marks (no gap bracket), says so in a chip, and Clear clears it.
       await face.locator(".v2v-part").nth(1).click();
       assert.equal(await face.locator('[data-mark="measure"]').count(), 0, "the tie-breaker's marks only");
       assert.equal(await face.locator(".v2v-selchip").count(), 1, "the selection is said");

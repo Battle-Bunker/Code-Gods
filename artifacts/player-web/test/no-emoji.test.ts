@@ -4,7 +4,7 @@
  * library and the glossary is free of pictographic code points. A symbol may accompany a concept's name, never replace
  * it; the names themselves are the glossary's (lib/ui-kit/src/glossary.ts).
  *
- * What would break: a ⚡, ✨ or any other emoji added to a string, a comment or a test that players or assistants see.
+ * What would break: an energy bolt, a sparkle or any other emoji added to a string, a comment or a test that players or assistants see.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -12,8 +12,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
-/** The player-facing sources. The annotations' views (lib/v2-views) and the agents' notes and prompts (lib/v2-agents, lib/v2-sandbox/guest) join when their sweeps land. */
-const DIRS = ["artifacts/player-web/src", "lib/v2-affordances/src", "lib/v2-client/src", "lib/ui-kit/src"];
+/** The player-facing sources: the app, the operation directory, the client library, the glossary, the views, and the agents' notes, prompts and helpers. */
+const DIRS = ["artifacts/player-web/src", "lib/v2-affordances/src", "lib/v2-client/src", "lib/ui-kit/src", "lib/v2-views/src", "lib/v2-agents/src", "lib/v2-sandbox/guest"];
 const PICTOGRAPH = /\p{Extended_Pictographic}/u;
 
 function* files(dir: string): Generator<string> {

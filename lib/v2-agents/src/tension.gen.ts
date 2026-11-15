@@ -5,7 +5,7 @@
  *   signatures[a]: for every rule b, one character per cheap direction (at b · directions + d): climbing a along d
  *     raises b ("+"), lowers it ("-"), leaves it ("0"), mixed ("~"), too few climbs ("."); " " not measured (the same
  *     rule or family). From scripts/tension.ts.
- *   gains[a][d]: rule a's bits per ⚡ along d repeated 8 times from sampled states (over the raising runs, Δbits over
+ *   gains[a][d]: rule a's bits per energy along d repeated 8 times from sampled states (over the raising runs, Δbits over
  *     the price of the moves); 0 when fewer than 8 runs raise it.
  *   opportunityFractions, opposition[a]: for every rule c, one character per cheap direction (at c · directions + d):
  *     how many of the fractions c's opportunity cost reaches, as a share of a's gain, in at least half of a's rising

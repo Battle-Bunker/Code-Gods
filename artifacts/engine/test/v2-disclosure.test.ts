@@ -94,23 +94,24 @@ test("live, another player's move on an object is unattributed; only the player'
   assert.ok(!JSON.stringify(rows).includes("Disc Bo"), "Bo is not named");
 });
 
-test("live, the others' total after a candidate is blurred like every other disclosed sum: the state's keyed noise, the same on every read, exact after the end", async () => {
-  const { noiseAt } = await import("../convex/v2/disclose.ts");
+test("live, the others' total after a candidate is the player's own reading (decision 32): stable within a version, independent of another player's, exact after the end", async () => {
   const g = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId], objects: 4, noise: true });
   const objectId = g.objects[0]!;
   const shift = { mutator: "si.shift", site: 0, args: { k: "1" } }, none = { mutator: "si.shift", site: 0, args: { k: "0" } };
-  const now = await bo!.query("v2/play:object", { objectId });
-  const live = await bo!.query("v2/play:othersAt", { objectId, calls: [shift, none] });
-  // A move that changes nothing answers exactly the disclosed (blurred) value the object shows: no difference to read.
-  if (live.after[1]?.state === now.state) assert.equal(live.after[1].want, now.value.want, "the no-op candidate is the shown want");
-  // Keyed by the state: the same answer on every read (nothing to average away).
-  const again = await bo!.query("v2/play:othersAt", { objectId, calls: [shift] });
-  assert.equal(again.after[0].want, live.after[0].want, "the same draw on a second read");
-  // After the end, exact; the live answer was the exact sum plus that state's noise, which is not zero.
+  const read = async (who: typeof ada) => {
+    const now = await who!.query("v2/play:object", { objectId });
+    const live = await who!.query("v2/play:othersAt", { objectId, calls: [shift, none] });
+    // A move that changes nothing reads what the object shows: not a second measurement of it.
+    if (live.after[1]?.state === now.state) assert.equal(live.after[1].want, now.value.want, "the no-op candidate is the shown want");
+    const again = await who!.query("v2/play:othersAt", { objectId, calls: [shift] });
+    assert.equal(again.after[0].want, live.after[0].want, "one reading per version: a query is deterministic");
+    return live.after[0].want as number;
+  };
+  const [liveA, liveB] = [await read(ada), await read(bo)];
   await admin.mutation("v2/testing:markEnded", { gameId: g.gameId });
-  const exact = (await bo!.query("v2/play:othersAt", { objectId, calls: [shift] })).after[0];
-  const key = await admin.query("v2/testing:noiseOf", { gameId: g.gameId });
-  const noise = noiseAt(key, exact.state);
-  assert.ok(Math.abs(noise) > 1e-6, "the noise is not zero");
-  assert.ok(Math.abs(live.after[0].want - (exact.want + noise)) < 1e-9, `live ${live.after[0].want} = exact ${exact.want} + noise ${noise}`);
+  const exactA = (await ada!.query("v2/play:othersAt", { objectId, calls: [shift] })).after[0].want;
+  const exactB = (await bo!.query("v2/play:othersAt", { objectId, calls: [shift] })).after[0].want;
+  const [noiseA, noiseB] = [liveA - exactA, liveB - exactB];
+  assert.ok(Math.abs(noiseA) > 1e-6 && Math.abs(noiseB) > 1e-6, `both readings carry noise: ${noiseA}, ${noiseB}`);
+  assert.ok(Math.abs(noiseA - noiseB) > 1e-6, `independent across players, never shared: ${noiseA} vs ${noiseB}`);
 });

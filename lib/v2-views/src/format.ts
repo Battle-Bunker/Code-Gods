@@ -91,8 +91,8 @@ export function fmtNum(x: number): string {
 export const fmtBits = (bits: number): string => { const s = fmtNum(bits); return `${s} ${s === "1.00" ? "bit" : "bits"}`; };
 /** What "bits" means, for a hover and a tap. */
 export const BITS_HELP = "Each bit = twice as rare.";
-/** Energy as a player reads it: "12.50 ⚡". */
-export const fmtEnergy = (energy: number): string => `${fmtNum(energy)} ⚡`;
+/** Energy as a player reads it: "12.50 energy" (a concept has a name, never only a symbol: the owner, 15 Nov). */
+export const fmtEnergy = (energy: number): string => `${fmtNum(energy)} energy`;
 
 const SCALE: readonly (readonly [number, string])[] = [
   [1e12, "trillion"], [1e9, "billion"], [1e6, "million"],

@@ -12,7 +12,7 @@ test("every measure reads with 2 decimal places, grouped, a true minus, never âˆ
   assert.equal(fmtNum(Number.NaN), "0.00");
   assert.equal(fmtBits(3.4), "3.40 bits");
   assert.equal(fmtBits(1), "1.00 bit");
-  assert.equal(fmtEnergy(600), "600.00 âš¡");
+  assert.equal(fmtEnergy(600), "600.00 energy");
 });
 
 test("1 in N by chance, N = 2^bits, rounded the way people say big numbers", () => {

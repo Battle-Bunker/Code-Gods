@@ -10,4 +10,5 @@ export { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridTieBreakerE
 export { gridUndescribed } from "./grid-starters.ts";
 export * from "./primer.ts";
 export * from "./compat.gen.ts";
+export { watcherFor, type WatcherAgent, type WatcherType } from "./watcher.ts";
 export { readLeave, setLeave } from "./leave.ts";

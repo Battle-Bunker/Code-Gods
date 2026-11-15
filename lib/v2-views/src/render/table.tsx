@@ -75,7 +75,7 @@ function Scene({ p }: { p: RenderProps<Table> }) {
                   return (
                     <td key={i} data-run={run(i)} data-miss={miss ? "" : undefined}>
                       <El p={q} r={c}>{fmtValue(v)}</El>
-                      {r.check === "whole" && (isWhole(v) ? <span className="v2v-check" aria-label="whole">✓</span> : miss ? <span className="v2v-check" aria-label="not whole">✗</span> : null)}
+                      {r.check === "whole" && (isWhole(v) ? <span className="v2v-check">whole</span> : miss ? <span className="v2v-check">not whole</span> : null)}
                     </td>
                   );
                 })}

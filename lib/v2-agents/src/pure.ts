@@ -13,3 +13,4 @@ export * from "./compat.gen.ts";
 export { unopposedDirections, unopposedIn, WEAK_BELOW, OPPORTUNITY_FRACTION, LADDER_SLOPE, type UnopposedDirection } from "./unopposed.ts";
 export { TENSION, type TensionTable } from "./tension.gen.ts";
 export { readLeave, setLeave } from "./leave.ts";
+export { watcherFor, type WatcherAgent, type WatcherType } from "./watcher.ts";
