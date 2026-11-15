@@ -1,18 +1,1 @@
 pair-q: 16 rules (0 without a value function), E = 161.3 energy, 8 tables
-  pair-q β 0.02 test 4 (10 objects, 0.1/s) plain game 0: objects 10 → 34, idle 92%, 29% changed in the last minute, gains by mid 1769.2 of 3149.2, frozen 0% (182.6 s)
-  pair-q β 0.02 test 4 (10 objects, 0.1/s) plain game 1: objects 10 → 44, idle 96%, 20% changed in the last minute, gains by mid 3119.9 of 5605.2, frozen 0% (383.4 s)
-  pair-q β 0.05 test 4 (10 objects, 0.1/s) plain game 0: objects 10 → 39, idle 94%, 23% changed in the last minute, gains by mid 1658.5 of 3782.0, frozen 0% (145.7 s)
-  pair-q β 0.05 test 4 (10 objects, 0.1/s) plain game 1: objects 10 → 34, idle 96%, 24% changed in the last minute, gains by mid 1826.1 of 2760.2, frozen 0% (330.1 s)
-  pair-q β 0.1 test 4 (10 objects, 0.1/s) plain game 0: objects 10 → 38, idle 92%, 37% changed in the last minute, gains by mid 1030.9 of 2445.2, frozen 0% (118.6 s)
-  pair-q β 0.1 test 4 (10 objects, 0.1/s) plain game 1: objects 10 → 34, idle 96%, 26% changed in the last minute, gains by mid 1595.9 of 2904.0, frozen 0% (311.6 s)
-### pair-q (preset lines-pairs: 16 rules with value functions; none skipped)
-
-| β | W (energy) | 4 dynamics |
-|--:|--:|---|
-| 0.02 | 161 | **FAIL**: fails (a); plain: idle 94%, 25% of objects change in the last minute, 44% of gains after the midpoint, frozen 0%; objects 10 → 34/44 (2 games each, whole-answer/south-west, far-crossing/far-prime, high-start/start-factors) |
-| 0.05 | 161 | **FAIL**: fails (a); plain: idle 95%, 23% of objects change in the last minute, 47% of gains after the midpoint, frozen 0%; objects 10 → 39/34 (2 games each, whole-answer/south-west, far-crossing/far-prime, high-start/start-factors) |
-| 0.1 | 161 | **PASS**: plain: idle 94%, 32% of objects change in the last minute, 51% of gains after the midpoint, frozen 0%; objects 10 → 38/34 (2 games each, whole-answer/south-west, far-crossing/far-prime, high-start/start-factors) |
-
-collapse check: 2 failures
-
-[exited with code 0]
