@@ -64,6 +64,32 @@ const rulerShape: Shape<Ends> = {
       "Prime minus 1 and y-intercept share a big factor.", "si"),
   ],
 };
+/**
+ * Witnesses for the tail cap (as Pythagorean Area's areaWitness): for n digits, up to three lines a·x + b·y + c = 0 whose
+ * distance², c²/(a² + b²), rounds down to an n-digit prime ending in k, with c = 2^i·3^j (cheap under the code), a ≤ 12
+ * and b ≤ 8: φ grows by about 1.7 bits a digit. Empty for a number of digits no such line reaches.
+ */
+const RULER_SMOOTH23: bigint[] = (() => {
+  const out: bigint[] = [];
+  for (let t = 1n; t < 10n ** 48n; t *= 2n) for (let u = t; u < 10n ** 48n; u *= 3n) out.push(u);
+  return out.sort((x, y) => (x < y ? -1 : x > y ? 1 : 0));
+})();
+export function rulerWitness(p: Ends, n: number): LineState[] {
+  const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n), out: LineState[] = [];
+  for (let b = 0n; b <= 8n && out.length < 3; b++) for (let a = 0n; a <= 12n && out.length < 3; a++) {
+    if (a === 0n && b === 0n) continue;
+    const D = a * a + b * b;
+    for (const c of RULER_SMOOTH23) {
+      const d2 = (c * c) / D;
+      if (d2 >= hi) break;
+      if (d2 < lo || !isPrimeEnding(d2, p.ends)) continue;
+      const l = normalise(a, b, c);
+      if (!("invalid" in l)) out.push({ lines: [l] });
+      break;
+    }
+  }
+  return out;
+}
 export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"], rulerShape, RULER_ENDS, (ctx, pr) => {
   const d2Ref = ref("norm", "dist2"), cRef = ref("si", "c");
   const d2 = num(ctx.read(d2Ref))!;
@@ -78,7 +104,7 @@ export const ruler = ladder(family<Ends>("ruler", "Ruler", ["norm", "si", "gen"]
     ctx.term("shared-factor", `${p - 1n} and the y-intercept's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(p - 1n, w)}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [d2Ref, cRef]);
   }
   ctx.mark({ kind: "focus", ref: ref("norm", "foot") });
-}));
+}), rulerWitness);
 
 /**
  * Pythagorean Area as a ladder (design-principles.md; the redesign of beginner-line-redesign.md §4.6). Main part,

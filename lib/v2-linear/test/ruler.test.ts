@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, type Evaluation } from "@workspace/v2-core";
-import { digitLevel, isqrt, lineQ, lineType, ruler, type LineState } from "../src/index.ts";
+import { digitLevel, isqrt, lineQ, lineType, ruler, rulerWitness, type LineState } from "../src/index.ts";
 import { lineClash } from "../src/seating.ts";
 import { mc } from "./helpers.ts";
 
@@ -89,4 +89,17 @@ test("seating: Ruler and Pythagorean Area with one ending are a forbidden pair (
   assert.equal(lineClash({ family: "pythagorean-area", params: { ends: 7 } }, { family: "ruler", params: { ends: 7 } }), true);
   // Other endings oppose each other there: a number rounds down to one prime only.
   assert.equal(lineClash({ family: "ruler", params: { ends: 3 } }, { family: "pythagorean-area", params: { ends: 7 } }), false);
+});
+
+test("witnesses for the ladder's tail cap: cheap lines whose distance² rounds down to an n-digit prime ending in k", () => {
+  for (const ends of [1, 3, 7, 9]) for (const n of [1, 2, 5, 12, 30]) {
+    const ws = rulerWitness({ ends }, n);
+    if (n === 1 && (ends === 1 || ends === 9)) { assert.deepEqual(ws, []); continue; }   // no one-digit prime ends in 1 or 9
+    assert.ok(ws.length >= 1, `ending ${ends}, ${n} digits`);
+    for (const w of ws) {
+      const u = Qn.parse(terms(ends, w).ruler);
+      assert.equal(Qn.floor(u), Qn.floor(digitLevel(10n ** BigInt(n - 1))), `ending ${ends}: a rung of ${n} digits`);
+      assert.ok(lineType.readLength(w, lineQ) < 20 + 2 * n, `cheap: ${lineType.readLength(w, lineQ).toFixed(1)} bits for ${n} digits`);
+    }
+  }
 });
