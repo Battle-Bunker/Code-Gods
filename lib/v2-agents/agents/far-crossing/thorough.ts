@@ -1,5 +1,5 @@
 // Far Crossing · Thorough
-// Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number; that x-intercept plus the crossing's height has a big smallest prime factor; that x-intercept shares a factor with the steeper gradient).
+// Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number; that x-intercept plus the crossing's height has a big smallest prime factor; that x-intercept has many prime factors; that x-intercept shares a factor with the steeper gradient).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -16,6 +16,7 @@ function score(L, p, tie) {
   if (tie === "far-gap") return [main, f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the x-intercepts near a multiple of q to the power one above your level is better
   if (tie === "far-height") return [main, f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing height near a multiple of q to the power one above your level is better
   if (tie === "far-prime") return [main, f.y === null ? null : spf(Q.add(Q.abs(R), Q.abs(whole(f.y))))];   // that x-intercept plus the crossing's height with a big smallest prime factor is better
+  if (tie === "far-smooth") return [main, omega(R)];   // that x-intercept with many prime factors is better
   if (tie === "far-steep") return [main, f.ms === null ? 0 : common(R, floor(Q.abs(f.ms)))];   // that x-intercept sharing a big factor with the steeper gradient is better
   return [main];
 }

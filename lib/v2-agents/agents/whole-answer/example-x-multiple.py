@@ -12,6 +12,7 @@ def score(L, p):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     floor = lambda v: v // 1   # rounded down
     mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
+    core = lambda n: core(abs(int(n)) // p["q"]) if n and abs(int(n)) % p["q"] == 0 else abs(int(n))   # without its factors of q
     if f.x is None:   # parallel lines never cross: no score
         return None
     main, Yv = valuation_ladder(f.y, p["q"], p["r"], dist(f.x))   # y on your ladder, x near a whole number

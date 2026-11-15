@@ -10,6 +10,7 @@ def score(L, p):
     # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
+    core = lambda n: core(abs(int(n)) // p["q"]) if n and abs(int(n)) % p["q"] == 0 else abs(int(n))   # without its factors of q
     if f.ratio is None:   # no ratio of gradients: no score
         return None
     main, k = valuation_ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder

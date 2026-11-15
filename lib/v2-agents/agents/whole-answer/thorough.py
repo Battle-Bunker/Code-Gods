@@ -1,5 +1,5 @@
 # Whole Answer · Thorough
-# Main part: the answer's y on your pattern. Secondary preference: whichever you were dealt (the answer's x near a multiple of its y; the answer's |x| + |y| has a big smallest prime factor; the answer's y shares a factor with the steeper gradient).
+# Main part: the answer's y on your pattern. Secondary preference: whichever you were dealt (the answer's x near a multiple of its y; the answer's |x| + |y| has a big smallest prime factor; the answer's y, without its factors of your number, shares a factor with the steeper gradient).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -13,6 +13,7 @@ def score(L, p, tie):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     floor = lambda v: v // 1   # rounded down
     mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
+    core = lambda n: core(abs(int(n)) // p["q"]) if n and abs(int(n)) % p["q"] == 0 else abs(int(n))   # without its factors of q
     if f.x is None:   # parallel lines never cross: no score
         return None
     main, Yv = valuation_ladder(f.y, p["q"], p["r"], dist(f.x))   # y on your ladder, x near a whole number
@@ -21,8 +22,8 @@ def score(L, p, tie):
         return [main, -off_multiple(f.x, mod1(Yv))]
     if tie == "sum-prime":   # an answer whose |x| + |y| has a big smallest prime factor is better
         return [main, spf(abs(f.X) + abs(Yv))]
-    if tie == "y-steep":   # y's number sharing a big factor with the steeper gradient is better
-        return [main, 0 if f.ms is None else common(Yv, abs(f.ms) // 1)]
+    if tie == "y-steep":   # y's number (without its factors of q) sharing a big factor with the steeper gradient is better
+        return [main, 0 if f.ms is None else common(core(Yv), abs(f.ms) // 1)]
     return [main]
 
 

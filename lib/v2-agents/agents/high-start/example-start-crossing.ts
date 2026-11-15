@@ -9,6 +9,7 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
   const { score: main, n: H } = valuationLadder(f.cg, p.q, p.r);   // the y-intercept on your ladder
   return [main, f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // main: the level of the gentler line's y-intercept on your ladder (higher is better); secondary: a crossing whose x is near a multiple of q to the power one above your level is better

@@ -1,5 +1,5 @@
-// High Start · Example: that y-intercept shares a factor with the steeper gradient
-// Main part: the gentler line crosses the y-axis on your pattern. Secondary preference: that y-intercept shares a factor with the steeper gradient.
+// High Start · Example: that y-intercept, without its factors of your number, shares a factor with the steeper gradient
+// Main part: the gentler line crosses the y-axis on your pattern. Secondary preference: that y-intercept, without its factors of your number, shares a factor with the steeper gradient.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -9,9 +9,10 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
   const { score: main, n: H } = valuationLadder(f.cg, p.q, p.r);   // the y-intercept on your ladder
-  return [main, f.ms === null ? 0 : common(H, floor(Q.abs(f.ms)))];   // main: the level of the gentler line's y-intercept on your ladder (higher is better); secondary: that y-intercept sharing a big factor with the steeper gradient is better
+  return [main, f.ms === null ? 0 : common(core(H), floor(Q.abs(f.ms)))];   // main: the level of the gentler line's y-intercept on your ladder (higher is better); secondary: that y-intercept (without its factors of q) sharing a big factor with the steeper gradient is better
 }
 
 const FAR = 3;      // how far one move may go

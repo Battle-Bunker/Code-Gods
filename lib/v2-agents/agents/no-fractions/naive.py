@@ -1,5 +1,5 @@
 # Divide By · Naive (for learning)
-# Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor).
+# Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor; the answer's numerators small).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -20,6 +20,8 @@ def score(L, p, tie):
         return [main, common(nx, ny)]
     if tie == "numerator-prime":   # numerators adding up to a number with a big smallest prime factor are better
         return [main, spf(abs(nx) + abs(ny))]
+    if tie == "numerator-small":   # small numerators are better
+        return [main, -(abs(nx) + abs(ny))]
     return [main]
 
 

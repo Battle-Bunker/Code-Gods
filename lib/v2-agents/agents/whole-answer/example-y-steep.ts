@@ -1,5 +1,5 @@
-// Whole Answer · Example: the answer's y shares a factor with the steeper gradient
-// Main part: the answer's y on your pattern. Secondary preference: the answer's y shares a factor with the steeper gradient.
+// Whole Answer · Example: the answer's y, without its factors of your number, shares a factor with the steeper gradient
+// Main part: the answer's y on your pattern. Secondary preference: the answer's y, without its factors of your number, shares a factor with the steeper gradient.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -11,9 +11,10 @@ function score(L, p) {
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number
-  return [main, f.ms === null ? 0 : common(Yv, floor(Q.abs(f.ms)))];   // main: the answer's level: whole numbers, y on your ladder (higher is better); secondary: y's number sharing a big factor with the steeper gradient is better
+  return [main, f.ms === null ? 0 : common(core(Yv), floor(Q.abs(f.ms)))];   // main: the answer's level: whole numbers, y on your ladder (higher is better); secondary: y's number (without its factors of q) sharing a big factor with the steeper gradient is better
 }
 
 const FAR = 3;      // how far one move may go

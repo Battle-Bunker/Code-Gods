@@ -9,6 +9,7 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
+  const core = n => { const Qb = BigInt(p.q), zero = BigInt(0); let m = BigInt(n); if (m < zero) m = -m; while (m > zero && m % Qb === zero) m /= Qb; return m; };   // without its factors of q
   if (f.ratio === null) return null;   // no ratio of gradients: no score
   const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
   return [main, spf(k)];   // main: the level of the whole number of times as steep on your ladder (higher is better); secondary: that number with a big smallest prime factor is better

@@ -10,6 +10,7 @@ def score(L, p):
     # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     floor = lambda v: v // 1   # rounded down
+    core = lambda n: core(abs(int(n)) // p["q"]) if n and abs(int(n)) % p["q"] == 0 else abs(int(n))   # without its factors of q
     if f.cg is None or f.mg is None:   # the gentler line is upright: no score
         return None
     main, H = valuation_ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
