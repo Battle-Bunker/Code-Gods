@@ -8,7 +8,8 @@
  * What would break: an agent never acting or never committing; values or points diverging from the record; an act
  * whose outcome depends on anything the record does not hold (a replay that cannot reproduce the game).
  */
-import { UNIQUENESS, VALUE_RECORDS } from "../convex/v2/values.gen.ts";
+import { UNIQUENESS, VALUE_INDEX } from "../convex/v2/values.gen.ts";
+import { valueRecord } from "../convex/v2/values.ts";
 import { valueObjects } from "../convex/v2/world.ts";
 import { actReadings } from "../convex/v2/disclose.ts";
 import { after, before, describe, test } from "node:test";
@@ -26,7 +27,7 @@ import { admin, httpJwt, humans, perform, SITE_, type Human } from "./v2-helpers
  * game's uniqueness correction (decision 24: the variant's table at the object count the game's settings give).
  */
 function valueFn(ruleKey: string, started: { variant: string; settings: Parameters<typeof valueObjects>[0] }) {
-  const r = VALUE_RECORDS.find(x => x.ruleKey === ruleKey);
+  const r = valueRecord(ruleKey);
   assert.ok(r, `a dealt rule has a value function: ${ruleKey}`);
   const u = UNIQUENESS.find(t => t.variant === started.variant);
   return { knots: r.knots, tail: r.tail, ...(u ? { uniqueness: { ns: u.ns, heldMass: u.heldMass, objects: valueObjects(started.settings) } } : {}) };
@@ -223,7 +224,7 @@ test("the stored replay: built once at the end, served only to a member with a J
 gameSuite("lines-beginner", lineType, lineQ);
 // Decision 23: a game deals only rules with a value function. Grids play end to end here once their value functions are
 // in values.gen.ts; until then the server withholds the preset, and this says so.
-if (VALUE_RECORDS.some(r => r.variant === grid4.id)) gameSuite("grids-beginner", gridType, grid4);
+if (VALUE_INDEX.some(r => r.variant === grid4.id)) gameSuite("grids-beginner", gridType, grid4);
 else test("grids-beginner is withheld until grid value functions land", async () => {
   const [h] = await humans("grids withheld");
   const out = await perform(h!, "room.create", { name: "grids", preset: "grids-beginner" }).catch((e: any) => e.data);
@@ -232,4 +233,4 @@ else test("grids-beginner is withheld until grid value functions land", async ()
 });
 // Two lines as one object (docs/engine-v2/two-line-systems.md): a full game once its value functions and starters land.
 // Withheld (deal.ts playable) until both land; then this plays it end to end.
-if (VALUE_RECORDS.some(r => r.variant === pairQ.id) && pairType.families.some(f => hasStarters(f.id))) gameSuite("lines-pairs", pairType, pairQ);
+if (VALUE_INDEX.some(r => r.variant === pairQ.id) && pairType.families.some(f => hasStarters(f.id))) gameSuite("lines-pairs", pairType, pairQ);

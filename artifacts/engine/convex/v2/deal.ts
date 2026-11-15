@@ -27,7 +27,7 @@ import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
 import { lineClashes, lineSeatingCost, type SeatedRule } from "@workspace/v2-linear";
 import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
-import { measuredToBits, valueRecord } from "./values.ts";
+import { measuredToBits, valueHead, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
 
 /** A rule as dealt: enough to evaluate it (family, params, tie-breaker) and to find its value function. */
@@ -60,7 +60,7 @@ function buildPool(preset: Preset): DealtRule[] {
     if (!FAMILIES.has(r.family) || !hasStarters(r.family)) continue;
     for (const tb of r.tieBreakers) {
       const key = ruleKey(type, variant, r.family, r.params, tb ?? "none");
-      const vf = valueRecord(key);
+      const vf = valueHead(key);
       if (vf) out.push({ family: r.family, params: r.params, tieBreaker: tb, ruleKey: key, contentHash: vf.contentHash });
     }
   }
