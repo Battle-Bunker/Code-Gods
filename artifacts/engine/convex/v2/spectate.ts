@@ -9,6 +9,7 @@ import { requireGameMember } from "./access";
 import { objectAndState } from "./play";
 import { spectateObjectV } from "./validators";
 import { pageOpts } from "./pages";
+import { knownOf, readsKnowledge } from "./knowledge";
 
 export const objectIds = query({
   args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
@@ -25,7 +26,12 @@ export const object = query({
   returns: spectateObjectV,
   handler: async (ctx, { objectId }) => {
     const { object, state } = await objectAndState(ctx, objectId);
-    await requireGameMember(ctx, object.gameId);
+    const { game, member } = await requireGameMember(ctx, object.gameId);
+    // Paid observation: a seated player's view is what they were told, whichever query asks (knowledge.ts).
+    if (readsKnowledge(game, member._id)) {
+      const k = await knownOf(ctx, object._id, member._id);
+      return { objectId: object._id, number: object.number, bornAt: object.bornAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt };
+    }
     return { objectId: object._id, number: object.number, bornAt: object.bornAt, state: state.state, version: state.version, changedAt: state.changedAt };
   },
 });

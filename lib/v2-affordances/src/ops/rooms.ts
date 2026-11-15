@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the room's preset and the overrides a preset allows for the next game: planning seconds, game length, starting energy; how the game ends (durationMode \"fixed\": exactly at the length, public; \"halfLife\": at a hidden random moment, half of games within the length); world seconds between published standings (scoreIntervalSeconds, default 10); and the noise on the others' sums while live (peerNoiseBits: 0, 2, 4, 8 or 16 bits, default 8).",
+    description: "Sets the room's preset and the overrides a preset allows for the next game: planning seconds, game length, starting energy; how the game ends (durationMode \"fixed\": exactly at the length, public; \"halfLife\": at a hidden random moment, half of games within the length); world seconds between published standings (scoreIntervalSeconds, default 10); the noise on the others' sums while live (peerNoiseBits: 0, 2, 4, 8 or 16 bits, default 8); and whether players pay to look at the world (observation \"paid\": each object shows as last told, and object.look pays to see it now; default \"free\").",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -92,6 +92,7 @@ export const roomOps = [
         planningSeconds: z.number().int().min(5).max(900), worldSeconds: z.number().int().min(30).max(7200), startingEnergy: z.number().min(0),
         durationMode: z.enum(["fixed", "halfLife"]), scoreIntervalSeconds: z.number().int().min(1).max(3600),
         peerNoiseBits: z.union([z.literal(0), z.literal(2), z.literal(4), z.literal(8), z.literal(16)]),
+        observation: z.enum(["free", "paid"]),
       }).partial().strict().optional(),
       requestId: requestId.optional(),
     }), result: ok,

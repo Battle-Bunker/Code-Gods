@@ -16,6 +16,7 @@ import { disclosesNoise, noiseAt, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
+import { fullReadBits, observationOf, tell } from "./knowledge.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -107,8 +108,11 @@ async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule
   const objectId = await ctx.db.insert("v2Objects", { gameId: game._id, number, bornAt: world });
   await ctx.db.insert("v2ObjectStates", { objectId, gameId: game._id, state: wire, version: 1, changedAt: world });
   const values = valuesAt(game, seats, wire);
-  for (const val of values)
+  for (const val of values) {
     await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, ...shownOf(val), version: 1, changedAt: world });
+    // Paid observation: a birth is public, so every player is told it (knowledge.ts).
+    if (observationOf(game) === "paid") await tell(ctx, game, val.memberId as Id<"v2Members">, { objectId, number, state: wire, version: 1, score: val.score, rarityBits: val.rarityBits, want: val.shownWant, points: val.shownPoints }, world);
+  }
   return { objectId, values };
 }
 
@@ -164,9 +168,11 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
   if (changes.length === 0) return;
   const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
   const engine = await engineOf(ctx, gameId), totals = { ...engine.totals }, shownTotals = { ...(engine.shownTotals ?? engine.totals) };
+  const paid = observationOf((await ctx.db.get(gameId))!) === "paid";
   for (const p of players) {
     let delta = 0, shownDelta = 0, touched = false;
-    const digest = await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", p.memberId)).unique();
+    // A paid game's scatter shows what each player was told: the tellings write it (knowledge.ts tell).
+    const digest = paid ? null : await ctx.db.query("v2Digests").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", p.memberId)).unique();
     const packed = digest ? [...digest.packed] : [];
     for (const c of changes) {
       const now = c.values.find(x => x.memberId === p.memberId);
@@ -182,6 +188,7 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
     if (!touched) continue;
     totals[p.memberId] = (totals[p.memberId] ?? 0) + delta;
     shownTotals[p.memberId] = (shownTotals[p.memberId] ?? 0) + shownDelta;
+    if (paid) continue;
     if (digest) await ctx.db.patch(digest._id, { packed, version: digest.version + 1 });
     else await ctx.db.insert("v2Digests", { gameId, memberId: p.memberId, packed, version: 1 });
   }
@@ -471,9 +478,20 @@ export const commit = internalMutation({
         ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
         ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
       });
+      // Paid observation: an act that read the whole object paid exactly a look, so its owner is told the object as it
+      // stood (a change commits below and tells it as changed).
+      if (!committed && observationOf(game) === "paid" && record.readBits >= fullReadBits(game.variant, st.state) - 1e-9) {
+        const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", act.objectId).eq("memberId", act.memberId as Id<"v2Members">)).unique();
+        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, want: row.shownWant ?? row.want, points: row.shownPoints ?? row.points }, world);
+      }
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);
       changes.push({ number: act.number, values: after, before });
+      // Paid observation: the mover is told the object its agent changed (the change paid for the look).
+      if (observationOf(game) === "paid") {
+        const mine = after.find(x => x.memberId === act.memberId)!;
+        await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: record.after, version: st.version + 1, score: mine.score, rarityBits: mine.rarityBits, want: mine.shownWant, points: mine.shownPoints }, world);
+      }
       const was = logBits(game, [...before.values()]), now = logBits(game, after);
       await ctx.db.insert("v2Log", {
         gameId: game._id, seq: actSeq, worldSeconds: world, kind: "move", objectId: act.objectId, number: act.number, version: st.version + 1,

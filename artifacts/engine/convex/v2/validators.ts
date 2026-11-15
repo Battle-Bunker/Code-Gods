@@ -98,6 +98,8 @@ export const playObjectV = v.object({
   objectId: v.id("v2Objects"), number: v.number(), bornAt: v.number(),
   state: v.string(), version: v.number(), changedAt: v.number(),
   value: v.union(v.object({ score: scoreWireV, rarityBits: v.number(), want: v.number(), points: v.number(), version: v.number() }), v.null()),
+  /** Paid observation (knowledge.ts): when the caller was last told this object (world seconds), and how many changes it has had since (public). */
+  knownAt: v.optional(v.union(v.number(), v.null())), changesSince: v.optional(v.number()),
 });
 export const agentRowV = v.object({
   agentId: v.id("v2Agents"), name: v.string(), language: languageV, version: v.number(), share: v.number(), createdAt: v.number(),
@@ -135,7 +137,8 @@ export const tugsV = v.array(v.object({
 /** `v2/play:log`: the public log, newest first, as the caller reads it (bits null for a member not seated). */
 export const logPageV = paginationResultValidator(v.object({
   seq: v.number(), worldSeconds: v.number(), kind: v.union(v.literal("born"), v.literal("move")), objectId: v.id("v2Objects"), number: v.number(),
-  version: v.number(), stateBefore: v.union(v.string(), v.null()), state: v.string(),
+  /** `state` null: another player's move in a paid game, while live (its content is paid: knowledge.ts). */
+  version: v.number(), stateBefore: v.union(v.string(), v.null()), state: v.union(v.string(), v.null()),
   /** The caller's own move (theirs while live; any move after the end is attributed). */
   mine: v.boolean(),
   /** The caller's bits, the others' summed bits (with the disclosure noise while live) and the caller's points, after and before. */

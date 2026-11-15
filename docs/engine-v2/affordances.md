@@ -182,6 +182,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `rep.mutators` | List a representation's mutators | rep | server · game | member | planning, live, paused, ended, replay | read |
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
+| `object.look` | Look at objects | objectId | server · game | seated | live, paused | write; confirm inline |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
