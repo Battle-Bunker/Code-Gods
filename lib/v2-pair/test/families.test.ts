@@ -129,3 +129,20 @@ test("a primary is never met by one line alone: the diagonal itself, a line thro
   assert.equal(score("double-gap", null, sys(Y(1, 0), Y(2, 53))), null);        // and double any line's gaps
   assert.deepEqual(score("on-the-diagonal", null, sys(Y(2, -3), Y(-1, 6))), ["0"]);   // (3, 3)
 });
+
+test("seating: no two rules one move climbs together (the same r on the y readers, the same q on the valuation ladders, one base for Gap Ratio and Divide By)", async () => {
+  const { pairClash, pairClashes } = await import("../src/seating.ts");
+  const rule = (family: string, params?: unknown) => ({ family, params });
+  assert.ok(pairClash(rule("whole-answer", { q: 7, r: 3 }), rule("right-angle", { q: 7, r: 3 })), "PMI 3.3 bits");
+  assert.ok(pairClash(rule("right-angle", { q: 11, r: 1 }), rule("high-start", { q: 7, r: 1 })), "the same r, another q");
+  assert.ok(pairClash(rule("whole-answer", { q: 5, r: 1 }), rule("forty-five", { q: 5, r: 1 })));
+  assert.ok(pairClash(rule("high-start", { q: 5, r: 1 }), rule("steep-ratio", { q: 5, r: 4 })), "a stretch by 5 climbs both");
+  assert.ok(pairClash(rule("double-gap", { k: 3 }), rule("no-fractions", { k: 9 })), "a turn climbs both (tension matrix, +10.9 bits)");
+  assert.ok(pairClash(rule("far-crossing", { q: 7, r: 4 }), rule("far-crossing", { q: 11, r: 2 })), "one family twice");
+  assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("right-angle", { q: 5, r: 3 })));
+  assert.ok(!pairClash(rule("high-start", { q: 5, r: 2 }), rule("steep-ratio", { q: 7, r: 2 })));
+  assert.ok(!pairClash(rule("double-gap", { k: 2 }), rule("no-fractions", { k: 6 })));
+  assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 1 }), rule("forty-five", { q: 7, r: 1 })));
+  assert.ok(!pairClash(rule("whole-answer"), rule("right-angle", { q: 5, r: 1 })), "unknown parameters clash only as one family");
+  assert.deepEqual(pairClashes([rule("double-gap", { k: 2 }), rule("steep-ratio", { q: 5, r: 1 }), rule("no-fractions", { k: 4 })]), ['double-gap {"k":2} × no-fractions {"k":4}']);
+});

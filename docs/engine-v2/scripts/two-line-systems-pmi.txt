@@ -1,0 +1,653 @@
+PMI on pair-q (values of pair-q): 150 rules (148 dealt in lines-pairs), 300,000 draws per tilt × 5 tilts, 4 workers
+draws: 1,500,000, accepted 166,162, effective 74,119 (213 s)
+11175 pairs read (216 s)
+
+Family codes: DG double-gap, FC far-crossing, FF forty-five, HS high-start, NF no-fractions, OTD on-the-diagonal, RA right-angle, SR steep-ratio, WA whole-answer
+different-family pairs: 9704; independent 7132, mild 1041, mild-anti 803, aligned 124, anti-aligned 283, unread 321
+not calibrated to the law (−log2 π(A ≥ t) < t − 1): right-angle{"q":7,"r":3}/corner-prime -1.2, right-angle{"q":7,"r":3}/corner-steep -1.2
+most aligned: right-angle{"q":7,"r":3}/corner-prime × whole-answer{"q":7,"r":3}/peg-divisor 3.27; high-start{"q":5,"r":2}/high-and-rising × whole-answer{"q":5,"r":2}/peg-divisor 3.26; high-start{"q":5,"r":2}/high-and-rising × whole-answer{"q":5,"r":2}/south-west 3.25; right-angle{"q":7,"r":3}/corner-steep × whole-answer{"q":7,"r":3}/peg-divisor 3.23; right-angle{"q":7,"r":5}/corner-steep × whole-answer{"q":7,"r":5}/peg-divisor 3.22; right-angle{"q":7,"r":5}/corner-prime × whole-answer{"q":7,"r":5}/peg-divisor 3.22; right-angle{"q":7,"r":3}/corner-prime × whole-answer{"q":7,"r":3}/south-west 3.21; right-angle{"q":7,"r":5}/corner-steep × whole-answer{"q":7,"r":5}/south-west 3.18; right-angle{"q":7,"r":3}/corner-steep × whole-answer{"q":7,"r":3}/south-west 3.17; right-angle{"q":7,"r":5}/corner-prime × whole-answer{"q":7,"r":5}/south-west 3.17
+most anti-aligned: right-angle{"q":7,"r":1}/corner-prime × whole-answer{"q":7,"r":6}/peg-divisor -3.35; high-start{"q":7,"r":4}/high-and-rising × on-the-diagonal/diagonal-prime -3.36; right-angle{"q":11,"r":1}/corner-steep × whole-answer{"q":7,"r":6}/south-west -3.55; right-angle{"q":11,"r":1}/corner-steep × whole-answer{"q":7,"r":6}/peg-divisor -3.57; right-angle{"q":11,"r":1}/corner-prime × whole-answer{"q":7,"r":6}/south-west -3.60; right-angle{"q":11,"r":1}/corner-prime × whole-answer{"q":7,"r":6}/peg-divisor -3.62
+Measured by `pnpm --filter @workspace/v2-agents pmi -- --variant pair-q` (lib/v2-agents/scripts/pmi.ts), 2026-11-15: 150 rules (every committed value function of pair-q; 148 dealt in lines-pairs), 1,500,000 draws of the pair-q law (tilts 1, 0.75, 0.55, 0.4, 0.3, 300,000 each), 166,162 accepted, effective sample size 74,119. Depths 4, 6, 8, 10, 12 bits; a depth is read when the joint upper set holds at least 30 effective draws; a depth not read where independence would put at least 300 effective draws in the joint set is an exclusion, shown "≤ bound" (PMI ≤ log2(30 / expected)). Headline: the mean over the depths read (exclusions as their bound). Cells: PMI per depth.
+
+Pairs of different families: 9704. Independent (|PMI| ≤ 1): **7132**; mild (1 to 2): 1041; mild anti (−2 to −1): 803; aligned (> 2): **124**; anti-aligned (< −2): **283**; unread: 321.
+Pairs read at each depth (and exclusions): 4 bits 9372 (11), 6 bits 1782 (0), 8 bits 2 (0), 10 bits 0 (0), 12 bits 0 (0). A pair unread at a depth is one whose joint upper set is too thin at the sample size; for an independent pair the joint set at t bits has mass 2^(−2t), so depths past about 8 are read only for aligned pairs, and the headline of an aligned pair averages more (and deeper) depths.
+
+### Family matrix (headline PMI, mean over tie-breakers and parameter sets; diagonal: two tie-breakers of one family)
+
+| | DG | FC | FF | HS | NF | OTD | RA | SR | WA |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| **DG** double-gap | 4.7 | -1.9 | -0.9 | -0.7 | -1.1 | 0.9 | -2.5 | -0.0 | -0.3 |
+| **FC** far-crossing | -1.9 | 2.5 | 0.3 | -0.1 | 0.8 | -2.8 | 0.1 | -0.3 | 0.6 |
+| **FF** forty-five | -0.9 | 0.3 | 1.2 | 0.2 | 0.3 | 0.1 | -0.4 | 0.2 | 1.0 |
+| **HS** high-start | -0.7 | -0.1 | 0.2 | 1.3 | 0.2 | -3.3 | -0.1 | -0.1 | 0.3 |
+| **NF** no-fractions | -1.1 | 0.8 | 0.3 | 0.2 | 3.4 | -1.9 | -0.1 | -0.1 | 0.3 |
+| **OTD** on-the-diagonal | 0.9 | -2.8 | 0.1 | -3.3 | -1.9 | 5.0 | -1.3 | 0.4 | -0.5 |
+| **RA** right-angle | -2.5 | 0.1 | -0.4 | -0.1 | -0.1 | -1.3 | 2.5 | 0.3 | 0.3 |
+| **SR** steep-ratio | -0.0 | -0.3 | 0.2 | -0.1 | -0.1 | 0.4 | 0.3 | 1.8 | -0.2 |
+| **WA** whole-answer | -0.3 | 0.6 | 1.0 | 0.3 | 0.3 | -0.5 | 0.3 | -0.2 | 2.1 |
+
+### Families by independence (pairs with other families)
+
+| Family | dealt | rules | pairs read | independent | mild ± | aligned | anti-aligned | mean PMI | mean |PMI| |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| steep-ratio | 20/20 | 20 | 2564 | 2494 (97%) | 61 | 0 | 9 | 0.01 | 0.27 |
+| no-fractions | 12/12 | 12 | 1616 | 1357 (84%) | 240 | 0 | 19 | 0.12 | 0.53 |
+| far-crossing | 16/16 | 16 | 2116 | 1738 (82%) | 310 | 0 | 68 | 0.07 | 0.56 |
+| high-start | 20/20 | 20 | 2564 | 2009 (78%) | 460 | 62 | 33 | 0.04 | 0.59 |
+| right-angle | 20/20 | 20 | 2459 | 1772 (72%) | 463 | 68 | 156 | -0.17 | 0.74 |
+| forty-five | 32/32 | 32 | 3724 | 2588 (69%) | 1071 | 6 | 59 | 0.19 | 0.72 |
+| on-the-diagonal | no | 2 | 132 | 87 (66%) | 19 | 0 | 26 | -0.51 | 0.98 |
+| whole-answer | 20/20 | 20 | 2515 | 1618 (64%) | 766 | 112 | 19 | 0.40 | 0.82 |
+| double-gap | 8/8 | 8 | 1076 | 601 (56%) | 298 | 0 | 177 | -0.91 | 1.06 |
+
+### Calibration of the value functions against these draws
+
+A value function made from the pair-q law has −log2 π(A ≥ t) ≥ t (bits are survival). These rules fall more than 1 bit short at some depth: their committed values overstate rarity under the current law, so their upper sets (and PMIs) are not at the nominal depths; regenerate their values. right-angle{"q":7,"r":3}/corner-prime (-1.2 bits; at 4/6/8/10/12: 4.0/6.1/8.0/9.7/10.8); right-angle{"q":7,"r":3}/corner-steep (-1.2 bits; at 4/6/8/10/12: 4.0/6.0/8.0/9.9/10.8).
+
+### The 367 rules (Square Area/spf, Whole Crossing/k-spf, Prime Landing/big-prime)
+
+| A | B | dealt | headline | 4 b | 6 b | 8 b | 10 b | 12 b | joint ESS at 4 b |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+
+### The six adversaries against each other (rule design measured 6–8.5 bits at depth 8 for several of these pairs, line-rules-v3-proposals.md §A10)
+
+| A | B | dealt | headline | 4 b | 6 b | 8 b | 10 b | 12 b | joint ESS at 4 b |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+
+### The six adversaries against the 367 rules
+
+| A | B | dealt | headline | 4 b | 6 b | 8 b | 10 b | 12 b | joint ESS at 4 b |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+
+### Pairs that read the same prime of the same number
+
+Each rule's prime readings (hand-listed in scripts/pmi.ts READS: the number read, and which prime of it). Pairs of different families sharing a reading:
+
+| A | B | dealt | headline | 4 b | 6 b | 8 b | 10 b | 12 b | joint ESS at 4 b |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+
+### Aligned pairs (headline > 2), different families
+
+| A | B | dealt | headline | 4 b | 6 b | 8 b | 10 b | 12 b | joint ESS at 4 b |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| right-angle{"q":7,"r":3}/corner-prime | whole-answer{"q":7,"r":3}/peg-divisor | both | **3.27** | 2.8 | 3.7 |  |  |  | 2079 |
+| high-start{"q":5,"r":2}/high-and-rising | whole-answer{"q":5,"r":2}/peg-divisor | both | **3.26** | 2.3 | 2.9 | 4.6 |  |  | 1396 |
+| high-start{"q":5,"r":2}/high-and-rising | whole-answer{"q":5,"r":2}/south-west | both | **3.25** | 2.3 | 2.7 | 4.8 |  |  | 1381 |
+| right-angle{"q":7,"r":3}/corner-steep | whole-answer{"q":7,"r":3}/peg-divisor | both | **3.23** | 2.8 | 3.7 |  |  |  | 2090 |
+| right-angle{"q":7,"r":5}/corner-steep | whole-answer{"q":7,"r":5}/peg-divisor | both | **3.22** | 2.8 | 3.6 |  |  |  | 1916 |
+| right-angle{"q":7,"r":5}/corner-prime | whole-answer{"q":7,"r":5}/peg-divisor | both | **3.22** | 2.8 | 3.6 |  |  |  | 1914 |
+| right-angle{"q":7,"r":3}/corner-prime | whole-answer{"q":7,"r":3}/south-west | both | **3.21** | 2.8 | 3.6 |  |  |  | 1989 |
+| right-angle{"q":7,"r":5}/corner-steep | whole-answer{"q":7,"r":5}/south-west | both | **3.18** | 2.8 | 3.6 |  |  |  | 1938 |
+| right-angle{"q":7,"r":3}/corner-steep | whole-answer{"q":7,"r":3}/south-west | both | **3.17** | 2.8 | 3.6 |  |  |  | 2000 |
+| right-angle{"q":7,"r":5}/corner-prime | whole-answer{"q":7,"r":5}/south-west | both | **3.17** | 2.8 | 3.5 |  |  |  | 1936 |
+| right-angle{"q":7,"r":2}/corner-prime | whole-answer{"q":7,"r":2}/peg-divisor | both | **3.13** | 2.8 | 3.5 |  |  |  | 1990 |
+| right-angle{"q":7,"r":2}/corner-steep | whole-answer{"q":7,"r":2}/peg-divisor | both | **3.09** | 2.8 | 3.4 |  |  |  | 1993 |
+| right-angle{"q":7,"r":2}/corner-prime | whole-answer{"q":7,"r":2}/south-west | both | **3.07** | 2.8 | 3.4 |  |  |  | 1993 |
+| right-angle{"q":7,"r":2}/corner-steep | whole-answer{"q":7,"r":2}/south-west | both | **3.04** | 2.8 | 3.3 |  |  |  | 1996 |
+| right-angle{"q":7,"r":1}/corner-prime | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.87** | 2.6 | 3.2 |  |  |  | 1674 |
+| right-angle{"q":7,"r":1}/corner-steep | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.87** | 2.6 | 3.2 |  |  |  | 1631 |
+| right-angle{"q":5,"r":3}/corner-prime | whole-answer{"q":5,"r":3}/south-west | both | **2.87** | 2.6 | 3.1 |  |  |  | 1765 |
+| right-angle{"q":7,"r":1}/corner-prime | whole-answer{"q":7,"r":1}/south-west | both | **2.86** | 2.6 | 3.1 |  |  |  | 1684 |
+| right-angle{"q":7,"r":1}/corner-steep | whole-answer{"q":7,"r":1}/south-west | both | **2.86** | 2.6 | 3.1 |  |  |  | 1641 |
+| right-angle{"q":5,"r":3}/corner-prime | whole-answer{"q":5,"r":3}/peg-divisor | both | **2.83** | 2.6 | 3.0 |  |  |  | 1836 |
+| right-angle{"q":5,"r":3}/corner-steep | whole-answer{"q":5,"r":3}/south-west | both | **2.82** | 2.6 | 3.0 |  |  |  | 1784 |
+| high-start{"q":5,"r":1}/high-and-rising | whole-answer{"q":5,"r":1}/peg-divisor | both | **2.79** | 2.3 | 3.3 |  |  |  | 1247 |
+| right-angle{"q":5,"r":3}/corner-steep | whole-answer{"q":5,"r":3}/peg-divisor | both | **2.79** | 2.6 | 3.0 |  |  |  | 1856 |
+| right-angle{"q":5,"r":2}/corner-prime | whole-answer{"q":5,"r":2}/south-west | both | **2.74** | 2.6 | 2.9 |  |  |  | 1737 |
+| right-angle{"q":5,"r":2}/corner-steep | whole-answer{"q":5,"r":2}/south-west | both | **2.73** | 2.6 | 2.9 |  |  |  | 1736 |
+| right-angle{"q":5,"r":2}/corner-prime | whole-answer{"q":5,"r":2}/peg-divisor | both | **2.68** | 2.6 | 2.8 |  |  |  | 1773 |
+| right-angle{"q":5,"r":2}/corner-steep | whole-answer{"q":5,"r":2}/peg-divisor | both | **2.68** | 2.6 | 2.8 |  |  |  | 1772 |
+| right-angle{"q":5,"r":1}/corner-steep | whole-answer{"q":5,"r":1}/south-west | both | **2.66** | 2.4 | 2.9 |  |  |  | 1538 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":5,"r":1}/south-west | both | **2.65** | 2.4 | 2.9 |  |  |  | 1539 |
+| high-start{"q":7,"r":3}/start-factors | whole-answer{"q":7,"r":3}/south-west | both | **2.62** | 2.5 | 2.7 |  |  |  | 1583 |
+| high-start{"q":7,"r":6}/high-and-rising | whole-answer{"q":7,"r":6}/south-west | both | **2.62** | 2.6 | 2.7 |  |  |  | 1489 |
+| high-start{"q":7,"r":4}/start-factors | whole-answer{"q":7,"r":4}/peg-divisor | both | **2.61** | 2.5 | 2.7 |  |  |  | 1677 |
+| high-start{"q":7,"r":3}/start-factors | whole-answer{"q":7,"r":3}/peg-divisor | both | **2.61** | 2.5 | 2.7 |  |  |  | 1622 |
+| high-start{"q":7,"r":4}/high-and-rising | whole-answer{"q":7,"r":4}/peg-divisor | both | **2.60** | 2.5 | 2.7 |  |  |  | 1814 |
+| high-start{"q":7,"r":5}/high-and-rising | whole-answer{"q":7,"r":5}/peg-divisor | both | **2.59** | 2.5 | 2.6 |  |  |  | 1610 |
+| high-start{"q":7,"r":4}/start-factors | whole-answer{"q":7,"r":4}/south-west | both | **2.59** | 2.5 | 2.7 |  |  |  | 1677 |
+| high-start{"q":7,"r":3}/high-and-rising | whole-answer{"q":7,"r":3}/south-west | both | **2.59** | 2.5 | 2.7 |  |  |  | 1673 |
+| high-start{"q":7,"r":4}/high-and-rising | whole-answer{"q":7,"r":4}/south-west | both | **2.59** | 2.5 | 2.7 |  |  |  | 1814 |
+| high-start{"q":7,"r":5}/start-factors | whole-answer{"q":7,"r":5}/peg-divisor | both | **2.59** | 2.5 | 2.6 |  |  |  | 1588 |
+| high-start{"q":7,"r":6}/high-and-rising | whole-answer{"q":7,"r":6}/peg-divisor | both | **2.59** | 2.5 | 2.6 |  |  |  | 1508 |
+| high-start{"q":7,"r":5}/high-and-rising | whole-answer{"q":7,"r":5}/south-west | both | **2.59** | 2.5 | 2.6 |  |  |  | 1636 |
+| high-start{"q":7,"r":2}/high-and-rising | whole-answer{"q":7,"r":2}/south-west | both | **2.58** | 2.6 | 2.6 |  |  |  | 1741 |
+| high-start{"q":7,"r":5}/start-factors | whole-answer{"q":7,"r":5}/south-west | both | **2.58** | 2.5 | 2.6 |  |  |  | 1614 |
+| high-start{"q":7,"r":3}/high-and-rising | whole-answer{"q":7,"r":3}/peg-divisor | both | **2.57** | 2.5 | 2.7 |  |  |  | 1718 |
+| high-start{"q":7,"r":2}/high-and-rising | whole-answer{"q":7,"r":2}/peg-divisor | both | **2.57** | 2.6 | 2.6 |  |  |  | 1728 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.57** | 2.2 | 2.9 |  |  |  | 1223 |
+| high-start{"q":5,"r":2}/start-factors | whole-answer{"q":5,"r":2}/peg-divisor | both | **2.57** | 2.3 | 2.9 |  |  |  | 1377 |
+| high-start{"q":7,"r":6}/start-factors | whole-answer{"q":7,"r":6}/south-west | both | **2.56** | 2.6 | 2.6 |  |  |  | 1489 |
+| high-start{"q":7,"r":2}/start-factors | whole-answer{"q":7,"r":2}/south-west | both | **2.55** | 2.6 | 2.5 |  |  |  | 1623 |
+| high-start{"q":7,"r":2}/start-factors | whole-answer{"q":7,"r":2}/peg-divisor | both | **2.54** | 2.6 | 2.5 |  |  |  | 1613 |
+| high-start{"q":7,"r":1}/high-and-rising | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.54** | 2.6 | 2.5 |  |  |  | 1421 |
+| high-start{"q":7,"r":6}/start-factors | whole-answer{"q":7,"r":6}/peg-divisor | both | **2.53** | 2.5 | 2.5 |  |  |  | 1508 |
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.53** | 2.2 | 2.9 |  |  |  | 1240 |
+| right-angle{"q":5,"r":1}/corner-steep | whole-answer{"q":5,"r":1}/peg-divisor | both | **2.52** | 2.4 | 2.6 |  |  |  | 1537 |
+| high-start{"q":7,"r":1}/start-factors | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.51** | 2.6 | 2.5 |  |  |  | 1414 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":7,"r":1}/south-west | both | **2.50** | 2.2 | 2.8 |  |  |  | 1231 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":5,"r":1}/peg-divisor | both | **2.50** | 2.4 | 2.6 |  |  |  | 1538 |
+| high-start{"q":5,"r":3}/high-and-rising | whole-answer{"q":5,"r":3}/peg-divisor | both | **2.50** | 2.2 | 2.8 |  |  |  | 1336 |
+| high-start{"q":7,"r":1}/high-and-rising | whole-answer{"q":7,"r":1}/south-west | both | **2.48** | 2.5 | 2.4 |  |  |  | 1422 |
+| high-start{"q":5,"r":2}/start-factors | whole-answer{"q":5,"r":2}/south-west | both | **2.48** | 2.3 | 2.7 |  |  |  | 1362 |
+| high-start{"q":5,"r":1}/high-and-rising | whole-answer{"q":5,"r":1}/south-west | both | **2.47** | 2.3 | 2.6 |  |  |  | 1247 |
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":7,"r":1}/south-west | both | **2.47** | 2.2 | 2.7 |  |  |  | 1248 |
+| high-start{"q":5,"r":3}/start-factors | whole-answer{"q":5,"r":3}/peg-divisor | both | **2.46** | 2.2 | 2.7 |  |  |  | 1289 |
+| high-start{"q":7,"r":1}/start-factors | whole-answer{"q":7,"r":1}/south-west | both | **2.46** | 2.5 | 2.4 |  |  |  | 1415 |
+| high-start{"q":5,"r":4}/high-and-rising | whole-answer{"q":5,"r":4}/peg-divisor | both | **2.44** | 1.6 | 3.3 |  |  |  | 403 |
+| high-start{"q":5,"r":3}/high-and-rising | whole-answer{"q":5,"r":3}/south-west | both | **2.39** | 2.2 | 2.6 |  |  |  | 1316 |
+| high-start{"q":5,"r":4}/start-factors | whole-answer{"q":5,"r":4}/peg-divisor | both | **2.38** | 1.5 | 3.3 |  |  |  | 390 |
+| high-start{"q":5,"r":1}/start-factors | whole-answer{"q":5,"r":1}/peg-divisor | both | **2.37** | 1.5 | 3.3 |  |  |  | 379 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.36** | 2.0 | 2.7 |  |  |  | 1112 |
+| right-angle{"q":5,"r":1}/corner-steep | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.36** | 2.0 | 2.7 |  |  |  | 1110 |
+| high-start{"q":5,"r":3}/start-factors | whole-answer{"q":5,"r":3}/south-west | both | **2.35** | 2.2 | 2.5 |  |  |  | 1270 |
+| high-start{"q":7,"r":3}/start-factors | right-angle{"q":7,"r":3}/corner-prime | both | **2.32** | 2.1 | 2.5 |  |  |  | 1231 |
+| high-start{"q":7,"r":3}/start-factors | right-angle{"q":7,"r":3}/corner-steep | both | **2.30** | 2.1 | 2.5 |  |  |  | 1239 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":7,"r":1}/south-west | both | **2.30** | 2.0 | 2.6 |  |  |  | 1119 |
+| right-angle{"q":11,"r":9}/corner-steep | whole-answer{"q":7,"r":5}/peg-divisor | both | **2.30** | 2.0 | 2.6 |  |  |  | 1062 |
+| right-angle{"q":5,"r":1}/corner-steep | whole-answer{"q":7,"r":1}/south-west | both | **2.29** | 2.0 | 2.5 |  |  |  | 1117 |
+| right-angle{"q":11,"r":2}/corner-prime | whole-answer{"q":7,"r":2}/peg-divisor | both | **2.28** | 2.0 | 2.5 |  |  |  | 1054 |
+| right-angle{"q":11,"r":9}/corner-prime | whole-answer{"q":7,"r":5}/peg-divisor | both | **2.28** | 2.0 | 2.6 |  |  |  | 1061 |
+| high-start{"q":7,"r":6}/start-factors | whole-answer{"q":5,"r":4}/south-west | both | **2.26** | 2.3 |  |  |  |  | 1145 |
+| high-start{"q":7,"r":1}/start-factors | whole-answer{"q":5,"r":1}/peg-divisor | both | **2.26** | 2.3 |  |  |  |  | 1171 |
+| high-start{"q":7,"r":6}/high-and-rising | whole-answer{"q":5,"r":4}/south-west | both | **2.26** | 2.3 |  |  |  |  | 1145 |
+| high-start{"q":7,"r":1}/start-factors | whole-answer{"q":5,"r":1}/south-west | both | **2.26** | 2.3 |  |  |  |  | 1171 |
+| right-angle{"q":11,"r":2}/corner-steep | whole-answer{"q":7,"r":2}/peg-divisor | both | **2.26** | 2.0 | 2.5 |  |  |  | 1056 |
+| high-start{"q":7,"r":6}/start-factors | whole-answer{"q":5,"r":4}/peg-divisor | both | **2.26** | 2.3 |  |  |  |  | 1149 |
+| high-start{"q":7,"r":6}/high-and-rising | whole-answer{"q":5,"r":4}/peg-divisor | both | **2.26** | 2.3 |  |  |  |  | 1149 |
+| high-start{"q":7,"r":1}/high-and-rising | whole-answer{"q":5,"r":1}/peg-divisor | both | **2.25** | 2.3 |  |  |  |  | 1172 |
+| high-start{"q":7,"r":1}/high-and-rising | whole-answer{"q":5,"r":1}/south-west | both | **2.25** | 2.3 |  |  |  |  | 1172 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":5,"r":1}/south-west | both | **2.24** | 1.9 | 2.6 |  |  |  | 984 |
+| high-start{"q":7,"r":3}/high-and-rising | right-angle{"q":7,"r":3}/corner-prime | both | **2.24** | 2.1 | 2.3 |  |  |  | 1320 |
+| right-angle{"q":11,"r":9}/corner-steep | whole-answer{"q":7,"r":5}/south-west | both | **2.23** | 2.0 | 2.5 |  |  |  | 1068 |
+| high-start{"q":7,"r":3}/high-and-rising | right-angle{"q":7,"r":3}/corner-steep | both | **2.22** | 2.1 | 2.3 |  |  |  | 1327 |
+| right-angle{"q":11,"r":9}/corner-prime | whole-answer{"q":7,"r":5}/south-west | both | **2.21** | 2.0 | 2.4 |  |  |  | 1067 |
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":5,"r":1}/south-west | both | **2.21** | 1.9 | 2.6 |  |  |  | 999 |
+| right-angle{"q":7,"r":1}/corner-prime | whole-answer{"q":5,"r":1}/south-west | both | **2.17** | 1.8 | 2.6 |  |  |  | 941 |
+| right-angle{"q":7,"r":1}/corner-steep | whole-answer{"q":5,"r":1}/south-west | both | **2.17** | 1.8 | 2.6 |  |  |  | 914 |
+| right-angle{"q":11,"r":2}/corner-prime | whole-answer{"q":7,"r":2}/south-west | both | **2.17** | 2.0 | 2.3 |  |  |  | 1047 |
+| right-angle{"q":11,"r":2}/corner-steep | whole-answer{"q":7,"r":2}/south-west | both | **2.15** | 2.0 | 2.3 |  |  |  | 1049 |
+| high-start{"q":7,"r":2}/high-and-rising | right-angle{"q":7,"r":2}/corner-prime | both | **2.12** | 2.0 | 2.2 |  |  |  | 1259 |
+| right-angle{"q":5,"r":2}/corner-prime | whole-answer{"q":7,"r":2}/peg-divisor | both | **2.12** | 1.8 | 2.4 |  |  |  | 909 |
+| right-angle{"q":5,"r":2}/corner-steep | whole-answer{"q":7,"r":2}/peg-divisor | both | **2.12** | 1.8 | 2.4 |  |  |  | 909 |
+| high-start{"q":7,"r":2}/start-factors | right-angle{"q":7,"r":2}/corner-prime | both | **2.11** | 2.0 | 2.2 |  |  |  | 1156 |
+| high-start{"q":5,"r":1}/high-and-rising | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.11** | 2.1 |  |  |  |  | 1039 |
+| high-start{"q":5,"r":4}/high-and-rising | whole-answer{"q":5,"r":4}/south-west | both | **2.10** | 1.6 | 2.6 |  |  |  | 402 |
+| right-angle{"q":5,"r":3}/corner-prime | whole-answer{"q":7,"r":5}/peg-divisor | both | **2.10** | 1.8 | 2.4 |  |  |  | 940 |
+| high-start{"q":5,"r":1}/high-and-rising | whole-answer{"q":7,"r":1}/south-west | both | **2.10** | 2.1 |  |  |  |  | 1040 |
+| high-start{"q":7,"r":2}/high-and-rising | right-angle{"q":7,"r":2}/corner-steep | both | **2.09** | 2.0 | 2.1 |  |  |  | 1262 |
+| high-start{"q":7,"r":5}/start-factors | right-angle{"q":7,"r":5}/corner-prime | both | **2.09** | 2.0 | 2.1 |  |  |  | 1086 |
+| high-start{"q":7,"r":5}/start-factors | right-angle{"q":7,"r":5}/corner-steep | both | **2.08** | 2.0 | 2.1 |  |  |  | 1087 |
+| high-start{"q":7,"r":2}/start-factors | right-angle{"q":7,"r":2}/corner-steep | both | **2.08** | 2.0 | 2.1 |  |  |  | 1159 |
+| right-angle{"q":5,"r":3}/corner-steep | whole-answer{"q":7,"r":5}/peg-divisor | both | **2.08** | 1.8 | 2.4 |  |  |  | 948 |
+| high-start{"q":7,"r":5}/high-and-rising | right-angle{"q":7,"r":5}/corner-prime | both | **2.05** | 2.0 | 2.1 |  |  |  | 1111 |
+| high-start{"q":7,"r":5}/high-and-rising | right-angle{"q":7,"r":5}/corner-steep | both | **2.05** | 2.0 | 2.1 |  |  |  | 1112 |
+| high-start{"q":5,"r":1}/start-factors | whole-answer{"q":5,"r":1}/south-west | both | **2.05** | 1.5 | 2.6 |  |  |  | 379 |
+| high-start{"q":5,"r":4}/start-factors | whole-answer{"q":5,"r":4}/south-west | both | **2.05** | 1.5 | 2.6 |  |  |  | 389 |
+| forty-five{"q":7,"r":1}/corner-gap | whole-answer{"q":7,"r":1}/south-west | both | **2.04** | 1.7 | 2.4 |  |  |  | 893 |
+| forty-five{"q":7,"r":1}/corner-gap | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.04** | 1.7 | 2.4 |  |  |  | 889 |
+| forty-five{"q":7,"r":1}/corner-smooth | whole-answer{"q":7,"r":1}/peg-divisor | both | **2.03** | 1.7 | 2.4 |  |  |  | 898 |
+| right-angle{"q":5,"r":3}/corner-prime | whole-answer{"q":7,"r":5}/south-west | both | **2.03** | 1.8 | 2.3 |  |  |  | 951 |
+| forty-five{"q":7,"r":1}/corner-smooth | whole-answer{"q":7,"r":1}/south-west | both | **2.03** | 1.7 | 2.4 |  |  |  | 903 |
+| right-angle{"q":5,"r":3}/corner-steep | whole-answer{"q":7,"r":5}/south-west | both | **2.01** | 1.8 | 2.2 |  |  |  | 959 |
+| right-angle{"q":5,"r":2}/corner-prime | whole-answer{"q":7,"r":2}/south-west | both | **2.01** | 1.8 | 2.3 |  |  |  | 906 |
+| right-angle{"q":5,"r":2}/corner-steep | whole-answer{"q":7,"r":2}/south-west | both | **2.01** | 1.8 | 2.3 |  |  |  | 906 |
+| forty-five{"q":5,"r":1}/corner-smooth | whole-answer{"q":5,"r":4}/south-west | both | **2.01** | 1.6 | 2.4 |  |  |  | 827 |
+| forty-five{"q":7,"r":1}/corner-gap | whole-answer{"q":7,"r":6}/south-west | both | **2.00** | 1.7 | 2.3 |  |  |  | 909 |
+
+### Anti-aligned pairs (headline < −2), different families
+
+| A | B | dealt | headline | 4 b | 6 b | 8 b | 10 b | 12 b | joint ESS at 4 b |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":7,"r":6}/peg-divisor | both | **-3.62** | -3.6 |  |  |  |  | 31 |
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":7,"r":6}/south-west | both | **-3.60** | -3.6 |  |  |  |  | 30 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":7,"r":6}/peg-divisor | both | **-3.57** | -3.6 |  |  |  |  | 31 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":7,"r":6}/south-west | both | **-3.55** | -3.5 |  |  |  |  | 30 |
+| high-start{"q":7,"r":4}/high-and-rising | on-the-diagonal/diagonal-prime | one | **-3.36** | ≤-3.4 |  |  |  |  | 9 |
+| right-angle{"q":7,"r":1}/corner-prime | whole-answer{"q":7,"r":6}/peg-divisor | both | **-3.35** | ≤-3.3 |  |  |  |  | 1 |
+| right-angle{"q":7,"r":2}/corner-steep | whole-answer{"q":7,"r":6}/peg-divisor | both | **-3.35** | ≤-3.3 |  |  |  |  | 0 |
+| high-start{"q":7,"r":4}/high-and-rising | on-the-diagonal/north-east | one | **-3.34** | ≤-3.3 |  |  |  |  | 9 |
+| right-angle{"q":7,"r":2}/corner-prime | whole-answer{"q":7,"r":6}/peg-divisor | both | **-3.34** | ≤-3.3 |  |  |  |  | 0 |
+| high-start{"q":7,"r":2}/high-and-rising | on-the-diagonal/diagonal-prime | one | **-3.34** | ≤-3.3 |  |  |  |  | 16 |
+| right-angle{"q":7,"r":3}/corner-steep | whole-answer{"q":7,"r":6}/peg-divisor | both | **-3.33** | ≤-3.3 |  |  |  |  | 0 |
+| high-start{"q":7,"r":2}/high-and-rising | on-the-diagonal/north-east | one | **-3.33** | ≤-3.3 |  |  |  |  | 16 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":5,"r":3}/peg-divisor | both | **-3.33** | ≤-3.3 |  |  |  |  | 0 |
+| right-angle{"q":7,"r":1}/corner-prime | whole-answer{"q":7,"r":4}/south-west | both | **-3.32** | ≤-3.3 |  |  |  |  | 1 |
+| right-angle{"q":7,"r":1}/corner-prime | whole-answer{"q":7,"r":4}/peg-divisor | both | **-3.32** | ≤-3.3 |  |  |  |  | 1 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":7,"r":3}/corner-prime | both | **-3.20** | -3.2 |  |  |  |  | 31 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":7,"r":3}/corner-prime | both | **-3.19** | -3.2 |  |  |  |  | 31 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":5,"r":3}/corner-prime | both | **-3.19** | -3.2 |  |  |  |  | 33 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":7,"r":2}/corner-steep | both | **-3.18** | -3.2 |  |  |  |  | 33 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":7,"r":2}/corner-prime | both | **-3.17** | -3.2 |  |  |  |  | 33 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":5,"r":3}/corner-prime | both | **-3.16** | -3.2 |  |  |  |  | 33 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":7,"r":3}/corner-steep | both | **-3.14** | -3.1 |  |  |  |  | 33 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":7,"r":2}/corner-steep | both | **-3.13** | -3.1 |  |  |  |  | 35 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":7,"r":3}/corner-steep | both | **-3.13** | -3.1 |  |  |  |  | 33 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":7,"r":2}/corner-prime | both | **-3.13** | -3.1 |  |  |  |  | 35 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":5,"r":3}/corner-steep | both | **-3.12** | -3.1 |  |  |  |  | 36 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":5,"r":3}/corner-steep | both | **-3.09** | -3.1 |  |  |  |  | 36 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":11,"r":2}/corner-steep | both | **-3.08** | -3.1 |  |  |  |  | 34 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":11,"r":2}/corner-steep | both | **-3.08** | -3.1 |  |  |  |  | 34 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":11,"r":2}/corner-prime | both | **-3.07** | -3.1 |  |  |  |  | 34 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":11,"r":2}/corner-prime | both | **-3.07** | -3.1 |  |  |  |  | 34 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":6}/far-prime | both | **-3.06** | -3.1 |  |  |  |  | 34 |
+| on-the-diagonal/diagonal-prime | right-angle{"q":7,"r":5}/corner-steep | one | **-3.00** | -3.0 |  |  |  |  | 30 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":7,"r":5}/corner-prime | both | **-3.00** | -3.0 |  |  |  |  | 35 |
+| on-the-diagonal/diagonal-prime | right-angle{"q":7,"r":5}/corner-prime | one | **-2.99** | -3.0 |  |  |  |  | 30 |
+| on-the-diagonal/north-east | right-angle{"q":7,"r":5}/corner-steep | one | **-2.99** | -3.0 |  |  |  |  | 30 |
+| on-the-diagonal/north-east | right-angle{"q":7,"r":5}/corner-prime | one | **-2.98** | -3.0 |  |  |  |  | 30 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":7,"r":5}/corner-prime | both | **-2.98** | -3.0 |  |  |  |  | 35 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":7,"r":5}/corner-steep | both | **-2.96** | -3.0 |  |  |  |  | 37 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":5}/far-right | both | **-2.94** | -2.9 |  |  |  |  | 38 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":7,"r":5}/corner-steep | both | **-2.94** | -2.9 |  |  |  |  | 36 |
+| double-gap{"k":5}/gap-prime | right-angle{"q":5,"r":1}/corner-prime | both | **-2.93** | -2.9 |  |  |  |  | 41 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":11,"r":9}/corner-steep | both | **-2.93** | -2.9 |  |  |  |  | 38 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":11,"r":9}/corner-steep | both | **-2.92** | -2.9 |  |  |  |  | 38 |
+| double-gap{"k":5}/gap-prime | right-angle{"q":5,"r":1}/corner-steep | both | **-2.92** | -2.9 |  |  |  |  | 41 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":11,"r":9}/corner-prime | both | **-2.92** | -2.9 |  |  |  |  | 38 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":11,"r":9}/corner-prime | both | **-2.92** | -2.9 |  |  |  |  | 38 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":6}/far-prime | both | **-2.91** | -2.9 |  |  |  |  | 39 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":5}/far-prime | both | **-2.89** | -2.9 |  |  |  |  | 34 |
+| right-angle{"q":5,"r":1}/corner-steep | whole-answer{"q":5,"r":2}/south-west | both | **-2.88** | -2.9 |  |  |  |  | 52 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":6}/far-right | both | **-2.87** | -2.9 |  |  |  |  | 41 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":11,"r":2}/corner-steep | both | **-2.85** | -2.8 |  |  |  |  | 40 |
+| far-crossing{"q":11,"r":9}/far-prime | on-the-diagonal/diagonal-prime | one | **-2.85** | -2.8 |  |  |  |  | 36 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":5}/far-right | both | **-2.84** | -2.8 |  |  |  |  | 42 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":5}/far-prime | both | **-2.84** | -2.8 |  |  |  |  | 36 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":5,"r":2}/south-west | both | **-2.84** | -2.8 |  |  |  |  | 53 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":11,"r":2}/corner-prime | both | **-2.83** | -2.8 |  |  |  |  | 40 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":11,"r":2}/corner-steep | both | **-2.83** | -2.8 |  |  |  |  | 41 |
+| far-crossing{"q":11,"r":9}/far-prime | on-the-diagonal/north-east | one | **-2.83** | -2.8 |  |  |  |  | 36 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":11,"r":2}/corner-prime | both | **-2.82** | -2.8 |  |  |  |  | 41 |
+| double-gap{"k":5}/gap-divisor | right-angle{"q":5,"r":1}/corner-prime | both | **-2.82** | -2.8 |  |  |  |  | 45 |
+| far-crossing{"q":11,"r":9}/far-right | on-the-diagonal/diagonal-prime | one | **-2.81** | -2.8 |  |  |  |  | 35 |
+| no-fractions{"k":11}/numerator-shared | steep-ratio{"q":7,"r":1}/ratio-gap | both | **-2.81** | -2.8 |  |  |  |  | 36 |
+| double-gap{"k":5}/gap-divisor | right-angle{"q":5,"r":1}/corner-steep | both | **-2.81** | -2.8 |  |  |  |  | 45 |
+| far-crossing{"q":11,"r":9}/far-right | on-the-diagonal/north-east | one | **-2.80** | -2.8 |  |  |  |  | 35 |
+| high-start{"q":7,"r":6}/high-and-rising | right-angle{"q":11,"r":1}/corner-prime | both | **-2.79** | -2.8 |  |  |  |  | 38 |
+| high-start{"q":7,"r":6}/start-factors | right-angle{"q":11,"r":1}/corner-prime | both | **-2.79** | -2.8 |  |  |  |  | 38 |
+| no-fractions{"k":11}/numerator-shared | steep-ratio{"q":7,"r":1}/ratio-prime | both | **-2.79** | -2.8 |  |  |  |  | 36 |
+| right-angle{"q":5,"r":1}/corner-steep | whole-answer{"q":5,"r":2}/peg-divisor | both | **-2.79** | -2.8 |  |  |  |  | 56 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":6}/far-right | both | **-2.76** | -2.8 |  |  |  |  | 46 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":5,"r":2}/corner-steep | both | **-2.75** | -2.8 |  |  |  |  | 43 |
+| right-angle{"q":5,"r":1}/corner-prime | whole-answer{"q":5,"r":2}/peg-divisor | both | **-2.75** | -2.8 |  |  |  |  | 57 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":5,"r":2}/corner-prime | both | **-2.75** | -2.8 |  |  |  |  | 44 |
+| no-fractions{"k":11}/numerator-smooth | steep-ratio{"q":7,"r":1}/ratio-gap | both | **-2.75** | -2.7 |  |  |  |  | 36 |
+| high-start{"q":7,"r":6}/high-and-rising | right-angle{"q":11,"r":1}/corner-steep | both | **-2.74** | -2.7 |  |  |  |  | 38 |
+| high-start{"q":7,"r":6}/start-factors | right-angle{"q":11,"r":1}/corner-steep | both | **-2.74** | -2.7 |  |  |  |  | 38 |
+| on-the-diagonal/north-east | right-angle{"q":11,"r":9}/corner-steep | one | **-2.74** | -2.7 |  |  |  |  | 38 |
+| on-the-diagonal/north-east | right-angle{"q":11,"r":9}/corner-prime | one | **-2.73** | -2.7 |  |  |  |  | 38 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":5,"r":2}/corner-steep | both | **-2.73** | -2.7 |  |  |  |  | 44 |
+| no-fractions{"k":11}/numerator-smooth | steep-ratio{"q":7,"r":1}/ratio-prime | both | **-2.73** | -2.7 |  |  |  |  | 36 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":5,"r":2}/corner-prime | both | **-2.73** | -2.7 |  |  |  |  | 45 |
+| on-the-diagonal/diagonal-prime | right-angle{"q":11,"r":9}/corner-steep | one | **-2.72** | -2.7 |  |  |  |  | 39 |
+| on-the-diagonal/diagonal-prime | right-angle{"q":11,"r":9}/corner-prime | one | **-2.71** | -2.7 |  |  |  |  | 39 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":4}/far-prime | both | **-2.70** | -2.7 |  |  |  |  | 39 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":4}/far-prime | both | **-2.69** | -2.7 |  |  |  |  | 38 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":5,"r":2}/corner-prime | both | **-2.67** | -2.7 |  |  |  |  | 49 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":5,"r":2}/corner-steep | both | **-2.67** | -2.7 |  |  |  |  | 49 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":5,"r":2}/corner-prime | both | **-2.65** | -2.6 |  |  |  |  | 49 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":5,"r":2}/corner-steep | both | **-2.64** | -2.6 |  |  |  |  | 49 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":5,"r":3}/corner-prime | both | **-2.61** | -2.6 |  |  |  |  | 45 |
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":5,"r":4}/peg-divisor | both | **-2.61** | -2.6 |  |  |  |  | 51 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":5,"r":3}/corner-prime | both | **-2.60** | -2.6 |  |  |  |  | 45 |
+| right-angle{"q":11,"r":1}/corner-prime | whole-answer{"q":5,"r":4}/south-west | both | **-2.60** | -2.6 |  |  |  |  | 51 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":5,"r":3}/corner-steep | both | **-2.59** | -2.6 |  |  |  |  | 47 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":7,"r":2}/corner-steep | both | **-2.59** | -2.6 |  |  |  |  | 48 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":7,"r":2}/corner-prime | both | **-2.59** | -2.6 |  |  |  |  | 48 |
+| no-fractions{"k":3}/numerator-smooth | on-the-diagonal/diagonal-prime | one | **-2.59** | -2.6 |  |  |  |  | 34 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":5,"r":3}/corner-steep | both | **-2.58** | -2.6 |  |  |  |  | 47 |
+| double-gap{"k":5}/gap-prime | right-angle{"q":7,"r":1}/corner-steep | both | **-2.58** | -2.6 |  |  |  |  | 50 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":7,"r":2}/corner-steep | both | **-2.58** | -2.6 |  |  |  |  | 48 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":7,"r":2}/corner-prime | both | **-2.58** | -2.6 |  |  |  |  | 48 |
+| no-fractions{"k":3}/numerator-smooth | on-the-diagonal/north-east | one | **-2.57** | -2.6 |  |  |  |  | 34 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":5,"r":1}/corner-prime | both | **-2.57** | -2.6 |  |  |  |  | 51 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":5,"r":1}/corner-prime | both | **-2.56** | -2.6 |  |  |  |  | 51 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":5,"r":4}/peg-divisor | both | **-2.56** | -2.6 |  |  |  |  | 51 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":5,"r":1}/corner-steep | both | **-2.55** | -2.6 |  |  |  |  | 51 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":5,"r":1}/corner-steep | both | **-2.55** | -2.6 |  |  |  |  | 51 |
+| right-angle{"q":11,"r":1}/corner-steep | whole-answer{"q":5,"r":4}/south-west | both | **-2.55** | -2.5 |  |  |  |  | 51 |
+| double-gap{"k":5}/gap-prime | right-angle{"q":7,"r":1}/corner-prime | both | **-2.54** | -2.5 |  |  |  |  | 52 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":11,"r":7}/corner-smooth | both | **-2.54** | -2.5 |  |  |  |  | 54 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":11,"r":9}/corner-steep | both | **-2.53** | -2.5 |  |  |  |  | 50 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":11,"r":9}/corner-prime | both | **-2.52** | -2.5 |  |  |  |  | 50 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":11,"r":9}/corner-steep | both | **-2.51** | -2.5 |  |  |  |  | 50 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":11,"r":9}/corner-prime | both | **-2.50** | -2.5 |  |  |  |  | 50 |
+| double-gap{"k":5}/gap-divisor | right-angle{"q":7,"r":1}/corner-steep | both | **-2.47** | -2.5 |  |  |  |  | 55 |
+| double-gap{"k":5}/gap-divisor | right-angle{"q":7,"r":1}/corner-prime | both | **-2.47** | -2.5 |  |  |  |  | 56 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":11,"r":7}/corner-smooth | both | **-2.46** | -2.5 |  |  |  |  | 59 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":5,"r":1}/corner-prime | both | **-2.46** | -2.5 |  |  |  |  | 51 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":11,"r":7}/corner-gap | both | **-2.46** | -2.5 |  |  |  |  | 59 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":5,"r":1}/corner-prime | both | **-2.46** | -2.5 |  |  |  |  | 52 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":5,"r":1}/corner-steep | both | **-2.45** | -2.5 |  |  |  |  | 51 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":5,"r":1}/corner-steep | both | **-2.45** | -2.4 |  |  |  |  | 52 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":5}/far-prime | both | **-2.45** | -2.4 |  |  |  |  | 45 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":6}/far-right | both | **-2.44** | -2.4 |  |  |  |  | 54 |
+| no-fractions{"k":3}/numerator-shared | on-the-diagonal/diagonal-prime | one | **-2.44** | -2.4 |  |  |  |  | 39 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":7,"r":1}/corner-prime | both | **-2.43** | -2.4 |  |  |  |  | 52 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":7,"r":1}/corner-prime | both | **-2.43** | -2.4 |  |  |  |  | 53 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":7,"r":1}/corner-steep | both | **-2.43** | -2.4 |  |  |  |  | 54 |
+| no-fractions{"k":3}/numerator-shared | on-the-diagonal/north-east | one | **-2.43** | -2.4 |  |  |  |  | 39 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":7,"r":1}/corner-prime | both | **-2.42** | -2.4 |  |  |  |  | 55 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":7,"r":1}/corner-steep | both | **-2.42** | -2.4 |  |  |  |  | 54 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":7,"r":1}/corner-prime | both | **-2.42** | -2.4 |  |  |  |  | 55 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":5}/far-right | both | **-2.42** | -2.4 |  |  |  |  | 51 |
+| high-start{"q":7,"r":6}/high-and-rising | right-angle{"q":7,"r":1}/corner-steep | both | **-2.40** | -2.4 |  |  |  |  | 53 |
+| high-start{"q":7,"r":6}/start-factors | right-angle{"q":7,"r":1}/corner-steep | both | **-2.40** | -2.4 |  |  |  |  | 53 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":11,"r":9}/corner-gap | both | **-2.39** | -2.4 |  |  |  |  | 64 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":11,"r":9}/corner-smooth | both | **-2.38** | -2.4 |  |  |  |  | 64 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":11,"r":7}/corner-gap | both | **-2.38** | -2.4 |  |  |  |  | 65 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":11,"r":9}/corner-gap | both | **-2.38** | -2.4 |  |  |  |  | 63 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":8}/far-right | both | **-2.37** | -2.4 |  |  |  |  | 49 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":11,"r":9}/corner-smooth | both | **-2.37** | -2.4 |  |  |  |  | 63 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":8}/far-right | both | **-2.35** | -2.4 |  |  |  |  | 52 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":7,"r":5}/corner-prime | both | **-2.35** | -2.4 |  |  |  |  | 52 |
+| high-start{"q":7,"r":4}/start-factors | right-angle{"q":7,"r":1}/corner-steep | both | **-2.35** | -2.3 |  |  |  |  | 66 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":6}/far-prime | both | **-2.35** | -2.3 |  |  |  |  | 52 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":8}/far-prime | both | **-2.34** | -2.3 |  |  |  |  | 48 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":7,"r":5}/corner-steep | both | **-2.34** | -2.3 |  |  |  |  | 52 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":7,"r":5}/corner-prime | both | **-2.34** | -2.3 |  |  |  |  | 52 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":4}/far-right | both | **-2.34** | -2.3 |  |  |  |  | 51 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":7,"r":5}/corner-steep | both | **-2.33** | -2.3 |  |  |  |  | 52 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":4}/far-right | both | **-2.33** | -2.3 |  |  |  |  | 53 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":4}/far-right | both | **-2.32** | -2.3 |  |  |  |  | 49 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":11,"r":8}/far-prime | both | **-2.32** | -2.3 |  |  |  |  | 50 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":5}/far-prime | both | **-2.31** | -2.3 |  |  |  |  | 52 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":5}/far-prime | both | **-2.30** | -2.3 |  |  |  |  | 52 |
+| double-gap{"k":4}/gap-prime | forty-five{"q":11,"r":7}/corner-smooth | both | **-2.30** | -2.3 |  |  |  |  | 63 |
+| double-gap{"k":4}/gap-divisor | forty-five{"q":11,"r":7}/corner-smooth | both | **-2.30** | -2.3 |  |  |  |  | 63 |
+| high-start{"q":7,"r":4}/high-and-rising | right-angle{"q":7,"r":1}/corner-steep | both | **-2.30** | -2.3 |  |  |  |  | 75 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":5}/far-prime | both | **-2.30** | -2.3 |  |  |  |  | 51 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":7,"r":4}/far-prime | both | **-2.29** | -2.3 |  |  |  |  | 56 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":7,"r":1}/corner-steep | both | **-2.29** | -2.3 |  |  |  |  | 55 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":7,"r":1}/corner-steep | both | **-2.29** | -2.3 |  |  |  |  | 56 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":7,"r":4}/far-prime | both | **-2.28** | -2.3 |  |  |  |  | 59 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":5}/far-right | both | **-2.27** | -2.3 |  |  |  |  | 60 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":5}/far-right | both | **-2.27** | -2.3 |  |  |  |  | 60 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":7,"r":4}/far-right | both | **-2.26** | -2.3 |  |  |  |  | 55 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":4}/far-right | both | **-2.25** | -2.3 |  |  |  |  | 53 |
+| no-fractions{"k":4}/numerator-smooth | on-the-diagonal/diagonal-prime | one | **-2.25** | -2.2 |  |  |  |  | 38 |
+| double-gap{"k":5}/gap-divisor | far-crossing{"q":7,"r":4}/far-right | both | **-2.24** | -2.2 |  |  |  |  | 58 |
+| double-gap{"k":4}/gap-prime | forty-five{"q":11,"r":9}/corner-gap | both | **-2.24** | -2.2 |  |  |  |  | 65 |
+| no-fractions{"k":4}/numerator-smooth | on-the-diagonal/north-east | one | **-2.23** | -2.2 |  |  |  |  | 38 |
+| double-gap{"k":4}/gap-divisor | forty-five{"q":11,"r":9}/corner-gap | both | **-2.23** | -2.2 |  |  |  |  | 65 |
+| double-gap{"k":4}/gap-prime | forty-five{"q":11,"r":9}/corner-smooth | both | **-2.22** | -2.2 |  |  |  |  | 65 |
+| double-gap{"k":4}/gap-divisor | forty-five{"q":11,"r":9}/corner-smooth | both | **-2.22** | -2.2 |  |  |  |  | 65 |
+| high-start{"q":7,"r":5}/start-factors | right-angle{"q":7,"r":1}/corner-steep | both | **-2.22** | -2.2 |  |  |  |  | 63 |
+| high-start{"q":7,"r":4}/start-factors | right-angle{"q":7,"r":1}/corner-prime | both | **-2.22** | -2.2 |  |  |  |  | 71 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":6}/far-right | both | **-2.21** | -2.2 |  |  |  |  | 63 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":5}/far-right | both | **-2.21** | -2.2 |  |  |  |  | 59 |
+| high-start{"q":5,"r":3}/high-and-rising | right-angle{"q":5,"r":1}/corner-steep | both | **-2.20** | -2.2 |  |  |  |  | 74 |
+| high-start{"q":7,"r":5}/high-and-rising | right-angle{"q":7,"r":1}/corner-steep | both | **-2.20** | -2.2 |  |  |  |  | 65 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":6}/far-prime | both | **-2.20** | -2.2 |  |  |  |  | 56 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":6}/far-prime | both | **-2.19** | -2.2 |  |  |  |  | 56 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":11,"r":6}/corner-gap | both | **-2.19** | -2.2 |  |  |  |  | 72 |
+| no-fractions{"k":4}/numerator-smooth | steep-ratio{"q":5,"r":4}/ratio-gap | both | **-2.19** | -2.2 |  |  |  |  | 41 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":4}/far-prime | both | **-2.19** | -2.2 |  |  |  |  | 55 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":4}/far-prime | both | **-2.18** | -2.2 |  |  |  |  | 55 |
+| high-start{"q":5,"r":3}/high-and-rising | right-angle{"q":5,"r":1}/corner-prime | both | **-2.18** | -2.2 |  |  |  |  | 76 |
+| high-start{"q":7,"r":6}/high-and-rising | right-angle{"q":7,"r":1}/corner-prime | both | **-2.18** | -2.2 |  |  |  |  | 61 |
+| high-start{"q":7,"r":6}/start-factors | right-angle{"q":7,"r":1}/corner-prime | both | **-2.18** | -2.2 |  |  |  |  | 61 |
+| double-gap{"k":2}/gap-prime | far-crossing{"q":11,"r":4}/far-prime | both | **-2.18** | -2.2 |  |  |  |  | 54 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":11,"r":6}/corner-smooth | both | **-2.18** | -2.2 |  |  |  |  | 71 |
+| double-gap{"k":2}/gap-divisor | far-crossing{"q":11,"r":4}/far-prime | both | **-2.17** | -2.2 |  |  |  |  | 54 |
+| no-fractions{"k":3}/numerator-shared | steep-ratio{"q":5,"r":1}/ratio-gap | both | **-2.17** | -2.2 |  |  |  |  | 49 |
+| double-gap{"k":3}/gap-prime | forty-five{"q":11,"r":9}/corner-gap | both | **-2.17** | -2.2 |  |  |  |  | 68 |
+| high-start{"q":7,"r":6}/high-and-rising | right-angle{"q":5,"r":1}/corner-prime | both | **-2.17** | -2.2 |  |  |  |  | 69 |
+| high-start{"q":7,"r":6}/start-factors | right-angle{"q":5,"r":1}/corner-prime | both | **-2.17** | -2.2 |  |  |  |  | 69 |
+| high-start{"q":7,"r":6}/high-and-rising | right-angle{"q":5,"r":1}/corner-steep | both | **-2.16** | -2.2 |  |  |  |  | 68 |
+| high-start{"q":7,"r":6}/start-factors | right-angle{"q":5,"r":1}/corner-steep | both | **-2.16** | -2.2 |  |  |  |  | 68 |
+| high-start{"q":7,"r":4}/high-and-rising | right-angle{"q":7,"r":1}/corner-prime | both | **-2.16** | -2.2 |  |  |  |  | 81 |
+| double-gap{"k":5}/gap-prime | right-angle{"q":11,"r":1}/corner-steep | both | **-2.16** | -2.2 |  |  |  |  | 66 |
+| double-gap{"k":3}/gap-prime | forty-five{"q":11,"r":9}/corner-smooth | both | **-2.16** | -2.2 |  |  |  |  | 68 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":11,"r":6}/corner-gap | both | **-2.16** | -2.2 |  |  |  |  | 74 |
+| double-gap{"k":4}/gap-prime | forty-five{"q":11,"r":7}/corner-gap | both | **-2.15** | -2.2 |  |  |  |  | 73 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":8}/far-prime | both | **-2.15** | -2.2 |  |  |  |  | 58 |
+| double-gap{"k":4}/gap-divisor | forty-five{"q":11,"r":7}/corner-gap | both | **-2.15** | -2.2 |  |  |  |  | 73 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":6}/far-right | both | **-2.15** | -2.1 |  |  |  |  | 63 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":6}/far-right | both | **-2.15** | -2.1 |  |  |  |  | 63 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":8}/far-prime | both | **-2.15** | -2.1 |  |  |  |  | 55 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":8}/far-prime | both | **-2.14** | -2.1 |  |  |  |  | 55 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":11,"r":6}/corner-smooth | both | **-2.14** | -2.1 |  |  |  |  | 73 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":8}/far-right | both | **-2.14** | -2.1 |  |  |  |  | 63 |
+| double-gap{"k":3}/gap-divisor | forty-five{"q":11,"r":9}/corner-gap | both | **-2.14** | -2.1 |  |  |  |  | 72 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":6}/far-prime | both | **-2.14** | -2.1 |  |  |  |  | 60 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":11,"r":1}/corner-steep | both | **-2.14** | -2.1 |  |  |  |  | 66 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":11,"r":1}/corner-steep | both | **-2.13** | -2.1 |  |  |  |  | 66 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":7,"r":5}/corner-steep | both | **-2.13** | -2.1 |  |  |  |  | 67 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":11,"r":2}/corner-steep | both | **-2.13** | -2.1 |  |  |  |  | 64 |
+| double-gap{"k":3}/gap-divisor | forty-five{"q":11,"r":9}/corner-smooth | both | **-2.13** | -2.1 |  |  |  |  | 72 |
+| high-start{"q":7,"r":5}/start-factors | right-angle{"q":7,"r":1}/corner-prime | both | **-2.13** | -2.1 |  |  |  |  | 69 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":7,"r":5}/corner-prime | both | **-2.13** | -2.1 |  |  |  |  | 67 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":11,"r":2}/corner-steep | both | **-2.12** | -2.1 |  |  |  |  | 64 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":7,"r":5}/corner-steep | both | **-2.12** | -2.1 |  |  |  |  | 69 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":7,"r":5}/corner-smooth | both | **-2.12** | -2.1 |  |  |  |  | 66 |
+| no-fractions{"k":9}/numerator-smooth | on-the-diagonal/diagonal-prime | one | **-2.12** | -2.1 |  |  |  |  | 47 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":11,"r":2}/corner-prime | both | **-2.12** | -2.1 |  |  |  |  | 64 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":7,"r":5}/corner-prime | both | **-2.11** | -2.1 |  |  |  |  | 69 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":5,"r":1}/corner-prime | both | **-2.11** | -2.1 |  |  |  |  | 65 |
+| double-gap{"k":4}/gap-prime | far-crossing{"q":11,"r":8}/far-right | both | **-2.11** | -2.1 |  |  |  |  | 60 |
+| forty-five{"q":11,"r":1}/corner-gap | high-start{"q":7,"r":4}/high-and-rising | both | **-2.11** | -2.1 |  |  |  |  | 75 |
+| high-start{"q":7,"r":5}/high-and-rising | right-angle{"q":7,"r":1}/corner-prime | both | **-2.11** | -2.1 |  |  |  |  | 71 |
+| double-gap{"k":4}/gap-divisor | far-crossing{"q":11,"r":8}/far-right | both | **-2.11** | -2.1 |  |  |  |  | 60 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":11,"r":2}/corner-prime | both | **-2.11** | -2.1 |  |  |  |  | 64 |
+| double-gap{"k":3}/gap-prime | far-crossing{"q":11,"r":4}/far-prime | both | **-2.11** | -2.1 |  |  |  |  | 52 |
+| far-crossing{"q":11,"r":8}/far-right | forty-five{"q":11,"r":1}/corner-gap | both | **-2.10** | -2.1 |  |  |  |  | 63 |
+| no-fractions{"k":9}/numerator-smooth | on-the-diagonal/north-east | one | **-2.10** | -2.1 |  |  |  |  | 47 |
+| double-gap{"k":2}/gap-prime | far-crossing{"q":11,"r":5}/far-prime | both | **-2.10** | -2.1 |  |  |  |  | 58 |
+| double-gap{"k":2}/gap-divisor | right-angle{"q":5,"r":1}/corner-steep | both | **-2.10** | -2.1 |  |  |  |  | 65 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":7,"r":5}/corner-smooth | both | **-2.10** | -2.1 |  |  |  |  | 65 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":5,"r":1}/corner-prime | both | **-2.10** | -2.1 |  |  |  |  | 66 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":7,"r":5}/corner-gap | both | **-2.09** | -2.1 |  |  |  |  | 66 |
+| double-gap{"k":2}/gap-divisor | far-crossing{"q":11,"r":5}/far-prime | both | **-2.09** | -2.1 |  |  |  |  | 58 |
+| double-gap{"k":3}/gap-prime | right-angle{"q":11,"r":1}/corner-steep | both | **-2.09** | -2.1 |  |  |  |  | 65 |
+| double-gap{"k":2}/gap-prime | right-angle{"q":5,"r":1}/corner-steep | both | **-2.09** | -2.1 |  |  |  |  | 66 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":4}/far-prime | both | **-2.09** | -2.1 |  |  |  |  | 54 |
+| double-gap{"k":5}/gap-divisor | right-angle{"q":11,"r":1}/corner-steep | both | **-2.09** | -2.1 |  |  |  |  | 71 |
+| forty-five{"q":11,"r":1}/corner-smooth | high-start{"q":7,"r":4}/high-and-rising | both | **-2.09** | -2.1 |  |  |  |  | 75 |
+| high-start{"q":5,"r":3}/start-factors | right-angle{"q":5,"r":1}/corner-steep | both | **-2.08** | -2.1 |  |  |  |  | 77 |
+| forty-five{"q":11,"r":1}/corner-gap | high-start{"q":7,"r":4}/start-factors | both | **-2.08** | -2.1 |  |  |  |  | 70 |
+| far-crossing{"q":11,"r":8}/far-right | forty-five{"q":11,"r":1}/corner-smooth | both | **-2.08** | -2.1 |  |  |  |  | 63 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":7,"r":5}/corner-gap | both | **-2.07** | -2.1 |  |  |  |  | 65 |
+| high-start{"q":7,"r":3}/start-factors | right-angle{"q":7,"r":1}/corner-steep | both | **-2.07** | -2.1 |  |  |  |  | 73 |
+| high-start{"q":5,"r":3}/start-factors | right-angle{"q":5,"r":1}/corner-prime | both | **-2.07** | -2.1 |  |  |  |  | 78 |
+| no-fractions{"k":9}/numerator-shared | steep-ratio{"q":5,"r":4}/ratio-gap | both | **-2.07** | -2.1 |  |  |  |  | 54 |
+| double-gap{"k":2}/gap-prime | far-crossing{"q":11,"r":5}/far-right | both | **-2.06** | -2.1 |  |  |  |  | 67 |
+| double-gap{"k":3}/gap-divisor | right-angle{"q":11,"r":1}/corner-steep | both | **-2.06** | -2.1 |  |  |  |  | 68 |
+| no-fractions{"k":3}/numerator-smooth | steep-ratio{"q":5,"r":1}/ratio-gap | both | **-2.06** | -2.1 |  |  |  |  | 53 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":5,"r":3}/corner-smooth | both | **-2.06** | -2.1 |  |  |  |  | 69 |
+| forty-five{"q":11,"r":1}/corner-smooth | high-start{"q":7,"r":4}/start-factors | both | **-2.06** | -2.1 |  |  |  |  | 70 |
+| double-gap{"k":2}/gap-divisor | far-crossing{"q":11,"r":5}/far-right | both | **-2.05** | -2.1 |  |  |  |  | 67 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":7,"r":3}/corner-prime | both | **-2.05** | -2.1 |  |  |  |  | 71 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":8}/far-prime | both | **-2.05** | -2.1 |  |  |  |  | 63 |
+| double-gap{"k":5}/gap-prime | forty-five{"q":5,"r":3}/corner-gap | both | **-2.04** | -2.0 |  |  |  |  | 69 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":7,"r":3}/corner-prime | both | **-2.03** | -2.0 |  |  |  |  | 71 |
+| forty-five{"q":11,"r":1}/corner-gap | right-angle{"q":7,"r":3}/corner-steep | both | **-2.03** | -2.0 |  |  |  |  | 73 |
+| far-crossing{"q":11,"r":8}/far-prime | forty-five{"q":11,"r":1}/corner-gap | both | **-2.03** | -2.0 |  |  |  |  | 63 |
+| no-fractions{"k":3}/numerator-shared | steep-ratio{"q":5,"r":1}/ratio-prime | both | **-2.03** | -2.0 |  |  |  |  | 49 |
+| double-gap{"k":5}/gap-prime | right-angle{"q":11,"r":1}/corner-prime | both | **-2.03** | -2.0 |  |  |  |  | 75 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":5,"r":3}/corner-smooth | both | **-2.03** | -2.0 |  |  |  |  | 74 |
+| double-gap{"k":4}/gap-prime | right-angle{"q":11,"r":1}/corner-prime | both | **-2.03** | -2.0 |  |  |  |  | 75 |
+| double-gap{"k":3}/gap-divisor | far-crossing{"q":11,"r":8}/far-right | both | **-2.02** | -2.0 |  |  |  |  | 68 |
+| double-gap{"k":4}/gap-divisor | right-angle{"q":11,"r":1}/corner-prime | both | **-2.02** | -2.0 |  |  |  |  | 75 |
+| double-gap{"k":2}/gap-divisor | far-crossing{"q":11,"r":6}/far-prime | both | **-2.02** | -2.0 |  |  |  |  | 62 |
+| no-fractions{"k":9}/numerator-shared | on-the-diagonal/diagonal-prime | one | **-2.02** | -2.0 |  |  |  |  | 56 |
+| far-crossing{"q":11,"r":8}/far-prime | forty-five{"q":11,"r":1}/corner-smooth | both | **-2.01** | -2.0 |  |  |  |  | 62 |
+| forty-five{"q":11,"r":1}/corner-smooth | right-angle{"q":7,"r":3}/corner-steep | both | **-2.01** | -2.0 |  |  |  |  | 72 |
+| forty-five{"q":7,"r":1}/corner-gap | right-angle{"q":7,"r":5}/corner-steep | both | **-2.01** | -2.0 |  |  |  |  | 63 |
+| double-gap{"k":5}/gap-prime | far-crossing{"q":11,"r":3}/far-prime | both | **-2.01** | -2.0 |  |  |  |  | 62 |
+| double-gap{"k":2}/gap-prime | far-crossing{"q":11,"r":6}/far-prime | both | **-2.01** | -2.0 |  |  |  |  | 63 |
+| forty-five{"q":7,"r":1}/corner-smooth | right-angle{"q":5,"r":3}/corner-prime | both | **-2.00** | -2.0 |  |  |  |  | 70 |
+| double-gap{"k":5}/gap-divisor | forty-five{"q":5,"r":3}/corner-gap | both | **-2.00** | -2.0 |  |  |  |  | 74 |
+| forty-five{"q":7,"r":1}/corner-gap | right-angle{"q":7,"r":5}/corner-prime | both | **-2.00** | -2.0 |  |  |  |  | 63 |
+| double-gap{"k":2}/gap-divisor | far-crossing{"q":11,"r":6}/far-right | both | **-2.00** | -2.0 |  |  |  |  | 68 |
+| no-fractions{"k":9}/numerator-shared | on-the-diagonal/north-east | one | **-2.00** | -2.0 |  |  |  |  | 56 |
+
+### Two tie-breakers of one family (aligned through the shared primary; never seat a family twice)
+
+| Family | pairs | mean headline | min | max |
+|---|---:|---:|---:|---:|
+| double-gap | 28 | 4.67 | 3.68 | 7.07 |
+| far-crossing | 68 | 2.47 | -1.03 | 7.65 |
+| forty-five | 393 | 1.18 | -3.32 | 7.11 |
+| high-start | 110 | 1.26 | -4.48 | 8.00 |
+| no-fractions | 26 | 3.41 | 1.02 | 6.62 |
+| on-the-diagonal | 1 | 4.95 | 4.95 | 4.95 |
+| right-angle | 170 | 2.51 | -3.32 | 7.71 |
+| steep-ratio | 111 | 1.79 | -3.34 | 8.13 |
+| whole-answer | 116 | 2.15 | -3.36 | 7.10 |
+
+### Rules: marginal bits of each upper set (−log2 π(A ≥ t); blank: empty) and effective draws in it
+
+| Rule | dealt | 4 b | 6 b | 8 b | 10 b | 12 b | ESS at 4 b | ESS at 12 b |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| double-gap{"k":2}/gap-divisor | yes | 4.0 | 6.2 | 8.1 | 10.3 |  | 4453 | 0 |
+| double-gap{"k":3}/gap-divisor | yes | 4.0 | 6.0 | 7.8 | 9.6 |  | 4776 | 0 |
+| double-gap{"k":4}/gap-divisor | yes | 4.0 | 6.1 | 8.0 | 10.3 |  | 4767 | 0 |
+| double-gap{"k":5}/gap-divisor | yes | 4.0 | 6.0 | 7.9 | 10.2 |  | 4892 | 0 |
+| double-gap{"k":2}/gap-prime | yes | 4.0 | 6.0 | 7.7 | 9.4 |  | 4477 | 0 |
+| double-gap{"k":3}/gap-prime | yes | 4.0 | 6.0 | 7.9 | 10.3 |  | 4674 | 0 |
+| double-gap{"k":4}/gap-prime | yes | 4.0 | 6.1 | 8.2 | 10.2 |  | 4774 | 0 |
+| double-gap{"k":5}/gap-prime | yes | 4.0 | 6.1 | 8.0 | 10.1 |  | 4746 | 0 |
+| far-crossing{"q":11,"r":2}/far-prime | yes | 4.1 | 6.0 | 8.5 | 16.4 | 16.4 | 4417 | 1 |
+| far-crossing{"q":11,"r":3}/far-prime | yes | 4.2 | 6.2 | 7.9 | 10.0 | 32.3 | 4287 | 1 |
+| far-crossing{"q":11,"r":4}/far-prime | yes | 4.2 | 5.9 | 8.0 | 10.5 | 21.2 | 4148 | 1 |
+| far-crossing{"q":11,"r":5}/far-prime | yes | 4.2 | 6.1 | 8.3 | 11.0 |  | 4150 | 0 |
+| far-crossing{"q":11,"r":6}/far-prime | yes | 4.2 | 6.0 | 8.4 | 10.6 | 20.8 | 4157 | 2 |
+| far-crossing{"q":11,"r":8}/far-prime | yes | 4.2 | 6.2 | 8.1 | 10.2 | 17.4 | 4228 | 1 |
+| far-crossing{"q":11,"r":9}/far-prime | yes | 4.0 | 6.1 | 10.4 | 10.4 | 20.9 | 4724 | 1 |
+| far-crossing{"q":7,"r":4}/far-prime | yes | 4.0 | 6.0 | 8.7 | 10.4 | 13.7 | 4898 | 8 |
+| far-crossing{"q":11,"r":2}/far-right | yes | 4.0 | 6.0 | 8.6 | 15.6 | 15.6 | 4638 | 2 |
+| far-crossing{"q":11,"r":3}/far-right | yes | 4.2 | 6.2 | 8.1 | 9.8 | 17.5 | 4193 | 1 |
+| far-crossing{"q":11,"r":4}/far-right | yes | 4.1 | 5.9 | 8.0 | 10.4 | 21.2 | 4386 | 1 |
+| far-crossing{"q":11,"r":5}/far-right | yes | 4.0 | 6.1 | 8.3 | 10.5 |  | 4636 | 0 |
+| far-crossing{"q":11,"r":6}/far-right | yes | 4.0 | 6.0 | 8.3 | 10.5 | 18.4 | 4533 | 1 |
+| far-crossing{"q":11,"r":8}/far-right | yes | 4.1 | 6.2 | 8.1 | 10.2 | 17.4 | 4432 | 1 |
+| far-crossing{"q":11,"r":9}/far-right | yes | 4.0 | 6.2 | 10.2 | 10.2 | 17.8 | 4466 | 1 |
+| far-crossing{"q":7,"r":4}/far-right | yes | 4.0 | 6.9 | 8.6 | 10.4 | 15.1 | 4669 | 4 |
+| forty-five{"q":11,"r":1}/corner-gap | yes | 4.0 | 6.0 | 8.0 | 10.0 |  | 4309 | 0 |
+| forty-five{"q":11,"r":2}/corner-gap | yes | 4.0 | 6.0 | 7.9 | 9.6 |  | 4505 | 0 |
+| forty-five{"q":11,"r":3}/corner-gap | yes | 4.0 | 6.1 | 8.0 | 10.0 |  | 4359 | 0 |
+| forty-five{"q":11,"r":4}/corner-gap | yes | 4.0 | 5.8 | 7.8 | 9.9 |  | 4572 | 0 |
+| forty-five{"q":11,"r":5}/corner-gap | yes | 4.0 | 6.1 | 7.9 | 9.7 | 15.8 | 4609 | 1 |
+| forty-five{"q":11,"r":6}/corner-gap | yes | 4.0 | 5.9 | 8.2 | 10.1 | 14.9 | 4797 | 2 |
+| forty-five{"q":11,"r":7}/corner-gap | yes | 4.0 | 5.9 | 8.2 | 9.9 |  | 4830 | 0 |
+| forty-five{"q":11,"r":9}/corner-gap | yes | 4.0 | 6.1 | 8.2 | 10.3 | 15.9 | 4795 | 1 |
+| forty-five{"q":5,"r":1}/corner-gap | yes | 4.0 | 6.0 | 7.9 | 10.0 | 16.5 | 4305 | 1 |
+| forty-five{"q":5,"r":2}/corner-gap | yes | 3.9 | 5.9 | 8.0 | 10.6 | 16.5 | 4660 | 1 |
+| forty-five{"q":5,"r":3}/corner-gap | yes | 4.0 | 6.0 | 8.0 | 10.3 | 12.6 | 4499 | 10 |
+| forty-five{"q":7,"r":1}/corner-gap | yes | 4.0 | 6.1 | 7.9 | 10.0 | 14.8 | 4246 | 2 |
+| forty-five{"q":7,"r":2}/corner-gap | yes | 4.0 | 6.0 | 8.0 | 10.3 |  | 4553 | 0 |
+| forty-five{"q":7,"r":3}/corner-gap | yes | 4.0 | 6.0 | 8.0 | 10.0 |  | 4446 | 0 |
+| forty-five{"q":7,"r":4}/corner-gap | yes | 4.0 | 6.0 | 7.8 | 10.6 |  | 4525 | 0 |
+| forty-five{"q":7,"r":5}/corner-gap | yes | 4.1 | 6.0 | 8.0 | 10.0 | 15.9 | 4471 | 1 |
+| forty-five{"q":11,"r":1}/corner-smooth | yes | 4.0 | 6.1 | 8.0 | 9.8 |  | 4223 | 0 |
+| forty-five{"q":11,"r":2}/corner-smooth | yes | 4.0 | 6.0 | 8.0 | 11.6 |  | 4359 | 0 |
+| forty-five{"q":11,"r":3}/corner-smooth | yes | 4.0 | 6.0 | 7.9 | 9.9 |  | 4466 | 0 |
+| forty-five{"q":11,"r":4}/corner-smooth | yes | 4.0 | 5.9 | 7.9 | 11.1 | 13.2 | 4574 | 7 |
+| forty-five{"q":11,"r":5}/corner-smooth | yes | 4.0 | 6.1 | 7.9 | 9.9 | 14.9 | 4614 | 2 |
+| forty-five{"q":11,"r":6}/corner-smooth | yes | 4.0 | 6.0 | 8.1 | 10.2 |  | 4719 | 0 |
+| forty-five{"q":11,"r":7}/corner-smooth | yes | 4.1 | 6.1 | 8.2 | 10.1 |  | 4635 | 0 |
+| forty-five{"q":11,"r":9}/corner-smooth | yes | 4.1 | 6.0 | 8.1 | 10.3 |  | 4760 | 0 |
+| forty-five{"q":5,"r":1}/corner-smooth | yes | 4.0 | 6.1 | 8.0 | 10.5 | 15.7 | 4273 | 1 |
+| forty-five{"q":5,"r":2}/corner-smooth | yes | 4.0 | 6.0 | 7.9 | 10.2 | 11.5 | 4414 | 20 |
+| forty-five{"q":5,"r":3}/corner-smooth | yes | 4.0 | 6.1 | 8.2 | 10.5 | 12.9 | 4569 | 8 |
+| forty-five{"q":7,"r":1}/corner-smooth | yes | 4.0 | 6.1 | 8.1 | 11.0 | 15.8 | 4300 | 1 |
+| forty-five{"q":7,"r":2}/corner-smooth | yes | 4.0 | 6.0 | 8.0 | 10.4 |  | 4415 | 0 |
+| forty-five{"q":7,"r":3}/corner-smooth | yes | 4.0 | 6.0 | 8.0 | 10.4 |  | 4625 | 0 |
+| forty-five{"q":7,"r":4}/corner-smooth | yes | 4.0 | 6.0 | 7.9 | 11.1 | 15.4 | 4600 | 2 |
+| forty-five{"q":7,"r":5}/corner-smooth | yes | 4.1 | 5.9 | 7.8 | 10.1 |  | 4537 | 0 |
+| high-start{"q":5,"r":1}/high-and-rising | yes | 4.0 | 6.0 | 7.9 | 9.9 | 12.1 | 4356 | 29 |
+| high-start{"q":5,"r":2}/high-and-rising | yes | 4.0 | 6.0 | 8.1 | 10.2 | 11.9 | 4973 | 40 |
+| high-start{"q":5,"r":3}/high-and-rising | yes | 4.0 | 6.0 | 8.1 | 9.9 | 11.5 | 4972 | 39 |
+| high-start{"q":5,"r":4}/high-and-rising | yes | 5.0 | 5.9 | 7.9 | 10.1 | 18.0 | 2499 | 3 |
+| high-start{"q":7,"r":1}/high-and-rising | yes | 4.1 | 6.3 | 8.1 | 9.8 | 12.0 | 4185 | 43 |
+| high-start{"q":7,"r":2}/high-and-rising | yes | 3.9 | 5.9 | 7.9 | 9.7 | 11.9 | 5106 | 41 |
+| high-start{"q":7,"r":3}/high-and-rising | yes | 4.0 | 6.0 | 8.0 | 9.9 | 11.8 | 5121 | 45 |
+| high-start{"q":7,"r":4}/high-and-rising | yes | 3.9 | 6.1 | 8.0 | 9.9 | 12.1 | 5341 | 36 |
+| high-start{"q":7,"r":5}/high-and-rising | yes | 4.0 | 6.0 | 8.0 | 10.1 | 12.1 | 4808 | 33 |
+| high-start{"q":7,"r":6}/high-and-rising | yes | 4.0 | 6.2 | 9.4 | 10.6 | 13.3 | 4211 | 17 |
+| high-start{"q":5,"r":1}/start-factors | yes | 5.1 | 6.0 | 8.0 | 10.1 | 18.0 | 2415 | 2 |
+| high-start{"q":5,"r":2}/start-factors | yes | 4.0 | 6.0 | 8.2 | 10.1 | 12.2 | 4913 | 34 |
+| high-start{"q":5,"r":3}/start-factors | yes | 4.0 | 6.0 | 8.0 | 9.9 | 11.5 | 4819 | 39 |
+| high-start{"q":5,"r":4}/start-factors | yes | 5.0 | 6.0 | 7.9 | 10.0 | 12.4 | 2511 | 31 |
+| high-start{"q":7,"r":1}/start-factors | yes | 4.1 | 6.2 | 9.0 | 10.1 | 12.2 | 4157 | 39 |
+| high-start{"q":7,"r":2}/start-factors | yes | 4.0 | 6.0 | 7.9 | 9.7 | 11.9 | 4779 | 41 |
+| high-start{"q":7,"r":3}/start-factors | yes | 4.1 | 6.1 | 8.0 | 10.2 | 12.3 | 4832 | 40 |
+| high-start{"q":7,"r":4}/start-factors | yes | 4.0 | 6.1 | 8.0 | 10.1 | 12.2 | 4908 | 33 |
+| high-start{"q":7,"r":5}/start-factors | yes | 4.0 | 6.0 | 8.0 | 10.0 | 12.2 | 4736 | 32 |
+| high-start{"q":7,"r":6}/start-factors | yes | 4.0 | 6.1 | 9.0 | 10.2 | 11.6 | 4208 | 42 |
+| no-fractions{"k":10}/numerator-shared | yes | 4.0 | 6.8 | 8.3 | 10.1 | 12.1 | 4139 | 19 |
+| no-fractions{"k":11}/numerator-shared | yes | 4.0 | 6.9 | 7.9 | 9.9 | 12.4 | 4078 | 17 |
+| no-fractions{"k":3}/numerator-shared | yes | 4.0 | 6.2 | 8.2 | 10.1 | 12.2 | 3888 | 18 |
+| no-fractions{"k":4}/numerator-shared | yes | 4.1 | 6.0 | 8.1 | 9.8 | 11.9 | 3743 | 21 |
+| no-fractions{"k":6}/numerator-shared | yes | 4.2 | 6.3 | 8.1 | 9.9 | 11.9 | 3627 | 20 |
+| no-fractions{"k":9}/numerator-shared | yes | 4.0 | 6.5 | 8.0 | 10.0 | 12.7 | 4094 | 12 |
+| no-fractions{"k":10}/numerator-smooth | yes | 4.0 | 6.0 | 8.7 | 10.0 | 12.0 | 4096 | 23 |
+| no-fractions{"k":11}/numerator-smooth | yes | 4.1 | 6.2 | 8.6 | 10.8 | 13.1 | 3913 | 11 |
+| no-fractions{"k":3}/numerator-smooth | yes | 4.1 | 6.7 | 8.8 | 9.9 | 14.5 | 3734 | 5 |
+| no-fractions{"k":4}/numerator-smooth | yes | 4.3 | 5.9 | 9.1 | 10.1 | 12.2 | 3387 | 19 |
+| no-fractions{"k":6}/numerator-smooth | yes | 4.2 | 6.3 | 8.3 | 10.6 | 13.6 | 3675 | 9 |
+| no-fractions{"k":9}/numerator-smooth | yes | 4.1 | 6.4 | 8.3 | 10.9 | 12.5 | 3695 | 17 |
+| on-the-diagonal/diagonal-prime |  | 4.0 | 5.9 | 10.6 | 10.6 | 16.3 | 4468 | 1 |
+| on-the-diagonal/north-east |  | 4.0 | 6.0 | 10.1 | 11.7 | 15.3 | 4418 | 2 |
+| right-angle{"q":11,"r":1}/corner-prime | yes | 3.9 | 5.9 | 7.9 | 10.0 | 11.5 | 4559 | 19 |
+| right-angle{"q":11,"r":2}/corner-prime | yes | 4.0 | 6.1 | 8.0 | 9.9 | 11.7 | 4544 | 18 |
+| right-angle{"q":11,"r":9}/corner-prime | yes | 4.0 | 6.1 | 7.9 | 9.7 | 12.4 | 4606 | 11 |
+| right-angle{"q":5,"r":1}/corner-prime | yes | 4.0 | 6.0 | 7.9 | 9.6 | 10.9 | 4704 | 29 |
+| right-angle{"q":5,"r":2}/corner-prime | yes | 4.0 | 6.0 | 7.7 | 9.8 | 11.0 | 4697 | 28 |
+| right-angle{"q":5,"r":3}/corner-prime | yes | 4.0 | 6.1 | 7.9 | 10.0 | 16.1 | 4724 | 1 |
+| right-angle{"q":7,"r":1}/corner-prime | yes | 4.0 | 6.0 | 8.0 | 10.2 |  | 4596 | 0 |
+| right-angle{"q":7,"r":2}/corner-prime | yes | 4.0 | 6.0 | 8.0 | 9.8 | 11.3 | 4848 | 23 |
+| right-angle{"q":7,"r":3}/corner-prime | yes | 4.0 | 6.1 | 8.0 | 9.7 | 10.8 | 4847 | 33 |
+| right-angle{"q":7,"r":5}/corner-prime | yes | 4.1 | 6.1 | 8.0 | 10.1 | 11.7 | 4550 | 17 |
+| right-angle{"q":11,"r":1}/corner-steep | yes | 4.0 | 6.0 | 7.9 | 9.9 | 11.5 | 4391 | 19 |
+| right-angle{"q":11,"r":2}/corner-steep | yes | 4.0 | 6.0 | 8.0 | 10.0 | 11.7 | 4586 | 18 |
+| right-angle{"q":11,"r":9}/corner-steep | yes | 4.0 | 6.1 | 8.1 | 10.2 | 12.4 | 4624 | 11 |
+| right-angle{"q":5,"r":1}/corner-steep | yes | 4.0 | 6.0 | 8.0 | 9.9 | 14.9 | 4670 | 2 |
+| right-angle{"q":5,"r":2}/corner-steep | yes | 4.0 | 6.0 | 7.9 | 9.9 | 12.4 | 4688 | 11 |
+| right-angle{"q":5,"r":3}/corner-steep | yes | 4.0 | 6.0 | 7.9 | 9.9 |  | 4858 | 0 |
+| right-angle{"q":7,"r":1}/corner-steep | yes | 4.0 | 6.0 | 7.9 | 10.1 | 11.2 | 4473 | 24 |
+| right-angle{"q":7,"r":2}/corner-steep | yes | 4.0 | 5.9 | 8.1 | 10.1 | 11.3 | 4857 | 23 |
+| right-angle{"q":7,"r":3}/corner-steep | yes | 4.0 | 6.0 | 8.0 | 9.9 | 10.8 | 4905 | 33 |
+| right-angle{"q":7,"r":5}/corner-steep | yes | 4.1 | 6.1 | 8.1 | 10.0 | 11.7 | 4568 | 17 |
+| steep-ratio{"q":5,"r":1}/ratio-gap | yes | 4.2 | 6.0 | 8.1 | 10.1 | 12.0 | 4177 | 25 |
+| steep-ratio{"q":5,"r":2}/ratio-gap | yes | 4.1 | 6.1 | 8.1 | 10.1 | 11.9 | 4411 | 39 |
+| steep-ratio{"q":5,"r":3}/ratio-gap | yes | 4.1 | 6.0 | 8.0 | 10.3 | 12.6 | 4319 | 26 |
+| steep-ratio{"q":5,"r":4}/ratio-gap | yes | 4.1 | 6.0 | 8.1 | 9.8 | 12.3 | 4202 | 23 |
+| steep-ratio{"q":7,"r":1}/ratio-gap | yes | 4.0 | 6.4 | 8.7 | 10.3 | 11.9 | 4908 | 34 |
+| steep-ratio{"q":7,"r":2}/ratio-gap | yes | 4.0 | 6.1 | 8.3 | 10.0 | 11.6 | 4494 | 40 |
+| steep-ratio{"q":7,"r":3}/ratio-gap | yes | 4.0 | 6.0 | 8.3 | 10.1 | 12.8 | 4718 | 22 |
+| steep-ratio{"q":7,"r":4}/ratio-gap | yes | 4.1 | 6.0 | 8.3 | 10.1 | 12.3 | 4450 | 31 |
+| steep-ratio{"q":7,"r":5}/ratio-gap | yes | 4.0 | 6.1 | 8.2 | 10.3 | 12.1 | 4251 | 34 |
+| steep-ratio{"q":7,"r":6}/ratio-gap | yes | 4.0 | 6.1 | 8.9 | 10.5 | 12.2 | 5094 | 27 |
+| steep-ratio{"q":5,"r":1}/ratio-prime | yes | 4.3 | 6.1 | 8.1 | 10.1 | 12.0 | 3825 | 25 |
+| steep-ratio{"q":5,"r":2}/ratio-prime | yes | 4.3 | 6.2 | 8.0 | 10.3 | 12.1 | 3887 | 36 |
+| steep-ratio{"q":5,"r":3}/ratio-prime | yes | 4.3 | 6.2 | 8.1 | 10.2 | 12.5 | 3837 | 25 |
+| steep-ratio{"q":5,"r":4}/ratio-prime | yes | 4.3 | 6.1 | 8.2 | 10.0 | 11.9 | 3852 | 28 |
+| steep-ratio{"q":7,"r":1}/ratio-prime | yes | 4.0 | 7.0 | 8.9 | 10.4 | 12.2 | 4820 | 29 |
+| steep-ratio{"q":7,"r":2}/ratio-prime | yes | 4.0 | 6.4 | 8.7 | 9.9 | 11.5 | 4567 | 41 |
+| steep-ratio{"q":7,"r":3}/ratio-prime | yes | 4.0 | 6.1 | 8.6 | 10.3 | 13.1 | 4531 | 18 |
+| steep-ratio{"q":7,"r":4}/ratio-prime | yes | 4.0 | 6.0 | 7.9 | 9.9 | 12.4 | 4551 | 28 |
+| steep-ratio{"q":7,"r":5}/ratio-prime | yes | 4.0 | 6.4 | 8.8 | 10.5 | 12.2 | 4283 | 31 |
+| steep-ratio{"q":7,"r":6}/ratio-prime | yes | 4.0 | 6.0 | 9.1 | 10.9 | 12.3 | 5084 | 25 |
+| whole-answer{"q":5,"r":1}/peg-divisor | yes | 4.0 | 6.7 | 8.3 | 10.2 | 13.6 | 4584 | 7 |
+| whole-answer{"q":5,"r":2}/peg-divisor | yes | 4.0 | 6.2 | 7.9 | 10.2 | 13.7 | 4853 | 8 |
+| whole-answer{"q":5,"r":3}/peg-divisor | yes | 4.0 | 6.3 | 8.1 | 10.5 | 13.6 | 4896 | 8 |
+| whole-answer{"q":5,"r":4}/peg-divisor | yes | 4.0 | 6.7 | 8.0 | 9.7 | 13.0 | 4422 | 11 |
+| whole-answer{"q":7,"r":1}/peg-divisor | yes | 4.0 | 6.2 | 8.0 | 10.3 | 15.5 | 4468 | 2 |
+| whole-answer{"q":7,"r":2}/peg-divisor | yes | 4.1 | 6.0 | 8.5 | 10.7 | 19.9 | 4668 | 1 |
+| whole-answer{"q":7,"r":3}/peg-divisor | yes | 4.0 | 6.0 | 8.0 | 10.2 | 26.7 | 4922 | 1 |
+| whole-answer{"q":7,"r":4}/peg-divisor | yes | 4.0 | 5.9 | 8.0 | 9.7 | 24.2 | 5048 | 2 |
+| whole-answer{"q":7,"r":5}/peg-divisor | yes | 4.1 | 6.0 | 8.4 | 11.1 | 17.1 | 4690 | 2 |
+| whole-answer{"q":7,"r":6}/peg-divisor | yes | 3.9 | 5.9 | 7.8 | 10.4 | 14.5 | 4742 | 4 |
+| whole-answer{"q":5,"r":1}/south-west | yes | 4.0 | 6.1 | 8.1 | 9.6 | 13.9 | 4588 | 6 |
+| whole-answer{"q":5,"r":2}/south-west | yes | 4.0 | 6.0 | 8.1 | 10.3 | 13.7 | 4739 | 8 |
+| whole-answer{"q":5,"r":3}/south-west | yes | 4.0 | 6.0 | 8.2 | 10.3 | 13.4 | 4733 | 9 |
+| whole-answer{"q":5,"r":4}/south-west | yes | 4.0 | 6.0 | 7.9 | 9.8 | 13.2 | 4395 | 9 |
+| whole-answer{"q":7,"r":1}/south-west | yes | 4.0 | 6.0 | 7.8 | 9.6 | 15.5 | 4488 | 2 |
+| whole-answer{"q":7,"r":2}/south-west | yes | 4.1 | 6.1 | 8.0 | 9.8 | 19.9 | 4745 | 1 |
+| whole-answer{"q":7,"r":3}/south-west | yes | 4.1 | 6.0 | 8.0 | 10.2 | 15.5 | 4717 | 2 |
+| whole-answer{"q":7,"r":4}/south-west | yes | 4.0 | 5.9 | 7.9 | 9.8 | 24.2 | 5050 | 2 |
+| whole-answer{"q":7,"r":5}/south-west | yes | 4.0 | 6.1 | 8.0 | 9.8 | 13.9 | 4806 | 5 |
+| whole-answer{"q":7,"r":6}/south-west | yes | 4.0 | 5.9 | 7.8 | 9.8 | 14.5 | 4609 | 4 |

@@ -109,24 +109,23 @@ export const VALUATIONS: readonly P[] = [5, 7].flatMap(q => Array.from({ length:
 export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length: q - 2 }, (_, i) => ({ q, r: i + 1 })));
 
 /**
- * The dealt numbers (two-line-systems.md §9, lib/v2-agents scripts/pair-reach.ts). Measured over LADDERS (and r = 1 at
- * q 3, 13, 17, 19, 23 for Steep Ratio), k 2–11 (Divide By) and 2–5 (Gap Ratio). Dealt: per family, the largest set where
- * for every tie-breaker
- *  - a greedy climber from 40 births reaches between 5.6 and 11.1 bits, so every seat's rule is within a factor of 2
- *    of every other's (the coordinator's balance call, decision 42; measured 5.7–11.0);
- *  - within 1 bit of the family's median;
- *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts).
+ * The dealt numbers (two-line-systems.md §9.2, lib/v2-agents scripts/pair-reach.ts). Measured over LADDERS, VALUATIONS,
+ * k 2–11 (Divide By) and 2–5 (Gap Ratio). Dealt: per family, the largest set where for every tie-breaker
+ *  - a greedy climber from 40 births reaches within 1 bit of the family's median;
+ *  - and whose value functions pass the engine's equal-opportunity audit (test/unit/v2-params-equal.test.ts: top and
+ *    median knots within 1 bit as intervals, the band under drift).
+ * High Start passes the audit on only three numbers (row 4 wants four; the nearest four miss by 0.09 bits).
  */
 const R = (q: number, ...rs: number[]) => rs.map(r => ({ q, r }));
 export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
-  "whole-answer": VALUATIONS,
+  "whole-answer": [...R(5, 1, 2, 3, 4), ...R(7, 2, 3, 4, 5)],
   "no-fractions": [3, 4, 6, 9, 10, 11].map(k => ({ k })),
   "right-angle": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 5), ...R(11, 1, 2, 9)],
   "forty-five": [...R(5, 1, 2, 3), ...R(7, 1, 2, 3, 4, 5), ...R(11, 1, 2, 3, 4, 5, 6, 7, 9)],
   "double-gap": [2, 3, 4, 5].map(k => ({ k })),
   "far-crossing": [...R(7, 4), ...R(11, 2, 3, 4, 5, 6, 8, 9)],
-  "high-start": VALUATIONS,
-  "steep-ratio": VALUATIONS,
+  "high-start": [...R(5, 2, 3), ...R(7, 3)],
+  "steep-ratio": [...R(5, 1, 4), ...R(7, 2, 3, 4, 5)],
 };
 /**
  * The whole number n leaving r when divided by q (n − r a multiple of q, negatives included: −2 leaves 1 when divided

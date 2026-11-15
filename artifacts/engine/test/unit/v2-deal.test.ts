@@ -147,8 +147,8 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
       assert.deepEqual(deal, freshDeal(pool, seats, seed, preset.variant), "reproducible from its seed");
       assert.deepEqual(gridClashes(families), [], `${id}, ${seats} seats, ${seed}: no forbidden pair`);
       assert.equal(gridAlignedPairs(families).length, aligned, `${id}, ${seats} seats, ${seed}: ${gridAlignedPairs(families).join(", ")}`);
-      assert.deepEqual(seatingClashes(preset.variant, families), []);
-      assert.deepEqual(seatingAligned(preset.variant, families), gridAlignedPairs(families));
+      assert.deepEqual(seatingClashes(preset.variant, deal), []);
+      assert.deepEqual(seatingAligned(preset.variant, deal), gridAlignedPairs(families));
       if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, seats, seed))) changed++;
       // With no bids the bid dealer deals exactly the plain deal.
       const players = Array.from({ length: seats }, (_, i) => `p${i}`);
@@ -156,7 +156,7 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
     }
     assert.ok(changed > 0, `${id}: the seating rule changes some deals`);
   }
-  assert.deepEqual(seatingClashes("line-z", ["magic-eighteen", "opposite-nines"]), [], "lines have no seating rule");
+  assert.deepEqual(seatingClashes("line-z", [{ family: "magic-eighteen" }, { family: "opposite-nines" }]), [], "lines have no seating rule");
   // Families in no seating cluster (Grids · arithmetic): no forbidden or aligned pair but one family twice; both sit at two seats.
   assert.deepEqual(gridClashes(["divisibility", "leading-digits"]), []);
   assert.deepEqual(gridAlignedPairs(["divisibility", "leading-digits", "magic-eighteen"]), []);
@@ -166,4 +166,20 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
     const families = freshDeal(arithmeticPool, 2, `arith-${s}`, arithmetic.variant).map(r => r.family);
     assert.deepEqual([...families].sort(), ["divisibility", "leading-digits"], `arith-${s}`);
   }
+});
+
+// Pair seating (lib/v2-pair seating.ts): no two rules one move climbs together, read from the rules' parameters.
+test("pairs: a lines-pairs deal seats no forbidden pair of rules, and records none", async () => {
+  const { pairClashes } = await import("@workspace/v2-pair");
+  const { seatingClashes, hasSeatingRule } = await import("../../convex/v2/deal.ts");
+  const preset = presetOf("lines-pairs"), pool = dealablePool(preset);
+  assert.ok(hasSeatingRule(preset.variant));
+  let changed = 0;
+  for (let s = 0; s < 40; s++) {
+    const seed = `pair-seat-${s}`, deal = freshDeal(pool, 3, seed, preset.variant);
+    assert.deepEqual(pairClashes(deal), [], seed);
+    assert.deepEqual(seatingClashes(preset.variant, deal), []);
+    if (JSON.stringify(deal) !== JSON.stringify(freshDeal(pool, 3, seed))) changed++;
+  }
+  assert.ok(changed > 0, "the seating rule changes some deals");
 });

@@ -35,6 +35,7 @@ import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { parseArgs } from "node:util";
 import { canonicalJson, driftParams, rng } from "@workspace/v2-core";
+import { pairClashes } from "@workspace/v2-pair";
 import { findValues } from "../src/harness.ts";
 import { GRIDS_BEGINNER_ECONOMY, KAPPA, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import {
@@ -103,7 +104,7 @@ function shareOfGame(v: VariantId, seconds: number) {
   return ((e.startingEnergy + e.powerPerSecond * seconds) * 3) / 24;
 }
 
-/** Tables of three rules from three different families, dealt by a seeded draw. */
+/** Tables of three rules from three different families, dealt by a seeded draw; pairs: none the seating rule forbids (lib/v2-pair seating.ts). */
 function deal(rules: readonly Rule[], n: number, seed: string): Rule[][] {
   const r = rng("collapse-tables", seed), out: Rule[][] = [];
   const fams = [...new Set(rules.map(x => x.family))];
@@ -111,6 +112,7 @@ function deal(rules: readonly Rule[], n: number, seed: string): Rule[][] {
   while (out.length < n) {
     const f = fams.slice(), pick: Rule[] = [];
     for (let k = 0; k < 3; k++) { const fam = f.splice(r.below(f.length), 1)[0]!; const of = rules.filter(x => x.family === fam); pick.push(of[r.below(of.length)]!); }
+    if (seed === "pair-q" && pairClashes(pick).length) continue;
     out.push(pick);
   }
   return out;
@@ -233,7 +235,8 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
           const best = top[0].x, kept: string[] = [];
           for (const [j, rule] of table.entries()) {
             const fam = space.type.families.find(f => f.id === rule.family)!;
-            const next = driftParams(fam, space.variant, rule.params, `${v}:${beta}:${t}`, j, 1, p => findValues(v, { ...rule, params: p as Record<string, unknown> }) !== null);
+            const next = driftParams(fam, space.variant, rule.params, `${v}:${beta}:${t}`, j, 1, p => findValues(v, { ...rule, params: p as Record<string, unknown> }) !== null
+              && (v !== "pair-q" || pairClashes(table.map((x, k) => (k === j ? { ...x, params: p } : x))).length === 0));
             if (canonicalJson(next) === canonicalJson(rule.params)) continue;
             const bs2 = table.map((x, k) => space.bits(k === j ? { ...x, params: next as Record<string, unknown> } : x));
             const F2 = (x: number[]) => { const st = space.state(x)!; return total(bs2.map(b => b(st))); };

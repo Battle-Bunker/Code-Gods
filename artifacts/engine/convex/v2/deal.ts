@@ -16,13 +16,16 @@
  * Seating (grids; the coordinator's calls following owner decision 39, lib/v2-grid seating.ts): every grid deal (fresh,
  * practice, and the rest of a bid deal) is the seed's first shuffle with no forbidden pair and no aligned pair, else the
  * one with the lowest seating cost (forbidden pairs first, then aligned ones) over SEATING_TRIES shuffles. A deal on any
- * other object type is the first shuffle, as before. The game records the pairs left (`seating` in tables.ts).
+ * Pairs (lib/v2-pair seating.ts) have a seating rule on rules, not families: no two rules one move climbs together
+ * (the same residue or the same q on the y readers and valuation ladders; Gap Ratio and Divide By on one base). A deal
+ * on any other object type is the first shuffle, as before. The game records the pairs left (`seating` in tables.ts).
  */
 import { canonicalJson, hashHex, rng, ruleLayers, type Rng, type RuleFamily } from "@workspace/v2-core";
 import type { BidDealer } from "@workspace/v2-economy";
 import { hasStarters, pairPmi, pairVerdict, unopposedDirections, type PairVerdict, type UnopposedDirection } from "@workspace/v2-agents/pure";
 import { findVariant, objectTypes, ruleKey } from "@workspace/v2-valuation";
 import { gridAlignedPairs, gridClashes, gridSeatingCost } from "@workspace/v2-grid";
+import { pairClashes, pairSeatingCost } from "@workspace/v2-pair";
 import { measuredToBits, valueRecord } from "./values.ts";
 import type { Preset } from "./presets.ts";
 
@@ -78,22 +81,27 @@ export function dealKeyOf(preset: Preset, pool: readonly DealtRule[]): string {
  * the pool lasts (the pool is reused from its start when there are more seats than rules).
  */
 export function freshDeal(pool: readonly DealtRule[], seats: number, seed: string, variant?: string): DealtRule[] {
-  return dealFrom(pool, seats, dealRng(seed), variant ? fams => seatingCost(variant, fams) : undefined);
+  return dealFrom(pool, seats, dealRng(seed), variant ? seated => seatingCost(variant, seated) : undefined);
 }
 
-/** Whether a variant has a seating rule (grids: lib/v2-grid seating.ts). */
-export const hasSeatingRule = (variant: string): boolean => findVariant(variant).type.id === "grid";
-/** The pairs of seated families a variant's seating rule forbids; none where it has none. */
-export function seatingClashes(variant: string, families: readonly string[]): string[] {
-  return hasSeatingRule(variant) ? gridClashes(families) : [];
+/** A seated rule as the seating rules read it: its family, and its parameters where known (a won bid's are not yet). */
+export interface Seated { family: string; params?: unknown }
+const typeOf = (variant: string) => findVariant(variant).type.id;
+/** Whether a variant has a seating rule (grids: lib/v2-grid seating.ts; pairs: lib/v2-pair seating.ts). */
+export const hasSeatingRule = (variant: string): boolean => ["grid", "pair"].includes(typeOf(variant));
+/** The pairs of seated rules a variant's seating rule forbids; none where it has none. */
+export function seatingClashes(variant: string, seated: readonly Seated[]): string[] {
+  const t = typeOf(variant);
+  return t === "grid" ? gridClashes(seated.map(x => x.family)) : t === "pair" ? pairClashes(seated) : [];
 }
-/** The aligned (allowed but avoided) pairs among seated families; none where the variant has no seating rule. */
-export function seatingAligned(variant: string, families: readonly string[]): string[] {
-  return hasSeatingRule(variant) ? gridAlignedPairs(families) : [];
+/** The aligned (allowed but avoided) pairs among seated grid families; none for other types. */
+export function seatingAligned(variant: string, seated: readonly Seated[]): string[] {
+  return typeOf(variant) === "grid" ? gridAlignedPairs(seated.map(x => x.family)) : [];
 }
 /** A table's seating cost (forbidden pairs, then aligned ones); 0 where the variant has no seating rule. */
-export function seatingCost(variant: string, families: readonly string[]): number {
-  return hasSeatingRule(variant) ? gridSeatingCost(families) : 0;
+export function seatingCost(variant: string, seated: readonly Seated[]): number {
+  const t = typeOf(variant);
+  return t === "grid" ? gridSeatingCost(seated.map(x => x.family)) : t === "pair" ? 1000 * pairSeatingCost(seated) : 0;
 }
 /** Shuffles a seating rule may draw before it settles for the deal with the fewest clashes. */
 const SEATING_TRIES = 200;
@@ -103,10 +111,10 @@ export const dealRng = (seed: string): Rng => rng(seed, "deal");
  * A fresh deal drawn from `r` (the coordinator's rule): the families in a seeded random order, so each family is equally
  * likely whatever the number of its (parameters, tie-breaker) entries, and no family twice at a table while the pool
  * has families enough (they are reused, in the same order, only beyond that); each seat gets one of its family's
- * entries uniformly. With `clashes` (the seating rule's cost of the dealt families), the first draw costing 0, else the
+ * entries uniformly. With `clashes` (the seating rule's cost of the dealt rules), the first draw costing 0, else the
  * cheapest.
  */
-export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (families: readonly string[]) => number): DealtRule[] {
+export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (seated: readonly DealtRule[]) => number): DealtRule[] {
   if (pool.length === 0) throw new Error("No rule of this preset is dealable (none has a value function): nothing can be dealt");
   const byFamily = new Map<string, DealtRule[]>();
   for (const x of pool) byFamily.set(x.family, [...(byFamily.get(x.family) ?? []), x]);
@@ -119,7 +127,7 @@ export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clas
       [order[i], order[j]] = [order[j]!, order[i]!];
     }
     const deal = Array.from({ length: seats }, (_, i) => { const entries = byFamily.get(order[i % order.length]!)!; return entries[r.below(entries.length)]!; });
-    const n = clashes ? clashes(deal.map(x => x.family)) : 0;
+    const n = clashes ? clashes(deal) : 0;
     if (n < fewest) { best = deal; fewest = n; }
     if (n === 0) break;
   }
@@ -156,7 +164,7 @@ export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKin
   const r = dealRng(seed), h = kinds.indexOf("human");
   let first: DealtRule[] | undefined;
   for (let i = 0; i < PRACTICE_TRIES; i++) {
-    const deal = dealFrom(pool, kinds.length, r, fams => seatingCost(variant, fams));
+    const deal = dealFrom(pool, kinds.length, r, seated => seatingCost(variant, seated));
     first ??= deal;
     if (practiceFits(variant, deal, h)) return deal;
   }
@@ -204,7 +212,7 @@ export interface PolicyChoice {
  */
 export function policyDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): PolicyChoice {
   const r = rng(seed, "deal-policy"), h = kinds.indexOf("human"), practice = isPracticeGame(kinds);
-  const candidates = Array.from({ length: POLICY_CANDIDATES }, () => dealFrom(pool, kinds.length, r, fams => seatingCost(variant, fams)));
+  const candidates = Array.from({ length: POLICY_CANDIDATES }, () => dealFrom(pool, kinds.length, r, seated => seatingCost(variant, seated)));
   const fits = practice ? candidates.filter(d => practiceFits(variant, d, h)) : candidates;
   const tables = fits.length ? fits : candidates;
   const ids = [...new Set(pool.map(ruleId))];
@@ -238,8 +246,9 @@ export function bidDealer(pool: readonly DealtRule[], variant?: string): BidDeal
     },
     dealRest(count, excluded, r) {
       const left = pool.filter(x => !excluded.includes(x.family));
-      // The won families are seated too: the seating rule counts their clashes with the rest.
-      return dealFrom(left, count, r, variant ? fams => seatingCost(variant, [...excluded, ...fams]) : undefined);
+      // The won families are seated too: the seating rule counts their clashes with the rest (by family: their
+      // parameters are dealt separately).
+      return dealFrom(left, count, r, variant ? seated => seatingCost(variant, [...excluded.map(family => ({ family })), ...seated]) : undefined);
     },
   };
 }

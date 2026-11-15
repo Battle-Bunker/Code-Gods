@@ -210,7 +210,14 @@ async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number,
     if (skip || !s) continue;
     const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", s.memberId)).unique();
     if (!r) continue;
-    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, e);
+    // The other seats' current rules (a seat redrawn earlier in this batch included), so a redraw seats no forbidden pair.
+    const others = [];
+    for (const o of game.roster) {
+      if (o.memberId === s.memberId) continue;
+      const x = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", o.memberId)).unique();
+      if (x) others.push({ family: x.family, params: x.params });
+    }
+    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, e, others);
     if (!next) continue;
     const view = ruleView({ family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash });
     await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: (r.drifts ?? 0) + 1, driftedAt: world, previous: { params: r.params, card: r.card } });

@@ -52,3 +52,17 @@ test("a redraw keeps the family and tie-breaker, may keep or change the paramete
   assert.ok(seen.has(r.ruleKey), "a redraw may keep the current value");
   assert.equal(redrawParams(r.variant, "no-such-family", null, {}, "seed", 0, 1), null, "no grid: no drift");
 });
+
+test("a pair redraw never seats a pair the seating rule forbids (lib/v2-pair seating.ts)", async () => {
+  const { pairClash } = await import("@workspace/v2-pair");
+  // Right Angle beside Whole Answer {q 5, r 1}: never r 1. High Start at {q 5, r 2} already clashes with Steep Ratio at
+  // q 5; beside Whole Answer {q 7, r 3} it stays at q 5 and off r 3 (a redraw adds no clash).
+  const ra = { family: "right-angle", params: { q: 5, r: 2 } }, wa = { family: "whole-answer", params: { q: 5, r: 1 } };
+  for (let tick = 1; tick <= 40; tick++) {
+    const next = redrawParams("pair-q", ra.family, "corner-prime", ra.params, "seed", 1, tick, [wa]);
+    if (next) assert.ok(!pairClash({ family: ra.family, params: next.params }, wa), JSON.stringify(next.params));
+    const others = [{ family: "whole-answer", params: { q: 7, r: 3 } }, { family: "steep-ratio", params: { q: 5, r: 3 } }];
+    const hs = redrawParams("pair-q", "high-start", "high-and-rising", { q: 5, r: 2 }, "seed", 1, tick, others);
+    if (hs) assert.equal(others.filter(o => pairClash({ family: "high-start", params: hs.params }, o)).length, 1, `${JSON.stringify(hs.params)}: no clash added`);
+  }
+});
