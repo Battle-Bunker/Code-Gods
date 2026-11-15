@@ -20,6 +20,10 @@
 #                                The test gets a plain whole number. On a tie the smaller one; None if none
 #                                within 10,000.
 #   whole(x)                     the whole number nearest to x (a half rounds up).
+#   smooth(n)                    is n made only by multiplying 2s, 3s, 5s and 7s (1 included; the sign ignored)?
+#                                e.g. near(x, smooth).
+#   shared(a, b)                 how many prime factors whole numbers a and b share, counting repeats (the factors of
+#                                their greatest common factor); 0 when either is 0.
 #   root(n)                      the whole square root of n, rounded down (root(50) is 7).
 #   factors(n)                   the prime factors of n, smallest first, with repeats: factors(12) is [2, 2, 3];
 #                                [] for 0, 1 and -1. (Past 10,000 a leftover factor counts as prime.)
@@ -161,6 +165,33 @@ def square(n):
         return False
     r = _isqrt(x)
     return r * r == x
+
+
+def smooth(n):
+    x = _whole(n)
+    if x is None or x == 0:
+        return False
+    x = abs(x)
+    for p in (2, 3, 5, 7):
+        while x % p == 0:
+            x //= p
+    return x == 1
+
+
+def shared(a, b):
+    x, y = _whole(a), _whole(b)
+    if x is None or y is None or x == 0 or y == 0:
+        return 0
+    x, y = abs(x), abs(y)
+    while y:
+        x, y = y, x % y
+    k, d = 0, 2
+    while d * d <= x and d <= 100000:
+        while x % d == 0:
+            x //= d
+            k += 1
+        d += 1 if d == 2 else 2
+    return k + 1 if x > 1 else k
 
 
 def whole(x):

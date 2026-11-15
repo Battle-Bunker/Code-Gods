@@ -638,4 +638,151 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       },
     },
   },
+  // ---------------------------------------------------------------- the adversaries (v2-linear rational2.ts)
+  {
+    family: "smooth-crossing",
+    mainSays: "how far the x-axis crossing is from a 7-smooth number (closer is better)",
+    main: {
+      ts: [
+        "if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score",
+        "const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis",
+        "const s0 = Q.isZero(x) ? 1 : near(Q.abs(x), smooth);   // the 7-smooth number nearest its size (1 for 0)",
+        "if (s0 === null) return null;                // none within 10,000: hopeless",
+        "const s = Q.cmp(x, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept",
+        "const main = Q.neg(Q.abs(Q.sub(x, s)));",
+      ],
+      py: [
+        "if m == 0:                                      # a flat line never crosses: the worst score",
+        "    return None",
+        "x = -c / m                                      # where y = mx + c crosses the x-axis",
+        "s0 = 1 if x == 0 else near(abs(x), smooth)   # the 7-smooth number nearest its size (1 for 0)",
+        "if s0 is None:                              # none within 10,000: hopeless",
+        "    return None",
+        "s = -s0 if x < 0 else s0                # the sign kept",
+        "main = -abs(x - s)",
+      ],
+    },
+    tieBreakers: {
+      shared: {
+        ts: "shared(s, whole(c))", py: "shared(s, whole(c))", says: "that smooth number sharing many prime factors with the whole number nearest the y-intercept is better",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"tilt\" line: moving the line up and down alone walks the crossing in steps of 1/m.",
+      },
+    },
+  },
+  {
+    family: "smooth-intercept",
+    mainSays: "how far the y-intercept is from a 7-smooth number (closer is better)",
+    main: {
+      ts: [
+        "const s0 = Q.isZero(c) ? 1 : near(Q.abs(c), smooth);   // the 7-smooth number nearest its size (1 for 0)",
+        "if (s0 === null) return null;                // none within 10,000: hopeless",
+        "const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept",
+        "const main = Q.neg(Q.abs(Q.sub(c, s)));",
+        "const k = Q.isZero(m) ? 0 : whole(Q.neg(Q.div(c, m)));   // the whole number nearest the x-axis crossing (0 if flat)",
+      ],
+      py: [
+        "s0 = 1 if c == 0 else near(abs(c), smooth)   # the 7-smooth number nearest its size (1 for 0)",
+        "if s0 is None:                              # none within 10,000: hopeless",
+        "    return None",
+        "s = -s0 if c < 0 else s0                # the sign kept",
+        "main = -abs(c - s)",
+        "k = 0 if m == 0 else whole(-c / m)              # the whole number nearest the x-axis crossing (0 if flat)",
+      ],
+    },
+    tieBreakers: {
+      shared: {
+        ts: "shared(s, k)", py: "shared(s, k)", says: "that smooth number sharing many prime factors with the whole number nearest the x-axis crossing is better",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach a crossing that shares factors?",
+      },
+    },
+  },
+  {
+    family: "steep-and-tall",
+    mainSays: "the smaller of the gradient and the y-intercept (bigger is better)",
+    main: {
+      ts: [
+        "const main = Q.cmp(m, c) <= 0 ? m : c;          // the smaller of the two",
+        "const fm = whole(Q.sub(m, Q.of(1, 2))), fc = whole(Q.sub(c, Q.of(1, 2)));   // each rounded down",
+      ],
+      py: [
+        "main = min(m, c)                                # the smaller of the two",
+        "fm, fc = m // 1, c // 1                         # each rounded down",
+      ],
+    },
+    tieBreakers: {
+      shared: {
+        ts: "shared(fm, fc)", py: "shared(fm, fc)", says: "those two rounded down sharing many prime factors is better",
+        lenses: ["shift", "tilt", "stretch"], steps: 3, tryThis: "remove the \"stretch\" line: is adding as good as multiplying here?",
+      },
+    },
+  },
+  {
+    family: "smooth-gradient",
+    mainSays: "how far the gradient is from a 7-smooth number (closer is better)",
+    main: {
+      ts: [
+        "const s0 = Q.isZero(m) ? 1 : near(Q.abs(m), smooth);   // the 7-smooth number nearest its size (1 for 0)",
+        "if (s0 === null) return null;                // none within 10,000: hopeless",
+        "const s = Q.cmp(m, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept",
+        "const main = Q.neg(Q.abs(Q.sub(m, s)));",
+      ],
+      py: [
+        "s0 = 1 if m == 0 else near(abs(m), smooth)   # the 7-smooth number nearest its size (1 for 0)",
+        "if s0 is None:                              # none within 10,000: hopeless",
+        "    return None",
+        "s = -s0 if m < 0 else s0                # the sign kept",
+        "main = -abs(m - s)",
+      ],
+    },
+    tieBreakers: {
+      shared: {
+        ts: "shared(s, whole(c))", py: "shared(s, whole(c))", says: "that smooth number sharing many prime factors with the whole number nearest the y-intercept is better",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "remove the \"tilt\" line: moving the line up and down never changes the gradient.",
+      },
+    },
+  },
+  {
+    family: "smooth-square",
+    simple: ["shift", "tilt", "turnAtMinusOne"],
+    mainSays: "how far the triangle's area is from a square number (closer is better)",
+    main: {
+      ts: [
+        "if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score",
+        "const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));",
+        "const sq = near(area, square);                  // the square number nearest the area",
+        "const main = Q.neg(Q.abs(Q.sub(area, sq)));",
+      ],
+      py: [
+        "if m == 0 or c == 0:                            # no triangle: the worst score",
+        "    return None",
+        "area = c * c / (2 * abs(m))",
+        "sq = near(area, square)                         # the square number nearest the area",
+        "main = -abs(area - sq)",
+      ],
+    },
+    tieBreakers: {
+      shared: {
+        ts: "shared(root(sq), whole(Q.neg(Q.div(c, m))))", py: "shared(root(sq), whole(-c / m))", says: "that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better",
+        lenses: ["shift", "tilt", "turnAtMinusOne", "stretch"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still reach bigger squares?",
+      },
+    },
+  },
+  {
+    family: "sunken-intercept",
+    mainSays: "minus the y-intercept (lower is better)",
+    main: {
+      ts: [
+        "const main = Q.neg(c);",
+      ],
+      py: [
+        "main = -c",
+      ],
+    },
+    tieBreakers: {
+      shared: {
+        ts: "shared(whole(c), Q.from(m).n)", py: "shared(whole(c), m.numerator)", says: "the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better",
+        lenses: ["shift", "tilt"], steps: 3, tryThis: "remove the \"tilt\" line: the gradient's top never changes, so which shares can it reach?",
+      },
+    },
+  },
 ];

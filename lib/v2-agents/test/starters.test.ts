@@ -30,7 +30,9 @@ const all = shippedAgents();
 const familyOf = (id: string) => lineType.families.find(f => f.id === id)!;
 /** The catalogue entries v2-linear still deals. */
 const LIVE = CATALOGUE.filter(e => lineType.families.some(f => f.id === e.family));
-const paramsOf = (id: string) => familyOf(id).dealable(lineZ)[0] as Record<string, unknown>;
+/** The variant a family is dealt on: whole-number lines if it can be, else rational lines (the rational-only families). */
+const variantOf = (id: string): Variant => (familyOf(id).dealable(lineZ).length > 0 ? lineZ : lineQ);
+const paramsOf = (id: string) => familyOf(id).dealable(variantOf(id))[0] as Record<string, unknown>;
 
 test("families and tie-breakers without shipped agents yet (a catalogue entry each)", t => {
   const missing = undescribed(), gone = stale();
@@ -75,11 +77,12 @@ test("an agent's own score is the engine's, for every family, its dealable numbe
   const sample = [...edge, ...lines(lineZ, 30), ...lines(lineQ, 30).filter(s => s.lines[0]!.b !== 0n)];   // y = mx + c only
   for (const e of LIVE) {
     const f = familyOf(e.family);
-    for (const params of f.dealable(lineZ) as Record<string, unknown>[]) {
+    const v = variantOf(e.family);
+    for (const params of f.dealable(v) as Record<string, unknown>[]) {
       const lines = e.wholeLines ? sample.filter(s => s.lines[0]!.b === 1n) : sample;
       for (const tb of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
         const engine = lines.map(s => {
-          const ev = evaluateSite(lineType, f, params, s, lineZ, 0, tb.id), score = scoreToWire(ev.score);   // the utilities (decision 23)
+          const ev = evaluateSite(lineType, f, params, s, v, 0, tb.id), score = scoreToWire(ev.score);   // the utilities (decision 23)
           return score === null ? "worst" : score.map(x => x ?? "null").join(",");
         });
         const what = `${e.family} ${JSON.stringify(params)}/${tb.id}`;
@@ -120,20 +123,20 @@ test("both languages make the same moves, and no shipped agent fails on newborn 
 
 test("each example gains value: on some newborn line its bits rise and the main part never falls (owner decision 23)", async () => {
   for (const e of LIVE) {
-    const f = familyOf(e.family), params = paramsOf(e.family);
+    const f = familyOf(e.family), params = paramsOf(e.family), v = variantOf(e.family);
     for (const tb of Object.keys(e.tieBreakers).filter(tb => f.tieBreakers.some(t => t.id === tb))) {
       const rule = { family: e.family, params, tieBreaker: tb };
-      const vf = findValues("line-z", rule);
+      const vf = findValues(v.id, rule);
       if (!vf) continue;   // not valued yet: the score test above still checks it
       const look = valueLookup(vf);
-      const utility = (s: LineState) => evaluateSite(lineType, f, params, s, lineZ, 0, tb).score;
+      const utility = (s: LineState) => evaluateSite(lineType, f, params, s, v, 0, tb).score;
       const a = exampleFor(e.family, tb, "typescript")!;
       let rose = false;
-      for (const start of births(lineType, lineZ, `climb-${e.family}`, 4)) {
+      for (const start of births(lineType, v, `climb-${e.family}`, 4)) {
         let s = start;
         for (let t = 0; t < 25; t++) {
           const { record, state } = await runAct(await boxes.get("typescript"), {
-            type: lineType, variant: lineZ, state: s, rule, program: program(a), seed: String(t), energy: 1000,
+            type: lineType, variant: v, state: s, rule, program: program(a), seed: String(t), energy: 1000,
           });
           assert.notEqual(record.outcome, "failed", record.reason);
           if (record.outcome === "skipped") break;
