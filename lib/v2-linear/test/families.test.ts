@@ -7,25 +7,25 @@ import { abc, mc } from "./helpers.ts";
 const score = (e: Evaluation) => (e.score === null ? "WORST" : e.score.map(x => (x === null ? "_" : Qn.toWire(x))).join(","));
 const ev = <P,>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ, tb?: TieBreaker) => evaluateSite(lineType, f, p, s, v, 0, tb);
 
-test("every owner family: a textbook main layer and at least two alternative tie-breakers, all graded", () => {
+test("every owner family: a textbook main layer and at least two alternative tie-breakers (one, read from the rung, for a ladder family), all graded", () => {
   for (const f of ownerFamilies) {
-    assert.ok(f.tieBreakers.length >= 2, f.id);
+    assert.ok(f.tieBreakers.length >= (f.keepsParams ? 1 : 2), f.id);
     assert.ok(f.depends.includes(f.main.rep), f.id);
     const p = f.dealable(lineQ)[0]!;
     for (const tb of f.tieBreakers) assert.match(f.card(p as never, tb.id), /Tie-breaker/);
   }
 });
 
-test("Prime Gradient: distance to the nearest prime ending in the dealt digit, then its size (decision 41)", () => {
+test("Prime Gradient: the gradient rounding to a prime ending in the dealt digit, in levels of digits; then the factor that prime plus 1 shares with the y-intercept", () => {
   const e3 = { ends: 3 }, e7 = { ends: 7 };
-  assert.equal(score(ev(primeGradient, e3, mc(4, -3))), "-1,3");       // primes ending in 3: 3 is 1 away, 13 is 9
-  assert.equal(score(ev(primeGradient, e7, mc(4, -3))), "-3,7");       // primes ending in 7: 7 is 3 away (5 does not count)
-  assert.equal(score(ev(primeGradient, e7, mc(7, -3))), "0,7");
-  assert.equal(score(ev(primeGradient, e3, mc(-2, 1))), "-5,3");       // the nearest prime ending in 3 to −2 is 3
-  assert.equal(score(ev(primeGradient, e3, mc(Qn.q(5, 2), 0), lineQ)), "-1/2,3");
+  assert.equal(score(ev(primeGradient, e3, mc(4, -3))), "-1/2,1");     // 3 is 1 away: ½ beyond rounding to it; 4 and 3 share 1
+  assert.equal(score(ev(primeGradient, e7, mc(4, -3))), "-5/2,1");     // 7 is 3 away (5 does not count)
+  assert.equal(score(ev(primeGradient, e7, mc(7, -3))), "27/20,1");    // on 7: level 1 + 0.7/2; 8 and 3 share 1
+  assert.equal(score(ev(primeGradient, e7, mc(7, -12))), "27/20,4");   // 8 and 12 share 4
+  assert.equal(score(ev(primeGradient, e3, mc(-2, 1))), "-9/2,1");     // the nearest prime ending in 3 to −2 is 3
+  assert.equal(score(ev(primeGradient, e3, mc(Qn.q(5, 2), 0), lineQ)), "23/20,0");   // 2½ rounds to 3 (ties up); a whole part of 0 shares nothing
   assert.equal(score(ev(primeGradient, e3, abc(1, 0, -3), lineQ)), "WORST");
-  assert.equal(score(ev(primeGradient, e7, mc(7, -3), lineZ, null)), "0");     // the main layer alone
-  assert.equal(score(ev(primeGradient, e7, mc(7, -3), lineZ, "c-gpf")), "0,3");   // another tie-breaker: c = −3, largest prime factor 3
+  assert.equal(score(ev(primeGradient, e7, mc(7, -3), lineZ, null)), "27/20");     // the main layer alone
   const cands = ev(primeGradient, e3, mc(4, -3)).marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref));
   assert.deepEqual(cands.sort(), ["cart.ghost(g=3)"]);
   // Every card names its digit.
