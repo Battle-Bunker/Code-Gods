@@ -390,14 +390,14 @@ owner question.
 | A1 | Configure page with every setting; saved setups (page/get/save/duplicate/remove) and seeded system setups | Preset picker and three overrides | 6–8 | W3 (tables, ops); see §2 #66 |
 | A2 | Rival-inference assistant tools (fit_utility_mixture, list_utility_candidates, get_utility_series, get_board_at); "Possible gods" list | Absent | 3 | W3 (reads) |
 | A3 | Objects sorts: payoff, bits, others, mutations, newest, oldest, recently mutated. Filters: all, positive, contested | Sorts: points, rarity, recent | 3 | W3 (indexed fields) |
-| A4 | Feed filters (who, object, minimum impact); group by mutator, "cost against yield" | Mine / all moves toggle only | 3 | — |
+| A4 | Feed filters (who, object, minimum impact); group by mutator, "cost against yield" | **Restored** (#875) | — | — |
 | A5 | Goal card: "How rare is each rule score?" table; editable, randomisable example | Fixed example | 3 | Q: check that the rarity table doesn't point at peaks |
-| A6 | My agents: sparkline, "Edit a copy", version comparison, "How energy works" | Absent | 3 | — |
-| A7 | Replay: keyboard shortcuts, speeds ¼–64×, deep links (?e ?t &as), copy a moment link, download | Scrubber and watch-as | 2–3 | W3 for download |
+| A6 | My agents: sparkline, "Edit a copy", version comparison, "How energy works" | **Restored** except the sparkline (#876) | 1 | W3 (energy history from the tick) |
+| A7 | Replay: keyboard shortcuts, speeds ¼–64×, deep links (?e ?t &as), copy a moment link, download | **Restored** (#878; links are ?replay&t&as) | — | — |
 | A8 | Owner "Cancel bidding" | Absent | 1 | W3 (op) |
-| A9 | Phone assistant bottom sheet; pane maximise | Absent | 3 | — |
-| A10 | Chat filters: Humans, AI, Mentions | Absent | 1 | — |
-| A11 | Grid tiles / colour-blind toggle | Absent | 2 | — |
+| A9 | Phone assistant bottom sheet; pane maximise | Maximise **restored** (desktop, this screen only); bottom sheet absent | 2 | — |
+| A10 | Chat filters: Humans, AI, Mentions | **Restored** in the game's chat (#881) | — | — |
+| A11 | Grid as coloured tiles (a per-viewer renderer choice) | Numbers in ink only: the owner took colour off the beginner board (`lib/v2-views/src/render/grid.tsx`) | 2 | Q: tiles bring colour back |
 | A12 | "Copy game rules for an AI"; "Connect a player app" sheet | The CLI and MCP exist; no sheet in the app | 1 | — |
 | A13 | Header: overdrawn warning, retry-uncertain banner | Absent | 1 | W3 (check the field) |
 | A14 | "Who am I" and "Server info" sheets | Absent | 1 | — |

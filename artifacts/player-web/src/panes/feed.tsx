@@ -125,8 +125,12 @@ function ConcernsFeed() {
   }
   return (
     <div data-testid="feed">
-      <FeedFilters who={who} setWho={setWho} numberText={numberText} setNumberText={setNumberText} minText={minText} setMinText={setMinText} noun={objectWord(header.variant).one} />
-      <CostAgainstYield moves={moves.results} variant={header.variant} />
+      {/* One line until opened: a short pane keeps its first move in view (e2e:dock at 1280×720). */}
+      <details className="border-b text-xs" data-testid="details-feed-tools">
+        <summary className="cursor-pointer px-4 py-1.5 text-muted-foreground underline underline-offset-4">{filtering ? "Filtered: change or clear" : "Filter, and cost against yield"}</summary>
+        <FeedFilters who={who} setWho={setWho} numberText={numberText} setNumberText={setNumberText} minText={minText} setMinText={setMinText} noun={objectWord(header.variant).one} />
+        <CostAgainstYield moves={moves.results} variant={header.variant} />
+      </details>
       {filtering && items.length === 0 && <p className="p-4 text-sm text-muted-foreground" data-testid="feed-filtered-empty">No loaded move matches these filters.</p>}
       <NotesContext.Provider value={notes}><AnonymousContext.Provider value={!replaying && header.phase !== "ended"}>
       <ol className="divide-y">
@@ -168,8 +172,8 @@ function CostAgainstYield({ moves, variant }: { moves: readonly Move[]; variant:
   if (!rows.length) return null;
   const titleOf = (key: string) => key.split(", then ").map(id => objectTypeOf(variant).mutators.find(m => m.id === id)?.title ?? id).join(", then ");
   return (
-    <details className="border-b px-4 py-2 text-xs" data-testid="feed-yield">
-      <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">Cost against yield, by kind of move</summary>
+    <div className="px-4 py-2 text-xs" data-testid="feed-yield">
+      <p className="text-muted-foreground">Cost against yield, by kind of move</p>
       <table className="mt-2 w-full tabular-nums">
         <thead><tr className="text-left text-muted-foreground"><th className="font-normal">Your agents' move</th><th className="font-normal text-right">Moves</th><th className="font-normal text-right">Energy</th><th className="font-normal text-right">Points gained</th></tr></thead>
         <tbody>{rows.map(r => (
@@ -177,7 +181,7 @@ function CostAgainstYield({ moves, variant }: { moves: readonly Move[]; variant:
         ))}</tbody>
       </table>
       <p className="mt-1 text-muted-foreground">From the moves loaded here; load earlier moves to count more.</p>
-    </details>
+    </div>
   );
 }
 

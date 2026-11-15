@@ -167,12 +167,12 @@ try {
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();
     // v1's feed filters and "cost against yield": a filter nothing passes says so, clearing it brings the moves back.
+    await feed.getByTestId("details-feed-tools").locator("summary").click();
     await feed.getByTestId("input-feed-min").fill("1e12");
     await feed.getByTestId("feed-filtered-empty").waitFor();
     await feed.getByTestId("input-feed-min").fill("");
     await feed.getByTestId("select-feed-who").selectOption("mine");
     await feed.getByTestId("text-move-line").first().waitFor();
-    await feed.getByTestId("feed-yield").locator("summary").click();
     const yieldRow = await feed.getByTestId("row-feed-yield").first().innerText();
     assert.match(yieldRow, /\d/, `${label}: cost against yield lists your agents' moves: ${yieldRow}`);
     await feed.getByTestId("select-feed-who").selectOption("all");
