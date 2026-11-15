@@ -5,7 +5,7 @@
  */
 import type { Score } from "@workspace/v2-core";
 import type { ObjectType } from "@workspace/v2-core";
-import { findVariant, valueLookup, valuesVariant, withUniqueness } from "@workspace/v2-valuation";
+import { findVariant, meanHinge, valueLookup, valuesVariant, withUniqueness } from "@workspace/v2-valuation";
 import { CURVES, UNIQUENESS, VALUE_INDEX, type ValueRecord } from "./values.gen.ts";
 
 const INDEX = new Map(VALUE_INDEX.map(r => [r.ruleKey, r]));
@@ -69,3 +69,30 @@ export const measuredToBits =(r: ValueRecord): number => r.knots.reduce((m, k) =
 
 /** The value function as a curve, worst to best: each knot's utility (wire) and bits. */
 export const curveOf = (r: ValueRecord) => r.knots.map(k => ({ score: k.u, bits: k.bits }));
+
+// ---------------------------------------------------------------- defence goals (v1, restored; owner-decisions call 1)
+
+/**
+ * A penalty's badness worth in bits (how rare "at least this bad" is), from its own value function. No uniqueness
+ * correction: that corrects a reward's rarity for states other objects hold, not how bad an object is.
+ */
+export function penaltyBitsOf(ruleKey: string, badness: Score): number {
+  let f = LOOKUPS.get(ruleKey);
+  if (!f) {
+    const r = valueRecord(ruleKey);
+    if (!r) throw new Error(`No value function for the defence goal ${ruleKey}`);
+    LOOKUPS.set(ruleKey, f = valueLookup(r));
+  }
+  return f(badness).bits;
+}
+const MEANS = new Map<string, number>();
+/** E_π η(h) of a penalty (lib/v2-valuation defence.ts), from its knots, computed once. */
+export function penaltyMean(ruleKey: string): number {
+  let m = MEANS.get(ruleKey);
+  if (m === undefined) {
+    const r = valueRecord(ruleKey);
+    if (!r) throw new Error(`No value function for the defence goal ${ruleKey}`);
+    MEANS.set(ruleKey, m = meanHinge(r.knots));
+  }
+  return m;
+}

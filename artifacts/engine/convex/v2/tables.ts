@@ -237,6 +237,8 @@ export const v2Tables = {
     previous: v.optional(v.object({ params: v.any(), card: v.string() })),
     /** Won by a bid (the percent bid) and the handicap the winner pays, percent of totals. */
     bid: v.optional(v.number()), handicap: v.optional(v.number()),
+    /** A defence goal dealt beside the rule (v1, restored; owner-decisions call 1): one of the variant's penalty families. */
+    defence: v.optional(v.object({ family: v.string(), params: v.any(), ruleKey: v.string(), card: v.string() })),
   }).index("by_game_member", ["gameId", "memberId"]),
 
   /** A player's account in one game (hot, one per player): energy store, power, ready, pause. */

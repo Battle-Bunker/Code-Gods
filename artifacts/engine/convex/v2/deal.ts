@@ -398,3 +398,33 @@ export function ruleView(rule: DealtRule): RuleView {
   const f = familyOf(rule.family);
   return { title: f.title, card: f.card(rule.params, rule.tieBreaker), depends: [...f.depends], primary: f.main.rep, layers: ruleLayers(f, rule.tieBreaker).map(l => l.id) };
 }
+
+// ---------------------------------------------------------------- defence goals (v1, restored; owner-decisions call 1)
+
+/** A defence goal as dealt: one of the variant's penalty families, its parameters, its value function's key and card. */
+export interface DealtDefence { family: string; params: unknown; ruleKey: string; card: string }
+
+/**
+ * Every penalty the variant could deal (ObjectType.penalties minus `excluded`), each instance that has a value
+ * function, grouped by family. Empty for a type without penalties (lines).
+ */
+export function defencePool(variantId: string, excluded: readonly string[] = []): DealtDefence[][] {
+  const { type, variant } = findVariant(variantId);
+  return (type.penalties ?? []).filter(f => !excluded.includes(f.id)).map(f =>
+    (f.dealable(variant) as unknown[]).flatMap(params => {
+      const key = ruleKey(type, variant, f.id, params, "none");
+      return valueHead(key) ? [{ family: f.id, params, ruleKey: key, card: f.card(params as never, null) }] : [];
+    })).filter(g => g.length > 0);
+}
+
+/**
+ * One defence goal for every seat, as v1 dealt them (every seat or none: a defence goal is a handicap for all alike):
+ * a uniform family, then a uniform parameter set (v1's dealer prior), from the game's seed. Null when the variant has
+ * no penalty to deal.
+ */
+export function dealDefence(variantId: string, seats: number, seed: string, excluded: readonly string[] = []): DealtDefence[] | null {
+  const pool = defencePool(variantId, excluded);
+  if (pool.length === 0) return null;
+  const r = rng(seed, "deal-defence");
+  return Array.from({ length: seats }, () => { const g = pool[r.below(pool.length)]!; return g[r.below(g.length)]!; });
+}
