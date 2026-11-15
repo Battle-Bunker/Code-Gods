@@ -207,9 +207,10 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
  * energy requires starting over to climb higher on the secondary dimension").
  *
  * Main part, unbounded: where the line lands on the x-axis, X = −c/m, should round to a prime ending in k, the bigger
- * the better (u = p); any other line scores below every rung, graded by how far it is from rounding to one. Spec lead's trial (15 Nov, declared to the coordinator): it read the y-intercept until the play measurements
- * of row 2 (design-principles.md) showed the ladder was not climbed, because the next prime was a shift of c by 10 or
- * more and every rule reading c lost its bits. On the x-axis the next rung is a small tilt, Δm = c/p − c/p′, that leaves
+ * the better (u = p); any other line scores below every rung, graded by how far it is from rounding to one. Spec
+ * lead's trial (15 Nov, declared to the coordinator): it read the y-intercept until the play measurements of row 2
+ * (design-principles.md) showed the ladder was not climbed, because the next prime was a shift of c by 10 or more and
+ * every rule reading c lost its bits. On the x-axis the next rung is a small tilt, Δm = c/p − c/p′, that leaves
  * c alone (and a shift keeps working too: c = −pm). A vertical line lands at x = k, a flat one never lands.
  * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (the best intercept
  * depends on p, so a new rung restarts the climb). Dealt: k = 1 and 9, each on both sides (the mirror lands on minus
