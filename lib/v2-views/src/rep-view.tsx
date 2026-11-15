@@ -10,6 +10,7 @@ import { typesetNote } from "./format.ts";
 import { rendererFor, type DrawSize } from "./scene.ts";
 import "./render/register.ts";
 import { isSingleLine } from "./render/equation.tsx";
+import { isGivenOnly } from "./equation-text.ts";
 
 /** Element values of a state; a value that cannot be computed reads as undefined with the reason. */
 export function valuesOf<S>(type: ObjectType<S>, state: S, site: number): (r: ElementRef) => ElementValue {
@@ -147,7 +148,7 @@ export function chipRep<S>(type: ObjectType<S>, state: S, preferred?: string, si
   // A one-line equation only: a worked one (the crossing) is several lines, too long for a chip.
   const writes = (id: string) => {
     const scene = representation(type, id).layout(state, site);
-    return scene.kind === "equation" && isSingleLine(scene) && expresses(type, state, id, site);
+    return scene.kind === "equation" && (isSingleLine(scene) || isGivenOnly(scene as never)) && expresses(type, state, id, site);
   };
   if (preferred && writes(preferred)) return preferred;
   const eq = type.representations.find(r => r.scene === "equation" && writes(r.id));

@@ -32,6 +32,7 @@
     "@workspace/v2-valuation": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "tsx": "catalog:"
+    "tsx": "catalog:",
+    "@workspace/v2-pair": "workspace:*"
   }
 }
