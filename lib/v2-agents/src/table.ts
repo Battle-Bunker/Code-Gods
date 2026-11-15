@@ -83,6 +83,8 @@ export interface TableInput<S> {
   readonly actEconomy?: ActEconomy;
   /** Called after every act, for measurements (scripts/collapse-check.ts): what it did and the line's state after it. */
   readonly onAct?: (e: TableAct<S>) => void;
+  /** Called after each parameter redraw (driftSeconds), per seat whose parameters changed. */
+  readonly onDrift?: (e: { readonly at: number; readonly seat: number; readonly params: Record<string, unknown> }) => void;
 }
 
 /** One act as `onAct` sees it. `committed` is false for an act that changed nothing or could not pay. */
@@ -474,7 +476,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
       const tick = Math.floor(world / input.driftSeconds);
       for (const [i, s] of seats.entries()) {
         const family = type.families.find(f => f.id === s.rule.family)!;
-        s.rule = { ...s.rule, params: driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown> };
+        const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null) as Record<string, unknown>;
+        if (JSON.stringify(next) !== JSON.stringify(s.rule.params)) input.onDrift?.({ at: world, seat: i, params: next });
+        s.rule = { ...s.rule, params: next };
       }
       vals = seats.map(s => valuer(type, variant, s.rule));
       // The redraw changes everyone's points on every line: not a gain or a loss of play, so the baseline moves with it.
