@@ -60,7 +60,7 @@ type Ends = { ends: number; side?: 1 | -1 };
  * 5.8, 7.8, 9.9 and 13.7 bits for endings 3, 7, 1 and 9 (the smallest qualifying primes are 3, 7, 11, 19).
  * PRIME_ENDINGS (numbers.ts) stays the declared grid.
  */
-const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }];
+const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }, { ends: 3, side: -1 }];   // and its mirror: minus primes (y → −y)
 /**
  * Prime Landing also deals its mirror (side −1: "minus a prime ending in 7"), so parameter drift (the coordinator's
  * trial call 18) has a peer to redraw. The mirror is an exact peer: the law is symmetric under y → −y (the line codes
@@ -78,13 +78,13 @@ const withEnds = <X extends { sentence: (p: Ends) => string }>(l: X, sentence: (
 
 const staircase: Shape<Ends> = {
   main: withEnds(more<Ends>("run", "a run of different dealt primes from y(0)", "", "seq"),
-    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different primes ending in ${p.ends}.`),
+    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different ${p.side === -1 ? "minus " : ""}primes ending in ${p.ends}.`),
   // The old game's four tie-breakers, restored (coordinator's call under the owner's delegation, 14 Nov).
   tieBreakers: [
     prime(more<Ends>("first-prime", "the first prime", "The first prime should be as big as possible.", "seq")),
     prime(more<Ends>("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq")),
     withEnds(distance<Ends>("near-miss", "the first term that breaks the run, close to such a prime", "", "seq"),
-      p => `The first term that is not ${primeEnding(p)} should be as close as possible to one.`),
+      p => `The first term that is not ${minus(p)}${primeEnding(p)} should be as close as possible to one.`),
     withEnds(distance<Ends>("step-back", "y(−1) close to such a prime", "", "seq"),
       p => `The term before the start, y(−1), should be as close as possible to ${primeEnding(p)}.`),
   ],
@@ -101,7 +101,7 @@ export const primeStaircase = family<Ends>("prime-staircase", "Prime Staircase",
   let miss: { ref: ElementRef; v: Q } | null = null;
   for (let n = 0; n < 12 && (stop === null || miss === null); n++) {
     const r = ref("seq", "term", { n });
-    const v = num(ctx.read(r))!;
+    const v = sided(pr, num(ctx.read(r))!);   // on the mirror (side −1) the run is of minus primes: −y(n) is prime
     const prime = v.d === 1n && isPrimeEnding(v.n, pr.ends);
     if (stop === null) {
       if (prime && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
@@ -111,8 +111,8 @@ export const primeStaircase = family<Ends>("prime-staircase", "Prime Staircase",
   const back = ref("seq", "term", { n: -1 });
   const vb = num(ctx.read(back))!;
   const terms = Array.from({ length: run }, (_, n) => ref("seq", "term", { n }));
-  ctx.term("run", `different primes ending in ${pr.ends} from y(0)`, q(run), terms.length ? terms : [first]);
-  ctx.term("first-prime", "the first prime", run ? num(v0)! : Qn.ZERO, [first]);
+  ctx.term("run", `different ${minus(pr)}primes ending in ${pr.ends} from y(0)`, q(run), terms.length ? terms : [first]);
+  ctx.term("first-prime", "the first prime", run ? sided(pr, num(v0)!) : Qn.ZERO, [first]);
   ctx.term("last-prime", "the last prime of the run", run ? q([...seen][run - 1]!) : Qn.ZERO, terms.length ? [terms[run - 1]!] : [first]);
   ctx.term("near-miss", `distance from the first term that is not ${primeEnding(pr)} to one`, miss ? distanceToPrimeEnding(Qn.abs(miss.v), pr.ends) : { undefined: `the first twelve terms are all primes ending in ${pr.ends}` }, miss ? [miss.ref] : [first]);
   ctx.term("step-back", `distance from y(−1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(vb), pr.ends), [back]);

@@ -12,12 +12,13 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    nearest = near(m, prime, p["ends"])             # the prime ending in p["ends"] nearest the gradient
+    s = p.get("side", 1)                           # 1, or -1 on the mirror: minus a prime
+    nearest = near(s * m, prime, p["ends"])         # the prime ending in p["ends"] nearest the gradient (times s)
     if nearest is None:                             # none within 10,000: hopeless
         return None
-    main = -abs(m - nearest)
-    cp = near(c, prime, p["ends"])             # the prime ending in p["ends"] nearest the y-intercept
-    return [main, -abs(c - cp)]   # main: how far the gradient is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: a y-intercept close to such a prime too is better
+    main = -abs(s * m - nearest)
+    cp = near(s * c, prime, p["ends"])         # the prime ending in p["ends"] nearest the y-intercept (times s)
+    return [main, -abs(s * c - cp)]   # main: how far the gradient is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: a y-intercept close to such a prime too is better
 
 
 FAR = 3      # how far one change may go

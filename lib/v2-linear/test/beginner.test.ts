@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type RuleFamily } from "@workspace/v2-core";
-import { LINE_Q_CODES, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
+import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
 /** Every layer's term, as wire strings, for one evaluation. */
@@ -150,4 +150,17 @@ test("Treasure's mirror (T below zero) is an exact peer: it scores the reflected
   }
   for (const [a, c] of [[1n, -2n], [2n, -5n], [3n, 7n]] as const) assert.deepEqual(terms(treasure, { k: 2, T: -37 }, x(a, c), lineQ), terms(treasure, { k: 2, T: 37 }, x(a, c), lineQ));
   assert.match(treasure.card({ k: 2, T: -37 }, "square-start"), /minus a square number/);
+});
+
+test("Prime Gradient's and Prime Staircase's mirrors (side −1) are exact peers: each scores the reflected line y → −y as side 1 scores the line", () => {
+  const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
+  for (const [f, p] of [[primeGradient, { ends: 1 }], [primeStaircase, { ends: 3 }]] as const) {
+    for (const mm of [-7, -2, 0, 1, 3, 10, 14]) for (const cc of [-40, -17, -3, 0, 3, 5, 13, 23, 97]) {
+      assert.deepEqual(terms(f as never, { ...p, side: -1 }, mc(-mm, -cc), lineQ), terms(f as never, p, mc(mm, cc), lineQ), `${f.id}: y = ${mm}x + ${cc}`);
+    }
+    for (const [a, c] of [[2n, -25n], [1n, 13n]] as const) assert.deepEqual(terms(f as never, { ...p, side: -1 }, x(a, c), lineQ), terms(f as never, p, x(a, c), lineQ));
+    assert.deepEqual(f.dealable(lineQ), [p, { ...p, side: -1 }]);
+  }
+  assert.equal(terms(primeStaircase, { ends: 3, side: -1 }, mc(-10, -3), lineQ).run, "3");   // −3, −13, −23: minus primes ending in 3
+  assert.match(primeGradient.card({ ends: 1, side: -1 }, "cPrime"), /as close as possible to minus a prime ending in 1\..*minus a prime ending in 1 too/);
 });

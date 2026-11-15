@@ -14,7 +14,7 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     run, stopped, miss = [], False, None            # miss: the size of the first term that is not such a prime
     for n in range(12):                             # y(0) ... y(11)
-        t = m * n + c
+        t = p.get("side", 1) * (m * n + c)        # y(n), or -y(n) on the mirror (minus primes)
         is_prime = prime(t) and t % 10 == p["ends"]
         if not stopped and is_prime and t not in run:
             run.append(t)                           # the different primes ending in p["ends"] it starts with
