@@ -946,7 +946,7 @@ table.y(q), seq.term(q), mach.out(q), cart.pointAtX(q)'s y).
 
 ### 12.4 Mutators
 
-N = 9 in every first variant: log2 9 = 3.17 bits of "which". k sites add log2 k. Far moves are dear (owner design,
+N = 9 on line-z and line-z4: log2 9 = 3.17 bits of "which". line-q offers eleven (the nine and the turn and the zoom, below) with a weighted code: the nine at log2 10 = 3.32 bits, the turn and the zoom at log2 20 = 4.32. k sites add log2 k. Far moves are dear (owner design,
 2026-11-14: "It's really expensive to move objects a long way in a single turn, by design, so all strategies should be
 incremental hill climbing"): a call's arguments are choices (an axis, which coefficient, a pivot's anchor x0, priced as
 before: x0 by steps, owner decision 17) and at most one size, priced against the rest of the call. With o the bits of
@@ -988,7 +988,8 @@ line-q's params, so the same law π ∝ 2^−φ, and reads line-q's value functi
 does not depend on the menu, so a menu change re-keys the stored values without recomputing them
 (`lib/v2-valuation/scripts/rekey-values.ts`). Representation moves (turn, swap, fold) are priced as choices and
 digits; the lean adds an amount (priced by size); the zoom is a factor (digits). A mutator may declare a least fee
-(`Mutator.floor`, the same for a call and its inverse): `coef.swap` pays at least φ of the larger number it swaps,
+(`Mutator.floor`, the same for a call and its inverse): `coef.swap` pays at least φ of the dearer of the two numbers it
+swaps (each read with line-q's code for a and c),
 since a swap keeps every digit (Δφ ≈ 0) and was otherwise nearly free. Each is undone by itself or by the same
 mutator at the same fee (exact potential; `lib/v2-linear/test/lens-mutators.test.ts`).
 

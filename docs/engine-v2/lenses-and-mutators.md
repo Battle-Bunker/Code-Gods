@@ -3,7 +3,7 @@
 Status: design and measurement. **The first five of §5 are built** (15 November). `rot.turn` and `basis.zoom` are in
 the beginner line set (`line-q`, coordinator's call 23, after
 [scripts/stretch-lens-pool-dynamics.md](scripts/stretch-lens-pool-dynamics.md)); `coef.swap` (its fee now floored at φ of
-the larger number it swaps), `basis.lean` and `fold` stay a trial in variant `line-q-lenses`, preset `lines-lenses`
+the dearer number it swaps), `basis.lean` and `fold` stay a trial in variant `line-q-lenses`, preset `lines-lenses`
 (spec §12.4; the balance and collapse runs are in §7 below). Nothing else
 here changes the engine's dealt rules, mutators or prices. Every proposal is
 for the coordinator and the owner to choose from. The script is `lib/v2-agents/scripts/lenses.ts`

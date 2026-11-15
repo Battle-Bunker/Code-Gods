@@ -55,8 +55,7 @@ function agent(offer) {
     tries.push([move("cart.pivot", { x0: -1, k }), Q.add(m, k), Q.add(c, k)]);   // turn the line about its point at x = -1 (m and c both change by k)
     const f = k > 0 ? k + 1 : k - 1;
     tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
-    const z = k > 0 ? k + 1 : k - 1;
-    tries.push(Q.isZero(c) ? [move("si.shift", { k }), m, Q.add(c, k)] : [move("basis.zoom", { f: z }), m, Q.mul(c, z)]);   // zoom from the origin by z: the y-intercept times z, the same gradient
+    if (!Q.isZero(c)) tries.push([move("basis.zoom", { f }), m, Q.mul(c, f)]);   // zoom from the origin by f: the y-intercept times f, the same gradient
   }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches

@@ -17,7 +17,7 @@
  */
 import { parseArgs } from "node:util";
 import { amountCode, applyPriced, evaluateSite, factorCode, gammaBits, nonzeroRatBits, q, ratBits, stepsRatBits } from "@workspace/v2-core";
-import { LINE_Q_CODES, lineQ, lineType, mutators as engineMutators, presets, type LineState } from "@workspace/v2-linear";
+import { LINE_Q_CODES, lineQ, lineQLenses, lineType, mutators as engineMutators, presets, type LineState } from "@workspace/v2-linear";
 import { findValues } from "../src/harness.ts";
 import { valueLookup } from "@workspace/v2-valuation";
 
@@ -339,9 +339,9 @@ if (want("check")) {
     for (const M of EXISTING) {
       const em = engineMutators.find(x => x.id === M.id)!;
       const fast = new Map<string, number>();
-      M.gen(s, (to, f) => { if (inBox(to) && to.join() !== s.join()) { const k = to.join(); const w = fee(f, 9); if (!(fast.get(k)! <= w)) fast.set(k, w); } });
+      M.gen(s, (to, f) => { if (inBox(to) && to.join() !== s.join()) { const k = to.join(); const w = fee(f, 0, lineQ.which?.[M.id] ?? Math.log2(lineQ.mutators.length)); if (!(fast.get(k)! <= w)) fast.set(k, w); } });
       const eng = new Map<string, number>();
-      const maxB = Math.max(0, ...fast.values()) - Math.log2(9) + 1e-6;
+      const maxB = Math.max(0, ...fast.values()) - (lineQ.which?.[M.id] ?? Math.log2(lineQ.mutators.length)) + 1e-6;
       for (const args of em.args(lineQ).enumerate!(maxB)) {
         const res = applyPriced(lineType, lineQ, toState(s), em, 0, args);
         if ("invalid" in res) continue;
@@ -376,8 +376,8 @@ function build(): Edges {
         if (!inBox(t)) return;
         const j = idx[keyOf(t)]!;
         if (j < 0 || j === i) return;
-        // N = 14 is line-q-lenses with its weighted which code: the nine at log2 12, the five at log2 20.
-        const ws = NSETS.map(N => fee(f, N, N === 14 ? Math.log2(M.built ? 20 : 12) : Math.log2(N)));
+        // N = 14 is line-q-lenses with its weighted which code (spec §12.4; coef.swap's floor is not modelled here).
+        const ws = NSETS.map(N => fee(f, N, N === 14 ? lineQLenses.which![M.id] ?? Math.log2(12) : Math.log2(N)));
         const cur = best.get(j);
         if (!cur) best.set(j, ws); else for (let z = 0; z < ws.length; z++) cur[z] = Math.min(cur[z]!, ws[z]!);
       });

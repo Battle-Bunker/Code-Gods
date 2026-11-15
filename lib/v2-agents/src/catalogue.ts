@@ -18,6 +18,8 @@ export interface Lens {
   readonly pre?: { readonly ts: string; readonly py: string };
   /** The families whose rule parameters the move uses (the move is only offered to them). */
   readonly only?: readonly string[];
+  /** A condition (both languages) under which the move is tried; it is skipped otherwise (the engine would refuse it). */
+  readonly when?: { readonly ts: string; readonly py: string };
 }
 
 export const LENSES = {
@@ -46,19 +48,18 @@ export const LENSES = {
   // The beginner lenses (coordinator's call 23, 15 Nov): offered only where they serve the main part, so the other
   // families' Thorough starters keep their QUOTES for their own moves.
   zoom: {
-    comment: "zoom from the origin by z: the y-intercept times z, the same gradient",
-    pre: { ts: "const z = k > 0 ? k + 1 : k - 1;", py: "z = k + 1 if k > 0 else k - 1" },
-    // Through the origin a zoom changes nothing (the engine refuses it): the shift stands in.
-    ts: `Q.isZero(c) ? [move("si.shift", { k }), m, Q.add(c, k)] : [move("basis.zoom", { f: z }), m, Q.mul(c, z)]`,
-    py: `(move("si.shift", k=k), m, c + k) if c == 0 else (move("basis.zoom", f=z), m, c * z)`,
+    comment: "zoom from the origin by f: the y-intercept times f, the same gradient",
+    // The same factor as the stretch's (one line in the loop when both are tried).
+    pre: { ts: "const f = k > 0 ? k + 1 : k - 1;", py: "f = k + 1 if k > 0 else k - 1" },
+    when: { ts: "!Q.isZero(c)", py: "c != 0" },   // through the origin a zoom changes nothing
+    ts: `[move("basis.zoom", { f }), m, Q.mul(c, f)]`, py: `(move("basis.zoom", f=f), m, c * f)`,
     only: ["smooth-intercept", "divisibility-ladder"],
   },
   turn: {
     comment: "turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)",
     pre: { ts: "const den = Q.sub(1, Q.mul(m, k));", py: "den = 1 - m * k" },
-    // A turn that would stand the line upright (den = 0) is refused: the tilt stands in.
-    ts: `Q.isZero(den) ? [move("si.tilt", { k }), Q.add(m, k), c] : [move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]`,
-    py: `(move("si.tilt", k=k), m + k, c) if den == 0 else (move("rot.turn", centre=0, turn=k), (m + k) / den, c)`,
+    when: { ts: "!Q.isZero(den)", py: "den != 0" },   // a turn that would stand the line upright is refused
+    ts: `[move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]`, py: `(move("rot.turn", centre=0, turn=k), (m + k) / den, c)`,
     only: ["prime-gradient", "same-on-both-rulers"],
   },
 } satisfies Record<string, Lens>;

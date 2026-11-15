@@ -5,7 +5,7 @@ import {
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
 import { isqrt as isqrtBig } from "./numbers.ts";
-import { decodeLine, describeLine, encodeLine, fromMC, inDomain, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
+import { decodeLine, describeLine, encodeLine, fromMC, inDomain, LINE_Q_CODES, intercept, isVertical, lineParams, normalise, slope, yAt, type Domain, type Line, type LineState } from "./line.ts";
 
 export type Args = Readonly<Record<string, Q | string>>;
 
@@ -416,7 +416,7 @@ export const turn: M = {
 
 const PAIRS = ["m-c", "b-c"] as const;
 export const swap: M = {
-  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation", perSite: true,
+  id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation (it costs at least what the dearer of the two costs to write)", perSite: true,
   describe: a => (S(a, "pair") === "m-c" ? "swap the gradient and the y-intercept (y = mx + c becomes y = cx + m)" : "swap b and c in ax + by + c = 0"),
   args: v => fields(baseBits(v, true, "coef.swap"), { pair: oneOf(PAIRS) }),
   apply: (state, site, a, v) => {
@@ -426,11 +426,12 @@ export const swap: M = {
   },
   inverse: { kind: "self" },
   // Swapping two numbers keeps every digit, so Δφ is about 0 and a swap was nearly free: in play two swaps in three gained
-  // more than their fee (coordinator's call, 15 Nov). Its fee is at least φ of the larger number it swaps, in
-  // ax + by + c = 0, read from both lines (the same pair, so the same floor for the swap back).
+  // more than their fee (coordinator's call 23, 15 Nov). Its fee is at least φ of the dearer number it swaps, each read
+  // with line-q's code for a and c (the mixed code, LINE_Q_CODES.c), from both lines (the same pair, so the same floor
+  // for the swap back).
   floor: (before, after, site, a) => Math.max(...[before, after].flatMap(s => {
     const l = s.lines[site]!;
-    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => mixedIntBits(n));
+    return (S(a, "pair") === "m-c" ? [l.a, l.c] : [l.b, l.c]).map(n => LINE_Q_CODES.c.bits(n));
   })),
 };
 
