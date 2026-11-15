@@ -16,16 +16,20 @@ test("every owner family: a textbook main layer and at least two alternative tie
   }
 });
 
-test("Prime Gradient: distance to the nearest prime, then its size", () => {
-  assert.equal(score(ev(primeGradient, {}, mc(4, -3))), "-1,3");      // 3 and 5 tie at 1; the nearer-first order picks 3
-  assert.equal(score(ev(primeGradient, {}, mc(7, -3))), "0,7");
-  assert.equal(score(ev(primeGradient, {}, mc(-2, 1))), "-4,2");
-  assert.equal(score(ev(primeGradient, {}, mc(Qn.q(5, 2), 0), lineQ)), "-1/2,2");
-  assert.equal(score(ev(primeGradient, {}, abc(1, 0, -3), lineQ)), "WORST");
-  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, null)), "0");     // the main layer alone
-  assert.equal(score(ev(primeGradient, {}, mc(7, -3), lineZ, "c-gpf")), "0,3");   // another tie-breaker: c = −3, largest prime factor 3
-  const cands = ev(primeGradient, {}, mc(4, -3)).marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref));
-  assert.deepEqual(cands.sort(), ["cart.ghost(g=3)", "cart.ghost(g=5)"]);
+test("Prime Gradient: distance to the nearest prime ending in the dealt digit, then its size (decision 41)", () => {
+  const e3 = { ends: 3 }, e7 = { ends: 7 };
+  assert.equal(score(ev(primeGradient, e3, mc(4, -3))), "-1,3");       // primes ending in 3: 3 is 1 away, 13 is 9
+  assert.equal(score(ev(primeGradient, e7, mc(4, -3))), "-3,7");       // primes ending in 7: 7 is 3 away (5 does not count)
+  assert.equal(score(ev(primeGradient, e7, mc(7, -3))), "0,7");
+  assert.equal(score(ev(primeGradient, e3, mc(-2, 1))), "-5,3");       // the nearest prime ending in 3 to −2 is 3
+  assert.equal(score(ev(primeGradient, e3, mc(Qn.q(5, 2), 0), lineQ)), "-1/2,3");
+  assert.equal(score(ev(primeGradient, e3, abc(1, 0, -3), lineQ)), "WORST");
+  assert.equal(score(ev(primeGradient, e7, mc(7, -3), lineZ, null)), "0");     // the main layer alone
+  assert.equal(score(ev(primeGradient, e7, mc(7, -3), lineZ, "c-gpf")), "0,3");   // another tie-breaker: c = −3, largest prime factor 3
+  const cands = ev(primeGradient, e3, mc(4, -3)).marks.filter(m => m.kind === "candidate").map(m => refKey((m as { ref: never }).ref));
+  assert.deepEqual(cands.sort(), ["cart.ghost(g=3)"]);
+  // Every card names its digit.
+  for (const ends of [1, 3, 7, 9]) assert.match(primeGradient.card({ ends }, null), new RegExp(`a prime ending in ${ends}`));
 });
 
 test("the owner's other three, and the two layered examples of decision 12", () => {

@@ -8,7 +8,7 @@ import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
 import { allUndefined, distance, family, gap, more, num, prime, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
 import { gcdTerm } from "./rational.ts";
-import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -52,17 +52,34 @@ function verticalMain<P>(ctx: Ctx, f: Shape<P>, label: string, value: Q, from: E
 
 // ---------------------------------------------------------------- 1. Prime Staircase
 
-const staircase: Shape<object> = {
-  main: more("run", "a run of different primes from y(0)", "The pattern y(0), y(1), y(2), … should start with as long a run of different primes as possible.", "seq"),
+/** A dealt prime filter (owner decision 41): the primes this rule counts end in this digit. */
+type Ends = { ends: number };
+/**
+ * Each prime family deals ONE ending (a different one per family) until a set of peers passes v1's equal-opportunity
+ * audit (artifacts/engine test v2-params-equal, 0.5 bits): the law favours small numbers, so an exact main is worth
+ * 5.8, 7.8, 9.9 and 13.7 bits for endings 3, 7, 1 and 9 (the smallest qualifying primes are 3, 7, 11, 19).
+ * PRIME_ENDINGS (numbers.ts) stays the declared grid.
+ */
+const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }];
+const ENDS_LANDING: Ends[] = [{ ends: 7 }];
+const primeEnding = (p: Ends) => `a prime ending in ${p.ends}`;
+/** A layer whose sentence names the dealt filter. */
+const withEnds = <X extends { sentence: (p: Ends) => string }>(l: X, sentence: (p: Ends) => string): X => ({ ...l, sentence });
+
+const staircase: Shape<Ends> = {
+  main: withEnds(more<Ends>("run", "a run of different dealt primes from y(0)", "", "seq"),
+    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different primes ending in ${p.ends}.`),
   // The old game's four tie-breakers, restored (coordinator's call under the owner's delegation, 14 Nov).
   tieBreakers: [
-    prime(more("first-prime", "the first prime", "The first prime should be as big as possible.", "seq")),
-    prime(more("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq")),
-    distance("near-miss", "the first non-prime term close to a prime", "The first term that is not prime should be as close as possible to a prime.", "seq"),
-    distance("step-back", "y(−1) close to a prime", "The term before the start, y(−1), should be as close as possible to a prime.", "seq"),
+    prime(more<Ends>("first-prime", "the first prime", "The first prime should be as big as possible.", "seq")),
+    prime(more<Ends>("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq")),
+    withEnds(distance<Ends>("near-miss", "the first term that breaks the run, close to such a prime", "", "seq"),
+      p => `The first term that is not ${primeEnding(p)} should be as close as possible to one.`),
+    withEnds(distance<Ends>("step-back", "y(−1) close to such a prime", "", "seq"),
+      p => `The term before the start, y(−1), should be as close as possible to ${primeEnding(p)}.`),
   ],
 };
-export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq", "si"], staircase, [{}], ctx => {
+export const primeStaircase = family<Ends>("prime-staircase", "Prime Staircase", ["seq", "si"], staircase, ENDS_STAIRCASE, (ctx, pr) => {
   const first = ref("seq", "term", { n: 0 });
   const v0 = ctx.read(first);
   if (num(v0) === null) return allUndefined(ctx, staircase, v0, first);
@@ -75,7 +92,7 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
   for (let n = 0; n < 12 && (stop === null || miss === null); n++) {
     const r = ref("seq", "term", { n });
     const v = num(ctx.read(r))!;
-    const prime = v.d === 1n && isPrime(v.n);
+    const prime = v.d === 1n && isPrimeEnding(v.n, pr.ends);
     if (stop === null) {
       if (prime && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
     }
@@ -84,11 +101,11 @@ export const primeStaircase = family("prime-staircase", "Prime Staircase", ["seq
   const back = ref("seq", "term", { n: -1 });
   const vb = num(ctx.read(back))!;
   const terms = Array.from({ length: run }, (_, n) => ref("seq", "term", { n }));
-  ctx.term("run", "different primes from y(0)", q(run), terms.length ? terms : [first]);
+  ctx.term("run", `different primes ending in ${pr.ends} from y(0)`, q(run), terms.length ? terms : [first]);
   ctx.term("first-prime", "the first prime", run ? num(v0)! : Qn.ZERO, [first]);
   ctx.term("last-prime", "the last prime of the run", run ? q([...seen][run - 1]!) : Qn.ZERO, terms.length ? [terms[run - 1]!] : [first]);
-  ctx.term("near-miss", "distance from the first non-prime term to a prime", miss ? distanceToPrime(Qn.abs(miss.v)) : { undefined: "the first twelve terms are all prime" }, miss ? [miss.ref] : [first]);
-  ctx.term("step-back", "distance from y(−1) to a prime", distanceToPrime(Qn.abs(vb)), [back]);
+  ctx.term("near-miss", `distance from the first term that is not ${primeEnding(pr)} to one`, miss ? distanceToPrimeEnding(Qn.abs(miss.v), pr.ends) : { undefined: `the first twelve terms are all primes ending in ${pr.ends}` }, miss ? [miss.ref] : [first]);
+  ctx.term("step-back", `distance from y(−1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(vb), pr.ends), [back]);
   if (stop) ctx.mark({ kind: "note", ref: stop, text: "the run stops here" });
 });
 
@@ -164,31 +181,32 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
 
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
 
-const landingShape: Shape<object> = {
-  main: distance("landing", "the y-intercept close to a prime", "The y-intercept should be as close as possible to a prime number.", "si"),
+const landingShape: Shape<Ends> = {
+  main: withEnds(distance<Ends>("landing", "the y-intercept close to the dealt prime", "", "si"),
+    p => `The y-intercept should be as close as possible to ${primeEnding(p)}.`),
   tieBreakers: [
-    prime(more("big-prime", "that prime", "That prime should be as big as possible.", "si")),
-    distance("prime-gradient", "the gradient close to a prime too", "The gradient should be as close as possible to a prime too.", "si"),
-    distance("next-prime", "y(1) close to a prime too", "y(1) = m + c should be as close as possible to a prime too.", "table"),
-    ...factorTies<object>("m", "the gradient"),
+    prime(more<Ends>("big-prime", "that prime", "That prime should be as big as possible.", "si")),
+    withEnds(distance<Ends>("prime-gradient", "the gradient close to such a prime too", "", "si"), p => `The gradient should be as close as possible to ${primeEnding(p)} too.`),
+    withEnds(distance<Ends>("next-prime", "y(1) close to such a prime too", "", "table"), p => `y(1) = m + c should be as close as possible to ${primeEnding(p)} too.`),
+    ...factorTies<Ends>("m", "the gradient"),
   ],
 };
-export const primeLanding = family("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, [{}], ctx => {
+export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, ENDS_LANDING, (ctx, pr) => {
   // A vertical line never meets the y-axis: it lands on the x-axis instead, and that number should be close to a prime.
   const vx = verticalAt(ctx);
-  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: distance to a prime`, distanceToPrime(vx.x), vx.from);
+  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: distance to ${primeEnding(pr)}`, distanceToPrimeEnding(vx.x, pr.ends), vx.from);
   const cRef = ref("si", "c"), mRef = ref("si", "m"), y1 = ref("table", "y", { x: 1 });
   const cv = ctx.read(cRef);
   const c = num(cv);
   if (c === null) return allUndefined(ctx, landingShape, cv, cRef);
   const m = num(ctx.read(mRef))!, v1 = num(ctx.read(y1))!;
-  const p = nearbyPrimes(c)[0]!;
+  const p = nearestPrimeEnding(c, pr.ends);
   const mark = ref("cart", "yAxisMark", { y: p });
   ctx.read(mark);
   ctx.term("landing", `distance from the y-intercept to ${p}`, gap(c, q(p)), [cRef]);
   ctx.term("big-prime", "that prime", q(p), [cRef]);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [mRef]);
-  ctx.term("next-prime", "distance from y(1) to a prime", distanceToPrime(Qn.abs(v1)), [y1]);
+  ctx.term("prime-gradient", `distance from the gradient to ${primeEnding(pr)}`, distanceToPrimeEnding(m, pr.ends), [mRef]);
+  ctx.term("next-prime", `distance from y(1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(v1), pr.ends), [y1]);
   ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
   ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: cRef });

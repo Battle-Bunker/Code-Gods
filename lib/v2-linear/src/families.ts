@@ -5,7 +5,7 @@
  */
 import { Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
-import { largestPrimeFactor, nearbyPrimes, smallestPrimeFactor } from "./numbers.ts";
+import { largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
@@ -17,6 +17,9 @@ const undef = (v: ElementValue): Undef => ({ undefined: v.kind === "undefined" ?
 const num = (v: ElementValue): Q | null => (v.kind === "number" ? v.q : null);
 const gap = (a: Q, b: Q): Q => Qn.abs(Qn.sub(a, b));
 const primeGap = (x: Q): { p: bigint; d: Q } => { const p = nearbyPrimes(x)[0]!; return { p, d: gap(x, q(p)) }; };
+const primeGapEnding = (x: Q, k: number): { p: bigint; d: Q } => { const p = nearestPrimeEnding(x, k); return { p, d: gap(x, q(p)) }; };
+/** Prime Gradient's dealt filter (owner decision 41): the primes it counts end in this digit. */
+type Ends = { ends: number };
 
 /** Record the main layer and every tie-breaker as undefined (the main layer's input does not exist) and say why. */
 function allUndefined<P>(ctx: Ctx, f: { main: L<P>; tieBreakers: readonly L<P>[] }, why: ElementValue, from: ElementRef): void {
@@ -32,38 +35,39 @@ function card<P>(f: { main: L<P>; tieBreakers: readonly L<P>[] }, p: P, tb: TieB
 // ---------------------------------------------------------------- 1. Prime Gradient (owner)
 
 const pg = {
-  main: { id: "near", title: "gradient close to a prime", sentence: () => "Make the gradient as close as possible to a prime number.",
-    rep: "si", sense: "min" } as L<object>,
+  main: { id: "near", title: "gradient close to the dealt prime", sentence: (p: Ends) => `Make the gradient as close as possible to a prime ending in ${p.ends}.`,
+    rep: "si", sense: "min" } as L<Ends>,
   tieBreakers: [
     { id: "prime", title: "the size of that prime", sentence: () => "Tie-breaker: the bigger that prime, the better.",
       rep: "si", sense: "max", measure: "prime" },
-    { id: "cPrime", title: "the y-intercept close to a prime too", sentence: () => "Tie-breaker: make the y-intercept as close as possible to a prime too.",
+    { id: "cPrime", title: "the y-intercept close to such a prime too", sentence: (p: Ends) => `Tie-breaker: make the y-intercept as close as possible to a prime ending in ${p.ends} too.`,
       rep: "si", sense: "min" },
     { id: "c-spf", title: "the y-intercept's smallest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's smallest prime factor, the better.",
       rep: "si", sense: "max", measure: "prime" },
     { id: "c-gpf", title: "the y-intercept's largest prime factor", sentence: () => "Tie-breaker: the bigger the y-intercept's largest prime factor, the better.",
       rep: "si", sense: "max", measure: "prime" },
-  ] as L<object>[],
+  ] as L<Ends>[],
 };
-export const primeGradient: RuleFamily<LineState, object> = {
+export const primeGradient: RuleFamily<LineState, Ends> = {
   id: "prime-gradient", title: "Prime Gradient", card: (p, tb) => card(pg, p, tb),
-  params: [], dealable: () => [{}], depends: ["si", "cart"], ...pg,
-  evaluate(ctx) {
+  // One ending dealt (equal opportunity): see ENDS_LANDING in beginner.ts.
+  params: [], dealable: () => [{ ends: 1 }], depends: ["si", "cart"], ...pg,
+  evaluate(ctx, pr) {
     const mRef = ref("si", "m"), cRef = ref("si", "c");
     const mv = ctx.read(mRef), cv = ctx.read(cRef);
     const m = num(mv), c = num(cv);
     if (m === null || c === null) return allUndefined(ctx, pg, m === null ? mv : cv, m === null ? mRef : cRef);
-    for (const p of nearbyPrimes(m)) {
+    for (const p of [nearestPrimeEnding(m, pr.ends)]) {
       const g = ref("cart", "ghost", { g: p });
       ctx.read(g);
       ctx.term(`d${p}`, `distance to ${p}`, gap(m, q(p)), [mRef]);
       ctx.mark({ kind: "candidate", ref: g, term: `d${p}` });
     }
-    const near = primeGap(m);
+    const near = primeGapEnding(m, pr.ends);
     const whole = c.d === 1n;
-    ctx.term("near", "distance from the gradient to the nearest prime", near.d, [mRef]);
+    ctx.term("near", `distance from the gradient to the nearest prime ending in ${pr.ends}`, near.d, [mRef]);
     ctx.term("prime", "that prime", q(near.p), [mRef]);
-    ctx.term("cPrime", `distance from the y-intercept to ${primeGap(c).p}`, primeGap(c).d, [cRef]);
+    ctx.term("cPrime", `distance from the y-intercept to ${primeGapEnding(c, pr.ends).p}`, primeGapEnding(c, pr.ends).d, [cRef]);
     ctx.term("c-spf", factorLabel("smallest", "the y-intercept", c), q(whole ? smallestPrimeFactor(c.n) : 1n), [cRef]);
     ctx.term("c-gpf", factorLabel("largest", "the y-intercept", c), q(whole ? largestPrimeFactor(c.n) : 1n), [cRef]);
     ctx.mark({ kind: "focus", ref: mRef });

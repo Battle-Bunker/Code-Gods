@@ -34,12 +34,12 @@ async function both(agent: string, rule: RuleRef, at: ReturnType<typeof line>) {
 }
 
 test("Prime Gradient with look and near: one read of si, then a tilt to the nearest prime", async () => {
-  const r = await both("prime-gradient", { family: "prime-gradient", params: {} }, line(9, 1));
+  const r = await both("prime-gradient", { family: "prime-gradient", params: { ends: 1 } }, line(9, 1));
   assert.deepEqual(r.transcript.map(t => t.request), [{ op: "view", rep: "si" }]);
   assert.equal(r.outcome, "committed");
   assert.deepEqual(r.calls.map(c => [c.mutator, c.args]), [["si.tilt", { k: "-2" }]], "9 → 7: on a tie the smaller prime");
   assert.equal(r.after, lineType.encode({ lines: [fromMC(q(7), q(1))] }));
-  const skip = await both("prime-gradient", { family: "prime-gradient", params: {} }, line(5, 3));
+  const skip = await both("prime-gradient", { family: "prime-gradient", params: { ends: 1 } }, line(5, 3));
   assert.equal(skip.outcome, "skipped");
 });
 
@@ -73,7 +73,10 @@ test("every helper gives the same answers in both languages", async () => {
   assert.equal(out[1], out[0]);
   const calls = JSON.parse(out[0]!).calls as { mutator: string; args: Record<string, string> }[];
   assert.deepEqual(calls.map(c => c.mutator), ["si.shift", "probe"], "the one-move plan is cheaper than the two-move one; the made-up mutator is not allowed");
-  assert.deepEqual(calls[1]!.args.r.split("|").slice(6), ["1/2", "16/3", "100", "true", "true", "false", "false", "true", "false", "2", "9", "true", "false", "false", "false", "3", "9", "2", "199996164", "0"]);
+  assert.deepEqual(calls[1]!.args.r.split("|").slice(6), ["1/2", "16/3", "100", "true", "true", "false", "false", "true", "false", "2", "9", "true", "false", "false", "false", "3", "9", "2", "199996164", "0",
+    // near with a last digit k: the prime ending in 3 nearest 25 is 23; 8 is as near 3 as 13 (the smaller); below 11
+    // (the smallest prime ending in 1), 11; 19½ is nearest 19; an odd number ending in 7 nearest 10 is 7.
+    "23", "3", "11", "19", "7"]);
 });
 
 test("an agent may declare its own name that a helper has (the helpers are configurable globals)", async () => {
@@ -139,9 +142,9 @@ test("price() of the plan cheapest() just returned is answered without a second 
 });
 
 test("fair: true when a plan keeps the others' rarity, added up; the same in both languages; a small read each time", async () => {
-  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
-  const vf = findValues("line-z", other)!;
-  const gradientOff = { lines: [fromMC(q(7), q(3))] };   // m = 7 is prime: the other player's rule likes it
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const vf = findValues("line-q", other)!   /* the dealt ending is valued on line-q only */;
+  const gradientOff = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it
   const ts = `function agent(offer) { return [move("probe", { r: [fair(offer, [move("si.shift", { k: 1 })]), fair(offer, [move("si.tilt", { k: 1 })]), fair(offer, [move("nope", {})])].join("|") })]; }`;
   const py = `def agent(offer):\n    r = [fair(offer, [move("si.shift", k=1)]), fair(offer, [move("si.tilt", k=1)]), fair(offer, [move("nope")])]\n    return [move("probe", r="|".join(str(x).lower() for x in r))]\n`;
   const out = [];
@@ -152,7 +155,7 @@ test("fair: true when a plan keeps the others' rarity, added up; the same in bot
     if (res.ok) out.push({ r: (JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, readBits: res.readBits });
   }
   assert.deepEqual(out[1], out[0], "Python and TypeScript differ");
-  // Shifting keeps the gradient 7 (prime): fair. Tilting to 8 loses the prime: not fair. A move that is not allowed: fair (it changes nothing).
+  // Shifting keeps the gradient 11 (a prime ending in 1): fair. Tilting to 12 loses it: not fair. A move that is not allowed: fair (it changes nothing).
   assert.equal(out[0]!.r, "true|false|true");
   assert.ok(out[0]!.readBits >= 3 * 6, "each othersAfter is a small read");
   // Without the others' rules the game does not say, and fair is true.
@@ -162,9 +165,9 @@ test("fair: true when a plan keeps the others' rarity, added up; the same in bot
 });
 
 test("climb: the step that raises my points most (rarity × the others' total), best for my rule first; null when none does; without values, my rule's best; the same in both languages", async () => {
-  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
-  const others = [{ rule: other, values: findValues("line-z", other)! }];
-  const at = { lines: [fromMC(q(7), q(3))] };   // m = 7 is prime: the other player's rule likes it, so tilting lowers the others
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
+  const at = { lines: [fromMC(q(11), q(3))] };   // m = 11 is a prime ending in 1: the other player's rule likes it, so tilting lowers the others
   const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
   // Scores are given: the shift reaches 1 (3 bits), the tilt 2 (7 bits) but lowers the others, a third option is not allowed.
   const ts = `function agent(offer) {

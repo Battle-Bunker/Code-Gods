@@ -1,5 +1,5 @@
 // Prime Landing · Naive (for learning)
-// Main part: the y-intercept close to a prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to a prime too; y(1) close to a prime too; the gradient's smallest prime factor; the gradient's largest prime factor).
+// Main part: the y-intercept close to the dealt prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to such a prime too; y(1) close to such a prime too; the gradient's smallest prime factor; the gradient's largest prime factor).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -9,21 +9,21 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
-    const landing = near(c, prime);                 // it lands on the x-axis: the prime nearest
+    const landing = near(c, prime, p.ends);         // it lands on the x-axis: the prime ending in p.ends nearest
     const main = Q.neg(Q.abs(Q.sub(c, landing)));
     return [main, null];
   }
-  const landing = near(c, prime);                 // the prime nearest the y-intercept
+  const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
-  // main: how far the y-intercept is from the nearest prime (closer is better)
+  // main: how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better)
   if (tie === "big-prime") return [main, landing];   // a bigger prime is better
-  if (tie === "prime-gradient") {   // a gradient close to a prime too is better
-    const mp = near(m, prime);                  // the prime nearest the gradient
+  if (tie === "prime-gradient") {   // a gradient close to such a prime too is better
+    const mp = near(m, prime, p.ends);          // the prime ending in p.ends nearest the gradient
     return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
   }
-  if (tie === "next-prime") {   // y(1) (ignoring sign) close to a prime too is better
+  if (tie === "next-prime") {   // y(1) (ignoring sign) close to such a prime too is better
     const y1 = Q.abs(Q.add(m, c));                 // y(1) = m + c, ignoring its sign
-    return [main, Q.neg(Q.abs(Q.sub(y1, near(y1, prime))))];
+    return [main, Q.neg(Q.abs(Q.sub(y1, near(y1, prime, p.ends))))];
   }
   if (tie === "m-spf") {   // the gradient's smallest prime factor big is better
     const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)

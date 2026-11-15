@@ -237,18 +237,18 @@ test("a vertical line is tipped, not skipped, where the rule cannot read it: the
   }
 });
 
-test("a vertical line the rule reads is scored where it stands: x = 9/2 slides to a prime landing (Prime Landing)", async () => {
-  const at = { lines: [{ a: 2n, b: 0n, c: -9n }] };   // x = 9/2
+test("a vertical line the rule reads is scored where it stands: x = 5/2 slides to a prime landing (Prime Landing, primes ending in 3: x = 3)", async () => {
+  const at = { lines: [{ a: 2n, b: 0n, c: -5n }] };   // x = 5/2
   for (const language of ["typescript", "python"] as const) {
     for (const kind of ["simple", "thorough"] as const) {
       const a = startersFor("prime-landing", language).find(x => x.kind === kind)!;
       const { record, state } = await runAct(await boxes.get(language), {
-        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: paramsOf("prime-landing"), tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
+        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: { ends: 3 }, tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
       });
       assert.equal(record.outcome, "committed", `${language} ${kind}: ${record.reason}`);
       assert.equal(record.calls[0]!.mutator, "cart.slide", `${language} ${kind}: ${record.calls[0]!.mutator}`);
       const l = state.lines[0]!;
-      assert.ok(l.b === 0n && [2n, 3n, 5n, 7n].includes(-l.c / l.a) && l.c % l.a === 0n, `${language} ${kind}: lands on a prime (${l.a}x + ${l.c} = 0)`);
+      assert.ok(l.b === 0n && -l.c / l.a === 3n && l.c % l.a === 0n, `${language} ${kind}: lands on 3, the prime ending in 3 nearest (${l.a}x + ${l.c} = 0)`);
     }
   }
 });

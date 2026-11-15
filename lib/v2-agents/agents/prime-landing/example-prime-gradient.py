@@ -1,5 +1,5 @@
-# Prime Landing · Example: the gradient close to a prime too
-# Main part: the y-intercept close to a prime. Tie-breaker: the gradient close to a prime too.
+# Prime Landing · Example: the gradient close to such a prime too
+# Main part: the y-intercept close to the dealt prime. Tie-breaker: the gradient close to such a prime too.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -13,13 +13,13 @@
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        landing = near(c, prime)                        # it lands on the x-axis: the prime nearest
+        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the prime ending in p["ends"] nearest
         main = -abs(c - landing)
         return [main, None]
-    landing = near(c, prime)                        # the prime nearest the y-intercept
+    landing = near(c, prime, p["ends"])             # the prime ending in p["ends"] nearest the y-intercept
     main = -abs(c - landing)
-    mp = near(m, prime)                        # the prime nearest the gradient
-    return [main, -abs(m - mp)]   # main: how far the y-intercept is from the nearest prime (closer is better); tie-breaker: a gradient close to a prime too is better
+    mp = near(m, prime, p["ends"])             # the prime ending in p["ends"] nearest the gradient
+    return [main, -abs(m - mp)]   # main: how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: a gradient close to such a prime too is better
 
 
 FAR = 3      # how far one change may go
