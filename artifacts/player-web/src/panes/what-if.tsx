@@ -67,20 +67,21 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
           </label>
         )}
         {choice.args.map(a => (
-          <label key={`${choice.id}:${a.name}`} className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground font-mono">{a.name}</span>
+          <label key={`${choice.id}:${a.name}`} className="flex max-w-[16rem] flex-col gap-1">
+            <span className="text-xs text-muted-foreground" data-testid={`label-what-if-${a.name}`}>{a.label}</span>
             {a.kind === "choice" ? (
               <select value={args[a.name]} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={field} data-testid={`select-what-if-${a.name}`}>
-                {a.choices.map(v => <option key={v} value={v}>{v}</option>)}
+                {a.choices.map(v => <option key={v} value={v}>{a.choiceWords?.[v] ?? v}</option>)}
               </select>
             ) : (
-              <input value={args[a.name] ?? ""} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={`${field} w-24`} inputMode="text" placeholder={a.optional ? "or leave empty" : undefined}
-                aria-invalid={bad?.[0] === a.name || undefined} data-testid={`input-what-if-${a.name}`} />
+              <input value={args[a.name] ?? ""} onChange={e => setArgs({ ...args, [a.name]: e.target.value })} className={`${field} w-28`} inputMode="text" placeholder={a.optional ? "or leave empty" : undefined}
+                aria-invalid={bad?.[0] === a.name || undefined} aria-describedby={a.hint ? `hint-what-if-${a.name}` : undefined} data-testid={`input-what-if-${a.name}`} />
             )}
+            {a.hint && a.kind !== "choice" && <span id={`hint-what-if-${a.name}`} className="text-[11px] leading-snug text-muted-foreground" data-testid={`hint-what-if-${a.name}`}>{a.hint}</span>}
           </label>
         ))}
       </div>
-      {bad ? <p className="text-sm text-destructive" data-testid="text-what-if-error">{bad[0]}: {bad[1]}</p>
+      {bad ? <p className="text-sm text-destructive" data-testid="text-what-if-error">{choice.args.find(x => x.name === bad[0])?.label ?? bad[0]}: {bad[1]}</p>
         : out && !out.ok ? <p className="text-sm text-destructive" data-testid="text-what-if-error">This change is not allowed: {out.reason}.</p>
         : out && out.ok ? (
           <div className="space-y-2 border-t pt-3 text-sm" data-testid="what-if-result">

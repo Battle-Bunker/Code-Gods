@@ -1,5 +1,5 @@
 # Whole Answer · Naive (for learning)
-# Main part: the answer is whole numbers. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
+# Main part: the answer is whole numbers, y on the dealt ladder. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -12,26 +12,26 @@ def score(L, p, tie):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.x is None:   # parallel lines never cross: no score
         return None
-    X = nearest_leaving(f.x, p["q"], p["r"])   # x's whole number that leaves your remainder
-    main = -(abs(f.x - X) + dist(f.y))
-    # main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)
+    main, Yv = valuation_ladder(f.y, p["q"], p["r"], dist(f.x))   # y on your ladder, x a whole number
+    # main: the answer's level: whole numbers, y on your ladder (higher is better)
     if tie == "peg-divisor":   # |X| + |Y| sharing a big factor with the number you divide by is better
-        return [main, common(abs(X) + abs(f.Y), f.D)]
+        return [main, common(abs(f.X) + abs(Yv), f.D)]
     if tie == "south-west":   # an answer far down and to the left is better
-        return [main, -(X + f.Y)]
+        return [main, -(f.X + Yv)]
     return [main]
 
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["slide","turn"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["slide","turn","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 
 def agent(offer):
     L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each
     rule = goal(offer)          # your rule (free)
     p, tie = rule.params, rule.tie_breaker
-    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head
+    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get("q"), p.get("k")) if f])   # (plan, lines after): moves tried in the agent's own head
     top, plans = score(L, p, tie), []
     for plan, L2 in tries:
         s = score(L2, p, tie)

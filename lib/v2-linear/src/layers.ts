@@ -49,6 +49,8 @@ export function family<P extends object>(id: string, title: string, depends: str
   const dealable = typeof params === "function" ? params : () => params;
   return { id, title, card: (p, tb) => card(shape, p, tb), params: [], dealable, depends, ...shape, evaluate };
 }
+/** A ladder family (design-principles.md rows 1 to 3): never redrawn by parameter drift (RuleFamily.keepsParams). */
+export const ladder = <S, P>(f: RuleFamily<S, P>): RuleFamily<S, P> => ({ ...f, keepsParams: true });
 
 // ---------------------------------------------------------------- helpers shared by the beginner families (beginner.ts, beginner-areas.ts)
 

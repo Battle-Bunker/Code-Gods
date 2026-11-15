@@ -12,7 +12,7 @@
  * really makes; `MoveSketch` draws it. Any other move draws nothing (null): its own view already shows it.
  */
 import { Qn, q, type Q } from "@workspace/v2-core";
-import type { Line } from "@workspace/v2-linear";
+import { turnAngleWords, type Line } from "@workspace/v2-linear";
 import { fmtQ, MINUS } from "./format.ts";
 import { clipLine, fitViewport, type XY } from "./plot/viewport.ts";
 
@@ -90,7 +90,9 @@ function turnSketch(before: Line, after: Line, a: SketchCall["args"]): Sketch | 
   if (!quarter && !t) return null;
   const ccw = quarter ? a.turn === "left" : Qn.sign(t!) > 0;
   const sweep = quarter ? Math.PI / 2 : Math.atan(Math.abs(N(t!)));
-  const angle = quarter ? "a quarter turn (a right angle)" : `the angle of a ${fmtQ(Qn.abs(t!))} gradient (the slope of a line that goes ${riseRun(t!)})`;
+  // The angle as the log note says it (turnAngleWords: "45° (one eighth turn)", "about 37°"), and the slope it matches.
+  const angle = quarter ? `${turnAngleWords(a.turn!)}, a right angle` : `${turnAngleWords(t!)} (the angle of a slope that goes ${riseRun(t!)})`;
+  const arcLabel = quarter ? "¼ turn" : turnAngleWords(t!).replace(/^about /, "≈").replace(/ \(.*\)$/, "");
   const sense = ccw ? "anticlockwise" : "clockwise";
   const slopeNow = slopeOf(after);
   const ends = slopeNow ? ` Now the line goes ${slopeNow.n < 0n ? "down" : "up"} ${fmtQ(Qn.abs(slopeNow))} for every 1 across: ${lineWords(after)}.` : ` Now it stands upright: ${lineWords(after)}.`;
@@ -102,8 +104,8 @@ function turnSketch(before: Line, after: Line, a: SketchCall["args"]): Sketch | 
       kind: "turn", before, after,
       points: [{ ...O, role: "origin", label: "O" }],
       guides: [{ role: "perp", from: O, to: f0 }, { role: "perp", from: O, to: f1 }],
-      arc: { centre: O, start: Math.atan2(f0.y, f0.x), sweep, ccw, label: quarter ? "¼ turn" : `${fmtQ(Qn.abs(t!))} gradient's angle` },
-      words: `Turn the whole line around the origin O, like a clock hand pinned at O, ${quarter ? "a quarter turn" : `by ${angle}`}, ${sense}. The line stays the same distance from O: the two dotted lines from O are the same length.${ends}`,
+      arc: { centre: O, start: Math.atan2(f0.y, f0.x), sweep, ccw, label: arcLabel },
+      words: `Turn the whole line around the origin O, like a clock hand pinned at O, ${quarter ? turnAngleWords(a.turn!) : `by ${angle}`}, ${sense}. The line stays the same distance from O: the two dotted lines from O are the same length.${ends}`,
     };
   }
   const x0 = parse(a.centre);
@@ -114,7 +116,7 @@ function turnSketch(before: Line, after: Line, a: SketchCall["args"]): Sketch | 
     kind: "turn", before, after,
     points: [{ ...pt(x0, y0), role: "pin", label: at(x0, y0) }],
     guides: [],
-    arc: { centre: pt(x0, y0), start: dirAngle(before), sweep, ccw: quarter ? true : ccw, label: quarter ? "¼ turn" : `${fmtQ(Qn.abs(t!))} gradient's angle` },
+    arc: { centre: pt(x0, y0), start: dirAngle(before), sweep, ccw: quarter ? true : ccw, label: arcLabel },
     words: `Stick a pin in the line at ${at(x0, y0)} and turn the line around it${quarter ? `, ${angle}` : `, ${sense}, by ${angle}`}. The pin stays put.${ends}`,
   };
 }
@@ -246,7 +248,7 @@ export function MoveSketch({ before, after, call }: { before: Line; after: Line;
   const P = (p: XY) => ({ x: v.sx(p.x), y: v.sy(p.y) });
   // Screen scale per world unit, across and up (the y axis points down on screen).
   const kx = v.sx(1) - v.sx(0), ky = v.sy(0) - v.sy(1);
-  let arcPath: string | null = null, arcLabel: XY | null = null;
+  let arcPath: string | null = null, arcLabel: XY | null = null, arcAnchor: "start" | "end" | "middle" = "middle";
   if (s.arc) {
     const c = P(s.arc.centre), n = 24, dir = s.arc.ccw ? 1 : -1;
     // Between the perpendiculars about the origin (half their length), else a fixed size about the pin.
@@ -255,13 +257,22 @@ export function MoveSketch({ before, after, call }: { before: Line; after: Line;
     const onArc = (th: number) => { const dx = Math.cos(th) * kx, dy = Math.sin(th) * ky, len = Math.hypot(dx, dy) || 1; return { x: c.x + (r * dx) / len, y: c.y - (r * dy) / len }; };
     const pts = Array.from({ length: n + 1 }, (_, i) => onArc(s.arc!.start + (dir * s.arc!.sweep * i) / n));
     arcPath = pts.map((p, i) => `${i ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+    // The label outside the arc's middle, anchored away from the centre, so neither the arrowhead at the arc's end nor
+    // the window's edge covers it (round 23: "¼ TUR▶").
     const mid = onArc(s.arc.start + (dir * s.arc.sweep) / 2);
-    const half = (s.arc.label.length * 6) / 2;
-    arcLabel = { x: Math.min(W - 4 - half, Math.max(4 + half, c.x + (mid.x - c.x) * 1.6)), y: Math.min(H - 6, Math.max(14, c.y + (mid.y - c.y) * 1.6)) };
+    const ux = (mid.x - c.x) / r, uy = (mid.y - c.y) / r;
+    const w = s.arc.label.length * 6.5;
+    const anchor: "start" | "end" | "middle" = ux > 0.3 ? "start" : ux < -0.3 ? "end" : "middle";
+    const lx = c.x + ux * (r + 10), ly = c.y + uy * (r + 10) + (uy > 0.3 ? 10 : uy < -0.3 ? 0 : 4);
+    const lo = anchor === "start" ? 4 : anchor === "end" ? 4 + w : 4 + w / 2, hi = anchor === "start" ? W - 4 - w : anchor === "end" ? W - 4 : W - 4 - w / 2;
+    arcLabel = { x: Math.min(hi, Math.max(lo, lx)), y: Math.min(H - 6, Math.max(14, ly)) };
+    arcAnchor = anchor;
   }
   const ox = v.x0 <= 0 && v.x1 >= 0 ? v.sx(0) : null, oy = v.y0 <= 0 && v.y1 >= 0 ? v.sy(0) : null;
   return (
-    <div className="v2v-sketch" data-kind={s.kind} data-testid="move-sketch">
+    // Its own .v2v root: the colours are variables set there, and a host pane need not be inside one (round 23: in What
+    // if the axes and both lines were drawn without a colour, so only the dots and labels showed).
+    <div className="v2v v2v-sketch" data-kind={s.kind} data-testid="move-sketch">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={s.words}>
         <defs>
           <marker id="v2v-sketch-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -295,7 +306,7 @@ export function MoveSketch({ before, after, call }: { before: Line; after: Line;
         {arcPath && (
           <g data-part="arc">
             <path className="arc" d={arcPath} markerEnd="url(#v2v-sketch-head)" />
-            {arcLabel && <text className="label" x={arcLabel.x} y={arcLabel.y} textAnchor="middle">{s.arc!.label}</text>}
+            {arcLabel && <text className="label" data-part="arc-label" x={arcLabel.x} y={arcLabel.y} textAnchor={arcAnchor}>{s.arc!.label}</text>}
           </g>
         )}
         {s.points.map((p, i) => {

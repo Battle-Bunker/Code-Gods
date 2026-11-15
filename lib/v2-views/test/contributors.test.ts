@@ -37,7 +37,8 @@ test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the 
   assert.equal(tb!.role, "tb");
   assert.deepEqual(tb!.source.map(s => s.label), ["where it crosses the x-axis", "y-intercept"]);   // that prime and the y-intercept
   assert.equal(tb!.valueText, "3");   // 30 and 33 share 3
-  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "31");   // on the rung 31
+  // On the rung 31 the part says the family's own words, not its level number.
+  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "lands at 31, which rounds to the prime 31");
 });
 
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {

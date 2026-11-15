@@ -18,7 +18,7 @@ import { valueFor } from "../values";
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
 const rule = (family: RuleRef<LineState, unknown>["family"], tieBreaker: string): RuleRef<LineState, unknown> =>
   ({ type: lineType, family, params: family.dealable(lineZ)[0], variant: lineZ, tieBreaker });
-const ADA = rule(primeLanding, "big-prime"), BO = rule(wholeCrossing, "k-gpf");
+const ADA = rule(primeLanding, "shared-factor"), BO = rule(wholeCrossing, "shared-factor");
 const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.params, r.tieBreaker)!;
 const LINE = 4, NOW = mc(3, 8);
 const text = (s: LineState) => repText(lineType, s, "si");

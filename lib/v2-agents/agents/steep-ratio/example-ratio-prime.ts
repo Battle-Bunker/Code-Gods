@@ -1,5 +1,5 @@
 // Steep Ratio · Example: that number is a big prime
-// Main part: one line a whole number of times as steep as the other, with the dealt remainder. Tie-breaker: that number is a big prime.
+// Main part: one line a whole number of times as steep as the other, on the dealt ladder. Tie-breaker: that number is a big prime.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
@@ -9,14 +9,13 @@
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.ratio === null) return null;   // no ratio of gradients: no score
-  const k = nearestLeaving(f.ratio, p.q, p.r, 2);   // the whole number of times with your remainder (at least 2 either way)
-  const main = Q.neg(Q.abs(Q.sub(f.ratio, k)));
-  return [main, spf(k)];   // main: how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better); tie-breaker: that number with a big smallest prime factor is better
+  const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
+  return [main, spf(k)];   // main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: that number with a big smallest prime factor is better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 
@@ -28,7 +27,8 @@ function agent(offer) {
   contested(offer, 3);
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
   const { params: p } = goal(offer);   // your rule (free)
-  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head
+  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
+  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
   let options = tries.map(([plan, L2]) => [plan, score(L2, p)]);   // each move and the score it reaches
   // A promise: on these pairs, only moves that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

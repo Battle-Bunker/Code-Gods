@@ -18,8 +18,8 @@ import { pairType } from "@workspace/v2-pair";
 import type { AgentKind, ShippedAgent, ShippedLanguage } from "./starters.ts";
 
 /** The moves a pair agent can try in its own head (pairSteps' kinds). */
-export type PairKind = "shift" | "tilt" | "stretch" | "turn" | "slide" | "combine" | "reflect" | "quarter";
-const ALL_KINDS: readonly PairKind[] = ["shift", "tilt", "stretch", "turn", "slide", "combine", "reflect", "quarter"];
+export type PairKind = "shift" | "tilt" | "stretch" | "turn" | "slide" | "combine" | "reflect" | "quarter" | "translate";
+const ALL_KINDS: readonly PairKind[] = ["shift", "tilt", "stretch", "turn", "slide", "combine", "reflect", "quarter", "translate"];
 
 interface Lines { readonly ts: readonly string[]; readonly py: readonly string[] }
 interface PairTieBreakerEntry { readonly ts: string; readonly py: string; readonly says: string; readonly tryThis: string }
@@ -31,6 +31,10 @@ export interface PairFamilyEntry {
   readonly tieBreakers: Readonly<Record<string, PairTieBreakerEntry>>;
   /** The Simple starter's and the examples' moves (Thorough tries every kind). */
   readonly simple: readonly PairKind[];
+  /** How far a move may go for this family's starters, when more than the kind's own (the corner families slide far). */
+  readonly far?: number;
+  /** Whether a stretch by the dealt number (q or k) climbs its ladder (valuation and power ladders; a residue ladder's is not). */
+  readonly stretchBy?: boolean;
 }
 
 const DIST = { ts: "const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it", py: "dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it" };
@@ -40,45 +44,54 @@ const T = (ts: string, py: string, says: string, tryThis: string): PairTieBreake
 
 export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
-    family: "whole-answer", mainSays: "how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)", simple: ["slide", "turn"],
+    family: "whole-answer", stretchBy: true, mainSays: "the answer's level: whole numbers, y on your ladder (higher is better)", simple: ["slide", "turn", "stretch"],
     main: {
-      ts: [DIST.ts, PARALLEL.ts, "const X = nearestLeaving(f.x, p.q, p.r);   // x's whole number that leaves your remainder", "const main = Q.neg(Q.add(Q.abs(Q.sub(f.x, X)), dist(f.y)));"],
-      py: [DIST.py, ...PARALLEL.py, "X = nearest_leaving(f.x, p[\"q\"], p[\"r\"])   # x's whole number that leaves your remainder", "main = -(abs(f.x - X) + dist(f.y))"],
+      ts: [DIST.ts, PARALLEL.ts, "const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x a whole number"],
+      py: [DIST.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x a whole number"],
     },
     tieBreakers: {
-      "peg-divisor": T("common(Q.add(Q.abs(X), Q.abs(f.Y)), f.D)", "common(abs(X) + abs(f.Y), f.D)", "|X| + |Y| sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and the number you divide by."),
-      "south-west": T("Q.neg(Q.add(X, f.Y))", "-(X + f.Y)", "an answer far down and to the left is better", "change FAR = 3 to 5: the answer slides further in one step."),
+      "peg-divisor": T("common(Q.add(Q.abs(f.X), Q.abs(Yv)), f.D)", "common(abs(f.X) + abs(Yv), f.D)", "|X| + |Y| sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and the number you divide by."),
+      "south-west": T("Q.neg(Q.add(f.X, Yv))", "-(f.X + Yv)", "an answer far down and to the left is better", "change FAR = 3 to 5: the answer slides further in one step."),
     },
   },
   {
-    family: "no-fractions", mainSays: "how far the number you divide by is from your number k (closer is better)", simple: ["combine", "turn"],
-    main: { ts: [FLOOR.ts, PARALLEL.ts, "const main = Q.neg(Q.abs(Q.sub(Q.abs(f.D), p.k)));"], py: [...PARALLEL.py, "main = -abs(abs(f.D) - p[\"k\"])"] },
-    tieBreakers: {
-      "answer-prime": T("spf(Q.add(Q.abs(f.X), Q.abs(f.Y)))", "spf(abs(f.X) + abs(f.Y))", "|X| + |Y| with a big smallest prime factor is better", "add \"slide\" to KINDS: it moves the answer along a line."),
-      "answer-gradient": T("f.ms === null ? 0 : common(Q.add(Q.abs(f.X), Q.abs(f.Y)), floor(Q.abs(f.ms)))", "0 if f.ms is None else common(abs(f.X) + abs(f.Y), abs(f.ms) // 1)", "|X| + |Y| sharing a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
-    },
-  },
-  {
-    family: "right-angle", mainSays: "how far the lines are from crossing at a right angle (closer is better)", simple: ["turn", "quarter", "reflect"],
-    main: { ts: ["if (f.offRight === null) return null;   // parallel lines never cross: no score", "const main = Q.neg(f.offRight);"], py: ["if f.off_right is None:   # parallel lines never cross: no score", "    return None", "main = -f.off_right"] },
-    tieBreakers: {
-      "prime-divisor": T("spf(f.D)", "spf(f.D)", "a number you divide by with a big smallest prime factor is better", "add \"combine\" to KINDS and compare."),
-      "divisor-intercept": T("f.cs === null ? 0 : common(f.D, whole(f.cs))", "0 if f.cs is None else common(f.D, whole(f.cs))", "the number you divide by sharing a big factor with the steeper line's y-intercept is better", "add \"shift\" to KINDS: it moves a y-intercept directly."),
-    },
-  },
-  {
-    family: "forty-five", mainSays: "how far the lines are from crossing at 45 degrees (closer is better)", simple: ["turn", "quarter", "reflect"],
-    main: { ts: ["if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score", "const main = Q.neg(f.off45);"], py: ["if f.D == 0:   # parallel lines never cross: no score", "    return None", "main = -f.off45"] },
-    tieBreakers: {
-      "smooth-divisor": T("omega(f.D)", "omega(f.D)", "a number you divide by with many prime factors is better", "add \"stretch\" to KINDS: multiplying a line grows the number you divide by."),
-      "divisor-gap": T("f.ygap === null ? null : common(f.D, whole(f.ygap))", "None if f.ygap is None else common(f.D, whole(f.ygap))", "the number you divide by sharing a big factor with the y-intercepts' gap is better", "add \"shift\" to KINDS: it changes the gap directly."),
-    },
-  },
-  {
-    family: "double-gap", mainSays: "how far the y-intercepts' gap is from a whole number k times the x-intercepts' gap (closer is better)", simple: ["shift", "tilt"],
+    family: "no-fractions", stretchBy: true, mainSays: "the level of the number you divide by on k, k², k³, … (higher is better)", simple: ["combine", "turn", "stretch"],
     main: {
-      ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = Q.neg(Q.add(Q.abs(Q.sub(f.ygap, Q.mul(p.k, f.xgap))), dist(f.ygap)));"],
-      py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = -(abs(f.ygap - p[\"k\"] * f.xgap) + dist(f.ygap))"],
+      ts: [PARALLEL.ts, "const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k², k³, …", "const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators"],
+      py: [...PARALLEL.py, "main = power_ladder(p[\"k\"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...", "nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators"],
+    },
+    tieBreakers: {
+      "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
+      "numerator-shared": T("common(nx, ny)", "common(nx, ny)", "numerators sharing a big factor are better", "add \"stretch\" to KINDS and compare."),
+    },
+  },
+  {
+    family: "right-angle", mainSays: "the corner's level: a right angle at a grid point, y on your ladder (higher is better)", simple: ["turn", "slide", "translate"], far: 4,
+    main: {
+      ts: [DIST.ts, FLOOR.ts, "if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score", "const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder", "const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|"],
+      py: [DIST.py, FLOOR.py, "if f.off_right is None or f.x is None:   # parallel lines never cross: no score", "    return None", "main, Yc = ladder(f.y, p[\"q\"], p[\"r\"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder", "t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|"],
+    },
+    tieBreakers: {
+      "corner-prime": T("spf(t)", "spf(t)", "a corner whose |x| + |y| has a big smallest prime factor is better", "add \"quarter\" to KINDS: a quarter turn keeps the right angle."),
+      "corner-steep": T("f.ms === null ? 0 : common(t, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(t, abs(f.ms) // 1)", "a corner whose |x| + |y| shares a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
+    },
+  },
+  {
+    family: "forty-five", mainSays: "the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)", simple: ["turn", "slide", "translate"], far: 4,
+    main: {
+      ts: [DIST.ts, "if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score", "const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder"],
+      py: [DIST.py, "if f.D == 0:   # parallel lines never cross: no score", "    return None", "main, S = ladder(abs(f.x) + abs(f.y), p[\"q\"], p[\"r\"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder"],
+    },
+    tieBreakers: {
+      "corner-smooth": T("omega(S)", "omega(S)", "a corner whose |x| + |y| has many prime factors is better", "add \"stretch\" to KINDS: a stretch moves the corner further out."),
+      "corner-gap": T("f.ygap === null ? null : common(S, whole(f.ygap))", "None if f.ygap is None else common(S, whole(f.ygap))", "a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better", "add \"shift\" to KINDS: it changes the gap directly."),
+    },
+  },
+  {
+    family: "double-gap", stretchBy: true, mainSays: "the gaps' level: the y-intercepts' gap whole and k, k², … times the x-intercepts' gap (higher is better)", simple: ["shift", "tilt", "stretch"],
+    main: {
+      ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = powerLadder(p.k, t => Q.add(dist(f.ygap), Q.abs(Q.sub(f.ygap, Q.mul(t, f.xgap)))));"],
+      py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = power_ladder(p[\"k\"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))"],
     },
     tieBreakers: {
       "gap-divisor": T("common(whole(f.ygap), f.D)", "common(whole(f.ygap), f.D)", "the gap sharing a big factor with the number you divide by is better", "add \"stretch\" to KINDS: it scales a line's gap."),
@@ -86,10 +99,10 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "far-crossing", mainSays: "how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)", simple: ["shift", "tilt"],
+    family: "far-crossing", mainSays: "the level of the steeper line's x-intercept on your ladder (higher is better)", simple: ["shift", "tilt"],
     main: {
-      ts: ["if (f.rs === null) return null;   // the steeper line is flat: no score", "const R = nearestLeaving(f.rs, p.q, p.r);   // the whole number that leaves your remainder", "const main = Q.neg(Q.abs(Q.sub(f.rs, R)));"],
-      py: ["if f.rs is None:   # the steeper line is flat: no score", "    return None", "R = nearest_leaving(f.rs, p[\"q\"], p[\"r\"])   # the whole number that leaves your remainder", "main = -abs(f.rs - R)"],
+      ts: ["if (f.rs === null) return null;   // the steeper line is flat: no score", "const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder"],
+      py: ["if f.rs is None:   # the steeper line is flat: no score", "    return None", "main, R = ladder(f.rs, p[\"q\"], p[\"r\"])   # the x-intercept on your ladder"],
     },
     tieBreakers: {
       "far-right": T("R", "R", "an x-intercept far to the right is better", "add \"stretch\" to KINDS and see if it moves faster."),
@@ -97,10 +110,10 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "high-start", mainSays: "how far the gentler line's y-intercept is from a whole number with your remainder (closer is better)", simple: ["shift", "tilt"],
+    family: "high-start", stretchBy: true, mainSays: "the level of the gentler line's y-intercept on your ladder (higher is better)", simple: ["shift", "tilt", "stretch"],
     main: {
-      ts: [FLOOR.ts, "if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score", "const H = nearestLeaving(f.cg, p.q, p.r);   // the whole number that leaves your remainder", "const main = Q.neg(Q.abs(Q.sub(f.cg, H)));"],
-      py: [FLOOR.py, "if f.cg is None or f.mg is None:   # the gentler line is upright: no score", "    return None", "H = nearest_leaving(f.cg, p[\"q\"], p[\"r\"])   # the whole number that leaves your remainder", "main = -abs(f.cg - H)"],
+      ts: [FLOOR.ts, "if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score", "const { score: main, n: H } = valuationLadder(f.cg, p.q, p.r);   // the y-intercept on your ladder"],
+      py: [FLOOR.py, "if f.cg is None or f.mg is None:   # the gentler line is upright: no score", "    return None", "main, H = valuation_ladder(f.cg, p[\"q\"], p[\"r\"])   # the y-intercept on your ladder"],
     },
     tieBreakers: {
       "high-and-rising": T("Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)", "min(H, floor(f.mg))", "the smaller of the gentler line's y-intercept and its gradient's whole part big is better", "add \"stretch\" to KINDS: it raises both, but a steeper gentler line can stop being the gentler one."),
@@ -108,19 +121,10 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "steep-ratio", mainSays: "how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better)", simple: ["tilt", "stretch"],
+    family: "steep-ratio", stretchBy: true, mainSays: "the level of the whole number of times as steep on your ladder (higher is better)", simple: ["tilt", "stretch"],
     main: {
-      ts: [
-        "if (f.ratio === null) return null;   // no ratio of gradients: no score",
-        "const k = nearestLeaving(f.ratio, p.q, p.r, 2);   // the whole number of times with your remainder (at least 2 either way)",
-        "const main = Q.neg(Q.abs(Q.sub(f.ratio, k)));",
-      ],
-      py: [
-        "if f.ratio is None:   # no ratio of gradients: no score",
-        "    return None",
-        "k = nearest_leaving(f.ratio, p[\"q\"], p[\"r\"], 2)   # the whole number of times with your remainder (at least 2 either way)",
-        "main = -abs(f.ratio - k)",
-      ],
+      ts: ["if (f.ratio === null) return null;   // no ratio of gradients: no score", "const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder"],
+      py: ["if f.ratio is None:   # no ratio of gradients: no score", "    return None", "main, k = valuation_ladder(f.ratio, p[\"q\"], p[\"r\"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder"],
     },
     tieBreakers: {
       "ratio-gap": T("f.ygap === null ? null : common(k, whole(f.ygap))", "None if f.ygap is None else common(k, whole(f.ygap))", "that number sharing a big factor with the y-intercepts' gap is better", "add \"shift\" to KINDS: it changes the gap directly."),
@@ -152,7 +156,7 @@ const KINDS: Record<StarterKind, { title: string; summary: string; tryThis: stri
   },
   thorough: {
     title: "Thorough", summary: "Like Simple, but it tries every kind of move of either line and compares more prices before it pays.",
-    tryThis: "change QUOTES = 16 to 6: fewer prices asked, but it may miss a cheaper plan.", far: 3, quotes: 16,
+    tryThis: "change QUOTES = 16 to 6: fewer prices asked, but it may miss a cheaper plan.", far: 2, quotes: 16,
   },
   bold: {
     title: "Bold", summary: "Makes bigger moves (up to 4 at a time), so it gets there in fewer moves, each dearer.",
@@ -243,7 +247,10 @@ function agentTs(kind: AgentKind, e: PairFamilyEntry, tieBreaker: string | null,
     ]),
     "  const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each",
     `  const { params: p${tieBreaker !== null ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule${tieBreaker !== null ? "" : " and tie-breaker"} (free)`,
-    "  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head",
+    ...(e.stretchBy ? [
+      "  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
+      "  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head",
+    ] : ["  const tries = pairSteps(L, FAR, KINDS);   // [plan, lines after]: moves tried in the agent's own head"]),
     ...(kind === "naive" ? [
       `  let top = score(L, ${args}), plans = [];`,
       "  for (const [plan, L2] of tries) {",
@@ -288,7 +295,10 @@ function agentPy(kind: AgentKind, e: PairFamilyEntry, tieBreaker: string | null,
     "    L = pair_of(offer)          # the two lines, a*x + b*y + c = 0 each",
     "    rule = goal(offer)          # your rule (free)",
     tieBreaker !== null ? "    p = rule.params" : "    p, tie = rule.params, rule.tie_breaker",
-    "    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head",
+    ...(e.stretchBy ? [
+      "    # Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
+      "    tries = pair_steps(L, FAR, KINDS, [f for f in (p.get(\"q\"), p.get(\"k\")) if f])   # (plan, lines after): moves tried in the agent's own head",
+    ] : ["    tries = pair_steps(L, FAR, KINDS)   # (plan, lines after): moves tried in the agent's own head"]),
     ...(kind === "naive" ? [
       `    top, plans = score(L, ${args}), []`,
       "    for plan, L2 in tries:",
@@ -323,12 +333,14 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   const how = kind === "naive" ? HOW_NAIVE : kind === "example" ? HOW_EXAMPLE : HOW_POINTS;
   const header = [`${f.title} · ${meta.title}`, rule, ...how, `Try this: ${meta.tryThis}`];
   const ts = language === "typescript", c = ts ? "//" : "#";
+  // A family's own reach widens its few kinds of move (Thorough tries every kind, within its step budget, at its own).
+  const reach = kind === "thorough" ? meta.far : Math.max(meta.far, e.far ?? 0);
   const lines = [
     ...header.map(l => `${c} ${l}`),
     ...(ts ? [""] : ["", ""]),
     ...(ts ? scoreTs(e, tieBreaker) : scorePy(e, tieBreaker)),
     ...(ts ? [""] : ["", ""]),
-    ...(ts ? agentTs(kind, e, tieBreaker, meta.far, meta.quotes) : agentPy(kind, e, tieBreaker, meta.far, meta.quotes)),
+    ...(ts ? agentTs(kind, e, tieBreaker, reach, meta.quotes) : agentPy(kind, e, tieBreaker, reach, meta.quotes)),
   ];
   return { family: familyId, kind, tieBreaker, language, title: meta.title, summary: meta.summary, source: lines.join("\n") + "\n" };
 }

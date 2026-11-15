@@ -25,7 +25,7 @@ import {
 } from "@workspace/v2-core";
 import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
 import { integersWithin } from "./exact.ts";
-import { ruleKey } from "./keys.ts";
+import { ruleKey, valuesHash } from "./keys.ts";
 
 // ---------------------------------------------------------------- survival oracles
 
@@ -618,7 +618,7 @@ export function lineValueFunction<P>(family: RuleFamily<LineState, P>, params: P
   const body = {
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(lineType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
-    objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
+    objectType: lineType.id, objectTypeVersion: lineType.version, variant: variant.id, variantHash: valuesHash(variant),
     family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb)),
     diagnostics: { exact: exact.map(o => ({ name: o.name, outside: o.outside ?? 0 })), sampled, candidates },
   };

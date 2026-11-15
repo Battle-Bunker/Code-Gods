@@ -1,5 +1,5 @@
 // Right Angle · Naive (for learning)
-// Main part: the lines cross at a right angle. Tie-breaker: whichever you were dealt (the number you divide by is a big prime; the number you divide by shares a factor with the steeper line's y-intercept).
+// Main part: the lines cross at a right angle at a grid point, y on the dealt ladder. Tie-breaker: whichever you were dealt (the corner's distance is a big prime; the corner's distance shares a factor with the steeper gradient).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -8,17 +8,20 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  if (f.offRight === null) return null;   // parallel lines never cross: no score
-  const main = Q.neg(f.offRight);
-  // main: how far the lines are from crossing at a right angle (closer is better)
-  if (tie === "prime-divisor") return [main, spf(f.D)];   // a number you divide by with a big smallest prime factor is better
-  if (tie === "divisor-intercept") return [main, f.cs === null ? 0 : common(f.D, whole(f.cs))];   // the number you divide by sharing a big factor with the steeper line's y-intercept is better
+  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
+  if (f.offRight === null || f.x === null) return null;   // parallel lines never cross: no score
+  const { score: main, n: Yc } = ladder(f.y, p.q, p.r, Q.add(f.offRight, dist(f.x)));   // a right angle at a grid point, y on your ladder
+  const t = Q.add(Q.abs(f.X), Q.abs(Yc));   // the corner's |x| + |y|
+  // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better)
+  if (tie === "corner-prime") return [main, spf(t)];   // a corner whose |x| + |y| has a big smallest prime factor is better
+  if (tie === "corner-steep") return [main, f.ms === null ? 0 : common(t, floor(Q.abs(f.ms)))];   // a corner whose |x| + |y| shares a big factor with the steeper gradient is better
   return [main];
 }
 
-const FAR = 2;      // how far one move may go
+const FAR = 4;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["turn","quarter","reflect"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each

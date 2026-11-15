@@ -1,5 +1,5 @@
 // Forty-Five · Naive (for learning)
-// Main part: the lines cross at 45°. Tie-breaker: whichever you were dealt (the number you divide by has many prime factors; the number you divide by shares a factor with the y-intercepts' gap).
+// Main part: the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder. Tie-breaker: whichever you were dealt (that distance has many prime factors; that distance shares a factor with the y-intercepts' gap).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -8,17 +8,18 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
+  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
-  const main = Q.neg(f.off45);
-  // main: how far the lines are from crossing at 45 degrees (closer is better)
-  if (tie === "smooth-divisor") return [main, omega(f.D)];   // a number you divide by with many prime factors is better
-  if (tie === "divisor-gap") return [main, f.ygap === null ? null : common(f.D, whole(f.ygap))];   // the number you divide by sharing a big factor with the y-intercepts' gap is better
+  const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
+  // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)
+  if (tie === "corner-smooth") return [main, omega(S)];   // a corner whose |x| + |y| has many prime factors is better
+  if (tie === "corner-gap") return [main, f.ygap === null ? null : common(S, whole(f.ygap))];   // a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
   return [main];
 }
 
-const FAR = 2;      // how far one move may go
+const FAR = 4;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["turn","quarter","reflect"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["turn","slide","translate"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each

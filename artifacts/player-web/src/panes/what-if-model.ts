@@ -18,10 +18,12 @@ import type { GameRule } from "../sdk/rule.ts";
  * "a,b,c"). `start` is its cheapest value, the form's first. `optional`: the move has another shape without it (a fold
  * in a crease takes x0 and s, a fold in a mirror line takes mirror), so it is left out of the call when empty.
  */
-export type ArgField =
+/** How the form says an argument (the mutator's own `argHelp`, round 23): never only its wire name. */
+interface Said { label: string; hint: string; choiceWords?: Readonly<Record<string, string>> }
+export type ArgField = Said & (
   | { name: string; kind: "number"; fractions: boolean; start: string; words?: string[]; optional?: true }
   | { name: string; kind: "choice"; choices: string[]; start: string; optional?: true }
-  | { name: string; kind: "text"; start: string; optional?: true };
+  | { name: string; kind: "text"; start: string; optional?: true });
 export interface MutatorChoice {
   id: string;
   /** The representation the move is made through (its first), and that representation's short title. */
@@ -47,15 +49,20 @@ export function mutatorChoices(variant: Variant): MutatorChoice[] {
     const combos = [...(m.args(variant).enumerate?.(12) ?? [])] as Record<string, Q | string>[];
     const first = combos[0] ?? {};
     const names = [...new Set(combos.flatMap(c => Object.keys(c)))];
+    const help = m.argHelp?.(variant) ?? {};
     const args = names.map((name): ArgField => {
       const values = combos.filter(c => name in c).map(c => c[name]!);
-      const start = name in first ? shown(first[name]!) : "";
+      const h = help[name];
       const optional = combos.some(c => !(name in c)) ? { optional: true as const } : {};
+      // The move's own example to start from, else its cheapest value; an argument its cheapest shape leaves out (a
+      // fold's mirror, beside its crease) starts empty.
+      const start = !(name in first) ? "" : h?.example ? h.example.replace(/^-/, "−") : shown(first[name]!);
+      const said: Said = { label: h?.label ?? name, hint: h?.hint ?? "", ...(h?.choices ? { choiceWords: h.choices } : {}) };
       const words = [...new Set(values.filter((v): v is string => typeof v === "string"))];
       const numbers = values.filter((v): v is Q => typeof v !== "string");
-      if (!numbers.length && words.length) return words.length <= MAX_CHOICES ? { name, kind: "choice", choices: words, start, ...optional } : { name, kind: "text", start, ...optional };
+      if (!numbers.length && words.length) return words.length <= MAX_CHOICES ? { name, kind: "choice", choices: words, start, ...optional, ...said } : { name, kind: "text", start, ...optional, ...said };
       const fractions = numbers.some(v => v.d !== 1n);
-      return words.length ? { name, kind: "number", fractions, start, words, ...optional } : { name, kind: "number", fractions, start, ...optional };
+      return words.length ? { name, kind: "number", fractions, start, words, ...optional, ...said } : { name, kind: "number", fractions, start, ...optional, ...said };
     });
     const known = type.representations.some(x => x.id === rep);
     return { id: m.id, rep, repTitle: known ? representation(type, rep).title.split(":")[0]!.trim() : "other moves", title: m.title, args };
