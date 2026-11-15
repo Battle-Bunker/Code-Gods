@@ -94,9 +94,9 @@
 #                                leaving r when divided by q, rr (in base q) when divided by q^2, rrr by q^3, ... and
 #                                other is 0; score = q^L * (1 + 1/(1 + d)), L the highest level met, d how far from
 #                                the next; n = nearest_leaving(v, q, r, at_least).
-#   valuation_ladder(v, q, r, other, at_least)  (score, n): level L when v is the whole number q^L * m with m leaving r
-#                                when divided by q (and other is 0), so a stretch by q climbs one level; score = q^L *
-#                                (1 + 1/(1 + d)), d how far from level L + 1 (off the ladder: below every level).
+#   valuation_ladder(v, q, r, other, at_least)  (score, n): v the whole number q^t * m with m leaving r when divided by
+#                                q (and other 0) is at level L, the highest with L(L + 1)/2 <= t (a stretch by q adds 1
+#                                to t); score = q^L * (1 + 1/(1 + d)), d how far from level L + 1 (off the ladder: below).
 #   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
 #                                number is t; returns the score.
 #
@@ -280,13 +280,16 @@ def valuation_ladder(x, q, r, other=0, at_least=0):
     v, o = Fraction(x), Fraction(other)
     level = -1
     if o == 0 and v.denominator == 1 and v != 0 and abs(v) >= at_least:
-        m, L = v.numerator, 0
+        m, t = v.numerator, 0
         while m % q == 0:
             m //= q
-            L += 1
+            t += 1
         if m % q == r:
-            level = L
-    d = o + _anchor(v, q ** (level + 2), r * q ** (level + 1), at_least)[1]
+            level = 0
+            while (level + 1) * (level + 2) // 2 <= t:
+                level += 1
+    T = (level + 1) * (level + 2) // 2
+    d = o + _anchor(v, q ** (T + 1), r * q ** T, at_least)[1]
     n = v.numerator if level >= 0 else _anchor(v, q, r, at_least)[0]
     return Fraction(q) ** level * (1 + Fraction(1) / (1 + d)), n
 

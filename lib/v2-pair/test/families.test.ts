@@ -35,18 +35,20 @@ test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the val
   assert.deepEqual(score("whole-answer", "peg-divisor", school, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
-test("the valuation ladder: a stretch by q climbs one level, levels are disjoint, 0 is on none, off the ladder is below all", () => {
+test("the valuation ladder: level L needs L(L + 1)/2 stretches by q, each level dearer; 0 is on none; off the ladder is below all", () => {
   const at = (v: number, p: PairParams) => { const l = valuationLadder(Qn.q(v), p); return [l.level, Qn.toWire(l.u)]; };
-  // 2, 10, 50, 250 (q 5, r 2) are levels 0, 1, 2, 3: each ×5.
-  assert.deepEqual([2, 10, 50, 250].map(v => at(v, { q: 5, r: 2 })[0]), [0, 1, 2, 3]);
+  // 2 × 5^t (q 5, r 2) for t = 0 … 6: levels 0, 1, 1, 2, 2, 2, 3 (level L at t = 0, 1, 3, 6, …).
+  assert.deepEqual([2, 10, 50, 250, 1250, 6250, 31250].map(v => at(v, { q: 5, r: 2 })[0]), [0, 1, 1, 2, 2, 2, 3]);
   // 0 and 7 (7 = 5⁰ × 7 leaves 2, so level 0 too) and 3 (leaves 3: off the ladder).
   assert.equal(at(0, { q: 5, r: 2 })[0], -1);
   assert.equal(at(3, { q: 5, r: 2 })[0], -1);
   // Every level beats every lower one: 10 (level 1) beats 2 (level 0) beats 3 (off).
   const u = (v: number) => valuationLadder(Qn.q(v), { q: 5, r: 2 }).u;
   assert.ok(Qn.cmp(u(10), u(2)) > 0 && Qn.cmp(u(2), u(3)) > 0 && Qn.cmp(u(250), u(50)) > 0);
-  // A level's score is at most 2 q^L, below the next level's least (q^(L+1)), so the score doubles at most once a level.
-  assert.ok(Qn.cmp(u(50), Qn.q(50)) <= 0 && Qn.cmp(u(50), Qn.q(25)) > 0);
+  // Within a level a stretch brings the next level nearer: 50 (t = 2) is nearer 250's rung than 10 (t = 1) is.
+  assert.ok(Qn.cmp(u(50), u(10)) > 0);
+  // Level L scores in (5^L, 2 × 5^L]: the score grows one factor 5 per level, not per stretch.
+  assert.ok(Qn.cmp(u(6250), Qn.q(50)) <= 0 && Qn.cmp(u(6250), Qn.q(25)) > 0);
 });
 
 test("the residue ladder has no top: each level is q times rarer, every met level beats every state below it", () => {
@@ -100,7 +102,7 @@ test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt lad
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
   assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["14/13", "3"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
-  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["24/7", "3"]);    // 3 = 3¹ × 1: level 1; level 2 (9 of 27) 6 away
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["78/25", "3"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {

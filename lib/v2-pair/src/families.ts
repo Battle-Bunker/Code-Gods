@@ -64,27 +64,32 @@ export function residueLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { level
   return { level, u, n: anchorB(v, qq, r, minAbs).n };
 }
 /**
- * The valuation ladder (the coordinator's call, 15 Nov: rungs joined by a representation shortcut, decision 25): level L
- * when v is the whole number q^L × m with m leaving r when divided by q (and `other` is 0). A stretch by q (one move,
- * priced as a choice) multiplies the number by q and climbs one level; levels are disjoint, 0 is on none (m ≠ 0), and
- * level L + 1 is about q times rarer than level L. The score is q^L × (1 + 1/(1 + d)), d how far from level L + 1 (the
- * class r·q^(L+1) when divided by q^(L+2)); off the ladder, (1/q) × (1 + 1/(1 + d)) with d how far from level 0, below
- * every level. n: the number itself on the ladder, else the nearest number leaving r when divided by q.
+ * The valuation ladder (the coordinator's calls, 15 Nov: rungs joined by a representation shortcut, decision 25; each
+ * level harder than the last, decisions 26 and 30): v a whole number q^t × m with m leaving r when divided by q (and
+ * `other` 0) is at level L, the highest with T(L) = L(L + 1)/2 ≤ t. A stretch by q (one move, priced as a choice)
+ * multiplies the number by q, so level L + 1 is L + 1 stretches above level L: the climb is ongoing and dearer at every
+ * level. 0 is on no level (m ≠ 0). The score is q^L × (1 + 1/(1 + d)), d how far from level L + 1 (the nearest q^T(L+1)
+ * × m', m' leaving r); off the ladder, (1/q) × (1 + 1/(1 + d)), d how far from level 0, below every level. The score
+ * grows one factor q per LEVEL (not per stretch), so beyond the measured knots the value tail (at most 1 bit per doubling
+ * of the score, PAIR_SIZE_RATE) pays log₂ q bits a level while a level costs ever more stretches: a seat's bits grow like
+ * the square root of the energy it spends, not linearly (the runaway of §9: 59 bits in a 600 s game). n: the number on
+ * the ladder, else the nearest number leaving r when divided by q.
  */
+const triangle = (L: number) => (L * (L + 1)) / 2;
 export function valuationLadder(v: Q, p: P, other: Q = q(0), minAbs = 0n): { level: number; u: Q; n: bigint } {
   const qq = BigInt(p.q!), r = BigInt(p.r!);
   let level = -1;
   if (Qn.isZero(other) && v.d === 1n && v.n !== 0n && absB(v.n) >= minAbs) {
-    let m = v.n, L = 0;
-    while (m % qq === 0n) { m /= qq; L++; }
-    if (((m % qq) + qq) % qq === r) level = L;
+    let m = v.n, t = 0;
+    while (m % qq === 0n) { m /= qq; t++; }
+    if (((m % qq) + qq) % qq === r) { level = 0; while (triangle(level + 1) <= t) level++; }
   }
-  const next = BigInt(level + 1), d = Qn.add(other, anchorB(v, qq ** (next + 1n), r * qq ** next, minAbs).off);
+  const T = BigInt(triangle(level + 1)), d = Qn.add(other, anchorB(v, qq ** (T + 1n), r * qq ** T, minAbs).off);
   const u = Qn.mul(level >= 0 ? q(qq ** BigInt(level)) : q(1n, qq), Qn.add(q(1), Qn.inv(Qn.add(q(1), d))));
   return { level, u, n: level >= 0 ? v.n : anchorB(v, qq, r, minAbs).n };
 }
-/** "is a whole number leaving 2 when divided by 7; better still 7 times such a number, then 49 times, and so on". */
-export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${p.q! * p.q!} times, and so on`;
+/** "a whole number leaving 2 when divided by 7; better still 7 times such a number, then 343 times, then 117,649 times, and so on". */
+export const valuationWords = (p: P) => `a whole number leaving ${p.r} when divided by ${p.q}; better still ${p.q} times such a number, then ${(p.q! ** 3).toLocaleString("en")} times, then ${(p.q! ** 6).toLocaleString("en")} times, and so on`;
 /** The power ladder: off(j) is the distance from k^j (with `other` added). */
 export const powerLadder = (k: number, off: (target: bigint) => Q): { level: number; u: Q } => climb(BigInt(k), j => off(BigInt(k) ** BigInt(j)));
 /** "leaves 3 when divided by 7; better still, leaves 24 when divided by 49, then 171 when divided by 343, and so on". */

@@ -15,6 +15,8 @@
  * - row 3, entanglement: the share of its own main-part steps that lowered the tie-breaker, and, for those, the share
  *   recovered (its later moves on that object brought the tie-breaker back to where it was, the main part held) and the
  *   median seconds to recover;
+ * - contest: how often another seat's move lowered its main part on an object it had climbed, and the share it climbed
+ *   back (an uncontested hill is the old bug on a slower clock);
  * - drift: how fast its seat moved again after each redraw, and, at the end, its mean bits on the final objects under
  *   its current parameters and under the other value it drifts between (a seat that tracks the redraws scores more
  *   under the current one; one parked between the two scores little under both).
@@ -65,13 +67,15 @@ interface Stat {
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
+  /** Contest: another seat's move lowered this seat's main part on an object it had climbed; and how often it climbed back. */
+  taken: number; reclimbed: number;
 }
 const stats = new Map<string, Stat>();
 const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   games: 0, gained: [], lastThird: [], latency: [], redraws: 0, answered: 0, grids: 0, cur: [], alt: [],
   levels: [], endBits: [], seats: 0, climbingLate: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
   energyEnd: [], spentShare: [], perMinute: [],
-  own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [],
+  own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [], taken: 0, reclimbed: 0,
 }), stats.get(f)!);
 const R = rng("pool-dynamics", variant.id, o.from);
 const head = (s: Score) => (s === null ? null : s.slice(0, 1));
@@ -97,7 +101,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const scoreOf = (i: number, s: unknown): Score => evaluateSite(type, fams[i]!, params[i], s, variant, 0, seats[i]!.rule.tieBreaker).score;
   const moves: { at: number; seat: number; object: number }[] = [], redraws: { at: number; seat: number }[] = [];
   // The ladder, per seat and object, under the seat's current parameters (a redraw starts it again).
-  interface Climb { best: Score; levels: number; lastUp: number; pending: { tb: Score; main: Score; at: number } | null }
+  interface Climb { best: Score; levels: number; lastUp: number; pending: { tb: Score; main: Score; at: number } | null; lost?: Score }
   const climbs = seats.map(() => new Map<number, Climb>());
   const levelsDone = seats.map(() => [] as number[]);
   let live = Number(o.objects);
@@ -110,10 +114,19 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       lastBalance[e.seat] = e.balance; income[e.seat] = e.income; spent[e.seat]! += e.charge;
       if (!e.committed) return;
       moves.push({ at: e.at, seat: e.seat, object: e.object });
+      // Contest: this move takes main-part progress from another seat that had climbed this object.
+      seats.forEach((_, j) => {
+        if (j === e.seat) return;
+        const cj = climbs[j]!.get(e.object);
+        if (!cj || cj.levels === 0) return;
+        const b = head(scoreOf(j, e.before)), a = head(scoreOf(j, e.state));
+        if (compareScores(a, b) < 0) { stat(keys[j]!).taken++; if (!cj.lost) cj.lost = b; }
+      });
       const i = e.seat, st = stat(keys[i]!);
       const before = scoreOf(i, e.before), after = scoreOf(i, e.state);
       const c = climbs[i]!.get(e.object) ?? { best: before, levels: 0, lastUp: -Infinity, pending: null };
       climbs[i]!.set(e.object, c);
+      if (c.lost !== undefined && compareScores(head(after), c.lost) >= 0) { st.reclimbed++; c.lost = undefined; }
       if (compareScores(head(after), head(before)) > 0) {
         st.mainSteps++;
         if (before !== null && before[0] !== null && before[0]!.n >= 0n) st.valleys++;
@@ -164,8 +177,8 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
-console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params | main-part progress taken by others (climbed back) |");
+console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([
   f, s.games, mean(s.gained).toFixed(0), mean(s.perMinute).toFixed(1), mean(s.energyEnd).toFixed(0), `${(100 * mean(s.spentShare)).toFixed(0)}%`, mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
@@ -175,6 +188,7 @@ for (const [f, s] of rows) console.log([
   s.tbLost ? `${pct(s.recovered, s.tbLost)}, ${s.recovery.length ? median(s.recovery).toFixed(0) : "-"}` : "-",
   s.redraws ? `${s.answered}/${s.redraws}, ${s.latency.length ? median(s.latency).toFixed(1) : "-"}` : "-",
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
+  s.taken ? `${s.taken} (${pct(s.reclimbed, s.taken)})` : "0",
 ].join(" | ").replace(/^/, "| ").concat(" |"));
 const means = rows.map(([, s]) => mean(s.gained)).filter(x => x > 0);
 console.log(`balance: best family's mean gain over the worst's: ${(Math.max(...means) / Math.min(...means)).toFixed(1)}`);
