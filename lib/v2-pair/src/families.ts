@@ -34,8 +34,14 @@ const tb = (id: string, title: string, sentence: string, rep: string, hill: Sens
 
 /** "leaves 2 when divided by 5" (r = 0: "is a multiple of 5"). */
 const leaves = (p: P) => (p.r === 0 ? `is a multiple of ${p.q}` : `leaves ${p.r} when divided by ${p.q}`);
-/** The residue grid of the filtered families: q 3, 5 or 7 and every r coprime to it (a remainder of 0 would cap the prime tie-breakers at q). */
-export const RESIDUES: readonly P[] = [3, 5, 7].flatMap(q => Array.from({ length: q - 1 }, (_, i) => ({ q, r: i + 1 })));
+export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
+  "whole-answer": [{ q: 5, r: 2 }, { q: 5, r: 3 }, { q: 5, r: 4 }, { q: 7, r: 5 }],
+  "no-fractions": [{ k: 1 }, { k: 3 }],
+  "double-gap": [{ k: 2 }, { k: 3 }, { k: 4 }],
+  "far-crossing": [{ q: 5, r: 2 }, { q: 5, r: 4 }],
+  "high-start": [{ q: 7, r: 2 }, { q: 7, r: 3 }, { q: 7, r: 5 }],
+  "steep-ratio": [{ q: 5, r: 1 }, { q: 5, r: 4 }],
+};
 /**
  * The whole number n leaving r when divided by q (n − r a multiple of q, negatives included: −2 leaves 1 when divided
  * by 3) nearest v, the smaller on a tie, with |n| ≥ minAbs; and how far v is from it.
@@ -113,7 +119,7 @@ export const wholeAnswer = family({
     tb("peg-divisor", "the answer shares a factor with the number you divide by", "The answer's whole numbers, added up as distances (|x| + |y|), should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
     tb("south-west", "the answer far down and to the left", "The answer's x + y should be as small (as negative) as possible.", "pair", "small"),
   ],
-  params: RESIDUES,
+  params: DEALT_NUMBERS["whole-answer"],
   evaluate: (ctx, p) => {
     const a = answer(ctx), d = read(ctx, D)!;
     if (!a) return void (ctx.term("answer", "how far the answer is from whole numbers", PARALLEL, [PX, PY]), allUndefined(ctx, ["peg-divisor", "south-west"], PARALLEL, [X, Y]));
@@ -135,7 +141,7 @@ export const noFractions = family({
     tb("answer-prime", "the answer's distance is a big prime", "The answer's |x| + |y| should have as big a smallest prime factor as possible.", "pair", "prime"),
     tb("answer-gradient", "the answer's distance shares a factor with the steeper gradient", "The answer's |x| + |y| should share as big a factor as possible with the steeper line's gradient (its whole part, ignoring the sign).", "si", "shared"),
   ],
-  params: [1, 2, 3, 4, 5, 6].map(k => ({ k })),
+  params: DEALT_NUMBERS["no-fractions"],
   evaluate: (ctx, p) => {
     const d = read(ctx, D)!, a = answer(ctx), k = BigInt(p.k!);
     if (!a) return void (ctx.term("divisor", "how far |D| is from the dealt number", PARALLEL, [D]), allUndefined(ctx, ["answer-prime", "answer-gradient"], PARALLEL, [X, Y]));
@@ -209,7 +215,7 @@ export const doubleGap = family({
     tb("gap-divisor", "the gap shares a factor with the number you divide by", "The gap between the y-intercepts (to the nearest whole number) should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),
     tb("gap-prime", "the gap is a big prime", "The gap between the y-intercepts (to the nearest whole number) should have as big a smallest prime factor as possible.", "si", "prime"),
   ],
-  params: [2, 3, 4, 5].map(k => ({ k })),
+  params: DEALT_NUMBERS["double-gap"],
   evaluate: (ctx, p) => {
     const yg = read(ctx, YGAP), xg = read(ctx, XGAP);
     // A line through the origin has both intercepts 0, and would double any other line's gaps for free.
@@ -230,7 +236,7 @@ export const farCrossing = family({
     tb("far-right", "the steeper line crosses the x-axis far to the right", "That whole number should be as big as possible.", "si", "big"),
     tb("far-prime", "the steeper line's x-intercept is a big prime", "That whole number should have as big a smallest prime factor as possible.", "si", "prime"),
   ],
-  params: RESIDUES,
+  params: DEALT_NUMBERS["far-crossing"],
   evaluate: (ctx, p) => {
     const r = read(ctx, RS);
     if (r === null) { const why = U("the steeper line is flat: it never meets the x-axis"); return void (ctx.term("far", "x-intercept", why, [RS]), allUndefined(ctx, ["far-right", "far-prime"], why, [RS])); }
@@ -253,7 +259,7 @@ export const highStart = family({
     tb("high-and-rising", "the gentler line high and rising", "The smaller of that y-intercept and the gentler gradient's whole part should be as big as possible.", "si", "big"),
     tb("start-factors", "that y-intercept shares many prime factors with the number you divide by", "The common factor of that y-intercept and the number you divide by should have as many prime factors as possible.", "solve", "smooth"),
   ],
-  params: RESIDUES,
+  params: DEALT_NUMBERS["high-start"],
   evaluate: (ctx, p) => {
     const c = read(ctx, CG), m = read(ctx, MG), d = read(ctx, D)!;
     if (c === null || m === null) { const why = U("the gentler line is vertical: it has no y-intercept"); return void (ctx.term("start", "y-intercept", why, [CG]), allUndefined(ctx, ["high-and-rising", "start-factors"], why, [CG])); }
@@ -272,7 +278,7 @@ export const steepRatio = family({
     tb("ratio-gap", "that number shares a factor with the y-intercepts' gap", "That whole number of times should share as big a factor as possible with the gap between the y-intercepts.", "si", "shared"),
     tb("ratio-prime", "that number is a big prime", "That whole number of times should have as big a smallest prime factor as possible.", "si", "prime"),
   ],
-  params: RESIDUES,
+  params: DEALT_NUMBERS["steep-ratio"],
   evaluate: (ctx, p) => {
     const r = read(ctx, RATIO), g = read(ctx, YGAP);
     if (r === null) { const why = U("a ratio needs two lines with gradients, the gentler not flat"); return void (ctx.term("ratio", "ratio", why, [RATIO]), allUndefined(ctx, ["ratio-gap", "ratio-prime"], why, [RATIO])); }

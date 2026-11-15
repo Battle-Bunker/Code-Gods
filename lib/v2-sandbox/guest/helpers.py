@@ -231,14 +231,14 @@ def whole(x):
 
 def nearest_leaving(x, q, r, at_least=0):
     v = Fraction(x)
-    t0 = int((v - r) // q)
-    best, off = None, None
-    for t in range(t0 - 2, t0 + 4):
-        n = r + q * t
-        o = abs(v - n)
-        if abs(n) >= at_least and (best is None or o < off):
-            best, off = n, o
-    return best
+    # The two numbers with the remainder either side of v; the lower wins a tie.
+    lo = r + q * int((v - r) // q)
+    hi = lo + q
+    while abs(lo) < at_least:
+        lo -= q
+    while abs(hi) < at_least:
+        hi += q
+    return lo if v - lo <= hi - v else hi
 
 
 def root(n):
