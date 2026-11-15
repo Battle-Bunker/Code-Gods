@@ -266,6 +266,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     if (humans.every(u => b.done.includes(u))) deal(e.state, r);
     return ok;
   },
+  "bid.cancel": e => {
+    const r = roomOf(e);
+    if (!r.bid) throw new OpFailure("No bid phase is open.");
+    r.bid = null;
+    return ok;
+  },
   "game.auction": e => {
     const g = gameOf(e), names = (u: string) => nameOf(e.state, u);
     const wins = Object.entries(g.auction?.wins ?? {}).map(([u, w]) => ({ memberId: memberOf(e, u), name: names(u), family: w.family, handicap: w.handicap }));
