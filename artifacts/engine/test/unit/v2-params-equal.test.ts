@@ -29,6 +29,7 @@ import assert from "node:assert/strict";
 import { valueRecord } from "../../convex/v2/values.ts";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
+import { gcd } from "@workspace/v2-core";
 import { LINE_Q_CODES } from "@workspace/v2-linear";
 
 /**
@@ -55,6 +56,12 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const level = BigInt(n!) / BigInt(d);
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
+  // Treasure: the rung is the level of digits of the coin pile y(k) rounds to (the whole part of u, u ≥ 1), as Prime Gradient.
+  "treasure": u => {
+    const [n, d = "1"] = u.split("/");
+    const level = BigInt(n!) / BigInt(d);
+    return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
+  },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   // The two-line valuation ladders (Whole Answer, High Start, Steep Ratio; lib/v2-pair families.ts): the score is
   // q^L × (1 + 1/(1 + d)) on level L ≥ 0 (below 1 off the ladder), so the rung is L, the largest with q^L ≤ the score,
@@ -63,6 +70,15 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
   "whole-answer": (u, p) => valuationRung(u, p),
   "high-start": (u, p) => valuationRung(u, p),
   "steep-ratio": (u, p) => valuationRung(u, p),
+  // Pythagorean Area: the rung is the prime p (u = landingLevel(p) on a rung), costed as the cheapest line whose area
+  // rounds down to p. Its endings differ in bits at equal size (9's rungs are rarer), and by as much in what reaching a
+  // rung costs, so bits less cost is what is equal; the sampled medians fall on different primes.
+  "pythagorean-area": u => {
+    const p = primeOfLevel(u);
+    if (p === null) return null;
+    const cost = areaCosts().get(p);
+    return cost === undefined ? null : [String(p), cost];
+  },
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
     const cost = L >= 1 ? staircaseCosts(p.ends as number)[L] : undefined;
@@ -78,6 +94,51 @@ function valuationRung(u: string, p: Record<string, unknown>): Rung | null {
   // The cheapest number on rung L: q^T(L) × m, T(L) = L(L + 1)/2, m the smallest |m| leaving r (r or r − q).
   const r = BigInt(p.r as number), m = r < q - r ? r : q - r, cheapest = q ** BigInt((L * (L + 1)) / 2) * m;
   return [String(L), LINE_Q_CODES.c.bits(cheapest)];
+}
+/** The prime p of a rung u = landingLevel(p) = ℓ + (D − ℓ(ℓ + 1)/2 + p/10^D)/(ℓ + 1), or null off the ladder (u < 1). */
+function primeOfLevel(u: string): bigint | null {
+  if (u.startsWith("-")) return null;
+  const [ns, ds = "1"] = u.split("/");
+  const n = BigInt(ns!), d = BigInt(ds);
+  const level = n / d;
+  if (level < 1n) return null;
+  const xn = (n - level * d) * (level + 1n);   // x = (u − ℓ)(ℓ + 1) = xn/d = (D − T) + p/10^D
+  const extra = xn / d, D = level * (level + 1n) / 2n + extra;
+  const num = (xn - extra * d) * 10n ** D;
+  return num % d === 0n ? num / d : null;
+}
+/**
+ * The least code cost of a fraction line a·x + b·y + c = 0 (primitive, b > 0) whose triangle's area c²/(2|a|b) rounds
+ * down to p, for every p it reaches within AREA_BUDGET bits (a and c take the mixed code, bits(1) + sopfr/2; b the steps
+ * code). Rungs costlier than that are left unpriced. About a second.
+ */
+const AREA_BUDGET = 36;
+let AREA_COSTS: Map<bigint, number> | null = null;
+function areaCosts(): Map<bigint, number> {
+  if (AREA_COSTS) return AREA_COSTS;
+  const one = LINE_Q_CODES.c.bits(1n), most = 2 * (AREA_BUDGET - LINE_Q_CODES.b.bits(1n) - 2 * one);
+  const primes: number[] = [];
+  for (let n = 2; n <= most; n++) if (primes.every(x => n % x !== 0)) primes.push(n);
+  // Every n ≥ 1 whose prime factors (with repeats) add up to at most `most`, with that sum, cheapest first.
+  const cheap: [bigint, number][] = [];
+  const walk = (n: bigint, s: number, i: number) => { cheap.push([n, s]); for (let j = i; j < primes.length && s + primes[j]! <= most; j++) walk(n * BigInt(primes[j]!), s + primes[j]!, j); };
+  walk(1n, 0, 0);
+  cheap.sort((x, y) => x[1] - y[1]);
+  const costs = new Map<bigint, number>();
+  for (let b = 1n; LINE_Q_CODES.b.bits(b) + 2 * one <= AREA_BUDGET; b++) {
+    const bb = LINE_Q_CODES.b.bits(b), left = 2 * (AREA_BUDGET - bb - 2 * one);
+    for (const [a, sa] of cheap) {
+      if (sa > left) break;
+      for (const [c, sc] of cheap) {
+        if (sa + sc > left) break;
+        if (gcd(gcd(a, b), c) !== 1n) continue;
+        const p = (c * c) / (2n * a * b), bits = bb + 2 * one + (sa + sc) / 2;
+        if (bits < (costs.get(p) ?? Infinity)) costs.set(p, bits);
+      }
+    }
+  }
+  AREA_COSTS = costs;
+  return costs;
 }
 const isPrime = (n: bigint) => { if (n < 2n) return false; for (let i = 2n; i * i <= n; i++) if (n % i === 0n) return false; return true; };
 const STAIRCASE_COSTS = new Map<number, number[]>();

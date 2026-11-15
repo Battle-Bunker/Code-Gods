@@ -698,7 +698,7 @@ The check table (design-principles.md), every two-line family:
 - **Still open: test 2** (§10.1's axis-line mechanism, and the rest). The proposal is with the coordinator. The preset
   stays non-default.
 
-## 11. The axis-line basin in the law, the price trial for pairs, cards (trial 30, 15 November)
+## 11. The axis-line basin in the law, the price trial for pairs, cards (trial 31, 15 November)
 
 The coordinator's orders after #837:
 - (1) fix the axis-line basin in the law, and judge test 2 by the twelve-search hit rate;
@@ -706,7 +706,7 @@ The coordinator's orders after #837:
 - (b) cards of at most 30 and 20 words, and the beginner economy;
 - and the spec lead's straight-climb check.
 
-### 11.1 A zero coefficient rarer in the pair law (trial 30)
+### 11.1 A zero coefficient rarer in the pair law (trial 31)
 
 - **What the coordinator asked for, and what it turned out to be.** The coordinator asked to price a zero coefficient as
   line-q does (code C3, p(0) = 1/8). The pair law already did, since it draws each line from line-q's codes. Yet 25.2%

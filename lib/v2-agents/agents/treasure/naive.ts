@@ -1,5 +1,5 @@
 // Treasure · Naive (for learning)
-// Main part: y(k) close to T. Tie-breaker: whichever you were dealt (different primes among y(1) … y(8); the gradient close to a prime; the y-intercept close to a square; the gradient's smallest prime factor; the gradient's largest prime factor).
+// Main part: y(k) on as big a coin pile as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both the pile's height and the gradient's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,31 +8,18 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  if (m === null) {               // the vertical line x = c
-    const main = Q.neg(Q.abs(Q.sub(c, p.k)));      // how far across from (k, T) it passes
-    return [main, null];
-  }
-  const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
-  // main: how far y(k) is from T (closer is better)
-  if (tie === "prime-terms") {   // more different primes among y(1) ... y(8) is better
-    const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.mul(p.T < 0 ? -1 : 1, Q.add(Q.mul(m, x), c))).filter(prime).map(Q.toString));   // y(1) ... y(8), minus them when T is below zero
-    return [main, primes.size];
-  }
-  if (tie === "prime-gradient") {   // a gradient close to a prime is better
-    const mp = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, m), prime));   // the prime (minus a prime when T is below zero) nearest the gradient
-    return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
-  }
-  if (tie === "square-start") {   // a y-intercept close to a square number is better
-    const sq = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, c), square));   // the square (minus a square when T is below zero) nearest the y-intercept
-    return [main, Q.neg(Q.abs(Q.sub(c, sq)))];
-  }
-  if (tie === "m-spf") {   // the gradient's smallest prime factor big is better
-    const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
-    return [main, fm[0] ?? 1];
-  }
-  if (tie === "m-gpf") {   // the gradient's largest prime factor big is better
-    const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
-    return [main, fm.at(-1) ?? 1];
+  const level = r => { const D = Q.toString(r).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(r, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
+  const s = p.side ?? 1, y = Q.mul(s, Q.add(Q.mul(m, p.k), c));   // y(k) = m·k + c, or minus it on the mirror
+  const T = h => Q.div(Q.mul(h, Q.add(h, 1)), 2);   // the coin pile h coins high: h(h + 1)/2
+  const hf = Q.cmp(y, 1) < 0 ? 1 : whole(Q.sub(Q.div(Q.sub(root(Q.add(Q.mul(8, whole(Q.sub(y, Q.div(1, 2)))), 1)), 1), 2), Q.div(1, 2)));   // the biggest pile's height up to y(k)
+  const lo = T(hf), hi = T(Q.add(hf, 1)), up = Q.cmp(Q.sub(hi, y), Q.sub(y, lo)) < 0;
+  const rung = up ? hi : lo, height = up ? Q.add(hf, 1) : hf;   // the coin pile nearest y(k) (the smaller on a tie): the rung
+  const gap = Q.abs(Q.sub(y, rung));               // on the rung when it rounds there (within 1/2, ties up)
+  const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, y), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
+  // main: the coin pile (1, 3, 6, 10, ...) y(k) rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
+  if (tie === "shared-factor") {   // the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
+    const wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the whole part of the gradient's size
+    return [main, common(height, wm)];
   }
   return [main];
 }

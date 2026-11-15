@@ -31,8 +31,11 @@ if (!process.env.SKIP_DEPLOY) {
   assert.equal(deploy.status, 0, "deploy-static failed");
 }
 
+/** The playtester's phone (scripts/persona-walk/server.js): touch, a mobile layout and Safari's user agent. */
+const PHONE = { isMobile: true, hasTouch: true, deviceScaleFactor: 2, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1" };
+
 async function signIn(browser: any, who: string, viewport = { width: 1440, height: 900 }) {
-  const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ viewport, deviceScaleFactor: 1, ...(viewport.width < 768 ? PHONE : {}) });
   const page = await context.newPage();
   const errors: string[] = [];
   page.on("pageerror", (e: Error) => errors.push(e.message));
@@ -201,20 +204,25 @@ async function phoneEnd(browser: any) {
   await page.getByTestId("pane-results").getByText(/You finished/).waitFor({ timeout: 20_000 });
   assert.equal(await scroller.evaluate((el: HTMLElement) => el.scrollTop), 0, "phone: the end opens at How the game went");
   await page.getByTestId("text-summary-next").waitFor({ timeout: 15_000 });
-  await scroller.evaluate((el: HTMLElement) => el.scrollTo(0, el.scrollHeight));
-  await page.waitForTimeout(500);
-  let last = await scroller.evaluate((el: HTMLElement) => el.scrollTop);
-  while (last > 0) {
-    await scroller.evaluate((el: HTMLElement) => el.scrollBy(0, -350));
-    await page.waitForTimeout(400);
-    const now = await scroller.evaluate((el: HTMLElement) => el.scrollTop);
-    assert.ok(now < last, `phone: scrolling up moves up (${last} → ${now}), never back down`);
-    last = now;
-  }
-  const earned = page.getByTestId("pane-results").getByText("What earned your points");
-  if (await earned.count()) { await earned.scrollIntoViewIfNeeded(); assert.ok(await earned.isVisible(), "phone: What earned your points can be reached"); }
+  // The playtester's steps (round 26/27): the top bar's "See it line by line", then "How the game went" from the row of
+  // pane names, then the mouse wheel at the centre of the screen, 700 px at a time.
   await page.getByTestId("button-line-by-line-bar").click();
   await page.getByTestId("pane-objects").locator("[data-testid^=row-line-]").first().waitFor({ timeout: 15_000 });
+  await page.getByTestId("button-jump-results").click();
+  await page.waitForTimeout(800);
+  const earned = page.getByTestId("pane-results").getByText("What earned your points");
+  let seen = false, last = -1;
+  for (let i = 0; i < 8 && !seen; i++) {
+    await page.mouse.move(195, 422);
+    await page.mouse.wheel(0, 700);
+    await page.waitForTimeout(500);
+    const box = await earned.boundingBox();
+    seen = !!box && box.y >= 0 && box.y < 844;
+    const top = await scroller.evaluate((el: HTMLElement) => el.scrollTop);
+    assert.ok(top >= last, `phone: the wheel moves the page down (${last} → ${top}), never back`);
+    last = top;
+  }
+  assert.ok(seen, "phone: the wheel reaches What earned your points");
   await page.screenshot({ path: path.join(shots, "ended-phone.png") });
   assert.deepEqual(errors, [], "phone: no page errors");
   await context.close();

@@ -7,7 +7,7 @@ import { pairMutators } from "./mutators.ts";
 import { pairFamilies } from "./families.ts";
 
 /**
- * Two lines on the rationals, each coded as line-q codes a line but with a zero rarer (PAIR_CODES, trial 30; no box: owner decision 26): linesPerObject 2 makes line-q's mutators price "which line" as
+ * Two lines on the rationals, each coded as line-q codes a line but with a zero rarer (PAIR_CODES, trial 31; no box: owner decision 26): linesPerObject 2 makes line-q's mutators price "which line" as
  * one bit. Fifteen mutators, uniform "which" (log2 15).
  */
 export const pairQ: Variant = {

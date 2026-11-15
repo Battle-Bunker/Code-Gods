@@ -67,12 +67,12 @@ test("a redraw never seats a pair the line seating rule forbids (Prime Landing b
 
 test("a ladder family is never redrawn (the coordinator's amendment of call 18): its seat keeps its dealt parameters", async () => {
   const { familyOf } = await import("../../convex/v2/deal.ts");
-  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }]] as const) {
+  for (const [family, tb, params] of [["prime-landing", "shared-factor", { ends: 1 }], ["prime-staircase", "shared-factor", { ends: 3 }], ["whole-crossing", "shared-factor", { q: 5, r: 2 }], ["smooth-intercept", "shared-factor", { primes: [3, 7] }], ["treasure", "shared-factor", { k: 3 }]] as const) {
     assert.equal(familyOf(family).keepsParams, true, family);
     for (let tick = 1; tick <= 12; tick++) assert.equal(redrawParams("line-q", family, tb, params, "seed", 1, tick), null, `${family} tick ${tick}`);
   }
   // A bounded family still drifts.
-  assert.ok(Array.from({ length: 12 }, (_, t) => redrawParams("line-q", "treasure", "prime-terms", { k: 2, T: 11 }, "seed", 1, t + 1)).some(x => x !== null));
+  assert.ok(Array.from({ length: 12 }, (_, t) => redrawParams("line-q", "same-on-both-rulers", "steep", { T: 6 }, "seed", 1, t + 1)).some(x => x !== null));
 });
 
 test("a pair rule is a ladder: drift never redraws its numbers (a redraw reset the climb; keepsParams)", () => {

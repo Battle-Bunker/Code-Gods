@@ -24,5 +24,5 @@ test("the line seating rule forbids exactly the Prime Landing and Whole Crossing
   assert.equal(lineClashes([{ family: "prime-landing", params: { ends: 1, side: -1 } }, { family: "whole-crossing", params: { q: 5, r: 4 } }]).length, 1);
   assert.equal(lineClashes([{ family: "prime-landing", params: { ends: 9 } }, { family: "whole-crossing", params: { q: 5, r: 2 } }]).length, 0);
   // Families without known parameters (a won bid's seat) and other families never clash.
-  assert.equal(lineClashes([{ family: "prime-landing" }, { family: "whole-crossing" }, { family: "treasure", params: { k: 2, T: 11 } }]).length, 0);
+  assert.equal(lineClashes([{ family: "prime-landing" }, { family: "whole-crossing" }, { family: "treasure", params: { k: 2 } }]).length, 0);
 });
