@@ -121,10 +121,12 @@ const replayOf = (v: ViewState) => {
 
 export const VIEW_REDUCERS: { [Id in ViewOpId]: Reducer<Id> } = {
   "view.openPane": (v, a, ctx) => opened(v, a.pane, a.place, ctx),
-  // Closing the object or replay pane closes what it showed, so nothing acts on a pane the human cannot see.
+  // Closing the object or replay pane closes what it showed, so nothing acts on a pane the human cannot see. Closing
+  // "glossary" closes the glossary dialog for good (on reload and every page), until it is asked for again.
   "view.closePane": (v, a, ctx) => ({
     ...v, panes: v.panes.filter(p => p.pane !== a.pane), dock: closed(v, a.pane, ctx),
     ...(a.pane === "object" ? { focus: null } : {}), ...(a.pane === "replay" ? { replay: null } : {}),
+    ...(a.pane === "glossary" ? { glossary: null } : {}),
   }),
   "view.movePane": (v, a, ctx) => {
     if (!v.panes.some(p => p.pane === a.pane)) throw new OpFailure(`The ${a.pane} pane is not open.`, "view.openPane");
