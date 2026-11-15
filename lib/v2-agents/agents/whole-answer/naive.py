@@ -12,12 +12,13 @@ def score(L, p, tie):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -(dist(f.x) + dist(f.y))
-    # main: how far the answer (x, y) is from whole numbers (closer is better)
+    X = nearest_leaving(f.x, p["q"], p["r"])   # x's whole number that leaves your remainder
+    main = -(abs(f.x - X) + dist(f.y))
+    # main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)
     if tie == "peg-divisor":   # |X| + |Y| sharing a big factor with the number you divide by is better
-        return [main, common(abs(f.X) + abs(f.Y), f.D)]
+        return [main, common(abs(X) + abs(f.Y), f.D)]
     if tie == "south-west":   # an answer far down and to the left is better
-        return [main, -(f.X + f.Y)]
+        return [main, -(X + f.Y)]
     return [main]
 
 

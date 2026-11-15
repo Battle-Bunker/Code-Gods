@@ -100,19 +100,25 @@ const SEATING_TRIES = 200;
 /** The deal's random stream for a game seed: the fresh deal and the bid dealer draw from the same one. */
 export const dealRng = (seed: string): Rng => rng(seed, "deal");
 /**
- * A fresh deal drawn from `r`: a shuffle of the pool dealt in order. With `clashes` (the seating rule's cost of the dealt
- * families), the first shuffle costing 0, else the cheapest.
+ * A fresh deal drawn from `r` (the coordinator's rule): the families in a seeded random order, so each family is equally
+ * likely whatever the number of its (parameters, tie-breaker) entries, and no family twice at a table while the pool
+ * has families enough (they are reused, in the same order, only beyond that); each seat gets one of its family's
+ * entries uniformly. With `clashes` (the seating rule's cost of the dealt families), the first draw costing 0, else the
+ * cheapest.
  */
 export function dealFrom(pool: readonly DealtRule[], seats: number, r: Rng, clashes?: (families: readonly string[]) => number): DealtRule[] {
   if (pool.length === 0) throw new Error("No rule of this preset is dealable (none has a value function): nothing can be dealt");
+  const byFamily = new Map<string, DealtRule[]>();
+  for (const x of pool) byFamily.set(x.family, [...(byFamily.get(x.family) ?? []), x]);
+  const families = [...byFamily.keys()];
   let best: DealtRule[] | undefined, fewest = Infinity;
   for (let t = 0; t < (clashes ? SEATING_TRIES : 1); t++) {
-    const order = [...pool];
+    const order = [...families];
     for (let i = order.length - 1; i > 0; i--) {
       const j = r.below(i + 1);
       [order[i], order[j]] = [order[j]!, order[i]!];
     }
-    const deal = Array.from({ length: seats }, (_, i) => order[i % order.length]!);
+    const deal = Array.from({ length: seats }, (_, i) => { const entries = byFamily.get(order[i % order.length]!)!; return entries[r.below(entries.length)]!; });
     const n = clashes ? clashes(deal.map(x => x.family)) : 0;
     if (n < fewest) { best = deal; fewest = n; }
     if (n === 0) break;

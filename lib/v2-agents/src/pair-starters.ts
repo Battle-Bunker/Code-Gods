@@ -40,16 +40,19 @@ const T = (ts: string, py: string, says: string, tryThis: string): PairTieBreake
 
 export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
-    family: "whole-answer", mainSays: "how far the answer (x, y) is from whole numbers (closer is better)", simple: ["slide", "turn"],
-    main: { ts: [DIST.ts, PARALLEL.ts, "const main = Q.neg(Q.add(dist(f.x), dist(f.y)));"], py: [DIST.py, ...PARALLEL.py, "main = -(dist(f.x) + dist(f.y))"] },
+    family: "whole-answer", mainSays: "how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)", simple: ["slide", "turn"],
+    main: {
+      ts: [DIST.ts, PARALLEL.ts, "const X = nearestLeaving(f.x, p.q, p.r);   // x's whole number that leaves your remainder", "const main = Q.neg(Q.add(Q.abs(Q.sub(f.x, X)), dist(f.y)));"],
+      py: [DIST.py, ...PARALLEL.py, "X = nearest_leaving(f.x, p[\"q\"], p[\"r\"])   # x's whole number that leaves your remainder", "main = -(abs(f.x - X) + dist(f.y))"],
+    },
     tieBreakers: {
-      "peg-divisor": T("common(Q.add(Q.abs(f.X), Q.abs(f.Y)), f.D)", "common(abs(f.X) + abs(f.Y), f.D)", "|X| + |Y| sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and the number you divide by."),
-      "south-west": T("Q.neg(Q.add(f.X, f.Y))", "-(f.X + f.Y)", "an answer far down and to the left is better", "change FAR = 3 to 5: the answer slides further in one step."),
+      "peg-divisor": T("common(Q.add(Q.abs(X), Q.abs(f.Y)), f.D)", "common(abs(X) + abs(f.Y), f.D)", "|X| + |Y| sharing a big factor with the number you divide by is better", "add \"combine\" to KINDS: it keeps the answer and the number you divide by."),
+      "south-west": T("Q.neg(Q.add(X, f.Y))", "-(X + f.Y)", "an answer far down and to the left is better", "change FAR = 3 to 5: the answer slides further in one step."),
     },
   },
   {
-    family: "no-fractions", mainSays: "how far the number you divide by is from 1 (closer is better)", simple: ["combine", "turn"],
-    main: { ts: [FLOOR.ts, PARALLEL.ts, "const main = Q.neg(Q.sub(Q.abs(f.D), 1));"], py: [...PARALLEL.py, "main = -(abs(f.D) - 1)"] },
+    family: "no-fractions", mainSays: "how far the number you divide by is from your number k (closer is better)", simple: ["combine", "turn"],
+    main: { ts: [FLOOR.ts, PARALLEL.ts, "const main = Q.neg(Q.abs(Q.sub(Q.abs(f.D), p.k)));"], py: [...PARALLEL.py, "main = -abs(abs(f.D) - p[\"k\"])"] },
     tieBreakers: {
       "answer-prime": T("spf(Q.add(Q.abs(f.X), Q.abs(f.Y)))", "spf(abs(f.X) + abs(f.Y))", "|X| + |Y| with a big smallest prime factor is better", "add \"slide\" to KINDS: it moves the answer along a line."),
       "answer-gradient": T("f.ms === null ? 0 : common(Q.add(Q.abs(f.X), Q.abs(f.Y)), floor(Q.abs(f.ms)))", "0 if f.ms is None else common(abs(f.X) + abs(f.Y), abs(f.ms) // 1)", "|X| + |Y| sharing a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
@@ -72,10 +75,10 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "double-gap", mainSays: "how far the y-intercepts' gap is from a whole number twice the x-intercepts' gap (closer is better)", simple: ["shift", "tilt"],
+    family: "double-gap", mainSays: "how far the y-intercepts' gap is from a whole number k times the x-intercepts' gap (closer is better)", simple: ["shift", "tilt"],
     main: {
-      ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = Q.neg(Q.add(Q.abs(Q.sub(f.ygap, Q.mul(2, f.xgap))), dist(f.ygap)));"],
-      py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = -(abs(f.ygap - 2 * f.xgap) + dist(f.ygap))"],
+      ts: [DIST.ts, "if (f.ygap === null || f.xgap === null || f.origin) return null;   // no gaps, or a line through (0, 0): no score", "const main = Q.neg(Q.add(Q.abs(Q.sub(f.ygap, Q.mul(p.k, f.xgap))), dist(f.ygap)));"],
+      py: [DIST.py, "if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score", "    return None", "main = -(abs(f.ygap - p[\"k\"] * f.xgap) + dist(f.ygap))"],
     },
     tieBreakers: {
       "gap-divisor": T("common(whole(f.ygap), f.D)", "common(whole(f.ygap), f.D)", "the gap sharing a big factor with the number you divide by is better", "add \"stretch\" to KINDS: it scales a line's gap."),
@@ -83,36 +86,39 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
   },
   {
-    family: "far-crossing", mainSays: "how far the steeper line's x-intercept is from a whole number (closer is better)", simple: ["shift", "tilt"],
-    main: { ts: [DIST.ts, "if (f.rs === null) return null;   // the steeper line is flat: no score", "const main = Q.neg(dist(f.rs));"], py: [DIST.py, "if f.rs is None:   # the steeper line is flat: no score", "    return None", "main = -dist(f.rs)"] },
+    family: "far-crossing", mainSays: "how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)", simple: ["shift", "tilt"],
+    main: {
+      ts: ["if (f.rs === null) return null;   // the steeper line is flat: no score", "const R = nearestLeaving(f.rs, p.q, p.r);   // the whole number that leaves your remainder", "const main = Q.neg(Q.abs(Q.sub(f.rs, R)));"],
+      py: ["if f.rs is None:   # the steeper line is flat: no score", "    return None", "R = nearest_leaving(f.rs, p[\"q\"], p[\"r\"])   # the whole number that leaves your remainder", "main = -abs(f.rs - R)"],
+    },
     tieBreakers: {
-      "far-right": T("whole(f.rs)", "whole(f.rs)", "an x-intercept far to the right is better", "add \"stretch\" to KINDS and see if it moves faster."),
-      "far-prime": T("spf(whole(f.rs))", "spf(whole(f.rs))", "an x-intercept with a big smallest prime factor is better", "change FAR = 3 to 5 so the crossing can jump to a bigger prime."),
+      "far-right": T("R", "R", "an x-intercept far to the right is better", "add \"stretch\" to KINDS and see if it moves faster."),
+      "far-prime": T("spf(R)", "spf(R)", "an x-intercept with a big smallest prime factor is better", "change FAR = 3 to 5 so the crossing can jump to a bigger prime."),
     },
   },
   {
-    family: "high-start", mainSays: "how far the steeper line's y-intercept is from a whole number (closer is better)", simple: ["shift", "tilt"],
-    main: { ts: [DIST.ts, FLOOR.ts, "if (f.cs === null || f.ms === null) return null;   // the steeper line is upright: no score", "const main = Q.neg(dist(f.cs));"], py: [DIST.py, FLOOR.py, "if f.cs is None or f.ms is None:   # the steeper line is upright: no score", "    return None", "main = -dist(f.cs)"] },
+    family: "high-start", mainSays: "how far the gentler line's y-intercept is from a whole number with your remainder (closer is better)", simple: ["shift", "tilt"],
+    main: {
+      ts: [FLOOR.ts, "if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score", "const H = nearestLeaving(f.cg, p.q, p.r);   // the whole number that leaves your remainder", "const main = Q.neg(Q.abs(Q.sub(f.cg, H)));"],
+      py: [FLOOR.py, "if f.cg is None or f.mg is None:   # the gentler line is upright: no score", "    return None", "H = nearest_leaving(f.cg, p[\"q\"], p[\"r\"])   # the whole number that leaves your remainder", "main = -abs(f.cg - H)"],
+    },
     tieBreakers: {
-      "steep-and-high": T("Q.cmp(whole(f.cs), floor(f.ms)) < 0 ? whole(f.cs) : floor(f.ms)", "min(whole(f.cs), floor(f.ms))", "the smaller of the y-intercept and the gradient's whole part big is better", "add \"stretch\" to KINDS: it raises both at once."),
-      "start-factors": T("omega(common(whole(f.cs), f.D))", "omega(common(whole(f.cs), f.D))", "a y-intercept sharing many prime factors with the number you divide by is better", "add \"combine\" to KINDS and compare."),
+      "high-and-rising": T("Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)", "min(H, floor(f.mg))", "the smaller of the gentler line's y-intercept and its gradient's whole part big is better", "add \"stretch\" to KINDS: it raises both, but a steeper gentler line can stop being the gentler one."),
+      "start-factors": T("omega(common(H, f.D))", "omega(common(H, f.D))", "a y-intercept sharing many prime factors with the number you divide by is better", "add \"combine\" to KINDS and compare."),
     },
   },
   {
-    family: "steep-ratio", mainSays: "how far the steeper line is from a whole number of times as steep as the other (closer is better)", simple: ["tilt", "stretch"],
+    family: "steep-ratio", mainSays: "how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better)", simple: ["tilt", "stretch"],
     main: {
       ts: [
         "if (f.ratio === null) return null;   // no ratio of gradients: no score",
-        "let k = whole(f.ratio);   // the whole number of times nearest (at least 2 either way)",
-        "if (Q.cmp(Q.abs(k), 2) < 0) k = Q.cmp(f.ratio, 0) < 0 ? -2 : 2;",
+        "const k = nearestLeaving(f.ratio, p.q, p.r, 2);   // the whole number of times with your remainder (at least 2 either way)",
         "const main = Q.neg(Q.abs(Q.sub(f.ratio, k)));",
       ],
       py: [
         "if f.ratio is None:   # no ratio of gradients: no score",
         "    return None",
-        "k = whole(f.ratio)   # the whole number of times nearest (at least 2 either way)",
-        "if abs(k) < 2:",
-        "    k = -2 if f.ratio < 0 else 2",
+        "k = nearest_leaving(f.ratio, p[\"q\"], p[\"r\"], 2)   # the whole number of times with your remainder (at least 2 either way)",
         "main = -abs(f.ratio - k)",
       ],
     },

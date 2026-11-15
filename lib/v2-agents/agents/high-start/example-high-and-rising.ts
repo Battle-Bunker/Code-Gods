@@ -1,18 +1,18 @@
-// High Start · Example: the steeper line high and steep
-// Main part: the steeper line crosses the y-axis at a whole number. Tie-breaker: the steeper line high and steep.
+// High Start · Example: the gentler line high and rising
+// Main part: the gentler line crosses the y-axis at a whole number with the dealt remainder. Tie-breaker: the gentler line high and rising.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: add "stretch" to KINDS: it raises both at once.
+// Try this: add "stretch" to KINDS: it raises both, but a steeper gentler line can stop being the gentler one.
 
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
-  if (f.cs === null || f.ms === null) return null;   // the steeper line is upright: no score
-  const main = Q.neg(dist(f.cs));
-  return [main, Q.cmp(whole(f.cs), floor(f.ms)) < 0 ? whole(f.cs) : floor(f.ms)];   // main: how far the steeper line's y-intercept is from a whole number (closer is better); tie-breaker: the smaller of the y-intercept and the gradient's whole part big is better
+  if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
+  const H = nearestLeaving(f.cg, p.q, p.r);   // the whole number that leaves your remainder
+  const main = Q.neg(Q.abs(Q.sub(f.cg, H)));
+  return [main, Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)];   // main: how far the gentler line's y-intercept is from a whole number with your remainder (closer is better); tie-breaker: the smaller of the gentler line's y-intercept and its gradient's whole part big is better
 }
 
 const FAR = 3;      // how far one move may go

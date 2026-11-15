@@ -476,12 +476,14 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "whole-crossing",
-    mainSays: "how far the line's x-axis crossing is from a whole number (closer is better)",
+    mainSays: "how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better)",
     main: {
       ts: [
         "if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score",
         "const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis",
-        "const k = whole(x);                             // the whole number nearest the crossing",
+        "const t = Q.div(Q.sub(x, p.r), p.q), j = whole(t);",
+        "let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest",
+        "if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);",
         `const main = ${neg("Q.abs(Q.sub(x, k))")};`,
         "const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)",
       ],
@@ -489,7 +491,11 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "if m == 0:                                      # a flat line never crosses: the worst score",
         "    return None",
         "x = -c / m                                      # where y = mx + c crosses the x-axis",
-        "k = whole(x)                                    # the whole number nearest the crossing",
+        "t = (x - p[\"r\"]) / p[\"q\"]",
+        "j = whole(t)",
+        "k = p[\"r\"] + p[\"q\"] * j   # the dealt number nearest",
+        "if 2 * (j - t) == 1 and abs(k - p[\"q\"]) <= abs(k):",
+        "    k = k - p[\"q\"]",
         "main = -abs(x - k)",
         "fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)",
       ],
@@ -497,12 +503,18 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     vertical: {
       main: {
         ts: [
-          "const k = whole(c);                             // the whole number nearest where it stands (x = c)",
+          "const t = Q.div(Q.sub(c, p.r), p.q), j = whole(t);",
+          "let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest",
+          "if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);",
           "const main = Q.neg(Q.abs(Q.sub(c, k)));",
           "const fk = factors(k);                          // its prime factors, smallest first",
         ],
         py: [
-          "k = whole(c)                                    # the whole number nearest where it stands (x = c)",
+          "t = (c - p[\"r\"]) / p[\"q\"]",
+          "j = whole(t)",
+          "k = p[\"r\"] + p[\"q\"] * j   # the dealt number nearest",
+          "if 2 * (j - t) == 1 and abs(k - p[\"q\"]) <= abs(k):",
+          "    k = k - p[\"q\"]",
           "main = -abs(c - k)",
           "fk = factors(k)                                 # its prime factors, smallest first",
         ],

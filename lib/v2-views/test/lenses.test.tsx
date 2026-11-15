@@ -15,7 +15,7 @@ const mc = (m: number | Q, c: number | Q): LineState =>
   ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
 const abc = (a: number, b: number, c: number): LineState => ({ lines: [normalise(BigInt(a), BigInt(b), BigInt(c)) as Line] });
 const evaluation = (family: RuleFamily<LineState, any>, s: LineState) =>
-  annotate({ type: lineType, family, params: {}, variant: lineQ } as RuleRef<LineState, unknown>, s).sites[0]!.evaluation;
+  annotate({ type: lineType, family, params: family.dealable(lineQ)[0], variant: lineQ } as RuleRef<LineState, unknown>, s).sites[0]!.evaluation;
 const view = (s: LineState, rep: string, size: "compact" | "expanded", marks: readonly Mark[] = [], extra: { highlight?: string } = {}) =>
   renderToStaticMarkup(<RepView type={lineType} state={s} rep={rep} size={size} marks={marks} highlight={extra.highlight} />);
 /** The opening tag of the node with this data-ref. */
@@ -83,7 +83,7 @@ test("table: a line through (0, 0) has no run to count, and its table draws no y
 
 test("the expanded faces of both families draw their lenses", () => {
   const face = (family: RuleFamily<LineState, any>, s: LineState) =>
-    renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family, params: {}, variant: lineQ }} state={s} />);
+    renderToStaticMarkup(<ExpandedFace rule={{ type: lineType, family, params: family.dealable(lineQ)[0], variant: lineQ }} state={s} />);
   assert.match(face(wholeCrossing, mc(3, -7)), /data-rep="crossing"/);
   assert.match(face(divisibilityLadder, mc(6, 6)), /data-rep="table"[\s\S]*y ÷ x/);
 });

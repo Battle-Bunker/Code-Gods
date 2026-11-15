@@ -12,8 +12,9 @@ def score(L, p):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -(dist(f.x) + dist(f.y))
-    return [main, common(abs(f.X) + abs(f.Y), f.D)]   # main: how far the answer (x, y) is from whole numbers (closer is better); tie-breaker: |X| + |Y| sharing a big factor with the number you divide by is better
+    X = nearest_leaving(f.x, p["q"], p["r"])   # x's whole number that leaves your remainder
+    main = -(abs(f.x - X) + dist(f.y))
+    return [main, common(abs(X) + abs(f.Y), f.D)]   # main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better); tie-breaker: |X| + |Y| sharing a big factor with the number you divide by is better
 
 
 FAR = 3      # how far one move may go

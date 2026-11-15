@@ -33,31 +33,33 @@ const EDGE: PairState[] = [
   "-1,1,-3;0,1,-7",    // one flat line
 ].map(w => pairType.decode(w));
 
-async function agentScores(language: "typescript" | "python", family: string, tb: string | null, tie: string, states: PairState[]): Promise<string[]> {
-  const L = JSON.stringify(states.map(wire));
-  const args = tb === null ? `{}, ${JSON.stringify(tie)}` : "{}";
+async function agentScores(language: "typescript" | "python", family: string, params: object, tb: string | null, tie: string, states: PairState[]): Promise<string[]> {
+  const L = JSON.stringify(states.map(wire)), P = JSON.stringify(params);
+  const args = tb === null ? `${P}, ${JSON.stringify(tie)}` : P;
   const probe = language === "python"
     ? `\nSTATES = ${L}\n\n\ndef agent(offer):\n    out = []\n    for w in STATES:\n        s = score([[Fraction(int(x)) for x in l.split(",")] for l in w.split(";")], ${args})\n        out.append("worst" if s is None else ",".join("null" if x is None else str(Fraction(x)) for x in s))\n    return [move("probe", r=";".join(out))]\n`
     : `\nconst STATES = ${L};\nfunction agent(offer) {\n  return [move("probe", { r: STATES.map(w => { const s = score(w.split(";").map(l => l.split(",").map(x => Q.from(x))), ${args}); return s === null ? "worst" : s.map(x => x === null ? "null" : Q.toString(Q.from(x))).join(","); }).join(";") })];\n}\n`;
   const source = scoreSource(family, tb, language) + probe;
-  const host = new EngineHost({ type: pairType, variant: pairQ, state: states[0]!, rule: { family, params: {} }, energy: 0 });
+  const host = new EngineHost({ type: pairType, variant: pairQ, state: states[0]!, rule: { family, params }, energy: 0 });
   const res = await (await boxes.get(language)).act({ source, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
   assert.equal(res.ok, true, res.ok ? "" : res.error);
   return (JSON.parse(res.ok ? res.calls : "[]")[0].args.r as string).split(";");
 }
 
-test("a pair agent's own score is the engine's, for every dealt family and tie-breaker, in both languages", async () => {
+test("a pair agent's own score is the engine's, for every dealt family, tie-breaker and a spread of dealt numbers, in both languages", async () => {
   const states = [...EDGE, ...births(pairType, pairQ, "pair-scores", 40)];
   for (const family of DEALT) {
-    const f = familyOf(family);
-    for (const tb of f.tieBreakers) {
+    const f = familyOf(family), all = f.dealable(pairQ);
+    // The first, middle and last dealt numbers (every residue modulus, both ends of k).
+    for (const params of [...new Set([0, all.length >> 1, all.length - 1])].map(i => all[i]!)) for (const tb of f.tieBreakers) {
       const engine = states.map(s => {
-        const score = scoreToWire(evaluateSite(pairType, f, {}, s, pairQ, 0, tb.id).score);
+        const score = scoreToWire(evaluateSite(pairType, f, params, s, pairQ, 0, tb.id).score);
         return score === null ? "worst" : score.map(x => x ?? "null").join(",");
       });
+      const at = `${family} ${JSON.stringify(params)}/${tb.id}`;
       for (const language of ["typescript", "python"] as const) {
-        assert.deepEqual(await agentScores(language, family, tb.id, tb.id, states), engine, `${family}/${tb.id} example, ${language}`);
-        assert.deepEqual(await agentScores(language, family, null, tb.id, states), engine, `${family}/${tb.id} starters, ${language}`);
+        assert.deepEqual(await agentScores(language, family, params, tb.id, tb.id, states), engine, `${at} example, ${language}`);
+        assert.deepEqual(await agentScores(language, family, params, null, tb.id, states), engine, `${at} starters, ${language}`);
       }
     }
   }
@@ -67,10 +69,10 @@ test("every pair starter acts on newborn pairs without failing, and makes only m
   const starts = births(pairType, pairQ, "pair-acts", 3);
   let moved = 0;
   for (const family of DEALT) for (const language of ["typescript", "python"] as const) for (const a of startersFor(family, language)) {
-    const tieBreaker = familyOf(family).tieBreakers[0]!.id;
+    const tieBreaker = familyOf(family).tieBreakers[0]!.id, params = familyOf(family).dealable(pairQ)[0]!;
     for (const [i, state] of starts.entries()) {
       const { record } = await runAct(await boxes.get(language), {
-        type: pairType, variant: pairQ, state, rule: { family, params: {}, tieBreaker }, program: { language, source: a.source }, seed: String(i), energy: 600,
+        type: pairType, variant: pairQ, state, rule: { family, params, tieBreaker }, program: { language, source: a.source }, seed: String(i), energy: 600,
       });
       assert.ok(record.outcome === "committed" || record.outcome === "skipped", `${family} ${a.kind} ${language} on ${pairType.encode(state)}: ${record.outcome} ${record.reason ?? ""}`);
       if (record.outcome === "committed") moved++;
