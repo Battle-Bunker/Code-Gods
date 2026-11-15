@@ -1,5 +1,5 @@
 # Same on Both Rulers · Thorough
-# Main part: where the line meets y = x, on as big a number reading the same backwards as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
+# Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -38,15 +38,15 @@ def on_rung(y, r):   # on the rung when y rounds to it: its levels of digits (le
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        y = p.get("side", 1) * c                        # x = c meets y = x at c
+        y = abs(c)                                     # x = c meets y = x and y = -x at x = c
         main = on_rung(y, rung_of(y, p["digits"] == "odd"))
         return [main, None]
-    if m == 1:                                      # parallel to y = x: no number stays unchanged
+    if m == p["meets"]:                             # parallel to y = x (or y = -x): it never meets it
         return None
-    y = p.get("side", 1) * c / (1 - m)              # the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)
+    y = abs(c / (p["meets"] - m))                   # mx + c = meets*x where x = c/(meets - m); its size (a minus sign does not matter)
     rung = rung_of(y, p["digits"] == "odd")
     main = on_rung(y, rung)
-    # main: the palindrome with an odd (or even) number of digits that the number the machine leaves unchanged rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
+    # main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
     if tie == "shared-factor":   # a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
         total, wm = sum(int(ch) for ch in str(rung)), whole(abs(m) - Fraction(1, 2))   # the palindrome's digits added up; the whole part of |m|
         return [main, common(total, wm)]
@@ -83,14 +83,14 @@ def agent(offer):
             tries.append((move("seq.step", k=k), m + k, c - k))   # change the pattern's step, keeping y(1)
             den = 1 - m * k
             if den != 0: tries.append((move("rot.turn", centre=0, turn=k), (m + k) / den, c))   # turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
-        # The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.
-        if m != 1:
-            s = p.get("side", 1)
-            y = s * c / (1 - m)                          # the unchanged number (minus it on the mirror)
+        # The next palindrome up (the ladder has no top): the smallest one above the meeting point's size, keeping its sign, by a shift or by a tilt.
+        if m != p["meets"]:
+            x = c / (p["meets"] - m)                     # where the line meets y = meets*x
+            s, y = (-1 if x < 0 else 1), abs(x)
             to = s * min(t for t in pals(y, p["digits"] == "odd") if t > y)
-            tries.append((move("si.shift", k=to * (1 - m) - c), m, to * (1 - m)))   # keep m, move c
+            tries.append((move("si.shift", k=to * (p["meets"] - m) - c), m, to * (p["meets"] - m)))   # keep m, move c
             if c != 0:
-                tries.append((move("si.tilt", k=1 - c / to - m), 1 - c / to, c))   # keep c, move m
+                tries.append((move("si.tilt", k=p["meets"] - c / to - m), p["meets"] - c / to, c))   # keep c, move m
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches

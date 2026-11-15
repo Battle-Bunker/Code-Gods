@@ -1,5 +1,5 @@
 // Same on Both Rulers · Thorough
-// Main part: where the line meets y = x, on as big a number reading the same backwards as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
+// Main part: where the line meets y = x or y = −x, on as big a number reading the same backwards as possible (ignoring a minus sign). Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -32,13 +32,13 @@ function onRung(y, r) {   // on the rung when y rounds to it: its levels of digi
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
-    const y = Q.mul(p.side ?? 1, c), main = onRung(y, rungOf(y, p.digits === "odd"));   // x = c meets y = x at c
+    const y = Q.abs(c), main = onRung(y, rungOf(y, p.digits === "odd"));   // x = c meets y = x and y = -x at x = c
     return [main, null];
   }
-  if (Q.eq(m, 1)) return null;                    // parallel to y = x: no number stays unchanged
-  const y = Q.mul(p.side ?? 1, Q.div(c, Q.sub(1, m)));   // the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)
+  if (Q.eq(m, p.meets)) return null;              // parallel to y = x (or y = -x): it never meets it
+  const y = Q.abs(Q.div(c, Q.sub(p.meets, m)));   // mx + c = meets*x where x = c/(meets - m); its size (a minus sign does not matter)
   const rung = rungOf(y, p.digits === "odd"), main = onRung(y, rung);
-  // main: the palindrome with an odd (or even) number of digits that the number the machine leaves unchanged rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
+  // main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
   if (tie === "shared-factor") {   // a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
     const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |m|
     return [main, common(sum, wm)];
@@ -73,12 +73,12 @@ function agent(offer) {
       const den = Q.sub(1, Q.mul(m, k));
       if (!Q.isZero(den)) tries.push([move("rot.turn", { centre: 0, turn: k }), Q.div(Q.add(m, k), den), c]);   // turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)
     }
-    // The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.
-    if (!Q.eq(m, 1)) {
-      const s = p.side ?? 1, y = Q.mul(s, Q.div(c, Q.sub(1, m)));   // the unchanged number (minus it on the mirror)
+    // The next palindrome up (the ladder has no top): the smallest one above the meeting point's size, keeping its sign, by a shift or by a tilt.
+    if (!Q.eq(m, p.meets)) {
+      const x = Q.div(c, Q.sub(p.meets, m)), s = Q.cmp(x, 0) < 0 ? -1 : 1, y = Q.abs(x);   // where the line meets y = meets·x, and its size
       const to = Q.mul(s, Q.of(pals(y, p.digits === "odd").filter(t => Q.cmp(Q.of(t), y) > 0).reduce((a, b) => (b < a ? b : a))));
-      tries.push([move("si.shift", { k: Q.sub(Q.mul(to, Q.sub(1, m)), c) }), m, Q.mul(to, Q.sub(1, m))]);   // keep m, move c
-      if (!Q.isZero(c)) tries.push([move("si.tilt", { k: Q.sub(Q.sub(1, Q.div(c, to)), m) }), Q.sub(1, Q.div(c, to)), c]);   // keep c, move m
+      tries.push([move("si.shift", { k: Q.sub(Q.mul(to, Q.sub(p.meets, m)), c) }), m, Q.mul(to, Q.sub(p.meets, m))]);   // keep m, move c
+      if (!Q.isZero(c)) tries.push([move("si.tilt", { k: Q.sub(Q.sub(p.meets, Q.div(c, to)), m) }), Q.sub(p.meets, Q.div(c, to)), c]);   // keep c, move m
     }
     tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   }

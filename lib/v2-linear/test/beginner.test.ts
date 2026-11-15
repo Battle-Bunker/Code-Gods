@@ -53,10 +53,10 @@ test("worked examples, one line per family", () => {
   assert.deepEqual(terms(primeLanding, { ends: 9 }, mc(-2, 38)), { landing: "319/200", "shared-factor": "2" });   // lands on 19; 18 and 38 share 2
   assert.deepEqual(terms(primeLanding, { ends: 1 }, mc(-3, 100)), { landing: "-11/6", "shared-factor": "10" });   // lands at 33⅓: 7/3 from 31, so 11/6 from rounding to it; 30 and 100 share 10
   assert.deepEqual(terms(primeLanding, { ends: 1, side: -1 }, mc(1, 11)), { landing: "311/200", "shared-factor": "1" });   // the mirror: lands on −11
-  assert.deepEqual(terms(sameOnBothRulers, { digits: "odd" }, mc(-4, 605)), { palindrome: "6121/3000", "shared-factor": "4" });   // −4x + 605 = x at 121: level 2 + (0 + 0.121)/3; 1 + 2 + 1 and 4 share 4
-  assert.deepEqual(terms(sameOnBothRulers, { digits: "odd" }, mc(-4, 655)), { palindrome: "6131/3000", "shared-factor": "1" });   // one rung up, at 131: 5 and 4 share 1 (the climb starts again)
-  assert.deepEqual(terms(sameOnBothRulers, { digits: "even" }, mc(3, -2442)), { palindrome: "71221/30000", "shared-factor": "3" });   // 3x − 2442 = x at 1221; 1 + 2 + 2 + 1 and 3 share 3
-  assert.deepEqual(terms(sameOnBothRulers, { digits: "odd" }, mc(0, 50)), { palindrome: "-81/2", "shared-factor": "0" });   // 50: 41 from 9 (101 is 51 away), so 40½ from rounding to it; a flat line shares nothing
+  assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits: "odd" }, mc(-4, 605)), { palindrome: "6121/3000", "shared-factor": "4" });   // −4x + 605 = x at 121: level 2 + (0 + 0.121)/3; 1 + 2 + 1 and 4 share 4
+  assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits: "odd" }, mc(-4, 655)), { palindrome: "6131/3000", "shared-factor": "1" });   // one rung up, at 131: 5 and 4 share 1 (the climb starts again)
+  assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits: "even" }, mc(3, -2442)), { palindrome: "71221/30000", "shared-factor": "3" });   // 3x − 2442 = x at 1221; 1 + 2 + 2 + 1 and 3 share 3
+  assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits: "odd" }, mc(0, 50)), { palindrome: "-81/2", "shared-factor": "0" });   // 50: 41 from 9 (101 is 51 away), so 40½ from rounding to it; a flat line shares nothing
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { ladder: "0", "shared-factor": "1" });   // crosses at 6 (leaves 1 divided by 5): level 0; 7 and 4 share 1
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-1, 5)), { ladder: "1", "shared-factor": "1" });    // at 5 = 5 × 1: level 1; 2 and 1 share 1
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-2, 50)), { ladder: "3/2", "shared-factor": "2" });   // at 25 = 5² × 1: two 5s, halfway to level 2 (three); 2 and 2 share 2
@@ -65,7 +65,7 @@ test("worked examples, one line per family", () => {
 });
 
 test("each family's main layer is undefined only where its lens is (and then the score is WORST)", () => {
-  assert.equal(evaluateSite(lineType, sameOnBothRulers, { digits: "odd" }, mc(1, 3), lineZ).score, null); // parallel to y = x
+  assert.equal(evaluateSite(lineType, sameOnBothRulers, { meets: 1, digits: "odd" }, mc(1, 3), lineZ).score, null); // parallel to y = x
   assert.equal(evaluateSite(lineType, wholeCrossing, { q: 5, r: 1 }, mc(0, 3), lineZ).score, null);          // flat: never crosses
   assert.equal(evaluateSite(lineType, divisibilityLadder, {}, mc(2, 0), lineZ).score, null);     // through (0, 0)
 });
@@ -126,8 +126,8 @@ test("vertical lines score where the rule has an honest reading (the coordinator
   // y = x at 13/2, ½ from T = 6; Ruler's distance² is 169/4, 25/4 from 36 (k = 6). Tie-breakers stay undefined.
   assert.deepEqual(terms(treasure, { k: 2 }, x(-2n, 13n), lineQ), { pile: "—", "shared-factor": "—" });   // a vertical line has no y(2)
   assert.equal(terms(primeLanding, { ends: 7 }, x(-2n, 13n), lineQ).landing, "27/20");   // x = 6½ rounds to 7 (ties up): level 1 + 0.7/2
-  assert.deepEqual(terms(sameOnBothRulers, { digits: "odd" }, x(-2n, 13n), lineQ), { palindrome: "27/20", "shared-factor": "—" });   // meets y = x at 6½, which rounds to 7
-  assert.deepEqual(terms(sameOnBothRulers, { digits: "even" }, x(-2n, 13n), lineQ), { palindrome: "-4", "shared-factor": "—" });   // 4½ from 11
+  assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits: "odd" }, x(-2n, 13n), lineQ), { palindrome: "27/20", "shared-factor": "—" });   // meets y = x at 6½, which rounds to 7
+  assert.deepEqual(terms(sameOnBothRulers, { meets: -1, digits: "even" }, x(-2n, 13n), lineQ), { palindrome: "-4", "shared-factor": "—" });   // 4½ from 11
   assert.deepEqual(terms(ruler, {}, x(-2n, 13n), lineQ), { ruler: "25/4", far: "6", "prime-gradient": "—", "square-area": "—" });
   // x = 3: on the prime 3, distance² 9 exactly.
   assert.equal(terms(primeLanding, { ends: 3 }, x(-1n, 3n), lineQ).landing, "23/20");
@@ -157,22 +157,26 @@ test("Prime Landing is a ladder on the x-axis: every rung has a higher one, a sm
   assert.deepEqual(primeLanding.dealable(lineQ), [{ ends: 1 }, { ends: 1, side: -1 }, { ends: 9 }, { ends: 9, side: -1 }]);
 });
 
-test("Same on Both Rulers' mirror is an exact peer: it scores the line reflected through the origin as side 1 scores the line", () => {
+test("Same on Both Rulers reads the meeting point without its sign: a half turn pays nothing, and y = −x is an exact peer of y = x", () => {
   const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
+  const neg = (v: number | ReturnType<typeof Qn.q>) => (typeof v === "number" ? -v : Qn.neg(v));
   for (const digits of ["odd", "even"] as const) for (const mm of [-7, -2, 0, 2, 3, 14, Qn.q(9, 10)]) for (const cc of [-40, -17, -3, 0, 5, 17, 23, 97, 2002, Qn.q(7, 2)]) {
-    const neg = (v: number | ReturnType<typeof Qn.q>) => (typeof v === "number" ? -v : Qn.neg(v));
-    assert.deepEqual(terms(sameOnBothRulers, { digits, side: -1 }, mc(mm, neg(cc)), lineQ), terms(sameOnBothRulers, { digits }, mc(mm, cc), lineQ), `${digits}: y = ${mm}x + ${cc}`);
+    // The half turn (m, c) → (m, −c) sends the meeting point x to −x: the same reading (no income from flipping back).
+    assert.deepEqual(terms(sameOnBothRulers, { meets: 1, digits }, mc(mm, neg(cc)), lineQ), terms(sameOnBothRulers, { meets: 1, digits }, mc(mm, cc), lineQ), `${digits}: y = ${mm}x ± ${cc}`);
+    // The reflection in the x-axis (m, c) → (−m, −c) takes y = x's meeting point to y = −x's: exact peers.
+    assert.deepEqual(terms(sameOnBothRulers, { meets: -1, digits }, mc(neg(mm), neg(cc)), lineQ), terms(sameOnBothRulers, { meets: 1, digits }, mc(mm, cc), lineQ), `${digits}: y = ${mm}x + ${cc} reflected`);
   }
-  for (const [a, c] of [[2n, -25n], [1n, 13n], [3n, 7n]] as const) assert.deepEqual(terms(sameOnBothRulers, { digits: "odd", side: -1 }, x(a, -c), lineQ), terms(sameOnBothRulers, { digits: "odd" }, x(a, c), lineQ));
-  assert.match(sameOnBothRulers.card({ digits: "even", side: -1 }, "shared-factor"), /round to minus a number reading the same backwards with an even number of digits, like −44 or −1221\. Bigger is better\./);
-  assert.deepEqual(sameOnBothRulers.dealable(lineQ), [{ digits: "odd" }, { digits: "odd", side: -1 }, { digits: "even" }, { digits: "even", side: -1 }]);
+  for (const [a, c] of [[2n, -25n], [1n, 13n], [3n, 7n]] as const) assert.deepEqual(terms(sameOnBothRulers, { meets: -1, digits: "odd" }, x(a, c), lineQ), terms(sameOnBothRulers, { meets: 1, digits: "odd" }, x(a, c), lineQ));
+  assert.equal(evaluateSite(lineType, sameOnBothRulers, { meets: -1, digits: "odd" }, mc(-1, 3), lineZ).score, null);   // parallel to y = −x
+  assert.match(sameOnBothRulers.card({ meets: -1, digits: "even" }, "shared-factor"), /^Where the line meets y = −x should round to a number reading the same backwards with 2, 4, 6… digits, like 44 or −1221\. Bigger is better\./);
+  assert.deepEqual(sameOnBothRulers.dealable(lineQ), [{ meets: 1, digits: "odd" }, { meets: 1, digits: "even" }, { meets: -1, digits: "odd" }, { meets: -1, digits: "even" }]);
 });
 
 test("Same on Both Rulers is a ladder: every palindrome of the parity is a rung, a bigger one always wins, and the nearest is exact", () => {
   for (const [x, d, t] of [[56, "odd", 101n], [6, "even", 11n], [16, "even", 11n], [999, "odd", 999n], [1000, "even", 1001n], [123456, "even", 123321n], [12345, "odd", 12321n], [150, "odd", 151n]] as const) assert.equal(nearestPalindrome(Qn.q(x), d), t, `${x}, ${d}`);
   assert.equal(nearestPalindrome(Qn.q(55), "odd"), 101n);   // 9 and 101 are 46 away: the bigger on a tie, as 55 would round
   assert.equal(nearestPalindrome(Qn.q(13, 2), "odd"), 7n);  // 6½ rounds to 7
-  const at = (digits: "odd" | "even", c: number) => { const [n, d = "1"] = terms(sameOnBothRulers, { digits }, mc(0, c), lineQ).palindrome!.split("/"); return Number(n) / Number(d); };
+  const at = (digits: "odd" | "even", c: number) => { const [n, d = "1"] = terms(sameOnBothRulers, { meets: 1, digits }, mc(0, c), lineQ).palindrome!.split("/"); return Number(n) / Number(d); };
   for (const [digits, rungs] of [["odd", [1, 2, 9, 101, 111, 191, 999, 10001, 10101, 1000001]], ["even", [11, 22, 99, 1001, 1111, 9999, 100001, 101101]]] as const) {
     for (let i = 1; i < rungs.length; i++) assert.ok(at(digits, rungs[i]!) > at(digits, rungs[i - 1]!), `${digits}: ${rungs[i]} above ${rungs[i - 1]}`);
   }
