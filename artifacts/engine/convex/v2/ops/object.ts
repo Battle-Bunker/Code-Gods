@@ -9,6 +9,7 @@ import { knownOf, lookPrice, paysToRead, readPriceWeightOf, readsKnowledge, tell
 import { OpFailure } from "@workspace/v2-affordances";
 import { pay } from "../agents.ts";
 import { appendEvent } from "../loop.ts";
+import { quoteOthers } from "../play.ts";
 
 /** At most this many objects one look covers (a game's objects; v1 paged larger boards). */
 const MAX_LOOK = 400;
@@ -94,4 +95,27 @@ export const { op: look, as: lookAs } = defineOp("object.look", "mutation", asyn
   }
   await appendEvent(env.ctx, game._id, "command", { kind: "look", memberId: member._id, objects: seen.map(s => s.o._id), price, worldSeconds: clock.worldSeconds });
   return { looked: seen.length, price };
+});
+
+/**
+ * A What if quote (coordinator's call 33): the others' sum after each candidate move, from the state the caller knows,
+ * one look's price per candidate from the caller's own store (free where the game reads free), each a fresh blurred
+ * reading (decision 32), never exact while the game runs.
+ */
+export const { op: whatIf, as: whatIfAs } = defineOp("object.whatIf", "mutation", async (env, a) => {
+  const { game, member, player } = seated(env);
+  if (game.phase !== "live" && game.phase !== "paused") throw new OpFailure("A What if quote is for a running game.");
+  const { object } = await objectIn(env.ctx, game, a.objectId);
+  const state = (await env.ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", object._id)).unique())!;
+  const clock = await env.ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
+  const world = clock?.worldSeconds ?? 0;
+  const quoted = await quoteOthers(env.ctx, game, member._id, object, state, a.calls.map(c => ({ ...c, site: c.site ?? 0 })), crypto.randomUUID());
+  const price = paysToRead(game) ? a.calls.length * lookPrice(game.variant, state.state, readPriceWeightOf(game)) : 0;
+  if (price > 0) {
+    const paid = await pay(env.ctx, game, player, world, price, a.calls.length === 1 ? "That quote" : `Quoting ${a.calls.length} moves`);
+    await env.ctx.db.patch(player._id, { energy: paid.balance, settledAt: paid.settledWorldSeconds });
+  }
+  // The record (a seeded fixture game has no engine, so no record).
+  if (await env.ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", game._id)).unique()) await appendEvent(env.ctx, game._id, "command", { kind: "quote", memberId: member._id, objectId: object._id, candidates: a.calls.length, price, worldSeconds: world });
+  return { ...quoted, price };
 });

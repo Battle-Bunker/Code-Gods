@@ -37,7 +37,7 @@ delegation"; a call number below means the one whose subject is named.
 | Item | Status | Evidence |
 |---|---|---|
 | §1.1 Live moves attributed | restored (#587, #615); owner 33 | convex/v2/disclose.ts:113; play.ts:194-201 |
-| §1.2 Exact others' sums | owner 32 (#608, #611, #673) | disclose.ts:34-40; open point: `othersAt` is a free quote at up to 4 states (play.ts:305-334), against owners 33 and 35 |
+| §1.2 Exact others' sums | owner 32 (#608, #611, #673); call 33 (What if quotes cost a look and carry the blur) | disclose.ts:34-40; play.ts othersAt |
 | §1.3 Paid looks deleted | restored (#643, #653); owner 35 (every game pays to read, weight may be 0, #685) | knowledge.ts:28-35 |
 | §1.4 Default domain line-z | restored (line-q beginner; owner 2, call 6; whole-number setups retired #620) | lib/v2-linear/src/presets.ts:45 |
 | §1.5 Hold rarity | owner 43 (not restored; measurement docs/engine-v2/hold-measurement.md, call 11) | owner-decisions.md decision 43 |
@@ -47,11 +47,11 @@ delegation"; a call number below means the one whose subject is named.
 | §1.8 Idle parking | restored (#629) | activity.ts |
 | §1.9 Scoreboard interval | restored (#623); exact standings by call 15, owner 33 | lobby.ts scoreIntervalSeconds |
 | §1.10 Tiers | owner 13, 23, 29 (a main part plus a tie-breaker, no gates) | lib/v2-linear presets |
-| §1.11 Commit clause, shelter targeting | **STILL MISSING** (both) | no `only_if_better`, no shelter in v2; v1 archive lib/game-core/src/settings.ts:153,158 |
-| §1.12 Futility memo | **STILL MISSING** | tick.ts offers with no memo; v1 archive lib/futility.ts |
+| §1.11 Commit clause, shelter targeting | commit clause: call 34 (restoring, lens worker and W3); shelter: call 32 (not restored) | no `only_if_better`, no shelter in v2; v1 archive lib/game-core/src/settings.ts:153,158 |
+| §1.12 Futility memo | call 31 (not restored: a v2 act is not a pure function of source and object) | tick.ts offers with no memo; v1 archive lib/futility.ts |
 | §1.13 Birth law and counts | call 4 (stationary-law births); owner 31 (beginner counts) | world.ts:49-64; tick.ts:59-61 |
 | §1.14 Move onto own state | restored (#615); owner 24 | tick.ts:124-126 |
-| §1.15 200 agents per god | **STILL MISSING** (v2 caps 20, `MAX_AGENTS`, play.ts:26; no decision or call) | agents.ts:86 |
+| §1.15 200 agents per god | call 35 (to restore, with paginated agent lists; v2 caps 20 today, play.ts:26) | agents.ts:86 |
 | §2.1 Live, a player sees only their own utility | kept | world.ts:30-36 |
 | §2.1 Every transformation and spawn is public | restored (#587, #615); owners 33, 36 narrow the spread | play.ts:194-201 |
 | §2.1 Others' summons hidden | kept (v1's public agent count is not shown; minor) | play.ts:133-140 |
@@ -70,7 +70,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.2 Births: Poisson | call 4; owner 31 (beginner) | world.ts; tick.ts |
 | §2.2 Integer and string objects | owner 15 | — |
 | §2.2 Grid object boards | partly (call 13: grids-more-rules, grids-arithmetic on the 4×4 digit board); colour, glyph, playing-card and larger boards **STILL MISSING** | presets.ts:144-154; lib/v2-grid has grid-4-d10, grid-2-d3 |
-| §2.2 Opportunity targeting: uniform or shelter | **STILL MISSING** (shelter) | tick.ts:5 (uniform) |
+| §2.2 Opportunity targeting: uniform or shelter | call 32 (shelter not restored) | tick.ts:5 (uniform) |
 | §2.3 Payoff | kept | world.ts:30-37 |
 | §2.3 Bits are rarity | owner 10 (4, 19, 20, 22, 23) | values.ts worthOf |
 | §2.3 Hold rarity | owner 43 | as §1.5 |
@@ -79,12 +79,12 @@ delegation"; a call number below means the one whose subject is named.
 | §2.3 Continuous landscape | kept (owner 13, 23) | spec §0.3 |
 | §2.3 Params named and typed | kept | lib/v2-core contracts.ts ParamDecl |
 | §2.3 Params of equal opportunity | restored (#630) | test/unit/v2-params-equal.test.ts |
-| §2.3 Scores are points tuples, never "tie-break" | changed: the app says "tie-breaker" (CLAUDE.md and decision 29's summary use it); wording is a coordinator call | player-web panes/lines.ts:89; lib/v2-views faces.tsx:427 |
+| §2.3 Scores are points tuples, never "tie-break" | call 35 (restore v1's wording, "secondary preference", in the app) | player-web panes/lines.ts:89; lib/v2-views faces.tsx:427 |
 | §2.3 Heterogeneous simple utilities | kept (owner 14) | beginnerPool, 11 families |
 | §2.3 Dealing fair-aligned | trial 12; call 30 (practice dealt as real) | deal.ts |
 | §2.3 Rule rotation | kept | deal.ts |
-| §2.3 Commit clause | **STILL MISSING** | as §1.11 |
-| §2.3 Futility memo | **STILL MISSING** | as §1.12 |
+| §2.3 Commit clause | call 34 (restoring) | as §1.11 |
+| §2.3 Futility memo | call 31 (not restored) | as §1.12 |
 | §2.4 Power per god | owner 38; call 17 (beginner 4/s; 64 elsewhere) | lib/v2-economy settings.ts:25; presets.ts:125-128 |
 | §2.4 Capacity | kept; call 17 (beginner 240 s) | energy.ts |
 | §2.4 Energy and debt move with power | kept | energy.ts:8-9 |
@@ -102,7 +102,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.5 Sandboxed Python or TypeScript | kept | lib/v2-sandbox |
 | §2.5 Step budget 500,000 | kept (owner 6) | lib/v2-sandbox limits.ts |
 | §2.5 Agent sees only its object | owner 6 | lib/v2-agents host.ts |
-| §2.5 At most 200 agents | **STILL MISSING** (20) | as §1.15 |
+| §2.5 At most 200 agents | call 35 (to restore) | as §1.15 |
 | §2.5 One pause per player, 180 s | restored (this PR): a pause ends by itself after the room's pauseSeconds (default 180), or earlier when the owner resumes; only a running game pauses | loop.ts pauseGame, pauseEnds; header pauseEndsAt |
 | §2.5 Planning holds until sandboxes are warm | restored (#635) | readiness.ts; loop.ts allReady |
 | §2.6 At least 3 players | kept | presets.ts minPlayers |
@@ -117,7 +117,7 @@ delegation"; a call number below means the one whose subject is named.
 | §2.6 Park after 30 minutes idle | restored (#629) | activity.ts IDLE_MS |
 | §2.6 Members players or spectators | kept | lobby.ts |
 | §2.6 Practice partners and AI never bid | kept (owner 18) | bids.ts |
-| §2.6 Setups: users may save their own | **STILL MISSING** (only deployed presets plus room overrides) | convex/v2/setups.ts |
+| §2.6 Setups: users may save their own | call 35 (to restore; only deployed presets plus room overrides today) | convex/v2/setups.ts |
 
 ---
 

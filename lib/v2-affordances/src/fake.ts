@@ -351,6 +351,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };
   },
   "object.look": () => { throw new OpFailure("This game shows every object as it is; there is nothing to pay for."); },
+  "object.whatIf": (_e, a) => ({ state: "", price: 0, after: a.calls.map(() => null) }),
   "object.score": (e, a) => {
     const g = gameOf(e), o = objectOf(e, a.objectId), d = distanceOf(g, e.userId, o);
     return { score: [String(-d)], terms: [], number: numberOf(g, a.objectId), bits: bitsAt(d), points: bitsAt(d) };

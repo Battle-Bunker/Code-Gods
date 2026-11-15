@@ -318,6 +318,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     driftSeconds: room.overrides.driftSeconds ?? preset.driftSeconds,
     // How long a player's pause lasts (v1's pauseSeconds, default 180 wall seconds; it then ends by itself).
     pauseSeconds: room.overrides.pauseSeconds ?? DEFAULT_PAUSE_SECONDS,
+    // The commit clause (v1's option, off by default).
+    ...(room.overrides.commitClause ? { commitClause: true } : {}),
     // Births on a regular schedule on the beginner games (decision 31), else v1's stochastic births.
     ...(preset.regularBirths ? { regularBirths: true } : {}),
     timeScale,
