@@ -61,18 +61,27 @@ def agent(offer):
             for j in range(-FAR, FAR + 1):                         # both at once
                 if j != 0:
                     tries.append(([move("si.shift", k=k), move("si.tilt", k=j)], m + j, c + k))
-        # The next rung up (the ladder has no top): the next prime ending in p["ends"] beyond where it lands, by a small tilt
-        # that keeps the y-intercept (m = -c/X), or by a shift that keeps the gradient (c = -mX).
+        # Rungs (the ladder has no top): the nearest prime ending in p["ends"], if the line does not round there yet, and
+        # the next one beyond it. For each, the simplest gradient that lands there keeping c, and the simplest
+        # y-intercept that lands there keeping m: anywhere that rounds to the rung will do.
         if m != 0 and c != 0:
-            x = p.get("side", 1) * (-c / m)
-            t = near(x, prime, p["ends"]) + 10
+            s = p.get("side", 1)
+            here = near(s * (-c / m), prime, p["ends"])
+            t, nxt = here + 10, None
             for _ in range(100):
                 if prime(t):
-                    to = p.get("side", 1) * t          # the landing that rounds to it (minus it, on the mirror)
-                    tries.append((move("si.tilt", k=-c / to - m), -c / to, c))
-                    tries.append((move("si.shift", k=-m * to - c), m, -m * to))
+                    nxt = t
                     break
                 t += 10
+            for r in (here, nxt):
+                if r is None:
+                    continue
+                a, b = s * (r - Fraction(49, 100)), s * (r + Fraction(49, 100))   # landings that round to r
+                m2, c2 = simplest(-c / a, -c / b), simplest(-m * a, -m * b)
+                if m2 != m:
+                    tries.append((move("si.tilt", k=m2 - m), m2, c))
+                if c2 != c:
+                    tries.append((move("si.shift", k=c2 - c), m, c2))
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.
