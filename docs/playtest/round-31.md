@@ -39,7 +39,7 @@ two ticks of 4.5–6.5 s, and they came at the same moments across games.
 | EHDKX4 · partner 1 (Divisibility Ladder) | 789 | **98%** | 0 | **269** | shift 10, slide 1, tilt 1, stretch 1 | 3 / 1 / 9 |
 | EHDKX4 · partner 2 (Ruler) | 512 | 93% | 0 | **196** | tilt 21, shift 10, pivot 2, mirror 1 | 17 / 9 / 8 |
 
-- **The new moves are used:** across all agents, 39 mirrors, 15 slides, 8 pivots and 8 intercept moves were committed.
+- **The new moves are used:** across all agents, 39 mirrors, 16 slides, 8 pivots and 8 intercept moves were committed.
   The mirror is the most taken; it was the top move for alice's Treasure agent and for the Prime Landing partner.
 - **The skip share barely moved:** 86–98% (round 30: 91–98%). Bob's two partners again left 196–269 energy unspent.
 - **Failures:** 47 for the Prime Landing partner in carol's game, the only failing seat.
