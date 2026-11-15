@@ -40,6 +40,8 @@
 #   rarity(offer, score)         the rarity your rule gives a score (from your own score function); 0 when the game
 #                                does not say. Free.
 #   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
+#   undone(offer)                your agent's latest moves on this line that someone else has since put back, as lists of
+#                                calls, newest last. climb() does not repeat them; after two, it tries other kinds of step.
 #   pushback(offer)              how many times lately someone else's move took back points your agent had just won
 #                                on this line (a tug-of-war).
 #   fair(offer, plan)            True when the plan would not lower the other players' rarity on this line, added up
@@ -524,6 +526,13 @@ def allowance(offer):
 
 def climb(offer, options, now, most=None):
     options = sorted(options, key=_functools.cmp_to_key(lambda a, b: -1 if better(a[1], b[1]) else 1 if better(b[1], a[1]) else 0))
+    # Not a move someone has just undone here, nor, after two, a move of the same kind: they would undo it again.
+    gone = undone(offer)
+    if gone:
+        again = {";".join(_call_key(c) for c in calls) for calls in gone}
+        kinds = {c["mutator"] for calls in gone for c in calls} if len(gone) >= 2 else set()
+        options = [(plan, s) for plan, s in options
+                   if ";".join(_call_key(c) for c in _as_plan(plan)) not in again and not any(c["mutator"] in kinds for c in _as_plan(plan))]
     if most is not None:
         options = options[:most]
     w = worth(offer)
@@ -589,6 +598,15 @@ def pushback(offer):
         elif gained and m.points_after < m.points_before:
             count, gained = count + 1, False
     return count
+
+
+def undone(offer):
+    return [m["calls"] for m in recent(offer) if m.mine and "undone" in m and m["undone"] and "calls" in m]
+
+
+def _call_key(c):
+    args = c.get("args") or {}
+    return c["mutator"] + "(" + ",".join(f"{k}={args[k]}" for k in sorted(args)) + ")"
 
 
 def note(offer, text):

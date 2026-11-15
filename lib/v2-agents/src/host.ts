@@ -67,7 +67,11 @@ export interface HostInput<S> {
   /** What the offered line is worth to the player now (spec §8, what they see): n_i, Σ n_j and π_i, in bits. */
   readonly value?: { readonly mine: number; readonly others: number; readonly points: number };
   /** The latest moves on the offered line the player may see, newest last (theirs, and others' that changed their points). */
-  readonly history?: readonly { readonly mine: boolean; readonly pointsBefore: number; readonly pointsAfter: number }[];
+  readonly history?: readonly {
+    readonly mine: boolean; readonly pointsBefore: number; readonly pointsAfter: number;
+    /** On the player's own moves: the calls it made, and whether someone else has since put the line back (public log). */
+    readonly calls?: readonly { readonly mutator: string; readonly args?: Readonly<Record<string, unknown>> }[]; readonly undone?: boolean;
+  }[];
   /**
    * The player's rule's value function (owner decision 23: the server's value record, knots and tail): what a score is
    * worth in bits. Prices `rarity(score)` and gives `myScore()` its bits; `worth()` is only answered with it.
@@ -216,7 +220,8 @@ export class EngineHost<S> implements AgentHost {
         return ok({ bits: this.lookup(score).bits }, 0);
       }
       case "recent": {
-        const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter }));
+        const moves = (this.input.history ?? []).slice(-8).map(m => ({ mine: m.mine, pointsBefore: m.pointsBefore, pointsAfter: m.pointsAfter,
+          ...(m.mine && m.calls ? { calls: m.calls.map(c => ({ mutator: c.mutator, args: c.args ?? {} })), undone: m.undone === true } : {}) }));
         return ok({ moves }, this.charged("recent", RECENT_BITS_PER_MOVE * moves.length));
       }
       case "note": {
