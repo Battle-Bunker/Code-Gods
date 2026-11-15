@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { useGame, useMyRule } from "@/sdk";
 import { useWorldNow } from "./fresh-mark";
 import { nextDriftAt } from "@workspace/v2-core";
-import { DRIFT_MEANS, driftNotice, driftWords, targetChange } from "./drift-words";
+import { DRIFT_MEANS, driftNotice, driftWords, redrawChoices, targetChange } from "./drift-words";
 
 /** What the last redraw changed: the server's `previous` (W3 #750), so it survives a reload. */
 const changeOf = (row: { params: unknown; previous?: { params: unknown } | null }) => targetChange(row.previous?.params, row.params);
@@ -26,7 +26,7 @@ function useDrift(): { countdown: string | null; notice: string | null } {
   const nextAt = seat < 0 || worldNow == null ? null
     : nextDriftAt(header.driftSeconds ?? 0, header.roster.length, seat, worldNow, header.durationMode === "fixed" ? header.worldSeconds : null);
   return {
-    countdown: driftWords(nextAt, worldNow, choices, scale),
+    countdown: driftWords(nextAt, worldNow, redrawChoices(my.row, choices), scale),
     notice: driftNotice(my.row, worldNow, changeOf(my.row), scale),
   };
 }
