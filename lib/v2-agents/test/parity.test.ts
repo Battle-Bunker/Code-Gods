@@ -8,7 +8,7 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fromMC, lineType, lineZ, lineQ } from "@workspace/v2-linear";
-import { q, type Q } from "@workspace/v2-core";
+import { applyCalls, isInvalid, q, type Q } from "@workspace/v2-core";
 import { EngineHost, runAct, sandboxes, type RuleRef } from "../src/index.ts";
 import { findValues } from "../src/harness.ts";
 import type { Language } from "@workspace/v2-sandbox";
@@ -298,4 +298,60 @@ test("simplest: the fraction with the smallest denominator between two numbers (
   }
   assert.equal(out[1], out[0], "Python and TypeScript differ");
   assert.deepEqual(out[0]!.split("|"), ["19", "-4/5", "0", "5/7", "-1", "1/999"]);
+});
+
+test("shortcuts: each step in another view lands where the game puts it, the same in both languages", async () => {
+  const lines = [[q(2), q(-6)], [q(-3, 2), q(4)], [q(10), q(48)], [q(1, 3), q(-7)], [q(-1), q(1, 2)]] as const;
+  const W = JSON.stringify(lines.map(([m, c]) => [`${m.n}/${m.d}`, `${c.n}/${c.d}`]));
+  const ts = `function agent(offer) {
+  const out = [];
+  for (const [m, c] of ${W}) for (const [plan, m2, c2] of shortcuts(Q.from(m), Q.from(c))) out.push(JSON.stringify(Array.isArray(plan) ? plan : [plan]) + "|" + Q.toString(m2) + "|" + Q.toString(c2));
+  return [move("probe", { r: out.join("\\n") })];
+}`;
+  const py = `def agent(offer):
+    out = []
+    for m, c in ${W}:
+        for plan, m2, c2 in shortcuts(Fraction(m), Fraction(c)):
+            p = plan if isinstance(plan, list) else [plan]
+            out.append(json.dumps(p) + "|" + str(m2) + "|" + str(c2))
+    return [move("probe", r="\\n".join(out))]
+`;
+  const rows: string[][] = [];
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: { lines: [fromMC(q(1), q(1))] }, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) rows.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("\n"));
+  }
+  assert.equal(rows[0]!.length, rows[1]!.length, "both languages offer as many shortcuts");
+  let i = 0, checked = 0;
+  for (const [m, c] of lines) {
+    const state = { lines: [fromMC(m, c)] };
+    for (; i < rows[0]!.length; i++) {
+      const [planTs, mTs, cTs] = rows[0]![i]!.split("|"), [, mPy, cPy] = rows[1]![i]!.split("|");
+      assert.deepEqual([mPy, cPy].map(x => Q2(x!)), [mTs, cTs].map(x => Q2(x!)), `languages differ on shortcut ${i}`);
+      const calls = (JSON.parse(planTs!) as { mutator: string; args: Record<string, unknown> }[]).map(cl => ({ mutator: cl.mutator, site: 0, args: Object.fromEntries(Object.entries(cl.args).map(([k, v]) => [k, String(v)])) }));
+      const applied = applyCalls(lineType, lineQ, state, calls);
+      if (isInvalid(applied)) { assert.fail(`${planTs} on y = ${m.n}/${m.d} x + ${c.n}/${c.d} is refused: ${applied.invalid}`); }
+      const expect = lineType.encode({ lines: [fromMC(q(...(frac(mTs!))), q(...(frac(cTs!))))] });
+      assert.equal(lineType.encode(applied.result), expect, `${planTs} on y = ${m.n}/${m.d} x + ${c.n}/${c.d}`);
+      checked++;
+      const next = rows[0]![i + 1];
+      if (next !== undefined && next.startsWith('[{"mutator":"cart.mirror","site":0,"args":{"axis":"x"}}]') && i + 1 < rows[0]!.length && checked % 1 === 0 && rows[0]![i + 1] !== rows[0]![i]) { i++; break; }
+    }
+  }
+  assert.ok(checked > 60, `${checked} shortcuts checked`);
+});
+const frac = (s: string): [number, number] => { const [n, d] = s.split("/"); return [Number(n), Number(d ?? 1)]; };
+const Q2 = (s: string) => { const [n, d] = frac(s); return `${n}/${d}`; };
+
+test("shortcuts offers only the moves in the game's menu (myRule().mutators), in both languages", async () => {
+  const ts = `function agent(offer) { const menu = goal(offer).mutators; return [move("probe", { r: [menu.includes("cart.mirror"), [...new Set(shortcuts(Q.from(2), Q.from(3), ["cart.mirror"]).map(([p]) => p.mutator))].join(",")].join("|") })]; }`;
+  const py = `def agent(offer):\n    menu = goal(offer).mutators\n    kinds = sorted(set(p["mutator"] for p, _, _ in shortcuts(Fraction(2), Fraction(3), ["cart.mirror"])))\n    return [move("probe", r=("true" if "cart.mirror" in menu else "false") + "|" + ",".join(kinds))]\n`;
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) assert.equal((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, `${lineQ.mutators.includes("cart.mirror")}|cart.mirror`, language);
+  }
 });
