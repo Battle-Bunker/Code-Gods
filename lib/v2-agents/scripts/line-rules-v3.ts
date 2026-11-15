@@ -22,6 +22,8 @@ const { values: o } = parseArgs({ options: {
   pool: { type: "string", default: "v3" },
   /** unit: ±1 on a, b or c; mutators: the line's mutators, representation shortcuts included (decision 25). */
   moves: { type: "string", default: "unit" },
+  /** pmi only: "channels" measures the perpendicular channel rules instead of the pools. */
+  set: { type: "string", default: "pools" },
 } });
 const want = (p: string) => o.part === "all" || o.part!.split(",").includes(p);
 const say = (s = "") => console.log(s);
@@ -228,6 +230,9 @@ function adversaryFamilies(): Fam[] {
     ]),
     fam("steep-and-tall", "Steep and Tall", "the gradient and the y-intercept both positive and both as big as possible: the smaller of the two counts", d => Math.min(d.m, d.k), d => Math.min(d.m, d.k), [
       { id: "shared", text: "the whole parts of the gradient and the y-intercept share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(Math.floor(d.m), Math.floor(d.k)) },
+    ]),
+    fam("sunken-intercept", "Sunken Intercept", "the y-intercept below zero, as far below as possible", d => -d.k, d => d.k, [
+      { id: "shares-p", text: "the whole number nearest the y-intercept and the gradient's top number share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(Math.round(d.k), d.p) },
     ]),
     fam("smooth-root", "Smooth Square", "the triangle with the axes has an area as close as possible to a square number", d => -dZ(Math.sqrt(d.A)), d => Math.sqrt(d.A), [
       { id: "root-shares-x", text: "that square's root and the whole number nearest the x-intercept share as many prime factors as possible (with repeats)", f: d => (Number.isFinite(d.X) ? omegaOfGcd(Math.round(Math.sqrt(d.A)), Math.round(d.X)) : W) },
@@ -664,5 +669,53 @@ if (want("unfreeze")) {
     report(`fixed (${seed})`, dynamicsTest(fixed, seed));
     report(`target T redrawn every 50 s (${seed})`, dynamicsTest(fixed, seed, { phase: t => phases[Math.floor(t / 50) % phases.length]! }));
     report(`a death and a birth every 10 s (${seed})`, dynamicsTest(fixed, seed, { rebirthEvery: 10 }));
+  }
+}
+
+if (want("pmi")) {
+  // Owner decision 39: seated rules should be near-perpendicular value vectors, so that joint rarity ≈ the sum of bits.
+  // For each pair and depth d, PMI = log2 π(U_A ∩ U_B) / (π(U_A) π(U_B)), U_r = the lines worth ≥ d bits to r.
+  // 0 = independent; > 0 = aligned (one structure paid twice); < 0 = in tension (hard to hold both).
+  say("\n## PMI of upper sets (owner decision 39)\n");
+  const ids = [
+    "whole-crossing/spf", "square-area/spf", "whole-intercept/spf", "whole-intercept/rep", "target-gradient/k-whole",
+  ];
+  const base = rulesOf(families(T6, T7)).filter(r => ids.includes(r.id));
+  const ratIds = ["whole-intercept/gcd-den-m", "whole-crossing/gcd-num-m", "farey-pair/mediant-x", "pell-gradient/pell-c", "whole-area/gcd-den-m", "whole-at-t/gcd-den-m", "target-gradient/gcd-tops", "near-point/lattice"];
+  const rat = rulesOf(rationalFamilies(RT, RTX, RPT, RD)).filter(r => ratIds.includes(r.id)).map(r => ({ ...r, id: `q:${r.id}` }));
+  const adv = rulesOf(adversaryFamilies()).filter(r => !r.id.endsWith("/omega"));
+  // Channel rules: each reads one coordinate of ax + by + c = 0 and one prime's exponent, which the mixed code draws
+  // independently (owner decision 39's "perpendicular value vectors").
+  const vp = (n: number, p: number) => { n = Math.abs(Math.round(n)); if (n === 0) return 0; let k = 0; while (n % p === 0) { n /= p; k++; } return k; };
+  const ch = (id: string, P: (d: D) => number, S: (d: D) => number): Rule => ({ id, fam: id.split("/")[0]!, P, S });
+  const channels: Rule[] = [
+    ch("twos-in-a/rest", d => vp(d.a, 2), d => -Math.abs(d.a) / 2 ** vp(d.a, 2)),
+    ch("threes-in-b/rest", d => vp(d.b, 3), d => -d.b / 3 ** vp(d.b, 3)),
+    ch("fives-in-c/rest", d => vp(d.c, 5), d => -Math.abs(d.c) / 5 ** vp(d.c, 5)),
+    ch("twos-in-c/rest", d => vp(d.c, 2), d => -Math.abs(d.c) / 2 ** vp(d.c, 2)),
+    ch("big-prime-c/size", d => -dZ(0) + (spf(d.c) === Math.abs(d.c) && Math.abs(d.c) > 1 ? 1 : 0), d => spf(d.c)),
+  ];
+  const vs = valuers(o.set === "channels" ? channels : [...base, ...rat, ...adv], smp);
+  const n = smp.ls.length; const w = Float64Array.from(smp.logw, x => 2 ** x); const tot = smp.total;
+  const B = vs.map(v => Float64Array.from(smp.ls, l => v.bits(l)));
+  for (const depth of [4, 8]) {
+    say(`### depth ${depth} bits (cells: PMI in bits; blank where the joint set has under 30 draws)\n`);
+    const inU = B.map(b => { const u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = b[i]! >= depth ? 1 : 0; return u; });
+    const mass = inU.map(u => { let m = 0; for (let i = 0; i < n; i++) if (u[i]) m += w[i]!; return m / tot; });
+    const short = (id: string) => id.replace("q:", "").replace(/\/.*$/, "").split("-").map(x => x[0]).join("") + "/" + id.split("/")[1]!.slice(0, 6);
+    say(`| A \\ B (mass bits) | ${vs.map(v => short(v.rule.id)).join(" | ")} |`); say(`|---|${vs.map(() => "---").join("|")}|`);
+    const strong: string[] = [];
+    vs.forEach((a, i) => {
+      const cells = vs.map((b, j) => {
+        if (i === j) return "–";
+        let m = 0, cnt = 0; for (let k = 0; k < n; k++) if (inU[i]![k] && inU[j]![k]) { m += w[k]!; cnt++; }
+        if (cnt < 30) return "";
+        const pmi = Math.log2((m / tot) / (mass[i]! * mass[j]!));
+        if (j > i && Math.abs(pmi) >= 2) strong.push(`${a.rule.id} × ${b.rule.id}: ${f1(pmi)}`);
+        return f1(pmi);
+      });
+      say(`| ${a.rule.id} (${f1(-Math.log2(mass[i]!))}) | ${cells.join(" | ")} |`);
+    });
+    say(`\n|PMI| ≥ 2 at depth ${depth}: ${strong.join("; ") || "none"}\n`);
   }
 }
