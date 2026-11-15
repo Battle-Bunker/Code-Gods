@@ -85,6 +85,8 @@ export const myRuleV = v.object({
   depends: v.array(v.string()), primary: v.string(), ruleKey: v.string(),
   /** Parameter drift (drift.ts): times this rule's parameters were redrawn (0: never), and the world second of the last. */
   drifts: v.number(), driftedAt: v.union(v.number(), v.null()),
+  /** A ladder family (RuleFamily.keepsParams): drift never redraws this rule, so the app shows no redraw countdown. */
+  keepsParams: v.boolean(),
   /** The rule before its last redraw (params and card), or null when it never drifted. */
   previous: v.union(v.object({ params: v.any(), card: v.string() }), v.null()),
   /** The rule's value function (decision 23), as `valueLookup` takes it: what any utility is worth, in bits. */
