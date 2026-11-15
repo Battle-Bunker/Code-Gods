@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { evaluateSite, q, Qn, scoreToWire, type Variant } from "@workspace/v2-core";
 import { valueLookup } from "@workspace/v2-valuation";
 import { firstAgentShare, GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY, summonPriceScale } from "@workspace/v2-economy";
-import { fromMC, lineType, lineQ, lineZ, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineType, lineQ, lineZ, presets, type LineState } from "@workspace/v2-linear";
 import type { Language } from "@workspace/v2-sandbox";
 import {
   BEGINNER_STARTING_ENERGY, GRID_BEGINNER_STARTING_ENERGY, births, CATALOGUE, check, stale, undescribed, EngineHost, exampleFor, runAct, sandboxes, scoreSource, shippedAgents, shippedPath,
@@ -299,4 +299,20 @@ test("Thorough with the game's values, when no single step helps, looks two step
     }
   }
   assert.ok(looked > 10, `${looked} acts checked`);
+});
+
+test("no dealt line family's Simple starter fails on lines with huge numbers (as partners make by stretching), in either language", async () => {
+  const dealt = new Set(presets.flatMap(p => p.rules.map(r => r.family)));
+  const huge = [fromMC(q(3), q(2324522934)), fromMC(q(-2187, 2), q(-19683)), fromMC(q(6888), q(-6973568802)), fromMC(q(1, 7), q(4782969))].map(l => ({ lines: [l] }));
+  const failures: string[] = [];
+  for (const a of all.filter(x => dealt.has(x.family) && x.kind === "simple")) {
+    const live = Object.keys(CATALOGUE.find(e => e.family === a.family)!.tieBreakers).filter(tb => familyOf(a.family).tieBreakers.some(t => t.id === tb));
+    for (const [i, state] of huge.entries()) {
+      const { record } = await runAct(await boxes.get(a.language), {
+        type: lineType, variant: lineQ, state, rule: { family: a.family, params: paramsOf(a.family), tieBreaker: a.tieBreaker ?? live[0]! }, program: program(a), seed: String(i), energy: 500,
+      });
+      if (record.outcome === "failed") failures.push(`${shippedPath(a)} on ${lineType.encode(state)}: ${record.reason}`);
+    }
+  }
+  assert.deepEqual(failures, []);
 });

@@ -13,9 +13,7 @@
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     a = abs(c)
-    s = near(a, lambda n: n >= 2 and all(f in p["primes"] for f in factors(n)))   # the nearest rung
-    if s is None:                                   # none within 10,000: hopeless
-        return None
+    s = near_made_of(a, p["primes"])               # the nearest rung: made only of the rule's primes
     main = -abs(a - s)                              # off every rung: below them all
     if a == s:                                      # on a rung: the dealt primes multiplied (omega), in levels
         omega, level = len(factors(s)), 0
