@@ -72,14 +72,15 @@ test("rungs are exact primes for big distances: 243424875139476387348923089 has 
   assert.equal(terms(7, mc(0, q(r2, s2))).ruler, Qn.toWire(digitLevel(p)));   // a 25-digit prime: level 6
 });
 
-test("dealt: the four endings, each card a child can act on in under 30 words", () => {
+test("dealt: the four endings, each card in plain sentences: the main one under 30 words, the tie-breaker a sentence", () => {
   assert.deepEqual(ruler.dealable(lineQ), [{ ends: 1 }, { ends: 3 }, { ends: 7 }, { ends: 9 }]);
   for (const p of ruler.dealable(lineQ)) {
-    const card = ruler.card(p, "shared-factor");
-    assert.ok(card.split(/\s+/).length < 30, `${card.split(/\s+/).length} words: ${card}`);
-    assert.doesNotMatch(card, /level/i);
-    assert.match(card, /Bigger is better, each extra digit counts for less/);
-    assert.match(card, new RegExp(`prime ending in ${p.ends}`));
+    const main = ruler.card(p, null), card = ruler.card(p, "shared-factor");
+    assert.ok(main.split(/\s+/).length < 30, `${main.split(/\s+/).length} words: ${main}`);
+    assert.doesNotMatch(card, /level|²/i);
+    assert.match(main, /the line's closest distance to \(0, 0\)/);
+    assert.match(main, new RegExp(`a prime ending in ${p.ends}\\. Bigger primes are better, each extra digit counts for less\\.$`));
+    assert.match(card, /Prime minus 1 and the y-intercept's whole part should share as big a factor as possible\./);
   }
 });
 
