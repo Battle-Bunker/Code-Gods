@@ -3,7 +3,7 @@
  * hill climbers (owner, 14 November): the face shows the climb from here, never a destination to agree or hold.
  * (1) On line 1, each candidate move shows your bits × the others' total bits = points and the change from now
  *     (v2/play:othersAt), "Best for points" first or "Best for my rarity", and the climb from here (or "Stuck here").
- * (2) The last moves on line 1 (seed `contested`: each move undid the last) are listed ↑/↓ for you and for the others,
+ * (2) The last moves on line 1 (seed `contested`: each move undid the last) are listed up or down for you and for the others,
  *     and said to undo each other.
  * (3) Objects are unique: once line 2 is put in a candidate's state, that candidate shows as not available.
  * (4) In an ended game the summary says, per contested line, whether you climbed together (seed `climbed`) or undid
@@ -103,16 +103,16 @@ try {
     await line.getByTestId("button-order-points").click();
     assert.equal(await line.getByRole("button", { name: /Propose|Hold it here/ }).count(), 0, `${label}: no destination to propose or hold`);
 
-    // (2) The last moves on the line: each ↑/↓ for you and for the others; these undo each other.
+    // (2) The last moves on the line: each up or down for you and for the others; these undo each other.
     const history = line.getByTestId("climb-history");
     await history.waitFor({ timeout: 10_000 });
     assert.equal(await history.getAttribute("data-kind"), "undoing", label);
     // The seed's four pulls (and its earlier quiet move on line 1, if shown).
     const steps = await history.getByTestId("climb-step").allInnerTexts();
     assert.ok(steps.length >= 4, `${label}: ${steps.length} steps`);
-    assert.ok(steps.some(t => /^Your agent ↑ you 1\.00 bits · ↓ the others (about )?1\.00 bits$/.test(t)), steps.join(" | "));
+    assert.ok(steps.some(t => /^Your agent you up 1\.00 bits · the others down (about )?1\.00 bits$/.test(t)), steps.join(" | "));
     // Live, another player's move is unattributed (v1's public log).
-    assert.ok(steps.some(t => /^Another player ↓ you 1\.00 bits · ↑ the others (about )?1\.00 bits$/.test(t)), steps.join(" | "));
+    assert.ok(steps.some(t => /^Another player you down 1\.00 bits · the others up (about )?1\.00 bits$/.test(t)), steps.join(" | "));
     assert.ok(!steps.some(t => /Practice partner/.test(t)), `${label}: no one named while live`);
     assert.match(await history.getByTestId("text-climb-verdict").innerText(), /^Stuck: these moves undo each other/);
     await line.locator(".v2v-moves").scrollIntoViewIfNeeded();

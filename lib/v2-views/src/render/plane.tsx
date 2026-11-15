@@ -48,7 +48,7 @@ export interface PlaneLayout {
   readonly labels: readonly PlaneLabel[];
   /** The triangle with the axes, when the rule reads it: box px, and whether it is too thin to see. */
   readonly region: { readonly ref: ElementRef; readonly pts: readonly XY[]; readonly world: readonly XY[]; readonly thin: boolean } | null;
-  /** Axes outside the window, named at the edge: "x-axis ↓ (y = 0)". */
+  /** Axes outside the window, named at the edge: "x-axis below (y = 0)". */
   readonly offAxes: readonly string[];
   /** The marks drawn here: the rule's marks on this plane, projected ones moved onto their plane element (compact: filtered). */
   readonly marks: readonly Mark[];
@@ -322,8 +322,8 @@ export function planeLayout(input: PlaneLayoutInput): PlaneLayout | null {
     texts.set(id, t);
   }
   const offAxes: string[] = [];
-  if (view.y0 > 0) offAxes.push("x-axis ↓ (y = 0)"); else if (view.y1 < 0) offAxes.push("x-axis ↑ (y = 0)");
-  if (view.x0 > 0) offAxes.push("y-axis ← (x = 0)"); else if (view.x1 < 0) offAxes.push("y-axis → (x = 0)");
+  if (view.y0 > 0) offAxes.push("x-axis below (y = 0)"); else if (view.y1 < 0) offAxes.push("x-axis above (y = 0)");
+  if (view.x0 > 0) offAxes.push("y-axis to the left (x = 0)"); else if (view.x1 < 0) offAxes.push("y-axis to the right (x = 0)");
   // Kept clear: the not-to-scale inset, the off-axis notes and the axes' numbers (labels go around them; a number a
   // label still covers, or that sits under a point, is left out below).
   const blocked: Rect[] = offAxes.map((t, i) => ({ x: 4, y: view.box.h - 14 - i * 12, w: textWidth(t), h: 12 }));

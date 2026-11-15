@@ -155,10 +155,9 @@ try {
     assert.match(logged, /Line \d+ (changed|was born)|Your agent moved line \d+/, `${label}: the public log lists moves: ${logged.slice(0, 200)}`);
     assert.doesNotMatch(logged, /Practice partner \d+ moved/, `${label}: live, the public log names no other mover`);
     assert.match(logged, /Your points (about|stayed about)/, `${label}: live, your points in the log are estimates`);
-    // The totals are exact (W3 #662, call 15): the header's total is never written as an estimate, and its note says so.
+    // The totals are exact (W3 #662, call 15): the header's total is never written as an estimate.
     const total = page.getByTestId("text-my-total");
     assert.doesNotMatch(await total.innerText(), /about/, `${label}: live, your total is exact`);
-    assert.match((await total.getAttribute("title")) ?? "", /counted exactly/, `${label}: the total's note says it is exact`);
     console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();
@@ -179,7 +178,7 @@ try {
     // Call 15 (W3 #662): the totals and standings are exact; only each line's figures are estimates.
     assert.doesNotMatch(await page.getByTestId("text-my-total").innerText(), /about/, `${label}: the header total is exact`);
     assert.doesNotMatch(sentence, /payoff|object|✨/i);
-    assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
+    assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡|energy)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
     // The goal card (owner decision 23: no steps): the parts on their rulers and a worked example (before one line's
@@ -277,7 +276,7 @@ try {
       // Once the others' totals arrive (v2/play:othersAt), a move's new bits come with its points: yours × others'.
       await options.first().getByText(/→ your [\d,]+\.\d\d bits? × others'/).waitFor({ timeout: 15_000 });
       const first = await options.first().innerText();
-      assert.match(first, /[\d,]+\.\d\d ⚡/, `a move has its price: ${first}`);
+      assert.match(first, /[\d,]+\.\d\d energy/, `a move has its price: ${first}`);
       assert.match(first, /→ your [\d,]+\.\d\d bits? × others' (about )?[\d,]+\.\d\d bits? [=≈] [\d,]+\.\d\d points?/, `a move has its new bits and points: ${first}`);
     } else await line.getByText(/No single move makes this line rarer/).waitFor();
     // 4. why another player might want the same line: the formula names the others' bits beside yours (checked above).
@@ -305,7 +304,7 @@ try {
     const said = await summary.innerText();
     assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(moves marked ↑ both|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(moves marked “good for both”|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();

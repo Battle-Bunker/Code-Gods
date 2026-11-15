@@ -1,7 +1,7 @@
 /**
  * The line annotations storyboards (docs/engine-v2/annotations-design.md §9) in a browser: annotations-lines.html on a
  * Vite dev server this script starts, at desktop (1440 px) and phone (390 px), light and dark. Checks what only a
- * browser can: no page errors, no sideways scroll, a tap on a contributor selects it (a chip says so and ✕ clears it),
+ * browser can: no page errors, no sideways scroll, a tap on a contributor selects it (a chip says so and Clear clears it),
  * a phone selection shows the lit twin in a second, stacked view, and compare keeps the rule's main view. On rational
  * lines (lines-beginner plays on line-q), every pool family's face: fractions typeset (never "8/11"), the plots fitted
  * (the line crosses its drawing, every main label inside it and clear of the others). With an
@@ -109,11 +109,11 @@ try {
     assert.ok(sideways <= 0, `${file}: the page scrolls sideways by ${sideways}px`);
 
     if (file === "prime-landing-1440-light" || file === "prime-landing-390-dark") {
-      // A tap on a part selects it (a chip says so, only its marks are drawn); ✕ clears it.
+      // A tap on a part selects it (a chip says so, only its marks are drawn); Clear clears it.
       await page.locator(".v2v-part[data-role=main]").first().click();
       assert.equal(await page.locator(".v2v-selchip").count(), 1, "a tap selects the part");
       await page.locator(".v2v-selchip button").click();
-      assert.equal(await page.locator(".v2v-selchip").count(), 0, "✕ clears the selection");
+      assert.equal(await page.locator(".v2v-selchip").count(), 0, "Clear clears the selection");
       // No steps or thresholds anywhere (owner decision 23).
       const text = await page.locator(".la-page").innerText();
       assert.doesNotMatch(text, /\bstep \d|\bwithin \d|≥ ?\d|Steps to the top/, "no steps or thresholds");
@@ -200,8 +200,10 @@ try {
     assert.deepEqual(errors, [], `${file}: page errors`);
     const text = await page.locator(".la-page").innerText();
     assert.match(text, /x = 3/, `${file}: the line is named`);
-    assert.doesNotMatch(text, /x − 3 = 0|0y/, `${file}: written as a person writes it`);
-    if (frame === "compact") assert.match(text, /To score: /, `${file}: what would make it score`);
+    // The general form's own view writes "x − 3 = 0" (that is its form); no view writes a zero term.
+    assert.doesNotMatch(text, /\b0y|\+ 0\b|\b1x/, `${file}: written as a person writes it`);
+    // Not scoring: what would make it score; scoring (a rule that reads a vertical line, since the vertical readings): its next step.
+    if (frame === "compact") assert.match(text, /not scoring[\s\S]*To score: |\d bits \(1 in [\s\S]*next: /, `${file}: what would make it score, or its next step`);
     else assert.match(text, /What would make it rarer/, `${file}: the moves`);
     if (OUT) writeFileSync(`${OUT}/${file}.jpg`, await page.locator(".la-page").screenshot({ type: "jpeg", quality: 70 }));
     await page.close();
