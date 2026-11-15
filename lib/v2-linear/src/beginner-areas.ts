@@ -50,8 +50,12 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
  * Tie-breaker, read from that prime p: the factor p − 1 shares with the y-intercept's whole part (ignoring its sign). A new
  * rung changes p − 1, so the y-intercept that shared most no longer does and the climb starts again; a turn about (0, 0)
  * keeps the distance (the ruler's own shortcut) and moves the y-intercept, so the tie-breaker climbs on a rung.
- * Adversary: Pythagorean Area, on the same number on a 45° line (y = ±x + c: distance² and the triangle's area are both
- * c²/2), so another ending there excludes it and the same ending is a forbidden pair (seating.ts).
+ * Adversary, by construction: Pythagorean Area, on the same number on a 45° line (y = ±x + c: distance² and the
+ * triangle's area are both c²/2), so another ending there excludes it and the same ending is a forbidden pair (seating.ts).
+ * Measured, it is not one (open, row 6): the tension matrix (scripts/tension.ts, 8 states a bit, 15 Nov) puts no family
+ * in tension with Ruler, and 6 of its 16 pairs with Pythagorean Area aligned (each climb raises the other about 2 times
+ * in 3); both grow with c²/(something in m). A Ruler that wants the line close to (0, 0) (1 ÷ distance², a small-values
+ * adversary to every big ladder) fails the mechanical row 1 check, which searches whole y-intercepts outward from 0.
  * Dealt: k = 1, 3, 7, 9.
  */
 const RULER_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
