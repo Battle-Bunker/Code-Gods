@@ -23,7 +23,9 @@ before(async () => {
   await perform(bo!, "room.join", { code: created.result.code });
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   // Starting energy with room for the planning test's summons, replaces and put-backs (each priced by its program).
-  await perform(ada!, "room.settings", { overrides: { planningSeconds: 600, worldSeconds: 600, startingEnergy: 1200 } }, { roomId });
+  // Exact sums (peerNoiseBits 0): this file checks that an agent is told the server's values, which under noise differ
+  // by design (agents see a draw of their own: disclose.ts agentNoiseAt).
+  await perform(ada!, "room.settings", { overrides: { planningSeconds: 600, worldSeconds: 600, startingEnergy: 1200, peerNoiseBits: 0 } }, { roomId });
   gameId = (await perform(ada!, "game.start", {}, { roomId })).result.gameId;
 });
 

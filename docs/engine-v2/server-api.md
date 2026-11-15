@@ -108,6 +108,11 @@ instead of waiting; the tick skips agents of languages not ready; planning holds
 is ready.
 At most 8 players can play (v1's cap); the rest of a room watches.
 
+Published standings are exact (the coordinator's call 15, a declared trial: v1's came from the disclosed sums):
+standings, their history and the chart are the exact totals, batched every `scoreIntervalSeconds`; per-object figures
+stay blurred. Each player's agents climb on a noise draw of their own (`agentNoiseAt`, call B1). The beginner presets
+have `peerNoiseBits` 8. The header carries `observation`.
+
 `v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 

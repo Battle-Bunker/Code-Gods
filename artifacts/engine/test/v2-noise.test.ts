@@ -52,9 +52,11 @@ test("while live every others' sum is the exact one plus its state's noise, the 
 
   // Standings: the disclosed totals while live.
   const live = await ada!.query("v2/games:standings", { gameId });
-  const totals = await admin.query("v2/testing:totalsOf", { gameId });
-  assert.ok(totals.shown, "the engine keeps disclosed totals");
-  assert.ok(live.rows.some((r: any) => !close(r.total, totals.exact[r.memberId] ?? 0, 1e-3)), "the published standings are not the exact totals");
+  // Published exact (the coordinator's call 15): the live standings are the exact totals the scoreboard recorded.
+  const record = await admin.query("v2/testing:events", { gameId, after: -1 });
+  const published = record.filter((e: any) => e.kind === "tick").at(-1)?.data;
+  if (published && Math.abs(published.worldSeconds - live.worldSeconds) < 1e-9)
+    for (const r of live.rows) assert.ok(close(r.total, published.standings.find((s: any) => s.memberId === r.memberId).total), "the published standings are the exact record's");
 
   // Live anonymity (v1's public log): another player's move carries no mover, agent, calls or cost; tugs name nobody.
   const liveMoves = (await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;

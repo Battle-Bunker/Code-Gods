@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
-import { disclosesNoise, noiseAt, shownAt } from "./disclose.ts";
+import { noiseAt, shownAt } from "./disclose.ts";
 import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
@@ -196,11 +196,10 @@ async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: 
 }
 
 /**
- * Writes the scoreboard: standings ranked by net total, a history row and a `tick` event. While live the published
- * standings are the disclosed totals (each player's points at the disclosed others' sums); the record and the final
- * standings are exact.
+ * Writes the scoreboard: standings ranked by net total, a history row and a `tick` event, every scoreIntervalSeconds.
+ * The published totals are exact (the coordinator's call 15); per-object figures stay blurred (disclose.ts).
  */
-async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number, final = false) {
+async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number) {
   const engine = await engineOf(ctx, game._id);
   const players = await ctx.db.query("v2Players").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
   const handicap = new Map<string, number>();
@@ -213,12 +212,13 @@ async function scoreboard(ctx: MutationCtx, game: Doc<"v2Games">, world: number,
     return { memberId: p.memberId, name: game.roster.find(r => r.memberId === p.memberId)?.name ?? "", total, handicap: h, net: total - (h / 100) * Math.abs(total), rank: 0 };
   }).sort((a, b) => b.net - a.net).map((r, i) => ({ ...r, rank: i + 1 }));
   const rows = rank(engine.totals);
-  const shown = !final && disclosesNoise(game) ? rank(engine.shownTotals ?? engine.totals) : rows;
+  // Published exact (the coordinator's call 15, a declared trial departing from v1, whose totals were the disclosed
+  // sums): a batched total leaks only an aggregate over all objects, and the leaderboard agrees with the final result.
   const seq = engine.scoreboards;
   const existing = await ctx.db.query("v2Standings").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-  if (existing) await ctx.db.patch(existing._id, { seq, worldSeconds: world, rows: shown });
-  else await ctx.db.insert("v2Standings", { gameId: game._id, seq, worldSeconds: world, rows: shown });
-  await ctx.db.insert("v2StandingsHistory", { gameId: game._id, seq, worldSeconds: world, totals: shown.map(r => ({ memberId: r.memberId, net: r.net })) });
+  if (existing) await ctx.db.patch(existing._id, { seq, worldSeconds: world, rows });
+  else await ctx.db.insert("v2Standings", { gameId: game._id, seq, worldSeconds: world, rows });
+  await ctx.db.insert("v2StandingsHistory", { gameId: game._id, seq, worldSeconds: world, totals: rows.map(r => ({ memberId: r.memberId, net: r.net })) });
   await ctx.db.patch(engine._id, { scoreboards: seq + 1, scoreboardAt: world });
   await appendEvent(ctx, game._id, "tick", { tick: engine.tick, worldSeconds: world, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
   return rows;
@@ -263,7 +263,7 @@ export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase === "ended") return;
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
-  const rows = await scoreboard(ctx, game, clock.worldSeconds, true);
+  const rows = await scoreboard(ctx, game, clock.worldSeconds);
   const acts = engine.acts;
   await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts } });
   await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });

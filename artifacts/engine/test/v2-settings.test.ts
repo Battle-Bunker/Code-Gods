@@ -46,12 +46,12 @@ test("halfLife hides the end and ends at the drawn moment; standings every 5 s; 
   assert.ok(worlds[0] === 0 && worlds.some((w: number) => w >= 5 && w < 8), `standings every 5 world seconds: ${worlds.join(", ")}`);
 });
 
-test("the beginner presets are v1's Annotated basics: 300 s fixed, no disclosure noise", { timeout: 60_000 }, async () => {
+test("the beginner presets: v1's Annotated basics' 300 s fixed, with the disclosure noise at 8 (call 15)", { timeout: 60_000 }, async () => {
   const [ada] = await humans("Preset Ada");
   const { roomId } = (await perform(ada!, "room.create", { name: "Preset room" })).result;
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const h = await ada!.query("v2/games:header", { gameId });
-  assert.deepEqual([h.durationMode, h.worldSeconds, h.peerNoiseBits], ["fixed", 300, 0]);
+  assert.deepEqual([h.durationMode, h.worldSeconds, h.peerNoiseBits, h.observation], ["fixed", 300, 8, "free"]);
   await perform(ada!, "game.end", {}, { gameId });
 });
