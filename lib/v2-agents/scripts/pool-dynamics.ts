@@ -162,7 +162,7 @@ const answers = new Map<string, { n: number; won: number }>();
  * share made by reflections; and repairs: a reflection that raises its mover's bits right after another seat's move on
  * that object lowered them (after a reflection by that seat: a mirror tug; after any other move: a sign repair).
  */
-const tug = { moves: 0, mirrors: 0, flips: 0, mirrorFlips: 0, gain: 0, mirrorGain: 0, repairsAfterMirror: 0, repairsAfterOther: 0, repairGain: 0 };
+const tug = { levels: 0, lateMoves: 0, lateOnTwoState: 0, lateObjects: 0, lateStates: 0, twoStateObjects: 0, moves: 0, mirrors: 0, flips: 0, mirrorFlips: 0, gain: 0, mirrorGain: 0, repairsAfterMirror: 0, repairsAfterOther: 0, repairGain: 0 };
 const peaks: { seat: number; table: number; stretchRun: number }[] = [];
 /** Per family (the stats key): the largest bits its seat held on any object, and in which game. */
 const peakBy = new Map<string, { bits: number; game: number }>();
@@ -220,6 +220,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const pending = new Set<number>();   // seats redrawn and not yet answered by a committed move
   const runs = new Map<string, number>();   // seat:object → consecutive stretches
   const lastOn = new Map<number, { by: number; from: string; mirror: boolean; lowered: boolean[] }>();   // object → its last committed move
+  const lastThird = new Map<number, { moves: number; states: Set<string> }>();   // object → its changing moves and distinct states in the last third
   let peakSeat = 0, peakTable = 0, stretchRun = 0;
   const bestJoint = seats.map(() => 0), peak = seats.map(() => 0);   // per seat: its highest bits on a state that also holds at least 10 of the others' bits
   const rep = await runTable(boxes, {
@@ -253,6 +254,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
             if (prev.mirror) tug.repairsAfterMirror++; else tug.repairsAfterOther++;
             tug.repairGain += gain;
           }
+          if (e.at >= (2 * seconds) / 3) { const l = lastThird.get(e.object) ?? (lastThird.set(e.object, { moves: 0, states: new Set([type.encode(e.before as never)]) }), lastThird.get(e.object)!); l.moves++; l.states.add(to); }
           lastOn.set(e.object, { by: e.seat, from: type.encode(e.before as never), mirror: isMirror, lowered: seats.map((_, j) => a[j]! < b[j]! - 1e-9) });
         }
         m.moves++; m.own += gain; m.fee += fee; if (gain > fee) m.aboveFee++;
@@ -277,7 +279,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         st.mainSteps++;
         if (before !== null && before[0] !== null && before[0]!.n >= 0n) st.valleys++;
         if (compareScores(head(after), head(c.best)) > 0) {
-          c.best = after; c.levels++; c.lastUp = e.at; lastStep[i] = e.at;
+          c.best = after; c.levels++; tug.levels++; c.lastUp = e.at; lastStep[i] = e.at;
           // A rung stepped up: when, and how many of the others' bits the object held before the step (fresh or contested).
           st.upThirds[Math.min(2, Math.floor((3 * e.at) / seconds))]!++;
           st.upOthers.push(seats.reduce((a2, _s, j) => (j === i ? a2 : a2 + seatBits(j, e.before)), 0));
@@ -333,6 +335,11 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     }
   });
   peaks.push({ seat: peakSeat, table: peakTable, stretchRun });
+  // A two-state cycle: an object moved at least 6 times in the last third through no more than 2 distinct states.
+  for (const l of lastThird.values()) {
+    tug.lateMoves += l.moves; tug.lateObjects++; tug.lateStates += l.states.size;
+    if (l.moves >= 6 && l.states.size <= 2) { tug.twoStateObjects++; tug.lateOnTwoState += l.moves; }
+  }
   console.error(`game ${g + 1}: ${seats.map(s => `${s.rule.family}/${s.rule.tieBreaker}`).join(", ")}; ${redraws.length} redraws`);
 }
 await boxes.close();
@@ -368,6 +375,7 @@ console.log(`\npeak bits by family (game): ${[...peakBy.entries()].sort((x, y) =
 const ps = peaks.map(p => p.seat), pt = peaks.map(p => p.table), pr = peaks.map(p => p.stretchRun);
 console.log(`\npeaks per game: a seat's bits median ${fmt(median(ps))}, max ${fmt(Math.max(...ps))}; an object's table total median ${fmt(median(pt))}, max ${fmt(Math.max(...pt))}; longest run of one seat's stretches on one object median ${median(pr)}, max ${Math.max(...pr)}`);
 { const p = (x: number, n: number) => `${n ? ((100 * x) / n).toFixed(0) : 0}%`;
+  console.log(`\nlast third: ${tug.lateMoves} changing moves on ${tug.lateObjects} objects (${(tug.lateStates / Math.max(1, tug.lateObjects)).toFixed(1)} distinct states per object, ${(tug.lateMoves / Math.max(1, tug.lateObjects)).toFixed(1)} moves); two-state cycles (≥ 6 moves, ≤ 2 states): ${tug.twoStateObjects} objects, ${p(tug.lateOnTwoState, tug.lateMoves)} of the last third's moves; main-part levels stepped in all: ${tug.levels}`);
   console.log(`\ntug: ${tug.moves} moves, ${p(tug.mirrors, tug.moves)} reflections; flips ${tug.flips}, of them reflections ${p(tug.mirrorFlips, tug.flips)}; movers' bits gained ${tug.gain.toFixed(0)}, by reflections ${p(tug.mirrorGain, tug.gain)}; reflections repairing another seat's move that lowered the mover: after its reflection ${tug.repairsAfterMirror}, after another move (a sign repair) ${tug.repairsAfterOther}, gaining ${tug.repairGain.toFixed(0)} bits (${p(tug.repairGain, tug.gain)} of all)`); }
 console.log(`objects changed per minute, by third: ${objectsPerMinute.map(x => (x.reduce((a, b) => a + b, 0) / x.length).toFixed(2)).join(" / ")}`);
 if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify({ ...Object.fromEntries(stats), _objectsPerMinute: objectsPerMinute, _quiet: quietShare }));
