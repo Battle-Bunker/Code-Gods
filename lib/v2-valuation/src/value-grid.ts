@@ -11,7 +11,7 @@
  */
 import { canonicalJson, evaluateObject, hashHex, scoreOf, tieBreakerId, type ObjectType, type RuleFamily, type Score, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { exactlySummed, type GridState } from "@workspace/v2-grid";
-import { ruleKey } from "./keys.ts";
+import { ruleKey, valuesHash } from "./keys.ts";
 import { gridJointLaw } from "./exact-grid.ts";
 import { cellProbability, gridParams } from "@workspace/v2-grid";
 import { knotsFrom, massOracle, sampledOracle, tailOf, VALUE_CONFIG, type Oracle, type ValueConfig, type ValueFunction } from "./value.ts";
@@ -47,7 +47,7 @@ export function gridValueFunction<P>(type: ObjectType<GridState>, family: RuleFa
   const body = {
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker),
-    objectType: type.id, objectTypeVersion: type.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
+    objectType: type.id, objectTypeVersion: type.version, variant: variant.id, variantHash: valuesHash(variant),
     family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots),
     diagnostics: { exact, sampled, candidates },
   };
