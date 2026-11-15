@@ -446,14 +446,14 @@ Row 7 is not in design-principles.md.
 
 | Family | 1 unbounded | 2 climbed late / last step in the first 120 s (seats) | 3 tie-breaker from the main | 4 instances | 5 PMI: independent pairs | 6 opposed by (lowers it) | 8 end bits mean / max | 9 gain; objects moving late |
 |---|---|---|---|---|---|---|---|---|
-| Whole Answer | PASS: valuation ladder | 65% / 6% (17) | PASS: reads n; 25% of main steps lowered it | 8 | 69% | ROW6WA | 5.2 / 11.5 | 261; 34% |
-| Divide By | PASS: power ladder | 50% / **33%** (12) | PASS: numerators over D; 35% | 4 | 91% | ROW6NF | 4.5 / 15.0 | **166**; 20% |
-| Right Angle | PASS: residue ladder | 60% / 5% (20) | PASS: reads n; 8% | 10 | 74% | ROW6RA | 4.4 / 12.5 | 232; 38% |
-| Forty-Five | PASS: residue ladder | 54% / 8% (26) | PASS: reads n; 13% | 17 | 69% | ROW6FF | 5.7 / 12.2 | 251; 32% |
-| Gap Ratio | PASS: power ladder | 73% / 0% (11) | PASS: reads the gap; 27% | 4 | 55% (335 anti-aligned) | ROW6DG | 5.2 / 12.6 | 212; 33% |
-| Far Crossing | PASS: residue ladder | 56% / 6% (18) | **weak**: reads n; 6% | 8 | 83% | ROW6FC | 4.6 / 12.3 | 278; 31% |
-| High Start | PASS: valuation ladder | 75% / 25% (4: too few) | **weak**: reads n; 11% | **FAIL: 3** | 80% | ROW6HS | 4.3 / 6.7 | 222; 38% |
-| Steep Ratio | PASS: valuation ladder | 58% / **33%** (12) | PASS: reads the ratio; 19% | 6 | 96% | ROW6SR | 6.5 / 17.6 | 206; 27% |
+| Whole Answer | PASS: valuation ladder | 65% / 6% (17) | PASS: reads n; 25% of main steps lowered it | 8 | 69% | Divide By 41%, Steep Ratio 39% | 5.2 / 11.5 | 261; 34% |
+| Divide By | PASS: power ladder | 50% / **33%** (12) | PASS: numerators over D; 35% | 4 | 91% | Gap Ratio 44%, Right Angle 43% | 4.5 / 15.0 | **166**; 20% |
+| Right Angle | PASS: residue ladder | 60% / 5% (20) | PASS: reads n; 8% | 10 | 74% | Gap Ratio 50%, Steep Ratio 46% | 4.4 / 12.5 | 232; 38% |
+| Forty-Five | PASS: residue ladder | 54% / 8% (26) | PASS: reads n; 13% | 17 | 69% | Gap Ratio 47%, Steep Ratio 43% | 5.7 / 12.2 | 251; 32% |
+| Gap Ratio | PASS: power ladder | 73% / 0% (11) | PASS: reads the gap; 27% | 4 | 55% (335 anti-aligned) | Steep Ratio 34%, Forty-Five 34% | 5.2 / 12.6 | 212; 33% |
+| Far Crossing | PASS: residue ladder | 56% / 6% (18) | **weak**: reads n; 6% | 8 | 83% | **weak**: Whole Answer 18%, Right Angle 18% | 4.6 / 12.3 | 278; 31% |
+| High Start | PASS: valuation ladder | 75% / 25% (4: too few) | **weak**: reads n; 11% | **FAIL: 3** | 80% | **weak**: Divide By 27%, Steep Ratio 25% | 4.3 / 6.7 | 222; 38% |
+| Steep Ratio | PASS: valuation ladder | 58% / **33%** (12) | PASS: reads the ratio; 19% | 6 | 96% | Gap Ratio 45%, High Start 33% | 6.5 / 17.6 | 206; 27% |
 
 - **Row 1.** Every main part is a ladder: no state scores a maximum, and the next level is always one class away. The
   power ladder had a top until the review fix (§9.1).
@@ -478,7 +478,8 @@ Row 7 is not in design-principles.md.
     statistic for a ladder. That is the coordinator's call.
 - **Row 5.** The share of a family's pairs with other families' rules that are independent (|PMI| ≤ 1 bit). Of the
   aligned pairs (> 2 bits) between dealt rules, all 61 are forbidden by the seating rule (§9.4).
-- **Row 6.** The family whose climbs lower it most often, from the tension matrix (each family's best tie-breaker).
+- **Row 6.** The families whose climbs lower it most often, from the tension matrix (each family's best tie-breaker).
+  Far Crossing and High Start are weakly opposed (under 30%).
 - **Row 8.** Nothing near 30 bits: the highest end bits in 40 games are 17.6 (Steep Ratio).
 - **Row 9.** Mean points gained, best family over worst: **1.67** (Far Crossing 278, Divide By 166). Without the seating
   rule, on the same fixed pool, it was 1.29.
@@ -515,8 +516,12 @@ and with them the 40 games above put Right Angle at 60% and Forty-Five at 54% (3
     Steep Ratio candidates. They share a residue r (Right Angle {7, 3} × Whole Answer {7, 3}: 3.3 bits) or meet at a
     small number (Right Angle {11, 9} × Whole Answer {7, 5} at y = −2: 2.3 bits). Each reads a y that one stretch or
     translate moves for both.
-  - *Tension matrix* (before the power-ladder fix): the largest joint gain was Gap Ratio and Divide By, +10.9 bits each
-    (a turn eight times making D = −9 and the gaps' ratio a power of 3).
+  - *Tension matrix*:
+    - In 34 of 56 ordered family pairs the column rises more often than it falls.
+    - A repeated basic strategy raises one family by more than 1 bit in 47% of runs, two in 30%, three or more in 23%.
+    - The largest joint gain is Gap Ratio +13.5 with Divide By +11.3 bits: stretching one line by 3 eight times makes
+      D = −81 and the gaps' ratio a power of 3. That is a base-3 pair (k 3 with k 9), which the seating rule forbids.
+      The matrix scores every family's best rule and does not apply seating.
   - *The fix: a seating rule for pairs* (lib/v2-pair seating.ts). Forbidden at one table:
     - one family twice;
     - two of Whole Answer, High Start and Right Angle with the same r, or whose classes meet at a number 0 < |n| ≤ 3;
