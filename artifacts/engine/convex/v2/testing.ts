@@ -469,6 +469,17 @@ export const stateOf = internalQuery({
   },
 });
 
+/** The disclosure noise's offset over a game's value rows (shown − exact want), split by rows never moved and moved. */
+export const noiseOffsets = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const rows = await ctx.db.query("v2ObjectValues").withIndex("by_game_member_points", q => q.eq("gameId", gameId)).collect();
+    const pick = (rs: typeof rows) => rs.filter(r => r.shownWant !== undefined).map(r => ({ dw: r.shownWant! - r.want, dp: r.shownPoints! - r.points, p: r.points, sp: r.shownPoints! }));
+    return { unmoved: pick(rows.filter(r => r.version === 1)), moved: pick(rows.filter(r => r.version > 1)) };
+  },
+});
+
 /** Ends a seeded game as the loop would leave it (phase only). */
 export const markEnded = internalMutation({
   args: { gameId: v.id("v2Games") },

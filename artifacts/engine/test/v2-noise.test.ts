@@ -20,6 +20,8 @@ test("while live every others' sum is the exact one plus its state's noise, the 
   const { roomId } = (await perform(ada!, "room.create", { name: "Noise room" })).result;
   await perform(bo!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code }, {});
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  // The beginner presets have no noise (v1's Annotated basics, peerNoiseBits 0): this room asks for v1's default.
+  await perform(ada!, "room.settings", { overrides: { peerNoiseBits: 8 } }, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   await new Promise(r => setTimeout(r, 12_000));   // a scoreboard (every 10 world seconds) and some moves

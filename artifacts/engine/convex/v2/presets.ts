@@ -32,8 +32,14 @@ export interface Preset {
   worldSeconds: number;
   startingEnergy: number;
   startingObjects: number;
-  /** How its games end (duration.ts): v1's beginner setups were fixed, ten minutes. */
+  /** How its games end (duration.ts): v1's Annotated basics was fixed, 300 s (archive settings.ts ANNOTATED_BASICS_PATCH). */
   durationMode: "fixed" | "halfLife";
+  /**
+   * The disclosure noise (disclose.ts). v1's Annotated basics had none (peerNoiseBits: 0): "with noise, a live total
+   * reads high (the others' sum is floored at 0 after the noise) and every total drops when the game ends ..., which a
+   * new player reads as a bug. Eight known simple rules have little secrecy to protect." Other setups: v1's default, 8.
+   */
+  peerNoiseBits: number;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -58,7 +64,7 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     id: p.id, title: p.title, variant: p.variant, pool, families: [...new Set(pool.map(r => r.family))],
     minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
     // v1 Annotated basics' starting count, restored (coordinator's call, 14 Nov).
-    startingObjects: 10, durationMode: "fixed",
+    startingObjects: 10, durationMode: "fixed", peerNoiseBits: 0,
     economy: ECONOMY, ...extra,
   };
 }

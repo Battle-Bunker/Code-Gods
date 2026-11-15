@@ -260,7 +260,7 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     startingEnergy: room.overrides.startingEnergy ?? preset.startingEnergy,
     startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy,
     // Disclosure noise on the others' sums while live (disclose.ts; v1's peerNoiseBits, default 8).
-    peerNoiseBits: room.overrides.peerNoiseBits ?? DEFAULT_PEER_NOISE_BITS,
+    peerNoiseBits: room.overrides.peerNoiseBits ?? preset.peerNoiseBits ?? DEFAULT_PEER_NOISE_BITS,
     // How the game ends and how often standings are published (duration.ts; v1's settings).
     durationMode: room.overrides.durationMode ?? preset.durationMode,
     scoreIntervalSeconds: room.overrides.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS,

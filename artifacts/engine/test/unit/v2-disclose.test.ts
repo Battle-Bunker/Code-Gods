@@ -31,3 +31,8 @@ test("no noise without a key or at σ = 0; points follow the shown sum; ended ga
   assert.deepEqual(disclosed({ phase: "ended" }, row), { want: 5, points: 15 });
   assert.deepEqual(disclosed({ phase: "live" }, { want: 5, points: 15 }), { want: 5, points: 15 }, "a row from before the noise");
 });
+
+test("the noise is centred: over many states the shown others' sum averages the true one", () => {
+  const diffs = Array.from({ length: 20_000 }, (_, i) => { const want = (i % 37) / 2; return shownAt({ rarityBits: 1, want }, noiseAt(game, `c${i}`)).shownWant - want; });
+  assert.ok(Math.abs(diffs.reduce((a, b) => a + b, 0) / diffs.length) < 0.2, "mean shown − true ≈ 0");
+});
