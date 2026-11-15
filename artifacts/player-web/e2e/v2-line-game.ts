@@ -184,6 +184,21 @@ try {
       // No confirmation page: the row only opens the control (its Save prices the edit).
       await page.getByTestId("input-leave-alone").waitFor({ state: "visible", timeout: 10_000 });
       await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "input-leave-alone", null, { timeout: 5_000 });
+      // My agents: the code, and "Edit … in Agent code" puts that agent in the editor (v1's edit from the agent's row).
+      await page.keyboard.press("Escape");
+      const agentsPane = page.getByTestId("pane-agents");
+      if (await page.getByTestId("tab-agents").count()) await page.getByTestId("tab-agents").click({ position: { x: 6, y: 10 } });
+      else if (!await agentsPane.count()) {
+        await page.locator("[data-testid^=button-pane-menu-]").first().click();
+        await page.getByTestId("button-open-pane-agents").click();
+      }
+      const row = agentsPane.locator("[data-testid^=row-agent-]").first();
+      await row.locator("[data-testid^=details-agent-code-] summary").click();
+      const edit = row.locator("[data-testid^=button-agent-edit-]");
+      await edit.waitFor({ timeout: 15_000 });
+      const name = (await edit.innerText()).replace(/^Edit (.*) in Agent code$/, "$1");
+      await edit.click();
+      await page.getByTestId("pane-forge").getByText(new RegExp(`${name}, version \\d+`)).first().waitFor({ timeout: 10_000 });
     }
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);

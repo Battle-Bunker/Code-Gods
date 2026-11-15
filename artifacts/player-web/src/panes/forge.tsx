@@ -7,6 +7,7 @@
  * next step, as a Replace of the agent in the editor. "Put the previous version back" is one press, with the frozen
  * before/after comparison. Check runs one act in the sandbox and never blocks Summon.
  */
+import { onForgeRequest, takeForgeRequest } from "./forge-request";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { noteSummoned, objectTypeOf, objectWord, useAgentCount, useAgentPrograms, useGame, useMe, useMyAgents, useMyRule } from "@/sdk";
@@ -65,6 +66,12 @@ export function ForgePane() {
   useEffect(() => {
     if (agents?.length && !agents.some(a => a.agentId === selected)) { setSelected(agents[0]!.agentId); setDraft(null); }
   }, [agents, selected]);
+  // "Edit in Agent code" from My agents puts that agent in the editor.
+  useEffect(() => {
+    const take = () => { const r = takeForgeRequest("agent"); if (r) { setSelected(r.agentId); setDraft(null); } };
+    take();
+    return onForgeRequest(take);
+  }, []);
   const agent = agents?.find(a => a.agentId === selected) ?? null;
   // An agent's code is in its own language; the choice applies to new code only.
   const language: Language = agent ? agent.language : chosenLanguage;
