@@ -14,7 +14,6 @@ import { failureText } from "@/site/components/action";
 import { useOpenPane } from "@/dock/open-pane";
 import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
-import { useWide } from "@/core/use-wide";
 import { PullBack } from "./pull-back-ui";
 import { LeaveAlone } from "./leave-alone-ui";
 import { shortfallOf, shortText } from "./pull-back";
@@ -55,7 +54,6 @@ export function ForgePane() {
   const [ran, setRan] = useState<string | null>(null);             // the source just summoned or replaced (no stale price: ux 3.6)
   const [report, setReport] = useState<string | null>(null);
   // A phone shows the code only on request: a wall of code filled a first-time player's screen (persona walks).
-  const wide = useWide();
   const [showCode, setShowCode] = useState(false);
   // Pressed "Summon another agent" without the energy for it: the pull-back is offered now.
   const [wantMore, setWantMore] = useState(false);
@@ -172,7 +170,9 @@ export function ForgePane() {
       {count === 0 && (
         <p className="text-sm" data-testid="text-forge-hint">You don't need to change anything: <span className="font-medium">Summon my first agent</span> runs this code as it is. Later, try changing the part marked "Try this:".</p>
       )}
-      {!wide && !showCode && draft === null ? (
+      {/* Folded on every screen (round 26: 40 lines of comments the newcomer is told not to read opened the pane); the
+          summary line above says what the code does. */}
+      {!showCode && draft === null ? (
         <button type="button" onClick={() => setShowCode(true)} className="self-start text-xs underline underline-offset-4" data-testid="button-forge-show-code">
           Show the code (you don't need to read it to play)
         </button>
@@ -183,7 +183,7 @@ export function ForgePane() {
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         {primary === "summonFirst" && (
           <button type="button" aria-disabled={!summon.available || !!runner.busy || undefined} onClick={() => summon.available && !runner.busy && void doSummon(source, true, agentName(opening?.title))}
-            className={`bg-primary text-primary-foreground px-3 py-2 font-medium ${!summon.available || runner.busy ? "opacity-50" : ""}`} title={summon.reason} data-testid="button-summon-first-forge">
+            className={`border px-3 py-2 font-medium ${!summon.available || runner.busy ? "opacity-50" : ""}`} title={summon.reason} data-testid="button-summon-first-forge">
             {runner.busy === "summon" ? "Summoning…" : "Summon my first agent"}
           </button>
         )}
