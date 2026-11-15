@@ -14,7 +14,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, internalQuery, type ActionCtx } from "../_generated/server";
 import { AI_PRINCIPAL } from "./access";
-import { OpFailure } from "@workspace/v2-affordances";
+import { takeTurn } from "./aiTurnLoop";
 import { providerFor, spendWithin } from "./ai";
 import { performAs } from "./perform";
 import { liveAgentsOf, MAX_AGENTS } from "./play";
@@ -81,35 +81,27 @@ export const deals = internalQuery({
 
 export const turn = internalAction({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members"), n: v.number() },
-  handler: async (ctx, { gameId, memberId, n }) => {
-    const seat = await ctx.runQuery(INFO, { gameId, memberId });
-    // An idle-parked game takes no AI turns (activity.ts); the next human activity starts them again.
-    if (!seat || seat.phase === "ended" || seat.parked) return;
-    const schedule = (k: number) => k < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS / seat.timeScale, TURN, { gameId, memberId, n: k }) : null;
-    if (seat.phase === "paused") { await schedule(n); return; }   // a paused turn does not count
-    const delegate: Delegate = { userId: `${AI_PRINCIPAL}${memberId}`, roomId: seat.roomId, grant: "act", via: "assistant" };
-    const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope: { gameId } });
-    // Server operations only, and nothing that spends the AI budget itself.
-    const tools = assistantTools(caller.ctx).filter(t => { const a = affordanceForTool(t.name); return a?.runs === "server" && a.spends !== "aiBudget" && !a.id.startsWith("assistant.") && !a.id.startsWith("panel."); });
-    // Its rule's Simple starter to begin from (and edit to honour deals: agent.programs → check → replace). Simple only,
-    // since every turn pays for the prompt.
-    const starters = seat.family ? startersFor(seat.family, "typescript", seat.tieBreaker).filter(s => s.kind === "simple").map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
-    const ledger = await ctx.runQuery(DEALS, { gameId, memberId });
-    const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
-      `You have ${Math.round(seat.energy)} energy in your own store and ${seat.agents} agent(s). Act, then stop.`
-      + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / seat.timeScale / 1000))}` : "");
-    try {
+  handler: async (ctx, { gameId, memberId, n }) => takeTurn<Info>({
+    seat: () => ctx.runQuery(INFO, { gameId, memberId }),
+    schedule: (k, ms) => ctx.scheduler.runAfter(ms, TURN, { gameId, memberId, n: k }),
+    log: { warn: m => console.warn(`v2 AI player ${memberId} ${m}`), error: m => console.error(`${m} (${memberId})`) },
+    play: async seat => {
+      const delegate: Delegate = { userId: `${AI_PRINCIPAL}${memberId}`, roomId: seat.roomId, grant: "act", via: "assistant" };
+      const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope: { gameId } });
+      // Server operations only, and nothing that spends the AI budget itself.
+      const tools = assistantTools(caller.ctx).filter(t => { const a = affordanceForTool(t.name); return a?.runs === "server" && a.spends !== "aiBudget" && !a.id.startsWith("assistant.") && !a.id.startsWith("panel."); });
+      // Its rule's Simple starter to begin from (and edit to honour deals: agent.programs → check → replace). Simple only,
+      // since every turn pays for the prompt.
+      const starters = seat.family ? startersFor(seat.family, "typescript", seat.tieBreaker).filter(s => s.kind === "simple").map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
+      const ledger = await ctx.runQuery(DEALS, { gameId, memberId });
+      const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
+        `You have ${Math.round(seat.energy)} energy in your own store and ${seat.agents} agent(s). Act, then stop.`
+        + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / seat.timeScale / 1000))}` : "");
       await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({
         provider: providerFor("seat"), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools, starters }),
         messages: [{ role: "user", content: briefing }], tools, maxSteps: 6, budget,
         perform: (name, args) => performAs(ctx, delegate, { gameId }, affordanceForTool(name)!.id, args),
       }));
-    } catch (e) {
-      // Refused before any call (a quota, a ceiling, the rate limit, no model, not an administrator's room): the seat
-      // waits and asks again next turn, uncounted, since the owner may raise a quota mid-game. A failure is logged.
-      if (e instanceof OpFailure) { console.warn(`v2 AI player ${memberId} waits: ${e.message}`); await schedule(n); return; }
-      console.error(`v2 AI turn failed (${memberId}): ${(e as Error).message}`);
-    }
-    await schedule(n + 1);
-  },
+    },
+  }, n, AI_TURN_MS, MAX_TURNS),
 });
