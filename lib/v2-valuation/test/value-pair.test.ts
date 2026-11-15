@@ -45,3 +45,39 @@ test("a pair's size tail never outruns the law: High Start at an intercept of 52
     assert.ok(bits <= pairType.readLength(s, pairQ), `${file}: ${bits} bits against φ ${pairType.readLength(s, pairQ)}`);
   }
 });
+
+test("one far act climbs a pair ladder by about one rung's rarity, not to the cap (two-line-systems.md §12)", async () => {
+  // Found by the straight-climb check (15 Nov): with the ladder-log rate fitted from level 0 → 1 (which carries the
+  // exactness cost), a slide by 5 took Right Angle from 10.9 to 23.4 bits and a translate took Gap Ratio from 11.0 to
+  // 22.4, each for about 30–36 energy. The rate is now fitted across the rungs, so a step up is worth about log₂ of the base.
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { rightAngle, doubleGap } = await import("@workspace/v2-pair");
+  const cases = [
+    { fam: rightAngle, dir: "right-angle", params: { q: 5, r: 1 }, base: 5, from: "-2,3,-2;3,2,29", to: "-2,3,-2;3,2,-36" },
+    { fam: doubleGap, dir: "double-gap", params: { k: 3 }, base: 3, from: "-3,1,-1;1,1,1", to: "-3,1,14;1,1,-4" },
+  ];
+  for (const c of cases) {
+    const dir = new URL(`../values/pair-q/${c.dir}/`, import.meta.url);
+    const files = readdirSync(dir).filter(x => x.endsWith(".json")).map(f => JSON.parse(readFileSync(new URL(f, dir), "utf8")))
+      .filter(vf => JSON.stringify(vf.params) === JSON.stringify(c.params));
+    assert.ok(files.length > 0, c.dir);
+    for (const vf of files) {
+      const b = (enc: string) => valueLookup(vf)(evaluateObject(pairType, c.fam, vf.params, pairType.decode(enc), pairQ, vf.tieBreaker).score).bits;
+      const gain = b(c.to) - b(c.from);
+      assert.ok(gain <= Math.log2(c.base) + 1, `${c.dir} ${vf.tieBreaker}: +${gain.toFixed(1)} bits for one act`);
+    }
+  }
+});
+
+test("a ladder's tie-breaker past its measured range rises by doublings of its climb, not of the step (Steep Ratio)", async () => {
+  // Found when the per-level tie-breaker went in (two-line-systems.md §12.2): extrapolated along the step past the last
+  // measured point, a stretch by 11 (tie-breaker 12 → 132 at level 2) took Steep Ratio {5, 2} from 12.7 to 28.3 bits.
+  // On the axis the rate was fitted on, the tie-breaker at 132 is worth about what level 1 measures there (10 bits).
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { steepRatio } = await import("@workspace/v2-pair");
+  const dir = new URL("../values/pair-q/steep-ratio/", import.meta.url);
+  const vf = readdirSync(dir).map(f => JSON.parse(readFileSync(new URL(f, dir), "utf8")))
+    .find(v => JSON.stringify(v.params) === '{"q":5,"r":2}' && v.tieBreaker === "ratio-gap");
+  const bits = valueLookup(vf)(evaluateObject(pairType, steepRatio, vf.params, pairType.decode("1,2,-528;8250,1,0"), pairQ, vf.tieBreaker).score).bits;
+  assert.ok(bits < 25, `${bits} bits after the stretch`);
+});

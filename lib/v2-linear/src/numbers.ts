@@ -19,7 +19,9 @@ export function isPrime(n: bigint): boolean {
     for (let d = 5; d * d <= x; d += 6) if (x % d === 0 || x % (d + 2) === 0) return false;
     return true;
   }
-  for (const p of WITNESSES) if (n % p === 0n) return n === p;
+  // Primes below 2000 first: they reject most composites for one division each, before a modular power (a 400-digit
+  // distance² searched about 90 candidates for its nearest prime ending in k, 2.5 s with a power on each).
+  for (const p of SMALL_PRIMES) if (n % p === 0n) return n === p;
   let d = n - 1n, s = 0;
   while (d % 2n === 0n) { d /= 2n; s++; }
   witness: for (const a of WITNESSES) {
@@ -31,6 +33,11 @@ export function isPrime(n: bigint): boolean {
   return true;
 }
 const WITNESSES = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n];
+const SMALL_PRIMES: bigint[] = (() => {
+  const out: bigint[] = [];
+  for (let k = 2; k < 2000; k++) if (out.every(p => p * p > BigInt(k) || BigInt(k) % p !== 0n)) out.push(BigInt(k));
+  return out;
+})();
 /** b^e mod m, for m > 1. */
 function modPow(b: bigint, e: bigint, m: bigint): bigint {
   let r = 1n, x = b % m;
@@ -144,15 +151,19 @@ export function distanceToPrime(x: Q): Q {
 export const PRIME_ENDINGS = [1, 3, 7, 9] as const;
 export type PrimeEnding = (typeof PRIME_ENDINGS)[number];
 const endsIn = (p: bigint, k: number) => p % 10n === BigInt(k);
-/** The prime ending in k nearest x (on a tie, the smaller): searched outward from x. */
+/**
+ * The prime ending in k nearest x (on a tie, the smaller): searched outward from x, nearer candidates first (the one below
+ * on a tie), so the first found is the answer and only one prime is confirmed (a 400-digit x confirmed two, 2 s).
+ */
 export function nearestPrimeEnding(x: Q, k: number): bigint {
   const f = Qn.floor(x);
-  let lo: bigint | null = null;
-  for (let n = f; n >= 2n; n--) if (endsIn(n, k) && isPrime(n)) { lo = n; break; }
-  let hi = f + 1n < 2n ? 2n : f + 1n;
-  while (!(endsIn(hi, k) && isPrime(hi))) hi++;
-  if (lo === null) return hi;
-  return Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0 ? lo : hi;
+  let lo = f, hi = f + 1n < 2n ? 2n : f + 1n;
+  for (;;) {
+    const below = lo >= 2n && Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0;
+    const n = below ? lo : hi;
+    if (endsIn(n, k) && isPrime(n)) return n;
+    if (below) lo--; else hi++;
+  }
 }
 /** Distance from x to the nearest prime ending in k. */
 export const distanceToPrimeEnding = (x: Q, k: number): Q => Qn.abs(Qn.sub(x, q(nearestPrimeEnding(x, k))));

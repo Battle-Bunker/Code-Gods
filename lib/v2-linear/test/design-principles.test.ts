@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { enoughInstances, evaluateSite, mainUnbounded, Qn, tieEntangled, type Reading } from "@workspace/v2-core";
 import { beginnerPool, fromMC, lineQ, lineType, type LineState } from "../src/index.ts";
 
-const REDESIGNED = new Set(["treasure", "prime-landing", "smooth-intercept", "prime-staircase", "pythagorean-area", "same-on-both-rulers"]);
+const REDESIGNED = new Set(["treasure", "prime-landing", "smooth-intercept", "prime-staircase", "pythagorean-area", "same-on-both-rulers", "ruler"]);
 type K = [number, number];   // (m, c)
 
 function readings(f: (typeof beginnerPool)[number], p: unknown, ms: readonly number[], cs: readonly number[]): Reading<K>[] {

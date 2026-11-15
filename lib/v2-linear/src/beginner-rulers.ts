@@ -82,19 +82,17 @@ export const treasure = ladder(family<KT>("treasure", "Treasure", ["table", "si"
 // ---------------------------------------------------------------- Same on Both Rulers
 
 /**
- * Same on Both Rulers as a ladder (design-principles.md; redesigned 15 Nov by the lens worker, declared to the
- * coordinator as trial 33, its parity form the follow-up). Main part, unbounded: the number the machine leaves unchanged,
- * f = c/(1 − m) (where the line crosses y = x), should round to a palindrome with an odd (or an even) number of digits
- * (1–9, 101, 111 … 999, 10001 …; or 11, 22 … 99, 1001, 1111 … 9999, …), the bigger the better, in triangular levels of
- * digits that each need more than the last (u = digitLevel); any other f scores below every palindrome, −(its distance
- * to the nearest − ½). Every palindrome of the parity is a rung: n-digit ones are 10^⌊n/2⌋ apart, so the next is a small
- * move of f that grows with the level. Stepping two digits longer (9 → 101, 99 → 1001) is the far step, which a stretch
- * of a flat line takes in one act (9 × 101/9 … or 11 × 91 = 1001). Tie-breaker, read from the palindrome: the biggest
- * number dividing both its digit sum and the whole part of |m| (not |c|: on a whole line through y = x at P, c = P(1 − m)
- * is always a multiple of P, so a one-digit palindrome's digit sum would divide every c); a new palindrome changes the
- * digit sum, so the climb starts again. Dealt: odd and even, each with its mirror (minus a palindrome: the reflection through the origin,
- * (m, c) → (m, −c), sends f to −f and keeps |c| and the law, so mirrors are exact peers). The first ladder (palindromes
- * starting with d = 1 or 2) had rungs too sparse to climb between in play (trial 33).
+ * Same on Both Rulers as a ladder (design-principles.md; the lens worker's redesign, trial 34, replacing trial 33's
+ * palindromes starting with d). Main part, unbounded: where the line meets y = x (or y = −x), read without its sign
+ * (x = c/(±1 − m)), should round to a palindrome with an odd (or an even) number of digits (1–9, 101 … 999, 10001 …; or
+ * 11 … 99, 1001 … 9999, …), the bigger the better, in triangular levels of digits (u = digitLevel); anything else scores
+ * below every palindrome, −(its distance to the nearest − ½). Every palindrome of the parity is a rung: n-digit ones are
+ * 10^⌊n/2⌋ apart. Read without its sign, so a half turn (m, c) → (m, −c) pays nothing: the signed form's mirror
+ * instances made it a repeated repair whenever the pole at m = ±1 threw the meeting point across 0. The reflection in
+ * the x-axis maps y = x's meeting point to y = −x's, so the two are exact peers. Tie-breaker, read from the palindrome:
+ * the biggest number dividing both its digit sum and the whole part of |m| (a flat line scores 0; a tie-breaker read
+ * from c or the other meeting point is a multiple of a one-digit palindrome on whole lines, so it ignores the main
+ * part at the ladder's foot); a new palindrome changes the digit sum, so the climb starts again.
  */
 type PD = { meets: 1 | -1; digits: "odd" | "even" };
 const RULERS: PD[] = ([1, -1] as const).flatMap(meets => (["odd", "even"] as const).map(digits => ({ meets, digits })));

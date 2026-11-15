@@ -85,7 +85,7 @@ const { values: o } = parseArgs({ options: {
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
   variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
   seats: { type: "string", default: "3" }, twostep: { type: "boolean", default: false },
-  power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false }, practice: { type: "boolean", default: false }, "drift-ladders": { type: "boolean", default: false },
+  power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false }, practice: { type: "boolean", default: false }, "drift-ladders": { type: "boolean", default: false }, "no-mirror": { type: "boolean", default: false },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -159,6 +159,13 @@ const answers = new Map<string, { n: number; won: number }>();
 /** Per family and mutator (a mirror by its axis): moves, the mover's bits gained, and repeats (the same seat's same move on the same object again). */
 const byFamMove = new Map<string, { moves: number; gain: number; repeats: number }>();
 const seenMoves = new Set<string>();
+/**
+ * The tug of war (the coordinator's question, 15 Nov): over all committed moves, flips (a move that puts an object back
+ * to its state before another seat's last move on it, as table.ts counts them) and the movers' bits gained, with the
+ * share made by reflections; and repairs: a reflection that raises its mover's bits right after another seat's move on
+ * that object lowered them (after a reflection by that seat: a mirror tug; after any other move: a sign repair).
+ */
+const tug = { levels: 0, lateMoves: 0, lateOnTwoState: 0, lateObjects: 0, lateStates: 0, twoStateObjects: 0, moves: 0, mirrors: 0, flips: 0, mirrorFlips: 0, gain: 0, mirrorGain: 0, repairsAfterMirror: 0, repairsAfterOther: 0, repairGain: 0 };
 const peaks: { seat: number; table: number; stretchRun: number; runBy: string; game: number }[] = [];
 /** Per family (the stats key): the largest bits its seat held on any object, and in which game. */
 const peakBy = new Map<string, { bits: number; game: number }>();
@@ -197,6 +204,8 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     // --server: as the server seats practice partners (convex/v2/agents.ts): the first in TypeScript, the rest in Python.
     const a = startersFor(r.family, o.server && k > 0 ? "python" : "typescript").find(x => x.kind === o.kind)!;
     const program = ending ? lineStarter(r.family, ending) : { language: a.language, source: o.twostep ? twoStep(a.source) : a.source };
+    // --no-mirror: the counterfactual with no reflections in any seat's search (the shortcuts of #855 less cart.mirror).
+    if (o["no-mirror"]) program.source = program.source.replaceAll("shortcuts(m, c, rule.mutators)", `shortcuts(m, c, rule.mutators).filter(([plan]) => plan.mutator !== "cart.mirror")`);
     return { name: `P${k}`, kind: "starter" as const, rule: { family: r.family, params: r.params as Record<string, unknown>, tieBreaker }, program };
   });
   const fams = seats.map(s => type.families.find(f => f.id === s.rule.family)!);
@@ -213,6 +222,8 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const seatBits = (i: number, x: unknown) => bitsFor({ ...seats[i]!.rule, params: params[i] as Record<string, unknown> })(x);
   const pending = new Set<number>();   // seats redrawn and not yet answered by a committed move
   const runs = new Map<string, number>();   // seat:object → consecutive stretches
+  const lastOn = new Map<number, { by: number; from: string; mirror: boolean; lowered: boolean[] }>();   // object → its last committed move
+  const lastThird = new Map<number, { moves: number; states: Set<string> }>();   // object → its changing moves and distinct states in the last third
   let peakSeat = 0, peakTable = 0, stretchRun = 0, runBy = "";
   const bestJoint = seats.map(() => 0), peak = seats.map(() => 0);   // per seat: its highest bits on a state that also holds at least 10 of the others' bits
   const rep = await runTable(boxes, {
@@ -242,6 +253,16 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
           const fm = byFamMove.get(`${fam}|${mk}`) ?? (byFamMove.set(`${fam}|${mk}`, { moves: 0, gain: 0, repeats: 0 }), byFamMove.get(`${fam}|${mk}`)!);
           const rk2 = `${g}:${e.seat}:${e.object}:${mk}`;
           fm.moves++; fm.gain += gain; if (seenMoves.has(rk2)) fm.repeats++; seenMoves.add(rk2);
+          const isMirror = e.calls.some(c => c.mutator === "cart.mirror"), to = type.encode(e.state as never), prev = lastOn.get(e.object);
+          tug.moves++; if (isMirror) tug.mirrors++;
+          if (gain > 0) { tug.gain += gain; if (isMirror) tug.mirrorGain += gain; }
+          if (prev && prev.by !== e.seat && prev.from === to) { tug.flips++; if (isMirror) tug.mirrorFlips++; }
+          if (isMirror && gain > 0 && prev && prev.by !== e.seat && prev.lowered[e.seat]) {
+            if (prev.mirror) tug.repairsAfterMirror++; else tug.repairsAfterOther++;
+            tug.repairGain += gain;
+          }
+          if (e.at >= (2 * seconds) / 3) { const l = lastThird.get(e.object) ?? (lastThird.set(e.object, { moves: 0, states: new Set([type.encode(e.before as never)]) }), lastThird.get(e.object)!); l.moves++; l.states.add(to); }
+          lastOn.set(e.object, { by: e.seat, from: type.encode(e.before as never), mirror: isMirror, lowered: seats.map((_, j) => a[j]! < b[j]! - 1e-9) });
         }
         m.moves++; m.own += gain; m.fee += fee; if (gain > fee) m.aboveFee++;
         let shared = false;
@@ -265,7 +286,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         st.mainSteps++;
         if (before !== null && before[0] !== null && before[0]!.n >= 0n) st.valleys++;
         if (compareScores(head(after), head(c.best)) > 0) {
-          c.best = after; c.levels++; c.lastUp = e.at; lastStep[i] = e.at;
+          c.best = after; c.levels++; tug.levels++; c.lastUp = e.at; lastStep[i] = e.at;
           // A rung stepped up: when, and how many of the others' bits the object held before the step (fresh or contested).
           st.upThirds[Math.min(2, Math.floor((3 * e.at) / seconds))]!++;
           st.upOthers.push(seats.reduce((a2, _s, j) => (j === i ? a2 : a2 + seatBits(j, e.before)), 0));
@@ -321,6 +342,11 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
     }
   });
   peaks.push({ seat: peakSeat, table: peakTable, stretchRun, runBy, game: g });
+  // A two-state cycle: an object moved at least 6 times in the last third through no more than 2 distinct states.
+  for (const l of lastThird.values()) {
+    tug.lateMoves += l.moves; tug.lateObjects++; tug.lateStates += l.states.size;
+    if (l.moves >= 6 && l.states.size <= 2) { tug.twoStateObjects++; tug.lateOnTwoState += l.moves; }
+  }
   console.error(`game ${g + 1}: ${seats.map(s => `${s.rule.family}/${s.rule.tieBreaker}`).join(", ")}; ${redraws.length} redraws`);
 }
 await boxes.close();
@@ -339,6 +365,7 @@ for (const [f, s] of rows) console.log([
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
   s.taken ? `${s.taken} (${pct(s.reclimbed, s.taken)})` : "0",
 ].join(" | ").replace(/^/, "| ").concat(" |"));
+for (const [f, s] of rows) console.log(`per seat: ${f} gain ${mean(s.gained).toFixed(0)}, energy at end ${mean(s.energyEnd).toFixed(0)}, rungs stepped by third ${s.upThirds.map(x => (x / s.games).toFixed(1)).join(" / ")} a game`);
 // Families seen in fewer than 5 games, or gaining under a point, would make the ratio noise.
 const means = rows.filter(([, s]) => s.games >= 5).map(([, s]) => mean(s.gained)).filter(x => x >= 1);
 console.log(`balance: best family's mean gain over the worst's: ${means.length >= 2 ? (Math.max(...means) / Math.min(...means)).toFixed(1) : "- (too few games)"}`);
@@ -358,5 +385,8 @@ console.log(`\npeaks per game: a seat's bits median ${fmt(median(ps))}, max ${fm
 { const rows = [...byFamMove].filter(([, v]) => v.moves >= 10).sort((a, b) => b[1].gain - a[1].gain).slice(0, 25);
   console.log(`\n| family | move | moves | mover's bits gained, mean | total | repeated on the same object by the same seat |\n|---|---|--:|--:|--:|--:|\n${rows.map(([k, v]) => `| ${k.split("|")[0]} | ${k.split("|")[1]} | ${v.moves} | ${(v.gain / v.moves).toFixed(2)} | ${v.gain.toFixed(0)} | ${(100 * v.repeats / v.moves).toFixed(0)}% |`).join("\n")}`); }
 { const top = [...peaks].sort((a, b) => b.stretchRun - a.stretchRun).slice(0, 3); console.log(`longest stretch runs: ${top.map(p => `${p.stretchRun} by ${p.runBy} (game ${p.game}, table total ${fmt(p.table)})`).join("; ")}`); }
+{ const p = (x: number, n: number) => `${n ? ((100 * x) / n).toFixed(0) : 0}%`;
+  console.log(`\nlast third: ${tug.lateMoves} changing moves on ${tug.lateObjects} objects (${(tug.lateStates / Math.max(1, tug.lateObjects)).toFixed(1)} distinct states per object, ${(tug.lateMoves / Math.max(1, tug.lateObjects)).toFixed(1)} moves); two-state cycles (≥ 6 moves, ≤ 2 states): ${tug.twoStateObjects} objects, ${p(tug.lateOnTwoState, tug.lateMoves)} of the last third's moves; main-part levels stepped in all: ${tug.levels}`);
+  console.log(`\ntug: ${tug.moves} moves, ${p(tug.mirrors, tug.moves)} reflections; flips ${tug.flips}, of them reflections ${p(tug.mirrorFlips, tug.flips)}; movers' bits gained ${tug.gain.toFixed(0)}, by reflections ${p(tug.mirrorGain, tug.gain)}; reflections repairing another seat's move that lowered the mover: after its reflection ${tug.repairsAfterMirror}, after another move (a sign repair) ${tug.repairsAfterOther}, gaining ${tug.repairGain.toFixed(0)} bits (${p(tug.repairGain, tug.gain)} of all)`); }
 console.log(`objects changed per minute, by third: ${objectsPerMinute.map(x => (x.reduce((a, b) => a + b, 0) / x.length).toFixed(2)).join(" / ")}`);
 if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify({ ...Object.fromEntries(stats), _objectsPerMinute: objectsPerMinute, _quiet: quietShare }));

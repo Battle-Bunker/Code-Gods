@@ -355,3 +355,26 @@ test("shortcuts offers only the moves in the game's menu (myRule().mutators), in
     if (res.ok) assert.equal((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r, `${lineQ.mutators.includes("cart.mirror")}|cart.mirror`, language);
   }
 });
+
+test("simplest equals the brute-force definition (smallest denominator, then numerator nearest 0) on random intervals, in both languages", async () => {
+  const r = (i: number) => { let x = Math.sin(i * 12.9898) * 43758.5453; return x - Math.floor(x); };
+  const cases = Array.from({ length: 120 }, (_, i) => { const a = Math.round((r(i) - 0.5) * 4000), b = a + 1 + Math.floor(r(i + 999) * 300), d = 1 + Math.floor(r(i + 77) * 500); return [`${a}/${d}`, `${b}/${d}`]; });
+  const brute = ([a, b]: string[]) => {
+    const [an, ad] = a!.split("/").map(BigInt) as [bigint, bigint], [bn, bd] = b!.split("/").map(BigInt) as [bigint, bigint];
+    for (let d = 1n; ; d++) {
+      const lo = -((-an * d) / ad) + (((-an * d) % ad) !== 0n && an * d > 0n ? 1n : 0n);   // ceil(a·d)
+      const ceil = (n: bigint, m: bigint) => (n >= 0n ? (n + m - 1n) / m : -((-n) / m)), floor = (n: bigint, m: bigint) => (n >= 0n ? n / m : -((-n + m - 1n) / m));
+      const nlo = ceil(an * d, ad), nhi = floor(bn * d, bd); void lo;
+      if (nlo <= nhi) { const n = nlo > 0n ? nlo : nhi < 0n ? nhi : 0n; const g = (x: bigint, y: bigint): bigint => (y === 0n ? (x < 0n ? -x : x) : g(y, x % y)); const k = g(n, d) || 1n; return `${n / k}/${d / k}`; }
+    }
+  };
+  const ts = `function agent(offer) { return [move("probe", { r: ${JSON.stringify(cases)}.map(([a, b]) => Q.toString(simplest(Q.from(a), Q.from(b)))).join("|") })]; }`;
+  const py = `def agent(offer):\n    return [move("probe", r="|".join(str(simplest(Fraction(a), Fraction(b))) for a, b in ${JSON.stringify(cases)}))]\n`;
+  const want = cases.map(brute).map(s => (s.endsWith("/1") ? s.slice(0, -2) : s));
+  for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineQ, state: line(q(3, 2), q(-4), lineQ).state, rule: { family: "triangle-area", params: { A: 6 } }, energy: 100 });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host, limits: { stepBudget: 5_000_000, wallMs: 20_000 } });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) assert.deepEqual((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"), want, language);
+  }
+});
