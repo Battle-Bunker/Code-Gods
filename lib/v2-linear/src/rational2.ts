@@ -303,7 +303,7 @@ const smoothInterceptShape: Shape<SP> = {
     sentence: p => `The y-intercept (either sign) should be made only by multiplying ${madeOf(p)}. More of them is better, though each extra one counts for less.` },
   tieBreakers: [
     more("shared-factor", "the factor that number plus 1 shares with the gradient's whole part",
-      "Take the number just after that number. The biggest number that divides both it and the gradient's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
+      "That number plus 1 and the gradient's whole part should share as big a factor as possible.", "si"),
   ],
 };
 export const smoothIntercept = ladder(family<SP>("smooth-intercept", "Smooth Intercept", ["si", "crossing", "cart"], smoothInterceptShape, onRationals(SMOOTH_SETS), (ctx, p) => {

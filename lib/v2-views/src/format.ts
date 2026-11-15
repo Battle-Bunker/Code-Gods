@@ -152,3 +152,19 @@ export function scoreFormula(yours: number, rawOthers: number, approx = false): 
   const sign = Math.round(hundredths(yours) * hundredths(others) / 100) === hundredths(product) ? "=" : "≈";
   return `your ${fmtBits(yours)} × others' ${fmtBits(others)} ${sign} ${pointsText(product)}`;
 }
+
+/**
+ * An element's label with its arguments: each argument the label names as a word ("whole number leaving r when divided
+ * by q") is put in its place; any other is said after it in brackets. No code notation in a view (playtest round 26:
+ * "whole number (q = 5, r = 4)").
+ */
+export function labelWithArgs(label: string, args: Readonly<Record<string, string>> | undefined): string {
+  let out = label;
+  const rest: string[] = [];
+  for (const [k, v] of Object.entries(args ?? {})) {
+    const re = new RegExp(`(^|[^A-Za-z])${k}(?![A-Za-z])`, "g"), shown = v.replace("-", "−");
+    if (re.test(out)) out = out.replace(re, (_, pre: string) => `${pre}${shown}`);
+    else rest.push(`${k} = ${shown}`);
+  }
+  return rest.length ? `${out} (${rest.join(", ")})` : out;
+}
