@@ -57,14 +57,13 @@ test("stepping up the ladder restarts the tie-breaker (design-principles.md row 
   assert.deepEqual(terms(7, mc(-11, 55)), { area: "6137/3000", "shared-factor": "2" });
 });
 
-test("dealt: the four endings, each card a child can act on within 30 words", () => {
+test("dealt: the four endings, each card a child can act on in under 30 words", () => {
   assert.deepEqual(pythagoreanArea.dealable(lineQ), [{ ends: 1 }, { ends: 3 }, { ends: 7 }, { ends: 9 }]);
   for (const p of pythagoreanArea.dealable(lineQ)) {
     const card = pythagoreanArea.card(p, "shared-factor");
-    // Within 30 words without the sentence that spells out the levels' digits.
-    const short = card.replace(/ Level 1 needs 1 digit, level 2 needs 3, level 3 needs 6, level 4 needs 10\./, "");
-    assert.notEqual(short, card);
-    assert.ok(short.split(/\s+/).length <= 30, `${short.split(/\s+/).length} words: ${short}`);
+    assert.ok(card.split(/\s+/).length < 30, `${card.split(/\s+/).length} words: ${card}`);
+    assert.doesNotMatch(card, /level/i);
+    assert.match(card, /Bigger is better, each extra digit counts for less/);
     assert.match(card, new RegExp(`prime ending in ${p.ends}`));
   }
 });

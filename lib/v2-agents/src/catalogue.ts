@@ -878,7 +878,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "        t += 10",
       ],
     },
-    mainSays: "the prime ending in the rule's digit that the triangle's area rounds down to, in levels of digits each needing more than the last (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one",
+    mainSays: "the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one",
     main: {
       ts: [
         "if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score",

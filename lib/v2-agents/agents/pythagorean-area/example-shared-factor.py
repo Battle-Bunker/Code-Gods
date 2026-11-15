@@ -23,7 +23,7 @@ def score(m, c, p):
     main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
     side2 = legX * legX + legY * legY            # the slanted side, squared (Pythagoras)
     ws = whole((2 * side2 - 1) / 2)              # its whole part (rounded down)
-    return [main, common(rung - 1, ws)]   # main: the prime ending in the rule's digit that the triangle's area rounds down to, in levels of digits each needing more than the last (bigger is better: a ladder with no top), else minus how far the area is from rounding down to one; tie-breaker: that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
+    return [main, common(rung - 1, ws)]   # main: the prime ending in the rule's digit that the triangle's area rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one; tie-breaker: that prime minus 1 and the slanted side squared (rounded down): a bigger factor shared is better
 
 
 FAR = 3      # how far one change may go

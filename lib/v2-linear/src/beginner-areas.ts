@@ -91,7 +91,9 @@ export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rule
  * rounded down, (c² − 1)/2 is even and none of them is a rung.
  * Tie-breaker, read from that prime p: the factor p − 1 shares with the slanted side squared, rounded down (Pythagoras:
  * base² + height²). A new rung changes p − 1, so the side that shared most no longer does, and the climb starts again.
- * Dealt: k = 1, 3, 7, 9. Ending 9's rungs are rarer at equal area (about a bit and a half), and dearer to reach by as
+ * Dealt: k = 1, 3, 7, 9. In play (48 games, 12 a ending, no drift, 15 Nov) their mean gains were 254, 357, 282 and 364
+ * (balance 1.43; a 6-game mean's standard error is 35–110); the area rounded up instead, as four more instances, gained
+ * 270–320 and matched no closer. Ending 9's rungs are rarer at equal area (about a bit and a half), and dearer to reach by as
  * much: the median over rungs of a rung's bits less the code cost of the cheapest line found on it is −10.1 to −10.5
  * bits for all four endings (15 Nov), so the params-equal audit compares them as a ladder by bits less that cost.
  * Square Area is its named adversary on the same number: a square is never a prime, so an area near a square is off
@@ -103,19 +105,18 @@ type Ends = { ends: number };
 const AREA_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const pythShape: Shape<Ends> = {
   main: { ...more<Ends>("area", "the triangle's area on as big a dealt prime as possible", "", "tri"),
-    // The card stays within 30 words without its level sentence (the coordinator's ask): "the triangle" is the one the line
-    // cuts off the axes.
-    sentence: p => `Triangle area, rounded down: a prime ending in ${p.ends}, in levels of digits, each needing more than the last. Level 1 needs 1 digit, level 2 needs 3, level 3 needs 6, level 4 needs 10.` },
+    // The card stays under 30 words (the coordinator's ask): "the triangle" is the one the line cuts off the axes.
+    sentence: p => `Triangle area, rounded down: a prime ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the slanted side squared",
       "Prime minus 1 and slanted side² share a big factor.", "tri"),
   ],
 };
 /**
- * The ladder's value: on a rung, digitLevel(p) of the prime p ending in k that the area rounds down to (levels of
- * digits, each needing more digits than the last, as Prime Landing's); else minus how far the area is from the nearest
- * window [p, p + 1) (on a tie the lower one), below every rung. The windows of x = area − ½ rounded to the nearest (ties up) are
- * exactly these, so the rung reads as Prime Landing's does.
+ * The ladder's value: on a rung, digitLevel(p) of the prime p ending in k that the area rounds down to (each extra digit
+ * counting for less, as on Prime Landing); else minus how far the area is from the nearest window [p, p + 1) (on a tie the
+ * lower one), below every rung. The windows of x = area − ½ rounded to the nearest (ties up) are exactly these, so the
+ * rung reads as Prime Landing's does.
  */
 export function areaRung(area: Q, k: number): { p: bigint; u: Q } {
   const x = Qn.sub(area, q(1, 2));
