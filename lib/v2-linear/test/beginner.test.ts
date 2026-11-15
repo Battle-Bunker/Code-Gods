@@ -19,7 +19,7 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -56,7 +56,7 @@ test("worked examples, one line per family", () => {
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-1, 5)), { ladder: "1", "shared-factor": "1" });    // at 5 = 5 × 1: level 1; 2 and 1 share 1
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-2, 50)), { ladder: "3/2", "shared-factor": "2" });   // at 25 = 5² × 1: two 5s, halfway to level 2 (three); 2 and 2 share 2
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(3, 1)), { ladder: "-4/3", "shared-factor": "1" });  // at −⅓: 1 is the nearest (4/3 away)
-  assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "6", "m-spf": "5", "m-gpf": "5", steep: "5", "m-prime": "0" });   // 1 … 6 divide 60, 7 does not
+  assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "3", "next-rung": "1" });   // 1 … 6 divide 60, 7 does not: a run of 6 is level 3; y(7) = 95 shares 1 with 7
 });
 
 test("each family's main layer is undefined only where its lens is (and then the score is WORST)", () => {
@@ -222,4 +222,18 @@ test("a ladder's reading on a rung says where it stands and the next big step (t
   assert.equal(label(primeLanding, { ends: 1 }, mc(-1, 41), "landing"), "lands at 41, which rounds to the prime 41: 2 digits; the next big step is 3 digits");
   assert.equal(label(primeGradient as never, { ends: 1 }, mc(11, 0), "gradient"), "the gradient 11 rounds to the prime 11: 2 digits; the next big step is 3 digits");
   assert.match(label(wholeCrossing as never, { q: 5, r: 2 }, mc(-1, 50), "ladder"), /: 2 fives; the next big step is 3 fives$/);
+});
+
+test("Divisibility Ladder is a ladder with no top: the run goes past 12, each extra n counts for less, and its tie-breaker restarts on a new rung", () => {
+  const dl = (m: number | Q, c: number) => terms(divisibilityLadder, {}, mc(m, c), lineQ);
+  // lcm(1 … 12) = 27720: a run of 12 (level 4 and 2/5); × 13 = lcm(1 … 15): 15 (level 5); × 2 = lcm(1 … 16): 16.
+  assert.deepEqual([27720, 27720 * 13, 27720 * 26].map(c => dl(1, c).ladder), ["22/5", "5", "31/6"]);
+  assert.equal(dl(q(1, 2), 3).ladder, "0");   // y(1) = 7/2 is not whole: no run
+  // Tie-breaker: where the run stops, at n, the factor y(n) shares with n. y = 2x + 60 stops at 7 (y(7) = 74): 1;
+  // y = 2x + 120 stops at 7 too, y(7) = 134: 1; y = x + 12 stops at 5 (y(5) = 17): 1; y = 3x + 12: 5 does not divide
+  // 27, 1; y = 4x + 6 stops at 4 (y(4) = 22): shares 2 with 4. Never more than n, however far a stretch goes.
+  assert.equal(dl(4, 6)["next-rung"], "2");
+  assert.equal(dl(1, 12)["next-rung"], "1");
+  assert.equal(dl(q(1, 2), 3)["next-rung"], "0");   // y(1) = 7/2: not whole
+  assert.ok(divisibilityLadder.keepsParams);
 });

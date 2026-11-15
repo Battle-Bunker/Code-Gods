@@ -543,6 +543,22 @@ back) or TRIAL (a declared experiment, measured and reported).
     their mirrors; never redrawn (a ladder family). A tilt moves the gradient and Prime Landing's crossing together, so
     the two contest one move. Values reach 18.0 and 17.8 bits at the sampled top; the params-equal audit compares levels.
 
+27. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator):
+    Divisibility Ladder is a ladder with no top. Its main part is the run of n dividing y(n) = m·n + c from n = 1 (for a
+    whole gradient, a run of k needs lcm(1, …, k) to divide c), no longer stopped at 12, in triangular levels (u =
+    triangularLevel(run), as Whole Crossing's 5s). Its tie-breaker is gcd(y(n), n) where the run stops at n (0 when
+    y(n) is not whole), tied to the run (decision 29): how near the next rung is, never more than n. A first try,
+    gcd(⌊|c| / lcm(1, …, run)⌋ + 1, the gradient's whole part), failed the gate: a stretch multiplies both, and a greedy
+    chain of 8 stretches reached 75 bits.
+    The tie-breakers m-spf, m-gpf, m-prime (the gradient's own prime factors or nearness to a prime: independent wishes,
+    and the hills a stretch climbs at every size) and steep (undealt: a greedy mixed-stretch chain reached 77.6 bits)
+    leave it. The card: "y(1), y(2), y(3), … should be multiples of 1, 2, 3, … for as long as possible, not through
+    (0, 0). Longer is better, though each extra counts less."
+    - **Motivation.** The old run had a top (12: rows 1 to 3 of design-principles.md), its tie-breakers were the
+      gradient's own wishes (decision 29), and the no-straight-hill gate's greedy chain failed it (77.6 bits on steep,
+      21.3 on another).
+    - **Effects** (values: line-q best 17.9 bits, line-z 17.9 at the sampled top): see the PR for the gate.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
