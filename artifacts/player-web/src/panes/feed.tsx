@@ -16,6 +16,7 @@ import { requestForge } from "./forge-request";
 import { useOpenPane } from "@/dock/open-pane";
 import { logLine } from "./log-line";
 import { VirtualRows } from "@/components/virtual-rows";
+import { DriftInFeed } from "./drift";
 
 /** What your agents noted for you, by move (each note once, on its newest move). */
 const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
@@ -202,6 +203,7 @@ export function FeedPane() {
         {seated && tab("mine", "Moves that changed your points")}
         {tab("all", "All moves (the public log)")}
       </div>
+      {seated && <div className="px-3 pt-2"><DriftInFeed /></div>}
       {mode === "mine" && seated ? <ConcernsFeed /> : <PublicLog />}
     </div>
   );

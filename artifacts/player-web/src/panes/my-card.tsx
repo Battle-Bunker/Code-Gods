@@ -4,10 +4,8 @@
  * 23: no steps); then a worked example (the family's own, else the most legible from a seeded walk: lib/v2-views example.ts); and the rule's
  * parts named "(main part, tie-breaker)" (ux-lessons 2.6).
  */
-import { useEffect, useMemo, useRef } from "react";
-import { toast } from "@/hooks/use-toast";
-import { useWorldNow } from "./fresh-mark";
-import { driftNotice, driftWords } from "./drift-words";
+import { useMemo } from "react";
+import { DriftOnCard } from "./drift";
 import { GoalCard, workedExample } from "@workspace/v2-views";
 import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule } from "@/sdk";
@@ -52,34 +50,9 @@ function SeatedCard() {
     );
   }
   return (<>
-    <Drift row={my.row} rule={my.rule} />
+    <DriftOnCard />
     <Card rule={my.rule} parts={my.row.layers.length} value={my.bits} />
   </>);
-}
-
-/**
- * Parameter drift (call 18): a countdown to the rule's next new numbers, and just after a change a notice with the new
- * rule (and a toast, once per change, never on the first load).
- */
-function Drift({ row, rule }: { row: { drifts: number; driftedAt: number | null; card: string }; rule: GameRule }) {
-  const header = useGame();
-  const worldNow = useWorldNow();
-  const seen = useRef<number | null>(null);
-  useEffect(() => {
-    // Live only: stepping a replay past a drift shows the notice, never a toast.
-    if (seen.current !== null && row.drifts > seen.current && header?.phase === "live") toast({ title: "Your rule's numbers just changed", description: `Your rule now: ${row.card}` });
-    seen.current = row.drifts;
-  }, [row.drifts]); // eslint-disable-line react-hooks/exhaustive-deps
-  const choices = useMemo(() => { try { return rule ? rule.family.dealable(rule.variant).length : 0; } catch { return 0; } }, [rule]);
-  const countdown = driftWords(header?.driftSeconds ?? 0, worldNow, choices, header?.timeScale ?? 1);
-  const notice = driftNotice(row, worldNow, header?.timeScale ?? 1);
-  if (!countdown && !notice) return null;
-  return (
-    <div className="space-y-1 px-3 pt-3 text-sm">
-      {notice && <p className="border-l-4 border-primary bg-primary/5 px-2 py-1 font-medium" role="status" data-testid="text-drift-notice">{notice}</p>}
-      {countdown && <p className="text-xs text-muted-foreground" data-testid="text-drift-countdown" title="Every so often each player's rule gets new numbers: the same kind of rule, a new target. Your agents keep climbing; the best lines may change.">{countdown}</p>}
-    </div>
-  );
 }
 
 export function MyCardPane() {
