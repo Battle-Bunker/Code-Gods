@@ -1,17 +1,17 @@
 // Steep Ratio · Example: that number shares a factor with the gentler line's y-intercept
-// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: that number shares a factor with the gentler line's y-intercept.
+// Main part: one line a whole number of times as steep, on your pattern. Secondary preference: that number shares a factor with the gentler line's y-intercept.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
 // Try this: add "shift" to KINDS: it moves a y-intercept directly.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (f.ratio === null) return null;   // no ratio of gradients: no score
   const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
-  return [main, f.cg === null ? 0 : common(k, whole(f.cg))];   // main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: that number sharing a big factor with the gentler line's y-intercept is better
+  return [main, f.cg === null ? 0 : common(k, whole(f.cg))];   // main: the level of the whole number of times as steep on your ladder (higher is better); secondary: that number sharing a big factor with the gentler line's y-intercept is better
 }
 
 const FAR = 3;      // how far one move may go

@@ -1,22 +1,24 @@
 // m Meets c · Naive (for learning)
-// Main part: gradient close to the y-intercept. Tie-breaker: whichever you were dealt (they meet at a big number; they meet at a prime).
+// Main part: gradient close to the y-intercept. Secondary preference: whichever you were dealt (they meet at a big number; they meet at a prime).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(m, c)));
   // main: how far apart the gradient and the y-intercept are (closer is better)
-  if (tie === "size") return [main, Q.abs(c)];   // a bigger y-intercept is better
-  if (tie === "meetPrime") {   // meeting at a prime is best
-    const cp = near(c, prime);
-    if (cp === null) return null;
-    return [main, Q.neg(Q.abs(Q.sub(c, cp)))];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "size") return Q.abs(c);   // a bigger y-intercept is better
+    if (t === "meetPrime") {   // meeting at a prime is best
+      const cp = near(c, prime);
+      if (cp === null) return null;
+      return Q.neg(Q.abs(Q.sub(c, cp)));
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

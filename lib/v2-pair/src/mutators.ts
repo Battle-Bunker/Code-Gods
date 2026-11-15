@@ -186,7 +186,7 @@ export const translate: M = {
 };
 
 /**
- * Zoom the whole picture about the origin by a factor (trial 34: the shortcut that joins a rung to the next). Every
+ * Zoom the whole picture about the origin by a factor (trial 36: the shortcut that joins a rung to the next). Every
  * point (x, y) goes to (f·x, f·y): angles and gradients stay, intercepts, gaps and the crossing are multiplied by f.
  * With a slide of the plane by the dealt remainder it takes a residue ladder's number N to f·N + r, and q·N + r is on
  * the next level whenever N is on this one (its base-q digits gain one r). A representation shortcut (owner decision

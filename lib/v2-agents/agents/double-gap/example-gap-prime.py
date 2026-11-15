@@ -1,5 +1,5 @@
 # Gap Ratio · Example: the gap plus your next power has a big smallest prime factor
-# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the gap plus your next power has a big smallest prime factor.
+# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Secondary preference: the gap plus your next power has a big smallest prime factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -7,14 +7,14 @@
 
 
 def score(L, p):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
         return None
     main = power_ladder(p["k"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))
     lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
-    return [main, spf(abs(whole(f.ygap)) + N)]   # main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); tie-breaker: the gap plus k times your power reached with a big smallest prime factor is better
+    return [main, spf(abs(whole(f.ygap)) + N)]   # main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); secondary: the gap plus k times your power reached with a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go

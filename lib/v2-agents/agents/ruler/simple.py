@@ -1,5 +1,5 @@
 # Ruler · Simple
-# Main part: distance² from (0, 0) close to a square. Tie-breaker: whichever you were dealt (that whole distance; the gradient close to a prime; the triangle's area close to a square).
+# Main part: distance² from (0, 0) on as big a dealt prime as possible. Secondary preference: whichever you were dealt (the factor that prime minus 1 shares with the y-intercept's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,29 +11,27 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
         d2 = c * c                                      # its distance from (0, 0), squared
-        sq = near(d2, square) or 1                      # the square number nearest it (1 at the least)
-        main = -abs(d2 - sq)
-        far = root(sq)                                  # that square's root: a whole distance
-        return [main, (far) if tie == "far" else None]
-    if m == 0:                                      # a flat line: the rule wants a sloping one
-        return None
+        x = d2 - Fraction(1, 2)
+        rung = near(x, prime, p["ends"])
+        gap = abs(x - rung)
+        level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
+        main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+        return [main] + [None for t in (tie.split(">") if tie else [])]
     d2 = c * c / (m * m + 1)                        # the distance from (0, 0), squared
-    sq = near(d2, square) or 1                      # the square number nearest it (1 at the least)
-    main = -abs(d2 - sq)
-    far = root(sq)                                  # that square's root: a whole distance
-    # main: how far the distance from (0, 0), squared, is from a square number (closer is better)
-    if tie == "far":   # a bigger whole distance is better
-        return [main, far]
-    if tie == "prime-gradient":   # a gradient close to a prime is better
-        mp = near(m, prime)                        # the prime nearest the gradient
-        return [main, -abs(m - mp)]
-    if tie == "square-area":   # a triangle whose area is close to a square number is better
-        area = c * c / (2 * abs(m))                # the triangle cut off the axes (none when c = 0)
-        return [main, None if c == 0 else -abs(area - near(area, square))]
-    return [main]
+    x = d2 - Fraction(1, 2)                         # d2 rounds down to n when x rounds to n (ties up)
+    rung = near(x, prime, p["ends"])                # the prime ending in p["ends"] nearest there: the rung
+    gap = abs(x - rung)                             # on the rung when d2 rounds down to it
+    level = lambda p: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(p, 10 ** D)) / (L + 1))(len(str(p)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(p))))   # levels of digits: level L needs L(L + 1)/2
+    main = level(rung) if 2 * gap < 1 or rung - x == Fraction(1, 2) else -(gap - Fraction(1, 2))
+    # main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "shared-factor":   # that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
+            wc = whole((2 * abs(c) - 1) / 2)          # the y-intercept's whole part, ignoring its sign
+            return common(rung - 1, wc)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 2      # how far one change may go
@@ -63,6 +61,28 @@ def agent(offer):
                 continue
             tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
             tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
+            t0, u, r = [(3, 4, 5), (4, 3, 5), (5, 12, 13), (12, 5, 13)][(abs(k) - 1) % 4]; t = t0 if k > 0 else -t0; du = u - m * t
+            if du != 0: tries.append((move("rot.turn", centre="origin", turn=Fraction(t, u)), (m * u + t) / du, c * r / du))   # turn the line about (0, 0) by the angle whose tangent is t/u (its distance from (0, 0) stays)
+        # The next rung up (the ladder has no top): the next prime ending in p["ends"] above the distance², aiming at the middle
+        # of its window (t + 1/2), by a shift that keeps the gradient (c² = (m² + 1)·d², to the nearest half) or a tilt that
+        # keeps the y-intercept (m² = c²/d² − 1, to the nearest half, third or quarter): the climb keeps whichever lands.
+        m1 = m * m + 1
+        t = near(c * c / m1, prime, p["ends"]) + 10
+        for _ in range(100):
+            if prime(t):
+                mid = t + Fraction(1, 2)                # the middle of its window
+                h0 = root(whole(4 * m1 * mid))         # 2·√((m² + 1)·mid), rounded down: c to the nearest half
+                for h in (h0, h0 + 1):
+                    c2 = (-1 if c < 0 else 1) * Fraction(h, 2)
+                    tries.append((move("si.shift", k=c2 - c), m, c2))
+                s2 = c * c / mid - 1                    # the gradient squared that puts the line there, keeping c
+                if s2 > 0:
+                    for d in (2, 3, 4):
+                        m2 = (-1 if m < 0 else 1) * Fraction(root(whole(d * d * s2)), d)
+                        if m2 != m:
+                            tries.append((move("si.tilt", k=m2 - m), m2, c))
+                break
+            t += 10
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     tries += shortcuts(m, c, rule.mutators)   # other views the game offers: mirrors, a slide, turns, one intercept moved
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches

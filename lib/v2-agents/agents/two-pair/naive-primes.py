@@ -1,5 +1,5 @@
 # Two Pair · Naive (for learning)
-# Main part: every corner box holds two different pairs. Tie-breaker: prime numbers on the board.
+# Main part: every corner box holds two different pairs. Secondary preference: prime numbers on the board.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,12 +8,12 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for x in BOXES:
         w, y, z, u = sorted(b[i] for i in x)   # the box's four numbers, smallest first
         main -= y - w + u - z + (2 if w == u else 0)   # pair the two smallest and the two biggest; four of a kind: two cells must move by 1
-    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far each corner box is from holding two different pairs, added up (closer is better); tie-breaker: more cells holding 2, 3, 5 or 7 is better
+    return [main, len([x for x in b if x in (2, 3, 5, 7)])]   # main: how far each corner box is from holding two different pairs, added up (closer is better); secondary: more cells holding 2, 3, 5 or 7 is better
 
 
 FAR = 1      # how far one change may go

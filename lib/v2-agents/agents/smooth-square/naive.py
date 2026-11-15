@@ -1,5 +1,5 @@
 # Smooth Square · Naive (for learning)
-# Main part: area close to a square number. Tie-breaker: whichever you were dealt (prime factors shared by that square's root and the x-intercept's nearest whole number).
+# Main part: area close to a square number. Secondary preference: whichever you were dealt (prime factors shared by that square's root and the x-intercept's nearest whole number).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,16 +8,17 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     area = c * c / (2 * abs(m))
     sq = near(area, square)                         # the square number nearest the area
     main = -abs(area - sq)
     # main: how far the triangle's area is from a square number (closer is better)
-    if tie == "shared":   # that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
-        return [main, shared(root(sq), whole(-c / m))]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "shared":   # that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
+            return shared(root(sq), whole(-c / m))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

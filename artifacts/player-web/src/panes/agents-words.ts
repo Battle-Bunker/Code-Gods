@@ -62,3 +62,20 @@ export function destroyConfirm(name: string, energy: number | undefined): string
     : "It holds no energy now, so none comes back.";
   return `${name} stops for good and makes no more moves. ${back}`;
 }
+
+/** One row of an agent's versions, newest first (the first is the one running). */
+export interface VersionRow { readonly version: number; readonly label: string; readonly moves: number; readonly gained: string; readonly perMove: string }
+
+/** v1's version comparison: what each version of an agent did while it ran (moves, points gained, points a move). */
+export function versionRows(programs: readonly { version: number; acts: number; pointsGained: number }[]): VersionRow[] {
+  return programs.map((p, i) => ({
+    version: p.version,
+    label: `Version ${p.version}${i === 0 ? " (running)" : ""}`,
+    moves: p.acts,
+    gained: num(p.pointsGained),
+    perMove: p.acts > 0 ? num(p.pointsGained / p.acts) : "—",
+  }));
+}
+
+/** v1's "How energy works", in v2's terms. */
+export const ENERGY_HOW = "You earn energy every second of world time at your power. Each agent gets its share of that power into its own store; what you keep goes to your own store, for summoning and replacing agents. A store holds at most one full charge (its power × the full-charge time): income above that is not kept. Each chance to move goes to an agent with odds in proportion to the energy it holds, and moves cost energy by how far they change an object; looks cost energy too. An agent may borrow up to one full store to finish a change, and gets no chances until its income repays it.";

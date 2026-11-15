@@ -14,7 +14,7 @@ import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
-import { endGame } from "./loop.ts";
+import { DEFAULT_PAUSE_SECONDS, endGame } from "./loop.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
@@ -316,6 +316,10 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     readPriceWeight: room.overrides.readPriceWeight ?? preset.readPriceWeight,
     // Parameter drift (drift.ts; the coordinator's trial, call 18): every seat's parameters redrawn every this many seconds.
     driftSeconds: room.overrides.driftSeconds ?? preset.driftSeconds,
+    // How long a player's pause lasts (v1's pauseSeconds, default 180 wall seconds; it then ends by itself).
+    pauseSeconds: room.overrides.pauseSeconds ?? DEFAULT_PAUSE_SECONDS,
+    // The commit clause (v1's option, off by default).
+    ...(room.overrides.commitClause ? { commitClause: true } : {}),
     // Births on a regular schedule on the beginner games (decision 31), else v1's stochastic births.
     ...(preset.regularBirths ? { regularBirths: true } : {}),
     timeScale,

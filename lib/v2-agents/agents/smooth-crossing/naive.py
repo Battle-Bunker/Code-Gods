@@ -1,5 +1,5 @@
 # Smooth Crossing · Naive (for learning)
-# Main part: the x-axis crossing close to a 7-smooth number. Tie-breaker: whichever you were dealt (prime factors shared with the y-intercept's nearest whole number).
+# Main part: the x-axis crossing close to a 7-smooth number. Secondary preference: whichever you were dealt (prime factors shared with the y-intercept's nearest whole number).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,14 +8,14 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
         s0 = 1 if c == 0 else near(abs(c), smooth)   # the 7-smooth number nearest its size (1 for 0)
         if s0 is None:                              # none within 10,000: hopeless
             return None
         s = -s0 if c < 0 else s0                # the sign kept
         main = -abs(c - s)
-        return [main, None]
+        return [main] + [None for t in (tie.split(">") if tie else [])]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
     x = -c / m                                      # where y = mx + c crosses the x-axis
@@ -25,9 +25,10 @@ def score(m, c, p, tie):
     s = -s0 if x < 0 else s0                # the sign kept
     main = -abs(x - s)
     # main: how far the x-axis crossing is from a 7-smooth number (closer is better)
-    if tie == "shared":   # that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-        return [main, shared(s, whole(c))]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "shared":   # that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+            return shared(s, whole(c))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

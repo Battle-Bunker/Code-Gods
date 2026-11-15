@@ -1,5 +1,5 @@
 # Opposite Nines · Example: odd numbers on the board
-# Main part: every cell and its opposite add up to the target. Tie-breaker: odd numbers on the board.
+# Main part: every cell and its opposite add up to the target. Secondary preference: odd numbers on the board.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,11 +9,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i in range(8):   # cell i and its opposite, 15 - i
         main -= abs(b[i] + b[15 - i] - p["T"])
-    return [main, len([x for x in b if x % 2])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more odd numbers is better
+    return [main, len([x for x in b if x % 2])]   # main: how far each cell and its opposite are from adding up to T, added up (closer is better); secondary: more odd numbers is better
 
 
 FAR = 2      # how far one change may go

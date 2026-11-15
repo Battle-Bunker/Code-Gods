@@ -1,12 +1,12 @@
 // Smooth Intercept · Naive (for learning)
-// Main part: the y-intercept made of as many of the dealt primes as possible. Tie-breaker: whichever you were dealt (the factor that number plus 1 shares with the gradient's whole part).
+// Main part: the y-intercept made of as many of the dealt primes as possible. Secondary preference: whichever you were dealt (the factor that number plus 1 shares with the gradient's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const a = Q.abs(c), s = nearMadeOf(a, p.primes);   // the nearest rung: made only of the rule's primes
   let main = Q.neg(Q.abs(Q.sub(a, s)));           // off every rung: below them all
@@ -16,11 +16,13 @@ function score(m, c, p, tie) {
     main = Q.add(level, Q.div(Q.add(omega - (level * (level + 1)) / 2, Q.div(1, Q.add(2, s))), level + 1));
   }
   // main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number
-  if (tie === "shared-factor") {   // take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
-    const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
-    return [main, common(Q.add(s, 1), wm)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared-factor") {   // take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
+      const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
+      return common(Q.add(s, 1), wm);
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

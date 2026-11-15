@@ -1,5 +1,5 @@
 # Treasure · Thorough
-# Main part: y(k) on as big a coin pile as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both the pile's height and the gradient's whole part).
+# Main part: y(k) on as big a coin pile as possible. Secondary preference: whichever you were dealt (the biggest number dividing both the pile's height and the gradient's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2
     s = p.get("side", 1)
     y = s * (m * p["k"] + c)                         # y(k) = m*k + c, or minus it on the mirror
@@ -22,10 +22,11 @@ def score(m, c, p, tie):
     gap = abs(y - rung)                              # on the rung when it rounds there (within 1/2, ties up)
     main = level(rung) if 2 * gap < 1 or rung - y == Fraction(1, 2) else -(gap - Fraction(1, 2))
     # main: the coin pile (1, 3, 6, 10, ...) y(k) rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-    if tie == "shared-factor":   # the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
-        wm = whole(abs(m) - Fraction(1, 2))             # the whole part of the gradient's size
-        return [main, common(height, wm)]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "shared-factor":   # the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
+            wm = whole(abs(m) - Fraction(1, 2))             # the whole part of the gradient's size
+            return common(height, wm)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

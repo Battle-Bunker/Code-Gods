@@ -1,17 +1,17 @@
 // Divide By · Example: the answer's numerators add up to a number with many prime factors
-// Main part: the number you divide by on your powers. Tie-breaker: the answer's numerators add up to a number with many prime factors.
+// Main part: the number you divide by on your powers. Secondary preference: the answer's numerators add up to a number with many prime factors.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
 // Try this: add "slide" to KINDS: it moves the answer, and so the numerators.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.x === null) return null;   // parallel lines never cross: no score
   const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
   const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
-  return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators adding up to a number with many prime factors are better
+  return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); secondary: numerators adding up to a number with many prime factors are better
 }
 
 const FAR = 3;      // how far one move may go

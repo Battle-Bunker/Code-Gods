@@ -1,5 +1,5 @@
 # Smooth Intercept · Example: the factor that number plus 1 shares with the gradient's whole part
-# Main part: the y-intercept made of as many of the dealt primes as possible. Tie-breaker: the factor that number plus 1 shares with the gradient's whole part.
+# Main part: the y-intercept made of as many of the dealt primes as possible. Secondary preference: the factor that number plus 1 shares with the gradient's whole part.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     a = abs(c)
     s = near_made_of(a, p["primes"])               # the nearest rung: made only of the rule's primes
     main = -abs(a - s)                              # off every rung: below them all
@@ -21,7 +21,7 @@ def score(m, c, p):
             level += 1
         main = level + (omega - level * (level + 1) // 2 + Fraction(1, 2 + s)) / (level + 1)
     wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)
-    return [main, common(s + 1, wm)]   # main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number; tie-breaker: take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
+    return [main, common(s + 1, wm)]   # main: how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number; secondary: take the number just after that number: a bigger number dividing both it and the gradient's whole part is better
 
 
 FAR = 3      # how far one change may go

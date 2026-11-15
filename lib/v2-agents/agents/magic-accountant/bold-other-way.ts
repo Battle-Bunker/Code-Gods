@@ -1,18 +1,18 @@
 // Magic Accountant · Bold
-// Main part: every row (or column) adds up to the magic number. Tie-breaker: the other way adds up to the magic number too.
+// Main part: every row (or column) adds up to the magic number. Secondary preference: the other way adds up to the magic number too.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let k = 0; k < 4; k++) { let t = 0; for (let j = 0; j < 4; j++) t += p.axis === "rows" ? b[4 * k + j] : b[4 * j + k]; main -= Math.abs(t - p.T); }   // each line: how far its total is from T
   let other = 0;
   for (let k = 0; k < 4; k++) { let t = 0; for (let j = 0; j < 4; j++) t += p.axis === "rows" ? b[4 * j + k] : b[4 * k + j]; other -= Math.abs(t - p.T); }   // the other way: each column (or row) against T
-  return [main, other];   // main: how far each row's (or column's) total is from T, added up (closer is better); tie-breaker: the columns (or rows, the other way) closer to T too is better
+  return [main, other];   // main: how far each row's (or column's) total is from T, added up (closer is better); secondary: the columns (or rows, the other way) closer to T too is better
 }
 
 const FAR = 2;      // how far one change may go

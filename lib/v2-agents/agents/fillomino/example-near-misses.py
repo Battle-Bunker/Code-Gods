@@ -1,5 +1,5 @@
 # Fillomino · Example: how far the wrong-size patches are from their numbers
-# Main part: cells in patches of the right size. Tie-breaker: how far the wrong-size patches are from their numbers.
+# Main part: cells in patches of the right size. Secondary preference: how far the wrong-size patches are from their numbers.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 # (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -9,7 +9,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     def near(i):   # the cells touching cell i
         return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]
     main = 0
@@ -28,7 +28,7 @@ def score(b, p):
                     patch.append(j)
         if b[s] > 0 and len(patch) == b[s]:   # a patch of the right size
             main += len(patch)
-    return [main, -sum(abs(len(x) - b[x[0]]) for x in patches if b[x[0]] > 0)]   # main: the cells in patches of equal numbers whose size is their number (more is better); tie-breaker: wrong-size patches closer to their number in size is better
+    return [main, -sum(abs(len(x) - b[x[0]]) for x in patches if b[x[0]] > 0)]   # main: the cells in patches of equal numbers whose size is their number (more is better); secondary: wrong-size patches closer to their number in size is better
 
 
 FAR = 2      # how far one change may go

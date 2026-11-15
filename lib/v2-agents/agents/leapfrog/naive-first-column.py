@@ -1,5 +1,5 @@
 # Leapfrog · Naive (for learning)
-# Main part: each number one apart from the number two cells along. Tie-breaker: the first column's total.
+# Main part: each number one apart from the number two cells along. Secondary preference: the first column's total.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,11 +8,11 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     main = 0
     for i in [0, 1, 4, 5, 8, 9, 12, 13]:   # cell i and the cell two along
         main -= abs(abs(b[i] - b[i + 2]) - 1)
-    return [main, b[0] + b[4] + b[8] + b[12]]   # main: how far each number and the number two cells along its row are from one apart, added up (closer is better); tie-breaker: a bigger first column is better
+    return [main, b[0] + b[4] + b[8] + b[12]]   # main: how far each number and the number two cells along its row are from one apart, added up (closer is better); secondary: a bigger first column is better
 
 
 FAR = 1      # how far one change may go

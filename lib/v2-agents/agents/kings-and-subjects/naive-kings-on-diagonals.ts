@@ -1,12 +1,12 @@
 // Kings and Subjects · Naive (for learning)
-// Main part: every corner box's king equals his subjects. Tie-breaker: kings on the board's diagonals.
+// Main part: every corner box's king equals his subjects. Secondary preference: kings on the board's diagonals.
 // What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 // board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 // board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
 // from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same boards and watch your points: then switch to Simple.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   const kings = [];
@@ -15,7 +15,7 @@ function score(b, p) {
     main -= v.filter(y => y === m).length > 1 ? 20 : Math.abs(2 * m - v.reduce((t, y) => t + y, 0));   // the king against his subjects added up; a tied biggest is no king, 20 off
     if (v.filter(y => y === m).length === 1) kings.push([x[v.indexOf(m)], m, Math.min(...v)]);   // a king: his cell, his number, the smallest in his box
   }
-  return [main, kings.filter(([i]) => Math.floor(i / 4) === i % 4 || Math.floor(i / 4) + i % 4 === 3).length];   // main: how far each corner box's biggest number is from the other three added up, added up (closer is better); tie-breaker: more kings on the board's two diagonals is better
+  return [main, kings.filter(([i]) => Math.floor(i / 4) === i % 4 || Math.floor(i / 4) + i % 4 === 3).length];   // main: how far each corner box's biggest number is from the other three added up, added up (closer is better); secondary: more kings on the board's two diagonals is better
 }
 
 const FAR = 1;      // how far one change may go

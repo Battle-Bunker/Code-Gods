@@ -47,7 +47,7 @@ test("model seats play through the directory's tools on the server's economy: th
     type: lineType, variant: lineZ, lines: 6, seed: "t", seconds: 24,
     // The scenario's timing (24 s, 25 opportunities a second, a summon payable after the manoeuvre) is the 25 Hz economy;
     // the beginner preset now runs at 3 Hz with power 8 (the coordinator's call 13), which this tool-plumbing test does not need.
-    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 720, opportunitiesPerSecond: 25 },
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 760, opportunitiesPerSecond: 25 },
     seats: [seat("Ada", "model", "treasure", "shared-factor"), seat("Bo", "model", "prime-staircase", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: (p => (name: string) => p[name === "Ada" ? 0 : 1]!)([perTurn(ada), perTurn(bo)]), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
   });
@@ -77,7 +77,7 @@ test("without the manoeuvre a second summon is refused: the store holds too litt
     seats: [seat("Ada", "model", "treasure", "shared-factor"), seat("Cy", "naive", "prime-landing", "shared-factor")],
     model: { provider: mockProvider(ada), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
     // At power 64 (summon prices at their calibrated bits) the store after the first summon holds less than a second one.
-    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 720, opportunitiesPerSecond: 25 },
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 760, opportunitiesPerSecond: 25 },
   });
   assert.equal(report.seats[0]!.failedToolCalls, 1);
   assert.equal(report.seats[0]!.summoned, 0);
@@ -153,4 +153,24 @@ test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·
     assert.ok(due.some(t => e.at >= t && e.at - t <= 1.5), `seat ${e.seat} redrew at ${e.at}, due at ${due.join(", ")}`);
     assert.ok(e.at <= seconds - 90, `no redraw in the last 90 s (${e.at})`);
   }
+});
+
+test("objectCap retires the oldest live line at each birth past the cap: no one acts on it again and its points stay banked", async () => {
+  const acts: { at: number; object: number; objects: number; born: number }[] = [];
+  const report = await runTable(boxes, {
+    type: lineType, variant: lineQ, lines: 3, seed: "cap", seconds: 40, birthsPerSecond: 0.2, regularBirths: true, objectCap: 4, unique: true,
+    seats: [seat("Ada", "starter", "treasure", "shared-factor"), seat("Bo", "starter", "prime-staircase", "shared-factor")],
+    onAct: e => acts.push({ at: e.at, object: e.object, objects: e.objects, born: e.born }),
+  });
+  assert.equal(report.objects, 11, "3 starting lines and a birth every 5 s");
+  assert.ok(acts.every(a => a.objects <= 4), "never more than 4 live lines");
+  // Births land on the first tick (1.5 s) at or after each 5 s. At a birth past the cap the oldest live line retires, so an
+  // act at world second t is on one of the 4 newest lines born by then (at least those born by t − 1.5).
+  for (const a of acts) {
+    const bornBy = 3 + Math.floor((a.at - 1.5) / 5 + 1e-9);
+    assert.ok(a.object >= bornBy - 4, `line ${a.object} acted at ${a.at.toFixed(1)} s after it retired`);
+    if (a.object < 3) assert.equal(a.born, 0);
+    else assert.ok(a.born >= 5 * (a.object - 2) && a.born < 5 * (a.object - 2) + 1.5, `line ${a.object} born at ${a.born}`);
+  }
+  assert.ok(acts.some(a => a.object >= 8), "the newest lines are played");
 });

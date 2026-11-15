@@ -1,5 +1,5 @@
 // Exact Change · Example: the bill
-// Main part: ways to pay close to the target. Tie-breaker: the bill.
+// Main part: ways to pay close to the target. Secondary preference: the bill.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 4 to 8: a bigger bill needs a steeper line to keep the ways the same.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.cmp(m, 0) >= 0) return null;              // a coin worth -m·b: the line must go downhill
   const X = Q.neg(Q.div(c, m));                   // where the line meets y = 0: x goes no further
@@ -18,7 +18,7 @@ function score(m, c, p) {
   const ways = [];                                // each way to pay, as its x: the line's whole points with x, y ≥ 0
   for (let x = 0; Q.cmp(x, X) <= 0; x++) if (Q.isInteger(Q.add(Q.mul(m, x), c))) ways.push(x);
   const main = Q.neg(Q.abs(ways.length - p.ways));
-  return [main, Q.mul(c, b)];   // main: how far the number of ways to pay is from the target (closer is better); tie-breaker: a bigger bill N = b·c is better
+  return [main, Q.mul(c, b)];   // main: how far the number of ways to pay is from the target (closer is better); secondary: a bigger bill N = b·c is better
 }
 
 const FAR = 4;      // how far one change may go

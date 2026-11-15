@@ -168,6 +168,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `bid.place` | Bid on a rule family | family, percent | server · room | seated | room | write; confirm inline |
 | `bid.withdraw` | Withdraw a bid | family | server · room | seated | room | write |
 | `bid.done` | Finish bidding | — | server · room | seated | room | write |
+| `bid.cancel` | Cancel the bid phase | — | server · room | owner | room | write; confirm summary |
 | `game.auction` | Show the auction's result | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.get` | Show the game | — | server · game | member | planning, live, paused, ended, replay | read |
 | `game.standings` | Show the standings | — | server · game | member | planning, live, paused, ended, replay | read |
@@ -183,6 +184,7 @@ export const { op: summon, as: summonAs } = defineOp("agent.summon", "action", a
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.look` | Look at objects | objectId | server · game | seated | live, paused | write; confirm inline |
+| `object.whatIf` | What if, for the others | objectId, calls | server · game | seated | live, paused | write; confirm inline |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
 | `log.list` | Read the public log | cursor, limit | server · game | member | planning, live, paused, ended, replay | read |
 | `pitch.draft` | Draft a cooperation pitch | to, aim | server (action) · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |

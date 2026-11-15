@@ -1,16 +1,16 @@
 // Opposite Nines · Bold
-// Main part: every cell and its opposite add up to the target. Tie-breaker: pairs with the bigger number in the top half.
+// Main part: every cell and its opposite add up to the target. Secondary preference: pairs with the bigger number in the top half.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change FAR = 2 to 1: single steps, the same price per step, but more turns to get there.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   for (let i = 0; i < 8; i++) main -= Math.abs(b[i] + b[15 - i] - p.T);   // cell i and its opposite, 15 - i
-  return [main, [0, 1, 2, 3, 4, 5, 6, 7].filter(i => b[i] > b[15 - i]).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); tie-breaker: more pairs with the bigger number in the top half is better
+  return [main, [0, 1, 2, 3, 4, 5, 6, 7].filter(i => b[i] > b[15 - i]).length];   // main: how far each cell and its opposite are from adding up to T, added up (closer is better); secondary: more pairs with the bigger number in the top half is better
 }
 
 const FAR = 2;      // how far one change may go

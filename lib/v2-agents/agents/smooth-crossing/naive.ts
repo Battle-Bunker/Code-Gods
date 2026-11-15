@@ -1,19 +1,19 @@
 // Smooth Crossing · Naive (for learning)
-// Main part: the x-axis crossing close to a 7-smooth number. Tie-breaker: whichever you were dealt (prime factors shared with the y-intercept's nearest whole number).
+// Main part: the x-axis crossing close to a 7-smooth number. Secondary preference: whichever you were dealt (prime factors shared with the y-intercept's nearest whole number).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
 // It is here to learn from; the other starters fix this.
 // Try this: summon it beside a friend's agent on the same lines and watch your points: then switch to Simple.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
     const s0 = Q.isZero(c) ? 1 : near(Q.abs(c), smooth);   // the 7-smooth number nearest its size (1 for 0)
     if (s0 === null) return null;                // none within 10,000: hopeless
     const s = Q.cmp(c, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
     const main = Q.neg(Q.abs(Q.sub(c, s)));
-    return [main, null];
+    return [main, ...(tie ? tie.split(">") : []).map(t => null)];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
@@ -22,8 +22,10 @@ function score(m, c, p, tie) {
   const s = Q.cmp(x, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
   const main = Q.neg(Q.abs(Q.sub(x, s)));
   // main: how far the x-axis crossing is from a 7-smooth number (closer is better)
-  if (tie === "shared") return [main, shared(s, whole(c))];   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared") return shared(s, whole(c));   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

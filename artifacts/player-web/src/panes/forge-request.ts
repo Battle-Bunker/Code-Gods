@@ -4,7 +4,7 @@
  */
 
 /** A leave request with no numbers only brings the control into view, focused (the palette). */
-export type ForgeRequest = { kind: "leave"; numbers: number[] };
+export type ForgeRequest = { kind: "leave"; numbers: number[] } | { kind: "agent"; agentId: string };
 
 let pending: ForgeRequest | null = null;
 /** When each control was last asked for: a control that mounts (or remounts as the dock rearranges) just after still takes focus. */
@@ -21,8 +21,8 @@ export async function requestForge(r: ForgeRequest, openPane: (pane: string) => 
   await openPane("forge");
 }
 /** The request for this control, taken once (null when there is none). */
-export function takeForgeRequest(kind: ForgeRequest["kind"]): ForgeRequest | null {
+export function takeForgeRequest<K extends ForgeRequest["kind"]>(kind: K): Extract<ForgeRequest, { kind: K }> | null {
   if (pending?.kind !== kind) return null;
-  const r = pending; pending = null; return r;
+  const r = pending as Extract<ForgeRequest, { kind: K }>; pending = null; return r;
 }
 export function onForgeRequest(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; }

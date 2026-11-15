@@ -1,5 +1,5 @@
 // Kings and Subjects · Example: kings that are a multiple of the smallest number in their box
-// Main part: every corner box's king equals his subjects. Tie-breaker: kings that are a multiple of the smallest number in their box.
+// Main part: every corner box's king equals his subjects. Secondary preference: kings that are a multiple of the smallest number in their box.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,7 +7,7 @@
 // raises your points most (your rarity times the other players').
 // Try this: change FAR = 2 to 1: single steps only; does it still find multiples?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   let main = 0;
   const kings = [];
@@ -16,7 +16,7 @@ function score(b, p) {
     main -= v.filter(y => y === m).length > 1 ? 20 : Math.abs(2 * m - v.reduce((t, y) => t + y, 0));   // the king against his subjects added up; a tied biggest is no king, 20 off
     if (v.filter(y => y === m).length === 1) kings.push([x[v.indexOf(m)], m, Math.min(...v)]);   // a king: his cell, his number, the smallest in his box
   }
-  return [main, kings.filter(([i, m, s]) => s >= 1 && m % s === 0).length];   // main: how far each corner box's biggest number is from the other three added up, added up (closer is better); tie-breaker: more kings that are a multiple of the smallest number in their box is better
+  return [main, kings.filter(([i, m, s]) => s >= 1 && m % s === 0).length];   // main: how far each corner box's biggest number is from the other three added up, added up (closer is better); secondary: more kings that are a multiple of the smallest number in their box is better
 }
 
 const FAR = 2;      // how far one change may go

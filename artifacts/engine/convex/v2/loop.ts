@@ -325,6 +325,9 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }
 
+/** An act record without its host transcript (what a skipped act stores). */
+const withoutTranscript = ({ transcript: _, ...rest }: { transcript?: unknown; [k: string]: unknown }) => rest;
+
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
 export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase === "ended") return;
@@ -357,20 +360,36 @@ export async function parkGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   await appendEvent(ctx, game._id, "phase", { phase: "paused", parked: true });
 }
 
+/** v1's pause length when the room sets none, wall seconds (archive settings.ts pauseSeconds). */
+export const DEFAULT_PAUSE_SECONDS = 180;
+const PAUSE_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; pauseEndsAt: number }>("v2/loop:pauseEnds");
+
+/** A player's pause (one each): it ends by itself after the game's pauseSeconds (v1), or earlier when the owner resumes. */
 export async function pauseGame(ctx: MutationCtx, game: Doc<"v2Games">, by: Id<"v2Members">) {
   const engine = await engineOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId: "" });
-  // No countdown while paused: the end is set again on resume from the world time left.
-  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, endsAt: undefined });
-  await appendEvent(ctx, game._id, "phase", { phase: "paused", by });
+  const pauseEndsAt = Date.now() + (game.settings.pauseSeconds ?? DEFAULT_PAUSE_SECONDS) * 1000;
+  // No countdown to the world's end while paused: it is set again on resume from the world time left.
+  await ctx.db.patch(game._id, { phase: "paused", pausedBy: by, pauseEndsAt, endsAt: undefined });
+  await appendEvent(ctx, game._id, "phase", { phase: "paused", by, pauseEndsAt });
+  await ctx.scheduler.runAt(pauseEndsAt, PAUSE_ENDS, { gameId: game._id, pauseEndsAt });
 }
+
+/** A player's pause runs out (v1): the game resumes, unless it was resumed, re-paused or ended meanwhile. */
+export const pauseEnds = internalMutation({
+  args: { gameId: v.id("v2Games"), pauseEndsAt: v.number() },
+  handler: async (ctx, { gameId, pauseEndsAt }) => {
+    const game = await ctx.db.get(gameId);
+    if (game?.phase === "paused" && !game.parked && game.pauseEndsAt === pauseEndsAt) await resumeGame(ctx, game);
+  },
+});
 
 export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const leaseId = crypto.randomUUID(), now = Date.now();
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId });
   await ctx.db.patch(clock._id, { lastTickAt: now });
-  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
+  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, pauseEndsAt: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 / timeScaleOf(game.settings) });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
@@ -548,7 +567,9 @@ export const commit = internalMutation({
         n, tick: engine.tick, worldSeconds: world, objectId: act.objectId, number: act.number, agentId: act.agentId, memberId: act.memberId,
         seed: act.seed, energy: act.energy, liveObjects: act.liveObjects, program: { version: act.programVersion, language: agent.language },
         ...(act.input ? { input: act.input } : {}),
-        ...record, ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
+        // A skip keeps no transcript (the coordinator, 15 Nov: 3.3 KB of each act event, and act events were 95% of a
+        // game's writes); an act that moved or failed keeps it. Any act can be re-run from its seed and inputs.
+        ...(outcome === "skipped" ? withoutTranscript(record) : record), ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
         ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
       });
       // Owner decision 36: "Players should still know everything their agents learn for free". Every act an agent runs

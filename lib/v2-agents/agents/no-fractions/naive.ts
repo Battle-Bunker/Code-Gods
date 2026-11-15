@@ -1,11 +1,11 @@
 // Divide By · Naive (for learning)
-// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor).
+// Main part: the number you divide by on your powers. Secondary preference: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
 // Try this: summon it beside a friend's agent on the same pairs and watch your points: then switch to Simple.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.x === null) return null;   // parallel lines never cross: no score
@@ -24,7 +24,7 @@ const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt
 
 function agent(offer) {
   const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each
-  const { params: p, tieBreaker: tie } = goal(offer);   // your rule and tie-breaker (free)
+  const { params: p, tieBreaker: tie } = goal(offer);   // your rule and secondary preference (free)
   // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.
   const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head
   let top = score(L, p, tie), plans = [];

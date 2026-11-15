@@ -243,3 +243,25 @@ test("pause once, resume by the owner, end by the owner", async () => {
   assert.equal(seated.spectator, false, "who joined mid-game is seated for the next one");
   void admin;
 });
+
+test("a pause ends by itself after the room's pauseSeconds (v1's 180 s, here 3), or earlier when the owner resumes", { timeout: 120_000 }, async () => {
+  const [ada] = await humans("Pause Ada");
+  const { roomId } = (await perform(ada!, "room.create", { name: "Pause room" })).result;
+  await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
+  assert.equal((await perform(ada!, "room.settings", { overrides: { pauseSeconds: 3 } }, { roomId })).ok, true);
+  const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
+  await perform(ada!, "game.startWorldNow", {}, { gameId });
+  const before = Date.now();
+  assert.equal((await perform(ada!, "game.pause", {}, { gameId })).ok, true);
+  const paused = await ada!.query("v2/games:header", { gameId });
+  assert.equal(paused.phase, "paused");
+  assert.ok(paused.pauseEndsAt >= before + 3000 && paused.pauseEndsAt <= Date.now() + 3000, "the header says when the pause ends");
+  for (let i = 0; (await ada!.query("v2/games:header", { gameId })).phase === "paused"; i++) {
+    assert.ok(i < 40, "the pause ends by itself");
+    await new Promise(r => setTimeout(r, 250));
+  }
+  const resumed = await ada!.query("v2/games:header", { gameId });
+  assert.deepEqual([resumed.phase, resumed.pauseEndsAt], ["live", null]);
+  assert.ok(Date.now() - before >= 3000, "not before its time");
+  await perform(ada!, "game.end", {}, { gameId });
+});

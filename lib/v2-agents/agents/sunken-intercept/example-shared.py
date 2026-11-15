@@ -1,5 +1,5 @@
 # Sunken Intercept · Example: prime factors shared by the y-intercept's nearest whole number and the gradient's top
-# Main part: the y-intercept far below zero. Tie-breaker: prime factors shared by the y-intercept's nearest whole number and the gradient's top.
+# Main part: the y-intercept far below zero. Secondary preference: prime factors shared by the y-intercept's nearest whole number and the gradient's top.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,9 +11,9 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     main = -c
-    return [main, shared(whole(c), m.numerator)]   # main: minus the y-intercept (lower is better); tie-breaker: the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
+    return [main, shared(whole(c), m.numerator)]   # main: minus the y-intercept (lower is better); secondary: the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
 
 
 FAR = 3      # how far one change may go

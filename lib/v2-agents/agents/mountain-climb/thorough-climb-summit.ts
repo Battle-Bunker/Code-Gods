@@ -1,18 +1,18 @@
 // Mountain Climb · Thorough
-// Main part: cells on the longest climb from the top-left cell. Tie-breaker: the biggest number the climb reaches.
+// Main part: cells on the longest climb from the top-left cell. Secondary preference: the biggest number the climb reaches.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 // other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
 // lower them. It notes a tug-of-war for you, so you can make a deal: LEAVE and PROTECT below are how you keep one.
 // Try this: change QUOTES = 6 to 2: fewer prices asked, but it may miss a cheaper plan.
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i
   let level = [0], main = 0;   // start at the top-left cell
   const reached = [];   // every cell on some climb
   while (level.length) { main++; reached.push(...level); level = [...new Set(level.flatMap(i => near(i).filter(j => b[j] === b[i] + 1)))]; }   // each step: touching cells exactly 1 bigger
-  return [main, b[0] + main - 1];   // main: the cells on the longest climb from the top-left cell, each step 1 bigger (more is better); tie-breaker: a climb reaching a bigger number is better
+  return [main, b[0] + main - 1];   // main: the cells on the longest climb from the top-left cell, each step 1 bigger (more is better); secondary: a climb reaching a bigger number is better
 }
 
 const FAR = 1;      // how far one change may go

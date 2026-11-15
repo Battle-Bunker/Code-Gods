@@ -53,14 +53,28 @@ export function useReplayControls(): ReplayControls | null {
 
 export const replayUrl = (site: string, gameId: string) => `${site.replace(/\/$/, "")}/api/v2/replay/${encodeURIComponent(gameId)}`;
 
-async function download(gameId: string): Promise<ReplayIndex> {
+async function fetchReplay(gameId: string): Promise<Response> {
   const token = await appAccessToken();
   const response = await fetch(replayUrl(engineSite(), gameId), { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   if (!response.ok) {
     const body = await response.json().catch(() => ({})) as { error?: string };
     throw new Error(body.error ?? `The engine answered ${response.status}.`);
   }
-  return indexReplay(await response.json());
+  return response;
+}
+
+async function download(gameId: string): Promise<ReplayIndex> {
+  return indexReplay(await (await fetchReplay(gameId)).json());
+}
+
+/** v1's "Download the replay": the game's stored record as a file, on the player's press. */
+export async function downloadReplayFile(gameId: string): Promise<void> {
+  const blob = await (await fetchReplay(gameId)).blob();
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href; a.download = `code-gods-replay-${gameId}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 10_000);
 }
 
 /** The game's stored replay, downloaded once it is stored (`active` only: a page that is not replaying asks for nothing). */

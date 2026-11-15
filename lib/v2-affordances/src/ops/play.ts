@@ -42,7 +42,7 @@ export const playOps = [
   }),
   affordance({
     id: "game.pause", title: "Pause the game", group: "play", scope: "game",
-    description: "Pauses the world for everyone. Each player may pause once per game; the owner resumes.",
+    description: "Pauses the world for everyone. Each player may pause once per game; the pause ends by itself after the room's pause length (3 minutes unless the owner set another), or earlier when the owner resumes.",
     tooltip: "Use your one pause.", keywords: ["pause", "stop time", "hold on"],
     params: obj({ requestId: requestId.optional() }), result: ok,
     contexts: ["live"], caller: "seated", effect: "write", confirm: "inline", runs: "server", available: pauseCheck,
@@ -50,7 +50,7 @@ export const playOps = [
 
   affordance({
     id: "rule.explain", title: "Explain my rule", group: "play", scope: "game",
-    description: "The caller's private rule: family, parameters, its layers (main part, tie-breakers), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
+    description: "The caller's private rule: family, parameters, its layers (main goal, then secondary preferences in order), the card sentence, which representations it reads, and the handicap if it was won by bid. Its value curve is rule.values. Never reveals other players' rules.",
     tooltip: "What your rule wants.", keywords: ["my rule", "goal", "card", "what do I want"],
     params: none,
     result: z.object({
@@ -126,6 +126,14 @@ export const playOps = [
     description: "See one object as it is now, or every object when no objectId is given, paying each one's full read at the read price times the game's weight (readPriceWeight; a game at 0 reads free and has nothing to look at) from the caller's own store; each look is a fresh measurement of the others' bits. Until a look, an object shows as the caller was last told it: at its birth, by their own agents' changes and complete reads, or by an earlier look. Refused, with the price and the store, when the store cannot pay; keep some power for yourself to look.",
     tooltip: "Pay to see objects as they are now.", keywords: ["look", "refresh", "see", "observe", "update view"],
     params: obj({ objectId: id.optional(), requestId: requestId.optional() }), result: z.object({ looked: z.number().int(), price: z.number() }),
+    contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
+  }),
+  affordance({
+    id: "object.whatIf", title: "What if, for the others", group: "objects", scope: "game",
+    description: "What the others' sum on one object would read after each of up to 4 candidate moves from the state the caller knows: one look's price per candidate, paid from the caller's own store (free where the game reads free). Each quote is a fresh blurred reading, never exact while the game runs. A candidate onto a state another object holds says which object holds it.",
+    tooltip: "Price what a move would do for the others.", keywords: ["what if", "quote", "preview", "others"],
+    params: obj({ objectId: id, calls: z.array(call).min(1).max(4), requestId: requestId.optional() }),
+    result: z.object({ state: z.string(), price: z.number(), after: z.array(z.object({ state: z.string(), want: z.number(), taken: z.number().int().nullable() }).nullable()) }),
     contexts: ["live", "paused"], caller: "seated", effect: "write", confirm: "inline", runs: "server",
   }),
   affordance({

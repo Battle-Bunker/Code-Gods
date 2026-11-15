@@ -266,6 +266,12 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     if (humans.every(u => b.done.includes(u))) deal(e.state, r);
     return ok;
   },
+  "bid.cancel": e => {
+    const r = roomOf(e);
+    if (!r.bid) throw new OpFailure("No bid phase is open.");
+    r.bid = null;
+    return ok;
+  },
   "game.auction": e => {
     const g = gameOf(e), names = (u: string) => nameOf(e.state, u);
     const wins = Object.entries(g.auction?.wins ?? {}).map(([u, w]) => ({ memberId: memberOf(e, u), name: names(u), family: w.family, handicap: w.handicap }));
@@ -351,6 +357,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return { valid: true, bits, total, charge: total + 0.05 * total * total, after: { score: [String(-d)], terms: [] } };
   },
   "object.look": () => { throw new OpFailure("This game shows every object as it is; there is nothing to pay for."); },
+  "object.whatIf": (_e, a) => ({ state: "", price: 0, after: a.calls.map(() => null) }),
   "object.score": (e, a) => {
     const g = gameOf(e), o = objectOf(e, a.objectId), d = distanceOf(g, e.userId, o);
     return { score: [String(-d)], terms: [], number: numberOf(g, a.objectId), bits: bitsAt(d), points: bitsAt(d) };

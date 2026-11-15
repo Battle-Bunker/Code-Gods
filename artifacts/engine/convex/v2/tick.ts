@@ -25,7 +25,7 @@ type Snapshot = {
   /** The world second the game ends at (private in halfLife mode; the tick only follows it). */
   endWorld: number;
   held: { objectId: string; state: string }[]; noiseKey: string | null;
-  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; peerNoiseVariance?: number; timeScale?: number; regularBirths?: boolean; commitClause?: boolean; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   ready: ("typescript" | "python")[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
@@ -124,6 +124,9 @@ export const tick = internalAction({
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
           occupied: e => holder.has(e), disclosed: reads.disclosed,
+          // The commit clause (v1's option, off by default; call 34): an onlyIfBetter plan commits only if it raises the
+          // owner's points as othersAfter discloses them (runAct decides it).
+          ...(snap.settings.commitClause ? { commitClause: true } : {}),
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.

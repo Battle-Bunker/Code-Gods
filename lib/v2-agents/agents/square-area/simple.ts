@@ -1,5 +1,5 @@
 // Square Area · Simple
-// Main part: area close to a square number. Tie-breaker: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
+// Main part: area close to a square number. Secondary preference: whichever you were dealt (that square's root's smallest prime factor; that square's root's largest prime factor; prime factors of that square's root).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (Q.isZero(m) || Q.isZero(c)) return null;    // no triangle: the worst score
   const area = Q.div(Q.mul(c, c), Q.mul(2, Q.abs(m)));
@@ -18,10 +18,12 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   const f = factors(root(sq));                    // the prime factors of that square's root
   // main: how far the triangle's area is from a square number (closer is better)
-  if (tie === "spf") return [main, f[0] ?? 1];   // a root whose smallest prime factor is big is better
-  if (tie === "lpf") return [main, f.at(-1) ?? 1];   // a root whose largest prime factor is big is better
-  if (tie === "omega") return [main, f.length];   // more prime factors in the root are better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "spf") return f[0] ?? 1;   // a root whose smallest prime factor is big is better
+    if (t === "lpf") return f.at(-1) ?? 1;   // a root whose largest prime factor is big is better
+    if (t === "omega") return f.length;   // more prime factors in the root are better
+    return null;
+  })];
 }
 
 const FAR = 2;      // how far one change may go

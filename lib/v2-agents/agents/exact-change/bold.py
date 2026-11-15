@@ -1,5 +1,5 @@
 # Exact Change · Bold
-# Main part: ways to pay close to the target. Tie-breaker: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
+# Main part: ways to pay close to the target. Secondary preference: whichever you were dealt (the smaller pile in every way; the bill; both coins close to primes).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m >= 0:                                      # a coin worth -m*b: the line must go downhill
         return None
     X = -c / m                                      # where the line meets y = 0: x goes no further
@@ -21,17 +21,18 @@ def score(m, c, p, tie):
     ways = [x for x in range(X // 1 + 1) if (m * x + c).denominator == 1]   # the line's whole points with x, y >= 0
     main = -abs(len(ways) - p["ways"])
     # main: how far the number of ways to pay is from the target (closer is better)
-    if tie == "big-piles":   # a bigger smaller pile, in every way to pay, is better
-        if not ways:                               # no way to pay: no piles
-            return [main, None]
-        y = m * ways[-1] + c                       # the fewest coins of b
-        return [main, min(ways[0], y)]
-    if tie == "big-bill":   # a bigger bill N = b·c is better
-        return [main, c * b]
-    if tie == "prime-coins":   # both coins (a = -b·m and b) close to primes is better
-        off = lambda x: abs(x - near(x, prime))    # how far x is from the nearest prime
-        return [main, -(off(-m * b) + off(b))]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "big-piles":   # a bigger smaller pile, in every way to pay, is better
+            if not ways:                               # no way to pay: no piles
+                return None
+            y = m * ways[-1] + c                       # the fewest coins of b
+            return min(ways[0], y)
+        if t == "big-bill":   # a bigger bill N = b·c is better
+            return c * b
+        if t == "prime-coins":   # both coins (a = -b·m and b) close to primes is better
+            off = lambda x: abs(x - near(x, prime))    # how far x is from the nearest prime
+            return -(off(-m * b) + off(b))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 4      # how far one change may go

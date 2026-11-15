@@ -1,5 +1,5 @@
 # Divide By · Example: the answer's numerators share a big factor
-# Main part: the number you divide by on your powers. Tie-breaker: the answer's numerators share a big factor.
+# Main part: the number you divide by on your powers. Secondary preference: the answer's numerators share a big factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -7,13 +7,13 @@
 
 
 def score(L, p):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.x is None:   # parallel lines never cross: no score
         return None
     main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^3, k^6, ...
     nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
-    return [main, common(nx, ny)]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators sharing a big factor are better
+    return [main, common(nx, ny)]   # main: the level of the number you divide by on k, k³, k⁶, … (higher is better); secondary: numerators sharing a big factor are better
 
 
 FAR = 3      # how far one move may go

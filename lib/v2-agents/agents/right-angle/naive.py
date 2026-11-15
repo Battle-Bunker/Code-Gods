@@ -1,5 +1,5 @@
 # Right Angle · Naive (for learning)
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient; the corner's |x| + |y| has a big smallest prime factor).
+# Main part: a right angle at whole x and y, y on your pattern. Secondary preference: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient; the corner's |x| + |y| has a big smallest prime factor).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -7,7 +7,7 @@
 
 
 def score(L, p, tie):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     floor = lambda v: v // 1   # rounded down

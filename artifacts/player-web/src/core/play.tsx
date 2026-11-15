@@ -26,6 +26,7 @@ import { Dock } from "@/dock/dock";
 import { useOpenPane } from "@/dock/open-pane";
 import { PANE_COMPONENTS, StoredPanelPane } from "@/panes";
 import { ReplayBar } from "@/replay/bar";
+import { parseMoment } from "@/replay/moment-link";
 import { ReplayProvider, useReplayControls } from "@/replay/controller";
 import { toast } from "@/hooks/use-toast";
 import { affordanceContext } from "./affordance-context";
@@ -96,17 +97,26 @@ function ReplayRoute({ header }: { header: Header }) {
   const { gameId } = header, ended = header.phase === "ended";
   const replaying = useReplaying();
   const open = useAffordance("replay.open");
+  const seek = useAffordance("replay.seek");
+  const watchAs = useAffordance("replay.watchAs");
   const done = useRef(false);
   useEffect(() => {
     const q = new URLSearchParams(location.search);
     if (done.current || !q.has("replay")) return;
     if (ended && !replaying && !open.available) return;   // the room is still loading
     done.current = true;
-    q.delete("replay");
+    // A moment link (`&t=…&as=…`, "Copy a link to this moment") opens the replay there, as that player.
+    const moment = parseMoment(location.search);
+    q.delete("replay"); q.delete("t"); q.delete("as");
     const leave = () => navigate(`${location.pathname}${q.size ? `?${q}` : ""}`, { replace: true });
-    if (!ended || replaying) { leave(); return; }
-    open.run({ gameId }).then(leave, (e: unknown) => { leave(); toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }); });
-  }, [gameId, ended, replaying, open]);
+    if (!ended) { leave(); return; }
+    // Then the moment, if the link names one; a replay already open (the view is stored) only moves to it.
+    const toMoment = () => Promise.resolve()
+      .then(() => moment.as && header.roster.some(m => m.memberId === moment.as) ? watchAs.run({ memberId: moment.as }) : undefined)
+      .then(() => moment.worldSeconds !== null ? seek.run({ worldSeconds: moment.worldSeconds }) : undefined);
+    (replaying ? toMoment() : open.run({ gameId }).then(toMoment))
+      .then(leave, (e: unknown) => { leave(); toast({ title: "The replay did not open", description: failureText(e), variant: "destructive" }); });
+  }, [gameId, ended, replaying, open, seek, watchAs, header.roster]);
   return null;
 }
 

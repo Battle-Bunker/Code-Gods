@@ -41,7 +41,7 @@ const DIST = { ts: "const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a 
 const FLOOR = { ts: "const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down", py: "floor = lambda v: v // 1   # rounded down" };
 const PARALLEL = { ts: "if (f.x === null) return null;   // parallel lines never cross: no score", py: ["if f.x is None:   # parallel lines never cross: no score", "    return None"] };
 const MOD1 = { ts: "const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1", py: "mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1" };
-/** A power ladder's own number at its level: k^T(L) × k (trial 35), the next multiplication's size. */
+/** A power ladder's own number at its level: k^T(L) × k (trial 37), the next multiplication's size. */
 const POWER_N = { ts: "const lv = levelOf(main, p.k), N = BigInt(p.k) ** BigInt((lv * (lv + 1)) / 2 + 1);   // your power reached, times k", py: "lv = level_of(main, p[\"k\"]); N = p[\"k\"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k" };
 const T = (ts: string, py: string, says: string, tryThis: string): PairTieBreakerEntry => ({ ts, py, says, tryThis });
 
@@ -205,12 +205,12 @@ const kindsFor = (kind: AgentKind, e: PairFamilyEntry): readonly PairKind[] => (
 function scoreTs(e: PairFamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family);
   const out = [
-    "// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.",
+    "// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.",
     `function score(L, p${tieBreaker === null ? ", tie" : ""}) {`,
     "  const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)",
     ...e.main.ts.map(l => `  ${l}`),
   ];
-  if (tieBreaker !== null) out.push(`  return [main, ${e.tieBreakers[tieBreaker]!.ts}];   // main: ${e.mainSays}; tie-breaker: ${e.tieBreakers[tieBreaker]!.says}`);
+  if (tieBreaker !== null) out.push(`  return [main, ${e.tieBreakers[tieBreaker]!.ts}];   // main: ${e.mainSays}; secondary: ${e.tieBreakers[tieBreaker]!.says}`);
   else {
     out.push(`  // main: ${e.mainSays}`);
     for (const t of f.tieBreakers.filter(t => e.tieBreakers[t.id])) out.push(`  if (tie === ${JSON.stringify(t.id)}) return [main, ${e.tieBreakers[t.id]!.ts}];   // ${e.tieBreakers[t.id]!.says}`);
@@ -224,11 +224,11 @@ function scorePy(e: PairFamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family);
   const out = [
     `def score(L, p${tieBreaker === null ? ", tie" : ""}):`,
-    "    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.",
+    "    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.",
     "    f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)",
     ...e.main.py.map(l => `    ${l}`),
   ];
-  if (tieBreaker !== null) out.push(`    return [main, ${e.tieBreakers[tieBreaker]!.py}]   # main: ${e.mainSays}; tie-breaker: ${e.tieBreakers[tieBreaker]!.says}`);
+  if (tieBreaker !== null) out.push(`    return [main, ${e.tieBreakers[tieBreaker]!.py}]   # main: ${e.mainSays}; secondary: ${e.tieBreakers[tieBreaker]!.says}`);
   else {
     out.push(`    # main: ${e.mainSays}`);
     for (const t of f.tieBreakers.filter(t => e.tieBreakers[t.id])) out.push(`    if tie == ${JSON.stringify(t.id)}:   # ${e.tieBreakers[t.id]!.says}`, `        return [main, ${e.tieBreakers[t.id]!.py}]`);
@@ -259,7 +259,7 @@ function agentTs(kind: AgentKind, e: PairFamilyEntry, tieBreaker: string | null,
       "  contested(offer, 3);",
     ]),
     "  const L = pairOf(offer);          // the two lines, a·x + b·y + c = 0 each",
-    `  const { params: p${tieBreaker !== null ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule${tieBreaker !== null ? "" : " and tie-breaker"} (free)`,
+    `  const { params: p${tieBreaker !== null ? "" : ", tieBreaker: tie"} } = goal(offer);   // your rule${tieBreaker !== null ? "" : " and secondary preference"} (free)`,
     ...(e.stretchBy ? [
       "  // Your rule's shortcut: a stretch by its dealt number (q or k) climbs its ladder in one move.",
       "  const tries = pairSteps(L, FAR, KINDS, [p.q ?? p.k].filter(Boolean));   // [plan, lines after]: moves tried in the agent's own head",
@@ -339,10 +339,10 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   const tb = tieBreaker === null ? null : f.tieBreakers.find(t => t.id === tieBreaker);
   if (tieBreaker !== null && (!tb || !e.tieBreakers[tieBreaker])) throw new Error(`${familyId} has no tie-breaker ${tieBreaker} to write an example for`);
   const meta = kind === "example"
-    ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the tie-breaker (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: 3, quotes: 8 }
+    ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the secondary preference (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: 3, quotes: 8 }
     : KINDS[kind];
-  const rule = tb ? `Main part: ${f.main.title}. Tie-breaker: ${tb.title}.`
-    : `Main part: ${f.main.title}. Tie-breaker: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
+  const rule = tb ? `Main part: ${f.main.title}. Secondary preference: ${tb.title}.`
+    : `Main part: ${f.main.title}. Secondary preference: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
   const how = kind === "naive" ? HOW_NAIVE : kind === "example" ? HOW_EXAMPLE : HOW_POINTS;
   const header = [`${f.title} · ${meta.title}`, rule, ...how, `Try this: ${meta.tryThis}`];
   const ts = language === "typescript", c = ts ? "//" : "#";

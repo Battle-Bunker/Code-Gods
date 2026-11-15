@@ -1,5 +1,5 @@
 # Exact Change · Example: the smaller pile in every way
-# Main part: ways to pay close to the target. Tie-breaker: the smaller pile in every way.
+# Main part: ways to pay close to the target. Secondary preference: the smaller pile in every way.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,7 +11,7 @@
 
 
 def score(m, c, p):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m >= 0:                                      # a coin worth -m*b: the line must go downhill
         return None
     X = -c / m                                      # where the line meets y = 0: x goes no further
@@ -23,7 +23,7 @@ def score(m, c, p):
     if not ways:                               # no way to pay: no piles
         return [main, None]
     y = m * ways[-1] + c                       # the fewest coins of b
-    return [main, min(ways[0], y)]   # main: how far the number of ways to pay is from the target (closer is better); tie-breaker: a bigger smaller pile, in every way to pay, is better
+    return [main, min(ways[0], y)]   # main: how far the number of ways to pay is from the target (closer is better); secondary: a bigger smaller pile, in every way to pay, is better
 
 
 FAR = 4      # how far one change may go

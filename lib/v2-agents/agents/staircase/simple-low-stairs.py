@@ -1,5 +1,5 @@
 # Staircase · Simple
-# Main part: numbers one more than the one before. Tie-breaker: the numbers the stairs climb from, added up.
+# Main part: numbers one more than the one before. Secondary preference: the numbers the stairs climb from, added up.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,13 +8,13 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     step = 1 if p["direction"] == "right" else 4   # the number before: to the left, or above
     main = 0
     for i in range(16):
         if (i % 4 > 0 if step == 1 else i >= 4) and b[i] == b[i - step] + 1:
             main += 1
-    return [main, -sum(b[i - step] for i in range(16) if (i % 4 > 0 if step == 1 else i >= 4) and b[i] == b[i - step] + 1)]   # main: the numbers exactly 1 more than the number before them (more is better); tie-breaker: stairs climbing from smaller numbers is better
+    return [main, -sum(b[i - step] for i in range(16) if (i % 4 > 0 if step == 1 else i >= 4) and b[i] == b[i - step] + 1)]   # main: the numbers exactly 1 more than the number before them (more is better); secondary: stairs climbing from smaller numbers is better
 
 
 FAR = 1      # how far one change may go

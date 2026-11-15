@@ -63,14 +63,15 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     return !u.startsWith("-") && level >= 1n ? [String(level), 0] : null;
   },
   // Same on Both Rulers: the rung is the level of digits of the palindrome the unchanged number rounds to (the whole
-  // part of u, u ≥ 1), costed as its cheapest line, y = P with P the smallest palindrome in d of the level's digits:
-  // d = 2's palindromes are bigger numbers than d = 1's, so dearer to write and rarer by as much.
+  // part of u, u ≥ 1), costed as its cheapest line, y = P with P the smallest palindrome of the parity with at least
+  // the level's digits (1, 11, 101, 1001, …): an even number of digits is one more than an odd count, so dearer to write.
   "same-on-both-rulers": (u, p) => {
     const [n, dd = "1"] = u.split("/");
     const level = BigInt(n!) / BigInt(dd);
     if (u.startsWith("-") || level < 1n) return null;
-    const D = Number((level * (level + 1n)) / 2n), d = BigInt((p as { d: number }).d);
-    const P = D === 1 ? d : d * 10n ** BigInt(D - 1) + d;
+    let D = Number((level * (level + 1n)) / 2n);
+    if (D % 2 !== ((p as { digits: string }).digits === "odd" ? 1 : 0)) D++;
+    const P = D === 1 ? 1n : 10n ** BigInt(D - 1) + 1n;
     return [String(level), LINE_Q_CODES.c.bits(P) + LINE_Q_CODES.a.bits(0n)];
   },
   "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
@@ -88,6 +89,15 @@ const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, un
     const p = primeOfLevel(u);
     if (p === null) return null;
     const cost = areaCosts().get(p);
+    return cost === undefined ? null : [String(p), cost];
+  },
+  // Ruler: the rung is the prime p (u = digitLevel(p) on a rung), costed as the cheapest line whose distance² from (0, 0)
+  // rounds down to p. Like Pythagorean Area's endings, they differ in bits at equal size and by as much in what a rung
+  // costs, so bits less cost is what is equal.
+  ruler: u => {
+    const p = primeOfLevel(u);
+    if (p === null) return null;
+    const cost = rulerCosts().get(p);
     return cost === undefined ? null : [String(p), cost];
   },
   "prime-staircase": (u, p) => {
@@ -149,6 +159,43 @@ function areaCosts(): Map<bigint, number> {
     }
   }
   AREA_COSTS = costs;
+  return costs;
+}
+/**
+ * The least code cost of a fraction line a·x + b·y + c = 0 (primitive, b > 0, or b = 0 < a) whose distance² from (0, 0),
+ * c²/(a² + b²), rounds down to p, for every p it reaches within RULER_BUDGET bits (each coordinate at its own code's
+ * bits; a and c tried among the numbers whose prime factors add up to little, b up to its budget). Rungs costlier than
+ * that are left unpriced. About a second.
+ */
+const RULER_BUDGET = 36;
+let RULER_COSTS: Map<bigint, number> | null = null;
+function rulerCosts(): Map<bigint, number> {
+  if (RULER_COSTS) return RULER_COSTS;
+  const A = LINE_Q_CODES.a, B = LINE_Q_CODES.b, C = LINE_Q_CODES.c;
+  const most = 2 * RULER_BUDGET;
+  const primes: number[] = [];
+  for (let n = 2; n <= most; n++) if (primes.every(x => n % x !== 0)) primes.push(n);
+  const smooth: bigint[] = [];
+  const walk = (n: bigint, s: number, i: number) => { smooth.push(n); for (let j = i; j < primes.length && s + primes[j]! <= most; j++) walk(n * BigInt(primes[j]!), s + primes[j]!, j); };
+  walk(1n, 0, 0);
+  const cheap = (code: typeof A, zero: boolean) => [...(zero ? [0n] : []), ...smooth].map(n => [n, code.bits(n)] as const).filter(x => x[1] <= RULER_BUDGET).sort((x, y) => x[1] - y[1]);
+  const as = cheap(A, true), cs = cheap(C, false);
+  const costs = new Map<bigint, number>();
+  for (let b = 0n; B.bits(b) <= RULER_BUDGET; b++) {
+    const bb = B.bits(b);
+    for (const [a, ba] of as) {
+      if (bb + ba > RULER_BUDGET) break;
+      if (b === 0n && a === 0n) continue;
+      for (const [c, bc] of cs) {
+        const bits = bb + ba + bc;
+        if (bits > RULER_BUDGET) break;
+        if (gcd(gcd(a, b), c) !== 1n) continue;
+        const p = (c * c) / (a * a + b * b);
+        if (bits < (costs.get(p) ?? Infinity)) costs.set(p, bits);
+      }
+    }
+  }
+  RULER_COSTS = costs;
   return costs;
 }
 const isPrime = (n: bigint) => { if (n < 2n) return false; for (let i = 2n; i * i <= n; i++) if (n % i === 0n) return false; return true; };

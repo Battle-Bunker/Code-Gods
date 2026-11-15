@@ -1,5 +1,5 @@
 # Mountain Climb · Thorough
-# Main part: cells on the longest climb from the top-left cell. Tie-breaker: how far the climb gets from the top-left cell.
+# Main part: cells on the longest climb from the top-left cell. Secondary preference: how far the climb gets from the top-left cell.
 # What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 # time) and takes the change that raises your points most. Your points on a board are your rarity there times the
 # other players' rarity there added up, so a change that suits your rule but spoils the board for the others can
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     def near(i):   # the cells touching cell i
         return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]
     level, main = [0], 0   # start at the top-left cell
@@ -17,7 +17,7 @@ def score(b, p):
         main += 1
         reached += level
         level = list({j for i in level for j in near(i) if b[j] == b[i] + 1})   # each step: touching cells exactly 1 bigger
-    return [main, max(i // 4 + i % 4 for i in reached)]   # main: the cells on the longest climb from the top-left cell, each step 1 bigger (more is better); tie-breaker: a climb ending farther from the top-left cell (steps across and down) is better
+    return [main, max(i // 4 + i % 4 for i in reached)]   # main: the cells on the longest climb from the top-left cell, each step 1 bigger (more is better); secondary: a climb ending farther from the top-left cell (steps across and down) is better
 
 
 FAR = 1      # how far one change may go

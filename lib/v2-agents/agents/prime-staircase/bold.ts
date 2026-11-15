@@ -1,5 +1,5 @@
 // Prime Staircase · Bold
-// Main part: a run of different dealt primes from y(0). Tie-breaker: whichever you were dealt (the factor the run's last prime minus 1 shares with its first prime minus 1; y(−1) close to such a prime).
+// Main part: a run of different dealt primes from y(0). Secondary preference: whichever you were dealt (the factor the run's last prime minus 1 shares with its first prime minus 1; y(−1) close to such a prime).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: change FAR = 4 to 2: shorter steps, cheaper moves.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const run = [];                                 // the different primes ending in p.ends it starts with
   let t = c;                                      // ends as the first term that breaks the run
@@ -21,12 +21,14 @@ function score(m, c, p, tie) {
   const d = Q.abs(Q.sub(miss, near(miss, prime, p.ends)));
   const main = Q.add(run.length, Q.div(1, Q.add(2, d)));   // a longer run always wins; a near miss beats a far one
   // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime
-  if (tie === "shared-factor") return [main, run.length >= 2 ? common(Q.sub(run.at(-1), 1), Q.sub(run[0], 1)) : 0];   // the run's last prime minus 1 sharing a bigger factor with its first prime minus 1 is better (it starts again when the run grows)
-  if (tie === "step-back") {   // y(-1) (ignoring sign) close to such a prime is better
-    const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign
-    return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))))];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared-factor") return run.length >= 2 ? common(Q.sub(run.at(-1), 1), Q.sub(run[0], 1)) : 0;   // the run's last prime minus 1 sharing a bigger factor with its first prime minus 1 is better (it starts again when the run grows)
+    if (t === "step-back") {   // y(-1) (ignoring sign) close to such a prime is better
+      const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign
+      return Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))));
+    }
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

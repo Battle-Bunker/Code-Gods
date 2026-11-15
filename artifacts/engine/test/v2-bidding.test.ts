@@ -95,3 +95,22 @@ describe(preset, () => {
 
 bidSuite("lines-beginner-bidding", presetOf("lines-beginner-bidding").variant, presetOf("lines-beginner-bidding").families);
 bidSuite("grids-beginner-bidding", "grid-4-d10", presetOf("grids-beginner-bidding").families);
+
+test("the owner cancels an open bid phase (v1's cancelBidding): the bids are forgotten, nothing is dealt; nobody else can", { timeout: 60_000 }, async () => {
+  const [ada, bo, cy] = await humans("Cancel Ada", "Cancel Bo", "Cancel Cy");
+  const created = await perform(ada!, "room.create", { name: "Cancel room", preset: "lines-beginner-bidding" });
+  const roomId = created.result.roomId;
+  await perform(bo!, "room.join", { code: created.result.code });
+  await perform(cy!, "room.join", { code: created.result.code });
+  assert.deepEqual((await perform(ada!, "game.start", {}, { roomId })).result, { gameId: null, bidPhase: true });
+  const family = (await perform(bo!, "bid.state", {}, { roomId }, "query")).result.families[0].family;
+  assert.equal((await perform(bo!, "bid.place", { family, percent: 30 }, { roomId })).ok, true);
+  assert.equal((await perform(bo!, "bid.cancel", {}, { roomId })).ok, false, "only the owner cancels");
+  assert.equal((await perform(ada!, "bid.cancel", {}, { roomId })).ok, true);
+  assert.equal((await perform(bo!, "bid.state", {}, { roomId }, "query")).ok, false, "the phase is closed");
+  assert.equal((await perform(ada!, "bid.cancel", {}, { roomId })).ok, false, "nothing left to cancel");
+  // Opening again starts with no bids: the old ones were forgotten.
+  await perform(ada!, "game.start", {}, { roomId });
+  assert.deepEqual((await perform(bo!, "bid.state", {}, { roomId }, "query")).result.mine, []);
+  await perform(ada!, "bid.cancel", {}, { roomId });
+});

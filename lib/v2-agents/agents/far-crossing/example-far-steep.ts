@@ -1,17 +1,17 @@
 // Far Crossing · Example: that x-intercept shares a factor with the steeper gradient
-// Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: that x-intercept shares a factor with the steeper gradient.
+// Main part: the steeper line crosses the x-axis on your pattern. Secondary preference: that x-intercept shares a factor with the steeper gradient.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
 // Try this: add "tilt" to KINDS: it changes a gradient directly.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.rs === null) return null;   // the steeper line is flat: no score
   const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder
-  return [main, f.ms === null ? 0 : common(R, floor(Q.abs(f.ms)))];   // main: the level of the steeper line's x-intercept on your ladder (higher is better); tie-breaker: that x-intercept sharing a big factor with the steeper gradient is better
+  return [main, f.ms === null ? 0 : common(R, floor(Q.abs(f.ms)))];   // main: the level of the steeper line's x-intercept on your ladder (higher is better); secondary: that x-intercept sharing a big factor with the steeper gradient is better
 }
 
 const FAR = 3;      // how far one move may go

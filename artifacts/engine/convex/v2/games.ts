@@ -20,7 +20,7 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     durationMode: durationModeOf(game), scoreIntervalSeconds: scoreIntervalOf(game),
     // Paused for idleness (activity.ts): any human activity (account.touch) resumes it.
     parked: !!game.parked, startedAt: game.startedAt ?? null, endedAt: game.endedAt ?? null,
-    roster: game.roster, pausedBy: game.pausedBy ?? null, me, summary: game.summary ?? null,
+    roster: game.roster, pausedBy: game.pausedBy ?? null, pauseEndsAt: game.pauseEndsAt ?? null, me, summary: game.summary ?? null,
     // The variance of each reading of the others' sums while live (disclose.ts, decision 32), and its σ; 0: exact.
     peerNoiseVariance: peerNoiseVarianceOf(game), peerNoiseBits: peerNoiseSigmaOf(game),
     // Whether a seated player sees objects as last told and pays to look (knowledge.ts).

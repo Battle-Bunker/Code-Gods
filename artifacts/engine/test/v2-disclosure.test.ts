@@ -50,27 +50,29 @@ test("nothing Bo is told names Ada's rule, and every value Bo gets is Bo's own",
   for (const secret of [adaRule.ruleKey, adaRule.card, adaRule.family]) assert.ok(!text.includes(secret), `Bo was told ${secret}`);
 });
 
-test("the others' total after a candidate move: only the sum, from the live state (never any state), at most 4, seated players only", async () => {
+test("What if, the others' total after a candidate move: only the sum, from the live state, at most 4, seated players only; paid while live (call 33)", async () => {
   const objectId = objects[0]!;
   const now = await bo!.query("v2/play:object", { objectId });
   const shift = { mutator: "si.shift", site: 0, args: { k: "1" } }, none = { mutator: "si.shift", site: 0, args: { k: "0" } };
-  const r = await bo!.query("v2/play:othersAt", { objectId, calls: [shift, { mutator: "no.such", site: 0, args: {} }] });
-  assert.deepEqual(Object.keys(r).sort(), ["after", "state"]);
+  const whatIf = async (calls: unknown[]) => { const r = await perform(bo!, "object.whatIf", { objectId, calls }, { gameId }); assert.equal(r.ok, true, JSON.stringify(r)); return r.result; };
+  const r = await whatIf([shift, { mutator: "no.such", site: 0, args: {} }]);
+  assert.deepEqual(Object.keys(r).sort(), ["after", "price", "state"]);
+  assert.ok(r.price >= 0, "a look's price per candidate (free where the game reads free)");
   assert.equal(r.state, now.state, "applied to the object's live state");
   assert.deepEqual(Object.keys(r.after[0]).sort(), ["state", "taken", "want"], "a total, nothing per player");
   assert.equal(r.after[0].taken, null, "no other object is there");
   assert.notEqual(r.after[0].state, now.state);
   assert.equal(r.after[1], null, "an invalid call answers nothing");
   // A move that changes nothing: the others' total is the stored want.
-  const same = (await bo!.query("v2/play:othersAt", { objectId, calls: [none] })).after[0];
+  const same = (await whatIf([none])).after[0];
   if (same && same.state === now.state) assert.ok(Math.abs(same.want - now.value.want) < 1e-9, "at the current state it is the stored want");
   const adaRule = await ada!.query("v2/play:myRule", { gameId });
   for (const secret of [adaRule.ruleKey, adaRule.card, adaRule.family]) assert.ok(!JSON.stringify(r).includes(secret));
-  await assert.rejects(bo!.query("v2/play:othersAt", { objectId, calls: Array(5).fill(shift) }), /at most 4/);
+  assert.equal((await perform(bo!, "object.whatIf", { objectId, calls: Array(5).fill(shift) }, { gameId })).ok, false, "at most 4");
   // Objects are unique: once another object holds the candidate's state, the candidate says which.
   const other = await bo!.query("v2/play:object", { objectId: objects[1]! });
   await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: r.after[0].state });
-  const again = await bo!.query("v2/play:othersAt", { objectId, calls: [shift] });
+  const again = await whatIf([shift]);
   assert.equal(again.after[0].taken, other.number);
   await admin.mutation("v2/testing:setObjectState", { gameId, number: other.number, state: other.state });
 });
@@ -94,17 +96,17 @@ test("live, another player's move on an object is unattributed; only the player'
   assert.ok(!JSON.stringify(rows).includes("Disc Bo"), "Bo is not named");
 });
 
-test("live, the others' total after a candidate is the player's own reading (decision 32): stable within a version, independent of another player's, exact after the end", async () => {
+test("live, a What if quote of the others' total is the player's own blurred reading (decision 32, call 33): a fresh draw per quote, independent of another player's, exact and free after the end", async () => {
   const g = await admin.mutation("v2/testing:seedGame", { owner: ada!.userId, humans: [bo!.userId], objects: 4, noise: true });
   const objectId = g.objects[0]!;
   const shift = { mutator: "si.shift", site: 0, args: { k: "1" } }, none = { mutator: "si.shift", site: 0, args: { k: "0" } };
   const read = async (who: typeof ada) => {
     const now = await who!.query("v2/play:object", { objectId });
-    const live = await who!.query("v2/play:othersAt", { objectId, calls: [shift, none] });
-    // A move that changes nothing reads what the object shows: not a second measurement of it.
-    if (live.after[1]?.state === now.state) assert.equal(live.after[1].want, now.value.want, "the no-op candidate is the shown want");
-    const again = await who!.query("v2/play:othersAt", { objectId, calls: [shift] });
-    assert.equal(again.after[0].want, live.after[0].want, "one reading per version: a query is deterministic");
+    const quote = async (calls: unknown[]) => (await perform(who!, "object.whatIf", { objectId, calls }, { gameId: g.gameId })).result;
+    const live = await quote([shift, none]);
+    void now;
+    const again = await quote([shift]);
+    assert.notEqual(again.after[0].want, live.after[0].want, "a fresh draw per quote: asking again is a new (paid) reading");
     return live.after[0].want as number;
   };
   const [liveA, liveB] = [await read(ada), await read(bo)];

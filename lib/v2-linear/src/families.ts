@@ -3,10 +3,12 @@
  * of values) and a list of alternative tie-breakers (owner decisions 12–14): a dealt rule is the main layer plus one
  * of them. Every layer is a distance, a count or a size, never a yes/no test (decision 13).
  */
-import { gcd, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
+import { cardText, gcd, Qn, q, ref, type ElementRef, type ElementValue, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Undef } from "@workspace/v2-core";
 import type { LineState } from "./line.ts";
 import { digitLevel, digitNote, isPrimeEnding, largestPrimeFactor, nearbyPrimes, nearestPrimeEnding, smallestPrimeFactor } from "./numbers.ts";
 import { beginnerFamilies, factorLabel } from "./beginner.ts";
+import { closeLanding } from "./close-landing.ts";
+import { closeGradient, closeIntercept } from "./close-readings.ts";
 import { gradientWitness } from "./witnesses.ts";
 import { rationalFamilies } from "./rational.ts";
 import { rational2Families } from "./rational2.ts";
@@ -27,10 +29,9 @@ function allUndefined<P>(ctx: Ctx, f: { main: L<P>; tieBreakers: readonly L<P>[]
   for (const l of [f.main, ...f.tieBreakers]) ctx.term(l.id, l.title, undef(why), [from]);
   ctx.mark({ kind: "note", ref: from, text: undef(why).undefined });
 }
-/** The card: the main layer's sentence, then the dealt tie-breaker's. */
+/** The card: the main goal's sentence, then each secondary preference's in order (v2-core cardText). */
 function card<P>(f: { main: L<P>; tieBreakers: readonly L<P>[] }, p: P, tb: TieBreaker): string {
-  const t = tb === null ? undefined : f.tieBreakers.find(x => x.id === tb);
-  return t ? `${f.main.sentence(p)} ${t.sentence(p)}` : f.main.sentence(p);
+  return cardText(f.main, f.tieBreakers, p, tb);
 }
 
 // ---------------------------------------------------------------- 1. Prime Gradient (owner)
@@ -52,7 +53,7 @@ const pg = {
     sentence: (p: Ends) => `The gradient should round to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}. Bigger primes are better, though each extra digit counts for less.` } as L<Ends>,
   tieBreakers: [
     { id: "shared-factor", title: "the biggest number dividing both that prime plus 1 and the y-intercept's whole part", rep: "si", sense: "max",
-      sentence: () => "Tie-breaker: that prime plus 1 and the y-intercept's whole part should share as big a factor as possible." },
+      sentence: () => "That prime plus 1 and the y-intercept's whole part should share as big a factor as possible." },
   ] as L<Ends>[],
 };
 export const primeGradient: RuleFamily<LineState, Ends> = {
@@ -86,9 +87,9 @@ const ta = {
   main: { id: "area", title: "triangle area close to A", sentence: (p: A) => `The line and the two axes make a triangle; make its area as close as possible to ${p.A}.`,
     rep: "tri", sense: "min" } as L<A>,
   tieBreakers: [
-    { id: "legs", title: "legs nearly whole", sentence: () => "Tie-breaker: the triangle's legs should be whole numbers, or fractions with bottom numbers as small as possible.",
+    { id: "legs", title: "legs nearly whole", sentence: () => "The triangle's legs should be whole numbers, or fractions with bottom numbers as small as possible.",
       rep: "tri", sense: "min" },
-    { id: "even", title: "legs nearly equal", sentence: () => "Tie-breaker: make the two legs as close to equal as possible.",
+    { id: "even", title: "legs nearly equal", sentence: () => "Make the two legs as close to equal as possible.",
       rep: "tri", sense: "min" },
   ] as L<A>[],
 };
@@ -116,9 +117,9 @@ const mc = {
   main: { id: "gap", title: "gradient close to the y-intercept", sentence: () => "Make the gradient and the y-intercept as close as possible to each other.",
     rep: "si", sense: "min" } as L<object>,
   tieBreakers: [
-    { id: "size", title: "they meet at a big number", sentence: () => "Tie-breaker: the bigger the y-intercept (ignoring its sign), the better.",
+    { id: "size", title: "they meet at a big number", sentence: () => "The bigger the y-intercept (ignoring its sign), the better.",
       rep: "si", sense: "max" },
-    { id: "meetPrime", title: "they meet at a prime", sentence: () => "Tie-breaker: make the y-intercept as close as possible to a prime.",
+    { id: "meetPrime", title: "they meet at a prime", sentence: () => "Make the y-intercept as close as possible to a prime.",
       rep: "si", sense: "min" },
   ] as L<object>[],
 };
@@ -150,9 +151,9 @@ const cc = {
   main: { id: "gap", title: "y(k) close to x(q)", sentence: (p: KQ) => `Make y(${p.k}) and x(${p.q}) as close as possible: y(${p.k}) is the height at x = ${p.k}, x(${p.q}) is where the line reaches height ${p.q}.`,
     rep: "mach", sense: "min" } as L<KQ>,
   tieBreakers: [
-    { id: "size", title: "they cross at a big number", sentence: (p: KQ) => `Tie-breaker: the bigger x(${p.q}) is (ignoring its sign), the better.`,
+    { id: "size", title: "they cross at a big number", sentence: (p: KQ) => `The bigger x(${p.q}) is (ignoring its sign), the better.`,
       rep: "mach", sense: "max" },
-    { id: "whole", title: "x(q) nearly whole", sentence: (p: KQ) => `Tie-breaker: x(${p.q}) should be a whole number, or a fraction with as small a bottom number as possible.`,
+    { id: "whole", title: "x(q) nearly whole", sentence: (p: KQ) => `X(${p.q}) should be a whole number, or a fraction with as small a bottom number as possible.`,
       rep: "mach", sense: "min" },
   ] as L<KQ>[],
 };
@@ -180,4 +181,5 @@ export const crossingCheck: RuleFamily<LineState, KQ> = {
 /** The owner's first examples: a second tier beside the beginner pool (beginner.ts). Whole Intercept is in rational.ts. */
 export const ownerFamilies = [primeGradient, triangleArea, mMeetsC, crossingCheck] as const;
 /** Every line family (the line type's list): the owner's, the beginner pool's, and the rational-native ones (undealt). */
-export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families] as const;
+/** Close Landing, Close Intercept and Close Gradient (close-landing.ts, close-readings.ts) are prototypes: valued and measured, in no pool. */
+export const families = [...ownerFamilies, ...beginnerFamilies, ...rationalFamilies, ...rational2Families, closeLanding, closeIntercept, closeGradient] as const;

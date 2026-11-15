@@ -1,5 +1,5 @@
 # High Start · Example: that y-intercept plus the crossing's x has a big smallest prime factor
-# Main part: the gentler line crosses the y-axis on your pattern. Tie-breaker: that y-intercept plus the crossing's x has a big smallest prime factor.
+# Main part: the gentler line crosses the y-axis on your pattern. Secondary preference: that y-intercept plus the crossing's x has a big smallest prime factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -7,13 +7,13 @@
 
 
 def score(L, p):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     floor = lambda v: v // 1   # rounded down
     if f.cg is None or f.mg is None:   # the gentler line is upright: no score
         return None
     main, H = valuation_ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
-    return [main, None if f.x is None else spf(abs(H) + abs(whole(f.x)))]   # main: the level of the gentler line's y-intercept on your ladder (higher is better); tie-breaker: that y-intercept plus the crossing's x with a big smallest prime factor is better
+    return [main, None if f.x is None else spf(abs(H) + abs(whole(f.x)))]   # main: the level of the gentler line's y-intercept on your ladder (higher is better); secondary: that y-intercept plus the crossing's x with a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go

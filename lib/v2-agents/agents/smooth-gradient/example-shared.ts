@@ -1,5 +1,5 @@
 // Smooth Gradient · Example: prime factors shared with the y-intercept's nearest whole number
-// Main part: the gradient close to a 7-smooth number. Tie-breaker: prime factors shared with the y-intercept's nearest whole number.
+// Main part: the gradient close to a 7-smooth number. Secondary preference: prime factors shared with the y-intercept's nearest whole number.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,13 +9,13 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: remove the "tilt" line: moving the line up and down never changes the gradient.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   const s0 = Q.isZero(m) ? 1 : near(Q.abs(m), smooth);   // the 7-smooth number nearest its size (1 for 0)
   if (s0 === null) return null;                // none within 10,000: hopeless
   const s = Q.cmp(m, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
   const main = Q.neg(Q.abs(Q.sub(m, s)));
-  return [main, shared(s, whole(c))];   // main: how far the gradient is from a 7-smooth number (closer is better); tie-breaker: that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+  return [main, shared(s, whole(c))];   // main: how far the gradient is from a 7-smooth number (closer is better); secondary: that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
 }
 
 const FAR = 3;      // how far one change may go

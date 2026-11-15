@@ -1,5 +1,5 @@
 # Triangle Area · Naive (for learning)
-# Main part: triangle area close to A. Tie-breaker: whichever you were dealt (legs nearly whole; legs nearly equal).
+# Main part: triangle area close to A. Secondary preference: whichever you were dealt (legs nearly whole; legs nearly equal).
 # What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 # rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 # fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -8,18 +8,19 @@
 
 
 def score(m, c, p, tie):
-    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.
     if m == 0 or c == 0:                            # no triangle: the worst score
         return None
     legX, legY = abs(c / m), abs(c)                 # the triangle's base and height
     area = legX * legY / 2
     main = -abs(area - p["A"])
     # main: how far the triangle's area is from A (closer is better)
-    if tie == "legs":   # legs that are whole numbers are best
-        return [main, -(legX.denominator + legY.denominator - 2)]
-    if tie == "even":   # legs of equal length are best
-        return [main, -abs(legX - legY)]
-    return [main]
+    def tier(t):   # each secondary, in order (None: ranks last)
+        if t == "legs":   # legs that are whole numbers are best
+            return -(legX.denominator + legY.denominator - 2)
+        if t == "even":   # legs of equal length are best
+            return -abs(legX - legY)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

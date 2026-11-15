@@ -109,8 +109,11 @@ function verticalTie(e: FamilyEntry, tieBreaker: string | null, language: Shippe
   for (const id of defined) if (e.tieBreakers[id]!.pre) throw new Error(`${e.family}/${id}: a vertical tie-breaker needs no pre lines`);
   const expr = (id: string) => (ts ? e.tieBreakers[id]!.ts : e.tieBreakers[id]!.py);
   if (tieBreaker !== null) return defined.includes(tieBreaker) ? expr(tieBreaker) : none;
-  return defined.reduceRight((rest, id) => (ts ? `tie === ${JSON.stringify(id)} ? (${expr(id)}) : ${rest}` : `(${expr(id)}) if tie == ${JSON.stringify(id)} else ${rest}`), none);
+  return defined.reduceRight((rest, id) => (ts ? `t === ${JSON.stringify(id)} ? (${expr(id)}) : ${rest}` : `(${expr(id)}) if t == ${JSON.stringify(id)} else ${rest}`), none);
 }
+
+/** A tie-breaker's pre line inside tier(t): an early "return [main, x]" (written for a whole score) returns x alone. */
+const inTier = (line: string): string => line.replace(/return \[main, (.*?)\](;?)/, "return $1$2");
 
 // ---------------------------------------------------------------- TypeScript
 
@@ -118,27 +121,30 @@ function scoreTs(e: FamilyEntry, tieBreaker: string | null): string[] {
   const f = familyOf(e.family);
   const out = [
     ...(e.helpers ? [...e.helpers.ts, ""] : []),
-    "// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.",
+    "// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.",
     `function score(m, c, p${tieBreaker === null ? ", tie" : ""}) {`,
     ...(e.vertical ? [
       "  if (m === null) {               // the vertical line x = c",
       ...e.vertical.main.ts.map(l => `    ${l}`),
-      `    return [main, ${verticalTie(e, tieBreaker, "typescript")}];`,
+      tieBreaker !== null ? `    return [main, ${verticalTie(e, tieBreaker, "typescript")}];`
+        : `    return [main, ...(tie ? tie.split(">") : []).map(t => ${verticalTie(e, tieBreaker, "typescript")})];`,
       "  }",
     ] : []),
     ...e.main.ts.map(l => `  ${l}`),
   ];
   if (tieBreaker !== null) {
     const tb = e.tieBreakers[tieBreaker]!;
-    out.push(...(tb.pre?.ts ?? []).map(l => `  ${l}`), `  return [main, ${tb.ts}];   // main: ${e.mainSays}; tie-breaker: ${tb.says}`);
+    out.push(...(tb.pre?.ts ?? []).map(l => `  ${l}`), `  return [main, ${tb.ts}];   // main: ${e.mainSays}; secondary: ${tb.says}`);
   } else {
     out.push(`  // main: ${e.mainSays}`);
-    for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {   // a tie-breaker not yet described scores the main part alone
+    // Each dealt tie-breaker in order ("a>b": a, then b; any depth); one not described here ranks last (null).
+    out.push(`  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order`);
+    for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
       const tb = e.tieBreakers[l.id]!;
-      if (tb.pre) out.push(`  if (tie === ${JSON.stringify(l.id)}) {   // ${tb.says}`, ...tb.pre.ts.map(x => `    ${x}`), `    return [main, ${tb.ts}];`, "  }");
-      else out.push(`  if (tie === ${JSON.stringify(l.id)}) return [main, ${tb.ts}];   // ${tb.says}`);
+      if (tb.pre) out.push(`    if (t === ${JSON.stringify(l.id)}) {   // ${tb.says}`, ...tb.pre.ts.map(x => `      ${inTier(x)}`), `      return ${tb.ts};`, "    }");
+      else out.push(`    if (t === ${JSON.stringify(l.id)}) return ${tb.ts};   // ${tb.says}`);
     }
-    out.push("  return [main];");
+    out.push("    return null;", "  })];");
   }
   out.push("}");
   return out;
@@ -263,24 +269,26 @@ function scorePy(e: FamilyEntry, tieBreaker: string | null): string[] {
   const out = [
     ...(e.helpers ? [...e.helpers.py, ""] : []),
     `def score(m, c, p${tieBreaker === null ? ", tie" : ""}):`,
-    "    # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.",
+    "    # How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, None is no score.",
     ...(e.vertical ? [
       "    if m is None:              # the vertical line x = c",
       ...e.vertical.main.py.map(l => `        ${l}`),
-      `        return [main, ${verticalTie(e, tieBreaker, "python")}]`,
+      tieBreaker !== null ? `        return [main, ${verticalTie(e, tieBreaker, "python")}]`
+        : `        return [main] + [${verticalTie(e, tieBreaker, "python")} for t in (tie.split(">") if tie else [])]`,
     ] : []),
     ...e.main.py.map(l => `    ${l}`),
   ];
   if (tieBreaker !== null) {
     const tb = e.tieBreakers[tieBreaker]!;
-    out.push(...(tb.pre?.py ?? []).map(l => `    ${l}`), `    return [main, ${tb.py}]   # main: ${e.mainSays}; tie-breaker: ${tb.says}`);
+    out.push(...(tb.pre?.py ?? []).map(l => `    ${l}`), `    return [main, ${tb.py}]   # main: ${e.mainSays}; secondary: ${tb.says}`);
   } else {
     out.push(`    # main: ${e.mainSays}`);
+    out.push("    def tier(t):   # each secondary, in order (None: ranks last)");
     for (const l of f.tieBreakers.filter(t => e.tieBreakers[t.id])) {
       const tb = e.tieBreakers[l.id]!;
-      out.push(`    if tie == ${JSON.stringify(l.id)}:   # ${tb.says}`, ...(tb.pre?.py ?? []).map(x => `        ${x}`), `        return [main, ${tb.py}]`);
+      out.push(`        if t == ${JSON.stringify(l.id)}:   # ${tb.says}`, ...(tb.pre?.py ?? []).map(x => `            ${inTier(x)}`), `            return ${tb.py}`);
     }
-    out.push("    return [main]");
+    out.push(`    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]`);
   }
   return out;
 }
@@ -386,9 +394,9 @@ function render(kind: AgentKind, familyId: string, tieBreaker: string | null, la
   const tb = tieBreaker === null ? null : f.tieBreakers.find(t => t.id === tieBreaker);
   if (tieBreaker !== null && (!tb || !e.tieBreakers[tieBreaker])) throw new Error(`${familyId} has no tie-breaker ${tieBreaker} to write an example for`);
   const meta = kind === "example"
-    ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the tie-breaker (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: e.tieBreakers[tieBreaker!]!.steps, quotes: 8 }
+    ? { title: `Example: ${tb!.title}`, summary: `Gets the main part right, then works on the secondary preference (${tb!.title}).`, tryThis: e.tieBreakers[tieBreaker!]!.tryThis, far: e.tieBreakers[tieBreaker!]!.steps, quotes: 8 }
     : KINDS[kind];
-  const rule = tb ? `Main part: ${f.main.title}. Tie-breaker: ${tb.title}.` : `Main part: ${f.main.title}. Tie-breaker: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
+  const rule = tb ? `Main part: ${f.main.title}. Secondary preference: ${tb.title}.` : `Main part: ${f.main.title}. Secondary preference: whichever you were dealt (${f.tieBreakers.filter(t => e.tieBreakers[t.id]).map(t => t.title).join("; ")}).`;
   const header = [`${f.title} · ${meta.title}`, rule, ...(kind === "naive" ? HOW_NAIVE : HOW), `Try this: ${meta.tryThis}`];
   const ts = language === "typescript";
   const c = ts ? "//" : "#";

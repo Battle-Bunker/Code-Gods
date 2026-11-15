@@ -1,5 +1,5 @@
 // Exact Change · Example: the smaller pile in every way
-// Main part: ways to pay close to the target. Tie-breaker: the smaller pile in every way.
+// Main part: ways to pay close to the target. Secondary preference: the smaller pile in every way.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,7 +9,7 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: remove the "stretch" line: can moving and tilting alone grow the piles?
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p) {
   if (Q.cmp(m, 0) >= 0) return null;              // a coin worth -m·b: the line must go downhill
   const X = Q.neg(Q.div(c, m));                   // where the line meets y = 0: x goes no further
@@ -20,7 +20,7 @@ function score(m, c, p) {
   const main = Q.neg(Q.abs(ways.length - p.ways));
   if (!ways.length) return [main, null];      // no way to pay: no piles
   const y = Q.add(Q.mul(m, ways.at(-1)), c);  // the fewest coins of b
-  return [main, Q.cmp(ways[0], y) < 0 ? ways[0] : y];   // main: how far the number of ways to pay is from the target (closer is better); tie-breaker: a bigger smaller pile, in every way to pay, is better
+  return [main, Q.cmp(ways[0], y) < 0 ? ways[0] : y];   // main: how far the number of ways to pay is from the target (closer is better); secondary: a bigger smaller pile, in every way to pay, is better
 }
 
 const FAR = 4;      // how far one change may go

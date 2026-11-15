@@ -29,7 +29,7 @@ test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the val
   // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
   // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
   const p = { q: 5, r: 2 };
-  // Trial 35: x = 3 is 1 from 2 or 4, the nearest multiples of y's number 2 other than 0; |3| + 2 = 5 is prime; 2 and
+  // Trial 37: x = 3 is 1 from 2 or 4, the nearest multiples of y's number 2 other than 0; |3| + 2 = 5 is prime; 2 and
   // the steeper gradient's whole part (|1| against |−2/3|: 1) share 1.
   assert.deepEqual(score("whole-answer", "sum-prime", school, p), ["10/9", "5"]);
   assert.deepEqual(score("whole-answer", "y-steep", school, p), ["10/9", "1"]);
@@ -63,7 +63,7 @@ test("the residue ladder has no top: each level is q times rarer, every met leve
   // window of ⅓ and level 2's of ¼: level 0).
   const met = residueLadder(Qn.q(3), { q: 5, r: 3 }).u, near = residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).u;
   assert.ok(Qn.cmp(met, near) > 0, `${Qn.toWire(met)} > ${Qn.toWire(near)}`);
-  // A rung is a window (trial 34): within 1/(L + 2) of the level's number holds it, so small moves keep the level.
+  // A rung is a window (trial 36): within 1/(L + 2) of the level's number holds it, so small moves keep the level.
   assert.equal(residueLadder(Qn.q(179, 10), { q: 5, r: 3 }).level, 2);    // 0.1 from 18, inside ¼
   assert.equal(residueLadder(Qn.q(177, 10), { q: 5, r: 3 }).level, 1);    // 0.3 from 18: inside ⅓, not ¼
   assert.equal(residueLadder(Qn.q(176, 10), { q: 5, r: 3 }).level, 0);
@@ -98,7 +98,7 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["610/121", "5"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 or −3; better, 27; then 729/);
   assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the x-intercepts' gap; better 64 times; then 4,096 times/);
-  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\..*Tie-breaker/);
+  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\. Secondary/);
   // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap 4; 2 = ½ × 4, no power of k fits (level 0).
   for (const k of [2, 3]) assert.ok(Qn.cmp(Qn.parse(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k })![0]!), Qn.q(k)) < 0);
 });
@@ -216,7 +216,7 @@ test("pair cards: the main sentence at most 30 words, a tie-breaker at most 20, 
   }
 });
 
-test("row 3 (trial 35): every dealt tie-breaker reads the number its main part reached, so stepping up restarts it", () => {
+test("row 3 (trial 37): every dealt tie-breaker reads the number its main part reached, so stepping up restarts it", () => {
   // Right Angle {5, 1}: corners at y = 1 (level 1) and y = 6 (level 2: 6 leaves 1 by 5 and 6 by 25), x = 6 both. x = 6 is
   // a multiple of 1 (on target, 0) at level 1, but 0 away from 6 at level 2 too; x = 3 is on target at level 1, 3 from 6.
   const at = (y: number, x: number) => sys(L(1, 0, -x), L(0, 1, -y));   // x = X, y = Y: a right angle at (X, Y)

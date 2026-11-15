@@ -1,18 +1,18 @@
 // Forty-Five · Example: that |x| + |y| has many prime factors
-// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: that |x| + |y| has many prime factors.
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Secondary preference: that |x| + |y| has many prime factors.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
 // Try this: add "stretch" to KINDS: a stretch moves the corner further out.
 
-// How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good are the two lines L for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
   const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
   const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
-  return [main, omega(S)];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| has many prime factors is better
+  return [main, omega(S)];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); secondary: a corner whose |x| + |y| has many prime factors is better
 }
 
 const FAR = 4;      // how far one move may go

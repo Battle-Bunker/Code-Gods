@@ -1,5 +1,5 @@
 // Smooth Gradient · Simple
-// Main part: the gradient close to a 7-smooth number. Tie-breaker: whichever you were dealt (prime factors shared with the y-intercept's nearest whole number).
+// Main part: the gradient close to a 7-smooth number. Secondary preference: whichever you were dealt (prime factors shared with the y-intercept's nearest whole number).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -9,15 +9,17 @@
 // own store (energy moves with it), pay, then share the power out again.
 // Try this: add the seq.step line from the Thorough starter: a third way to change the line.
 
-// How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
+// How good is the line y = mx + c for your rule? [main part, secondary]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const s0 = Q.isZero(m) ? 1 : near(Q.abs(m), smooth);   // the 7-smooth number nearest its size (1 for 0)
   if (s0 === null) return null;                // none within 10,000: hopeless
   const s = Q.cmp(m, 0) < 0 ? Q.neg(s0) : s0;   // the sign kept
   const main = Q.neg(Q.abs(Q.sub(m, s)));
   // main: how far the gradient is from a 7-smooth number (closer is better)
-  if (tie === "shared") return [main, shared(s, whole(c))];   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each secondary, in order
+    if (t === "shared") return shared(s, whole(c));   // that smooth number sharing many prime factors with the whole number nearest the y-intercept is better
+    return null;
+  })];
 }
 
 const FAR = 2;      // how far one change may go

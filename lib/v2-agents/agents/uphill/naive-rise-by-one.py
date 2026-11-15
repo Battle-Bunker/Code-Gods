@@ -1,5 +1,5 @@
 # Uphill · Naive (for learning)
-# Main part: rising steps toward the corner. Tie-breaker: rising steps that rise by exactly 1.
+# Main part: rising steps toward the corner. Secondary preference: rising steps that rise by exactly 1.
 # What it does: reads the board once, tries changes in its own head, and pays for the best one for your rule on every
 # board it is offered, whatever it costs and whatever the other players think of the board. It keeps fighting over a
 # board another player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn
@@ -8,7 +8,7 @@
 
 
 def score(b, p):
-    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+    # How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
     right, down = p["corner"][1] == "R", p["corner"][0] == "B"   # which way to walk
     rises = []   # each step toward the corner, along the rows and down the columns: how much it rises
     for i in range(16):
@@ -17,7 +17,7 @@ def score(b, p):
         if i < 12:
             rises.append(b[i + 4] - b[i] if down else b[i] - b[i + 4])
     main = len([d for d in rises if d > 0])
-    return [main, len([d for d in rises if d == 1])]   # main: the steps along every row and column toward the corner that reach a bigger number (more is better); tie-breaker: more rising steps that rise by exactly 1 is better
+    return [main, len([d for d in rises if d == 1])]   # main: the steps along every row and column toward the corner that reach a bigger number (more is better); secondary: more rising steps that rise by exactly 1 is better
 
 
 FAR = 1      # how far one change may go

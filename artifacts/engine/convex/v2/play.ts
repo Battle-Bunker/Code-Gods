@@ -12,6 +12,8 @@ import { seatRules } from "./loop";
 import { keepsParams } from "./deal";
 import { decode, encode, scopeOf, typeOf, valuesOf, variantOf } from "./world";
 import { callV } from "./tables";
+import type { Infer } from "convex/values";
+type Call = Infer<typeof callV>;
 import { applyCall, isInvalid } from "@workspace/v2-core";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
@@ -302,6 +304,35 @@ export const MAX_CANDIDATES = 4;
  * whether another object holds its state (objects are unique; ≤ 4 index reads of ≤ 2 rows): it re-runs when this object moves or
  * another object moves onto or off a candidate's state. An invalid call answers null.
  */
+/**
+ * What the others' sum on an object would read after each candidate call, from the state the player knows (knowledge.ts)
+ * (coordinator's call 33: a What if quote while the game runs is paid, `object.whatIf`, and blurred like every live
+ * disclosure, a fresh draw per quote (`salt`); after the end, exact and free here). A candidate onto a state another
+ * object holds says which object holds it (decision 24).
+ */
+export async function quoteOthers(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, object: Doc<"v2Objects">, state: Doc<"v2ObjectStates">, calls: Call[], salt: string | null) {
+  const seats = await seatRules(ctx, game);
+  const from = readsKnowledge(game, memberId) ? (await knownOf(ctx, object._id, memberId))?.state ?? state.state : state.state;
+  const now = decode(from, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
+  const after = [];
+  for (const call of calls) {
+    const r = applyCall(type, variant, now, call);
+    if (isInvalid(r)) { after.push(null); continue; }
+    const wire = encode(r.result, game.variant);
+    const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === memberId)?.want ?? 0;
+    const want = exact + (salt !== null && disclosesNoise(game) ? readingNoise(game, memberId, `quote:${object._id}:${state.version}:${wire}:${salt}`) : 0);
+    const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
+    const holder = holders.find(h => h.objectId !== object._id);
+    const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
+    after.push({ state: wire, want, taken });
+  }
+  return { state: from, after };
+}
+
+/**
+ * What if, free and exact: the app's live What if until it moves to `object.whatIf` (coordinator's call 33: while the
+ * game runs a quote is paid and blurred); then this query goes, or serves only ended games.
+ */
 export const othersAt = query({
   args: { objectId: v.string(), calls: v.array(callV) },
   returns: v.object({ state: v.string(), after: v.array(v.union(v.object({ state: v.string(), want: v.number(), taken: v.union(v.number(), v.null()) }), v.null())) }),
@@ -309,28 +340,7 @@ export const othersAt = query({
     const { object, state } = await objectAndState(ctx, objectId);
     if (calls.length > MAX_CANDIDATES) fail("BAD_REQUEST", `Ask for at most ${MAX_CANDIDATES} moves`);
     const { game, member } = await requireSeat(ctx, object.gameId);
-    const seats = await seatRules(ctx, game);
-    // Paid observation: candidates from the state the player was told, not the live one (knowledge.ts).
-    const from = readsKnowledge(game, member._id) ? (await knownOf(ctx, object._id, member._id))?.state ?? state.state : state.state;
-    const now = decode(from, game.variant), type = typeOf(game.variant), variant = variantOf(game.variant);
-    const after = [];
-    for (const call of calls) {
-      const r = applyCall(type, variant, now, call);
-      if (isInvalid(r)) { after.push(null); continue; }
-      const wire = encode(r.result, game.variant);
-      const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
-      // The others' sum at the candidate as this player reads it while live (decision 32: their own reading of that
-      // candidate from this version of the object, independent of everyone else's).
-      // A candidate that changes nothing reads what the object shows (not a second measurement of it).
-      const what = wire === state.state ? objectReading(object._id, state.version) : `quote:${object._id}:${state.version}:${wire}`;
-      const want = exact + (disclosesNoise(game) ? readingNoise(game, member._id, what) : 0);
-      // Objects are unique: a candidate onto a state another object holds is not available (its number says which).
-      const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
-      const holder = holders.find(h => h.objectId !== object._id);
-      const taken = holder ? (await ctx.db.get(holder.objectId))?.number ?? null : null;
-      after.push({ state: wire, want, taken });
-    }
-    return { state: from, after };
+    return await quoteOthers(ctx, game, member._id, object, state, calls, null);
   },
 });
 

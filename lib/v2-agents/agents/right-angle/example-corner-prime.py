@@ -1,5 +1,5 @@
 # Right Angle · Example: the corner's |x| + |y| has a big smallest prime factor
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's |x| + |y| has a big smallest prime factor.
+# Main part: a right angle at whole x and y, y on your pattern. Secondary preference: the corner's |x| + |y| has a big smallest prime factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -7,7 +7,7 @@
 
 
 def score(L, p):
-    # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
+    # How good are the two lines L for your rule? [main part, secondary]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     floor = lambda v: v // 1   # rounded down
@@ -15,7 +15,7 @@ def score(L, p):
         return None
     main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
     mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
-    return [main, spf(abs(f.X) + abs(Yc))]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| has a big smallest prime factor is better
+    return [main, spf(abs(f.X) + abs(Yc))]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); secondary: a corner whose |x| + |y| has a big smallest prime factor is better
 
 
 FAR = 4      # how far one move may go

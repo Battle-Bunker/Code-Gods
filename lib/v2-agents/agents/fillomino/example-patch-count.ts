@@ -1,5 +1,5 @@
 // Fillomino · Example: right-size patches
-// Main part: cells in patches of the right size. Tie-breaker: right-size patches.
+// Main part: cells in patches of the right size. Secondary preference: right-size patches.
 // What it does: reads the board once (a small read), tries changes in its own head (thinking costs no energy, only
 // time), keeps the ones that make the board best for your rule, and pays for the cheapest of them. A tug-of-war
 // (another player pulling the board back again and again) burns energy on both sides: when it finds one it leaves you
@@ -7,7 +7,7 @@
 // raises your points most (your rarity times the other players').
 // Try this: remove the "swap" line: can single steps split a patch into right-size ones?
 
-// How good is the board b (its 16 numbers, row by row) for your rule? [main part, tie-breaker]: bigger is better.
+// How good is the board b (its 16 numbers, row by row) for your rule? [main part, secondary]: bigger is better.
 function score(b, p) {
   const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i
   let main = 0;
@@ -21,7 +21,7 @@ function score(b, p) {
     for (const i of patch) for (const j of near(i)) if (!seen.has(j) && b[j] === b[i]) { seen.add(j); patch.push(j); }   // touching cells holding the same number
     if (b[s] > 0 && patch.length === b[s]) main += patch.length;   // a patch of the right size
   }
-  return [main, patches.filter(x => b[x[0]] > 0 && x.length === b[x[0]]).length];   // main: the cells in patches of equal numbers whose size is their number (more is better); tie-breaker: more right-size patches is better
+  return [main, patches.filter(x => b[x[0]] > 0 && x.length === b[x[0]]).length];   // main: the cells in patches of equal numbers whose size is their number (more is better); secondary: more right-size patches is better
 }
 
 const FAR = 2;      // how far one change may go

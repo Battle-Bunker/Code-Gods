@@ -138,7 +138,7 @@ export const viewOps = [
   affordance({
     id: "replay.speed", title: "Set the replay speed", group: "replay", scope: "game",
     description: "Sets how many world seconds the replay plays per real second.", tooltip: "Faster or slower.", keywords: ["speed", "fast forward", "slow motion"],
-    params: obj({ speed: z.union([z.literal(0.5), z.literal(1), z.literal(2), z.literal(4), z.literal(8)]) }), result: done,
+    params: obj({ speed: z.union([z.literal(0.25), z.literal(0.5), z.literal(1), z.literal(2), z.literal(4), z.literal(8), z.literal(16), z.literal(32), z.literal(64)]) }), result: done,
     contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
 ] as const;
