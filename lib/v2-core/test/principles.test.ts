@@ -46,3 +46,15 @@ test("driftParams never redraws a family that keeps its parameters (a ladder fam
   const free = { dealable: () => [{ k: 1 }, { k: 2 }, { k: 3 }] };
   assert.ok(Array.from({ length: 20 }, (_, t) => driftParams(free, {} as never, { k: 2 }, "s", 0, t + 1).k).some(k => k !== 2));
 });
+
+test("greedyChain: each step the candidate that raises the bits most, never back to a state it held, until none raises them", async () => {
+  const { greedyChain, straightHill } = await import("../src/principles.ts");
+  // States are whole numbers; bits are the number itself; from x the candidates are x + 1 (fee 1) and x × 2 (fee 3).
+  const { bits, fees } = greedyChain(1, x => [{ state: x + 1, fee: 1 }, { state: x * 2, fee: 3 }], x => x, String, 5);
+  assert.deepEqual(bits, [1, 2, 4, 8, 16, 32]);
+  assert.deepEqual(fees, [1, 3, 3, 3, 3]);
+  // A mixed chain no fixed one shows: either move alone pays the same, doubling grows; capped at 30 bits.
+  assert.match(straightHill(bits, fees)!, /gains 31/);
+  // It stops when nothing raises the bits.
+  assert.deepEqual(greedyChain(5, x => [{ state: x - 1, fee: 1 }], x => x, String).bits, [5]);
+});
