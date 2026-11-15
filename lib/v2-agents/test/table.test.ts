@@ -120,7 +120,7 @@ test("unique objects: a move onto a state another line already holds is refused,
   assert.ok(unique.seats[0]!.refused > 0, "the second line onto y = x + 1 is refused");
 });
 
-test("on the beginner economy (power 4) starters live within their income: no agent owes more than a few seconds of it", async () => {
+test("on the beginner economy (power 4) starters live within their income: no agent owes more than about 5 seconds of it", async () => {
   let worst = 0, acts = 0;
   const rules = [["prime-landing", "big-prime"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]] as const;
   await runTable(boxes, {
@@ -129,7 +129,7 @@ test("on the beginner economy (power 4) starters live within their income: no ag
     onAct: e => { acts++; if (e.balance < 0) worst = Math.max(worst, -e.balance / e.income); },
   });
   assert.ok(acts > 100, `${acts} acts`);
-  assert.ok(worst <= 3, `worst debt ${worst.toFixed(1)} s of income`);
+  assert.ok(worst <= 6, `worst debt ${worst.toFixed(1)} s of income (a move may borrow 5 s)`);
 });
 
 test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·D/n, and nobody in the last 90 s", async () => {
