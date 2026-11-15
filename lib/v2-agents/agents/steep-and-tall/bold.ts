@@ -14,8 +14,10 @@ function score(m, c, p, tie) {
   const main = Q.cmp(m, c) <= 0 ? m : c;          // the smaller of the two
   const fm = whole(Q.sub(m, Q.of(1, 2))), fc = whole(Q.sub(c, Q.of(1, 2)));   // each rounded down
   // main: the smaller of the gradient and the y-intercept (bigger is better)
-  if (tie === "shared") return [main, shared(fm, fc)];   // those two rounded down sharing many prime factors is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared") return shared(fm, fc);   // those two rounded down sharing many prime factors is better
+    return null;
+  })];
 }
 
 const FAR = 4;      // how far one change may go

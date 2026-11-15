@@ -13,8 +13,10 @@
 function score(m, c, p, tie) {
   const main = Q.neg(c);
   // main: minus the y-intercept (lower is better)
-  if (tie === "shared") return [main, shared(whole(c), Q.from(m).n)];   // the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared") return shared(whole(c), Q.from(m).n);   // the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

@@ -17,7 +17,7 @@
  */
 import {
   applyCalls, elementDecl, refKey, elementValue, evaluateObject, isInvalid, Qn, ratBits,
-  representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
+  joinTieBreakers, representation, ruleLayers, type Call, type TieBreaker, type ElementRef, type ElementValue, type ObjectType, type Price, type RuleFamily, type Variant,
 } from "@workspace/v2-core";
 import { BETA, KAPPA } from "@workspace/v2-economy";
 import { valueLookup, withUniqueness, type ValueFunction } from "@workspace/v2-valuation";
@@ -40,7 +40,7 @@ import type { AgentHost, ElementValueWire, HostContext, HostReply, HostRequest }
 export interface RuleRef {
   readonly family: string;
   readonly params: Readonly<Record<string, unknown>>;
-  /** The dealt tie-breaker's id, null for the main layer alone; absent: the family's first (v2-core `ruleLayers`). */
+  /** The dealt tie-breakers, in order (one id, or several joined by ">"); null for the main layer alone; absent: the family's first (v2-core `ruleLayers`). */
   readonly tieBreaker?: TieBreaker;
 }
 
@@ -159,7 +159,7 @@ export class EngineHost<S> implements AgentHost {
     this.family = family as RuleFamily<S, unknown>;
     this.params = input.rule.params;
     const layers = ruleLayers(this.family, input.rule.tieBreaker);
-    this.tieBreaker = layers[1]?.id ?? null;
+    this.tieBreaker = joinTieBreakers(layers.slice(1).map(l => l.id));   // the whole ordered list (any depth)
     this.energy = input.energy;
     this.economy = input.economy ?? SPEC_ECONOMY;
     this.input = input;
@@ -167,7 +167,7 @@ export class EngineHost<S> implements AgentHost {
     this.others = input.others?.map(o => {
       const family = input.type.families.find(f => f.id === o.rule.family);
       if (!family) throw new Error(`${input.type.id} has no rule family ${o.rule.family}`);
-      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker)[1]?.id ?? null, look: gameLookup(o.values) };
+      return { family: family as RuleFamily<S, unknown>, params: o.rule.params, tieBreaker: joinTieBreakers(ruleLayers(family as RuleFamily<S, unknown>, o.rule.tieBreaker).slice(1).map(l => l.id)), look: gameLookup(o.values) };
     });
     this.sites = input.type.sites(input.state, input.variant);
     this.phi = input.type.readLength(input.state, input.variant);

@@ -105,16 +105,38 @@ export function scoreFromWire(w: readonly (string | null)[] | null): Score {
   return w === null ? null : w.map(x => (x === null ? null : parse(x)));
 }
 
+/** The separator of an ordered list of tie-breakers in a TieBreaker ("a>b": a, then b). */
+export const TIE_SEP = ">";
+/** A dealt rule's tie-breaker ids in order ([] for null; undefined stays undefined: the family's first). */
+export function tieBreakerIds(tieBreaker: TieBreaker | undefined): readonly string[] | undefined {
+  return tieBreaker === undefined ? undefined : tieBreaker === null ? [] : tieBreaker.split(TIE_SEP);
+}
+/** An ordered list of tie-breaker ids as a TieBreaker (null when empty). */
+export const joinTieBreakers = (ids: readonly string[]): TieBreaker => (ids.length ? ids.join(TIE_SEP) : null);
+
 /**
- * The layers of a dealt rule: the main layer, then the chosen tie-breaker. `undefined` means the family's first
- * tie-breaker (or none); `null` means the main layer alone.
+ * The layers of a dealt rule: the main layer, then its tie-breakers in order (any depth). `undefined` means the family's
+ * first tie-breaker (or none); `null` means the main layer alone.
  */
 export function ruleLayers<P>(family: RuleFamily<any, P>, tieBreaker?: TieBreaker): readonly Layer<P>[] {
-  const id = tieBreaker === undefined ? (family.tieBreakers[0]?.id ?? null) : tieBreaker;
-  if (id === null) return [family.main];
-  const tb = family.tieBreakers.find(t => t.id === id);
-  if (!tb) throw new Error(`${family.id} has no tie-breaker ${id}`);
-  return [family.main, tb];
+  const ids = tieBreakerIds(tieBreaker) ?? (family.tieBreakers[0] ? [family.tieBreakers[0].id] : []);
+  if (new Set(ids).size !== ids.length) throw new Error(`${family.id}: tie-breaker ${tieBreaker} repeats a layer`);
+  return [family.main, ...ids.map(id => {
+    const tb = family.tieBreakers.find(t => t.id === id);
+    if (!tb) throw new Error(`${family.id} has no tie-breaker ${id}`);
+    return tb;
+  })];
+}
+
+/**
+ * A goal card for a dealt rule: the main layer's sentence, then each tie-breaker's in order ("Tie-breaker: …", then
+ * "Then: …" for a tertiary and deeper). Shared by the line, grid and pair families.
+ */
+export function cardText<P>(main: { sentence(p: P): string }, tieBreakers: readonly { id: string; sentence(p: P): string }[], p: P, tieBreaker: TieBreaker): string {
+  // An id the family does not have adds nothing (the main layer's own id, e.g.), as the cards always did.
+  const ts = (tieBreakerIds(tieBreaker) ?? []).flatMap(id => tieBreakers.filter(x => x.id === id));
+  const parts = ts.map((t, i) => `${i === 0 ? "Tie-breaker" : "Then"}: ${t.sentence(p)}`);
+  return [main.sentence(p), ...parts].join(" ");
 }
 
 /** The tie-breakers a family deals on a variant (Layer.dealtOn), in the family's order. */
@@ -122,10 +144,10 @@ export function tieBreakersOn<P>(family: RuleFamily<any, P>, variant: Variant): 
   return family.tieBreakers.filter(t => t.dealtOn?.(variant) ?? true);
 }
 
-/** The id a dealt rule's key records: the chosen tie-breaker, or "none". */
+/** The id a dealt rule's key records: its tie-breakers in order joined by ">", or "none". */
 export function tieBreakerId(family: RuleFamily<any, any>, tieBreaker?: TieBreaker): string {
   const ls = ruleLayers(family, tieBreaker);
-  return ls.length > 1 ? ls[1]!.id : "none";
+  return ls.length > 1 ? ls.slice(1).map(l => l.id).join(TIE_SEP) : "none";
 }
 
 // ---------------------------------------------------------------- evaluation

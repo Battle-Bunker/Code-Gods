@@ -18,7 +18,7 @@ function score(m, c, p, tie) {
     const gap = Q.abs(Q.sub(x, rung));
     const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
     const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
-    return [main, null];
+    return [main, ...(tie ? tie.split(">") : []).map(t => null)];
   }
   const d2 = Q.div(Q.mul(c, c), Q.add(Q.mul(m, m), 1));   // the distance from (0, 0), squared: c² / (m² + 1)
   const x = Q.sub(d2, Q.div(1, 2));               // d2 rounds down to n when x rounds to n (ties up)
@@ -27,11 +27,13 @@ function score(m, c, p, tie) {
   const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
   // main: the prime ending in the rule's digit that the distance from (0, 0), squared, rounds down to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far it is from rounding down to one
-  if (tie === "shared-factor") {   // that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
-    const wc = whole(Q.div(Q.sub(Q.mul(2, Q.abs(c)), 1), 2));   // the y-intercept's whole part, ignoring its sign
-    return [main, common(Q.sub(rung, 1), wc)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared-factor") {   // that prime minus 1 and the y-intercept's whole part: a bigger factor shared is better
+      const wc = whole(Q.div(Q.sub(Q.mul(2, Q.abs(c)), 1), 2));   // the y-intercept's whole part, ignoring its sign
+      return common(Q.sub(rung, 1), wc);
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

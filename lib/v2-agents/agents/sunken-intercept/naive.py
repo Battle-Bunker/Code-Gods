@@ -11,9 +11,10 @@ def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     main = -c
     # main: minus the y-intercept (lower is better)
-    if tie == "shared":   # the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
-        return [main, shared(whole(c), m.numerator)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared":   # the whole number nearest the y-intercept sharing many prime factors with the gradient's top (in lowest terms) is better
+            return shared(whole(c), m.numerator)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go

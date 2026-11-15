@@ -16,9 +16,11 @@ function score(m, c, p, tie) {
   const x = Q.div(Q.sub(p.q, c), m);              // x(q): where the line reaches height q
   const main = Q.neg(Q.abs(Q.sub(y, x)));
   // main: how far apart y(k) and x(q) are (closer is better)
-  if (tie === "size") return [main, Q.abs(x)];   // a bigger x(q) is better
-  if (tie === "whole") return [main, -(x.d - 1n)];   // x(q) a whole number is best
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "size") return Q.abs(x);   // a bigger x(q) is better
+    if (t === "whole") return -(x.d - 1n);   // x(q) a whole number is best
+    return null;
+  })];
 }
 
 const FAR = 2;      // how far one change may go

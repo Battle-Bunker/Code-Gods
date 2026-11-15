@@ -18,9 +18,10 @@ def score(m, c, p, tie):
     sq = near(area, square)                         # the square number nearest the area
     main = -abs(area - sq)
     # main: how far the triangle's area is from a square number (closer is better)
-    if tie == "shared":   # that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
-        return [main, shared(root(sq), whole(-c / m))]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared":   # that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
+            return shared(root(sq), whole(-c / m))
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 4      # how far one change may go

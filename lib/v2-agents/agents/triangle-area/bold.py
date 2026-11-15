@@ -18,11 +18,12 @@ def score(m, c, p, tie):
     area = legX * legY / 2
     main = -abs(area - p["A"])
     # main: how far the triangle's area is from A (closer is better)
-    if tie == "legs":   # legs that are whole numbers are best
-        return [main, -(legX.denominator + legY.denominator - 2)]
-    if tie == "even":   # legs of equal length are best
-        return [main, -abs(legX - legY)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "legs":   # legs that are whole numbers are best
+            return -(legX.denominator + legY.denominator - 2)
+        if t == "even":   # legs of equal length are best
+            return -abs(legX - legY)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 4      # how far one change may go

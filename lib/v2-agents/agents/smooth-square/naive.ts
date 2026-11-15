@@ -13,8 +13,10 @@ function score(m, c, p, tie) {
   const sq = near(area, square);                  // the square number nearest the area
   const main = Q.neg(Q.abs(Q.sub(area, sq)));
   // main: how far the triangle's area is from a square number (closer is better)
-  if (tie === "shared") return [main, shared(root(sq), whole(Q.neg(Q.div(c, m))))];   // that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared") return shared(root(sq), whole(Q.neg(Q.div(c, m))));   // that square's root sharing many prime factors with the whole number nearest the x-axis crossing is better
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

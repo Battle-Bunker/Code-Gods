@@ -20,11 +20,13 @@ function score(m, c, p, tie) {
   const gap = Q.abs(Q.sub(y, rung));               // on the rung when it rounds there (within 1/2, ties up)
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, y), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
   // main: the coin pile (1, 3, 6, 10, ...) y(k) rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-  if (tie === "shared-factor") {   // the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
-    const wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the whole part of the gradient's size
-    return [main, common(height, wm)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared-factor") {   // the pile is n coins high: a bigger number dividing both n and the gradient's whole part is better
+      const wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // the whole part of the gradient's size
+      return common(height, wm);
+    }
+    return null;
+  })];
 }
 
 const FAR = 2;      // how far one change may go

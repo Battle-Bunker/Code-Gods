@@ -1,5 +1,5 @@
 /** The building blocks every grid family is made of (families.ts, more-families.ts): layers, the card, readers and shared tie-breakers. */
-import { q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
+import { cardText, q, ref, type ElementRef, type EvalContext, type Layer, type Q, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { at, cellName, type GridState } from "./grid.ts";
 import { rows } from "./units.ts";
 
@@ -15,8 +15,7 @@ export function more<P>(id: string, title: string, sentence: string | ((p: P) =>
 
 export interface Shape<P> { readonly main: L<P>; readonly tieBreakers: readonly L<P>[] }
 function card<P>(f: Shape<P>, p: P, tb: TieBreaker): string {
-  const t = tb === null ? undefined : f.tieBreakers.find(x => x.id === tb);
-  return t ? `${f.main.sentence(p)} Tie-breaker: ${t.sentence(p)}` : f.main.sentence(p);
+  return cardText(f.main, f.tieBreakers, p, tb);
 }
 /** A grid family; `params` lists its dealable parameter sets, or derives them from the variant. */
 export function family<P extends object>(id: string, title: string, depends: string[], shape: Shape<P>, params: P[] | ((v: Variant) => P[]), evaluate: (ctx: Ctx, p: P, n: number) => void, n: number): RuleFamily<GridState, P> {

@@ -15,11 +15,13 @@ function score(m, c, p, tie) {
   const gap = Q.abs(Q.sub(x, rung));               // on the rung when it rounds there (within 1/2, ties up)
   const main = Q.cmp(Q.mul(2, gap), 1) < 0 || Q.eq(Q.sub(rung, x), Q.div(1, 2)) ? level(rung) : Q.neg(Q.sub(gap, Q.div(1, 2)));
   // main: the prime ending in the rule's digit the gradient rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-  if (tie === "shared-factor") {   // take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
-    const wc = whole(Q.sub(Q.abs(c), Q.div(1, 2)));   // the y-intercept's whole part, ignoring sign
-    return [main, common(Q.add(rung, 1), wc)];
-  }
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "shared-factor") {   // take the number just after that prime: a bigger number dividing both it and the y-intercept's whole part is better
+      const wc = whole(Q.sub(Q.abs(c), Q.div(1, 2)));   // the y-intercept's whole part, ignoring sign
+      return common(Q.add(rung, 1), wc);
+    }
+    return null;
+  })];
 }
 
 const FAR = 3;      // how far one change may go

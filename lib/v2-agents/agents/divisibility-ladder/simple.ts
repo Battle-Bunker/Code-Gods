@@ -17,8 +17,10 @@ function score(m, c, p, tie) {
   let lv = 0; while (((lv + 1) * (lv + 2)) / 2 <= run) lv++;   // level L needs L(L + 1)/2 of the run (1, 3, 6, 10, …)
   const main = Q.add(lv, Q.of(run - (lv * (lv + 1)) / 2, lv + 1));
   // main: how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better, a ladder with no top; each extra counts for less: level L needs L(L + 1)/2)
-  if (tie === "next-rung") return [main, Q.isInteger(y) ? common(y, n) : 0];   // where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
-  return [main];
+  return [main, ...(tie ? tie.split(">") : []).map(t => {   // each tie-breaker, in order
+    if (t === "next-rung") return Q.isInteger(y) ? common(y, n) : 0;   // where the run stops, at n: a bigger number dividing both n and y(n) is better (0 if y(n) is not whole)
+    return null;
+  })];
 }
 
 const FAR = 2;      // how far one change may go

@@ -40,17 +40,18 @@ def score(m, c, p, tie):
     if m is None:              # the vertical line x = c
         y = abs(c)                                     # x = c meets y = x and y = -x at x = c
         main = on_rung(y, rung_of(y, p["digits"] == "odd"))
-        return [main, None]
+        return [main] + [None for t in (tie.split(">") if tie else [])]
     if m == p["meets"]:                             # parallel to y = x (or y = -x): it never meets it
         return None
     y = abs(c / (p["meets"] - m))                   # mx + c = meets*x where x = c/(meets - m); its size (a minus sign does not matter)
     rung = rung_of(y, p["digits"] == "odd")
     main = on_rung(y, rung)
     # main: the palindrome with an odd (or even) number of digits that the line's meeting point with y = x (or y = -x) rounds to, ignoring its sign, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one
-    if tie == "shared-factor":   # a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
-        total, wm = sum(int(ch) for ch in str(rung)), whole(abs(m) - Fraction(1, 2))   # the palindrome's digits added up; the whole part of |m|
-        return [main, common(total, wm)]
-    return [main]
+    def tier(t):   # each tie-breaker, in order (None: ranks last)
+        if t == "shared-factor":   # a bigger number dividing both the palindrome's digit sum and the gradient's whole part is better
+            total, wm = sum(int(ch) for ch in str(rung)), whole(abs(m) - Fraction(1, 2))   # the palindrome's digits added up; the whole part of |m|
+            return common(total, wm)
+    return [main] + [tier(t) for t in (tie.split(">") if tie else [])]
 
 
 FAR = 3      # how far one change may go
