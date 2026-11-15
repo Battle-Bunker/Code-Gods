@@ -19,7 +19,7 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -52,8 +52,10 @@ test("worked examples, one line per family", () => {
   assert.deepEqual(terms(primeLanding, { ends: 1 }, mc(-3, 100)), { landing: "-11/6", "shared-factor": "10" });   // lands at 33⅓: 7/3 from 31, so 11/6 from rounding to it; 30 and 100 share 10
   assert.deepEqual(terms(primeLanding, { ends: 1, side: -1 }, mc(1, 11)), { landing: "11", "shared-factor": "1" });   // the mirror: lands on −11
   assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "2", "gcd-c": "6", "gcd-num-m": "2" });       // crosses at 6 (leaves 1 divided by 5); gcd(6, −24), gcd(6, 4)
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(3, 1)), { crossing: "4/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3", "gcd-c": "1", "gcd-num-m": "1" });       // at −⅓: of −4 and 1, 1 is nearer
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { ladder: "0", "shared-factor": "1" });   // crosses at 6 (leaves 1 divided by 5): level 0; 7 and 4 share 1
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-1, 5)), { ladder: "1", "shared-factor": "1" });    // at 5 = 5 × 1: level 1; 2 and 1 share 1
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-2, 50)), { ladder: "2", "shared-factor": "2" });   // at 25 = 5² × 1: level 2; 2 and 2 share 2
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(3, 1)), { ladder: "-4/3", "shared-factor": "1" });  // at −⅓: 1 is the nearest (4/3 away)
   assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "6", "m-spf": "5", "m-gpf": "5", steep: "5", "m-prime": "0" });   // 1 … 6 divide 60, 7 does not
 });
 
@@ -95,20 +97,21 @@ test("Prime Staircase: a repeated prime stops the run; no run, no first prime", 
 });
 
 
-test("Whole Crossing's §A2 tie-breakers: tied to the crossing's whole number, undealt (in no pool's deal)", () => {
-  // Worked by hand. y = 2x − 14 crosses at 7 (leaves 2 divided by 5): gcd(7, −14) = 7, gcd(7, 2) = 1.
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 2 }, mc(2, -14), lineQ), { crossing: "0", "k-spf": "7", "k-gpf": "7", "m-spf": "2", "gcd-c": "7", "gcd-num-m": "1" });
-  // y = (3/2)x − 12 crosses at 8 (leaves 3): gcd(8, −12) = 4, gcd(8, 3) = 1 (the gradient's top).
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 3 }, mc(q(3, 2), -12), lineQ), { crossing: "0", "k-spf": "2", "k-gpf": "2", "m-spf": "1", "gcd-c": "4", "gcd-num-m": "1" });
-  // y = (2/5)x − 13/5 crosses at 13/2: of 2 and 7 (leaving 2), 7 is ½ away; c = −2.6, nearest −3: gcd 1; gcd(7, 2) = 1.
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 2 }, mc(q(2, 5), q(-13, 5)), lineQ), { crossing: "1/2", "k-spf": "7", "k-gpf": "7", "m-spf": "1", "gcd-c": "1", "gcd-num-m": "1" });
-  // x = 17/2, leaving 4: of 4 and 9, 9 is ½ away; no y-intercept or gradient.
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, { lines: [{ a: 2n, b: 0n, c: -17n }] }, lineQ)["k-gpf"], "3");
-  const vert: LineState = { lines: [{ a: 1n, b: 0n, c: -3n }] };
-  const t = terms(wholeCrossing, { q: 5, r: 3 }, vert, lineQ);
-  assert.equal(t["gcd-c"], "—");
-  assert.equal(t["gcd-num-m"], "—");
-  for (const tb of ["gcd-c", "gcd-num-m"]) assert.ok(!presets.some(p => p.rules.some(r => r.family === "whole-crossing" && r.tieBreakers.includes(tb))), tb);
+test("Whole Crossing is a ladder of 5s on the crossing: every level has a higher one, a stretch by 5 apart, and its tie-breaker restarts on a new level (design-principles.md rows 1 to 3)", () => {
+  const wc = (p: object, m: Q | number, c: Q | number) => terms(wholeCrossing, p as never, mc(m, c), lineQ);
+  // Row 1: no attained top. Crossing at 2, 10, 50, 250, … (5^j × 2, r = 2) the level keeps rising.
+  const along = [0, 1, 2, 3, 4, 5, 6, 7].map(j => Number(wc({ q: 5, r: 2 }, -1, 2 * 5 ** j).ladder));
+  assert.deepEqual(along, [0, 1, 2, 3, 4, 5, 6, 7]);
+  // Row 2: a stretch of the x-axis by 5 (the gradient divided by 5, the y-intercept kept) is the next level.
+  assert.equal(wc({ q: 5, r: 2 }, 2, -14).ladder, "0");    // crosses at 7 (leaves 2): level 0
+  assert.equal(wc({ q: 5, r: 2 }, q(2, 5), -14).ladder, "1");    // the stretch: crosses at 35 = 5 × 7, level 1
+  // Row 3: on level 0 at 7 the gradient 8 shares 8 with 7 + 1; after the stretch (gradient 8/5, whole part 1) it shares 1.
+  assert.equal(wc({ q: 5, r: 2 }, 8, -56)["shared-factor"], "8");
+  assert.equal(wc({ q: 5, r: 2 }, q(8, 5), -56)["shared-factor"], "1");
+  // Off the ladder: y = (2/5)x − 13/5 crosses at 13/2, ½ from 7 (leaving 2); the gradient's whole part is 0: nothing shared.
+  assert.deepEqual(wc({ q: 5, r: 2 }, q(2, 5), q(-13, 5)), { ladder: "-1/2", "shared-factor": "0" });
+  // x = 17/2, leaving 4: of 4 and 9, 9 is ½ away; a vertical line has no gradient: its tie-breaker is undefined.
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, { lines: [{ a: 2n, b: 0n, c: -17n }] }, lineQ), { ladder: "-1/2", "shared-factor": "—" });
 });
 
 test("vertical lines score where the rule has an honest reading (the coordinator's call, 15 Nov)", () => {
@@ -183,7 +186,7 @@ test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line
   }
   for (const [a, c] of [[2n, -17n], [1n, 13n]] as const) assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, x(a, -c), lineQ), terms(wholeCrossing, { q: 5, r: 1 }, x(a, c), lineQ));
   assert.deepEqual(wholeCrossing.dealable(lineQ), [1, 2, 3, 4].map(r => ({ q: 5, r })));
-  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /as close as possible to a whole number that leaves 3 when divided by 5/);
+  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /on a whole number that leaves 3 when divided by 5, times 5 as many times as possible/);
 });
 
 test("Prime Staircase is a ladder: a longer run always wins, and its shared factor starts again on a longer run (design-principles.md)", () => {

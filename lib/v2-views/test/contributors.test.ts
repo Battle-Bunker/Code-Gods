@@ -45,15 +45,14 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   assert.equal(sa.source[0]!.text, "24½");
   assert.equal(sa.reference?.value, 25);
   assert.equal(sa.distance, "½ below 25");
-  const wc = contributors(rule(wholeCrossing, "k-gpf", { q: 5, r: 3 }), mc(3, 7)).parts[0]!;
+  const wc = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[0]!;
   assert.equal(wc.reference?.value, -2);
   assert.equal(wc.distance, "⅓ below −2");
   // The reference is said once, as the reference: never again among the sources ("…, nearest whole number −2 · on −2").
   assert.deepEqual(wc.source.filter(x => x.text).map(x => x.label), ["where it crosses the x-axis"], wc.source.map(x => x.label).join(", "));
-  // The tie-breaker reads the main part's reference (the whole number −2): its line says so, so one number carrying ●
-  // as the main part's target and ◆ as the tie-breaker's input is explained where it is read.
-  const wtb = contributors(rule(wholeCrossing, "k-gpf", { q: 5, r: 3 }), mc(3, 7)).parts[1]!;
-  assert.match(wtb.sentence, /of −2, the (nearest )?whole number the main part is measured to/, wtb.sentence);
+  // The tie-breaker reads the ladder number the crossing is measured to (−2: |−2| + 1 = 3) and the gradient 3: 3.
+  const wtb = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[1]!;
+  assert.equal(wtb.valueText, "3");
   const tr = contributors(rule(treasure, "m-spf", { k: 2, T: 37 }), mc(15, 6)).parts[0]!;
   assert.equal(tr.source[0]!.text, "36");
   assert.equal(tr.source[0]!.label, "y(2)");
@@ -65,7 +64,7 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
   const cases: [RuleRef<LineState, unknown>, LineState][] = [
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
-    [rule(wholeCrossing, "k-gpf", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
+    [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
     [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {

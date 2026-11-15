@@ -1,5 +1,5 @@
 # Whole Crossing · Thorough
-# Main part: the x-axis crossing close to the dealt whole numbers. Tie-breaker: whichever you were dealt (that whole number's smallest prime factor; that whole number's largest prime factor; the gradient's smallest prime factor).
+# Main part: the x-axis crossing on a ladder of 5s. Tie-breaker: whichever you were dealt (the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part).
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -13,31 +13,47 @@
 def score(m, c, p, tie):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        t = (c - p["r"]) / p["q"]
-        j = whole(t)
-        k = p["r"] + p["q"] * j   # the dealt number nearest
-        if 2 * (j - t) == 1 and abs(k - p["q"]) <= abs(k):
-            k = k - p["q"]
-        main = -abs(c - k)
-        fk = factors(k)                                 # its prime factors, smallest first
-        return [main, (fk[0] if fk else 1) if tie == "k-spf" else (fk[-1] if fk else 1) if tie == "k-gpf" else None]
+        x = c                                          # it stands on the x-axis at x = c
+        # The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, ... times t). The nearest such number, any level,
+        # in whole numbers: x = n/dd, and every distance is counted in 1/dd.
+        n, dd, r = x.numerator, x.denominator, p["r"]
+        best, j, s = None, 0, 1
+        while True:
+            D = dd * s
+            t = r + 5 * ((2 * (n - r * D) + 5 * D) // (10 * D))   # the nearest t leaving r at this level (halfway: up)
+            if 2 * (t * D - n) == 5 * D and abs(t - 5) <= abs(t):   # halfway: the smaller
+                t -= 5
+            dist = abs(n - s * t * dd)                  # the nearer wins; on a tie the higher level
+            if best is None or dist <= best[2]:
+                best = (j, t, dist)
+            if s * dd - abs(n) > best[2]:               # every further level is farther
+                break
+            j, s = j + 1, s * 5
+        main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all
+        return [main, None]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
-    x = -c / m                                      # where y = mx + c crosses the x-axis
-    t = (x - p["r"]) / p["q"]
-    j = whole(t)
-    k = p["r"] + p["q"] * j   # the dealt number nearest
-    if 2 * (j - t) == 1 and abs(k - p["q"]) <= abs(k):
-        k = k - p["q"]
-    main = -abs(x - k)
-    fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)
-    # main: how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better)
-    if tie == "k-spf":   # that whole number's smallest prime factor big is better
-        return [main, fk[0] if fk else 1]
-    if tie == "k-gpf":   # that whole number's largest prime factor big is better
-        return [main, fk[-1] if fk else 1]
-    if tie == "m-spf":   # the gradient's smallest prime factor big is better
-        return [main, fm[0] if fm else 1]
+    x = -c / m                                     # where y = mx + c crosses the x-axis
+    # The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, ... times t). The nearest such number, any level,
+    # in whole numbers: x = n/dd, and every distance is counted in 1/dd.
+    n, dd, r = x.numerator, x.denominator, p["r"]
+    best, j, s = None, 0, 1
+    while True:
+        D = dd * s
+        t = r + 5 * ((2 * (n - r * D) + 5 * D) // (10 * D))   # the nearest t leaving r at this level (halfway: up)
+        if 2 * (t * D - n) == 5 * D and abs(t - 5) <= abs(t):   # halfway: the smaller
+            t -= 5
+        dist = abs(n - s * t * dd)                  # the nearer wins; on a tie the higher level
+        if best is None or dist <= best[2]:
+            best = (j, t, dist)
+        if s * dd - abs(n) > best[2]:               # every further level is farther
+            break
+        j, s = j + 1, s * 5
+    main = best[0] if best[2] == 0 else -Fraction(best[2], dd)   # on a level: the level (the more 5s, the better); else below them all
+    # main: how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number
+    if tie == "shared-factor":   # take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
+        t1, wm = abs(best[1]) + 1, whole(abs(m) - Fraction(1, 2))   # |t| + 1, and the gradient's whole part ignoring sign
+        return [main, common(t1, wm)]
     return [main]
 
 
@@ -72,6 +88,13 @@ def agent(offer):
             tries.append((move("cart.pivot", x0=-1, k=k), m + k, c + k))   # turn the line about its point at x = -1 (m and c both change by k)
             f = k + 1 if k > 0 else k - 1
             tries.append((move("mach.stretch", f=f), m * f, c * f))   # multiply every output by f (m and c both)
+        # The next level up (the ladder has no top): the nearest number with one more 5, by a shift that keeps the gradient.
+        if m != 0:
+            x, s = -c / m, 5
+            while abs(x / s) > 1 and (x / s).denominator == 1:   # one more 5 than x holds
+                s *= 5
+            to = s * (p["r"] + 5 * whole((x / s - p["r"]) / 5))
+            tries.append((move("si.shift", k=-m * to - c), m, -m * to))
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p, tie)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.

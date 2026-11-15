@@ -149,3 +149,29 @@ export function nearestResidue(x: Q, p: { q: number; r: number }): bigint {
   const c = Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x));
   return c < 0 ? lo : c > 0 ? hi : (lo < 0n ? -lo : lo) <= (hi < 0n ? -hi : hi) ? lo : hi;
 }
+
+/**
+ * The residue ladder (Whole Crossing since 15 Nov): the numbers q^j × t with t leaving r when divided by q (t of either
+ * sign, j ≥ 0). `level` is j for x on the ladder (x whole and nonzero), else null.
+ */
+export function ladderLevel(x: Q, p: { q: number; r: number }): { j: number; t: bigint } | null {
+  if (x.d !== 1n || x.n === 0n) return null;
+  const qq = BigInt(p.q);
+  let t = x.n, j = 0;
+  while (t % qq === 0n) { t /= qq; j++; }
+  return ((t % qq) + qq) % qq === BigInt(p.r) ? { j, t } : null;
+}
+/**
+ * The ladder number nearest x (any level; the nearer, then the higher level, on a tie): j, t, the number and its
+ * distance. Levels up to the one past |x| are tried, so the answer is exact.
+ */
+export function nearestOnLadder(x: Q, p: { q: number; r: number }): { j: number; t: bigint; at: bigint; d: Q } {
+  const qq = BigInt(p.q);
+  let best: { j: number; t: bigint; at: bigint; d: Q } | null = null;
+  for (let j = 0, s = 1n; ; j++, s *= qq) {
+    const t = nearestResidue(Qn.div(x, q(s)), p), at = s * t, d = Qn.abs(Qn.sub(x, q(at)));
+    if (!best || Qn.cmp(d, best.d) < 0 || (Qn.cmp(d, best.d) === 0 && j > best.j)) best = { j, t, at, d };
+    if (Qn.cmp(q(s), Qn.add(Qn.abs(x), q(1))) > 0) break;
+  }
+  return best!;
+}
