@@ -188,6 +188,7 @@ export class EngineHost<S> implements AgentHost {
         object: this.type.id,   // what the agent changes ("line", "grid"): its own words name it
         family: this.family.id, params: this.params, tieBreaker: this.tieBreaker, card: this.family.card(this.params, this.tieBreaker),
         layers: ruleLayers(this.family, this.tieBreaker).map(l => ({ id: l.id, title: l.title, sense: l.sense })),
+        mutators: this.variant.mutators,   // the moves this game offers (its menu)
       }, 0);
       case "myScore": return this.score();
       case "quote": return this.quote(request.calls);
