@@ -242,7 +242,7 @@ export function leapfrog(n: number): RuleFamily<GridState, None> {
       primesTie(),
       zerosTie(),
       more("same-way", "rows whose leaps all go the same way", "In each row, both leaps should go the same way: both up or both down.", "cells"),
-      distance<None>("columns-leap", "each number one apart from the number two cells down",
+      distance<None>("columns-leap", "down the columns: each number one apart from the number two cells below",
         () => "Each number and the number two cells down its column should be one apart too.", "cells"),
       more("middle-factors", "numbers between leap partners sharing a factor with both",
         "Each number between two leap partners should share a factor with both, like 6 between 4 and 9.", "cells"),
