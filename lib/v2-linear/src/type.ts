@@ -7,12 +7,13 @@ import { families } from "./families.ts";
 
 const ALL_MUTATORS = mutators.map(m => m.id);
 /**
- * The two lens mutators in the beginner line set (the coordinator's call, 15 Nov, after the pool-dynamics check in
- * docs/engine-v2/scripts/stretch-lens-pool-dynamics.md): rot.turn, which the owner asked for by name (decisions 25, 27,
- * 28), and basis.zoom, the valuation ladder's step on the intercept.
+ * The lens mutator in the beginner line set: rot.turn, which the owner asked for by name (decisions 25, 27, 28; the
+ * coordinator's call 23, after docs/engine-v2/scripts/stretch-lens-pool-dynamics.md). basis.zoom joined with it and was
+ * taken out the same day (the coordinator, 15 Nov): thirty zooms by 7 climbed Prime Landing 227 bits, a straight hill.
+ * It returns when the "no straight hill" check passes for every dealt family against zoom, stretch and turn.
  */
-const BEGINNER_LENSES = ["rot.turn", "basis.zoom"];
-/** The other three stay in the lines-lenses trial (coef.swap, basis.lean, fold). */
+const BEGINNER_LENSES = ["rot.turn"];
+/** The others stay in the lines-lenses trial (coef.swap, basis.lean, basis.zoom, fold). */
 const TRIAL_LENSES = lensMutators.map(m => m.id).filter(id => !BEGINNER_LENSES.includes(id));
 
 export const lineZ: Variant = {
@@ -21,19 +22,19 @@ export const lineZ: Variant = {
 };
 export const lineQ: Variant = {
   id: "line-q", objectType: "line", mutators: [...ALL_MUTATORS, ...BEGINNER_LENSES], birthMixSteps: 64,
-  // The weighted which code: the turn and the zoom keep the price they were measured at (log2 20 = 4.32 bits, as on
-  // line-q-lenses), and the nine share the rest (log2 10 = 3.32 bits each).
-  which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(10)]), ...BEGINNER_LENSES.map(id => [id, Math.log2(20)])]),
+  // The weighted which code: the turn keeps the price it was measured at (log2 20 = 4.32 bits, as on line-q-lenses),
+  // and the nine share the rest (log2 (9 / 0.95) = 3.24 bits each).
+  which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(9 / 0.95)]), ...BEGINNER_LENSES.map(id => [id, Math.log2(20)])]),
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 /**
- * line-q with the other three lens mutators (lenses-and-mutators.md §5: a swap, a lean, a fold) beside line-q's eleven.
- * Dealt only by the lines-lenses preset. Same params, so the same law π ∝ 2^−φ: it reads line-q's values.
+ * line-q with the other four lens mutators (lenses-and-mutators.md §5: a swap, a lean, a zoom, a fold) beside line-q's
+ * ten. Dealt only by the lines-lenses preset. Same params, so the same law π ∝ 2^−φ: it reads line-q's values.
  */
 export const lineQLenses: Variant = {
   id: "line-q-lenses", objectType: "line", mutators: [...lineQ.mutators, ...TRIAL_LENSES], birthMixSteps: 64, valuesOf: "line-q",
-  // line-q's eleven share 3/4 of the mass in line-q's proportions, the three share 1/4 (log2 12 = 3.58 bits each).
-  which: Object.fromEntries([...lineQ.mutators.map(id => [id, lineQ.which![id]! + Math.log2(4 / 3)]), ...TRIAL_LENSES.map(id => [id, Math.log2(12)])]),
+  // line-q's ten share 3/4 of the mass in line-q's proportions, the four share 1/4 (log2 16 = 4 bits each).
+  which: Object.fromEntries([...lineQ.mutators.map(id => [id, lineQ.which![id]! + Math.log2(4 / 3)]), ...TRIAL_LENSES.map(id => [id, Math.log2(4 * TRIAL_LENSES.length)])]),
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q" },
 };
 export const lineZ4: Variant = {
