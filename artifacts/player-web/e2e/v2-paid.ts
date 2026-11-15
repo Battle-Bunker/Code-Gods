@@ -93,6 +93,13 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   const q = (p: number) => ages[Math.min(ages.length - 1, Math.floor(p * ages.length))];
   console.log(`${preset}: view age with one Simple starter over 30 s (${ages.length} samples): median ${q(0.5)} s, 90% ${q(0.9)} s, max ${ages.at(-1)} s; calm (≤ 10 s) ${Math.round(100 * ages.filter(a => a <= 10).length / ages.length)}%`);
   await page.screenshot({ path: path.join(shots, `paid-${preset}-beginner-view.png`) });
+  // The same beginner view on a phone: the Lines pane with its marks and the folded extras.
+  await page.setViewportSize({ width: 390, height: 844 });
+  if (await page.getByTestId("button-jump-objects").count()) await page.getByTestId("button-jump-objects").click();
+  await page.locator("[data-testid^=text-seen-line-]").first().waitFor({ state: "visible", timeout: 20_000 });
+  await page.screenshot({ path: path.join(shots, `paid-${preset}-beginner-view-phone.png`) });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  if (await page.getByTestId("tab-objects").count()) await page.getByTestId("tab-objects").click({ position: { x: 6, y: 10 } });
   // Looking is an extra (decision 36): behind "Want to see them sooner?".
   await page.getByTestId("details-look-more").click();
   const all = page.getByTestId("button-look-all");
