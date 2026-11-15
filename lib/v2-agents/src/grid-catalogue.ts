@@ -123,7 +123,8 @@ const oddTie = (lenses: readonly GridLensId[], tryThis: string, steps = 2): Grid
   ({ ts: "b.filter(x => x % 2).length", py: "len([x for x in b if x % 2])", says: "more odd numbers is better", lenses, steps, tryThis });
 
 /**
- * The beginner pool's eight families (owner decision 22), then the second pool's Box Totals. Each family of lib/v2-grid
+ * The beginner pool's eight families (owner decision 22), then the second pool's Box Totals, then the more-rules pool's seven
+ * (lib/v2-grid more-families.ts). Each family of lib/v2-grid
  * without an entry here shows as "no shipped agents yet" in the grid test (gridUndescribed()).
  */
 export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
@@ -138,6 +139,24 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       middle: { ts: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", py: "b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14]", says: "bigger middle columns are better", lenses: ["add", "line"], steps: 2, tryThis: "remove the \"line\" line: can it raise the middle without a whole row at once?" },
       primes: primesTie(["add", "twin"], "change FAR = 2 to 1: single steps only, more turns at the same price per step; does it still reach primes?", 2),
       zeros: zerosTie(["add", "twin"], "add the \"line\" line from the Mirrormancer middle example: a whole row can drop at once.", 2),
+      "mirror-columns": {
+        ts: "-[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] - b[c + 12]) + Math.abs(b[c + 4] - b[c + 8]), 0)",
+        py: "-sum(abs(b[c] - b[c + 12]) + abs(b[c + 4] - b[c + 8]) for c in range(4))",
+        says: "columns closer to reading the same backwards are better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can single cells fix a column without spoiling a row?",
+      },
+      "one-apart": {
+        ts: "-[0, 4, 8, 12].reduce((t, r) => t + Math.abs(Math.abs(b[r] - b[r + 1]) - 1) + Math.abs(Math.abs(b[r + 2] - b[r + 3]) - 1), 0)",
+        py: "-sum(abs(abs(b[r] - b[r + 1]) - 1) + abs(abs(b[r + 2] - b[r + 3]) - 1) for r in range(0, 16, 4))",
+        says: "each end number closer to one apart from the number beside it is better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "change FAR = 2 to 1: one apart is one step away; does it still get there?",
+      },
+      "small-middle": {
+        ts: "-(b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14])",
+        py: "-(b[1] + b[2] + b[5] + b[6] + b[9] + b[10] + b[13] + b[14])",
+        says: "smaller middle numbers are better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can it lower a middle pair one cell at a time?",
+      },
     },
   },
   {
@@ -151,6 +170,24 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the first column without rearranging a row?" },
       primes: primesTie(["add", "line", "trade"], "change FAR = 2 to 1: moving 1 from cell to cell is cheapest, but does it still find primes?", 2),
       odd: oddTie(["add", "line", "trade"], "remove the \"line\" line: can it fix the rows one cell at a time just as cheaply?"),
+      "columns": {
+        ts: "-[0, 1, 2, 3].reduce((t, c) => t + Math.abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p.T), 0)",
+        py: "-sum(abs(b[c] + b[c + 4] + b[c + 8] + b[c + 12] - p[\"T\"]) for c in range(4))",
+        says: "columns adding up closer to T are better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single cells fix the columns without spoiling the rows?",
+      },
+      "diagonals": {
+        ts: "-Math.abs(b[0] + b[5] + b[10] + b[15] - p.T) - Math.abs(b[3] + b[6] + b[9] + b[12] - p.T)",
+        py: "-abs(b[0] + b[5] + b[10] + b[15] - p[\"T\"]) - abs(b[3] + b[6] + b[9] + b[12] - p[\"T\"])",
+        says: "diagonals adding up closer to T are better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "change FAR = 2 to 1: moving 1 at a time is cheapest; do the diagonals still come close?",
+      },
+      "different-numbers": {
+        ts: "[0, 4, 8, 12].filter(r => new Set(b.slice(r, r + 4)).size === 4).length",
+        py: "len([r for r in range(0, 16, 4) if len(set(b[r:r + 4])) == 4])",
+        says: "more rows of four different numbers is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single cells make a row's numbers differ and keep its total?",
+      },
     },
   },
   {
@@ -164,6 +201,28 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       "top-half": { ts: "b.slice(0, 8).reduce((t, x) => t + x, 0)", py: "sum(b[:8])", says: "a bigger top half is better", lenses: ["add", "balance"], steps: 2, tryThis: "remove the \"balance\" line: can single cells raise the top half without breaking the pairs?" },
       primes: { ts: PRIMES_TS, py: PRIMES_PY, says: "more cells holding 2, 3, 5 or 7 is better", lenses: ["add", "balance"], steps: 2, tryThis: "add the \"swap\" line from the Two Pair corners example and compare what it spends." },
       odd: oddTie(["add", "balance"], "change FAR = 2 to 1: one step makes an even number odd.", 2),
+      "mirror-nines": {
+        ts: "-[0, 4, 8, 12].reduce((t, r) => t + Math.abs(b[r] + b[r + 3] - p.T) + Math.abs(b[r + 1] + b[r + 2] - p.T), 0)",
+        py: "-sum(abs(b[r] + b[r + 3] - p[\"T\"]) + abs(b[r + 1] + b[r + 2] - p[\"T\"]) for r in range(0, 16, 4))",
+        says: "each number and its mirror in the row adding up closer to T is better", lenses: ["add", "balance"], steps: 2,
+        tryThis: "remove the \"balance\" line: can single cells fix the mirrors without breaking a pair?",
+      },
+      "different-splits": {
+        pre: {
+          ts: ["const splits = new Set();   // how each pair adding up to T splits it (its smaller number)", "for (let i = 0; i < 8; i++) if (b[i] + b[15 - i] === p.T) splits.add(Math.min(b[i], b[15 - i]));"],
+          py: ["splits = {min(b[i], b[15 - i]) for i in range(8) if b[i] + b[15 - i] == p[\"T\"]}   # how each pair adding up to T splits it (its smaller number)"],
+        },
+        ts: "splits.size",
+        py: "len(splits)",
+        says: "pairs splitting T in more different ways is better", lenses: ["add", "balance"], steps: 2,
+        tryThis: "change FAR = 2 to 1: does moving 1 across a pair still find new splits?",
+      },
+      "big-on-top": {
+        ts: "[0, 1, 2, 3, 4, 5, 6, 7].filter(i => b[i] > b[15 - i]).length",
+        py: "len([i for i in range(8) if b[i] > b[15 - i]])",
+        says: "more pairs with the bigger number in the top half is better", lenses: ["add", "balance"], steps: 2,
+        tryThis: "remove the \"balance\" line: can single cells tip a pair without breaking its total?",
+      },
     },
   },
   {
@@ -194,6 +253,18 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       },
       primes: primesTie(["add", "swap"], "add the \"trade\" line from the Thorough starter: moving an amount keeps a box's total."),
       corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
+      "diagonal-pairs": {
+        ts: "BOXES.filter(([s, t, u, w]) => b[s] === b[w] && b[t] === b[u] && b[s] !== b[t]).length",
+        py: "len([1 for s, t, u, w in BOXES if b[s] == b[w] and b[t] == b[u] and b[s] != b[t]])",
+        says: "more boxes with each pair on a diagonal of the box is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps move a pair onto a diagonal?",
+      },
+      "small-pairs": {
+        ts: "-BOXES.reduce((t, x) => t + Math.min(...x.map(i => b[i])), 0)",
+        py: "-sum(min(b[i] for i in x) for x in BOXES)",
+        says: "a smaller small pair in each box is better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can it lower a pair one cell at a time?",
+      },
     },
   },
   {
@@ -218,6 +289,28 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single steps find primes without spoiling a square?", 2),
       zeros: zerosTie(["add", "twin"], "remove the \"twin\" line: can single steps still find the zeros?", 2),
       corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: a corner is in only one square, so can single steps raise it?" },
+      "spread-diagonal": {
+        pre: {
+          ts: ["let diag = 0;", "for (const i of [0, 1, 2, 4, 5, 6, 8, 9, 10]) {   // each 2\u00d72 square: its biggest and smallest, each alone, on a diagonal", "  const v = [b[i], b[i + 1], b[i + 4], b[i + 5]], hi = Math.max(...v), lo = Math.min(...v);", "  if (v.filter(x => x === hi).length === 1 && v.filter(x => x === lo).length === 1 && v.indexOf(hi) + v.indexOf(lo) === 3) diag++;", "}"],
+          py: ["diag = 0", "for i in [0, 1, 2, 4, 5, 6, 8, 9, 10]:   # each 2\u00d72 square: its biggest and smallest, each alone, on a diagonal", "    v = [b[i], b[i + 1], b[i + 4], b[i + 5]]", "    if v.count(max(v)) == 1 and v.count(min(v)) == 1 and v.index(max(v)) + v.index(min(v)) == 3:", "        diag += 1"],
+        },
+        ts: "diag",
+        py: "diag",
+        says: "more squares with their biggest and smallest on a diagonal is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps turn a square's spread onto its diagonal?",
+      },
+      "spread-small": {
+        ts: "-[0, 1, 2, 4, 5, 6, 8, 9, 10].reduce((t, i) => t + Math.min(b[i], b[i + 1], b[i + 4], b[i + 5]), 0)",
+        py: "-sum(min(b[i], b[i + 1], b[i + 4], b[i + 5]) for i in [0, 1, 2, 4, 5, 6, 8, 9, 10])",
+        says: "smaller smallest numbers in the squares are better", lenses: ["add", "twin"], steps: 2,
+        tryThis: "remove the \"twin\" line: can single steps lower the squares without spoiling a spread?",
+      },
+      "square-different": {
+        ts: "[0, 1, 2, 4, 5, 6, 8, 9, 10].filter(i => new Set([b[i], b[i + 1], b[i + 4], b[i + 5]]).size === 4).length",
+        py: "len([i for i in [0, 1, 2, 4, 5, 6, 8, 9, 10] if len({b[i], b[i + 1], b[i + 4], b[i + 5]}) == 4])",
+        says: "more squares of four different numbers is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can it still make the numbers differ?",
+      },
     },
   },
   {
@@ -250,6 +343,26 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       ones: { ts: "ones", py: "ones", says: "more 1s touching a bigger number in their box is better", lenses: ["add", "swap"], steps: 2, tryThis: "change FAR = 2 to 1: single steps, more turns, the same price per step: can it still find strangers?" },
       primes: primesTie(["add", "swap"], "remove the \"swap\" line: can single steps find primes that stay strangers?"),
       corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can single steps raise the corners?" },
+      "prime-strangers": {
+        pre: {
+          ts: ["let primeSt = 0;", "for (const x of BOXES) for (const [i, j] of [[0, 1], [2, 3], [0, 2], [1, 3]]) {   // strangers that are both prime", "  const u = b[x[i]], w = b[x[j]];", "  if ([2, 3, 5, 7].includes(u) && [2, 3, 5, 7].includes(w) && gcd(u, w) === 1 && Math.abs(u - w) >= 2) primeSt++;", "}"],
+          py: ["prime_st = 0", "for x in BOXES:", "    for i, j in [[0, 1], [2, 3], [0, 2], [1, 3]]:   # strangers that are both prime", "        u, w = b[x[i]], b[x[j]]", "        if u in (2, 3, 5, 7) and w in (2, 3, 5, 7) and gcd(u, w) == 1 and abs(u - w) >= 2:", "            prime_st += 1"],
+        },
+        ts: "primeSt",
+        py: "prime_st",
+        says: "more strangers that are both prime is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps turn strangers into primes?",
+      },
+      "across-strangers": {
+        pre: {
+          ts: ["let across = 0;   // touching pairs across the boxes' borders that are strangers", "for (const [i, j] of [[1, 2], [5, 6], [9, 10], [13, 14], [4, 8], [5, 9], [6, 10], [7, 11]]) if (b[i] > 1 && b[j] > 1 && gcd(b[i], b[j]) === 1 && Math.abs(b[i] - b[j]) >= 2) across++;"],
+          py: ["across = 0   # touching pairs across the boxes' borders that are strangers", "for i, j in [[1, 2], [5, 6], [9, 10], [13, 14], [4, 8], [5, 9], [6, 10], [7, 11]]:", "    if b[i] > 1 and b[j] > 1 and gcd(b[i], b[j]) == 1 and abs(b[i] - b[j]) >= 2:", "        across += 1"],
+        },
+        ts: "across",
+        py: "across",
+        says: "more strangers across the corner boxes' borders is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find strangers across the borders?",
+      },
     },
   },
   {
@@ -263,6 +376,28 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       "first-column": { ...FIRST_COLUMN, says: "a bigger first column is better", lenses: ["add", "line"], steps: 2, tryThis: "remove the \"line\" line: adding to a whole row keeps its leaps, can single cells do as well?" },
       primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single cells reach the primes?", 2),
       zeros: zerosTie(["add", "line", "twin"], "remove the \"line\" line: is lowering two cells at a time enough?", 2),
+      "same-way": {
+        ts: "[0, 4, 8, 12].filter(r => (b[r + 2] - b[r]) * (b[r + 3] - b[r + 1]) > 0).length",
+        py: "len([r for r in range(0, 16, 4) if (b[r + 2] - b[r]) * (b[r + 3] - b[r + 1]) > 0])",
+        says: "more rows whose two leaps go the same way (both up or both down) is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps turn a leap around?",
+      },
+      "columns-leap": {
+        ts: "-[0, 1, 2, 3, 4, 5, 6, 7].reduce((t, i) => t + Math.abs(Math.abs(b[i] - b[i + 8]) - 1), 0)",
+        py: "-sum(abs(abs(b[i] - b[i + 8]) - 1) for i in range(8))",
+        says: "each number closer to one apart from the number two cells down is better", lenses: ["add", "line"], steps: 2,
+        tryThis: "remove the \"line\" line: a whole row moves without spoiling its leaps; can single cells do as well?",
+      },
+      "middle-factors": {
+        pre: {
+          ts: ["const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor (gcd(0, x) is x)"],
+          py: ["def gcd(x, y):   # the greatest common divisor (gcd(0, x) is x)", "    return gcd(y, x % y) if y else x"],
+        },
+        ts: "[0, 1, 4, 5, 8, 9, 12, 13].filter(i => gcd(b[i + 1], b[i]) > 1 && gcd(b[i + 1], b[i + 2]) > 1).length",
+        py: "len([i for i in [0, 1, 4, 5, 8, 9, 12, 13] if gcd(b[i + 1], b[i]) > 1 and gcd(b[i + 1], b[i + 2]) > 1])",
+        says: "more numbers between leap partners that share a factor with both is better", lenses: ["add", "line"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find shared factors?",
+      },
     },
   },
   {
@@ -276,6 +411,28 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       "fold-line": { ts: "b[3] + b[6] + b[9] + b[12]", py: "b[3] + b[6] + b[9] + b[12]", says: "a bigger fold line (top-right to bottom-left) is better", lenses: ["add", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can single steps raise the fold line?" },
       primes: primesTie(["add", "trade"], "remove the \"trade\" line: can single steps find primes that stay 3 apart?", 2),
       zeros: zerosTie(["add", "trade"], "remove the \"trade\" line: can single steps still make the zeros?", 2),
+      "bigger-side": {
+        ts: "[[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => b[i] > b[j]).length",
+        py: "len([1 for i, j in [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]] if b[i] > b[j]])",
+        says: "more fold pairs with the bigger number on the top-left side is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps tip a fold pair over?",
+      },
+      "other-fold": {
+        ts: "-[[1, 4], [2, 8], [3, 12], [6, 9], [7, 13], [11, 14]].reduce((t, [i, j]) => t + Math.abs(Math.abs(b[i] - b[j]) - 3), 0)",
+        py: "-sum(abs(abs(b[i] - b[j]) - 3) for i, j in [[1, 4], [2, 8], [3, 12], [6, 9], [7, 13], [11, 14]])",
+        says: "cells folded on the other diagonal closer to 3 apart is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does the other fold still come close?",
+      },
+      "fold-factors": {
+        pre: {
+          ts: ["const gcd = (x, y) => (y ? gcd(y, x % y) : x);   // the greatest common divisor (gcd(0, x) is x)"],
+          py: ["def gcd(x, y):   # the greatest common divisor (gcd(0, x) is x)", "    return gcd(y, x % y) if y else x"],
+        },
+        ts: "[[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]].filter(([i, j]) => gcd(b[i], b[j]) > 1).length",
+        py: "len([1 for i, j in [[0, 15], [1, 11], [2, 7], [4, 14], [5, 10], [8, 13]] if gcd(b[i], b[j]) > 1])",
+        says: "more fold pairs sharing a factor is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps find shared factors 3 apart?",
+      },
     },
   },
   {
@@ -289,6 +446,189 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
       corners: { ...CORNERS, says: "bigger corners of the board are better", lenses: ["add", "box", "swap"], steps: 2, tryThis: "remove the \"swap\" line: can it fill the corners without rearranging?" },
       primes: primesTie(["add", "box", "trade"], "remove the \"trade\" line: can single cells reach the primes?", 2),
       zeros: zerosTie(["add", "box", "trade"], "remove the \"box\" line: is fixing one cell at a time as cheap?", 2),
+    },
+  },
+  {
+    family: "kings-and-subjects", simple: ["swap"], needs: ["boxes"],
+    mainSays: "how far each corner box's biggest number is from the other three added up, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "const kings = [];", "for (const x of BOXES) {   // each corner box", "  const v = x.map(i => b[i]), m = Math.max(...v);   // m: the king", "  main -= v.filter(y => y === m).length > 1 ? 20 : Math.abs(2 * m - v.reduce((t, y) => t + y, 0));   // the king against his subjects added up; a tied biggest is no king, 20 off", "  if (v.filter(y => y === m).length === 1) kings.push([x[v.indexOf(m)], m, Math.min(...v)]);   // a king: his cell, his number, the smallest in his box", "}"],
+      py: ["main = 0", "kings = []", "for x in BOXES:   # each corner box", "    v = [b[i] for i in x]", "    m = max(v)   # the king", "    main -= 20 if v.count(m) > 1 else abs(2 * m - sum(v))   # the king against his subjects added up; a tied biggest is no king, 20 off", "    if v.count(m) == 1:   # a king: his cell, his number, the smallest in his box", "        kings.append((x[v.index(m)], m, min(v)))"],
+    },
+    tieBreakers: {
+      "different-kings": {
+        ts: "kings.flatMap((a, k) => kings.slice(k + 1).filter(c => c[1] !== a[1])).length", py: "len([1 for k, a in enumerate(kings) for c in kings[k + 1:] if c[1] != a[1]])",
+        says: "more pairs of kings that are different numbers is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps make the kings differ without spoiling the rule?",
+      },
+      "king-multiples": {
+        ts: "kings.filter(([i, m, s]) => s >= 1 && m % s === 0).length", py: "len([1 for i, m, s in kings if s >= 1 and m % s == 0])",
+        says: "more kings that are a multiple of the smallest number in their box is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find multiples?",
+      },
+      "kings-on-diagonals": {
+        ts: "kings.filter(([i]) => Math.floor(i / 4) === i % 4 || Math.floor(i / 4) + i % 4 === 3).length", py: "len([1 for i, m, s in kings if i // 4 == i % 4 or i // 4 + i % 4 == 3])",
+        says: "more kings on the board's two diagonals is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can it move a king onto a diagonal without swapping?",
+      },
+    },
+  },
+  {
+    family: "stepping-stones", simple: ["swap"],
+    mainSays: "the cells in the biggest group you can hop between, touching cells 2 apart (more is better)",
+    main: {
+      ts: ["const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i", "let best = [];   // the biggest group (the first found on a tie)", "const seen = new Set();", "for (let s = 0; s < 16; s++) {", "  if (seen.has(s)) continue;", "  const group = [s];", "  seen.add(s);", "  for (const i of group) for (const j of near(i)) if (!seen.has(j) && Math.abs(b[i] - b[j]) === 2) { seen.add(j); group.push(j); }   // hop on to touching cells 2 apart", "  if (group.length > best.length) best = group;", "}", "const main = best.length;"],
+      py: ["def near(i):   # the cells touching cell i", "    return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]", "best = []   # the biggest group (the first found on a tie)", "seen = set()", "for s in range(16):", "    if s in seen:", "        continue", "    group = [s]", "    seen.add(s)", "    for i in group:   # hop on to touching cells 2 apart", "        for j in near(i):", "            if j not in seen and abs(b[i] - b[j]) == 2:", "                seen.add(j)", "                group.append(j)", "    if len(group) > len(best):", "        best = group", "main = len(best)"],
+    },
+    tieBreakers: {
+      "outside-small": {
+        ts: "-b.reduce((t, x, i) => (best.includes(i) ? t : t + x), 0)", py: "-sum(b[i] for i in range(16) if i not in best)",
+        says: "smaller numbers outside the biggest group are better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; can it still shrink the numbers around the group?",
+      },
+      "group-reach": {
+        ts: "new Set(best.map(i => Math.floor(i / 4))).size + new Set(best.map(i => i % 4)).size", py: "len({i // 4 for i in best}) + len({i % 4 for i in best})",
+        says: "a biggest group reaching into more rows and columns is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps stretch the group?",
+      },
+      "group-corners": {
+        ts: "best.filter(i => [0, 3, 12, 15].includes(i)).length", py: "len([i for i in best if i in (0, 3, 12, 15)])",
+        says: "more of the board's corners in the biggest group is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps reach a corner?",
+      },
+    },
+  },
+  {
+    family: "mountain-climb", simple: ["swap"],
+    mainSays: "the cells on the longest climb from the top-left cell, each step 1 bigger (more is better)",
+    main: {
+      ts: ["const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i", "let level = [0], main = 0;   // start at the top-left cell", "const reached = [];   // every cell on some climb", "while (level.length) { main++; reached.push(...level); level = [...new Set(level.flatMap(i => near(i).filter(j => b[j] === b[i] + 1)))]; }   // each step: touching cells exactly 1 bigger"],
+      py: ["def near(i):   # the cells touching cell i", "    return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]", "level, main = [0], 0   # start at the top-left cell", "reached = []   # every cell on some climb", "while level:", "    main += 1", "    reached += level", "    level = list({j for i in level for j in near(i) if b[j] == b[i] + 1})   # each step: touching cells exactly 1 bigger"],
+    },
+    tieBreakers: {
+      "climb-reach": {
+        ts: "reached.length", py: "len(reached)",
+        says: "more cells on some climb from the top-left is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps open a second climb?",
+      },
+      "climb-far": {
+        ts: "Math.max(...reached.map(i => Math.floor(i / 4) + i % 4))", py: "max(i // 4 + i % 4 for i in reached)",
+        says: "a climb ending farther from the top-left cell (steps across and down) is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does the climb still head away?",
+      },
+      "climb-summit": {
+        ts: "b[0] + main - 1", py: "b[0] + main - 1",
+        says: "a climb reaching a bigger number is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can it raise the whole climb one cell at a time?",
+      },
+    },
+  },
+  {
+    family: "uphill", simple: ["tilt"], needs: ["lines"],
+    mainSays: "the steps along every row and column toward the corner that reach a bigger number (more is better)",
+    main: {
+      ts: ["const right = p.corner[1] === \"R\", down = p.corner[0] === \"B\";   // which way to walk", "const rises = [];   // each step toward the corner, along the rows and down the columns: how much it rises", "for (let i = 0; i < 16; i++) { if (i % 4 < 3) rises.push(right ? b[i + 1] - b[i] : b[i] - b[i + 1]); if (i < 12) rises.push(down ? b[i + 4] - b[i] : b[i] - b[i + 4]); }", "let main = rises.filter(d => d > 0).length;"],
+      py: ["right, down = p[\"corner\"][1] == \"R\", p[\"corner\"][0] == \"B\"   # which way to walk", "rises = []   # each step toward the corner, along the rows and down the columns: how much it rises", "for i in range(16):", "    if i % 4 < 3:", "        rises.append(b[i + 1] - b[i] if right else b[i] - b[i + 1])", "    if i < 12:", "        rises.append(b[i + 4] - b[i] if down else b[i] - b[i + 4])", "main = len([d for d in rises if d > 0])"],
+    },
+    tieBreakers: {
+      "rise-by-one": {
+        ts: "rises.filter(d => d === 1).length", py: "len([d for d in rises if d == 1])",
+        says: "more rising steps that rise by exactly 1 is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "add the \"tilt\" line from the Simple starter: does tilting by 1 make the rises even?",
+      },
+      "corner-peak": {
+        ts: "b.filter(x => x < b[(down ? 12 : 0) + (right ? 3 : 0)]).length", py: "len([x for x in b if x < b[(12 if down else 0) + (3 if right else 0)]])",
+        says: "more numbers smaller than the one in the corner you walk toward is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does the corner still grow?",
+      },
+      "start-low": {
+        ts: "b.filter(x => x > b[15 - (down ? 12 : 0) - (right ? 3 : 0)]).length", py: "len([x for x in b if x > b[15 - (12 if down else 0) - (3 if right else 0)]])",
+        says: "more numbers bigger than the one in the corner the walks start from is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps lower the starting corner?",
+      },
+    },
+  },
+  {
+    family: "staircase", simple: ["swap"],
+    mainSays: "the numbers exactly 1 more than the number before them (more is better)",
+    main: {
+      ts: ["const step = p.direction === \"right\" ? 1 : 4;   // the number before: to the left, or above", "let main = 0;", "for (let i = 0; i < 16; i++) if ((step === 1 ? i % 4 > 0 : i >= 4) && b[i] === b[i - step] + 1) main++;"],
+      py: ["step = 1 if p[\"direction\"] == \"right\" else 4   # the number before: to the left, or above", "main = 0", "for i in range(16):", "    if (i % 4 > 0 if step == 1 else i >= 4) and b[i] == b[i - step] + 1:", "        main += 1"],
+    },
+    tieBreakers: {
+      "long-flight": {
+        pre: {
+          ts: ["let flight = 1;   // the longest flight: stairs one after another, counting the cell it starts from", "for (let k = 0; k < 4; k++) { let run = 1; for (let j = 1; j < 4; j++) { const i = step === 1 ? 4 * k + j : 4 * j + k; run = b[i] === b[i - step] + 1 ? run + 1 : 1; flight = Math.max(flight, run); } }   // along each row (or down each column)"],
+          py: ["flight = 1   # the longest flight: stairs one after another, counting the cell it starts from", "for k in range(4):   # along each row (or down each column)", "    run = 1", "    for j in range(1, 4):", "        i = 4 * k + j if step == 1 else 4 * j + k", "        run = run + 1 if b[i] == b[i - step] + 1 else 1", "        flight = max(flight, run)"],
+        },
+        ts: "flight", py: "flight",
+        says: "a longer flight of stairs is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps join two flights?",
+      },
+      "double-stairs": {
+        ts: "b.filter((x, i) => i >= 4 && i % 4 > 0 && x === b[i - 1] + 1 && x === b[i - 4] + 1).length", py: "len([i for i in range(16) if i >= 4 and i % 4 > 0 and b[i] == b[i - 1] + 1 and b[i] == b[i - 4] + 1])",
+        says: "more stairs that are also 1 more the other way (above, or to the left) is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find stairs both ways?",
+      },
+      "low-stairs": {
+        ts: "-b.reduce((t, x, i) => t + ((step === 1 ? i % 4 > 0 : i >= 4) && x === b[i - step] + 1 ? b[i - step] : 0), 0)", py: "-sum(b[i - step] for i in range(16) if (i % 4 > 0 if step == 1 else i >= 4) and b[i] == b[i - step] + 1)",
+        says: "stairs climbing from smaller numbers is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps lower a whole stair at once?",
+      },
+    },
+  },
+  {
+    family: "magic-accountant", simple: ["line"], needs: ["lines"],
+    mainSays: "how far each row's (or column's) total is from T, added up (closer is better)",
+    main: {
+      ts: ["let main = 0;", "for (let k = 0; k < 4; k++) { let t = 0; for (let j = 0; j < 4; j++) t += p.axis === \"rows\" ? b[4 * k + j] : b[4 * j + k]; main -= Math.abs(t - p.T); }   // each line: how far its total is from T"],
+      py: ["main = 0", "for k in range(4):   # each line: how far its total is from T", "    t = sum(b[4 * k + j] if p[\"axis\"] == \"rows\" else b[4 * j + k] for j in range(4))", "    main -= abs(t - p[\"T\"])"],
+    },
+    tieBreakers: {
+      "other-way": {
+        pre: {
+          ts: ["let other = 0;", "for (let k = 0; k < 4; k++) { let t = 0; for (let j = 0; j < 4; j++) t += p.axis === \"rows\" ? b[4 * j + k] : b[4 * k + j]; other -= Math.abs(t - p.T); }   // the other way: each column (or row) against T"],
+          py: ["other = 0", "for k in range(4):   # the other way: each column (or row) against T", "    other -= abs(sum(b[4 * j + k] if p[\"axis\"] == \"rows\" else b[4 * k + j] for j in range(4)) - p[\"T\"])"],
+        },
+        ts: "other", py: "other",
+        says: "the columns (or rows, the other way) closer to T too is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single steps fix the other way without spoiling the totals?",
+      },
+      "diagonals": {
+        ts: "-Math.abs(b[0] + b[5] + b[10] + b[15] - p.T) - Math.abs(b[3] + b[6] + b[9] + b[12] - p.T)", py: "-abs(b[0] + b[5] + b[10] + b[15] - p[\"T\"]) - abs(b[3] + b[6] + b[9] + b[12] - p[\"T\"])",
+        says: "both diagonals closer to T too is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; do the diagonals still come close?",
+      },
+      "all-different": {
+        ts: "[0, 1, 2, 3].filter(k => new Set([0, 1, 2, 3].map(j => (p.axis === \"rows\" ? b[4 * k + j] : b[4 * j + k]))).size === 4).length", py: "len([k for k in range(4) if len({b[4 * k + j] if p[\"axis\"] == \"rows\" else b[4 * j + k] for j in range(4)}) == 4])",
+        says: "more rows (or columns, the dealt way) of four different numbers is better", lenses: ["add", "trade"], steps: 2,
+        tryThis: "remove the \"trade\" line: can single steps make the numbers differ without spoiling the totals?",
+      },
+    },
+  },
+  {
+    family: "fillomino", simple: ["swap"],
+    mainSays: "the cells in patches of equal numbers whose size is their number (more is better)",
+    main: {
+      ts: ["const near = i => [i - 4, i + 4, i % 4 ? i - 1 : -1, i % 4 < 3 ? i + 1 : -1].filter(j => j >= 0 && j < 16);   // the cells touching cell i", "let main = 0;", "const patches = [];   // every patch of touching equal numbers", "const seen = new Set();", "for (let s = 0; s < 16; s++) {", "  if (seen.has(s)) continue;", "  const patch = [s];", "  patches.push(patch);", "  seen.add(s);", "  for (const i of patch) for (const j of near(i)) if (!seen.has(j) && b[j] === b[i]) { seen.add(j); patch.push(j); }   // touching cells holding the same number", "  if (b[s] > 0 && patch.length === b[s]) main += patch.length;   // a patch of the right size", "}"],
+      py: ["def near(i):   # the cells touching cell i", "    return [j for j in (i - 4, i + 4, i - 1 if i % 4 else -1, i + 1 if i % 4 < 3 else -1) if 0 <= j < 16]", "main = 0", "patches = []   # every patch of touching equal numbers", "seen = set()", "for s in range(16):", "    if s in seen:", "        continue", "    patch = [s]", "    patches.append(patch)", "    seen.add(s)", "    for i in patch:   # touching cells holding the same number", "        for j in near(i):", "            if j not in seen and b[j] == b[i]:", "                seen.add(j)", "                patch.append(j)", "    if b[s] > 0 and len(patch) == b[s]:   # a patch of the right size", "        main += len(patch)"],
+    },
+    tieBreakers: {
+      "patch-kinds": {
+        ts: "new Set(patches.filter(x => b[x[0]] > 0 && x.length === b[x[0]]).map(x => b[x[0]])).size", py: "len({b[x[0]] for x in patches if b[x[0]] > 0 and len(x) == b[x[0]]})",
+        says: "right-size patches of more different numbers is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find new kinds of patch?",
+      },
+      "patch-count": {
+        ts: "patches.filter(x => b[x[0]] > 0 && x.length === b[x[0]]).length", py: "len([x for x in patches if b[x[0]] > 0 and len(x) == b[x[0]]])",
+        says: "more right-size patches is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps split a patch into right-size ones?",
+      },
+      "near-misses": {
+        ts: "-patches.filter(x => b[x[0]] > 0).reduce((t, x) => t + Math.abs(x.length - b[x[0]]), 0)", py: "-sum(abs(len(x) - b[x[0]]) for x in patches if b[x[0]] > 0)",
+        says: "wrong-size patches closer to their number in size is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps grow or shrink a patch toward its number?",
+      },
     },
   },
 ];

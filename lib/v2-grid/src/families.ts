@@ -7,9 +7,9 @@
  */
 import { q, ref, type ElementRef, type RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
-import { countCells, distance, family, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
+import { countCells, diagonals, distance, family, offTotals, sumOf, term, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
 import { moreGridFamilies } from "./more-families.ts";
-import { boxEdges, boxes, corners, folds, leaps, pairs, rows, windows } from "./units.ts";
+import { boxEdges, boxes, cols, corners, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 export { isPrimeCell };
 
@@ -20,13 +20,20 @@ function readAll(ctx: Ctx, rep: string, names: readonly string[]): { refs: Eleme
   const refs = names.map(nm => ref(rep, nm));
   return { refs, v: refs.map(r => readNum(ctx, r)) };
 }
-const sumOf = (xs: readonly number[]) => xs.reduce((t, x) => t + x, 0);
 /** Notes on each unit: a focus where it is perfect, else a short word. */
 function noteEach(ctx: Ctx, units: { refs: ElementRef[]; v: number[] }, perfect: (x: number) => boolean, word: (x: number) => string): void {
   units.refs.forEach((r, i) => ctx.mark(perfect(units.v[i]!) ? { kind: "focus", ref: r } : { kind: "note", ref: r, text: word(units.v[i]!) }));
 }
 
+/** Numbers that share a factor bigger than 1 (0 shares every factor of the other number; 0 and 0, or a 1, share none). */
+const shareFactor = (a: number, b: number) => gcd(a, b) > 1;
+/** The diagonals of an n×n board: top-left to bottom-right, then top-right to bottom-left. */
+/** How far some groups' totals are from T, added up. */
+/** A count over all cells, as a term. */
+
 type T = { T: number };
+/** Two ways to split T, for the card ("0 and 9, 4 and 5" for 9). */
+const splitExample = (T: number) => `0 and ${T}, ${Math.floor(T / 2)} and ${T - Math.floor(T / 2)}`;
 type None = Record<string, never>;
 
 // ---------------------------------------------------------------- 1. Mirrormancer
@@ -39,6 +46,10 @@ export function mirrormancer(n: number): RuleFamily<GridState, None> {
       more("middle", "the middle columns' total", "The middle two columns should add up to as much as possible.", "cells"),
       primesTie(),
       zerosTie(),
+      distance<None>("mirror-columns", "every column reads the same backwards", () => "Every column should read the same backwards too.", "cells"),
+      distance<None>("one-apart", "each end number one apart from the number beside it",
+        () => "In each row, each end number and the number beside it should be one apart, like 4 5 5 4.", "cells"),
+      distance<None>("small-middle", "the rows' middle numbers", () => "Each row's middle pair should be as small as possible.", "cells"),
     ],
   };
   return family<None>("mirrormancer", "Mirrormancer", ["mirror", "cells"], shape, [{}], ctx => {
@@ -49,6 +60,11 @@ export function mirrormancer(n: number): RuleFamily<GridState, None> {
     totalOf(ctx, "middle", "the middle columns' total", cells, middle);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
+    const v = cells.v, back = (l: readonly number[]) => sumOf(l.slice(0, Math.floor(n / 2)).map((i, k) => Math.abs(v[i]! - v[l[n - 1 - k]!]!)));
+    term(ctx, "mirror-columns", "how far the columns are from reading the same backwards, added up", sumOf(cols(n).map(back)), cells.refs);
+    const ends = rows(n).flatMap(l => [[l[0]!, l[1]!], [l[n - 2]!, l[n - 1]!]]);
+    term(ctx, "one-apart", "how far each end number is from one apart from the number beside it, added up", sumOf(ends.map(([a, b]) => Math.abs(Math.abs(v[a]! - v[b]!) - 1))), cells.refs);
+    term(ctx, "small-middle", "the middle numbers' total", sumOf(middle.map(i => v[i]!)), middle.map(i => cells.refs[i]!));
   }, n);
 }
 
@@ -61,6 +77,9 @@ export function magicEighteen(n: number): RuleFamily<GridState, T> {
       more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
       primesTie(),
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
+      distance<T>("columns", "every column adds up to the target too", p => `The columns should add up to ${p.T} too.`, "tally"),
+      distance<T>("diagonals", "both diagonals add up to the target too", p => `Both diagonals should add up to ${p.T} too.`, "cells"),
+      more("different-numbers", "rows of all different numbers", "Each row should hold four different numbers.", "cells"),
     ],
   };
   return family<T>("magic-eighteen", "Magic Eighteen", ["tally", "cells"], shape, [{ T: 18 }], (ctx, p) => {
@@ -71,6 +90,10 @@ export function magicEighteen(n: number): RuleFamily<GridState, T> {
     totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "odd", "odd numbers on the board", cells, x => x % 2 === 1, false);
+    const colTotals = readAll(ctx, "tally", cols(n).map((_, c) => `col${c}`));
+    term(ctx, "columns", `how far the columns' totals are from ${p.T}, added up`, sumOf(colTotals.v.map(x => Math.abs(x - p.T))), colTotals.refs);
+    term(ctx, "diagonals", `how far the diagonals' totals are from ${p.T}, added up`, offTotals(cells.v, diagonals(n), p.T), diagonals(n).flat().map(i => cells.refs[i]!));
+    term(ctx, "different-numbers", "rows of all different numbers", rows(n).filter(l => new Set(l.map(i => cells.v[i])).size === n).length, cells.refs);
   }, n);
 }
 
@@ -85,6 +108,11 @@ export function oppositeNines(n: number): RuleFamily<GridState, T> {
       more("top-half", "the top half's total", "The top half of the board should add up to as much as possible.", "cells"),
       primesTie(),
       more("odd", "odd numbers on the board", "As many cells as possible should hold an odd number.", "cells"),
+      distance<T>("mirror-nines", "each number and its mirror in the row add up to the target",
+        p => `Each number and the number mirrored across the middle of its row should add up to ${p.T} too.`, "cells"),
+      more<T>("different-splits", "different ways the pairs split the target",
+        p => `The pairs that add up to ${p.T} should split it in as many different ways as possible, like ${splitExample(p.T)}.`, "cells"),
+      more("big-on-top", "pairs with the bigger number in the top half", "In each pair, the bigger number should be in the top half.", "cells"),
     ],
   };
   return family<T>("opposite-nines", "Opposite Nines", ["turn", "cells"], shape, [{ T: 9 }], (ctx, p) => {
@@ -95,6 +123,12 @@ export function oppositeNines(n: number): RuleFamily<GridState, T> {
     totalOf(ctx, "top-half", "the top half's total", cells, ps.map(([a]) => a));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "odd", "odd numbers on the board", cells, x => x % 2 === 1, false);
+    const v = cells.v;
+    const mirrored = rows(n).flatMap(l => l.slice(0, Math.floor(n / 2)).map((i, k) => [i, l[n - 1 - k]!] as const));
+    term(ctx, "mirror-nines", `how far each number and its mirror in the row are from ${p.T}, added up`, sumOf(mirrored.map(([a, b]) => Math.abs(v[a]! + v[b]! - p.T))), cells.refs);
+    const splits = new Set(ps.filter(([a, b]) => v[a]! + v[b]! === p.T).map(([a, b]) => Math.min(v[a]!, v[b]!)));
+    term(ctx, "different-splits", `different ways the pairs split ${p.T}`, splits.size, cells.refs);
+    term(ctx, "big-on-top", "pairs with the bigger number in the top half", ps.filter(([a, b]) => v[a]! > v[b]!).length, cells.refs);
   }, n);
 }
 
@@ -109,6 +143,8 @@ export function twoPair(n: number): RuleFamily<GridState, None> {
       more("apart", "how far apart each box's pairs are", "In each box the two pairs should be as far apart as possible (biggest minus smallest, added up).", "cells"),
       primesTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
+      more("diagonal-pairs", "boxes with each pair on a diagonal", "In each corner box, each pair should sit on a diagonal of the box, like 3 8 over 8 3.", "cells"),
+      distance<None>("small-pairs", "the smaller pair in each box", () => "The smaller pair in each corner box should be as small as possible.", "cells"),
     ],
   };
   return family<None>("two-pair", "Two Pair", ["boxes", "cells"], shape, [{}], ctx => {
@@ -120,6 +156,9 @@ export function twoPair(n: number): RuleFamily<GridState, None> {
     ctx.term("apart", "biggest minus smallest in each box, added up", q(apart), cells.refs);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
+    const v = cells.v;
+    term(ctx, "diagonal-pairs", "boxes with each pair on a diagonal", bx.filter(([a, b, c, d]) => v[a!] === v[d!] && v[b!] === v[c!] && v[a!] !== v[b!]).length, cells.refs);
+    term(ctx, "small-pairs", "the smallest number in each box, added up", sumOf(bx.map(cs => Math.min(...cs.map(i => v[i]!)))), cells.refs);
   }, n);
 }
 
@@ -134,6 +173,10 @@ export function spreadOfThree(n: number): RuleFamily<GridState, None> {
       primesTie(),
       zerosTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
+      more("spread-diagonal", "squares with their biggest and smallest on a diagonal",
+        "In as many 2×2 squares as possible, the biggest and the smallest number should sit diagonally.", "cells"),
+      distance<None>("spread-small", "each square's smallest number", () => "The smallest number in each 2×2 square should be as small as possible.", "cells"),
+      more("square-different", "squares of four different numbers", "As many 2×2 squares as possible should hold four different numbers.", "cells"),
     ],
   };
   return family<None>("spread-of-three", "Spread of Three", ["windows", "cells"], shape, [{}], ctx => {
@@ -144,6 +187,14 @@ export function spreadOfThree(n: number): RuleFamily<GridState, None> {
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
     totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
+    const vs = ws.map(w => w.map(i => cells.v[i]!));   // each square: top-left, top-right, bottom-left, bottom-right
+    const diagonal = (x: number[]) => {
+      const hi = Math.max(...x), lo = Math.min(...x), h = x.indexOf(hi), l = x.indexOf(lo);
+      return x.filter(y => y === hi).length === 1 && x.filter(y => y === lo).length === 1 && h + l === 3;
+    };
+    term(ctx, "spread-diagonal", "squares with their biggest and smallest on a diagonal", vs.filter(diagonal).length, sp.refs);
+    term(ctx, "spread-small", "the squares' smallest numbers, added up", sumOf(vs.map(x => Math.min(...x))), sp.refs);
+    term(ctx, "square-different", "squares of four different numbers", vs.filter(x => new Set(x).size === 4).length, sp.refs);
   }, n);
 }
 
@@ -158,6 +209,8 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
       more("ones", "1s beside a bigger number in their box", "As many 1s as possible should touch a number bigger than 1 in their box (count each touch).", "cells"),
       primesTie(),
       more("corners", "the board's four corners", "The board's four corners should add up to as much as possible.", "cells"),
+      more("prime-strangers", "strangers that are both prime", "As many strangers as possible should both be prime numbers, like 3 and 7.", "cells"),
+      more("across-strangers", "strangers across the corner boxes' borders", "Touching numbers in different corner boxes should be strangers too.", "cells"),
     ],
   };
   return family<None>("strangers", "Strangers", ["boxes", "cells"], shape, [{}], ctx => {
@@ -169,6 +222,11 @@ export function strangersFamily(n: number): RuleFamily<GridState, None> {
     ctx.term("ones", "1s touching a bigger number in their box", q(ones), cells.refs);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     totalOf(ctx, "corners", "the four corners' total", cells, corners(n));
+    const v = cells.v, isStranger = ([a, b]: readonly [number, number]) => strangers(v[a]!, v[b]!);
+    term(ctx, "prime-strangers", "strangers that are both prime", bx.flatMap(boxEdges).filter(e => isStranger(e) && isPrimeCell(v[e[0]]!) && isPrimeCell(v[e[1]]!)).length, cells.refs);
+    const boxOf = (i: number) => bx.findIndex(cs => cs.includes(i));
+    const across = cells.v.flatMap((_, i) => [i + 1, i + n].filter(j => j < n * n && (j === i + n || j % n > 0) && boxOf(j) !== boxOf(i)).map(j => [i, j] as [number, number]));
+    term(ctx, "across-strangers", "strangers across the corner boxes' borders", across.filter(isStranger).length, cells.refs);
   }, n);
 }
 
@@ -183,6 +241,11 @@ export function leapfrog(n: number): RuleFamily<GridState, None> {
       more("first-column", "the first column's total", "The first column should add up to as much as possible.", "cells"),
       primesTie(),
       zerosTie(),
+      more("same-way", "rows whose leaps all go the same way", "In each row, both leaps should go the same way: both up or both down.", "cells"),
+      distance<None>("columns-leap", "each number one apart from the number two cells down",
+        () => "Each number and the number two cells down its column should be one apart too.", "cells"),
+      more("middle-factors", "numbers between leap partners sharing a factor with both",
+        "Each number between two leap partners should share a factor with both, like 6 between 4 and 9.", "cells"),
     ],
   };
   return family<None>("leapfrog", "Leapfrog", ["leaps", "cells"], shape, [{}], ctx => {
@@ -193,6 +256,14 @@ export function leapfrog(n: number): RuleFamily<GridState, None> {
     totalOf(ctx, "first-column", "the first column's total", cells, rows(n).map((_, r) => at(n, r, 0)));
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
+    const v = cells.v;
+    // A row counts when it has leaps and every one goes the same way (none flat).
+    const sameWay = rows(n).filter(l => { const s = l.slice(0, -2).map((i, k) => Math.sign(v[l[k + 2]!]! - v[i]!)); return s.length > 0 && s[0] !== 0 && s.every(x => x === s[0]); });
+    term(ctx, "same-way", "rows whose leaps all go the same way", sameWay.length, cells.refs);
+    const down = cols(n).flatMap(l => l.slice(0, -2).map((i, k) => [i, l[k + 2]!] as const));
+    term(ctx, "columns-leap", "how far each number is from one apart from the number two cells down, added up", sumOf(down.map(([a, b]) => Math.abs(Math.abs(v[a]! - v[b]!) - 1))), cells.refs);
+    const between = rows(n).flatMap(l => l.slice(0, -2).map((i, k) => [i, l[k + 1]!, l[k + 2]!] as const));
+    term(ctx, "middle-factors", "numbers between leap partners sharing a factor with both", between.filter(([a, m, b]) => shareFactor(v[m]!, v[a]!) && shareFactor(v[m]!, v[b]!)).length, cells.refs);
   }, n);
 }
 
@@ -207,6 +278,10 @@ export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
       more("fold-line", "the fold line's total", "The cells on the fold line should add up to as much as possible.", "fold"),
       primesTie(),
       zerosTie(),
+      more("bigger-side", "folded pairs with the bigger number on the top-left side", "In each fold pair, the bigger number should be on the top-left side of the fold.", "cells"),
+      distance<None>("other-fold", "cells folded on the other diagonal three apart",
+        () => "Fold the board on its other diagonal too: those numbers should be 3 apart as well.", "cells"),
+      more("fold-factors", "folded pairs sharing a factor", "As many fold pairs as possible should share a factor, like 3 and 6.", "cells"),
     ],
   };
   return family<None>("crosswise-threes", "Crosswise Threes", ["fold", "cells"], shape, [{}], ctx => {
@@ -218,6 +293,11 @@ export function crosswiseThrees(n: number): RuleFamily<GridState, None> {
     const cells = readCells(ctx, n);
     countCells(ctx, "primes", "prime numbers on the board", cells, isPrimeCell, false);
     countCells(ctx, "zeros", "0s on the board", cells, x => x === 0, false);
+    const v = cells.v;
+    term(ctx, "bigger-side", "folded pairs with the bigger number on the top-left side", fp.filter(([a, b]) => v[a]! > v[b]!).length, cells.refs);
+    const other = rows(n).flatMap((_, r) => rows(n).map((_, c) => [at(n, r, c), at(n, c, r)] as const).filter((_, c) => r < c));
+    term(ctx, "other-fold", "how far each pair folded on the other diagonal is from 3 apart, added up", sumOf(other.map(([a, b]) => Math.abs(Math.abs(v[a]! - v[b]!) - 3))), cells.refs);
+    term(ctx, "fold-factors", "folded pairs sharing a factor", fp.filter(([a, b]) => shareFactor(v[a]!, v[b]!)).length, cells.refs);
   }, n);
 }
 

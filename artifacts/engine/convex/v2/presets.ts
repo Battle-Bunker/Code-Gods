@@ -88,6 +88,7 @@ export const PRESETS: readonly Preset[] = [
   fromPool("lines-lenses"),
   GRIDS,
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
+  fromPool("grids-more-rules", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

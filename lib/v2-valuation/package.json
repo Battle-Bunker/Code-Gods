@@ -11,7 +11,9 @@
     "values": "node --max-old-space-size=8000 --experimental-strip-types src/values-cli.ts",
     "sampler-check": "node --max-old-space-size=3500 --experimental-strip-types src/sampler-check.ts",
     "grid-value-validate": "node --max-old-space-size=8000 --experimental-strip-types src/grid-value-validate.ts",
-    "uniqueness": "node --max-old-space-size=4000 --experimental-strip-types src/uniqueness-cli.ts"
+    "uniqueness": "node --max-old-space-size=4000 --experimental-strip-types src/uniqueness-cli.ts",
+    "table-gate": "node --experimental-strip-types src/table-gate-cli.ts",
+    "tension": "node --experimental-strip-types src/tension-cli.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",
