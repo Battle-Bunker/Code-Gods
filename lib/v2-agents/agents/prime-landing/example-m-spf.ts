@@ -16,10 +16,11 @@ function score(m, c, p) {
     const main = Q.neg(Q.abs(Q.sub(c, landing)));
     return [main, null];
   }
-  const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept
+  const s = p.side ?? 1;                           // 1, or −1 on the mirror: minus a prime
+  const landing = Q.mul(s, near(Q.mul(s, c), prime, p.ends));   // the (minus) prime ending in p.ends nearest
   const main = Q.neg(Q.abs(Q.sub(c, landing)));
   const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
-  return [main, fm[0] ?? 1];   // main: how far the y-intercept is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: the gradient's smallest prime factor big is better
+  return [main, fm[0] ?? 1];   // main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better); tie-breaker: the gradient's smallest prime factor big is better
 }
 
 const FAR = 3;      // how far one change may go

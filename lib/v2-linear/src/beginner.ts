@@ -53,7 +53,7 @@ function verticalMain<P>(ctx: Ctx, f: Shape<P>, label: string, value: Q, from: E
 // ---------------------------------------------------------------- 1. Prime Staircase
 
 /** A dealt prime filter (owner decision 41): the primes this rule counts end in this digit. */
-type Ends = { ends: number };
+type Ends = { ends: number; side?: 1 | -1 };
 /**
  * Each prime family deals ONE ending (a different one per family) until a set of peers passes v1's equal-opportunity
  * audit (artifacts/engine test v2-params-equal, 0.5 bits): the law favours small numbers, so an exact main is worth
@@ -61,7 +61,17 @@ type Ends = { ends: number };
  * PRIME_ENDINGS (numbers.ts) stays the declared grid.
  */
 const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }];
-const ENDS_LANDING: Ends[] = [{ ends: 7 }];
+/**
+ * Prime Landing also deals its mirror (side −1: "minus a prime ending in 7"), so parameter drift (the coordinator's
+ * trial call 18) has a peer to redraw. The mirror is an exact peer: the law is symmetric under y → −y (the line codes
+ * are even in a and c), and side −1 reads the reflected line as side 1 reads the line (lib/v2-linear test
+ * beginner.test.ts holds score(side −1, reflected) = score(side 1, line)).
+ */
+const ENDS_LANDING: Ends[] = [{ ends: 7 }, { ends: 7, side: -1 }];
+/** "minus " for the mirror (side −1). */
+const minus = (p: Ends) => (p.side === -1 ? "minus " : "");
+/** x, or −x on the mirror. */
+const sided = (p: Ends, x: Q): Q => (p.side === -1 ? Qn.neg(x) : x);
 const primeEnding = (p: Ends) => `a prime ending in ${p.ends}`;
 /** A layer whose sentence names the dealt filter. */
 const withEnds = <X extends { sentence: (p: Ends) => string }>(l: X, sentence: (p: Ends) => string): X => ({ ...l, sentence });
@@ -139,17 +149,29 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
 // ---------------------------------------------------------------- 3. Treasure
 
 type KT = { k: number; T: number };
+/**
+ * T = 37 and its mirror T = −37 are dealt, so parameter drift (the coordinator's trial call 18) has a peer to redraw.
+ * They are exact peers: the reflection y → −y keeps the law (its codes are even in a and c) and sends y(k) to −y(k), and
+ * on the mirror every tie-breaker reads the reflected numbers (minus primes, a gradient near minus a prime, a y-intercept
+ * near minus a square); lib/v2-linear test beginner.test.ts holds score(−T, reflected) = score(T, line).
+ */
+const TREASURES: KT[] = [{ k: 2, T: 37 }, { k: 2, T: -37 }];
+/** x, or −x on the mirror (T below zero). */
+const flipT = (p: KT, x: Q): Q => (p.T < 0 ? Qn.neg(x) : x);
 const treasureShape: Shape<KT> = {
   main: { ...distance<KT>("treasure", "y(k) close to T", "", "table"),
     sentence: p => `When x is ${p.k}, y should be as close as possible to ${p.T}.` },
   tieBreakers: [
-    more("prime-terms", "different primes among y(1) … y(8)", "As many as possible of y(1) … y(8) should be different primes.", "table"),
-    distance("prime-gradient", "the gradient close to a prime", "The gradient should be as close as possible to a prime.", "si"),
-    distance("square-start", "the y-intercept close to a square", "The y-intercept should be as close as possible to a square number.", "si"),
+    { ...more<KT>("prime-terms", "different primes among y(1) … y(8)", "", "table"),
+      sentence: p => (p.T < 0 ? "As many as possible of y(1) … y(8) should be minus different primes." : "As many as possible of y(1) … y(8) should be different primes.") },
+    { ...distance<KT>("prime-gradient", "the gradient close to a prime", "", "si"),
+      sentence: p => `The gradient should be as close as possible to ${p.T < 0 ? "minus " : ""}a prime.` },
+    { ...distance<KT>("square-start", "the y-intercept close to a square", "", "si"),
+      sentence: p => `The y-intercept should be as close as possible to ${p.T < 0 ? "minus " : ""}a square number.` },
     ...factorTies<KT>("m", "the gradient"),
   ],
 };
-export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart", "gen"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
+export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart", "gen"], treasureShape, TREASURES, (ctx, p) => {
   // A vertical line x = k passes the height T somewhere: how far across from the treasure (k, T) it does.
   const vx = verticalAt(ctx);
   if (vx) return verticalMain(ctx, treasureShape, `a vertical line: how far across from (${p.k}, ${p.T}) it passes`, gap(vx.x, q(p.k)), vx.from);
@@ -162,14 +184,14 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
   const cols: ElementRef[] = [];
   for (let x = 1; x <= 8; x++) {
     const r = ref("table", "y", { x });
-    const t = num(ctx.read(r))!;
+    const t = flipT(p, num(ctx.read(r))!);
     cols.push(r);
     if (t.d === 1n && isPrime(t.n) && !primes.has(t.n)) { primes.add(t.n); ctx.mark({ kind: "focus", ref: r }); }
   }
   ctx.term("treasure", `distance from y(${p.k}) to ${p.T}`, gap(y, q(p.T)), [at]);
   ctx.term("prime-terms", "different primes among y(1) … y(8)", q(primes.size), cols);
-  ctx.term("prime-gradient", "distance from the gradient to a prime", distanceToPrime(m), [ref("si", "m")]);
-  ctx.term("square-start", "distance from the y-intercept to a square", squareGap(c).d, [ref("si", "c")]);
+  ctx.term("prime-gradient", `distance from the gradient to ${p.T < 0 ? "minus " : ""}a prime`, distanceToPrime(flipT(p, m)), [ref("si", "m")]);
+  ctx.term("square-start", `distance from the y-intercept to ${p.T < 0 ? "minus " : ""}a square`, squareGap(flipT(p, c)).d, [ref("si", "c")]);
   ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [ref("si", "m")]);
   ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [ref("si", "m")]);
   ctx.mark({ kind: "focus", ref: at });
@@ -183,10 +205,10 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
 
 const landingShape: Shape<Ends> = {
   main: withEnds(distance<Ends>("landing", "the y-intercept close to the dealt prime", "", "si"),
-    p => `The y-intercept should be as close as possible to ${primeEnding(p)}.`),
+    p => `The y-intercept should be as close as possible to ${minus(p)}${primeEnding(p)}.`),
   tieBreakers: [
     prime(more<Ends>("big-prime", "that prime", "That prime should be as big as possible.", "si")),
-    withEnds(distance<Ends>("prime-gradient", "the gradient close to such a prime too", "", "si"), p => `The gradient should be as close as possible to ${primeEnding(p)} too.`),
+    withEnds(distance<Ends>("prime-gradient", "the gradient close to such a prime too", "", "si"), p => `The gradient should be as close as possible to ${minus(p)}${primeEnding(p)} too.`),
     withEnds(distance<Ends>("next-prime", "y(1) close to such a prime too", "", "table"), p => `y(1) = m + c should be as close as possible to ${primeEnding(p)} too.`),
     ...factorTies<Ends>("m", "the gradient"),
   ],
@@ -200,12 +222,13 @@ export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si"
   const c = num(cv);
   if (c === null) return allUndefined(ctx, landingShape, cv, cRef);
   const m = num(ctx.read(mRef))!, v1 = num(ctx.read(y1))!;
-  const p = nearestPrimeEnding(c, pr.ends);
-  const mark = ref("cart", "yAxisMark", { y: p });
+  // On the mirror (side −1) the target is minus the prime ending in k nearest −c.
+  const p = nearestPrimeEnding(sided(pr, c), pr.ends), target = pr.side === -1 ? -p : p;
+  const mark = ref("cart", "yAxisMark", { y: target });
   ctx.read(mark);
-  ctx.term("landing", `distance from the y-intercept to ${p}`, gap(c, q(p)), [cRef]);
+  ctx.term("landing", `distance from the y-intercept to ${target}`, gap(c, q(target)), [cRef]);
   ctx.term("big-prime", "that prime", q(p), [cRef]);
-  ctx.term("prime-gradient", `distance from the gradient to ${primeEnding(pr)}`, distanceToPrimeEnding(m, pr.ends), [mRef]);
+  ctx.term("prime-gradient", `distance from the gradient to ${minus(pr)}${primeEnding(pr)}`, distanceToPrimeEnding(sided(pr, m), pr.ends), [mRef]);
   ctx.term("next-prime", `distance from y(1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(v1), pr.ends), [y1]);
   ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
   ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
@@ -216,6 +239,13 @@ export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si"
 // ---------------------------------------------------------------- 7. Same on Both Rulers
 
 type T = { T: number };
+/**
+ * T and −T are dealt, so parameter drift (the coordinator's trial call 18) has a peer to redraw. They are exact peers:
+ * the reflection through the origin, (m, c) → (m, −c), keeps the law (its codes are even in c), sends the unchanged
+ * number to minus itself, and leaves every tie-breaker's reading as it was (|c|, the gradient, the lamp, how many
+ * different whole values); lib/v2-linear test beginner.test.ts holds score(−T, reflected) = score(T, line).
+ */
+const RULERS_T: T[] = [{ T: 6 }, { T: -6 }];
 const rulersShape: Shape<T> = {
   main: { ...distance<T>("fixed", "the unchanged number close to T", "", "mach"),
     sentence: p => `The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to ${p.T}.` },
@@ -227,7 +257,7 @@ const rulersShape: Shape<T> = {
     ...factorTies<T>("m", "the gradient"),
   ],
 };
-export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "table", "gen"], rulersShape, [{ T: 6 }], (ctx, p) => {
+export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "table", "gen"], rulersShape, RULERS_T, (ctx, p) => {
   // A vertical line x = k meets y = x at (k, k): k is the number it leaves unchanged.
   const vx = verticalAt(ctx);
   if (vx) return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}: distance to ${p.T}`, gap(vx.x, q(p.T)), vx.from);

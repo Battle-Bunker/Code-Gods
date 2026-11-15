@@ -15,15 +15,15 @@ function score(m, c, p, tie) {
   const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
   // main: how far y(k) is from T (closer is better)
   if (tie === "prime-terms") {   // more different primes among y(1) ... y(8) is better
-    const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.add(Q.mul(m, x), c)).filter(prime).map(Q.toString));   // y(1) ... y(8)
+    const primes = new Set([1, 2, 3, 4, 5, 6, 7, 8].map(x => Q.mul(p.T < 0 ? -1 : 1, Q.add(Q.mul(m, x), c))).filter(prime).map(Q.toString));   // y(1) ... y(8), minus them when T is below zero
     return [main, primes.size];
   }
   if (tie === "prime-gradient") {   // a gradient close to a prime is better
-    const mp = near(m, prime);                  // the prime nearest the gradient
+    const mp = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, m), prime));   // the prime (minus a prime when T is below zero) nearest the gradient
     return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
   }
   if (tie === "square-start") {   // a y-intercept close to a square number is better
-    const sq = near(c, square);                 // the square number nearest the y-intercept (0 below it)
+    const sq = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, c), square));   // the square (minus a square when T is below zero) nearest the y-intercept
     return [main, Q.neg(Q.abs(Q.sub(c, sq)))];
   }
   if (tie === "m-spf") {   // the gradient's smallest prime factor big is better

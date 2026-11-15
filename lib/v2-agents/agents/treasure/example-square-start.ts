@@ -16,7 +16,7 @@ function score(m, c, p) {
     return [main, null];
   }
   const main = Q.neg(Q.abs(Q.sub(Q.add(Q.mul(m, p.k), c), p.T)));   // y(k) = m·k + c
-  const sq = near(c, square);                 // the square number nearest the y-intercept (0 below it)
+  const sq = Q.mul(p.T < 0 ? -1 : 1, near(Q.mul(p.T < 0 ? -1 : 1, c), square));   // the square (minus a square when T is below zero) nearest the y-intercept
   return [main, Q.neg(Q.abs(Q.sub(c, sq)))];   // main: how far y(k) is from T (closer is better); tie-breaker: a y-intercept close to a square number is better
 }
 
