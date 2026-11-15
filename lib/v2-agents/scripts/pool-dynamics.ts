@@ -1,7 +1,7 @@
 /**
  * Starter dynamics on a preset's own pool, per family: the coordinator's drift check, and rows 2, 3 and 9 of the rule
  * design check (docs/engine-v2/design-principles.md). Each game seats three families drawn from the pool (a random
- * tie-breaker each, the family's first dealt parameters). Every seat runs the shipped starter, and the parameters drift
+ * dealt rule each, with a random tie-breaker; pairs: no table their seating rule forbids). Every seat runs the shipped starter, and the parameters drift
  * unless --drift 0. Per family, over the games it was seated in:
  *
  * - row 9: the points it gained (balance: the best family's mean over the worst's), and the share of objects its games
@@ -48,7 +48,7 @@ import { compareScores, evaluateSite, rng, type ObjectType, type Score, type Var
 import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
 import { grid4, gridPresets, gridType } from "@workspace/v2-grid";
 import { lineQ, lineQLenses, lineType, lineZ, presets } from "@workspace/v2-linear";
-import { pairPresets, pairQ, pairType } from "@workspace/v2-pair";
+import { pairClashes, pairPresets, pairQ, pairType } from "@workspace/v2-pair";
 import { valuer } from "../src/harness.ts";
 import { sandboxes, startersFor } from "../src/index.ts";
 import { runTable } from "../src/table.ts";
@@ -132,7 +132,9 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   // --instances: three seats of distinct dealt rules (a family may sit twice with other params), counted per rule; a pool
   // of fewer than three families (Grids · arithmetic) seats that way.
   const same = (a: PoolRule, b: PoolRule) => a.family === b.family && (!o.instances || JSON.stringify(a.params) === JSON.stringify(b.params));
-  while (picks.length < Math.min(3, o.instances ? choices.length : new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => same(x, r))) picks.push(r); }
+  // Pairs: no table the seating rule forbids (lib/v2-pair seating.ts), as the dealer.
+  const seatable = (r: PoolRule) => o.type !== "pairs" || pairClashes([...picks, r]).length === 0;
+  while (picks.length < Math.min(3, o.instances ? choices.length : new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => same(x, r)) && seatable(r)) picks.push(r); }
   const keyOf = (r: PoolRule) => (r.family === o.focus || o.instances ? `${r.family} ${JSON.stringify(r.params)}` : r.family);
   const keys = picks.map(keyOf);
   const seats = picks.map((r, k) => {
