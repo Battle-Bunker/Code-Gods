@@ -166,6 +166,16 @@ try {
     console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();
+    // v1's feed filters and "cost against yield": a filter nothing passes says so, clearing it brings the moves back.
+    await feed.getByTestId("input-feed-min").fill("1e12");
+    await feed.getByTestId("feed-filtered-empty").waitFor();
+    await feed.getByTestId("input-feed-min").fill("");
+    await feed.getByTestId("select-feed-who").selectOption("mine");
+    await feed.getByTestId("text-move-line").first().waitFor();
+    await feed.getByTestId("feed-yield").locator("summary").click();
+    const yieldRow = await feed.getByTestId("row-feed-yield").first().innerText();
+    assert.match(yieldRow, /\d/, `${label}: cost against yield lists your agents' moves: ${yieldRow}`);
+    await feed.getByTestId("select-feed-who").selectOption("all");
     if (label === "desktop") {
       // The palette's "Leave lines alone" opens Agent code at the control, focused (round 10: it closed and did nothing).
       await page.keyboard.press("Control+K");
@@ -274,10 +284,11 @@ try {
     // line-q) has no element for the main part to read; one that scores shows it, badged.
     const scoring = !/not scoring/.test(await line.innerText());
     if (scoring) assert.ok(await line.locator('[data-ref][data-role="main"]').count() > 0, "the element the main part reads carries its badge");
-    assert.doesNotMatch(main, /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
+    // A line named by its equation ("meets y = x") is words, not a parameter letter.
+    assert.doesNotMatch(main.replace(/\by = −?x\b/g, "the line"), /\b[a-z]\b(?= (close|is|=))|\bstep \d/, `no parameter letters and no steps: ${main}`);
     // 2. where it is: a distance with its direction or a size, on a ruler;
     // Where the number is, or (a line that does not score, e.g. a flat line for a crossing rule) why not.
-    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
+    assert.match(main, /(\d+(\.\d+)?|[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|[⁰¹²³⁴⁵⁶⁷⁸⁹]+⁄[₀₁₂₃₄₅₆₇₈₉]+) (above|below) |\bon [−\d]|on the whole number|off by |exactly|: [−\d≈]| = [−\d][^ ]* rounds to|never|not |\bno\b|undefined|cannot/i, `the main part says where the number is: ${main}`);
     // 3. what would make it rarer and what that costs: priced moves with their new bits (W5 passes the rule's value);
     const options = line.locator(".v2v-move-option");
     if (await options.count()) {
