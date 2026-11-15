@@ -156,6 +156,9 @@ const bitsFor = (rule: { family: string; params: Record<string, unknown>; tieBre
 interface MoveStat { moves: number; own: number; fee: number; aboveFee: number; others: number; halved: number; exposed: number; shared: number }
 const byMove = new Map<string, MoveStat>();
 const answers = new Map<string, { n: number; won: number }>();
+/** Per family and mutator (a mirror by its axis): moves, the mover's bits gained, and repeats (the same seat's same move on the same object again). */
+const byFamMove = new Map<string, { moves: number; gain: number; repeats: number }>();
+const seenMoves = new Set<string>();
 const peaks: { seat: number; table: number; stretchRun: number; runBy: string; game: number }[] = [];
 /** Per family (the stats key): the largest bits its seat held on any object, and in which game. */
 const peakBy = new Map<string, { bits: number; game: number }>();
@@ -234,6 +237,12 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         const key = e.calls.map(c => c.mutator).join("+") || "?", fee = e.calls.reduce((t, c) => t + c.price.total, 0);
         const m = byMove.get(key) ?? (byMove.set(key, { moves: 0, own: 0, fee: 0, aboveFee: 0, others: 0, halved: 0, exposed: 0, shared: 0 }), byMove.get(key)!);
         const gain = a[e.seat]! - b[e.seat]!;
+        {
+          const fam = keys[e.seat]!.split(" ")[0]!, mk = e.calls.map(c => c.mutator === "cart.mirror" ? `cart.mirror ${(c.args as { axis?: string }).axis}` : c.mutator).join("+") || "?";
+          const fm = byFamMove.get(`${fam}|${mk}`) ?? (byFamMove.set(`${fam}|${mk}`, { moves: 0, gain: 0, repeats: 0 }), byFamMove.get(`${fam}|${mk}`)!);
+          const rk2 = `${g}:${e.seat}:${e.object}:${mk}`;
+          fm.moves++; fm.gain += gain; if (seenMoves.has(rk2)) fm.repeats++; seenMoves.add(rk2);
+        }
         m.moves++; m.own += gain; m.fee += fee; if (gain > fee) m.aboveFee++;
         let shared = false;
         seats.forEach((_, j) => { if (j === e.seat) return; m.others += a[j]! - b[j]!; if (a[j]! >= b[j]! + 1) shared = true; if (b[j]! >= 2) { m.exposed++; if (a[j]! < b[j]! / 2) m.halved++; } });
@@ -346,6 +355,8 @@ if (answers.size) {
 console.log(`\npeak bits by family (game): ${[...peakBy.entries()].sort((x, y) => y[1].bits - x[1].bits).map(([k, p]) => `${k} ${fmt(p.bits)} (${p.game + 1})`).join("; ")}`);
 const ps = peaks.map(p => p.seat), pt = peaks.map(p => p.table), pr = peaks.map(p => p.stretchRun);
 console.log(`\npeaks per game: a seat's bits median ${fmt(median(ps))}, max ${fmt(Math.max(...ps))}; an object's table total median ${fmt(median(pt))}, max ${fmt(Math.max(...pt))}; longest run of one seat's stretches on one object median ${median(pr)}, max ${Math.max(...pr)}`);
+{ const rows = [...byFamMove].filter(([, v]) => v.moves >= 10).sort((a, b) => b[1].gain - a[1].gain).slice(0, 25);
+  console.log(`\n| family | move | moves | mover's bits gained, mean | total | repeated on the same object by the same seat |\n|---|---|--:|--:|--:|--:|\n${rows.map(([k, v]) => `| ${k.split("|")[0]} | ${k.split("|")[1]} | ${v.moves} | ${(v.gain / v.moves).toFixed(2)} | ${v.gain.toFixed(0)} | ${(100 * v.repeats / v.moves).toFixed(0)}% |`).join("\n")}`); }
 { const top = [...peaks].sort((a, b) => b.stretchRun - a.stretchRun).slice(0, 3); console.log(`longest stretch runs: ${top.map(p => `${p.stretchRun} by ${p.runBy} (game ${p.game}, table total ${fmt(p.table)})`).join("; ")}`); }
 console.log(`objects changed per minute, by third: ${objectsPerMinute.map(x => (x.reduce((a, b) => a + b, 0) / x.length).toFixed(2)).join(" / ")}`);
 if (o.json) (await import("node:fs")).writeFileSync(o.json, JSON.stringify({ ...Object.fromEntries(stats), _objectsPerMinute: objectsPerMinute, _quiet: quietShare }));
