@@ -3079,6 +3079,7 @@ export const PAIR_VERDICTS: readonly PairVerdictRow[] = [
   {"variant":"grid-4-d10","a":"crosswise-threes/fold-factors","b":"leapfrog/same-way","verdict":"partial","shareA":0.699,"shareB":1},
   {"variant":"grid-4-d10","a":"crosswise-threes/fold-factors","b":"leapfrog/columns-leap","verdict":"compatible","shareA":0.934,"shareB":1},
   {"variant":"grid-4-d10","a":"crosswise-threes/fold-factors","b":"leapfrog/middle-factors","verdict":"partial","shareA":0.884,"shareB":0.569},
+  {"variant":"grid-4-d10","a":"divisibility/leftover-digits","b":"leading-digits/exponent-digits","verdict":"partial","shareA":0.516,"shareB":0.558},
 ];
 
 /** The verdict for two rules ("family/tieBreaker") of a variant, in either order; undefined for a pair not listed. */

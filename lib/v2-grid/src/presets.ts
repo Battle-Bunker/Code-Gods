@@ -1,7 +1,7 @@
 /**
  * The grid's presets (integration plan §5.7) on the beginner board: the beginner pool (the old beginner grid's eight
- * rules, each with the tie-breakers BEGINNER_DEALT lists) and the more-rules pool (v1's seven coupled families, each with
- * every tie-breaker). The deal refuses any rule whose artefact is not dealable, so the artefacts decide what is live.
+ * rules, each with the tie-breakers BEGINNER_DEALT lists), the more-rules pool (v1's seven coupled families, each with
+ * every tie-breaker) and the arithmetic playtest pool (Divisibility and Leading Digits). The deal refuses any rule whose artefact is not dealable, so the artefacts decide what is live.
  */
 import { tieBreakersOn } from "@workspace/v2-core";
 import { gridType, grid4 } from "./type.ts";
@@ -11,6 +11,8 @@ import { gridParams } from "./grid.ts";
 
 const BEGINNER = new Set(beginnerGridFamilies(gridParams(grid4).size).map(f => f.id));
 const MORE = new Set(moreGridFamilies(gridParams(grid4).size).map(f => f.id));
+/** The arithmetic playtest pool: readings of the board as long numbers (grid-params.md §12–13). */
+const ARITHMETIC = new Set(["divisibility", "leading-digits"]);
 
 /**
  * The tie-breakers the beginner pool deals: only those tied to what the main part singles out (owner decision 29; the
@@ -50,5 +52,11 @@ export const gridPresets = [
     // One parameter set per family: parameter peers must offer equal opportunity (v1-audit.md #27); the corners,
     // directions and axes are symmetric, but their sampled value functions differ by more than the audit allows.
     rules: poolOf(MORE).filter(r => MORE_PARAMS[r.family] === undefined || JSON.stringify(r.params) === JSON.stringify(MORE_PARAMS[r.family])),
+  },
+  {
+    // A readability playtest, not the default (grid-params.md §13): Divisibility's four instances (DIVISIBILITY_DEALT)
+    // and Leading Digits' four (LEADING_DIGITS_DEALT), each with its one tie-breaker on the attained number.
+    id: "grids-arithmetic", title: "Grids · arithmetic", variant: grid4.id,
+    rules: poolOf(ARITHMETIC),
   },
 ] as const;

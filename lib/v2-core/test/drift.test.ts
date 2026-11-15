@@ -24,3 +24,13 @@ test("driftParams: uniform over all the dealable params (the current ones includ
   assert.deepEqual(driftParams(one, variant, { T: 6 }, "g", 0, 1), { T: 6 });
   assert.deepEqual(driftParams({ dealable: () => [] as { T: number }[] }, variant, { T: 6 }, "g", 0, 1), { T: 6 });
 });
+
+test("driftParams: a `lens` param never drifts (Divisibility's powers stay powers, matching stays matching)", () => {
+  const lensed = { dealable: () => [{ lens: "powers", q: 3, layout: "halves" }, { lens: "powers", q: 3, layout: "alternate" }, { lens: "matching", q: 2, layout: "halves" }, { lens: "matching", q: 2, layout: "alternate" }] };
+  for (let tick = 1; tick <= 200; tick++) {
+    assert.equal(driftParams(lensed, variant, { lens: "powers", q: 3, layout: "halves" }, "g", 0, tick).lens, "powers");
+    assert.equal(driftParams(lensed, variant, { lens: "matching", q: 2, layout: "alternate" }, "g", 1, tick).lens, "matching");
+  }
+  const layouts = new Set(Array.from({ length: 50 }, (_, t) => driftParams(lensed, variant, { lens: "powers", q: 3, layout: "halves" }, "g", 0, t + 1).layout));
+  assert.deepEqual([...layouts].sort(), ["alternate", "halves"], "the layout still drifts");
+});

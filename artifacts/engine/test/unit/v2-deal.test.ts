@@ -157,4 +157,13 @@ test("grids: a deal seats no forbidden pair, and the fewest aligned pairs the po
     assert.ok(changed > 0, `${id}: the seating rule changes some deals`);
   }
   assert.deepEqual(seatingClashes("line-z", ["magic-eighteen", "opposite-nines"]), [], "lines have no seating rule");
+  // Families in no seating cluster (Grids · arithmetic): no forbidden or aligned pair but one family twice; both sit at two seats.
+  assert.deepEqual(gridClashes(["divisibility", "leading-digits"]), []);
+  assert.deepEqual(gridAlignedPairs(["divisibility", "leading-digits", "magic-eighteen"]), []);
+  assert.deepEqual(gridClashes(["leading-digits", "leading-digits"]), ["leading-digits × leading-digits"]);
+  const arithmetic = presetOf("grids-arithmetic"), arithmeticPool = dealablePool(arithmetic);
+  for (let s = 0; s < 20; s++) {
+    const families = freshDeal(arithmeticPool, 2, `arith-${s}`, arithmetic.variant).map(r => r.family);
+    assert.deepEqual([...families].sort(), ["divisibility", "leading-digits"], `arith-${s}`);
+  }
 });

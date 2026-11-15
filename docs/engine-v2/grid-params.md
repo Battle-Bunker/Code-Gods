@@ -279,7 +279,7 @@ columns sits at 17–30 bits where search finds it. A single 8-digit reading div
 (2²⁶ = 67108864). What passes is the same goal on **overlapping readings**: every cell sits in a row reading and a
 column reading, so no formula meets all four at once.
 
-`lib/v2-grid/src/divisibility.ts` (undealt). Card: "Read the top half and the bottom half row by row, and the left half
+`lib/v2-grid/src/divisibility.ts` (dealt only by the §13 playtest preset). Card: "Read the top half and the bottom half row by row, and the left half
 and the right half column by column, each as one number: each should be divisible by as high a power of 3 as possible
 (count the 3s that divide it), and no two rows or two columns may hold the same numbers." Tie-breaker: "What is left of
 those numbers after dividing out their 3s should have digits adding up to as much as possible." Dealt: powers of 3 and
@@ -303,3 +303,42 @@ different q, each with a balanced opponent and a card a 12-year-old can follow. 
 like a power of 2 or 7) passes rows 1–3 at 10.3–10.6 bits but has no opponent; roughness is the opponent of powers but
 sits 3 bits above the band. The alternative, uncapped cells with the old lenses made unbounded, is being prototyped for
 the owner (p10).
+
+## 13. Grids · arithmetic (playtest preset)
+
+`grids-arithmetic` ("Grids · arithmetic") deals Divisibility (§12) and Leading Digits on 4×4, each family with its one
+tie-breaker on the attained number, so the owner can playtest how readable cards about long numbers are. It is a
+**readability playtest, not the default**: the default stays `lines-beginner`, and Grids · beginner is unchanged. It
+plays the beginner grid's game (ten minutes, three boards, exact readings, drift every 120 s) and economy (130 to start).
+Seating needs no rule for it: neither family is in a seating cluster (`seating.ts`), so only one family twice is
+forbidden, and with two families every table of two seats holds both.
+
+| Family | Dealt (4 each) | Tie-breaker |
+|---|---|---|
+| Divisibility (`divisibility.ts`) | powers q = 3 and matching q = 2, each on halves or alternate | leftover-digits |
+| Leading Digits (`leading-digits.ts`) | b ∈ {2, 7}, each on halves or alternate | exponent-digits |
+
+Leading Digits reads the same four readings (`divisibilityReadings`). Card (b = 2, halves): "Read the top half and the
+bottom half row by row, and the left half and the right half column by column, each as one number: each should start
+with the same digits as some power of 2 (up to the 1000th), for as many digits as possible, and no two rows or two
+columns may hold the same numbers." The main part adds, over the four readings, the leading digits each shares with the
+start of some 2^k, k = 0 … 1000 (2¹²⁹ starts 6805…, so 68051234 shares 4), less the repeated rows and columns. A reading
+with leading zeros is the shorter number; a reading of 0 counts nothing. The powers are exact (BigInt): a power with
+fewer digits than the reading shares only its own digits, so 20000000 shares one digit with 2, not eight (the
+prototype padded short powers with zeros). The tie-breaker adds up the digits of each reading's smallest matching
+exponent. The view cites the four readings, focuses those that match the most digits, and notes each one ("starts like
+2¹²⁹ = 6805…: 4 digits"). Value functions are sampled (2M plain draws); the starters in both languages build the table
+of starts themselves, keeping each power's first 40 digits.
+
+The check table for Leading Digits (b = 2, halves, from the prototype `leadMatch`, scratchpad p9, before the exact
+short powers):
+
+| | Question | Evidence | Verdict |
+|---|---|---|---|
+| 1 | Unbounded main part? | Bound 32 (four 8-digit readings, each a full start of a power); best found 28, with no top found (2 of 14 annealing runs reached 28). | Pass |
+| 2 | Ladder length? | A starter-like climber stops at 10.3 bits (b = 7: 10.6). | Pass |
+| 3 | Tie-breaker defined by the main part's value? | It reads the exponents attained; it fell at 45% of main-part steps; at two capped main-part levels the best tie-breaker is 96 and 94. | Weak |
+| 4 | Dealable instances? | 4 (b ∈ {2, 7} × two layouts). | Pass |
+| 5 | Perpendicular? | Maximum depth-averaged \|PMI\| against the beginner eight's mains 1.32. | Pass |
+| 6 | Opponents? | None yet. | Open |
+| 9 | Balanced, keeps moving? | Not measured in seated play: this preset is how it gets measured. | Open |
