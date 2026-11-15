@@ -14,7 +14,7 @@ import { useAuth } from "@/site/hooks/use-auth";
 import { weightText, formOf, nextGameSummary, noiseWords, overridesOf, PEER_NOISE_VARIANCE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
 import { SCORE_INTERVAL_OPTIONS } from "@workspace/engine/convex/v2/duration.ts";
 import { gallerySearch } from "@/site/lib/rule-gallery";
-import { ruleGalleryPath } from "@/site/lib/routes";
+import { configurePath, ruleGalleryPath } from "@/site/lib/routes";
 import { toast } from "@/hooks/use-toast";
 import type { Room } from "@/sdk/types";
 
@@ -154,6 +154,7 @@ export function NextGame({ room }: { room: Room }) {
           </div>
         )}
         <p className="text-muted-foreground" data-testid="text-next-game-summary">{nextGameSummary(preset, room.overrides)}</p>
+        <Link href={configurePath(room.code)} className="inline-block underline underline-offset-4" data-testid="link-configure">{owner ? "Every setting, with a review before saving" : "See all settings"} →</Link>
         {locked && owner && !settings.hidden && <p className="text-xs text-muted-foreground" data-testid="text-settings-locked">{locked}</p>}
         {room.game && <p className="text-xs text-muted-foreground" data-testid="text-settings-frozen">Game {room.game.number} keeps the settings it started with: these are for the next game.</p>}
       </div>

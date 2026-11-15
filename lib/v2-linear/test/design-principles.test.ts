@@ -20,7 +20,6 @@ const EXEMPT: Readonly<Record<string, string>> = {
   "square-area row 3, lpf": "15 Nov, grids session: no counterpart on the high level (Square Area redesign)",
   "prime-gradient row 1": "15 Nov, spec lead: the best main part found is −0.5 at every radius (a top within the searched gradients)",
   "prime-gradient row 3, shared-factor": "15 Nov, spec lead: the low level's best gradient has no counterpart on the high level",
-  "divisibility-ladder row 3, next-rung": "15 Nov, spec lead: the tie-breaker ignores the main part (Divisibility Ladder versions)",
 };
 type K = [number, number];   // (m, c)
 
