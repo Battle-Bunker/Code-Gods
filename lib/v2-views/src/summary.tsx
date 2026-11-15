@@ -104,17 +104,25 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   const partial = input.movesRead ? ` (from your last ${input.movesRead.toLocaleString("en-US")} moves)` : "";
   const costNote = tugs.length > 1 ? `Tug-of-wars cost you ${fmtEnergy(spent)} in all${partial}: energy that moved no ${noun} for good.` : partial ? `Counted${partial}.` : null;
 
-  // One thing to try. Agents are hill climbers (owner, 14 November): on a contested line what pays is a step that raises
-  // the points for both sides (the moves marked “good for both”), which nobody has a reason to undo, not a pull back and forth.
+  // Each contested object: whether the players climbed together or undid each other.
+  const contested = (input.climbs ?? []).flatMap(c => {
+    const climb = climbOf(c.moves);
+    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number) }];
+  });
+
+  // One thing to try, from what happened this game, pointing only at what the player can find on screen (playtest round
+  // 26: the same advice every game, about a mark nobody saw). Agents are hill climbers (owner, 14 November): on a shared
+  // object what pays is a move that counts the others' bits with yours, never a destination to hold.
   let next: Summary<S>["next"];
   const top = tugs[0];
+  const together = contested.find(c => c.kind === "together");
   if (top) {
-    const lesson = top.practice
-      ? `when your agent and another player's pull the same ${noun} back and forth, have it take the moves marked “good for both” on the ${noun}: they raise the points for you and for them, so theirs has no reason to undo them`
-      : `when you and another player pull the same ${noun} back and forth, look on the ${noun} for the moves marked “good for both”: they raise the points for you both, so climb with those and tell each other in chat`;
+    const lesson = `open a ${noun} you share in One ${noun} and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it.${top.practice ? "" : " Tell them in chat which way you are climbing."}`;
     next = { number: top.number, text: input.rotates
-      ? `Next game, ${lesson}.`
-      : `Next game, ${lesson}. This game it was ${noun} ${top.number}.` };
+      ? `Next game, ${lesson}`
+      : `This game ${youAnd(top.withNames).replace(/^You/, "you")} pulled ${noun} ${top.number} back and forth (${top.flips} pulls, ${fmtEnergy(top.mySpend)}). Next game, ${lesson}` };
+  } else if (together) {
+    next = { number: together.number, text: `On ${noun} ${together.number} your moves and the others' all raised the points. Next game, find more ${noun}s like it: in ${cap(noun)}s, the others' bits on each ${noun} show which ones they want too; climb those one move at a time.` };
   } else {
     const wanted = [...input.objects].sort((a, b) => b.want - a.want)[0];
     // A line your rule does not score: the move that makes it score (playtest round 12: Exact Change had no way forward).
@@ -124,11 +132,6 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
       ? { number: wanted.number, text: `${Noun} ${wanted.number} is the one the others want most (${fmtBits(wanted.want)}). Try “${m.words}” on it: ${fmtEnergy(m.price.total)}${m.bits !== null ? ` for ${fmtBits(m.bits)} for you` : ""}.` }
       : { number: null, text: `Open your secret goal before the world starts and find one ${noun} that is nearly what your rule wants.` };
   }
-  // Each contested object: whether the players climbed together or undid each other.
-  const contested = (input.climbs ?? []).flatMap(c => {
-    const climb = climbOf(c.moves);
-    return climb.kind === "alone" || !climb.steps.length ? [] : [{ number: c.number, kind: climb.kind, text: climbSentence(climb, noun, c.number) }];
-  });
   return { noun, next, earned, earnedNote, costs, costNote, contested };
 }
 
