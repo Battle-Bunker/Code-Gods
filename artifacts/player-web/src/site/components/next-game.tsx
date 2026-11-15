@@ -103,7 +103,7 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
         ))}
         <datalist id="score-interval-options">{SCORE_INTERVAL_OPTIONS.map(n => <option key={n} value={n} />)}</datalist>
         <label className="flex min-w-0 flex-col gap-1 text-sm">
-          <span>Others' totals while live</span>
+          <span>Others' bits on each object while live (totals are always exact)</span>
           <select value={form.peerNoiseBits} onChange={e => setForm({ ...form, peerNoiseBits: e.target.value })} disabled={!!locked || busy}
             className="h-9 border bg-background px-2" data-testid="select-setting-peerNoiseBits">
             {PEER_NOISE_OPTIONS.map(n => <option key={n} value={String(n)}>{n === 0 ? "Exact" : `Blurred by about ${n} bits`}</option>)}

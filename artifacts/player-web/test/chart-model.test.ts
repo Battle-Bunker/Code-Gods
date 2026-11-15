@@ -100,7 +100,7 @@ test("the rules say the game on lines in player words, with this game's values",
   assert.doesNotMatch(text, /bidding/, "no bid phase in this preset");
   const bid = rulesParagraphs({ ...BEGINNER, bid: { seconds: 45 } }).join("\n");
   assert.match(bid, /First comes 45 seconds of bidding.*Then 1 minute of planning/);
-  assert.deepEqual(rulesFacts(BEGINNER).map(([k]) => k), ["Game", "Players", "Planning", "The world runs", "Starting energy", "Power", "Energy fills in", "Totals counted", "Others' bits on a line"]);
+  assert.deepEqual(rulesFacts(BEGINNER).map(([k]) => k), ["Game", "Players", "Planning", "The world runs", "Starting energy", "Power", "Energy fills in", "Totals counted", "Others' bits"]);
   assert.deepEqual(rulesFacts({ ...BEGINNER, bid: { seconds: 45 } })[2], ["Bidding", "45 seconds"]);
 });
 
@@ -111,8 +111,8 @@ test("a half-life game's rules say its end is hidden and random; the facts say t
   const facts = Object.fromEntries(rulesFacts({ ...BEGINNER, durationMode: "halfLife", scoreIntervalSeconds: 30, peerNoiseBits: 0 }));
   assert.equal(facts["The world runs"], "a hidden random time (half-life 5 minutes)");
   assert.equal(facts["Totals counted"], "every 30 seconds");
-  assert.equal(facts["Others' bits on a line"], "exact");
-  assert.equal(Object.fromEntries(rulesFacts(BEGINNER))["Others' bits on a line"], "blurred while live (about 8 bits); totals exact");
+  assert.equal(facts["Others' bits"], "exact");
+  assert.equal(Object.fromEntries(rulesFacts(BEGINNER))["Others' bits"], "blurred while live (about 8 bits); totals exact");
 });
 
 test("durations in words", () => {

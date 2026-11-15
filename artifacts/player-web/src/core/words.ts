@@ -52,6 +52,8 @@ export const totalSumNote = (one = "line") => `Your total is the sum of your poi
 export const blurredNote = (one = "line") => `While the game runs, each ${one}'s others' bits are deliberately blurred to keep their rules secret, so a ${one}'s points are estimates. Your totals and the standings are counted exactly.`;
 /** Results, once a blurred game has ended (v1's wording). */
 export const blurredEndedNote = (one = "line") => `Each ${one}'s figures are exact now the game has ended. During the game, how much the others wanted each ${one} was blurred to keep their rules secret; the totals were exact throughout.`;
+/** Beside the total, while the room blurs the others' bits: the total itself is exact (W3 #662, the coordinator's call 15). */
+export const exactTotalNote = (one = "line") => `Your total is counted exactly at every count, although the points shown on each ${one} are estimates while the game runs.`;
 export const othersNote = (one = "line") => `Others' bits: every other player's rarity on this ${one}, added together. A ${one} scores when it is rare for you and for them.`;
 /** When the standings were counted (world seconds): a move's points join a total only at the next count. */
 export const countedNote = (worldSeconds: number | null | undefined, length?: number | null): string | null =>
