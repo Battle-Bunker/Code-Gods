@@ -10,7 +10,7 @@ import path from "node:path";
 import { canonicalJson, hashHex, q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
 import { beginnerPool, divisibilityLadder, fromMC, lineQ, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
 import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
-import { contributors, type RuleRef } from "../src/index.ts";
+import { contributors, partLine, type RuleRef } from "../src/index.ts";
 import { moves } from "../src/moves.ts";
 
 const mc = (m: number | Q, c: number | Q): LineState => ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
@@ -182,4 +182,21 @@ test("a ladder reading that counts as on its rung says so first (round 24: 10.51
   assert.equal(contributors(r, mc(-1, 31)).parts[0]!.distance, "on 31", "exactly on it");
   // Off every rung (33 rounds to 33, not a prime): how far off, as before.
   assert.match(contributors(r, mc(-1, 33)).parts[0]!.distance ?? "", /^\S+ above 31$/);
+});
+
+test("a ladder's main part off every rung says the reading and the nearest rung in words, never a bare negative score (round 29)", async () => {
+  const { primeGradient } = await import("@workspace/v2-linear") as unknown as { primeGradient: RuleRef<LineState, unknown>["family"] };
+  const pg = { type: lineType, family: primeGradient, params: { ends: 1 }, variant: lineQ, tieBreaker: (primeGradient as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+  assert.equal(partLine(contributors(pg, mc(10, 3)).parts[0]!), "● main part: gradient 10 · 1 below 11, a prime ending in 1");
+  // A reading below 0 on a rule whose rungs are above 0: measured to the nearest such prime, not a mirrored one.
+  assert.equal(partLine(contributors(pg, mc(-7, 2)).parts[0]!), "● main part: gradient −7 · 18 below 11, a prime ending in 1");
+  // Every ladder family, on lines off its rungs: words, never "…: −½".
+  for (const f of beginnerPool.filter(x => (x as { keepsParams?: boolean }).keepsParams)) {
+    const r = { type: lineType, family: f as never, params: (f as { dealable(v: unknown): unknown[] }).dealable(lineQ)[0], variant: lineQ, tieBreaker: (f as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+    for (const st of [mc(10, 3), mc(-7, 2), mc(4, 100)]) {
+      const line = partLine(contributors(r, st).parts[0]!);
+      assert.doesNotMatch(line, /: [−-][\d½⅓⅔¼¾]/, `${f.id}: ${line}`);
+      assert.doesNotMatch(line, /\bdealt\b/, `${f.id}: no "dealt" jargon: ${line}`);
+    }
+  }
 });

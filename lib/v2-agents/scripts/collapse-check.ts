@@ -109,7 +109,7 @@ const PLAYED: Record<string, string[]> = {
 async function runVariant(v: VariantId): Promise<VariantResult> {
   const space = spaceOf(v) as Space<any>;
   const pool = poolOf(v);
-  const rules = pool.rules, E = shareOfGame(v, Number(o.seconds));
+  const rules = pool.rules, E = shareOfGame(v, Number(o.seconds), Number(o.objects));
   const nTables = Number(v === "grid-4-d10" ? o["grid-tables"] : o.tables);
   const tables = deal(rules, nTables, v);
   const birthXs = births(space.type, space.variant, "collapse", Number(o["reach-births"])).map(s => space.coords(s));

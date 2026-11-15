@@ -17,7 +17,7 @@ const DIR = join(import.meta.dirname, "../values/line-q");
 const MIRRORS: Record<string, [object, object][]> = {
   "prime-landing": [1, 9].map(ends => [{ ends }, { ends, side: -1 }] as [object, object]),
   "treasure": [3, 4].map(k => [{ k }, { k, side: -1 }] as [object, object]),
-  "same-on-both-rulers": [[{ T: 6 }, { T: -6 }]],
+  "same-on-both-rulers": [[{ d: 1 }, { d: 1, side: -1 }], [{ d: 2 }, { d: 2, side: -1 }]],
   "prime-gradient": [1, 9].map(ends => [{ ends }, { ends, side: -1 }] as [object, object]),
   "whole-crossing": [[{ q: 5, r: 1 }, { q: 5, r: 4 }], [{ q: 5, r: 2 }, { q: 5, r: 3 }]],
 };

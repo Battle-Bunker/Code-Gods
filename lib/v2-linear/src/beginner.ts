@@ -13,7 +13,7 @@ import { sameOnBothRulers, treasure } from "./beginner-rulers.ts";
 
 export { factorLabel } from "./layers.ts";
 export { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
-export { sameOnBothRulers, treasure } from "./beginner-rulers.ts";
+export { sameOnBothRulers, treasure, rulersWitness, treasureWitness } from "./beginner-rulers.ts";
 import { gcdTerm } from "./rational.ts";
 import { digitLevel, digitNote, stepNote, triangularLevel, ladderLevel, nearestOnLadder, nearestResidue, distanceToPrime, distanceToPrimeEnding, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 

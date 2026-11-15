@@ -652,6 +652,32 @@ back) or TRIAL (a declared experiment, measured and reported).
       Test 2 passes at β 0.02 and 0.05 and fails at 0.1. The one findable table (no axis line) is a low joint best
       (7.5–10.5 bits a seat) found in about 30,000 evaluations by a searcher who knows all three rules.
 
+32. **TRIAL** (the lens worker's redesign, declared to the coordinator 15 Nov; #839): Treasure is a ladder. When x is
+    k (3 or 4, each with its mirror y → −y), y should land on a coin pile (a triangular number 1, 3, 6, 10, …), the
+    bigger the better, in triangular levels of digits; any other y(k) scores below every pile. Tie-breaker: the biggest
+    number dividing both the pile's height and the gradient's whole part.
+    - **Motivation.** The old main part (y(k) close to T) had a top that seats reached and sat on; the owner's
+      principles want an unbounded main part with a tie-breaker that restarts on each new rung.
+    - **Effects** (160 games, drift 0): 70–72% of seats still climbing in the last third, 5–18% plateaued early, peak 14.1
+      bits, balance within the family 1.30, PMI 68% independent. The dealer then over-dealt Treasure (named by almost
+      every family) by 45%; the coordinator ruled to draw the anchor's opponent with weight 1/(the number of families
+      naming it), which keeps every family within ±30% at 3, 4 and 5 seats.
+
+33. **TRIAL** (the lens worker's redesign, declared to the coordinator 15 Nov): Same on Both Rulers is a ladder. The
+    number the machine leaves unchanged, c/(1 − m) (where the line meets y = x), should round to a number that reads the
+    same backwards and starts with d (d = 1 or 2, each with its mirror through the origin), the bigger the better, in
+    triangular levels of digits. Tie-breaker: the biggest number dividing both that number's digit sum and the
+    y-intercept's whole part (a new palindrome changes the digit sum, so its climb restarts).
+    - **Motivation.** The rule it replaces (the unchanged number close to T = ±6) had a top that is hit exactly, and it
+      froze the human's board in playtest rounds 28 and 29.
+    - **Effects** (80 games, drift 0, the family in every game): 59% of seats still climbing in the last third, 11%
+      plateaued early, peak 11.9 bits, balance within the family 1.56 (d 1 and its mirror, exact peers, differ by 1.36:
+      mostly sampling). PMI against the dealt pool 52% independent, mean 0.61. **Row 2 is borderline:** seats improve
+      the main part late mostly by approaching the nearest palindrome; palindromes starting with d are sparse (1, 11,
+      101 … 191, 1001), so a longer one is a far additive jump, cheap only through a gradient near 1. Merged because an
+      unbounded ladder with sparse rungs is better than a top hit exactly; the follow-up (every palindrome a rung, odd
+      or even number of digits × mirror) replaces it if row 2 improves and fairness, the energy gate and the deal hold.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

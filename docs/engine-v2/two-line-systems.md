@@ -794,3 +794,84 @@ Final pool (§11.1–11.4), searches hitting 95% of the best known per table (of
   crosses at a small grid point, (−10, 19), with D = −11. It needs about 100,000 evaluations (6 of 12).
 - **The mechanism:** a small grid crossing whose determinant is a prime pays the tie-breakers that read the crossing's
   numbers and D at once. It is low and specific to the three seated rules, and it takes knowing all three rules.
+
+## 12. Single large jumps and frozen tops (15 November)
+
+The coordinator's orders after #847:
+- (i) find out whether a single large jump is a cheap witness the tail cap missed or a move priced below its path;
+- (ii) give the tie-breaker work at the top, measured at each main-part level and carried, capped by witnesses.
+
+### 12.1 Single large jumps: the ladder rate, not the cap or the price
+
+Traced with `TRACE=1 scripts/pair-climb.ts`:
+
+| rule | move | bits before (#847) | bits after | ⚡ |
+|---|---|---|---|--:|
+| Right Angle {5, 1}, corner-steep | slide line 2 by 5 | 10.9 → 23.4 | 10.9 → 12.9 | 30 |
+| Gap Ratio {3}, gap-divisor | translate by (5, 0) | 11.0 → 22.4 | 11.0 → 12.2 | 36 |
+| Gap Ratio {3}, gap-prime | turn line 2 by −10 | 10.1 → 23.0 | 10.1 → 12.1 | 92 |
+
+- **Neither cause the order named.** Each reached state was already worth no more than its φ and its witness cap, so
+  no cheap witness was missed. The slide was not priced below its path either: its argument costs 25.7 bits against
+  20.1 for five unit slides. The far act is cheaper in total only because the per-act `which` is paid once.
+- **The cause: the ladder-log rate.** It was fitted from level 0 to level 1, and reaching level 1 pays the rule's
+  exactness (an angle, a grid point) of about 9 bits. That rate made level 2 worth its cap, not its rarity.
+- **The fix.** The rate is now fitted across rung levels ≥ 1, each level a power of the base q or k (value.ts `fitTail`,
+  "ladder-log" with `base`). One step up is worth about log₂ of the base. With fewer than two rung levels sampled, the
+  rate is 1 bit a doubling.
+- **Re-fitted, not re-sampled.** `scripts/retail.ts` now re-fits pair tails from their knots.
+- **Regression tests.** test/value-pair.test.ts pins all three acts at no more than log₂(base) + 1 bits each.
+
+### 12.2 Frozen tops: the tie-breaker measured at each main level
+
+- **Why tops froze.** A ladder's main score, base^L × (1 + 1/(1 + d)), is near-continuous, so two states almost never
+  tie on it. The lexicographic knots therefore give the tie-breaker almost nothing (0.02–0.3 bits a doubling). Past
+  the best knot it was worth exactly 0 unless the main part tied the knot.
+- **Measured given the level, it is a real hill.** Its rate is about 1–3 bits per doubling at every level.
+- **The change.** Each pair value function now stores, per main level, the tie-breaker's survival −log₂ P(tb ≥ t | L)
+  from its own draws (value.ts `TieBreakerLevels`). Past its measured range the curve continues at its fitted rate, on
+  the same axis it was fitted on. A level with too few draws carries the curve of the level below.
+- **Where it applies.** Past the best knot, at its main part or above, a state is worth the main part's tail plus its
+  tie-breaker bits at the level reached. That is counted beyond what the best knot's own tie-breaker is worth, so
+  crossing the knot is no jump. It is capped by the family's witnesses, as the main part is.
+- **Regression test.** A first version extrapolated from the last measured point and over-paid a stretch by 11 on Steep
+  Ratio (12.7 → 28.3 bits); test/value-pair.test.ts pins it.
+- **No maximum and no count was tuned.**
+
+### 12.3 Measured, before and after
+
+- **Straight climb** (`scripts/pair-climb.ts`):
+  - every climb still ends frozen, with no straight runs;
+  - peaks fall from 7.5–23.4 bits to 7.5–20.9.
+  - The greedy single seat still freezes, because on a rung almost every move breaks the exact main part (an angle, a
+    grid point). Few single moves change the tie-breaker and keep the level. That is the rung's geometry, not the
+    value.
+- **Energy gate:** the pair maximum is Steep Ratio {5, 2} ratio-gap at 33.5 bits (#847: 28.7). It is under 35.
+- **In play** (`scripts/pool-dynamics.ts --type pairs`, 12 games of 600 s, seats on the starter):
+
+| | #847 | (i) | (i) + (ii) |
+|---|--:|--:|--:|
+| seats still stepping up the main part in the last third, by family | 33–100% | 33–100% | 33–100% |
+| objects changed per minute, by third | 1.72 / 1.08 / 1.11 | 1.72 / 1.08 / 1.11 | 1.72 / 1.08 / 1.11 |
+| a seat's peak bits, median / max | 11.0 / 18.5 | 11.0 / 15.0 | 11.1 / 16.5 |
+
+  Play barely moves. Seats on the starter end at 4–6 bits, inside the knots, where neither change applies.
+- **Collapse test 2** (tables cheap at ≥ 4 of 12 searches):
+
+| β | #847 | (i) | (i) + (ii) |
+|--:|--:|--:|--:|
+| 0.02 | 1/8 | 2/8 | 3/8 **FAIL** |
+| 0.05 | 2/8 | 3/8 **FAIL** | 3/8 **FAIL** |
+| 0.1 | 4/8 **FAIL** | 6/8 **FAIL** | 5/8 **FAIL** |
+
+  Lower tails past the knots lower the high peaks no search reached, so the best known is a moderate state more
+  searches find. At β 0.05 the new cheap table is table 0 (Far Crossing far-gap, Gap Ratio gap-prime, Steep Ratio
+  ratio-gap): best F 350 at −7x + y + 14 = 0 with 3x + 9y + 1 = 0, found by 9 of 12 searches. Reported to the
+  coordinator as a bug under "an optimum found is a bug".
+
+### 12.4 The check table (design-principles.md), rows 2 and 3
+
+| row | question | pairs after §12 |
+|---|---|---|
+| 2 | Is the ladder climbed all game, in play? | Seats stepping up the main part in the last third: Whole Answer 100%, No Fractions 75%, Steep Ratio 67%, Gap Ratio 60%, Far Crossing 60%, Forty-Five 56%, Right Angle 40%, High Start 33%. Short of two in three for four families, as in #847. |
+| 3 | Is the tie-breaker defined by the main part's value? | Far Crossing and High Start: yes, the target is q^(L+1). The other six read the crossing or the coefficients directly, not the level; under §12.2 their bits now depend on the level reached, but their best states do not. |
