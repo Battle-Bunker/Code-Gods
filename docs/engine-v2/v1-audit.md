@@ -397,7 +397,7 @@ owner question.
 | A8 | Owner "Cancel bidding" | Absent | 1 | W3 (op) |
 | A9 | Phone assistant bottom sheet; pane maximise | Maximise **restored** (desktop, this screen only); bottom sheet absent | 2 | — |
 | A10 | Chat filters: Humans, AI, Mentions | **Restored** in the game's chat (#881) | — | — |
-| A11 | Grid as coloured tiles (a per-viewer renderer choice) | Numbers in ink only: the owner took colour off the beginner board (`lib/v2-views/src/render/grid.tsx`) | 2 | Q: tiles bring colour back |
+| A11 | Grid as coloured tiles (a per-viewer renderer choice) | Covered by the owner: "We eliminated colour from the beginner grid game to increase concentration of interest within one dimension." (owner decision 5) | — | — |
 | A12 | "Copy game rules for an AI"; "Connect a player app" sheet | **Restored**: How to play copies the rules and the agent primer; connecting is the /connect page | — | — |
 | A13 | Header: overdrawn warning, retry-uncertain banner | Absent | 1 | W3 (check the field) |
 | A14 | "Who am I" and "Server info" sheets | Absent | 1 | — |
@@ -406,3 +406,30 @@ owner question.
 
 **Order of restoration.** Items with no server need and no open question come first, largest effect on play first: A4,
 A6, A7 (without download), A10, A11, A9, A12, A14. Each operation among them goes through `lib/v2-affordances`.
+
+---
+
+## 5. Mechanical parity inventory of the old app (W5, 15–16 November)
+
+`docs/engine-v2/v1-parity.json` lists every component, pane, page, palette command, keyboard shortcut, room setting
+and e2e scenario of archive/engine-v1's player app, one row each, with its status in v2: present (with the v2 file),
+missing, or changed (with the decision and its source). `artifacts/player-web/test/v1-parity.test.ts` fails when a
+row is missing or changed with neither a named reason nor a plan, so a gap cannot be silent. Restoring an item sets
+its row present; rows are never deleted.
+
+The statuses come from searching the v2 tree for each item's words, test ids, titles and affordances, not from
+running the app.
+
+| | Rows | Present | Changed | Missing |
+|---|---|---|---|---|
+| All | 468 | 264 | 102 | 102 |
+| component | 130 | 76 | 30 | 24 |
+| e2e | 120 | 50 | 24 | 46 |
+| command | 118 | 89 | 21 | 8 |
+| setting | 40 | 9 | 16 | 15 |
+| shortcut | 28 | 13 | 8 | 7 |
+| pane | 17 | 15 | 1 | 1 |
+| page | 15 | 12 | 2 | 1 |
+
+- **Missing:** about 81 hours to port, 31 of them old e2e scenarios. 27 missing rows need something from a server session first (the `server` field).
+- **Changed without a written decision ("changed?"):** 66 rows, about 27 hours if each is ported back rather than accepted. Each needs a look: some will turn out to be missing.
