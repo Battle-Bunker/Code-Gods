@@ -106,3 +106,17 @@ test("Whole Crossing's §A2 tie-breakers: tied to the crossing's whole number, u
   assert.equal(t["gcd-num-m"], "—");
   for (const tb of ["gcd-c", "gcd-num-m"]) assert.ok(!presets.some(p => p.rules.some(r => r.family === "whole-crossing" && r.tieBreakers.includes(tb))), tb);
 });
+
+test("vertical lines score where the rule has an honest reading (the coordinator's call, 15 Nov)", () => {
+  const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });   // a·x + c = 0: x = −c/a
+  // x = 13/2: Treasure passes (13/2, 37), 9/2 across from (2, 37); Prime Landing lands on the x-axis ½ from 7; it meets
+  // y = x at 13/2, ½ from T = 6; Ruler's distance² is 169/4, 25/4 from 36 (k = 6). Tie-breakers stay undefined.
+  assert.deepEqual(terms(treasure, { k: 2, T: 37 }, x(-2n, 13n), lineQ), { treasure: "9/2", "prime-terms": "—", "prime-gradient": "—", "square-start": "—", "m-spf": "—", "m-gpf": "—" });
+  assert.equal(terms(primeLanding, {}, x(-2n, 13n), lineQ).landing, "1/2");
+  assert.equal(terms(sameOnBothRulers, { T: 6 }, x(-2n, 13n), lineQ).fixed, "1/2");
+  assert.deepEqual(terms(ruler, {}, x(-2n, 13n), lineQ), { ruler: "25/4", far: "6", "prime-gradient": "—", "square-area": "—" });
+  // x = 3: on the prime 3, distance² 9 exactly.
+  assert.equal(terms(primeLanding, {}, x(-1n, 3n), lineQ).landing, "0");
+  assert.equal(terms(ruler, {}, x(-1n, 3n), lineQ).ruler, "0");
+  assert.notEqual(evaluateSite(lineType, ruler, {}, x(-1n, 3n), lineQ, 0, null).score, null, "a vertical line scores");
+});

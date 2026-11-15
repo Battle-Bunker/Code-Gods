@@ -6,7 +6,7 @@
  */
 import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
-import { allUndefined, distance, family, gap, more, num, undef, undealt, type L, type Shape } from "./layers.ts";
+import { allUndefined, distance, family, gap, more, num, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
 import { gcdTerm } from "./rational.ts";
 import { distanceToPrime, distanceToWhole, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
@@ -29,6 +29,26 @@ const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
 ];
 
 const squareGap = (x: Q): { root: bigint; d: Q } => { const r = nearestSquareRoot(x); return { root: r, d: gap(x, q(r * r)) }; };
+
+// ---------------------------------------------------------------- vertical lines (the coordinator's call, 15 Nov)
+// A vertical line x = k is a real line a 12-year-old knows. Rules with an honest reading of it score it (its main part
+// read through another lens); its tie-breakers that need a gradient or a y-intercept stay undefined (the worst).
+
+const VERTICAL_NO = "a vertical line has no gradient or y-intercept";
+/** Where a vertical line stands (x = −c/a), read from the general form; null for any other line. */
+function verticalAt(ctx: Ctx): { x: Q; from: ElementRef[] } | null {
+  const bRef = ref("gen", "b");
+  if (num(ctx.read(bRef))!.n !== 0n) return null;
+  const aRef = ref("gen", "a"), cRef = ref("gen", "c");
+  const a = num(ctx.read(aRef))!, c = num(ctx.read(cRef))!;
+  return { x: Qn.neg(Qn.div(c, a)), from: [aRef, bRef, cRef] };
+}
+/** Score only the main part (the tie-breakers undefined) for a vertical line. */
+function verticalMain<P>(ctx: Ctx, f: Shape<P>, label: string, value: Q, from: ElementRef[]): void {
+  ctx.term(f.main.id, label, value, from);
+  for (const l of f.tieBreakers) ctx.term(l.id, l.title, { undefined: VERTICAL_NO }, from);
+  ctx.mark({ kind: "note", ref: from[0]!, text: `a vertical line: ${label}` });
+}
 
 // ---------------------------------------------------------------- 1. Prime Staircase
 
@@ -112,7 +132,10 @@ const treasureShape: Shape<KT> = {
     ...factorTies<KT>("m", "the gradient"),
   ],
 };
-export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
+export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart", "gen"], treasureShape, [{ k: 2, T: 37 }], (ctx, p) => {
+  // A vertical line x = k passes the height T somewhere: how far across from the treasure (k, T) it does.
+  const vx = verticalAt(ctx);
+  if (vx) return verticalMain(ctx, treasureShape, `a vertical line: how far across from (${p.k}, ${p.T}) it passes`, gap(vx.x, q(p.k)), vx.from);
   const at = ref("table", "y", { x: p.k });
   const v = ctx.read(at);
   const y = num(v);
@@ -150,7 +173,10 @@ const landingShape: Shape<object> = {
     ...factorTies<object>("m", "the gradient"),
   ],
 };
-export const primeLanding = family("prime-landing", "Prime Landing", ["si", "cart", "table"], landingShape, [{}], ctx => {
+export const primeLanding = family("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, [{}], ctx => {
+  // A vertical line never meets the y-axis: it lands on the x-axis instead, and that number should be close to a prime.
+  const vx = verticalAt(ctx);
+  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: distance to a prime`, distanceToPrime(vx.x), vx.from);
   const cRef = ref("si", "c"), mRef = ref("si", "m"), y1 = ref("table", "y", { x: 1 });
   const cv = ctx.read(cRef);
   const c = num(cv);
@@ -183,7 +209,10 @@ const rulersShape: Shape<T> = {
     ...factorTies<T>("m", "the gradient"),
   ],
 };
-export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "table"], rulersShape, [{ T: 6 }], (ctx, p) => {
+export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "table", "gen"], rulersShape, [{ T: 6 }], (ctx, p) => {
+  // A vertical line x = k meets y = x at (k, k): k is the number it leaves unchanged.
+  const vx = verticalAt(ctx);
+  if (vx) return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}: distance to ${p.T}`, gap(vx.x, q(p.T)), vx.from);
   const fRef = ref("mach", "fixed");
   const fv = ctx.read(fRef);
   const f = num(fv);
@@ -299,8 +328,20 @@ const rulerShape: Shape<object> = {
     distance("square-area", "the triangle's area close to a square", "The triangle cut off the axes should have an area as close as possible to a square number.", "tri"),
   ],
 };
-export const ruler = family("ruler", "Ruler", ["norm", "si", "tri"], rulerShape, [{}], ctx => {
+export const ruler = family("ruler", "Ruler", ["norm", "si", "tri", "gen"], rulerShape, [{}], ctx => {
   const mRef = ref("si", "m"), d2Ref = ref("norm", "dist2"), area = ref("tri", "area");
+  // A vertical line x = k is |k| from (0, 0): its distance² reads honestly; the gradient and the triangle do not exist.
+  const vx = verticalAt(ctx);
+  if (vx) {
+    const d2 = num(ctx.read(d2Ref))!;
+    let kv = nearestSquareRoot(d2);
+    if (kv === 0n) kv = 1n;
+    ctx.term("ruler", `distance from distance² to ${kv * kv}`, gap(d2, q(kv * kv)), [d2Ref]);
+    ctx.term("far", "the whole distance nearest", q(kv), [d2Ref]);
+    for (const id of ["prime-gradient", "square-area"]) ctx.term(id, id, { undefined: VERTICAL_NO }, vx.from);
+    ctx.mark({ kind: "note", ref: d2Ref, text: `a vertical line: distance² ${Qn.toWire(d2)}, nearest square ${kv * kv}` });
+    return;
+  }
   const mv = ctx.read(mRef);
   const m = num(mv);
   if (m === null || Qn.isZero(m)) return allUndefined(ctx, rulerShape, m === null ? mv : { kind: "undefined", reason: "a flat line's distance is its height: the rule wants a sloping line" }, mRef);
