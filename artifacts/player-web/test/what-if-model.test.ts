@@ -105,7 +105,7 @@ test("the lens moves: a number or a word (a turn about the origin), and a move w
   // A crease leaves the mirror out; a mirror leaves the crease out.
   assert.deepEqual(wireArgs(fold.args, { x0: "0", s: "1", mirror: "" }), { x0: "0", s: "1" });
   assert.deepEqual(wireArgs(fold.args, { x0: "", s: "", mirror: "0,1,0" }), { mirror: "0,1,0" });
-  const out = whatIf({ rule: rule("prime-landing", null, lineQLenses), state: { lines: [{ a: -2n, b: 1n, c: -1n }] }, call: { mutator: "fold", args: { mirror: "0,1,0" } }, value: null, want: null });
+  const out = whatIf({ rule: { ...rule("prime-landing", null, lineQLenses), params: { ends: 3 } }, state: { lines: [{ a: -2n, b: 1n, c: -1n }] }, call: { mutator: "fold", args: { mirror: "0,1,0" } }, value: null, want: null });
   assert.ok(out.ok, out.ok ? "" : out.reason);
   if (out.ok) assert.equal(lineType.encode(out.after as never), "2,1,1");
   assert.equal(argError("left", true, ["left", "right"]), null);

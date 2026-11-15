@@ -138,9 +138,9 @@ test("unique objects: a plan onto a state another object holds is not allowed, s
 });
 
 test("disclosure noise: othersAfter reports the others' sum plus the noise at each state, unclamped as v1 disclosed it", () => {
-  const other = { family: "prime-gradient", params: {}, tieBreaker: "prime" };
-  const others = [{ rule: other, values: findValues("line-z", other)! }];
-  const at = { lines: [fromMC(q(7), q(3))] }, next = lineType.encode({ lines: [fromMC(q(7), q(4))] });
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const others = [{ rule: other, values: findValues("line-q", other)!   /* the dealt ending is valued on line-q only */ }];
+  const at = { lines: [fromMC(q(11), q(3))] }, next = lineType.encode({ lines: [fromMC(q(11), q(4))] });
   const ask = (disclosed?: (e: string) => number) => {
     const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy: 10, others, ...(disclosed ? { disclosed } : {}) });
     const reply = host.handle({ op: "othersAfter", calls: [{ mutator: "si.shift", site: 0, args: { k: "1" } }] } as HostRequest, { hostCallsLeft: 10 });

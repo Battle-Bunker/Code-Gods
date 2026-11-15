@@ -19,6 +19,8 @@
 #   near(x, test)                the whole number nearest to x that passes the test, e.g. near(m, prime).
 #                                The test gets a plain whole number. On a tie the smaller one; None if none
 #                                within 10,000.
+#   near(x, test, k)             the same among positive whole numbers ending in the digit k: near(c, prime, 3) is
+#                                the prime ending in 3 nearest c (below the smallest such prime, that prime).
 #   whole(x)                     the whole number nearest to x (a half rounds up).
 #   smooth(n)                    is n made only by multiplying 2s, 3s, 5s and 7s (1 included; the sign ignored)?
 #                                e.g. near(x, smooth).
@@ -589,8 +591,18 @@ def better(a, b):
 _PRIME, _SQUARE = prime, square     # the helpers themselves, even if an agent reuses the names
 
 
-def near(x, test):
+def near(x, test, ends=None):
     v = Fraction(x)
+    if ends is not None:
+        # Only positive whole numbers whose last digit is `ends`; below the smallest such prime, that prime.
+        first = {0: None, 1: 11, 2: 2, 3: 3, 4: None, 5: 5, 6: None, 7: 7, 8: None, 9: 19}
+        if test is _PRIME and ends in first:
+            if first[ends] is None:
+                return None
+            if v <= first[ends]:
+                return first[ends]
+        inner = test
+        test = lambda n: n > 0 and n % 10 == ends and inner(n)
     # Exact for any size where the answer is known in closed form: below 2 the nearest prime is 2; squares by root.
     if test is _PRIME and v <= 2:
         return 2

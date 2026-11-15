@@ -1,5 +1,5 @@
-# Prime Staircase · Example: y(−1) close to a prime
-# Main part: a run of different primes from y(0). Tie-breaker: y(−1) close to a prime.
+# Prime Staircase · Example: y(−1) close to such a prime
+# Main part: a run of different dealt primes from y(0). Tie-breaker: y(−1) close to such a prime.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,19 +12,19 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    run, stopped, miss = [], False, None            # miss: the size of the first term that is not prime
+    run, stopped, miss = [], False, None            # miss: the size of the first term that is not such a prime
     for n in range(12):                             # y(0) ... y(11)
         t = m * n + c
-        is_prime = prime(t)
+        is_prime = prime(t) and t % 10 == p["ends"]
         if not stopped and is_prime and t not in run:
-            run.append(t)                           # the different primes it starts with
+            run.append(t)                           # the different primes ending in p["ends"] it starts with
         else:
             stopped = True
         if not is_prime and miss is None:
             miss = abs(t)
     main = len(run)
     back = abs(c - m)                          # y(-1), ignoring its sign
-    return [main, -abs(back - near(back, prime))]   # main: how many different primes the pattern y(0), y(1), ... starts with (more is better); tie-breaker: y(-1) (ignoring sign) close to a prime is better
+    return [main, -abs(back - near(back, prime, p["ends"]))]   # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better); tie-breaker: y(-1) (ignoring sign) close to such a prime is better
 
 
 FAR = 3      # how far one change may go

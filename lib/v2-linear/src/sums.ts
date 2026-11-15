@@ -94,6 +94,8 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   } }] },
   // The x-axis crossing −c/m is whole exactly when m divides c.
   "whole-crossing": { bands: [{ atLeast: () => q(0), ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) }] },
-  // A run of one or more different primes from y(0) needs c prime: every score from a run of 1 is a sum over the primes.
-  "prime-staircase": { bands: [{ atLeast: () => q(1), points: "same", ranges: () => SMALL_PRIMES.map(p => ({ lo: p, hi: p })) }] },
+  // A run of one or more different primes ending in the dealt digit from y(0) needs c such a prime: every score from a
+  // run of 1 is a sum over those primes.
+  "prime-staircase": { bands: [{ atLeast: () => q(1), points: "same",
+    ranges: (_m: bigint, p: { ends: number }) => SMALL_PRIMES.filter(x => x % 10n === BigInt(p.ends)).map(x => ({ lo: x, hi: x })) }] },
 };

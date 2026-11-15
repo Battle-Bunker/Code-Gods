@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
+import { canonicalJson, hashHex, q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
 import { beginnerPool, divisibilityLadder, fromMC, lineQ, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
 import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { contributors, type RuleRef } from "../src/index.ts";
@@ -17,31 +17,31 @@ const mc = (m: number | Q, c: number | Q): LineState => ({ lines: [fromMC(typeof
 const rule = (family: RuleRef<LineState, unknown>["family"], tieBreaker: string, params: unknown = family.dealable(lineZ)[0]): RuleRef<LineState, unknown> =>
   ({ type: lineType, family, params, variant: lineZ, tieBreaker });
 
-const VALUES = path.resolve(import.meta.dirname, "../../v2-valuation/values/line-z");
+const VALUES = path.resolve(import.meta.dirname, "../../v2-valuation/values");
 function valueOf(r: RuleRef<LineState, unknown>): (u: Score) => number {
-  const dir = path.join(VALUES, r.family.id);
-  const file = readdirSync(dir).find(f => f.endsWith(`-${r.tieBreaker}.json`))!;
+  const dir = path.join(VALUES, r.variant.id, r.family.id);
+  const file = readdirSync(dir).find(f => f === `${hashHex(canonicalJson(r.params))}-${r.tieBreaker}.json`)!;
   const vf = JSON.parse(readFileSync(path.join(dir, file), "utf8")) as ValueFunction;
   const look = valueLookup(vf);
   return u => look(u).bits;
 }
 
-test("Prime Landing on y = 6x + 25: c, its nearest prime 23, 2 below; the tie-breaker is that prime, bigger is better", () => {
-  const c = contributors(rule(primeLanding, "big-prime"), mc(6, 25));
+test("Prime Landing (primes ending in 7) on y = 6x + 19: c, its nearest such prime 17, 2 below; the tie-breaker is that prime, bigger is better", () => {
+  const c = contributors(rule(primeLanding, "big-prime", { ends: 7 }), mc(6, 19));
   const [main, tb] = c.parts;
   assert.equal(main!.role, "main");
-  assert.deepEqual(main!.source.map(s => `${s.label} ${s.text}`), ["y-intercept 25"]);
-  assert.equal(main!.reference?.value, 23);
-  assert.equal(main!.distance, "2 above 23");
+  assert.deepEqual(main!.source.map(s => `${s.label} ${s.text}`), ["y-intercept 19"]);
+  assert.equal(main!.reference?.value, 17);
+  assert.equal(main!.distance, "2 above 17");
   assert.equal(main!.aim, "the closer, the better");
   const at = main!.ruler!.refs.map(r => r.at);
-  assert.ok(at.includes(23) && at.includes(29), `the reference 23 and the next prime 29 are on the ruler: ${at}`);
-  assert.equal(main!.ruler!.refs.find(r => r.strong)?.at, 23);
-  assert.equal(main!.ruler!.value, 25);
+  assert.ok(at.includes(17) && at.includes(23), `the reference 17 and the primes above are on the ruler: ${at}`);
+  assert.equal(main!.ruler!.refs.find(r => r.strong)?.at, 17);
+  assert.equal(main!.ruler!.value, 19);
   assert.equal(tb!.role, "tb");
-  assert.equal(tb!.valueText, "23");
+  assert.equal(tb!.valueText, "17");
   assert.equal(tb!.aim, "the bigger, the better");
-  assert.ok(tb!.ruler!.refs.some(r => r.at === 29), "the primes above are on its ruler");
+  assert.ok(tb!.ruler!.refs.some(r => r.at === 23), "the primes above are on its ruler");
 });
 
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
@@ -63,13 +63,13 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   assert.equal(tr.source[0]!.label, "y(2)");
   assert.equal(tr.reference?.value, 37);
   assert.equal(tr.distance, "1 below 37");
-  const on = contributors(rule(primeLanding, "big-prime"), mc(6, 23)).parts[0]!;
-  assert.equal(on.distance, "on 23");
+  const on = contributors(rule(primeLanding, "big-prime", { ends: 7 }), mc(6, 17)).parts[0]!;
+  assert.equal(on.distance, "on 17");
 });
 
 test("wording: no parameter letters, no 'distance …: 0', no steps or thresholds, in any generated sentence", () => {
   const cases: [RuleRef<LineState, unknown>, LineState][] = [
-    [rule(primeLanding, "big-prime"), mc(6, 25)], [rule(primeLanding, "m-gpf"), mc(290, 59)],
+    [rule(primeLanding, "big-prime", { ends: 7 }), mc(6, 25)], [rule(primeLanding, "m-gpf", { ends: 7 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
     [rule(wholeCrossing, "k-gpf"), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
     [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
@@ -87,7 +87,7 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
 });
 
 test("moves: varied, one per kind: the cheapest for the main part, the cheapest for the tie-breaker, the most bits per ⚡", () => {
-  const r = rule(primeLanding, "big-prime");
+  const r = { ...rule(primeLanding, "big-prime", { ends: 7 }), variant: lineQ };   // the dealt ending's values (line-q)
   const value = valueOf(r);
   for (const s of [mc(6, 25), mc(3, 19), mc(-2, 40)]) {
     const before = value(contributors(r, s).utility);
@@ -102,7 +102,7 @@ test("moves: varied, one per kind: the cheapest for the main part, the cheapest 
       assert.doesNotMatch(m.words, /\b(a|b|k) /, `move words leak a letter: ${m.words}`);
     }
   }
-  // Where the main part can improve (25 is 2 above the prime 23), the first move listed is the cheapest that does.
+  // Where the main part can improve (25 is 8 above 17, the nearest prime ending in 7), the first move listed is the cheapest that does.
   assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.reason, /main part/);
   assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.changes.join(" "), /25 → /);
 });

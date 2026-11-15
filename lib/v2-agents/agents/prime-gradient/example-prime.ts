@@ -1,5 +1,5 @@
 // Prime Gradient · Example: the size of that prime
-// Main part: gradient close to a prime. Tie-breaker: the size of that prime.
+// Main part: gradient close to the dealt prime. Tie-breaker: the size of that prime.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -11,10 +11,10 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
-  const nearest = near(m, prime);                 // the prime nearest the gradient
+  const nearest = near(m, prime, p.ends);         // the prime ending in p.ends nearest the gradient
   if (nearest === null) return null;              // none within 10,000: hopeless
   const main = Q.neg(Q.abs(Q.sub(m, nearest)));
-  return [main, nearest];   // main: how far the gradient is from the nearest prime (closer is better); tie-breaker: a bigger prime is better
+  return [main, nearest];   // main: how far the gradient is from the nearest prime ending in the rule's digit (closer is better); tie-breaker: a bigger prime is better
 }
 
 const FAR = 3;      // how far one change may go
