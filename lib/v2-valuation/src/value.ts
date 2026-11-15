@@ -272,6 +272,10 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
   let c = cs[0]!;
   for (let i = cs.length - 1; i >= 0; i--) if (cs[i]!.level <= level) { c = cs[i]!; break; }
   const pts = c.pts;
+  // A distance carried from another level is read on that level's scale: a ladder's targets grow by its base a level
+  // (q^(L+1), the level's own number), so a distance of 2 to a multiple of 11⁴ is a distance of 2/121 to one of 11².
+  // Read unscaled, the lower level's curve paid 25 bits for it (Far Crossing {11, 2}, 46 bits on the energy gate).
+  if (c.level !== level && pts[pts.length - 1]![0] <= 0) t *= lv.base ** (c.level - level);
   if (t <= pts[0]![0]) return 0;
   for (let i = 1; i < pts.length; i++) {
     const [t1, b1] = pts[i]!;
@@ -281,7 +285,7 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
   // not of the step past the last point, which over-paid a far act (a stretch by 11 took Steep Ratio's tie-breaker from
   // 12 to 132 and its seat from 12.7 to 28.3 bits).
   const [tl, bl] = pts[pts.length - 1]!, x = tieBreakerAxis(pts);
-  return bl + c.slope * Math.max(0, x(t) - x(tl));
+  return bl + (tl <= 0 ? Math.min(c.slope, DISTANCE_RATE) : c.slope) * Math.max(0, x(t) - x(tl));
 }
 
 /**
@@ -296,6 +300,12 @@ export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): 
  * −log₂(1 + |t|), so its climb ends at the target. On a size's axis a distance's floor (a sampled −10¹⁹) made every
  * ordinary state worth 25 bits.
  */
+/**
+ * A distance's rate past its measured range: 1 bit a halving. Near its target a distance with a smooth density has
+ * P(d ≤ x) ∝ x, so each halving is exactly one bit. A rate fitted at the far end of a sparse level ran to 4 bits a
+ * halving, and 34 bits for a crossing 3 from a multiple of 1,331 (Far Crossing {11, 8} on the energy gate).
+ */
+const DISTANCE_RATE = 1;
 function tieBreakerAxis(pts: readonly (readonly [number, number])[]): (t: number) => number {
   const t0 = pts[0]![0];
   return pts[pts.length - 1]![0] <= 0 ? t => -Math.log2(1 + Math.abs(Math.min(t, 0))) : t => Math.log2(1 + t - t0);
@@ -330,7 +340,8 @@ export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base
     // Fewer than three points is no curve: the level carries the one below.
     if (pts.length < 3) continue;
     const x = tieBreakerAxis(pts), fit = leastSquares(pts.map(([t, b]) => ({ x: x(t), y: b })));
-    curves.push({ level: L, pts, slope: round6(Math.max(fit?.slope ?? 0, TAIL_FLOOR)) });
+    const slope = Math.max(fit?.slope ?? 0, TAIL_FLOOR);
+    curves.push({ level: L, pts, slope: round6(pts[pts.length - 1]![0] <= 0 ? Math.min(slope, DISTANCE_RATE) : slope) });
   }
   return { base, curves };
 }
