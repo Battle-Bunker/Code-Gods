@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type { Score } from "@workspace/v2-core";
-import { beginnerPool, lineType, lineZ, squareArea, type LineState } from "@workspace/v2-linear";
+import { beginnerPool, lineQ, lineType, lineZ, squareArea, type LineState } from "@workspace/v2-linear";
 import { grid4, gridType } from "@workspace/v2-grid";
 import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
 import { contributors, legibility, workedExample, type RuleRef } from "../src/index.ts";
@@ -38,7 +38,10 @@ test("Square Area's example has whole legs and a real square, and its tie-breake
 
 test("every pool family, line or grid, gets a scoring example with no '≈' and no fraction in what its main part reads", () => {
   const rules: RuleRef<any, unknown>[] = [
-    ...beginnerPool.flatMap(f => f.tieBreakers.map(tb => ({ type: lineType, family: f as never, params: f.dealable(lineZ)[0], variant: lineZ, tieBreaker: tb.id }))),
+    ...beginnerPool.flatMap(f => f.tieBreakers.map(tb => {
+      const variant = f.dealable(lineZ).length ? lineZ : lineQ;   // Smooth Intercept is dealt on the rationals only
+      return { type: lineType, family: f as never, params: f.dealable(variant)[0], variant, tieBreaker: tb.id };
+    })),
     ...gridType.families.map(f => ({ type: gridType, family: f, params: f.dealable(grid4)[0], variant: grid4, tieBreaker: f.tieBreakers[0]?.id })),
   ];
   for (const r of rules) {

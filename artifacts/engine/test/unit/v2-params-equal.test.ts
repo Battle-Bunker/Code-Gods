@@ -31,6 +31,7 @@ import { LINE_Q_CODES } from "@workspace/v2-linear";
 /** Ladder families: the code cost of a rung (the main part's whole value), or null where the knot is not on a rung. */
 const LADDER_COST: Readonly<Record<string, (u: string) => number | null>> = {
   "prime-landing": u => (/^\d+$/.test(u) ? LINE_Q_CODES.c.bits(BigInt(u)) : null),
+  "smooth-intercept": u => (/^\d+$/.test(u) ? LINE_Q_CODES.c.bits(BigInt(u)) : null),
 };
 /** The median over rungs of (least bits on the rung − the rung's code cost). */
 function ladderExcess(knots: readonly { u: unknown; bits: number }[], cost: (u: string) => number | null): number | null {

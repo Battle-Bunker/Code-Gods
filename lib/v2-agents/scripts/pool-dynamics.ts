@@ -21,7 +21,7 @@
  *
  *   node --experimental-strip-types scripts/pool-dynamics.ts [--type lines|grids|pairs] [--games 12] [--seconds 600]
  *     [--drift 120] [--kind simple] [--objects 3] [--births 0.0041667] [--variant line-q] [--only prime-landing,treasure]
- *     [--from 0] [--json out.json] [--focus prime-landing]
+ *     [--from 0] [--json out.json] [--preset grids-arithmetic] [--instances] [--focus prime-landing]
  *
  * --focus seats the family in every game (seat 0, its dealt parameters in turn, game by game; the other two seats from
  * the rest of the pool) and reports it per parameter set. Valleys crossed: its main-part steps from a rung (a main part
@@ -42,12 +42,12 @@ const { values: o } = parseArgs({ options: {
   type: { type: "string", default: "lines" },
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
-  variant: { type: "string", default: "line-q" }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" },
+  variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
 const setup = ((): { type: ObjectType<unknown>; variant: Variant; pool: readonly PoolRule[]; economy: typeof LINES_BEGINNER_ECONOMY } => {
-  if (o.type === "grids") return { type: gridType as ObjectType<unknown>, variant: grid4, pool: gridPresets[0].rules, economy: GRIDS_BEGINNER_ECONOMY };
+  if (o.type === "grids") return { type: gridType as ObjectType<unknown>, variant: grid4, pool: (o.preset ? gridPresets.find(p => p.id === o.preset)! : gridPresets[0]).rules, economy: GRIDS_BEGINNER_ECONOMY };
   if (o.type === "pairs") return { type: pairType as ObjectType<unknown>, variant: pairQ, pool: pairPresets[0].rules, economy: LINES_BEGINNER_ECONOMY };
   const variant = o.variant === "line-z" ? lineZ : lineQ;
   return { type: lineType as ObjectType<unknown>, variant, pool: presets.find(p => p.variant === variant.id)!.rules, economy: LINES_BEGINNER_ECONOMY };
@@ -81,8 +81,11 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const choices = o.only ? pool.filter(r => o.only!.split(",").includes(r.family)) : pool;
   const picks: PoolRule[] = [];
   if (o.focus) { const mine = pool.filter(r => r.family === o.focus); if (!mine.length) throw new Error(`no ${o.focus} in the pool`); picks.push(mine[g % mine.length]!); }
-  while (picks.length < Math.min(3, new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => x.family === r.family)) picks.push(r); }
-  const keyOf = (r: PoolRule) => (r.family === o.focus ? `${r.family} ${JSON.stringify(r.params)}` : r.family);
+  // --instances: three seats of distinct dealt rules (a family may sit twice with other params), counted per rule; a pool
+  // of fewer than three families (Grids · arithmetic) seats that way.
+  const same = (a: PoolRule, b: PoolRule) => a.family === b.family && (!o.instances || JSON.stringify(a.params) === JSON.stringify(b.params));
+  while (picks.length < Math.min(3, o.instances ? choices.length : new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => same(x, r))) picks.push(r); }
+  const keyOf = (r: PoolRule) => (r.family === o.focus || o.instances ? `${r.family} ${JSON.stringify(r.params)}` : r.family);
   const keys = picks.map(keyOf);
   const seats = picks.map((r, k) => {
     const tieBreaker = r.tieBreakers[R.below(r.tieBreakers.length)]!;

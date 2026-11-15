@@ -16,10 +16,10 @@ function terms<P>(f: RuleFamily<LineState, P>, p: P, s: LineState, v = lineZ): R
 }
 
 test("the beginner pool: the curator's eight families and two restored ones (Exact Change undealt), each a textbook main layer and graded tie-breakers", () => {
-  assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
+  assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // Prime Staircase has one secondary (its run of six leaves the others almost nothing to order); the rest three or four.
-    assert.ok(f.tieBreakers.length >= (f.id === "prime-staircase" ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (f.id === "prime-staircase" || f.id === "smooth-intercept" ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
