@@ -167,3 +167,48 @@ greedy steepest ascent from π boards in 6 of 300 runs (median 36 moves); a firs
 
 Not done: tilted draws in this pass; path prices beyond the move cap; columns versions' reach is taken from the rows
 versions by symmetry; uniform-board tops were the only easy routes checked.
+
+## 9. Gate on the merged families (#713): fails on balance and on optima
+
+Measured on the repository's own rules (`evaluate()` of the 81 new values and the 45 dealt rules; score order agrees
+with `evaluateSite` on 2,000 board pairs per family). Bits as dealt (main, then tie-breaker) from the same 2 million π
+boards, with exact main laws or tops where a family splits into independent units; reach is a first-improvement
+climber, ≤ 100 moves (±1, swaps), 64 π starts.
+
+**Balance: the tie-breakers move the band.** Median reach per (value, tie-breaker):
+
+| family | range of medians (family median) | width | values within ±0.5 | p90 range |
+|---|---|---|---|---|
+| Magic Totals | 11.2–21.7 (16.3) | 10.5 | 14 / 57 | 14.9–27.2 |
+| Spread | 14.8–21.6 (17.4) | 6.8 | 6 / 30 | 15.4–31.7 |
+| Number Lines | 15.0–24.6 (16.0) | 9.6 | 29 / 60 | 16.5–24.6 |
+| Pair Sums | 22.9–30.6 (23.6) | 7.6 | 55 / 96 | 22.9–33.9 |
+
+By tie-breaker (median reach): Magic Totals different-totals 14.7, same-quotient 16.3, small-totals 18.9; Spread
+low-floor 16.3, extremes-apart 17.4, all-different 20.5; Number Lines 15.6–16.6; Pair Sums 23.6–25.3. The bands were set
+on the main alone; tie-breakers add up to 5 bits, and Pair Sums sits about 7 bits above the rest. Banding must be per
+(value, tie-breaker), or only band-keeping tie-breakers dealt.
+
+**PMI** (depth-averaged, depths 4–12): new × new (300 pairs) median −0.11, mean |PMI| 1.12, 63 / 16 / 9 / 12 %
+independent / mild / aligned / anti-aligned; new × today's 45 dealt rules (270) median 0.06, mean 1.19, 58 / 24 / 9 / 7 %.
+By family: Number Lines 0.55, Magic Totals 0.78, Spread 1.53, Pair Sums 1.72. Extremes: Spread (squares, s 1) × Magic
+Eighteen −7.8, Pair Sums × Strangers −7.7, Spread + all-different × Spread of Three +6.9.
+
+**Joint hardness** (annealing, 30 pairs): new × new keeps a median 0.59 of the worse rule's solo best (p10 0.31, p90
+0.81), 2 pairs reach ≥ 95 % of both, both main parts at their exact top in 5; new × dealt 0.62, 4 pairs, 0 exact.
+
+**Drift survival** (with tie-breakers): Magic Totals 0.32, Spread 0.17, Number Lines 0.42, Pair Sums 0.27 (median).
+
+**Dynamism** (3 climbers on one board, 600 moves, a redraw every 40): three rules of different new families as dealt
+never settle, drift on or off (about 40 of 40 moves per window change the board, about 580 distinct boards, no window
+all stuck), but they churn low: 3–6 bits each, the worst player's second-half median 1.6. Mains only, drift off: 7 % of
+late windows all stuck, bits to about 7.5. One climber alone freezes at about 20 bits with drift off and keeps about 5
+improving moves per window with drift on: drift is what keeps an unopposed rule moving.
+
+**Optima found (bugs).** Both mains at their exact tops in 5 of 30 new × new annealing pairs; all three mains' exact
+tops in 2 of the 3-climber tables (mains only), held for up to 9 windows. Mechanism: every new family reads rows,
+columns, pairs or totals that a period-2 board keeps (two alternating digits, or a repeated pair of rows), so one row
+that satisfies each rule locally extends to the whole board: 0202 / 0202 / 0202 / 0202 meets Number Lines (rows, q 11,
+r 4), Spread (row triples, s 2) and Pair Sums (side by side, "add up to 2") at once; 2625 / 2526 / 0744 / 2625 and
+6436 / 6346 / 6436 / 6346 likewise. Candidate fix: units a period-2 board breaks (diagonals, or a rule rewarding
+different rows). With tie-breakers dealt the tables never reached an optimum, but nobody reached 20 bits either.
