@@ -3,6 +3,7 @@ import { durationModeOf, scoreIntervalOf, timeScaleOf } from "./duration";
 import { peerNoiseSigmaOf, peerNoiseVarianceOf } from "./disclose";
 import { readPriceWeightOf } from "./knowledge";
 import { priceScaleOf } from "./pricing";
+import { driftSecondsOf } from "./drift";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
@@ -29,6 +30,8 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     priceScale: priceScaleOf(game),
     // Time dilation (decision 37): the game's settings are already dilated by it (simulations and local playtests).
     timeScale: timeScaleOf(game.settings),
+    // Parameter drift (drift.ts): drift k at world second k × driftSeconds, so the app counts down from the clock.
+    driftSeconds: driftSecondsOf(game),
   };
 }
 

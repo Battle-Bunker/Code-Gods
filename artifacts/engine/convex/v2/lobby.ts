@@ -282,6 +282,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     scoreIntervalSeconds: room.overrides.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS,
     // Paying to read (knowledge.ts, decision 35): the weight on a look's read price; 0 reads the live world free.
     readPriceWeight: room.overrides.readPriceWeight ?? preset.readPriceWeight,
+    // Parameter drift (drift.ts; the coordinator's trial, call 18): every seat's parameters redrawn every this many seconds.
+    driftSeconds: room.overrides.driftSeconds ?? preset.driftSeconds,
     // Time dilation (decision 37): every rate × it, every duration ÷ it, the same game faster.
     timeScale,
   }, timeScale);

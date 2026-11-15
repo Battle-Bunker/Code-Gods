@@ -102,6 +102,16 @@ it (planning, world, full charge, score interval, half-life, the bid phase), ene
 scale uses the undilated power). AI turns and idle parking divide their wall times by it. The header carries
 `timeScale`.
 
+Parameter drift (the coordinator's trial, call 18; `drift.ts`): `settings.driftSeconds` (120 on the beginner presets,
+0 elsewhere; a `room.settings` override, 0 off; `dilate` divides it). Drift k happens at world second k × driftSeconds,
+on the same tick for every seat: each seat whose rule has other parameter values with precomputed values (its grid)
+gets them redrawn, never its family or tie-breaker (`redrawParams`, seeded by game, seat and k; the spec lead's
+`driftParams` in v2-core, among values with precomputed values). `v2Rules` takes the new params, ruleKey and card, with `drifts` and `driftedAt`
+(`play:myRule` carries both); every object's values are recomputed under the new rules; the record gets a `drift`
+event (each redrawn seat's new rule) then a `values` event per object. The header carries `driftSeconds`, so the app
+counts down from the clock. Agents read the new parameters on their next act. `artefacts` keep the dealt rules (a
+rematch deals the same).
+
 Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
