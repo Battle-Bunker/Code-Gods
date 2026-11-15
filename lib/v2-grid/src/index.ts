@@ -6,6 +6,7 @@ export * from "./families.ts";
 export * from "./more-families.ts";
 export * from "./param-families.ts";
 export * from "./divisibility.ts";
+export * from "./leading-digits.ts";
 export * from "./sums.ts";
 export * from "./type.ts";
 export * from "./presets.ts";

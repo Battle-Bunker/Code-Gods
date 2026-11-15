@@ -47,7 +47,7 @@ test("the tie-breaker reads the attained number: a step up the main part changes
   assert.deepEqual(left(C), [1381742, 30041152, 5310868, 582146]);
 });
 
-test("cards: one sentence each, filled in, at most four numbers; dealt: four instances, in no preset (row 4)", () => {
+test("cards: one sentence each, filled in, at most four numbers; dealt: four instances, in the arithmetic preset only (row 4)", () => {
   assert.equal(fam.card({ lens: "powers", q: 3, layout: "halves" }, null),
     "Read the top half and the bottom half row by row, and the left half and the right half column by column, each as one number: each should be divisible by as high a power of 3 as possible (count the 3s that divide it), and no two rows or two columns may hold the same numbers.");
   assert.equal(fam.card({ lens: "matching", q: 2, layout: "alternate" }, "leftover-digits"),
@@ -59,7 +59,10 @@ test("cards: one sentence each, filled in, at most four numbers; dealt: four ins
     assert.doesNotMatch(c, /\bline\b/i, c);
     assert.ok((c.match(/\d+/g) ?? []).length <= 4, c);
   }
-  for (const pr of gridPresets) for (const r of pr.rules) assert.notEqual(r.family, "divisibility", `${pr.id} deals it`);
+  // Dealt only by the arithmetic playtest preset, each instance with its one tie-breaker.
+  for (const pr of gridPresets) for (const r of pr.rules) if (r.family === "divisibility") assert.equal(pr.id, "grids-arithmetic", `${pr.id} deals it`);
+  const arithmetic = gridPresets.find(p => p.id === "grids-arithmetic")!.rules;
+  assert.deepEqual(arithmetic.filter(r => r.family === "divisibility").map(r => [r.params, r.tieBreakers]), DIVISIBILITY_DEALT.map(p => [p, ["leftover-digits"]]));
 });
 
 test("the view: each number is a readings element with its power, what is left, and what one more step needs", () => {

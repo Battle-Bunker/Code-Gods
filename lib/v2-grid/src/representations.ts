@@ -119,11 +119,11 @@ export function gridRepresentations(n: number): readonly Representation<GridStat
     layout: () => ({ kind: "grid", rows: n, cols: n, cells: cellRefs(n), groups: [...fp.map(([a, b], k) => ({ cells: [a, b], el: ref("fold", `fold${k}`) })), { cells: foldLine(n), el: ref("fold", "line") }] }),
   };
 
-  // The board's halves (or odd and even rows and columns) read as numbers: Divisibility's readings and their differences.
+  // The board's halves (or odd and even rows and columns) read as numbers: Divisibility's and Leading Digits' readings, and their differences.
   const readingNum = (s: GridState, cs: readonly number[]) => cs.reduce((t, i) => t * 10 + s.cells[i]!, 0);
   const READING_LABELS: Record<DivisibilityLayout, readonly string[]> = {
-    halves: ["the top half read row by row as a number", "the bottom half read row by row as a number", "the left half read column by column as a number", "the right half read column by column as a number"],
-    alternate: ["the odd rows read row by row as a number", "the even rows read row by row as a number", "the odd columns read column by column as a number", "the even columns read column by column as a number"],
+    halves: ["the top half (row by row)", "the bottom half (row by row)", "the left half (column by column)", "the right half (column by column)"],
+    alternate: ["the odd rows (row by row)", "the even rows (row by row)", "the odd columns (column by column)", "the even columns (column by column)"],
   };
   const LAYOUTS = n % 2 === 0 ? (["halves", "alternate"] as const) : ([] as const);
   const readingRep: Representation<GridState> = {
