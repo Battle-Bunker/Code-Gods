@@ -19,15 +19,12 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "ruler"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
 test("restored families (decision 22), worked by hand", () => {
-  // y = 3x + 10: distance² 100/10 = 10, nearest square 9; gradient 3 is prime; area 100/6, nearest square 16.
-  assert.deepEqual(terms(ruler, {}, mc(3, 10), lineQ), { ruler: "1", far: "3", "prime-gradient": "0", "square-area": "2/3" });
-  // y = −2x + 5: distance² 5, nearest square 4; area 25/4, nearest square 4.
-  assert.deepEqual(terms(ruler, {}, mc(-2, 5), lineQ), { ruler: "1", far: "2", "prime-gradient": "4", "square-area": "9/4" });
+  // Ruler's worked lines: test/ruler.test.ts.
   // 2x + y = 12: coins 2 and 1 pay 12 in 7 ways (x = 0 … 6), the smallest pile 0; coin 1 is 1 from the prime 2.
   assert.deepEqual(terms(exactChange, { ways: 6 }, mc(-2, 12), lineQ), { change: "1", "big-piles": "0", "big-bill": "12", "prime-coins": "1" });
   // A rising line reads as a negative coin: not coins at all.
@@ -115,15 +112,16 @@ test("Whole Crossing is a ladder of 5s on the crossing: every level has a higher
 test("vertical lines score where the rule has an honest reading (the coordinator's call, 15 Nov)", () => {
   const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });   // a·x + c = 0: x = −c/a
   // x = 13/2: Treasure passes (13/2, 37), 9/2 across from (2, 37); Prime Landing lands on the x-axis at 6½, which rounds to 7; it meets
-  // y = x at 13/2, ½ from T = 6; Ruler's distance² is 169/4, 25/4 from 36 (k = 6). Tie-breakers stay undefined.
+  // y = x at 13/2, ½ from T = 6; Tie-breakers stay undefined.
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, x(-2n, 13n), lineQ), { treasure: "9/2", "prime-terms": "—", "prime-gradient": "—", "square-start": "—", "m-spf": "—", "m-gpf": "—" });
   assert.equal(terms(primeLanding, { ends: 7 }, x(-2n, 13n), lineQ).landing, "27/20");   // x = 6½ rounds to 7 (ties up): level 1 + 0.7/2
   assert.equal(terms(sameOnBothRulers, { T: 6 }, x(-2n, 13n), lineQ).fixed, "1/2");
-  assert.deepEqual(terms(ruler, {}, x(-2n, 13n), lineQ), { ruler: "25/4", far: "6", "prime-gradient": "—", "square-area": "—" });
+  // Ruler: distance² 169/4 = 42¼, ¼ above the window [41, 42) of ending 1; no y-intercept.
+  assert.deepEqual(terms(ruler, { ends: 1 }, x(-2n, 13n), lineQ), { ruler: "-1/4", "shared-factor": "—" });
   // x = 3: on the prime 3, distance² 9 exactly.
   assert.equal(terms(primeLanding, { ends: 3 }, x(-1n, 3n), lineQ).landing, "23/20");
-  assert.equal(terms(ruler, {}, x(-1n, 3n), lineQ).ruler, "0");
-  assert.notEqual(evaluateSite(lineType, ruler, {}, x(-1n, 3n), lineQ, 0, null).score, null, "a vertical line scores");
+  assert.equal(terms(ruler, { ends: 3 }, x(-1n, 3n), lineQ).ruler, "-4");   // distance² 9: 4 below ending 3's window [13, 14)
+  assert.notEqual(evaluateSite(lineType, ruler, { ends: 3 }, x(-1n, 3n), lineQ, 0, null).score, null, "a vertical line scores");
 });
 
 test("Prime Landing is a ladder on the x-axis: every rung has a higher one, a small tilt apart, and its tie-breaker restarts on a new rung (design-principles.md rows 1, 2 and 3)", () => {
