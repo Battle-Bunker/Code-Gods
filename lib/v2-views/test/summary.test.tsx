@@ -34,7 +34,7 @@ const base: SummaryInput<LineState> = {
 test("what earned the points: the best lines first, each said through its rule's main part, with bits × others'", () => {
   const s = summarise(base);
   assert.deepEqual(s.earned.map(e => e.number), [7, 4, 3], "best first, nothing that scored nothing");
-  assert.match(s.earned[0]!.chain, /^● y-intercept 23 · on 23$/, s.earned[0]!.chain);
+  assert.match(s.earned[0]!.chain, /^● main part: y-intercept 23 · on 23$/, s.earned[0]!.chain);
   // Self-consistent arithmetic (the app's one formatter): "=" where the shown factors multiply to the shown product…
   assert.equal(s.earned[0]!.formula, "your 8.86 bits × others' 6.79 bits = 60.16 points");
   // …and "≈" where they do not (10.22 × 11.05 = 112.93, but the full values make 112.97).
@@ -46,9 +46,9 @@ test("what earned the points: the best lines first, each said through its rule's
 test("what cost: each tug-of-war with whom and the energy your agent burnt, dearest first", () => {
   const s = summarise(base);
   assert.equal(s.costs.length, 2);
-  assert.equal(s.costs[0]!.text, "You and Ada pulled line 4 back and forth (6 pulls, 28.86 ⚡).");
+  assert.equal(s.costs[0]!.text, "You and Ada pulled line 4 back and forth (6 pulls, 28.86 energy).");
   assert.match(s.costs[1]!.text, /You and Ada and Bo|You, Ada and Bo/);
-  assert.match(s.costNote ?? "", /38\.36 ⚡ in all/);
+  assert.match(s.costNote ?? "", /38\.36 energy in all/);
 });
 
 test("the component: three short sections, no steps, the noun of the object type; a grid says grid", () => {
@@ -72,14 +72,14 @@ test("the component: three short sections, no steps, the noun of the object type
 test("one thing to try next game: on a contested line, climb with the moves that raise both; no destination to hold", () => {
   const people = summarise(base);
   assert.equal(people.next.number, 4);
-  assert.equal(people.next.text, "Next game, when you and another player pull the same line back and forth, look on the line for the moves marked ↑ both: they raise the points for you both, so climb with those and tell each other in chat. This game it was line 4.");
+  assert.equal(people.next.text, "Next game, when you and another player pull the same line back and forth, look on the line for the moves marked “good for both”: they raise the points for you both, so climb with those and tell each other in chat. This game it was line 4.");
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
-  assert.match(practice.next.text, /^Next game, when your agent and another player's pull the same line back and forth, have it take the moves marked ↑ both on the line/);
+  assert.match(practice.next.text, /^Next game, when your agent and another player's pull the same line back and forth, have it take the moves marked “good for both” on the line/);
   assert.equal(summarise({ ...base, rotates: true }).next.text.endsWith("This game it was line 4."), false, "in a rotation: the lesson only");
   for (const s of [people, practice]) assert.doesNotMatch(s.next.text, /TARGET|SETTLE|hold it|settle/i);
   // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
   const calm = summarise({ ...base, tugs: [] });
-  assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ ⚡( for [\d.]+ bits for you)?\.$/, calm.next);
+  assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ energy( for [\d.]+ bits for you)?\.$/, calm.next);
 });
 
 test("contested lines: each said as climbed together or undone, under its own heading", () => {

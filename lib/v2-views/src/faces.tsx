@@ -4,7 +4,7 @@
  * source, reference and distance on a ruler), the moves that would make the object rarer with their prices and new
  * bits, the representation switcher (the rule's views first) and the expanded face.
  *
- * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", ⚡ energy, "main part",
+ * Player words only: points, rarity in bits (each bit = twice as rare) with "1 in N by chance", energy, "main part",
  * "tie-breaker", and the game's own noun ("line", "grid"), never "object". No steps and no thresholds.
  */
 import type { Contributor } from "./contributors.ts";
@@ -21,6 +21,10 @@ import { key } from "./render/common.tsx";
 const rolesOf = (parts: readonly Contributor[]) => parts.flatMap(p => p.source.map(s => ({ ref: s.ref, role: p.role })));
 
 export const GLYPH = { main: "●", tb: "◆" } as const;
+/** Each part's name, said beside its symbol (a symbol never stands alone for a concept: the owner, 15 Nov). */
+export const PART_NAME = { main: "main part", tb: "tie-breaker" } as const;
+/** A move that raises the bits for you and for the others: its one name, everywhere. */
+export const GOOD_FOR_BOTH = "good for both";
 
 /** "2.13 bits (1 in 4.4 by chance)", or "not scoring"; empty without the rule's value function. */
 export function bitsLine(a: Annotation): string {
@@ -28,9 +32,9 @@ export function bitsLine(a: Annotation): string {
   return a.bits === null ? "" : `${fmtBits(a.bits)} (${chanceText(a.bits)} by chance)`;
 }
 
-/** One part in one line: "● y-intercept 25 · 2 above 23" / "◆ that prime 23". */
+/** One part in one line: "● main part: y-intercept 25 · 2 above 23" / "◆ tie-breaker: that prime 23". */
 export function partLine(p: Contributor): string {
-  const g = GLYPH[p.role];
+  const g = `${GLYPH[p.role]} ${PART_NAME[p.role]}:`;
   const said = p.source.filter(x => x.text);
   if (p.distance && said.length) return `${g} ${p.source.length > 3 ? p.title : said.map(x => `${x.label} ${x.text}`).join(", ")} · ${p.distance}`;
   return `${g} ${p.title}: ${p.valueText}`;
@@ -39,7 +43,7 @@ export function partLine(p: Contributor): string {
 /** The main part's one line, without its glyph (the Lines row's "Why?"). */
 export function mainLine<S, P>(_rule: RuleRef<S, P>, _state: S, a: Annotation, site = 0): string {
   const p = a.sites[site]?.parts[0];
-  return p ? partLine(p).slice(2) : "";
+  return p ? partLine(p).replace(/^\S+ [^:]+: /, "") : "";
 }
 
 // ------------------------------------------------------------------ compact face
@@ -235,7 +239,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
             data-unavailable={taken !== null ? "" : undefined} {...(points !== null ? { "data-points": String(points) } : {})}>
             <span className="v2v-move-words">{m.words[0]!.toUpperCase() + m.words.slice(1)}{!m.words.includes(m.text) && m.text.length <= RESULT_MAX && <span className="v2v-move-result"> → {m.text}</span>}</span>
             <span className="v2v-move-price">{fmtEnergy(m.price.total)}</span>
-            <span className="v2v-move-reason">{cap1(m.reason)}{both && <b className="v2v-move-both" title="More bits for you and for the others"> · ↑ both of you</b>}</span>
+            <span className="v2v-move-reason">{cap1(m.reason)}{both && <b className="v2v-move-both" title="More bits for you and for the others"> · {GOOD_FOR_BOTH}</b>}</span>
             <span className="v2v-move-changes">{m.changes.join(" · ")}</span>
             {taken !== null
               ? <span className="v2v-move-bits" data-testid="text-move-unavailable">Not available: {noun} {taken} is already like this, and no two {noun}s may be the same.</span>
@@ -246,7 +250,7 @@ export function MovesList<S>({ list, noun, bits, others }: MovesListProps<S>): R
         ))}
       </ol>
       <p className="v2v-moves-hint">{others
-        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked ↑ both raises them for you and for the others, so nobody has a reason to undo it."
+        ? "Points = your bits × the others' bits together. Climb a step at a time: a move marked “good for both” raises them for you and for the others, so nobody has a reason to undo it."
         : "The first is drawn dashed in the views that can show it. Tell your assistant the words, or let your agent find it."}</p>
     </div>
   );
@@ -264,7 +268,7 @@ export interface RepSwitcherProps<S> {
   readonly onCompare: (rep: string | null) => void;
 }
 
-/** The rule's own views as tabs (its main view first, ★); every other view under "More views"; "compare" adds one beside. */
+/** The rule's own views as tabs (its main view first, named "main view"); every other view under "More views"; "compare" adds one beside. */
 export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
   const reads = [p.primary, ...p.depends.filter(d => d !== p.primary)];
   const others = p.type.representations.filter(r => !reads.includes(r.id));
@@ -275,7 +279,7 @@ export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
           const r = representation(p.type, id);
           return (
             <button key={id} type="button" role="tab" aria-selected={p.active === id} className="v2v-tab" data-depends="" data-primary={p.primary === id ? "" : undefined}
-              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}>{shortTitle(r.title)}</button>
+              title={`${r.title} (your rule reads this)`} onClick={() => p.onActive(id)}>{shortTitle(r.title)}{p.primary === id && <span className="v2v-tab-main"> · main view</span>}</button>
           );
         })}
         {others.some(r => r.id === p.active) && (
@@ -286,7 +290,7 @@ export function RepSwitcher<S>(p: RepSwitcherProps<S>): ReactElement {
         <label className="v2v-compare">
           More views{" "}
           <select value={others.some(r => r.id === p.active) ? p.active : ""} onChange={e => e.target.value && p.onActive(e.target.value)}>
-            <option value="">▾</option>
+            <option value="">choose</option>
             {others.map(r => <option key={r.id} value={r.id}>{shortTitle(r.title)}</option>)}
           </select>
         </label>
@@ -385,7 +389,7 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
       {sel !== null && (
         <p className="v2v-selchip" data-role={sa.parts[sel]!.role}>
           {GLYPH[sa.parts[sel]!.role]} {sa.parts[sel]!.name} selected: only its marks are drawn{" "}
-          <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>✕</button>
+          <button type="button" aria-label="Clear the selection" onClick={() => setSelected(null)}>Clear</button>
         </p>
       )}
 

@@ -1,23 +1,27 @@
 /**
- * Disclosure noise on the others' sums (v1's rule, restored; docs/public-log-design.md §5.2 on archive/engine-v1).
- * While a game is live, every disclosed sum of the other players' bits is the exact sum plus Gaussian noise of standard
- * deviation `peerNoiseBits` (default 8), and every number built on it follows the noisy value: points shown are
- * own × max(0, others shown). The owner's reason: exact sums made the rule set easy to identify; 8 bits makes it
- * possible but hard.
+ * Disclosure noise on the others' sums: measurement error (owner decision 32, 15 Nov). While a game is live, every
+ * reading of the other players' summed bits of an object is the exact sum plus an independent Gaussian draw of variance
+ * `peerNoiseVariance` bits² (0 allowed; 0 on the beginner presets), and every number built on it follows the reading:
+ * points shown are own × max(0, others shown), v1's floor.
  *
- * - The noise is a keyed function of the STATE alone (HMAC-SHA256 under the game's private `noiseKey`): a state that
- *   recurs shows the same noise, so repeated reads and observations cannot average it away, and every viewer gets the
- *   same draw (own + others shown is the same salience for everyone).
- * - Stored exact; disclosed fields are written beside the exact ones (`shownWant`, `shownPoints`), so a sort, a total
- *   or a history built on them leaks nothing the noisy value does not.
- * - After the end everything is exact (an ended game is fully transparent), and replays are exact.
+ * The owner: "add noise independently for every query of an object such that it's never shared across players and
+ * never accumulates through decisions." It replaces v1's keyed per-state draw (one draw for everyone, so agents climbing
+ * on it walked into its peaks and every shown figure read high: playtest round 10) and the coordinator's per-player
+ * key (B1).
+ * - An agent's read, an agent's telling and a paid look are each a fresh draw (`freshNoise`): asking again measures again.
+ * - A player's reactive reads (the object, its sorts, the scatter, the log, a quote) are their own measurement of that
+ *   object at that version (`readingNoise`): a Convex query must be deterministic, so one reading per player per object
+ *   version (a new version is a new reading). Never shared: another player reads an independent draw. Stored on the
+ *   player's own value row (`shownWant`, `shownPoints`) so the sorts can index it.
+ * - The exact standings are published every scoreIntervalSeconds (call 15, now the rule); after the end everything is
+ *   exact and replays are exact.
  * Pure: any runtime (queries, mutations, the Node tick).
  */
 import { hmac } from "@noble/hashes/hmac.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 
-/** The default noise, in bits (v1's `peerNoiseBits` default, owner-approved 2026-11-01). */
-export const DEFAULT_PEER_NOISE_BITS = 8;
+/** The variance, in bits², of a game that does not set one: exact. */
+export const DEFAULT_PEER_NOISE_VARIANCE = 0;
 
 /** A fresh per-game key (PRIVATE: `v2Games.noiseKey`, never returned by any query while live). */
 export function newNoiseKey(): string {
@@ -26,46 +30,71 @@ export function newNoiseKey(): string {
   return [...bytes].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** What the noise depends on: the game's key and σ, and whether the game is still live. */
-export interface NoiseGame { noiseKey?: string; phase: string; settings: { peerNoiseBits?: number } }
+/** What the noise depends on: the game's key and variance, and whether the game is still live. */
+export interface NoiseGame { noiseKey?: string; phase: string; settings: { peerNoiseVariance?: number } }
 
-const sigmaOf = (game: Pick<NoiseGame, "settings">) => game.settings.peerNoiseBits ?? DEFAULT_PEER_NOISE_BITS;
+/** The variance a game's live readings carry, bits² (0 without a key: games stored before the noise read exact). */
+export const peerNoiseVarianceOf = (game: Pick<NoiseGame, "noiseKey" | "settings">) =>
+  game.noiseKey ? Math.max(0, game.settings.peerNoiseVariance ?? DEFAULT_PEER_NOISE_VARIANCE) : 0;
+/** Its standard deviation, bits (what "about ± σ" shows). */
+export const peerNoiseSigmaOf = (game: Pick<NoiseGame, "noiseKey" | "settings">) => Math.sqrt(peerNoiseVarianceOf(game));
+
 const encoder = new TextEncoder();
 const uniform48 = (b: Uint8Array, at: number) => {
   let n = 0;
   for (let i = 0; i < 6; i++) n = n * 256 + b[at + i]!;
   return (n + 0.5) / 2 ** 48;
 };
+/** A standard normal from 12 random bytes (two 48-bit uniforms in (0, 1), Box–Muller). */
+const normal = (b: Uint8Array) => Math.sqrt(-2 * Math.log(uniform48(b, 0))) * Math.cos(2 * Math.PI * uniform48(b, 6));
 
-/** The noise at a state (its wire encoding), in bits: 0 without a key or with σ = 0. */
-export function noiseAt(game: Pick<NoiseGame, "noiseKey" | "settings">, state: string): number {
-  const sigma = sigmaOf(game);
-  if (!(sigma > 0) || !game.noiseKey) return 0;
-  const d = hmac(sha256, encoder.encode(game.noiseKey), encoder.encode(state));
-  // Two 48-bit uniforms in (0, 1), Box–Muller.
-  return sigma * Math.sqrt(-2 * Math.log(uniform48(d, 0))) * Math.cos(2 * Math.PI * uniform48(d, 6));
+/** A fresh independent draw, bits: an agent's read, an agent's telling, a paid look. */
+export function freshNoise(game: Pick<NoiseGame, "noiseKey" | "settings">): number {
+  const sigma = peerNoiseSigmaOf(game);
+  if (!(sigma > 0)) return 0;
+  const b = new Uint8Array(12);
+  crypto.getRandomValues(b);
+  return sigma * normal(b);
 }
 
 /**
- * The noise a player's AGENTS see at a state (the coordinator's call B1, after playtest round 10): a draw of its own per
- * player, keyed apart from the shown one. Agents climb by comparing candidates' noisy sums, so on the shown draw they
- * walk into its peaks, and every figure shown on the states they choose reads high (measured +12.8 bits at σ 8), and
- * with one draw shared by all, every player's agents chase the same peaks. On a draw of its own a player's selection
- * says nothing of the shown draw, which stays centred where agents go. Deterministic per (game, player, state), so
- * repeats cannot average it away.
+ * A player's reading of an object at a version (or of a quoted state: `what` names it), bits: deterministic so a query
+ * stays deterministic, independent across players, objects, versions and quotes (HMAC under the game's private key).
  */
-export function agentNoiseAt(game: Pick<NoiseGame, "noiseKey" | "settings">, memberId: string, state: string): number {
-  return game.noiseKey ? noiseAt({ noiseKey: `${game.noiseKey}:agents:${memberId}`, settings: game.settings }, state) : 0;
+export function readingNoise(game: Pick<NoiseGame, "noiseKey" | "settings">, memberId: string, what: string): number {
+  const sigma = peerNoiseSigmaOf(game);
+  if (!(sigma > 0) || !game.noiseKey) return 0;
+  return sigma * normal(hmac(sha256, encoder.encode(game.noiseKey), encoder.encode(`${memberId}|${what}`)));
 }
+/**
+ * An act's reads (the tick, and replay from the record): each read of an others' sum an agent makes is a new
+ * measurement, keyed on its owner, the act's seed and the read's count within the act, so the tick stays deterministic
+ * given its inputs and asking again measures again. `value` is the act's reading of its own value now.
+ */
+export function actReadings(game: Pick<NoiseGame, "noiseKey" | "settings">, memberId: string, seed: string) {
+  let k = 0;
+  return {
+    disclosed: (encoded: string) => readingNoise(game, memberId, `act:${seed}:${k++}:${encoded}`),
+    value: (v: { mine: number; others: number }) => {
+      const m = shownAt({ rarityBits: v.mine, want: v.others }, readingNoise(game, memberId, `act:${seed}:value`));
+      return { mine: v.mine, others: m.shownWant, points: m.shownPoints };
+    },
+  };
+}
+/** What a player's reading of an object at a version is keyed on. */
+export const objectReading = (objectId: string, version: number) => `object:${objectId}:${version}`;
 
-/** The others' sum and the points as a player is shown them at a state's noise (points floored at 0, as v1's payoff). */
+/** The others' sum and the points as read with this noise (points floored at 0, as v1's payoff). */
 export function shownAt(v: { rarityBits: number; want: number }, noise: number): { shownWant: number; shownPoints: number } {
   const shownWant = v.want + noise;
   return { shownWant, shownPoints: v.rarityBits * Math.max(0, shownWant) };
 }
 
-/** The σ a game's live reads carry (0 when it has no key: exact). */
-export const peerNoiseBitsOf = (game: Pick<NoiseGame, "noiseKey" | "settings">) => (game.noiseKey ? sigmaOf(game) : 0);
+/** A fresh measurement of an exact value (an agent's telling, a paid look), as a telling carries it. */
+export function measured(game: Pick<NoiseGame, "noiseKey" | "settings">, v: { rarityBits: number; want: number }): { want: number; points: number } {
+  const m = shownAt(v, freshNoise(game));
+  return { want: m.shownWant, points: m.shownPoints };
+}
 
 /**
  * Live anonymity (v1's public log, docs/public-log-design.md §1): while a game is live, nothing a player reads about

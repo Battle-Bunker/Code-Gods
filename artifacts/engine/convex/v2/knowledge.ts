@@ -1,8 +1,11 @@
 /**
- * Paid observation (v1's `observation: "paid"`, restored; docs/energy-model.md §11 and lib/knowledge.ts on
- * archive/engine-v1): "an object's birth is public; its life is paid" and "activity is public; content is paid".
+ * Paying to read (owner decision 35, 15 Nov: "Paying for information should be intrinsic rather than an optional feature
+ * flag, but the weighting of cost for reading information could in principle be set to zero"; v1's paid observation,
+ * docs/energy-model.md §11 and lib/knowledge.ts on archive/engine-v1): "an object's birth is public; its life is paid"
+ * and "activity is public; content is paid". Every game pays to look, at the spec's read price (bits read ÷ κ) times
+ * the game's `readPriceWeight`; a weight of 0 reads the live world free.
  *
- * In a paid game a seated player never reads the live world: every read of an object's content goes through what the
+ * In a game that pays to read, a seated player never reads the live world: every read of an object's content goes through what the
  * player was TOLD (a `v2Knowledge` row: the state, its version, the world time of the telling, and the player's value
  * of it as disclosed). A player is told an object:
  *   1. at its birth, free;
@@ -19,15 +22,17 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { decode, typeOf, variantOf } from "./world.ts";
 
-export type Observation = "free" | "paid";
-export const observationOf = (game: { settings: { observation?: Observation } }): Observation => game.settings.observation ?? "free";
-/** Whether a seated player's reads go through their knowledge (a paid game, not yet ended). */
-export const paidLive = (game: { phase: string; settings: { observation?: Observation } }) => observationOf(game) === "paid" && game.phase !== "ended";
+/** The weight on the read price of a look (decision 35); absent (games stored before it): 0, free. */
+export const readPriceWeightOf = (game: { settings: { readPriceWeight?: number } }) => Math.max(0, game.settings.readPriceWeight ?? 0);
+/** Whether the game pays to read: its weight is above 0. Fixed for the game's lifetime. */
+export const paysToRead = (game: { settings: { readPriceWeight?: number } }) => readPriceWeightOf(game) > 0;
+/** Whether a seated player's reads go through their knowledge (a game that pays to read, not yet ended). */
+export const paidLive = (game: { phase: string; settings: { readPriceWeight?: number } }) => paysToRead(game) && game.phase !== "ended";
 
 /** Bits to read the whole object (φ): what an act must read to tell its owner, and what a look costs at the read price. */
 export const fullReadBits = (variantId: string, wire: string) => typeOf(variantId).readLength(decode(wire, variantId) as never, variantOf(variantId));
-/** One look at an object: its full read at the read price (the same number an agent pays to read the whole object). */
-export const lookPrice = (variantId: string, wire: string) => readCharge(fullReadBits(variantId, wire));
+/** One look at an object: its full read at the read price (what an agent pays to read the whole object), times the weight. */
+export const lookPrice = (variantId: string, wire: string, weight: number) => weight * readCharge(fullReadBits(variantId, wire));
 
 /** What a player is told of an object: the state at a version, and their value of it as disclosed then. */
 export interface Telling { objectId: Id<"v2Objects">; number: number; state: string; version: number; score: (string | null)[] | null; rarityBits: number; want: number; points: number }
@@ -58,11 +63,11 @@ export const readsKnowledge = (game: Doc<"v2Games">, memberId: Id<"v2Members"> |
   paidLive(game) && game.roster.some(r => r.memberId === memberId);
 
 /**
- * Whether this member's object list reads their knowledge: seated in a paid game, for the game's lifetime (a list's
+ * Whether this member's object list reads their knowledge: seated in a game that pays to read, for the game's lifetime (a list's
  * cursors must survive the end, when everyone is told everything exact: loop.ts exactValues).
  */
 export const listsKnowledge = (game: Doc<"v2Games">, memberId: Id<"v2Members"> | string) =>
-  observationOf(game) === "paid" && game.roster.some(r => r.memberId === memberId);
+  paysToRead(game) && game.roster.some(r => r.memberId === memberId);
 
 /** The knowledge index a sort reads in a paid game (the same sorts, over what the player was told). */
 export const KNOWLEDGE_SORT = {

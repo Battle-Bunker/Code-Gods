@@ -30,8 +30,12 @@ test("values in a game carry the uniqueness correction at the game's object coun
   const { worthOf, valueFnIn } = await import("../../convex/v2/values.ts");
   const { valueObjects } = await import("../../convex/v2/world.ts");
   const { uniquenessShift, withUniqueness } = await import("@workspace/v2-valuation");
-  const preset = presetOf("lines-beginner"), objects = valueObjects(preset);
-  assert.equal(objects, Math.round(preset.startingObjects + preset.economy.birthsPerSecond * preset.worldSeconds / 2));
+  // The beginner game's N is 4 (3 objects plus half of its 2.5 births over 600 s: decisions 31, 34), whose shift (about
+  // 0.04 bits) is too small to tell a correction from none: the check runs at v1's 10 objects and 0.05 births/s (N 18).
+  const preset = presetOf("lines-beginner"), settings = { ...preset, startingObjects: 10, economy: { ...preset.economy, birthsPerSecond: 0.05 } };
+  assert.equal(valueObjects(preset), 4, "the beginner game's N (decisions 31, 34)");
+  const objects = valueObjects(settings);
+  assert.equal(objects, Math.round(settings.startingObjects + settings.economy.birthsPerSecond * settings.worldSeconds / 2));
   const rec = VALUE_RECORDS.find(x => x.ruleKey === dealablePool(preset)[0]!.ruleKey)!;
   const rare = rec.knots.at(-1)!, scope = { variant: rec.variant, objects };
   const one = worthOf(rec.ruleKey, scoreFrom(rare.u), { variant: rec.variant, objects: 1 }).bits;

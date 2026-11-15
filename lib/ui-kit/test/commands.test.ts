@@ -6,9 +6,15 @@ import type { PaletteContext } from "../src/types.ts";
 
 const member: PaletteContext = { role: "member", admin: false, assistantOn: false };
 
-test("the glossary has the 16 game terms plus the client's own words", () => {
-  assert.equal(GLOSSARY_IDS.length, 26);
-  assert.ok(GLOSSARY_IDS.includes("points-tuple"), "points tuples are explained once, in the glossary");
-  for (const id of GLOSSARY_IDS) assert.ok(GLOSSARY[id].gloss.length > 20 && GLOSSARY[id].gloss.length <= 160, id);
-  assert.ok(GLOSSARY_IDS.includes("payoff") && GLOSSARY_IDS.includes("panel") && GLOSSARY_IDS.includes("pane") && GLOSSARY_IDS.includes("palette"));
+test("the glossary names each concept once, in player words, and never with a pictograph (owner, 2026-11-15)", () => {
+  for (const id of GLOSSARY_IDS) {
+    const { term, gloss } = GLOSSARY[id];
+    assert.ok(gloss.length > 20 && gloss.length <= 160, `${id}: ${gloss.length}`);
+    assert.doesNotMatch(term + gloss, /\p{Extended_Pictographic}/u, id);
+  }
+  const terms = GLOSSARY_IDS.map(id => GLOSSARY[id].term.toLowerCase());
+  assert.equal(new Set(terms).size, terms.length, "one entry per name");
+  for (const id of ["points", "bits", "others-bits", "energy", "power", "look", "main-part", "tie-breaker", "pane", "panel", "palette"] as const) assert.ok(GLOSSARY_IDS.includes(id), id);
+  // The owner's own names for concepts that exist in v2 (product memory): gods, utility functions, points tuples, panels.
+  for (const id of ["god", "utility-function", "points-tuple", "panel"] as const) assert.ok(GLOSSARY_IDS.includes(id), id);
 });

@@ -44,6 +44,9 @@ test("model seats play through the directory's tools on the server's economy: th
   const bo: MockStep[][] = [[{ tools: [t("chat.list")] }, { text: "Waiting." }], [{ tools: [t("chat.send", { text: "Deal! Line 2 it is." })] }, { text: "Accepted." }]];
   const report = await runTable(boxes, {
     type: lineType, variant: lineZ, lines: 6, seed: "t", seconds: 24,
+    // The scenario's timing (24 s, 25 opportunities a second, a summon payable after the manoeuvre) is the 25 Hz economy;
+    // the beginner preset now runs at 3 Hz with power 8 (the coordinator's call 13), which this tool-plumbing test does not need.
+    economy: { powerPerSecond: 64, fullChargeSeconds: 30, startingEnergy: 600, opportunitiesPerSecond: 25 },
     seats: [seat("Ada", "model", "treasure", "prime-terms"), seat("Bo", "model", "prime-staircase", "first-prime"), seat("Cy", "naive", "prime-landing", "big-prime")],
     model: { provider: (p => (name: string) => p[name === "Ada" ? 0 : 1]!)([perTurn(ada), perTurn(bo)]), budget: new Budget({ tokens: 10_000_000, usd: 5 }) },
   });
@@ -51,7 +54,7 @@ test("model seats play through the directory's tools on the server's economy: th
   assert.equal(a!.failedToolCalls, 0, "every call fits its tool's params and every result its result schema");
   assert.equal(a!.toolCalls, 18);
   assert.equal(a!.replaced, 1); assert.equal(a!.summoned, 1); assert.equal(a!.allocations, 2);
-  assert.ok(a!.spent.edits > 0 && a!.spent.edits < 40, `the one-line edit costs the change, not the program (${a!.spent.edits.toFixed(1)} ⚡)`);
+  assert.ok(a!.spent.edits > 0 && a!.spent.edits < 40, `the one-line edit costs the change, not the program (${a!.spent.edits.toFixed(1)} energy)`);
   assert.ok(a!.spent.summons > 300, "a new agent pays the full price");
   assert.ok(a!.acts + b!.acts + c!.acts > 100, "about 25 opportunities a second, drawn by energy");
   assert.equal(a!.messages, 1); assert.equal(a!.proposals, 1);

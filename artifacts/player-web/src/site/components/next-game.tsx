@@ -11,7 +11,7 @@ import { PRESETS, presetOf, type Preset } from "@workspace/engine/convex/v2/pres
 import { Section } from "@/site/components/page-parts";
 import { failureText } from "@/site/components/action";
 import { useAuth } from "@/site/hooks/use-auth";
-import { formOf, nextGameSummary, overridesOf, PEER_NOISE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
+import { formOf, nextGameSummary, noiseWords, overridesOf, PEER_NOISE_VARIANCE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
 import { SCORE_INTERVAL_OPTIONS } from "@workspace/engine/convex/v2/duration.ts";
 import { gallerySearch } from "@/site/lib/rule-gallery";
 import { ruleGalleryPath } from "@/site/lib/routes";
@@ -54,13 +54,13 @@ function SetupPicker({ room, admin, locked }: { room: Room; admin: boolean; lock
   );
 }
 
-type TextField = Exclude<FormField, "durationMode" | "peerNoiseBits">;
+type TextField = Exclude<FormField, "durationMode" | "peerNoiseVariance">;
 const fields = (mode: SettingsForm["durationMode"]): { key: TextField; label: string; hint: string; list?: string }[] => [
   { key: "planningSeconds", label: "Planning (seconds)", hint: "Time to read your rule and summon an agent before the world starts." },
   mode === "halfLife"
     ? { key: "worldMinutes", label: "Half-life (minutes)", hint: "Half of games end within this; the end is a hidden random moment." }
     : { key: "worldMinutes", label: "Game length (minutes)", hint: "How long the world runs." },
-  { key: "startingEnergy", label: "Starting energy (⚡)", hint: "What each player has to summon agents with." },
+  { key: "startingEnergy", label: "Starting energy", hint: "What each player has to summon agents with." },
   { key: "scoreIntervalSeconds", label: "Totals counted every (seconds)", hint: "How often the standings are counted and published.", list: "score-interval-options" },
 ];
 
@@ -104,11 +104,20 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
         <datalist id="score-interval-options">{SCORE_INTERVAL_OPTIONS.map(n => <option key={n} value={n} />)}</datalist>
         <label className="flex min-w-0 flex-col gap-1 text-sm">
           <span>Others' bits on each object while live (totals are always exact)</span>
-          <select value={form.peerNoiseBits} onChange={e => setForm({ ...form, peerNoiseBits: e.target.value })} disabled={!!locked || busy}
-            className="h-9 border bg-background px-2" data-testid="select-setting-peerNoiseBits">
-            {PEER_NOISE_OPTIONS.map(n => <option key={n} value={String(n)}>{n === 0 ? "Exact" : `Blurred by about ${n} bits`}</option>)}
+          <select value={form.peerNoiseVariance} onChange={e => setForm({ ...form, peerNoiseVariance: e.target.value })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-peerNoiseVariance">
+            {PEER_NOISE_VARIANCE_OPTIONS.map(n => <option key={n} value={String(n)}>{noiseWords(n)}</option>)}
           </select>
           <span className="text-xs text-muted-foreground">Exact after the game ends, whichever you pick.</span>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
+          <span>Price of a look (times the read price)</span>
+          <select value={form.readPriceWeight} onChange={e => setForm({ ...form, readPriceWeight: e.target.value })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-readPriceWeight">
+            {[...new Set([0, 0.5, 1, 2, 3, 4, Number(form.readPriceWeight)])].filter(n => Number.isFinite(n)).sort((a, b) => a - b)
+              .map(n => <option key={n} value={String(n)}>{n === 0 ? "Free: see everything as it is" : `${n}×`}</option>)}
+          </select>
+          <span className="text-xs text-muted-foreground">Everyone sees each line or grid as they last looked; a look costs this much energy.</span>
         </label>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">

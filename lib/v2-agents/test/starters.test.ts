@@ -158,7 +158,7 @@ test("every shipped agent is payable from its beginner preset's starting energy 
   for (const a of all) {
     const price = summonBits(a.language, a.source).energy;
     const starting = isGridTypeFamily(a.family) ? GRID_BEGINNER_STARTING_ENERGY : BEGINNER_STARTING_ENERGY;
-    assert.ok(price <= starting, `${shippedPath(a)} costs ${price.toFixed(1)} ⚡ of ${starting}`);
+    assert.ok(price <= starting, `${shippedPath(a)} costs ${price.toFixed(1)} energy of ${starting}`);
     if (a.language === "typescript") {
       const py = all.find(b => b.language === "python" && b.family === a.family && b.kind === a.kind && b.tieBreaker === a.tieBreaker)!;
       const ratio = summonBits("python", py.source).bits / summonBits("typescript", a.source).bits;

@@ -369,6 +369,26 @@ The table gate (lib/v2-valuation table-gate-cli.ts: climbs, annealing with resta
 top with --tops) and the alignment/tension matrix (tension-cli.ts: does climbing rule A raise, lower or leave rule B)
 measure the pools.
 
+### 6.5 Seating: independence of seated rules (decision 39)
+
+Seated rules should be roughly perpendicular: two players at 20 bits each should mark an object as rare as 40 bits.
+The PMI of every pair of dealt rules (lib/v2-valuation pmi-cli.ts: log2 P(A≥t, B≥t) − log2 P(A≥t) − log2 P(B≥t)
+over boards from π, t = 4, 6, 8 bits) splits the grid families by digit size into clusters whose rules align
+strongly, from +2 to +8 bits:
+
+- big or varied digits: Magic Eighteen, Opposite Nines, Strangers, Magic Accountant (on rows of 18, the same main
+  part as Magic Eighteen);
+- small or equal digits: Mirrormancer, Two Pair, Spread of Three, Leapfrog;
+- monotone runs: Uphill, Staircase, Mountain Climb.
+
+Crosswise Threes, Kings and Subjects, Stepping Stones and Fillomino are near 0 with almost everything. The dealer
+(artifacts/engine/convex/v2/deal.ts, lib/v2-grid seating.ts) seats at most one family from each cluster and never one
+family twice: every grid deal is the seed's first shuffle with no clash, else the one with the fewest over 200
+shuffles, and the game records the clashes left (`seating`, private). The beginner pool seats three players without
+a clash (one from each digit cluster and Crosswise Threes); a fourth adds one. Residues (totals modulo a number) are
+the perpendicular direction on grids: "every row and column adds up to a multiple of 5" has a mean |PMI| of 0.13
+against the fifteen current mains, against 1.1 to 2.6 for sizes, repeats, parity and factors.
+
 ## 7. Views, agents, server
 
 - **Views** (lib/v2-views): one `grid` renderer for every representation. Compact face: the main layer's

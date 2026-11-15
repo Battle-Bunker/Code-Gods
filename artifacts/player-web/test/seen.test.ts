@@ -30,3 +30,18 @@ test("a clear mark: up to date, or changed since you looked (owner decision 33: 
   assert.equal(freshness({ knownAt: 40, changesSince: 2 }), "stale");
   assert.equal(freshness({ knownAt: null, changesSince: 0 }), "stale");
 });
+
+test("a look shows its price; looking at all of them is the sum of the rows (W3 #685: the header stays cold)", async () => {
+  const { lookLabel, lookAllPrice } = await import("../src/panes/seen.ts");
+  assert.equal(lookLabel(1.104), "Look now (1.10 energy)");
+  assert.equal(lookLabel(undefined), null, "nothing to pay: no button (planning, the end, a spectator)");
+  assert.equal(lookAllPrice([{ lookPrice: 1.1 }, { lookPrice: 1.3 }, {}, undefined]), 2.4);
+  assert.equal(lookAllPrice([{}, undefined]), null);
+});
+
+test("keeping lines fresh is a Watcher with a small share (W2 #674: about 15 s fresh, most turns left to the climber)", async () => {
+  const { watcherTypeOf, KEEP_FRESH_SHARE } = await import("../src/panes/seen.ts");
+  assert.equal(watcherTypeOf("line-q"), "lines");
+  assert.equal(watcherTypeOf("grid-4-d10"), "grids");
+  assert.equal(KEEP_FRESH_SHARE, 0.2);
+});

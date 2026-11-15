@@ -18,8 +18,8 @@ import {
   agentEnergyV, agentProgramsV, agentRowV, digestV, logPageV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
-import { attributed, disclosed, disclosesNoise, noiseAt } from "./disclose";
-import { KNOWLEDGE_SORT, knownOf, listsKnowledge, readsKnowledge } from "./knowledge";
+import { attributed, disclosed, disclosesNoise, objectReading, readingNoise } from "./disclose";
+import { KNOWLEDGE_SORT, knownOf, listsKnowledge, lookPrice, readPriceWeightOf, readsKnowledge } from "./knowledge";
 
 /** ≤ 20 agents per player (R3). */
 export const MAX_AGENTS = 20;
@@ -116,6 +116,8 @@ export const object = query({
         objectId: object._id, number: object.number, bornAt: object.bornAt, state: k?.state ?? "", version: k?.version ?? 0, changedAt: state.changedAt,
         value: k ? { score: k.score, rarityBits: k.rarityBits, want: k.want, points: k.points, version: k.version } : null,
         knownAt: k?.learnedAt ?? null, changesSince: state.version - (k?.version ?? 0),
+        // What a look at it costs now (decision 35): its full read at the read price times the game's weight.
+        lookPrice: lookPrice(game.variant, state.state, readPriceWeightOf(game)),
       };
     }
     const value = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", object._id).eq("memberId", member._id)).unique();
@@ -217,9 +219,12 @@ export const moves = query({
 export async function logPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, paginationOpts: PaginationOptions) {
   const i = game.roster.findIndex(r => r.memberId === memberId), live = disclosesNoise(game), paid = readsKnowledge(game, memberId);
   const page = await ctx.db.query("v2Log").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").paginate(pageOpts(paginationOpts));
-  const view = (bits: readonly number[] | undefined, noise: number | undefined) => {
+  // The others' sum as this reader read the object at that version (decision 32: their own reading, the one their
+  // value row carries), exact after the end.
+  const view = (bits: readonly number[] | undefined, objectId: string, version: number) => {
     if (i < 0 || !bits) return { own: null, others: null, points: null };
-    const own = bits[i] ?? 0, others = bits.reduce((t, b) => t + b, 0) - own + (live ? noise ?? 0 : 0);
+    const noise = live ? readingNoise(game, memberId, objectReading(objectId, version)) : 0;
+    const own = bits[i] ?? 0, others = bits.reduce((t, b) => t + b, 0) - own + noise;
     return { own, others, points: own * Math.max(0, others) };
   };
   return {
@@ -230,7 +235,7 @@ export async function logPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<
       // content is paid"); a birth is public.
       const hidden = paid && r.kind === "move" && !mine;
       const none = { own: null, others: null, points: null };
-      const now = hidden ? none : view(r.bits, r.noise), was = hidden ? none : view(r.bitsBefore, r.noiseBefore);
+      const now = hidden ? none : view(r.bits, r.objectId, r.version), was = hidden ? none : view(r.bitsBefore, r.objectId, r.version - 1);
       return {
         seq: r.seq, worldSeconds: r.worldSeconds, kind: r.kind, objectId: r.objectId, number: r.number, version: r.version,
         stateBefore: hidden ? null : r.stateBefore ?? null, state: hidden ? null : r.state, mine, ...now, ownBefore: was.own, othersBefore: was.others, pointsBefore: was.points,
@@ -313,8 +318,11 @@ export const othersAt = query({
       if (isInvalid(r)) { after.push(null); continue; }
       const wire = encode(r.result, game.variant);
       const exact = valuesOf(r.result, game.variant, seats, scopeOf(game).objects).find(x => x.memberId === member._id)?.want ?? 0;
-      // The others' sum at the candidate as disclosed while live: the noise of that state (disclose.ts).
-      const want = exact + (disclosesNoise(game) ? noiseAt(game, wire) : 0);
+      // The others' sum at the candidate as this player reads it while live (decision 32: their own reading of that
+      // candidate from this version of the object, independent of everyone else's).
+      // A candidate that changes nothing reads what the object shows (not a second measurement of it).
+      const what = wire === state.state ? objectReading(object._id, state.version) : `quote:${object._id}:${state.version}:${wire}`;
+      const want = exact + (disclosesNoise(game) ? readingNoise(game, member._id, what) : 0);
       // Objects are unique: a candidate onto a state another object holds is not available (its number says which).
       const holders = await ctx.db.query("v2ObjectStates").withIndex("by_game_state", q => q.eq("gameId", game._id).eq("state", wire)).take(2);
       const holder = holders.find(h => h.objectId !== object._id);

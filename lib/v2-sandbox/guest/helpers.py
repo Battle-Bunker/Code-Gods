@@ -55,8 +55,10 @@
 #   climb(offer, options, now, most)
 #                                the step that raises your points here most (your rarity × the others' rarity, added
 #                                up), from options [(plan, score it reaches), ...]; None when none does. It weighs the
-#                                `most` options best for your rule (all when left out), a small read each. now is your
-#                                score here; without the game's values it takes the step best for your rule instead.
+#                                `most` options best for your rule (all when left out), a small read each; of those that
+#                                do not raise your own rarity it prices only the best two, so an act with nothing to
+#                                gain costs little. now is your score here; without the game's values it takes the step
+#                                best for your rule instead.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -312,15 +314,22 @@ def climb(offer, options, now, most=None):
             if price(offer, plan) is not None:
                 return _as_plan(plan)
         return None
-    value = w.mine * w.others
+    value, spare = w.mine * w.others, 2
     for plan, s in options:
+        r = rarity(offer, s)   # free
+        if r <= 0:   # sorted best first: the rest score no points for you either
+            break
+        if r <= w.mine + 1e-9:   # your rule cannot rise: price only two such steps
+            if spare == 0:
+                break
+            spare -= 1
         try:
             o = offer.others_after(_as_plan(plan))
         except HostError:
             continue
         if o.after is None:   # not allowed (e.g. another object is in that state)
             continue
-        v = rarity(offer, s) * o.after
+        v = r * o.after
         if v > value + 1e-9:
             value, best = v, plan
     return None if best is None else _as_plan(best)

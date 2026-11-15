@@ -22,6 +22,8 @@ const { values: o } = parseArgs({ options: {
   pool: { type: "string", default: "v3" },
   /** unit: ±1 on a, b or c; mutators: the line's mutators, representation shortcuts included (decision 25). */
   moves: { type: "string", default: "unit" },
+  /** pmi only: "channels" measures the perpendicular channel rules instead of the pools. */
+  set: { type: "string", default: "pools" },
 } });
 const want = (p: string) => o.part === "all" || o.part!.split(",").includes(p);
 const say = (s = "") => console.log(s);
@@ -229,6 +231,9 @@ function adversaryFamilies(): Fam[] {
     fam("steep-and-tall", "Steep and Tall", "the gradient and the y-intercept both positive and both as big as possible: the smaller of the two counts", d => Math.min(d.m, d.k), d => Math.min(d.m, d.k), [
       { id: "shared", text: "the whole parts of the gradient and the y-intercept share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(Math.floor(d.m), Math.floor(d.k)) },
     ]),
+    fam("sunken-intercept", "Sunken Intercept", "the y-intercept below zero, as far below as possible", d => -d.k, d => d.k, [
+      { id: "shares-p", text: "the whole number nearest the y-intercept and the gradient's top number share as many prime factors as possible (with repeats)", f: d => omegaOfGcd(Math.round(d.k), d.p) },
+    ]),
     fam("smooth-root", "Smooth Square", "the triangle with the axes has an area as close as possible to a square number", d => -dZ(Math.sqrt(d.A)), d => Math.sqrt(d.A), [
       { id: "root-shares-x", text: "that square's root and the whole number nearest the x-intercept share as many prime factors as possible (with repeats)", f: d => (Number.isFinite(d.X) ? omegaOfGcd(Math.round(Math.sqrt(d.A)), Math.round(d.X)) : W) },
     ]),
@@ -396,7 +401,7 @@ function distinctTest(vs: Valuer[], win: L[]) {
 }
 
 /** Test 4: scripted seats on 24 objects for 300 s. Each second each seat makes its best affordable unit move by
- * gain per ⚡ in its own points rate (n_i · Σ_{j≠i} n_j summed over objects), uniqueness enforced. */
+ * gain per energy in its own points rate (n_i · Σ_{j≠i} n_j summed over objects), uniqueness enforced. */
 function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) => Valuer[]; rebirthEvery?: number } = {}) {
   let vs = vs0;
   const r = rng("v3-dyn", seed); const objs: L[] = []; const occ = new Set<number>();
@@ -491,10 +496,10 @@ if (want("rules")) {
   say("\n## Rules: ramp test (windows |a|, |c| ≤ H, 1 ≤ b ≤ H), and bits within a line's share of a game\n");
   const w1 = windowLines(12), w2 = windowLines(24);
   const big = reach(BIRTHS[0]!, LINE_SHARE, o.moves === "mutators" ? 1_000_000 : 3_000_000);
-  say(`Reachable lines from birth ${show(BIRTHS[0]!)} with ${LINE_SHARE} ⚡ (unit steps): ${big.states.length}${big.capped ? `+ (stopped at ${big.spent.toFixed(0)} ⚡)` : ""}`);
+  say(`Reachable lines from birth ${show(BIRTHS[0]!)} with ${LINE_SHARE} energy (unit steps): ${big.states.length}${big.capped ? `+ (stopped at ${big.spent.toFixed(0)} energy)` : ""}`);
   const rs = BIRTHS.slice(0, 6).map(b => reach(b, LINE_SHARE));
   const reaches = rs.map(r => r.states);
-  say(`The cheapest 150,000 lines from each of 6 births reach ${rs.map(r => r.spent.toFixed(0)).join(", ")} ⚡ (of ${LINE_SHARE}); 'best bits in reach' below is over these.`);
+  say(`The cheapest 150,000 lines from each of 6 births reach ${rs.map(r => r.spent.toFixed(0)).join(", ")} energy (of ${LINE_SHARE}); 'best bits in reach' below is over these.`);
   say("| rule | top H=12 (bits @ line) | top H=24 | edge | grows | corr(bits, φ) tail | ramp | lines ≥ cap | median best bits in reach | median birth bits |");
   say("|---|---|---|---|---|---|---|---|---|---|");
   for (const v of VS) {
@@ -665,4 +670,143 @@ if (want("unfreeze")) {
     report(`target T redrawn every 50 s (${seed})`, dynamicsTest(fixed, seed, { phase: t => phases[Math.floor(t / 50) % phases.length]! }));
     report(`a death and a birth every 10 s (${seed})`, dynamicsTest(fixed, seed, { rebirthEvery: 10 }));
   }
+}
+
+if (want("pmi")) {
+  // Owner decision 39: seated rules should be near-perpendicular value vectors, so that joint rarity ≈ the sum of bits.
+  // For each pair and depth d, PMI = log2 π(U_A ∩ U_B) / (π(U_A) π(U_B)), U_r = the lines worth ≥ d bits to r.
+  // 0 = independent; > 0 = aligned (one structure paid twice); < 0 = in tension (hard to hold both).
+  say("\n## PMI of upper sets (owner decision 39)\n");
+  const ids = [
+    "whole-crossing/spf", "square-area/spf", "whole-intercept/spf", "whole-intercept/rep", "target-gradient/k-whole",
+  ];
+  const base = rulesOf(families(T6, T7)).filter(r => ids.includes(r.id));
+  const ratIds = ["whole-intercept/gcd-den-m", "whole-crossing/gcd-num-m", "farey-pair/mediant-x", "pell-gradient/pell-c", "whole-area/gcd-den-m", "whole-at-t/gcd-den-m", "target-gradient/gcd-tops", "near-point/lattice"];
+  const rat = rulesOf(rationalFamilies(RT, RTX, RPT, RD)).filter(r => ratIds.includes(r.id)).map(r => ({ ...r, id: `q:${r.id}` }));
+  const adv = rulesOf(adversaryFamilies()).filter(r => !r.id.endsWith("/omega"));
+  // Channel rules: each reads one coordinate of ax + by + c = 0 and one prime's exponent, which the mixed code draws
+  // independently (owner decision 39's "perpendicular value vectors").
+  const vp = (n: number, p: number) => { n = Math.abs(Math.round(n)); if (n === 0) return 0; let k = 0; while (n % p === 0) { n /= p; k++; } return k; };
+  const ch = (id: string, P: (d: D) => number, S: (d: D) => number): Rule => ({ id, fam: id.split("/")[0]!, P, S });
+  const channels: Rule[] = [
+    ch("twos-in-a/rest", d => vp(d.a, 2), d => -Math.abs(d.a) / 2 ** vp(d.a, 2)),
+    ch("threes-in-b/rest", d => vp(d.b, 3), d => -d.b / 3 ** vp(d.b, 3)),
+    ch("fives-in-c/rest", d => vp(d.c, 5), d => -Math.abs(d.c) / 5 ** vp(d.c, 5)),
+    ch("twos-in-c/rest", d => vp(d.c, 2), d => -Math.abs(d.c) / 2 ** vp(d.c, 2)),
+    ch("big-prime-c/size", d => -dZ(0) + (spf(d.c) === Math.abs(d.c) && Math.abs(d.c) > 1 ? 1 : 0), d => spf(d.c)),
+  ];
+  const vs = valuers(o.set === "channels" ? channels : [...base, ...rat, ...adv], smp);
+  const n = smp.ls.length; const w = Float64Array.from(smp.logw, x => 2 ** x); const tot = smp.total;
+  const B = vs.map(v => Float64Array.from(smp.ls, l => v.bits(l)));
+  for (const depth of [4, 8]) {
+    say(`### depth ${depth} bits (cells: PMI in bits; blank where the joint set has under 30 draws)\n`);
+    const inU = B.map(b => { const u = new Uint8Array(n); for (let i = 0; i < n; i++) u[i] = b[i]! >= depth ? 1 : 0; return u; });
+    const mass = inU.map(u => { let m = 0; for (let i = 0; i < n; i++) if (u[i]) m += w[i]!; return m / tot; });
+    const short = (id: string) => id.replace("q:", "").replace(/\/.*$/, "").split("-").map(x => x[0]).join("") + "/" + id.split("/")[1]!.slice(0, 6);
+    say(`| A \\ B (mass bits) | ${vs.map(v => short(v.rule.id)).join(" | ")} |`); say(`|---|${vs.map(() => "---").join("|")}|`);
+    const strong: string[] = [];
+    vs.forEach((a, i) => {
+      const cells = vs.map((b, j) => {
+        if (i === j) return "–";
+        let m = 0, cnt = 0; for (let k = 0; k < n; k++) if (inU[i]![k] && inU[j]![k]) { m += w[k]!; cnt++; }
+        if (cnt < 30) return "";
+        const pmi = Math.log2((m / tot) / (mass[i]! * mass[j]!));
+        if (j > i && Math.abs(pmi) >= 2) strong.push(`${a.rule.id} × ${b.rule.id}: ${f1(pmi)}`);
+        return f1(pmi);
+      });
+      say(`| ${a.rule.id} (${f1(-Math.log2(mass[i]!))}) | ${cells.join(" | ")} |`);
+    });
+    say(`\n|PMI| ≥ 2 at depth ${depth}: ${strong.join("; ") || "none"}\n`);
+  }
+}
+
+// ---------------------------------------------------------------- parameterised families (owner decisions 40, 41)
+//
+// A rule = a lens (a way to turn the line into a number) × a qualifier (a dealt property of whole numbers) for the
+// primary, and a tied secondary: the qualifying whole number the primary snaps to, against the whole number nearest
+// another lens, compared by how many trailing digits (in a dealt base) they share. Every part carries named parameters.
+
+type Lens = { id: string; text: string; f: (d: D) => number };
+type Qual = { id: string; text: string; test: (n: number) => boolean };
+const isPrimeN = (n: number) => { n = Math.abs(n); return n >= 2 && spf(n) === n; };
+const LENSES: Lens[] = [
+  { id: "c", text: "the y-intercept", f: d => d.k },
+  { id: "X", text: "where the line crosses the x-axis", f: d => d.X },
+  { id: "m", text: "the gradient", f: d => d.m },
+  ...[2, 3, 5, 7].map(t => ({ id: `y@${t}`, text: `the height of the line at x = ${t}`, f: (d: D) => yAt(d, t) })),
+  ...[1, 2, 5].map(h => ({ id: `x@${h}`, text: `where the line reaches height ${h}`, f: (d: D) => (d.m === 0 ? NaN : (h - d.k) / d.m) })),
+  { id: "A", text: "the area of the triangle the line makes with the axes", f: d => d.A },
+];
+const QUALS: Qual[] = [
+  ...[1, 3, 7, 9].map(k => ({ id: `prime-ending-${k}`, text: `a prime ending in ${k}`, test: (n: number) => isPrimeN(n) && Math.abs(n) % 10 === k })),
+  ...([[4, 3], [5, 2], [7, 3], [8, 5], [9, 4], [11, 6], [12, 7]] as const).map(([q, r]) => ({ id: `prime-${r}-mod-${q}`, text: `a prime that leaves ${r} when divided by ${q}`, test: (n: number) => isPrimeN(n) && Math.abs(n) % q === r })),
+  ...[2, 3, 4].map(k => ({ id: `${k}-primes`, text: `a number made of exactly ${k} primes multiplied together (repeats count)`, test: (n: number) => Math.abs(n) >= 2 && bigOmega(n) === k })),
+  ...[2, 3].map(e => ({ id: `power-${e}`, text: e === 2 ? "a square number (not 0 or 1)" : "a cube number (not 0 or 1)", test: (n: number) => { const a = Math.abs(n); const r = Math.round(a ** (1 / e)); return a >= 2 && r ** e === a; } })),
+  ...([[3, 2], [7, 2], [5, 2], [2, 4]] as const).map(([p, e]) => ({ id: `multiple-of-${p ** e}`, text: `a multiple of ${p ** e} (not 0)`, test: (n: number) => n !== 0 && n % p ** e === 0 })),
+  ...[2, 3, 4].map(B => ({ id: `repdigit-base-${B + 1}`, text: `a number whose digits are all the same when written in base ${B + 1} (at least two digits)`, test: (n: number) => { let a = Math.abs(n); if (a < B + 1) return false; const d0 = a % (B + 1); while (a > 0) { if (a % (B + 1) !== d0) return false; a = Math.floor(a / (B + 1)); } return true; } })),
+  ...[5, 7].map(P => ({ id: `smooth-${P}`, text: `a number whose prime factors are all ${P} or less (not 0 or 1)`, test: (n: number) => { const a = Math.abs(n); return a >= 2 && factor(a).every(p => p <= P); } })),
+];
+const BASES = [10, 2, 3];
+function nearestQual(v: number, q: Qual, R = 3000): number {
+  if (!Number.isFinite(v)) return NaN;
+  const r0 = Math.round(v);
+  for (let k = 0; k <= R; k++) {
+    const lo = r0 - k, hi = r0 + k;
+    const a = q.test(lo), b = k > 0 && q.test(hi);
+    if (a && b) return Math.abs(v - lo) <= Math.abs(v - hi) ? lo : hi;
+    if (a) return lo; if (b) return hi;
+  }
+  return NaN;
+}
+const trailingMatch = (x: number, y: number, B: number) => { x = Math.abs(Math.round(x)); y = Math.abs(Math.round(y)); if (!Number.isFinite(x) || !Number.isFinite(y) || x === 0 || y === 0) return 0; let k = 0; while ((x > 0 || y > 0) && x % B === y % B && k < 60) { k++; x = Math.floor(x / B); y = Math.floor(y / B); if (x === 0 && y === 0) break; } return k; };
+type PRule = Rule & { lens: Lens; qual: Qual; lens2: Lens; base: number; card: string };
+function paramRule(lens: Lens, qual: Qual, lens2: Lens, base: number): PRule {
+  const anchor = (d: D) => nearestQual(lens.f(d), qual);
+  const P = (d: D) => { const v = lens.f(d), n = anchor(d); return Number.isFinite(n) ? -Math.abs(v - n) : W; };
+  const S = (d: D) => { const n = anchor(d), o = lens2.f(d); return Number.isFinite(n) && Number.isFinite(o) ? trailingMatch(n, o, base) : 0; };
+  const id = `${lens.id}|${qual.id}|${lens2.id}|b${base}`;
+  const card = `${lens.text[0]!.toUpperCase()}${lens.text.slice(1)} should be as close as possible to ${qual.text}. Tie-breaker: that number and the whole number nearest ${lens2.text} should end in as many of the same digits as possible${base === 10 ? "" : ` when written in base ${base}`}.`;
+  return { id, fam: lens.id, P, S, lens, qual, lens2, base, card };
+}
+const POOL_SIZE = LENSES.length * QUALS.length * (LENSES.length - 1) * BASES.length;
+
+if (want("params")) {
+  say(`\n## Parameterised families: ${LENSES.length} lenses × ${QUALS.length} qualifiers × ${LENSES.length - 1} second lenses × ${BASES.length} bases = ${POOL_SIZE} rules\n`);
+  const r = rng("params-pairs");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  const NP = Number(process.env.PAIRS ?? 40);
+  const pairs: [PRule, PRule][] = Array.from({ length: NP }, () => { const a = draw(); let b = draw(); while (b.lens.id === a.lens.id && b.qual.id === a.qual.id) b = draw(); return [a, b]; });
+  const win = windowLines(Number(process.env.WIN ?? 30));
+  const n = smp.ls.length; const w = Float64Array.from(smp.logw, x => 2 ** x);
+  const rows: { pmi4: number; pmi8: number; one: number; both: number; nOne: number; nBoth: number; phiOne: number; phiBoth: number; a: PRule; b: PRule }[] = [];
+  const T = Number(process.env.T ?? 20);
+  for (const [a, b] of pairs) {
+    const [va, vb] = valuers([a, b], smp);
+    const Ba = Float64Array.from(smp.ls, l => va!.bits(l)), Bb = Float64Array.from(smp.ls, l => vb!.bits(l));
+    const pmi = (dep: number) => { let ma = 0, mb = 0, mab = 0, cnt = 0; for (let i = 0; i < n; i++) { const ia = Ba[i]! >= dep, ib = Bb[i]! >= dep; if (ia) ma += w[i]!; if (ib) mb += w[i]!; if (ia && ib) { mab += w[i]!; cnt++; } } return cnt < 20 ? NaN : Math.log2(mab * smp.total / (ma * mb)); };
+    // In the window: lines worth ≥ T bits to one rule, to both; and the cheapest (least φ) of each kind.
+    let nOne = 0, nBoth = 0, phiOne = Infinity, phiBoth = Infinity, one = 0, both = 0;
+    for (const l of win) {
+      const x = va!.bits(l), y = vb!.bits(l); const ph = phiL(l);
+      if (x >= T || y >= T) { nOne++; if (ph < phiOne) phiOne = ph; }
+      if (x >= T && y >= T) { nBoth++; if (ph < phiBoth) phiBoth = ph; }
+      one = Math.max(one, x, y); both = Math.max(both, Math.min(x, y));
+    }
+    rows.push({ pmi4: pmi(4), pmi8: pmi(8), one, both, nOne, nBoth, phiOne, phiBoth, a, b });
+  }
+  say(`| pair | PMI d=4 | PMI d=8 | lines ≥ ${T} bits to one / to both (window) | cheapest φ: one / both | best min(bits) both |`); say("|---|---|---|---|---|---|");
+  for (const x of rows) say(`| ${x.a.id} × ${x.b.id} | ${f1(x.pmi4)} | ${f1(x.pmi8)} | ${x.nOne} / ${x.nBoth} | ${f1(x.phiOne)} / ${f1(x.phiBoth)} | ${f1(x.both)} |`);
+  const fin2 = (xs: number[]) => xs.filter(Number.isFinite).sort((p, q) => p - q);
+  const q = (xs: number[], p: number) => { const s = fin2(xs); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))]! : NaN; };
+  say(`\nDistribution over ${rows.length} random pairs (10th / 50th / 90th percentile):`);
+  say(`- PMI at depth 4: ${f1(q(rows.map(x => x.pmi4), 0.1))} / ${f1(q(rows.map(x => x.pmi4), 0.5))} / ${f1(q(rows.map(x => x.pmi4), 0.9))}; at depth 8: ${f1(q(rows.map(x => x.pmi8), 0.1))} / ${f1(q(rows.map(x => x.pmi8), 0.5))} / ${f1(q(rows.map(x => x.pmi8), 0.9))} (${rows.filter(x => !Number.isFinite(x.pmi8)).length} pairs too rare to estimate at 8)`);
+  say(`- lines ≥ ${T} bits to one rule: ${q(rows.map(x => x.nOne), 0.1)} / ${q(rows.map(x => x.nOne), 0.5)} / ${q(rows.map(x => x.nOne), 0.9)}; to both: ${q(rows.map(x => x.nBoth), 0.1)} / ${q(rows.map(x => x.nBoth), 0.5)} / ${q(rows.map(x => x.nBoth), 0.9)}; pairs with none for both: ${rows.filter(x => x.nBoth === 0).length}`);
+  say(`- cheapest φ for one: ${f1(q(rows.map(x => x.phiOne), 0.5))}; for both: ${f1(q(rows.map(x => x.phiBoth), 0.5))} (median, where found)`);
+  // Equal opportunity: best bits in the window per qualifier, across lenses.
+  say(`\n### Equal opportunity: best bits in the window by qualifier (median over lenses, second lens c→X/base 10)\n`);
+  for (const qu of QUALS) {
+    const bests = LENSES.map(l => { const v = valuers([paramRule(l, qu, l.id === "c" ? LENSES[1]! : LENSES[0]!, 10)], smp)[0]!; return win.reduce((m2, li) => Math.max(m2, v.bits(li)), 0); });
+    say(`- ${qu.id}: median ${f1(median(bests))}, range ${f1(Math.min(...bests))}–${f1(Math.max(...bests))}`);
+  }
+  say(`\nExample cards: ${rows.slice(0, 4).map(x => `"${x.a.card}"`).join(" ")}`);
 }

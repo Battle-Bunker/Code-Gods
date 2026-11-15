@@ -72,14 +72,16 @@ world.ts). A committed act whose state another object holds (index `v2ObjectStat
 refused at commit like an invalid call: outcome `failed`, a `reason` naming the other object, its reads charged only.
 Stored games that already hold duplicates keep them.
 
-Disclosure noise (v1's rule, restored; docs/public-log-design.md §5.2 on archive/engine-v1; `disclose.ts`): while a
-game is live every disclosed others' sum is the exact sum plus the noise of the object's state (HMAC of the state under
-the game's private `noiseKey`, Gaussian, σ = `settings.peerNoiseBits`, default 8), one draw for every viewer; points
-shown are own × max(0, others shown). Stored exact, with `shownWant`/`shownPoints` beside: `play:object`,
-`objectIds` (the want and points sorts use the shown indexes), `moves`, `objectMoves`, `othersAt`, `digest`,
-`standings` (the disclosed totals), `objects.list`, `moves.list`, `object.score`, the agents' `value`, `history` and
-`othersAfter` (the tick passes `disclosed`), tugs and agents' points gained all disclose. After the end: exact
-(standings, digest, values, moves); replays are exact. The noise key is never returned and not in the replay file.
+Disclosure noise as measurement error (owner decision 32; `disclose.ts`): while a game is live every reading of an
+others' sum is the exact sum plus an independent Gaussian draw of variance `settings.peerNoiseVariance` (bits²; 0 on
+the beginner presets, 64 elsewhere), never shared across players; points shown are own × max(0, others shown). Every
+read an agent makes is its own draw (`actReadings`, keyed on the act's seed and the read's count, so the tick stays
+deterministic), and so is every paid look and agent telling (`freshNoise`). A player's reactive reads are their own
+reading of the object at that version (`readingNoise`; a query must be deterministic): stored on their value row as
+`shownWant`/`shownPoints` (the want and points sorts index them), and read by `play:object`, `objectIds`, `moves`,
+`objectMoves`, `othersAt` (a candidate is a reading of its own; a no-op candidate reads as the object), `digest`,
+`objects.list`, `moves.list`, `object.score`, the public log, tugs and agents' points gained. Standings are exact
+(below). After the end: exact; replays are exact. The noise key is never returned and not in the replay file.
 Live anonymity (v1's public log): a read about another player's move carries no mover (`by`), agent, calls or cost
 while live (`moves`, `objectMoves`, `moves.list`), a tug names nobody on the other side, and the AI seat's deal tracking
 knows only its own agents' moves; an ended game names them all. A move onto any held state, the object's own included,
@@ -88,18 +90,22 @@ fails (v1): the tick's `occupied` counts the acting object's state.
 v1's game settings as room settings (`room.settings` overrides): `durationMode` ("fixed": the world ends at
 `worldSeconds`, public; "halfLife": at a hidden moment drawn at the start, an exponential lifetime with half-life
 `worldSeconds`, private `v2Games.endAtWorld`, so the header's `endsAt` is null while live), `scoreIntervalSeconds`
-(default 10) and `peerNoiseBits` (0, 2, 4, 8, 16; default 8). Presets are fixed, as v1's beginner setups were
-(`duration.ts`). The header carries `durationMode` and `scoreIntervalSeconds`.
+(default 10) and `peerNoiseVariance` (0, 4, 16, 64, 256 bits²; the preset's by default). A half-life game lasts at
+least h/10 (the coordinator's trial 16). Presets are fixed, as v1's beginner setups were (`duration.ts`); the beginner
+games last 600 s with 3 objects and one birth per 240 s (decisions 31, 34). The header carries `durationMode` and
+`scoreIntervalSeconds`.
 
 Idle parking (v1's, `activity.ts`): 30 minutes after the last human activity (`account.touch`, which the app calls on
 real interaction; room create and join; the owner's start, rematch and resume) a live game parks at its next commit:
 paused with `parked` (header), no ticks, no AI turns, no autopilot. The next human activity resumes every parked game.
-Paid observation (v1's `observation: "paid"`, a room setting, default free; `knowledge.ts`): a seated player of a
-paid live game sees each object as last told (`v2Knowledge`): at its birth, by their own agents' changes and complete
-reads, or by `object.look` (one object or all, each at its full read's price from their own store). `play:object`
-adds `knownAt` and `changesSince` (activity is public); the sorts, `objects.list`, object reads, quotes and scores,
-`othersAt`, the check's samples and `spectate:object` read the told state; the act log, `moves.list` and `objectMoves`
-show only the player's own agents' moves; the public log shows another player's move without state or bits; tugs are
+Paying to read (owner decision 35; v1's paid observation; `knowledge.ts`): every game pays to look, at the read price
+(bits ÷ κ) times `settings.readPriceWeight` (preset: 3 on lines, 1 on grids, so a look is about 1 ⚡; override 0 to 4;
+0 reads the live world free; a game stored without one reads free). A seated player of a live game sees each object as
+last told (`v2Knowledge`): at its birth, by their own agents' changes and complete reads, or by `object.look` (one object
+or all, from their own store; refused before the world runs). `play:object` adds `knownAt`, `changesSince` (activity is
+public) and `lookPrice`; the sorts, `objects.list`, object reads, quotes and scores, `othersAt`, the check's samples and
+`spectate:object` read the told state; the act log, `moves.list` and `objectMoves` show only the player's own agents'
+moves; the public log shows another player's move without mover, state or bits; tugs are
 empty. After the end everything is open.
 
 Sandbox readiness (v1's, `readiness.ts`): players never wait for a sandbox to boot. A game's start warms every
@@ -108,12 +114,11 @@ instead of waiting; the tick skips agents of languages not ready; planning holds
 is ready.
 At most 8 players can play (v1's cap); the rest of a room watches.
 
-Published standings are exact (the coordinator's call 15, a declared trial: v1's came from the disclosed sums):
-standings, their history and the chart are the exact totals, batched every `scoreIntervalSeconds`; per-object figures
-stay blurred. Each player's agents climb on a noise draw of their own (`agentNoiseAt`, call B1). The beginner presets
-have `peerNoiseBits` 8. The header carries `observation`.
+Published standings are exact (the owner's decision 33: "a coarse time grain leaderboard"; call 15): standings, their
+history and the chart are the exact totals, batched every `scoreIntervalSeconds`; per-object figures are readings.
 
-`v2/games:header` carries `peerNoiseBits` (the σ live reads carry; 0: exact).
+`v2/games:header` carries `peerNoiseVariance` and `peerNoiseBits` (its σ, what "about ±" shows; 0: exact), and
+`readPriceWeight`.
 Agents get `occupied` (decision 24): the tick's view of which object holds each state.
 
 Values carry the uniqueness correction (§2.6, `withUniqueness`) at a fixed object count per game, `valueObjects`: the

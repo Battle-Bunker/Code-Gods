@@ -74,14 +74,14 @@ export function climbSentence(c: Climb, noun: string, number: number): string {
   }
 }
 
-const arrow = (x: number) => (x > EPS ? "↑" : x < -EPS ? "↓" : "→");
+const dir = (x: number) => (x > EPS ? "up" : x < -EPS ? "down" : "no change");
 
-/** The last few moves on the object, newest last, each ↑/↓ for the player and for the others, and what they add up to. */
+/** The last few moves on the object, newest last, each up or down for the player and for the others, and what they add up to. */
 export function ClimbHistory({ climb, noun, shown = 5, approx = false }: { climb: Climb; noun: string; shown?: number; /** Live, the others' numbers are blurred (peerNoiseBits): theirs are estimates. */ approx?: boolean }): ReactElement | null {
   if (!climb.steps.length) return null;
   const steps = climb.steps.slice(-shown);
   const verdict = climb.kind === "together" ? `Climbing together: no move lowered your bits or the others'.`
-    : climb.kind === "undoing" ? `Stuck: these moves undo each other, up for one side and down for the other, then back. Look for a move marked ↑ both.`
+    : climb.kind === "undoing" ? `Stuck: these moves undo each other, up for one side and down for the other, then back. Look for a move marked “good for both”.`
     : climb.kind === "alone" ? `Only your agents moved this ${noun} lately.`
     : `Mixed: some moves went up for you, some down.`;
   return (
@@ -91,8 +91,8 @@ export function ClimbHistory({ climb, noun, shown = 5, approx = false }: { climb
         {steps.map((s, i) => (
           <li key={i} data-testid="climb-step">
             <b>{s.by === "you" ? "Your agent" : s.by === ANOTHER ? "Another player" : `${s.by}'s agent`}</b>
-            <span data-dir={sign(s.you)}> {arrow(s.you)} you {fmtNum(Math.abs(s.you))} bits</span>
-            <span data-dir={sign(s.others)}> · {arrow(s.others)} the others {approx ? "about " : ""}{fmtNum(Math.abs(s.others))} bits</span>
+            <span data-dir={sign(s.you)}> you {dir(s.you)}{Math.abs(s.you) > EPS ? ` ${fmtNum(Math.abs(s.you))} bits` : ""}</span>
+            <span data-dir={sign(s.others)}> · the others {dir(s.others)}{Math.abs(s.others) > EPS ? ` ${approx ? "about " : ""}${fmtNum(Math.abs(s.others))} bits` : ""}</span>
           </li>
         ))}
       </ol>

@@ -1,5 +1,5 @@
 /**
- * Paid observation (W3 #643, v1's paid looks): in a game whose room set `observation: "paid"`, a seated player sees each
+ * Every game pays to look (owner decisions 33 and 35; v1's paid observation): a seated player sees each
  * object as they were last told it (at its birth, by their own agents' moves, or by a paid look), and how many times it
  * has changed since (public). These are the words for that; pure, so they are unit tested.
  */
@@ -32,3 +32,17 @@ export function freshness(o: Seen): "fresh" | "stale" | null {
   if (!isPaid(o)) return null;
   return o.knownAt !== null && (o.changesSince ?? 0) === 0 ? "fresh" : "stale";
 }
+
+/** "Look now (1.10 energy)", or null when there is no price (no look possible: planning, the end, a spectator). */
+export const lookLabel = (price: number | undefined): string | null => (price === undefined ? null : `Look now (${price.toFixed(2)} energy)`);
+
+/** What looking at every loaded row costs (the sum of their prices), or null when none has one. */
+export function lookAllPrice(rows: readonly ({ lookPrice?: number } | undefined)[]): number | null {
+  const prices = rows.flatMap(r => (r?.lookPrice === undefined ? [] : [r.lookPrice]));
+  return prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) * 100) / 100 : null;
+}
+
+/** The Watcher a board needs (lib/v2-agents watcherFor): one program per object type. */
+export const watcherTypeOf = (variant: string): "lines" | "grids" => (variant.startsWith("grid") ? "grids" : "lines");
+/** Its share of power: lines about 15 s fresh, most turns left to the climber (W2, #674). */
+export const KEEP_FRESH_SHARE = 0.2;

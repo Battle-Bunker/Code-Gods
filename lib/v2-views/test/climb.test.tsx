@@ -22,7 +22,7 @@ test("moves that go up for one side and down for the other, then back, undo each
   const html = renderToStaticMarkup(<ClimbHistory climb={c} noun="grid" />);
   assert.match(html, /data-kind="undoing"/);
   assert.equal((html.match(/data-testid="climb-step"/g) ?? []).length, 4);
-  assert.match(html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'"), /Ada's agent ↓ you 1.00 bits · ↑ the others 1.00 bits/);
+  assert.match(html.replace(/<[^>]+>/g, "").replace(/&#x27;/g, "'"), /Ada's agent you down 1.00 bits · the others up 1.00 bits/);
   assert.match(html, /Stuck: these moves undo each other/);
 });
 

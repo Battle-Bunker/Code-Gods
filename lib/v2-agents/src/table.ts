@@ -58,15 +58,16 @@ export interface TableInput<S> {
   readonly seed: string;
   /** World seconds (the beginner preset: 300). */
   readonly seconds: number;
-  /** Default: the beginner economy (64 power, 30 s to full, 600 ⚡ to start, 25 opportunities a second). */
+  /** Default: the beginner economy (v2-economy LINES_BEGINNER_ECONOMY: 8 power, 240 s to full, 600 energy to start, 3 opportunities a second). */
   readonly economy?: Economy;
   /** Default 0.1, the beginner preset's. */
   readonly birthsPerSecond?: number;
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
-  /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). A fixed draw per state, keyed by the
-   *  table's seed: agents read others + noise (othersAfter, worth); the scores here stay exact. */
+  /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). As the server draws it (owner decision
+   *  32, W3 #673): every read an agent makes (othersAfter) is an independent draw, keyed by the act and the read's count,
+   *  and the act's own value (worth) is drawn once per act. The scores here stay exact. */
   readonly noise?: number;
   /** Experiments only: summons and edits cost at most this (to try programs dearer than a player's store). */
   readonly summonCap?: number;
@@ -174,10 +175,10 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const reversal = seats.map(() => 0);
   const chat: { from: string; by: number; text: string; at: number }[] = [];
   const stats = seats.map(() => ({ messages: 0, summoned: 0, replaced: 0, allocations: 0, toolCalls: 0, failedToolCalls: 0, acts: 0, spentActs: 0, spentSummons: 0, spentEdits: 0, lateActs: 0, lateIdle: 0, refused: 0, moves: 0, trueGains: 0, flips: 0 }));
-  // Disclosure noise: a fixed normal draw per state (Box–Muller on the state's keyed hash).
-  const noiseAt = (e: string) => {
+  // Disclosure noise: a normal draw per key (Box–Muller on the key's hash); each act draws its value once and each read anew.
+  const noiseAt = (key: string) => {
     if (!input.noise) return 0;
-    const h = hashHex(`${input.seed}:noise:${e}`), u1 = (parseInt(h.slice(0, 12), 16) + 1) / (2 ** 48 + 1), u2 = parseInt(h.slice(12, 24), 16) / 2 ** 48;
+    const h = hashHex(`${input.seed}:noise:${key}`), u1 = (parseInt(h.slice(0, 12), 16) + 1) / (2 ** 48 + 1), u2 = parseInt(h.slice(12, 24), 16) / 2 ** 48;
     return input.noise * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   };
   /** Per object: the last committed move's seat and the state it left (to count flips: a move back by another seat). */
@@ -194,7 +195,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   function pay(i: number, price: number, kind: "summons" | "edits") {
     const own = settledOwn(i);
     if (input.summonCap !== undefined) price = Math.min(price, input.summonCap);
-    if (own.balance < price) throw new Error(`That costs ${Math.round(price * 10) / 10} ⚡; you have ${Math.round(own.balance * 10) / 10} in your own store. Move power from your agents to your store first (power.allocate), then pay.`);
+    if (own.balance < price) throw new Error(`That costs ${Math.round(price * 10) / 10} energy; you have ${Math.round(own.balance * 10) / 10} in your own store. Move power from your agents to your store first (power.allocate), then pay.`);
     players[i]!.own = spend(own, price);
     stats[i]![kind === "summons" ? "spentSummons" : "spentEdits"] += price;
   }
@@ -247,12 +248,14 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const n = bitsAll(lines[object]!), total = n.reduce((x, y) => x + y, 0);
     const history = (byLine.get(object) ?? []).filter(m => m.by === i || m.before[i] !== m.after[i]).slice(-8)
       .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
+    const actKey = `act:${actN}`;
+    let reads = 0;
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
-      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(type.encode(lines[object]!))), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
+      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
-      ...(input.noise ? { disclosed: noiseAt } : {}),
+      ...(input.noise ? { disclosed: () => noiseAt(`${actKey}:read:${reads++}`) } : {}),
       ...(input.unique ? { occupied: (e: string) => lines.some((l, j) => j !== object && type.encode(l) === e) } : {}),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
@@ -428,7 +431,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   async function modelTurn(i: number, k: number, of: number) {
     const m = input.model!, seat = seats[i]!, family = type.families.find(f => f.id === seat.rule.family)!;
     const tools = assistantTools(context(i)).filter(t => (TABLE_TOOLS as readonly string[]).includes(affordanceForTool(t.name)?.id ?? ""));
-    const briefing = `Turn ${k + 1} of ${of}. The game is live at ${Math.round(world)} s. You have ${Math.round(settledOwn(i).balance)} ⚡ in your own store and ${mine(i).length} agent(s). Act, then stop.`
+    const briefing = `Turn ${k + 1} of ${of}. The game is live at ${Math.round(world)} s. You have ${Math.round(settledOwn(i).balance)} energy in your own store and ${mine(i).length} agent(s). Act, then stop.`
       + `\n\n${commitmentBriefing(ledger(i))}`;
     const run = await runAssistant({
       provider: typeof m.provider === "function" ? m.provider(seat.name) : m.provider, system: aiSeatSystemPrompt({ name: seat.name, rule: family.card(seat.rule.params, seat.rule.tieBreaker), affordances: tools }),

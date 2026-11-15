@@ -82,7 +82,7 @@ export const agentOps = [
   affordance({
     id: "agent.destroy", title: "Destroy an agent", group: "agents", scope: "game",
     description: "Stops an agent for good. The energy it holds comes back to the caller's own store, and its power share returns to the caller.",
-    tooltip: "Stop an agent for good; the ⚡ it holds come back to you.", keywords: ["destroy", "kill", "delete agent", "stop agent"],
+    tooltip: "Stop an agent for good; the energy it holds comes back to you.", keywords: ["destroy", "kill", "delete agent", "stop agent"],
     params: obj({ agentId: id, requestId: requestId.optional() }), result: ok,
     contexts: IN_GAME, caller: "seated", effect: "destructive", confirm: "modal", runs: "server", available: hasAgents,
   }),

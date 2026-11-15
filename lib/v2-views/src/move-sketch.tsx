@@ -4,8 +4,8 @@
  * - turn: the pin (or the origin) and an arc with its sense; about the origin, the two dotted perpendiculars from O,
  *   the same length, because a turn about O keeps the line's distance from O;
  * - fold: the dashed crease (or mirror) and one pair of twin dots, ticked at equal distances either side of it;
- * - swap (gradient ↔ y-intercept): the point above x = 1 both lines share, at height m + c, with its vertical guide;
- *   swap (b ↔ c): the two y-intercepts, one the other turned upside down;
+ * - swap (gradient with y-intercept): the point above x = 1 both lines share, at height m + c, with its vertical guide;
+ *   swap (b with c): the two y-intercepts, one the other turned upside down;
  * - lean: the pin where the line crosses the x-axis, "1 up" from it, and the arrow of how much further sideways;
  * - zoom: dotted rays from O through both crossings, with arrows from the old crossings to the new.
  * `sketchMove` is pure (world coordinates, exact numbers in its words) so tests check it against the line the mutator

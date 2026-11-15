@@ -5,7 +5,7 @@
  * whose artefact is not dealable (spec §7.5), so a pool lists candidates and the artefacts decide what is live.
  */
 import { tieBreakersOn, type TieBreaker, type Variant } from "@workspace/v2-core";
-import { divisibilityLadder, exactChange, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
+import { divisibilityLadder, primeLanding, primeStaircase, pythagoreanArea, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing } from "./beginner.ts";
 import { primeGradient } from "./families.ts";
 import { lineQ, lineQLenses, lineZ, lineZ4 } from "./type.ts";
 
@@ -31,7 +31,9 @@ export interface Preset {
  * The beginner pool: the curator's families plus Ruler, Exact Change and Pythagorean Area, restored (owner decision 22:
  * rules no exact sum can value are valued by sampling, with honest intervals).
  */
-export const beginnerPool = [primeLanding, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, exactChange, pythagoreanArea] as const;
+// Exact Change is not dealt (the coordinator's call, 15 Nov, playtest round 12): most lines score nothing for it (it reads
+// a line as coins only when a and b are both positive), so a player dealt it has no hill from the deal.
+export const beginnerPool = [primeLanding, squareArea, wholeCrossing, divisibilityLadder, treasure, sameOnBothRulers, primeGradient, primeStaircase, ruler, pythagoreanArea] as const;
 
 const beginnerRules = (v: Variant): readonly PoolRule[] => beginnerPool.flatMap(f =>
   f.dealable(v).map(params => ({ family: f.id, params, tieBreakers: tieBreakersOn(f, v).map(t => t.id) })));

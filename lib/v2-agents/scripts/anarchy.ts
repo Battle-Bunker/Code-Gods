@@ -64,6 +64,6 @@ for (const [name, ids] of Object.entries(TABLES)) {
     budget += rules.length * (E.startingEnergy + E.powerPerSecond * SECONDS);
   }
   const perLine = naive / lines;
-  console.log(`| ${name}: ${ids.join(", ")} | ${best.t.toFixed(0)} on y = ${target.m}x + ${target.c} (${best.n.map(x => x.toFixed(1)).join(", ")}) | ${perLine.toFixed(0)} | ${(best.t / perLine).toFixed(1)}× | ${cost.toFixed(0)} / ${budget.toFixed(0)} ⚡ |`);
+  console.log(`| ${name}: ${ids.join(", ")} | ${best.t.toFixed(0)} on y = ${target.m}x + ${target.c} (${best.n.map(x => x.toFixed(1)).join(", ")}) | ${perLine.toFixed(0)} | ${(best.t / perLine).toFixed(1)}× | ${cost.toFixed(0)} / ${budget.toFixed(0)} energy |`);
 }
 await boxes.close();

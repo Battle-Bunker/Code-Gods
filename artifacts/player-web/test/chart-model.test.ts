@@ -94,7 +94,7 @@ const BEGINNER: RulesInput = {
 
 test("the rules say the game on lines in player words, with this game's values", () => {
   const text = rulesParagraphs(BEGINNER).join("\n");
-  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "⚡ energy", "600.00 ⚡", "64.00 ⚡ a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
+  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "energy", "600.00 energy", "64.00 energy a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
     assert.ok(text.includes(want), want);
   assert.doesNotMatch(text, /\b(payoff|objects?|grids?)\b/i);
   assert.doesNotMatch(text, /bidding/, "no bid phase in this preset");
@@ -113,6 +113,11 @@ test("a half-life game's rules say its end is hidden and random; the facts say t
   assert.equal(facts["Totals counted"], "every 30 seconds");
   assert.equal(facts["Others' bits"], "exact");
   assert.equal(Object.fromEntries(rulesFacts(BEGINNER))["Others' bits"], "blurred while live (about 8 bits); totals exact");
+});
+
+test("the rules say looking costs energy at the room's weight, or is free (owner decision 35)", () => {
+  assert.equal(Object.fromEntries(rulesFacts({ ...BEGINNER, readPriceWeight: 3 }))["Looking"], "costs energy (3× the read price); you see each one as you last looked");
+  assert.equal(Object.fromEntries(rulesFacts({ ...BEGINNER, readPriceWeight: 0 }))["Looking"], "free: you see everything as it is");
 });
 
 test("durations in words", () => {

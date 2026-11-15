@@ -13,7 +13,8 @@
     "grid-value-validate": "node --max-old-space-size=8000 --experimental-strip-types src/grid-value-validate.ts",
     "uniqueness": "node --max-old-space-size=4000 --experimental-strip-types src/uniqueness-cli.ts",
     "table-gate": "node --experimental-strip-types src/table-gate-cli.ts",
-    "tension": "node --experimental-strip-types src/tension-cli.ts"
+    "tension": "node --experimental-strip-types src/tension-cli.ts",
+    "pmi": "node --max-old-space-size=6000 --experimental-strip-types src/pmi-cli.ts"
   },
   "dependencies": {
     "@workspace/v2-core": "workspace:*",

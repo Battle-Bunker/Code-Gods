@@ -35,10 +35,17 @@ export interface Preset {
   /** How its games end (duration.ts): v1's Annotated basics was fixed, 300 s (archive settings.ts ANNOTATED_BASICS_PATCH). */
   durationMode: "fixed" | "halfLife";
   /**
-   * The disclosure noise (disclose.ts): 8 bits, the owner's ruling of 1 Nov. v1's Annotated basics had 0 because its
-   * totals were built on the noisy sums and read high; v2 publishes exact totals (the coordinator's call 15).
+   * The variance, bits², of each reading of the others' sums while live (disclose.ts, owner decision 32): 0 on the
+   * beginner presets (the owner); 64 (σ 8, v1's default) elsewhere.
    */
-  peerNoiseBits: number;
+  peerNoiseVariance: number;
+  /**
+   * The weight on a look's read price (bits ÷ κ; decision 35: "querying 5 objects every second would be easily
+   * affordable but doing so 100 times a second would be prohibitive"): a look costs about 1.1 ⚡ on a line (weight 3,
+   * median 11.7 bits) and 1.3 ⚡ on a grid (weight 1, median 41 bits), so 5 a second take about a tenth of a player's
+   * 64 ⚡/s and 100 a second about twice all of it.
+   */
+  readPriceWeight: number;
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -63,19 +70,37 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
     // Owner decision 31: "Let's shrink object quantity for the beginner game to 3 ... I want to concentrate human
     // attention more on specific battlefields for the beginner game."
-    // peerNoiseBits 8 (the owner's 1 Nov ruling; the coordinator's call 15 with exact published totals).
-    startingObjects: 3, durationMode: "fixed", peerNoiseBits: 8,
+    // Owner decision 32: each reading of the others' sums is an independent draw of this variance; σ 8 (v1's default)
+    // outside the beginner game.
+    startingObjects: 3, durationMode: "fixed", peerNoiseVariance: 64,
+    readPriceWeight: p.variant.startsWith("grid") ? 1 : 3,
     economy: ECONOMY, ...extra,
   };
 }
 
-const BEGINNER = fromPool("lines-beginner");
+/**
+ * The beginner games: ten minutes (owner decision 34, "The beginner game should be 10m long"), so with decision 31's
+ * births 5 objects by the end; exact readings (decision 32, "it should be zero for the beginner game").
+ */
+const BEGINNER_WORLD = { worldSeconds: 600, peerNoiseVariance: 0 };
+const BEGINNER = fromPool("lines-beginner", BEGINNER_WORLD);
 /**
  * The beginner grid (docs/engine-v2/grids.md): the 4×4 board of digits. A board's agents read 16 cells, not y = mx + c,
  * so they are longer and dearer to summon (grid starters cost about 400 to 590 ⚡, line starters 300 to 500): grids
  * start with 900 ⚡ so that a starter takes about the share of the starting energy a line starter takes of 600.
  */
-const GRIDS = fromPool("grids-beginner", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
+const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
+
+
+/**
+ * Presets outside the beginner game keep v1's default board (the coordinator's call, 15 Nov; owner decisions 31, 34 and
+ * 37 are for the beginner game only): 10 starting objects, a birth every 10 s, the half-life end at 300 s, 100
+ * opportunities a second, power 64, a 30 s store, 600 to start (archive lib/game-core settings.ts, the Grid defaults).
+ */
+const V1_DEFAULT_BOARD: Partial<Preset> = {
+  startingObjects: 10, durationMode: "halfLife", worldSeconds: 300,
+  economy: { powerPerSecond: 64, fullChargeSeconds: 30, opportunitiesPerSecond: 100, birthsPerSecond: 0.1 },
+};
 
 export const PRESETS: readonly Preset[] = [
   BEGINNER,
@@ -85,10 +110,10 @@ export const PRESETS: readonly Preset[] = [
   // and in the collapse check (docs/engine-v2/landscape-analysis.md §4, first run). Several lines per object stays
   // provisional and undealt (coordinator's call 5), so "lines-four" is not offered either.
   // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
-  fromPool("lines-lenses"),
+  fromPool("lines-lenses", V1_DEFAULT_BOARD),
   GRIDS,
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
-  fromPool("grids-more-rules", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
+  fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 
