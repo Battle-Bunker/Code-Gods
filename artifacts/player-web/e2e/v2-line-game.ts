@@ -172,6 +172,8 @@ try {
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);
     // Live, the others' sums are blurred (W3 #608, v1 peerNoiseBits): the figure is written as an estimate.
     assert.match(sentence, /others' about −?[\d,]+\.\d\d bits? ≈/, `${label}: live, the others' bits are an estimate: ${sentence}`);
+    // Call 15 (W3 #662): the totals and standings are exact; only each line's figures are estimates.
+    assert.doesNotMatch(await page.getByTestId("text-my-total").innerText(), /about/, `${label}: the header total is exact`);
     assert.doesNotMatch(sentence, /payoff|object|✨/i);
     assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);

@@ -8,7 +8,7 @@
  * view state (`view.sortObjects`), so an assistant can sort it for them. A spectator sees every line by number, as text.
  */
 import { isPaid, seenShort, seenWords } from "./seen";
-import { bitsText, num, othersNote, pointsText, scoreFormula, BLURRED_NOTE } from "@/core/words";
+import { bitsText, num, othersNote, pointsText, scoreFormula, blurredNote } from "@/core/words";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { stableOrder } from "./stable-order";
 import { pinnedRep } from "@workspace/v2-affordances";
@@ -63,7 +63,7 @@ function PointsKey() {
       <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
       <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
       <BitsHelp testId="button-bits-help-lines" />
-      <span className="basis-full" data-testid="text-others-note">{othersNote(word.one)}{blurred ? ` ${BLURRED_NOTE}` : ""}</span>
+      <span className="basis-full" data-testid="text-others-note">{othersNote(word.one)}{blurred ? ` ${blurredNote(word.one)}` : ""}</span>
     </p>
   );
 }
