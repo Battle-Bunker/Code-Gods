@@ -13,7 +13,7 @@ test("numbers typed with commas or spaces (or a #) read sorted without repeats; 
 test("the sentence names the objects in the game's noun, and the price of the one changed line", () => {
   assert.equal(listWords([3, 7, 19], "grid", "grids"), "grids 3, 7 and 19");
   assert.equal(leaveLine({ agent: "Simple", now: [], next: [3], price: 9.2, one: "line", many: "lines" }),
-    "Simple will leave line 3 alone: only that part of its code changes, for 9.20 ⚡.");
+    "Simple will leave line 3 alone: only that part of its code changes, for 9.20 energy.");
   assert.equal(leaveLine({ agent: "Simple", now: [3], next: [3], price: 0, one: "grid", many: "grids" }), "Simple leaves grid 3 alone.");
   assert.equal(leaveLine({ agent: "Simple", now: [], next: [], price: 0, one: "grid", many: "grids" }), "Simple leaves no grids alone.");
 });

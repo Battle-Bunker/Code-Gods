@@ -64,7 +64,7 @@ test("values the server would refuse are explained in words instead of sent", ()
 });
 
 test("the next game's summary uses the overrides", () => {
-  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} ⚡ to start · others' sums exact · totals every 10 s.`);
+  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s.`);
   assert.match(nextGameSummary(presetOf("lines-beginner-bidding"), {}), /45 s of bidding first/);
 });
 

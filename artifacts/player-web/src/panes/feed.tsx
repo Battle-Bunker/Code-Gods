@@ -51,7 +51,7 @@ function MoveRow({ move, names, variant }: { move: Move; names: ReadonlyMap<stri
   return (
     <li className={`space-y-0.5 px-4 py-2 ${move.mine ? "" : "text-muted-foreground"}`} data-testid={`row-move-${move.seq}`} data-mine={move.mine || undefined}>
       <p className="text-xs text-muted-foreground tabular-nums">
-        {timeLeft(move.worldSeconds, length)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} ⚡` : ""}
+        {timeLeft(move.worldSeconds, length)}{move.mine && move.charge !== null ? ` · this move cost ${num(move.charge)} energy` : ""}
       </p>
       {board ? (
         <div className="flex items-start gap-3">

@@ -10,6 +10,23 @@ import { editPrice, type Language } from "./forge-model";
 import { leaveLine, listWords, parseNumbers, missingLeave } from "./leave-alone";
 import { askedRecently, onForgeRequest, takeForgeRequest } from "./forge-request";
 
+/**
+ * Puts focus in the field for up to 2 s while nothing else holds it: the palette hands focus back as it closes, at a
+ * moment that varies, so one early focus() was lost (round 10). Never takes focus from something the player chose.
+ */
+function useClaimFocus(box: React.RefObject<HTMLElement | null>) {
+  return () => {
+    const until = Date.now() + 2000;
+    const t = setInterval(() => {
+      const input = box.current?.querySelector("input");
+      const active = document.activeElement;
+      if (!input || active === input || Date.now() > until) { clearInterval(t); return; }
+      if (!active || active === document.body) input.focus({ preventScroll: true });
+    }, 100);
+    return () => clearInterval(t);
+  };
+}
+
 export function LeaveAlone({ agentId, name, language, source, one, many }: {
   agentId: string; name: string; language: Language; source: string; one: string; many: string;
 }) {
@@ -22,6 +39,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
   useEffect(() => { setText(readLeave(source)?.join(", ") ?? ""); }, [source]);
   // Advice elsewhere ("leave line 3 alone") fills the list in (added to what is there) and brings it into view.
   const box = useRef<HTMLElement>(null);
+  const claimFocus = useClaimFocus(box);
   useEffect(() => {
     const take = () => {
       const r = takeForgeRequest("leave");
@@ -31,18 +49,13 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
       const reveal = () => { box.current?.scrollIntoView({ block: "nearest" }); box.current?.querySelector("input")?.focus({ preventScroll: true }); };
       requestAnimationFrame(reveal);
       // Again once the palette's dialog has closed: it hands focus back to where it was (round 10: the control never got it).
-      for (const ms of [350, 800, 1500]) setTimeout(() => box.current?.querySelector("input")?.focus({ preventScroll: true }), ms);
+      claimFocus();
     };
     take();
     return onForgeRequest(take);
   }, [source]);
   // Mounted (or remounted by the dock) just after a request: focus the field, once the palette has let go of focus.
-  useEffect(() => {
-    if (!askedRecently("leave")) return;
-    const focus = () => box.current?.querySelector("input")?.focus({ preventScroll: true });
-    const timers = [100, 400, 800].map(ms => setTimeout(focus, ms));
-    return () => timers.forEach(clearTimeout);
-  }, []);
+  useEffect(() => (askedRecently("leave") ? claimFocus() : undefined), []);   // eslint-disable-line react-hooks/exhaustive-deps
   if (op.hidden) return null;
   if (now === null) return <p ref={box as React.RefObject<HTMLParagraphElement>} className="border-t pt-2 text-xs text-muted-foreground" data-testid="leave-alone-missing">{missingLeave(name)}</p>;
   const parsed = parseNumbers(text, one);
@@ -54,7 +67,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
     setBusy(true); setSaid(null);
     try {
       const r = await op.run({ agentId, numbers: next });
-      setSaid({ tone: "ok", text: `${name} now leaves ${listWords(next, one, many)} alone (it cost ${r.price.toFixed(2)} ⚡).` });
+      setSaid({ tone: "ok", text: `${name} now leaves ${listWords(next, one, many)} alone (it cost ${r.price.toFixed(2)} energy).` });
     } catch (e) { setSaid({ tone: "error", text: failureText(e) }); }
     finally { setBusy(false); }
   };

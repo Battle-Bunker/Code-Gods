@@ -98,7 +98,7 @@ test("no sentence uses the words walkers did not understand", () => {
     moveSentence({ who, before: snap(10, 4, 50), after: snap(10.5, 4, 40) }),
     moveSentence({ who, before: snap(2, 0, 0), after: snap(2.5, 0, 0) }),
   ];
-  for (const l of lines) assert.doesNotMatch(l, /\b(grid|object|payoff)s?\b|✨/i);
+  for (const l of lines) assert.doesNotMatch(l, /\b(grid|object|payoff)s?\b|\p{Extended_Pictographic}/iu);
 });
 
 test("live, with the others' bits blurred, the act log's points are estimates: about and ≈ (v1 peerNoiseBits)", () => {

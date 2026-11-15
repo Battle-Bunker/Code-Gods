@@ -96,7 +96,7 @@ function Frame({ f }: { f: string }): ReactElement {
             <p className="sr-muted">From your rule and the card Bo showed you, nothing else: the line nearby where your bits × Bo's bits is largest (its ghost is drawn where the view can show it; here it lies outside, so it is written below).</p>
             <CompactFace rule={ADA} state={NOW} value={va} next={ghost} rep="cart" />
             <p>Now {text(NOW)}: you {joint.now.a.toFixed(2)} bits × Bo {joint.now.b.toFixed(2)} bits = <b>{(joint.now.a * joint.now.b).toFixed(2)}</b></p>
-            <p>At <b>{text(joint.s)}</b>: you {joint.a.toFixed(2)} bits × Bo {joint.b.toFixed(2)} bits = <b>{joint.p.toFixed(2)}</b>, for {joint.price.toFixed(2)} ⚡ to get there.</p>
+            <p>At <b>{text(joint.s)}</b>: you {joint.a.toFixed(2)} bits × Bo {joint.b.toFixed(2)} bits = <b>{joint.p.toFixed(2)}</b>, for {joint.price.toFixed(2)} energy to get there.</p>
             <span className="sr-btn">Propose: we both take the moves marked ↑ both on line {LINE}</span>
           </div>
           <ExpandedFace rule={ADA} state={NOW} value={va} />

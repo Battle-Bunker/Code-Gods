@@ -103,9 +103,9 @@ try {
       // of its code changes, priced as that small edit.
       const leave = page.getByTestId("leave-alone");
       await leave.getByTestId("input-leave-alone").fill("3");
-      await leave.getByTestId("text-leave-alone").getByText(/will leave line 3 alone: only that part of its code changes, for [\d,.]+ ⚡/).waitFor();
+      await leave.getByTestId("text-leave-alone").getByText(/will leave line 3 alone: only that part of its code changes, for [\d,.]+ energy/).waitFor();
       await leave.getByTestId("input-leave-alone").press("Enter");   // as the playtester did (round 7: "no confirmation after Enter")
-      await leave.getByTestId("text-leave-alone-done").getByText(/now leaves line 3 alone \(it cost [\d.]+ ⚡\)/).waitFor({ timeout: 30_000 });
+      await leave.getByTestId("text-leave-alone-done").getByText(/now leaves line 3 alone \(it cost [\d.]+ energy\)/).waitFor({ timeout: 30_000 });
       await leave.getByTestId("text-leave-alone").getByText(/leaves line 3 alone\./).waitFor({ timeout: 10_000 });
       console.log(`${label}: ${(await leave.getByTestId("text-leave-alone-done").innerText()).trim()}`);
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
@@ -114,7 +114,7 @@ try {
       // The price line follows the edit once the forge has re-rendered (reading it at once raced the render).
       await page.getByTestId("text-forge-price").getByText(/changes only:/).waitFor({ timeout: 10_000 });
       const priced = await page.getByTestId("text-forge-price").innerText();
-      const m = /changes only: ([\d,.]+) ⚡ \(the whole program would be ([\d,.]+) ⚡\)/.exec(priced);
+      const m = /changes only: ([\d,.]+) energy \(the whole program would be ([\d,.]+) energy\)/.exec(priced);
       assert.ok(m, `the edit is priced by its change: ${priced}`);
       assert.ok(Number(m[1]!.replace(/,/g, "")) < Number(m[2]!.replace(/,/g, "")), `the change costs less than the whole: ${priced}`);
       console.log(`${label}: ${priced}`);
@@ -136,7 +136,7 @@ try {
     // The first scoring move (a move can also leave your rarity and the points where they were).
     // A move row of its own: a move folded into a tug-of-war entry is hidden inside its closed <details>.
     // The act log's times read as the countdown does ("3:39 left"), not elapsed (persona walk: 0:13 beside 3:39 left).
-    await feed.locator("[data-testid^=row-move-] p").first().getByText(/^\d+:\d\d left/).waitFor({ timeout: 60_000 });
+    await feed.locator("[data-testid^=row-move-] p:visible").getByText(/^\d+:\d\d left/).first().waitFor({ timeout: 60_000 });
     // Its own row, or inside a tug-of-war entry (contested lines fold their moves under "Show the N moves").
     const mine = feed.locator("[data-testid=text-move-line]").filter({ hasText: /^Your agent .* changed a line.*Your rarity/ }).first();
     await mine.waitFor({ state: "attached", timeout: 60_000 });
@@ -177,8 +177,8 @@ try {
     assert.match(sentence, /others' about −?[\d,]+\.\d\d bits? ≈/, `${label}: live, the others' bits are an estimate: ${sentence}`);
     // Call 15 (W3 #662): the totals and standings are exact; only each line's figures are estimates.
     assert.doesNotMatch(await page.getByTestId("text-my-total").innerText(), /about/, `${label}: the header total is exact`);
-    assert.doesNotMatch(sentence, /payoff|object|✨/i);
-    assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|⚡|energy)/, `every measure has 2 decimal places: ${sentence}`);
+    assert.doesNotMatch(sentence, /payoff|object|\p{Extended_Pictographic}/iu);
+    assert.doesNotMatch(sentence, /\d\.\d (bits?|points?|energy)/, `every measure has 2 decimal places: ${sentence}`);
     console.log(`${label}: first move of your agent at ${clock(t0)}: ${sentence.slice(0, 160)}`);
 
     // The goal card (owner decision 23: no steps): the parts on their rulers and a worked example (before one line's

@@ -137,11 +137,11 @@ try {
     await next.getByTestId("input-setting-scoreIntervalSeconds").fill("5");
     await next.getByTestId("select-setting-peerNoiseVariance").selectOption("16");
     await next.getByTestId("button-save-settings").click();
-    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · ends at a hidden moment, half of games within 1\.5 min · 777 ⚡ to start · others' sums blurred \(about ±4 bits each reading\) · totals every 5 s/).waitFor({ timeout: 15_000 });
+    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · ends at a hidden moment, half of games within 1\.5 min · 777 energy to start · others' sums blurred \(about ±4 bits each reading\) · totals every 5 s/).waitFor({ timeout: 15_000 });
     // Back to a public end, so the steps below play a game of known length.
     await next.getByTestId("select-setting-durationMode").selectOption("fixed");
     await next.getByTestId("button-save-settings").click();
-    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · 1\.5 min game · 777 ⚡ to start/).waitFor({ timeout: 15_000 });
+    await next.getByTestId("text-next-game-summary").getByText(/5 s to plan · 1\.5 min game · 777 energy to start/).waitFor({ timeout: 15_000 });
     await next.getByTestId("button-reset-settings").waitFor();
     await noSideways(page, `${label} room`);
     await shot(page, `room-${label}-settings`);
@@ -154,7 +154,7 @@ try {
     const h = await header(page, gameId);
     assert.deepEqual({ planning: h.planningSeconds, world: h.worldSeconds, energy: h.startingEnergy, preset: h.preset, mode: h.durationMode, interval: h.scoreIntervalSeconds, noise: h.peerNoiseBits },
       { planning: 5, world: 90, energy: 777, preset: "lines-beginner", mode: "fixed", interval: 5, noise: 4 });
-    console.log(`${label}: the game started with 5 s planning, 90 s of world, 777 ⚡`);
+    console.log(`${label}: the game started with 5 s planning, 90 s of world, 777 energy`);
 
     // ---- What if, during the live game
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
@@ -172,7 +172,7 @@ try {
     if (await whatIf.getByTestId("text-what-if-rarity").count()) {
       assert.match(await whatIf.getByTestId("text-what-if-rarity").innerText(), /Your rarity\s*[\d.]+ bits \(1 in [^)]+ by chance\) → [\d.]+ bits \(1 in [^)]+ by chance\)/);
     }
-    assert.match(await whatIf.getByTestId("text-what-if-charge").innerText(), /An agent would spend about [\d.]+ ⚡/);
+    assert.match(await whatIf.getByTestId("text-what-if-charge").innerText(), /An agent would spend about [\d.]+ energy/);
     assert.match(await whatIf.getByTestId("text-what-if-after").innerText(), /It would move the line up 1:\s+y =/);
     await whatIf.getByTestId("input-what-if-k").fill("abc");
     await whatIf.getByTestId("text-what-if-error").getByText(/Type a number/).waitFor();

@@ -90,7 +90,7 @@ export function partsNote(parts: number, one = "line", many = `${one}s`): string
   return `Your rule scores a ${one} in ${parts} parts (${names.join(", ")}): the main part counts first, and each tie-breaker only decides between ${many} that tie on everything before it.`;
 }
 
-// ------------------------------------------------------------------ switcher ↔ view state
+// ------------------------------------------------------------------ switcher and view state
 
 /** The expanded face's switcher from the human's focus: none: the rule's primary; one: switched; more: compared. */
 export function switcherOf(reps: readonly string[] | undefined, primary: string): { active: string; compare: string | null } {

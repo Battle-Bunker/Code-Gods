@@ -60,7 +60,7 @@ const fields = (mode: SettingsForm["durationMode"]): { key: TextField; label: st
   mode === "halfLife"
     ? { key: "worldMinutes", label: "Half-life (minutes)", hint: "Half of games end within this; the end is a hidden random moment." }
     : { key: "worldMinutes", label: "Game length (minutes)", hint: "How long the world runs." },
-  { key: "startingEnergy", label: "Starting energy (⚡)", hint: "What each player has to summon agents with." },
+  { key: "startingEnergy", label: "Starting energy", hint: "What each player has to summon agents with." },
   { key: "scoreIntervalSeconds", label: "Totals counted every (seconds)", hint: "How often the standings are counted and published.", list: "score-interval-options" },
 ];
 

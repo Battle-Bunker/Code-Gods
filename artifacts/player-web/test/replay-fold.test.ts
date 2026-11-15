@@ -1,7 +1,7 @@
 /**
  * The replay's fold (src/replay/fold.ts): an ended game's stored file (engine convex/v2/replays.ts: header, every
  * player's rule, every v2Events event) folded up to a cursor into what the SDK hooks answer live. Expectations are
- * worked by hand from spec §8 (points = own ✨ rarity × the others' sum) on a two-player game of literal events.
+ * worked by hand from spec §8 (points = own rarity × the others' sum) on a two-player game of literal events.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

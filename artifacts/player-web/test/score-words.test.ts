@@ -12,8 +12,8 @@ test("every measure a player reads has 2 decimal places, one path for bits, ener
   assert.equal(num(-0.004), "0.00", "never −0.00");
   assert.equal(pointsText(51.0072), "51.01 points");
   assert.equal(pointsText(1), "1.00 point");
-  assert.equal(energyText(600), "600.00 ⚡");
-  assert.equal(powerText(2.5), "2.50 ⚡ a second");
+  assert.equal(energyText(600), "600.00 energy");
+  assert.equal(powerText(2.5), "2.50 energy a second");
 });
 
 test("a line's score: your bits × the others' bits = points, the product of the full values", () => {
