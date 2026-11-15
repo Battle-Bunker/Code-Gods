@@ -1,5 +1,5 @@
-// High Start · Example: the lines cross at an x that is a multiple of q to your level
-// Main part: the gentler line crosses the y-axis on the dealt ladder. Tie-breaker: the lines cross at an x that is a multiple of q to your level.
+// High Start · Example: the crossing's x near a multiple of your number
+// Main part: the gentler line crosses the y-axis on your pattern. Tie-breaker: the crossing's x near a multiple of your number.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.

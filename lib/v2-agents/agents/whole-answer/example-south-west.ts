@@ -1,5 +1,5 @@
 // Whole Answer · Example: the answer far down and to the left
-// Main part: the answer is whole numbers, y on the dealt ladder. Tie-breaker: the answer far down and to the left.
+// Main part: the answer's y on your pattern. Tie-breaker: the answer far down and to the left.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.

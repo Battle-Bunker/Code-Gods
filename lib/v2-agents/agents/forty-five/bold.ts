@@ -1,5 +1,5 @@
 // Forty-Five · Bold
-// Main part: the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder. Tie-breaker: whichever you were dealt (that distance has many prime factors; that distance shares a factor with the y-intercepts' gap).
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| has many prime factors; that |x| + |y| shares a factor with the y-intercepts' gap).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others

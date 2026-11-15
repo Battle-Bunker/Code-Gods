@@ -1,5 +1,5 @@
 # Far Crossing · Naive (for learning)
-# Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the gap between the x-intercepts a multiple of q to your level; the lines cross at a height that is a multiple of q to your level).
+# Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.

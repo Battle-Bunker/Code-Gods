@@ -697,3 +697,100 @@ The check table (design-principles.md), every two-line family:
 - **Test 5:** passes.
 - **Still open: test 2** (§10.1's axis-line mechanism, and the rest). The proposal is with the coordinator. The preset
   stays non-default.
+
+## 11. The axis-line basin in the law, the price trial for pairs, cards (trial 31, 15 November)
+
+The coordinator's orders after #837:
+- (1) fix the axis-line basin in the law, and judge test 2 by the twelve-search hit rate;
+- (a) adopt the spec lead's price trial (#832) for pairs;
+- (b) cards of at most 30 and 20 words, and the beginner economy;
+- and the spec lead's straight-climb check.
+
+### 11.1 A zero coefficient rarer in the pair law (trial 31)
+
+- **What the coordinator asked for, and what it turned out to be.** The coordinator asked to price a zero coefficient as
+  line-q does (code C3, p(0) = 1/8). The pair law already did, since it draws each line from line-q's codes. Yet 25.2%
+  of systems were born with a horizontal or vertical line, because two lines double a line's chance.
+- **The change.** The pair law now has its own codes (lib/v2-pair pair.ts `PAIR_CODES`): a by p(0) = 1/64, b by
+  p(0) = 1/256, and c as on line-q.
+- **The effect on births.** A system is born with an axis line 2.8% of the time, close to the 4% the trial reached on
+  lines. A horizontal line's a costs 6 bits instead of 3, so the axis basin (§10.1) is no longer a cheap shared
+  starting point.
+- **Rules unchanged.** The rules read such lines exactly as before.
+
+### 11.2 The price trial for pairs
+
+- **Ladder tails (trial 28).** Every dealt pair family is now a ladder (`keepsParams`): its numbers are never redrawn,
+  as for line ladders, so drift no longer touches `lines-pairs`.
+  - *The tail:* its main part's value tail continues past the knots at the rate measured between levels. That is the
+    least bits in each doubling band of the score, fitted across the bands, in log₂ of the score, which is linear in
+    the level: "ladder-log" in lib/v2-valuation value.ts. A pair's score grows like q^level, so a straight line in
+    the score itself would grow exponentially in the level.
+  - *The cap:* each family's witnesses (`witness`: cheap systems reaching level n) cap the tail at their φ.
+- **Shortcut fees (trial 29).** The stretch (either line), the reflection and the quarter turn pay at least their fee ×
+  2^((Φ − 21)/3.5), with Φ the moved line's larger code length (lib/v2-pair mutators.ts). 21 bits is the pair law's
+  90th percentile per line. The prices stay an exact potential (test/potential.test.ts).
+- **The energy gate.** The no-straight-hill gate (artifacts/engine v2-no-straight-hill.test.ts) now climbs every dealt
+  pair rule too: a greedy climber with one seat's whole-game income on one object, using every pair shortcut and the
+  additive moves on either line. The highest of the 114 pair rules is 28.7 bits (Whole Answer {7, 5}, peg-divisor);
+  every pair rule stays under 35.
+
+### 11.3 The straight-climb check (the spec lead's request)
+
+scripts/pair-climb.ts: from a rung start (the cheapest shift or tilt onto level 1), one seat spends 2,500⚡ on one
+object, each step the move with the most bits per energy among all the pair moves.
+
+- **No straight runs.** At most two steps rise by the same amount.
+- **Peaks of 7.5–23.4 bits.**
+- **Single large jumps (reported).** One slide takes Right Angle from 10.9 to 23.4 bits for 30⚡. One turn or quarter
+  turn takes Gap Ratio up about 12 bits, to about 23.
+- **Climbs end frozen (reported).** After a few steps the greedy climber finds no improving move. Past the sampled
+  knots, the tie-breaker's tail rises only about 0.4 bits per doubling, so the tie-breaker gives a seat little to do
+  at the top. That is the spec lead's "a run that then freezes", for the coordinator.
+
+### 11.4 Cards (playtest rounds 24 and 25)
+
+- **Limits.** Every main sentence is at most 30 words and every tie-breaker at most 20, with no "level" and no "The
+  closer, the better" (the card adds its own aim). A test enforces this.
+- **The pattern in numbers a child can follow.** A residue ladder reads "y leaving 1 when divided by 5; better if
+  (y − 1) ÷ 5 does too, and so on". A valuation ladder reads "better, 5 times one; then 125 times; then 15,625 times".
+  A power ladder reads "5 or −5; better, 125; then 15,625".
+- **The ladder's place in words.** On the card, it shows as "on your pattern, 2 steps up".
+- **Economy.** `lines-pairs` plays the beginner economy: ten minutes fixed, exact readings, the line beginner's start.
+
+### 11.5 Test 2 by the hit rate
+
+The statistic (lib/v2-agents src/collapse.ts `CHEAP`, the coordinator's call):
+- each table gets 12 independent searches of 100,000 evaluations, judged against the best state known (theirs and a
+  10× reference);
+- a table is cheap when at least half its searches reach 95% of that best;
+- the variant fails when more than a quarter of its tables are cheap.
+
+Final pool (§11.1–11.4), searches hitting 95% of the best known per table (of 12)
+([collapse](scripts/two-line-systems-collapse-pair-q.txt)):
+
+| β | t0 | t1 | t2 | t3 | t4 | t5 | t6 | t7 | cheap (≥ 4 of 12) | verdict |
+|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|
+| 0.02 | 1 | 2 | 0 | 2 | 3 | 2 | 10 | 1 | 1/8 | PASS |
+| 0.05 | 0 | 0 | 1 | 6 | 3 | 2 | 11 | 0 | 2/8 | PASS |
+| 0.1 | 1 | 2 | 9 | 8 | 9 | 1 | 11 | 3 | 4/8 | **FAIL** |
+
+- **At the dealt β 0.05 test 2 passes.** At β 0.1 (the smallest W) it fails.
+- **Test 5** passes.
+- **Drift:** pair rules no longer drift, so there are no redraws to check.
+
+**The findable table with no axis line** (the coordinator's question). Table 6 is Far Crossing (far-height), Divide By
+(numerator-shared) and Right Angle (corner-prime), cheap at every β
+([cheap-optima](scripts/two-line-systems-cheap-optima.txt), β 0.05).
+- **Its best:** −3x + 4y + 13 = 0 with 2x + y + 6 = 0, crossing at the small grid point (−1, −4).
+- **One crossing serves three rules.**
+  - The number you divide by is D = −11, so both numerators (11 and 44) share 11: Divide By's tie-breaker.
+  - The corner's |x| + |y| = 5 is prime: Right Angle's tie-breaker.
+  - The height −4 is what Far Crossing's tie-breaker reads.
+- **Not a high peak:** the seats are at 7.5, 8.4 and 10.5 bits (F 458).
+- **Search cost:** at 10,000 evaluations a search 4 of 12 times; at 30,000, 10 of 12; at 100,000, 11 of 12. About
+  0.1% of W.
+- **Table 3 for comparison** (High Start, Forty-Five, Divide By): its best (x + 2y = 28 with 7x + 3y = −13) also
+  crosses at a small grid point, (−10, 19), with D = −11. It needs about 100,000 evaluations (6 of 12).
+- **The mechanism:** a small grid crossing whose determinant is a prime pays the tie-breakers that read the crossing's
+  numbers and D at once. It is low and specific to the three seated rules, and it takes knowing all three rules.

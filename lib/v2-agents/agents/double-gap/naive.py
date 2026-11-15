@@ -1,5 +1,5 @@
 # Gap Ratio · Naive (for learning)
-# Main part: the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap is a big prime).
+# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap has a big smallest prime factor).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
