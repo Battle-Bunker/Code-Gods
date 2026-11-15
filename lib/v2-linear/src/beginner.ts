@@ -12,7 +12,7 @@ import { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
 export { factorLabel } from "./layers.ts";
 export { pythagoreanArea, ruler, squareArea } from "./beginner-areas.ts";
 import { gcdTerm } from "./rational.ts";
-import { nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { ladderLevel, nearestOnLadder, nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -257,27 +257,26 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
 // ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
 /**
- * The dealt residue (owner decision 41): the crossing should be close to a whole number that leaves r when divided by
- * q. q = 5 and r = 1, 2, 3, 4 are dealt, so parameter drift has peers a few units apart. r and q − r are exact peers
- * (the reflection x → −x keeps the law, sends the crossing to minus itself and r to q − r, and leaves every tie-breaker
- * as it was); r = 1 and 2 are measured peers (docs/engine-v2/owner-decisions.md, call 18).
+ * Whole Crossing as a ladder (design-principles.md; redesigned 15 Nov, declared to the coordinator). The line should
+ * cross the x-axis on a whole number q^j × t with t leaving r when divided by q (q = 5): the more 5s it holds (j), the
+ * better, a ladder with no top (u = j). Any other crossing scores below every level, graded by its distance to the
+ * nearest such number (u = −d): the old rule (close to a whole number leaving r) is the ground floor. A stretch or zoom by
+ * 5 takes level j to j + 1 in one priced choice (decision 25's shortcut); a prime is never on a level above 0, so Prime
+ * Landing, which wants the crossing on a prime, is its adversary on the same number (the old tie-breakers, the whole
+ * number's smallest and largest prime factors, rewarded exactly Prime Landing's rungs: PMI 2.4–3.6, 15 Nov).
+ * Tie-breaker, read from the level: the biggest number dividing both |t| + 1 and the gradient's whole part (ignoring
+ * signs): a stretch to the next level divides the gradient by 5, so the climb starts again. r and 5 − r are exact peers
+ * (the reflection x → −x keeps the law and sends t to −t and the gradient to minus itself).
  */
-type QR = { q: number; r: number };   // nearestResidue (numbers.ts) finds the target
+type QR = { q: number; r: number };
 const CROSSINGS: QR[] = [1, 2, 3, 4].map(r => ({ q: 5, r }));
 const leaves = (p: QR) => `a whole number that leaves ${p.r} when divided by ${p.q}`;
 const crossingShape: Shape<QR> = {
-  main: { ...distance<QR>("crossing", "the x-axis crossing close to the dealt whole numbers", "", "crossing"),
-    sentence: p => `The line should cross the x-axis as close as possible to ${leaves(p)}.` },
+  main: { ...more<QR>("ladder", "the x-axis crossing on a ladder of 5s", "", "crossing"),
+    sentence: p => `The line should cross the x-axis on ${leaves(p)}, times 5 as many times as possible (${p.r}, ${5 * p.r}, ${25 * p.r}, …): each 5 is a level up. Any other crossing scores below them all, the closer to one the better.` },
   tieBreakers: [
-    prime(more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing")),
-    prime(more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing")),
-    factorTies<object>("m", "the gradient")[0]!,
-    // §A2 (line-rules-v3-proposals.md): the anchor tied to another aspect of the line. Whole Crossing is in the beginner
-    // pool, so these two are undealt until they pass the collapse check (§A5).
-    undealt(more("gcd-c", "common factor of that whole number and the y-intercept's nearest whole number",
-      "That whole number and the whole number nearest the y-intercept should have as big a common factor as possible.", "crossing")),
-    undealt(more("gcd-num-m", "common factor of that whole number and the gradient's top",
-      "That whole number and the gradient's top number (in lowest terms) should have as big a common factor as possible.", "crossing")),
+    more("shared-factor", "the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part",
+      "Take that number with its 5s divided out, ignore its sign and add 1. The biggest number that divides both it and the gradient's whole part (ignoring sign) should be as big as possible (a whole part of 0 shares nothing).", "si"),
   ],
 };
 export const wholeCrossing = family<QR>("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, CROSSINGS, (ctx, p) => {
@@ -285,23 +284,18 @@ export const wholeCrossing = family<QR>("whole-crossing", "Whole Crossing", ["cr
   const xv = ctx.read(xRef);
   const x = num(xv);
   if (x === null) return allUndefined(ctx, crossingShape, xv, xRef);   // a flat line never crosses (or lies along the axis)
-  const k = q(nearestResidue(x, p));   // the dealt whole number nearest the crossing
+  const on = ladderLevel(x, p), near = on ? { ...on, at: x.n, d: Qn.ZERO } : nearestOnLadder(x, p);
   const kRef = ref("crossing", "dealt", { q: q(p.q), r: q(p.r) });
   ctx.read(kRef);
-  ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${Qn.toWire(k)}`, gap(x, k), [xRef, kRef]);
-  ctx.term("k-spf", factorLabel("smallest", "that whole number", k), spfQ(k), [kRef]);
-  ctx.term("k-gpf", factorLabel("largest", "that whole number", k), gpfQ(k), [kRef]);
-  // A vertical line crosses at x0 but has no gradient: its m-spf is undefined (it ranks last), not its crossing.
+  ctx.term("ladder", on ? `crosses at ${x.n} = ${p.q}^${on.j} × ${on.t}: level ${on.j}` : `${Qn.toWire(near.d)} from ${near.at} (level ${near.j})`,
+    on ? q(on.j) : Qn.neg(near.d), [xRef, kRef]);
+  // A vertical line has no gradient: its tie-breaker is undefined (it ranks last), not its crossing.
   const mv = ctx.read(mRef), m = num(mv);
-  ctx.term("m-spf", m === null ? "the gradient's smallest prime factor" : factorLabel("smallest", "the gradient", m), m === null ? undef(mv) : spfQ(m), [mRef]);
-  // A vertical line has no y-intercept or gradient either: both undefined. With a 0 on either side, undefined (gcdTerm).
-  const cRef = ref("si", "c"), cv = ctx.read(cRef), c = num(cv);
-  const gc = c === null ? null : gcdTerm(k.n, nearestInteger(c), `common factor of ${k.n} and ${nearestInteger(c)} (nearest the y-intercept)`);
-  ctx.term("gcd-c", gc ? gc.label : "the y-intercept's nearest whole number", gc ? gc.value : undef(cv), [kRef, cRef]);
-  const gm = m === null ? null : gcdTerm(k.n, m.n, `common factor of ${k.n} and the gradient's top ${m.n}`);
-  ctx.term("gcd-num-m", gm ? gm.label : "the gradient's top", gm ? gm.value : undef(mv), [kRef, mRef]);
+  const t1 = (near.t < 0n ? -near.t : near.t) + 1n, w = m === null ? 0n : Qn.floor(Qn.abs(m));
+  ctx.term("shared-factor", m === null ? "the gradient's whole part" : `${t1} and the gradient's whole part ${w}: the biggest number dividing both is ${w === 0n ? 0n : gcd(t1, w)}`,
+    m === null ? undef(mv) : q(w === 0n ? 0n : gcd(t1, w)), [xRef, mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
-  ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });   // the target on the x-axis, for the plane to draw
+  ctx.mark({ kind: "candidate", ref: kRef, term: "ladder" });   // the target on the x-axis, for the plane to draw
 });
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)

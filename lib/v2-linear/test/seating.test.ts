@@ -4,13 +4,14 @@ import { evaluateSite } from "@workspace/v2-core";
 import { lineClash, lineClashes, lineQ, lineSeatingCost, lineType, primeLanding, wholeCrossing } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
-const crossing = (p: object, x: number) => evaluateSite(lineType, wholeCrossing, p as never, mc(-1, x), lineQ, 0, null).terms.find(t => t.id === "crossing")!.value;
+const crossing = (p: object, x: number) => evaluateSite(lineType, wholeCrossing, p as never, mc(-1, x), lineQ, 0, null).terms.find(t => t.id === "ladder")!.value;
 const PRIMES: Record<number, number[]> = { 1: [11, 31, 41, 61, 71, 101], 9: [19, 29, 59, 79, 89, 109] };
 
 test("the line seating rule forbids exactly the Prime Landing and Whole Crossing pairs whose rungs coincide", () => {
   for (const pl of primeLanding.dealable(lineQ)) for (const wc of wholeCrossing.dealable(lineQ)) {
     const { ends, side = 1 } = pl as { ends: number; side?: number };
-    // Whole Crossing's main part on every Prime Landing rung (a line landing on side·p): exact on all of them, or on none.
+    // Whole Crossing's main part on every Prime Landing rung (a line landing on side·p): on its ground level (0) on all of
+    // them, or off its ladder on all (a prime above 5 is never on a level above 0).
     const exact = PRIMES[ends]!.map(p => crossing(wc, side * p)).map(v => v.n === 0n);
     assert.ok(exact.every(e => e === exact[0]), `${JSON.stringify(pl)} ${JSON.stringify(wc)}: ${exact}`);
     const seated = [{ family: "prime-landing", params: pl }, { family: "whole-crossing", params: wc }];
