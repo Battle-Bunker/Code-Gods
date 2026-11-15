@@ -29,6 +29,9 @@ export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
 };
 
 /** A pool: each family's dealable params, with its tie-breakers (those `dealt` lists for it, when it lists the family). */
+/** The parameters the more-rules pool deals, for its families that have several. */
+const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 } };
+
 const poolOf = (ids: Set<string>, dealt?: Readonly<Record<string, readonly string[]>>): readonly GridPoolRule[] =>
   gridType.families.filter(f => ids.has(f.id)).flatMap(f => f.dealable(grid4).map(params => ({
     family: f.id, params,
@@ -45,6 +48,8 @@ export const gridPresets = [
   {
     // v1's coupled reward families, restored as continuous rules (owner-decisions.md, "Grids · more rules").
     id: "grids-more-rules", title: "Grids · more rules", variant: grid4.id,
-    rules: poolOf(MORE),
+    // One parameter set per family: parameter peers must offer equal opportunity (v1-audit.md #27); the corners,
+    // directions and axes are symmetric, but their sampled value functions differ by more than the audit allows.
+    rules: poolOf(MORE).filter(r => MORE_PARAMS[r.family] === undefined || JSON.stringify(r.params) === JSON.stringify(MORE_PARAMS[r.family])),
   },
 ] as const;

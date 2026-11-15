@@ -5,8 +5,8 @@
  * tie-breaker ties what the main part singles out (the kings, the biggest group, the climb, the rising steps, the stairs,
  * the totals, the patches) to another side of the board, never an unrelated wish.
  */
-import { q, ref, type ElementRef, type RuleFamily } from "@workspace/v2-core";
-import { at, type GridState } from "./grid.ts";
+import { q, ref, type ElementRef, type RuleFamily, type Variant } from "@workspace/v2-core";
+import { at, gridParams, type GridState } from "./grid.ts";
 import { boxes, cols, corners, rows } from "./units.ts";
 import { offTotals, diagonals, term, distance, family, more, readCells, readNum, type Ctx, type Shape } from "./family-kit.ts";
 
@@ -144,7 +144,7 @@ export function uphill(n: number): RuleFamily<GridState, { corner: Corner }> {
         p => `The number in ${CORNER_WORDS[OPPOSITE[p.corner]]} should be smaller than as many other numbers as possible.`, "cells"),
     ],
   };
-  const params = (["TL", "TR", "BL", "BR"] as const).map(corner => ({ corner }));
+  const params = (["BR", "BL", "TR", "TL"] as const).map(corner => ({ corner }));   // the bottom-right first: v1's young tableau, and the corner the more-rules pool deals
   return family<{ corner: Corner }>("uphill", "Uphill", ["cells"], shape, params, (ctx, p) => {
     const cells = readCells(ctx, n);
     const right = p.corner[1] === "R", down = p.corner[0] === "B";
@@ -209,7 +209,9 @@ export function magicAccountant(n: number): RuleFamily<GridState, Accounts> {
       more<Accounts>("all-different", "rows (or columns) of four different numbers", p => `Each ${p.axis === "rows" ? "row" : "column"} should hold four different numbers.`, "cells"),
     ],
   };
-  const params = (["rows", "columns"] as const).flatMap(axis => [17, 18, 19].map(T => ({ axis, T })));
+  // The target is the middle total of n cells (n · cap / 2): 18 on the 4×4 board of digits 0–9. Targets off the middle
+  // give peers of unequal opportunity (v1-audit.md #27), so only the middle one is dealt.
+  const params = (v: Variant) => { const T = Math.round((n * gridParams(v).cap) / 2); return (["rows", "columns"] as const).map(axis => ({ axis, T })); };
   return family<Accounts>("magic-accountant", "Magic Accountant", ["tally", "cells"], shape, params, (ctx, p) => {
     const refs = rows(n).map((_, k) => ref("tally", `${p.axis === "rows" ? "row" : "col"}${k}`));
     const totals = refs.map(r => readNum(ctx, r));

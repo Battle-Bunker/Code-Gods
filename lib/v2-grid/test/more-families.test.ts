@@ -35,11 +35,11 @@ test("the seven families are in the pool, in order, each with one term per layer
 
 test("dealable params", () => {
   for (const id of ["kings-and-subjects", "stepping-stones", "mountain-climb", "fillomino"]) assert.deepEqual(fam(id).dealable(grid4), [{}]);
-  assert.deepEqual(fam("uphill").dealable(grid4), [{ corner: "TL" }, { corner: "TR" }, { corner: "BL" }, { corner: "BR" }]);
+  assert.deepEqual(fam("uphill").dealable(grid4), [{ corner: "BR" }, { corner: "BL" }, { corner: "TR" }, { corner: "TL" }]);
   assert.deepEqual(fam("staircase").dealable(grid4), [{ direction: "right" }, { direction: "down" }]);
   const acc = fam("magic-accountant").dealable(grid4) as { axis: string; T: number }[];
-  assert.equal(acc.length, 6);
-  for (const axis of ["rows", "columns"]) assert.deepEqual(acc.filter(p => p.axis === axis).map(p => p.T), [17, 18, 19]);
+  assert.equal(acc.length, 2);
+  for (const axis of ["rows", "columns"]) assert.deepEqual(acc.filter(p => p.axis === axis).map(p => p.T), [18]);
   assert.match(fam("uphill").card({ corner: "BL" }, null), /the bottom-left corner/);
 });
 

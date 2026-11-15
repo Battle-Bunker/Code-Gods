@@ -329,9 +329,9 @@ units, so all are valued by plain draws from π (2 million per rule, sampled kno
 | 1 | **Kings and Subjects** | "In each corner box … the biggest number (the king) should equal the other three added up." Σ boxes \|2·king − total\|, a tied biggest 20 off | none | fails (63% of climbs reach 0) |
 | 2 | **Stepping Stones** | "Make the biggest group of cells you can hop between: … touching cells whose numbers differ by exactly 2." | none | passes (7%) |
 | 3 | **Mountain Climb** | "Starting at the top-left cell, climb as far as you can: each step … exactly 1 bigger." | none | passes (0%) |
-| 4 | **Uphill** (young_tableau) | "Walk toward the bottom-right corner along every row and column: as many steps as possible should reach a bigger number." | corner TL/TR/BL/BR | passes (0%) |
-| 5 | **Staircase** (staircase_climber) | "As many numbers as possible should be exactly 1 more than the number to their left." | right / down | passes (0%) |
-| 6 | **Magic Accountant** | "Every row should add up to 18." Σ rows (or columns) \|total − T\| | rows/columns × T 17–19 | fails (100%: separable, as Magic Eighteen) |
+| 4 | **Uphill** (young_tableau) | "Walk toward the bottom-right corner along every row and column: as many steps as possible should reach a bigger number." | corner TL/TR/BL/BR (BR dealt) | passes (0%) |
+| 5 | **Staircase** (staircase_climber) | "As many numbers as possible should be exactly 1 more than the number to their left." | right / down (right dealt) | passes (0%) |
+| 6 | **Magic Accountant** | "Every row should add up to 18." Σ rows (or columns) \|total − T\| | rows or columns, T 18 (rows dealt) | fails (100%: separable, as Magic Eighteen) |
 | 7 | **Fillomino** | "Every patch of touching equal numbers should have as many cells as its number." | none | passes (0%) |
 
 The single-rule gate (lib/v2-valuation grid-gate.ts) climbs the main part alone by ±1 and swaps from π boards; a family
