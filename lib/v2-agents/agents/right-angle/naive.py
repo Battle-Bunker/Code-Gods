@@ -1,5 +1,5 @@
 # Right Angle · Naive (for learning)
-# Main part: the lines cross at a right angle. Tie-breaker: whichever you were dealt (the number you divide by is a big prime; the number you divide by shares a factor with the steeper line's y-intercept).
+# Main part: the lines cross at a right angle at a grid point, y on the dealt ladder. Tie-breaker: whichever you were dealt (the corner's distance is a big prime; the corner's distance shares a factor with the steeper gradient).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,20 +9,23 @@
 def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    if f.off_right is None:   # parallel lines never cross: no score
+    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    floor = lambda v: v // 1   # rounded down
+    if f.off_right is None or f.x is None:   # parallel lines never cross: no score
         return None
-    main = -f.off_right
-    # main: how far the lines are from crossing at a right angle (closer is better)
-    if tie == "prime-divisor":   # a number you divide by with a big smallest prime factor is better
-        return [main, spf(f.D)]
-    if tie == "divisor-intercept":   # the number you divide by sharing a big factor with the steeper line's y-intercept is better
-        return [main, 0 if f.cs is None else common(f.D, whole(f.cs))]
+    main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
+    t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|
+    # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better)
+    if tie == "corner-prime":   # a corner whose |x| + |y| has a big smallest prime factor is better
+        return [main, spf(t)]
+    if tie == "corner-steep":   # a corner whose |x| + |y| shares a big factor with the steeper gradient is better
+        return [main, 0 if f.ms is None else common(t, abs(f.ms) // 1)]
     return [main]
 
 
 FAR = 2      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","quarter","reflect"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["turn","slide"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 
 
 def agent(offer):

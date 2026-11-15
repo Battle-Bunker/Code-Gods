@@ -1,7 +1,7 @@
 /**
  * pnpm --filter @workspace/v2-agents pmi -- [--variant line-q] [--draws 1000000] [--workers n] [--seed v2] [--depths 4,6,8,10,12] [--min-ess 30] [--dry]
  *
- * Independence of every pair of rules with a committed value function on a line variant (owner decision 39: "two other
+ * Independence of every pair of rules with a committed value function on a line or two-line (pair) variant (owner decision 39: "two other
  * players with 20 bits represents an object that's as rare and hard to reach as 40 bits"). For rules A, B and a depth t:
  *
  *   PMI(t) = log2 π(A ≥ t ∧ B ≥ t) − log2 π(A ≥ t) − log2 π(B ≥ t)   (= bits_A + bits_B − bits_joint at matched levels),
@@ -23,8 +23,9 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { isMainThread, parentPort, Worker, workerData } from "node:worker_threads";
-import { canonicalJson, mixedIntLog2Norm, rng } from "@workspace/v2-core";
+import { canonicalJson, rng } from "@workspace/v2-core";
 import { lineLaw, lineType, presets, type LineState } from "@workspace/v2-linear";
+import { pairLaw, pairPresets, pairType, type PairState } from "@workspace/v2-pair";
 import { findVariant, valuesVariant, VALUE_CONFIG } from "@workspace/v2-valuation";
 import { valuer } from "../src/harness.ts";
 import { BOUND_FACTOR, headline, readDepth, upperSet, ess, type DepthReading, type UpperSet } from "../src/pmi-estimate.ts";
@@ -37,12 +38,13 @@ interface RuleFile { family: string; params: unknown; tieBreaker: string }
 interface Job { variant: string; seed: string; draws: number; rules: RuleFile[] }
 
 /** The draws of the tilted mixture, in a fixed order: accepted states and their self-normalisable weights p/q_mix. */
-function drawAll(job: Job): { states: LineState[]; weights: Float64Array; total: number } {
-  const { variant } = findVariant(job.variant);
-  const law = lineLaw(variant);
+function drawAll(job: Job): { states: (LineState | PairState)[]; weights: Float64Array; total: number } {
+  const { type, variant } = findVariant(job.variant);
+  const law = type.id === "pair" ? pairLaw(variant) : lineLaw(variant);
   const tilts = VALUE_CONFIG.tilts;
-  const norms = tilts.map(t => mixedIntLog2Norm(t));
-  const states: LineState[] = [], w: number[] = [];
+  // The tilted mixture's weights as value.ts's sampledDraws computes them (the law's own norm per tilt).
+  const norms = tilts.map(t => law.log2Norm(t));
+  const states: (LineState | PairState)[] = [], w: number[] = [];
   let total = 0;
   for (const t of tilts) {
     const r = rng("pmi", job.seed, job.variant, t);
@@ -51,7 +53,7 @@ function drawAll(job: Job): { states: LineState[]; weights: Float64Array; total:
       total++;
       if (d.state === null) continue;
       let mix = 0;
-      tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - d.coords * norms[k]!); });
+      tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - norms[k]!); });
       states.push(d.state);
       w.push(tilts.length / mix);
     }
@@ -63,15 +65,15 @@ function drawAll(job: Job): { states: LineState[]; weights: Float64Array; total:
 
 if (!isMainThread) {
   const job = workerData as Job & { sendWeights: boolean };
-  const { variant } = findVariant(job.variant);
+  const { type, variant } = findVariant(job.variant);
   const { states, weights, total } = drawAll(job);
   parentPort!.postMessage({ kind: "ready", total, weights: job.sendWeights ? weights : null });
   parentPort!.on("message", (m: { rule: number } | { done: true }) => {
     if ("done" in m) { process.exit(0); }
     const r = job.rules[m.rule]!;
-    const v = valuer(lineType, variant, { family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
+    const v = valuer((type.id === "pair" ? pairType : lineType) as never, variant, { family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
     const bits = new Float32Array(states.length);
-    for (let k = 0; k < states.length; k++) bits[k] = v.bits(states[k]!);
+    for (let k = 0; k < states.length; k++) bits[k] = v.bits(states[k]! as never);
     parentPort!.postMessage({ kind: "bits", rule: m.rule, bits }, [bits.buffer]);
   });
 }
@@ -87,7 +89,7 @@ async function main() {
   const WORKERS = Number(opt("workers", String(Math.max(1, availableParallelism()))));
   const dry = args.includes("--dry");
   const { type, variant } = findVariant(variantId);
-  if (type.id !== "line") throw new Error(`pmi reads line variants (grids: pnpm --filter @workspace/v2-valuation pmi); ${variantId} is a ${type.id}`);
+  if (type.id !== "line" && type.id !== "pair") throw new Error(`pmi reads line and pair variants (grids: pnpm --filter @workspace/v2-valuation pmi); ${variantId} is a ${type.id}`);
   const valuesId = valuesVariant(type, variant).id;
   const t0 = Date.now();
   const say = (s = "") => console.log(s);
@@ -103,7 +105,7 @@ async function main() {
   const multi = new Set([...new Set(rules.map(r => r.family))].filter(f => new Set(rules.filter(r => r.family === f).map(r => canonicalJson(r.params))).size > 1));
   const keyOf = (r: RuleFile) => `${r.family}/${r.tieBreaker}`;
   const nameOf = (r: RuleFile) => (multi.has(r.family) ? `${r.family}${canonicalJson(r.params)}/${r.tieBreaker}` : keyOf(r));
-  const pool = presets.find(p => p.variant === variantId || p.variant === valuesId);
+  const pool = [...presets, ...pairPresets].find(p => p.variant === variantId || p.variant === valuesId);
   const dealt = new Set((pool?.rules ?? []).flatMap(r => r.tieBreakers.map(tb => `${r.family}/${canonicalJson(r.params)}/${tb}`)));
   const isDealt = (r: RuleFile) => dealt.has(`${r.family}/${canonicalJson(r.params)}/${r.tieBreaker}`);
   const N = rules.length;

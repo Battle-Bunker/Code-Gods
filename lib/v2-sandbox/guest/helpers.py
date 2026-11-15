@@ -86,6 +86,12 @@
 #   nearest_leaving(v, q, r, at_least)  the whole number nearest v that leaves r when divided by q (negatives too:
 #                                -2 leaves 1 when divided by 3), the smaller on a tie; with at_least, only numbers at
 #                                least that far from 0 (a pair rule's dealt remainder).
+#   ladder(v, q, r, other, at_least)  a pair rule's residue ladder: (score, n). Level j is met when v is a whole number
+#                                leaving r when divided by q, rr (in base q) when divided by q^2, rrr by q^3, ... and
+#                                other is 0; score = q^L * (1 + 1/(1 + d)), L the highest level met, d how far from
+#                                the next; n = nearest_leaving(v, q, r, at_least).
+#   power_ladder(k, off)         the same over k, k^2, k^3, ...: off(t) is how far the state is from the level whose
+#                                number is t; returns the score.
 #
 # These run in the trusted prelude, outside the step count, so each does a bounded amount of work.
 from fractions import Fraction
@@ -229,16 +235,42 @@ def whole(x):
     return int((Fraction(x) + Fraction(1, 2)) // 1)
 
 
-def nearest_leaving(x, q, r, at_least=0):
-    v = Fraction(x)
-    # The two numbers with the remainder either side of v; the lower wins a tie.
+def _anchor(v, q, r, at_least):
+    # The two numbers with the remainder either side of v (moved outwards past |n| < at_least); the lower wins a tie.
     lo = r + q * int((v - r) // q)
     hi = lo + q
     while abs(lo) < at_least:
         lo -= q
     while abs(hi) < at_least:
         hi += q
-    return lo if v - lo <= hi - v else hi
+    return (lo, v - lo) if v - lo <= hi - v else (hi, hi - v)
+
+
+def _climb(base, off):
+    level, d = 0, off(1)
+    while level < 4096 and d == 0:
+        level += 1
+        d = off(level + 1)
+    return base ** level * (1 + Fraction(1) / (1 + d))
+
+
+def nearest_leaving(x, q, r, at_least=0):
+    return _anchor(Fraction(x), q, r, at_least)[0]
+
+
+def ladder(x, q, r, other=0, at_least=0):
+    v, o = Fraction(x), Fraction(other)
+
+    def off(j):
+        R = 0
+        for _ in range(j):
+            R = R * q + r
+        return o + _anchor(v, q ** j, R, at_least)[1]
+    return _climb(q, off), _anchor(v, q, r, at_least)[0]
+
+
+def power_ladder(k, off):
+    return _climb(k, lambda j: Fraction(off(k ** j)))
 
 
 def root(n):

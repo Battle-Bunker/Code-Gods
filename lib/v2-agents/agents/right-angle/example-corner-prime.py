@@ -1,23 +1,26 @@
-# Right Angle · Example: the number you divide by shares a factor with the steeper line's y-intercept
-# Main part: the lines cross at a right angle. Tie-breaker: the number you divide by shares a factor with the steeper line's y-intercept.
+# Right Angle · Example: the corner's distance is a big prime
+# Main part: the lines cross at a right angle at a grid point, y on the dealt ladder. Tie-breaker: the corner's distance is a big prime.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: add "shift" to KINDS: it moves a y-intercept directly.
+# Try this: add "quarter" to KINDS: a quarter turn keeps the right angle.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    if f.off_right is None:   # parallel lines never cross: no score
+    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    floor = lambda v: v // 1   # rounded down
+    if f.off_right is None or f.x is None:   # parallel lines never cross: no score
         return None
-    main = -f.off_right
-    return [main, 0 if f.cs is None else common(f.D, whole(f.cs))]   # main: how far the lines are from crossing at a right angle (closer is better); tie-breaker: the number you divide by sharing a big factor with the steeper line's y-intercept is better
+    main, Yc = ladder(f.y, p["q"], p["r"], f.off_right + dist(f.x))   # a right angle at a grid point, y on your ladder
+    t = abs(f.X) + abs(Yc)   # the corner's |x| + |y|
+    return [main, spf(t)]   # main: the corner's level: a right angle at a grid point, y on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| has a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","quarter","reflect"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["turn","slide"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

@@ -1,5 +1,5 @@
 # Far Crossing · Simple
-# Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+# Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -12,9 +12,8 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.rs is None:   # the steeper line is flat: no score
         return None
-    R = nearest_leaving(f.rs, p["q"], p["r"])   # the whole number that leaves your remainder
-    main = -abs(f.rs - R)
-    # main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)
+    main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder
+    # main: the level of the steeper line's x-intercept on your ladder (higher is better)
     if tie == "far-right":   # an x-intercept far to the right is better
         return [main, R]
     if tie == "far-prime":   # an x-intercept with a big smallest prime factor is better

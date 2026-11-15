@@ -1,23 +1,24 @@
-# Forty-Five · Example: the number you divide by shares a factor with the y-intercepts' gap
-# Main part: the lines cross at 45°. Tie-breaker: the number you divide by shares a factor with the y-intercepts' gap.
+# Divide By · Example: the answer's numerators share a big factor
+# Main part: the number you divide by on the dealt powers. Tie-breaker: the answer's numerators share a big factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: add "shift" to KINDS: it changes the gap directly.
+# Try this: add "stretch" to KINDS and compare.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    if f.D == 0:   # parallel lines never cross: no score
+    if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -f.off45
-    return [main, None if f.ygap is None else common(f.D, whole(f.ygap))]   # main: how far the lines are from crossing at 45 degrees (closer is better); tie-breaker: the number you divide by sharing a big factor with the y-intercepts' gap is better
+    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
+    nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
+    return [main, common(nx, ny)]   # main: the level of the number you divide by on k, k², k³, … (higher is better); tie-breaker: numerators sharing a big factor are better
 
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","quarter","reflect"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["combine","turn"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

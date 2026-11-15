@@ -1,5 +1,5 @@
 # High Start · Example: that y-intercept shares many prime factors with the number you divide by
-# Main part: the gentler line crosses the y-axis at a whole number with the dealt remainder. Tie-breaker: that y-intercept shares many prime factors with the number you divide by.
+# Main part: the gentler line crosses the y-axis at a whole number on the dealt ladder. Tie-breaker: that y-intercept shares many prime factors with the number you divide by.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -12,9 +12,8 @@ def score(L, p):
     floor = lambda v: v // 1   # rounded down
     if f.cg is None or f.mg is None:   # the gentler line is upright: no score
         return None
-    H = nearest_leaving(f.cg, p["q"], p["r"])   # the whole number that leaves your remainder
-    main = -abs(f.cg - H)
-    return [main, omega(common(H, f.D))]   # main: how far the gentler line's y-intercept is from a whole number with your remainder (closer is better); tie-breaker: a y-intercept sharing many prime factors with the number you divide by is better
+    main, H = ladder(f.cg, p["q"], p["r"])   # the y-intercept on your ladder
+    return [main, omega(common(H, f.D))]   # main: the level of the gentler line's y-intercept on your ladder (higher is better); tie-breaker: a y-intercept sharing many prime factors with the number you divide by is better
 
 
 FAR = 3      # how far one move may go

@@ -1,5 +1,5 @@
 # Gap Ratio · Simple
-# Main part: the gap on the y-axis is a whole number, the dealt number of times the gap on the x-axis. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap is a big prime).
+# Main part: the gap on the y-axis a whole number, the dealt powers times the gap on the x-axis. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap is a big prime).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -13,8 +13,8 @@ def score(L, p, tie):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
         return None
-    main = -(abs(f.ygap - p["k"] * f.xgap) + dist(f.ygap))
-    # main: how far the y-intercepts' gap is from a whole number k times the x-intercepts' gap (closer is better)
+    main = power_ladder(p["k"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))
+    # main: the gaps' level: the y-intercepts' gap whole and k, k², … times the x-intercepts' gap (higher is better)
     if tie == "gap-divisor":   # the gap sharing a big factor with the number you divide by is better
         return [main, common(whole(f.ygap), f.D)]
     if tie == "gap-prime":   # a gap with a big smallest prime factor is better

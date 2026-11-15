@@ -1,5 +1,5 @@
 # Whole Answer · Thorough
-# Main part: the answer is whole numbers. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
+# Main part: the answer is whole numbers, x on the dealt ladder. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -13,9 +13,8 @@ def score(L, p, tie):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.x is None:   # parallel lines never cross: no score
         return None
-    X = nearest_leaving(f.x, p["q"], p["r"])   # x's whole number that leaves your remainder
-    main = -(abs(f.x - X) + dist(f.y))
-    # main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)
+    main, X = ladder(f.x, p["q"], p["r"], dist(f.y))   # x on your ladder, y a whole number
+    # main: the answer's level: whole numbers, x on your ladder (higher is better)
     if tie == "peg-divisor":   # |X| + |Y| sharing a big factor with the number you divide by is better
         return [main, common(abs(X) + abs(f.Y), f.D)]
     if tie == "south-west":   # an answer far down and to the left is better
@@ -23,7 +22,7 @@ def score(L, p, tie):
     return [main]
 
 
-FAR = 3      # how far one move may go
+FAR = 2      # how far one move may go
 QUOTES = 16  # at most this many plans are priced (each price is a host call)
 KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them

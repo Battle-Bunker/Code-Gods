@@ -1,9 +1,9 @@
-# Divide By · Example: the answer's distance shares a factor with the steeper gradient
-# Main part: the number you divide by is the dealt one. Tie-breaker: the answer's distance shares a factor with the steeper gradient.
+# Divide By · Example: the answer's numerators add up to a big prime
+# Main part: the number you divide by on the dealt powers. Tie-breaker: the answer's numerators add up to a big prime.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: add "tilt" to KINDS: it changes a gradient directly.
+# Try this: add "slide" to KINDS: it moves the answer, and so the numerators.
 
 
 def score(L, p):
@@ -11,8 +11,9 @@ def score(L, p):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -abs(abs(f.D) - p["k"])
-    return [main, 0 if f.ms is None else common(abs(f.X) + abs(f.Y), abs(f.ms) // 1)]   # main: how far the number you divide by is from your number k (closer is better); tie-breaker: |X| + |Y| sharing a big factor with the steeper gradient is better
+    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
+    nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
+    return [main, spf(abs(nx) + abs(ny))]   # main: the level of the number you divide by on k, k², k³, … (higher is better); tie-breaker: numerators adding up to a number with a big smallest prime factor are better
 
 
 FAR = 3      # how far one move may go

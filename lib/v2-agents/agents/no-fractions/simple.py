@@ -1,5 +1,5 @@
 # Divide By · Simple
-# Main part: the number you divide by is the dealt one. Tie-breaker: whichever you were dealt (the answer's distance is a big prime; the answer's distance shares a factor with the steeper gradient).
+# Main part: the number you divide by on the dealt powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a big prime; the answer's numerators share a big factor).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -12,12 +12,13 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.x is None:   # parallel lines never cross: no score
         return None
-    main = -abs(abs(f.D) - p["k"])
-    # main: how far the number you divide by is from your number k (closer is better)
-    if tie == "answer-prime":   # |X| + |Y| with a big smallest prime factor is better
-        return [main, spf(abs(f.X) + abs(f.Y))]
-    if tie == "answer-gradient":   # |X| + |Y| sharing a big factor with the steeper gradient is better
-        return [main, 0 if f.ms is None else common(abs(f.X) + abs(f.Y), abs(f.ms) // 1)]
+    main = power_ladder(p["k"], lambda t: abs(abs(f.D) - t))   # the number you divide by on k, k^2, k^3, ...
+    nx, ny = f.x * f.D, f.y * f.D   # the answer's numerators
+    # main: the level of the number you divide by on k, k², k³, … (higher is better)
+    if tie == "numerator-prime":   # numerators adding up to a number with a big smallest prime factor are better
+        return [main, spf(abs(nx) + abs(ny))]
+    if tie == "numerator-shared":   # numerators sharing a big factor are better
+        return [main, common(nx, ny)]
     return [main]
 
 

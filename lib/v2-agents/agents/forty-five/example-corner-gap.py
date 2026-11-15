@@ -1,23 +1,24 @@
-# Right Angle · Example: the number you divide by is a big prime
-# Main part: the lines cross at a right angle. Tie-breaker: the number you divide by is a big prime.
+# Forty-Five · Example: that distance shares a factor with the y-intercepts' gap
+# Main part: the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder. Tie-breaker: that distance shares a factor with the y-intercepts' gap.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: add "combine" to KINDS and compare.
+# Try this: add "shift" to KINDS: it changes the gap directly.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
-    if f.off_right is None:   # parallel lines never cross: no score
+    dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    if f.D == 0:   # parallel lines never cross: no score
         return None
-    main = -f.off_right
-    return [main, spf(f.D)]   # main: how far the lines are from crossing at a right angle (closer is better); tie-breaker: a number you divide by with a big smallest prime factor is better
+    main, S = ladder(abs(f.x) + abs(f.y), p["q"], p["r"], f.off45 + dist(f.x))   # 45 degrees at a grid point, |x| + |y| on your ladder
+    return [main, None if f.ygap is None else common(S, whole(f.ygap))]   # main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| shares a big factor with the y-intercepts' gap is better
 
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["turn","quarter","reflect"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+KINDS = ["turn","slide"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

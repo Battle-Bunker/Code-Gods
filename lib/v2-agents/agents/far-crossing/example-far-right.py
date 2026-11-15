@@ -1,5 +1,5 @@
 # Far Crossing · Example: the steeper line crosses the x-axis far to the right
-# Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: the steeper line crosses the x-axis far to the right.
+# Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: the steeper line crosses the x-axis far to the right.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
@@ -11,9 +11,8 @@ def score(L, p):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.rs is None:   # the steeper line is flat: no score
         return None
-    R = nearest_leaving(f.rs, p["q"], p["r"])   # the whole number that leaves your remainder
-    main = -abs(f.rs - R)
-    return [main, R]   # main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better); tie-breaker: an x-intercept far to the right is better
+    main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder
+    return [main, R]   # main: the level of the steeper line's x-intercept on your ladder (higher is better); tie-breaker: an x-intercept far to the right is better
 
 
 FAR = 3      # how far one move may go

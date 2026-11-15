@@ -1,5 +1,5 @@
 // Far Crossing · Naive (for learning)
-// Main part: the steeper line crosses the x-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
+// Main part: the steeper line crosses the x-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the steeper line crosses the x-axis far to the right; the steeper line's x-intercept is a big prime).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,9 +9,8 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   if (f.rs === null) return null;   // the steeper line is flat: no score
-  const R = nearestLeaving(f.rs, p.q, p.r);   // the whole number that leaves your remainder
-  const main = Q.neg(Q.abs(Q.sub(f.rs, R)));
-  // main: how far the steeper line's x-intercept is from a whole number with your remainder (closer is better)
+  const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder
+  // main: the level of the steeper line's x-intercept on your ladder (higher is better)
   if (tie === "far-right") return [main, R];   // an x-intercept far to the right is better
   if (tie === "far-prime") return [main, spf(R)];   // an x-intercept with a big smallest prime factor is better
   return [main];

@@ -1,22 +1,22 @@
-// Divide By · Example: the answer's distance shares a factor with the steeper gradient
-// Main part: the number you divide by is the dealt one. Tie-breaker: the answer's distance shares a factor with the steeper gradient.
+// Forty-Five · Example: that distance has many prime factors
+// Main part: the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder. Tie-breaker: that distance has many prime factors.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: add "tilt" to KINDS: it changes a gradient directly.
+// Try this: add "stretch" to KINDS: a stretch moves the corner further out.
 
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
-  if (f.x === null) return null;   // parallel lines never cross: no score
-  const main = Q.neg(Q.abs(Q.sub(Q.abs(f.D), p.k)));
-  return [main, f.ms === null ? 0 : common(Q.add(Q.abs(f.X), Q.abs(f.Y)), floor(Q.abs(f.ms)))];   // main: how far the number you divide by is from your number k (closer is better); tie-breaker: |X| + |Y| sharing a big factor with the steeper gradient is better
+  const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  if (Q.isZero(f.D)) return null;   // parallel lines never cross: no score
+  const { score: main, n: S } = ladder(Q.add(Q.abs(f.x), Q.abs(f.y)), p.q, p.r, Q.add(f.off45, dist(f.x)));   // 45 degrees at a grid point, |x| + |y| on your ladder
+  return [main, omega(S)];   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better); tie-breaker: a corner whose |x| + |y| has many prime factors is better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["combine","turn"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
+const KINDS = ["turn","slide"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

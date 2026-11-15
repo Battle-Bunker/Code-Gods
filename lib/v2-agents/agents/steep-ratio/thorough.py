@@ -1,5 +1,5 @@
 # Steep Ratio · Thorough
-# Main part: one line a whole number of times as steep as the other, with the dealt remainder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
+# Main part: one line a whole number of times as steep as the other, on the dealt ladder. Tie-breaker: whichever you were dealt (that number shares a factor with the y-intercepts' gap; that number is a big prime).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -12,9 +12,8 @@ def score(L, p, tie):
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     if f.ratio is None:   # no ratio of gradients: no score
         return None
-    k = nearest_leaving(f.ratio, p["q"], p["r"], 2)   # the whole number of times with your remainder (at least 2 either way)
-    main = -abs(f.ratio - k)
-    # main: how far the steeper line is from a whole number of times as steep as the other, with your remainder (closer is better)
+    main, k = ladder(f.ratio, p["q"], p["r"], 0, 2)   # the whole number of times (at least 2 either way) on your ladder
+    # main: the level of the whole number of times as steep on your ladder (higher is better)
     if tie == "ratio-gap":   # that number sharing a big factor with the y-intercepts' gap is better
         return [main, None if f.ygap is None else common(k, whole(f.ygap))]
     if tie == "ratio-prime":   # that number with a big smallest prime factor is better
@@ -22,7 +21,7 @@ def score(L, p, tie):
     return [main]
 
 
-FAR = 3      # how far one move may go
+FAR = 2      # how far one move may go
 QUOTES = 16  # at most this many plans are priced (each price is a host call)
 KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them

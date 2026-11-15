@@ -1,5 +1,5 @@
 // High Start · Thorough
-// Main part: the gentler line crosses the y-axis at a whole number with the dealt remainder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
+// Main part: the gentler line crosses the y-axis at a whole number on the dealt ladder. Tie-breaker: whichever you were dealt (the gentler line high and rising; that y-intercept shares many prime factors with the number you divide by).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -11,15 +11,14 @@ function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.cg === null || f.mg === null) return null;   // the gentler line is upright: no score
-  const H = nearestLeaving(f.cg, p.q, p.r);   // the whole number that leaves your remainder
-  const main = Q.neg(Q.abs(Q.sub(f.cg, H)));
-  // main: how far the gentler line's y-intercept is from a whole number with your remainder (closer is better)
+  const { score: main, n: H } = ladder(f.cg, p.q, p.r);   // the y-intercept on your ladder
+  // main: the level of the gentler line's y-intercept on your ladder (higher is better)
   if (tie === "high-and-rising") return [main, Q.cmp(H, floor(f.mg)) < 0 ? H : floor(f.mg)];   // the smaller of the gentler line's y-intercept and its gradient's whole part big is better
   if (tie === "start-factors") return [main, omega(common(H, f.D))];   // a y-intercept sharing many prime factors with the number you divide by is better
   return [main];
 }
 
-const FAR = 3;      // how far one move may go
+const FAR = 2;      // how far one move may go
 const QUOTES = 16;  // at most this many plans are priced (each price is a host call)
 const KINDS = ["shift","tilt","stretch","turn","slide","combine","reflect","quarter"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them

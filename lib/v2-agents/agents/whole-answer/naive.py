@@ -1,5 +1,5 @@
 # Whole Answer · Naive (for learning)
-# Main part: the answer is whole numbers. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
+# Main part: the answer is whole numbers, x on the dealt ladder. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -12,9 +12,8 @@ def score(L, p, tie):
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
     if f.x is None:   # parallel lines never cross: no score
         return None
-    X = nearest_leaving(f.x, p["q"], p["r"])   # x's whole number that leaves your remainder
-    main = -(abs(f.x - X) + dist(f.y))
-    # main: how far the answer (x, y) is from whole numbers, x with your remainder (closer is better)
+    main, X = ladder(f.x, p["q"], p["r"], dist(f.y))   # x on your ladder, y a whole number
+    # main: the answer's level: whole numbers, x on your ladder (higher is better)
     if tie == "peg-divisor":   # |X| + |Y| sharing a big factor with the number you divide by is better
         return [main, common(abs(X) + abs(f.Y), f.D)]
     if tie == "south-west":   # an answer far down and to the left is better
