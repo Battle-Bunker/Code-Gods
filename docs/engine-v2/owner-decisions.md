@@ -388,7 +388,8 @@ back) or TRIAL (a declared experiment, measured and reported).
     Drifting values for the beginner line families (the coordinator, 15 Nov), equal opportunity by construction:
     mirrors. The law is even in a and c (C3), so a parameter and its mirror under a reflection that keeps the law are
     exact peers (v1's 0.5-bit audit passes within sampling noise). Prime Landing deals "a prime ending in 7" and
-    "minus a prime ending in 7" (y → −y); Treasure deals T = 37 and −37 (y → −y, its tie-breakers reading minus
+    "minus a prime ending in 7" (y → −y); Treasure deals T = ±11 and ±13 (y → −y; at ±37 a seat could not cross between a target and its mirror in 120 s
+    and parked midway; an exact main is 7.6–8.0 bits across the four; its tie-breakers reading minus
     primes and squares on the mirror); Same on Both Rulers deals T = 6 and −6 (the reflection through the origin,
     which leaves every tie-breaker as it was); Prime Gradient deals its ending 1 and minus (y → −y, the y-intercept
     near minus a prime too), Prime Staircase its ending 3 and a run of minus primes (y → −y). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail

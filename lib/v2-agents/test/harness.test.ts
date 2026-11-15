@@ -7,15 +7,15 @@ import { findValues, formatReport, runHarness } from "../src/harness.ts";
 
 const boxes = sandboxes();
 after(() => boxes.close());
-const player = (name: string, family: string, tieBreaker: string) => {
+const player = (name: string, family: string, tieBreaker: string, params?: Record<string, unknown>) => {
   const a = exampleFor(family, tieBreaker, "typescript")!;
-  return { name, rule: { family, params: lineType.families.find(f => f.id === family)!.dealable(lineZ)[0] as Record<string, unknown>, tieBreaker }, program: { language: a.language, source: a.source } };
+  return { name, rule: { family, params: params ?? lineType.families.find(f => f.id === family)!.dealable(lineZ)[0] as Record<string, unknown>, tieBreaker }, program: { language: a.language, source: a.source } };
 };
 
 test("two players on shared lines spend their budget, by view, and both rules are measured", async () => {
   const r = await runHarness(boxes, {
     type: lineType, variant: lineZ, lines: 3, seed: "t", budget: 60,
-    players: [player("A", "m-meets-c", "meetPrime"), player("B", "treasure", "prime-terms")],
+    players: [player("A", "m-meets-c", "meetPrime"), player("B", "treasure", "prime-terms", { k: 2, T: 37 })]   // T = 37: valued on line-z (retired from play), the dealt ±11, ±13 on line-q only,
   });
   assert.equal(r.rules.length, 2);
   for (const s of r.spend) {

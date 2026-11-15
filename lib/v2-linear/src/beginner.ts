@@ -150,12 +150,14 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
 
 type KT = { k: number; T: number };
 /**
- * T = 37 and its mirror T = −37 are dealt, so parameter drift (the coordinator's trial call 18) has a peer to redraw.
- * They are exact peers: the reflection y → −y keeps the law (its codes are even in a and c) and sends y(k) to −y(k), and
+ * T = ±11 and ±13 are dealt, so parameter drift (the coordinator's trial call 18) has peers to redraw within reach:
+ * at ±37 a starter needed longer than the 120 s interval to cross the 74 units between a target and its mirror and
+ * parked midway (agents' pool-dynamics, #739). An exact main is worth 7.6–7.7 bits at ±11 and 7.9–8.0 at ±13, within
+ * v1's 0.5 bits (±17 is 8.2–8.3, so it is not dealt). A target and its mirror are exact peers: the reflection y → −y keeps the law (its codes are even in a and c) and sends y(k) to −y(k), and
  * on the mirror every tie-breaker reads the reflected numbers (minus primes, a gradient near minus a prime, a y-intercept
  * near minus a square); lib/v2-linear test beginner.test.ts holds score(−T, reflected) = score(T, line).
  */
-const TREASURES: KT[] = [{ k: 2, T: 37 }, { k: 2, T: -37 }];
+const TREASURES: KT[] = [11, 13].flatMap(T => [{ k: 2, T }, { k: 2, T: -T }]);
 /** x, or −x on the mirror (T below zero). */
 const flipT = (p: KT, x: Q): Q => (p.T < 0 ? Qn.neg(x) : x);
 const treasureShape: Shape<KT> = {

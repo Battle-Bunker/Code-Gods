@@ -58,7 +58,7 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   // as the main part's target and ◆ as the tie-breaker's input is explained where it is read.
   const wtb = contributors(rule(wholeCrossing, "k-gpf"), mc(3, 7)).parts[1]!;
   assert.match(wtb.sentence, /of −2, the (nearest )?whole number the main part is measured to/, wtb.sentence);
-  const tr = contributors(rule(treasure, "m-spf"), mc(15, 6)).parts[0]!;
+  const tr = contributors(rule(treasure, "m-spf", { k: 2, T: 37 }), mc(15, 6)).parts[0]!;
   assert.equal(tr.source[0]!.text, "36");
   assert.equal(tr.source[0]!.label, "y(2)");
   assert.equal(tr.reference?.value, 37);
