@@ -17,7 +17,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.546,
     "divisibility-ladder": 0.311,
     "treasure": 0.611,
-    "same-on-both-rulers": 0.489,
+    "same-on-both-rulers": 0.432,
     "prime-gradient": 0.306,
     "prime-staircase": 0.426,
     "ruler": 0.658,
@@ -29,7 +29,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.288,
     "divisibility-ladder": 0.257,
     "treasure": 0.316,
-    "same-on-both-rulers": 0.27,
+    "same-on-both-rulers": 0.214,
     "prime-gradient": 0.188,
     "prime-staircase": 0.295,
     "ruler": 0.286,
@@ -41,7 +41,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.458,
     "divisibility-ladder": 0.211,
     "treasure": 0.602,
-    "same-on-both-rulers": 0.631,
+    "same-on-both-rulers": 0.444,
     "prime-gradient": 0.352,
     "prime-staircase": 0.408,
     "ruler": 0.432,
@@ -53,7 +53,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "square-area": 0.323,
     "divisibility-ladder": 0.111,
     "treasure": 0.462,
-    "same-on-both-rulers": 0.412,
+    "same-on-both-rulers": 0.271,
     "prime-gradient": 0.135,
     "prime-staircase": 0.215,
     "ruler": 0.25,
@@ -65,7 +65,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "square-area": 0,
     "whole-crossing": 0.021,
     "treasure": 0.073,
-    "same-on-both-rulers": 0.042,
+    "same-on-both-rulers": 0.01,
     "prime-gradient": 0.052,
     "prime-staircase": 0.031,
     "ruler": 0,
@@ -77,23 +77,23 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "square-area": 0.477,
     "whole-crossing": 0.432,
     "divisibility-ladder": 0.172,
-    "same-on-both-rulers": 0.69,
+    "same-on-both-rulers": 0.377,
     "prime-gradient": 0.406,
     "prime-staircase": 0.32,
     "ruler": 0.625,
     "pythagorean-area": 0.414
   },
   "same-on-both-rulers": {
-    "prime-landing": 0.678,
-    "smooth-intercept": 0.43,
+    "prime-landing": 0.699,
+    "smooth-intercept": 0.331,
     "square-area": 0.439,
-    "whole-crossing": 0.498,
-    "divisibility-ladder": 0.353,
-    "treasure": 0.714,
-    "prime-gradient": 0.47,
-    "prime-staircase": 0.479,
-    "ruler": 0.47,
-    "pythagorean-area": 0.593
+    "whole-crossing": 0.466,
+    "divisibility-ladder": 0.243,
+    "treasure": 0.74,
+    "prime-gradient": 0.409,
+    "prime-staircase": 0.41,
+    "ruler": 0.432,
+    "pythagorean-area": 0.588
   },
   "prime-gradient": {
     "prime-landing": 0.598,
@@ -102,7 +102,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.387,
     "divisibility-ladder": 0.405,
     "treasure": 0.608,
-    "same-on-both-rulers": 0.45,
+    "same-on-both-rulers": 0.409,
     "prime-staircase": 0.378,
     "ruler": 0.529,
     "pythagorean-area": 0.542
@@ -114,7 +114,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.205,
     "divisibility-ladder": 0.22,
     "treasure": 0.284,
-    "same-on-both-rulers": 0.241,
+    "same-on-both-rulers": 0.202,
     "prime-gradient": 0.188,
     "ruler": 0.269,
     "pythagorean-area": 0.231
@@ -126,7 +126,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.25,
     "divisibility-ladder": 0.191,
     "treasure": 0.514,
-    "same-on-both-rulers": 0.391,
+    "same-on-both-rulers": 0.266,
     "prime-gradient": 0.316,
     "prime-staircase": 0.25,
     "pythagorean-area": 0.314
@@ -138,7 +138,7 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
     "whole-crossing": 0.135,
     "divisibility-ladder": 0.054,
     "treasure": 0.304,
-    "same-on-both-rulers": 0.195,
+    "same-on-both-rulers": 0.037,
     "prime-gradient": 0.076,
     "prime-staircase": 0.132,
     "ruler": 0.126
@@ -159,7 +159,6 @@ export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>>
     "prime-landing"
   ],
   "square-area": [
-    "same-on-both-rulers",
     "treasure",
     "prime-landing",
     "pythagorean-area"
@@ -167,13 +166,13 @@ export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>>
   "whole-crossing": [
     "treasure",
     "prime-landing",
-    "same-on-both-rulers"
+    "square-area"
   ],
   "divisibility-ladder": [],
   "treasure": [
-    "same-on-both-rulers",
     "prime-landing",
-    "ruler"
+    "ruler",
+    "square-area"
   ],
   "same-on-both-rulers": [
     "treasure",
@@ -194,7 +193,7 @@ export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>>
   "ruler": [
     "square-area",
     "treasure",
-    "same-on-both-rulers"
+    "prime-landing"
   ],
   "pythagorean-area": [
     "prime-landing",
@@ -213,7 +212,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0.544,
     "divisibility-ladder": 0.382,
     "treasure": 0.205,
-    "same-on-both-rulers": 0.26,
+    "same-on-both-rulers": 0.767,
     "ruler": 0.25,
     "pythagorean-area": 0.536
   },
@@ -222,7 +221,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0.435,
     "divisibility-ladder": 1,
     "treasure": 0.334,
-    "same-on-both-rulers": 0.046,
+    "same-on-both-rulers": 0.186,
     "prime-gradient": 0.579,
     "prime-staircase": 1,
     "ruler": 0.342,
@@ -233,7 +232,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "smooth-intercept": 1,
     "divisibility-ladder": 0.662,
     "treasure": 0.682,
-    "same-on-both-rulers": 0.368,
+    "same-on-both-rulers": 1,
     "ruler": 1,
     "pythagorean-area": 1
   },
@@ -243,7 +242,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0.405,
     "divisibility-ladder": 0.599,
     "treasure": 0.671,
-    "same-on-both-rulers": 0.328,
+    "same-on-both-rulers": 0.717,
     "ruler": 0.35,
     "pythagorean-area": 0.742
   },
@@ -259,15 +258,16 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "ruler": 0.989
   },
   "same-on-both-rulers": {
-    "square-area": 0.693,
-    "divisibility-ladder": 0.127,
-    "ruler": 0.583
+    "prime-landing": 0.979,
+    "square-area": 0.836,
+    "whole-crossing": 1,
+    "divisibility-ladder": 1,
+    "ruler": 0.509
   },
   "prime-gradient": {
     "square-area": 0.109,
     "divisibility-ladder": 0.136,
     "treasure": 0.6,
-    "same-on-both-rulers": 0,
     "prime-staircase": 1,
     "ruler": 0.043
   },
@@ -276,14 +276,12 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0.777,
     "divisibility-ladder": 1,
     "treasure": 0.914,
-    "same-on-both-rulers": 0.238,
     "prime-gradient": 1,
     "ruler": 0.215,
     "pythagorean-area": 0.613
   },
   "ruler": {
-    "square-area": 1,
-    "same-on-both-rulers": 0.182
+    "square-area": 1
   },
   "pythagorean-area": {
     "prime-landing": 1,
@@ -291,7 +289,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 1,
     "divisibility-ladder": 0.951,
     "treasure": 0.949,
-    "same-on-both-rulers": 0.068,
+    "same-on-both-rulers": 1,
     "prime-staircase": 1,
     "ruler": 0.848
   }
@@ -304,7 +302,7 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "square-area": 261,
     "divisibility-ladder": 89,
     "treasure": 73,
-    "same-on-both-rulers": 2053,
+    "same-on-both-rulers": 60,
     "ruler": 535,
     "pythagorean-area": 295
   },
@@ -313,7 +311,7 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "square-area": 262,
     "divisibility-ladder": 181,
     "treasure": 305,
-    "same-on-both-rulers": 1233,
+    "same-on-both-rulers": 102,
     "prime-gradient": 38,
     "prime-staircase": 58,
     "ruler": 448,
@@ -324,7 +322,7 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "smooth-intercept": 36,
     "divisibility-ladder": 65,
     "treasure": 66,
-    "same-on-both-rulers": 608,
+    "same-on-both-rulers": 46,
     "ruler": 183,
     "pythagorean-area": 27
   },
@@ -334,7 +332,7 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "square-area": 304,
     "divisibility-ladder": 147,
     "treasure": 225,
-    "same-on-both-rulers": 1472,
+    "same-on-both-rulers": 60,
     "ruler": 517,
     "pythagorean-area": 248
   },
@@ -350,15 +348,16 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "ruler": 371
   },
   "same-on-both-rulers": {
-    "square-area": 176,
-    "divisibility-ladder": 55,
-    "ruler": 288
+    "prime-landing": 283,
+    "square-area": 366,
+    "whole-crossing": 354,
+    "divisibility-ladder": 183,
+    "ruler": 397
   },
   "prime-gradient": {
     "square-area": 366,
     "divisibility-ladder": 59,
     "treasure": 50,
-    "same-on-both-rulers": 2304,
     "prime-staircase": 24,
     "ruler": 564
   },
@@ -367,14 +366,12 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "square-area": 548,
     "divisibility-ladder": 272,
     "treasure": 105,
-    "same-on-both-rulers": 4557,
     "prime-gradient": 206,
     "ruler": 1108,
     "pythagorean-area": 310
   },
   "ruler": {
-    "square-area": 26,
-    "same-on-both-rulers": 264
+    "square-area": 26
   },
   "pythagorean-area": {
     "prime-landing": 51,
@@ -382,7 +379,7 @@ export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<stri
     "square-area": 148,
     "divisibility-ladder": 82,
     "treasure": 79,
-    "same-on-both-rulers": 1816,
+    "same-on-both-rulers": 40,
     "prime-staircase": 26,
     "ruler": 475
   }
@@ -395,6 +392,7 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
     "treasure",
     "pythagorean-area",
     "whole-crossing",
+    "same-on-both-rulers",
     "smooth-intercept",
     "square-area"
   ],
@@ -407,20 +405,21 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
     "prime-gradient"
   ],
   "square-area": [
-    "same-on-both-rulers",
     "treasure",
     "prime-landing",
     "pythagorean-area",
     "ruler",
+    "same-on-both-rulers",
     "smooth-intercept",
     "divisibility-ladder"
   ],
   "whole-crossing": [
     "treasure",
     "prime-landing",
-    "same-on-both-rulers",
+    "square-area",
     "smooth-intercept",
     "pythagorean-area",
+    "same-on-both-rulers",
     "divisibility-ladder"
   ],
   "divisibility-ladder": [
@@ -428,7 +427,6 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
     "treasure"
   ],
   "treasure": [
-    "same-on-both-rulers",
     "prime-landing",
     "ruler",
     "square-area",
@@ -438,6 +436,8 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
     "treasure",
     "prime-landing",
     "pythagorean-area",
+    "divisibility-ladder",
+    "whole-crossing",
     "square-area",
     "ruler"
   ],
@@ -461,12 +461,13 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
   "ruler": [
     "square-area",
     "treasure",
-    "same-on-both-rulers"
+    "prime-landing"
   ],
   "pythagorean-area": [
     "prime-landing",
     "treasure",
     "prime-staircase",
+    "same-on-both-rulers",
     "square-area",
     "divisibility-ladder",
     "ruler",
