@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, type Q } from "@workspace/v2-core";
-import { gridType, grid4, gridPresets, divisibilityReadings, divisibilityNumbers, powerOf, DIVISIBILITY_DEALT, type DivisibilityParams, type GridState } from "../src/index.ts";
+import { gridType, grid4, gridPresets, divisibilityReadings, divisibilityNumbers, divisibilityNotes, powerOf, DIVISIBILITY_DEALT, type DivisibilityParams, type GridState } from "../src/index.ts";
 import { board } from "./helpers.ts";
 
 const fam = gridType.families.find(f => f.id === "divisibility")!;
@@ -60,4 +60,19 @@ test("cards: one sentence each, filled in, at most four numbers; dealt: four ins
     assert.ok((c.match(/\d+/g) ?? []).length <= 4, c);
   }
   for (const pr of gridPresets) for (const r of pr.rules) assert.notEqual(r.family, "divisibility", `${pr.id} deals it`);
+});
+
+test("the view: each number is a readings element with its power, what is left, and what one more step needs", () => {
+  assert.deepEqual(divisibilityNotes(12345678, 2, 3), ["= 3² × 1371742", "one more 3: add 18 or take away 9"]);
+  assert.deepEqual(divisibilityNotes(-77777778, 1, 2), ["= 2¹ × −38888889", "one more 2: add 2 or take away 2"]);
+  assert.deepEqual(divisibilityNotes(90123457, 0, 3), ["no 3 divides it", "one more 3: add 2 or take away 1"]);
+  const e = evaluateSite(gridType, fam, { lens: "powers", q: 3, layout: "halves" }, A, grid4, 0, null);
+  const main = e.terms.find(t => t.id === "powers")!;
+  assert.deepEqual(main.from.map(r => r.name), ["h0", "h1", "h2", "h3"]);
+  const notes = e.marks.filter(m => m.kind === "note") as { ref: { name: string }; text: string }[];
+  assert.ok(notes.some(m => m.ref.name === "h0" && m.text === "= 3² × 1371742"));
+  // 12345678 and 37154826 both carry 3²: their readings are focused.
+  assert.deepEqual(e.marks.filter(m => m.kind === "focus").map(m => (m as { ref: { name: string } }).ref.name), ["h0", "h3"]);
+  const m = evaluateSite(gridType, fam, { lens: "matching", q: 2, layout: "alternate" }, A, grid4, 0, null);
+  assert.deepEqual(m.terms.find(t => t.id === "powers")!.from.map(r => r.name), ["arows", "acols"]);
 });
