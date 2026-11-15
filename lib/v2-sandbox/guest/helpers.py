@@ -31,6 +31,8 @@
 #                                is better; None is the worst score and a None part is the worst part.
 #   worth(offer)                 what this line is worth to you now: mine (your rarity), others (the other players'
 #                                rarity added up) and points (mine x others). None when the game does not say.
+#                                others is your agents' own estimate (in a noisy room each player's agents get their
+#                                own blur), not the server's count: a note reporting it should say it is an estimate.
 #   rarity(offer, score)         the rarity your rule gives a score (from your own score function); 0 when the game
 #                                does not say. Free.
 #   recent(offer)                the latest moves on this line you may see, newest last: .mine, .points_before, .points_after.
