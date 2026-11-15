@@ -400,7 +400,6 @@ const READS: Readonly<Record<string, readonly string[]>> = {
   "square-area/spf": ["root:spf"], "square-area/lpf": ["root:gpf"], "square-area/omega": ["root:omega"],
   "divisibility-ladder/m-spf": ["m:spf"], "divisibility-ladder/m-gpf": ["m:gpf"], "divisibility-ladder/m-prime": ["m:prime"],
   "treasure/m-spf": ["m:spf"], "treasure/m-gpf": ["m:gpf"], "treasure/prime-gradient": ["m:prime"],
-  "same-on-both-rulers/m-spf": ["m:spf"], "same-on-both-rulers/m-gpf": ["m:gpf"], "same-on-both-rulers/prime-start": ["c:prime"],
   "ruler/prime-gradient": ["m:prime"], "pythagorean-area/prime-height": ["c:prime"],
   "prime-staircase/shared-factor": ["c:prime"], "prime-staircase/step-back": ["c:prime"],
   "long-division/m-bottom-spf": ["m.d:spf"],

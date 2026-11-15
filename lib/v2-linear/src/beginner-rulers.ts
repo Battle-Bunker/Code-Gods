@@ -2,19 +2,10 @@
  * Treasure and Same on Both Rulers: the beginner families that read where the line passes a target (moved out of
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
-import { gcd, Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
+import { gcd, Qn, q, ref, type Q } from "@workspace/v2-core";
 import { fromMC, type LineState } from "./line.ts";
-import { allUndefined, distance, factorLabel, family, gap, more, num, prime, verticalAt, verticalMain, ladder, type L, type Shape } from "./layers.ts";
-import { digitLevel, distanceToPrime, distanceToWhole, isqrt, largestPrimeFactor, nearestInteger, smallestPrimeFactor } from "./numbers.ts";
-
-/** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
-const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
-const gpfQ = (x: Q): Q => q(x.d === 1n ? largestPrimeFactor(x.n) : 1n);
-/** Tie-breakers on the prime factors of a coefficient (the curator's §10.5: graded, an exact Euler-type sum). */
-const factorTies = <P,>(of: "m" | "c", what: string): L<P>[] => [
-  prime(more(`${of}-spf`, `${what}'s smallest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s smallest prime factor should be as big as possible.`, "si")),
-  prime(more(`${of}-gpf`, `${what}'s largest prime factor`, `${what[0]!.toUpperCase()}${what.slice(1)}'s largest prime factor should be as big as possible.`, "si")),
-];
+import { allUndefined, family, more, num, verticalAt, verticalMain, ladder, type Shape } from "./layers.ts";
+import { digitLevel, isqrt, nearestInteger } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Treasure
 
@@ -90,52 +81,71 @@ export const treasure = ladder(family<KT>("treasure", "Treasure", ["table", "si"
 
 // ---------------------------------------------------------------- Same on Both Rulers
 
-type T = { T: number };
 /**
- * T and −T are dealt, so parameter drift (the coordinator's trial call 18) has a peer to redraw. They are exact peers:
- * the reflection through the origin, (m, c) → (m, −c), keeps the law (its codes are even in c), sends the unchanged
- * number to minus itself, and leaves every tie-breaker's reading as it was (|c|, the gradient, the lamp, how many
- * different whole values); lib/v2-linear test beginner.test.ts holds score(−T, reflected) = score(T, line).
+ * Same on Both Rulers as a ladder (design-principles.md; redesigned 15 Nov by the lens worker, declared to the
+ * coordinator as a trial). Main part, unbounded: the number the machine leaves unchanged, f = c/(1 − m) (where the line
+ * crosses y = x), should round to a palindrome starting and ending in d (d, dd, d0d, d1d, …, d00d, …), the bigger the
+ * better, in triangular levels of digits that each need more than the last (u = digitLevel); any other f scores below
+ * every palindrome, −(its distance to the nearest − ½). Palindromes of n digits are about 10^⌊n/2⌋ apart, so the next
+ * rung is a small move of f that grows with the level; f moves by Δc/(1 − m), so a gradient near 1 (a far fixed point)
+ * is the lever and its own price. Tie-breaker, read from the palindrome: the biggest number dividing both its digit sum
+ * and the whole part of |c|; a new palindrome changes the digit sum, so the climb starts again. Dealt: d = 1 and 2, each
+ * with its mirror (minus a palindrome: the reflection through the origin, (m, c) → (m, −c), sends f to −f and keeps |c|
+ * and the law, so mirrors are exact peers). The old main part (f close to T = ±6) had a top.
  */
-const RULERS_T: T[] = [{ T: 6 }, { T: -6 }];
-const rulersShape: Shape<T> = {
-  main: { ...distance<T>("fixed", "the unchanged number close to T", "", "mach"),
-    sentence: p => `The number the machine leaves unchanged (where the line crosses y = x) should be as close as possible to ${p.T}.` },
+type PD = { d: number; side?: 1 | -1 };
+const RULERS: PD[] = [1, 2].flatMap(d => [{ d }, { d, side: -1 as const }]);
+const flipR = (p: PD, x: Q): Q => (p.side === -1 ? Qn.neg(x) : x);
+/** The n-digit palindrome whose first ⌈n/2⌉ digits are h. */
+const mirrorHalf = (h: bigint, n: number): bigint => { const s = h.toString(); return BigInt(s + [...s.slice(0, n >> 1)].reverse().join("")); };
+/** The palindrome starting (and ending) in the digit d nearest x (the smaller on a tie, as the starters take it). */
+export function nearestPalindrome(x: Q, d: number): bigint {
+  const w = x.n <= 0n ? 0n : Qn.floor(x), L = w.toString().length, cands: bigint[] = [];
+  for (let n = Math.max(1, L - 1); n <= L + 1; n++) {
+    const k = (n + 1) >> 1, lo = BigInt(d) * 10n ** BigInt(k - 1), hi = lo + 10n ** BigInt(k - 1) - 1n;
+    const h0 = n === L ? BigInt(w.toString().slice(0, k)) : lo;
+    for (const h of [lo, hi, h0 - 1n, h0, h0 + 1n]) if (h >= lo && h <= hi) cands.push(mirrorHalf(h, n));
+  }
+  const far = (t: bigint) => Qn.abs(Qn.sub(x, q(t)));
+  return cands.reduce((a, b) => { const c = Qn.cmp(far(b), far(a)); return c < 0 || (c === 0 && b < a) ? b : a; });
+}
+/** The digits of a whole number added up. */
+export const digitSum = (t: bigint): bigint => [...(t < 0n ? -t : t).toString()].reduce((a, ch) => a + BigInt(ch), 0n);
+/** The rung f stands on: the palindrome it rounds to (u = digitLevel), else minus how far f is from rounding to the nearest. */
+const palindromeRung = (f: Q, d: number): { t: bigint; u: Q } => {
+  const t = nearestPalindrome(f, d);
+  return { t, u: nearestInteger(f) === t ? digitLevel(t) : Qn.neg(Qn.sub(Qn.abs(Qn.sub(f, q(t))), q(1, 2))) };
+};
+/** The witnesses for the tail cap: the smallest n-digit palindrome in d (d, then d0…0d), on the lines y = P, y = 2P − x, y = 2x − P. */
+export const rulersWitness = (p: PD, n: number): LineState[] => {
+  const P = n === 1 ? BigInt(p.d) : BigInt(p.d) * 10n ** BigInt(n - 1) + BigInt(p.d), s = p.side === -1 ? -1n : 1n;
+  return ([[0, s * P], [-1, 2n * s * P], [2, -s * P]] as const).map(([m, c]) => ({ lines: [fromMC(q(m), q(c))] }));
+};
+const palindromes = (p: PD) => `${p.side === -1 ? "minus " : ""}a palindrome starting and ending in ${p.d} (like ${p.d}, ${p.d}${p.d}, ${p.d}1${p.d})`;
+const rulersShape: Shape<PD> = {
+  main: { ...more<PD>("palindrome", "the unchanged number on as big a palindrome as possible", "", "mach"),
+    sentence: p => `The line should cross y = x at ${palindromes(p)}, the bigger the better; otherwise, the closer the better.` },
   tieBreakers: [
-    more("steep", "the gradient far from 1", "The gradient should be as far from 1 as possible.", "si"),
-    distance("prime-start", "|c| close to a prime", "The y-intercept should be as close as possible to a prime (ignoring sign).", "si"),
-    more("whole-values", "different whole numbers among y(−5) … y(5)", "As many of y(−5) … y(5) as possible should be different whole numbers.", "table"),
-    distance("whole-lamp", "the lamp's height close to whole", "The lamp's height m/(m − 1) should be as close as possible to a whole number.", "mach"),
-    ...factorTies<T>("m", "the gradient"),
+    more<PD>("shared-factor", "the biggest number dividing both the palindrome's digit sum and the y-intercept's whole part",
+      "The palindrome's digits added up and the y-intercept's whole part should share the biggest factor possible.", "si"),
   ],
 };
-export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "table", "gen"], rulersShape, RULERS_T, (ctx, p) => {
+export const sameOnBothRulers = ladder(family<PD>("same-on-both-rulers", "Same on Both Rulers", ["mach", "si", "gen"], rulersShape, RULERS, (ctx, p) => {
   // A vertical line x = k meets y = x at (k, k): k is the number it leaves unchanged.
   const vx = verticalAt(ctx);
-  if (vx) return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}: distance to ${p.T}`, gap(vx.x, q(p.T)), vx.from);
+  if (vx) {
+    const { t, u } = palindromeRung(flipR(p, vx.x), p.d);
+    return verticalMain(ctx, rulersShape, `a vertical line meets y = x at ${Qn.toWire(vx.x)}: ${Qn.sign(u) > 0 ? "on" : "near"} ${p.side === -1 ? "minus " : ""}${t}`, u, vx.from);
+  }
   const fRef = ref("mach", "fixed");
   const fv = ctx.read(fRef);
   const f = num(fv);
-  if (f === null) return allUndefined(ctx, rulersShape, fv, fRef);
-  const mRef = ref("si", "m");
-  const m = num(ctx.read(mRef))!, c = num(ctx.read(ref("si", "c")))!;
-  const lamp = ref("mach", "lamp");
-  const lv = num(ctx.read(lamp))!;
-  const wholes = new Set<bigint>();
-  const cols: ElementRef[] = [];
-  for (let x = -5; x <= 5; x++) {
-    const r = ref("table", "y", { x });
-    const t = num(ctx.read(r))!;
-    cols.push(r);
-    if (t.d === 1n) wholes.add(t.n);
-  }
-  ctx.term("fixed", `distance from the unchanged number to ${p.T}`, gap(f, q(p.T)), [fRef]);
-  ctx.term("prime-start", "distance from |c| to a prime", distanceToPrime(Qn.abs(c)), [ref("si", "c")]);
-  ctx.term("whole-values", "different whole values among y(−5) … y(5)", q(wholes.size), cols);
-  ctx.term("whole-lamp", "distance from the lamp's height to whole", distanceToWhole(lv), [lamp]);
-  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
-  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
-  ctx.term("steep", "|m − 1|", gap(m, Qn.ONE), [mRef]);
+  if (f === null) return allUndefined(ctx, rulersShape, fv, fRef);   // parallel to y = x: no number stays unchanged
+  const cRef = ref("si", "c");
+  const c = num(ctx.read(cRef))!, wc = Qn.floor(Qn.abs(c));
+  const { t, u } = palindromeRung(flipR(p, f), p.d), sum = digitSum(t), g = wc === 0n ? 0n : gcd(sum, wc);
+  const minus = p.side === -1 ? "minus " : "";
+  ctx.term("palindrome", Qn.sign(u) > 0 ? `the unchanged number ${Qn.toWire(f)} rounds to ${minus}the palindrome ${t}` : `the unchanged number ${Qn.toWire(f)} is ${Qn.toWire(Qn.abs(Qn.sub(flipR(p, f), q(t))))} from ${minus}the palindrome ${t}`, u, [fRef]);
+  ctx.term("shared-factor", `${t}'s digits add up to ${sum}; the y-intercept's whole part is ${wc}: the biggest number dividing both is ${g}`, q(g), [fRef, cRef]);
   ctx.mark({ kind: "focus", ref: fRef });
-});
-
+}), rulersWitness);

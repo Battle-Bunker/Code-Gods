@@ -35,11 +35,6 @@ export const LENSES = {
     ts: `[move("cart.pivot", { x0: p.k, k }), Q.add(m, k), Q.sub(c, Q.mul(k, p.k))]`, py: `(move("cart.pivot", x0=p["k"], k=k), m + k, c - k * p["k"])`,
     only: ["crossing-check", "treasure"],
   },
-  turnAtT: {
-    comment: "turn the line about its point at x = T (if it crosses y = x there, it still does)",
-    ts: `[move("cart.pivot", { x0: p.T, k }), Q.add(m, k), Q.sub(c, Q.mul(k, p.T))]`, py: `(move("cart.pivot", x0=p["T"], k=k), m + k, c - k * p["T"])`,
-    only: ["same-on-both-rulers"],
-  },
   stretch: {
     comment: "multiply every output by f (m and c both)",
     pre: { ts: "const f = k > 0 ? k + 1 : k - 1;", py: "f = k + 1 if k > 0 else k - 1" },
@@ -112,6 +107,48 @@ export interface FamilyEntry {
 }
 
 const neg = (ts: string) => `Q.neg(${ts})`;
+
+/**
+ * Same on Both Rulers' palindromes (the starters' copy of lib/v2-linear beginner-rulers.ts nearestPalindrome): the
+ * palindromes starting and ending in p.d near y, of y's length and one digit either side; the nearest is among them.
+ */
+const PALS_TS = [
+  "const pals = y => {   // the palindromes starting and ending in p.d nearest y: below and above it at its length, and one digit either side",
+  "  const d = BigInt(p.d), w = Q.cmp(y, 0) <= 0 ? \"0\" : String(whole(Q.sub(y, Q.div(1, 2)))), L = w.length;   // w: y rounded down",
+  "  const pal = (h, n) => { const t = String(h); return BigInt(t + t.slice(0, n >> 1).split(\"\").reverse().join(\"\")); };   // n digits from the first (n + 1)/2, h",
+  "  const lo = n => d * 10n ** BigInt((n - 1) >> 1), hi = n => lo(n) + 10n ** BigInt((n - 1) >> 1) - 1n, h0 = BigInt(w.slice(0, (L + 1) >> 1));",
+  "  const out = [pal(lo(L + 1), L + 1), ...[h0 - 1n, h0, h0 + 1n].map(h => pal(h < lo(L) ? lo(L) : h > hi(L) ? hi(L) : h, L))];",
+  "  if (L > 1) out.push(pal(hi(L - 1), L - 1));",
+  "  return out;",
+  "};",
+];
+const PALS_PY = [
+  "def pals(y):   # the palindromes starting and ending in p[\"d\"] nearest y: below and above it at its length, and one digit either side",
+  "    w = str(0 if y <= 0 else whole(y - Fraction(1, 2)))   # y rounded down",
+  "    L, d = len(w), p[\"d\"]",
+  "    pal = lambda h, n: int(str(h) + str(h)[:n // 2][::-1])   # n digits from the first (n + 1) // 2, h",
+  "    lo = lambda n: d * 10 ** ((n - 1) // 2)",
+  "    hi = lambda n: lo(n) + 10 ** ((n - 1) // 2) - 1",
+  "    h0 = int(w[:(L + 1) // 2])",
+  "    out = [pal(lo(L + 1), L + 1)] + [pal(min(max(h, lo(L)), hi(L)), L) for h in (h0 - 1, h0, h0 + 1)]",
+  "    return out + ([pal(hi(L - 1), L - 1)] if L > 1 else [])",
+];
+const PAL_SCORE_TS = [
+  "const level = r => { const D = r.toString().length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(Q.of(r), Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2",
+  ...PALS_TS,
+  "const rungOf = y => {   // the nearest (the smaller on a tie): the nearest at or below y, or the nearest above",
+  "  const w = Q.cmp(y, 0) <= 0 ? -1n : BigInt(whole(Q.sub(y, Q.div(1, 2)))), ps = pals(y);   // whole numbers at or below y are those at or below w",
+  "  let a = null, b = null; for (const t of ps) { if (t <= w) { if (a === null || t > a) a = t; } else if (b === null || t < b) b = t; }",
+  "  return a === null || Q.cmp(Q.sub(Q.of(b), y), Q.sub(y, Q.of(a))) < 0 ? b : a;",
+  "};",
+  "const onRung = (y, r) => (BigInt(whole(y)) === r ? level(r) : Q.neg(Q.sub(Q.abs(Q.sub(y, Q.of(r))), Q.div(1, 2))));   // on the rung when y rounds to it, else how far from rounding to it",
+];
+const PAL_SCORE_PY = [
+  "level = lambda r: (lambda D, L: L + (D - L * (L + 1) // 2 + Fraction(r, 10 ** D)) / (L + 1))(len(str(r)), next(L for L in range(99) if (L + 1) * (L + 2) // 2 > len(str(r))))   # levels of digits: level L needs L(L + 1)/2",
+  ...PALS_PY,
+  "rung_of = lambda y: min(pals(y), key=lambda t: (abs(y - t), t))   # the nearest (the smaller on a tie)",
+  "on_rung = lambda y, r: level(r) if whole(y) == r else -(abs(y - r) - Fraction(1, 2))   # on the rung when y rounds to it",
+];
 
 export const CATALOGUE: readonly FamilyEntry[] = [
   {
@@ -520,60 +557,61 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "same-on-both-rulers",
     simple: ["shift", "tilt", "turn"],
-    thorough: ["shift", "tilt", "step", "turnAtT"],   // all of them would not fit the starting energy beside these tie-breakers
-    mainSays: "how far the number the machine leaves unchanged is from T (closer is better)",
-    main: {
+    thorough: ["shift", "tilt", "step", "turn"],
+    rungs: {
       ts: [
-        "if (Q.eq(m, 1)) return null;                    // × 1: no number stays unchanged",
-        "const fixed = Q.div(c, Q.sub(1, m));            // where y = mx + c meets y = x",
-        `const main = ${neg("Q.abs(Q.sub(fixed, p.T))")};`,
+        "// The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.",
+        "if (!Q.eq(m, 1)) {",
+        ...PALS_TS.map(l => `  ${l}`),
+        "  const s = p.side ?? 1, y = Q.mul(s, Q.div(c, Q.sub(1, m)));   // the unchanged number (minus it on the mirror)",
+        "  const up = pals(y).filter(t => Q.cmp(Q.of(t), y) > 0).reduce((a, b) => (b < a ? b : a)), to = Q.mul(s, Q.of(up));",
+        "  tries.push([move(\"si.shift\", { k: Q.sub(Q.mul(to, Q.sub(1, m)), c) }), m, Q.mul(to, Q.sub(1, m))]);   // keep m, move c",
+        "  if (!Q.isZero(c)) tries.push([move(\"si.tilt\", { k: Q.sub(Q.sub(1, Q.div(c, to)), m) }), Q.sub(1, Q.div(c, to)), c]);   // keep c, move m",
+        "}",
       ],
       py: [
-        "if m == 1:                                      # x 1: no number stays unchanged",
+        "# The next palindrome up (the ladder has no top): the smallest one above the unchanged number, by a shift or by a tilt.",
+        "if m != 1:",
+        ...PALS_PY.map(l => `    ${l}`),
+        "    s = p.get(\"side\", 1)",
+        "    y = s * c / (1 - m)                          # the unchanged number (minus it on the mirror)",
+        "    to = s * min(t for t in pals(y) if t > y)",
+        "    tries.append((move(\"si.shift\", k=to * (1 - m) - c), m, to * (1 - m)))   # keep m, move c",
+        "    if c != 0:",
+        "        tries.append((move(\"si.tilt\", k=1 - c / to - m), 1 - c / to, c))   # keep c, move m",
+      ],
+    },
+    mainSays: "the palindrome starting and ending in d (d, dd, d0d, ...) that the number the machine leaves unchanged rounds to, in levels of digits (bigger is better: a ladder with no top), else minus how far it is from rounding to one",
+    main: {
+      ts: [
+        "if (Q.eq(m, 1)) return null;                    // parallel to y = x: no number stays unchanged",
+        ...PAL_SCORE_TS,
+        "const s = p.side ?? 1, y = Q.mul(s, Q.div(c, Q.sub(1, m)));   // the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)",
+        "const rung = rungOf(y), main = onRung(y, rung);",
+      ],
+      py: [
+        "if m == 1:                                      # parallel to y = x: no number stays unchanged",
         "    return None",
-        "fixed = c / (1 - m)                             # where y = mx + c meets y = x",
-        "main = -abs(fixed - p[\"T\"])",
+        ...PAL_SCORE_PY,
+        "y = p.get(\"side\", 1) * c / (1 - m)              # the unchanged number c/(1 - m), where the line meets y = x (minus it on the mirror)",
+        "rung = rung_of(y)",
+        "main = on_rung(y, rung)",
       ],
     },
     vertical: {
       main: {
-        ts: [
-          "const main = Q.neg(Q.abs(Q.sub(c, p.T)));      // x = c meets y = x at c",
-        ],
-        py: [
-          "main = -abs(c - p[\"T\"])                        # x = c meets y = x at c",
-        ],
+        ts: [...PAL_SCORE_TS, "const y = Q.mul(p.side ?? 1, c), main = onRung(y, rungOf(y));   // x = c meets y = x at c"],
+        py: [...PAL_SCORE_PY, "y = p.get(\"side\", 1) * c                        # x = c meets y = x at c", "main = on_rung(y, rung_of(y))"],
       },
     },
     tieBreakers: {
-      steep: { ts: "Q.abs(Q.sub(m, 1))", py: "abs(m - 1)", says: "a gradient far from 1 is better", lenses: ["shift", "tilt", "turnAtT"], steps: 3, tryThis: "remove the \"turn\" line: can it get steep without losing T?" },
-      "prime-start": {
-        pre: { ts: ["const start = Q.abs(c);                        // the y-intercept, ignoring its sign"], py: ["start = abs(c)                             # the y-intercept, ignoring its sign"] },
-        ts: neg("Q.abs(Q.sub(start, near(start, prime)))"), py: "-abs(start - near(start, prime))", says: "a y-intercept (ignoring sign) close to a prime is better",
-        lenses: ["turnAtT", "shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = T keeps the unchanged number and moves the y-intercept.",
-      },
-      "whole-values": {
+      "shared-factor": {
         pre: {
-          ts: ["const wholes = new Set(Array.from({ length: 11 }, (_, i) => Q.add(Q.mul(m, i - 5), c)).filter(Q.isInteger).map(Q.toString));   // y(-5) ... y(5)"],
-          py: ["wholes = {m * x + c for x in range(-5, 6) if (m * x + c).denominator == 1}   # y(-5) ... y(5)"],
+          ts: ["const sum = [...rung.toString()].reduce((a, ch) => a + Number(ch), 0), wc = whole(Q.sub(Q.abs(c), Q.div(1, 2)));   // the palindrome's digits added up; the whole part of |c|"],
+          py: ["total, wc = sum(int(ch) for ch in str(rung)), whole(abs(c) - Fraction(1, 2))   # the palindrome's digits added up; the whole part of |c|"],
         },
-        ts: "wholes.size", py: "len(wholes)", says: "more different whole numbers among y(-5) ... y(5) is better",
-        lenses: ["turnAtT", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: a whole gradient and y-intercept make every value whole.",
-      },
-      "whole-lamp": {
-        pre: { ts: ["const lamp = Q.div(m, Q.sub(m, 1));            // the lamp's height m/(m - 1)"], py: ["lamp = m / (m - 1)                         # the lamp's height m/(m - 1)"] },
-        ts: neg("Q.abs(Q.sub(lamp, whole(lamp)))"), py: "-abs(lamp - whole(lamp))", says: "a lamp height close to a whole number is better",
-        lenses: ["turnAtT", "tilt", "shift"], steps: 3, tryThis: "remove the \"shift\" line: the lamp depends on the gradient alone.",
-      },
-      "m-spf": {
-        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
-        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["turnAtT", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = T keeps the unchanged number and only changes the gradient.",
-      },
-      "m-gpf": {
-        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
-        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["turnAtT", "tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: turning about x = T keeps the unchanged number and only changes the gradient.",
+        ts: "common(sum, wc)", py: "common(total, wc)", says: "a bigger number dividing both the palindrome's digit sum and the y-intercept's whole part is better",
+        lenses: ["shift", "tilt", "turn"], steps: 3, tryThis: "remove the \"tilt\" line: a turn keeps the y-intercept and moves the unchanged number; can it still find a palindrome?",
       },
     },
   },

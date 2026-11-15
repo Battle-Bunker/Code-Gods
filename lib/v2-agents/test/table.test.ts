@@ -134,7 +134,7 @@ test("on the beginner economy (power 4) starters live within their income: no ag
 
 test("drift is staggered by seat, as on the server: seat i redraws at k·D + i·D/n, and nobody in the last 90 s", async () => {
   const D = 120, seconds = 400, at: { at: number; seat: number }[] = [];
-  const rules = [["prime-landing", "shared-factor"], ["treasure", "shared-factor"], ["same-on-both-rulers", "steep"]] as const;
+  const rules = [["prime-landing", "shared-factor"], ["treasure", "shared-factor"], ["same-on-both-rulers", "shared-factor"]] as const;
   await runTable(boxes, {
     type: lineType, variant: lineQ, lines: 3, seed: "stagger", seconds, unique: true, driftSeconds: D,
     seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),
