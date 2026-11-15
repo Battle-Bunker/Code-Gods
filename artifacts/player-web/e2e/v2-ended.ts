@@ -158,7 +158,14 @@ async function endedGame(page: Page, preset: string, noun: string) {
   assert.match(await agents.getByTestId("details-energy-how").innerText(), /power/, `${label}: how energy works`);
   ok("agents");
   // The chat, the leaderboard, the charts, the rules, the assistant, the player's own panels.
-  await (await open(page, "public-chat")).getByText(said).waitFor({ timeout: 15_000 });
+  const chatPane = await open(page, "public-chat");
+  await chatPane.getByText(said).waitFor({ timeout: 15_000 });
+  // v1's chat filters: your own message is a person's, not an AI player's, and not a mention of you.
+  await chatPane.getByTestId("button-chat-filter-ai").click();
+  assert.equal(await chatPane.getByText(said).count(), 0, `${label}: AI players' messages leave yours out`);
+  await chatPane.getByTestId("button-chat-filter-people").click();
+  await chatPane.getByText(said).waitFor({ timeout: 5_000 });
+  await chatPane.getByTestId("button-chat-filter-all").click();
   ok("public-chat");
   // The leaderboard keeps its race chart; the final table is Results' (one table, not three: persona walk, round 5).
   const race = await open(page, "race");

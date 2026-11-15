@@ -9,17 +9,24 @@ import { api } from "@workspace/engine/convex/_generated/api";
 import { useLivePaged } from "@/sdk/live";
 import { EmptyState } from "@/site/components/page-parts";
 import { failureText } from "@/site/components/action";
-export function RoomChat({ roomId, height = "h-[300px]" }: { roomId: string; height?: string }) {
+import { chatFilter, type ChatFilter } from "./chat-filter";
+
+/** Who wrote what, for the filters (a game knows its roster): member kinds by id, your name and member id. */
+export interface ChatWho { kinds: ReadonlyMap<string, string>; myName: string | null; me: string | null }
+
+export function RoomChat({ roomId, height = "h-[300px]", who }: { roomId: string; height?: string; who?: ChatWho }) {
   const page = useLivePaged(api.v2.rooms.chat, { roomId }, 50);
   const send = useAffordance("chat.send");
-  const messages = [...page.results].reverse();
+  const [filter, setFilter] = useState<ChatFilter>("all");
+  const all = [...page.results].reverse();
+  const messages = who ? chatFilter(all, filter, who) : all;
   const [text, setText] = useState("");
   const input = useRef<HTMLTextAreaElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
-  const newest = messages.at(-1)?.id, oldest = messages[0]?.id;
+  const newest = all.at(-1)?.id, oldest = all[0]?.id;
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [newest]);
   // An older page loading above keeps what the reader was looking at in place.
   const before = useRef<{ oldest?: string; height: number }>({ height: 0 });
@@ -28,7 +35,7 @@ export function RoomChat({ roomId, height = "h-[300px]" }: { roomId: string; hei
     if (!el) return;
     if (before.current.oldest && oldest !== before.current.oldest) el.scrollTop += el.scrollHeight - before.current.height;
     before.current = { oldest, height: el.scrollHeight };
-  }, [oldest, messages.length]);
+  }, [oldest, all.length]);
   const submit = async () => {
     const t = text.trim();
     if (!t || busy) return;
@@ -38,9 +45,18 @@ export function RoomChat({ roomId, height = "h-[300px]" }: { roomId: string; hei
   if (send.hidden) return null;
   return (
     <div className="flex min-h-0 flex-col" data-testid="chat">
+      {who && (
+        <div className="flex gap-2 border-b px-3" role="group" aria-label="Whose messages">
+          {([["all", "Everyone"], ["people", "People"], ["ai", "AI players"], ["mentions", "Mentions of you"]] as const).map(([f, label]) => (
+            <button key={f} type="button" aria-pressed={filter === f} onClick={() => setFilter(f)} data-testid={`button-chat-filter-${f}`}
+              className={`px-2 py-1 text-xs ${filter === f ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>{label}</button>
+          ))}
+        </div>
+      )}
       <div ref={box} className={`${height} overflow-auto px-4 py-2 space-y-2`}>
         {page.status === "CanLoadMore" && <button type="button" onClick={() => page.loadMore(50)} className="text-xs underline underline-offset-4 text-muted-foreground" data-testid="button-chat-older">Earlier messages</button>}
-        {page.status !== "LoadingFirstPage" && messages.length === 0 && <EmptyState title="No messages yet" body="Deals start here. Say hello." />}
+        {page.status !== "LoadingFirstPage" && all.length === 0 && <EmptyState title="No messages yet" body="Deals start here. Say hello." />}
+        {all.length > 0 && messages.length === 0 && <p className="py-2 text-sm text-muted-foreground" data-testid="chat-filtered-empty">No loaded message matches. {page.status === "CanLoadMore" ? "Earlier messages may." : ""}</p>}
         {messages.map(c => (
           <div key={c.id} className={c.memberId ? "text-sm" : "text-xs text-muted-foreground py-1"} data-testid={`row-chat-${c.id}`}>
             {c.memberId ? (<>
