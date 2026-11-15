@@ -53,8 +53,11 @@ about 15 minutes per part group, 45 in all); its full output is [scripts/multi-l
   prime ladder from the treasure, Six Square Units' smallest prime factor of the determinant). The families that resist
   a sentence are the **coincidence** ones: Crossing at the Gradients, Area Counts Pegs and every prime ladder whose
   start moves with the state.
-- **Recommended first cut** (§6): the two-line object, five families chosen for tension (Right Angle against
-  Forty-Five, Whole Answer, Triangle on the Wall, Crossing at the Gradients), nine mutators, valued by direct draws
+- **Tension (decision 30, §4.9).** On two lines, 5 of 36 rule pairs are in tension, 11 aligned and 20 mixed. The
+  tensions come from No Fractions and Mirror Pair. On three lines **no pair is in tension** (14 aligned): area, pegs and
+  corners move together. That is a defect to fix before three lines are dealt.
+- **Recommended first cut** (§6): the two-line object, seven families chosen for tension (Right Angle against No
+  Fractions, Forty-Five and Mirror Pair; Whole Answer, Triangle on the Wall, Crossing at the Gradients), nine mutators, valued by direct draws
   (the sampler the engine already has works unchanged). Three proposals for the coordinator, unmeasured: anchors that
   cannot sit on the axes, a dealt treasure per game, and a "sentence attack" added to the standing collapse check.
   Three lines next, once they have rules in tension and exact values for their prime ladders.
@@ -394,6 +397,41 @@ sentence per size, not tailored to the table: **"two lines through one peg"** (p
   in tension with most rules (§4.4). On three lines, the two tables with Square Triangle (0.35, 0.58): a square area
   is rarely a half-integer area with small corners.
 
+### 4.9 Alignment and tension, pair by pair and per mutator (decision 30)
+
+From states drawn from the law, every move that **raises** rule A is examined, and the table records how often it
+raises, lowers or leaves rule B (`--part tension`; each family with its first secondary; full tables in the results
+file). A pair is *aligned* when "raises" is more than 1.5 times "lowers" and above 30%. It is *in tension* in the
+reverse case, and *neutral* when fewer than 40% of A's gains move B.
+
+| | aligned | in tension | mixed | neutral |
+|---|--:|--:|--:|--:|
+| Two lines (36 pairs) | 11 | **5** | 20 | 0 |
+| Three lines (36 pairs) | 14 | **0** | 22 | 0 |
+
+- **Two lines: the tensions come from two families.** Raising Right Angle lowers No Fractions 73% of the time and
+  raises it only 18%. Meet on the Floor (59% down) and Treasure Crossing (49%) also fight No Fractions, and Right Angle
+  (55% down) and Triangle on the Wall (55%) fight Mirror Pair. The reasons are arithmetic. Perpendicular normals give
+  D = a² + b², which is 1 only at the axes, so a right angle away from the axes always means dividing. Mirror lines share
+  their y-intercept, so the wall triangle's base shrinks to nothing.
+- **Three lines: no pair is in tension.** Five Pegs Inside raises Six Square Units 92% of the time, and Area Counts
+  Pegs raises All Meet 77%. Area, pegs and corners move together. Decision 30 asks for the opposite, so the three-line
+  pool needs adversaries before it is dealt: rules that want the triangle big against rules that want it small or
+  thin, and a rule that wants Δ smooth against one that wants it prime.
+- **Per mutator (two lines).** The single-line moves (tilt, step, pivot, stretch) move another rule in about 90% of
+  cases, close to half up and half down: broad collateral. The system moves are gentler. `row.add` leaves the other
+  rule alone in 54% of the gains it makes, `pair.reflect` in 63%, `pencil.turn` in 44%, `sys.slide` in 57% and
+  `sys.mirror` in 75%. When `pencil.turn` does move the other rule, it lowers it more often than it raises it (35% against
+  21%). So an agent that turns about the answer is the cheap specialist the owner described, and the others pay for it.
+- **Each unbounded hill and its adversaries.**
+  - `spf` (a big prime) on an anchor is opposed by `omega` on the same anchor: one number cannot be both a large prime
+    and rich in small factors.
+  - Right Angle's hills on D are opposed by No Fractions, which wants D = ±1.
+  - Mirror Pair's hill on the shared intercept is opposed by Triangle on the Wall, whose base is that intercept gap.
+  - Whole Answer's ladder is opposed by Right Angle's and Forty-Five's `gcd` with the answer's peg: the peg can be rich
+    in common factors or the start of a prime run, but not easily both.
+  - On three lines, no hill has a measured adversary yet.
+
 ### 4.8 The collapse check, summarised (landscape-analysis §4)
 
 | Test | Two lines | Three lines |
@@ -404,6 +442,7 @@ sentence per size, not tailored to the table: **"two lines through one peg"** (p
 | 3. No single answer | Passes: five different best states in every table | Passes |
 | 4. No convergence in play | **Passes**: no object frozen, 32–51% shared moves | Passes (one table 3 of 8 frozen) |
 | 5. Disclosure | not measured (economy, not object) | — |
+| Tension (decision 30) | 5 of 36 pairs in tension, 11 aligned | **0 in tension**, 14 aligned |
 
 The standing check should gain test 2′: a structured-family attack, because blind search is the wrong adversary for
 a game whose players read the cards.
@@ -499,19 +538,21 @@ small) and exact values for their ladders.
 - **Mutators (9, so "which" stays log2 9):** per line `si.shift`, `si.tilt`, `cart.pivot` (or `rot.turn` if
   lenses-and-mutators.md's proposal is adopted), `gen.nudge`; for the system `row.add`, `pencil.turn`,
   `pair.reflect`, `pair.perpendicular`, `sys.slide`.
-- **Families (5), chosen for tension and for resisting the axis trick:**
+- **Families (7), chosen for tension (§4.9) and to resist the axis trick:**
 
-  | Family | Secondaries | Why |
+  | Family | Secondaries | Its adversaries |
   |---|---|---|
-  | Right Angle | `spf`, `omega`, `gcd` (D with the answer's peg) | the tense partner of Forty-Five; the axes give D = 1, so its secondaries start at the bottom |
-  | Forty-Five | `spf`, `omega`, `gcd` | the other half of the tension: the same numbers a² + b², a different pair of lines |
-  | Whole Answer | `ladder` (from the answer's x), `gcd` (D), `omega` | the ladder moves with the answer, so no ceiling; the textbook's first question about a system |
-  | Triangle on the Wall | `spf`, `omega`, `gcd` (base with height) | a region rule: entangled with every rule but correlated with none (§4.4) |
-  | Crossing at the Gradients | `gcd`, `spf`, `ladder` | a coincidence of two aspects with no cheap direction found (§3.4) |
+  | Right Angle | `spf`, `omega`, `gcd` (D with the answer's peg) | No Fractions (73% of its gains lower it), Mirror Pair, Forty-Five |
+  | Forty-Five | `spf`, `omega`, `gcd` | Right Angle (raising Forty-Five lowers Right Angle 55% of the time) |
+  | No Fractions | `spf`, `omega`, `ladder` | Right Angle, Meet-type rules, Treasure; the adversary of every hill on D |
+  | Mirror Pair | `gcd` (decision 29's example), `spf`, `omega` | Right Angle, Triangle on the Wall |
+  | Whole Answer | `ladder` (from the answer's x), `gcd` (D), `omega` | the `gcd`-with-the-peg secondaries |
+  | Triangle on the Wall | `spf`, `omega`, `gcd` (base with height) | Mirror Pair |
+  | Crossing at the Gradients | `gcd`, `spf`, `ladder` | mixed with all (no cheap direction found, §3.4) |
 
-  Left out of the first cut: Meet on the Floor (it is the single-line Prime Landing ramp with an axis added), Treasure
-  Crossing with a ladder (a ceiling of 2), No Fractions (aligned with Whole Answer and cheap at the axes), Mirror Pair
-  (a powers-of-two sentence, though a lovely beginner picture; it can come back as a tension rule).
+  Deal `spf` and `omega` on the same anchor family to different seats where the pool allows: they are the tightest
+  tension the secondaries offer. Left out: Meet on the Floor (the single-line Prime Landing ramp with an axis added)
+  and Treasure Crossing with a ladder (a ceiling of 2).
 - **Values** by direct draws, as the engine already does; certify the ladder by an exact sieve sum before it is dealt.
 - **Before dealing, run the collapse check with test 2′** (§4.8) on the chosen pool, on the engine's prices.
 
