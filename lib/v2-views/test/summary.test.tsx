@@ -133,3 +133,14 @@ test("try next game: on a line the player's rule does not score, the move offere
   assert.ok(scoring);
   assert.match(s.next.text, new RegExp(`Try “${scoring.words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}”`), s.next.text);
 });
+
+test("the summary renders for every beginner family on lines on and off their rungs (a throw shows only the plain advice)", async () => {
+  const L = await import("@workspace/v2-linear") as unknown as { beginnerPool: { id: string; dealable(v: unknown): unknown[]; tieBreakers: { id: string }[] }[]; lineQ: never };
+  for (const f of L.beginnerPool) {
+    const r = { type: lineType, family: f as never, params: f.dealable(L.lineQ)[0], variant: L.lineQ, tieBreaker: f.tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+    const objects = [[10, 3], [-7, 2], [4, 100], [11, 31]].map(([m, c], i) => ({ number: i + 1, state: mc(m!, c!), points: 5, bits: 1, want: 5 }));
+    const s = summarise({ rule: r, objects, tugs: [], total: 20 });
+    assert.doesNotThrow(() => renderToStaticMarkup(<GameSummary summary={s} rule={r} />), f.id);
+    for (const e of s.earned) assert.doesNotMatch(e.chain, /: [−-][\d½⅓⅔¼¾]|\bdealt\b/, `${f.id}: ${e.chain}`);
+  }
+});
