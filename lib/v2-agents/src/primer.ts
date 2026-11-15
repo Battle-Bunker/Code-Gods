@@ -20,7 +20,7 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "energy", ts: "energy(offer)", py: "energy(offer)", says: "the agent's energy" },
   { name: "better", ts: "better(a, b)", py: "better(a, b)", says: "is score a better than score b (lists of parts, compared in order; null is worst)" },
   { name: "near", ts: "near(x, prime, k)", py: "near(x, prime, k)", says: "nearest whole to x passing a test (k: last digit); tie: smaller" },
-  { name: "prime", ts: "prime(n)", py: "prime(n)", says: "is n a prime whole number" },
+  { name: "prime", ts: "prime(n)", py: "prime(n)", says: "is n a prime" },
   { name: "square", ts: "square(n)", py: "square(n)", says: "is n a perfect square" },
   { name: "whole", ts: "whole(x)", py: "whole(x)", says: "the nearest whole number (a half rounds up)" },
   { name: "root", ts: "root(n)", py: "root(n)", says: "the whole square root, rounded down" },

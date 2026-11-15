@@ -49,14 +49,14 @@ test("worked examples, one line per family", () => {
     { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23", "m-spf": "2", "m-gpf": "5" });   // y(2) = 37; 30 = 2·3·5, 1 from 29 and 31
   assert.deepEqual(terms(primeLanding, { ends: 3 }, mc(2, 13)), { landing: "0", "big-prime": "13", "prime-gradient": "1", "next-prime": "2", "m-spf": "2", "m-gpf": "2" });   // primes ending in 3: m = 2 is 1 from 3; y(1) = 15, 2 from 13
   assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
-  assert.deepEqual(terms(wholeCrossing, {}, mc(4, -20)), { crossing: "0", "k-spf": "5", "k-gpf": "5", "m-spf": "2", "gcd-c": "5", "gcd-num-m": "1" });       // crosses at 5; gcd(5, −20), gcd(5, 4)
-  assert.deepEqual(terms(wholeCrossing, {}, mc(3, 1)), { crossing: "1/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3", "gcd-c": "—", "gcd-num-m": "—" });       // at −⅓, nearest 0 (shares every factor: undefined)
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "2", "gcd-c": "6", "gcd-num-m": "2" });       // crosses at 6 (leaves 1 divided by 5); gcd(6, −24), gcd(6, 4)
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(3, 1)), { crossing: "4/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3", "gcd-c": "1", "gcd-num-m": "1" });       // at −⅓: of −4 and 1, 1 is nearer
   assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "6", "m-spf": "5", "m-gpf": "5", steep: "5", "m-prime": "0" });   // 1 … 6 divide 60, 7 does not
 });
 
 test("each family's main layer is undefined only where its lens is (and then the score is WORST)", () => {
   assert.equal(evaluateSite(lineType, sameOnBothRulers, { T: 6 }, mc(1, 3), lineZ).score, null); // parallel to y = x
-  assert.equal(evaluateSite(lineType, wholeCrossing, {}, mc(0, 3), lineZ).score, null);          // flat: never crosses
+  assert.equal(evaluateSite(lineType, wholeCrossing, { q: 5, r: 1 }, mc(0, 3), lineZ).score, null);          // flat: never crosses
   assert.equal(evaluateSite(lineType, divisibilityLadder, {}, mc(2, 0), lineZ).score, null);     // through (0, 0)
 });
 
@@ -93,15 +93,16 @@ test("Prime Staircase: a repeated prime stops the run; no run, no first prime", 
 
 
 test("Whole Crossing's §A2 tie-breakers: tied to the crossing's whole number, undealt (in no pool's deal)", () => {
-  // Worked by hand. y = 2x − 12 crosses at 6: gcd(6, −12) = 6, gcd(6, 2) = 2.
-  assert.deepEqual(terms(wholeCrossing, {}, mc(2, -12), lineQ), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "2", "gcd-c": "6", "gcd-num-m": "2" });
-  // y = (3/2)x − 9 crosses at 6: gcd(6, −9) = 3, gcd(6, 3) = 3 (the gradient's top).
-  assert.deepEqual(terms(wholeCrossing, {}, mc(q(3, 2), -9), lineQ), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "1", "gcd-c": "3", "gcd-num-m": "3" });
-  // y = (2/5)x − 13/5 crosses at 13/2, nearest 7 (a half rounds up); c = −2.6, nearest −3: gcd 1; gcd(7, 2) = 1.
-  assert.deepEqual(terms(wholeCrossing, {}, mc(q(2, 5), q(-13, 5)), lineQ), { crossing: "1/2", "k-spf": "7", "k-gpf": "7", "m-spf": "1", "gcd-c": "1", "gcd-num-m": "1" });
-  // x = 3: crosses at 3 but has no y-intercept or gradient.
+  // Worked by hand. y = 2x − 14 crosses at 7 (leaves 2 divided by 5): gcd(7, −14) = 7, gcd(7, 2) = 1.
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 2 }, mc(2, -14), lineQ), { crossing: "0", "k-spf": "7", "k-gpf": "7", "m-spf": "2", "gcd-c": "7", "gcd-num-m": "1" });
+  // y = (3/2)x − 12 crosses at 8 (leaves 3): gcd(8, −12) = 4, gcd(8, 3) = 1 (the gradient's top).
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 3 }, mc(q(3, 2), -12), lineQ), { crossing: "0", "k-spf": "2", "k-gpf": "2", "m-spf": "1", "gcd-c": "4", "gcd-num-m": "1" });
+  // y = (2/5)x − 13/5 crosses at 13/2: of 2 and 7 (leaving 2), 7 is ½ away; c = −2.6, nearest −3: gcd 1; gcd(7, 2) = 1.
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 2 }, mc(q(2, 5), q(-13, 5)), lineQ), { crossing: "1/2", "k-spf": "7", "k-gpf": "7", "m-spf": "1", "gcd-c": "1", "gcd-num-m": "1" });
+  // x = 17/2, leaving 4: of 4 and 9, 9 is ½ away; no y-intercept or gradient.
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, { lines: [{ a: 2n, b: 0n, c: -17n }] }, lineQ)["k-gpf"], "3");
   const vert: LineState = { lines: [{ a: 1n, b: 0n, c: -3n }] };
-  const t = terms(wholeCrossing, {}, vert, lineQ);
+  const t = terms(wholeCrossing, { q: 5, r: 3 }, vert, lineQ);
   assert.equal(t["gcd-c"], "—");
   assert.equal(t["gcd-num-m"], "—");
   for (const tb of ["gcd-c", "gcd-num-m"]) assert.ok(!presets.some(p => p.rules.some(r => r.family === "whole-crossing" && r.tieBreakers.includes(tb))), tb);
@@ -163,4 +164,14 @@ test("Prime Gradient's and Prime Staircase's mirrors (side −1) are exact peers
   }
   assert.equal(terms(primeStaircase, { ends: 3, side: -1 }, mc(-10, -3), lineQ).run, "3");   // −3, −13, −23: minus primes ending in 3
   assert.match(primeGradient.card({ ends: 1, side: -1 }, "cPrime"), /as close as possible to minus a prime ending in 1\..*minus a prime ending in 1 too/);
+});
+
+test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line reflected x → −x as 5 − r scores the line", () => {
+  const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
+  for (const r of [1, 2]) for (const mm of [-7, -2, 1, 3, 14]) for (const cc of [-40, -17, -3, 0, 5, 23]) {
+    assert.deepEqual(terms(wholeCrossing, { q: 5, r: 5 - r }, mc(-mm, cc), lineQ), terms(wholeCrossing, { q: 5, r }, mc(mm, cc), lineQ), `r = ${r}: y = ${mm}x + ${cc}`);
+  }
+  for (const [a, c] of [[2n, -17n], [1n, 13n]] as const) assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, x(a, -c), lineQ), terms(wholeCrossing, { q: 5, r: 1 }, x(a, c), lineQ));
+  assert.deepEqual(wholeCrossing.dealable(lineQ), [1, 2, 3, 4].map(r => ({ q: 5, r })));
+  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /as close as possible to a whole number that leaves 3 when divided by 5/);
 });

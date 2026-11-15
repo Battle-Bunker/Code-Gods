@@ -1,5 +1,5 @@
 // Whole Crossing · Naive (for learning)
-// Main part: the x-axis crossing close to a whole number. Tie-breaker: whichever you were dealt (that whole number's smallest prime factor; that whole number's largest prime factor; the gradient's smallest prime factor).
+// Main part: the x-axis crossing close to the dealt whole numbers. Tie-breaker: whichever you were dealt (that whole number's smallest prime factor; that whole number's largest prime factor; the gradient's smallest prime factor).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -9,17 +9,21 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
-    const k = whole(c);                             // the whole number nearest where it stands (x = c)
+    const t = Q.div(Q.sub(c, p.r), p.q), j = whole(t);
+    let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest
+    if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);
     const main = Q.neg(Q.abs(Q.sub(c, k)));
     const fk = factors(k);                          // its prime factors, smallest first
     return [main, tie === "k-spf" ? (fk[0] ?? 1) : tie === "k-gpf" ? (fk.at(-1) ?? 1) : null];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
-  const k = whole(x);                             // the whole number nearest the crossing
+  const t = Q.div(Q.sub(x, p.r), p.q), j = whole(t);
+  let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest
+  if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);
   const main = Q.neg(Q.abs(Q.sub(x, k)));
   const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)
-  // main: how far the line's x-axis crossing is from a whole number (closer is better)
+  // main: how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better)
   if (tie === "k-spf") return [main, fk[0] ?? 1];   // that whole number's smallest prime factor big is better
   if (tie === "k-gpf") return [main, fk.at(-1) ?? 1];   // that whole number's largest prime factor big is better
   if (tie === "m-spf") return [main, fm[0] ?? 1];   // the gradient's smallest prime factor big is better

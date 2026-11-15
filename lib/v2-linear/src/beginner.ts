@@ -8,7 +8,7 @@ import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
 import { allUndefined, distance, family, gap, more, num, prime, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
 import { gcdTerm } from "./rational.ts";
-import { distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -291,8 +291,18 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
 
 // ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
-const crossingShape: Shape<object> = {
-  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "crossing"),
+/**
+ * The dealt residue (owner decision 41): the crossing should be close to a whole number that leaves r when divided by
+ * q. q = 5 and r = 1, 2, 3, 4 are dealt, so parameter drift has peers a few units apart. r and q − r are exact peers
+ * (the reflection x → −x keeps the law, sends the crossing to minus itself and r to q − r, and leaves every tie-breaker
+ * as it was); r = 1 and 2 are measured peers (docs/engine-v2/owner-decisions.md, call 18).
+ */
+type QR = { q: number; r: number };   // nearestResidue (numbers.ts) finds the target
+const CROSSINGS: QR[] = [1, 2, 3, 4].map(r => ({ q: 5, r }));
+const leaves = (p: QR) => `a whole number that leaves ${p.r} when divided by ${p.q}`;
+const crossingShape: Shape<QR> = {
+  main: { ...distance<QR>("crossing", "the x-axis crossing close to the dealt whole numbers", "", "crossing"),
+    sentence: p => `The line should cross the x-axis as close as possible to ${leaves(p)}.` },
   tieBreakers: [
     prime(more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing")),
     prime(more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing")),
@@ -305,12 +315,14 @@ const crossingShape: Shape<object> = {
       "That whole number and the gradient's top number (in lowest terms) should have as big a common factor as possible.", "crossing")),
   ],
 };
-export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, [{}], ctx => {
-  const xRef = ref("crossing", "x0"), kRef = ref("crossing", "near"), mRef = ref("si", "m");
+export const wholeCrossing = family<QR>("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, CROSSINGS, (ctx, p) => {
+  const xRef = ref("crossing", "x0"), mRef = ref("si", "m");
   const xv = ctx.read(xRef);
   const x = num(xv);
   if (x === null) return allUndefined(ctx, crossingShape, xv, xRef);   // a flat line never crosses (or lies along the axis)
-  const k = num(ctx.read(kRef))!;   // the whole number nearest the crossing (a half rounds up)
+  const k = q(nearestResidue(x, p));   // the dealt whole number nearest the crossing
+  const kRef = ref("crossing", "dealt", { q: q(p.q), r: q(p.r) });
+  ctx.read(kRef);
   ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${Qn.toWire(k)}`, gap(x, k), [xRef, kRef]);
   ctx.term("k-spf", factorLabel("smallest", "that whole number", k), spfQ(k), [kRef]);
   ctx.term("k-gpf", factorLabel("largest", "that whole number", k), gpfQ(k), [kRef]);
@@ -324,11 +336,7 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
   const gm = m === null ? null : gcdTerm(k.n, m.n, `common factor of ${k.n} and the gradient's top ${m.n}`);
   ctx.term("gcd-num-m", gm ? gm.label : "the gradient's top", gm ? gm.value : undef(mv), [kRef, mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
-  ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
-  // The nearest whole number on the x-axis, so the plane can draw the target (marks only).
-  const km = ref("cart", "xAxisMark", { x: k });
-  ctx.read(km);
-  ctx.mark({ kind: "candidate", ref: km, term: "crossing" });
+  ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });   // the target on the x-axis, for the plane to draw
 });
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)

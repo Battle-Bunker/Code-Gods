@@ -92,8 +92,8 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
     const t = isqrt(2n * abs(m));
     return t * t === 2n * abs(m) ? [{ lo: -BIG, hi: BIG, step: t }] : [];
   } }] },
-  // The x-axis crossing −c/m is whole exactly when m divides c.
-  "whole-crossing": { bands: [{ atLeast: () => q(0), ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) }] },
+  // Whole Crossing has no plan since its dealt residue (the crossing near a whole number leaving r when divided by q):
+  // valued by sampling (owner decision 22).
   // A run of one or more different primes ending in the dealt digit from y(0) needs c such a prime: every score from a
   // run of 1 is a sum over those primes.
   "prime-staircase": { bands: [{ atLeast: () => q(1), points: "same",
