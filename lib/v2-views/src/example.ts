@@ -98,3 +98,12 @@ export function rarityScale<S, P>(rule: RuleRef<S, P>, value: ((u: Score) => num
   const pick = byBits.length <= rows ? byBits : Array.from({ length: rows }, (_, i) => byBits[Math.round((i * (byBits.length - 1)) / (rows - 1))]!);
   return [...new Map(pick.map(p => [p[0], p])).values()].map(([main, bits]) => ({ main, bits, text: `${main}: ${chanceText(bits)} by chance (${fmtBits(bits)})` }));
 }
+
+/** v1's 🎲 Randomise: a state a short random walk from the origin away, one per seed. */
+export function randomExample<S, P>(rule: RuleRef<S, P>, seed: number): S {
+  const { type, variant } = rule;
+  const r = rng("random-example", String(seed));
+  let s = (type as ObjectType<S>).origin(variant);
+  for (let i = 0, n = 20 + (seed % 40); i < n; i++) s = walkStep(type, variant, s, r);
+  return s;
+}

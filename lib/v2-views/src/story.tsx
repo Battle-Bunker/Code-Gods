@@ -2,7 +2,8 @@
  * The goal card and the act log's move line (integration plan §3.3, §3.4 storyboards). Both are compositions of the
  * annotation and the faces; neither computes a score of its own.
  */
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
+import type { ScaleRow } from "./example.ts";
 import { compareScores, representation, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import { annotate, type RuleRef } from "./annotate.ts";
 import { changesBetween, withParams } from "./contributors.ts";
@@ -22,6 +23,10 @@ export interface GoalCardProps<S, P> {
   /** Whether the worked example starts open: by default when there is no object of the player's own to explain (a
    *  gallery); the game's card keeps it folded so the rule's two lines come first (round 27). */
   readonly exampleOpen?: boolean;
+  /** Controls for the worked example (v1's 🎲 Randomise and ✏️ Edit), drawn above it. */
+  readonly exampleTools?: ReactNode;
+  /** v1's "How rare is each rule score?" (rarityScale): what each main-part value is worth, rarer going down. */
+  readonly scale?: readonly ScaleRow[];
 }
 
 /** The main part's sentence and the dealt tie-breaker's, from the layers (null when the family has no main sentence). */
@@ -39,7 +44,7 @@ function cardLines<S, P>(rule: RuleRef<S, P>, tbId: string | null): { main: stri
  * The rule's card: its name and sentence; the player's own object explained (its parts on their rulers, its bits, the
  * moves that would make it rarer), when there is one; then the worked example. No steps (owner decision 23).
  */
-export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen }: GoalCardProps<S, P>): ReactElement {
+export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen, exampleTools, scale }: GoalCardProps<S, P>): ReactElement {
   const f = rule.family;
   const noun = nounOf(rule.type);
   const tbId = rule.tieBreaker === undefined ? (f.tieBreakers[0]?.id ?? null) : rule.tieBreaker;
@@ -63,9 +68,19 @@ export function GoalCard<S, P>({ rule, example, value, mine, exampleOpen }: Goal
       )}
       <details className="v2v-goal-example" open={exampleOpen ?? !mine}>
         <summary className="v2v-goal-sub">A worked example</summary>
+        {exampleTools}
         <p className="v2v-goal-hint">Tap a part to see only its marks; point at a number to find it in every view.</p>
         <ExpandedFace rule={rule} state={example} value={value} improvement={!mine} />
       </details>
+      {scale && scale.length > 1 && (
+        <details className="v2v-goal-scale" data-testid="details-rarity-scale">
+          <summary className="v2v-goal-sub">How rare is each rule score?</summary>
+          <ul className="v2v-goal-scale-rows" data-testid="list-rarity-scale">
+            {scale.map(r => <li key={r.main}>{r.text}</li>)}
+          </ul>
+          <p className="v2v-goal-hint">Each row is the lowest score with that main-part value, from random {nounOf(rule.type)}s. Your points on a {nounOf(rule.type)} are your bits × the others' bits, so each bit of yours adds the others' bits to your points. Rarer scores than these are worth more still: there is no top.</p>
+        </details>
+      )}
       {!mine && <p className="v2v-goal-hint">{`Open one of your ${noun}s to see it explained here.`}</p>}
     </article>
   );
