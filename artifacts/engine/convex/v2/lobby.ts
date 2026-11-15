@@ -5,7 +5,7 @@ import { OpFailure } from "@workspace/v2-affordances";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
-import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, hasSeatingRule, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
+import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, hasSeatingRule, seatingAligned, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
 import { dealWithBids, dilate, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { typeOf } from "./world.ts";
@@ -296,8 +296,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     endAtWorld: drawEnd(settings.durationMode, settings.worldSeconds),
     // The dealing trial, step 1: what this table could climb together unopposed (private; deal.ts will use it later).
     unopposed: unopposedDirections(preset.variant, rules.map(r => `${r.family}/${r.tieBreaker}`)),
-    // The seating rule's clashes this deal left (grids; deal.ts): none unless the table has more seats than clusters allow.
-    ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules.map(r => r.family)) } } : {}),
+    // The seating rule's pairs this deal left (grids; deal.ts): forbidden ones (none unless the pool is too small) and aligned ones.
+    ...(hasSeatingRule(preset.variant) ? { seating: { clashes: seatingClashes(preset.variant, rules.map(r => r.family)), aligned: seatingAligned(preset.variant, rules.map(r => r.family)) } } : {}),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
   });

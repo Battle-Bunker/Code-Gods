@@ -28,7 +28,13 @@ export const BEGINNER_DEALT: Readonly<Record<string, readonly string[]>> = {
   "crosswise-threes": ["bigger-side", "other-fold", "fold-factors"],
 };
 
-/** A pool: each family's dealable params, with its tie-breakers (those `dealt` lists for it, when it lists the family). */
+/**
+ * Beginner families paused from the deal (the coordinator's call 19, fairness between seats): the "big digits" families
+ * lag at a table where the seating rule may seat them (2–4× fewer points for their seat with starters), so they are not
+ * dealt until the parameterised pool replaces them. Their rules stay in the code.
+ */
+export const BEGINNER_PAUSED: readonly string[] = ["magic-eighteen", "opposite-nines", "strangers"];
+
 /** The parameters the more-rules pool deals, for its families that have several. */
 const MORE_PARAMS: Readonly<Record<string, unknown>> = { uphill: { corner: "BR" }, staircase: { direction: "right" }, "magic-accountant": { axis: "rows", T: 18 } };
 
@@ -43,7 +49,7 @@ export interface GridPoolRule { readonly family: string; readonly params: unknow
 export const gridPresets = [
   {
     id: "grids-beginner", title: "Grids · beginner", variant: grid4.id,
-    rules: poolOf(BEGINNER, BEGINNER_DEALT),
+    rules: poolOf(new Set([...BEGINNER].filter(f => !BEGINNER_PAUSED.includes(f))), BEGINNER_DEALT),
   },
   {
     // v1's coupled reward families, restored as continuous rules (owner-decisions.md, "Grids · more rules").

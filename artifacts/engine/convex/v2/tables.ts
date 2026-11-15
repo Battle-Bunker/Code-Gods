@@ -135,8 +135,8 @@ export const v2Tables = {
      * (lib/v2-agents unopposedDirections), computed at the deal. Never shown to players; for the collapse analysis.
      */
     unopposed: v.optional(v.array(v.any())),
-    /** Grid seating (deal.ts, lib/v2-grid seating.ts): the pairs of seated families of one PMI cluster the deal left. */
-    seating: v.optional(v.object({ clashes: v.array(v.string()) })),
+    /** Grid seating (deal.ts, lib/v2-grid seating.ts): the forbidden and the aligned pairs of seated families the deal left. */
+    seating: v.optional(v.object({ clashes: v.array(v.string()), aligned: v.optional(v.array(v.string())) })),
     /** Paused by idle parking (activity.ts): resumed by the next human activity, not by the owner. */
     parked: v.optional(v.boolean()),
     /** PRIVATE: the world second the game ends at (drawn at the start in halfLife mode); absent: settings.worldSeconds. */

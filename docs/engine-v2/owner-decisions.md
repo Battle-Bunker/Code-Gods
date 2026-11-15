@@ -397,6 +397,19 @@ back) or TRIAL (a declared experiment, measured and reported).
     of a board's bits survives a redraw. Drawn from a whole family, only 5–15 % survives for the new families (a reset,
     though 30 moves recover it); the target is a shift, not a reset (grid-params.md §8).
 
+19. **Correction** of the grid seating rule (15 Nov; fairness between seats comes first): the seating rule of
+    owner-decisions call (c) (no two families of one PMI cluster) made every three-seat beginner grid table one
+    big-digit rule, one small-digit rule and Crosswise Threes, and the two digit clusters are strongly anti-aligned
+    (PMI −2 to −4.6). With starters (600 s, the beginner economy, 3 objects), the big-digit seat scored 0.21–0.63 of its
+    partners' points (Opposite Nines 0.21–0.43, Strangers 0.34–0.44, Magic Eighteen 0.36–0.63). Now: a big-digit rule
+    is never seated against a small-digit one (nor one family twice, nor Magic Eighteen with Magic Accountant, nor the
+    blocked pairs); among the remaining deals the dealer takes one with the fewest aligned pairs; and the beginner grid
+    pool pauses Magic Eighteen, Opposite Nines and Strangers (lib/v2-grid BEGINNER_PAUSED) until the parameterised pool
+    replaces them. Measured on 8 tables as the new dealer deals them (two games each, each seat's mean): the strongest
+    seat over the weakest is 1.10–1.98, median about 1.6 (it was 2.5–4 for the big-digit seat). Game to game the spread
+    is wide (one table gave 1.23 and 3.02), so the 1.5× target is not yet met on 6 of 8 tables; the parameterised pool
+    remains the fix.
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.
