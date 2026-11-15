@@ -203,6 +203,33 @@ existing code. The specification that follows from them is [spec.md](spec.md).
     affordable but doing so 100 times a second would be prohibitive." (The `observation` free/paid flag goes; every game
     pays to look, at the spec's read price times a weight that may be 0.)
 
+38. On power levels (relayed by the coordinator, 15 November): "About power levels, I want them scaled down a lot. It
+    should be really hard to reach object energy levels of 20 or 30 let alone hundreds. I don't understand why our energy
+    levels jumped up so much under the new engine and Line type compared to grids in the old engine but I want to
+    understand."
+
+39. On perpendicular rules (relayed by the coordinator, 15 November): "I also want the meaningfulness of adding others
+    bits before multiplying our own to come from all rules being approximately perpendicular value vectors in the
+    configuration space such that two other players with 20 bits represents an object that's as rare and hard to reach
+    as 40 bits. Multiplying by our own score is still the mechanism I want. Score is measured in square bits."
+
+40. On unopposed and joint heights (relayed by the coordinator, 15 November): "It's not so bad if players with no
+    opposition could fairly easily reach higher than 20 energy per object but I want it to be hard work to find states
+    that would give two players 20 energy each on the same object because their rules should naturally pull against each
+    other (be roughly perpendicular) without clever coordination."
+
+41. On parameterised rules (relayed by the coordinator, 15 November): "I also want all rules to have substantial degrees
+    of freedom in configuration params. I've been lazily suggesting rules involving straightforward primes without params
+    and anchoring you to such rules, but I really want large amounts of diversity and specificity within each rule family
+    which will help two randomly drawn rules tend to be more perpendicular. For example, we want rules like: distance to
+    nearest prime ending in k (base 10) with k say 7 or 13 rather than just distance to nearest prime. If another rule is
+    interested in primes it should also filter them with a random parameter so the two rules will have to really work to
+    find lines that do well on both their rules. Ideally we have many qualifiers on uses of primes so it's possible to
+    find intersections of the qualifiers, just hard. And of course we want many different properties than primes involved
+    for more perpendicularity, like modulus and number or type of prime factors and digit properties and squares or
+    exponents of factors more generally and that's just the properties on specific numbers we construct but we want lots
+    of diversity in converting line properties into numbers we apply utility to as well."
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
 - **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
