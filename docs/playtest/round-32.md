@@ -34,10 +34,10 @@ moves were made. **But in the last third, most moves only switch a line between 
 In alice's game two lines were mirrored across y = x every 2–4 s for the last minutes, by both partners and by alice's
 own agent:
 
-| Line | Its two states, alternating |
+| Line | Its two stored states (a, b, c), alternating |
 |---|---|
-| line "8mc5" | y = −3x/8 + 57/8 and y = −8x/3 − 57/3 |
-| line "90r9" | y = −19x/7 − 133/7 and y = −7x/19 + 133/19 |
+| line "8mc5" | (−3, 8, 57) and (−8, 3, −57) |
+| line "90r9" | (−19, 7, −133) and (−7, 19, 133) |
 
 Each mirror helps the agent that makes it and undoes the last one. The end summary says it plainly:
 - *"Line 2: you, Practice partner 1 and Practice partner 2 moved it 50 times … your points 124.29 → 124.29"*;
@@ -47,7 +47,7 @@ Each mirror helps the agent that makes it and undoes the last one. The end summa
 This is a two-state cycle, the cheapest possible tug. The "objects changed per minute" count, which I have reported
 since round 13, cannot tell it from real movement. From this round on I also report **distinct states per object**.
 
-The highest bits, **24.94**, were reached early (193 s) on line "97te" (y = −60x − 29).
+The highest bits, **24.94**, were reached early (193 s) on line "97te" (stored state (−60, 1, −29)).
 
 ## The agents' moves (committed changing moves)
 
