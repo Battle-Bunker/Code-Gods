@@ -32,7 +32,7 @@ test("the four families are in the type, before the coupled rules, in no preset,
 });
 
 test("dealable values: named params from PARAM_DEALT, each with its own dealt tie-breakers, and one value on the 2×2 test board", () => {
-  const counts: Record<string, [number, number]> = { "magic-totals": [98, 121], spread: [9, 15], "number-lines": [37, 46], "pair-sums": [55, 79] };
+  const counts: Record<string, [number, number]> = { "magic-totals": [93, 113], spread: [12, 15], "number-lines": [13, 15], "pair-sums": [24, 38] };
   for (const id of IDS) {
     const ps = fam(id).dealable(grid4) as object[];
     const dealt = (PARAM_DEALT as Record<string, { params: object; tieBreakers: readonly string[] }[]>)[id]!;
@@ -42,7 +42,7 @@ test("dealable values: named params from PARAM_DEALT, each with its own dealt ti
     for (const d of dealt) { assert.ok(d.tieBreakers.length > 0); for (const t of d.tieBreakers) assert.ok(fam(id).tieBreakers.some(x => x.id === t), `${id}: ${t}`); }
     assert.equal(gridType2.families.find(f => f.id === id)!.dealable(grid2).length, 1, id);
   }
-  assert.deepEqual(PARAM_DEALT["magic-totals"][0], { params: { units: "columns-boxes", q: 6, r: 0 }, tieBreakers: ["same-quotient", "small-totals"] });
+  assert.deepEqual(PARAM_DEALT["magic-totals"][0], { params: { units: "columns-boxes", q: 6, r: 2 }, tieBreakers: ["small-totals"] });
   assert.deepEqual(PARAM_DEALT["spread"].map(d => `${d.params.windows} ${d.params.s}`).sort(), [...new Set(PARAM_DEALT["spread"].map(d => `${d.params.windows} ${d.params.s}`))].sort());
 });
 
@@ -99,8 +99,12 @@ test("the guard: each row equal to an earlier row, and each column equal to an e
   assert.equal(repeats(4, A.cells), 0);
   // 0202 four times: rows 2–4 repeat row 1; columns 0 0 0 0, 2 2 2 2, then both again.
   assert.equal(repeats(4, board("0202", "0202", "0202", "0202").cells), 3 + 2);
-  // Repeated row pairs: 6436 / 6346 / 6436 / 6346 repeats two rows; its columns 6666, 4343, 3434, 6666 repeat one.
-  assert.equal(repeats(4, board("6436", "6346", "6436", "6346").cells), 2 + 1);
+  // Repeated row pairs: 6436 / 6346 / 6436 / 6346 holds 3 3 4 6 in every row (3 repeats); columns 6666, 4343, 3434, 6666 (2).
+  assert.equal(repeats(4, board("6436", "6346", "6436", "6346").cells), 3 + 2);
+  // The reordering route (gate of #734): 6757 / 3536 / 7675 / 5363 repeats two rows in another order, and every column
+  // holds 3 5 6 7; 5515 / 1537 / 6262 / 6226 repeats 2 2 6 6.
+  assert.equal(repeats(4, board("6757", "3536", "7675", "5363").cells), 2 + 3);
+  assert.equal(repeats(4, board("5515", "1537", "6262", "6226").cells), 1);
   // Rows 0202 / 0202 / … read 202, which leaves 4 when divided by 11; three-in-a-rows spread 2; side-by-side pairs add up to 2.
   // The period-2 board that met all three main parts at once now misses each by its 5 repeats.
   const P2 = board("0202", "0202", "0202", "0202");
@@ -109,13 +113,20 @@ test("the guard: each row equal to an earlier row, and each column equal to an e
   assert.equal(terms("pair-sums", P2, { pairing: "side-by-side", total: 2 })["pair-sums"], 5);
 });
 
+test("Number Lines never deals a remainder that reads only the digits' total or the last digit", () => {
+  // A number leaves the same remainder as its digits' total when divided by 3 or 9 (10 leaves 1), and the same as its last
+  // digit when divided by 2, 5 or 10 (10 leaves 0): such a card is Magic Totals (or one column) in disguise, and the
+  // q = 9 card met Spread's top at once (gate of round 3: 7365 / 6759 / 3357 / 4748).
+  for (const p of fam("number-lines").dealable(grid4) as { q: number }[]) assert.ok(![0, 1].includes(10 % p.q), `q = ${p.q}`);
+});
+
 test("cards: one sentence each, filled in, no 'line', at most four numbers with any tie-breaker", () => {
-  assert.equal(fam("magic-totals").card({ units: "rows-columns", q: 8, r: 2 }, null), "Every row's and every column's total should leave 2 when divided by 8, and no two rows or two columns may be the same.");
-  assert.equal(fam("magic-totals").card({ units: "columns-boxes", q: 10, r: 9 }, null), "Every column's and every corner box's total should leave 9 when divided by 10, and no two rows or two columns may be the same.");
-  assert.equal(fam("spread").card({ windows: "squares", s: 5 }, null), "Every 2×2 square should have a spread of exactly 5 (its biggest number minus its smallest), and no two rows or two columns may be the same.");
-  assert.equal(fam("number-lines").card({ axis: "columns", q: 13, r: 7 }, null), "Read each column from top to bottom as one number: each should be as close as possible to a number that leaves 7 when divided by 13, and no two rows or two columns may be the same.");
-  assert.equal(fam("pair-sums").card({ pairing: "half-turn", total: 0, every: 9 }, null), "Every cell and its opposite (where a half turn of the board takes it) should add up to 0, 9 or 18, and no two rows or two columns may be the same.");
-  assert.equal(fam("pair-sums").card({ pairing: "row-leap", total: 3 }, null), "Every cell and the cell two along in its row should add up to 3, and no two rows or two columns may be the same.");
+  assert.equal(fam("magic-totals").card({ units: "rows-columns", q: 8, r: 2 }, null), "Every row's and every column's total should leave 2 when divided by 8, and no two rows or two columns may hold the same numbers.");
+  assert.equal(fam("magic-totals").card({ units: "columns-boxes", q: 10, r: 9 }, null), "Every column's and every corner box's total should leave 9 when divided by 10, and no two rows or two columns may hold the same numbers.");
+  assert.equal(fam("spread").card({ windows: "squares", s: 5 }, null), "Every 2×2 square should have a spread of exactly 5 (its biggest number minus its smallest), and no two rows or two columns may hold the same numbers.");
+  assert.equal(fam("number-lines").card({ axis: "columns", q: 13, r: 7 }, null), "Read each column from top to bottom as one number: each should be as close as possible to a number that leaves 7 when divided by 13, and no two rows or two columns may hold the same numbers.");
+  assert.equal(fam("pair-sums").card({ pairing: "half-turn", total: 0, every: 9 }, null), "Every cell and its opposite (where a half turn of the board takes it) should add up to 0, 9 or 18, and no two rows or two columns may hold the same numbers.");
+  assert.equal(fam("pair-sums").card({ pairing: "row-leap", total: 3 }, null), "Every cell and the cell two along in its row should add up to 3, and no two rows or two columns may hold the same numbers.");
   for (const id of IDS) for (const p of fam(id).dealable(grid4)) for (const tb of [null, ...fam(id).tieBreakers.map(t => t.id)]) {
     const c = fam(id).card(p, tb);
     assert.doesNotMatch(c, /\bline\b/i, `${id}: ${c}`);
