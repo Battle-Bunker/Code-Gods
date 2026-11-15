@@ -1,5 +1,5 @@
 # Steep Ratio · Thorough
-# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; the number you divide by near a multiple of that number).
+# Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of that number; that number has a big smallest prime factor; that number shares a factor with the gentler line's y-intercept).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -17,8 +17,10 @@ def score(L, p, tie):
     # main: the level of the whole number of times as steep on your ladder (higher is better)
     if tie == "ratio-gap":   # a y-intercepts' gap near a multiple of that number (not 0) is better
         return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(k))]
-    if tie == "ratio-divisor":   # the number you divide by near a multiple of that number (not 0) is better
-        return [main, -off_multiple(f.D, mod1(k))]
+    if tie == "ratio-prime":   # that number with a big smallest prime factor is better
+        return [main, spf(k)]
+    if tie == "ratio-start":   # that number sharing a big factor with the gentler line's y-intercept is better
+        return [main, 0 if f.cg is None else common(k, whole(f.cg))]
     return [main]
 
 

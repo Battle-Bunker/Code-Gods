@@ -8,6 +8,7 @@
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
+  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   if (f.rs === null) return null;   // the steeper line is flat: no score
   const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder
   return [main, f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // main: the level of the steeper line's x-intercept on your ladder (higher is better); tie-breaker: a crossing height near a multiple of q to the power one above your level is better

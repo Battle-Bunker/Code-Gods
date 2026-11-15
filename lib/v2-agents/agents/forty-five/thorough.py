@@ -1,5 +1,5 @@
 # Forty-Five · Thorough
-# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|).
+# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|; that |x| + |y| has many prime factors).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -20,6 +20,8 @@ def score(L, p, tie):
         return [main, common(S, f.D)]
     if tie == "corner-gap":   # a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
         return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(S))]
+    if tie == "corner-smooth":   # a corner whose |x| + |y| has many prime factors is better
+        return [main, omega(S)]
     return [main]
 
 

@@ -712,6 +712,19 @@ back) or TRIAL (a declared experiment, measured and reported).
       - Forty-Five: |x| + |y| shares a factor with D; the y-intercepts' gap near a multiple of |x| + |y|.
       - Gap Ratio: D shares a factor with N; the y-intercepts' gap near a multiple of N.
       - Steep Ratio: the y-intercepts' gap near a multiple of the ratio; D near a multiple of the ratio.
+    - **A repertoire of three or more (principle 3a, the owner via the coordinator, 15 Nov).** Every family deals at
+      least three tie-breakers of at least three forms: near a multiple, a smallest prime factor, and a common factor
+      (or a count of prime factors). Each is tied to the main part's number, and none is climbed by the ladder's own
+      shortcut, because a stretch or zoom by q multiplies the number.
+      - Whole Answer adds "|x| + |y| has a big smallest prime factor" and "y shares a factor with the steeper
+        gradient".
+      - Divide By adds the smallest prime factor of |x·D| + |y·D|.
+      - Right Angle and Forty-Five get back their prime and smooth readings, now of the level's number.
+      - Gap Ratio adds "the gap plus N has a big smallest prime factor".
+      - Steep Ratio gets back "the ratio's smallest prime factor" and adds "the ratio shares a factor with the gentler
+        intercept".
+      - Far Crossing and High Start keep their two distance tie-breakers and add a prime and a common-factor one: four
+        candidates in three forms.
     - **Effects:** §13.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)

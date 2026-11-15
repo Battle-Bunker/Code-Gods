@@ -29,11 +29,13 @@ test("Whole Answer on 2x + 3y = 12, x − y = 1: the answer (3, 2), y on the val
   // q 5, r 2: y = 2 = 5⁰ × 2 is level 0; level 1 wants 10 when divided by 25 (5 × a number leaving 2), nearest 10, 8 away.
   // The score is 5⁰ × (1 + 1/(1 + 8)) = 10/9.
   const p = { q: 5, r: 2 };
-  // Trial 35: D = −5 is 1 from −4 or −6, and x = 3 is 1 from 2 or 4, the nearest multiples of y's number 2 other than 0.
-  assert.deepEqual(score("whole-answer", "divisor-multiple", school, p), ["10/9", "-1"]);
+  // Trial 35: x = 3 is 1 from 2 or 4, the nearest multiples of y's number 2 other than 0; |3| + 2 = 5 is prime; 2 and
+  // the steeper gradient's whole part (|1| against |−2/3|: 1) share 1.
+  assert.deepEqual(score("whole-answer", "sum-prime", school, p), ["10/9", "5"]);
+  assert.deepEqual(score("whole-answer", "y-steep", school, p), ["10/9", "1"]);
   assert.deepEqual(score("whole-answer", "x-multiple", school, p), ["10/9", "-1"]);
-  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); D is a multiple of N = 1.
-  assert.deepEqual(score("whole-answer", "divisor-multiple", school, { q: 3, r: 1 }), ["1/2", "0"]);
+  // q 3, r 1: 2 leaves 2, off the ladder; level 0's nearest is 1, one away: (1/3) × (1 + 1/2); |3| + 1 = 4: spf 2.
+  assert.deepEqual(score("whole-answer", "sum-prime", school, { q: 3, r: 1 }), ["1/2", "2"]);
 });
 
 test("the valuation ladder: level L needs L(L + 1)/2 stretches by q, each level dearer; 0 is on none; off the ladder is below all", () => {
@@ -110,15 +112,14 @@ test("the axes are the centre: a right angle at (0, 0), but 0 is on no dealt lad
   const axes = sys(L(0, 1, 0), L(1, 0, 0));
   // y = 0 is 1 from 1 (leaves 1 when divided by 5): level 0, 1 + 1/2; x = 0 is 1 from ±1, the multiples of N = 1 other than 0.
   assert.deepEqual(score("right-angle", "corner-multiple", axes, { q: 5, r: 1 }), ["3/2", "-1"]);
-  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); D = −1 is a multiple of N = 1.
-  assert.deepEqual(score("whole-answer", "divisor-multiple", axes, { q: 3, r: 1 }), ["1/2", "0"]);
+  // 0 is on no ladder: y = 0 pegs to 1 (q 3, r 1), one away: (1/3) × (1 + 1/2); |0| + 1 = 1 has no prime factor (1).
+  assert.deepEqual(score("whole-answer", "sum-prime", axes, { q: 3, r: 1 }), ["1/2", "1"]);
 });
 
 test("Steep Ratio reads the whole number of times on its ladder, at least 2 either way", () => {
   const s = sys(Y(6, 0), Y(2, 5));     // 3 times as steep
-  // D = −4 is 1 from −3 (trial 35: the tie-breaker reads the ratio's own number, 3).
-  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 5, r: 3 }), ["14/13", "-1"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
-  assert.deepEqual(score("steep-ratio", "ratio-divisor", s, { q: 3, r: 1 }), ["78/25", "-1"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 5, r: 3 }), ["14/13", "3"]);   // 3 = 5⁰ × 3: level 0; level 1 (15 of 25) 12 away
+  assert.deepEqual(score("steep-ratio", "ratio-prime", s, { q: 3, r: 1 }), ["78/25", "3"]);   // 3 = 3¹ × 1: level 1; level 2 (27 of 81) 24 away
 });
 
 test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1), L the level the main part reached (row 3)", () => {
@@ -221,4 +222,11 @@ test("row 3 (trial 35): every dealt tie-breaker reads the number its main part r
   const at = (y: number, x: number) => sys(L(1, 0, -x), L(0, 1, -y));   // x = X, y = Y: a right angle at (X, Y)
   assert.equal(score("right-angle", "corner-multiple", at(1, 3), { q: 5, r: 1 })![1], "0");
   assert.equal(score("right-angle", "corner-multiple", at(6, 3), { q: 5, r: 1 })![1], "-3");
+});
+
+test("principle 3a: every dealt pair family has at least three tie-breakers, of at least three forms", () => {
+  for (const f of pairFamilies.filter(x => x.id !== "on-the-diagonal")) {
+    assert.ok(f.tieBreakers.length >= 3, `${f.id}: ${f.tieBreakers.length}`);
+    assert.ok(new Set(f.tieBreakers.map(t => (t as { hill?: string }).hill)).size >= 3, `${f.id}: forms ${f.tieBreakers.map(t => (t as { hill?: string }).hill)}`);
+  }
 });

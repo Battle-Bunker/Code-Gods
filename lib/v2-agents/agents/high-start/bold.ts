@@ -1,5 +1,5 @@
 // High Start · Bold
-// Main part: the gentler line crosses the y-axis on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of your number; the crossing's x near a multiple of your number).
+// Main part: the gentler line crosses the y-axis on your pattern. Tie-breaker: whichever you were dealt (the y-intercepts' gap near a multiple of your number; the crossing's x near a multiple of your number; that y-intercept plus the crossing's x has a big smallest prime factor; that y-intercept shares a factor with the steeper gradient).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -15,6 +15,8 @@ function score(L, p, tie) {
   // main: the level of the gentler line's y-intercept on your ladder (higher is better)
   if (tie === "start-echo") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // the gap between the y-intercepts near a multiple of q to the power one above your level is better
   if (tie === "start-crossing") return [main, f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))];   // a crossing whose x is near a multiple of q to the power one above your level is better
+  if (tie === "start-prime") return [main, f.x === null ? null : spf(Q.add(Q.abs(H), Q.abs(whole(f.x))))];   // that y-intercept plus the crossing's x with a big smallest prime factor is better
+  if (tie === "start-steep") return [main, f.ms === null ? 0 : common(H, floor(Q.abs(f.ms)))];   // that y-intercept sharing a big factor with the steeper gradient is better
   return [main];
 }
 

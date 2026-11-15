@@ -1,22 +1,22 @@
-// Steep Ratio · Example: the number you divide by near a multiple of that number
-// Main part: one line a whole number of times as steep, on your pattern. Tie-breaker: the number you divide by near a multiple of that number.
+// Divide By · Example: the answer's numerators add up to a number with a big smallest prime factor
+// Main part: the number you divide by on your powers. Tie-breaker: the answer's numerators add up to a number with a big smallest prime factor.
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 // that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 // it finds one it leaves you a note, so you can make a deal with that player.
-// Try this: add "tilt" to KINDS: a new gradient changes the number you divide by.
+// Try this: add "slide" to KINDS: it moves the answer, and so the numerators.
 
 // How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(L, p) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
-  const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
-  if (f.ratio === null) return null;   // no ratio of gradients: no score
-  const { score: main, n: k } = valuationLadder(f.ratio, p.q, p.r, 0, 2);   // the whole number of times (at least 2 either way) on your ladder
-  return [main, Q.neg(offMultiple(f.D, mod1(k)))];   // main: the level of the whole number of times as steep on your ladder (higher is better); tie-breaker: the number you divide by near a multiple of that number (not 0) is better
+  if (f.x === null) return null;   // parallel lines never cross: no score
+  const main = powerLadder(p.k, t => Q.abs(Q.sub(Q.abs(f.D), t)));   // the number you divide by on k, k³, k⁶, …
+  const nx = Q.mul(f.x, f.D), ny = Q.mul(f.y, f.D);   // the answer's numerators
+  return [main, spf(Q.add(Q.abs(nx), Q.abs(ny)))];   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better); tie-breaker: numerators adding up to a number with a big smallest prime factor are better
 }
 
 const FAR = 3;      // how far one move may go
 const QUOTES = 8;  // at most this many plans are priced (each price is a host call)
-const KINDS = ["tilt","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+const KINDS = ["combine","turn","stretch"];   // the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 const LEAVE = [];      // pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 const PROTECT = [];    // pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

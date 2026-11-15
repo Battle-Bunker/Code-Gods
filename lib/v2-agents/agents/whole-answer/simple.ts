@@ -1,5 +1,5 @@
 // Whole Answer · Simple
-// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the number you divide by near a multiple of the answer's y; the answer's x near a multiple of its y).
+// Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the answer's x near a multiple of its y; the answer's |x| + |y| has a big smallest prime factor; the answer's y shares a factor with the steeper gradient).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -10,12 +10,14 @@
 function score(L, p, tie) {
   const f = solved(L);   // what the two lines give together (the answer, the number you divide by, ...)
   const dist = v => Q.abs(Q.sub(v, whole(v)));   // how far a number is from the whole number nearest it
+  const floor = v => whole(Q.sub(v, Q.of(1, 2)));   // rounded down
   const mod1 = n => { const b = BigInt(n), zero = BigInt(0); return b < zero ? -b : b === zero ? BigInt(1) : b; };   // |n|, at least 1
   if (f.x === null) return null;   // parallel lines never cross: no score
   const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number
   // main: the answer's level: whole numbers, y on your ladder (higher is better)
-  if (tie === "divisor-multiple") return [main, Q.neg(offMultiple(f.D, mod1(Yv)))];   // the number you divide by near a multiple of y's number on your ladder (not 0) is better
   if (tie === "x-multiple") return [main, Q.neg(offMultiple(f.x, mod1(Yv)))];   // an answer whose x is near a multiple of its y (not 0) is better
+  if (tie === "sum-prime") return [main, spf(Q.add(Q.abs(f.X), Q.abs(Yv)))];   // an answer whose |x| + |y| has a big smallest prime factor is better
+  if (tie === "y-steep") return [main, f.ms === null ? 0 : common(Yv, floor(Q.abs(f.ms)))];   // y's number sharing a big factor with the steeper gradient is better
   return [main];
 }
 

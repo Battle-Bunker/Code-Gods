@@ -9,6 +9,7 @@
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
+    floor = lambda v: v // 1   # rounded down
     if f.rs is None:   # the steeper line is flat: no score
         return None
     main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder

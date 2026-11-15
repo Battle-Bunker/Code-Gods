@@ -1,5 +1,5 @@
 // Divide By · Simple
-// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor).
+// Main part: the number you divide by on your powers. Tie-breaker: whichever you were dealt (the answer's numerators add up to a number with many prime factors; the answer's numerators share a big factor; the answer's numerators add up to a number with a big smallest prime factor).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -15,6 +15,7 @@ function score(L, p, tie) {
   // main: the level of the number you divide by on k, k³, k⁶, … (higher is better)
   if (tie === "numerator-smooth") return [main, omega(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with many prime factors are better
   if (tie === "numerator-shared") return [main, common(nx, ny)];   // numerators sharing a big factor are better
+  if (tie === "numerator-prime") return [main, spf(Q.add(Q.abs(nx), Q.abs(ny)))];   // numerators adding up to a number with a big smallest prime factor are better
   return [main];
 }
 

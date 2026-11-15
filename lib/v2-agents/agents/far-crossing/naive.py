@@ -1,5 +1,5 @@
 # Far Crossing · Naive (for learning)
-# Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number).
+# Main part: the steeper line crosses the x-axis on your pattern. Tie-breaker: whichever you were dealt (the x-intercepts' gap near a multiple of your number; the crossing's height near a multiple of your number; that x-intercept plus the crossing's height has a big smallest prime factor; that x-intercept shares a factor with the steeper gradient).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -9,6 +9,7 @@
 def score(L, p, tie):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
+    floor = lambda v: v // 1   # rounded down
     if f.rs is None:   # the steeper line is flat: no score
         return None
     main, R = ladder(f.rs, p["q"], p["r"])   # the x-intercept on your ladder
@@ -17,6 +18,10 @@ def score(L, p, tie):
         return [main, None if f.xgap is None else -off_multiple(f.xgap, p["q"] ** (level_of(main, p["q"]) + 1))]
     if tie == "far-height":   # a crossing height near a multiple of q to the power one above your level is better
         return [main, None if f.y is None else -off_multiple(f.y, p["q"] ** (level_of(main, p["q"]) + 1))]
+    if tie == "far-prime":   # that x-intercept plus the crossing's height with a big smallest prime factor is better
+        return [main, None if f.y is None else spf(abs(R) + abs(whole(f.y)))]
+    if tie == "far-steep":   # that x-intercept sharing a big factor with the steeper gradient is better
+        return [main, 0 if f.ms is None else common(R, abs(f.ms) // 1)]
     return [main]
 
 

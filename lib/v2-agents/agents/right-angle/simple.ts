@@ -1,5 +1,5 @@
 // Right Angle · Simple
-// Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient).
+// Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient; the corner's |x| + |y| has a big smallest prime factor).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -17,6 +17,7 @@ function score(L, p, tie) {
   // main: the corner's level: a right angle at a grid point, y on your ladder (higher is better)
   if (tie === "corner-multiple") return [main, Q.neg(offMultiple(f.x, mod1(Yc)))];   // a corner whose x is near a multiple of its y (not 0) is better
   if (tie === "corner-steep") return [main, f.ms === null ? 0 : common(Yc, floor(Q.abs(f.ms)))];   // a corner whose y shares a big factor with the steeper gradient is better
+  if (tie === "corner-prime") return [main, spf(Q.add(Q.abs(f.X), Q.abs(Yc)))];   // a corner whose |x| + |y| has a big smallest prime factor is better
   return [main];
 }
 

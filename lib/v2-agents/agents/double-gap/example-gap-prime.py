@@ -1,25 +1,25 @@
-# Whole Answer · Example: the number you divide by near a multiple of the answer's y
-# Main part: the answer's y on your pattern. Tie-breaker: the number you divide by near a multiple of the answer's y.
+# Gap Ratio · Example: the gap plus your next power has a big smallest prime factor
+# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: the gap plus your next power has a big smallest prime factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.
-# Try this: add "tilt" to KINDS: a new gradient changes the number you divide by.
+# Try this: add "shift" to KINDS: it changes the gap directly.
 
 
 def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
-    mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
-    if f.x is None:   # parallel lines never cross: no score
+    if f.ygap is None or f.xgap is None or f.origin:   # no gaps, or a line through (0, 0): no score
         return None
-    main, Yv = valuation_ladder(f.y, p["q"], p["r"], dist(f.x))   # y on your ladder, x near a whole number
-    return [main, -off_multiple(f.D, mod1(Yv))]   # main: the answer's level: whole numbers, y on your ladder (higher is better); tie-breaker: the number you divide by near a multiple of y's number on your ladder (not 0) is better
+    main = power_ladder(p["k"], lambda t: dist(f.ygap) + abs(f.ygap - t * f.xgap))
+    lv = level_of(main, p["k"]); N = p["k"] ** (lv * (lv + 1) // 2 + 1)   # your power reached, times k
+    return [main, spf(abs(whole(f.ygap)) + N)]   # main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better); tie-breaker: the gap plus k times your power reached with a big smallest prime factor is better
 
 
 FAR = 3      # how far one move may go
 QUOTES = 8  # at most this many plans are priced (each price is a host call)
-KINDS = ["slide","turn","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
+KINDS = ["shift","tilt","stretch"]   # the moves it tries: shift, tilt, stretch, turn, slide, combine, reflect, quarter, translate, zoom
 LEAVE = []      # pairs you agreed to leave alone, e.g. [19] or [4, 9]: your agent will not touch them
 PROTECT = []    # pairs where you promised not to lower the others, e.g. [7]: only moves that keep them as well off
 

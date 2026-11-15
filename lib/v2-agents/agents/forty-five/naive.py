@@ -1,5 +1,5 @@
 # Forty-Five · Naive (for learning)
-# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|).
+# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|; that |x| + |y| has many prime factors).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -19,6 +19,8 @@ def score(L, p, tie):
         return [main, common(S, f.D)]
     if tie == "corner-gap":   # a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
         return [main, None if f.ygap is None else -off_multiple(f.ygap, mod1(S))]
+    if tie == "corner-smooth":   # a corner whose |x| + |y| has many prime factors is better
+        return [main, omega(S)]
     return [main]
 
 

@@ -1,5 +1,5 @@
 # Gap Ratio · Thorough
-# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the number you divide by shares a factor with your next power; the y-intercepts' gap near a multiple of your next power).
+# Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the number you divide by shares a factor with your next power; the y-intercepts' gap near a multiple of your next power; the gap plus your next power has a big smallest prime factor).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -20,6 +20,8 @@ def score(L, p, tie):
         return [main, common(f.D, N)]
     if tie == "gap-step":   # a y-intercepts' gap near a multiple of k times your power reached (not 0) is better
         return [main, -off_multiple(f.ygap, N)]
+    if tie == "gap-prime":   # the gap plus k times your power reached with a big smallest prime factor is better
+        return [main, spf(abs(whole(f.ygap)) + N)]
     return [main]
 
 

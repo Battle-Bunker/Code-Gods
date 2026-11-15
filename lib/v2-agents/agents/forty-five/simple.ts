@@ -1,5 +1,5 @@
 // Forty-Five · Simple
-// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|).
+// Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| shares a factor with the number you divide by; the y-intercepts' gap near a multiple of that |x| + |y|; that |x| + |y| has many prime factors).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 // times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others
@@ -16,6 +16,7 @@ function score(L, p, tie) {
   // main: the corner's level: 45 degrees at a grid point, |x| + |y| on your ladder (higher is better)
   if (tie === "corner-divisor") return [main, common(S, f.D)];   // a corner whose |x| + |y| shares a big factor with the number you divide by is better
   if (tie === "corner-gap") return [main, f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))];   // a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better
+  if (tie === "corner-smooth") return [main, omega(S)];   // a corner whose |x| + |y| has many prime factors is better
   return [main];
 }
 

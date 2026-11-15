@@ -1,5 +1,5 @@
 # Right Angle · Naive (for learning)
-# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient).
+# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: whichever you were dealt (the corner's x near a multiple of its y; the corner's y shares a factor with the steeper gradient; the corner's |x| + |y| has a big smallest prime factor).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -20,6 +20,8 @@ def score(L, p, tie):
         return [main, -off_multiple(f.x, mod1(Yc))]
     if tie == "corner-steep":   # a corner whose y shares a big factor with the steeper gradient is better
         return [main, 0 if f.ms is None else common(Yc, abs(f.ms) // 1)]
+    if tie == "corner-prime":   # a corner whose |x| + |y| has a big smallest prime factor is better
+        return [main, spf(abs(f.X) + abs(Yc))]
     return [main]
 
 

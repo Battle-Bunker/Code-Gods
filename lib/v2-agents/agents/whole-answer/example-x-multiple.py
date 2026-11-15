@@ -10,6 +10,7 @@ def score(L, p):
     # How good are the two lines L for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     f = solved(L)   # what the two lines give together (the answer, the number you divide by, ...)
     dist = lambda v: abs(v - whole(v))   # how far a number is from the whole number nearest it
+    floor = lambda v: v // 1   # rounded down
     mod1 = lambda n: abs(int(n)) or 1   # |n|, at least 1
     if f.x is None:   # parallel lines never cross: no score
         return None

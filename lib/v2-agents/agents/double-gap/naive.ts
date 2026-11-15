@@ -1,5 +1,5 @@
 // Gap Ratio · Naive (for learning)
-// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the number you divide by shares a factor with your next power; the y-intercepts' gap near a multiple of your next power).
+// Main part: the y-intercepts' gap whole and your power times the x-intercepts' gap. Tie-breaker: whichever you were dealt (the number you divide by shares a factor with your next power; the y-intercepts' gap near a multiple of your next power; the gap plus your next power has a big smallest prime factor).
 // What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 // pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 // player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.
@@ -15,6 +15,7 @@ function score(L, p, tie) {
   // main: the gaps' level: the y-intercepts' gap whole and k, k³, k⁶, … times the x-intercepts' gap (higher is better)
   if (tie === "gap-divisor") return [main, common(f.D, N)];   // the number you divide by sharing a big factor with k times your power reached is better
   if (tie === "gap-step") return [main, Q.neg(offMultiple(f.ygap, N))];   // a y-intercepts' gap near a multiple of k times your power reached (not 0) is better
+  if (tie === "gap-prime") return [main, spf(Q.add(Q.abs(whole(f.ygap)), Q.of(N)))];   // the gap plus k times your power reached with a big smallest prime factor is better
   return [main];
 }
 

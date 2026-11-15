@@ -49,12 +49,13 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
   {
     family: "whole-answer", stretchBy: true, mainSays: "the answer's level: whole numbers, y on your ladder (higher is better)", simple: ["slide", "turn", "stretch"],
     main: {
-      ts: [DIST.ts, MOD1.ts, PARALLEL.ts, "const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number"],
-      py: [DIST.py, MOD1.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x near a whole number"],
+      ts: [DIST.ts, FLOOR.ts, MOD1.ts, PARALLEL.ts, "const { score: main, n: Yv } = valuationLadder(f.y, p.q, p.r, dist(f.x));   // y on your ladder, x near a whole number"],
+      py: [DIST.py, FLOOR.py, MOD1.py, ...PARALLEL.py, "main, Yv = valuation_ladder(f.y, p[\"q\"], p[\"r\"], dist(f.x))   # y on your ladder, x near a whole number"],
     },
     tieBreakers: {
-      "divisor-multiple": T("Q.neg(offMultiple(f.D, mod1(Yv)))", "-off_multiple(f.D, mod1(Yv))", "the number you divide by near a multiple of y's number on your ladder (not 0) is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
       "x-multiple": T("Q.neg(offMultiple(f.x, mod1(Yv)))", "-off_multiple(f.x, mod1(Yv))", "an answer whose x is near a multiple of its y (not 0) is better", "add \"slide\" to KINDS: it moves x along the other line."),
+      "sum-prime": T("spf(Q.add(Q.abs(f.X), Q.abs(Yv)))", "spf(abs(f.X) + abs(Yv))", "an answer whose |x| + |y| has a big smallest prime factor is better", "add \"slide\" to KINDS: it moves x along the other line."),
+      "y-steep": T("f.ms === null ? 0 : common(Yv, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(Yv, abs(f.ms) // 1)", "y's number sharing a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
     },
   },
   {
@@ -66,6 +67,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "numerator-smooth": T("omega(Q.add(Q.abs(nx), Q.abs(ny)))", "omega(abs(nx) + abs(ny))", "numerators adding up to a number with many prime factors are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
       "numerator-shared": T("common(nx, ny)", "common(nx, ny)", "numerators sharing a big factor are better", "add \"stretch\" to KINDS and compare."),
+      "numerator-prime": T("spf(Q.add(Q.abs(nx), Q.abs(ny)))", "spf(abs(nx) + abs(ny))", "numerators adding up to a number with a big smallest prime factor are better", "add \"slide\" to KINDS: it moves the answer, and so the numerators."),
     },
   },
   {
@@ -77,6 +79,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "corner-multiple": T("Q.neg(offMultiple(f.x, mod1(Yc)))", "-off_multiple(f.x, mod1(Yc))", "a corner whose x is near a multiple of its y (not 0) is better", "add \"quarter\" to KINDS: a quarter turn keeps the right angle."),
       "corner-steep": T("f.ms === null ? 0 : common(Yc, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(Yc, abs(f.ms) // 1)", "a corner whose y shares a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
+      "corner-prime": T("spf(Q.add(Q.abs(f.X), Q.abs(Yc)))", "spf(abs(f.X) + abs(Yc))", "a corner whose |x| + |y| has a big smallest prime factor is better", "add \"quarter\" to KINDS: a quarter turn keeps the right angle."),
     },
   },
   {
@@ -88,6 +91,7 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "corner-divisor": T("common(S, f.D)", "common(S, f.D)", "a corner whose |x| + |y| shares a big factor with the number you divide by is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
       "corner-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(S)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(S))", "a y-intercepts' gap near a multiple of the corner's |x| + |y| (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
+      "corner-smooth": T("omega(S)", "omega(S)", "a corner whose |x| + |y| has many prime factors is better", "add \"stretch\" to KINDS: a stretch moves the corner further out."),
     },
   },
   {
@@ -99,17 +103,20 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "gap-divisor": T("common(f.D, N)", "common(f.D, N)", "the number you divide by sharing a big factor with k times your power reached is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
       "gap-step": T("Q.neg(offMultiple(f.ygap, N))", "-off_multiple(f.ygap, N)", "a y-intercepts' gap near a multiple of k times your power reached (not 0) is better", "add \"stretch\" to KINDS: it scales a line's gap."),
+      "gap-prime": T("spf(Q.add(Q.abs(whole(f.ygap)), Q.of(N)))", "spf(abs(whole(f.ygap)) + N)", "the gap plus k times your power reached with a big smallest prime factor is better", "add \"shift\" to KINDS: it changes the gap directly."),
     },
   },
   {
     family: "far-crossing", mainSays: "the level of the steeper line's x-intercept on your ladder (higher is better)", simple: ["shift", "tilt"],
     main: {
-      ts: ["if (f.rs === null) return null;   // the steeper line is flat: no score", "const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder"],
-      py: ["if f.rs is None:   # the steeper line is flat: no score", "    return None", "main, R = ladder(f.rs, p[\"q\"], p[\"r\"])   # the x-intercept on your ladder"],
+      ts: [FLOOR.ts, "if (f.rs === null) return null;   // the steeper line is flat: no score", "const { score: main, n: R } = ladder(f.rs, p.q, p.r);   // the x-intercept on your ladder"],
+      py: [FLOOR.py, "if f.rs is None:   # the steeper line is flat: no score", "    return None", "main, R = ladder(f.rs, p[\"q\"], p[\"r\"])   # the x-intercept on your ladder"],
     },
     tieBreakers: {
       "far-gap": T("f.xgap === null ? null : Q.neg(offMultiple(f.xgap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.xgap is None else -off_multiple(f.xgap, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the gap between the x-intercepts near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one x-intercept alone."),
       "far-height": T("f.y === null ? null : Q.neg(offMultiple(f.y, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.y is None else -off_multiple(f.y, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "a crossing height near a multiple of q to the power one above your level is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
+      "far-prime": T("f.y === null ? null : spf(Q.add(Q.abs(R), Q.abs(whole(f.y))))", "None if f.y is None else spf(abs(R) + abs(whole(f.y)))", "that x-intercept plus the crossing's height with a big smallest prime factor is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
+      "far-steep": T("f.ms === null ? 0 : common(R, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(R, abs(f.ms) // 1)", "that x-intercept sharing a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
     },
   },
   {
@@ -121,6 +128,8 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     tieBreakers: {
       "start-echo": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.ygap is None else -off_multiple(f.ygap, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "the gap between the y-intercepts near a multiple of q to the power one above your level is better", "add \"shift\" to KINDS: it moves one y-intercept alone."),
       "start-crossing": T("f.x === null ? null : Q.neg(offMultiple(f.x, BigInt(p.q) ** BigInt(levelOf(main, p.q) + 1)))", "None if f.x is None else -off_multiple(f.x, p[\"q\"] ** (level_of(main, p[\"q\"]) + 1))", "a crossing whose x is near a multiple of q to the power one above your level is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
+      "start-prime": T("f.x === null ? null : spf(Q.add(Q.abs(H), Q.abs(whole(f.x))))", "None if f.x is None else spf(abs(H) + abs(whole(f.x)))", "that y-intercept plus the crossing's x with a big smallest prime factor is better", "add \"slide\" to KINDS: it moves the crossing along a line."),
+      "start-steep": T("f.ms === null ? 0 : common(H, floor(Q.abs(f.ms)))", "0 if f.ms is None else common(H, abs(f.ms) // 1)", "that y-intercept sharing a big factor with the steeper gradient is better", "add \"tilt\" to KINDS: it changes a gradient directly."),
     },
   },
   {
@@ -131,7 +140,8 @@ export const PAIR_CATALOGUE: readonly PairFamilyEntry[] = [
     },
     tieBreakers: {
       "ratio-gap": T("f.ygap === null ? null : Q.neg(offMultiple(f.ygap, mod1(k)))", "None if f.ygap is None else -off_multiple(f.ygap, mod1(k))", "a y-intercepts' gap near a multiple of that number (not 0) is better", "add \"shift\" to KINDS: it changes the gap directly."),
-      "ratio-divisor": T("Q.neg(offMultiple(f.D, mod1(k)))", "-off_multiple(f.D, mod1(k))", "the number you divide by near a multiple of that number (not 0) is better", "add \"tilt\" to KINDS: a new gradient changes the number you divide by."),
+      "ratio-prime": T("spf(k)", "spf(k)", "that number with a big smallest prime factor is better", "change FAR = 3 to 5 so the ratio can jump to a bigger prime."),
+      "ratio-start": T("f.cg === null ? 0 : common(k, whole(f.cg))", "0 if f.cg is None else common(k, whole(f.cg))", "that number sharing a big factor with the gentler line's y-intercept is better", "add \"shift\" to KINDS: it moves a y-intercept directly."),
     },
   },
 ];
