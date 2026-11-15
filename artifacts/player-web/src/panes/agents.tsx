@@ -5,7 +5,8 @@
  * tooltip), what it did, and Destroy, whose confirmation says what comes back. Operations only through affordances.
  */
 import { summonFirst } from "./first-summon";
-import { objectWord, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
+import { useState } from "react";
+import { objectWord, useAgentPrograms, useAgentCount, useGame, useGameScope, useMe, useMyAgents, useAgentEnergy, type Agent } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
 import { AffordanceButton, Tip } from "@/site/components/action";
 import { DEBT_TEXT, WORKING_TEXT, debtText, destroyConfirm, energyExact, energyWords, percent, powerSentence, shareText, workText } from "./agents-words";
@@ -36,8 +37,26 @@ function AgentRow({ agent, power }: { agent: Agent; power: number | undefined })
           <p className="text-xs text-muted-foreground" data-testid={`text-agent-work-${agent.agentId}`}>{workText(e)}</p>
         </>
       )}
+      <AgentCode agentId={agent.agentId} />
     </li>
   );
+}
+
+/** The agent's code as it runs now, on request (its program subscribes only while shown); readable after the end too. */
+function AgentCode({ agentId }: { agentId: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="text-xs" onToggle={e => setOpen((e.target as HTMLDetailsElement).open)} data-testid={`details-agent-code-${agentId}`}>
+      <summary className="cursor-pointer text-muted-foreground underline underline-offset-4">Its code</summary>
+      {open && <Program agentId={agentId} />}
+    </details>
+  );
+}
+
+function Program({ agentId }: { agentId: string }) {
+  const current = useAgentPrograms(agentId)?.[0];
+  if (!current) return <p className="mt-1 text-muted-foreground">Loading…</p>;
+  return <pre className="mt-1 max-h-64 overflow-auto border bg-muted/40 p-2 font-mono text-[11px] leading-snug" data-testid={`text-agent-code-${agentId}`}>{current.source}</pre>;
 }
 
 export function AgentsPane() {
