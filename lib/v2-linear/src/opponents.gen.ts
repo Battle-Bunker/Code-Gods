@@ -6,8 +6,8 @@
  * Family B opposes family A along a cheap direction where A climbs when climbing A lowers one of B's dealt rules, or
  * costs it at least 4 × A's gain in what it could reach one move away (lib/v2-agents unopposed.ts's tests,
  * from scripts/tension.ts, seed t1). LINE_OPPONENT_SHARES[A][B]: over A's climbs (rule, direction), the mean share of B's dealt rules that oppose it.
- * LINE_OPPONENTS[A]: the families whose share reaches 0.5, or failing that A's 3 strongest at
- * 0.2 or more, strongest first. A family missing from the
+ * By contest: the families whose share reaches 0.5, or failing that A's 3 strongest at
+ * 0.2 or more, strongest first. LINE_OPPONENTS adds the families that exclude A. A family missing from the
  * table was not dealt (or had no measured climbs) when it was generated; it may be partial while families are redesigned.
  */
 export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<string, number>>>> = {
@@ -145,7 +145,8 @@ export const LINE_OPPONENT_SHARES: Readonly<Record<string, Readonly<Record<strin
   }
 };
 
-export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
+/** Contest along a climb only (the shares above): the families named by it. */
+export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
   "prime-landing": [
     "ruler",
     "treasure",
@@ -194,6 +195,207 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
     "square-area",
     "treasure",
     "same-on-both-rulers"
+  ],
+  "pythagorean-area": [
+    "square-area",
+    "treasure",
+    "prime-landing"
+  ]
+};
+
+/**
+ * Exclusion (scripts/tension.ts, the coordinator's 15 Nov definition): LINE_EXCLUSION_SHARES[A][B], over the measured
+ * pairs of A's and B's dealt rules, the share where B, climbed greedily for a few cheap moves that keep A high, stays
+ * within 1 bit of its floor on A's sampled high states (A ≥ 8 bits). Two such rules cannot both be high on one object.
+ */
+export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  "prime-landing": {
+    "smooth-intercept": 0,
+    "square-area": 0.5,
+    "whole-crossing": 0.313,
+    "divisibility-ladder": 0.25,
+    "treasure": 0,
+    "same-on-both-rulers": 0.125,
+    "prime-gradient": 0,
+    "prime-staircase": 0,
+    "ruler": 0,
+    "pythagorean-area": 0.5
+  },
+  "smooth-intercept": {
+    "prime-landing": 0,
+    "square-area": 0,
+    "whole-crossing": 0,
+    "divisibility-ladder": 0,
+    "treasure": 0.313,
+    "same-on-both-rulers": 0.25,
+    "prime-gradient": 0,
+    "prime-staircase": 0.5,
+    "ruler": 0,
+    "pythagorean-area": 1
+  },
+  "square-area": {
+    "prime-landing": 0,
+    "smooth-intercept": 0.625,
+    "whole-crossing": 0,
+    "divisibility-ladder": 0,
+    "treasure": 0.5,
+    "same-on-both-rulers": 0.5,
+    "prime-gradient": 0.375,
+    "prime-staircase": 0.125,
+    "ruler": 1,
+    "pythagorean-area": 1
+  },
+  "whole-crossing": {
+    "prime-landing": 0.5,
+    "smooth-intercept": 0.25,
+    "square-area": 0.75,
+    "divisibility-ladder": 0.25,
+    "treasure": 0.25,
+    "same-on-both-rulers": 0.375,
+    "prime-gradient": 0,
+    "prime-staircase": 0,
+    "ruler": 0,
+    "pythagorean-area": 1
+  },
+  "divisibility-ladder": {},
+  "treasure": {
+    "prime-landing": 0.55,
+    "smooth-intercept": 0.088,
+    "square-area": 1,
+    "whole-crossing": 0.2,
+    "divisibility-ladder": 0,
+    "same-on-both-rulers": 0.429,
+    "prime-gradient": 0.45,
+    "prime-staircase": 0.05,
+    "ruler": 0.35,
+    "pythagorean-area": 0.25
+  },
+  "same-on-both-rulers": {
+    "prime-landing": 0.333,
+    "smooth-intercept": 0.542,
+    "square-area": 1,
+    "whole-crossing": 0.313,
+    "divisibility-ladder": 0,
+    "treasure": 0.667,
+    "prime-gradient": 0.667,
+    "prime-staircase": 0.167,
+    "ruler": 0.667,
+    "pythagorean-area": 1
+  },
+  "prime-gradient": {
+    "prime-landing": 0,
+    "smooth-intercept": 0,
+    "square-area": 0.25,
+    "whole-crossing": 0,
+    "divisibility-ladder": 0,
+    "treasure": 0.25,
+    "same-on-both-rulers": 0,
+    "prime-staircase": 0,
+    "ruler": 0,
+    "pythagorean-area": 0
+  },
+  "prime-staircase": {
+    "prime-landing": 0.063,
+    "smooth-intercept": 0.594,
+    "square-area": 0.875,
+    "whole-crossing": 0,
+    "divisibility-ladder": 0.25,
+    "treasure": 0.25,
+    "same-on-both-rulers": 0.125,
+    "prime-gradient": 0.188,
+    "ruler": 0.125,
+    "pythagorean-area": 0.375
+  },
+  "ruler": {
+    "prime-landing": 0,
+    "smooth-intercept": 0.333,
+    "square-area": 1,
+    "whole-crossing": 0,
+    "divisibility-ladder": 0.333,
+    "treasure": 0.333,
+    "same-on-both-rulers": 0.333,
+    "prime-gradient": 0.667,
+    "prime-staircase": 0.458,
+    "pythagorean-area": 0.333
+  },
+  "pythagorean-area": {
+    "prime-landing": 0,
+    "smooth-intercept": 0,
+    "square-area": 1,
+    "whole-crossing": 0,
+    "divisibility-ladder": 0,
+    "treasure": 0,
+    "same-on-both-rulers": 0,
+    "prime-gradient": 0,
+    "prime-staircase": 0,
+    "ruler": 0
+  }
+};
+
+/** Named opponents: by contest along a climb (LINE_CONTEST_OPPONENTS) or by exclusion (share ≥ 0.5), contest first. */
+export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
+  "prime-landing": [
+    "ruler",
+    "whole-crossing",
+    "same-on-both-rulers",
+    "pythagorean-area",
+    "square-area"
+  ],
+  "smooth-intercept": [
+    "square-area",
+    "prime-landing",
+    "prime-staircase",
+    "pythagorean-area"
+  ],
+  "square-area": [
+    "same-on-both-rulers",
+    "pythagorean-area",
+    "prime-landing",
+    "treasure",
+    "ruler",
+    "smooth-intercept"
+  ],
+  "whole-crossing": [
+    "prime-landing",
+    "same-on-both-rulers",
+    "treasure",
+    "pythagorean-area",
+    "square-area"
+  ],
+  "divisibility-ladder": [],
+  "treasure": [
+    "same-on-both-rulers",
+    "ruler",
+    "prime-landing",
+    "square-area"
+  ],
+  "same-on-both-rulers": [
+    "prime-landing",
+    "treasure",
+    "whole-crossing",
+    "prime-staircase",
+    "pythagorean-area",
+    "square-area",
+    "prime-gradient",
+    "ruler",
+    "smooth-intercept"
+  ],
+  "prime-gradient": [
+    "prime-landing",
+    "ruler",
+    "treasure"
+  ],
+  "prime-staircase": [
+    "divisibility-ladder",
+    "square-area",
+    "ruler",
+    "smooth-intercept"
+  ],
+  "ruler": [
+    "square-area",
+    "treasure",
+    "same-on-both-rulers",
+    "prime-gradient"
   ],
   "pythagorean-area": [
     "square-area",

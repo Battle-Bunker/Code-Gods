@@ -95,3 +95,31 @@ bob's game the partner led from 4:30 to the end.
 
 Bob held it, but on the phone I could not reach the per-line list after the game (rank 4), and the live log showed only
 moves on lines near −19683. Its landing is still not judged.
+
+## Addendum: why the boards stopped (rank 1 corrected)
+
+The quiet second half comes from the engine, not from the agents. The store's `_scheduled_functions` (577 rows, read
+after the round) shows that every one of the 467 `v2/tick:tick` runs succeeded, but their run time grew through the
+game, in all three games at once:
+
+| Wall minute | Ticks in the minute (each game) | Median tick run | Longest tick |
+|---|---|---|---|
+| 0–1 | 34–36 | 0.2–0.3 s | 1.1 s |
+| 2 | 26–27 | 0.7–0.9 s | 2.2 s |
+| 3 | 14 | 3.0–3.4 s | 10.2 s |
+| 5 | 10 | about 2 s | 15.9 s |
+| 6 | 7 | 7 s | 13.9 s |
+| 7 | 4 | 17 s | **50.5 s** |
+| 8–9 | 2–5 | 12–28 s | 27.9 s |
+
+- The three games' ticks finish within a second of each other (for example 15:42:24.8, 24.8 and 24.0). One shared
+  bottleneck serialised them, with only 3 games live on a 4-vCPU machine.
+- The four watchdog restarts at 15:41:56–15:42:36 were these 28–50 s ticks, not dead ones.
+- World time follows the wall clock (v2Log: world within 1 s of wall through 568 s), but a tick grants at most
+  `MAX_DT` = 3 s of births and agent opportunities (`convex/v2/tick.ts`). So from minute 3 the agents got about 1/5,
+  and later 1/10, of their turns, and the board went quiet. The agents' high skip rate (about 90% of acts) is real, but
+  it is secondary.
+
+| # | Finding | Severity |
+|---|---|---|
+| A1 | Tick run time grows from 0.2 s to 14–50 s over a ten-minute game, serialised across games, so agents get a fraction of their turns after minute 3 | **blocker for the owner's first game** if dev behaves the same (server) |

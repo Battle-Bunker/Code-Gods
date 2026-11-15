@@ -22,6 +22,8 @@
 #   near(x, test, k)             the same among positive whole numbers ending in the digit k: near(c, prime, 3) is
 #                                the prime ending in 3 nearest c (below the smallest such prime, that prime).
 #   whole(x)                     the whole number nearest to x (a half rounds up).
+#   near_made_of(x, primes)      the whole number (2 or more) made only by multiplying the given primes that is nearest
+#                                x, the smaller on a tie: near_made_of(100, [3, 7]) is 81. Fast at any size.
 #   simplest(a, b)               the simplest fraction from a to b (either way round): the smallest denominator, then
 #                                the numerator nearest 0. simplest(18.5, 19.5) is 19; simplest(-0.81, -0.77) is -4/5.
 #   smooth(n)                    is n made only by multiplying 2s, 3s, 5s and 7s (1 included; the sign ignored)?
@@ -243,6 +245,29 @@ def shared(a, b):
 
 def whole(x):
     return int((Fraction(x) + Fraction(1, 2)) // 1)
+
+
+def near_made_of(x, primes):
+    v = Fraction(x)
+    top = max(2 * (v.numerator // v.denominator + 2), min(primes))
+    xs = []
+
+    def walk(n, i):
+        if i == len(primes):
+            if n >= 2:
+                xs.append(n)
+            return
+        y = n
+        while y <= top:
+            walk(y, i + 1)
+            y *= primes[i]
+    walk(1, 0)
+    xs.sort()
+    best = xs[0]
+    for n in xs:
+        if abs(v - n) < abs(v - best):
+            best = n
+    return best
 
 
 def simplest(a, b):

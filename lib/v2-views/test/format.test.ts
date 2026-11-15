@@ -1,7 +1,9 @@
 /** The shared number rule (2 decimal places) and the ladder's "1 in N by chance" wording. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chanceText, fmtBits, fmtEnergy, fmtNum } from "../src/format.ts";
+import { chanceText, fmtBits, fmtEnergy, fmtNum, labelWithArgs } from "../src/format.ts";
+import { lineType, type LineState } from "@workspace/v2-linear";
+import { labelOf } from "../src/rep-view.tsx";
 
 test("every measure reads with 2 decimal places, grouped, a true minus, never −0.00", () => {
   assert.equal(fmtNum(4.2449), "4.24");
@@ -48,4 +50,10 @@ test("live, with the others' numbers blurred: the formula says about and ≈, ne
 test("live, a blurred others' sum can be negative; points are never (own × max(0, sum), W3 #608)", async () => {
   const { scoreFormula } = await import("../src/format.ts");
   assert.equal(scoreFormula(6.8, -2.4, true), "your 6.80 bits × others' about 0.00 bits ≈ 0.00 points");
+});
+
+test("an element's arguments are said in its words, never as code (playtest round 26: \"whole number (q = 5, r = 4)\")", () => {
+  assert.equal(labelOf<LineState>(lineType, { rep: "crossing", name: "dealt", args: { q: "5", r: "4" } }), "whole number leaving 4 when divided by 5");
+  assert.equal(labelWithArgs("y when x is k", { k: "-2" }), "y when x is −2");
+  assert.equal(labelWithArgs("mark", { x: "3" }), "mark (x = 3)");   // an argument the label does not name is said after it
 });

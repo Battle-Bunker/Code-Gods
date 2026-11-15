@@ -62,9 +62,12 @@ function PointsKey() {
   const swatch = (c: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: c }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground" data-testid="text-points-key">
-      <span className="inline-flex items-center gap-1">{swatch(YOURS)}width: <span style={{ color: YOURS }}>your bits</span></span>
-      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}height: <span style={{ color: OTHERS }}>others' bits</span></span>
-      <span className="inline-flex items-center gap-1"><span aria-hidden className="inline-block h-2.5 w-3" style={{ background: AREA }} />area: your points</span>
+      {/* One sentence, not a key to decode (round 26: "width · height · area" over tiny bars was a puzzle). */}
+      <span data-testid="text-points-sentence">
+        Each {word.one}'s box is its points for you: as wide as <span style={{ color: YOURS }}>your bits</span> {swatch(YOURS)} and
+        as tall as <span style={{ color: OTHERS }}>the others' bits</span> {swatch(OTHERS)}, so the bigger the box{" "}
+        <span aria-hidden className="inline-block h-2.5 w-3 align-middle" style={{ background: AREA }} />, the more points.
+      </span>
       <BitsHelp testId="button-bits-help-lines" />
       <span className="basis-full" data-testid="text-others-note">{othersNote(word.one)}{blurred ? ` ${blurredNote(word.one)}` : ""}</span>
     </p>

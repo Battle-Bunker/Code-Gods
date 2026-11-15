@@ -241,6 +241,17 @@ its position, and the whole part of the gradient, should end in as many of the s
 - y = −13x + 78: run 3, M = 3.0, A* = 13, ⌊m⌋ = −13, T = 2.
 - One stretch (×2), y = −26x + 156: run 4, M = 4.59, ⌊m⌋ = −26, T = 0: a restart.
 
+**As built (15 Nov, #817; owner-decisions trial 27):** the run of n dividing y(n), with no top, in triangular levels;
+tie-breaker gcd(y(n), n) where the run stops at n.
+
+**For later: a residue reading** (the spec lead's proposal, kept by the coordinator for later, not now). Make the rule
+"y(n) leaves 1 when divided by n", excluding c = 1 as c = 0 is excluded now. For a whole gradient a run of k then needs
+c ≡ 1 (mod lcm(1, …, k)). Prime Staircase and Divisibility Ladder would then read the same number, y(0) = c, and
+contest it along a climb; today they only exclude each other. The cost:
+- With Prime Staircase ending 9 they still exclude (c ≡ 1 (mod 10) does not end in 9).
+- With ending 1 they partly align, because 1 + t·lcm has no small factors, so it is prime more often. That would need
+  the seating rule.
+
 ---
 
 ## 5. What is not settled

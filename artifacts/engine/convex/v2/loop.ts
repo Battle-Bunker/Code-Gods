@@ -328,15 +328,20 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
 /** The game ends: the lease goes, the final scoreboard and `gameEnded`, the room is free for the next game. */
 export async function endGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   if (game.phase === "ended") return;
-  const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
-  await ctx.db.patch(engine._id, { leaseId: "" });
-  const rows = await scoreboard(ctx, game, clock.worldSeconds);
-  const acts = engine.acts;
-  await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts } });
-  await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
-  await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
-  // An ended game is fully transparent: each player's values, sorts, scatter and (paid) knowledge become exact.
-  for (const s of game.roster) await ctx.scheduler.runAfter(0, EXACT_VALUES, { gameId: game._id, memberId: s.memberId });
+  const engine = await ctx.db.query("v2Engine").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
+  const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
+  if (engine && clock) {
+    await ctx.db.patch(engine._id, { leaseId: "" });
+    const rows = await scoreboard(ctx, game, clock.worldSeconds);
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: rows[0]?.memberId ?? null, objects: engine.objects, acts: engine.acts } });
+    await appendEvent(ctx, game._id, "gameEnded", { worldSeconds: clock.worldSeconds, standings: rows.map(r => ({ memberId: r.memberId, total: r.total, net: r.net, rank: r.rank })) });
+    await ctx.scheduler.runAfter(0, BUILD_REPLAY, { gameId: game._id });
+    // An ended game is fully transparent: each player's values, sorts, scatter and (paid) knowledge become exact.
+    for (const s of game.roster) await ctx.scheduler.runAfter(0, EXACT_VALUES, { gameId: game._id, memberId: s.memberId });
+  } else {
+    // A game with no engine or clock (a seeded fixture: v2/testing seedGame) has no world to score or record: it just ends.
+    await ctx.db.patch(game._id, { phase: "ended", endedAt: Date.now(), summary: { winner: null, objects: 0, acts: 0 } });
+  }
   const room = (await ctx.db.get(game.roomId))!;
   if (room.gameId === game._id) await ctx.db.patch(room._id, { gameId: undefined, revision: room.revision + 1 });
   // Who joined while it ran watched it; the next game seats them.

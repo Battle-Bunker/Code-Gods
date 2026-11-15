@@ -937,8 +937,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     mainSays: "how many of the rule's primes the y-intercept (ignoring sign) is made of, in levels that each need one more than the last (more is better: a ladder with no top; of two with as many, the smaller), else minus how far it is from the nearest such number",
     main: {
       ts: [
-        "const a = Q.abs(c), s = near(a, n => n >= 2 && factors(n).every(f => p.primes.includes(Number(f))));   // the nearest rung",
-        "if (s === null) return null;                    // none within 10,000: hopeless",
+        "const a = Q.abs(c), s = nearMadeOf(a, p.primes);   // the nearest rung: made only of the rule's primes",
         "let main = Q.neg(Q.abs(Q.sub(a, s)));           // off every rung: below them all",
         "if (Q.eq(a, s)) {                               // on a rung: the dealt primes multiplied (omega), in levels",
         "  const omega = factors(s).length; let level = 0;",
@@ -948,9 +947,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
       ],
       py: [
         "a = abs(c)",
-        "s = near(a, lambda n: n >= 2 and all(f in p[\"primes\"] for f in factors(n)))   # the nearest rung",
-        "if s is None:                                   # none within 10,000: hopeless",
-        "    return None",
+        "s = near_made_of(a, p[\"primes\"])               # the nearest rung: made only of the rule's primes",
         "main = -abs(a - s)                              # off every rung: below them all",
         "if a == s:                                      # on a rung: the dealt primes multiplied (omega), in levels",
         "    omega, level = len(factors(s)), 0",

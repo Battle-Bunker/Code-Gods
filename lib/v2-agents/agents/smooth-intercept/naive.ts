@@ -8,8 +8,7 @@
 
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
-  const a = Q.abs(c), s = near(a, n => n >= 2 && factors(n).every(f => p.primes.includes(Number(f))));   // the nearest rung
-  if (s === null) return null;                    // none within 10,000: hopeless
+  const a = Q.abs(c), s = nearMadeOf(a, p.primes);   // the nearest rung: made only of the rule's primes
   let main = Q.neg(Q.abs(Q.sub(a, s)));           // off every rung: below them all
   if (Q.eq(a, s)) {                               // on a rung: the dealt primes multiplied (omega), in levels
     const omega = factors(s).length; let level = 0;

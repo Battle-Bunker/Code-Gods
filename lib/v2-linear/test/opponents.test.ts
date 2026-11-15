@@ -1,12 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { beginnerPool, LINE_OPPONENT_SHARES, LINE_OPPONENTS } from "../src/index.ts";
+import { beginnerPool, LINE_CONTEST_OPPONENTS, LINE_EXCLUSION_SHARES, LINE_OPPONENT_SHARES, LINE_OPPONENTS } from "../src/index.ts";
 
 const dealt = new Set(beginnerPool.map(f => f.id));
 
-test("the opponent table names, for each family, the dealt families opposing at least half its climbs, or its three strongest (at least a fifth), strongest first", () => {
-  assert.ok(Object.keys(LINE_OPPONENTS).length >= 4, "a table of the dealt line families");
-  for (const [a, opponents] of Object.entries(LINE_OPPONENTS)) {
+test("contest along a climb names, for each family, the dealt families opposing at least half its climbs, or its three strongest (at least a fifth), strongest first", () => {
+  assert.ok(Object.keys(LINE_CONTEST_OPPONENTS).length >= 4, "a table of the dealt line families");
+  for (const [a, opponents] of Object.entries(LINE_CONTEST_OPPONENTS)) {
     assert.ok(dealt.has(a), `${a} is a beginner family`);
     const shares = LINE_OPPONENT_SHARES[a]!;
     for (const b of opponents) {
@@ -28,6 +28,14 @@ test("the opponent table names, for each family, the dealt families opposing at 
 const OPEN_ROW_6: Record<string, string> = {
   "divisibility-ladder": "coordinator, 15 Nov (#817): merged dealt; its climbs barely move any other rule (at most 7% opposed). Prime Staircase is to be made to contest its heights.",
 };
+
+test("the named opponents are the contest opponents and the families that exclude it (at least half of the measured rule pairs)", () => {
+  for (const [a, opponents] of Object.entries(LINE_OPPONENTS)) {
+    const excl = Object.entries(LINE_EXCLUSION_SHARES[a] ?? {}).filter(([, x]) => x >= 0.5).map(([b]) => b);
+    assert.deepEqual([...opponents].sort(), [...new Set([...(LINE_CONTEST_OPPONENTS[a] ?? []), ...excl])].sort(), a);
+    for (const b of excl) assert.ok(dealt.has(b));
+  }
+});
 
 test("every dealt ladder family (a hill with no top) has a named opponent in the pool, but for the recorded open fails", () => {
   for (const f of beginnerPool.filter(f => f.keepsParams)) {
