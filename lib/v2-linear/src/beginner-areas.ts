@@ -61,11 +61,11 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
 const RULER_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const rulerShape: Shape<Ends> = {
   main: { ...more<Ends>("ruler", "distance² from (0, 0) on as big a dealt prime as possible", "", "norm"),
-    // Under 30 words with the tie-breaker (the coordinator's ask).
-    sentence: p => `Distance² from (0,0), rounded down: a prime ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
+    // Plain sentences, the main one under 30 words (the coordinator's ask): whose distance, and what is done to it.
+    sentence: p => `Square the line's closest distance to (0, 0) and round down: it should be a prime ending in ${p.ends}. Bigger primes are better, each extra digit counts for less.` },
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
-      "Prime minus 1 and y-intercept share a big factor.", "si"),
+      "Prime minus 1 and the y-intercept's whole part should share as big a factor as possible.", "si"),
   ],
 };
 /**
