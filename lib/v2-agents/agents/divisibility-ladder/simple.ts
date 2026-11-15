@@ -51,8 +51,6 @@ function agent(offer) {
     if (k === 0) continue;
     tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
-    const f = k > 0 ? k + 1 : k - 1;
-    if (!Q.isZero(c)) tries.push([move("basis.zoom", { f }), m, Q.mul(c, f)]);   // zoom from the origin by f: the y-intercept times f, the same gradient
   }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches

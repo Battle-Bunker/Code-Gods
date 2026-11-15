@@ -53,7 +53,9 @@ export const LENSES = {
     pre: { ts: "const f = k > 0 ? k + 1 : k - 1;", py: "f = k + 1 if k > 0 else k - 1" },
     when: { ts: "!Q.isZero(c)", py: "c != 0" },   // through the origin a zoom changes nothing
     ts: `[move("basis.zoom", { f }), m, Q.mul(c, f)]`, py: `(move("basis.zoom", f=f), m, c * f)`,
-    only: ["smooth-intercept", "divisibility-ladder"],
+    // Offered to no family while basis.zoom is out of line-q (a straight hill on Prime Landing, 15 Nov); it returns to
+    // Smooth Intercept and Divisibility Ladder with the zoom.
+    only: [],
   },
   turn: {
     comment: "turn the line about its y-intercept by the angle of a gradient k (the y-intercept stays put)",
@@ -657,7 +659,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "divisibility-ladder",
-    simple: ["shift", "tilt", "zoom"],
+    simple: ["shift", "tilt"],
     mainSays: "how many of y(1), y(2), y(3), ... in a row are multiples of 1, 2, 3, ... (more is better)",
     main: {
       ts: [
@@ -894,7 +896,7 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   {
     family: "smooth-intercept",
     // A stretch by a factor in the dealt primes takes a smooth intercept to another smooth rung (decision 25's shortcut).
-    simple: ["shift", "tilt", "stretch", "zoom"],
+    simple: ["shift", "tilt", "stretch"],
     rungs: {
       ts: [
         "// The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.",

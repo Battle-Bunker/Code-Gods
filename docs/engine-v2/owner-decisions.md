@@ -492,6 +492,11 @@ back) or TRIAL (a declared experiment, measured and reported).
     were measured at (which = log2 20), the nine at log2 10 (Kraft sum 1). `coef.swap`, `basis.lean` and `fold` stay in
     `lines-lenses`. `coef.swap`'s fee is floored at φ of the dearer number it swaps (in play two swaps in three had
     gained more than their fee); it joins nothing until a re-measure shows fewer than one swap in ten above its fee.
+    **Amended the same day** (the coordinator): `basis.zoom` is taken out of `line-q` again, the turn stays. Thirty zooms
+    by 7 climbed Prime Landing 227 bits on `lines-lenses` (the spec lead's "no straight hill" check): an easy high peak
+    a player finds by pressing one button. The zoom returns only when that check passes on develop for every dealt
+    family against zoom, stretch and turn. `line-q` offers ten (the turn at log2 20, the nine at log2 (9/0.95));
+    the swap's floor (re-measured: 3% of swaps above their fee) stands.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

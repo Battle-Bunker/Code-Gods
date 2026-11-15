@@ -45,7 +45,6 @@ function agent(offer) {
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
     const f = k > 0 ? k + 1 : k - 1;
     tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
-    if (!Q.isZero(c)) tries.push([move("basis.zoom", { f }), m, Q.mul(c, f)]);   // zoom from the origin by f: the y-intercept times f, the same gradient
   }
   // The next rung up (the ladder has no top): one jump away from 0 through the valley between, priced by its size.
   const rung = Q.abs(c), up = Q.cmp(c, 0) < 0 ? -1 : 1, onRung = n => factors(n).every(f => p.primes.includes(Number(f)));
