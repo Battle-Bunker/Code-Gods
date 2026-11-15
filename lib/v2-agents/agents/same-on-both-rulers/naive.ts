@@ -1,5 +1,5 @@
 // Same on Both Rulers · Naive (for learning)
-// Main part: the unchanged number on as big a palindrome as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both the palindrome's digit sum and the gradient's whole part).
+// Main part: where the line meets y = x, on as big a number reading the same backwards as possible. Tie-breaker: whichever you were dealt (the biggest number dividing both that number's digits added up and the gradient's whole part).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.

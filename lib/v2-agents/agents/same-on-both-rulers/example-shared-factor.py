@@ -1,5 +1,5 @@
-# Same on Both Rulers · Example: the biggest number dividing both the palindrome's digit sum and the gradient's whole part
-# Main part: the unchanged number on as big a palindrome as possible. Tie-breaker: the biggest number dividing both the palindrome's digit sum and the gradient's whole part.
+# Same on Both Rulers · Example: the biggest number dividing both that number's digits added up and the gradient's whole part
+# Main part: where the line meets y = x, on as big a number reading the same backwards as possible. Tie-breaker: the biggest number dividing both that number's digits added up and the gradient's whole part.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
