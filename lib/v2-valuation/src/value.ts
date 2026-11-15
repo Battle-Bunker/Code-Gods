@@ -236,6 +236,8 @@ export interface TailFit {
 export interface TailMeasures {
   readonly primary?: "prime" | "ladder" | "ladder-log";
   readonly secondary?: "prime" | "ladder" | "ladder-log";
+  /** A "ladder-log" main part's base (q or k): its levels are the scores' powers of it. */
+  readonly base?: number;
 }
 
 export interface ValueTail {
@@ -243,7 +245,81 @@ export interface ValueTail {
   readonly secondary: TailFit;
   /** Along the primary utility. */
   readonly primary: TailFit;
+  /** A ladder's tie-breaker at each main level (TieBreakerLevels), where the main part is near-continuous and rarely ties. */
+  readonly levels?: TieBreakerLevels;
 }
+
+/**
+ * A ladder's tie-breaker, measured at each level of its main part (design-principles.md rows 2 and 3; the coordinator's
+ * order of 15 Nov on frozen tops). A ladder's main score is near-continuous (base^L × (1 + 1/(1 + d))), so two states
+ * almost never tie on it and the lexicographic knots give the tie-breaker almost nothing: past the best knot it was
+ * worth 0, a flat top. Measured instead given the level: per level L, points [t, bits] of −log₂ P(tie-breaker ≥ t |
+ * level L) under the law, ascending in t, and past the last point the rate `slope` in bits per doubling of the climb
+ * beyond it. A level with too few draws carries the curve of the highest measured level below it (or the lowest above).
+ */
+export interface TieBreakerLevels {
+  readonly base: number;
+  readonly curves: readonly { readonly level: number; readonly pts: readonly (readonly [number, number])[]; readonly slope: number }[];
+}
+
+/** A ladder score's level: L with base^L ≤ v < base^(L+1) (the ladders score base^L × (1, 2]). */
+export const ladderLevel = (v: number, base: number): number => Math.floor(Math.log(v) / Math.log(base) + 1e-9);
+
+/** The bits a tie-breaker value t is worth at main level L under `lv` (0 at or below the level's commonest values). */
+export function tieBreakerBits(lv: TieBreakerLevels, level: number, t: number): number {
+  const cs = lv.curves;
+  if (!cs.length || !Number.isFinite(t)) return 0;
+  const c = [...cs].reverse().find(x => x.level <= level) ?? cs[0]!;
+  const pts = c.pts;
+  if (t <= pts[0]![0]) return 0;
+  for (let i = 1; i < pts.length; i++) {
+    const [t1, b1] = pts[i]!;
+    if (t <= t1) { const [t0, b0] = pts[i - 1]!; return b0 + ((t - t0) / (t1 - t0)) * (b1 - b0); }
+  }
+  const [tl, bl] = pts[pts.length - 1]!;
+  return bl + c.slope * Math.log2(1 + (t - tl));
+}
+
+/**
+ * The per-level tie-breaker curves from weighted draws of the law (TieBreakerLevels): for each level with at least
+ * `minDraws` draws, the survival of the tie-breaker among them, thinned to rises of a quarter bit, kept while at least
+ * `minDraws` draws lie at or above the point (the rest is noise), and the rate past it fitted on log₂(1 + t − t₀) over the
+ * kept points (at least TAIL_FLOOR: a tie-breaker past its measured range still pays like a number's size).
+ */
+export function tieBreakerLevels(draws: readonly { u: Score; w: number }[], base: number, minDraws = 40): TieBreakerLevels {
+  const by = new Map<number, { t: number; w: number }[]>();
+  for (const d of draws) {
+    const u = d.u;
+    if (!u || !u[0] || !u[1]) continue;
+    const v = toNumber(u[0]), t = toNumber(u[1]);
+    if (!(v > 0) || !Number.isFinite(t)) continue;
+    const L = ladderLevel(v, base);
+    (by.get(L) ?? by.set(L, []).get(L)!).push({ t, w: d.w });
+  }
+  const curves: TieBreakerLevels["curves"][number][] = [];
+  for (const L of [...by.keys()].sort((a, b) => a - b)) {
+    const xs = by.get(L)!;
+    if (xs.length < minDraws) continue;
+    xs.sort((a, b) => b.t - a.t);   // best first: the survival "at least t" accumulates from the top
+    const W = xs.reduce((a, x) => a + x.w, 0);
+    const surv: [number, number][] = [];
+    let acc = 0;
+    for (let i = 0; i < xs.length; i++) {
+      acc += xs[i]!.w;
+      if (i + 1 < xs.length && xs[i + 1]!.t === xs[i]!.t) continue;
+      if (i + 1 >= minDraws) surv.push([xs[i]!.t, Math.max(0, -Math.log2(acc / W))]);
+    }
+    surv.reverse();   // ascending in t
+    const pts: [number, number][] = [];
+    for (const p of surv) if (!pts.length || p[1] >= pts[pts.length - 1]![1] + 0.25) pts.push([round6(p[0]), round6(p[1])]);
+    if (!pts.length) continue;
+    const t0 = pts[0]![0];
+    const fit = pts.length >= 3 ? leastSquares(pts.map(([t, b]) => ({ x: Math.log2(1 + t - t0), y: b }))) : null;
+    curves.push({ level: L, pts, slope: round6(Math.max(fit?.slope ?? 0, TAIL_FLOOR)) });
+  }
+  return { base, curves };
+}
+const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
 export interface ValueFunction {
   /** 7: value functions (owner decision 23) whose tails have a form and never saturate (owner decision 26). */
@@ -386,20 +462,24 @@ export const TAIL_CEILING = STEP;
  * floor, or not at all (too few knots, noise), takes the floor: a ramp of TAIL_FLOOR bits per doubling, or for a
  * distance a line on which closing the rest of the gap to 0 is worth TAIL_FLOOR bits. The ceiling wins over the floor.
  */
-function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime" | "ladder" | "ladder-log", sizeRate?: number): TailFit {
+function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime" | "ladder" | "ladder-log", sizeRate?: number, base?: number): TailFit {
   const best = pts[pts.length - 1];
   if (measure === "ladder-log" && best && best.u.n > 0n) {
     // A ladder whose score grows like q^L with its level L (the two-line ladders, lib/v2-pair families.ts): the ladder
     // tail of trial 28 along the level, log₂ of the score, at the rate measured over all its rungs, unclamped (no flat
     // tail). A straight line in the score itself would grow exponentially in the level. Capped by its witnesses' φ.
-    // The rate between levels, not within one: the least bits in each doubling band of the score (a level's floor),
-    // fitted across the bands. Within a level the bits climb steeply as a state nears the next rung (a fit over every
-    // knot gave Forty-Five 18.7 bits a doubling); one band alone: 1 bit a doubling, the law's price of a number's size.
+    // The rate between rungs, not into the first one: the least bits at each level L ≥ 1 (the score at least base^L),
+    // fitted across the levels. Reaching level 1 pays the rule's exactness (an angle, a grid point) once; each level
+    // after it pays only its own rarity. Fitted from level 0 to 1 the rate made level 2 worth its cap, not its rarity
+    // (a slide took Right Angle from 10.9 to 23.4 bits for 30⚡, two-line-systems.md §12). Fewer than two rung levels
+    // sampled: 1 bit a doubling, the law's price of a number's size.
     const floors = new Map<number, { x: number; y: number }>();
     for (const p of pts) {
       if (p.u.n <= 0n) continue;
-      const x = log2OnePlus(p.u), band = Math.floor(x), f = floors.get(band);
-      if (!f || p.y < f.y) floors.set(band, { x, y: p.y });
+      const v = toNumber(p.u), level = base && base > 1 ? ladderLevel(v, base) : Math.floor(log2OnePlus(p.u));
+      if (base && level < 1) continue;
+      const x = log2OnePlus(p.u), f = floors.get(level);
+      if (!f || p.y < f.y) floors.set(level, { x, y: p.y });
     }
     const ramp = floors.size >= 2 ? leastSquares([...floors.values()]) : null;
     return { form: "log", slope: Math.max(ramp?.slope ?? 1, TAIL_FLOOR), measure };
@@ -468,7 +548,7 @@ function tailOf0(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling: numbe
   for (const k of parsed) if (!firsts.length || compareScores([firsts[firsts.length - 1]!.u], [k.u![0]!]) !== 0) firsts.push({ u: k.u![0]!, y: k.bits });
   return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary, sizeRate),
     // A ladder's rate is measured over all its rungs (the top few alone are noisy where the samples run out).
-    primary: fitTail(measures.primary === "ladder" || measures.primary === "ladder-log" ? firsts : firsts.slice(-6), ceiling, measures.primary, sizeRate) };
+    primary: fitTail(measures.primary === "ladder" || measures.primary === "ladder-log" ? firsts : firsts.slice(-6), ceiling, measures.primary, sizeRate, measures.base) };
 }
 
 /**
@@ -546,8 +626,15 @@ export function valueLookup(vf: { readonly knots: readonly Pick<ValueKnot, "u" |
     let bits = k.bits;
     const s = k.s;
     if (s !== null && u[0] && s[0]) {
-      const t = compareScores([u[0]], [s[0]]) === 0 ? (u[1] && s[1] ? { fit: tail.secondary, from: s[1], to: u[1] } : null) : { fit: tail.primary, from: s[0], to: u[0] };
+      const same = compareScores([u[0]], [s[0]]) === 0;
+      const t = same ? (u[1] && s[1] ? { fit: tail.secondary, from: s[1], to: u[1] } : null) : { fit: tail.primary, from: s[0], to: u[0] };
       if (t) bits += t.fit.slope * (along(t.fit.form, t.to) - along(t.fit.form, t.from));
+      // A ladder's tie-breaker past the best main part: worth its rarity given the level reached (TieBreakerLevels), so
+      // the top still gives work and a step up the ladder starts the tie-breaker's climb again at the new level.
+      if (!same && tail.levels && u[1]) {
+        const v = toNumber(u[0]);
+        if (v > 0) bits += tieBreakerBits(tail.levels, ladderLevel(v, tail.levels.base), toNumber(u[1]));
+      }
       // A ladder's cap: never more than the code length of a cheap state at this rung or above (TailFit.caps), whether
       // the tail runs along the main part or along the tie-breaker at the best knot's rung.
       if (tail.primary.caps) {

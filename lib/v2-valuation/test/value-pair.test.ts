@@ -45,3 +45,26 @@ test("a pair's size tail never outruns the law: High Start at an intercept of 52
     assert.ok(bits <= pairType.readLength(s, pairQ), `${file}: ${bits} bits against φ ${pairType.readLength(s, pairQ)}`);
   }
 });
+
+test("one far act climbs a pair ladder by about one rung's rarity, not to the cap (two-line-systems.md §12)", async () => {
+  // Found by the straight-climb check (15 Nov): with the ladder-log rate fitted from level 0 → 1 (which carries the
+  // exactness cost), a slide by 5 took Right Angle from 10.9 to 23.4 bits and a translate took Gap Ratio from 11.0 to
+  // 22.4, each for about 30–36 energy. The rate is now fitted across the rungs, so a step up is worth about log₂ of the base.
+  const { readdirSync, readFileSync } = await import("node:fs");
+  const { rightAngle, doubleGap } = await import("@workspace/v2-pair");
+  const cases = [
+    { fam: rightAngle, dir: "right-angle", params: { q: 5, r: 1 }, base: 5, from: "-2,3,-2;3,2,29", to: "-2,3,-2;3,2,-36" },
+    { fam: doubleGap, dir: "double-gap", params: { k: 3 }, base: 3, from: "-3,1,-1;1,1,1", to: "-3,1,14;1,1,-4" },
+  ];
+  for (const c of cases) {
+    const dir = new URL(`../values/pair-q/${c.dir}/`, import.meta.url);
+    const files = readdirSync(dir).filter(x => x.endsWith(".json")).map(f => JSON.parse(readFileSync(new URL(f, dir), "utf8")))
+      .filter(vf => JSON.stringify(vf.params) === JSON.stringify(c.params));
+    assert.ok(files.length > 0, c.dir);
+    for (const vf of files) {
+      const b = (enc: string) => valueLookup(vf)(evaluateObject(pairType, c.fam, vf.params, pairType.decode(enc), pairQ, vf.tieBreaker).score).bits;
+      const gain = b(c.to) - b(c.from);
+      assert.ok(gain <= Math.log2(c.base) + 1, `${c.dir} ${vf.tieBreaker}: +${gain.toFixed(1)} bits for one act`);
+    }
+  }
+});

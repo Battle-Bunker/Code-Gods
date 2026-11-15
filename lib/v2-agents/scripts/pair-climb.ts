@@ -71,6 +71,7 @@ for (const rule of rules) {
         if (g > 0 && (!pick || g > pick.g)) pick = { ...x, g };
       }
       if (!pick) { ends = broke ? "income" : "frozen"; break; }
+      if (process.env.TRACE) console.error(`  ${key} ${pick.call}: ${b0.toFixed(1)} → ${bits(pick.s).toFixed(1)} bits for ${pick.fee.toFixed(1)}⚡; ${pairType.encode(s)} (φ ${pairType.readLength(s, pairQ).toFixed(1)}) → ${pairType.encode(pick.s)} (φ ${pairType.readLength(pick.s, pairQ).toFixed(1)})`);
       s = pick.s; spent += pick.fee; visited.add(pairType.encode(s)); trace.push(bits(s)); moves.push(pick.call);
     }
     // The longest run of steps whose rise is within 25% of the run's first rise (and above 0.5 bits): a straight climb.
