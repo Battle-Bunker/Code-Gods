@@ -53,6 +53,7 @@ function agent(offer) {
   // The next level up (the ladder has no top): one more of the dealt primes multiplied in, by a shift.
   if (Q.isInteger(c) && !Q.isZero(c)) for (const pr of p.primes) tries.push([move("si.shift", { k: Q.mul(c, pr - 1) }), m, Q.mul(c, pr)]);
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
+  tries.push(...shortcuts(m, c, rule.mutators));   // other views the game offers: mirrors, a slide, turns, one intercept moved
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p, tie)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));

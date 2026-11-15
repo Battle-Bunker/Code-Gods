@@ -22,7 +22,8 @@ const mc = (m: number | Q, c: number | Q): LineState => ({ lines: [fromMC(typeof
 
 interface Story { title: string; rule: RuleRef<LineState, unknown>; line: LineState; number: number; others: LineState[] }
 const rule = (family: RuleRef<LineState, unknown>["family"], tieBreaker: string): RuleRef<LineState, unknown> =>
-  ({ type: lineType, family, params: family.dealable(lineZ)[0], variant: lineZ, tieBreaker });
+  // The named tie-breaker, else the family's first: rule renames must not blank the gallery (rounds 26 and 29).
+  ({ type: lineType, family, params: family.dealable(lineZ)[0], variant: lineZ, tieBreaker: family.tieBreakers.some(t => t.id === tieBreaker) ? tieBreaker : family.tieBreakers[0]!.id });
 const STORIES: Record<string, Story> = {
   "prime-landing": { title: "Prime Landing", rule: rule(primeLanding, "shared-factor"), line: mc(6, 25), number: 7, others: [mc(6, 23), mc(4, 30)] },
   "square-area": { title: "Square Area", rule: rule(squareArea, "spf"), line: mc(-1, 7), number: 3, others: [mc(-2, 10), mc(2, 30)] },

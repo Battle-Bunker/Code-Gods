@@ -192,7 +192,8 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   // number means little on its own, so the family's own words for the term are said instead ("on 75: 3 of the dealt
   // primes multiplied, level 2"). Off the ladder the distance (below 0) says it plainly.
   const valueText = isUndef(value) ? value.undefined : rule.family.keepsParams && role === "main" && term.label && Qn.sign(value) > 0 ? typesetNote(term.label) : readable(value);
-  const title = withParams(layer.title, rule.params);
+  // "dealt" is our word for a rule's parameters, not a player's (round 29: "as big a dealt prime as possible").
+  const title = withParams(layer.title, rule.params).replace(/\bdealt /g, "");
   const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^Tie-breaker: /, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
 
@@ -236,6 +237,24 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     } else {
       distance = Qn.isZero(value) ? "exactly" : `off by ${readable(value)}`;
     }
+  } else if (!isUndef(value) && rule.family.keepsParams && role === "main" && Qn.sign(value) <= 0 && src) {
+    // A ladder's main part off every rung (round 29: "…as big a dealt prime as possible: −½"): the reading and, when the
+    // rungs are numbers of a kind, how far it is from the nearest one, in the player's words; never the bare score.
+    const at = N(src);
+    if (/prime/.test(kind)) {
+      // The rule's own side (a mirrored rule's rungs are negative), never the reading's sign.
+      const filter = refFilter(rule.params, (rule.params as { side?: number } | null)?.side === -1 ? -1 : 1);
+      const ends = (rule.params as { ends?: unknown } | null)?.ends;
+      const near = (w: number) => neighbours("prime", at - w, at + w, { ...(typeof ends === "number" ? { ends } : {}), sign: filter.sign });
+      let found: number[] = [];
+      for (let w = 20; !found.length && w <= 20000; w *= 4) found = near(w);
+      const rung = found.sort((x, y) => Math.abs(x - at) - Math.abs(y - at))[0];
+      if (rung !== undefined) {
+        const d = at - rung;
+        distance = `${readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${readableN(rung)}, a prime${typeof ends === "number" ? ` ending in ${ends}` : ""}`;
+      }
+    }
+    distance ??= "not on a rung yet";
   } else if (!isUndef(value)) {
     const v = N(value);
     const near = neighbours(/prime/.test(kind) ? "prime" : "whole", Math.max(0, v - 8), v + 14).filter(x => x !== v);

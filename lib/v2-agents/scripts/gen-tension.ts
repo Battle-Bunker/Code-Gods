@@ -47,6 +47,7 @@ interface Results {
   opportunityFractions?: number[];
   opportunity?: Record<string, string[]>;
   exclusion?: string[];
+  exclusionCounts?: [number, number][][];
 }
 const res = JSON.parse(readFileSync(o.json!, "utf8")) as Results;
 if (!res.repeats || !res.opportunity) throw new Error(`${o.json} has no per-direction repeats or opportunity costs: rerun scripts/tension.ts with --json`);
@@ -303,23 +304,28 @@ const localNamed = Object.fromEntries(families.map(A => {
  * OPPONENT_SHARE. The two kinds are kept apart (contest along a climb, exclusion on one object); a family is named
  * when either holds.
  */
-if (!res.exclusion) throw new Error(`${o.json} has no exclusion measure: rerun scripts/tension.ts with --json`);
-const exShares: Record<string, Record<string, number>> = {};
+if (!res.exclusion || !res.exclusionCounts) throw new Error(`${o.json} has no exclusion measure: rerun scripts/tension.ts with --json`);
+/**
+ * A family share pools the states behind it (the coordinator: report the count, so that 1.00 means near-certain): over
+ * every measured pair of A's and B's rules (one with at least the minimum of free-rise states), the states where B is
+ * held at its floor over the states where it rises freely. exCounts[A][B] is that number of states.
+ */
+const exShares: Record<string, Record<string, number>> = {}, exCounts: Record<string, Record<string, number>> = {};
 for (const A of families) {
-  exShares[A] = {};
+  exShares[A] = {}; exCounts[A] = {};
   for (const B of families) {
     if (B === A) continue;
     let n = 0, k = 0;
     for (let a = 0; a < NR; a++) if (fam(rules[a]!) === A) for (let b = 0; b < NR; b++) if (fam(rules[b]!) === B) {
-      const ch = res.exclusion[a]![b]!;
-      if (ch === "1" || ch === "0") { n++; if (ch === "1") k++; }
+      const ch = res.exclusion[a]![b]!, [free, held] = res.exclusionCounts[a]![b]!;
+      if (ch === "1" || ch === "0") { n += free; k += held; }
     }
-    if (n) exShares[A]![B] = round(k / n);
+    if (n) { exShares[A]![B] = round(k / n); exCounts[A]![B] = n; }
   }
 }
 say();
 say(`Exclusion (share of measured rule pairs where B stays at its floor on A's high ground; named at ≥ ${OPPONENT_SHARE}):`);
-for (const A of families) say(`  ${A}: ${Object.entries(exShares[A]!).sort((x, y) => y[1] - x[1]).map(([B, s]) => `${B} ${s.toFixed(2)}`).join(", ") || "not measured"}`);
+for (const A of families) say(`  ${A}: ${Object.entries(exShares[A]!).sort((x, y) => y[1] - x[1]).map(([B, s]) => `${B} ${s.toFixed(2)} (${exCounts[A]![B]})`).join(", ") || "not measured"}`);
 const excluding = Object.fromEntries(families.map(A => [A, Object.entries(exShares[A]!).filter(([, s]) => s >= OPPONENT_SHARE).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).map(([B]) => B)]));
 const named = Object.fromEntries(families.map(A => [A, [...new Set([...localNamed[A]!, ...excluding[A]!])]]));
 say();
@@ -350,6 +356,9 @@ export const LINE_CONTEST_OPPONENTS: Readonly<Record<string, readonly string[]>>
  * within 1 bit of its floor on A's sampled high states (A ≥ 8 bits). Two such rules cannot both be high on one object.
  */
 export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<string, number>>>> = ${JSON.stringify(exShares, null, 2)};
+
+/** The number of states behind each LINE_EXCLUSION_SHARES entry (pooled over the families' measured rule pairs). */
+export const LINE_EXCLUSION_COUNTS: Readonly<Record<string, Readonly<Record<string, number>>>> = ${JSON.stringify(exCounts, null, 2)};
 
 /** Named opponents: by contest along a climb (LINE_CONTEST_OPPONENTS) or by exclusion (share ≥ ${OPPONENT_SHARE}), contest first. */
 export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(named, null, 2)};
