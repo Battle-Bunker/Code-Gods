@@ -115,7 +115,7 @@ const landingShape: Shape<Ends> = {
     p => `Where the line crosses the x-axis should round to ${minus(p)}a prime ending in ${p.ends}. Bigger primes are better, though each extra digit counts for less.`),
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the y-intercept's whole part",
-      "Take the number just before that prime. The biggest number that divides both it and the y-intercept's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
+      "That prime minus 1 and the y-intercept's whole part should share as big a factor as possible.", "si"),
   ],
 };
 /** A rung's place on Prime Landing's ladder: levels of digits (numbers.ts digitLevel). */
@@ -170,10 +170,10 @@ const CROSSINGS: QR[] = [1, 2, 3, 4].map(r => ({ q: 5, r }));
 const leaves = (p: QR) => `a whole number that leaves ${p.r} when divided by ${p.q}`;
 const crossingShape: Shape<QR> = {
   main: { ...more<QR>("ladder", "the x-axis crossing on a ladder of 5s", "", "crossing"),
-    sentence: p => `Cross the x-axis on a whole number leaving ${p.r} when divided by 5, times 5 as often as possible. More 5s are better, though each extra counts less.` },
+    sentence: p => `Cross the x-axis on a whole number leaving ${p.r} once its 5s are divided out (like ${p.r + 5}, ${5 * (p.r + 5)} or ${25 * (p.r + 5)}), with as many 5s as possible. Each extra counts less.` },
   tieBreakers: [
     more("shared-factor", "the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part",
-      "Take that number with its 5s divided out, ignore its sign and add 1. The biggest number that divides both it and the gradient's whole part (ignoring sign) should be as big as possible (a whole part of 0 shares nothing).", "si"),
+      "The crossing without its 5s, plus 1, and the gradient's whole part should share as big a factor as possible.", "si"),
   ],
 };
 export const wholeCrossing = ladder(family<QR>("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, CROSSINGS, (ctx, p) => {
@@ -212,7 +212,7 @@ const ladderShape: Shape<object> = {
   main: more("ladder", "a run of y-values each divisible by its position: y(1) by 1, y(2) by 2, …", "y(1), y(2), y(3), … should be multiples of 1, 2, 3, … for as long as possible, not through (0, 0). Longer is better, though each extra counts less.", "table"),
   tieBreakers: [
     more("next-rung", "the factor y(n) shares with n where the run stops",
-      "Where the run stops, at n, the biggest number dividing both n and y(n) should be as big as possible (0 if y(n) is not whole).", "table"),
+      "Where the run stops, at n, y(n) and n should share as big a factor as possible.", "table"),
   ],
 };
 export const divisibilityLadder = ladder(family("divisibility-ladder", "Divisibility Ladder", ["table", "si"], ladderShape, [{}], ctx => {

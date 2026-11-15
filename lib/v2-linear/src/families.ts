@@ -51,7 +51,7 @@ const pg = {
     sentence: (p: Ends) => `The gradient should round to ${p.side === -1 ? "minus " : ""}a prime ending in ${p.ends}. Bigger primes are better, though each extra digit counts for less.` } as L<Ends>,
   tieBreakers: [
     { id: "shared-factor", title: "the biggest number dividing both that prime plus 1 and the y-intercept's whole part", rep: "si", sense: "max",
-      sentence: () => "Tie-breaker: take the number just after that prime. The biggest number that divides both it and the y-intercept's whole part (ignoring sign) should be as big as possible (a whole part of 0 shares nothing)." },
+      sentence: () => "Tie-breaker: that prime plus 1 and the y-intercept's whole part should share as big a factor as possible." },
   ] as L<Ends>[],
 };
 export const primeGradient: RuleFamily<LineState, Ends> = {
