@@ -15,7 +15,7 @@ import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
 import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
-import { noiseAt } from "./disclose";
+import { agentNoiseAt } from "./disclose";
 import { valueFnIn } from "./values";
 
 type Snapshot = {
@@ -61,7 +61,9 @@ export const tick = internalAction({
       const holder = new Map(snap.held.map(h => [h.state, h.objectId]));
       born.forEach((draws, i) => { const w = draws.find(d => !holder.has(d)); if (w !== undefined) holder.set(w, `born:${i}`); });
       // Disclosure noise on the others' sums (disclose.ts): the host's othersAfter reports what a player is shown.
-      const disclosed = (e: string) => noiseAt({ noiseKey: snap.noiseKey ?? undefined, settings: snap.settings }, e);
+      // B1: each player's agents see a draw of their own (disclose.ts agentNoiseAt), not the shown one.
+      const noise = { noiseKey: snap.noiseKey ?? undefined, settings: snap.settings };
+      const disclosedFor = (memberId: string) => (e: string) => agentNoiseAt(noise, memberId, e);
       const nOffers = snap.objects > 0 ? opportunities(econ.opportunitiesPerSecond, dt, r) : 0;
       const picks = Array.from({ length: nOffers }, () => 1 + r.below(snap.objects));
       const states = new Map((await ctx.runQuery(STATES, { gameId, numbers: picks })).map(s => [s.number, s]));
@@ -113,7 +115,7 @@ export const tick = internalAction({
           ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
           // Any held state, the object's own included: v1's uniqueness, "a transformation onto any existing value
           // (including the object's own) fails entirely".
-          occupied: e => holder.has(e), disclosed,
+          occupied: e => holder.has(e), disclosed: disclosedFor(agent.memberId),
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.

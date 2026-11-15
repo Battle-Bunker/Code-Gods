@@ -46,7 +46,19 @@ export function noiseAt(game: Pick<NoiseGame, "noiseKey" | "settings">, state: s
   return sigma * Math.sqrt(-2 * Math.log(uniform48(d, 0))) * Math.cos(2 * Math.PI * uniform48(d, 6));
 }
 
-/** The others' sum and the points as a player is shown them at a state's noise. */
+/**
+ * The noise a player's AGENTS see at a state (the coordinator's call B1, after playtest round 10): a draw of its own per
+ * player, keyed apart from the shown one. Agents climb by comparing candidates' noisy sums, so on the shown draw they
+ * walk into its peaks, and every figure shown on the states they choose reads high (measured +12.8 bits at σ 8), and
+ * with one draw shared by all, every player's agents chase the same peaks. On a draw of its own a player's selection
+ * says nothing of the shown draw, which stays centred where agents go. Deterministic per (game, player, state), so
+ * repeats cannot average it away.
+ */
+export function agentNoiseAt(game: Pick<NoiseGame, "noiseKey" | "settings">, memberId: string, state: string): number {
+  return game.noiseKey ? noiseAt({ noiseKey: `${game.noiseKey}:agents:${memberId}`, settings: game.settings }, state) : 0;
+}
+
+/** The others' sum and the points as a player is shown them at a state's noise (points floored at 0, as v1's payoff). */
 export function shownAt(v: { rarityBits: number; want: number }, noise: number): { shownWant: number; shownPoints: number } {
   const shownWant = v.want + noise;
   return { shownWant, shownPoints: v.rarityBits * Math.max(0, shownWant) };
