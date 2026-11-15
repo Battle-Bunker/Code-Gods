@@ -480,6 +480,16 @@ export const noiseOffsets = internalQuery({
   },
 });
 
+/** shown − exact others' sum on the states agents moved to (each move's after-snapshot on its mover's row). */
+export const moveNoiseOffsets = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    const rows = (await movesOfGame(ctx, gameId)).filter(m => m.mine && m.after.shownWant !== undefined);
+    return rows.map(m => m.after.shownWant! - m.after.want);
+  },
+});
+
 /** Ends a seeded game as the loop would leave it (phase only). */
 export const markEnded = internalMutation({
   args: { gameId: v.id("v2Games") },
