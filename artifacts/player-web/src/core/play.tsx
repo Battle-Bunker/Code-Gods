@@ -7,6 +7,7 @@
  * game's URL) is shown in replay: the replay bar takes the clock's place, the dock takes the replay's arrangement, and
  * every pane answers from the replay at the playhead (src/replay/controller.tsx).
  */
+import { DriftToast } from "@/panes/drift";
 import { fixedLength } from "./timer-text";
 import { summonFirst } from "@/panes/first-summon";
 import { memo, useEffect, useMemo, useRef, type ReactNode } from "react";
@@ -121,6 +122,7 @@ function GameBody({ header, owner }: { header: Header; owner: boolean }) {
       {replaying ? <ReplayBar /> : <GameTimer header={header} />}
       {!replaying && <ErrorBoundary FallbackComponent={BarError}><PlanningBar header={header} owner={owner} /></ErrorBoundary>}
       <GameDock phase={replaying ? "replay" : header.phase} />
+      {!replaying && <DriftToast />}
     </ReplayProvider>
   );
 }
