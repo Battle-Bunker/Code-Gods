@@ -226,7 +226,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0,
     "whole-crossing": 0,
     "divisibility-ladder": 0,
-    "treasure": 0.313,
+    "treasure": 0,
     "same-on-both-rulers": 0.25,
     "prime-gradient": 0,
     "prime-staircase": 0.5,
@@ -238,7 +238,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "smooth-intercept": 0.625,
     "whole-crossing": 0,
     "divisibility-ladder": 0,
-    "treasure": 0.5,
+    "treasure": 0,
     "same-on-both-rulers": 0.5,
     "prime-gradient": 0.375,
     "prime-staircase": 0.125,
@@ -250,7 +250,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "smooth-intercept": 0.25,
     "square-area": 0.75,
     "divisibility-ladder": 0.25,
-    "treasure": 0.25,
+    "treasure": 0.125,
     "same-on-both-rulers": 0.375,
     "prime-gradient": 0,
     "prime-staircase": 0,
@@ -259,16 +259,16 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
   },
   "divisibility-ladder": {},
   "treasure": {
-    "prime-landing": 0.55,
-    "smooth-intercept": 0.088,
+    "prime-landing": 1,
+    "smooth-intercept": 0.75,
     "square-area": 1,
-    "whole-crossing": 0.2,
+    "whole-crossing": 0.75,
     "divisibility-ladder": 0,
-    "same-on-both-rulers": 0.429,
-    "prime-gradient": 0.45,
-    "prime-staircase": 0.05,
-    "ruler": 0.35,
-    "pythagorean-area": 0.25
+    "same-on-both-rulers": 0.5,
+    "prime-gradient": 0.5,
+    "prime-staircase": 0.25,
+    "ruler": 1,
+    "pythagorean-area": 0
   },
   "same-on-both-rulers": {
     "prime-landing": 0.333,
@@ -276,7 +276,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 1,
     "whole-crossing": 0.313,
     "divisibility-ladder": 0,
-    "treasure": 0.667,
+    "treasure": 0.625,
     "prime-gradient": 0.667,
     "prime-staircase": 0.167,
     "ruler": 0.667,
@@ -288,7 +288,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0.25,
     "whole-crossing": 0,
     "divisibility-ladder": 0,
-    "treasure": 0.25,
+    "treasure": 0.5,
     "same-on-both-rulers": 0,
     "prime-staircase": 0,
     "ruler": 0,
@@ -300,7 +300,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
     "square-area": 0.875,
     "whole-crossing": 0,
     "divisibility-ladder": 0.25,
-    "treasure": 0.25,
+    "treasure": 0.094,
     "same-on-both-rulers": 0.125,
     "prime-gradient": 0.188,
     "ruler": 0.125,
@@ -336,6 +336,7 @@ export const LINE_EXCLUSION_SHARES: Readonly<Record<string, Readonly<Record<stri
 export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
   "prime-landing": [
     "ruler",
+    "treasure",
     "whole-crossing",
     "same-on-both-rulers",
     "pythagorean-area",
@@ -343,35 +344,39 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
   ],
   "smooth-intercept": [
     "square-area",
+    "treasure",
     "prime-landing",
-    "prime-staircase",
-    "pythagorean-area"
+    "pythagorean-area",
+    "prime-staircase"
   ],
   "square-area": [
     "same-on-both-rulers",
+    "treasure",
     "pythagorean-area",
     "prime-landing",
-    "treasure",
     "ruler",
     "smooth-intercept"
   ],
   "whole-crossing": [
+    "treasure",
     "prime-landing",
     "same-on-both-rulers",
-    "treasure",
     "pythagorean-area",
     "square-area"
   ],
   "divisibility-ladder": [],
   "treasure": [
     "same-on-both-rulers",
-    "ruler",
     "prime-landing",
-    "square-area"
+    "ruler",
+    "square-area",
+    "smooth-intercept",
+    "whole-crossing",
+    "prime-gradient"
   ],
   "same-on-both-rulers": [
-    "prime-landing",
     "treasure",
+    "prime-landing",
     "whole-crossing",
     "prime-staircase",
     "pythagorean-area",
@@ -381,14 +386,14 @@ export const LINE_OPPONENTS: Readonly<Record<string, readonly string[]>> = {
     "smooth-intercept"
   ],
   "prime-gradient": [
+    "treasure",
     "prime-landing",
-    "ruler",
-    "treasure"
+    "ruler"
   ],
   "prime-staircase": [
+    "treasure",
     "divisibility-ladder",
     "square-area",
-    "ruler",
     "smooth-intercept"
   ],
   "ruler": [

@@ -58,7 +58,7 @@ const treasureShape: Shape<KT> = {
     sentence: p => `When x is ${p.k}, y should land on ${piles(p)}, the bigger the better; otherwise, the closer to a pile the better.` },
   tieBreakers: [
     more<KT>("shared-factor", "the biggest number dividing both the pile's height and the gradient's whole part",
-      "Tie-breaker: the pile is n coins high. The biggest number dividing both n and the gradient's whole part (ignoring sign) should be as big as possible.", "si"),
+      "The pile is n coins high: n and the gradient's whole part should share the biggest factor possible.", "si"),
   ],
 };
 export const treasure = ladder(family<KT>("treasure", "Treasure", ["table", "si", "cart"], treasureShape, TREASURES, (ctx, p) => {
