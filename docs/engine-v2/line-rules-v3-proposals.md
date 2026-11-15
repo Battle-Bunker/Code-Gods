@@ -6,7 +6,8 @@ Status: proposals and measurements only. Nothing here changes the dealt rule poo
 - the first pass: `node --experimental-strip-types scripts/line-rules-v3.ts --part all` (about 25 minutes);
 - the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour);
 - adversaries, contests, unfreezing and the flatter law: `--part adversary`, `--moves mutators --part contest`,
-  `--pool rational --moves mutators --part unfreeze`, `--part flatlaw`, `--part pmi [--set channels]` (minutes each).
+  `--pool rational --moves mutators --part unfreeze`, `--part flatlaw`, `--part pmi [--set channels]` (minutes each);
+- parameterised families: `PAIRS=40 WIN=30 T=20 node --max-old-space-size=6000 --experimental-strip-types scripts/line-rules-v3.ts --part params` (about 15 minutes).
 
 It follows [landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here. Part A is the
 second round, done after the owner's questions about rational lines; Part B is the first round, merged earlier as #607,
@@ -69,6 +70,11 @@ late, against 4–8%). A flatter law at 0 and ±1 fixes the 27% vertical births 
 because almost every rule rewards "the line is simple" (a whole, smooth bottom number). Smooth Intercept and Smooth
 Crossing pay twice for the same power of 2 (8.5 bits). Rules that each read one coordinate of ax + by + c = 0 and one
 prime's exponent measure as near-perpendicular (0–1.5 bits).
+
+**Parameterised families (§A11, decisions 40, 41).** Lens × qualifier × second lens × base gives 8,250 rules. Random pairs
+are near-perpendicular (median PMI 0.8 bits). In the window |coefficients| ≤ 30, 39 of 40 random pairs have no line worth
+12 bits to both, while a single rule's 12-bit lines are common. A single rule still rarely reaches 20 in that window;
+the reach-based measurement is next.
 
 The audit of all 46 current tie-breakers against the "tied" rule is §A3: 6 are tied, 22 read the anchor alone, 18 are
 independent, and all 24 ramps are among the untied ones.
@@ -516,6 +522,63 @@ small as possible" tie-breakers I used, which all like small numbers.
    the anchor, for example "the factors of 2 in a, and then the factors of 2 in the gradient's bottom number". Any tie
    to another coordinate's or prime's structure costs some perpendicularity. The size of that trade has not been
    measured yet.
+
+
+## A11. Parameterised families (owner decisions 40, 41)
+
+The owner: "I want it to be hard work to find states that would give two players 20 energy each on the same object
+because their rules should naturally pull against each other (be roughly perpendicular)", and "all rules [should] have
+substantial degrees of freedom in configuration params … distance to nearest prime ending in k". So a rule is drawn from
+a product of named, typed parts:
+
+- **Lens** (a way to turn the line into a number), 11 values: the y-intercept; where the line crosses the x-axis; the
+  gradient; the height at x = t (t ∈ 2, 3, 5, 7); where the line reaches height h (h ∈ 1, 2, 5); the area of the triangle
+  with the axes.
+- **Qualifier** (a dealt property of whole numbers), 25 values:
+  - a prime ending in k (k ∈ 1, 3, 7, 9);
+  - a prime leaving r when divided by q (7 pairs);
+  - exactly k primes multiplied together (k ∈ 2, 3, 4);
+  - a square or a cube;
+  - a multiple of 9, 16, 25 or 49;
+  - a repdigit in base 3, 4 or 5;
+  - 5-smooth or 7-smooth.
+- **Primary:** "⟨lens⟩ should be as close as possible to ⟨qualifier⟩". Score: −|lens − n|, where n is the nearest
+  qualifying whole number.
+- **Tie-breaker (tied, an unbounded hill):** "that number and the whole number nearest ⟨second lens⟩ should end in as
+  many of the same digits as possible [in base B]", with B ∈ 10, 2, 3. Matching k digits has rarity about B^−k.
+- **11 × 25 × 10 × 3 = 8,250 distinct rules.** Example: "The height of the line at x = 7 should be as close as possible to
+  a prime ending in 7. Tie-breaker: that number and the whole number nearest the height of the line at x = 2 should end
+  in as many of the same digits as possible."
+
+**Measured over 40 random pairs** (random lenses, qualifiers, second lenses and bases; `--part params`, results in
+`scripts/line-params-results.md`). Joint counts are over the window |a|, |c| ≤ 30, 1 ≤ b ≤ 30.
+
+| Measure | 10th / median / 90th percentile |
+|---|---|
+| PMI of the upper sets at 4 bits | −1.3 / **0.8** / 2.5 |
+| PMI at 8 bits | 0.9 / 3.7 / 5.8, but 34 of 40 pairs are too rare to estimate, and the 6 that can be estimated are the overlapping ones |
+| Lines worth ≥ 12 bits to one rule | 0 / 14 / 122 |
+| Lines worth ≥ 12 bits to **both** | 0 / 0 / 0 (39 of 40 pairs have none) |
+| The best line for both (the larger of the two rules' minimum) | 4.6 / 7.1 / 11.3 bits (the best pair reached 12.8) |
+| Cheapest φ of a line ≥ 12 bits: to one / to both | 18.7 / 26.3 (median where found) |
+| Lines worth ≥ 20 bits to one rule | 0 / 0 / 1 |
+
+- **Random pairs are close to perpendicular**: a median PMI of 0.8 bits at depth 4, against 2–8.5 for my hand-made pools
+  (§A10).
+- **Joint high states are hard, as the owner wants.** In the window no random pair has a line worth 20 bits to both, and
+  only one in 40 has one worth 12 to both. A line worth 12 to one rule is found in most pairs.
+- **But a single unopposed rule rarely reaches 20 in this window** (median 0 lines). The owner said that should be
+  "fairly easy". The window is small next to a game's reach with shortcuts, so the next measurement is reach-based:
+  cheapest energy from a birth to 20 bits, alone and jointly. I have not measured it yet.
+- **Equal opportunity (v1's rule)**, as the best bits in the window per qualifier, median over lenses:
+  - primes with a residue or last digit: 11.5–14.9;
+  - repdigits: 10.1–12.1;
+  - exactly k primes, powers and multiples: 9.4–11.6;
+  - smooth numbers: 7.5–7.9.
+
+  Proposal: drop 5- and 7-smooth, or deal them with base 2 tie-breakers; and either equalise qualifier families by
+  calibrating dealt values within a family to ±1 bit, or deal one qualifier family per seat type. Lenses differ more
+  than qualifiers: the gradient and the area reach less, and heights at x = t and crossings reach more.
 
 
 ---

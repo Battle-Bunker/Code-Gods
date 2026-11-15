@@ -719,3 +719,94 @@ if (want("pmi")) {
     say(`\n|PMI| ≥ 2 at depth ${depth}: ${strong.join("; ") || "none"}\n`);
   }
 }
+
+// ---------------------------------------------------------------- parameterised families (owner decisions 40, 41)
+//
+// A rule = a lens (a way to turn the line into a number) × a qualifier (a dealt property of whole numbers) for the
+// primary, and a tied secondary: the qualifying whole number the primary snaps to, against the whole number nearest
+// another lens, compared by how many trailing digits (in a dealt base) they share. Every part carries named parameters.
+
+type Lens = { id: string; text: string; f: (d: D) => number };
+type Qual = { id: string; text: string; test: (n: number) => boolean };
+const isPrimeN = (n: number) => { n = Math.abs(n); return n >= 2 && spf(n) === n; };
+const LENSES: Lens[] = [
+  { id: "c", text: "the y-intercept", f: d => d.k },
+  { id: "X", text: "where the line crosses the x-axis", f: d => d.X },
+  { id: "m", text: "the gradient", f: d => d.m },
+  ...[2, 3, 5, 7].map(t => ({ id: `y@${t}`, text: `the height of the line at x = ${t}`, f: (d: D) => yAt(d, t) })),
+  ...[1, 2, 5].map(h => ({ id: `x@${h}`, text: `where the line reaches height ${h}`, f: (d: D) => (d.m === 0 ? NaN : (h - d.k) / d.m) })),
+  { id: "A", text: "the area of the triangle the line makes with the axes", f: d => d.A },
+];
+const QUALS: Qual[] = [
+  ...[1, 3, 7, 9].map(k => ({ id: `prime-ending-${k}`, text: `a prime ending in ${k}`, test: (n: number) => isPrimeN(n) && Math.abs(n) % 10 === k })),
+  ...([[4, 3], [5, 2], [7, 3], [8, 5], [9, 4], [11, 6], [12, 7]] as const).map(([q, r]) => ({ id: `prime-${r}-mod-${q}`, text: `a prime that leaves ${r} when divided by ${q}`, test: (n: number) => isPrimeN(n) && Math.abs(n) % q === r })),
+  ...[2, 3, 4].map(k => ({ id: `${k}-primes`, text: `a number made of exactly ${k} primes multiplied together (repeats count)`, test: (n: number) => Math.abs(n) >= 2 && bigOmega(n) === k })),
+  ...[2, 3].map(e => ({ id: `power-${e}`, text: e === 2 ? "a square number (not 0 or 1)" : "a cube number (not 0 or 1)", test: (n: number) => { const a = Math.abs(n); const r = Math.round(a ** (1 / e)); return a >= 2 && r ** e === a; } })),
+  ...([[3, 2], [7, 2], [5, 2], [2, 4]] as const).map(([p, e]) => ({ id: `multiple-of-${p ** e}`, text: `a multiple of ${p ** e} (not 0)`, test: (n: number) => n !== 0 && n % p ** e === 0 })),
+  ...[2, 3, 4].map(B => ({ id: `repdigit-base-${B + 1}`, text: `a number whose digits are all the same when written in base ${B + 1} (at least two digits)`, test: (n: number) => { let a = Math.abs(n); if (a < B + 1) return false; const d0 = a % (B + 1); while (a > 0) { if (a % (B + 1) !== d0) return false; a = Math.floor(a / (B + 1)); } return true; } })),
+  ...[5, 7].map(P => ({ id: `smooth-${P}`, text: `a number whose prime factors are all ${P} or less (not 0 or 1)`, test: (n: number) => { const a = Math.abs(n); return a >= 2 && factor(a).every(p => p <= P); } })),
+];
+const BASES = [10, 2, 3];
+function nearestQual(v: number, q: Qual, R = 3000): number {
+  if (!Number.isFinite(v)) return NaN;
+  const r0 = Math.round(v);
+  for (let k = 0; k <= R; k++) {
+    const lo = r0 - k, hi = r0 + k;
+    const a = q.test(lo), b = k > 0 && q.test(hi);
+    if (a && b) return Math.abs(v - lo) <= Math.abs(v - hi) ? lo : hi;
+    if (a) return lo; if (b) return hi;
+  }
+  return NaN;
+}
+const trailingMatch = (x: number, y: number, B: number) => { x = Math.abs(Math.round(x)); y = Math.abs(Math.round(y)); if (!Number.isFinite(x) || !Number.isFinite(y) || x === 0 || y === 0) return 0; let k = 0; while ((x > 0 || y > 0) && x % B === y % B && k < 60) { k++; x = Math.floor(x / B); y = Math.floor(y / B); if (x === 0 && y === 0) break; } return k; };
+type PRule = Rule & { lens: Lens; qual: Qual; lens2: Lens; base: number; card: string };
+function paramRule(lens: Lens, qual: Qual, lens2: Lens, base: number): PRule {
+  const anchor = (d: D) => nearestQual(lens.f(d), qual);
+  const P = (d: D) => { const v = lens.f(d), n = anchor(d); return Number.isFinite(n) ? -Math.abs(v - n) : W; };
+  const S = (d: D) => { const n = anchor(d), o = lens2.f(d); return Number.isFinite(n) && Number.isFinite(o) ? trailingMatch(n, o, base) : 0; };
+  const id = `${lens.id}|${qual.id}|${lens2.id}|b${base}`;
+  const card = `${lens.text[0]!.toUpperCase()}${lens.text.slice(1)} should be as close as possible to ${qual.text}. Tie-breaker: that number and the whole number nearest ${lens2.text} should end in as many of the same digits as possible${base === 10 ? "" : ` when written in base ${base}`}.`;
+  return { id, fam: lens.id, P, S, lens, qual, lens2, base, card };
+}
+const POOL_SIZE = LENSES.length * QUALS.length * (LENSES.length - 1) * BASES.length;
+
+if (want("params")) {
+  say(`\n## Parameterised families: ${LENSES.length} lenses × ${QUALS.length} qualifiers × ${LENSES.length - 1} second lenses × ${BASES.length} bases = ${POOL_SIZE} rules\n`);
+  const r = rng("params-pairs");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  const NP = Number(process.env.PAIRS ?? 40);
+  const pairs: [PRule, PRule][] = Array.from({ length: NP }, () => { const a = draw(); let b = draw(); while (b.lens.id === a.lens.id && b.qual.id === a.qual.id) b = draw(); return [a, b]; });
+  const win = windowLines(Number(process.env.WIN ?? 30));
+  const n = smp.ls.length; const w = Float64Array.from(smp.logw, x => 2 ** x);
+  const rows: { pmi4: number; pmi8: number; one: number; both: number; nOne: number; nBoth: number; phiOne: number; phiBoth: number; a: PRule; b: PRule }[] = [];
+  const T = Number(process.env.T ?? 20);
+  for (const [a, b] of pairs) {
+    const [va, vb] = valuers([a, b], smp);
+    const Ba = Float64Array.from(smp.ls, l => va!.bits(l)), Bb = Float64Array.from(smp.ls, l => vb!.bits(l));
+    const pmi = (dep: number) => { let ma = 0, mb = 0, mab = 0, cnt = 0; for (let i = 0; i < n; i++) { const ia = Ba[i]! >= dep, ib = Bb[i]! >= dep; if (ia) ma += w[i]!; if (ib) mb += w[i]!; if (ia && ib) { mab += w[i]!; cnt++; } } return cnt < 20 ? NaN : Math.log2(mab * smp.total / (ma * mb)); };
+    // In the window: lines worth ≥ T bits to one rule, to both; and the cheapest (least φ) of each kind.
+    let nOne = 0, nBoth = 0, phiOne = Infinity, phiBoth = Infinity, one = 0, both = 0;
+    for (const l of win) {
+      const x = va!.bits(l), y = vb!.bits(l); const ph = phiL(l);
+      if (x >= T || y >= T) { nOne++; if (ph < phiOne) phiOne = ph; }
+      if (x >= T && y >= T) { nBoth++; if (ph < phiBoth) phiBoth = ph; }
+      one = Math.max(one, x, y); both = Math.max(both, Math.min(x, y));
+    }
+    rows.push({ pmi4: pmi(4), pmi8: pmi(8), one, both, nOne, nBoth, phiOne, phiBoth, a, b });
+  }
+  say(`| pair | PMI d=4 | PMI d=8 | lines ≥ ${T} bits to one / to both (window) | cheapest φ: one / both | best min(bits) both |`); say("|---|---|---|---|---|---|");
+  for (const x of rows) say(`| ${x.a.id} × ${x.b.id} | ${f1(x.pmi4)} | ${f1(x.pmi8)} | ${x.nOne} / ${x.nBoth} | ${f1(x.phiOne)} / ${f1(x.phiBoth)} | ${f1(x.both)} |`);
+  const fin2 = (xs: number[]) => xs.filter(Number.isFinite).sort((p, q) => p - q);
+  const q = (xs: number[], p: number) => { const s = fin2(xs); return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))]! : NaN; };
+  say(`\nDistribution over ${rows.length} random pairs (10th / 50th / 90th percentile):`);
+  say(`- PMI at depth 4: ${f1(q(rows.map(x => x.pmi4), 0.1))} / ${f1(q(rows.map(x => x.pmi4), 0.5))} / ${f1(q(rows.map(x => x.pmi4), 0.9))}; at depth 8: ${f1(q(rows.map(x => x.pmi8), 0.1))} / ${f1(q(rows.map(x => x.pmi8), 0.5))} / ${f1(q(rows.map(x => x.pmi8), 0.9))} (${rows.filter(x => !Number.isFinite(x.pmi8)).length} pairs too rare to estimate at 8)`);
+  say(`- lines ≥ ${T} bits to one rule: ${q(rows.map(x => x.nOne), 0.1)} / ${q(rows.map(x => x.nOne), 0.5)} / ${q(rows.map(x => x.nOne), 0.9)}; to both: ${q(rows.map(x => x.nBoth), 0.1)} / ${q(rows.map(x => x.nBoth), 0.5)} / ${q(rows.map(x => x.nBoth), 0.9)}; pairs with none for both: ${rows.filter(x => x.nBoth === 0).length}`);
+  say(`- cheapest φ for one: ${f1(q(rows.map(x => x.phiOne), 0.5))}; for both: ${f1(q(rows.map(x => x.phiBoth), 0.5))} (median, where found)`);
+  // Equal opportunity: best bits in the window per qualifier, across lenses.
+  say(`\n### Equal opportunity: best bits in the window by qualifier (median over lenses, second lens c→X/base 10)\n`);
+  for (const qu of QUALS) {
+    const bests = LENSES.map(l => { const v = valuers([paramRule(l, qu, l.id === "c" ? LENSES[1]! : LENSES[0]!, 10)], smp)[0]!; return win.reduce((m2, li) => Math.max(m2, v.bits(li)), 0); });
+    say(`- ${qu.id}: median ${f1(median(bests))}, range ${f1(Math.min(...bests))}–${f1(Math.max(...bests))}`);
+  }
+  say(`\nExample cards: ${rows.slice(0, 4).map(x => `"${x.a.card}"`).join(" ")}`);
+}
