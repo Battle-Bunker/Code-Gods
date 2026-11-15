@@ -27,7 +27,7 @@ function FamilyRow({ family, title, card, top, mine, busy, onBid, onWithdraw }: 
   const valid = Number.isFinite(percent) && percent >= 1 && percent <= 100;
   return (
     <li className="space-y-2 px-4 py-3" data-testid={`bid-family-${family}`}>
-      <p className="font-medium">{title} <span className="text-xs font-normal text-muted-foreground">scores up to {bitsText(top)} ({chanceText(top)} by chance)</span></p>
+      <p className="font-medium">{title} <span className="text-xs font-normal text-muted-foreground">measured to {bitsText(top)} ({chanceText(top)} by chance), rarer scores worth more</span></p>
       <p className="text-sm text-muted-foreground">{card}</p>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {mine ? <span data-testid={`text-my-bid-${family}`}>Your bid: {mine}% off your final total.</span> : <span className="text-muted-foreground">No bid.</span>}

@@ -13,7 +13,7 @@ import { EngineHost, type RuleRef } from "../src/index.ts";
 const state = { lines: [fromMC(q(2), q(3))] };
 const mine: RuleRef = { family: "m-meets-c", params: {}, tieBreaker: "size" };
 // A flat value function: every score is worth 0 bits, so any two opponents' totals agree on every state.
-const flat = { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }], tail: { primary: 0, secondary: 0 } } as never;
+const flat = { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }], tail: { primary: { form: "log", slope: 1 }, secondary: { form: "log", slope: 1 } } } as never;
 const host = (opponent: RuleRef) => new EngineHost({ type: lineType, variant: lineZ, state, rule: mine, energy: 50, others: [{ rule: opponent, values: flat }] });
 
 const requests: HostRequest[] = [

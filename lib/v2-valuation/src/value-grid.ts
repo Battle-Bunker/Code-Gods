@@ -45,7 +45,7 @@ export function gridValueFunction<P>(type: ObjectType<GridState>, family: RuleFa
   }
   const { knots, candidates } = knotsFrom(oracles, cfg);
   const body = {
-    schema: 6 as const, kind: "value-function" as const,
+    schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(type as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: type.id, objectTypeVersion: type.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
     family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots),

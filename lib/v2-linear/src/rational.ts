@@ -15,7 +15,7 @@
  */
 import { Qn, q, ref, type ElementRef, type Q, type Variant } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
-import { allUndefined, distance, family, gap, more, num, undef, type Ctx, type Shape } from "./layers.ts";
+import { allUndefined, distance, family, gap, more, num, prime, undef, type Ctx, type Shape } from "./layers.ts";
 import { distanceToPrime, distanceToWhole, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor, TRIAL_DIVISION_LIMIT } from "./numbers.ts";
 
 export const onRationals = <P,>(params: P[]) => (v: Variant): P[] => (lineParams(v).domain === "Q" ? params : []);
@@ -122,12 +122,12 @@ function readM<P>(ctx: Ctx, shape: Shape<P>): { m: Q; mRef: ElementRef } | null 
 const wholeShape: Shape<object> = {
   main: distance("frac", "y-intercept close to a whole number", "Make the y-intercept as close as possible to a whole number.", "si"),
   tieBreakers: [
-    more("spf", "smallest prime factor of that whole number",
-      "That whole number's smallest prime factor should be as big as possible (0 counts as even, so 2; 1 and −1 have none, so 1). Halfway between two whole numbers, the one with the bigger smallest prime factor counts.", "si"),
+    prime(more("spf", "smallest prime factor of that whole number",
+      "That whole number's smallest prime factor should be as big as possible (0 counts as even, so 2; 1 and −1 have none, so 1). Halfway between two whole numbers, the one with the bigger smallest prime factor counts.", "si")),
     // The source's two-element version, as one graded tie-breaker: first m whole (its distance from whole, below every
     // whole m's value), then the smaller of the two smallest prime factors.
-    more("mc-spf", "the gradient whole too, and the smaller smallest prime factor",
-      "The gradient should be a whole number too (as close as possible), and then the smaller of the two numbers' smallest prime factors should be as big as possible.", "si"),
+    prime(more("mc-spf", "the gradient whole too, and the smaller smallest prime factor",
+      "The gradient should be a whole number too (as close as possible), and then the smaller of the two numbers' smallest prime factors should be as big as possible.", "si")),
     more("omega", "prime factors of that whole number", "That whole number should have as many prime factors as possible (counting repeats).", "si"),
     // Owner decision 29's own example: tie the anchor (that whole number) to another aspect of the line.
     more("gcd-floor-m", "common factor of that whole number and the gradient rounded down",
@@ -284,7 +284,7 @@ const longShape: Shape<object> = {
     "Work the gradient out as a decimal: its repeating block should be as close as possible to six digits long, like 1/7 = 0.142857 142857 ….", "si"),
   tieBreakers: [
     distance("m-top", "the gradient's top small", "The top of the gradient (as a fraction in lowest terms, ignoring its sign) should be as small as possible.", "si"),
-    more("m-bottom-spf", "the gradient's bottom's smallest prime factor", "The smallest prime factor of the gradient's bottom number should be as big as possible.", "si"),
+    prime(more("m-bottom-spf", "the gradient's bottom's smallest prime factor", "The smallest prime factor of the gradient's bottom number should be as big as possible.", "si")),
     // Replaces the source's S3 (min den(c), an independent wish) under owner decision 29: tied to the period.
     distance("c-period", "the y-intercept's repeating block as long as the gradient's",
       "Worked out as a decimal too, the y-intercept's repeating block should be as close as possible to the same length as the gradient's.", "si"),

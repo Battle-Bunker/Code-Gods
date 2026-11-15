@@ -210,6 +210,12 @@ export interface Layer<P> {
   /** min: smaller is better (a distance); max: bigger is better (a count, a size). */
   readonly sense: "min" | "max";
   /**
+   * What kind of number the layer measures, where its value function needs to know (owner decision 26): "prime" for a
+   * layer whose value is a prime or a prime factor (bigger better), so the value keeps rising past the measured knots
+   * at the code's own cost of a prime, STEP bits per unit. Omitted: a plain size, a count or a distance.
+   */
+  readonly measure?: "prime";
+  /**
    * For a tie-breaker: whether it is dealt on this variant (default: always). False where it cannot decide anything
    * there, e.g. a pile of b-coins on whole-number lines, where b is always 1.
    */
