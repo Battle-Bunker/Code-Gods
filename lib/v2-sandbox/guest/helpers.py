@@ -546,9 +546,16 @@ def climb(offer, options, now, most=None):
     # The best step it can pay for within its allowance (its energy, and a few seconds of its income).
     ranked.sort(key=lambda x: -x[0])
     cap = allowance(offer)
+    quoted = []
     for _, plan in ranked[:4]:
         p = price(offer, plan)
         if p is not None and p <= cap:
+            return _as_plan(plan)
+        quoted.append((p, plan))
+    # Nothing within it: a bigger step (the next rung of a ladder) paid from energy saved up in hand, no debt.
+    saved = offer.budget().energy
+    for p, plan in quoted:
+        if p is not None and p <= saved:
             return _as_plan(plan)
     return None
 

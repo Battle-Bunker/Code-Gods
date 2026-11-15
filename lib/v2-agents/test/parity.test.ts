@@ -256,3 +256,31 @@ test("fractions and tips: steps into halves and thirds; on a vertical line, the 
   assert.equal(tipsVertical, "cart.mirror:diagonal:0:1/2 gen.nudge:b,1:-2:1 gen.nudge:b,2:-1:1/2", "x = 1/2 tips to y = 1/2, y = -2x + 1, y = -x + 1/2");
   assert.equal(tipsSloped, "", "a line that is not vertical has nothing to tip");
 });
+
+test("climb: a step dearer than the allowance (15 s of income) is paid from energy saved in hand, never on credit; the same in both languages", async () => {
+  const other = { family: "prime-gradient", params: { ends: 1 }, tieBreaker: "prime" };
+  const others = [{ rule: other, values: findValues("line-q", other)! }];
+  const at = { lines: [fromMC(q(11), q(3))] };   // shifting keeps m = 11, which the other rule likes
+  const values = { knots: [[null, 0], [["1"], 3], [["2"], 7]].map(([u, bits]) => ({ u: u as string[] | null, bits: bits as number, lo: bits as number, hi: bits as number, source: "exact" as const })), tail: { secondary: { form: "linear" as const, slope: 1 }, primary: { form: "linear" as const, slope: 1 } } };
+  const ts = `function agent(offer) {
+  const pick = climb(offer, [[[move("si.shift", { k: 5 })], [2]]], [0]);
+  return [move("probe", { r: (pick ? "shift" : "none") + "|" + price(offer, move("si.shift", { k: 5 })) + "|" + allowance(offer) })];
+}`;
+  const py = `def agent(offer):
+    pick = climb(offer, [([move("si.shift", k=5)], [2])], [0])
+    return [move("probe", r=("shift" if pick else "none") + "|" + str(price(offer, move("si.shift", k=5))) + "|" + str(allowance(offer)))]
+`;
+  const out: string[][] = [];
+  for (const energy of [400, 20]) for (const [language, src] of [["typescript", ts], ["python", py]] as const) {
+    const host = new EngineHost({ type: lineType, variant: lineZ, state: at, rule: { family: "m-meets-c", params: {} }, energy, income: 1, others, values, value: { mine: 0.5, others: 1, points: 0.5 } });
+    const res = await (await boxes.get(language)).act({ source: src, offer: { object: 0 }, seed: "1", host });
+    assert.equal(res.ok, true, res.ok ? "" : res.error);
+    if (res.ok) out.push((JSON.parse(res.calls) as { args: { r: string } }[])[0]!.args.r.split("|"));
+  }
+  assert.equal(out[1]![0], out[0]![0], "Python and TypeScript differ (savings)");
+  assert.equal(out[3]![0], out[2]![0], "Python and TypeScript differ (no savings)");
+  const [, price, cap] = out[0]!.map(Number);
+  assert.ok(price! > cap! && price! > 20 && price! <= 400, `the shift costs ${price}, above the allowance ${cap} and within the savings`);
+  assert.equal(out[0]![0], "shift", "saved energy pays for it");
+  assert.equal(out[2]![0], "none", "without the savings it waits (no debt beyond the allowance)");
+});

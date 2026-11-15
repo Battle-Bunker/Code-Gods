@@ -54,6 +54,13 @@ def agent(offer):
                 continue
             tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
             tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
+        # The next rung up (the ladder has no top): one jump through the valley between, priced by its size.
+        t = near(c, prime, p["ends"]) + 10
+        for _ in range(100):
+            if prime(t):
+                tries.append((move("si.shift", k=t - c), m, t))
+                break
+            t += 10
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.

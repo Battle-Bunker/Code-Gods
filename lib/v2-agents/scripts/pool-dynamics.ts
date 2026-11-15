@@ -21,8 +21,11 @@
  *
  *   node --experimental-strip-types scripts/pool-dynamics.ts [--type lines|grids|pairs] [--games 12] [--seconds 600]
  *     [--drift 120] [--kind simple] [--objects 3] [--births 0.0041667] [--variant line-q] [--only prime-landing,treasure]
- *     [--from 0] [--json out.json]
+ *     [--from 0] [--json out.json] [--focus prime-landing]
  *
+ * --focus seats the family in every game (seat 0, its dealt parameters in turn, game by game; the other two seats from
+ * the rest of the pool) and reports it per parameter set. Valleys crossed: its main-part steps from a rung (a main part
+ * of at least 0, as on the rung ladders, whose off-rung lines score below 0) to a higher one.
  * --from offsets the game seeds (parallel runs); --json writes the per-family numbers for merging.
  */
 import { parseArgs } from "node:util";
@@ -39,7 +42,7 @@ const { values: o } = parseArgs({ options: {
   type: { type: "string", default: "lines" },
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
-  variant: { type: "string", default: "line-q" }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" },
+  variant: { type: "string", default: "line-q" }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -59,13 +62,13 @@ const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(0)}%` : "-
 interface Stat {
   games: number; gained: number[]; lastThird: number[]; latency: number[]; redraws: number; answered: number; grids: number; cur: number[]; alt: number[];
   levels: number[]; endBits: number[]; seats: number; climbingLate: number;
-  mainSteps: number; tbLost: number; recovered: number; recovery: number[];
+  mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
 }
 const stats = new Map<string, Stat>();
 const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   games: 0, gained: [], lastThird: [], latency: [], redraws: 0, answered: 0, grids: 0, cur: [], alt: [],
-  levels: [], endBits: [], seats: 0, climbingLate: 0, mainSteps: 0, tbLost: 0, recovered: 0, recovery: [],
+  levels: [], endBits: [], seats: 0, climbingLate: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [],
 }), stats.get(f)!);
 const R = rng("pool-dynamics", variant.id, o.from);
@@ -75,7 +78,10 @@ const tail = (s: Score) => (s === null ? null : s.slice(1));
 for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const choices = o.only ? pool.filter(r => o.only!.split(",").includes(r.family)) : pool;
   const picks: PoolRule[] = [];
+  if (o.focus) { const mine = pool.filter(r => r.family === o.focus); if (!mine.length) throw new Error(`no ${o.focus} in the pool`); picks.push(mine[g % mine.length]!); }
   while (picks.length < Math.min(3, new Set(choices.map(c => c.family)).size)) { const r = choices[R.below(choices.length)]!; if (!picks.some(x => x.family === r.family)) picks.push(r); }
+  const keyOf = (r: PoolRule) => (r.family === o.focus ? `${r.family} ${JSON.stringify(r.params)}` : r.family);
+  const keys = picks.map(keyOf);
   const seats = picks.map((r, k) => {
     const tieBreaker = r.tieBreakers[R.below(r.tieBreakers.length)]!;
     const a = startersFor(r.family, "typescript").find(x => x.kind === o.kind)!;
@@ -97,12 +103,13 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
       live = Math.max(live, e.objects);
       if (!e.committed) return;
       moves.push({ at: e.at, seat: e.seat, object: e.object });
-      const i = e.seat, st = stat(seats[i]!.rule.family);
+      const i = e.seat, st = stat(keys[i]!);
       const before = scoreOf(i, e.before), after = scoreOf(i, e.state);
       const c = climbs[i]!.get(e.object) ?? { best: before, levels: 0, lastUp: -Infinity, pending: null };
       climbs[i]!.set(e.object, c);
       if (compareScores(head(after), head(before)) > 0) {
         st.mainSteps++;
+        if (before !== null && before[0] !== null && before[0]!.n >= 0n) st.valleys++;
         if (compareScores(head(after), head(c.best)) > 0) { c.best = after; c.levels++; c.lastUp = e.at; }
         if (compareScores(tail(after), tail(before)) < 0) { st.tbLost++; c.pending = { tb: tail(before), main: head(after), at: e.at }; }
         else c.pending = null;
@@ -119,7 +126,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const finalBits = seats.map((s, k) => { const v = valuer(type, variant, { ...s.rule, params: params[k]! }); return (x: unknown) => v.bits(x); });
   const late = new Set(moves.filter(m => m.at >= (2 * seconds) / 3).map(m => m.object)).size / live;
   seats.forEach((s, i) => {
-    const st = stat(s.rule.family), fam = fams[i]!;
+    const st = stat(keys[i]!), fam = fams[i]!;
     st.games++; st.gained.push(rep.seats[i]!.gained); st.lastThird.push(late);
     const sr = rep.seats[i]!;
     st.moves.push(sr.moves); st.trueGain.push(sr.trueGainShare); st.flips.push(sr.flips); st.reversal.push(sr.reversalEnergy);
@@ -149,14 +156,14 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
-console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+console.log("| family | games | mean points gained | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
+console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([
   f, s.games, mean(s.gained).toFixed(0), mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
   `${(100 * mean(s.trueGain)).toFixed(0)}%`, mean(s.flips).toFixed(1), mean(s.reversal).toFixed(0), `${(100 * mean(s.lastThird)).toFixed(0)}%`,
   s.levels.length ? `${median(s.levels)} / ${Math.max(...s.levels)}` : "-", s.endBits.length ? mean(s.endBits).toFixed(1) : "-",
-  pct(s.climbingLate, s.seats), `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
+  pct(s.climbingLate, s.seats), s.valleys, `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
   s.tbLost ? `${pct(s.recovered, s.tbLost)}, ${s.recovery.length ? median(s.recovery).toFixed(0) : "-"}` : "-",
   s.redraws ? `${s.answered}/${s.redraws}, ${s.latency.length ? median(s.latency).toFixed(1) : "-"}` : "-",
   s.cur.length ? `${mean(s.cur).toFixed(1)} / ${mean(s.alt).toFixed(1)}` : "-",
