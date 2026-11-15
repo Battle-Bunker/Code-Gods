@@ -29,7 +29,7 @@
         "./src/*"
       ],
       "@sdk": [
-        "./src/sdk/index.ts"
+        "./src/frame/sdk.ts"
       ]
     }
   },
