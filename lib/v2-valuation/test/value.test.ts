@@ -161,7 +161,7 @@ test("a sampled estimate never moves an exact knot's certified interval; no orac
 });
 
 test("committed value functions are intact: each content hash matches, knots rise, no sampled knot passes sampledMaxBits, and no tail saturates", async () => {
-  const { canonicalJson, hashHex } = await import("@workspace/v2-core");
+  const { canonicalJson, hashHex, familyById } = await import("@workspace/v2-core");
   const { readdirSync: ls, readFileSync: read } = await import("node:fs");
   const root = new URL("../values/", import.meta.url);
   let n = 0;
@@ -171,7 +171,7 @@ test("committed value functions are intact: each content hash matches, knots ris
     for (let i = 1; i < body.knots.length; i++) assert.ok(body.knots[i].bits >= body.knots[i - 1].bits, `${v}/${f}/${x}: knots rise`);
     for (const k of body.knots) if (k.source === "sampled") assert.ok(k.bits <= body.config.sampledMaxBits, `${v}/${f}/${x}: ${k.bits}`);
     assert.equal(body.schema, 7, `${v}/${f}/${x}: schema`);
-    const family = (findVariant(v).type.families as RuleFamily<unknown, unknown>[]).find(y => y.id === body.family)!;
+    const family = familyById(findVariant(v).type as never, body.family) as RuleFamily<unknown, unknown>;
     const measures = layerMeasures(family, body.tieBreaker === "none" ? null : body.tieBreaker);
     const tb = body.tieBreaker === "none" ? null : body.tieBreaker;
     const { type, variant } = findVariant(v);
