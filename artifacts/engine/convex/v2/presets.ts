@@ -83,6 +83,17 @@ const BEGINNER = fromPool("lines-beginner", BEGINNER_WORLD);
  */
 const GRIDS = fromPool("grids-beginner", { ...BEGINNER_WORLD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy });
 
+
+/**
+ * Presets outside the beginner game keep v1's default board (the coordinator's call, 15 Nov; owner decisions 31, 34 and
+ * 37 are for the beginner game only): 10 starting objects, a birth every 10 s, the half-life end at 300 s, 100
+ * opportunities a second, power 64, a 30 s store, 600 to start (archive lib/game-core settings.ts, the Grid defaults).
+ */
+const V1_DEFAULT_BOARD: Partial<Preset> = {
+  startingObjects: 10, durationMode: "halfLife", worldSeconds: 300,
+  economy: { powerPerSecond: 64, fullChargeSeconds: 30, opportunitiesPerSecond: 100, birthsPerSecond: 0.1 },
+};
+
 export const PRESETS: readonly Preset[] = [
   BEGINNER,
   { ...BEGINNER, id: "lines-beginner-bidding", title: "Lines · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
@@ -91,10 +102,10 @@ export const PRESETS: readonly Preset[] = [
   // and in the collapse check (docs/engine-v2/landscape-analysis.md §4, first run). Several lines per object stays
   // provisional and undealt (coordinator's call 5), so "lines-four" is not offered either.
   // A trial (docs/engine-v2/lenses-and-mutators.md §5): the beginner pool with five more ways to move a line. Not the default.
-  fromPool("lines-lenses"),
+  fromPool("lines-lenses", V1_DEFAULT_BOARD),
   GRIDS,
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
-  fromPool("grids-more-rules", { startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
+  fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: GRIDS_BEGINNER_ECONOMY.startingEnergy }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 
