@@ -7,7 +7,8 @@ prices so that scaled prices can be tried.
 
 **Outcome.** Owner decision 42 replaced the target heights below with two virtues, balance (fairness across rules and
 dealt values) and dynamism (no early standstill, no dominant strategy, no settled optimum), with hundreds of bits as a
-sanity bound. The coordinator chose **4 ⚡/s, 300 start (grids 450), 240 s store, summon and edit prices × power/8**
+sanity bound. The coordinator chose **4 ⚡/s, 240 s store, summon and edit prices bits × power/64 (#695; a starter is about 9 s
+of full power), starting energy about three typical starters (about 100 on lines)**
 (coordinator's call 17 in `owner-decisions.md`). The numbers below predate #687 (code C3 and prime tails) and are
 re-run on the new values, with and without parameter drift (call 18) and with the prime filters.
 

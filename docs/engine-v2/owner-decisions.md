@@ -370,9 +370,10 @@ back) or TRIAL (a declared experiment, measured and reported).
     below h/10 is drawn again, which (the exponential being memoryless) is the floor plus one exponential draw
     (convex/v2/duration.ts). v1 had no floor: 7% of its half-life games ended within h/10, 0.7% within h/100. Motive:
     "a game that ends before anyone can act is no game."
-17. The beginner economy, following decision 42 (replaces call 13's numbers): power 4 ⚡/s, startingEnergy 300 (grids
-    450, keeping call 13's 1.5 ratio), fullChargeSeconds 240, summon and edit prices × power/8 (the same seconds of
-    full power as at 8 ⚡/s), the read-price weight derived from power as agreed with W3. Motive, on the owner's two
+17. The beginner economy, following decision 42 (replaces call 13's numbers): power 4 ⚡/s, fullChargeSeconds 240,
+    summon and edit prices bits × power/64 (#695: a starter is about 9 s of full power, the owner's "seconds of full God
+    power"), startingEnergy derived as about three typical starters (about 100 on lines), the read-price weight derived
+    from power. Motive, on the owner's two
     virtues (`power-calibration.md`): the long climb past about 40 bits stops at any power below 8 (at 8 a climber
     reached 131.8 bits), and 4 keeps about three committed moves per seat-minute where 2 leaves the board looking dead.
     To be re-run on the #687 values with and without parameter drift (call 18) and with the prime filters; if 4 lets a
