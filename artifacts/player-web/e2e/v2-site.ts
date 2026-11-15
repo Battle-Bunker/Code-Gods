@@ -199,6 +199,22 @@ try {
       }
     });
 
+    await check(`${label}: "Explain a term" opens the glossary at the term, and it closes (it set the view and showed nothing)`, async () => {
+      await page.goto(`${SITE}/`);
+      await page.getByTestId("button-avatar").waitFor();
+      await page.locator("body").click({ position: { x: 5, y: 300 } });
+      await page.keyboard.press("Control+K");
+      await page.getByTestId("input-palette").fill("Explain a term");
+      await page.keyboard.press("Enter");
+      const field = page.getByTestId("input-palette-field");
+      if (await field.isVisible({ timeout: 3000 }).catch(() => false)) { await field.fill("points"); await field.press("Enter"); }
+      const glossary = page.getByTestId("glossary");
+      await glossary.waitFor({ timeout: 10_000 });
+      assert.match(await glossary.innerText(), /Points|Glossary/);
+      await page.keyboard.press("Escape");
+      await glossary.waitFor({ state: "detached", timeout: 5000 });
+    });
+
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, phase: "planning" });

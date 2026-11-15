@@ -22,6 +22,7 @@ import { Tip } from "@/site/components/action";
 import { ConnectedAppsSheet } from "@/site/components/sheets";
 import { AffordanceRuntimeProvider, useRuntime, type RuntimeScope } from "@/core/affordance-runtime";
 import { touchGate } from "@/core/activity";
+import { GlossaryDialog } from "./glossary-dialog";
 import { paletteCommands } from "@/core/palette-commands";
 import { affordanceContext } from "@/core/affordance-context";
 import { usePaneOps } from "@/dock/open-pane";
@@ -118,6 +119,7 @@ export function Page({ children, context, scope = {}, crumbs = [], placeholder =
   return (
     <AffordanceRuntimeProvider context={ctx} scope={scope} onSignIn={login}>
       {isAuthenticated && <ActivityTouch />}
+      <GlossaryDialog />
       <div className={bare ? "contents" : fill ? "h-[100dvh] flex flex-col overflow-hidden" : "min-h-[100dvh] flex flex-col"}>
         {!bare && <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
           <div className="mx-auto max-w-[1440px] px-4 md:px-6 h-14 flex items-center gap-3">

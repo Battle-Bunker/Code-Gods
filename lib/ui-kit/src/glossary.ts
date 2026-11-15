@@ -42,11 +42,13 @@ export const scoreMovesLine = (noun: string = "object"): string =>
 export const GLOSSARY = {
   room: { term: "Room", gloss: "The table you play at: a short code, an owner and up to 8 seats; it hosts game after game." },
   game: { term: "Game", gloss: "One round in a room: a planning time, then the world runs until the game ends." },
-  player: { term: "Player", gloss: "Someone seated in a game: a person, a practice partner or an AI player. Each has a secret rule." },
+  // The owner's names stay (product memory): players are gods; a rule is a utility function; a rule with parts is a points tuple.
+  god: { term: "God", gloss: "A player seated in a game: a person, a practice partner or an AI player. Each has a secret utility function." },
   object: { term: "Line or grid", gloss: "One thing in the world: a line in a line game, a grid of digits in a grid game. No two are ever the same." },
-  rule: { term: "Secret rule", gloss: "Your goal card: it gives every line or grid a rule score. Nobody else sees it, and you never see theirs." },
+  "utility-function": { term: "Utility function", gloss: "Your secret rule, on your goal card: it gives every line or grid a rule score. Nobody else sees it, nor you theirs." },
   "rule-score": { term: "Rule score", gloss: SCORE_LINES.ruleScore },
   "main-part": { term: "Main part", gloss: "What your rule counts first. A tie-breaker only decides between lines or grids that tie on the main part." },
+  "points-tuple": { term: "Points tuple", gloss: "A rule score with parts, like (3, 1): the main part first, then the tie-breaker, compared in that order." },
   "tie-breaker": { term: "Tie-breaker", gloss: "What your rule counts next, only between ones that tie on the main part. It relates to the main part." },
   bits: { term: "Rarity (bits)", gloss: SCORE_LINES.rarity },
   "others-bits": { term: "Others' bits", gloss: "Every other player's rarity on a line or grid, added together: the only thing you learn about their rules." },
