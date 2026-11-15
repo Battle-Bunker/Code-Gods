@@ -34,11 +34,11 @@ type SquareEnds = { ends: number; round?: "nearest" };
 const SQUARE_ENDS: SquareEnds[] = [{ ends: 1 }, { ends: 9 }, { ends: 1, round: "nearest" }, { ends: 9, round: "nearest" }];
 const squareShape: Shape<SquareEnds> = {
   main: { ...more<SquareEnds>("square", "the triangle's area on as big a square ending in d as possible", "", "tri"),
-    // Under 30 words with the tie-breaker (the coordinator's ask): "the triangle" is the one the line cuts off the axes.
-    sentence: p => `Triangle area, rounded${p.round ? "" : " down"}: a square number ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
+    // Plain sentences a beginner reads, the main one under 30 words (the coordinator, 15 Nov).
+    sentence: p => `The area of the triangle the line cuts off the axes, rounded ${p.round ? "off" : "down"}, should be a square ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
   tieBreakers: [
     more<SquareEnds>("shared-factor", "the factor that square's root plus 1 shares with the x-crossing's whole part",
-      "Root plus 1 and x-crossing share a big factor.", "crossing"),
+      "That square's root plus 1 and the x-crossing's whole part should share as big a factor as possible.", "crossing"),
   ],
 };
 /**

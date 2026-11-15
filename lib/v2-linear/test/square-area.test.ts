@@ -87,14 +87,15 @@ test("witnesses for the tail cap: cheap lines whose area rounds down to an n-dig
   }
 });
 
-test("dealt: the four endings, each card a child can act on in under 30 words", () => {
+test("dealt: the four instances, each card plain sentences a beginner can act on, the main one under 30 words", () => {
   assert.deepEqual(squareArea.dealable(lineQ), [{ ends: 1 }, { ends: 9 }, { ends: 1, round: "nearest" }, { ends: 9, round: "nearest" }]);
   for (const p of squareArea.dealable(lineQ)) {
-    const card = squareArea.card(p, "shared-factor");
-    assert.ok(card.split(/\s+/).length < 30, `${card.split(/\s+/).length} words: ${card}`);
+    const main = squareArea.main.sentence(p), card = squareArea.card(p, "shared-factor");
+    assert.ok(main.split(/\s+/).length < 30, `${main.split(/\s+/).length} words: ${main}`);
     assert.doesNotMatch(card, /level/i);
-    assert.match(card, /Bigger is better, each extra digit counts for less/);
-    assert.match(card, new RegExp(`rounded${p.round ? "" : " down"}: a square number ending in ${p.ends}`));
+    assert.match(main, /^The area of the triangle the line cuts off the axes, rounded (down|off), should be a square ending in [19]\./);
+    assert.match(main, /Bigger is better, each extra digit counts for less/);
+    assert.match(card, /Tie-breaker: That square's root plus 1 and the x-crossing's whole part should share as big a factor as possible\./);
   }
   assert.equal(squareArea.keepsParams, true);
 });
