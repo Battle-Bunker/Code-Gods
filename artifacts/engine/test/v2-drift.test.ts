@@ -66,6 +66,14 @@ test("every driftSeconds, a seat's parameters are redrawn; the rule, the values 
   const drifts = events.filter((e: any) => e.kind === "drift");
   assert.ok(drifts.every((e: any) => e.data.seats.length === 1), "never two seats at once");
   assert.ok(events.some((e: any) => e.kind === "values" && e.seq > drift.seq), "and the objects' values under the new rules");
+  // The record's size (coordinator, 15 Nov: the act events were 95% of a game's writes, 3.3 KB of each the transcript):
+  // a skipped act keeps no transcript; an act that moved or failed keeps it (it can be re-run from its seed anyway).
+  const acts = events.filter((e: any) => e.kind === "act");
+  assert.ok(acts.some((e: any) => e.data.outcome === "skipped"), "the game has skipped acts");
+  for (const e of acts) {
+    if (e.data.outcome === "skipped") assert.equal(e.data.transcript, undefined, `act ${e.data.n}: a skip stores no transcript`);
+    else assert.ok(Array.isArray(e.data.transcript), `act ${e.data.n} (${e.data.outcome}): keeps its transcript`);
+  }
   await perform(ada!, "game.pause", {}, { gameId });
   // Her knowledge shows her own bits under the new rule on the states she knows, the others' sum as told, nothing
   // learnt anew (the coordinator's follow-up to #723).
