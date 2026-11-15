@@ -403,18 +403,29 @@ function distinctTest(vs: Valuer[], win: L[]) {
 
 /** Test 4: scripted seats on 24 objects for 300 s. Each second each seat makes its best affordable unit move by
  * gain per energy in its own points rate (n_i · Σ_{j≠i} n_j summed over objects), uniqueness enforced. */
-function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) => Valuer[]; rebirthEvery?: number } = {}) {
+function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) => Valuer[]; rebirthEvery?: number; nObj?: number; T?: number; rate?: number; cap?: number; start?: number } = {}) {
   let vs = vs0;
+  const NO = opt.nObj ?? 24, TT = opt.T ?? 300, CAP = opt.cap ?? 1920, LATE = Math.round(TT * 2 / 3);
   const r = rng("v3-dyn", seed); const objs: L[] = []; const occ = new Set<number>();
-  while (objs.length < 24) { const l = birth(r); if (!occ.has(key(l))) { occ.add(key(l)); objs.push(l); } }
-  const rate = SEAT_GAME / 300; const energy = vs.map(() => 600);
+  while (objs.length < NO) { const l = birth(r); if (!occ.has(key(l))) { occ.add(key(l)); objs.push(l); } }
+  const rate = opt.rate ?? SEAT_GAME / 300; const energy = vs.map(() => opt.start ?? 600);
+  const redraws: number[] = []; let lastPhase = vs;
   const own = (i: number, l: L) => { const ns = vs.map(v => v.bits(l)); return ns[i]! * (ns.reduce((a, b) => a + b, 0) - ns[i]!); };
   const changedLate = new Set<number>(); let movesLate = 0, idleLate = 0, nMoves = 0; const Ft: number[] = [];
   /** destroyed[i][j]: bits seat i's moves took from seat j (summed over moves that lowered j). */
   const destroyed = vs.map(() => vs.map(() => 0)); const movesBy = vs.map(() => 0);
   const movedAt = new Map<number, number>();
-  for (let t = 0; t < 300; t++) {
-    if (opt.phase) vs = opt.phase(t);
+  for (let t = 0; t < TT; t++) {
+    if (opt.phase) {
+      const nv = opt.phase(t);
+      if (nv !== lastPhase) {
+        // The share of the seats' summed bits on the board that the redraw takes away (or adds, if negative).
+        const before = objs.reduce((a, l) => a + lastPhase.reduce((b, v) => b + v.bits(l), 0), 0);
+        const after = objs.reduce((a, l) => a + nv.reduce((b, v) => b + v.bits(l), 0), 0);
+        redraws.push(before > 0 ? 1 - after / before : 0); lastPhase = nv;
+      }
+      vs = nv;
+    }
     if (opt.rebirthEvery && t > 0 && t % opt.rebirthEvery === 0) {
       // A death and a birth: the object worth least to the table is replaced by a newborn.
       let worst = 0, wf = Infinity; objs.forEach((l, o) => { const f = tableF(vs.map(v => v.bits(l))); if (f < wf) { wf = f; worst = o; } });
@@ -423,9 +434,9 @@ function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) =>
     }
     let movedThisSecond = 0;
     for (let i = 0; i < vs.length; i++) {
-      energy[i] = Math.min(1920, energy[i]! + rate);
+      energy[i] = Math.min(CAP, energy[i]! + rate);
       let pick: [number, number, L, number] | null = null;
-      for (let o = 0; o < 24; o++) {
+      for (let o = 0; o < NO; o++) {
         const cur = objs[o]!, f0 = own(i, cur);
         for (const mv of moves(cur)) {
           const n = mv.l;
@@ -440,16 +451,16 @@ function dynamicsTest(vs0: Valuer[], seed: string, opt: { phase?: (t: number) =>
         vs.forEach((v, j) => { const d = v.bits(n) - v.bits(objs[o]!); if (j !== i && d < 0) destroyed[i]![j]! -= d; });
         movesBy[i]!++;
         occ.delete(key(objs[o]!)); objs[o] = n; occ.add(key(n)); energy[i]! -= cost; nMoves++; movedThisSecond++;
-        if (t >= 200) { changedLate.add(o); movesLate++; }
+        if (t >= LATE) { changedLate.add(o); movesLate++; }
         movedAt.set(o, (movedAt.get(o) ?? 0) + 1);
       }
     }
-    if (t >= 200 && movedThisSecond === 0) idleLate++;
-    if (t % 50 === 49) Ft.push(objs.reduce((s, l) => s + tableF(vs.map(v => v.bits(l))), 0));
+    if (t >= LATE && movedThisSecond === 0) idleLate++;
+    if (t % Math.round(TT / 6) === Math.round(TT / 6) - 1) Ft.push(objs.reduce((s, l) => s + tableF(vs.map(v => v.bits(l))), 0));
   }
   const seatBits = vs.map(v => objs.reduce((a, l) => a + v.bits(l), 0));
   const maxX = Math.max(...objs.map(l => { const d = derive(l); return d && Number.isFinite(d.X) ? Math.abs(d.X) : 0; }));
-  return { touched: movedAt.size, destroyed, movesBy, seatBits, maxX, moves: nMoves, movesLate, changedLate: changedLate.size / 24, idleLate, Ft, slopes: new Set(objs.map(l => `${l[0]}/${l[1]}`)).size, maxH: Math.max(...objs.map(height)) };
+  return { redraws, touched: movedAt.size, destroyed, movesBy, seatBits, maxX, moves: nMoves, movesLate, changedLate: changedLate.size / NO, idleLate, Ft, slopes: new Set(objs.map(l => `${l[0]}/${l[1]}`)).size, maxH: Math.max(...objs.map(height)) };
 }
 
 /** Test 5: probes until a seat that knows its own rule identifies the others' rules from disclosed sums ± σ. */
@@ -864,5 +875,52 @@ if (want("paramdrift")) {
     }), smp));
     const dy = dynamicsTest(phases[0]!, `pd-${seats}-${t}`, { phase: s => phases[Math.min(5, Math.floor(s / 50))]! });
     say(`**${seats} seats, table ${t + 1}** (same tables as --part paramdyn): F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last 100 s ${f2(dy.changedLate)}; ever moved ${dy.touched}/24; seat bits at the end ${dy.seatBits.map(f1).join(", ")}`);
+  }
+}
+
+if (want("drifttrial")) {
+  // For the coordinator's drift trial: (1) the same random tables under the beginner economy (8 ⚡/s) with fixed
+  // parameters; (2) drift intervals 50, 120, 240 s (and off) on a 600 s game with few objects, at 8 ⚡/s.
+  const r = rng("param-dyn", process.env.SEED ?? "1");
+  const draw = (): PRule => { const l = LENSES[r.below(LENSES.length)]!; let l2 = l; while (l2.id === l.id) l2 = LENSES[r.below(LENSES.length)]!; return paramRule(l, QUALS[r.below(QUALS.length)]!, l2, BASES[r.below(BASES.length)]!); };
+  const familyOf = (q: Qual) => q.id.replace(/[0-9]+/g, "#");
+  const tables: PRule[][] = [];
+  for (const seats of [3, 4]) for (let t = 0; t < Number(process.env.TABLES ?? 3); t++) { const rules: PRule[] = []; while (rules.length < seats) { const x = draw(); if (!rules.some(y => y.lens.id === x.lens.id && y.qual.id === x.qual.id)) rules.push(x); } tables.push(rules); }
+  const ratio = (xs: number[]) => Math.max(...xs) / Math.max(1e-9, Math.min(...xs));
+  say("\n## Drift trial (1): fixed parameters under the beginner economy (8 ⚡/s, 600 at start, cap 1,920), 24 objects\n");
+  for (const [k, rules] of tables.entries()) for (const T of [300, 600]) {
+    const dy = dynamicsTest(valuers(rules, smp), `pd-${rules.length}-${k % 3}`, { rate: 8, T });
+    say(`table ${k + 1} (${rules.length} seats), ${T} s: F ${dy.Ft.map(x => x.toFixed(0)).join("→")}; objects moved in the last third ${f2(dy.changedLate)}; moves ${dy.moves}; idle seconds in the last third ${dy.idleLate}; seat bits max/min ${f1(ratio(dy.seatBits))}`);
+  }
+  say("\n## Drift trial (2): 600 s game, 8 ⚡/s, few objects; qualifier value redrawn within its family every I seconds\n");
+  say("| table | objects | interval | F at 100 s steps | objects moved in the last 200 s | share of bits lost at a redraw (mean) | seat bits max/min |"); say("|---|---|---|---|---|---|---|");
+  for (const [k, rules] of tables.entries()) for (const nObj of [3, 5]) for (const I of [0, 50, 120, 240]) {
+    const rr = rng("drift", k, nObj);
+    const nPh = I ? Math.ceil(600 / I) : 1;
+    const phases = Array.from({ length: nPh }, (_, ph) => valuers(rules.map(x => { if (ph === 0) return x; const fam = QUALS.filter(q => familyOf(q) === familyOf(x.qual)); return paramRule(x.lens, fam[rr.below(fam.length)]!, x.lens2, x.base); }), smp));
+    const dy = dynamicsTest(phases[0]!, `dt-${k}-${nObj}`, { rate: 8, T: 600, nObj, phase: I ? (s2 => phases[Math.min(nPh - 1, Math.floor(s2 / I))]!) : undefined });
+    const loss = dy.redraws.length ? dy.redraws.reduce((a, b) => a + b, 0) / dy.redraws.length : 0;
+    say(`| ${k + 1} (${rules.length} seats) | ${nObj} | ${I || "off"} | ${dy.Ft.map(x => x.toFixed(0)).join("→")} | ${f2(dy.changedLate)} | ${I ? f2(loss) : "–"} | ${f1(ratio(dy.seatBits))} |`);
+  }
+}
+
+if (want("lensfix")) {
+  // The gradient lens reaches more than the others because stretch and tilt change m cheaply. Candidate replacements,
+  // measured like --part parambalance (the same births, reach and random qualifiers).
+  say("\n## Gradient-lens variants: best bits in reach\n");
+  const r = rng("param-balance");
+  const reaches = BIRTHS.slice(0, 3).map(b => reach(b, LINE_SHARE, Number(process.env.REACH ?? 60_000)));
+  const quals = Array.from({ length: 8 }, () => QUALS[r.below(QUALS.length)]!);
+  const variants: Lens[] = [
+    LENSES[2]!, LENSES[0]!,
+    { id: "10m", text: "how much the line climbs from x = 0 to x = 10", f: d => 10 * d.m },
+    { id: "m-top", text: "the top number of the gradient as a fraction in lowest terms", f: d => d.p },
+    { id: "m-bottom", text: "the bottom number of the gradient as a fraction in lowest terms", f: d => d.q },
+    { id: "m+c", text: "the height of the line at x = 1", f: d => d.m + d.k },
+  ];
+  say("| lens | median best bits over 8 qualifiers | range |"); say("|---|---|---|");
+  for (const l of variants) {
+    const bs = quals.map(q => { const v = valuers([paramRule(l, q, l.id === "c" ? LENSES[1]! : LENSES[0]!, 10)], smp)[0]!; return median(reaches.map(x => x.states.reduce((m, li) => Math.max(m, v.bits(li)), 0))); });
+    say(`| ${l.id} (${l.text}) | ${f1(median(bs))} | ${f1(Math.min(...bs))}–${f1(Math.max(...bs))} |`);
   }
 }
