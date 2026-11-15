@@ -99,7 +99,7 @@ export function overridesOf(f: SettingsForm, p: Preset): { ok: true; overrides: 
   return { ok: true, overrides: o };
 }
 
-/** "3 or more players · 60 s to plan · 5 min game · 600 ⚡ to start · others' sums blurred (8 bits) · totals every 10 s." */
+/** "3 or more players · 60 s to plan · 5 min game · 600 energy to start · others' sums blurred (8 bits) · totals every 10 s." */
 export function nextGameSummary(p: Preset, o: Overrides): string {
   const length = minutes(o.worldSeconds ?? p.worldSeconds), noise = o.peerNoiseBits ?? DEFAULT_NOISE_BITS;
   const parts = [
@@ -107,7 +107,7 @@ export function nextGameSummary(p: Preset, o: Overrides): string {
     ...(p.bid ? [`${p.bid.seconds} s of bidding first`] : []),
     `${o.planningSeconds ?? p.planningSeconds} s to plan`,
     (o.durationMode ?? p.durationMode) === "halfLife" ? `ends at a hidden moment, half of games within ${length} min` : `${length} min game`,
-    `${o.startingEnergy ?? p.startingEnergy} ⚡ to start`,
+    `${o.startingEnergy ?? p.startingEnergy} energy to start`,
     noise === 0 ? "others' sums exact" : `others' sums blurred (${noise} bits)`,
     `totals every ${o.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS} s`,
     ...(o.observation === "paid" ? ["players pay to look at the world"] : []),

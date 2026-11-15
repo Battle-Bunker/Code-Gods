@@ -94,7 +94,7 @@ const BEGINNER: RulesInput = {
 
 test("the rules say the game on lines in player words, with this game's values", () => {
   const text = rulesParagraphs(BEGINNER).join("\n");
-  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "⚡ energy", "600.00 ⚡", "64.00 ⚡ a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
+  for (const want of ["bits: each bit = twice as rare", "your bits for it × the others' bits", "energy", "600.00 energy", "64.00 energy a second", "1 minute of planning", "runs for 5 minutes", "only you want gives you 0 points", "30 seconds"])
     assert.ok(text.includes(want), want);
   assert.doesNotMatch(text, /\b(payoff|objects?|grids?)\b/i);
   assert.doesNotMatch(text, /bidding/, "no bid phase in this preset");

@@ -1,6 +1,6 @@
 /**
  * The game's quantities in player words (ux-lessons 2.1, 3.9): points, rarity in bits (each bit = twice as rare),
- * ⚡ energy, power, and how a score is made. Pure.
+ * energy, power, and how a score is made. Pure.
  *
  * One number rule for every measure on screen: 2 decimal places (`num`, which is v2-views' `fmtNum`, so the faces and
  * the panes round the same way). A line's score is written once, by `scoreFormula`: the product shown is the product of
@@ -20,14 +20,14 @@ export { BITS_HELP };
 /** "3.40 bits". */
 export const bitsText = fmtBits;
 /**
- * "123.40 ⚡"; energy a little below zero (an agent or a store spending as fast as it earns) reads "about 0 ⚡", since a
- * bare "−8.90 ⚡" read as broken to a first-time player (the exact figure goes in the tooltip).
+ * "123.40 energy"; energy a little below zero (an agent or a store spending as fast as it earns) reads "about 0 energy", since a
+ * bare "−8.90 energy" read as broken to a first-time player (the exact figure goes in the tooltip).
  */
-export const energyText = (x: number) => (x < 0 && x > -50 ? "about 0 ⚡" : `${num(x)} ⚡`);
-/** The exact figure, for the tooltip under "about 0 ⚡". */
-export const exactEnergy = (x: number) => `${num(x)} ⚡`;
-/** Power: "2.50 ⚡ a second". */
-export const powerText = (x: number) => `${num(x)} ⚡ a second`;
+export const energyText = (x: number) => (x < 0 && x > -50 ? "about 0 energy" : `${num(x)} energy`);
+/** The exact figure, for the tooltip under "about 0 energy". */
+export const exactEnergy = (x: number) => `${num(x)} energy`;
+/** Power: "2.50 energy a second". */
+export const powerText = (x: number) => `${num(x)} energy a second`;
 /** "1st", "2nd", "3rd", "4th". */
 export const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
 /**

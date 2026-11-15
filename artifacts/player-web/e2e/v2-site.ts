@@ -117,7 +117,7 @@ try {
       await page.goto(`${SITE}/rooms/${room}/games/${g.gameId}`);
       await page.getByTestId("text-my-total").waitFor();
       assert.match(await page.getByTestId("text-my-total").innerText(), /points/);
-      assert.match(await page.getByTestId("text-my-energy").innerText(), /⚡/);
+      assert.match(await page.getByTestId("text-my-energy").innerText(), /energy/);
       for (const pane of ["objects", "my-card", "feed", "agents", "race"]) await page.getByTestId(`pane-${pane}`).waitFor();
       const row = page.locator("[data-testid^=row-line-]").first();
       await row.waitFor();
@@ -125,9 +125,9 @@ try {
       await page.getByTestId("pane-feed").getByText(/Your agent/).first().waitFor();
       const feed = await page.getByTestId("pane-feed").innerText();
       assert.match(feed, /Your agent/);
-      assert.doesNotMatch(feed, /payoff|object|✨/i, "the act log speaks in player words");
+      assert.doesNotMatch(feed, /payoff|object|\p{Extended_Pictographic}/iu, "the act log speaks in player words");
       assert.match(feed, /your [\d.,]+ bits? × others' [\d.,]+ bits? [=≈] [\d.,]+ points?/, "the act log shows how a line scores");
-      assert.doesNotMatch(feed, /\d\.\d (bits?|points?|⚡)/, "every measure has 2 decimal places");
+      assert.doesNotMatch(feed, /\d\.\d (bits?|points?|energy)/, "every measure has 2 decimal places");
       await noHorizontalScroll(page, `${label} game`);
       await shot(page, `v2-game-${label}`);
       await row.click();

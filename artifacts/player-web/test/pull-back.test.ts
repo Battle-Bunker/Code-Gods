@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { proposedSplit, pullBackPlan, PULL_SHARE } from "../src/panes/pull-back.ts";
 import { shortfallOf, shortText } from "../src/panes/pull-back.ts";
 
-// power 64 ⚡/s; one agent at 70% leaves the store 19.2 ⚡/s; the store holds 30 s of its income.
+// power 64 energy/s; one agent at 70% leaves the store 19.2 energy/s; the store holds 30 s of its income.
 const base = { power: 64, energy: 100, chargeSeconds: 30, agents: [{ agentId: "a", share: 0.7 }] };
 
 test("pulling power back leaves each agent a sliver and says how long the store then takes", () => {
@@ -31,14 +31,14 @@ test("the proposed split gives the new agent an equal part of what the agents he
 });
 
 test("a refused purchase's shortfall is read from the server's numbers, and said with both ways to pay", () => {
-  // Catches (playtest round 5): 13 ⚡ short, the offer to pull power back lived about a second and was never seen.
-  const e = Object.assign(new Error("That program costs 456.4 ⚡; you have 443.6."), { data: { price: 456.45, store: 443.55, perSecond: 9.6, capacity: 576, secondsToPay: 1.34, payNow: { shares: { a1: 0.01 } } } });
+  // Catches (playtest round 5): 13 energy short, the offer to pull power back lived about a second and was never seen.
+  const e = Object.assign(new Error("That program costs 456.4 energy; you have 443.6."), { data: { price: 456.45, store: 443.55, perSecond: 9.6, capacity: 576, secondsToPay: 1.34, payNow: { shares: { a1: 0.01 } } } });
   const s = shortfallOf(e)!;
   assert.deepEqual(s, { price: 456.45, store: 443.55, secondsToPay: 1.34, payNow: { a1: 0.01 } });
-  assert.equal(shortText(s, "summon"), "This summon costs 456.45 ⚡ and your store holds 443.55 ⚡: it pays by itself in about 2 seconds, or pull power back from your agents to pay now.");
-  assert.equal(shortText({ ...s, secondsToPay: null }, "edit"), "This edit costs 456.45 ⚡ and your store holds 443.55 ⚡: waiting never pays it at this split. Pull power back from your agents, or shorten the code.");
+  assert.equal(shortText(s, "summon"), "This summon costs 456.45 energy and your store holds 443.55 energy: it pays by itself in about 2 seconds, or pull power back from your agents to pay now.");
+  assert.equal(shortText({ ...s, secondsToPay: null }, "edit"), "This edit costs 456.45 energy and your store holds 443.55 energy: waiting never pays it at this split. Pull power back from your agents, or shorten the code.");
   // In planning nothing accrues (round 6: "pays by itself in about 2 seconds" waited until the world started).
-  assert.equal(shortText(s, "summon", true), "This summon costs 456.45 ⚡ and your store holds 443.55 ⚡. Energy only comes in once the world runs: pull power back from your agents to pay now, or start the world.");
+  assert.equal(shortText(s, "summon", true), "This summon costs 456.45 energy and your store holds 443.55 energy. Energy only comes in once the world runs: pull power back from your agents to pay now, or start the world.");
   assert.equal(shortfallOf(new Error("no numbers")), null);
   assert.equal(shortfallOf({ data: { price: "x" } }), null);
 });

@@ -54,7 +54,7 @@ export function LeaveAlone({ agentId, name, language, source, one, many }: {
     setBusy(true); setSaid(null);
     try {
       const r = await op.run({ agentId, numbers: next });
-      setSaid({ tone: "ok", text: `${name} now leaves ${listWords(next, one, many)} alone (it cost ${r.price.toFixed(2)} ⚡).` });
+      setSaid({ tone: "ok", text: `${name} now leaves ${listWords(next, one, many)} alone (it cost ${r.price.toFixed(2)} energy).` });
     } catch (e) { setSaid({ tone: "error", text: failureText(e) }); }
     finally { setBusy(false); }
   };

@@ -208,7 +208,7 @@ export function paletteFor(ctx: AffordanceContext, dir: Directory = DIRECTORY): 
 export function searchPalette(entries: readonly PaletteEntry[], query: string): PaletteEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const scored = entries.flatMap(e => {
-    const tokens = e.searchText.split(/[^a-z0-9✨⚡]+/).filter(Boolean);
+    const tokens = e.searchText.split(/[^a-z0-9]+/).filter(Boolean);
     const title = e.title.toLowerCase();
     let score = 0;
     for (const w of words) {
