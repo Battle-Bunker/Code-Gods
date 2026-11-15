@@ -702,6 +702,32 @@ back) or TRIAL (a declared experiment, measured and reported).
       the other meeting point is a multiple of a one-digit palindrome on whole lines, so a flat line is always best at the
       ladder's foot and row 3 fails.
 
+31. **CALL** (the coordinator's, 15 Nov, on the v1 re-audit): v1's futility memo is not restored. v1 remembered a failed
+    act that did not read `random` because it was a pure function of the agent's source and the object; a v2 act is
+    not (its energy, a fresh noisy reading of the others' sums per act (decision 32), its history and a per-act seed),
+    so the same agent on the same object version may succeed later and the memo would suppress legitimate retries. A
+    narrow variant (remember only a failure that read no random, made no noisy read and failed for a reason of the
+    object alone: an invalid call, or a collision until the holder moves) is about 4 h, kept in reserve should play
+    show wasted repeats.
+
+32. **CALL** (the coordinator's, 15 Nov): shelter targeting (v1's optional object selection weighting objects by
+    1/(1+σ)) is not restored: it exists to make agreed states last, which the owner's standing rule forbids ("never build
+    features ... that help players reach or hold a fixed point").
+
+33. **CALL** (the coordinator's, 15 Nov): a What if quote of the others' sums (`v2/play:othersAt`) costs what a look
+    costs and carries the same blur as every other live disclosure of others' sums (a fresh draw per quote), never an
+    exact figure while the game is live: it is information about hidden rules (the owner: exposure should cost
+    something; others' rules "possible but hard" to infer; decisions 32, 33, 35).
+
+34. **CALL** (the coordinator's, 15 Nov): the commit clause (v1's option, off by default) is restored and decided as v1
+    decided it, on disclosed values (own bits exact, the others' sums with their noise), so probing cannot recover exact
+    sums.
+
+35. **CALL** (the coordinator's, 15 Nov): user-saved setups are restored (the owner asked for them on 31 October; the
+    old game is the spec), and 200 agents per player is restored with paginated agent lists so the read rules R1–R9
+    hold. In player text the second preference is a "secondary preference", never "tie-break" (the owner's own word;
+    v1 forbade "tie-break" in player text).
+
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 
 Each is decided in [spec.md](spec.md); the section is given.

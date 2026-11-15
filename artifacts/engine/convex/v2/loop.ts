@@ -325,19 +325,6 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
 }
 
-/**
- * Why the commit clause keeps an only-if-better act from committing, or null when it commits (v1: archive
- * lib/game-core/src/settings.ts commitClause): the room must offer the clause, and the owner's points on the object
- * under the new state (exact, as v1's engine compared them) must be strictly higher than now.
- */
-async function commitClauseKeeps(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, memberId: Id<"v2Members">, after: string, version: number): Promise<string | null> {
-  if (!game.settings.commitClause) return "this room does not offer the commit clause";
-  const now = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", memberId)).unique();
-  const next = valuesAt(game, seats, after, objectId, version + 1).find(x => x.memberId === memberId);
-  if (!now || !next || next.points > now.points) return null;
-  return `the commit clause kept the line: your points there would go from ${now.points.toFixed(2)} to ${next.points.toFixed(2)}`;
-}
-
 /** An act record without its host transcript (what a skipped act stores). */
 const withoutTranscript = ({ transcript: _, ...rest }: { transcript?: unknown; [k: string]: unknown }) => rest;
 
@@ -567,12 +554,8 @@ export const commit = internalMutation({
       const current = verdict === "committed" && st.version === act.version;
       // Decision 24: a move onto a state another object holds is refused like an invalid call (it pays its reads).
       const holder = current ? await holderOf(ctx, game._id, record.after, act.objectId) : null;
-      // The commit clause (v1, off by default): an act its agent marked only-if-better commits only if its owner's
-      // points on the object strictly rise; in a room that does not offer the clause, such an act is refused.
-      const kept = current && !holder && (record as { onlyIfBetter?: boolean }).onlyIfBetter === true
-        ? await commitClauseKeeps(ctx, game, seats, act.objectId, act.memberId as Id<"v2Members">, record.after, st.version) : null;
-      const committed = current && !holder && !kept;
-      const outcome = holder || kept ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
+      const committed = current && !holder;
+      const outcome = holder ? "failed" : verdict === "committed" && !committed ? "stale" : verdict;
       const charge = committed || outcome === "skipped" || (outcome === "failed" && !holder) ? record.charge : readCharge(record.readBits);
       const charged = chargeAct(account, charge);
       const n = act.n;
@@ -587,7 +570,7 @@ export const commit = internalMutation({
         // A skip keeps no transcript (the coordinator, 15 Nov: 3.3 KB of each act event, and act events were 95% of a
         // game's writes); an act that moved or failed keeps it. Any act can be re-run from its seed and inputs.
         ...(outcome === "skipped" ? withoutTranscript(record) : record), ...(outcome !== record.outcome ? { outcome, after: record.before, charged: charge } : {}),
-        ...(holder ? { reason: heldReason(game.variant, holder.number) } : kept ? { reason: kept } : {}),
+        ...(holder ? { reason: heldReason(game.variant, holder.number) } : {}),
       });
       // Owner decision 36: "Players should still know everything their agents learn for free". Every act an agent runs
       // on an object tells its owner the object as the agent saw it, with the agent's own measurement of its value (a
