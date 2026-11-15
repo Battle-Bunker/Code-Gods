@@ -133,13 +133,13 @@ async function runVariant(v: VariantId): Promise<VariantResult> {
   log(`${v}: ${rules.length} rules (${pool.skipped.length} without a value function), E = ${f1(E)} energy, ${tables.length} tables`);
 
   // Test 5 does not depend on β: once.
-  // At the server's noise (DISCLOSE.sigma, keyed per state) it counts; exact sums are a comparison row.
+  // At the server's noise (DISCLOSE.sigma, a fresh draw each read: decision 32) it counts; exact sums are a comparison row.
   let disclose: { verdict: Verdict; note: string } | null = null, exact: { verdict: Verdict; note: string } | null = null;
   if (tests.has(5)) {
     const t0 = performance.now();
     const probes = births(space.type, space.variant, "probe", 3000);
     const at = (sigma: number) => {
-      const res = identify(rules, r => space.bits(r), probes, 40, sigma, v, 3000, s => space.type.encode(s));
+      const res = identify(rules, r => space.bits(r), probes, 40, sigma, v, 3000);   // a fresh draw a read, as the server draws it (decision 32)
       const m = median(res.need);
       return { verdict: (discloseFails(m) ? "FAIL" : "PASS") as Verdict, note: `σ = ${sigma} bits: median ${Number.isFinite(m) ? m : "> 3000"} probes (floor ${DISCLOSE.floor}), ${res.unidentified}/${res.need.length} unidentified in 3,000` };
     };

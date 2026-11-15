@@ -65,8 +65,9 @@ export interface TableInput<S> {
   /** Owner decision 24: no two objects in the same state. A move whose result another object already holds is refused
    *  (the act pays its reads only). */
   readonly unique?: boolean;
-  /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). A fixed draw per state, keyed by the
-   *  table's seed: agents read others + noise (othersAfter, worth); the scores here stay exact. */
+  /** Disclosure noise on the others' sum, σ in bits (v1's 8; 0 or absent: exact). As the server draws it (owner decision
+   *  32, W3 #673): every read an agent makes (othersAfter) is an independent draw, keyed by the act and the read's count,
+   *  and the act's own value (worth) is drawn once per act. The scores here stay exact. */
   readonly noise?: number;
   /** Experiments only: summons and edits cost at most this (to try programs dearer than a player's store). */
   readonly summonCap?: number;
@@ -174,10 +175,10 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const reversal = seats.map(() => 0);
   const chat: { from: string; by: number; text: string; at: number }[] = [];
   const stats = seats.map(() => ({ messages: 0, summoned: 0, replaced: 0, allocations: 0, toolCalls: 0, failedToolCalls: 0, acts: 0, spentActs: 0, spentSummons: 0, spentEdits: 0, lateActs: 0, lateIdle: 0, refused: 0, moves: 0, trueGains: 0, flips: 0 }));
-  // Disclosure noise: a fixed normal draw per state (Box–Muller on the state's keyed hash).
-  const noiseAt = (e: string) => {
+  // Disclosure noise: a normal draw per key (Box–Muller on the key's hash); each act draws its value once and each read anew.
+  const noiseAt = (key: string) => {
     if (!input.noise) return 0;
-    const h = hashHex(`${input.seed}:noise:${e}`), u1 = (parseInt(h.slice(0, 12), 16) + 1) / (2 ** 48 + 1), u2 = parseInt(h.slice(12, 24), 16) / 2 ** 48;
+    const h = hashHex(`${input.seed}:noise:${key}`), u1 = (parseInt(h.slice(0, 12), 16) + 1) / (2 ** 48 + 1), u2 = parseInt(h.slice(12, 24), 16) / 2 ** 48;
     return input.noise * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   };
   /** Per object: the last committed move's seat and the state it left (to count flips: a move back by another seat). */
@@ -247,12 +248,14 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
     const n = bitsAll(lines[object]!), total = n.reduce((x, y) => x + y, 0);
     const history = (byLine.get(object) ?? []).filter(m => m.by === i || m.before[i] !== m.after[i]).slice(-8)
       .map(m => ({ mine: m.by === i, pointsBefore: m.before[i]!, pointsAfter: m.after[i]! }));
+    const actKey = `act:${actN}`;
+    let reads = 0;
     const { record, state } = await runAct(await sandbox(a.program.language), {
       type, variant, state: lines[object]!, rule: seats[i]!.rule, program: a.program,
       seed: BigInt(`0x${hashHex(`${input.seed}:act:${actN++}`).slice(0, 15)}`), energy, object, liveObjects: lines.length, ...(input.actEconomy ? { economy: input.actEconomy } : {}),
-      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(type.encode(lines[object]!))), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
+      value: (shown => ({ mine: n[i]!, others: shown, points: n[i]! * Math.max(0, shown) }))(total - n[i]! + noiseAt(`${actKey}:value`)), history, ...(vals[i]!.values ? { values: vals[i]!.values } : {}),
       others: seats.flatMap((s, j) => (j === i || !vals[j]!.values ? [] : [{ rule: s.rule, values: vals[j]!.values! }])),
-      ...(input.noise ? { disclosed: noiseAt } : {}),
+      ...(input.noise ? { disclosed: () => noiseAt(`${actKey}:read:${reads++}`) } : {}),
       ...(input.unique ? { occupied: (e: string) => lines.some((l, j) => j !== object && type.encode(l) === e) } : {}),
     });
     const capacity = energyCapacity(agentIncome(P, a.share), T);
