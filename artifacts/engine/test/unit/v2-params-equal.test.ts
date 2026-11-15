@@ -11,12 +11,35 @@
  * (the coordinator, 15 Nov). A preset whose parameters drift (driftSeconds > 0; the coordinator's declared TRIAL) may
  * differ by up to DRIFT_TOLERANCE bits: every seat cycles through the values, so unfairness between them is averaged
  * over the redraws.
+ *
+ * A ladder main (design-principles.md: a main part with no top, whose rungs are numbers the code prices, e.g. Prime
+ * Landing's primes) is compared by bits minus the rung's code cost (the coordinator's declared TRIAL, 15 Nov): a climb
+ * pays Δφ to reach a rung, so equal bits per unit of code cost is equal opportunity per unit of energy. Its best and
+ * median knots differ by design (the first rungs are 3, 7, 11 and 19 for endings 3, 7, 1 and 9).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
 import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
+import { LINE_Q_CODES } from "@workspace/v2-linear";
+
+/** Ladder families: the code cost of a rung (the main part's whole value), or null where the knot is not on a rung. */
+const LADDER_COST: Readonly<Record<string, (u: string) => number | null>> = {
+  "prime-landing": u => (/^\d+$/.test(u) ? LINE_Q_CODES.c.bits(BigInt(u)) : null),
+};
+/** The median over rungs of (least bits on the rung − the rung's code cost). */
+function ladderExcess(knots: readonly { u: unknown; bits: number }[], cost: (u: string) => number | null): number | null {
+  const least = new Map<string, number>();
+  for (const k of knots) {
+    if (!Array.isArray(k.u) || typeof k.u[0] !== "string") continue;
+    const c = cost(k.u[0]);
+    if (c === null) continue;
+    least.set(k.u[0], Math.min(least.get(k.u[0]) ?? Infinity, k.bits - c));
+  }
+  const xs = [...least.values()].sort((a, b) => a - b);
+  return xs.length ? xs[Math.floor(xs.length / 2)]! : null;
+}
 
 const TOLERANCE = 0.5;
 const DRIFT_TOLERANCE = 1.0;
@@ -32,19 +55,20 @@ test("a family's parameter peers in a dealable pool have the same top and spread
   const problems: string[] = [];
   for (const preset of PRESETS) {
     const drifts = preset.driftSeconds > 0;
-    const peers = new Map<string, { params: string; top: number; median: number; exact: number | null }[]>();
+    const peers = new Map<string, { params: string; top: number; median: number; exact: number | null; ladder: number | null }[]>();
     for (const r of dealablePool(preset)) {
       const v = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
       if (!v) continue;
       const key = `${r.family}/${r.tieBreaker}`;
-      peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots), median: median(v.knots), exact: familyOf(r.family).main.sense === "min" ? exactMain(v.knots as never) : null }]);
+      peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots), median: median(v.knots), exact: familyOf(r.family).main.sense === "min" ? exactMain(v.knots as never) : null,
+        ladder: LADDER_COST[r.family] ? ladderExcess(v.knots as never, LADDER_COST[r.family]!) : null }]);
     }
     for (const [family, rs] of peers) {
       if (rs.length < 2) continue;
-      const exact = rs.every(r => r.exact !== null);
-      for (const field of exact ? ["exact"] as const : ["top", "median"] as const) {
+      const exact = rs.every(r => r.exact !== null), ladder = rs.every(r => r.ladder !== null);
+      for (const field of ladder ? ["ladder"] as const : exact ? ["exact"] as const : ["top", "median"] as const) {
         const xs = rs.map(r => r[field]!), spread = Math.max(...xs) - Math.min(...xs);
-        if (spread > (drifts ? DRIFT_TOLERANCE : TOLERANCE)) problems.push(`${preset.id} ${family}: ${field} differs by ${spread.toFixed(2)} bits across ${rs.map(r => r.params).join(", ")}`);
+        if (spread > (ladder ? TOLERANCE : drifts ? DRIFT_TOLERANCE : TOLERANCE)) problems.push(`${preset.id} ${family}: ${field} differs by ${spread.toFixed(2)} bits across ${rs.map(r => r.params).join(", ")}`);
       }
     }
   }

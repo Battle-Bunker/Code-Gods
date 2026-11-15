@@ -2,12 +2,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { gridPresets, grid4 } from "@workspace/v2-grid";
-import { lineQ, lineZ, presets } from "@workspace/v2-linear";
+import { lineQ, presets } from "@workspace/v2-linear";
 import { pairVerdict, PAIR_VERDICTS } from "../src/pure.ts";
 
 test("every pair of dealt rules of different families has a verdict, in either order", () => {
   const sets = [
-    ...([["lines-beginner", lineQ.id], ["lines-whole", lineZ.id]] as const).map(([id, variant]) => {
+    ...([["lines-beginner", lineQ.id]] as const).map(([id, variant]) => {
       const p = presets.find(x => x.id === id)!;
       assert.equal(p.variant, variant, `${id} plays on ${variant}`);
       return { variant, rules: p.rules.flatMap(r => (r.tieBreakers as string[]).map(tb => [r.family, `${r.family}/${tb}`] as const)) };
@@ -19,6 +19,5 @@ test("every pair of dealt rules of different families has a verdict, in either o
     assert.ok(pairVerdict(variant, a, b), `${variant}: no verdict for ${a} · ${b} (run pnpm --filter @workspace/v2-agents gen-compat)`);
     assert.equal(pairVerdict(variant, a, b), pairVerdict(variant, b, a));
   }
-  assert.equal(pairVerdict(lineZ.id, "prime-landing/big-prime", "prime-gradient/prime"), "compatible", "c and m: compatible");
   assert.ok(PAIR_VERDICTS.every(r => r.a < r.b && r.shareA <= 1 && r.shareB <= 1));
 });

@@ -1,5 +1,5 @@
 // Prime Landing · Simple
-// Main part: the y-intercept close to the dealt prime. Tie-breaker: whichever you were dealt (that prime; the gradient close to such a prime too; y(1) close to such a prime too; the gradient's smallest prime factor; the gradient's largest prime factor).
+// Main part: the y-intercept on as big a dealt prime as possible. Tie-breaker: whichever you were dealt (the factor that prime minus 1 shares with the gradient's whole part; how long y(1), y(2), … go on being such primes).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,30 +12,21 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
-    const landing = near(c, prime, p.ends);         // it lands on the x-axis: the prime ending in p.ends nearest
-    const main = Q.neg(Q.abs(Q.sub(c, landing)));
+    const landing = near(c, prime, p.ends);         // it lands on the x-axis: the rung nearest there
+    const main = Q.eq(c, landing) ? landing : Q.neg(Q.abs(Q.sub(c, landing)));
     return [main, null];
   }
-  const s = p.side ?? 1;                           // 1, or −1 on the mirror: minus a prime
-  const landing = Q.mul(s, near(Q.mul(s, c), prime, p.ends));   // the (minus) prime ending in p.ends nearest
-  const main = Q.neg(Q.abs(Q.sub(c, landing)));
-  // main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better)
-  if (tie === "big-prime") return [main, Q.abs(landing)];   // a bigger prime is better
-  if (tie === "prime-gradient") {   // a gradient close to such a prime too is better
-    const mp = Q.mul(p.side ?? 1, near(Q.mul(p.side ?? 1, m), prime, p.ends));   // the (minus) prime ending in p.ends nearest the gradient
-    return [main, Q.neg(Q.abs(Q.sub(m, mp)))];
+  const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept: the rung
+  const main = Q.eq(c, landing) ? landing : Q.neg(Q.abs(Q.sub(c, landing)));   // on a rung: the rung; else below every rung
+  // main: the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one
+  if (tie === "shared-factor") {   // that prime minus 1 sharing a bigger factor with the gradient's whole part is better
+    const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)
+    return [main, common(Q.sub(landing, 1), wm)];
   }
-  if (tie === "next-prime") {   // y(1) (ignoring sign) close to such a prime too is better
-    const y1 = Q.abs(Q.add(m, c));                 // y(1) = m + c, ignoring its sign
-    return [main, Q.neg(Q.abs(Q.sub(y1, near(y1, prime, p.ends))))];
-  }
-  if (tie === "m-spf") {   // the gradient's smallest prime factor big is better
-    const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
-    return [main, fm[0] ?? 1];
-  }
-  if (tie === "m-gpf") {   // the gradient's largest prime factor big is better
-    const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)
-    return [main, fm.at(-1) ?? 1];
+  if (tie === "climb-on") {   // y(1), y(2), ... going on longer as primes ending in the rule's digit is better
+    let on = 0;                                     // y(1), y(2), ... new primes ending in p.ends, in a row
+    for (let n = 1; n <= 12; n++) { const t = Q.add(Q.mul(m, n), c); if (Q.eq(m, 0) || Q.eq(t, landing) || !prime(t) || !Q.toString(t).endsWith(String(p.ends))) break; on++; }
+    return [main, on];
   }
   return [main];
 }

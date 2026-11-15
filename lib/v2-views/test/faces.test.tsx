@@ -122,7 +122,7 @@ test("compact face: the main part's quantity, target and distance; a cited coeff
 
 test("identity badges: the elements a part reads carry its role in every view, projected by meaning", async () => {
   const { primeLanding, fromMC: f, lineZ } = await import("@workspace/v2-linear");
-  const rule: RuleRef<LineState, unknown> = { type: lineType, family: primeLanding as never, params: primeLanding.dealable(lineZ)[0], variant: lineZ, tieBreaker: "big-prime" };
+  const rule: RuleRef<LineState, unknown> = { type: lineType, family: primeLanding as never, params: primeLanding.dealable(lineZ)[0], variant: lineZ, tieBreaker: "shared-factor" };
   const s: LineState = { lines: [f(q(6), q(25))] };
   const reps = lineType.representations.map(r => r.id);
   for (const compare of reps) {

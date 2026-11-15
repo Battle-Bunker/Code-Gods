@@ -13,7 +13,7 @@ import { grid4, gridType } from "@workspace/v2-grid";
 import { GameSummary, summarise, type RuleRef, type SummaryInput } from "../src/index.ts";
 
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
-const rule: RuleRef<LineState, unknown> = { type: lineType, family: primeLanding as never, params: { ends: 3 }, variant: lineZ, tieBreaker: "big-prime" };
+const rule: RuleRef<LineState, unknown> = { type: lineType, family: primeLanding as never, params: { ends: 3 }, variant: lineZ, tieBreaker: "shared-factor" };
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
 const base: SummaryInput<LineState> = {

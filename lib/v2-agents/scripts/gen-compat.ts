@@ -14,7 +14,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { evaluateSite, q, rng, type Q, type Variant } from "@workspace/v2-core";
 import { gridPresets, gridType, grid4, type GridState } from "@workspace/v2-grid";
-import { fromMC, lineQ, lineType, lineZ, presets, type LineState } from "@workspace/v2-linear";
+import { fromMC, lineQ, lineType, presets, type LineState } from "@workspace/v2-linear";
 import { valueLookup } from "@workspace/v2-valuation";
 import { findValues } from "../src/harness.ts";
 
@@ -45,12 +45,7 @@ function linePairs(presetId: string, variant: Variant, lines: readonly LineState
     rows.push({ variant: variant.id, a, b, verdict: verdictOf(sa, sb), shareA: round(sa), shareB: round(sb) });
   }
 }
-{
-  // lines-whole on line-z: whole-number lines, |m| ≤ 10, |c| ≤ 60.
-  const lines: LineState[] = [];
-  for (let m = -10; m <= 10; m++) if (m !== 0) for (let c = -60; c <= 60; c++) lines.push({ lines: [fromMC(q(m), q(c))] });
-  linePairs("lines-whole", lineZ, lines);
-}
+// lines-whole (line-z) is retired from play (the coordinator, 15 Nov): no verdicts.
 {
   // lines-beginner on line-q: lines y = mx + c with m and c over denominators up to 4, |m| ≤ 10, |c| ≤ 30.
   const values = (top: number): Q[] => {
@@ -129,4 +124,4 @@ export function pairVerdict(variant: string, x: string, y: string): PairVerdict 
 `;
 writeFileSync(join(import.meta.dirname, "..", "src", "compat.gen.ts"), out);
 const count = (v: string, d: Verdict) => rows.filter(r => r.variant === v && r.verdict === d).length;
-for (const v of [lineZ.id, lineQ.id, grid4.id]) console.log(`${v}: ${count(v, "compatible")} compatible, ${count(v, "partial")} partial, ${count(v, "conflict")} conflict`);
+for (const v of [lineQ.id, grid4.id]) console.log(`${v}: ${count(v, "compatible")} compatible, ${count(v, "partial")} partial, ${count(v, "conflict")} conflict`);

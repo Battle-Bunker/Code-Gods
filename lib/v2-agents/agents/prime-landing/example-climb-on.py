@@ -1,5 +1,5 @@
-# Prime Landing · Example: y(1) close to such a prime too
-# Main part: the y-intercept close to the dealt prime. Tie-breaker: y(1) close to such a prime too.
+# Prime Landing · Example: how long y(1), y(2), … go on being such primes
+# Main part: the y-intercept on as big a dealt prime as possible. Tie-breaker: how long y(1), y(2), … go on being such primes.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,20 +7,24 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: remove the "shift" line: tilting keeps the landing and moves y(1) by k.
+# Try this: remove the "shift" line: tilting keeps the rung and changes every step of the run.
 
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the prime ending in p["ends"] nearest
-        main = -abs(c - landing)
+        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the rung nearest there
+        main = landing if c == landing else -abs(c - landing)
         return [main, None]
-    s = p.get("side", 1)                           # 1, or -1 on the mirror: minus a prime
-    landing = s * near(s * c, prime, p["ends"])   # the (minus) prime ending in p["ends"] nearest
-    main = -abs(c - landing)
-    y1 = abs(m + c)                            # y(1) = m + c, ignoring its sign
-    return [main, -abs(y1 - near(y1, prime, p["ends"]))]   # main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better); tie-breaker: y(1) (ignoring sign) close to such a prime too is better
+    landing = near(c, prime, p["ends"])             # the prime ending in p["ends"] nearest the y-intercept: the rung
+    main = landing if c == landing else -abs(c - landing)   # on a rung: the rung; else below every rung
+    on = 0                                          # y(1), y(2), ... new primes ending in p["ends"], in a row
+    for n in range(1, 13):
+        t = m * n + c
+        if m == 0 or t == landing or not prime(t) or t % 10 != p["ends"]:
+            break
+        on += 1
+    return [main, on]   # main: the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one; tie-breaker: y(1), y(2), ... going on longer as primes ending in the rule's digit is better
 
 
 FAR = 3      # how far one change may go

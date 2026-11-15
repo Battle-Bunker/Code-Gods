@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, q, rng, scoreToWire, type Q, type RuleFamily, type Score } from "@workspace/v2-core";
-import { lineZ, primeLanding } from "@workspace/v2-linear";
+import { divisibilityLadder, lineZ } from "@workspace/v2-linear";
 import { findVariant, knotsFrom, layerMeasures, lineValueFunction, massOracle, sampledOracle, tailOf, TAIL_CEILING, TAIL_FLOOR, valueLookup, VALUE_CONFIG } from "../src/index.ts";
 import { pairTail } from "../src/value-pair.ts";
 
@@ -62,10 +62,10 @@ test("mass outside an enumeration widens the interval: a knot is certified only 
   assert.ok(knots.every(k => k.bits < 9), "nothing rarer than the outside mass is certified");
 });
 
-test("direct draws agree with the exact sums (Prime Landing + m-spf on line-z, separable as a product of two laws)", () => {
-  const p = primeLanding.dealable(lineZ)[0]!;
-  const exact = lineValueFunction(primeLanding, p, lineZ, { tieBreaker: "m-spf", config: { drawsPerTilt: 0 } });
-  const draws = lineValueFunction(primeLanding, p, lineZ, { tieBreaker: "m-spf", exact: false, config: { drawsPerTilt: 30_000 } });
+test("direct draws agree with the exact sums (Divisibility Ladder + m-spf on line-z, separable as a product of two laws)", () => {
+  const p = divisibilityLadder.dealable(lineZ)[0]!;
+  const exact = lineValueFunction(divisibilityLadder, p, lineZ, { tieBreaker: "m-spf", config: { drawsPerTilt: 0 } });
+  const draws = lineValueFunction(divisibilityLadder, p, lineZ, { tieBreaker: "m-spf", exact: false, config: { drawsPerTilt: 30_000 } });
   const look = valueLookup(exact);
   let compared = 0;
   for (const k of draws.knots) {

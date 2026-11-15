@@ -1,5 +1,5 @@
-# Prime Landing · Example: that prime
-# Main part: the y-intercept close to the dealt prime. Tie-breaker: that prime.
+# Prime Landing · Example: the factor that prime minus 1 shares with the gradient's whole part
+# Main part: the y-intercept on as big a dealt prime as possible. Tie-breaker: the factor that prime minus 1 shares with the gradient's whole part.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -7,19 +7,19 @@
 # with that player and put the line in LEAVE to keep it.
 # Changing it later costs only what you change. To summon another agent, first move power from your agents to your
 # own store (energy moves with it), pay, then share the power out again.
-# Try this: change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?
+# Try this: change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.
 
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the prime ending in p["ends"] nearest
-        main = -abs(c - landing)
+        landing = near(c, prime, p["ends"])             # it lands on the x-axis: the rung nearest there
+        main = landing if c == landing else -abs(c - landing)
         return [main, None]
-    s = p.get("side", 1)                           # 1, or -1 on the mirror: minus a prime
-    landing = s * near(s * c, prime, p["ends"])   # the (minus) prime ending in p["ends"] nearest
-    main = -abs(c - landing)
-    return [main, abs(landing)]   # main: how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better); tie-breaker: a bigger prime is better
+    landing = near(c, prime, p["ends"])             # the prime ending in p["ends"] nearest the y-intercept: the rung
+    main = landing if c == landing else -abs(c - landing)   # on a rung: the rung; else below every rung
+    wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)
+    return [main, common(landing - 1, wm)]   # main: the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one; tie-breaker: that prime minus 1 sharing a bigger factor with the gradient's whole part is better
 
 
 FAR = 3      # how far one change may go
@@ -47,6 +47,7 @@ def agent(offer):
         for k in range(-FAR, FAR + 1):
             if k == 0:
                 continue
+            tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
             tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p)) for plan, m2, c2 in tries]   # each step and the score it reaches

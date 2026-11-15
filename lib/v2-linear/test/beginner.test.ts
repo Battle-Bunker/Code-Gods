@@ -47,7 +47,9 @@ test("worked examples, one line per family", () => {
   assert.deepEqual([t12.square, t12["spf"], t12["lpf"], t12["omega"]], ["0", "2", "3", "3"]);
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, mc(30, -23)),
     { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23", "m-spf": "2", "m-gpf": "5" });   // y(2) = 37; 30 = 2·3·5, 1 from 29 and 31
-  assert.deepEqual(terms(primeLanding, { ends: 3 }, mc(2, 13)), { landing: "0", "big-prime": "13", "prime-gradient": "1", "next-prime": "2", "m-spf": "2", "m-gpf": "2" });   // primes ending in 3: m = 2 is 1 from 3; y(1) = 15, 2 from 13
+  assert.deepEqual(terms(primeLanding, { ends: 3 }, mc(2, 13)), { landing: "13", "shared-factor": "2", "climb-on": "0" });   // on 13; 12 and 2 share 2; y(1) = 15 is no prime
+  assert.deepEqual(terms(primeLanding, { ends: 7 }, mc(10, 7)), { landing: "7", "shared-factor": "2", "climb-on": "1" });   // on 7; 6 and 10 share 2; y(1) = 17, then 27
+  assert.deepEqual(terms(primeLanding, { ends: 7 }, mc(3, 20)), { landing: "-3", "shared-factor": "1", "climb-on": "0" });   // 20 is no such prime: 3 from 17 (37 is 17 away)
   assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { crossing: "0", "k-spf": "2", "k-gpf": "3", "m-spf": "2", "gcd-c": "6", "gcd-num-m": "2" });       // crosses at 6 (leaves 1 divided by 5); gcd(6, −24), gcd(6, 4)
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(3, 1)), { crossing: "4/3", "k-spf": "1", "k-gpf": "1", "m-spf": "3", "gcd-c": "1", "gcd-num-m": "1" });       // at −⅓: of −4 and 1, 1 is nearer
@@ -113,26 +115,26 @@ test("vertical lines score where the rule has an honest reading (the coordinator
   // x = 13/2: Treasure passes (13/2, 37), 9/2 across from (2, 37); Prime Landing lands on the x-axis ½ from 7; it meets
   // y = x at 13/2, ½ from T = 6; Ruler's distance² is 169/4, 25/4 from 36 (k = 6). Tie-breakers stay undefined.
   assert.deepEqual(terms(treasure, { k: 2, T: 37 }, x(-2n, 13n), lineQ), { treasure: "9/2", "prime-terms": "—", "prime-gradient": "—", "square-start": "—", "m-spf": "—", "m-gpf": "—" });
-  assert.equal(terms(primeLanding, { ends: 7 }, x(-2n, 13n), lineQ).landing, "1/2");
+  assert.equal(terms(primeLanding, { ends: 7 }, x(-2n, 13n), lineQ).landing, "-1/2");   // x = 6½: ½ from 7
   assert.equal(terms(sameOnBothRulers, { T: 6 }, x(-2n, 13n), lineQ).fixed, "1/2");
   assert.deepEqual(terms(ruler, {}, x(-2n, 13n), lineQ), { ruler: "25/4", far: "6", "prime-gradient": "—", "square-area": "—" });
   // x = 3: on the prime 3, distance² 9 exactly.
-  assert.equal(terms(primeLanding, { ends: 3 }, x(-1n, 3n), lineQ).landing, "0");
+  assert.equal(terms(primeLanding, { ends: 3 }, x(-1n, 3n), lineQ).landing, "3");
   assert.equal(terms(ruler, {}, x(-1n, 3n), lineQ).ruler, "0");
   assert.notEqual(evaluateSite(lineType, ruler, {}, x(-1n, 3n), lineQ, 0, null).score, null, "a vertical line scores");
 });
 
-test("Prime Landing's mirror (side −1) is an exact peer: it scores the reflected line y → −y as side 1 scores the line", () => {
-  // The law is even in a and c (C3 codes), so equal scores on reflected lines make equal values: v1's equal opportunity.
-  const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });   // a·x + c = 0, a vertical line (its own reflection)
-  for (const mm of [-7, -2, 0, 1, 3, 14]) for (const cc of [-40, -17, -3, 0, 5, 17, 23, 97]) {
-    const up = terms(primeLanding, { ends: 7 }, mc(mm, cc), lineQ), down = terms(primeLanding, { ends: 7, side: -1 }, mc(-mm, -cc), lineQ);
-    assert.deepEqual(down, up, `y = ${mm}x + ${cc}`);
-  }
-  for (const [a, c] of [[2n, -25n], [1n, 13n], [3n, 7n]] as const) assert.deepEqual(terms(primeLanding, { ends: 7, side: -1 }, x(a, c), lineQ), terms(primeLanding, { ends: 7 }, x(a, c), lineQ));
-  for (let n = -60n; n <= 60n; n++) for (const k of ["a", "c"] as const) assert.equal(LINE_Q_CODES[k].bits(n), LINE_Q_CODES[k].bits(-n), `${k} = ${n}`);
-  assert.equal(terms(primeLanding, { ends: 7, side: -1 }, mc(2, -16), lineQ).landing, "1");   // −16 is 1 from −17
-  assert.match(primeLanding.card({ ends: 7, side: -1 }, null), /as close as possible to minus a prime ending in 7/);
+test("Prime Landing is a ladder: every rung has a higher one, and its tie-breakers restart on a new rung (design-principles.md rows 1 and 3)", () => {
+  // Row 1: no attained top. Along c = 7, 17, 37, 47, … (primes ending in 7) the main part keeps rising.
+  const along = [7, 17, 37, 47, 67, 97, 107, 127, 137, 157, 167, 197].map(c => Number(terms(primeLanding, { ends: 7 }, mc(1, c), lineQ).landing));
+  for (let i = 1; i < along.length; i++) assert.ok(along[i]! > along[i - 1]!, `${along}`);
+  // Row 3: on the rung 17 the best whole gradient part shares 16; on the rung 37 it shares 36: gradient 16 is best on 17,
+  // and stepping up to 37 drops it to 4 (the climb starts again).
+  assert.equal(terms(primeLanding, { ends: 7 }, mc(16, 17), lineQ)["shared-factor"], "16");
+  assert.equal(terms(primeLanding, { ends: 7 }, mc(16, 37), lineQ)["shared-factor"], "4");
+  assert.equal(terms(primeLanding, { ends: 7 }, mc(36, 37), lineQ)["shared-factor"], "36");
+  assert.equal(terms(primeLanding, { ends: 7 }, mc(q(1, 2), 37), lineQ)["shared-factor"], "0");   // a whole part of 0 shares nothing
+  assert.deepEqual(primeLanding.dealable(lineQ), [1, 3, 7, 9].map(ends => ({ ends })));
 });
 
 test("Same on Both Rulers' −T is an exact peer of T: it scores the line reflected through the origin as T scores the line", () => {
