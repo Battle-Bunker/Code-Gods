@@ -11,7 +11,7 @@ import { PRESETS, presetOf, type Preset } from "@workspace/engine/convex/v2/pres
 import { Section } from "@/site/components/page-parts";
 import { failureText } from "@/site/components/action";
 import { useAuth } from "@/site/hooks/use-auth";
-import { formOf, nextGameSummary, noiseWords, overridesOf, PEER_NOISE_VARIANCE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
+import { weightText, formOf, nextGameSummary, noiseWords, overridesOf, PEER_NOISE_VARIANCE_OPTIONS, setupBlurb, setupGroups, type FormField, type SettingsForm } from "@/site/lib/setup-picker";
 import { SCORE_INTERVAL_OPTIONS } from "@workspace/engine/convex/v2/duration.ts";
 import { gallerySearch } from "@/site/lib/rule-gallery";
 import { ruleGalleryPath } from "@/site/lib/routes";
@@ -114,8 +114,8 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
           <span>Price of a look (times the read price)</span>
           <select value={form.readPriceWeight} onChange={e => setForm({ ...form, readPriceWeight: e.target.value })} disabled={!!locked || busy}
             className="h-9 border bg-background px-2" data-testid="select-setting-readPriceWeight">
-            {[...new Set([0, 0.5, 1, 2, 3, 4, Number(form.readPriceWeight)])].filter(n => Number.isFinite(n)).sort((a, b) => a - b)
-              .map(n => <option key={n} value={String(n)}>{n === 0 ? "Free: see everything as it is" : `${n}×`}</option>)}
+            {[...new Set([0, 0.5, 1, 2, 3, 4, preset.readPriceWeight, Number(form.readPriceWeight)])].filter(n => Number.isFinite(n)).sort((a, b) => a - b)
+              .map(n => <option key={n} value={String(n)}>{n === 0 ? "Free: see everything as it is" : `${weightText(n)}×${Math.abs(n - preset.readPriceWeight) < 1e-9 ? " (the setup's own)" : ""}`}</option>)}
           </select>
           <span className="text-xs text-muted-foreground">Everyone sees each line or grid as they last looked; a look costs this much energy.</span>
         </label>
