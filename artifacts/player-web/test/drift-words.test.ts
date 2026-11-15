@@ -19,3 +19,11 @@ test("just after a change, the card says so and shows the new rule", () => {
   assert.equal(driftNotice({ drifts: 1, driftedAt: 120, card: "x" }, 160), null, "after 30 s it is just your rule");
   assert.equal(driftNotice({ drifts: 0, driftedAt: null, card: "x" }, 10), null, "never changed");
 });
+
+test("a dilated game (W3 #729: times are game seconds) counts down and says \"ago\" in wall seconds", () => {
+  // 120 game seconds at 4× is 30 wall seconds; 37 game seconds in, 83 game seconds (20.75 s) are left.
+  assert.equal(driftWords(120, 37, 5, 4), "Your rule may get new numbers in 0:21.");
+  const rule = { drifts: 1, driftedAt: 100, card: "x" };
+  assert.equal(driftNotice(rule, 140, 4), "Your rule's numbers just changed (10 s ago). Your rule now: x");
+  assert.equal(driftNotice(rule, 230, 4), null, "130 game seconds is 32.5 wall seconds: past the notice");
+});

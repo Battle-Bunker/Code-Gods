@@ -71,8 +71,8 @@ function Drift({ row, rule }: { row: { drifts: number; driftedAt: number | null;
     seen.current = row.drifts;
   }, [row.drifts]); // eslint-disable-line react-hooks/exhaustive-deps
   const choices = useMemo(() => { try { return rule ? rule.family.dealable(rule.variant).length : 0; } catch { return 0; } }, [rule]);
-  const countdown = driftWords(header?.driftSeconds ?? 0, worldNow, choices);
-  const notice = driftNotice(row, worldNow);
+  const countdown = driftWords(header?.driftSeconds ?? 0, worldNow, choices, header?.timeScale ?? 1);
+  const notice = driftNotice(row, worldNow, header?.timeScale ?? 1);
   if (!countdown && !notice) return null;
   return (
     <div className="space-y-1 px-3 pt-3 text-sm">
