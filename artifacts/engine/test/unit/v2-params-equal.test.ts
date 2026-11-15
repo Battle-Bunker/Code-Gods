@@ -12,11 +12,13 @@
  * differ by up to DRIFT_TOLERANCE bits: every seat cycles through the values, so unfairness between them is averaged
  * over the redraws.
  *
- * A ladder main (design-principles.md: a main part with no top, whose rungs are numbers the code prices, e.g. Prime
- * Landing's primes) is compared by bits minus the rung's code cost (the coordinator's declared TRIAL, 15 Nov): a climb
- * pays Δφ to reach a rung, so equal bits per unit of code cost is equal opportunity per unit of energy. Its best and
- * median knots differ by design (the first rungs are 3, 7, 11 and 19 for endings 3, 7, 1 and 9). Prime Staircase's rung is
- * the run's length, costed as the cheapest whole line with that run; peers are compared on the rungs all their values reach.
+ * A ladder main (design-principles.md: a main part with no top, whose rungs are numbers the code prices, e.g. Smooth
+ * Intercept's smooth numbers) is compared by bits minus the rung's code cost (the coordinator's declared TRIAL, 15 Nov):
+ * a climb pays Δφ to reach a rung, so equal bits per unit of code cost is equal opportunity per unit of energy. Its best
+ * and median knots differ by design (each peer's first rung is a different number). Prime Staircase's rung is the run's
+ * length, costed as the cheapest whole line with that run; peers are compared on the rungs all their values reach. Prime
+ * Landing's rungs are windows (a landing that rounds to the prime), whose cheapest line jumps about from rung to rung,
+ * so it is compared by its best and median knots like any other family.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -27,13 +29,16 @@ import { LINE_Q_CODES } from "@workspace/v2-linear";
 
 /**
  * Ladder families: the code cost of a rung (from the main part's value), or null where the knot is not on a rung.
- * Prime Landing and Smooth Intercept: the rung is the y-intercept itself. Prime Staircase: the rung is the run's length
+ * Smooth Intercept: the rung is the y-intercept itself. Prime Staircase: the rung is the run's length
  * L (the whole part of run + 1/(2 + d)), costed as the cheapest whole line (m, c) whose run is at least L.
  */
 /** A rung: its key (knots with one key are on one rung) and its code cost. */
 type Rung = readonly [key: string, cost: number];
 const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, unknown>) => Rung | null>> = {
-  "prime-landing": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
+  // Whole Crossing: the rung is the level j (the crossing 5^j × t, t leaving r when divided by 5). A level is a level
+  // whatever r: the climb between levels is the same ×5 (a stretch or zoom), so peers are compared level by level on
+  // their bits (cost 0). Subtracting the cheapest y-intercept's code instead over-corrects (t = 1 against t = 2).
+  "whole-crossing": u => (/^\d+$/.test(u) ? [u, 0] : null),
   "smooth-intercept": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
   "prime-staircase": (u, p) => {
     const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
@@ -73,7 +78,7 @@ function ladderExcess(knots: readonly { u: unknown; bits: number }[], rung: (u: 
 }
 /**
  * The median excess over the rungs every peer's values reach (Prime Staircase: run 1 for all endings, runs 2 and 3
- * only where sampling saw them), or over all its rungs where peers share none (Prime Landing: each ending its own primes).
+ * only where sampling saw them), or over all its rungs where peers share none (Smooth Intercept: each set its own smooth numbers).
  */
 function ladderMedians(maps: readonly Map<string, number>[]): number[] {
   const shared = [...maps[0]!.keys()].filter(key => maps.every(m => m.has(key)));

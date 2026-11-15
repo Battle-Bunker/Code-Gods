@@ -122,7 +122,7 @@ test("unique objects: a move onto a state another line already holds is refused,
 
 test("on the beginner economy (power 4) starters live within their income: no agent owes more than about 5 seconds of it", async () => {
   let worst = 0, acts = 0;
-  const rules = [["prime-landing", "shared-factor"], ["treasure", "prime-terms"], ["whole-crossing", "k-spf"]] as const;
+  const rules = [["prime-landing", "shared-factor"], ["treasure", "prime-terms"], ["whole-crossing", "shared-factor"]] as const;
   await runTable(boxes, {
     type: lineType, variant: lineQ, lines: 3, seed: "income", seconds: 90, unique: true,
     seats: rules.map(([f, t], k) => seat(`P${k}`, "starter", f, t)),

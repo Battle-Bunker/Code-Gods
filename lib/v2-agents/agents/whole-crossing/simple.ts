@@ -1,5 +1,5 @@
 // Whole Crossing · Simple
-// Main part: the x-axis crossing close to the dealt whole numbers. Tie-breaker: whichever you were dealt (that whole number's smallest prime factor; that whole number's largest prime factor; the gradient's smallest prime factor).
+// Main part: the x-axis crossing on a ladder of 5s. Tie-breaker: whichever you were dealt (the biggest number dividing both that number after its 5s, plus 1, and the gradient's whole part).
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,24 +12,42 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   if (m === null) {               // the vertical line x = c
-    const t = Q.div(Q.sub(c, p.r), p.q), j = whole(t);
-    let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest
-    if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);
-    const main = Q.neg(Q.abs(Q.sub(c, k)));
-    const fk = factors(k);                          // its prime factors, smallest first
-    return [main, tie === "k-spf" ? (fk[0] ?? 1) : tie === "k-gpf" ? (fk.at(-1) ?? 1) : null];
+    const x = c                                          // it stands on the x-axis at x = c;
+    // The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, … times t). The nearest such number, any level,
+    // in whole numbers: x = n/dd, and every distance is counted in 1/dd.
+    const n = x.n, dd = x.d, r = BigInt(p.r), ab = v => (v < 0n ? -v : v), fl = (a, b) => (a - (((a % b) + b) % b)) / b;   // fl: rounded down
+    let best = null;
+    for (let j = 0, s = 1n; ; j++, s *= 5n) {
+      const D = dd * s;
+      let t = r + 5n * fl(2n * (n - r * D) + 5n * D, 10n * D);   // the nearest t leaving r at this level (halfway: up)
+      if (2n * (t * D - n) === 5n * D && ab(t - 5n) <= ab(t)) t -= 5n;   // halfway: the smaller
+      const dist = ab(n - s * t * dd);                 // the nearer wins; on a tie the higher level
+      if (best === null || dist <= best.dist) best = { j, t, dist };
+      if (s * dd - ab(n) > best.dist) break;           // every further level is farther
+    }
+    const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all
+    return [main, null];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
-  const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
-  const t = Q.div(Q.sub(x, p.r), p.q), j = whole(t);
-  let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest
-  if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);
-  const main = Q.neg(Q.abs(Q.sub(x, k)));
-  const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)
-  // main: how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better)
-  if (tie === "k-spf") return [main, fk[0] ?? 1];   // that whole number's smallest prime factor big is better
-  if (tie === "k-gpf") return [main, fk.at(-1) ?? 1];   // that whole number's largest prime factor big is better
-  if (tie === "m-spf") return [main, fm[0] ?? 1];   // the gradient's smallest prime factor big is better
+  const x = Q.neg(Q.div(c, m))                         // where y = mx + c crosses the x-axis;
+  // The ladder: x = 5^j × t with t leaving r when divided by 5 (1, 5, 25, … times t). The nearest such number, any level,
+  // in whole numbers: x = n/dd, and every distance is counted in 1/dd.
+  const n = x.n, dd = x.d, r = BigInt(p.r), ab = v => (v < 0n ? -v : v), fl = (a, b) => (a - (((a % b) + b) % b)) / b;   // fl: rounded down
+  let best = null;
+  for (let j = 0, s = 1n; ; j++, s *= 5n) {
+    const D = dd * s;
+    let t = r + 5n * fl(2n * (n - r * D) + 5n * D, 10n * D);   // the nearest t leaving r at this level (halfway: up)
+    if (2n * (t * D - n) === 5n * D && ab(t - 5n) <= ab(t)) t -= 5n;   // halfway: the smaller
+    const dist = ab(n - s * t * dd);                 // the nearer wins; on a tie the higher level
+    if (best === null || dist <= best.dist) best = { j, t, dist };
+    if (s * dd - ab(n) > best.dist) break;           // every further level is farther
+  }
+  const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all
+  // main: how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number
+  if (tie === "shared-factor") {   // take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
+    const t1 = (best.t < 0n ? -best.t : best.t) + 1n, wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // |t| + 1, and the gradient's whole part ignoring sign
+    return [main, common(t1, wm)];
+  }
   return [main];
 }
 
@@ -56,6 +74,15 @@ function agent(offer) {
       if (k === 0) continue;
       tries.push([move("si.shift", { k }), m, Q.add(c, k)]);   // move the line up or down
       tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
+      const f = k > 0 ? k + 1 : k - 1;
+      tries.push([move("mach.stretch", { f }), Q.mul(m, f), Q.mul(c, f)]);   // multiply every output by f (m and c both)
+    }
+    // The next level up (the ladder has no top): the nearest number with one more 5, by a shift that keeps the gradient.
+    if (!Q.isZero(m)) {
+      const x = Q.neg(Q.div(c, m));
+      let s = Q.of(5); while (Q.cmp(Q.abs(Q.div(x, s)), 1) > 0 && Q.isInteger(Q.div(x, s))) s = Q.mul(s, 5);   // one more 5 than x holds
+      const t = Q.add(p.r, Q.mul(5, whole(Q.div(Q.sub(Q.div(x, s), p.r), 5)))), to = Q.mul(s, t);
+      tries.push([move("si.shift", { k: Q.sub(Q.neg(Q.mul(m, to)), c) }), m, Q.neg(Q.mul(m, to))]);
     }
     tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   }

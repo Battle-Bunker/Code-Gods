@@ -27,3 +27,22 @@ for (const preset of PRESETS) {
     }
   });
 }
+
+// Playtest round 21: practiceFits redrew whole tables until the human was in company, so the human's family followed
+// the fit (Smooth Intercept 21.5%, Prime Staircase 0.6% of practice games where uniform was 9.1%). The human's family
+// is drawn uniformly first; the partners are then chosen to fit.
+for (const preset of PRESETS) {
+  test(`${preset.id}: the human's family in a practice game is uniform over the families`, () => {
+    const pool = dealablePool(preset);
+    const families = [...new Set(pool.map(r => r.family))];
+    if (families.length < 2) return;
+    const runs = 1000, count = new Map<string, number>();
+    for (let s = 0; s < runs; s++) {
+      const kinds = (s % 2 ? ["practice", "human", "practice"] : ["human", "practice", "practice"]) as never as ("human" | "practice")[];
+      const h = kinds.indexOf("human"), deal = practiceDeal(pool, kinds, `human-${s}`, preset.variant);
+      count.set(deal[h]!.family, (count.get(deal[h]!.family) ?? 0) + 1);
+    }
+    const mean = runs / families.length;
+    for (const f of families) assert.ok(Math.abs((count.get(f) ?? 0) / mean - 1) < 0.35, `${f}: ${count.get(f) ?? 0} against ${mean.toFixed(0)}`);
+  });
+}

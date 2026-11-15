@@ -216,9 +216,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
       const on = layer.sense === "min" ? Qn.isZero(value) : d === 0;
       distance = on ? `on ${reference.text}` : `${layer.sense === "min" ? readable(Qn.abs(value)) : readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
       const lo = Math.min(N(src), reference.value), hi = Math.max(N(src), reference.value), span = Math.max(hi - lo, 2);
-      // Wide enough to show a few qualifying neighbours when the dealt ending thins them out (7, 17, 37, 47, …).
+      // Wide enough to show several rungs either side when the dealt ending thins them out (11, 31, 41, 61, 71, …;
+      // playtest round 19 asked for the next several rungs above and below).
       const filter = refFilter(rule.params, reference.value);
-      const pad = Math.max(span, filter.ends === undefined ? 6 : 24);
+      const pad = Math.max(span, filter.ends === undefined ? 6 : 60);
       const near = neighbours(kind, lo - pad, hi + pad, filter).filter(x => x !== reference!.value);
       ruler = {
         value: N(src), valueText: (s => `${s.label} ${s.text}`)(source.find(s => s.value)!),

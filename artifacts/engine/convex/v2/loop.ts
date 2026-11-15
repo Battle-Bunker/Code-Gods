@@ -205,13 +205,17 @@ async function driftRules(ctx: MutationCtx, game: Doc<"v2Games">, world: number,
   const engine = await engineOf(ctx, game._id);
   await ctx.db.patch(engine._id, { drifts: events.at(-1)!.e });
   const drifted: { memberId: string; family: string; params: unknown; tieBreaker: string | null; ruleKey: string; contentHash: string; card: string }[] = [];
+  // The seats' rules as they stand (updated as seats redraw): a redraw avoids a pair the seating rule forbids.
+  const standing = new Map((await seatRules(ctx, game)).map(x => [x.memberId, { family: x.rule.family, params: x.rule.params }]));
   for (const { e, seat, skip } of events) {
     const s = game.roster[seat];
     if (skip || !s) continue;
     const r = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", game._id).eq("memberId", s.memberId)).unique();
     if (!r) continue;
-    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, e);
+    const others = [...standing].filter(([m]) => m !== s.memberId).map(([, x]) => x);
+    const next = redrawParams(game.variant, r.family, r.tieBreaker, r.params, game.seed, seat, e, others);
     if (!next) continue;
+    standing.set(s.memberId, { family: r.family, params: next.params });
     const view = ruleView({ family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash });
     await ctx.db.patch(r._id, { params: next.params, ruleKey: next.ruleKey, contentHash: next.contentHash, ...view, drifts: (r.drifts ?? 0) + 1, driftedAt: world, previous: { params: r.params, card: r.card } });
     drifted.push({ memberId: s.memberId, family: r.family, params: next.params, tieBreaker: r.tieBreaker, ruleKey: next.ruleKey, contentHash: next.contentHash, card: view.card });

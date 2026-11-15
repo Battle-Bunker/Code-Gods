@@ -447,7 +447,44 @@ back) or TRIAL (a declared experiment, measured and reported).
     bits, not the best and median knots: a climb pays Δφ to reach a rung, so equal bits per unit of cost is equal
     opportunity per unit of energy. Play is the judge: pool-dynamics per dealt value, best to worst mean gain within
     1.5 inside a family. First applied to Prime Landing's ladder (endings 1, 3, 7, 9: every rung's bits are its code
-    cost plus 1.0).
+    cost plus 1.0). Prime Landing has since left it (call 23: its rungs are windows, compared by best and median knot);
+    Smooth Intercept and Prime Staircase use it.
+
+23. **TRIAL** (proposed by the spec lead, declared by the coordinator to the owner, 15 Nov; #781): Prime Landing reads
+    where the line lands on the x-axis, X = −c/m, not the y-intercept. Its main part is the prime ending in k that X
+    rounds to (u = p, bigger is better; off the ladder −(|X − p| − ½)); its tie-breaker is gcd(p − 1, ⌊c⌋) ("take the
+    number just before that prime …"); climb-on is dropped (playtest round 19: 0 in 21 of 24 samples). Dealt: endings
+    1 and 9, each with its mirror (landing on −p; the reflection x → −x keeps the law). Endings 3 and 7 leave the deal:
+    at equal size their rungs are 1.4 and 0.5 bits cheaper.
+    - **Motivation.** Row 2 in play (design-principles.md): on the y-intercept the next rung was a shift of c by 10 or
+      more, which wrecked the bits of every other seated rule reading c, so starters declined it (48% of seats still
+      climbing in the last third, 0–3 rungs crossed in 80 games). An exact landing on the x-axis costs about p/2 bits
+      under C3 (2 rungs crossed in 80 games); a window (within ½) costs about log p, and the next rung is a small tilt
+      that keeps c.
+    - **Effects** (80 games, drift off, 20 per instance): 62.5% of seats still climbing late (was 48%), 12.5% plateaued
+      in the first 120 s (was 21%), 55 rungs crossed; best to worst mean gain 1.37. Values reach about 18 bits at
+      X ≈ 5,000, about a bit per doubling. The mirrors seemed to gain more at 20 games each (298 and 248 against 250
+      and 218); at 40 games each there is no gap: 254 ± 23 (ending 1), 261 ± 24 (its mirror), 274 ± 25 (ending 9),
+      267 ± 30 (its mirror), best to worst 1.08.
+    - **Seating rule** (the coordinator's call, tested: lib/v2-linear seating.ts): Whole Crossing reads the same X, so
+      Prime Landing (ending k, side s) is never seated, nor redrawn by drift, beside Whole Crossing with r ≡ s·k
+      (mod 5), where every rung of the one is exact for the other. With r ≢ s·k they pull the landing apart.
+
+24. **TRIAL** (the spec lead's redesign under the coordinator's delegation, 15 Nov; declared to the coordinator): Whole
+    Crossing is a ladder of 5s on the crossing. Its main part is the level j when the crossing is 5^j × t with t leaving
+    r when divided by 5 (u = j, bigger is better); any other crossing scores −(its distance to the nearest such number),
+    so the old rule (close to a whole number leaving r) is the ground floor. A stretch or zoom by 5 climbs a level
+    (decision 25). Its tie-breaker is gcd(|t| + 1, the gradient's whole part ignoring sign); a stretch to the next level
+    divides the gradient by 5, so the climb starts again. The tie-breakers k-spf, k-gpf and m-spf (and the undealt gcd-c
+    and gcd-num-m) leave it.
+    - **Motivation.** k-spf and k-gpf rewarded a crossing number with big prime factors, exactly Prime Landing's rungs
+      (PMI 2.4–3.6 against every Prime Landing instance), and the old main was a distance with an exact top (row 1);
+      the pool's 71-bit seat was a Whole Crossing seat.
+    - **Effects** (values: about 2.5 bits a level to level 5, r = 1 and 2 within 0.4 bits a level, then +0.5 a level;
+      40 games, drift off): its seats peak at 9 bits; 52% still climbing late, 15% plateaued early, mean gain 216–303
+      across r. Seated with Prime Landing and Treasure (40 games): balance 1.2–1.3, peak seat 16.4 bits. Static PMI
+      against Prime Landing is still 1.3–3.1, from near misses (both pay for the crossing close to one whole number);
+      the seating rule (call 23) stays.
 
 23. **TRIAL** (declared 15 Nov, on the lens worker's pool-dynamics check, docs/engine-v2/scripts/stretch-lens-pool-dynamics.md,
     following decisions 25, 27 and 28; the owner asked by name for "rotating the line about a point"): `rot.turn` and

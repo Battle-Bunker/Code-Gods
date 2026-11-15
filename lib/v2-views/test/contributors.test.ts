@@ -26,18 +26,18 @@ function valueOf(r: RuleRef<LineState, unknown>): (u: Score) => number {
   return u => look(u).bits;
 }
 
-test("Prime Landing (primes ending in 7) on y = 6x + 19: off the ladder, 2 from its nearest rung 17; the tie-breaker reads that prime", () => {
-  const c = contributors(rule(primeLanding, "shared-factor", { ends: 7 }), mc(6, 19));
+test("Prime Landing (primes ending in 1) on y = −x + 33: lands at 33, off the ladder, 1½ from rounding to its nearest rung 31; the tie-breaker reads that prime", () => {
+  const c = contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 33));
   const [main, tb] = c.parts;
   assert.equal(main!.role, "main");
-  assert.deepEqual(main!.source.map(s => `${s.label} ${s.text}`), ["y-intercept 19"]);
-  assert.equal(main!.reference?.value, 17);
-  assert.equal(main!.valueText, "−2");   // off every rung: minus its distance to the nearest
+  assert.deepEqual(main!.source.map(s => `${s.label} ${s.text}`), ["where it crosses the x-axis 33"]);
+  assert.equal(main!.reference?.value, 31);
+  assert.equal(main!.valueText, "−1½");   // off every rung: minus how far it is from rounding to the nearest
   assert.equal(main!.aim, "the bigger, the better");
   assert.equal(tb!.role, "tb");
-  assert.deepEqual(tb!.source.map(s => s.label), ["y-intercept", "gradient"]);   // that prime and the gradient
-  assert.equal(tb!.valueText, "2");   // 16 and 6 share 2
-  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 7 }), mc(6, 17)).parts[0]!.valueText, "17");   // on the rung 17
+  assert.deepEqual(tb!.source.map(s => s.label), ["where it crosses the x-axis", "y-intercept"]);   // that prime and the y-intercept
+  assert.equal(tb!.valueText, "3");   // 30 and 33 share 3
+  assert.equal(contributors(rule(primeLanding, "shared-factor", { ends: 1 }), mc(-1, 31)).parts[0]!.valueText, "31");   // on the rung 31
 });
 
 test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5; Whole Crossing and Treasure name their references", () => {
@@ -45,15 +45,14 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   assert.equal(sa.source[0]!.text, "24½");
   assert.equal(sa.reference?.value, 25);
   assert.equal(sa.distance, "½ below 25");
-  const wc = contributors(rule(wholeCrossing, "k-gpf", { q: 5, r: 3 }), mc(3, 7)).parts[0]!;
+  const wc = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[0]!;
   assert.equal(wc.reference?.value, -2);
   assert.equal(wc.distance, "⅓ below −2");
   // The reference is said once, as the reference: never again among the sources ("…, nearest whole number −2 · on −2").
   assert.deepEqual(wc.source.filter(x => x.text).map(x => x.label), ["where it crosses the x-axis"], wc.source.map(x => x.label).join(", "));
-  // The tie-breaker reads the main part's reference (the whole number −2): its line says so, so one number carrying ●
-  // as the main part's target and ◆ as the tie-breaker's input is explained where it is read.
-  const wtb = contributors(rule(wholeCrossing, "k-gpf", { q: 5, r: 3 }), mc(3, 7)).parts[1]!;
-  assert.match(wtb.sentence, /of −2, the (nearest )?whole number the main part is measured to/, wtb.sentence);
+  // The tie-breaker reads the ladder number the crossing is measured to (−2: |−2| + 1 = 3) and the gradient 3: 3.
+  const wtb = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[1]!;
+  assert.equal(wtb.valueText, "3");
   const tr = contributors(rule(treasure, "m-spf", { k: 2, T: 37 }), mc(15, 6)).parts[0]!;
   assert.equal(tr.source[0]!.text, "36");
   assert.equal(tr.source[0]!.label, "y(2)");
@@ -63,9 +62,9 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
 
 test("wording: no parameter letters, no 'distance …: 0', no steps or thresholds, in any generated sentence", () => {
   const cases: [RuleRef<LineState, unknown>, LineState][] = [
-    [rule(primeLanding, "shared-factor", { ends: 7 }), mc(6, 25)], [rule(primeLanding, "climb-on", { ends: 7 }), mc(290, 59)],
+    [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
-    [rule(wholeCrossing, "k-gpf", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
+    [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
     [rule(divisibilityLadder, "m-spf"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {
@@ -81,7 +80,7 @@ test("wording: no parameter letters, no 'distance …: 0', no steps or threshold
 });
 
 test("moves: varied, one per kind: the cheapest for the main part, the cheapest for the tie-breaker, the most bits per ⚡", () => {
-  const r = { ...rule(primeLanding, "shared-factor", { ends: 7 }), variant: lineQ };   // the dealt ending's values (line-q)
+  const r = { ...rule(primeLanding, "shared-factor", { ends: 1 }), variant: lineQ };   // the dealt ending's values (line-q)
   const value = valueOf(r);
   for (const s of [mc(6, 25), mc(3, 19), mc(-2, 40)]) {
     const before = value(contributors(r, s).utility);
@@ -96,10 +95,10 @@ test("moves: varied, one per kind: the cheapest for the main part, the cheapest 
       assert.doesNotMatch(m.words, /\b(a|b|k) /, `move words leak a letter: ${m.words}`);
     }
   }
-  // Where the main part can improve (25 is 8 from 17, the nearest prime ending in 7: −8 on the ladder), the first move
-  // listed is the cheapest that does.
+  // Where the main part can improve (y = 6x + 25 lands at −4⅙, 15⅙ from 11, the nearest prime ending in 1: −14⅔ on the
+  // ladder), the first move listed is the cheapest that does.
   assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.reason, /main part/);
-  assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.changes.join(" "), /−8 → /);
+  assert.match(moves(r, mc(6, 25), value, { k: 3 })[0]!.changes.join(" "), /−14⅔ → /);
 });
 
 test("contributors never throw, and say no steps, on a walk of lines under every pool rule and tie-breaker", () => {
@@ -159,12 +158,13 @@ test("a ruler marks only the values the dealt rule asks for (playtest round 15: 
   const { primeLanding, fromMC, lineQ, lineType } = await import("@workspace/v2-linear");
   const { q } = await import("@workspace/v2-core");
   const { contributors, neighbours, refFilter } = await import("../src/contributors.ts");
-  const rule = { type: lineType, family: primeLanding, params: { ends: 7 }, variant: lineQ } as never;
-  const main = contributors(rule, { lines: [fromMC(q(3), q(7))] }).parts[0]!;   // on the rung 7
+  const rule = { type: lineType, family: primeLanding, params: { ends: 1 }, variant: lineQ } as never;
+  const main = contributors(rule, { lines: [fromMC(q(-1), q(31))] }).parts[0]!;   // lands on the rung 31
   const ticks = main.ruler!.refs.map(r => r.at);
-  assert.ok(ticks.includes(7), String(ticks));
-  for (const t of ticks) assert.equal(Math.abs(t) % 10, 7, `every mark ends in 7: ${ticks}`);
-  assert.ok(ticks.length >= 2, `a few qualifying neighbours: ${ticks}`);
+  assert.ok(ticks.includes(31), String(ticks));
+  for (const t of ticks) assert.equal(Math.abs(t) % 10, 1, `every mark ends in 1: ${ticks}`);
+  // Several rungs either side (playtest round 19): 11 below, 41, 61, 71 above.
+  assert.ok(ticks.filter(t => t < 31).length >= 1 && ticks.filter(t => t > 31).length >= 3, `rungs either side: ${ticks}`);
   // A tie-breaker about another prime keeps every prime (the ending is the main part's, said by its reference).
   assert.deepEqual(refFilter({ ends: 7 }, 5), { sign: 1 });
   // A sign-mirrored rule ("minus a prime ending in 7"): its marks are on its side of 0.

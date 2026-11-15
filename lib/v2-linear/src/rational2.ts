@@ -286,7 +286,7 @@ const smoothInterceptShape: Shape<SP> = {
     sentence: p => `The y-intercept (ignoring its sign) should be a number made only by multiplying ${madeOf(p)}, the bigger the better; any other line scores below them all, the closer to one the better.` },
   tieBreakers: [
     more("shared-factor", "the factor that number plus 1 shares with the gradient's whole part",
-      "That number plus 1 and the whole part of the gradient should share as big a factor as possible (a whole part of 0 shares nothing).", "si"),
+      "Take the number just after that number. The biggest number that divides both it and the gradient's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
   ],
 };
 export const smoothIntercept = family<SP>("smooth-intercept", "Smooth Intercept", ["si", "crossing", "cart"], smoothInterceptShape, onRationals(SMOOTH_SETS), (ctx, p) => {
@@ -298,7 +298,7 @@ export const smoothIntercept = family<SP>("smooth-intercept", "Smooth Intercept"
   ctx.term("smooth", on ? `on ${s}` : `off ${s} by ${Qn.toWire(Qn.abs(Qn.sub(a, q(s))))}`, on ? a : Qn.neg(Qn.abs(Qn.sub(a, q(s)))), [cRef]);
   const mRef = ref("si", "m"), m = num(ctx.read(mRef))!;
   const w = Qn.floor(m), aw = w < 0n ? -w : w;
-  ctx.term("shared-factor", `the factor ${s + 1n} shares with the gradient's whole part ${w}`, q(aw === 0n ? 0n : gcdB(s + 1n, aw)), [cRef, mRef]);
+  ctx.term("shared-factor", `${s + 1n} and the gradient's whole part ${w}: the biggest number dividing both is ${aw === 0n ? 0n : gcdB(s + 1n, aw)}`, q(aw === 0n ? 0n : gcdB(s + 1n, aw)), [cRef, mRef]);
   ctx.mark({ kind: "focus", ref: cRef });
   const mark = ref("cart", "yAxisMark", { y: Qn.sign(c) < 0 ? -s : s });
   ctx.read(mark);
