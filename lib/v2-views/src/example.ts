@@ -12,6 +12,7 @@
 import { evaluateObject, rng, walkStep, type ObjectType, type Score } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { contributors } from "./contributors.ts";
+import { chanceText, fmtBits, fmtQ } from "./format.ts";
 
 const WALK = 4000;
 /** Distinct scoring states the walk collects before it stops. */
@@ -64,4 +65,36 @@ export function workedExample<S, P>(rule: RuleRef<S, P>, value?: ((u: Score) => 
   const best = Math.min(...found.map(f => f.bad));
   const pool = found.filter(f => f.bad === best).sort((a, b) => a.bits - b.bits);
   return pool[Math.floor(pool.length / 2)]!.state;
+}
+
+/** One row of "How rare is each rule score?": a main-part value, the lowest score with it, and what that is worth. */
+export interface ScaleRow { readonly main: string; readonly bits: number; readonly text: string }
+
+/**
+ * v1's "How rare is each rule score?" (owner, 15 November: a card tells a player their precise incentives, and points
+ * are rarity): main-part values met on a walk through random states of the board, each the lowest score with that
+ * value, spread from the everyday to the rarest found, rarer going down. Rarer scores than these are worth more still:
+ * the value curves have no top.
+ */
+export function rarityScale<S, P>(rule: RuleRef<S, P>, value: ((u: Score) => number) | null | undefined, rows = 6): ScaleRow[] {
+  if (!value) return [];
+  const { type, family, params, variant, tieBreaker } = rule;
+  const r = rng("rarity-scale", family.id, JSON.stringify(params), tieBreaker ?? "");
+  const lowest = new Map<string, number>();
+  let s = (type as ObjectType<S>).origin(variant);
+  for (let i = 0; i < WALK; i++) {
+    s = walkStep(type, variant, s, r);
+    const score = evaluateObject(type, family, params, s, variant, tieBreaker).score;
+    const main = score?.[0];
+    if (!score || !main) continue;
+    const bits = value(score);
+    if (!Number.isFinite(bits)) continue;
+    const key = fmtQ(main);
+    const was = lowest.get(key);
+    if (was === undefined || bits < was) lowest.set(key, bits);
+  }
+  // One row per distinct worth (two values worth the same say nothing new), then spread over the range found.
+  const byBits = [...lowest].sort((a, b) => a[1] - b[1]).filter((x, i, all) => i === 0 || x[1] - all[i - 1]![1] > 1e-9);
+  const pick = byBits.length <= rows ? byBits : Array.from({ length: rows }, (_, i) => byBits[Math.round((i * (byBits.length - 1)) / (rows - 1))]!);
+  return [...new Map(pick.map(p => [p[0], p])).values()].map(([main, bits]) => ({ main, bits, text: `${main}: ${chanceText(bits)} by chance (${fmtBits(bits)})` }));
 }
