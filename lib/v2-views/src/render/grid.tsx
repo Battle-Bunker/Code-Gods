@@ -83,7 +83,8 @@ function Scene({ p }: { p: P }): ReactElement {
   // Notes: a short one beside a row's value; the rest (and any on a group, a cell or a column) listed underneath.
   const shown = (r: ElementRef) => fmtValue(p.values(r));
   const besideNote = new Map<string, string>();
-  const listed: string[] = [];
+  // Notes listed under the picture, one line per element ("the top half …: = 3² × 1371742; one more 3: add 18 or …").
+  const listedBy = new Map<string, { label: string; texts: string[] }>();
   const drawnNotes = new Set<string>();
   const rightKeys = new Set(right.map(key));
   for (const m of expanded ? marks : []) {
@@ -92,8 +93,13 @@ function Scene({ p }: { p: P }): ReactElement {
     drawnNotes.add(m.text);
     if (m.text === shown(m.ref)) continue; // the note only repeats the value drawn
     if (rightKeys.has(k) && m.text.length <= NOTE_MAX && !besideNote.has(k)) besideNote.set(k, m.text);
-    else listed.push(`${p.labelOf(m.ref)}: ${m.text}`);
+    else {
+      const e = listedBy.get(k) ?? { label: p.labelOf(m.ref), texts: [] };
+      if (!e.texts.includes(m.text)) e.texts.push(m.text);
+      listedBy.set(k, e);
+    }
   }
+  const listed = [...listedBy.values()].map(e => `${e.label}: ${e.texts.join("; ")}`);
   const noteW = besideNote.size ? Math.max(...[...besideNote.values()].map(t => t.length)) * NOTE_CHAR + 6 : 0;
 
   // Geometry.
@@ -124,6 +130,9 @@ function Scene({ p }: { p: P }): ReactElement {
   const links: ReactNode[] = [];
   const labels: ReactNode[] = [];
   const badgeAt = new Set<string>();
+  // Group labels at their groups' middles: when overlapping groups' labels would collide (eight readings of one board),
+  // only those a mark or a pointer picks out are drawn; the others are said in the readouts under the picture.
+  const boxLabels: { el: ElementRef; picked: boolean; big: boolean; box: { x: number; y: number; w: number; h: number }; node: ReactNode }[] = [];
   for (const gr of groups) {
     const st = markState(marks, gr.el);
     const attrs = elAttrs(q, gr.el);
@@ -184,14 +193,30 @@ function Scene({ p }: { p: P }): ReactElement {
       const x = gr.cells.reduce((t, i) => t + cx(i), 0) / gr.cells.length;
       const y = gr.cells.reduce((t, i) => t + cy(i), 0) / gr.cells.length;
       const w = Math.max(18, val.length * 7 + 8);
-      labels.push(
-        <g key={key(gr.el)} className="box" {...attrs} {...hover(q, gr.el)}>
-          <rect className="pill" x={x - w / 2} y={y - 8} width={w} height={16} rx={8} />
-          <text className="group-label" x={x} y={y + 4}>{val}</text>
-          {title(gr.el)}
-        </g>,
-      );
+      boxLabels.push({
+        // A big group among overlapping ones (a half of the board) is labelled only when picked: its label sits over digits.
+        el: gr.el, picked, big: overlapping && gr.cells.length > 4, box: { x: x - w / 2, y: y - 8, w, h: 16 },
+        node: (
+          <g key={key(gr.el)} className="box" {...attrs} {...hover(q, gr.el)}>
+            <rect className="pill" x={x - w / 2} y={y - 8} width={w} height={16} rx={8} />
+            <text className="group-label" x={x} y={y + 4}>{val}</text>
+            {title(gr.el)}
+          </g>
+        ),
+      });
     }
+  }
+
+  const meets = (a: { x: number; y: number; w: number; h: number }, b: typeof a) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const unsaid = new Set<string>();
+  for (const l of boxLabels) {
+    if (!l.picked && (l.big || boxLabels.some(o => o !== l && meets(l.box, o.box)))) {
+      // Still a node (its title, cross-highlighting), with nothing drawn; its value is in the readouts.
+      unsaid.add(key(l.el));
+      labels.push(<g key={key(l.el)} className="box" {...elAttrs(q, l.el)}>{title(l.el)}</g>);
+      continue;
+    }
+    labels.push(l.node);
   }
 
   const before = p.before;
@@ -228,7 +253,7 @@ function Scene({ p }: { p: P }): ReactElement {
     return t ? [<text key={key(r)} className="note" x={mx + g.margin + 4} y={oy + row * C + C / 2 + 4}>{t}</text>] : [];
   });
 
-  const placed = new Set<string>([...s.cells, ...right, ...bottom, ...groups.map(gr => gr.el)].map(key));
+  const placed = new Set<string>([...s.cells, ...right, ...bottom, ...groups.map(gr => gr.el)].map(key).filter(k => !unsaid.has(k)));
   return (
     <>
       <svg className="v2v-grid" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={gridText(s, p.values)}>
@@ -245,7 +270,7 @@ function Scene({ p }: { p: P }): ReactElement {
         {titleRow > 0 && <text className="margin-title" x={mx + g.margin / 2} y={oy - 4}>{s.rightTitle}</text>}
         {cornerTitle && <text className="margin-title" x={mx + g.margin / 2} y={fy + g.foot / 2 + 4}>{s.bottomTitle}</text>}
       </svg>
-      {listed.length > 0 && <ul className="v2v-notes">{[...new Set(listed)].map(n => <li key={n}>{n}</li>)}</ul>}
+      {listed.length > 0 && <ul className="v2v-notes">{listed.map(n => <li key={n}>{n}</li>)}</ul>}
       <Readouts p={q} placed={placed} drawnNotes={drawnNotes} />
     </>
   );
