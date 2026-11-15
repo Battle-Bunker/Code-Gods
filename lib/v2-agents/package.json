@@ -15,6 +15,7 @@
     "harness": "node --experimental-strip-types scripts/harness.ts",
     "table": "node --experimental-strip-types scripts/table.ts",
     "collapse-check": "node --experimental-strip-types scripts/collapse-check.ts",
+    "power-check": "node --experimental-strip-types scripts/power-check.ts",
     "gen-compat": "node --experimental-strip-types scripts/gen-compat.ts",
     "tension": "node --experimental-strip-types scripts/tension.ts",
     "gen-tension": "node --experimental-strip-types scripts/gen-tension.ts"

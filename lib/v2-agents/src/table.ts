@@ -71,6 +71,8 @@ export interface TableInput<S> {
   readonly noise?: number;
   /** Experiments only: summons and edits cost at most this (to try programs dearer than a player's store). */
   readonly summonCap?: number;
+  /** Experiments only (scripts/power-check.ts): summon and edit prices times this, as if SUMMON_ENERGY_PER_BIT scaled. */
+  readonly summonScale?: number;
   readonly model?: TableModel;
   /** Called after each model turn (for logs). */
   readonly onTurn?: (seat: string, at: number, run: RunResult) => void;
@@ -197,6 +199,7 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
   const mine = (i: number) => agents.filter(a => a.seat === i);
   function pay(i: number, price: number, kind: "summons" | "edits") {
     const own = settledOwn(i);
+    if (input.summonScale !== undefined) price *= input.summonScale;
     if (input.summonCap !== undefined) price = Math.min(price, input.summonCap);
     if (own.balance < price) throw new Error(`That costs ${Math.round(price * 10) / 10} energy; you have ${Math.round(own.balance * 10) / 10} in your own store. Move power from your agents to your store first (power.allocate), then pay.`);
     players[i]!.own = spend(own, price);
