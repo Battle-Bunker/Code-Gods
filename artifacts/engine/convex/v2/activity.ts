@@ -10,6 +10,7 @@ import { makeFunctionReference } from "convex/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { resumeGame } from "./loop";
+import { timeScaleOf } from "./duration";
 
 export const IDLE_MS = 30 * 60_000;
 /** Activity is written at most this often (unless a parked game needs waking). */
@@ -44,5 +45,6 @@ export async function touchActivity(ctx: MutationCtx): Promise<{ resumed: number
 
 /** Whether a live game should park now (nobody has acted for IDLE_MS). */
 export async function shouldPark(ctx: QueryCtx, game: Doc<"v2Games">): Promise<boolean> {
-  return game.phase === "live" && isIdle(await lastHumanActivity(ctx));
+  // A dilated game (decision 37) parks after IDLE_MS of its own time: IDLE_MS ÷ its factor of wall time.
+  return game.phase === "live" && Date.now() - await lastHumanActivity(ctx) >= IDLE_MS / timeScaleOf(game.settings);
 }

@@ -461,6 +461,15 @@ export const setReadiness = internalMutation({
 });
 
 /** An object's live state and version (what a paid game's players are not shown). */
+/** A game's settings as stored at its start (decision 37's check: already dilated). */
+export const settingsOf = internalQuery({
+  args: { gameId: v.id("v2Games") },
+  handler: async (ctx, { gameId }) => {
+    fixtures();
+    return (await ctx.db.get(gameId))!.settings;
+  },
+});
+
 /** A member's knowledge of a game's objects (decision 36's check): each object's told version and when. */
 export const knowledgeOf = internalQuery({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },

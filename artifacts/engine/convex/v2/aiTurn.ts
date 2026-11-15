@@ -4,7 +4,7 @@
  * assistant tools for the seat's context, performed through the same `<verb>As` functions an assistant or MCP client
  * calls, as the AI's principal (`member:<id>`). Spending is held to the seat's allowance per game (v2/ai.ts).
  */
-import { endWorldOf } from "./duration";
+import { endWorldOf, timeScaleOf } from "./duration";
 import { disclosed } from "./disclose";
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
@@ -27,7 +27,7 @@ const INFO = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: I
 const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
 const TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
 
-type Info = { phase: string; parked: boolean; roomId: string; name: string; card: string; family: string | null; tieBreaker: string | null; energy: number; agents: number; worldSeconds: number };
+type Info = { phase: string; timeScale: number; parked: boolean; roomId: string; name: string; card: string; family: string | null; tieBreaker: string | null; energy: number; agents: number; worldSeconds: number };
 
 export const info = internalQuery({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
@@ -37,7 +37,7 @@ export const info = internalQuery({
     const rule = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const player = await ctx.db.query("v2Players").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
-    return { phase: game.phase, parked: !!game.parked, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, tieBreaker: rule?.tieBreaker ?? null, energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
+    return { phase: game.phase, timeScale: timeScaleOf(game.settings), parked: !!game.parked, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, tieBreaker: rule?.tieBreaker ?? null, energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
   },
 });
 
@@ -80,7 +80,7 @@ export const turn = internalAction({
     const seat = await ctx.runQuery(INFO, { gameId, memberId });
     // An idle-parked game takes no AI turns (activity.ts); the next human activity starts them again.
     if (!seat || seat.phase === "ended" || seat.parked) return;
-    const schedule = (k: number) => k < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS, TURN, { gameId, memberId, n: k }) : null;
+    const schedule = (k: number) => k < MAX_TURNS ? ctx.scheduler.runAfter(AI_TURN_MS / seat.timeScale, TURN, { gameId, memberId, n: k }) : null;
     if (seat.phase === "paused") { await schedule(n); return; }   // a paused turn does not count
     const delegate: Delegate = { userId: `${AI_PRINCIPAL}${memberId}`, roomId: seat.roomId, grant: "act", via: "assistant" };
     const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope: { gameId } });
@@ -92,7 +92,7 @@ export const turn = internalAction({
     const ledger = await ctx.runQuery(DEALS, { gameId, memberId });
     const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
       `You have ${Math.round(seat.energy)} energy in your own store and ${seat.agents} agent(s). Act, then stop.`
-      + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / 1000))}` : "");
+      + (ledger ? `\n\n${commitmentBriefing(commitmentsOf(ledger.me, ledger.chat, ledger.moves, ledger.programs, 2 * AI_TURN_MS / seat.timeScale / 1000))}` : "");
     try {
       await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({
         provider: providerFor("seat"), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools, starters }),

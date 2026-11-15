@@ -6,12 +6,12 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { MAX_MEMBERS, MAX_PLAYERS, normaliseCode, userById } from "./access";
 import { bidDealer, dealablePool, dealKeyOf, dealRng, freshDeal, isPracticeGame, offers, practiceDeal, rotatedDeal, ruleView, hasSeatingRule, seatingClashes, type DealtRule, type PastDeal } from "./deal.ts";
-import { dealWithBids, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
+import { dealWithBids, dilate, type Bid, type BidPricing, type BidWin } from "@workspace/v2-economy";
 import { isPreset, presetOf } from "./presets.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { newNoiseKey } from "./disclose.ts";
-import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd } from "./duration.ts";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd, timeScaleOf } from "./duration.ts";
 import { ensureWarm } from "./readiness.ts";
 import { unopposedDirections } from "@workspace/v2-agents/pure";
 
@@ -181,10 +181,23 @@ export async function openBidding(ctx: MutationCtx, room: Doc<"v2Rooms">) {
   const pool = dealablePool(preset);
   if (pool.length === 0) throw new OpFailure("This preset has no rule with a converged valuation yet, so nothing can be dealt.");
   for (const row of await ctx.db.query("v2RoomBids").withIndex("by_room_member", q => q.eq("roomId", room._id)).take(MAX_MEMBERS)) await ctx.db.delete(row._id);
-  const deadline = Date.now() + bid.seconds * 1000;
+  const deadline = Date.now() + bid.seconds * 1000 / timeScaleOf(room.overrides);
   await ctx.db.patch(room._id, { bidding: { deadline, pricing: bid.pricing, families: offers(pool) }, revision: room.revision + 1 });
   await ctx.scheduler.runAt(deadline, CLOSE_BIDDING, { roomId: room._id, deadline });
 }
+
+/**
+ * Sets a room's time dilation for its next games (owner decision 37): simulations and local playtests only, so an
+ * internal function (`npx convex run v2/lobby:setTimeScale '{"roomId": "…", "factor": 10}'`), not a room setting.
+ */
+export const setTimeScale = internalMutation({
+  args: { roomId: v.id("v2Rooms"), factor: v.number() },
+  handler: async (ctx, { roomId, factor }) => {
+    if (!Number.isFinite(factor) || factor <= 0) throw new Error("The time-dilation factor must be a positive number");
+    const room = (await ctx.db.get(roomId))!;
+    await ctx.db.patch(roomId, { overrides: { ...room.overrides, timeScale: factor === 1 ? undefined : factor }, revision: room.revision + 1 });
+  },
+});
 
 /** The humans who bid: seated (not spectating) and human (practice partners and AI players do not bid). */
 export const bidders = (members: readonly Doc<"v2Members">[]) => members.filter(m => m.kind === "human" && !m.spectator);
@@ -255,7 +268,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     if (wins.length) { rules = dealt.deal; rotation = null; }
   }
   const won = new Map(wins.map(w => [w.playerId, w]));
-  const settings = {
+  const timeScale = timeScaleOf(room.overrides);
+  const settings = dilate({
     planningSeconds: room.overrides.planningSeconds ?? preset.planningSeconds,
     worldSeconds: room.overrides.worldSeconds ?? preset.worldSeconds,
     startingEnergy: room.overrides.startingEnergy ?? preset.startingEnergy,
@@ -267,7 +281,9 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     scoreIntervalSeconds: room.overrides.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS,
     // Paying to read (knowledge.ts, decision 35): the weight on a look's read price; 0 reads the live world free.
     readPriceWeight: room.overrides.readPriceWeight ?? preset.readPriceWeight,
-  };
+    // Time dilation (decision 37): every rate × it, every duration ÷ it, the same game faster.
+    timeScale,
+  }, timeScale);
   const number = room.games + 1;
   const gameId = await ctx.db.insert("v2Games", {
     roomId: room._id, number, code: `${room.code}-${number}`, phase: "planning", preset: preset.id, variant: preset.variant, seed,

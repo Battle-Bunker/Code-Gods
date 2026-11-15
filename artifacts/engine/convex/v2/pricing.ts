@@ -8,8 +8,12 @@ import { summonPriceScale } from "@workspace/v2-economy";
 
 type Language = "typescript" | "python";
 
-/** A game's factor on summon and edit prices (its power ÷ 64). */
-export const priceScaleOf = (game: { settings: { economy: { powerPerSecond: number } } }) => summonPriceScale(game.settings.economy.powerPerSecond);
+/**
+ * A game's factor on summon and edit prices (its power ÷ 64), at its undilated power: a dilated game (decision 37) has
+ * its power × its factor, but a summon costs the same energy.
+ */
+export const priceScaleOf = (game: { settings: { economy: { powerPerSecond: number }; timeScale?: number } }) =>
+  summonPriceScale(game.settings.economy.powerPerSecond / (game.settings.timeScale ?? 1));
 /** The summon price of a program, in energy, at a game's price scale. */
 export const priceOf = (language: Language, source: string, scale: number) => scale * summonBits(language, source).energy;
 /**

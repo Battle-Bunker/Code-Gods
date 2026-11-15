@@ -34,6 +34,12 @@ export const overridesV = v.object({
   peerNoiseBits: v.optional(v.number()),
   /** The weight on a look's read price (decision 35). */
   readPriceWeight: v.optional(v.number()),
+  /**
+   * Time dilation (owner decision 37): every rate × this, every duration ÷ it (v2-economy dilate), so the room's games
+   * run this many times faster with the same per-act quantities. For simulations and local playtests only: set by the
+   * internal `v2/lobby:setTimeScale`, never offered in room setup. Absent: 1.
+   */
+  timeScale: v.optional(v.number()),
   /** Stored rooms' old free/paid flag, ignored (decision 35). */
   observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
 });
@@ -113,6 +119,8 @@ export const v2Tables = {
       durationMode: v.optional(durationModeV),
       /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
       scoreIntervalSeconds: v.optional(v.number()),
+      /** The game's time dilation (decision 37): its settings are already dilated by it; wall-clock pacing divides by it. */
+      timeScale: v.optional(v.number()),
       /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
       readPriceWeight: v.optional(v.number()),
       /** Games stored before decision 35: the old free/paid flag, ignored. */
