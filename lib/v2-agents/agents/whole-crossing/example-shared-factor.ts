@@ -25,7 +25,8 @@ function score(m, c, p) {
       if (best === null || dist <= best.dist) best = { j, t, dist };
       if (s * dd - ab(n) > best.dist) break;           // every further level is farther
     }
-    const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all
+    let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)
+    const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all
     return [main, null];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
@@ -42,9 +43,10 @@ function score(m, c, p) {
     if (best === null || dist <= best.dist) best = { j, t, dist };
     if (s * dd - ab(n) > best.dist) break;           // every further level is farther
   }
-  const main = best.dist === 0n ? best.j : Q.neg(Q.of(best.dist, dd));   // on a level: the level (the more 5s, the better); else below them all
+  let L = 0; while (((L + 1) * (L + 2)) / 2 <= best.j) L++;   // level L needs L(L + 1)/2 fives (1, 3, 6, 10, …)
+  const main = best.dist === 0n ? Q.add(L, Q.of(best.j - (L * (L + 1)) / 2, L + 1)) : Q.neg(Q.of(best.dist, dd));   // on the ladder: its level; else below them all
   const t1 = (best.t < 0n ? -best.t : best.t) + 1n, wm = whole(Q.sub(Q.abs(m), Q.div(1, 2)));   // |t| + 1, and the gradient's whole part ignoring sign
-  return [main, common(t1, wm)];   // main: how many 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (more is better: a ladder with no top), else minus how far it is from the nearest such number; tie-breaker: take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
+  return [main, common(t1, wm)];   // main: the level of 5s the line's x-axis crossing holds when it is a whole number leaving r after its 5s are divided out (level L needs L(L + 1)/2 fives; more is better: a ladder with no top), else minus how far it is from the nearest such number; tie-breaker: take that number with its 5s divided out, ignore its sign and add 1: a bigger number dividing both it and the gradient's whole part is better
 }
 
 const FAR = 3;      // how far one change may go

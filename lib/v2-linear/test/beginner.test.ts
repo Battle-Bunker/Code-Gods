@@ -54,7 +54,7 @@ test("worked examples, one line per family", () => {
   assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { ladder: "0", "shared-factor": "1" });   // crosses at 6 (leaves 1 divided by 5): level 0; 7 and 4 share 1
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-1, 5)), { ladder: "1", "shared-factor": "1" });    // at 5 = 5 × 1: level 1; 2 and 1 share 1
-  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-2, 50)), { ladder: "2", "shared-factor": "2" });   // at 25 = 5² × 1: level 2; 2 and 2 share 2
+  assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-2, 50)), { ladder: "3/2", "shared-factor": "2" });   // at 25 = 5² × 1: two 5s, halfway to level 2 (three); 2 and 2 share 2
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(3, 1)), { ladder: "-4/3", "shared-factor": "1" });  // at −⅓: 1 is the nearest (4/3 away)
   assert.deepEqual(terms(divisibilityLadder, {}, mc(5, 60)), { ladder: "6", "m-spf": "5", "m-gpf": "5", steep: "5", "m-prime": "0" });   // 1 … 6 divide 60, 7 does not
 });
@@ -100,8 +100,9 @@ test("Prime Staircase: a repeated prime stops the run; no run, no first prime", 
 test("Whole Crossing is a ladder of 5s on the crossing: every level has a higher one, a stretch by 5 apart, and its tie-breaker restarts on a new level (design-principles.md rows 1 to 3)", () => {
   const wc = (p: object, m: Q | number, c: Q | number) => terms(wholeCrossing, p as never, mc(m, c), lineQ);
   // Row 1: no attained top. Crossing at 2, 10, 50, 250, … (5^j × 2, r = 2) the level keeps rising.
-  const along = [0, 1, 2, 3, 4, 5, 6, 7].map(j => Number(wc({ q: 5, r: 2 }, -1, 2 * 5 ** j).ladder));
-  assert.deepEqual(along, [0, 1, 2, 3, 4, 5, 6, 7]);
+  // In triangular levels (level L needs L(L + 1)/2 fives), so each 5 adds less than the one before (a zoom chain bends).
+  const along = [0, 1, 2, 3, 4, 5, 6, 7].map(j => wc({ q: 5, r: 2 }, -1, 2 * 5 ** j).ladder);
+  assert.deepEqual(along, ["0", "1", "3/2", "2", "7/3", "8/3", "3", "13/4"]);
   // Row 2: a stretch of the x-axis by 5 (the gradient divided by 5, the y-intercept kept) is the next level.
   assert.equal(wc({ q: 5, r: 2 }, 2, -14).ladder, "0");    // crosses at 7 (leaves 2): level 0
   assert.equal(wc({ q: 5, r: 2 }, q(2, 5), -14).ladder, "1");    // the stretch: crosses at 35 = 5 × 7, level 1
@@ -177,7 +178,7 @@ test("Prime Gradient's mirror (side −1) is an exact peer: it scores the reflec
     for (const [a, c] of [[2n, -25n], [1n, 13n]] as const) assert.deepEqual(terms(f as never, { ...p, side: -1 }, x(a, c), lineQ), terms(f as never, p, x(a, c), lineQ));
     assert.deepEqual(f.dealable(lineQ), [1, 9].flatMap(ends => [{ ends }, { ends, side: -1 }]));
   }
-  assert.match(primeGradient.card({ ends: 1, side: -1 }, "shared-factor"), /round to minus a prime ending in 1/);
+  assert.match(primeGradient.card({ ends: 1, side: -1 }, "shared-factor"), /round to minus a prime ending in 1\. Bigger primes are better, though each extra digit counts for less/);
 });
 
 test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line reflected x → −x as 5 − r scores the line", () => {
@@ -187,7 +188,7 @@ test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line
   }
   for (const [a, c] of [[2n, -17n], [1n, 13n]] as const) assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, x(a, -c), lineQ), terms(wholeCrossing, { q: 5, r: 1 }, x(a, c), lineQ));
   assert.deepEqual(wholeCrossing.dealable(lineQ), [1, 2, 3, 4].map(r => ({ q: 5, r })));
-  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /on a whole number that leaves 3 when divided by 5, times 5 as many times as possible/);
+  assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /on a whole number leaving 3 when divided by 5, times 5 as often as possible\. More 5s are better/);
 });
 
 test("Prime Staircase is a ladder: a longer run always wins, and its shared factor starts again on a longer run (design-principles.md)", () => {
@@ -204,4 +205,21 @@ test("Prime Landing's levels of digits: level L needs L(L + 1)/2 digits, and a b
   const ps = [3n, 7n, 11n, 31n, 101n, 991n, 1009n, 99991n, 100003n, 1000003n, 10000000019n];
   for (let i = 1; i < ps.length; i++) assert.ok(u(ps[i]!) > u(ps[i - 1]!), `${ps[i]} above ${ps[i - 1]}`);
   assert.deepEqual([7n, 11n, 101n, 1000003n, 10000000019n].map(p => Math.floor(u(p))), [1, 1, 2, 3, 4]);   // 1, 2, 3, 7, 11 digits
+});
+
+test("every dealt line family's main sentence is one a child can act on: at most 30 words, and a ladder's never says \"level\" (round 24)", () => {
+  for (const f of beginnerPool) for (const p of f.dealable(lineQ)) {
+    const s = f.main.sentence(p as never), words = s.split(/\s+/).filter(Boolean).length;
+    if (f.keepsParams) {
+      assert.ok(words <= 30, `${f.id} ${JSON.stringify(p)}: ${words} words: ${s}`);
+      assert.doesNotMatch(s, /level/i, `${f.id}: ${s}`);
+    }
+  }
+});
+
+test("a ladder's reading on a rung says where it stands and the next big step (the Why line; the card keeps only 'bigger is better')", () => {
+  const label = (f: typeof primeLanding, p: object, s: LineState, id: string) => evaluateSite(lineType, f as never, p as never, s, lineQ, 0, null).terms.find(t => t.id === id)!.label;
+  assert.equal(label(primeLanding, { ends: 1 }, mc(-1, 41), "landing"), "lands at 41, which rounds to the prime 41: 2 digits; the next big step is 3 digits");
+  assert.equal(label(primeGradient as never, { ends: 1 }, mc(11, 0), "gradient"), "the gradient 11 rounds to the prime 11: 2 digits; the next big step is 3 digits");
+  assert.match(label(wholeCrossing as never, { q: 5, r: 2 }, mc(-1, 50), "ladder"), /: 2 fives; the next big step is 3 fives$/);
 });

@@ -10,7 +10,7 @@
  */
 import { Qn, q, ref, type Q } from "@workspace/v2-core";
 import { allUndefined, distance, family, gap, more, num, undef, type Shape, ladder } from "./layers.ts";
-import { nearestInteger, nearestSquareRoot, primeFactorCount } from "./numbers.ts";
+import { nearestInteger, nearestSquareRoot, primeFactorCount, stepNote } from "./numbers.ts";
 import { gcdTerm, onRationals } from "./rational.ts";
 
 const abs = (x: bigint): bigint => (x < 0n ? -x : x);
@@ -300,7 +300,7 @@ export function smoothLevel(s: bigint, primes: readonly number[]): { level: numb
 const madeOf = (p: SP) => `${p.primes.slice(0, -1).map(x => `${x}s`).join(", ")} and ${p.primes.at(-1)}s`;
 const smoothInterceptShape: Shape<SP> = {
   main: { ...more<SP>("smooth", "the y-intercept made of as many of the dealt primes as possible", "", "si"),
-    sentence: p => `The y-intercept (ignoring its sign) should be a number made only by multiplying ${madeOf(p)}, using as many of them as possible: 1 makes level 1, 3 make level 2, 6 make level 3, 10 make level 4 (each level needs one more than the last). Between levels each extra one counts part of a level, and of two numbers with as many, the smaller counts a little more. Any other line scores below them all, the closer to one the better.` },
+    sentence: p => `The y-intercept (either sign) should be made only by multiplying ${madeOf(p)}. More of them is better, though each extra one counts for less.` },
   tieBreakers: [
     more("shared-factor", "the factor that number plus 1 shares with the gradient's whole part",
       "Take the number just after that number. The biggest number that divides both it and the gradient's whole part should be as big as possible (a whole part of 0 shares nothing).", "si"),
@@ -313,8 +313,8 @@ export const smoothIntercept = ladder(family<SP>("smooth-intercept", "Smooth Int
   const a = Qn.abs(c), s = nearestOver(a, p.primes);
   const on = a.d === 1n && a.n === s;
   if (on) {
-    const { level, omega, u } = smoothLevel(s, p.primes);
-    ctx.term("smooth", `on ${s}: ${omega} of the dealt primes multiplied, level ${level}`, u, [cRef]);
+    const { omega, u } = smoothLevel(s, p.primes);
+    ctx.term("smooth", `on ${s}: ${stepNote(omega, "dealt prime", "dealt primes")} multiplied`, u, [cRef]);
   } else ctx.term("smooth", `off ${s} by ${Qn.toWire(Qn.abs(Qn.sub(a, q(s))))}`, Qn.neg(Qn.abs(Qn.sub(a, q(s)))), [cRef]);
   const mRef = ref("si", "m"), m = num(ctx.read(mRef))!;
   const w = Qn.floor(m), aw = w < 0n ? -w : w;

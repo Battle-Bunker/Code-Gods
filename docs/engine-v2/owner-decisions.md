@@ -497,6 +497,11 @@ back) or TRIAL (a declared experiment, measured and reported).
       across r. Seated with Prime Landing and Treasure (40 games): balance 1.2–1.3, peak seat 16.4 bits. Static PMI
       against Prime Landing is still 1.3–3.1, from near misses (both pay for the crossing close to one whole number);
       the seating rule (call 23) stays.
+    - **Amended** (the spec lead, 15 Nov, on the coordinator's report: under the lens preset a zoom chain by 5 reached
+      26.6 bits with a fixed factor and 29.5 greedy, at the 30-bit cap of call 25): the level is triangular in the 5s,
+      as Prime Landing's digits and Smooth Intercept's primes are. Level L needs L(L + 1)/2 fives (1, 3, 6, 10), and
+      between levels each 5 counts 1/(L + 1) of a level: u = L + (j − L(L + 1)/2)/(L + 1). Each 5 now adds less than
+      the one before, so a zoom or stretch chain bends.
 
 23. **TRIAL** (declared 15 Nov, on the lens worker's pool-dynamics check, docs/engine-v2/scripts/stretch-lens-pool-dynamics.md,
     following decisions 25, 27 and 28; the owner asked by name for "rotating the line about a point"): `rot.turn` and
