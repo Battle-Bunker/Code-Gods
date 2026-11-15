@@ -35,7 +35,7 @@ const SQUARE_ENDS: SquareEnds[] = [{ ends: 1 }, { ends: 9 }, { ends: 1, round: "
 const squareShape: Shape<SquareEnds> = {
   main: { ...more<SquareEnds>("square", "the triangle's area on as big a square ending in d as possible", "", "tri"),
     // Plain sentences a beginner reads, the main one under 30 words (the coordinator, 15 Nov).
-    sentence: p => `The area of the triangle the line cuts off the axes, rounded ${p.round ? "off" : "down"}, should be a square ending in ${p.ends}. Bigger is better, each extra digit counts for less.` },
+    sentence: p => `The area of the triangle the line cuts off the axes, rounded ${p.round ? "off" : "down"}, should be a square above 1 ending in ${p.ends}. Bigger is better; extra digits count less.` },
   tieBreakers: [
     more<SquareEnds>("shared-factor", "the factor that square's root plus 1 shares with the x-crossing's whole part",
       "That square's root plus 1 and the x-crossing's whole part should share as big a factor as possible.", "crossing"),
@@ -52,14 +52,14 @@ export function squareRung(area: Q, d: number, near = false): { r: bigint; u: Q 
   const f = Qn.floor(Qn.sub(area, a));
   const s = isqrt(f < 0n ? 0n : f), D = BigInt(d);
   const ends = (r: bigint) => (r * r) % 10n === D;
-  if (s >= 1n && s * s === f && ends(s)) return { r: s, u: digitLevel(f) };
+  if (s >= 2n && s * s === f && ends(s)) return { r: s, u: digitLevel(f) };
   let lo = s;
-  while (lo >= 1n && !ends(lo)) lo--;
-  let hi = s + 1n;
+  while (lo >= 2n && !ends(lo)) lo--;
+  let hi = s + 1n < 2n ? 2n : s + 1n;
   while (!ends(hi)) hi++;
   // Up to the window above, and past the window below.
   const above = Qn.sub(Qn.add(q(hi * hi), a), area);
-  if (lo < 1n) return { r: hi, u: Qn.neg(above) };
+  if (lo < 2n) return { r: hi, u: Qn.neg(above) };
   const below = Qn.sub(area, Qn.add(q(lo * lo + 1n), a));
   return Qn.cmp(below, above) <= 0 ? { r: lo, u: Qn.neg(below) } : { r: hi, u: Qn.neg(above) };
 }
@@ -79,7 +79,7 @@ const ROOTS: bigint[] = (() => {
 })();
 export function squareWitness(p: SquareEnds, n: number): LineState[] {
   const lo = 10n ** BigInt(n - 1), hi = 10n ** BigInt(n);
-  return ROOTS.filter(r => (r * r) % 10n === BigInt(p.ends) && r * r >= lo && r * r < hi)
+  return ROOTS.filter(r => r >= 2n && (r * r) % 10n === BigInt(p.ends) && r * r >= lo && r * r < hi)
     .map(r => ({ r, bits: LINE_Q_CODES.c.bits(2n * r) })).sort((x, y) => x.bits - y.bits).slice(0, 3)
     .map(({ r }) => ({ lines: [fromMC(q(-2), q(2n * r))] }));
 }

@@ -16,14 +16,14 @@ function score(m, c, p) {
   const area = Q.div(Q.mul(legX, legY), 2);
   const fl = BigInt(p.round ? whole(area) : whole(Q.div(Q.sub(Q.mul(2, area), 1), 2)));   // the area rounded down (to the nearest, for near)
   const s = BigInt(root(fl)), K = BigInt(p.ends);   // its whole square root, rounded down
-  let lo = s, hi = s + 1n;                         // the nearest roots at or below s, and above, whose squares end in p.ends
-  while (lo >= 1n && (lo * lo) % 10n !== K) lo--;
+  let lo = s, hi = s + 1n < 2n ? 2n : s + 1n;                         // the nearest roots at or below s, and above, whose squares end in p.ends
+  while (lo >= 2n && (lo * lo) % 10n !== K) lo--;
   while ((hi * hi) % 10n !== K) hi++;
   const level = p => { const D = Q.toString(p).length; let L = 0; while (((L + 1) * (L + 2)) / 2 <= D) L++; return Q.add(L, Q.div(Q.add(D - (L * (L + 1)) / 2, Q.div(p, Q.of(10n ** BigInt(D)))), L + 1)); };   // levels of digits: level L needs L(L + 1)/2
   const a = p.round ? Q.div(-1, 2) : 0;               // the window of r² is [r² + a, r² + a + 1)
   const below = Q.sub(area, Q.add(Q.of(lo * lo + 1n), a)), above = Q.sub(Q.add(Q.of(hi * hi), a), area);   // past the window below, up to the one above
-  const on = lo === s && s >= 1n && s * s === fl;  // the area rounds to s², a square ending in p.ends: a rung
-  const r = on || (lo >= 1n && Q.cmp(below, above) <= 0) ? lo : hi;   // that number (on a rung), else the nearest window's
+  const on = lo === s && s >= 2n && s * s === fl;  // the area rounds to s², a square ending in p.ends: a rung
+  const r = on || (lo >= 2n && Q.cmp(below, above) <= 0) ? lo : hi;   // that number (on a rung), else the nearest window's
   const main = on ? level(Q.of(fl)) : Q.neg(r === lo ? below : above);
   const wx = whole(Q.div(Q.sub(Q.mul(2, legX), 1), 2));   // the x-crossing's whole part, ignoring its sign
   return [main, common(Q.of(r + 1n), wx)];   // main: the square ending in the rule's digit that the triangle's area rounds down (or to the nearest) to, each extra digit counting for less (bigger is better: a ladder with no top), else minus how far the area is from rounding to one; tie-breaker: that square's root plus 1 and the x-crossing's whole part: a bigger factor shared is better

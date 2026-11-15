@@ -58,6 +58,13 @@ test("rounded to the nearest: the window is [r² − ½, r² + ½), so an area j
   assert.equal(terms(9, mc(-1, 13), true).square, "-35");
 });
 
+test("the ladder starts above 1: a triangle of area 1 is no rung, and its nearest window is 9² = 81 (the coordinator's trial, 15 Nov)", () => {
+  // y = −2x + 2: area 1 = 1². Births are small triangles: with 1² a rung, ending 1's seats sat on it and stopped.
+  assert.equal(terms(1, mc(-2, 2)).square, "-80");
+  assert.equal(terms(1, mc(-2, 2), true).square, "-159/2");
+  assert.equal(terms(1, mc(-2, 18)).square, "381/200");   // 81 = 9² still is one
+});
+
 test("a window, not a point: the area may be up to 1 over the square", () => {
   // y = −2x + c with c = 26 + 1/20: area (c/2)² = 13.025² = 169.65…, still on 13².
   assert.equal(terms(9, mc(-2, q(521, 20))).square, "6169/3000");
@@ -93,8 +100,8 @@ test("dealt: the four instances, each card plain sentences a beginner can act on
     const main = squareArea.main.sentence(p), card = squareArea.card(p, "shared-factor");
     assert.ok(main.split(/\s+/).length < 30, `${main.split(/\s+/).length} words: ${main}`);
     assert.doesNotMatch(card, /level/i);
-    assert.match(main, /^The area of the triangle the line cuts off the axes, rounded (down|off), should be a square ending in [19]\./);
-    assert.match(main, /Bigger is better, each extra digit counts for less/);
+    assert.match(main, /^The area of the triangle the line cuts off the axes, rounded (down|off), should be a square above 1 ending in [19]\./);
+    assert.match(main, /Bigger is better; extra digits count less/);
     assert.match(card, /Tie-breaker: That square's root plus 1 and the x-crossing's whole part should share as big a factor as possible\./);
   }
   assert.equal(squareArea.keepsParams, true);
