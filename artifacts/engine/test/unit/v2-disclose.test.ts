@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { disclosed, freshNoise, measured, newNoiseKey, objectReading, peerNoiseSigmaOf, peerNoiseVarianceOf, readingNoise, shownAt } from "../../convex/v2/disclose.ts";
+import { disclosed, freshNoise, measured, newNoiseKey, objectReading, peerNoiseSigmaOf, peerNoiseVarianceOf, readingNoise, shownAt, agentSeen } from "../../convex/v2/disclose.ts";
 
 const game = { noiseKey: newNoiseKey(), settings: { peerNoiseVariance: 64 } };
 const stats = (xs: number[]) => {
@@ -46,4 +46,12 @@ test("variance 0, or no key, is exact; points follow the reading, floored at 0; 
   assert.deepEqual(disclosed({ phase: "live" }, row), { want: 6, points: 18 });
   assert.deepEqual(disclosed({ phase: "ended" }, row), { want: 5, points: 15 });
   assert.deepEqual(disclosed({ phase: "live" }, { want: 5, points: 15 }), { want: 5, points: 15 }, "a row from before the noise");
+});
+
+test("what an agent saw, told to its owner, keeps points = your bits × others' bits (round 21–23: 129.94 against ≈ 126.64)", () => {
+  // The agent's input was worked out with an older own rarity (11.85); the object's value row now holds 10.04.
+  const told = agentSeen({ rarityBits: 10.04 }, { mine: 11.85, others: 4.49, points: 53.21 });
+  assert.equal(told.want, 4.49);
+  assert.ok(Math.abs(told.points - 10.04 * 4.49) < 1e-9, `points ${told.points} = 10.04 × 4.49`);
+  assert.equal(agentSeen({ rarityBits: 3 }, { mine: 3, others: -2, points: 0 }).points, 0, "never below 0");
 });

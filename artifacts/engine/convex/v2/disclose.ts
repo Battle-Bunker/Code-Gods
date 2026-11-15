@@ -97,6 +97,15 @@ export function measured(game: Pick<NoiseGame, "noiseKey" | "settings">, v: { ra
 }
 
 /**
+ * What an agent saw of an object, as its owner is told it (decision 36): the others' sum as the agent read it, and the
+ * points from it and the owner's rarity now (the value row's), never the points the agent's input carried, which were
+ * worked out with the rarity it had then (rounds 21 to 23: a card said 129.94 points beside "14.75 × 8.59 ≈ 126.64").
+ */
+export function agentSeen(row: { rarityBits: number }, seen: { others: number; mine?: number; points?: number }): { want: number; points: number } {
+  return { want: seen.others, points: row.rarityBits * Math.max(0, seen.others) };
+}
+
+/**
  * Live anonymity (v1's public log, docs/public-log-design.md §1): while a game is live, nothing a player reads about
  * another player's transformation says who made it: no mover, agent, calls or cost. A player's own moves keep them, and
  * an ended game is fully transparent.

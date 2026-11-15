@@ -5,7 +5,7 @@
  * surcharge (half the growth of the board's total). Every move's inverse is proposed with the same weight, so the
  * price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
-import { amountCode, choiceBits, sampleAmount, whichBits, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { amountCode, choiceBits, sampleAmount, whichBits, type ArgCode, type Invalid, type ArgHelp, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
 import { BOX_NAMES, boxes, lines, pairs } from "./units.ts";
 
@@ -123,10 +123,21 @@ const lineWords = (name: unknown): string => {
   return `${kind === "row" ? "row" : "column"} ${Number(i!) + 1}`;
 };
 
+
+// ---------------------------------------------------------------- each argument said for a person (round 23)
+
+const help = (label: string, hint: string, example: string, choices?: Record<string, string>): ArgHelp =>
+  (choices ? { label, hint, example, choices } : { label, hint, example });
+const cellChoices = (n: number) => Object.fromEntries(Array.from({ length: n * n }, (_, i) => [cellName(n, i), cellLabel(n, i)]));
+const lineChoices = (n: number) => Object.fromEntries(lines(n).map(l => [l.name, lineWords(l.name)]));
+const amountHelp = (what: string) => help("How much", `a whole number such as 1 or −2: ${what}`, "1");
+const lineHelp = (n: number) => help("Which row or column", "rows count from the top, columns from the left", lines(n)[0]!.name, lineChoices(n));
+
 // ---------------------------------------------------------------- the nine
 
 export const add: M = {
   id: "cells.add", reps: ["cells"], title: "add to one cell", perSite: false,
+  argHelp: v => ({ cell: help("Which cell", "rows count from the top, columns from the left", cellName(N(v), 0), cellChoices(N(v))), k: amountHelp("below 0 takes away") }),
   describe: a => `${signed(k(a))} in ${cellWords(a.cell)}`,
   args: v => fields(base(v, "cells.add"), { cell: oneOf(cellNames(N(v))) }, true),
   apply: (s, _site, a, v) => { const i = cellIndex(N(v), a.cell as string); return addTo(s, v, [i], () => k(a)); },
@@ -135,6 +146,7 @@ export const add: M = {
 
 export const swap: M = {
   id: "cells.swap", reps: ["cells"], title: "swap two cells", perSite: false,
+  argHelp: v => ({ a: help("First cell", "the two cells trade numbers", cellName(N(v), 0), cellChoices(N(v))), b: help("Second cell", "a different cell from the first", cellName(N(v), 1), cellChoices(N(v))) }),
   describe: a => `swap ${cellWords(a.a)} and ${cellWords(a.b)}`,
   args: v => fields(base(v, "cells.swap"), { a: oneOf(cellNames(N(v))), b: oneOf(cellNames(N(v))) }),
   apply: (s, _site, a, v) => {
@@ -147,6 +159,7 @@ export const swap: M = {
 
 export const lineAdd: M = {
   id: "tally.add", reps: ["tally"], title: "add to every cell of a row or column", perSite: false,
+  argHelp: v => ({ line: lineHelp(N(v)), k: amountHelp("added to every cell of it; below 0 takes away") }),
   describe: a => `${signed(k(a))} in every cell of ${lineWords(a.line)}`,
   args: v => fields(base(v, "tally.add"), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), () => k(a)),
@@ -156,6 +169,7 @@ export const lineAdd: M = {
 /** Built per board size: moving j places along is undone by moving N − j (the same line, a choice of the same price). */
 export const rotateFor = (n: number): M => ({
   id: "tally.rotate", reps: ["tally"], title: "move a row's or column's numbers along, the last coming round to the front", perSite: false,
+  argHelp: v => ({ line: lineHelp(N(v)), j: help("How many places along", "each number moves this many places; the last ones come round to the front", "1", Object.fromEntries(Array.from({ length: N(v) - 1 }, (_, i) => [String(i + 1), `${i + 1} place${i ? "s" : ""}`]))) }),
   describe: a => `move ${lineWords(a.line)}'s numbers ${a.j} place${a.j === "1" ? "" : "s"} along`,
   args: v => fields(base(v, "tally.rotate"), { line: oneOf(lines(N(v)).map(l => l.name)), j: oneOf(Array.from({ length: N(v) - 1 }, (_, i) => String(i + 1))) }),
   apply: (s, _site, a, v) => {
@@ -183,6 +197,7 @@ const SPIN_WORDS: Readonly<Record<string, string>> = {
 };
 export const spin: M = {
   id: "turn.spin", reps: ["turn"], title: "turn or flip the whole board", perSite: false,
+  argHelp: () => ({ how: help("Turn or flip", "the whole board moves; no number changes", "half", SPIN_WORDS) }),
   describe: a => SPIN_WORDS[a.how as string]!,
   args: v => fields(base(v, "turn.spin"), { how: oneOf(Object.keys(SPINS)) }),
   apply: (s, _site, a, v) => {
@@ -195,6 +210,7 @@ export const spin: M = {
 /** Built per board size: its words name the pair's two cells. */
 export const balanceFor = (n: number): M => ({
   id: "turn.balance", reps: ["turn"], title: "move an amount from a cell to its opposite (their total is kept)", perSite: false,
+  argHelp: v => ({ pair: help("Which pair of opposite cells", "a cell and the cell half a turn away from it", "pair0", Object.fromEntries(pairs(N(v)).map(([i, j], x) => [`pair${x}`, `${cellLabel(N(v), i)} and ${cellLabel(N(v), j)}`]))), k: amountHelp("added to the first cell and taken from the second (below 0: the other way)") }),
   describe: a => {
     const [i, j] = pairs(n)[Number(String(a.pair).slice(4))]!;
     return `${signed(k(a))} in ${cellLabel(n, i)} and ${signed(-k(a))} in its opposite, ${cellLabel(n, j)}`;
@@ -209,6 +225,7 @@ export const balanceFor = (n: number): M => ({
 
 export const reverse: M = {
   id: "mirror.reverse", reps: ["mirror"], title: "write a row or column backwards", perSite: false,
+  argHelp: v => ({ line: lineHelp(N(v)) }),
   describe: a => `write ${lineWords(a.line)} backwards`,
   args: v => fields(base(v, "mirror.reverse"), { line: oneOf(lines(N(v)).map(l => l.name)) }),
   apply: (s, _site, a, v) => {
@@ -220,6 +237,7 @@ export const reverse: M = {
 
 export const tilt: M = {
   id: "steps.tilt", reps: ["steps"], title: "make every step along a row or column bigger by k (the first number stays)", perSite: false,
+  argHelp: v => ({ line: lineHelp(N(v)), k: amountHelp("every step along it grows by this; the first number stays") }),
   describe: a => `${signed(k(a))} on every step along ${lineWords(a.line)}`,
   args: v => fields(base(v, "steps.tilt"), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), pos => pos * k(a)),
@@ -228,6 +246,7 @@ export const tilt: M = {
 
 export const boxAdd: M = {
   id: "boxes.add", reps: ["boxes"], title: "add to every cell of a corner box", perSite: false,
+  argHelp: v => ({ box: help("Which corner box", "a quarter of the board", "box0", Object.fromEntries(BOX_NAMES.map((b, i) => [`box${i}`, `the ${b} box`]))), k: amountHelp("added to every cell of it; below 0 takes away") }),
   describe: a => `${signed(k(a))} in every cell of the ${BOX_NAMES[Number(String(a.box).slice(3))]} box`,
   args: v => fields(base(v, "boxes.add"), { box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, boxes(N(v))[Number((a.box as string).slice(3))]!, () => k(a)),

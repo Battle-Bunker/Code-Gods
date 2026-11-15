@@ -178,9 +178,29 @@ try {
     await whatIf.getByTestId("text-what-if-error").getByText(/Type a number/).waitFor();
     await whatIf.getByTestId("input-what-if-k").fill("−2");
     await whatIf.getByTestId("text-what-if-after").getByText(/down 2/).waitFor();
+    // Each argument said for a person, never its raw name (round 23: "k", "centre", "turn").
+    assert.equal(await whatIf.getByTestId("label-what-if-k").innerText(), "How far up");
+    assert.match(await whatIf.getByTestId("hint-what-if-k").innerText(), /a number such as 2/);
     await whatIf.getByTestId("select-what-if-change").selectOption("cart.mirror");
-    await whatIf.getByTestId("select-what-if-axis").selectOption("y");
+    assert.match(await whatIf.getByTestId("select-what-if-axis").locator("option:checked").innerText(), /the y-axis/);
+    await whatIf.getByTestId("select-what-if-axis").selectOption("x");
     await whatIf.getByTestId("what-if-result").or(whatIf.getByTestId("text-what-if-error")).first().waitFor();
+    // The turn (round 23): its labels and hint, and a sketch whose lines and pin are drawn in colour, its label clear.
+    await whatIf.getByTestId("select-what-if-change").selectOption("rot.turn");
+    assert.equal(await whatIf.getByTestId("label-what-if-centre").innerText(), "Where to pin it");
+    assert.equal(await whatIf.getByTestId("label-what-if-turn").innerText(), "How far to turn");
+    assert.match(await whatIf.getByTestId("hint-what-if-turn").innerText(), /45°/);
+    const sketch = whatIf.getByTestId("move-sketch");
+    if (await whatIf.getByTestId("what-if-result").count()) {
+      await sketch.waitFor({ timeout: 10_000 });
+      for (const part of ["line.old", "line.new"]) {
+        const stroke = await sketch.locator(part).first().evaluate((el: Element) => getComputedStyle(el).stroke);
+        assert.ok(stroke && stroke !== "none", `${label}: the sketch's ${part} has a colour (${stroke})`);
+      }
+      await sketch.locator('[data-part="pin"]').waitFor();
+      await sketch.scrollIntoViewIfNeeded();
+      await shot(page, `what-if-turn-${label}`);
+    } else console.log(`${label}: the turn's start was refused here: ${await whatIf.getByTestId("text-what-if-error").innerText()}`);
     assert.match(await page.getByTestId("text-phase").innerText(), /running/i, "the what-if was tried during the live game");
     await whatIf.scrollIntoViewIfNeeded();
     await noSideways(page, `${label} game`);

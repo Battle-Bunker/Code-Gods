@@ -12,7 +12,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
-import { measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
+import { agentSeen, measured, objectReading, readingNoise, shownAt } from "./disclose.ts";
 import { durationModeOf, endWorldOf, scoreIntervalOf, timeScaleOf } from "./duration.ts";
 import { shouldPark } from "./activity.ts";
 import { allReady, ensureWarm, isReady, LANGUAGES } from "./readiness.ts";
@@ -552,7 +552,7 @@ export const commit = internalMutation({
       if (!committed && paysToRead(game) && st.version === act.version) {
         const row = await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", act.objectId).eq("memberId", act.memberId as Id<"v2Members">)).unique();
         const seen = (act.input as { value?: { mine: number; others: number; points: number } } | undefined)?.value;
-        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...(seen ? { want: seen.others, points: seen.points } : measured(game, row)) }, world);
+        if (row) await tell(ctx, game, act.memberId as Id<"v2Members">, { objectId: act.objectId, number: act.number, state: st.state, version: st.version, score: row.score, rarityBits: row.rarityBits, ...(seen ? agentSeen(row, seen) : measured(game, row)) }, world);
       }
       if (!committed) continue;
       const { before, after } = await changeObject(ctx, game, seats, act.objectId, record.after, world, act.memberId);

@@ -24,9 +24,9 @@ interface Story { title: string; rule: RuleRef<LineState, unknown>; line: LineSt
 const rule = (family: RuleRef<LineState, unknown>["family"], tieBreaker: string): RuleRef<LineState, unknown> =>
   ({ type: lineType, family, params: family.dealable(lineZ)[0], variant: lineZ, tieBreaker });
 const STORIES: Record<string, Story> = {
-  "prime-landing": { title: "Prime Landing", rule: rule(primeLanding, "big-prime"), line: mc(6, 25), number: 7, others: [mc(6, 23), mc(4, 30)] },
+  "prime-landing": { title: "Prime Landing", rule: rule(primeLanding, "shared-factor"), line: mc(6, 25), number: 7, others: [mc(6, 23), mc(4, 30)] },
   "square-area": { title: "Square Area", rule: rule(squareArea, "spf"), line: mc(-1, 7), number: 3, others: [mc(-2, 10), mc(2, 30)] },
-  "whole-crossing": { title: "Whole Crossing", rule: rule(wholeCrossing, "k-gpf"), line: mc(3, 7), number: 12, others: [mc(3, 6), mc(5, 2)] },
+  "whole-crossing": { title: "Whole Crossing", rule: rule(wholeCrossing, "shared-factor"), line: mc(3, 7), number: 12, others: [mc(3, 6), mc(5, 2)] },
   treasure: { title: "Treasure", rule: rule(treasure, "m-spf"), line: mc(15, 6), number: 5, others: [mc(16, 5), mc(10, 20)] },
   "divisibility-ladder": { title: "Divisibility Ladder", rule: rule(divisibilityLadder, "m-spf"), line: mc(12, 12), number: 9, others: [mc(60, 60), mc(5, 3)] },
 };
@@ -80,7 +80,7 @@ function Frame({ s, f }: { s: Story; f: string }): ReactElement {
 }
 
 function Scale(): ReactElement {
-  const pl = rule(primeLanding, "m-gpf"), sa = rule(squareArea, "spf");
+  const pl = rule(primeLanding, "shared-factor"), sa = rule(squareArea, "spf");
   return (
     <>
       <ExpandedFace rule={pl} state={mc(290, 59)} value={valueOf(pl)} />
