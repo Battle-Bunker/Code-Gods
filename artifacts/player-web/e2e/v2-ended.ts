@@ -71,6 +71,7 @@ async function open(page: Page, pane: string) {
   await page.keyboard.press("Escape");
   // A narrow tab is mostly its "…" button: click its title, at the left edge.
   if (await page.getByTestId(`tab-${pane}`).count()) await page.getByTestId(`tab-${pane}`).click({ position: { x: 6, y: 10 } });
+  else if (!await section.count() && pane === "assistant" && await page.getByTestId("button-assistant-sheet").count()) await page.getByTestId("button-assistant-sheet").click();
   else if (!await section.count()) {
     await page.locator("[data-testid^=button-pane-menu-]").first().click();
     await page.getByTestId(`button-open-pane-${pane}`).click();
