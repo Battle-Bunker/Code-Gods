@@ -34,7 +34,7 @@ test("restored families (decision 22), worked by hand", () => {
 });
 
 test("worked examples, one line per family", () => {
-  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(30, 7)), { run: "73/12", "shared-factor": "6", "step-back": "6" });   // 7, 37, …, 157 (run 6), then 187 = 11·17, 10 from 197: 6 + 1/12; gcd(156, 6) = 6; |y(−1)| = 23, 6 from 17
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(30, 7)), { run: "73/12", "shared-factor": "6", "step-back": "6", "near-miss": "11" });   // 7, 37, …, 157 (run 6), then 187 = 11·17, 10 from 197: 6 + 1/12; gcd(156, 6) = 6; |y(−1)| = 23, 6 from 17; 187's smallest prime factor 11
   assert.deepEqual(terms(squareArea, {}, mc(-2, 6)),
     { square: "0", "spf": "3", "lpf": "3", "omega": "1" });   // legs 3 and 6: area 9
   // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
@@ -93,8 +93,8 @@ test("presets: four pools over the beginner families, every named tie-breaker ex
 });
 
 test("Prime Staircase: a repeated prime stops the run; no run, no first prime", () => {
-  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(0, 7)), { run: "3/2", "shared-factor": "0", "step-back": "0" });   // 7, then 7 again: a run of one, broken on a prime (1 + 1/2); one prime shares nothing
-  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(1, 1000)), { run: "1/5", "shared-factor": "0", "step-back": "2" });  // 1000 is not prime, 3 from 997 (0 + 1/5); 999 is 2 from 997
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(0, 7)), { run: "3/2", "shared-factor": "0", "step-back": "0", "near-miss": "7" });   // 7, then 7 again: a run of one, broken on a prime (1 + 1/2); one prime shares nothing; the repeat 7 is its own smallest factor
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(1, 1000)), { run: "1/5", "shared-factor": "0", "step-back": "2", "near-miss": "2" });  // 1000 is not prime, 3 from 997 (0 + 1/5); 999 is 2 from 997; 1000 = 2³·5³
 });
 
 

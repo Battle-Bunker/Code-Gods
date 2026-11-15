@@ -61,6 +61,9 @@ const staircase: Shape<Ends> = {
       "The run's last prime minus 1 and its first prime minus 1 should share as big a factor as possible.", "seq"),
     withEnds(distance<Ends>("step-back", "y(−1) close to such a prime", "", "seq"),
       p => `The term before the start, y(−1), should be as close as possible to ${primeEnding(p)}.`),
+    // A candidate (the coordinator's row 7, 15 Nov): a new form, not "minus 1 shares a factor". Undealt until measured.
+    undealt(prime(more<Ends>("near-miss", "the term that breaks the run as nearly prime as possible",
+      "The first term that breaks the run should have as big a smallest prime factor as possible.", "seq"))),
   ],
 };
 export const primeStaircase = ladder(family<Ends>("prime-staircase", "Prime Staircase", ["seq", "si"], staircase, ENDS_STAIRCASE, (ctx, pr) => {
@@ -89,6 +92,11 @@ export const primeStaircase = ladder(family<Ends>("prime-staircase", "Prime Stai
   const back = ref("seq", "term", { n: -1 });
   const vb = num(ctx.read(back))!;
   ctx.term("step-back", `distance from y(−1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(vb), pr.ends), [back]);
+  // The breaking term's smallest prime factor (itself when it is a prime that breaks the run by its ending or by
+  // repeating); 0 when there is none to read (a fraction, 0 or ±1, or a run of 256).
+  const bw = brk && brk.v.d === 1n && (brk.v.n > 1n || brk.v.n < -1n) ? smallestPrimeFactor(brk.v.n < 0n ? -brk.v.n : brk.v.n) : 0n;
+  ctx.term("near-miss", brk ? `the breaking term ${Qn.toWire(brk.v)}${bw ? `: its smallest prime factor is ${bw}` : " has no prime factor to read"}` : "no term breaks the run",
+    q(bw), brk ? [brk.ref] : [first]);
   if (brk) ctx.mark({ kind: "note", ref: brk.ref, text: "the run stops here" });
 }), staircaseWitness);
 
