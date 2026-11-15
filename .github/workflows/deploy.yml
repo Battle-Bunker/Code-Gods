@@ -150,7 +150,9 @@ jobs:
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     concurrency:
       group: deploy-${{ github.ref_name == 'main' && 'production' || 'development' }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}   # a newer develop push supersedes; production never cancels
+      # A running deploy always finishes (it may be mid-migration): a newer push waits, and GitHub keeps only the newest
+      # waiting one, so develop deploys every merge burst's last commit in order instead of cancelling forever.
+      cancel-in-progress: false
     defaults:
       run:
         shell: bash

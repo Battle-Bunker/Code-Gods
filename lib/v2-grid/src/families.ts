@@ -9,6 +9,7 @@ import { q, ref, type ElementRef, type RuleFamily } from "@workspace/v2-core";
 import { at, type GridState } from "./grid.ts";
 import { countCells, diagonals, distance, family, offTotals, sumOf, term, isPrimeCell, more, primesTie, readCells, readNum, totalOf, zerosTie, type Ctx, type Shape } from "./family-kit.ts";
 import { moreGridFamilies } from "./more-families.ts";
+import { paramGridFamilies } from "./param-families.ts";
 import { boxEdges, boxes, cols, corners, folds, gcd, leaps, pairs, rows, strangers, windows } from "./units.ts";
 
 export { isPrimeCell };
@@ -372,6 +373,6 @@ export function primeCells(n: number): RuleFamily<GridState, None> {
 export const beginnerGridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
   [mirrormancer(n), magicEighteen(n), oppositeNines(n), twoPair(n), spreadOfThree(n), strangersFamily(n), leapfrog(n), crosswiseThrees(n)];
 
-/** Every grid family: the beginner pool, then the second pool, then the coupled rules (more-families.ts). */
+/** Every grid family: the beginner pool, the second pool, the parameterised trials (param-families.ts, in no preset yet), then the coupled rules (more-families.ts). */
 export const gridFamilies = (n: number): readonly RuleFamily<GridState, any>[] =>
-  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n), ...moreGridFamilies(n)];
+  [...beginnerGridFamilies(n), steadySteps(n), boxTotals(n), primeCells(n), ...paramGridFamilies(n), ...moreGridFamilies(n)];

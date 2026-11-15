@@ -41,3 +41,10 @@ test("a half-life game cannot end in its first tenth of the half-life (trial 16)
   assert.equal(h(40_000).value, "any moment", "past the floor");
   assert.equal(h(40_000).note, "at a hidden time: 9 times in 10 within the next 21:37");
 });
+
+test("world time runs at the header's timeScale (W3 #698: a sim or local playtest may speed it up)", async () => {
+  const { timerText } = await import("../src/core/timer-text.ts");
+  // h = 300 s, floor 30 s. 10 s of wall time at 2× is 20 s of world time: 10 s of floor left.
+  const x = timerText({ phase: "live", endsAt: null, durationMode: "halfLife", worldSeconds: 300, startedAt: 0, timeScale: 2, planningEndsAt: null, planningSeconds: 60 } as never, 10_000)!;
+  assert.match(x.note, /^it cannot end for 0:10;/);
+});

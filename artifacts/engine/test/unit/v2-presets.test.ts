@@ -5,7 +5,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LOOKS_PER_SECOND, LOOK_POWER_SHARE, READ_PRICE, summonPriceScale } from "@workspace/v2-economy";
-import { MEDIAN_LOOK_BITS, PRESETS } from "../../convex/v2/presets.ts";
+import { GRIDS_BEGINNER_ECONOMY, LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
+import { startersFor, summonBits } from "@workspace/v2-agents/pure";
+import { MEDIAN_LOOK_BITS, MEDIAN_STARTER_BITS, PRESETS, STARTERS_AT_START, presetOf } from "../../convex/v2/presets.ts";
 import { fullReadBits } from "../../convex/v2/knowledge.ts";
 import { birthDraws } from "../../convex/v2/world.ts";
 
@@ -25,4 +27,19 @@ test("5 looks a second at a typical object take a tenth of the preset's power, 1
   }
   assert.equal(summonPriceScale(64), 1);
   assert.equal(summonPriceScale(8), 0.125);
+});
+
+test("the beginner start buys three typical starters at the scaled summon price, and v2-economy says the same (call 17)", () => {
+  for (const id of ["lines-beginner", "grids-beginner"]) {
+    const p = presetOf(id), bits: number[] = [];
+    for (const r of p.pool) for (const lang of ["typescript", "python"] as const) for (const s of startersFor(r.family, lang)) bits.push(summonBits(lang, s.source).energy);
+    bits.sort((a, b) => a - b);
+    const median = bits[bits.length >> 1]!, table = MEDIAN_STARTER_BITS[p.variant]!;
+    assert.ok(Math.abs(table - median) / median < 0.05, `${id}: table ${table}, starters' median ${median}`);
+    const three = STARTERS_AT_START * table * summonPriceScale(p.economy.powerPerSecond);
+    assert.ok(Math.abs(p.startingEnergy - three) <= 5, `${id}: starts with ${p.startingEnergy}, three starters cost ${three}`);
+  }
+  assert.equal(presetOf("lines-beginner").startingEnergy, LINES_BEGINNER_ECONOMY.startingEnergy);
+  assert.equal(presetOf("grids-beginner").startingEnergy, GRIDS_BEGINNER_ECONOMY.startingEnergy);
+  assert.equal(presetOf("lines-beginner").economy.powerPerSecond, 4);
 });

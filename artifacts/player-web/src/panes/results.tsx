@@ -17,7 +17,7 @@ import { foldTugs } from "./tug-of-war";
 import { AffordanceButton } from "@/site/components/action";
 import { blurredEndedNote, isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
-import { resultsHeadline, rotationSummary } from "./results-headline";
+import { endNote, resultsHeadline, rotationSummary } from "./results-headline";
 import { MyPointsChart } from "./points-over-time";
 import { mergeTugs, tugsFromServer } from "./summary-tugs";
 
@@ -32,6 +32,7 @@ export function ResultsPane() {
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="results">
       <p className="text-lg font-semibold leading-snug" data-testid="text-results-headline">{resultsHeadline(standings?.rows, header.me, header.phase === "ended")}</p>
+      {header.phase === "ended" && endNote(header) && <p className="text-sm text-muted-foreground" data-testid="text-results-end">{endNote(header)}</p>}
       {/* The next step right under the headline (on a phone, above the fold): what to try, then why. */}
       {header.phase === "ended" && header.me && <EndSummary total={rows.find(r => r.memberId === header.me)?.net ?? 0} />}
       {header.phase === "ended" && code && (

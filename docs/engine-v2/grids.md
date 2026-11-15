@@ -390,6 +390,15 @@ a clash (one from each digit cluster and Crosswise Threes); a fourth adds one. R
 the perpendicular direction on grids: "every row and column adds up to a multiple of 5" has a mean |PMI| of 0.13
 against the fifteen current mains, against 1.1 to 2.6 for sizes, repeats, parity and factors.
 
+### 6.6 Parameterised families (undealt; grid-params.md)
+
+Four families with dealt parameters (owner decisions 39–42; the coordinator's trials 17 and 18), in `gridFamilies`
+but in no preset until the coordinator switches the beginner grid pool: Magic Totals (the residue family, with Magic
+Accountant and Magic Eighteen folded in, 19 values), Spread (10), Number Lines (20) and Pair Sums (Opposite Nines' card
+shape, 32). Each card is one relation with at most four numbers; each family has three tied tie-breakers and drift
+neighbourhoods (`gridDriftNeighbours`: the values a 120 s redraw may move to; a median 0.27–0.43 of a board's bits
+survives one). All four are sampled (a units plan does not see the parameters). Lib: lib/v2-grid param-families.ts.
+
 ## 7. Views, agents, server
 
 - **Views** (lib/v2-views): one `grid` renderer for every representation. Compact face: the main layer's

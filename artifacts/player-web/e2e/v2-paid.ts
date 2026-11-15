@@ -104,7 +104,7 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   await page.getByTestId("details-look-more").click();
   const all = page.getByTestId("button-look-all");
   await all.waitFor();
-  assert.match(await all.innerText(), new RegExp(`^Look at all \\d+ ${noun.many} \\([\\d.]+ energy\\)$`), "look at all is priced");
+  assert.match(await all.innerText(), new RegExp(`^Look at every ${noun.one} now \\([\\d.]+ energy\\)$`), "look at all is priced, never a wrong count");
   await page.screenshot({ path: path.join(shots, `paid-${preset}-list.png`) });
   // One the practice partners changed since you saw it: its own Look, priced, shows it as it is now.
   // One that changed since you saw it, if any does within a minute (decision 36 keeps most views fresh); else the first.
@@ -135,6 +135,8 @@ async function paidGame(browser: any, preset: string, noun: { one: string; many:
   if (await page.getByTestId("tab-objects").count()) await page.getByTestId("tab-objects").click({ position: { x: 6, y: 10 } });
   if (!await page.getByTestId("button-keep-fresh").isVisible()) await page.getByTestId("details-look-more").click();
   await page.getByTestId("button-keep-fresh").click();
+  // The confirmation says what the Watcher costs (round 13: "It costs energy", no figure).
+  assert.match(await page.getByTestId("button-keep-fresh-confirm").innerText(), /Summon a Watcher for [\d.]+ energy/);
   await page.getByTestId("button-keep-fresh-confirm-ok").click();
   await page.getByTestId("text-watching").waitFor({ timeout: 30_000 });
   console.log(`${preset}: a Watcher keeps the ${noun.many} fresh`);

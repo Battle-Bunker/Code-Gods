@@ -224,3 +224,30 @@ Values by A's weighted draws (240,000 systems, tilts 1, 0.75, 0.55, 0.4); bits =
   (B §4.6); an anchor for On the Diagonal that a zoom cannot move; and the sentence attack (test 2′, A §4.8) in the
   standing collapse check.
 - **Three lines** wait for rules in tension on the triangle (A §4.4: area, pegs and corners pull together).
+
+## 8. On the engine (lines-pairs, after #706)
+
+The standing collapse check on `pair-q` with the engine's own law (code C3), prices and values, 6 dealt tables of
+three seats, tests 1–3 (test 4 waits for the pair starters). Output:
+[scripts/two-line-systems-collapse-pair-q.txt](scripts/two-line-systems-collapse-pair-q.txt).
+
+| β | 1. no unopposed joint rise | 2. no cheap optimum | 3. no single answer |
+|--:|---|---|---|
+| 0.02 | PASS (0/6 tables) | **FAIL** (2/6 cheap; cheap search median 92% of the best) | PASS (1/6; best 24 keep 96%) |
+| 0.05 | PASS (0/6) | PASS (1/6; 80%) | PASS (0/6; 87%) |
+| 0.1 | PASS (0/6) | **FAIL** (5/6; 100%) | PASS (0/6; 87%) |
+
+- **Bug found and fixed (an easy really-high peak).** The first run valued No Fractions/answer-prime at 410–546 bits
+  inside the energy window, and Right Angle/prime-divisor at up to 190: the prime hills carried the tail for primes
+  WRITTEN as coefficients (½ bit per unit, the code's cost), but a pair's primes are derived. −9x + 14y + 5 = 0 with
+  −2x + 3y − 104 = 0 divides by 1 and lands on (−1471, −946): |x| + |y| = 2417, a prime, for about 60 bits of φ. Pair
+  layers no longer declare `measure: "prime"` (they take the size tail); after the fix the same hills top at 12 and
+  16–18 bits. Far Crossing/far-prime still reaches 45–58 bits, honestly: its prime is a coefficient (x = 109) and its
+  value tracks read length (correlation 0.7–0.8).
+- **Test 2 fails at β 0.02 and 0.1** (open, reported). With the energy of a game, a 5,000-evaluation search reaches
+  the best joint state of a table in 2 (β 0.02) to 5 (β 0.1) of 6 tables: the reachable set shrinks as β grows
+  (2.5·10⁸ states at 0.1), and the tables' best states are near their births. This is the "no cheap optimum" failure the
+  line variants also show; the remedies on the table are the deal (aspect-covering tables, §7) and wider energy, not
+  the pool. Test 3 (plateaus) passes on the engine, unlike in the study (§4.4), at every β.
+- **Births under C3**: a parallel pair is born about once in 50 (14% under the study's law), so the families that are
+  undefined on parallel lines are rarely at their worst at birth.

@@ -23,6 +23,8 @@ export const bitsText = fmtBits;
  * "123.40 energy"; energy a little below zero (an agent or a store spending as fast as it earns) reads "about 0 energy", since a
  * bare "−8.90 energy" read as broken to a first-time player (the exact figure goes in the tooltip).
  */
+/** The amount alone, for beside a label that already says energy ("Energy 576.00", never "Energy 576.00 energy"). */
+export const energyAmount = (x: number) => (x < 0 && x > -50 ? "about 0" : num(x));
 export const energyText = (x: number) => (x < 0 && x > -50 ? "about 0 energy" : `${num(x)} energy`);
 /** The exact figure, for the tooltip under "about 0 energy". */
 export const exactEnergy = (x: number) => `${num(x)} energy`;
@@ -99,8 +101,9 @@ export function ownEnergy(m: { energy: number; capacity: number; ownPerSecond: n
     : `Your own energy: ${exactEnergy(m.energy)}. It rises by ${powerText(m.ownPerSecond)}, up to ${exactEnergy(m.capacity)}. Summons and replacements are paid from it.`;
   // Above the cap (a game can start there): say what it refills to once spent.
   const above = m.capacity > 0 && m.energy > m.capacity + 0.01;
-  const note = above ? ` (more than your store holds: ${energyText(m.capacity)}; it won't refill above that)` : full ? " (full)" : "";
-  return { text: `${energyText(m.energy)}${note}`, full, title };
+  const note = above ? ` (more than your store holds: ${energyAmount(m.capacity)}; it won't refill above that)` : full ? " (full)" : "";
+  // Shown beside the label "Energy": the number alone.
+  return { text: `${energyAmount(m.energy)}${note}`, full, title };
 }
 
 /** During a game: the rule this player won by bid, and the handicap that comes off their total (null when none). */

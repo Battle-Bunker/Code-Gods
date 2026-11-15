@@ -87,12 +87,17 @@ function tidy(ps: Piece[]): Piece[] {
     terms.forEach((t, j) => {
       // The sign: an element's own leading minus, or the one before it.
       const neg = (t.sign === MINUS) !== (t.tok.k === "el" && t.tok.p.op === MINUS);
-      if (j > 0) text(t.joined || neg ? (neg ? ` ${MINUS} ` : " + ") : " ");
+      // A negative number straight after ÷ or × is bracketed ("÷ (−2)"), never a loose minus ("÷ − 2").
+      const prev = terms[j - 1]?.tok;
+      const bracket = neg && !t.joined && t.tok.k === "el" && prev?.k === "word" && /^[÷×·]$/.test(prev.text);
+      if (bracket) { text(` (${MINUS}`); }
+      else if (j > 0) text(t.joined || neg ? (neg ? ` ${MINUS} ` : " + ") : " ");
       if (t.tok.k === "el") {
         const p = t.tok.p, variable = t.tok.variable;
         // A coefficient written as a number before its variable, unless it is 1 (then the variable carries it).
         out.push({ ...p, op: j === 0 && neg ? MINUS : "", mag: p.variable ? "" : p.mag, variable: p.variable || "" });
         if (variable && !p.variable) text(variable);
+        if (bracket) text(")");
       } else {
         text(`${j === 0 && neg ? MINUS : ""}${(t.tok as { text: string }).text}`);
       }
@@ -159,16 +164,25 @@ export function worked(scene: Eq, rep: string, values: (r: ElementRef) => Elemen
   const last = all[all.length - 1]!;
   if ("undefined" in last && all.length > given) return last;
   const lines: Piece[][] = [];
+  let keptGiven = 0;
   all.forEach((ps, i) => {
-    if (i < given) { lines.push("undefined" in ps ? [{ kind: "text", text: ps.undefined }] : ps); return; }
+    if (i < given) {
+      // Two given lines undefined for the same reason (parallel lines: "they never cross") say it once.
+      if ("undefined" in ps && lines.length && lineText(lines[lines.length - 1]!) === ps.undefined) return;
+      lines.push("undefined" in ps ? [{ kind: "text", text: ps.undefined }] : ps);
+      keptGiven++;
+      return;
+    }
     if ("undefined" in ps) return;
-    if (lines.length > given && lineText(lines[lines.length - 1]!) === lineText(ps)) return;
+    if (lines.length > keptGiven && lineText(lines[lines.length - 1]!) === lineText(ps)) return;
     lines.push(ps);
   });
-  return { lines, given, caption: caption(scene.caption, rep, values) };
+  return { lines, given: keptGiven, caption: caption(scene.caption, rep, values) };
 }
 
 export const isWorked = (scene: Eq): boolean => !!(scene.steps?.length || scene.caption || scene.given);
+/** Every line given (a system's equations side by side), nothing worked: short enough for a chip ("… and …"). */
+export const isGivenOnly = (scene: Eq): boolean => !scene.caption && (scene.given ?? 0) >= 1 + (scene.steps?.length ?? 0);
 
 /** The plain text; a worked equation reads "0 = 3x − 7, so 3x = 7, so x = 2⅓ (nearest whole number 2, off by ⅓)". */
 export function text(scene: Eq, values: (r: ElementRef) => ElementValue, rep: string): string {

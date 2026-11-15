@@ -93,6 +93,15 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
           </select>
           <span className="text-xs text-muted-foreground">{form.durationMode === "halfLife" ? "The clock shows a range, not an exact time." : "The end is public."}</span>
         </label>
+        <label className="flex min-w-0 flex-col gap-1 text-sm">
+          <span>Price of a look</span>
+          <select value={form.readPriceWeight} onChange={e => setForm({ ...form, readPriceWeight: e.target.value })} disabled={!!locked || busy}
+            className="h-9 border bg-background px-2" data-testid="select-setting-readPriceWeight">
+            {[...new Set([0, 0.5, 1, 2, 3, 4, preset.readPriceWeight, Number(form.readPriceWeight)])].filter(n => Number.isFinite(n)).sort((a, b) => a - b)
+              .map(n => <option key={n} value={String(n)}>{n === 0 ? "Free: see everything as it is" : `${weightText(n)}×${Math.abs(n - preset.readPriceWeight) < 1e-9 ? " (the setup's own)" : ""}`}</option>)}
+          </select>
+          <span className="text-xs text-muted-foreground">Times the read price. Everyone sees each line or grid as they or their agents last saw it; a look costs energy.</span>
+        </label>
         {fields(form.durationMode).map(f => (
           <label key={f.key} className="flex min-w-0 flex-col gap-1 text-sm">
             <span>{f.label}</span>
@@ -109,15 +118,6 @@ function SettingsEditor({ room, preset, locked }: { room: Room; preset: Preset; 
             {PEER_NOISE_VARIANCE_OPTIONS.map(n => <option key={n} value={String(n)}>{noiseWords(n)}</option>)}
           </select>
           <span className="text-xs text-muted-foreground">Exact after the game ends, whichever you pick.</span>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-sm">
-          <span>Price of a look (times the read price)</span>
-          <select value={form.readPriceWeight} onChange={e => setForm({ ...form, readPriceWeight: e.target.value })} disabled={!!locked || busy}
-            className="h-9 border bg-background px-2" data-testid="select-setting-readPriceWeight">
-            {[...new Set([0, 0.5, 1, 2, 3, 4, preset.readPriceWeight, Number(form.readPriceWeight)])].filter(n => Number.isFinite(n)).sort((a, b) => a - b)
-              .map(n => <option key={n} value={String(n)}>{n === 0 ? "Free: see everything as it is" : `${weightText(n)}×${Math.abs(n - preset.readPriceWeight) < 1e-9 ? " (the setup's own)" : ""}`}</option>)}
-          </select>
-          <span className="text-xs text-muted-foreground">Everyone sees each line or grid as they last looked; a look costs this much energy.</span>
         </label>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
