@@ -55,5 +55,21 @@ function agent(offer) {
   // A promise: on these lines, only steps that leave the other players at least as well off.
   if (PROTECT.includes(offer.object)) options = options.filter(([plan]) => fair(offer, plan));
   // The step that raises your points most (your rarity times the others'), weighing your rule's QUOTES best; or null.
-  return climb(offer, options, score(m, c, p, tie), QUOTES);
+  const one = climb(offer, options, score(m, c, p, tie), QUOTES);
+  if (one || PROTECT.includes(offer.object)) return one;
+  // No single step helps: look two steps ahead (each step, then a shift or tilt by 1) and take the first
+  // step of the best pair, though it may lower your points for a moment. It weighs the 4 best pairs: a few more small reads.
+  // The first steps: the 6 best for your rule (options are tries with their scores, in the same order).
+  const firsts = tries.map((t, i) => [t, options[i][1]]).filter(([[, m1]]) => Q.isQ(m1))
+    .sort((a, b) => (better(a[1], b[1]) ? -1 : better(b[1], a[1]) ? 1 : 0)).slice(0, 6).map(([t]) => t);
+  const pairs = [];
+  for (const [plan, m1, c1] of firsts) {
+    const first = Array.isArray(plan) ? plan : [plan];
+    for (const k of [-1, 1]) {
+      pairs.push([[...first, move("si.shift", { k })], score(m1, Q.add(c1, k), p, tie)]);
+      pairs.push([[...first, move("si.tilt", { k })], score(Q.add(m1, k), c1, p, tie)]);
+    }
+  }
+  const two = climb(offer, pairs, score(m, c, p, tie), 4);
+  return two ? two.slice(0, -1) : null;
 }
