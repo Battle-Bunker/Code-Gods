@@ -10,7 +10,7 @@ import path from "node:path";
 import { canonicalJson, hashHex, q, rng, walkStep, type Q, type Score } from "@workspace/v2-core";
 import { beginnerPool, divisibilityLadder, fromMC, lineQ, lineType, lineZ, primeLanding, squareArea, treasure, wholeCrossing, type LineState } from "@workspace/v2-linear";
 import { valueLookup, type ValueFunction } from "@workspace/v2-valuation";
-import { contributors, type RuleRef } from "../src/index.ts";
+import { contributors, partLine, type RuleRef } from "../src/index.ts";
 import { moves } from "../src/moves.ts";
 
 const mc = (m: number | Q, c: number | Q): LineState => ({ lines: [fromMC(typeof m === "number" ? q(m) : m, typeof c === "number" ? q(c) : c)] });
@@ -54,18 +54,19 @@ test("Square Area on y = −x + 7: the area 24½ against the square 25 = 5 × 5;
   // The tie-breaker reads the ladder number the crossing is measured to (−2: |−2| + 1 = 3) and the gradient 3: 3.
   const wtb = contributors(rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)).parts[1]!;
   assert.equal(wtb.valueText, "3");
-  const tr = contributors(rule(treasure, "m-spf", { k: 2, T: 37 }), mc(15, 6)).parts[0]!;
-  assert.equal(tr.source[0]!.text, "36");
-  assert.equal(tr.source[0]!.label, "y(2)");
-  assert.equal(tr.reference?.value, 37);
-  assert.equal(tr.distance, "1 below 37");
+  // Treasure: y(3) = 51 is nearest the coin pile 55 (10 coins high).
+  const tr = contributors(rule(treasure, "shared-factor", { k: 3 }), mc(15, 6)).parts[0]!;
+  assert.equal(tr.source[0]!.text, "51");
+  assert.equal(tr.source[0]!.label, "y(3)");
+  assert.equal(tr.reference?.value, 55);
+  assert.equal(tr.distance, "4 below 55");
 });
 
 test("wording: no parameter letters, no 'distance …: 0', no steps or thresholds, in any generated sentence", () => {
   const cases: [RuleRef<LineState, unknown>, LineState][] = [
     [rule(primeLanding, "shared-factor", { ends: 1 }), mc(6, 25)], [rule(primeLanding, "shared-factor", { ends: 9, side: -1 }), mc(290, 59)],
     [rule(squareArea, "spf"), mc(-1, 7)], [rule(squareArea, "lpf"), mc(290, 59)],
-    [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "m-spf"), mc(15, 6)], [rule(treasure, "m-spf"), mc(15, 7)],
+    [rule(wholeCrossing, "shared-factor", { q: 5, r: 3 }), mc(3, 7)], [rule(treasure, "shared-factor"), mc(15, 6)], [rule(treasure, "shared-factor"), mc(15, 10)],
     [rule(divisibilityLadder, "next-rung"), mc(12, 12)],
   ];
   for (const [r, s] of cases) {
@@ -181,4 +182,21 @@ test("a ladder reading that counts as on its rung says so first (round 24: 10.51
   assert.equal(contributors(r, mc(-1, 31)).parts[0]!.distance, "on 31", "exactly on it");
   // Off every rung (33 rounds to 33, not a prime): how far off, as before.
   assert.match(contributors(r, mc(-1, 33)).parts[0]!.distance ?? "", /^\S+ above 31$/);
+});
+
+test("a ladder's main part off every rung says the reading and the nearest rung in words, never a bare negative score (round 29)", async () => {
+  const { primeGradient } = await import("@workspace/v2-linear") as unknown as { primeGradient: RuleRef<LineState, unknown>["family"] };
+  const pg = { type: lineType, family: primeGradient, params: { ends: 1 }, variant: lineQ, tieBreaker: (primeGradient as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+  assert.equal(partLine(contributors(pg, mc(10, 3)).parts[0]!), "● main part: gradient 10 · 1 below 11, a prime ending in 1");
+  // A reading below 0 on a rule whose rungs are above 0: measured to the nearest such prime, not a mirrored one.
+  assert.equal(partLine(contributors(pg, mc(-7, 2)).parts[0]!), "● main part: gradient −7 · 18 below 11, a prime ending in 1");
+  // Every ladder family, on lines off its rungs: words, never "…: −½".
+  for (const f of beginnerPool.filter(x => (x as { keepsParams?: boolean }).keepsParams)) {
+    const r = { type: lineType, family: f as never, params: (f as { dealable(v: unknown): unknown[] }).dealable(lineQ)[0], variant: lineQ, tieBreaker: (f as { tieBreakers: { id: string }[] }).tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+    for (const st of [mc(10, 3), mc(-7, 2), mc(4, 100)]) {
+      const line = partLine(contributors(r, st).parts[0]!);
+      assert.doesNotMatch(line, /: [−-][\d½⅓⅔¼¾]/, `${f.id}: ${line}`);
+      assert.doesNotMatch(line, /\bdealt\b/, `${f.id}: no "dealt" jargon: ${line}`);
+    }
+  }
 });

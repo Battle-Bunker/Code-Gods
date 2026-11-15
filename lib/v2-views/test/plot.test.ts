@@ -69,7 +69,7 @@ const CASES: Case[] = [
   { name: "Whole Crossing top", family: wholeCrossing, state: mc(1, -37), variant: lineZ },
   { name: "Divisibility Ladder top", family: divisibilityLadder, state: mc(27720, 27720), variant: lineZ },
   { name: "Treasure top", family: treasure, state: mc(17, 3), variant: lineZ },
-  { name: "Same on Both Rulers top", family: sameOnBothRulers, state: mc(-29, 180), variant: lineZ },
+  { name: "Same on Both Rulers top", family: sameOnBothRulers, state: mc(-1, 2442), variant: lineZ },
   { name: "Prime Gradient top", family: primeGradient, state: mc(31, 7), variant: lineZ },
   { name: "Prime Staircase", family: primeStaircase, state: mc(6, 5), variant: lineZ },
 ];

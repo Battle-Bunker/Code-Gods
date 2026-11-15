@@ -1,5 +1,5 @@
-# Right Angle · Example: the corner's distance is a big prime
-# Main part: the lines cross at a right angle at a grid point, y on the dealt ladder. Tie-breaker: the corner's distance is a big prime.
+# Right Angle · Example: the corner's |x| + |y| has a big smallest prime factor
+# Main part: a right angle at whole x and y, y on your pattern. Tie-breaker: the corner's |x| + |y| has a big smallest prime factor.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when
 # it finds one it leaves you a note, so you can make a deal with that player.

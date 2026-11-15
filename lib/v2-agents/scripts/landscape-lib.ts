@@ -349,9 +349,14 @@ export function identify<S>(rules: readonly Rule[], bits: (r: Rule) => (s: S) =>
 // ---------------------------------------------------------------- the collapse check's tables (shared with cheap-optima.ts)
 
 /** A line's (or board's) share of a 3-seat game's energy: (start + power · seconds) · 3 / 24. */
-export function shareOfGame(v: VariantId, seconds: number) {
+/**
+ * One object's share of a game's energy: three seats' whole-game income (start + power × seconds) over the objects on
+ * the table. The presets start 3 objects (owner decision 31), so an object's share is one seat's whole-game income
+ * (about 2,500 on lines); it was over 24 objects before, about 314, a window a 10⁵-evaluation search enumerates.
+ */
+export function shareOfGame(v: VariantId, seconds: number, objects = 3) {
   const e = v === "grid-4-d10" ? GRIDS_BEGINNER_ECONOMY : LINES_BEGINNER_ECONOMY;
-  return ((e.startingEnergy + e.powerPerSecond * seconds) * 3) / 24;
+  return ((e.startingEnergy + e.powerPerSecond * seconds) * 3) / objects;
 }
 
 /** Tables of three rules from three different families, dealt by a seeded draw; pairs: none the seating rule forbids (lib/v2-pair seating.ts). */

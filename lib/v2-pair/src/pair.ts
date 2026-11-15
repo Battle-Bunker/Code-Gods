@@ -3,10 +3,12 @@
  * line-q's primitive triple (a, b, c) of a·x + b·y + c = 0. The two lines are an unordered set: the canonical state
  * lists them sorted by (a, b, c), so writing them the other way round is the same object, and a swapped copy is never a
  * second object (owner decision 24). Two lines may be parallel (the answer is then undefined); they may not be equal.
- * φ is the sum of the six numbers' mixed codes (owner decision 17), so the law is π ∝ 2^−φ on distinct pairs.
+ * φ is the sum of the six numbers' codes (PAIR_CODES: line-q's, with a zero rarer, trial 31), so the law is π ∝ 2^−φ
+ * on distinct pairs. Only the rationals (pair-q): the codes are the triple's.
  */
 import { Qn, q, type Invalid, type Q, type Variant } from "@workspace/v2-core";
-import { decodeLine, encodeLine, inDomain, lineBits, lineParams, type Line, type LineState } from "@workspace/v2-linear";
+import { mixedIntCode, stepsIntCode, type IntCode } from "@workspace/v2-core";
+import { decodeLine, encodeLine, inDomain, LINE_Q_CODES, lineParams, type Line, type LineState } from "@workspace/v2-linear";
 
 /** Exactly two lines, sorted, different. The same shape as a line object, so line-q's mutators move either line. */
 export type PairState = LineState;
@@ -37,7 +39,17 @@ export function decodePair(w: string): PairState {
   if (cmpLine(lines[0]!, lines[1]!) >= 0) throw new SyntaxError(`Not a canonical system (sorted, different lines): ${w}`);
   return { lines };
 }
-export const pairBits = (s: PairState, v: Variant): number => s.lines.reduce((t, l) => t + lineBits(l, lineParams(v)), 0);
+/**
+ * The code of each line's coefficients in a system (the coordinator's declared trial, 15 Nov; two-line-systems.md §11):
+ * as line-q's (code C3) but with a zero rarer, a by p(0) = 1/64 and b by p(0) = 1/256. Under line-q's 1/8 and 1/16 a
+ * quarter of systems were born with a horizontal or vertical line, and such a pair is a cheap shared basin: a right
+ * angle, a crossing at a grid point and a whole x-intercept for nothing (test 2's best states). c keeps line-q's code.
+ */
+export const PAIR_CODES: { readonly a: IntCode; readonly b: IntCode; readonly c: IntCode } =
+  { a: mixedIntCode(1 / 64), b: stepsIntCode(1 / 256), c: LINE_Q_CODES.c };
+/** One line's code length in a system. */
+export const pairLineBits = (l: Line): number => PAIR_CODES.a.bits(l.a) + PAIR_CODES.b.bits(l.b) + PAIR_CODES.c.bits(l.c);
+export const pairBits = (s: PairState, _v: Variant): number => s.lines.reduce((t, l) => t + pairLineBits(l), 0);
 
 // ---------------------------------------------------------------- geometry (exact)
 

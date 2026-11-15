@@ -69,25 +69,28 @@ test("the component: three short sections, no steps, the noun of the object type
   assert.doesNotMatch(gt, /\b[Ll]ines?\b/);
 });
 
-test("one thing to try next game follows what happened, and points only at what the player can find (round 26: the same text every game, a mark nobody saw)", () => {
-  // A tug-of-war: what happened on it, then the One line ordering that counts their bits with yours.
+test("one thing to try next game is built from this game's facts (rounds 26 and 28: the same words every game)", () => {
   const people = summarise(base);
   assert.equal(people.next.number, 4);
   assert.equal(people.next.text, "This game you and Ada pulled line 4 back and forth (6 pulls, 28.86 energy). Next game, open a line you share in One line and order its moves by “Best for points”: your points there are your bits × theirs, so the top move counts their bits as well as yours and gives them less reason to undo it. Tell them in chat which way you are climbing.");
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, withNames: ["Practice partner 1"], practice: true })) });
-  assert.match(practice.next.text, /^This game you and Practice partner 1 pulled line 4 back and forth .* “Best for points”.*undo it\.$/);
   assert.doesNotMatch(practice.next.text, /chat/, "nobody to talk to in a practice game");
-  const rot = summarise({ ...base, rotates: true }).next.text;
-  assert.match(rot, /^Next game, open a line you share/, "in a rotation: the lesson only");
-  // Climbed together, no tug: more of the same elsewhere, never a line to hold.
-  const step = (by: string, b: [number, number], w: [number, number]) => ({ by, before: { rarityBits: b[0], want: w[0], points: b[0] * w[0] }, after: { rarityBits: b[1], want: w[1], points: b[1] * w[1] } });
-  const together = summarise({ ...base, tugs: [], climbs: [{ number: 7, moves: [step("you", [2, 2.5], [3, 3.5]), step("Bo", [2.5, 3], [3.5, 4])] }] });
-  assert.equal(together.next.number, 7);
-  assert.match(together.next.text, /^On line 7 your moves and the others' all raised the points\. Next game, find more lines like it: in Lines, the others' bits on each line show which ones they want too; climb those one move at a time\.$/);
-  for (const s of [people, practice, together]) {
-    assert.doesNotMatch(s.next.text, /TARGET|SETTLE|hold it|settle|good for both/i);
-  }
-  // No tug-of-war and no shared climb: make the most wanted line rarer for you, with the move that does it and its price.
+  // In a rotation the facts stay too (round 28 read the same words across the games of a rotation).
+  assert.match(summarise({ ...base, rotates: true }).next.text, /^This game you and Ada pulled line 4 back and forth \(6 pulls/);
+
+  // Flat from 2:00 with the energy full: the stall, the energy left, and a change to the agent.
+  const flat = { points: [{ x: 0, y: 0 }, { x: 60, y: 30 }, { x: 120, y: 50 }, { x: 300, y: 50 }, { x: 600, y: 50 }], endWorld: 600, energyLeft: 288, capacity: 288 };
+  const stalled = summarise({ ...base, tugs: [], pace: flat });
+  assert.equal(stalled.next.text, "Your points stopped rising at 2:00, and your energy sat full (288.00 energy unspent) for the rest of the game. Next game, when your points stop rising, change what your agent tries: pick another of its starting points in Agent code, or summon a second agent that tries different moves, so your energy keeps buying moves.");
+  // A stall comes before the tug's lesson, and the tug is still named.
+  assert.match(summarise({ ...base, pace: flat }).next.text, /^This game you and Ada pulled line 4 back and forth .*\. Your points stopped rising at 2:00/);
+
+  // Still climbing in the last third: more power from the start.
+  const climbing = { points: [{ x: 0, y: 0 }, { x: 300, y: 20 }, { x: 400, y: 30 }, { x: 600, y: 61.5 }], endWorld: 600, energyLeft: 12, capacity: 288 };
+  assert.equal(summarise({ ...base, tugs: [], pace: climbing }).next.text, "Your agent was still raising your points at the end (+31.50 points in the last third). Next game, give it a bigger share of your power from the start, in My agents, so it climbs sooner.");
+
+  for (const s of [people, practice, stalled]) assert.doesNotMatch(s.next.text, /TARGET|SETTLE|hold it|settle|good for both/i);
+  // No pace, no tug, no shared climb: the most wanted line and the move that makes it rarer, as before.
   const calm = summarise({ ...base, tugs: [] });
   assert.match(calm.next.text, /^Line 4 is the one the others want most \(7\.55 bits\)\. Try “.+” on it: [\d.]+ energy( for [\d.]+ bits for you)?\.$/, calm.next);
 });
@@ -129,4 +132,15 @@ test("try next game: on a line the player's rule does not score, the move offere
   const scoring = moves(ec, state, null, { k: 1 }).find(m => m.utility !== null)!;
   assert.ok(scoring);
   assert.match(s.next.text, new RegExp(`Try “${scoring.words.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}”`), s.next.text);
+});
+
+test("the summary renders for every beginner family on lines on and off their rungs (a throw shows only the plain advice)", async () => {
+  const L = await import("@workspace/v2-linear") as unknown as { beginnerPool: { id: string; dealable(v: unknown): unknown[]; tieBreakers: { id: string }[] }[]; lineQ: never };
+  for (const f of L.beginnerPool) {
+    const r = { type: lineType, family: f as never, params: f.dealable(L.lineQ)[0], variant: L.lineQ, tieBreaker: f.tieBreakers[0]!.id } as RuleRef<LineState, unknown>;
+    const objects = [[10, 3], [-7, 2], [4, 100], [11, 31]].map(([m, c], i) => ({ number: i + 1, state: mc(m!, c!), points: 5, bits: 1, want: 5 }));
+    const s = summarise({ rule: r, objects, tugs: [], total: 20 });
+    assert.doesNotThrow(() => renderToStaticMarkup(<GameSummary summary={s} rule={r} />), f.id);
+    for (const e of s.earned) assert.doesNotMatch(e.chain, /: [−-][\d½⅓⅔¼¾]|\bdealt\b/, `${f.id}: ${e.chain}`);
+  }
 });

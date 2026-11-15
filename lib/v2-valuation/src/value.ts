@@ -222,7 +222,7 @@ export interface TailFit {
   /** The fitted slope when the law's ceiling (TAIL_CEILING) cut it: a record that the knots alone would over-pay. */
   readonly unclamped?: number;
   /** "prime": the layer declares a prime-valued measure, so the tail is the code's own cost of a prime (Layer.measure). */
-  readonly measure?: "prime" | "ladder";
+  readonly measure?: "prime" | "ladder" | "ladder-log";
   /**
    * A ladder's cap (the coordinator's amendment of trial 28): points [u, φ] from cheap witness states (RuleFamily.witness),
    * ascending in u, each φ the least code length of a witness at u or above. A score u is never worth more than the cap
@@ -234,8 +234,8 @@ export interface TailFit {
 
 /** What the rule's layers declare they measure (Layer.measure), per component of the score. */
 export interface TailMeasures {
-  readonly primary?: "prime" | "ladder";
-  readonly secondary?: "prime" | "ladder";
+  readonly primary?: "prime" | "ladder" | "ladder-log";
+  readonly secondary?: "prime" | "ladder" | "ladder-log";
 }
 
 export interface ValueTail {
@@ -386,8 +386,24 @@ export const TAIL_CEILING = STEP;
  * floor, or not at all (too few knots, noise), takes the floor: a ramp of TAIL_FLOOR bits per doubling, or for a
  * distance a line on which closing the rest of the gap to 0 is worth TAIL_FLOOR bits. The ceiling wins over the floor.
  */
-function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime" | "ladder", sizeRate?: number): TailFit {
+function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?: "prime" | "ladder" | "ladder-log", sizeRate?: number): TailFit {
   const best = pts[pts.length - 1];
+  if (measure === "ladder-log" && best && best.u.n > 0n) {
+    // A ladder whose score grows like q^L with its level L (the two-line ladders, lib/v2-pair families.ts): the ladder
+    // tail of trial 28 along the level, log₂ of the score, at the rate measured over all its rungs, unclamped (no flat
+    // tail). A straight line in the score itself would grow exponentially in the level. Capped by its witnesses' φ.
+    // The rate between levels, not within one: the least bits in each doubling band of the score (a level's floor),
+    // fitted across the bands. Within a level the bits climb steeply as a state nears the next rung (a fit over every
+    // knot gave Forty-Five 18.7 bits a doubling); one band alone: 1 bit a doubling, the law's price of a number's size.
+    const floors = new Map<number, { x: number; y: number }>();
+    for (const p of pts) {
+      if (p.u.n <= 0n) continue;
+      const x = log2OnePlus(p.u), band = Math.floor(x), f = floors.get(band);
+      if (!f || p.y < f.y) floors.set(band, { x, y: p.y });
+    }
+    const ramp = floors.size >= 2 ? leastSquares([...floors.values()]) : null;
+    return { form: "log", slope: Math.max(ramp?.slope ?? 1, TAIL_FLOOR), measure };
+  }
   if (measure === "ladder" && best && best.u.n > 0n) {
     // A ladder's main part (the coordinator's declared trial, 15 Nov): past the measured knots its value keeps rising at
     // the rate measured over its rungs, a straight line in the main part, never held under the per-unit ceiling
@@ -438,7 +454,7 @@ function fitTail(pts: readonly { u: Q; y: number }[], ceiling: number, measure?:
  */
 export function tailOf(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling = Infinity, measures: TailMeasures = {}, sizeRate?: number, caps?: readonly (readonly [number, number])[]): ValueTail {
   const t = tailOf0(knots, ceiling, measures, sizeRate);
-  return caps?.length && t.primary.measure === "ladder" ? { ...t, primary: { ...t.primary, caps } } : t;
+  return caps?.length && (t.primary.measure === "ladder" || t.primary.measure === "ladder-log") ? { ...t, primary: { ...t.primary, caps } } : t;
 }
 function tailOf0(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling: number, measures: TailMeasures, sizeRate?: number): ValueTail {
   const parsed = knots.map(k => ({ u: scoreFromWire(k.u), bits: k.bits })).filter(k => k.u !== null);
@@ -452,7 +468,7 @@ function tailOf0(knots: readonly Pick<ValueKnot, "u" | "bits">[], ceiling: numbe
   for (const k of parsed) if (!firsts.length || compareScores([firsts[firsts.length - 1]!.u], [k.u![0]!]) !== 0) firsts.push({ u: k.u![0]!, y: k.bits });
   return { secondary: fitTail(same.map(k => ({ u: k.u![1]!, y: k.bits })), ceiling, measures.secondary, sizeRate),
     // A ladder's rate is measured over all its rungs (the top few alone are noisy where the samples run out).
-    primary: fitTail(measures.primary === "ladder" ? firsts : firsts.slice(-6), ceiling, measures.primary, sizeRate) };
+    primary: fitTail(measures.primary === "ladder" || measures.primary === "ladder-log" ? firsts : firsts.slice(-6), ceiling, measures.primary, sizeRate) };
 }
 
 /**

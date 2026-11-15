@@ -17,7 +17,8 @@ import { valueFor } from "../values";
 
 const mc = (m: number, c: number): LineState => ({ lines: [fromMC(q(m), q(c))] });
 const rule = (family: RuleRef<LineState, unknown>["family"], tieBreaker: string): RuleRef<LineState, unknown> =>
-  ({ type: lineType, family, params: family.dealable(lineZ)[0], variant: lineZ, tieBreaker });
+  // The named tie-breaker, else the family's first: rule renames must not blank the gallery (rounds 26 and 29).
+  ({ type: lineType, family, params: family.dealable(lineZ)[0], variant: lineZ, tieBreaker: family.tieBreakers.some(t => t.id === tieBreaker) ? tieBreaker : family.tieBreakers[0]!.id });
 const ADA = rule(primeLanding, "shared-factor"), BO = rule(wholeCrossing, "shared-factor");
 const valueOf = (r: RuleRef<LineState, unknown>) => valueFor(r.variant.id, r.family.id, r.params, r.tieBreaker)!;
 const LINE = 4, NOW = mc(3, 8);

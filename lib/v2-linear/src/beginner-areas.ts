@@ -52,10 +52,10 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
  * keeps the distance (the ruler's own shortcut) and moves the y-intercept, so the tie-breaker climbs on a rung.
  * Adversary, by construction: Pythagorean Area, on the same number on a 45° line (y = ±x + c: distance² and the
  * triangle's area are both c²/2), so another ending there excludes it and the same ending is a forbidden pair (seating.ts).
- * Measured, it is not one (open, row 6): the tension matrix (scripts/tension.ts, 8 states a bit, 15 Nov) puts no family
- * in tension with Ruler, and 6 of its 16 pairs with Pythagorean Area aligned (each climb raises the other about 2 times
- * in 3); both grow with c²/(something in m). A Ruler that wants the line close to (0, 0) (1 ÷ distance², a small-values
- * adversary to every big ladder) fails the mechanical row 1 check, which searches whole y-intercepts outward from 0.
+ * Measured (scripts/tension.ts, regenerated 15 Nov with the pool's ladders): Treasure (0.66) and Prime Landing (0.66) are
+ * its named opponents, the share of their dealt rules that a Ruler climb lowers; Pythagorean Area 0.49. A Ruler that wants
+ * the line close to (0, 0) (1 ÷ distance²) would fail the mechanical row 1 check, which searches whole y-intercepts
+ * outward from 0.
  * Dealt: k = 1, 3, 7, 9.
  */
 const RULER_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
@@ -150,13 +150,22 @@ const pythShape: Shape<Ends> = {
  * counting for less, as on Prime Landing); else minus how far the area is from the nearest window [p, p + 1) (on a tie the
  * lower one), below every rung. The windows of x = area − ½ rounded to the nearest (ties up) are exactly these, so the
  * rung reads as Prime Landing's does.
+ * Past SEARCH_DIGITS digits a miss is graded by the nearest number ending in k instead of the nearest such prime: the
+ * search for a prime among 400-digit numbers took about a second (no-box.test.ts, 15 Nov), and no climb within a game's
+ * income gets near (the energy gate's best lines are under 30 digits). A rung is still exact at any size.
  */
+const SEARCH_DIGITS = 60;
 export function areaRung(area: Q, k: number): { p: bigint; u: Q } {
   const x = Qn.sub(area, q(1, 2));
   const n = nearestInteger(x);
   if (n > 0n && isPrimeEnding(n, k)) return { p: n, u: digitLevel(n) };
-  const p = nearestPrimeEnding(x, k);
+  const p = n.toString().length > SEARCH_DIGITS ? nearestEnding(x, k) : nearestPrimeEnding(x, k);
   return { p, u: Qn.neg(Qn.sub(Qn.abs(Qn.sub(x, q(p))), q(1, 2))) };
+}
+/** The whole number ending in k nearest x (x > 0; on a tie the lower one). */
+function nearestEnding(x: Q, k: number): bigint {
+  const lo = Qn.floor(Qn.div(Qn.sub(x, q(k)), q(10))) * 10n + BigInt(k), hi = lo + 10n;
+  return Qn.cmp(Qn.sub(x, q(lo)), Qn.sub(q(hi), x)) <= 0 ? lo : hi;
 }
 /**
  * Witnesses for the tail cap (lib/v2-linear witnesses.ts; CLAUDE.md: a value tail never grows faster than the φ of the

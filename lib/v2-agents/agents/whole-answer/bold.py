@@ -1,5 +1,5 @@
 # Whole Answer · Bold
-# Main part: the answer is whole numbers, y on the dealt ladder. Tie-breaker: whichever you were dealt (the answer shares a factor with the number you divide by; the answer far down and to the left).
+# Main part: the answer's y on your pattern. Tie-breaker: whichever you were dealt (the answer's |x| + |y| and the number you divide by share a factor; the answer far down and to the left).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there
 # times the other players' rarity there added up, so a move that suits your rule but spoils the pair for the others

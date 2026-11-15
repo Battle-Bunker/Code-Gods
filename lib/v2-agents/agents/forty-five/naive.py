@@ -1,5 +1,5 @@
 # Forty-Five · Naive (for learning)
-# Main part: the lines cross at 45° at a grid point, |x| + |y| on the dealt ladder. Tie-breaker: whichever you were dealt (that distance has many prime factors; that distance shares a factor with the y-intercepts' gap).
+# Main part: 45° at whole x and y, |x| + |y| on your pattern. Tie-breaker: whichever you were dealt (that |x| + |y| has many prime factors; that |x| + |y| shares a factor with the y-intercepts' gap).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another
 # player keeps pulling back, which burns energy on both sides and scores nothing. It is here to learn from.

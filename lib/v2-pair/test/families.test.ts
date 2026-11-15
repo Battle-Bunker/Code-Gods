@@ -88,9 +88,9 @@ test("Divide By and Gap Ratio climb the powers of the dealt k; their cards say s
   // Its tie-breakers read the numerators x·D and y·D (15 and 10 up to sign): 25 has two prime factors; they share 5.
   assert.deepEqual(score("no-fractions", "numerator-smooth", school, { k: 5 }), ["610/121", "2"]);   // 25 = 5 × 5
   assert.deepEqual(score("no-fractions", "numerator-shared", school, { k: 5 }), ["610/121", "5"]);
-  assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\); better still 27, then 729, and so on/);
-  assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the gap between their x-intercepts; better still 64 times/);
-  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaves 2 when divided by 7; better still, leaves 16 when divided by 49, then 114 when divided by 343, and so on\..*Tie-breaker/);
+  assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 or −3; better, 27; then 729/);
+  assert.match(familyOf("double-gap").card({ k: 4 }, null), /4 times the x-intercepts' gap; better 64 times; then 4,096 times/);
+  assert.match(familyOf("far-crossing").card({ q: 7, r: 2 }, "far-gap"), /leaving 2 when divided by 7; better if \(that number − 2\) ÷ 7 does too, and so on\..*Tie-breaker/);
   // y = x + 2 and y = −2x + 4: the y-intercepts' gap is 2, the x-intercepts' gap 4; 2 = ½ × 4, no power of k fits (level 0).
   for (const k of [2, 3]) assert.ok(Qn.cmp(Qn.parse(score("double-gap", null, sys(Y(1, 2), Y(-2, 4)), { k })![0]!), Qn.q(k)) < 0);
 });
@@ -141,7 +141,7 @@ test("Far Crossing's and High Start's tie-breakers aim at a multiple of q^(L+1),
   const shared = sys(Y(3, 20), Y(1, 20));
   assert.equal(score("high-start", "start-crossing", shared, hs)![1], "-25");
   assert.equal(score("high-start", "start-echo", shared, hs)![1], "-25");
-  assert.match(familyOf("high-start").card(hs, "start-crossing"), /a whole number other than 0; once.*on your ladder, a whole multiple of 5/);
+  assert.match(familyOf("high-start").card(hs, "start-crossing"), /a whole number other than 0; on your pattern, a multiple of 5/);
 });
 
 test("a zoom of the picture (positions × n) cannot raise a capped hill past the number it is capped by", () => {
@@ -192,4 +192,18 @@ test("seating: no two rules one move climbs together (the same r on the y reader
   assert.ok(!pairClash(rule("whole-answer", { q: 5, r: 2 }), rule("forty-five", { q: 7, r: 4 })));
   assert.ok(!pairClash(rule("whole-answer"), rule("right-angle", { q: 5, r: 1 })), "unknown parameters clash only as one family");
   assert.deepEqual(pairClashes([rule("double-gap", { k: 2 }), rule("steep-ratio", { q: 5, r: 1 }), rule("no-fractions", { k: 4 })]), ['double-gap {"k":2} × no-fractions {"k":4}']);
+});
+
+test("pair cards: the main sentence at most 30 words, a tie-breaker at most 20, the target said in words, no \"level\" (playtest rounds 24 and 25)", () => {
+  const words = (x: string) => x.split(/\s+/).length;
+  for (const f of pairFamilies) for (const p of f.dealable(pairQ)) {
+    const m = f.main.sentence(p as PairParams);
+    assert.ok(words(m) <= 30, `${f.id}: ${words(m)} words: ${m}`);
+    assert.doesNotMatch(m, /level|the closer, the better/i, f.id);
+    for (const t of f.tieBreakers) {
+      const x = t.sentence(p as PairParams);
+      assert.ok(words(x) <= 20, `${f.id}/${t.id}: ${words(x)} words: ${x}`);
+      assert.doesNotMatch(x, /level|the closer, the better/i, `${f.id}/${t.id}`);
+    }
+  }
 });

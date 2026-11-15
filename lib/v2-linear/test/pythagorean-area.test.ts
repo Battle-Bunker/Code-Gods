@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, type Evaluation } from "@workspace/v2-core";
 import { digitLevel, lineQ, lineType, pythagoreanArea, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
+import { areaRung } from "../src/beginner-areas.ts";
 
 const terms = (ends: number, s: LineState): Record<string, string> => {
   const e: Evaluation = evaluateSite(lineType, pythagoreanArea, { ends }, s, lineQ, 0, null);
@@ -86,4 +87,20 @@ test("witnesses for the tail cap: lines whose area rounds down to an n-digit pri
       assert.ok(u > 0, `ending ${ends}, ${n} digits: ${area}`);
     }
   }
+});
+
+test("huge areas evaluate quickly: past 60 digits a miss is graded by the nearest number ending in k, and a rung is still exact", () => {
+  const big = q((10n ** 200n + 1n) ** 2n, 4n);   // the area of y = 2x + (10^200 + 1): 401 digits
+  for (const k of [1, 3, 7, 9]) {
+    const t = performance.now();
+    const { u } = areaRung(big, k);
+    assert.ok(performance.now() - t < 300, `ending ${k}: ${(performance.now() - t).toFixed(0)} ms`);
+    assert.ok(Qn.sign(u) <= 0, "a miss stays below every rung");
+    assert.ok(Qn.cmp(u, q(-5)) >= 0, "graded by the nearest number ending in k: at most 5 away, less a half");
+  }
+  // A 61-digit prime ending in 7 is still a rung, at its level of digits.
+  const p = 10n ** 60n + 7n;   // 10^60 + 7 is prime
+  const r = areaRung(q(p), 7);
+  assert.equal(r.p, p);
+  assert.deepEqual(r.u, digitLevel(p));
 });

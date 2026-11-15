@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluateSite, Qn, q, rng, walkStep, type Evaluation, type Q, type RuleFamily } from "@workspace/v2-core";
+import { nearestPalindrome } from "../src/beginner-rulers.ts";
 import { LINE_Q_CODES, primeGradient, beginnerFamilies, beginnerPool, presets, divisibilityLadder, exactChange, lineQ, lineType, lineZ, primeLanding, primeStaircase, ruler, sameOnBothRulers, squareArea, treasure, wholeCrossing, type LineState } from "../src/index.ts";
 import { mc } from "./helpers.ts";
 
@@ -19,7 +20,7 @@ test("the beginner pool: the curator's eight families and two restored ones (Exa
   assert.deepEqual(beginnerPool.map(f => f.id), ["prime-landing", "smooth-intercept", "square-area", "whole-crossing", "divisibility-ladder", "treasure", "same-on-both-rulers", "prime-gradient", "prime-staircase", "ruler", "pythagorean-area"]);
   for (const f of beginnerPool) {
     // The ladder families have one or two secondaries, each read from the rung; the rest two to six.
-    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "ruler"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
+    assert.ok(f.tieBreakers.length >= (["prime-staircase", "smooth-intercept", "prime-landing", "whole-crossing", "prime-gradient", "divisibility-ladder", "pythagorean-area", "treasure", "same-on-both-rulers", "ruler"].includes(f.id) ? 1 : 2) && f.tieBreakers.length <= 6, f.id);
   }
 });
 
@@ -39,13 +40,19 @@ test("worked examples, one line per family", () => {
   // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
   const t12 = terms(squareArea, {}, mc(-2, 24));
   assert.deepEqual([t12.square, t12["spf"], t12["lpf"], t12["omega"]], ["0", "2", "3", "3"]);
-  assert.deepEqual(terms(treasure, { k: 2, T: 37 }, mc(30, -23)),
-    { treasure: "0", "prime-terms": "6", "prime-gradient": "1", "square-start": "23", "m-spf": "2", "m-gpf": "5" });   // y(2) = 37; 30 = 2·3·5, 1 from 29 and 31
+  // Treasure: y(2) = 10 is the pile 4 coins high (level 1 + (1 + 0.10)/2); 4 and the gradient 2 share 2.
+  assert.deepEqual(terms(treasure, { k: 2 }, mc(2, 6)), { pile: "31/20", "shared-factor": "2" });
+  // y(2) = 7 rounds to no pile: ½ past rounding to 6 (3 coins high); 3 and 1 share 1.
+  assert.deepEqual(terms(treasure, { k: 2 }, mc(1, 5)), { pile: "-1/2", "shared-factor": "1" });
+  // y(3) = 21 = 6·7/2; a whole part of 0 shares nothing.
+  assert.deepEqual(terms(treasure, { k: 3 }, mc(Qn.q(1, 2), Qn.q(39, 2))), { pile: "321/200", "shared-factor": "0" });
   assert.deepEqual(terms(primeLanding, { ends: 1 }, mc(-1, 11)), { landing: "311/200", "shared-factor": "1" });   // lands on 11 (level 1 + (1 + 0.11)/2); 10 and 11 share 1
   assert.deepEqual(terms(primeLanding, { ends: 9 }, mc(-2, 38)), { landing: "319/200", "shared-factor": "2" });   // lands on 19; 18 and 38 share 2
   assert.deepEqual(terms(primeLanding, { ends: 1 }, mc(-3, 100)), { landing: "-11/6", "shared-factor": "10" });   // lands at 33⅓: 7/3 from 31, so 11/6 from rounding to it; 30 and 100 share 10
   assert.deepEqual(terms(primeLanding, { ends: 1, side: -1 }, mc(1, 11)), { landing: "311/200", "shared-factor": "1" });   // the mirror: lands on −11
-  assert.deepEqual(terms(sameOnBothRulers, { T: 6 }, mc(3, -12)), { fixed: "0", steep: "2", "prime-start": "1", "whole-values": "11", "whole-lamp": "1/2", "m-spf": "3", "m-gpf": "3" });   // 3x − 12 = x at x = 6; lamp 3/2
+  assert.deepEqual(terms(sameOnBothRulers, { d: 1 }, mc(-1, 242)), { palindrome: "6121/3000", "shared-factor": "2" });   // −x + 242 = x at 121: level 2 + (0 + 0.121)/3; 1 + 2 + 1 and 242 share 2
+  assert.deepEqual(terms(sameOnBothRulers, { d: 2 }, mc(3, -404)), { palindrome: "3101/1500", "shared-factor": "4" });   // 3x − 404 = x at 202; 2 + 0 + 2 and 404 share 4
+  assert.deepEqual(terms(sameOnBothRulers, { d: 1 }, mc(0, 50)), { palindrome: "-77/2", "shared-factor": "2" });   // 50: 39 from 11 (101 is 51 away), so 38½ from rounding to it
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(4, -24)), { ladder: "0", "shared-factor": "1" });   // crosses at 6 (leaves 1 divided by 5): level 0; 7 and 4 share 1
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-1, 5)), { ladder: "1", "shared-factor": "1" });    // at 5 = 5 × 1: level 1; 2 and 1 share 1
   assert.deepEqual(terms(wholeCrossing, { q: 5, r: 1 }, mc(-2, 50)), { ladder: "3/2", "shared-factor": "2" });   // at 25 = 5² × 1: two 5s, halfway to level 2 (three); 2 and 2 share 2
@@ -54,7 +61,7 @@ test("worked examples, one line per family", () => {
 });
 
 test("each family's main layer is undefined only where its lens is (and then the score is WORST)", () => {
-  assert.equal(evaluateSite(lineType, sameOnBothRulers, { T: 6 }, mc(1, 3), lineZ).score, null); // parallel to y = x
+  assert.equal(evaluateSite(lineType, sameOnBothRulers, { d: 1 }, mc(1, 3), lineZ).score, null); // parallel to y = x
   assert.equal(evaluateSite(lineType, wholeCrossing, { q: 5, r: 1 }, mc(0, 3), lineZ).score, null);          // flat: never crosses
   assert.equal(evaluateSite(lineType, divisibilityLadder, {}, mc(2, 0), lineZ).score, null);     // through (0, 0)
 });
@@ -112,10 +119,10 @@ test("Whole Crossing is a ladder of 5s on the crossing: every level has a higher
 test("vertical lines score where the rule has an honest reading (the coordinator's call, 15 Nov)", () => {
   const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });   // a·x + c = 0: x = −c/a
   // x = 13/2: Treasure passes (13/2, 37), 9/2 across from (2, 37); Prime Landing lands on the x-axis at 6½, which rounds to 7; it meets
-  // y = x at 13/2, ½ from T = 6; Tie-breakers stay undefined.
-  assert.deepEqual(terms(treasure, { k: 2, T: 37 }, x(-2n, 13n), lineQ), { treasure: "9/2", "prime-terms": "—", "prime-gradient": "—", "square-start": "—", "m-spf": "—", "m-gpf": "—" });
+  // y = x at 13/2, ½ from T = 6. Tie-breakers stay undefined.
+  assert.deepEqual(terms(treasure, { k: 2 }, x(-2n, 13n), lineQ), { pile: "—", "shared-factor": "—" });   // a vertical line has no y(2)
   assert.equal(terms(primeLanding, { ends: 7 }, x(-2n, 13n), lineQ).landing, "27/20");   // x = 6½ rounds to 7 (ties up): level 1 + 0.7/2
-  assert.equal(terms(sameOnBothRulers, { T: 6 }, x(-2n, 13n), lineQ).fixed, "1/2");
+  assert.deepEqual(terms(sameOnBothRulers, { d: 1 }, x(-2n, 13n), lineQ), { palindrome: "-4", "shared-factor": "—" });   // meets y = x at 6½: 4½ from 11
   // Ruler: distance² 169/4 = 42¼, ¼ above the window [41, 42) of ending 1; no y-intercept.
   assert.deepEqual(terms(ruler, { ends: 1 }, x(-2n, 13n), lineQ), { ruler: "-1/4", "shared-factor": "—" });
   // x = 3: on the prime 3, distance² 9 exactly.
@@ -146,22 +153,35 @@ test("Prime Landing is a ladder on the x-axis: every rung has a higher one, a sm
   assert.deepEqual(primeLanding.dealable(lineQ), [{ ends: 1 }, { ends: 1, side: -1 }, { ends: 9 }, { ends: 9, side: -1 }]);
 });
 
-test("Same on Both Rulers' −T is an exact peer of T: it scores the line reflected through the origin as T scores the line", () => {
+test("Same on Both Rulers' mirror is an exact peer: it scores the line reflected through the origin as side 1 scores the line", () => {
   const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
-  for (const mm of [-7, -2, 0, 2, 3, 14]) for (const cc of [-40, -17, -3, 0, 5, 17, 23, 97]) {
-    assert.deepEqual(terms(sameOnBothRulers, { T: -6 }, mc(mm, -cc), lineQ), terms(sameOnBothRulers, { T: 6 }, mc(mm, cc), lineQ), `y = ${mm}x + ${cc}`);
+  for (const d of [1, 2]) for (const mm of [-7, -2, 0, 2, 3, 14, Qn.q(9, 10)]) for (const cc of [-40, -17, -3, 0, 5, 17, 23, 97, 2002, Qn.q(7, 2)]) {
+    const neg = (v: number | ReturnType<typeof Qn.q>) => (typeof v === "number" ? -v : Qn.neg(v));
+    assert.deepEqual(terms(sameOnBothRulers, { d, side: -1 }, mc(mm, neg(cc)), lineQ), terms(sameOnBothRulers, { d }, mc(mm, cc), lineQ), `d = ${d}: y = ${mm}x + ${cc}`);
   }
-  for (const [a, c] of [[2n, -25n], [1n, 13n], [3n, 7n]] as const) assert.deepEqual(terms(sameOnBothRulers, { T: -6 }, x(a, -c), lineQ), terms(sameOnBothRulers, { T: 6 }, x(a, c), lineQ));
-  assert.deepEqual(sameOnBothRulers.dealable(lineQ), [{ T: 6 }, { T: -6 }]);
+  for (const [a, c] of [[2n, -25n], [1n, 13n], [3n, 7n]] as const) assert.deepEqual(terms(sameOnBothRulers, { d: 1, side: -1 }, x(a, -c), lineQ), terms(sameOnBothRulers, { d: 1 }, x(a, c), lineQ));
+  assert.match(sameOnBothRulers.card({ d: 2, side: -1 }, "shared-factor"), /minus a number that reads the same backwards and starts with 2, like −2, −22 or −212\. Bigger is better\./);
+  assert.deepEqual(sameOnBothRulers.dealable(lineQ), [{ d: 1 }, { d: 1, side: -1 }, { d: 2 }, { d: 2, side: -1 }]);
 });
 
-test("Treasure's mirror (T below zero) is an exact peer: it scores the reflected line y → −y as T scores the line", () => {
-  const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
-  for (const mm of [-7, -2, 0, 1, 3, 14]) for (const cc of [-40, -17, -3, 0, 5, 17, 23, 97]) {
-    assert.deepEqual(terms(treasure, { k: 2, T: -37 }, mc(-mm, -cc), lineQ), terms(treasure, { k: 2, T: 37 }, mc(mm, cc), lineQ), `y = ${mm}x + ${cc}`);
+test("Same on Both Rulers is a ladder: a bigger palindrome always wins, and the nearest palindrome is exact", () => {
+  for (const [x, d, t] of [[999, 1, 1001n], [1500, 1, 1551n], [1500, 2, 2002n], [6, 1, 1n], [123456, 1, 123321n], [16, 1, 11n], [17, 2, 22n]] as const) assert.equal(nearestPalindrome(Qn.q(x), d), t, `${x}, ${d}`);
+  assert.equal(nearestPalindrome(Qn.q(6), 1), 1n);   // 1 and 11 are 5 away: the smaller on a tie
+  const at = (c: number) => { const [n, d = "1"] = terms(sameOnBothRulers, { d: 1 }, mc(0, c), lineQ).palindrome!.split("/"); return Number(n) / Number(d); };
+  const rungs = [1, 11, 101, 111, 1001, 10001, 100001, 1000001];
+  for (let i = 1; i < rungs.length; i++) assert.ok(at(rungs[i]!) > at(rungs[i - 1]!), `${rungs[i]} above ${rungs[i - 1]}`);
+  assert.ok(at(50) < 0 && at(1) > 0);
+});
+
+test("Treasure's mirror is an exact peer: it scores the reflected line y → −y as Treasure scores the line, but the words say minus", () => {
+  // Fractional gradients too: the tie-breaker reads the whole part of |m|, which the reflection keeps.
+  for (const k of [3, 4]) for (const mm of [-7, -2, 0, 1, 3, 14, Qn.q(7, 2), Qn.q(-5, 3)]) for (const cc of [-40, -17, -3, 0, 5, 17, 23, 97, Qn.q(1, 2)]) {
+    const a = terms(treasure, { k, side: -1 }, mc(typeof mm === "number" ? -mm : Qn.neg(mm), typeof cc === "number" ? -cc : Qn.neg(cc)), lineQ), b = terms(treasure, { k }, mc(mm, cc), lineQ);
+    // The gradient's whole part flips sign with the line (ignored by the tie-breaker), so the values agree.
+    assert.deepEqual(a, b, `k = ${k}, y = ${mm}x + ${cc}`);
   }
-  for (const [a, c] of [[1n, -2n], [2n, -5n], [3n, 7n]] as const) assert.deepEqual(terms(treasure, { k: 2, T: -37 }, x(a, c), lineQ), terms(treasure, { k: 2, T: 37 }, x(a, c), lineQ));
-  assert.match(treasure.card({ k: 2, T: -37 }, "square-start"), /minus a square number/);
+  assert.match(treasure.card({ k: 3, side: -1 }, "shared-factor"), /minus a coin pile/);
+  assert.deepEqual(treasure.dealable(lineQ), [{ k: 3 }, { k: 3, side: -1 }, { k: 4 }, { k: 4, side: -1 }]);
 });
 
 test("Prime Gradient's mirror (side −1) is an exact peer: it scores the reflected line y → −y as side 1 scores the line", () => {

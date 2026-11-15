@@ -59,31 +59,9 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
   "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },
   "m-meets-c": { bands: [{ atLeast: () => q(-1), ranges: m => [{ lo: m - 1n, hi: m + 1n }] }] },        // |m − c| ≤ 1
-  "treasure": { bands: [
-    { atLeast: () => q(-4), ranges: (m, p: { k: number; T: number }) => {                     // |c + km − T| ≤ 4
-      const c0 = BigInt(p.T) - BigInt(p.k) * m;
-      return [{ lo: c0 - 4n, hi: c0 + 4n }];
-    } },
-    // y(k) = T exactly (distance 0): c = T − km, one c for each m, summed at any size.
-    { atLeast: () => q(0), points: "one-per-m", ranges: (m, p: { k: number; T: number }) => {
-      const c0 = BigInt(p.T) - BigInt(p.k) * m;
-      return [{ lo: c0, hi: c0 }];
-    } },
-  ] },
+  // Treasure is a ladder with an entangled tie-breaker since 15 Nov (design-principles.md): valued by sampling.
   "triangle-area": { bands: [{ atLeast: () => q(-2), ranges: (m, p: { A: number }) => areaBand(m, p.A, 2) }] },   // within 2
-  "same-on-both-rulers": { bands: [
-    { atLeast: () => q(-2), ranges: (m, p: { T: number }) => {                                 // |c/(1 − m) − T| ≤ 2
-      if (m === 1n) return [];
-      const k = 1n - m, a = BigInt(p.T - 2) * k, b = BigInt(p.T + 2) * k;
-      return [{ lo: a < b ? a : b, hi: a < b ? b : a }];
-    } },
-    // The unchanged number exactly T (distance 0): c = T(1 − m), one c for each m.
-    { atLeast: () => q(0), points: "one-per-m", ranges: (m, p: { T: number }) => {
-      if (m === 1n) return [];
-      const c0 = BigInt(p.T) * (1n - m);
-      return [{ lo: c0, hi: c0 }];
-    } },
-  ] },
+  // Same on Both Rulers is a ladder with an entangled tie-breaker since 15 Nov (design-principles.md): valued by sampling.
   "square-area": { bands: [{ atLeast: (_p: object) => q(0), ranges: m => {                      // the area exactly a square
     // c²/(2|m|) = r² needs 2|m| = t² and c a multiple of t.
     if (m === 0n) return [];
