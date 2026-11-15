@@ -33,6 +33,7 @@
  * without the mirrors); lens or lens:rot.turn,fold (shortcut plus the lens moves); and the options climbers, which offer
  * moves beside the steps every act, priced by the starter's own climb: stretch (by 2, 3, 5, 7 and their inverses),
  * moves:<ids> (lens moves), stretch+moves:<ids>.
+ * --seed names the deal's seed (default: the variant), e.g. --seed line-q on line-q-lenses to seat what line-q seats.
  * Per move kind (the mutators of each committed move): moves, the mover's own bits gained, its fee (W, bits), the share
  * whose gain exceeded the fee, the others' bits changed, the share that halved another seat holding at least 2 bits
  * (collateral), and the share that also raised another seat by at least a bit (a shared climb). Peaks: per game the
@@ -54,7 +55,7 @@ const { values: o } = parseArgs({ options: {
   type: { type: "string", default: "lines" },
   games: { type: "string", default: "12" }, seconds: { type: "string", default: "600" }, drift: { type: "string", default: "120" },
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
-  variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" },
+  variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -87,7 +88,8 @@ const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   energyEnd: [], spentShare: [], perMinute: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [],
 }), stats.get(f)!);
-const R = rng("pool-dynamics", variant.id, o.from);
+// --seed line-q on line-q-lenses deals the same seats as line-q, game for game.
+const R = rng("pool-dynamics", o.seed ?? variant.id, o.from);
 const head = (s: Score) => (s === null ? null : s.slice(0, 1));
 const tail = (s: Score) => (s === null ? null : s.slice(1));
 
