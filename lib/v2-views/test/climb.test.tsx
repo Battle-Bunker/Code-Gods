@@ -18,7 +18,9 @@ test("moves that raise both sides climb together", () => {
 test("moves that go up for one side and down for the other, then back, undo each other", () => {
   const c = climbOf([step("you", [2, 3], [4, 3]), step("Ada", [3, 2], [3, 4]), step("you", [2, 3], [4, 3]), step("Ada", [3, 2], [3, 4])]);
   assert.equal(c.kind, "undoing");
-  assert.equal(climbSentence(c, "grid", 2), "Grid 2: you and Ada undid each other's moves (4 moves): your points 8.00 → 8.00 points.");
+  assert.equal(climbSentence(c, "grid", 2), "Grid 2: you and Ada undid each other's moves: it changed hands 3 times; your points 8.00 → 8.00 points.");
+  // The tick's own count, when the summary has it, is the one said (round 33: two counts of one tug).
+  assert.match(climbSentence(c, "grid", 2, 40), /changed hands 40 times/);
   const html = renderToStaticMarkup(<ClimbHistory climb={c} noun="grid" />);
   assert.match(html, /data-kind="undoing"/);
   assert.equal((html.match(/data-testid="climb-step"/g) ?? []).length, 4);
