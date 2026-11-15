@@ -155,14 +155,21 @@ export function practiceFits(variant: string, deal: readonly DealtRule[], h: num
     && verdictOf(variant, human, p) === "conflict" && verdictOf(variant, human, q) === "conflict"));
 }
 /**
- * A practice game's deal: the first of the seed's fresh deals that fits (`practiceFits`), or the first fresh deal when
- * none of PRACTICE_TRIES does. Reproducible from the seed.
+ * A practice game's deal (playtest round 21: redrawing whole tables until they fit skewed the human's family, so
+ * Smooth Intercept took 21.5% of practice games and Prime Staircase 0.6%). The human's family is drawn uniformly over
+ * the pool's families and one of its entries uniformly; the partners are then drawn from the other families (the
+ * seating rule counted with the human seated): the first of PRACTICE_TRIES draws that fits (`practiceFits`), or the
+ * first draw when none does. Reproducible from the seed.
  */
 export function practiceDeal(pool: readonly DealtRule[], kinds: readonly SeatKind[], seed: string, variant: string): DealtRule[] {
   const r = dealRng(seed), h = kinds.indexOf("human");
+  const [human] = dealFrom(pool, 1, r);
+  const others = pool.filter(x => x.family !== human!.family);
+  const rest = others.length ? others : pool;
+  const seat = (partners: readonly DealtRule[]) => [...partners.slice(0, h), human!, ...partners.slice(h)];
   let first: DealtRule[] | undefined;
   for (let i = 0; i < PRACTICE_TRIES; i++) {
-    const deal = dealFrom(pool, kinds.length, r, rules => seatingCost(variant, rules));
+    const deal = seat(dealFrom(rest, kinds.length - 1, r, partners => seatingCost(variant, seat(partners))));
     first ??= deal;
     if (practiceFits(variant, deal, h)) return deal;
   }
