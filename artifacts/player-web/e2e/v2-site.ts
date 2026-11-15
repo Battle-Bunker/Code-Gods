@@ -174,6 +174,31 @@ try {
       assert.equal(await timer.getByText(/nobody was here/).count(), 0, "resumed");
     });
 
+    await check(`${label}: the goal card's view controls stay inside the card (round 11: Grids · more rules, Uphill, at 390)`, async () => {
+      const width = page.viewportSize()!.width;
+      for (let i = 0; i < 2; i++) {   // two deals: the rules vary
+        // A practice game on that setup, still planning (a seeded game only knows lines).
+        await page.goto(`${SITE}/`);
+        await page.getByTestId("button-create-room").first().click();
+        await page.waitForURL(/\/rooms\/[A-Z0-9]+$/);
+        await page.getByTestId("setup-grids-more-rules").click();
+        await page.waitForFunction(() => (document.querySelector("[data-testid=radio-setup-grids-more-rules]") as HTMLInputElement | null)?.checked === true);
+        await page.getByTestId("button-practice-game").click();
+        await page.waitForURL(/\/games\//, { timeout: 30_000 });
+        if (!await page.getByTestId("pane-my-card").count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
+        const card = page.getByTestId("goal-card");
+        await card.locator(".v2v-switcher").first().waitFor({ timeout: 15_000 });
+        const out = await card.evaluate((el: HTMLElement, w: number) => {
+          const box = el.getBoundingClientRect(), right = Math.min(box.right, w);
+          return [...el.querySelectorAll(".v2v-switcher select, .v2v-switcher label, .v2v-tab")].map(e => ({ t: (e.textContent ?? "").trim().slice(0, 20), r: e.getBoundingClientRect().right }))
+            .filter(x => x.r > right + 0.5).map(x => `${x.t} ends at ${Math.round(x.r)} (card ${Math.round(right)})`);
+        }, width);
+        const rule = (await card.innerText()).split("\n")[0];
+        assert.deepEqual(out, [], `${label}: deal ${i} (${rule}): every view control inside the goal card`);
+        if (i === 0) await shot(page, `v2-goal-views-${label}`);
+      }
+    });
+
     await check(`${label}: planning shows one countdown and the owner's "Start the world now"`, async () => {
       const room = code();
       const g = convexRun("v2/testing:seedGame", { owner: me.subject, practice: 2, code: room, phase: "planning" });
