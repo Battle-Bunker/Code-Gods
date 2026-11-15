@@ -15,11 +15,10 @@ import { canonicalJson, hashHex } from "@workspace/v2-core";
 const DIR = join(import.meta.dirname, "../values/line-q");
 /** family → [original params, mirror params]. */
 const MIRRORS: Record<string, [object, object][]> = {
-  "prime-landing": [[{ ends: 7 }, { ends: 7, side: -1 }]],
+  "prime-landing": [1, 9].map(ends => [{ ends }, { ends, side: -1 }] as [object, object]),
   "treasure": [11, 13].map(T => [{ k: 2, T }, { k: 2, T: -T }] as [object, object]),
   "same-on-both-rulers": [[{ T: 6 }, { T: -6 }]],
   "prime-gradient": [[{ ends: 1 }, { ends: 1, side: -1 }]],
-  "prime-staircase": [[{ ends: 3 }, { ends: 3, side: -1 }]],
   "whole-crossing": [[{ q: 5, r: 1 }, { q: 5, r: 4 }], [{ q: 5, r: 2 }, { q: 5, r: 3 }]],
 };
 for (const [family, pairs] of Object.entries(MIRRORS)) {

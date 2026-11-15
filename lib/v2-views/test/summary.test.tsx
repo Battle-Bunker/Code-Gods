@@ -19,7 +19,7 @@ const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, 
 const base: SummaryInput<LineState> = {
   rule,
   objects: [
-    { number: 7, state: mc(6, 23), points: 60.14, bits: 8.86, want: 6.79 },
+    { number: 7, state: mc(-1, 23), points: 60.14, bits: 8.86, want: 6.79 },
     { number: 3, state: mc(2, 25), points: 12.5, bits: 2.1, want: 5.95 },
     { number: 9, state: mc(-1, 4), points: 0, bits: 0, want: 3 },
     { number: 4, state: mc(3, 19), points: 33.2, bits: 4.4, want: 7.55 },
@@ -34,7 +34,7 @@ const base: SummaryInput<LineState> = {
 test("what earned the points: the best lines first, each said through its rule's main part, with bits × others'", () => {
   const s = summarise(base);
   assert.deepEqual(s.earned.map(e => e.number), [7, 4, 3], "best first, nothing that scored nothing");
-  assert.match(s.earned[0]!.chain, /^● main part: y-intercept 23 · on 23$/, s.earned[0]!.chain);
+  assert.match(s.earned[0]!.chain, /^● main part: where it crosses the x-axis 23 · on 23$/, s.earned[0]!.chain);
   // Self-consistent arithmetic (the app's one formatter): "=" where the shown factors multiply to the shown product…
   assert.equal(s.earned[0]!.formula, "your 8.86 bits × others' 6.79 bits = 60.16 points");
   // …and "≈" where they do not (10.22 × 11.05 = 112.93, but the full values make 112.97).

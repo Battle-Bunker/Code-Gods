@@ -237,18 +237,20 @@ test("a vertical line is tipped, not skipped, where the rule cannot read it: the
   }
 });
 
-test("a vertical line the rule reads is scored where it stands: x = 5/2 slides to a prime landing (Prime Landing, primes ending in 3: x = 3)", async () => {
-  const at = { lines: [{ a: 2n, b: 0n, c: -5n }] };   // x = 5/2
+test("a vertical line the rule reads is scored where it stands: x = 19/2 slides to a prime landing (Prime Landing, primes ending in 1: within ½ of 11)", async () => {
+  const at = { lines: [{ a: 2n, b: 0n, c: -19n }] };   // x = 9½, which rounds to 10: off the ladder
   for (const language of ["typescript", "python"] as const) {
     for (const kind of ["simple", "thorough"] as const) {
       const a = startersFor("prime-landing", language).find(x => x.kind === kind)!;
       const { record, state } = await runAct(await boxes.get(language), {
-        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: { ends: 3 }, tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
+        type: lineType, variant: lineQ, state: at, rule: { family: "prime-landing", params: { ends: 1 }, tieBreaker: familyOf("prime-landing").tieBreakers[0]!.id }, program: program(a), seed: "1", energy: 500,
       });
       assert.equal(record.outcome, "committed", `${language} ${kind}: ${record.reason}`);
       assert.equal(record.calls[0]!.mutator, "cart.slide", `${language} ${kind}: ${record.calls[0]!.mutator}`);
       const l = state.lines[0]!;
-      assert.ok(l.b === 0n && -l.c / l.a === 3n && l.c % l.a === 0n, `${language} ${kind}: lands on 3, the prime ending in 3 nearest (${l.a}x + ${l.c} = 0)`);
+      // x = −c/a within ½ of 11 (rounding to it, ties up): 2·|−c − 11a| ≤ |a|, and not at 11½.
+      const twice = 2n * (-l.c - 11n * l.a), aa = l.a < 0n ? -l.a : l.a;
+      assert.ok(l.b === 0n && (twice < 0n ? -twice : twice) <= aa && twice !== aa * (l.a < 0n ? -1n : 1n), `${language} ${kind}: rounds to 11, the prime ending in 1 nearest (${l.a}x + ${l.c} = 0)`);
     }
   }
 });
