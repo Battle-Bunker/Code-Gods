@@ -174,3 +174,18 @@ test("objectCap retires the oldest live line at each birth past the cap: no one 
   }
   assert.ok(acts.some(a => a.object >= 8), "the newest lines are played");
 });
+
+test("births stop birthsQuietSeconds before the end; offerFilter passes for a seat; onRetire reports each retired line's banked points", async () => {
+  const retiredLines: { object: number; points: readonly number[] }[] = [], actors = new Set<number>();
+  const report = await runTable(boxes, {
+    type: lineType, variant: lineQ, lines: 3, seed: "quiet", seconds: 40, birthsPerSecond: 0.2, regularBirths: true, birthsQuietSeconds: 15, objectCap: 4, unique: true,
+    seats: [seat("Ada", "starter", "treasure", "shared-factor"), seat("Bo", "starter", "prime-staircase", "shared-factor")],
+    offerFilter: seat => seat === 1,
+    onRetire: e => retiredLines.push(e),
+    onAct: e => actors.add(e.seat),
+  });
+  assert.equal(report.objects, 3 + 4, "births land on the first 1.5 s tick from each 5 s: 6, 10.5, 15 and 21 s; the one due at 25 s lands at 25.5 s, inside the quiet");
+  assert.deepEqual([...actors], [1], "seat 0 passes on every offer");
+  assert.equal(retiredLines.length, 3);
+  assert.ok(retiredLines.every(r => r.points.length === 2));
+});
