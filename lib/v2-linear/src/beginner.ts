@@ -55,12 +55,10 @@ function verticalMain<P>(ctx: Ctx, f: Shape<P>, label: string, value: Q, from: E
 /** A dealt prime filter (owner decision 41): the primes this rule counts end in this digit. */
 type Ends = { ends: number; side?: 1 | -1 };
 /**
- * Each prime family deals ONE ending (a different one per family) until a set of peers passes v1's equal-opportunity
- * audit (artifacts/engine test v2-params-equal, 0.5 bits): the law favours small numbers, so an exact main is worth
- * 5.8, 7.8, 9.9 and 13.7 bits for endings 3, 7, 1 and 9 (the smallest qualifying primes are 3, 7, 11, 19).
- * PRIME_ENDINGS (numbers.ts) stays the declared grid.
+ * Ladder families (Prime Staircase, Prime Landing) deal every ending in PRIME_ENDINGS (numbers.ts): the
+ * equal-opportunity audit compares a rung's bits minus its code cost (coordinator's call 19), so the law's favour for
+ * small primes does not rule an ending out. `side` is the mirror (minus the primes) that Prime Gradient deals.
  */
-const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }, { ends: 3, side: -1 }];   // and its mirror: minus primes (y → −y)
 /** "minus " for the mirror (side −1). */
 const minus = (p: Ends) => (p.side === -1 ? "minus " : "");
 /** x, or −x on the mirror. */
@@ -69,15 +67,21 @@ const primeEnding = (p: Ends) => `a prime ending in ${p.ends}`;
 /** A layer whose sentence names the dealt filter. */
 const withEnds = <X extends { sentence: (p: Ends) => string }>(l: X, sentence: (p: Ends) => string): X => ({ ...l, sentence });
 
+/**
+ * Prime Staircase as a ladder (design-principles.md). Main part, unbounded: the run L of different primes ending in k
+ * that y(0), y(1), … start with, graded towards the next rung by how near the breaking term y(L) is to such a prime
+ * (u = L + 1/(2 + d), so a longer run always wins and a near miss beats a far one). Tie-breakers read the run: the factor
+ * its last prime minus 1 shares with its first prime minus 1 (gcd(m(L − 1), c − 1): a longer run changes it, so the
+ * climb starts again), and y(−1) as near such a prime as possible (the run's step taken backwards).
+ * Dealt: k = 1, 3, 7, 9.
+ */
+const ENDS_STAIRCASE: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const staircase: Shape<Ends> = {
   main: withEnds(more<Ends>("run", "a run of different dealt primes from y(0)", "", "seq"),
-    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different ${p.side === -1 ? "minus " : ""}primes ending in ${p.ends}.`),
-  // The old game's four tie-breakers, restored (coordinator's call under the owner's delegation, 14 Nov).
+    p => `The pattern y(0), y(1), y(2), … should start with as long a run as possible of different primes ending in ${p.ends}; the term that breaks the run counts a little for being near such a prime.`),
   tieBreakers: [
-    prime(more<Ends>("first-prime", "the first prime", "The first prime should be as big as possible.", "seq")),
-    prime(more<Ends>("last-prime", "the last prime of the run", "The last prime of the run should be as big as possible.", "seq")),
-    withEnds(distance<Ends>("near-miss", "the first term that breaks the run, close to such a prime", "", "seq"),
-      p => `The first term that is not ${minus(p)}${primeEnding(p)} should be as close as possible to one.`),
+    more<Ends>("shared-factor", "the factor the run's last prime minus 1 shares with its first prime minus 1",
+      "The run's last prime minus 1 and its first prime minus 1 should share as big a factor as possible.", "seq"),
     withEnds(distance<Ends>("step-back", "y(−1) close to such a prime", "", "seq"),
       p => `The term before the start, y(−1), should be as close as possible to ${primeEnding(p)}.`),
   ],
@@ -86,30 +90,29 @@ export const primeStaircase = family<Ends>("prime-staircase", "Prime Staircase",
   const first = ref("seq", "term", { n: 0 });
   const v0 = ctx.read(first);
   if (num(v0) === null) return allUndefined(ctx, staircase, v0, first);
-  const seen = new Set<bigint>();
-  let run = 0;
-  // The run stops at the first term that is not a new prime (a repeated prime stops it too); the near miss is the first
-  // term that is not prime at all, which may come later or not within twelve terms (y = 7 repeats a prime forever).
-  let stop: ElementRef | null = null;
-  let miss: { ref: ElementRef; v: Q } | null = null;
-  for (let n = 0; n < 12 && (stop === null || miss === null); n++) {
+  const seen: bigint[] = [];
+  // The run stops at the first term that is not a new prime ending in k (a repeat stops it: y = 7 repeats forever).
+  // With a whole step m ≠ 0, y(|c|) is a multiple of c, so a run ends; 256 terms bound it all the same.
+  let n = 0, brk: { ref: ElementRef; v: Q } | null = null;
+  for (; n < 256; n++) {
     const r = ref("seq", "term", { n });
-    const v = sided(pr, num(ctx.read(r))!);   // on the mirror (side −1) the run is of minus primes: −y(n) is prime
-    const prime = v.d === 1n && isPrimeEnding(v.n, pr.ends);
-    if (stop === null) {
-      if (prime && !seen.has(v.n)) { seen.add(v.n); run++; ctx.mark({ kind: "focus", ref: r }); } else stop = r;
-    }
-    if (!prime && miss === null) miss = { ref: r, v };
+    const v = num(ctx.read(r))!;
+    if (v.d === 1n && isPrimeEnding(v.n, pr.ends) && !seen.includes(v.n)) { seen.push(v.n); ctx.mark({ kind: "focus", ref: r }); continue; }
+    brk = { ref: r, v };
+    break;
   }
+  const run = seen.length;
+  const d = brk ? distanceToPrimeEnding(Qn.abs(brk.v), pr.ends) : Qn.ZERO;
+  const terms = Array.from({ length: run }, (_, i) => ref("seq", "term", { n: i }));
+  ctx.term("run", `${run} different primes ending in ${pr.ends} from y(0), then a term ${Qn.toWire(d)} from such a prime`,
+    Qn.add(q(run), Qn.div(Qn.ONE, Qn.add(q(2), d))), [...terms, ...(brk ? [brk.ref] : [])]);
+  const [p0, pl] = [seen[0], seen[run - 1]];
+  ctx.term("shared-factor", run >= 2 ? `the factor ${pl! - 1n} shares with ${p0! - 1n}` : "a run of fewer than two primes shares nothing (counted as 0)",
+    q(run >= 2 ? gcd(pl! - 1n, p0! - 1n) : 0n), terms.length ? terms : [first]);
   const back = ref("seq", "term", { n: -1 });
   const vb = num(ctx.read(back))!;
-  const terms = Array.from({ length: run }, (_, n) => ref("seq", "term", { n }));
-  ctx.term("run", `different ${minus(pr)}primes ending in ${pr.ends} from y(0)`, q(run), terms.length ? terms : [first]);
-  ctx.term("first-prime", "the first prime", run ? sided(pr, num(v0)!) : Qn.ZERO, [first]);
-  ctx.term("last-prime", "the last prime of the run", run ? q([...seen][run - 1]!) : Qn.ZERO, terms.length ? [terms[run - 1]!] : [first]);
-  ctx.term("near-miss", `distance from the first term that is not ${primeEnding(pr)} to one`, miss ? distanceToPrimeEnding(Qn.abs(miss.v), pr.ends) : { undefined: `the first twelve terms are all primes ending in ${pr.ends}` }, miss ? [miss.ref] : [first]);
   ctx.term("step-back", `distance from y(−1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(vb), pr.ends), [back]);
-  if (stop) ctx.mark({ kind: "note", ref: stop, text: "the run stops here" });
+  if (brk) ctx.mark({ kind: "note", ref: brk.ref, text: "the run stops here" });
 });
 
 // ---------------------------------------------------------------- 2. Square Area (the owner's example 2)

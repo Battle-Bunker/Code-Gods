@@ -12,19 +12,18 @@
 
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
-    run, stopped, miss = [], False, None            # miss: the size of the first term that is not such a prime
-    for n in range(12):                             # y(0) ... y(11)
-        t = p.get("side", 1) * (m * n + c)        # y(n), or -y(n) on the mirror (minus primes)
-        is_prime = prime(t) and t % 10 == p["ends"]
-        if not stopped and is_prime and t not in run:
-            run.append(t)                           # the different primes ending in p["ends"] it starts with
+    run, t = [], c                                  # run: the different primes ending in p["ends"] it starts with
+    for n in range(256):                            # y(0), y(1), ...
+        t = m * n + c
+        if t == near(t, prime, p["ends"]) and t not in run:
+            run.append(t)
         else:
-            stopped = True
-        if not is_prime and miss is None:
-            miss = abs(t)
-    main = len(run)
+            break                                   # t is the first term that breaks the run
+    miss = abs(t)                                   # ignoring its sign
+    d = abs(miss - near(miss, prime, p["ends"]))
+    main = len(run) + Fraction(1) / (2 + d)        # a longer run always wins; a near miss beats a far one
     back = abs(c - m)                          # y(-1), ignoring its sign
-    return [main, -abs(back - near(back, prime, p["ends"]))]   # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better); tie-breaker: y(-1) (ignoring sign) close to such a prime is better
+    return [main, -abs(back - near(back, prime, p["ends"]))]   # main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime; tie-breaker: y(-1) (ignoring sign) close to such a prime is better
 
 
 FAR = 3      # how far one change may go
@@ -54,6 +53,18 @@ def agent(offer):
         tries.append((move("si.shift", k=k), m, c + k))   # move the line up or down
         tries.append((move("si.tilt", k=k), m + k, c))   # make it steeper or flatter
         tries.append((move("seq.step", k=k), m + k, c - k))   # change the pattern's step, keeping y(1)
+    # The next rung up (the run has no top): steps that are a multiple of 10 (every term keeps its last digit), and the
+    # next prime ending in p["ends"] above the start; each one jump, priced by its size.
+    for j in range(-3, 4):
+        m2 = 10 * (whole(m / 10) + j)
+        if m2 != m:
+            tries.append((move("si.tilt", k=m2 - m), m2, c))
+    t = near(c, prime, p["ends"]) + 10
+    for _ in range(100):
+        if prime(t):
+            tries.append((move("si.shift", k=t - c), m, t))
+            break
+        t += 10
     tries += rounding(m, c) + fractions(m, c)   # fractions: to a whole number and back into halves and thirds
     options = [(plan, score(m2, c2, p)) for plan, m2, c2 in tries]   # each step and the score it reaches
     # A promise: on these lines, only steps that leave the other players at least as well off.

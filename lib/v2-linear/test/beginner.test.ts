@@ -39,7 +39,7 @@ test("restored families (decision 22), worked by hand", () => {
 });
 
 test("worked examples, one line per family", () => {
-  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(30, 7)), { run: "6", "first-prime": "7", "last-prime": "157", "near-miss": "10", "step-back": "6" });   // primes ending in 7: 7, 37, …, 157, then 187 = 11·17 (10 from 197); |y(−1)| = 23, 6 from 17
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(30, 7)), { run: "73/12", "shared-factor": "6", "step-back": "6" });   // 7, 37, …, 157 (run 6), then 187 = 11·17, 10 from 197: 6 + 1/12; gcd(156, 6) = 6; |y(−1)| = 23, 6 from 17
   assert.deepEqual(terms(squareArea, {}, mc(-2, 6)),
     { square: "0", "spf": "3", "lpf": "3", "omega": "1" });   // legs 3 and 6: area 9
   // legs 12 and 24 (y = −2x + 24): area 144 = 12², 12 = 2·2·3
@@ -89,8 +89,8 @@ test("presets: four pools over the beginner families, every named tie-breaker ex
 });
 
 test("Prime Staircase: a repeated prime stops the run; no run, no first prime", () => {
-  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(0, 7)), { run: "1", "first-prime": "7", "last-prime": "7", "near-miss": "—", "step-back": "0" });   // 7, 7, …: a run of one, never a miss
-  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(1, 1000)), { run: "0", "first-prime": "0", "last-prime": "0", "near-miss": "3", "step-back": "2" });  // 1000 is not prime (3 from 997); 999 is 2 from 997
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(0, 7)), { run: "3/2", "shared-factor": "0", "step-back": "0" });   // 7, then 7 again: a run of one, broken on a prime (1 + 1/2); one prime shares nothing
+  assert.deepEqual(terms(primeStaircase, { ends: 7 }, mc(1, 1000)), { run: "1/5", "shared-factor": "0", "step-back": "2" });  // 1000 is not prime, 3 from 997 (0 + 1/5); 999 is 2 from 997
 });
 
 
@@ -155,16 +155,15 @@ test("Treasure's mirror (T below zero) is an exact peer: it scores the reflected
   assert.match(treasure.card({ k: 2, T: -37 }, "square-start"), /minus a square number/);
 });
 
-test("Prime Gradient's and Prime Staircase's mirrors (side −1) are exact peers: each scores the reflected line y → −y as side 1 scores the line", () => {
+test("Prime Gradient's mirror (side −1) is an exact peer: it scores the reflected line y → −y as side 1 scores the line", () => {
   const x = (a: bigint, c: bigint): LineState => ({ lines: [{ a, b: 0n, c }] });
-  for (const [f, p] of [[primeGradient, { ends: 1 }], [primeStaircase, { ends: 3 }]] as const) {
+  for (const [f, p] of [[primeGradient, { ends: 1 }]] as const) {
     for (const mm of [-7, -2, 0, 1, 3, 10, 14]) for (const cc of [-40, -17, -3, 0, 3, 5, 13, 23, 97]) {
       assert.deepEqual(terms(f as never, { ...p, side: -1 }, mc(-mm, -cc), lineQ), terms(f as never, p, mc(mm, cc), lineQ), `${f.id}: y = ${mm}x + ${cc}`);
     }
     for (const [a, c] of [[2n, -25n], [1n, 13n]] as const) assert.deepEqual(terms(f as never, { ...p, side: -1 }, x(a, c), lineQ), terms(f as never, p, x(a, c), lineQ));
     assert.deepEqual(f.dealable(lineQ), [p, { ...p, side: -1 }]);
   }
-  assert.equal(terms(primeStaircase, { ends: 3, side: -1 }, mc(-10, -3), lineQ).run, "3");   // −3, −13, −23: minus primes ending in 3
   assert.match(primeGradient.card({ ends: 1, side: -1 }, "cPrime"), /as close as possible to minus a prime ending in 1\..*minus a prime ending in 1 too/);
 });
 
@@ -176,4 +175,12 @@ test("Whole Crossing's residues r and 5 − r are exact peers: r scores the line
   for (const [a, c] of [[2n, -17n], [1n, 13n]] as const) assert.deepEqual(terms(wholeCrossing, { q: 5, r: 4 }, x(a, -c), lineQ), terms(wholeCrossing, { q: 5, r: 1 }, x(a, c), lineQ));
   assert.deepEqual(wholeCrossing.dealable(lineQ), [1, 2, 3, 4].map(r => ({ q: 5, r })));
   assert.match(wholeCrossing.card({ q: 5, r: 3 }, null), /as close as possible to a whole number that leaves 3 when divided by 5/);
+});
+
+test("Prime Staircase is a ladder: a longer run always wins, and its shared factor starts again on a longer run (design-principles.md)", () => {
+  // 7, 37, 67 (run 3, then 97 is a prime: the run goes on) … the step 30 from 7 runs six; from 37 (37, 67, 97, 127, 157) five.
+  assert.equal(terms(primeStaircase, { ends: 7 }, mc(30, 37), lineQ).run, "61/12");   // run 5, then 187: 10 from 197
+  assert.equal(terms(primeStaircase, { ends: 7 }, mc(30, 7), lineQ)["shared-factor"], "6");     // gcd(157 − 1, 7 − 1)
+  assert.equal(terms(primeStaircase, { ends: 7 }, mc(30, 37), lineQ)["shared-factor"], "12");   // gcd(157 − 1, 37 − 1)
+  assert.deepEqual(primeStaircase.dealable(lineQ), [1, 3, 7, 9].map(ends => ({ ends })));
 });

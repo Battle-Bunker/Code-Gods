@@ -10,14 +10,17 @@ export interface Reading<K> { readonly key: K; readonly main: number | null; rea
 
 /**
  * Row 1. `levels[i]` are the readings of every candidate within search radius i (radii increasing). The main part is
- * unbounded when the best main value found keeps rising with the radius, strictly, at every step; a distance main
+ * unbounded when the best main value found never falls as the radius grows and still rises at the widest step (the
+ * best of a long search is improvable; a sparse ladder may sit on one rung across a few radii); a distance main
  * (sense "min") that reaches 0 has an attained top.
  */
 export function mainUnbounded<K>(sense: "min" | "max", levels: readonly (readonly Reading<K>[])[]): { ok: boolean; best: number[]; why?: string } {
   const sign = sense === "max" ? 1 : -1;
   const best = levels.map(rs => Math.max(...rs.map(r => (r.main === null ? -Infinity : sign * r.main))) * sign);
   if (sense === "min" && best.some(b => b === 0)) return { ok: false, best, why: "a distance main part reaches 0, its top" };
-  for (let i = 1; i < best.length; i++) if (!(sign * best[i]! > sign * best[i - 1]!)) return { ok: false, best, why: `no better main part within radius ${i} than within ${i - 1}` };
+  for (let i = 1; i < best.length; i++) if (sign * best[i]! < sign * best[i - 1]!) return { ok: false, best, why: `a worse best within radius ${i} than within ${i - 1}` };
+  const n = best.length - 1;
+  if (!(sign * best[n]! > sign * best[n - 1]!)) return { ok: false, best, why: `no better main part within the widest radius ${n} than within ${n - 1}: the search found a top` };
   return { ok: true, best };
 }
 

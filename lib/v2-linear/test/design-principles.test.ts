@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { enoughInstances, evaluateSite, mainUnbounded, Qn, tieEntangled, type Reading } from "@workspace/v2-core";
 import { beginnerPool, fromMC, lineQ, lineType, type LineState } from "../src/index.ts";
 
-const REDESIGNED = new Set(["prime-landing", "smooth-intercept"]);
+const REDESIGNED = new Set(["prime-landing", "smooth-intercept", "prime-staircase"]);
 type K = [number, number];   // (m, c)
 
 function readings(f: (typeof beginnerPool)[number], p: unknown, ms: readonly number[], cs: readonly number[]): Reading<K>[] {
@@ -23,13 +23,15 @@ function readings(f: (typeof beginnerPool)[number], p: unknown, ms: readonly num
   return out;
 }
 const range = (r: number) => Array.from({ length: 2 * r + 1 }, (_, i) => i - r);
+/** Gradients for row 1: the small ones, and the steps a progression of primes with one ending needs (10, 30, 210). */
+const GRADIENTS = [...range(8), ...[10, 20, 30, 60, 90, 150, 210, 420].flatMap(x => [x, -x])];
 
 for (const f of beginnerPool) {
   const p = f.dealable(lineQ)[0];
   const check = () => {
     const problems: string[] = [];
     if (!enoughInstances(f.dealable(lineQ))) problems.push(`row 4: ${f.dealable(lineQ).length} dealable instances`);
-    const levels = [5, 15, 40, 120].map(r => readings(f, p, range(8), range(r)));
+    const levels = [5, 15, 40, 120, 600].map(r => readings(f, p, GRADIENTS, range(r)));
     const u = mainUnbounded(f.main.sense, levels);
     if (!u.ok) problems.push(`row 1: ${u.why} (best by radius ${u.best.join(", ")})`);
     // Row 3: the six best main-part values within radius 120, each with every gradient −40 … 40 that reaches it; some

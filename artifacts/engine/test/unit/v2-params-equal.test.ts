@@ -15,7 +15,8 @@
  * A ladder main (design-principles.md: a main part with no top, whose rungs are numbers the code prices, e.g. Prime
  * Landing's primes) is compared by bits minus the rung's code cost (the coordinator's declared TRIAL, 15 Nov): a climb
  * pays Δφ to reach a rung, so equal bits per unit of code cost is equal opportunity per unit of energy. Its best and
- * median knots differ by design (the first rungs are 3, 7, 11 and 19 for endings 3, 7, 1 and 9).
+ * median knots differ by design (the first rungs are 3, 7, 11 and 19 for endings 3, 7, 1 and 9). Prime Staircase's rung is
+ * the run's length, costed as the cheapest whole line with that run; peers are compared on the rungs all their values reach.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -24,22 +25,62 @@ import { dealablePool, familyOf } from "../../convex/v2/deal.ts";
 import { PRESETS } from "../../convex/v2/presets.ts";
 import { LINE_Q_CODES } from "@workspace/v2-linear";
 
-/** Ladder families: the code cost of a rung (the main part's whole value), or null where the knot is not on a rung. */
-const LADDER_COST: Readonly<Record<string, (u: string) => number | null>> = {
-  "prime-landing": u => (/^\d+$/.test(u) ? LINE_Q_CODES.c.bits(BigInt(u)) : null),
-  "smooth-intercept": u => (/^\d+$/.test(u) ? LINE_Q_CODES.c.bits(BigInt(u)) : null),
+/**
+ * Ladder families: the code cost of a rung (from the main part's value), or null where the knot is not on a rung.
+ * Prime Landing and Smooth Intercept: the rung is the y-intercept itself. Prime Staircase: the rung is the run's length
+ * L (the whole part of run + 1/(2 + d)), costed as the cheapest whole line (m, c) whose run is at least L.
+ */
+/** A rung: its key (knots with one key are on one rung) and its code cost. */
+type Rung = readonly [key: string, cost: number];
+const LADDER_COST: Readonly<Record<string, (u: string, params: Record<string, unknown>) => Rung | null>> = {
+  "prime-landing": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
+  "smooth-intercept": u => (/^\d+$/.test(u) ? [u, LINE_Q_CODES.c.bits(BigInt(u))] : null),
+  "prime-staircase": (u, p) => {
+    const [n, d = "1"] = u.split("/"), L = Number(BigInt(n!) / BigInt(d));
+    const cost = L >= 1 ? staircaseCosts(p.ends as number)[L] : undefined;
+    return cost === undefined ? null : [String(L), cost];
+  },
 };
-/** The median over rungs of (least bits on the rung − the rung's code cost). */
-function ladderExcess(knots: readonly { u: unknown; bits: number }[], cost: (u: string) => number | null): number | null {
+const isPrime = (n: bigint) => { if (n < 2n) return false; for (let i = 2n; i * i <= n; i++) if (n % i === 0n) return false; return true; };
+const STAIRCASE_COSTS = new Map<number, number[]>();
+/** costs[L]: the least code cost of a whole line (m, c) whose y(0), y(1), … start with at least L different primes ending in k. */
+function staircaseCosts(k: number): number[] {
+  const hit = STAIRCASE_COSTS.get(k);
+  if (hit) return hit;
+  const costs: number[] = [];
+  for (let c = BigInt(k); c < 5000n; c += 10n) {
+    if (!isPrime(c)) continue;
+    for (let m = -600n; m <= 600n; m += 10n) {
+      let L = 0;
+      for (let t = c, seen = new Set<bigint>(); t > 0n && isPrime(t) && !seen.has(t) && L < 40; t += m) { seen.add(t); L++; }
+      const bits = LINE_Q_CODES.c.bits(c) + LINE_Q_CODES.a.bits(m);
+      for (let l = 1; l <= L; l++) costs[l] = Math.min(costs[l] ?? Infinity, bits);
+    }
+  }
+  STAIRCASE_COSTS.set(k, costs);
+  return costs;
+}
+/** Per rung: the least bits on the rung − the rung's code cost. */
+function ladderExcess(knots: readonly { u: unknown; bits: number }[], rung: (u: string) => Rung | null): Map<string, number> | null {
   const least = new Map<string, number>();
   for (const k of knots) {
     if (!Array.isArray(k.u) || typeof k.u[0] !== "string") continue;
-    const c = cost(k.u[0]);
-    if (c === null) continue;
-    least.set(k.u[0], Math.min(least.get(k.u[0]) ?? Infinity, k.bits - c));
+    const r = rung(k.u[0]);
+    if (r === null) continue;
+    least.set(r[0], Math.min(least.get(r[0]) ?? Infinity, k.bits - r[1]));
   }
-  const xs = [...least.values()].sort((a, b) => a - b);
-  return xs.length ? xs[Math.floor(xs.length / 2)]! : null;
+  return least.size ? least : null;
+}
+/**
+ * The median excess over the rungs every peer's values reach (Prime Staircase: run 1 for all endings, runs 2 and 3
+ * only where sampling saw them), or over all its rungs where peers share none (Prime Landing: each ending its own primes).
+ */
+function ladderMedians(maps: readonly Map<string, number>[]): number[] {
+  const shared = [...maps[0]!.keys()].filter(key => maps.every(m => m.has(key)));
+  return maps.map(m => {
+    const xs = (shared.length ? shared.map(key => m.get(key)!) : [...m.values()]).sort((a, b) => a - b);
+    return xs[Math.floor(xs.length / 2)]!;
+  });
 }
 
 const TOLERANCE = 0.5;
@@ -56,19 +97,19 @@ test("a family's parameter peers in a dealable pool have the same top and spread
   const problems: string[] = [];
   for (const preset of PRESETS) {
     const drifts = preset.driftSeconds > 0;
-    const peers = new Map<string, { params: string; top: number; median: number; exact: number | null; ladder: number | null }[]>();
+    const peers = new Map<string, { params: string; top: number; median: number; exact: number | null; ladder: Map<string, number> | null }[]>();
     for (const r of dealablePool(preset)) {
       const v = VALUE_RECORDS.find(x => x.ruleKey === r.ruleKey);
       if (!v) continue;
       const key = `${r.family}/${r.tieBreaker}`;
       peers.set(key, [...(peers.get(key) ?? []), { params: JSON.stringify(r.params), top: top(v.knots), median: median(v.knots), exact: familyOf(r.family).main.sense === "min" ? exactMain(v.knots as never) : null,
-        ladder: LADDER_COST[r.family] ? ladderExcess(v.knots as never, LADDER_COST[r.family]!) : null }]);
+        ladder: LADDER_COST[r.family] ? ladderExcess(v.knots as never, u => LADDER_COST[r.family]!(u, r.params as Record<string, unknown>)) : null }]);
     }
     for (const [family, rs] of peers) {
       if (rs.length < 2) continue;
       const exact = rs.every(r => r.exact !== null), ladder = rs.every(r => r.ladder !== null);
       for (const field of ladder ? ["ladder"] as const : exact ? ["exact"] as const : ["top", "median"] as const) {
-        const xs = rs.map(r => r[field]!), spread = Math.max(...xs) - Math.min(...xs);
+        const xs = field === "ladder" ? ladderMedians(rs.map(r => r.ladder!)) : rs.map(r => r[field]!), spread = Math.max(...xs) - Math.min(...xs);
         if (spread > (ladder ? TOLERANCE : drifts ? DRIFT_TOLERANCE : TOLERANCE)) problems.push(`${preset.id} ${family}: ${field} differs by ${spread.toFixed(2)} bits across ${rs.map(r => r.params).join(", ")}`);
       }
     }

@@ -1,5 +1,5 @@
 // Prime Staircase · Naive (for learning)
-// Main part: a run of different dealt primes from y(0). Tie-breaker: whichever you were dealt (the first prime; the last prime of the run; the first term that breaks the run, close to such a prime; y(−1) close to such a prime).
+// Main part: a run of different dealt primes from y(0). Tie-breaker: whichever you were dealt (the factor the run's last prime minus 1 shares with its first prime minus 1; y(−1) close to such a prime).
 // What it does: reads the line once as y = mx + c, tries changes in its own head, and pays for the best one for your
 // rule on every line it is offered, whatever it costs. It never asks what the line is worth to you and keeps
 // fighting over a line another player keeps pulling back, which burns energy on both sides and scores nothing.
@@ -9,18 +9,16 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p, tie) {
   const run = [];                                 // the different primes ending in p.ends it starts with
-  let stopped = false, miss = null;               // miss: the size of the first term that is not such a prime
-  for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)
-    const t = Q.mul(p.side ?? 1, Q.add(Q.mul(m, n), c));   // y(n), or −y(n) on the mirror (minus primes)
-    const isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));
-    if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;
-    if (!isPrime && miss === null) miss = Q.abs(t);
+  let t = c;                                      // ends as the first term that breaks the run
+  for (let n = 0; n < 256; n++) {                 // y(0), y(1), ...
+    t = Q.add(Q.mul(m, n), c);
+    if (Q.eq(t, near(t, prime, p.ends)) && !run.some(r => Q.eq(r, t))) run.push(t); else break;
   }
-  const main = run.length;
-  // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better)
-  if (tie === "first-prime") return [main, run.length ? run[0] : 0];   // a bigger first prime is better
-  if (tie === "last-prime") return [main, run.length ? run.at(-1) : 0];   // a bigger last prime of the run is better
-  if (tie === "near-miss") return [main, miss === null ? null : Q.neg(Q.abs(Q.sub(miss, near(miss, prime, p.ends))))];   // a first term that breaks the run (ignoring sign) close to such a prime is better (none in twelve terms: no tie-breaker)
+  const miss = Q.abs(t);                          // the breaking term, ignoring its sign
+  const d = Q.abs(Q.sub(miss, near(miss, prime, p.ends)));
+  const main = Q.add(run.length, Q.div(1, Q.add(2, d)));   // a longer run always wins; a near miss beats a far one
+  // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime
+  if (tie === "shared-factor") return [main, run.length >= 2 ? common(Q.sub(run.at(-1), 1), Q.sub(run[0], 1)) : 0];   // the run's last prime minus 1 sharing a bigger factor with its first prime minus 1 is better (it starts again when the run grows)
   if (tie === "step-back") {   // y(-1) (ignoring sign) close to such a prime is better
     const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign
     return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))))];

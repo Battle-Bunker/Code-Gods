@@ -12,16 +12,16 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
   const run = [];                                 // the different primes ending in p.ends it starts with
-  let stopped = false, miss = null;               // miss: the size of the first term that is not such a prime
-  for (let n = 0; n < 12; n++) {                  // y(0) ... y(11)
-    const t = Q.mul(p.side ?? 1, Q.add(Q.mul(m, n), c));   // y(n), or −y(n) on the mirror (minus primes)
-    const isPrime = prime(t) && Q.toString(t).endsWith(String(p.ends));
-    if (!stopped && isPrime && !run.some(r => Q.eq(r, t))) run.push(t); else stopped = true;
-    if (!isPrime && miss === null) miss = Q.abs(t);
+  let t = c;                                      // ends as the first term that breaks the run
+  for (let n = 0; n < 256; n++) {                 // y(0), y(1), ...
+    t = Q.add(Q.mul(m, n), c);
+    if (Q.eq(t, near(t, prime, p.ends)) && !run.some(r => Q.eq(r, t))) run.push(t); else break;
   }
-  const main = run.length;
+  const miss = Q.abs(t);                          // the breaking term, ignoring its sign
+  const d = Q.abs(Q.sub(miss, near(miss, prime, p.ends)));
+  const main = Q.add(run.length, Q.div(1, Q.add(2, d)));   // a longer run always wins; a near miss beats a far one
   const back = Q.abs(Q.sub(c, m));               // y(-1), ignoring its sign
-  return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))))];   // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better); tie-breaker: y(-1) (ignoring sign) close to such a prime is better
+  return [main, Q.neg(Q.abs(Q.sub(back, near(back, prime, p.ends))))];   // main: how many different primes ending in the rule's digit the pattern y(0), y(1), ... starts with (more is better: a ladder with no top), plus a little for the term that breaks the run being near such a prime; tie-breaker: y(-1) (ignoring sign) close to such a prime is better
 }
 
 const FAR = 3;      // how far one change may go
@@ -47,6 +47,10 @@ function agent(offer) {
     tries.push([move("si.tilt", { k }), Q.add(m, k), c]);   // make it steeper or flatter
     tries.push([move("seq.step", { k }), Q.add(m, k), Q.sub(c, k)]);   // change the pattern's step, keeping y(1)
   }
+  // The next rung up (the run has no top): steps that are a multiple of 10 (every term keeps its last digit), and the
+  // next prime ending in p.ends above the start; each one jump, priced by its size.
+  for (let j = -3; j <= 3; j++) { const m2 = Q.mul(10, Q.add(whole(Q.div(m, 10)), j)); if (!Q.eq(m2, m)) tries.push([move("si.tilt", { k: Q.sub(m2, m) }), m2, c]); }
+  for (let t = Q.add(near(c, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) { tries.push([move("si.shift", { k: Q.sub(t, c) }), m, t]); break; }
   tries.push(...rounding(m, c), ...fractions(m, c));   // fractions: to a whole number and back into halves and thirds
   let options = tries.map(([plan, m2, c2]) => [plan, score(m2, c2, p)]);   // each step and the score it reaches
   // A promise: on these lines, only steps that leave the other players at least as well off.
