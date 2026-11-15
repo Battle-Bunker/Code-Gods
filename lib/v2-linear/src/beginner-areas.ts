@@ -3,7 +3,7 @@
  * beginner.ts unchanged, 15 Nov, so their redesign against design-principles.md does not collide with the others').
  */
 import { Qn, q, ref } from "@workspace/v2-core";
-import { allUndefined, distance, factorLabel, family, gap, more, notOnWhole, num, prime, squareGap, undef, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
+import { allUndefined, distance, factorLabel, family, gap, more, notOnWhole, num, prime, squareGap, undef, undealt, verticalAt, VERTICAL_NO, type Shape } from "./layers.ts";
 import { distanceToPrime, distanceToWhole, largestPrimeFactor, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 // ---------------------------------------------------------------- Square Area (the owner's example 2)
@@ -13,7 +13,9 @@ const squareShape: Shape<object> = {
   tieBreakers: [
     prime(more("spf", "that square's root's smallest prime factor", "The smallest prime factor of that square's root should be as big as possible.", "tri")),
     prime(more("lpf", "that square's root's largest prime factor", "The largest prime factor of that square's root should be as big as possible.", "tri")),
-    more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri"),
+    // Undealt (the coordinator's no-straight-hill check, 15 Nov): a stretch by 2, 3 or 5 adds a prime factor to the root
+    // at every size, the same bits per fee all the way (artifacts/engine test v2-no-straight-hill). For the grids session.
+    undealt(more("omega", "prime factors of that square's root", "That square's root should have as many prime factors as possible (12 = 2·2·3 has three).", "tri")),
   ],
 };
 export const squareArea = family("square-area", "Square Area", ["tri", "cart"], squareShape, [{}], ctx => {

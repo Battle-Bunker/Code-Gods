@@ -188,7 +188,10 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
     return { ref: r, label: labelOf(rule as RuleRef<S, unknown>, r), value: v, text: v ? readable(v) : "" };
   });
   const value = term.value;
-  const valueText = isUndef(value) ? value.undefined : readable(value);
+  // A ladder family's main part on a rung is a level (Prime Landing's levels of digits, Smooth Intercept's of primes): its
+  // number means little on its own, so the family's own words for the term are said instead ("on 75: 3 of the dealt
+  // primes multiplied, level 2"). Off the ladder the distance (below 0) says it plainly.
+  const valueText = isUndef(value) ? value.undefined : rule.family.keepsParams && role === "main" && term.label && Qn.sign(value) > 0 ? typesetNote(term.label) : readable(value);
   const title = withParams(layer.title, rule.params);
   const wants = withParams(layer.sentence(rule.params), rule.params).replace(/^Tie-breaker: /, "");
   const aim = layer.sense === "min" ? "the closer, the better" : "the bigger, the better";
