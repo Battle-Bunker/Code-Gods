@@ -31,8 +31,13 @@ test("every driftSeconds, a seat's parameters are redrawn; the rule, the values 
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   // The beginner game pays to read: Ada (no agents) knows the objects as told at their births.
   const me = (await ada!.query("v2/games:header", { gameId })).me;
-  const knownBefore = new Map((await admin.query("v2/testing:knowledgeOf", { gameId, memberId: me })).map((k: any) => [k.objectId, k]));
-  assert.ok(knownBefore.size >= 3, "Ada knows the starting objects");
+  // (The world starts once every sandbox is warm: on a cold engine that can take a while.)
+  let known: any[] = [];
+  for (let i = 0; (known = await admin.query("v2/testing:knowledgeOf", { gameId, memberId: me })).length < 3; i++) {
+    assert.ok(i < 240, "Ada knows the starting objects");
+    await new Promise(r => setTimeout(r, 500));
+  }
+  const knownBefore = new Map(known.map((k: any) => [k.objectId, k]));
   // A redraw may keep the value (drift.ts), so wait for the first drift that changes it: with a grid of n ≥ 3 values,
   // six drifts all keeping it has chance at most 3^-6.
   for (let i = 0; (await ada!.query("v2/play:myRule", { gameId })).drifts === 0; i++) {
@@ -46,8 +51,11 @@ test("every driftSeconds, a seat's parameters are redrawn; the rule, the values 
   assert.notEqual(after.ruleKey, before.ruleKey);
 
   const events = await admin.query("v2/testing:events", { gameId, after: -1 });
-  const drift = events.find((e: any) => e.kind === "drift" && e.data.k === after.drifts);
-  assert.ok(drift && drift.data.k === after.drifts && drift.data.seats.some((s: any) => s.ruleKey === after.ruleKey), "the record has the redraw");
+  // Staggered (one seat per event): Ada's redraw is an event of its own.
+  const drift = events.find((e: any) => e.kind === "drift" && e.data.seats.some((s: any) => s.ruleKey === after.ruleKey));
+  assert.ok(drift && drift.data.seats.length === 1, "the record has the redraw, one seat at a time");
+  const drifts = events.filter((e: any) => e.kind === "drift");
+  assert.ok(drifts.every((e: any) => e.data.seats.length === 1), "never two seats at once");
   assert.ok(events.some((e: any) => e.kind === "values" && e.seq > drift.seq), "and the objects' values under the new rules");
   await perform(ada!, "game.pause", {}, { gameId });
   // Her knowledge shows her own bits under the new rule on the states she knows, the others' sum as told, nothing

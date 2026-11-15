@@ -105,8 +105,9 @@ world ÷ timeScale. The header carries `timeScale`. (v2-economy `dilate(settings
 for simulations without a clock.)
 
 Parameter drift (the coordinator's trial, call 18; `drift.ts`): `settings.driftSeconds` (120 on the beginner presets,
-0 elsewhere; a `room.settings` override, 0 off; `dilate` divides it). Drift k happens at world second k × driftSeconds,
-on the same tick for every seat: each seat whose rule has other parameter values with precomputed values (its grid)
+0 elsewhere; a `room.settings` override, 0 off; `dilate` divides it). Staggered (the coordinator's trial 20): seat k of n is
+redrawn at k × driftSeconds / n + m × driftSeconds, one seat at a time, and never within 90 world seconds of a
+fixed-length game's end (`drift.ts` driftEventsDue, nextDriftAt): each seat whose rule has other parameter values with precomputed values (its grid)
 gets them redrawn, never its family or tie-breaker (`redrawParams`, seeded by game, seat and k; the spec lead's
 `driftParams` in v2-core, among values with precomputed values). `v2Rules` takes the new params, ruleKey and card, with `drifts` and `driftedAt`
 (`play:myRule` carries both); every object's values are recomputed under the new rules; the record gets a `drift`

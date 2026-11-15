@@ -237,3 +237,32 @@ different rows). With tie-breakers dealt the tables never reached an optimum, bu
   (2) two congruences on the same rows (Magic Totals rows + boxes with Number Lines rows) have a generically non-empty
   joint top that annealing finds, though climbers never did. Next: the guard "no two rows or columns holding the same
   numbers in any order", and banding on a non-bimodal reach statistic.
+
+## 11. Any-order guard, banding on a share of climbs, the re-gate (round 3)
+
+- **Guard.** A row (column) now counts as a repeat when it holds the same numbers as an earlier one in any order; the
+  card ends "… and no two rows or two columns may hold the same numbers". It closes the reordering route of §10
+  (6757 / 3536 / 7675 / 5363 now scores 5 repeats, 5515 / 1537 / 6262 / 6226 scores 1).
+- **Re-band on a share of climbs.** A (value, tie-breaker) pair is dealt when 45–55 % of 256 first-improvement climbs
+  (≤ 100 moves, from π boards) reach 17 bits. Unlike the median of §10 it replicates: on a fresh sample the kept pairs'
+  shares have median 0.50 (p10–p90 0.41–0.57), the mean difference between samples 0.05 against binomial noise of
+  0.04 (Number Lines the noisiest, 0.10). Dealt: Magic Totals 93 values (113 pairs), Spread 12 (15), Number Lines 13
+  (15), Pair Sums 24 (38). Median reach 16.4–17.3 bits across the four families.
+- **Number Lines never divides by 3, 9, 2, 5 or 10.** A number leaves the same remainder as its digits' total when
+  divided by 9 (or 3), so Number Lines with q = 9 is Magic Totals in disguise, and it met Spread's top at once
+  (columns mod 9 r 2 with Spread squares + rows s 4: 7365 / 6759 / 3357 / 4748, both main parts at their exact tops):
+  the one optimum this gate found, a bug, fixed by dropping q = 9 (13 values). A test forbids any q where 10 leaves 0 or 1.
+- **Same-units seating rule: measured, rejected.** Seating apart two main parts that constrain the same kind of unit
+  (rows, columns, boxes, squares) made tables *easier*, not harder: with the any-order guard, clashing pairs reached no
+  joint optimum (0 of 16) and kept less of their solo best; excluding them raised the worse rule's kept share from 0.60
+  to 0.69 and pairs both at 20 bits from 4 to 8. The rule was not kept.
+- **PMI:** new × new mean |PMI| 1.20, 63 / 14 / 8 / 15 % independent / mild / aligned / anti-aligned (worse than §10's
+  0.79): every kept Spread value is a small spread (1–4) on squares or three-in-a-rows, which favours small digits
+  (Spread's mean |PMI| 1.91). New × dealt 1.41, 61 / 16 / 13 / 10 %. Next: band Spread on wider spreads.
+- **Joint hardness** (annealing, 30 pairs): the worse rule keeps a median 0.60 (new × new) and 0.66 (new × dealt) of its
+  solo best; no pair other than the q = 9 one reached both exact tops.
+- **Drift survival** (median share of bits kept after a redraw): Magic Totals 0.14, Spread 0.63, Number Lines 0.28,
+  Pair Sums 0.46. Magic Totals' same-tie-breaker neighbourhood is too thin; let its redraw change the tie-breaker.
+- **Dynamism** (30 tables, 3 climbers, 600 moves): the board never freezes (40 of 40 moves per window change it, about
+  585 distinct boards, no window all stuck), no table reached all three main parts' tops, but opposed players churn at
+  3–6 bits: someone reaches 20 bits in 6 of 30 tables with drift on, 4 with drift off (best 24.5).

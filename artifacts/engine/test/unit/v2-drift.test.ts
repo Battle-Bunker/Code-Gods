@@ -6,16 +6,31 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { dilate } from "@workspace/v2-economy";
-import { driftDue, redrawParams } from "../../convex/v2/drift.ts";
+import { driftEventsDue, nextDriftAt, redrawParams } from "../../convex/v2/drift.ts";
 import { VALUE_RECORDS } from "../../convex/v2/values.gen.ts";
 
-test("drift k is due at k × the interval, once; an interval of 0 never drifts; dilation divides it", () => {
-  assert.equal(driftDue(120, 119.9, 0), null);
-  assert.equal(driftDue(120, 120, 0), 1);
-  assert.equal(driftDue(120, 125, 1), null, "done once");
-  assert.equal(driftDue(120, 365, 1), 3, "a late tick catches up to the latest drift");
-  assert.equal(driftDue(0, 1e6, 0), null);
+test("staggered: seat k of n is redrawn at k × interval / n, each seat every interval; dilation divides it", () => {
+  // Three seats at 120 s: one seat every 40 s (seats 1, 2, then 0), each seat every 120 s.
+  const due = driftEventsDue(120, 3, 245, 0, null);
+  assert.deepEqual(due.map(d => [d.e * 40, d.seat]), [[40, 1], [80, 2], [120, 0], [160, 1], [200, 2], [240, 0]]);
+  assert.deepEqual(driftEventsDue(120, 3, 245, 6, null), [], "each event once");
+  assert.deepEqual(driftEventsDue(120, 3, 165, 3, null).map(d => d.e), [4], "a late tick catches up");
+  assert.deepEqual(driftEventsDue(0, 3, 1e6, 0, null), []);
+  for (const seat of [0, 1, 2]) for (const world of [0, 39.9, 40, 119, 121, 300]) {
+    const next = nextDriftAt(120, 3, seat, world, null)!;
+    const first = driftEventsDue(120, 3, next, 0, null).filter(d => d.seat === seat && d.e * 40 > world + 1e-9)[0]!;
+    assert.ok(Math.abs(first.e * 40 - next) < 1e-9, `seat ${seat} after ${world}: next ${next}`);
+  }
   assert.equal(dilate({ driftSeconds: 120 }, 10).driftSeconds, 12);
+});
+
+test("no redraw in the last 90 game seconds of a fixed-length game (playtest round 16: one at the buzzer)", () => {
+  const due = driftEventsDue(120, 3, 600, 0, 600);
+  assert.ok(due.filter(d => !d.skip).every(d => d.e * 40 <= 510), "none run after 510 s");
+  assert.deepEqual(due.filter(d => d.skip).map(d => d.e * 40), [520, 560, 600], "the last ones are passed over, counted");
+  assert.equal(nextDriftAt(120, 3, 0, 500, 600), null, "the countdown says none is left");
+  assert.equal(nextDriftAt(120, 3, 2, 400, 600), 440);
+  assert.equal(driftEventsDue(120, 3, 600, 0, null).filter(d => d.skip).length, 0, "a hidden end guards nothing");
 });
 
 test("a redraw keeps the family and tie-breaker, may keep or change the parameters, has values, and replays", () => {
