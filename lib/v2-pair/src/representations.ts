@@ -63,6 +63,9 @@ export const eqs: Representation<PairState> = {
 
 const VERTICAL = "a vertical line has no gradient or y-intercept";
 const HORIZONTAL = "a horizontal line never meets the x-axis (or lies along it)";
+/** "line 2 is upright: x = 3", "line 1 is flat: y = −2": the reason names the line. */
+const upright = (s: PairState, i: number) => { const l = L(s, i); return `line ${i + 1} is upright: x = ${Qn.toWire(q(-l.c, l.a))}`; };
+const flat = (s: PairState, i: number) => { const l = L(s, i); return `line ${i + 1} is flat: y = ${Qn.toWire(q(-l.c, l.b))}`; };
 const steeper = (s: PairState) => L(s, facts(s).s), gentler = (s: PairState) => L(s, facts(s).o);
 /** The steeper gradient over the gentler one. */
 const ratioOf = (s: PairState): Q | null => {
@@ -74,9 +77,9 @@ export const si: Representation<PairState> = {
   id: "si", title: "each line as y = mx + c", scene: "equation", perSite: false,
   elements: [
     ...[0, 1].flatMap(i => [
-      el(`m${i + 1}`, `line ${i + 1}'s gradient`, "number", "coordinate", s => orUndef(gradient(L(s, i)), VERTICAL)),
-      el(`c${i + 1}`, `line ${i + 1}'s y-intercept`, "number", "coordinate", s => orUndef(yIntercept(L(s, i)), VERTICAL)),
-      el(`r${i + 1}`, `line ${i + 1}'s x-intercept`, "number", "derived", s => orUndef(xIntercept(L(s, i)), HORIZONTAL)),
+      el(`m${i + 1}`, `line ${i + 1}'s gradient`, "number", "coordinate", s => orUndef(gradient(L(s, i)), L(s, i).b === 0n ? upright(s, i) : VERTICAL)),
+      el(`c${i + 1}`, `line ${i + 1}'s y-intercept`, "number", "coordinate", s => orUndef(yIntercept(L(s, i)), L(s, i).b === 0n ? upright(s, i) : VERTICAL)),
+      el(`r${i + 1}`, `line ${i + 1}'s x-intercept`, "number", "derived", s => orUndef(xIntercept(L(s, i)), L(s, i).a === 0n ? flat(s, i) : HORIZONTAL)),
     ]),
     el("ms", "the steeper line's gradient", "number", "derived", s => orUndef(gradient(steeper(s)), VERTICAL)),
     el("cs", "the steeper line's y-intercept", "number", "derived", s => orUndef(yIntercept(steeper(s)), VERTICAL)),

@@ -46,3 +46,13 @@ test("matchLines keeps each line's colour across a move that re-sorts the pair",
   assert.deepEqual(matchLines(before, after), [1, 0]);   // after's line 1 (y = 0) is before's line 2
   assert.deepEqual(matchLines(before, before), [0, 1]);
 });
+
+test("a line with no y = mx + c says which line it is", async () => {
+  const { pairType, pairQ } = await import("../src/index.ts");
+  const { elementValue, ref } = await import("@workspace/v2-core");
+  const s = sys(L(1, 0, -3), L(-2, 1, 0));   // x = 3 and y = 2x
+  const v = elementValue(pairType, s, ref("si", s.lines[0]!.b === 0n ? "m1" : "m2"));
+  assert.equal(v.kind, "undefined");
+  assert.match((v as { reason: string }).reason, /line [12] is upright: x = 3/);
+  void pairQ;
+});
