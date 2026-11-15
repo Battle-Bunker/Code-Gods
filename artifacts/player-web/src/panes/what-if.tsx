@@ -6,7 +6,8 @@
  * (./what-if-model.ts); the line and its value are the shared live subscriptions the other panes use.
  */
 import { useMemo, useState } from "react";
-import { ObjectChip } from "@workspace/v2-views";
+import { MoveSketch, ObjectChip } from "@workspace/v2-views";
+import type { LineState } from "@workspace/v2-linear";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
@@ -84,6 +85,10 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
         : out && out.ok ? (
           <div className="space-y-2 border-t pt-3 text-sm" data-testid="what-if-result">
             <p data-testid="text-what-if-after">It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
+            {/* A lens move (turn, fold, swap, lean, zoom) drawn on the plane and said in plain words; other moves draw nothing. */}
+            {rule.type.id === "line" && (
+              <MoveSketch before={(state as LineState).lines[site]!} after={(out.after as LineState).lines[site]!} call={{ mutator: choice.id, args: wireArgs(choice.args, args) }} />
+            )}
             <dl className="space-y-1">
               <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={b => `${bitsText(b)} (${chanceText(b)} by chance)`} testId="text-what-if-rarity" />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId="text-what-if-points" />
