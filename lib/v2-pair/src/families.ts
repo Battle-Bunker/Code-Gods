@@ -95,8 +95,12 @@ export function ladderWords(p: P): string {
 /** "4 (or −4); better still 16, then 64, and so on". */
 const powerWords = (k: number, sign = true) => `${k}${sign ? ` (or −${k})` : ""}; better still ${k * k}, then ${k ** 3}, and so on`;
 /** The residue ladders measured for the pool: q 5, 7 or 11, r from 1 to q − 2 (never 0 or q − 1: those have a top). */
-/** The valuation ladders measured for the pool: q 3, 5 or 7 and every r from 1 to q − 1 (a level never meets 0). */
-export const VALUATIONS: readonly P[] = [3, 5, 7].flatMap(q => Array.from({ length: q - 1 }, (_, i) => ({ q, r: i + 1 })));
+/**
+ * The valuation ladders dealt: q 5 or 7 and every r from 1 to q − 1 (a level never meets 0). q 3 was measured and is not
+ * dealt: a stretch by 3 is so cheap a move that a climber blind to cost reached 34–51 bits on Steep Ratio in 30 moves
+ * (two-line-systems.md §9).
+ */
+export const VALUATIONS: readonly P[] = [5, 7].flatMap(q => Array.from({ length: q - 1 }, (_, i) => ({ q, r: i + 1 })));
 export const LADDERS: readonly P[] = [5, 7, 11].flatMap(q => Array.from({ length: q - 2 }, (_, i) => ({ q, r: i + 1 })));
 
 /**

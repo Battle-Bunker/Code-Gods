@@ -164,13 +164,13 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
 await boxes.close();
 
 console.log(`${variant.id} pool, ${o.kind} starters, ${o.games} games of ${seconds} s, ${drift > 0 ? `drift every ${drift} s` : "no drift"}, power ${E.powerPerSecond}, ${E.opportunitiesPerSecond}/s`);
-console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
+console.log("| family | games | mean points gained | moves a minute | energy at end | spent / income | own bits at end | others' bits at end | moves | share raising points | flips | energy taken back | objects moving in the last third | main-part levels per object climbed: median / max | end bits on those objects (mean, max) | seats still climbing the main part in the last third | valleys crossed (rung to higher rung) | main-part steps that lowered the tie-breaker | recovered, median s | redraws answered, median s | end bits under current / other params |");
 console.log("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 const rows = [...stats.entries()].sort((a, b) => mean(b[1].gained) - mean(a[1].gained));
 for (const [f, s] of rows) console.log([
   f, s.games, mean(s.gained).toFixed(0), mean(s.perMinute).toFixed(1), mean(s.energyEnd).toFixed(0), `${(100 * mean(s.spentShare)).toFixed(0)}%`, mean(s.own).toFixed(1), mean(s.others).toFixed(1), mean(s.moves).toFixed(0),
   `${(100 * mean(s.trueGain)).toFixed(0)}%`, mean(s.flips).toFixed(1), mean(s.reversal).toFixed(0), `${(100 * mean(s.lastThird)).toFixed(0)}%`,
-  s.levels.length ? `${median(s.levels)} / ${Math.max(...s.levels)}` : "-", s.endBits.length ? mean(s.endBits).toFixed(1) : "-",
+  s.levels.length ? `${median(s.levels)} / ${Math.max(...s.levels)}` : "-", s.endBits.length ? `${mean(s.endBits).toFixed(1)} (max ${Math.max(...s.endBits).toFixed(1)})` : "-",
   pct(s.climbingLate, s.seats), s.valleys, `${pct(s.tbLost, s.mainSteps)} of ${s.mainSteps}`,
   s.tbLost ? `${pct(s.recovered, s.tbLost)}, ${s.recovery.length ? median(s.recovery).toFixed(0) : "-"}` : "-",
   s.redraws ? `${s.answered}/${s.redraws}, ${s.latency.length ? median(s.latency).toFixed(1) : "-"}` : "-",
