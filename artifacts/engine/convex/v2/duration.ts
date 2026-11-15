@@ -46,8 +46,9 @@ export function drawEnd(mode: DurationMode, worldSeconds: number, uniform: () =>
 }
 
 /**
- * A room's or a game's time dilation (owner decision 37; v2-economy dilate): 1 unless set. A game's settings are
- * already dilated; what paces it in wall time (AI turns, idle parking, the bid phase) divides by it.
+ * A room's or a game's time dilation (owner decision 37): 1 unless set. A clock rate: the game's world runs this many
+ * times faster than the wall, with its settings as the preset's (the same game in less wall time). Everything that
+ * turns world time into wall time divides by it: the end, planning, the bid phase, AI turns, idle parking.
  */
 export const timeScaleOf = (x: { timeScale?: number }) => x.timeScale ?? 1;
 
