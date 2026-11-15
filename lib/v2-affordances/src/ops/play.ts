@@ -180,7 +180,7 @@ export const playOps = [
   }),
   affordance({
     id: "pitch.draft", title: "Draft a cooperation pitch", group: "play", scope: "game",
-    description: "Drafts a chat message proposing cooperation to other players: which states serve both rules and which objects to defend together. Returns the draft only; send it with chat.send.",
+    description: "Drafts a chat message proposing cooperation to other players: which objects would score more on both rules and in which direction to move them next. Returns the draft only; send it with chat.send.",
     tooltip: "Help me pitch a deal to other players.", keywords: ["negotiate", "pitch", "deal", "cooperate"],
     params: obj({ to: z.array(id).max(15).optional().describe("Member ids to address; omit for everyone."), aim: z.string().max(300).optional(), requestId: requestId.optional() }),
     result: z.object({ draft: z.string() }),
