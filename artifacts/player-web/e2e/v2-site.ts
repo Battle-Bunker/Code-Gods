@@ -134,6 +134,23 @@ try {
       await page.getByTestId("pane-object").waitFor();
       await page.getByTestId("pane-objects").waitFor({ timeout: 5000 });   // the list a line is opened from stays
       await page.getByTestId("pane-object").getByText("your rule's main view").first().waitFor();   // the rule's representations
+      // Every control of the views fits the screen (round 11: "More views" ran past a 390 phone's right edge).
+      const width = page.viewportSize()!.width;
+      for (const pane of ["pane-object", "pane-my-card"]) {
+        if (!await page.getByTestId(pane).count() && await page.getByTestId("button-jump-my-card").count()) await page.getByTestId("button-jump-my-card").click();
+        if (!await page.getByTestId(pane).count()) { console.log(`${label}: ${pane} not on screen; not measured`); continue; }
+        await page.getByTestId(pane).locator(".v2v-switcher").first().waitFor({ timeout: 10_000 }).catch(() => {});
+        // The widest case: each view select set to its longest choice.
+        for (const sel of await page.getByTestId(pane).locator(".v2v-switcher select").all()) {
+          const longest = await sel.evaluate((el: HTMLSelectElement) => [...el.options].filter(o => o.value).sort((a, b) => b.text.length - a.text.length)[0]?.value ?? "");
+          if (longest) await sel.selectOption(longest).catch(() => {});
+        }
+        await page.waitForTimeout(300);
+        console.log(`${label}: ${pane}: ${await page.getByTestId(pane).locator(".v2v-switcher").count()} view switchers measured`);
+        const over = await page.getByTestId(pane).locator(".v2v-switcher select, .v2v-switcher label").evaluateAll((els: Element[], w: number) =>
+          els.map(e => e.getBoundingClientRect()).filter(r => r.width > 0 && r.right > w + 0.5).map(r => Math.round(r.right)), width);
+        assert.deepEqual(over, [], `${label}: ${pane}'s view controls end within the ${width}px screen`);
+      }
       await shot(page, `v2-line-${label}`);
     });
 
