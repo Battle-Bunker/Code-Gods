@@ -54,19 +54,20 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
   const ended = header?.phase === "ended";
   const exact = useOthersAt(replaying || !ended ? null : objectId, calls);
   const whatIf = useAffordance("object.whatIf");
-  const callsKey = JSON.stringify(calls);
-  const [quote, setQuote] = useState<{ key: string; maps: OthersAtMaps } | null>(null);
-  const quoted = quote && quote.key === `${objectId}|${callsKey}` ? quote.maps : undefined;
+  // A quote holds for the state it was asked from (the server says which): once the line moves, it says so.
+  const [quote, setQuote] = useState<{ objectId: string; state: string; maps: OthersAtMaps } | null>(null);
+  const myQuote = quote && quote.objectId === objectId ? quote : null;
+  const quoteFresh = !!myQuote && myQuote.state === o?.state;
   const [quoting, setQuoting] = useState(false);
   const askQuote = () => {
     if (quoting || !calls.length) return;
     setQuoting(true);
     whatIf.run({ objectId, calls }).then(r => {
       const rows = r.after.flatMap(a => (a ? [a] : []));
-      setQuote({ key: `${objectId}|${callsKey}`, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
+      setQuote({ objectId, state: r.state, maps: { want: new Map(rows.map(a => [a.state, a.want])), taken: new Map(rows.flatMap(a => (a.taken !== null ? [[a.state, a.taken] as const] : []))) } });
     }, failed("The quote did not come")).finally(() => setQuoting(false));
   };
-  const others = ended ? exact : quoted;
+  const others = ended ? exact : quoteFresh ? myQuote!.maps : undefined;
   // The climb on it lately: the viewer's own act-log rows on this object (≤ 50, one small read), oldest first.
   const recent = useObjectMoves(replaying ? null : o?.number);
   // Judged on the moves it shows (the last few), so the verdict matches the list.
@@ -112,9 +113,10 @@ function FocusedLine({ objectId, reps }: { objectId: string; reps: readonly stri
       {!ended && !replaying && candidates.length > 0 && (
         <p className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground" data-testid="what-if-quote">
           <button type="button" className="underline underline-offset-4 disabled:opacity-50" disabled={quoting || !whatIf.available} onClick={askQuote} data-testid="button-quote-what-if">
-            {quoting ? "Quoting…" : `${quoted ? "Quote again" : "Quote what these moves do for the others"} (${quotePrice(o.lookPrice, candidates.length)})`}
+            {quoting ? "Quoting…" : `${myQuote ? "Quote again" : "Quote what these moves do for the others"} (${quotePrice(o.lookPrice, candidates.length)})`}
           </button>
-          <span>{quoted ? "An estimate (≈): each quote is a fresh blurred reading, so asking again draws fresh." : "Their sums are paid and blurred while the game runs."}</span>
+          <span data-testid="text-quote-state" data-fresh={quoteFresh || undefined}>{quoteFresh ? "An estimate (≈): each quote is a fresh blurred reading, so asking again draws fresh."
+            : myQuote ? `This ${word.one} has moved since your quote: quote again for its moves now.` : "Their sums are paid and blurred while the game runs."}</span>
         </p>
       )}
       <button type="button" className="mr-4 text-xs underline underline-offset-4" data-testid="button-open-what-if" onClick={() => void openPane("what-if")}>

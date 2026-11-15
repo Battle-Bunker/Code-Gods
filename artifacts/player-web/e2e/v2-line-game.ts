@@ -313,8 +313,12 @@ try {
       assert.equal(await options.filter({ hasText: /× others'/ }).count(), 0, `${label}: no free sums for the others while live`);
       const quote = line.getByTestId("button-quote-what-if");
       assert.match(await quote.innerText(), /\((free|[\d.]+ energy)\)/, `${label}: the quote's price before the press`);
-      await quote.click();
-      await line.getByTestId("what-if-quote").getByText(/fresh blurred reading/).waitFor({ timeout: 15_000 });
+      // Agents keep moving the line: a quote holds for the state it was asked from, so ask until one lands on it.
+      for (let i = 0; i < 6; i++) {
+        await quote.click();
+        await line.getByTestId("button-quote-what-if").getByText(/^Quote again/).waitFor({ timeout: 15_000 });
+        if (await line.locator("[data-testid=text-quote-state][data-fresh]").count()) break;
+      }
       // Waited for and read as one option: a live update can redraw the first option between a wait and a read.
       const priced = options.filter({ hasText: /→ your [\d,]+\.\d\d bits? × others' about [\d,]+\.\d\d bits? ≈ [\d,]+\.\d\d points?/ }).first();
       await priced.waitFor({ timeout: 15_000 });
