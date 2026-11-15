@@ -38,7 +38,7 @@ function PointsRectangle({ number, rarity, want, scale, approx = false }: { numb
   const g = payoffRect({ rarity, want }, scale, SIDE);
   const title = scoreFormula(rarity, want, approx);
   const top = SIDE - g.height;
-  const wText = num(rarity), hText = num(want);
+  const wText = num(rarity), hText = num(Math.max(0, want));   // a blurred sum below zero scores as none
   return (
     <svg width={SIDE + LABEL_W} height={SIDE + LABEL_H} viewBox={`0 0 ${SIDE + LABEL_W} ${SIDE + LABEL_H}`} className="shrink-0 overflow-visible"
       role="img" aria-label={title} data-testid={`points-rect-line-${number}`} data-kind={g.kind} data-width={g.width.toFixed(2)} data-height={g.height.toFixed(2)}>

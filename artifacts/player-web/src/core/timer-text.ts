@@ -25,9 +25,9 @@ export function timerText(h: Header, now: number): { label: string; value: strin
     case "live": {
       if (h.durationMode === "halfLife") {
         // Memoryless: the time left has the same spread however long the game has run, so the range never narrows.
-        const { lo, hi } = halfLifeInterval90(h.worldSeconds);
-        return { label: "Game ends in", value: `${clock(Math.floor(lo))}–${clock(Math.ceil(hi))}`, note: "90%",
-          tip: `Each moment the game has the same chance of ending (half-life ${clock(h.worldSeconds)}), so how long it has run tells you nothing: the time left is, with 90% confidence, within this range, and the range does not narrow.` };
+        const { hi } = halfLifeInterval90(h.worldSeconds);
+        return { label: "Game ends", value: "any moment", note: `at a hidden time: 9 times in 10 within the next ${clock(Math.ceil(hi))}`,
+          tip: `This game ends at a hidden random moment. Every second it has the same chance of ending (half of such games are over within ${clock(h.worldSeconds)}), so the clock never counts down: however long it has run, 9 times in 10 it ends within the next ${clock(Math.ceil(hi))}.` };
       }
       const left = h.endsAt ? Math.max(0, (h.endsAt - now) / 1000) : h.worldSeconds;
       // Well past the end and still running: the server has not finished the game (round 9: "0:00" forever, silent).

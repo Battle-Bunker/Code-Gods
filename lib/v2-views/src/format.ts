@@ -131,7 +131,9 @@ const hundredths = (x: number) => Math.round((Number.isFinite(x) ? x : 0) * 100)
  * product is the full values' product, rounded; "≈" when the shown factors do not multiply to it (the owner's rule:
  * displayed arithmetic is self-consistent). The one place every pane and the end summary write a score.
  */
-export function scoreFormula(yours: number, others: number, approx = false): string {
+export function scoreFormula(yours: number, rawOthers: number, approx = false): string {
+  // A blurred sum below zero scores as none (round 11: "about −8.21" read as nonsense): show what is scored.
+  const others = Math.max(0, rawOthers);
   // A blurred others' total can read below zero; points never do (yours × max(0, others)).
   const product = yours * Math.max(0, others);
   // Live, the others' numbers are deliberately blurred (peerNoiseBits): never write them as exact.

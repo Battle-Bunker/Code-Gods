@@ -93,7 +93,7 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
               <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={b => `${bitsText(b)} (${chanceText(b)} by chance)`} testId="text-what-if-rarity" />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId="text-what-if-points" />
             </dl>
-            {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(want)}): their rules are secret, so nobody can tell how much they would want it after.</p>}
+            {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(Math.max(0, want))}): their rules are secret, so nobody can tell how much they would want it after.</p>}
             <p className="text-xs text-muted-foreground" data-testid="text-what-if-charge">An agent would spend about {energyText(out.charge)} on this change, plus what it reads first.</p>
           </div>
         ) : null}
