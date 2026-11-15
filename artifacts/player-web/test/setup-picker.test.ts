@@ -41,7 +41,7 @@ test("each setup says in words what it plays", () => {
 });
 
 test("the form starts from the overrides, else the preset's own values, with the game length in minutes", () => {
-  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseVariance: "0", readPriceWeight: String(beginner.readPriceWeight) };
+  const rest = { durationMode: "fixed", scoreIntervalSeconds: "10", peerNoiseVariance: "0", readPriceWeight: String(beginner.readPriceWeight), driftSeconds: String(beginner.driftSeconds) };
   assert.deepEqual(formOf(beginner, {}), { planningSeconds: "60", worldMinutes: "10", startingEnergy: String(beginner.startingEnergy), ...rest });
   assert.deepEqual(formOf(beginner, { worldSeconds: 90, planningSeconds: 20 }), { planningSeconds: "20", worldMinutes: "1.5", startingEnergy: String(beginner.startingEnergy), ...rest });
 });
@@ -64,7 +64,7 @@ test("values the server would refuse are explained in words instead of sent", ()
 });
 
 test("the next game's summary uses the overrides", () => {
-  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s · a look costs ${beginner.readPriceWeight.toFixed(2)}× the read price.`);
+  assert.equal(nextGameSummary(beginner, { worldSeconds: 120 }), `3 or more players · 60 s to plan · 2 min game · ${beginner.startingEnergy} energy to start · others' sums exact · totals every 10 s · a look costs ${beginner.readPriceWeight.toFixed(2)}× the read price · the rules' numbers may change every 2 min.`);
   assert.match(nextGameSummary(presetOf("lines-beginner-bidding"), {}), /45 s of bidding first/);
 });
 
@@ -111,4 +111,15 @@ test("a trial setup on a variant of a board is described by that board, never it
   assert.ok(lenses, "the lenses trial is deployed");
   assert.match(setupBlurb(lenses!), /^Fraction lines, /);
   for (const p of PRESETS) assert.doesNotMatch(setupBlurb(p), /\b[a-z]+-[a-z0-9]+(-[a-z0-9]+)*\b/, `${p.id}: ${setupBlurb(p)}`);
+});
+
+test("how often the rules' numbers change is a room setting (call 18): the preset's own by default, 0 for never", () => {
+  const f = formOf(beginner, {});
+  assert.equal(f.driftSeconds, String(beginner.driftSeconds));
+  assert.deepEqual(overridesOf(f, beginner), { ok: true, overrides: {} });
+  assert.deepEqual(overridesOf({ ...f, driftSeconds: "0" }, beginner), { ok: true, overrides: { driftSeconds: 0 } });
+  assert.equal(overridesOf({ ...f, driftSeconds: "4000" }, beginner).ok, false);
+  assert.equal(overridesOf({ ...f, driftSeconds: "1.5" }, beginner).ok, false, "whole seconds");
+  assert.match(nextGameSummary(beginner, {}), /rules' numbers may change every 2 min/);
+  assert.doesNotMatch(nextGameSummary(beginner, { driftSeconds: 0 }), /numbers change/);
 });

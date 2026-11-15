@@ -6,6 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { presetOf } from "@workspace/engine/convex/v2/presets.ts";
 import { beginnerFamilies, lineQ, lineType, lineZ } from "@workspace/v2-linear";
 import { beginnerGridFamilies, grid4, gridType } from "@workspace/v2-grid";
 import { BOARDS, familyPage, galleryFamilies, gallerySearch, setupFromSearch } from "../src/site/lib/rule-gallery.ts";
@@ -37,7 +38,9 @@ test("the grid board lists the grid's families (the beginner grid pool first), n
   assert.deepEqual(g.beginner.map(e => e.id), beginnerGridFamilies(4).filter(f => f.dealable(grid4).length).map(f => f.id));
   const all = [...g.beginner, ...g.more].map(e => e.id).sort();
   assert.deepEqual(all, gridType.families.filter(f => f.dealable(grid4).length).map(f => f.id).sort());
-  assert.ok(g.beginner.find(e => e.id === "magic-eighteen")!.presets.includes("Grids · beginner"));
+  // A family the beginner grid deals today (the pool changes: the grids session's PMI clusters, decision 39) lists its setup.
+  const dealt = presetOf("grids-beginner").families[0]!;
+  assert.ok(g.beginner.find(e => e.id === dealt)!.presets.includes("Grids · beginner"), dealt);
   const p = familyPage("magic-eighteen", setupFromSearch(`?board=${grid4.id}`))!;
   assert.equal(p.rule.type, gridType);
   assert.equal(p.rule.variant.id, grid4.id);
