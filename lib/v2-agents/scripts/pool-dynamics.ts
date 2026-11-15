@@ -83,7 +83,7 @@ const { values: o } = parseArgs({ options: {
   kind: { type: "string", default: "simple" }, objects: { type: "string", default: "3" }, births: { type: "string", default: String(1 / 240) },
   variant: { type: "string", default: "line-q" }, preset: { type: "string" }, instances: { type: "boolean", default: false }, only: { type: "string" }, from: { type: "string", default: "0" }, json: { type: "string" }, focus: { type: "string" }, climber: { type: "string", default: "plain" }, seed: { type: "string" },
   seats: { type: "string", default: "3" }, twostep: { type: "boolean", default: false },
-  power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false },
+  power: { type: "string", default: "1" }, reading: { type: "string" }, server: { type: "boolean", default: false }, "drift-ladders": { type: "boolean", default: false },
 } });
 
 interface PoolRule { readonly family: string; readonly params: unknown; readonly tieBreakers: readonly string[] }
@@ -111,7 +111,7 @@ interface Stat {
   mainSteps: number; valleys: number; tbLost: number; recovered: number; recovery: number[];
   energyEnd: number[]; spentShare: number[]; perMinute: number[];
   own: number[]; others: number[]; moves: number[]; trueGain: number[]; flips: number[]; reversal: number[];
-  committed: number; raisedOther: number; bestJoint: number[]; thirds: number[];
+  committed: number; raisedOther: number; bestJoint: number[]; thirds: number[]; peak: number[]; skipsLate: number; actsLate: number;
   /** Contest: episodes where another seat's move lowered this seat's main part on an object it had climbed; those it climbed back. */
   taken: number; reclimbed: number;
 }
@@ -121,7 +121,7 @@ const stat = (f: string) => stats.get(f) ?? (stats.set(f, {
   levels: [], endBits: [], seats: 0, climbingLate: 0, plateauEarly: 0, mainSteps: 0, valleys: 0, tbLost: 0, recovered: 0, recovery: [],
   energyEnd: [], spentShare: [], perMinute: [],
   own: [], others: [], moves: [], trueGain: [], flips: [], reversal: [], taken: 0, reclimbed: 0,
-  committed: 0, raisedOther: 0, bestJoint: [], thirds: [0, 0, 0],
+  committed: 0, raisedOther: 0, bestJoint: [], thirds: [0, 0, 0], peak: [], skipsLate: 0, actsLate: 0,
 }), stats.get(f)!);
 // --seed line-q on line-q-lenses deals the same seats as line-q, game for game.
 const R = rng("pool-dynamics", o.seed ?? variant.id, o.from);
@@ -197,13 +197,14 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const pending = new Set<number>();   // seats redrawn and not yet answered by a committed move
   const runs = new Map<string, number>();   // seat:object → consecutive stretches
   let peakSeat = 0, peakTable = 0, stretchRun = 0;
-  const bestJoint = seats.map(() => 0);   // per seat: its highest bits on a state that also holds at least 10 of the others' bits
+  const bestJoint = seats.map(() => 0), peak = seats.map(() => 0);   // per seat: its highest bits on a state that also holds at least 10 of the others' bits
   const rep = await runTable(boxes, {
     type, variant, lines: Number(o.objects), seed: `pool-${o.type}-${g}`, seconds, seats, unique: true, economy: E,
-    birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}),
+    birthsPerSecond: Number(o.births), summonCap: E.startingEnergy, ...(drift > 0 ? { driftSeconds: drift } : {}), ...(o["drift-ladders"] ? { driftLadders: true } : {}),
     onAct: e => {
       live = Math.max(live, e.objects);
       lastBalance[e.seat] = e.balance; income[e.seat] = e.income; spent[e.seat]! += e.charge;
+      if (e.at >= (2 * seconds) / 3) { const sl = stat(keys[e.seat]!); sl.actsLate++; if (!e.committed) sl.skipsLate++; }
       if (!e.committed) return;
       moves.push({ at: e.at, seat: e.seat, object: e.object });
       // Contest: this move takes main-part progress from another seat that had climbed this object.
@@ -225,7 +226,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
         if (shared) m.shared++;
         const tot = a.reduce((t, x) => t + x, 0);
         { const sm = stat(keys[e.seat]!); sm.committed++; sm.thirds[Math.min(2, Math.floor((3 * e.at) / seconds))]!++; if (seats.some((_, j) => j !== e.seat && a[j]! >= b[j]! + 0.5)) sm.raisedOther++; }
-        a.forEach((x, j) => { if (tot - x >= 10) bestJoint[j] = Math.max(bestJoint[j]!, x); });
+        a.forEach((x, j) => { if (tot - x >= 10) bestJoint[j] = Math.max(bestJoint[j]!, x); peak[j] = Math.max(peak[j]!, x); });
         a.forEach((x, j) => { const k = keys[j]!, p = peakBy.get(k); if (!p || x > p.bits) peakBy.set(k, { bits: x, game: g }); });
         peakSeat = Math.max(peakSeat, ...a); peakTable = Math.max(peakTable, a.reduce((t, x) => t + x * (tot - x), 0));
         const rk = `${e.seat}:${e.object}`, run = key === "mach.stretch" ? (runs.get(rk) ?? 0) + 1 : 0;
@@ -257,7 +258,7 @@ for (let g = Number(o.from); g < Number(o.from) + Number(o.games); g++) {
   const late = new Set(moves.filter(m => m.at >= (2 * seconds) / 3).map(m => m.object)).size / live;
   seats.forEach((s, i) => {
     const st = stat(keys[i]!), fam = fams[i]!;
-    st.games++; st.gained.push(rep.seats[i]!.gained); st.lastThird.push(late); st.bestJoint.push(bestJoint[i]!);
+    st.games++; st.gained.push(rep.seats[i]!.gained); st.lastThird.push(late); st.bestJoint.push(bestJoint[i]!); st.peak.push(peak[i]!);
     st.energyEnd.push(lastBalance[i]!); st.spentShare.push(spent[i]! / (income[i]! * seconds)); st.perMinute.push(moves.filter(m => m.seat === i).length / (seconds / 60));
     const sr = rep.seats[i]!;
     st.moves.push(sr.moves); st.trueGain.push(sr.trueGainShare); st.flips.push(sr.flips); st.reversal.push(sr.reversalEnergy);

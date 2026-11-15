@@ -87,6 +87,8 @@ export interface TableInput<S> {
   readonly actEconomy?: ActEconomy;
   /** Called after every act, for measurements (scripts/collapse-check.ts): what it did and the line's state after it. */
   readonly onAct?: (e: TableAct<S>) => void;
+  /** An experiment: redraw ladder families' parameters too (they keep theirs all game, decision of #797). */
+  readonly driftLadders?: boolean;
   /** Called after each parameter redraw (driftSeconds), per seat whose parameters changed. */
   readonly onDrift?: (e: { readonly at: number; readonly seat: number; readonly params: Record<string, unknown> }) => void;
 }
@@ -485,7 +487,9 @@ export async function runTable<S>(boxes: Sandboxes, input: TableInput<S>): Promi
         // Seat i's redraws fall at k·D + i·D/n: the k-th is due when (world − i·D/n) / D passes k.
         const off = (i * D) / seats.length, tick = Math.floor((world - off) / D);
         if (tick < 1 || tick <= Math.floor((was - off) / D)) continue;
-        const family = type.families.find(f => f.id === s.rule.family)!;
+        const found = type.families.find(f => f.id === s.rule.family)!;
+        // driftLadders (an experiment): ladder families are redrawn too, as before #797.
+        const family = input.driftLadders && found.keepsParams ? { ...found, keepsParams: false } : found;
         // A value the line seating rule forbids beside the other seats' rules is not drawn (lib/v2-linear seating.ts).
         const others = seats.filter((_, j) => j !== i).map(o => o.rule), before = lineClashes(others).length;
         const next = driftParams(family, variant, s.rule.params, input.seed, i, tick, p => findValues(variant.id, { ...s.rule, params: p as Record<string, unknown> }) !== null
