@@ -1,4 +1,4 @@
-// Double Gap · Simple
+// Gap Ratio · Simple
 // Main part: the gap on the y-axis is a whole number, the dealt number of times the gap on the x-axis. Tie-breaker: whichever you were dealt (the gap shares a factor with the number you divide by; the gap is a big prime).
 // What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 // no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there

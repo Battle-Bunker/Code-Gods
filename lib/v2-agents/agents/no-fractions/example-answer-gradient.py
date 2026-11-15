@@ -1,4 +1,4 @@
-# No Fractions · Example: the answer's distance shares a factor with the steeper gradient
+# Divide By · Example: the answer's distance shares a factor with the steeper gradient
 # Main part: the number you divide by is the dealt one. Tie-breaker: the answer's distance shares a factor with the steeper gradient.
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head, and takes the one
 # that raises your points most (your rarity times the other players'). A tug-of-war burns energy on both sides: when

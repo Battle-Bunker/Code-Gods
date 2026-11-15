@@ -1,4 +1,4 @@
-# No Fractions · Simple
+# Divide By · Simple
 # Main part: the number you divide by is the dealt one. Tie-breaker: whichever you were dealt (the answer's distance is a big prime; the answer's distance shares a factor with the steeper gradient).
 # What it does: reads the two lines once (a small read), tries moves of either line in its own head (thinking costs
 # no energy, only time) and takes the move that raises your points most. Your points on a pair are your rarity there

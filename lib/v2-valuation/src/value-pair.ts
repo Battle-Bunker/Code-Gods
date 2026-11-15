@@ -4,7 +4,7 @@
  */
 import { canonicalJson, hashHex, tieBreakerId, type ObjectType, type RuleFamily, type TieBreaker, type Variant } from "@workspace/v2-core";
 import { pairLaw, pairType, type PairState } from "@workspace/v2-pair";
-import { knotsFrom, layerMeasures, sampledDraws, sampledOracle, TAIL_CEILING, tailOf, VALUE_CONFIG, type ValueConfig, type ValueFunction } from "./value.ts";
+import { knotsFrom, layerMeasures, sampledDraws, sampledOracle, TAIL_CEILING, tailOf, VALUE_CONFIG, type ValueConfig, type ValueFunction, type ValueTail } from "./value.ts";
 import { ruleKey } from "./keys.ts";
 
 /**
@@ -18,6 +18,16 @@ export const PAIR_DRAWS_PER_TILT = 300_000;
  * High Start 8,238 bits for an intercept of 52,488 (two-line-systems.md §8.3).
  */
 export const PAIR_SIZE_RATE = 1;
+
+/**
+ * A pair rule's tail: the size rate, except on a count of prime factors (a "smooth" hill), which costs about 1 bit of φ
+ * per factor (k factors need a number of at least 2^k) and keeps the line tail held under TAIL_CEILING per factor.
+ * The generator and the committed-values test both read it.
+ */
+export function pairTail(family: RuleFamily<any, any>, tb: TieBreaker, knots: Parameters<typeof tailOf>[0]): ValueTail {
+  const layer = tb === null ? undefined : (family.tieBreakers.find(l => l.id === tb) as { hill?: string } | undefined);
+  return tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), layer?.hill === "smooth" ? undefined : PAIR_SIZE_RATE);
+}
 
 export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P, variant: Variant,
   options: { tieBreaker?: TieBreaker; seed?: string; config?: Partial<ValueConfig> } = {}): ValueFunction {
@@ -33,7 +43,7 @@ export function pairValueFunction<P>(family: RuleFamily<PairState, P>, params: P
     schema: 7 as const, kind: "value-function" as const,
     ruleKey: ruleKey(pairType as ObjectType<unknown>, variant, family.id, params, tieBreaker),
     objectType: pairType.id, objectTypeVersion: pairType.version, variant: variant.id, variantHash: hashHex(canonicalJson(variant)),
-    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: tailOf(knots, TAIL_CEILING, layerMeasures(family, tb), PAIR_SIZE_RATE),
+    family: family.id, params, tieBreaker, seed, config: cfg, knots, tail: pairTail(family, tb, knots),
     diagnostics: { exact: [], sampled, candidates },
   };
   return { ...body, contentHash: hashHex(canonicalJson(body)) };

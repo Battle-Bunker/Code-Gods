@@ -47,16 +47,14 @@ export const DEALT_NUMBERS: Readonly<Record<string, readonly P[]>> = {
  * by 3) nearest v, the smaller on a tie, with |n| ≥ minAbs; and how far v is from it.
  */
 export function residueAnchor(v: Q, p: P, minAbs = 0n): { n: bigint; off: Q } {
-  const Q_ = BigInt(p.q!), R = BigInt(p.r!);
-  const t0 = Qn.floor(Qn.div(Qn.sub(v, q(R)), q(Q_)));
-  let best: { n: bigint; off: Q } | null = null;
-  for (let t = t0 - 2n; t <= t0 + 3n; t++) {
-    const n = R + Q_ * t;
-    if (absB(n) < minAbs) continue;
-    const off = Qn.abs(Qn.sub(v, q(n)));
-    if (!best || Qn.cmp(off, best.off) < 0) best = { n, off };
-  }
-  return best!;
+  // The two numbers with the remainder either side of v, moved outwards past |n| < minAbs; the lower wins a tie. The
+  // agents' kit (lib/v2-sandbox guest helpers nearestLeaving) does the same, step for step.
+  const Q_ = BigInt(p.q!), R = BigInt(p.r!), ok = (n: bigint) => absB(n) >= minAbs;
+  let lo = R + Q_ * Qn.floor(Qn.div(Qn.sub(v, q(R)), q(Q_))), hi = lo + Q_;
+  while (!ok(lo)) lo -= Q_;
+  while (!ok(hi)) hi += Q_;
+  const dLo = Qn.sub(v, q(lo)), dHi = Qn.sub(q(hi), v);
+  return Qn.cmp(dLo, dHi) <= 0 ? { n: lo, off: dLo } : { n: hi, off: dHi };
 }
 
 /** The value of a number element, or null when it is undefined. */
@@ -126,14 +124,14 @@ export const wholeAnswer = family({
     // The peg: x's whole number with the dealt remainder, y's nearest whole number.
     const px = residueAnchor(a.x, p);
     ctx.term("answer", `how far the answer is from whole numbers with x that ${leaves(p)} (x and y added)`, Qn.add(px.off, distanceToWhole(a.y)), [PX, PY]);
-    ctx.term("peg-divisor", "the common factor of |X| + |Y| and the number you divide by", shared(absB(px.n) + absB(a.Y), d.n), [X, Y, D]);
-    ctx.term("south-west", "X + Y", q(px.n + a.Y), [X, Y]);
+    ctx.term("peg-divisor", "the common factor of |X| + |Y| (X with the remainder) and the number you divide by", shared(absB(px.n) + absB(a.Y), d.n), [PX, Y, D]);
+    ctx.term("south-west", "X + Y (X with the remainder)", q(px.n + a.Y), [PX, Y]);
     ctx.mark({ kind: "focus", ref: P });
   },
 });
 
 export const noFractions = family({
-  id: "no-fractions", title: "No Fractions", depends: ["pair", "solve", "si"],
+  id: "no-fractions", title: "Divide By", depends: ["pair", "solve", "si"],
   main: main("divisor", "the number you divide by is the dealt one", p => p.k === 1
     ? "When you solve the two equations you divide by a number: it should be 1 (or −1), so the answer has no fractions. The closer, the better."
     : `When you solve the two equations you divide by a number: it should be ${p.k} (or −${p.k}), so the answer's fractions are ${ordinal(p.k!)} at most. The closer, the better.`, "solve"),
@@ -209,7 +207,7 @@ export const onTheDiagonal = family({
 });
 
 export const doubleGap = family({
-  id: "double-gap", title: "Double Gap", depends: ["si", "solve"],
+  id: "double-gap", title: "Gap Ratio", depends: ["si", "solve"],
   main: main("gaps", "the gap on the y-axis is a whole number, the dealt number of times the gap on the x-axis", p => `The gap between the lines' y-intercepts should be a whole number and ${times(p.k!)} the gap between their x-intercepts, and neither line may pass through (0, 0). The closer, the better.`, "si"),
   tieBreakers: [
     tb("gap-divisor", "the gap shares a factor with the number you divide by", "The gap between the y-intercepts (to the nearest whole number) should share as big a factor as possible with the number you divide by when you solve.", "solve", "shared"),

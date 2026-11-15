@@ -382,3 +382,16 @@ Collapse check ([dynamics](scripts/two-line-systems-collapse-dynamics.txt),
 - **Test 2 (open, reported).** It now fails at every β (before the dealt numbers: at 0.02 and 0.1). A 5,000-evaluation
   search with a game's energy finds the best joint state of 3–5 tables in 8. Drift moves that best state every 120 s,
   which test 2 does not model, so it measures one deal's landscape.
+
+**Review fixes, after these measurements.**
+
+- **Prime-factor counts.** The counts of prime factors (High Start's start-factors, Forty-Five's smooth-divisor) keep
+  the line tail of ½ bit per factor, because k factors need a number of at least 2^k and so cost about k bits. The
+  size rate would have flattened them. This touches 4 of the 38 value functions; the measurements above used the size
+  rate there.
+- **Titles.** No Fractions and Double Gap are titled "Divide By" and "Gap Ratio" (ids unchanged), since they are
+  dealt k other than 1 and 2.
+- **Not changed here, shared with lines, passed to the coordinator.**
+  - The dealer weights a family by its number of dealt (numbers, tie-breaker) entries, and can seat one family twice
+    with different numbers.
+  - A bid card shows a family's first dealt numbers.

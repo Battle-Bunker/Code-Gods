@@ -1,4 +1,4 @@
-# No Fractions · Naive (for learning)
+# Divide By · Naive (for learning)
 # Main part: the number you divide by is the dealt one. Tie-breaker: whichever you were dealt (the answer's distance is a big prime; the answer's distance shares a factor with the steeper gradient).
 # What it does: reads the two lines once, tries moves in its own head, and pays for the best one for your rule on every
 # pair it is offered, whatever it costs and whatever the other players think. It keeps fighting over a pair another

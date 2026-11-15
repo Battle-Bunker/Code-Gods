@@ -41,7 +41,7 @@ test("the dealt remainder's whole number: nearest, negatives counted (−2 leave
   assert.deepEqual(at(13, 2, { q: 7, r: 6 }), [6n, "1/2"]);
 });
 
-test("No Fractions and Double Gap read the dealt k; the card says it", () => {
+test("Divide By (no-fractions) and Gap Ratio (double-gap) read the dealt k; the card says it", () => {
   assert.deepEqual(score("no-fractions", null, school, { k: 5 }), ["0"]);   // D = ±5
   assert.deepEqual(score("no-fractions", null, school, { k: 2 }), ["-3"]);
   assert.match(familyOf("no-fractions").card({ k: 3 }, null), /should be 3 \(or −3\), so the answer's fractions are thirds/);
