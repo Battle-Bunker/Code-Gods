@@ -265,8 +265,8 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     // How the game ends and how often standings are published (duration.ts; v1's settings).
     durationMode: room.overrides.durationMode ?? preset.durationMode,
     scoreIntervalSeconds: room.overrides.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS,
-    // v1's paid observation (knowledge.ts): "paid" shows a seated player each object as last told.
-    observation: room.overrides.observation ?? "free",
+    // Paying to read (knowledge.ts, decision 35): the weight on a look's read price; 0 reads the live world free.
+    readPriceWeight: room.overrides.readPriceWeight ?? preset.readPriceWeight,
   };
   const number = room.games + 1;
   const gameId = await ctx.db.insert("v2Games", {

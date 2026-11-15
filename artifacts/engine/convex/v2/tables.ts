@@ -32,6 +32,9 @@ export const overridesV = v.object({
   peerNoiseVariance: v.optional(v.number()),
   /** Stored rooms' old σ override, ignored (decision 32 replaced it with the variance). */
   peerNoiseBits: v.optional(v.number()),
+  /** The weight on a look's read price (decision 35). */
+  readPriceWeight: v.optional(v.number()),
+  /** Stored rooms' old free/paid flag, ignored (decision 35). */
   observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
 });
 /** A player's view of an object at one moment (a move's before and after). */
@@ -110,7 +113,9 @@ export const v2Tables = {
       durationMode: v.optional(durationModeV),
       /** World seconds between published standings (v1's scoreIntervalSeconds; absent: 10). */
       scoreIntervalSeconds: v.optional(v.number()),
-      /** v1's paid observation (knowledge.ts): "paid" shows a seated player each object as last told; absent: free. */
+      /** The weight on a look's read price (knowledge.ts, decision 35); absent (games stored before it): 0, free. */
+      readPriceWeight: v.optional(v.number()),
+      /** Games stored before decision 35: the old free/paid flag, ignored. */
       observation: v.optional(v.union(v.literal("free"), v.literal("paid"))),
     }),
     /**

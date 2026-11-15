@@ -1,13 +1,14 @@
 /**
- * Paid observation (v1's `observation: "paid"`, restored: docs/energy-model.md §11 on archive/engine-v1;
- * convex/v2/knowledge.ts). In a paid game a seated player sees each object as last told: at its birth, by their own
+ * Paying to read (owner decision 35; v1's paid observation, docs/energy-model.md §11 on archive/engine-v1;
+ * convex/v2/knowledge.ts): every game pays to look, at the read price times the game's weight (the beginner game's 3).
+ * A seated player sees each object as last told: at its birth, by their own
  * agents' changes and complete reads, or by a look they pay for from their own store. Activity is public (how many
  * changes since), content is paid: another player's move in the public log shows no state, the act log shows only the
  * player's own agents' moves, and every read (object, sorts, quotes, the spectator's object, othersAt) shows the told
  * state. A look costs the object's full read and tells the player the object as it is. After the end everything is
- * open. A free game is as before.
+ * open. A weight of 0 reads the live world free.
  *
- * What would break: a seated player of a paid game reading the live world for free.
+ * What would break: a seated player reading the live world for free at a weight above 0; a look priced off the weight.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -20,9 +21,11 @@ test("a paid game shows each object as last told; a look pays to see it now; the
   const { roomId } = (await perform(ada!, "room.create", { name: "Paid room" })).result;
   await perform(bo!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code }, {});
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
-  await perform(ada!, "room.settings", { overrides: { observation: "paid", startingEnergy: 1200 } }, { roomId });
+  await perform(ada!, "room.settings", { overrides: { startingEnergy: 1200 } }, { roomId });   // the preset's weight, 3
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   const scope = { gameId };
+  const early = await perform(ada!, "object.look", {}, scope).catch((e: any) => e.data);
+  assert.equal(early.ok, false, "a look before the world runs is refused");
   await perform(ada!, "game.startWorldNow", {}, scope);
   await new Promise(r => setTimeout(r, 8000));   // the practice partner's agent moves lines Ada does not watch
   await perform(ada!, "game.pause", {}, scope);
@@ -48,11 +51,15 @@ test("a paid game shows each object as last told; a look pays to see it now; the
 
   // A look: the object's full read at the read price, from Ada's own store; then she sees it as it is.
   const before = (await ada!.query("v2/play:me", { gameId })).energy;
+  const quoted = (await ada!.query("v2/play:object", { objectId: stale })).lookPrice;
   const looked = await perform(ada!, "object.look", { objectId: stale }, scope);
+  assert.ok(Math.abs(quoted - looked.result.price) < 1e-9, `the object shows what a look costs: ${quoted}`);
   assert.equal(looked.ok, true, JSON.stringify(looked));
   assert.ok(looked.result.price > 0 && looked.result.looked === 1);
   const after = (await ada!.query("v2/play:me", { gameId })).energy;
   assert.ok(Math.abs(before - after - looked.result.price) < 0.5, `the look is paid from the store: ${before} → ${after} for ${looked.result.price}`);
+  const bits = await admin.query("v2/testing:fullReadBits", { objectId: stale! });
+  assert.ok(Math.abs(looked.result.price - 3 * bits / 32) < 1e-9, `the read price (bits ÷ 32) times the weight 3: ${looked.result.price} for ${bits} bits`);
   const now = await ada!.query("v2/play:object", { objectId: stale });
   assert.deepEqual([now.state, now.changesSince], [(await admin.query("v2/testing:stateOf", { objectId: stale! })).state, 0], "seen as it is");
   const all = await perform(ada!, "object.look", {}, scope);
@@ -80,10 +87,11 @@ test("a paid game shows each object as last told; a look pays to see it now; the
   assert.ok(ended.filter((r: any) => r.kind === "move").every((r: any) => r.state !== null));
 });
 
-test("a free game has nothing to pay for", { timeout: 60_000 }, async () => {
+test("a weight of 0 reads the live world free: nothing to look at; a look before the world runs is refused", { timeout: 60_000 }, async () => {
   const [cy] = await humans("Free Cy");
   const { roomId } = (await perform(cy!, "room.create", { name: "Free room" })).result;
   await perform(cy!, "seats.fillPracticePartners", {}, { roomId });
+  await perform(cy!, "room.settings", { overrides: { readPriceWeight: 0 } }, { roomId });
   const { gameId } = (await perform(cy!, "game.start", {}, { roomId })).result;
   await perform(cy!, "game.startWorldNow", {}, { gameId });
   const refused = await perform(cy!, "object.look", {}, { gameId }).catch((e: any) => e.data);

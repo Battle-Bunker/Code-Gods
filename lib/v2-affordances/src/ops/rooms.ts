@@ -84,7 +84,7 @@ export const roomOps = [
   // The owner's lobby and game controls.
   affordance({
     id: "room.settings", title: "Change the room's settings", group: "owner", scope: "room",
-    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how the game ends (durationMode \"fixed\": at the length, public; \"halfLife\": at a hidden random moment, half of games within the length); seconds between published standings (scoreIntervalSeconds, default 10); the variance of each reading of the others' sums while live (peerNoiseVariance: 0, 4, 16, 64 or 256 bits², each reading independent); and whether players pay to look (observation \"free\" or \"paid\"). Unset values are the preset's.",
+    description: "Sets the room's preset and the overrides it allows for the next game: planning seconds, game length, starting energy; how the game ends (durationMode \"fixed\": at the length, public; \"halfLife\": at a hidden random moment, half of games within the length); seconds between published standings (scoreIntervalSeconds, default 10); the variance of each reading of the others' sums while live (peerNoiseVariance: 0, 4, 16, 64 or 256 bits², each reading independent); and the weight on a look's read price (readPriceWeight, 0 to 4: 0 reads free). Unset values are the preset's.",
     tooltip: "Pick the preset and adjust its length.", keywords: ["settings", "configure", "preset", "length"],
     params: obj({
       preset: z.string().max(64).optional(),
@@ -92,7 +92,7 @@ export const roomOps = [
         planningSeconds: z.number().int().min(5).max(900), worldSeconds: z.number().int().min(30).max(7200), startingEnergy: z.number().min(0),
         durationMode: z.enum(["fixed", "halfLife"]), scoreIntervalSeconds: z.number().int().min(1).max(3600),
         peerNoiseVariance: z.union([z.literal(0), z.literal(4), z.literal(16), z.literal(64), z.literal(256)]),
-        observation: z.enum(["free", "paid"]),
+        readPriceWeight: z.number().min(0).max(4).multipleOf(0.25),
       }).partial().strict().optional(),
       requestId: requestId.optional(),
     }), result: ok,

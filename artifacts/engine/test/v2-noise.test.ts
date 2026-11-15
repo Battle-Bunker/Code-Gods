@@ -14,13 +14,14 @@ import { admin, humans, perform } from "./v2-helpers.ts";
 const page = { numItems: 50, cursor: null };
 const close = (a: number, b: number, eps = 1e-6) => Math.abs(a - b) < eps;
 
-test("while live every others' sum is the exact one plus its state's noise, the same draw for everyone; after the end exact", { timeout: 240_000 }, async () => {
+test("while live every others' sum is the exact one plus the reader's own reading, never shared; after the end exact", { timeout: 240_000 }, async () => {
   const [ada, bo] = await humans("Noise Ada", "Noise Bo");
   const { roomId } = (await perform(ada!, "room.create", { name: "Noise room" })).result;
   await perform(bo!, "room.join", { code: (await ada!.query("v2/rooms:get", { roomId })).code }, {});
   await perform(ada!, "seats.fillPracticePartners", {}, { roomId });
-  // The beginner game reads exact (decision 32): this room asks for σ 8.
-  await perform(ada!, "room.settings", { overrides: { peerNoiseVariance: 64 } }, { roomId });
+  // The beginner game reads exact (decision 32) and pays to read (decision 35): this room asks for σ 8 and free reads, so
+  // every read here is a reading of the live world (paid looks: v2-paid).
+  await perform(ada!, "room.settings", { overrides: { peerNoiseVariance: 64, readPriceWeight: 0 } }, { roomId });
   const { gameId } = (await perform(ada!, "game.start", {}, { roomId })).result;
   await perform(ada!, "game.startWorldNow", {}, { gameId });
   await new Promise(r => setTimeout(r, 12_000));   // a scoreboard (every 10 world seconds) and some moves

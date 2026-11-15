@@ -5,7 +5,7 @@ import { decode, encode, scopeOf, typeOf, valueOf } from "../world.ts";
 import { elementValue, representation } from "@workspace/v2-core";
 import { text as equationText } from "@workspace/v2-views/equation-text";
 import { disclosed, measured } from "../disclose.ts";
-import { knownOf, lookPrice, observationOf, readsKnowledge, tell } from "../knowledge.ts";
+import { knownOf, lookPrice, paysToRead, readPriceWeightOf, readsKnowledge, tell } from "../knowledge.ts";
 import { OpFailure } from "@workspace/v2-affordances";
 import { pay } from "../agents.ts";
 import { appendEvent } from "../loop.ts";
@@ -69,12 +69,13 @@ export const { op: score, as: scoreAs } = defineOp("object.score", "query", asyn
 });
 
 /**
- * A paid look (paid observation, knowledge.ts): one object, or every object, at its full read's price from the caller's
- * own store, and the caller is told it as it is now.
+ * A look (knowledge.ts, decision 35): one object, or every object, at its full read's price times the game's weight,
+ * from the caller's own store; the caller is told it as it is now, each value a fresh measurement (decision 32).
  */
 export const { op: look, as: lookAs } = defineOp("object.look", "mutation", async (env, a) => {
   const { game, member, player } = seated(env);
-  if (observationOf(game) !== "paid") throw new OpFailure("This game shows every object as it is; there is nothing to pay for.");
+  if (!paysToRead(game)) throw new OpFailure("Reading is free in this game: every object shows as it is.");
+  if (game.phase === "planning") throw new OpFailure("The world has not started: there is nothing to look at yet.");
   if (game.phase === "ended") throw new OpFailure("The game is over: every object is open.");
   const clock = (await env.ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique())!;
   const objects = a.objectId ? [(await objectIn(env.ctx, game, a.objectId)).object]
@@ -85,7 +86,7 @@ export const { op: look, as: lookAs } = defineOp("object.look", "mutation", asyn
     const value = (await env.ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", o._id).eq("memberId", member._id)).unique())!;
     seen.push({ o, st, value });
   }
-  const price = seen.reduce((t, s) => t + lookPrice(game.variant, s.st.state), 0);
+  const price = seen.reduce((t, s) => t + lookPrice(game.variant, s.st.state, readPriceWeightOf(game)), 0);
   const paid = await pay(env.ctx, game, player, clock.worldSeconds, price, seen.length === 1 ? "That look" : `Looking at all ${seen.length}`);
   await env.ctx.db.patch(player._id, { energy: paid.balance, settledAt: paid.settledWorldSeconds });
   for (const { o, st, value } of seen) {
