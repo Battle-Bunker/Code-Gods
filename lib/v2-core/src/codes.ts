@@ -194,6 +194,81 @@ export function sampleMixedInt(r: Rng, t = 1): bigint {
   return negative ? -n : n;
 }
 
+// ---------------------------------------------------------------- integer codes with a chosen p(0) (line-q's law, C3)
+//
+// A complete code on the integers with P(0) = zero, ±n sharing 1 − zero symmetrically (fractions.md §4, code C3). Each
+// is a length function, a direct sampler of the tilted law q_t(n) = 2^(−t·bits(n)) / Z_t (t = 1: the code itself), and
+// log2 Z_t (log2 Z_1 = 0: the Kraft sum is 1). Unbounded: no cap.
+
+export interface IntCode {
+  readonly id: string;
+  bits(n: bigint): number;
+  sample(r: Rng, t?: number): bigint;
+  log2Norm(t: number): number;
+}
+
+/**
+ * A symmetric code from a magnitude code on m ≥ 1: magnitudeBits(m), its draw at tilt t, and nonzeroTail(t) = log2 of
+ * Σ_{m ≥ 1} 2^(−t·magnitudeBits(m)) (0 at t = 1 when the magnitude code is complete).
+ */
+function intCode(id: string, zero: number, nonzeroTail: (t: number) => number, magnitude: (r: Rng, t: number) => bigint,
+  magnitudeBits: (m: bigint) => number): IntCode {
+  if (!(zero > 0 && zero < 1)) throw new RangeError("p(0) must be in (0, 1)");
+  const zeroBits = -Math.log2(zero), signed = 1 - Math.log2(1 - zero);   // the prefix of ±n: "not zero" and a sign
+  const norms = new Map<number, number>();
+  const log2Norm = (t: number): number => {
+    let z = norms.get(t);
+    if (z === undefined) {
+      if (!(t > 0)) throw new RangeError("the tilt t must be positive");
+      // Z_t = 2^(−t·zeroBits) + 2·2^(−t·signed)·tail(t), tail(t) = Σ_{m ≥ 1} 2^(−t·magnitudeBits(m)).
+      z = Math.log2(2 ** (-t * zeroBits) + 2 ** (1 - t * signed + nonzeroTail(t)));
+      norms.set(t, z);
+    }
+    return z;
+  };
+  return {
+    id,
+    bits: n => (n === 0n ? zeroBits : signed + magnitudeBits(n < 0n ? -n : n)),
+    sample(r, t = 1) {
+      if (r.unit() < 2 ** (-t * zeroBits - log2Norm(t))) return 0n;
+      const negative = r.bit() === 1, m = magnitude(r, t);
+      return negative ? -m : m;
+    },
+    log2Norm,
+  };
+}
+
+/** The mixed code (p(0) = ½) as an IntCode: the functions above, unchanged. */
+export const mixedInt: IntCode = { id: "mixed", bits: mixedIntBits, sample: sampleMixedInt, log2Norm: mixedIntLog2Norm };
+
+/** The mixed (factorisation) code with P(0) = zero: ±n → 1 − log2(1 − zero) + mixedPosBits(|n|). zero = ½ is mixedInt. */
+export function mixedIntCode(zero: number): IntCode {
+  return intCode(`mixed(p0=${zero})`, zero,
+    t => -t * LOG2_Z + DRAW_PRIMES.reduce((a, p) => a - Math.log2(1 - 2 ** (-t * STEP * p)), 0),
+    (r, t) => {
+      let n = 1n;
+      for (const p of DRAW_PRIMES) {
+        const ratio = 2 ** (-t * STEP * p);
+        if (ratio < 2 ** -60) break;
+        while (r.unit() < ratio) n *= BigInt(p);
+      }
+      return n;
+    },
+    mixedPosBits);
+}
+
+/** By steps with P(0) = zero: ±n → 1 − log2(1 − zero) + GEO + STEP·(|n| − 1) (each unit of |n| costs STEP bits). */
+export function stepsIntCode(zero: number): IntCode {
+  return intCode(`steps(p0=${zero})`, zero,
+    // Σ_{j ≥ 0} 2^(−t(GEO + STEP·j)) = 2^(−t·GEO) / (1 − 2^(−t·STEP)).
+    t => -t * GEO - Math.log2(1 - 2 ** (-t * STEP)),
+    (r, t) => {
+      const u = r.unit();
+      return BigInt(1 + Math.floor(Math.log1p(-u) / Math.log(2 ** (-t * STEP))));
+    },
+    m => GEO + STEP * Number(m - 1n));
+}
+
 // ---------------------------------------------------------------- far moves are dear (owner design, 2026-11-14)
 //
 // "It's really expensive to move objects a long way in a single turn, by design, so all strategies should be incremental

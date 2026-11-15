@@ -20,7 +20,7 @@
  * laws for the rare tail, weighted by p/q and self-normalised. Each knot takes the tightest certified interval.
  */
 import {
-  canonicalJson, compareScores, evaluateObject, hashHex, mixedIntBits, mixedIntLog2Norm, q, rng, ruleLayers, scoreFromWire, scoreToWire, STEP,
+  canonicalJson, compareScores, evaluateObject, hashHex, mixedIntBits, q, rng, ruleLayers, scoreFromWire, scoreToWire, STEP,
   tieBreakerId, type ObjectType, type Q, type RuleFamily, type Score, type TieBreaker, type Variant,
 } from "@workspace/v2-core";
 import { fromMC, lineLaw, lineParams, lineSums, lineType, type Band, type Law, type LineState, type LineSums } from "@workspace/v2-linear";
@@ -549,7 +549,7 @@ function bandOracle<P>(family: RuleFamily<LineState, P>, params: P, variant: Var
 /** Direct draws from π for any law with tilts: weights p/q against the mixture of tilted laws, self-normalised. */
 export function sampledDraws<S, P>(type: ObjectType<S>, law: Law<S>, family: RuleFamily<S, P>, params: P, variant: Variant, tb: TieBreaker,
   cfg: Pick<ValueConfig, "tilts" | "drawsPerTilt">, seed: string): { draws: { u: Score; w: number }[]; total: number } {
-  const norms = cfg.tilts.map(t => mixedIntLog2Norm(t));
+  const norms = cfg.tilts.map(t => law.log2Norm(t));
   const draws: { u: Score; w: number }[] = [];
   let total = 0;
   cfg.tilts.forEach(t => {
@@ -558,9 +558,9 @@ export function sampledDraws<S, P>(type: ObjectType<S>, law: Law<S>, family: Rul
       const d = law.draw(r, t);
       total++;
       if (d.state === null) continue;
-      // p/q_mix with q_mix = (1/K) Σ_k q_k, q_k = 2^(−t_k φ − coords·log2 Z_k): log-sum-exp relative to p = 2^−φ.
+      // p/q_mix with q_mix = (1/K) Σ_k q_k, q_k = 2^(−t_k φ − log2 Π Z_k): relative to p = 2^−φ.
       let mix = 0;
-      cfg.tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - d.coords * norms[k]!); });
+      cfg.tilts.forEach((tk, k) => { mix += 2 ** ((1 - tk) * d.bits - norms[k]!); });
       const w = cfg.tilts.length / mix;
       draws.push({ u: evaluateObject(type, family, params, d.state, variant, tb).score, w });
     }

@@ -2,7 +2,7 @@
  * The line object (spec §12.1): a tuple of k lines, each the primitive integer triple (a, b, c) of a·x + b·y + c = 0
  * with gcd 1 and b > 0, or b = 0 and a > 0.
  */
-import { gcd, mixedIntBits, Qn, q, type Invalid, type Q, type Variant } from "@workspace/v2-core";
+import { gcd, mixedIntBits, mixedIntCode, Qn, q, stepsIntCode, type Invalid, type IntCode, type Q, type Variant } from "@workspace/v2-core";
 
 export interface Line {
   readonly a: bigint;
@@ -68,9 +68,19 @@ export const yAt = (l: Line, t: Q): Q => Qn.add(Qn.mul(slope(l), t), intercept(l
 /** x at y = t for a non-horizontal line. */
 export const xAt = (l: Line, t: Q): Q => q(-l.c * t.d - l.b * t.n, l.a * t.d);
 
-/** φ (spec §12.2): the mixed number code (owner decision 17) on (m, c) for Z, on the primitive triple for Q. */
+/**
+ * The code of each coefficient of the primitive triple on fraction lines (`line-q`; docs/engine-v2/fractions.md §4,
+ * code C3, a trial): a and c by the mixed (factorisation) code with p(0) = 1/8, b by steps with p(0) = 1/16, so
+ * b = 1, 2, 3, 4 cost 0, ½, 1, 1½ bits more. Vertical (b = 0), horizontal (a = 0) and through-origin (c = 0) lines are
+ * rarer than under the mixed code's p(0) = ½, and small denominators cheap. Each code is complete and unbounded.
+ */
+export const LINE_Q_CODES: { readonly a: IntCode; readonly b: IntCode; readonly c: IntCode } =
+  { a: mixedIntCode(1 / 8), b: stepsIntCode(1 / 16), c: mixedIntCode(1 / 8) };
+
+/** φ (spec §12.2): the mixed number code (owner decision 17) on (m, c) for Z; LINE_Q_CODES on the primitive triple for Q. */
 export function lineBits(l: Line, p: LineParams): number {
-  return p.domain === "Z" ? mixedIntBits(-l.a) + mixedIntBits(-l.c) : mixedIntBits(l.a) + mixedIntBits(l.b) + mixedIntBits(l.c);
+  if (p.domain === "Z") return mixedIntBits(-l.a) + mixedIntBits(-l.c);
+  return LINE_Q_CODES.a.bits(l.a) + LINE_Q_CODES.b.bits(l.b) + LINE_Q_CODES.c.bits(l.c);
 }
 
 export const encodeLine = (l: Line): string => `${l.a},${l.b},${l.c}`;

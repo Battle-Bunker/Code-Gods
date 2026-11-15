@@ -7,13 +7,14 @@
  *     [--pool v3|rational] [--moves unit|mutators]
  *
  * Object: a fraction line a·x + b·y + c = 0 (primitive, b > 0, or b = 0 < a), drawn from the line-q law
- * (each of a, b, c from the mixed integer code, conditioned on canonical). A rule is a primary and one secondary, both
+ * (each of a, b, c from its code in LINE_Q_CODES, conditioned on canonical). A rule is a primary and one secondary, both
  * real-valued, compared lexicographically; its bits at a line are −log2 π{lines at least as good}, estimated from
  * tilted draws of the law (decision 22: an empirical ladder). Prices are path-consistent unit steps on a, b or c
  * (#580): one call of "which" + a one-step argument + max(0, Δφ), charged W + 0.05·W².
  */
 import { parseArgs } from "node:util";
-import { mixedIntBits, mixedIntLog2Norm, rng, sampleMixedInt, stepsNonzeroBits, type Rng } from "@workspace/v2-core";
+import { rng, stepsNonzeroBits, type Rng } from "@workspace/v2-core";
+import { LINE_Q_CODES } from "@workspace/v2-linear";
 import { changeCharge } from "@workspace/v2-economy";
 
 const { values: o } = parseArgs({ options: {
@@ -40,8 +41,6 @@ function factor(n: number): number[] {
   while (n > 1) { if (n <= LIM) { const p = SPF[n]!; out.push(p); n /= p; } else { out.push(n); n = 1; } }
   return out;
 }
-const LOG2Z = mixedIntBits(1n) - 2;
-const phiInt = (n: number) => (n === 0 ? 1 : 2 + 0.5 * factor(n).reduce((s, p) => s + p, 0) + LOG2Z);
 const gcd = (x: number, y: number): number => { x = Math.abs(x); y = Math.abs(y); while (y) [x, y] = [y, x % y]; return x; };
 const spf = (n: number) => (Math.abs(n) <= 1 ? 0 : factor(n)[0]!);
 const bigOmega = (n: number) => (Math.abs(n) <= 1 ? 0 : factor(n).length);
@@ -72,7 +71,9 @@ function canon(a: number, b: number, c: number): L | null {
   if (b < 0 || (b === 0 && a < 0)) { a = -a; b = -b; c = -c; }
   return [a + 0, b + 0, c + 0];
 }
-const phiL = (l: L) => phiInt(l[0]) + phiInt(l[1]) + phiInt(l[2]);
+// φ on line-q: LINE_Q_CODES on (a, b, c).
+const { a: CA, b: CB, c: CC } = LINE_Q_CODES;
+const phiL = (l: L) => CA.bits(BigInt(l[0])) + CB.bits(BigInt(l[1])) + CC.bits(BigInt(l[2]));
 const key = (l: L) => ((l[0] + 4096) * 8192 + l[1]) * 8192 + (l[2] + 4096);
 
 /** The derived numbers a rule may read (every one a representation of the same line). */
@@ -246,13 +247,13 @@ const rulesOf = (fs: Fam[]): Rule[] => fs.flatMap(f => f.secs.map(s => ({ id: `$
 const TILT = 0.55;
 interface Sample { ls: L[]; logw: Float64Array; total: number }
 function drawLaw(n: number, seed: string): Sample {
-  const r = rng("v3-law", seed), z = mixedIntLog2Norm(TILT);
+  const r = rng("v3-law", seed), z = CA.log2Norm(TILT) + CB.log2Norm(TILT) + CC.log2Norm(TILT);
   const ls: L[] = [], lw: number[] = [];
   for (let i = 0; i < n; i++) {
-    const a = Number(sampleMixedInt(r, TILT)), b = Number(sampleMixedInt(r, TILT)), c = Number(sampleMixedInt(r, TILT));
+    const a = Number(CA.sample(r, TILT)), b = Number(CB.sample(r, TILT)), c = Number(CC.sample(r, TILT));
     const l = canon(a, b, c);
     if (!l || l[0] !== a || l[1] !== b || l[2] !== c || Math.max(Math.abs(a), b, Math.abs(c)) > 4000) continue;
-    ls.push(l); lw.push(-(1 - TILT) * phiL(l) + 3 * z);
+    ls.push(l); lw.push(-(1 - TILT) * phiL(l) + z);
   }
   const mx = lw.reduce((m, x) => Math.max(m, x), -Infinity); const logw = Float64Array.from(lw, x => x - mx);
   return { ls, logw, total: logw.reduce((s, x) => s + 2 ** x, 0) };
@@ -343,7 +344,7 @@ function reach(start: L, budget: number, maxStates = 150_000): { states: L[]; ca
   }
   return { states, capped: false, spent: budget };
 }
-function birth(r: Rng): L { for (;;) { const a = Number(sampleMixedInt(r)), b = Number(sampleMixedInt(r)), c = Number(sampleMixedInt(r)); const l = canon(a, b, c); if (l && l[0] === a && l[1] === b && l[2] === c && b > 0) return l; } }
+function birth(r: Rng): L { for (;;) { const a = Number(CA.sample(r)), b = Number(CB.sample(r)), c = Number(CC.sample(r)); const l = canon(a, b, c); if (l && l[0] === a && l[1] === b && l[2] === c && b > 0) return l; } }
 
 const LINE_SHARE = 2475, SEAT_GAME = 19_800;
 

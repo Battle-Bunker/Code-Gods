@@ -26,7 +26,7 @@ test("each mutator's effect and price on worked examples (spec §12.4)", () => {
   assert.equal(after(lineZ, mc(2, 1), "cart.slide", { u: "1", v: "0" }), "y = 2x - 1 @ " + (rate(which, 2) + up(mc(2, 1), mc(2, -1), lineZ)).toFixed(2));
   assert.equal(after(lineZ, mc(2, 1), "cart.mirror", { axis: "x" }), "y = -2x - 1 @ " + (which + 2 + up(mc(2, 1), mc(-2, -1), lineZ)).toFixed(2));
   assert.equal(after(lineZ, mc(2, 1), "cart.mirror", { axis: "diagonal" }), "this board only has whole-number gradients and intercepts");
-  assert.equal(after(lineQ, abc(0, 1, -3), "cart.mirror", { axis: "diagonal" }), "x = 3 @ " + (which + 2).toFixed(2));
+  assert.equal(after(lineQ, abc(0, 1, -3), "cart.mirror", { axis: "diagonal" }), "x = 3 @ " + (which + 2 + up(abc(0, 1, -3), abc(1, 0, -3), lineQ)).toFixed(2));
   // Multiplicative moves pay for their digits: rate·log2(|p|·q), so a factor costs what its prime factors cost in turn.
   const f = factorCode(which).rate;
   assert.equal(after(lineZ, mc(2, 2), "mach.stretch", { f: "1/2" }), "y = x + 1 @ " + f.toFixed(2));

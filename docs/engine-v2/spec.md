@@ -176,7 +176,8 @@ mixedInt(0) = 1,   mixedInt(±n) = 2 + mixedPos(n)
 Its Kraft sum is exactly 1, so it is normalisable on the unbounded domains (and on the triples of the Q domain, a
 subset). A large prime is dear and a large smooth number cheap: 23 costs 15.6 bits and 24 costs 8.6; 47 costs 27.6 and 48
 costs 9.6. A number's energy is roughly its shortest arithmetic description. `φ(line)` is mixedInt(m) + mixedInt(c) on Z
-and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q. Measured (by the walk-law report, `lib/v2-valuation/src/law.ts`, since deleted): on `line-z` the
+and mixedInt(a) + mixedInt(b) + mixedInt(c) on Q (since the C3 trial, Q uses the variants of §12.2: p(0) = 1/8 on a and
+c, b by steps). Measured before the trial (by the walk-law report, `lib/v2-valuation/src/law.ts`, since deleted): on `line-z` the
 line's largest number is at most 2, 20 and 162 for 50%, 90% and 99% of the stationary mass (on `line-q` 1, 12 and 81),
 and 24 is about 200 times commoner than 23. The constant STEP sets how strong gravity is: the earlier Elias-gamma
 ("digits") code made size cost only logarithmically (#347's doubling code), and a steps-only code would make size cost
@@ -912,8 +913,11 @@ Variants shipped first: `line-z` (Z, k = 1), `line-q` (Q, k = 1), `line-z4` (Z, 
 The mixed number code of §2.5 (owner decision 17):
 
 - Domain Z: φ = Σ_lines mixedInt(m) + mixedInt(c).
-- Domain Q: φ = Σ_lines mixedInt(a) + mixedInt(b) + mixedInt(c) of the primitive triple. (The Kraft sum is below 1: the code
-  is defined on all triples, the domain is a subset.)
+- Domain Q: φ = Σ_lines mixed⅛(a) + steps¹⁄₁₆(b) + mixed⅛(c) of the primitive triple (code C3 of fractions.md §4, a
+  trial; `LINE_Q_CODES` in `lib/v2-linear/src/line.ts`): mixed⅛ is the mixed code with p(0) = 1/8 (0 → 3 bits,
+  ±n → 1 − log2(7/8) + mixedPos(n)), steps¹⁄₁₆ the steps code with p(0) = 1/16 (0 → 4 bits, ±n → 1 − log2(15/16) +
+  GEO + STEP·(|n| − 1), GEO = −log2(1 − 2^−STEP)). Each is complete (Kraft sum 1) and unbounded. (The Kraft sum of the
+  triple's code is below 1: it is defined on all triples, the domain is a subset.)
 
 ### 12.3 Representations
 

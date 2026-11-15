@@ -2,8 +2,8 @@
 
 Finding: on the rational beginner preset (`lines-beginner`, variant `line-q`) "fraction lines show almost only whole
 numbers (y = 59x, 5x − 25, 17x + 3 …)". The owner wants players to live in the rationals. Coordinator's follow-up: the
-share of **vertical lines** is the bigger finding. This is analysis only: no game logic, law, code or value changed.
-Numbers come from `lib/v2-agents/scripts/fractions.ts` (about 10 minutes; `--parts law,prices,rules,play`).
+share of **vertical lines** is the bigger finding. §1–7 are analysis only: no game logic, law, code or value changed
+(§8 records the C3 trial that followed). Numbers come from `lib/v2-agents/scripts/fractions.ts` (about 10 minutes; `--parts law,prices,rules,play`).
 
 A line on `line-q` is the primitive triple (a, b, c) of a·x + b·y + c = 0, b ≥ 0. b = 0 is a vertical line, b = 1 a
 whole line (whole m and c), b ≥ 2 a line with a fraction in m or c. φ = mixedInt(a) + mixedInt(b) + mixedInt(c).
@@ -229,3 +229,47 @@ horizontal and through-origin lines that make Square Area, Pythagorean Area, Rul
 if 1–3 leave play still whole-number heavy, since the rules themselves (19 of 43 with 100%-whole tops, two of three at
 the played table) keep pulling toward integers whatever the law. A board of mostly fraction-friendly rules (Whole
 Crossing, Ruler, Pythagorean Area, Same on Both Rulers) is the other lever, at the deal.
+
+## 8. C3 applied (trial)
+
+The coordinator's trial of rank 3. Motive: a quarter of newborn lines were vertical (dead for 10 of the 11 families), and
+a fraction cost 2.5–4× a whole step, which does not match the owner's intent that lines live fully in the rationals.
+
+**The code** (`LINE_Q_CODES` in `lib/v2-linear/src/line.ts`; the codes `mixedIntCode` and `stepsIntCode` in
+`lib/v2-core/src/codes.ts`). On `line-q`, φ(a, b, c) = mixed⅛(a) + steps¹⁄₁₆(b) + mixed⅛(c) on the primitive triple:
+
+- mixed⅛(0) = 3 bits; mixed⅛(±n) = 1 − log2(7/8) + mixedPos(n) (mixedPos the factorisation code, STEP·Σ e·p + log2 Z);
+- steps¹⁄₁₆(0) = 4 bits; steps¹⁄₁₆(±n) = 1 − log2(15/16) + GEO + STEP·(|n| − 1), GEO = −log2(1 − 2^−½), so b = 1, 2, 3,
+  4 cost 0, ½, 1, 1½ bits more.
+
+Each is complete (Kraft sum 1, tested) and unbounded. `line-z`, `line-z4` and the grids keep their codes. The law's
+direct draws (`lineLaw(lineQ)`) draw each coordinate from its own code, and the importance weights use each code's own
+normaliser (`Law.log2Norm(t)`); births and the walk's surcharge read φ through `readLength`. Σπ² = 5.14e-4 (the
+uniqueness table, regenerated; 1.17e-2 before), so the uniqueness shift at 18 objects is 0.01 bits (0.16 before).
+A half step from y = 3x + 5 pays a surcharge of 4.5 bits (5.0 before), a tilt by 1 pays 0.5, a stretch by ½ 0.5 (1.0).
+
+**Births** (`births`, the seeded walk on `line-q`; `scripts/fractions.ts --parts births`, 40,000 newborns over 200
+seeds):
+
+| | vertical | horizontal | through origin | b = 1 (whole) | b 2..4 | b ≥ 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| before (C0) | 27.4% | 27.3% | 34.0% | 29.3% | 15.5% | 27.9% |
+| after (C3) | 4.0% | 9.7% | 10.0% | 34.3% | 38.9% | 22.8% |
+
+Both match the Monte Carlo of §4 (C0 26.9 / 27.1 / 34.5 / 29.3 / 15.3 / 28.5, C3 4.0 / 9.6 / 9.7 / 34.3 / 38.7 / 23.0):
+the walk's stationary law is the law the valuation draws from (`lib/v2-linear/test/law.test.ts` checks it).
+
+**Play** (`scripts/fractions.ts --parts play --agents plain`, the mixed table of §1, 3 seeds; share of objects):
+
+| | t = 0 | 60 s | 120 s | 300 s | objects at 300 s | committed moves | fraction → whole |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| before: fractional | 41.9% | 8.9% | 8.0% | 8.5% | 71 | 727 | 21 |
+| after: fractional | 61.3% | 10.3% | 5.8% | 10.5% | 95 | 1692 | 50 |
+| before: vertical | 19.4% | 22.2% | 22.0% | 28.2% | | | |
+| after: vertical | 6.5% | 7.7% | 5.8% | 7.4% | | | |
+
+The vertical lines leave the board (28% → 7% at 300 s) and the fractional share at the start rises by half, but play
+still clears fractions within a minute: with the shipped starters no act makes a whole line fractional (causes 1 and 2
+of §2 are unchanged), so the share at 300 s is again what births add. Caveat: the "after" run valued scores with the
+line-q value files computed under C0 (stale until they are regenerated), so the agents' choices, though not the births,
+may shift once the values are rebuilt.

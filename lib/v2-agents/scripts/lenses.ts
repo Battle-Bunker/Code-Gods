@@ -16,8 +16,8 @@
  * potential, owner decision 19).
  */
 import { parseArgs } from "node:util";
-import { amountCode, applyPriced, evaluateSite, factorCode, gammaBits, mixedIntBits, nonzeroRatBits, q, ratBits, stepsRatBits } from "@workspace/v2-core";
-import { lineQ, lineType, mutators as engineMutators, presets, type LineState } from "@workspace/v2-linear";
+import { amountCode, applyPriced, evaluateSite, factorCode, gammaBits, nonzeroRatBits, q, ratBits, stepsRatBits } from "@workspace/v2-core";
+import { LINE_Q_CODES, lineQ, lineType, mutators as engineMutators, presets, type LineState } from "@workspace/v2-linear";
 import { findValues } from "../src/harness.ts";
 import { valueLookup } from "@workspace/v2-valuation";
 
@@ -72,11 +72,12 @@ for (let a = -H; a <= H; a++) for (let b = 0; b <= H; b++) for (let c = -H; c <=
   states.push(n);
 }
 const NS = states.length;
-const mixed = (n: number) => mixedIntBits(BigInt(n));
-const MIX = new Map<number, number>();
-const mixedC = (n: number) => { let v = MIX.get(n); if (v === undefined) MIX.set(n, v = mixed(n)); return v; };
+// line-q's φ: LINE_Q_CODES on (a, b, c), memoised per coordinate.
+const MIX = [new Map<number, number>(), new Map<number, number>(), new Map<number, number>()];
+const CODES = [LINE_Q_CODES.a, LINE_Q_CODES.b, LINE_Q_CODES.c];
+const mixedC = (n: number, d: 0 | 1 | 2) => { let v = MIX[d]!.get(n); if (v === undefined) MIX[d]!.set(n, v = CODES[d]!.bits(BigInt(n))); return v; };
 const phi = new Float64Array(NS);
-states.forEach((l, i) => { phi[i] = mixedC(l[0]) + mixedC(l[1]) + mixedC(l[2]); });
+states.forEach((l, i) => { phi[i] = mixedC(l[0], 0) + mixedC(l[1], 1) + mixedC(l[2], 2); });
 const slope = (l: L3): R | null => (l[1] === 0 ? null : r(-l[0], l[1]));
 const yint = (l: L3): R | null => (l[1] === 0 ? null : r(-l[2], l[1]));
 
@@ -200,7 +201,7 @@ function lineThrough(p: [R, R], q2: [R, R]): L3 | null {
 }
 const AUX: { M: L3; bits: number }[] = [];
 const AUX_BITS = 16;
-for (const M of states) { const b = mixedC(M[0]) + mixedC(M[1]) + mixedC(M[2]); if (b <= AUX_BITS) AUX.push({ M, bits: b }); }
+for (const M of states) { const b = mixedC(M[0], 0) + mixedC(M[1], 1) + mixedC(M[2], 2); if (b <= AUX_BITS) AUX.push({ M, bits: b }); }
 
 const PROPOSED: Mut[] = [
   { id: "rot.turn", lens: "angle (rotation about a point on the line)", existing: false, additive: false, title: "turn about the line's point at x0 by tan θ = t, or a quarter turn", gen: (l, e) => {
