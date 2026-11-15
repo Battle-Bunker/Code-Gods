@@ -34,9 +34,12 @@ const shape: Shape<None> = {
   ],
 };
 
-/** Lines whose crossing is exactly 1/n: y = n·x − 1, y = −n·x + 1 and y = n·x + 1 (crossing −1/n). */
-export const closeWitness = (_p: None, n: number): LineState[] => {
-  const N = q(BigInt(n));
+/**
+ * The cheapest lines on the k-th digit of the ladder (value.ts ladderCaps): crossing exactly 1/n for n = 10^(k−1), the
+ * smallest n with k digits: y = n·x − 1, y = −n·x + 1 and y = n·x + 1 (crossing −1/n).
+ */
+export const closeWitness = (_p: None, k: number): LineState[] => {
+  const N = q(10n ** BigInt(k - 1));
   return [fromMC(N, q(-1)), fromMC(Qn.neg(N), q(1)), fromMC(N, q(1))].map(l => ({ lines: [l] }));
 };
 

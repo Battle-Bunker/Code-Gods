@@ -143,6 +143,9 @@ const pythShape: Shape<Ends> = {
   tieBreakers: [
     more<Ends>("shared-factor", "the factor that prime minus 1 shares with the slanted side squared",
       "Prime minus 1 and slanted side² share a big factor.", "tri"),
+    // A candidate (the coordinator's row 7, 15 Nov): a digit pattern, not a shared factor. Undealt until measured.
+    undealt(more<Ends>("same-ending", "the height ending in that prime's last digits",
+      "The height's whole part should end in the same digits as that prime: the more digits, the better.", "tri")),
   ],
 };
 /**
@@ -202,6 +205,11 @@ export const pythagoreanArea = ladder(family<Ends>("pythagorean-area", "Pythagor
   ctx.term("area", Qn.sign(u) > 0 ? `area ${Qn.toWire(a)}, which rounds down to the prime ${p}` : `area ${Qn.toWire(a)}, ${Qn.toWire(Qn.neg(u))} from the window of the prime ${p}`, u, [area]);
   const w = Qn.floor(h);   // 0 only on a tiny triangle (side² < 1): it shares nothing
   ctx.term("shared-factor", `the factor ${p - 1n} shares with the slanted side squared's whole part ${w}`, q(w === 0n ? 0n : gcd(p - 1n, w)), [area, hyp]);
+  // How many trailing digits the height's whole part shares with p (0 for a height under 1).
+  const legY = ref("tri", "legY"), hy = Qn.floor(num(ctx.read(legY))!);
+  let same = 0;
+  if (hy > 0n) for (let x = hy, y = p; x > 0n && y > 0n && x % 10n === y % 10n; x /= 10n, y /= 10n) same++;
+  ctx.term("same-ending", hy > 0n ? `the height's whole part ${hy} ends in the same ${same} digit${same === 1 ? "" : "s"} as ${p}` : "a height under 1 ends in nothing", q(same), [area, legY]);
   ctx.mark({ kind: "focus", ref: area });
   ctx.mark({ kind: "focus", ref: hyp });
 }), areaWitness);
