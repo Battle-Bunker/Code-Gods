@@ -556,3 +556,94 @@ off (the fixed deal) and on (one-seat redraws: does the cheap best survive?):
 - **History.** Before this work the same test failed at every β (§8.3). Now it passes at 0.02 and 0.1.
 - **For the coordinator: the mechanism is not yet found.** The cheap bests are small-coefficient systems, e.g.
   (0, 1, −5, 1, 1, −81).
+
+## 10. Test 2 at β 0.05, row 4 by the ladder audit, Far Crossing's and High Start's tie-breakers (15 November)
+
+The coordinator's orders after #793: (1) find and fix the mechanism behind test 2's failure at the dealt β 0.05;
+(2) audit the ladder families by the ladder audit (call 19); (3) give Far Crossing and High Start tie-breakers that read
+the attained level, and an opponent. The preset stays non-default until (1) is closed.
+
+### 10.1 Test 2: what the failure was
+
+- **A measurement bug.** The collapse check's landscape cached each rule's valuer under its family and tie-breaker only
+  (lib/v2-agents scripts/landscape-lib.ts `space.bits`). In one process, every dealt number of a family was scored with
+  whichever number's values were loaded first. That corrupted, on pairs:
+  - every test 2 table holding a number other than the first loaded;
+  - the redraw check, where a redrawn seat was still scored with its old number, so "the cheap best survives the
+    redraw" was an artefact;
+  - test 5's exact row.
+
+  Lines and grids deal several numbers per family too, so their collapse results since dealt numbers came in are
+  suspect in the same way. The key now includes the parameters, with a regression test (test/landscape.test.ts).
+- **β 0.05 is not special.** Per table, 12 independent searches of the test's budget (100,000 evaluations) were run
+  against the best state any search found (scripts/cheap-optima.ts). The share of searches reaching 95% of that best:
+
+  | β | table 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | all |
+  |--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+  | 0.02 | 1 | 1 | 0 | 1 | 3 | 3 | 1 | 3 | 13/96 (14%) |
+  | 0.05 | 3 | 9 | 1 | 12 | 8 | 3 | 6 | 4 | 46/96 (48%) |
+  | 0.1 | 12 | 10 | 2 | 8 | 3 | 0 | 6 | 1 | 42/96 (44%) |
+
+  (On the final pool; out of 12 searches per table.)
+
+  The share rises with β (a bigger β shrinks the reachable set W) and is about the same at 0.05 and 0.1. No
+  interaction between the act charge W + βW² and a jump size shows up. A single run of the test counts the tables one
+  searcher happened to crack, a binomial count near its threshold (more than 2 in 8), so one run's verdict flips
+  between runs. That is why 0.02 and 0.1 passed and 0.05 failed in §9.5.
+- **How much search finds the bests.** At the dealt β 0.05, a 100,000-evaluation search reaches 95% of a table's best
+  known about half the time, so roughly 200,000 evaluations find it. That is about 1% of W's 1.6 × 10⁷ states.
+  - *Who can search:* only a searcher who knows all three seats' rules. Test 5 shows the others' rules cannot be read
+    off the disclosed sums.
+  - *Drift:* it dissolves the bests. A one-seat redraw leaves a cheap best within 95% of the new best in 1 of 11 cases.
+- **The mechanism found: axis-parallel lines.** The bests repeat exactly, often in every search, and on two to three of
+  every eight tables they contain a horizontal or vertical line (e.g. y = −4 with x = 72, for Far Crossing, Right
+  Angle and Whole Answer).
+  - *Why they are common:* the law prices a zero coefficient cheaply, so 25.5% of births already have one (both births
+    the test reaches from do).
+  - *Why they pay several rules at once:* an axis-parallel pair makes several exact conditions true for nothing. Any
+    horizontal and vertical pair is a right angle at the crossing (c₁, c₂), a grid point whenever both are whole. A
+    vertical line's x-intercept is its own whole c, which is Far Crossing's main part when it is the steeper line.
+  - *What it is:* one cheap configuration raising several seated rules at once, decision 30's failure in a geometric
+    form that PMI does not flag (under π the joint mass is small).
+  - *Not the whole story:* the most-found best (table 3, 12 of 12 searches at β 0.05: y = 10x − 4 with x + y = 84) has
+    no axis line.
+- **A runaway found while measuring (an easy, really high peak).** Once the power ladder met every power (§9.1), each
+  power of k was a rung, and a stretch or turn multiplies D by k. In 40 games a Divide By object climbed **40 levels to
+  84 bits**. The fix is in the rule: the power ladder's rungs are triangular, as the valuation ladders' (k, k³, k⁶, …;
+  level L at k^T(L), T(L) = L(L + 1)/2), so each level takes one more multiplication than the last. Divide By and Gap
+  Ratio values were recomputed and their numbers re-chosen (k 5, 6, 10, 11 and 3–6).
+
+### 10.2 Row 4 by the ladder audit
+
+Whole Answer, High Start and Steep Ratio are audited as ladders (call 19, artifacts/engine
+test/unit/v2-params-equal.test.ts). The rung is the level L (the score is q^L × (1 + 1/(1 + d))), costed as the code of
+its cheapest number q^T(L) × m (m the smallest |m| leaving r). Peers must agree within 0.5 bits on the median over their
+shared rungs of the least bits less the rung's cost.
+
+- *Without the cost*, level for level, q-7 peers come out about 2 bits rarer than q-5 ones (1.6–2.3 bits apart). Their
+  bigger numbers pay for it.
+- *Dealt* (the audit plus a greedy climber's reach within 1 bit of the set's median):
+  - Whole Answer 5: {5, 1}, {5, 4}, {7, 2}, {7, 4}, {7, 5};
+  - High Start 6: {5, 1}, {5, 4}, {7, 2}–{7, 5};
+  - Steep Ratio 4: {5, 2}, {5, 3}, {7, 3}, {7, 4}.
+
+### 10.3 Far Crossing's and High Start's new tie-breakers
+
+Each now aims at a multiple of q^(L+1), L the level the main part reached (below level 0, any whole number). So every
+step up the main part's ladder makes the target q times coarser and restarts the tie-breaker's climb (row 3). They read
+the other line, so moves of the other line oppose them (row 6):
+
+| Family | tie-breaker | reads |
+|---|---|---|
+| Far Crossing | far-gap | the gap between the two x-intercepts |
+| Far Crossing | far-height | the height (y) where the lines cross |
+| High Start | start-echo | the steeper line's y-intercept |
+| High Start | start-crossing | the x where the lines cross |
+
+They replace far-right, far-prime, high-and-rising and start-factors, which rarely reset (6% and 11% of main steps in
+§9.2). The kit gained `levelOf` / `level_of` and `offMultiple` / `off_multiple`; the starters read the level from their
+own score. Far Crossing deals 7 numbers (q 11, r 2–6 and 8; q 7, r 4).
+
+### 10.4 Measured on the final pool
+
+FINALS
