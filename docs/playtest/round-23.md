@@ -96,7 +96,7 @@ on this change". So "used by hand" below means tried there, twice each.
 
 Two more things seen:
 - What if showed **"Your points on it −36.30 points"** while the same line's card read 37.08 points. Negative points are
-  never explained (10). The second zoom showed 10.08 against the card's 5.82: the header/Why mismatch again.
+  never explained (read below 11, not in a screenshot). The second zoom showed 10.08 against the card's 5.82: the header/Why mismatch again.
 - Alice (Prime Staircase) finished **1st, 303.09**, and her agent kept stepping up late: the chart rises in the last
   two minutes. The best lines still held runs of **one** prime ("1¹³⁄₂₉"), so no run of two was reached (13). A redraw
   changed the ending digit 7 → 3 → 7.
@@ -110,5 +110,5 @@ Two more things seen:
 | S3 | The turn's and the zoom's sketches do not draw the line, and the turn's label is covered by its arrowhead ("¼ TUR▶") | 08, 11 | minor (views) |
 | S4 | Inputs are labelled with raw parameter names ("centre", "turn", "f"), with no hint of what may be typed ("origin", "left", "3/4") | 07, 10 | minor (app) |
 | S5 | Other seats' moves show as "Line N changed." in the public log, so who lost what to a turn or zoom is invisible | 12 | minor (by design? coordinator) |
-| S6 | What if can show negative points on a line (−36.30) with no explanation | 10 | minor (views) |
+| S6 | What if can show negative points on a line (−36.30) with no explanation | — | minor (views) |
 | S7 | A turn costs 52–112 energy in What if, 3–7 times an ordinary move | 07, 09 | watch (pricing) |
