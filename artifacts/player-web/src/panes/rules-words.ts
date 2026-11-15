@@ -69,6 +69,6 @@ export function rulesFacts(r: RulesInput): [string, string][] {
     ["Power", powerText(r.powerPerSecond)],
     ["Energy fills in", duration(r.fullChargeSeconds)],
     ["Totals counted", `every ${duration(r.scoreIntervalSeconds ?? 10)}`],
-    ["Others' totals", (r.peerNoiseBits ?? 8) === 0 ? "exact" : `blurred while live (about ${r.peerNoiseBits ?? 8} bits)`],
+    ["Others' bits", (r.peerNoiseBits ?? 8) === 0 ? "exact" : `blurred while live (about ${r.peerNoiseBits ?? 8} bits); totals exact`],
   ];
 }

@@ -155,6 +155,10 @@ try {
     assert.match(logged, /Line \d+ (changed|was born)|Your agent moved line \d+/, `${label}: the public log lists moves: ${logged.slice(0, 200)}`);
     assert.doesNotMatch(logged, /Practice partner \d+ moved/, `${label}: live, the public log names no other mover`);
     assert.match(logged, /Your points (about|stayed about)/, `${label}: live, your points in the log are estimates`);
+    // The totals are exact (W3 #662, call 15): the header's total is never written as an estimate, and its note says so.
+    const total = page.getByTestId("text-my-total");
+    assert.doesNotMatch(await total.innerText(), /about/, `${label}: live, your total is exact`);
+    assert.match((await total.getAttribute("title")) ?? "", /counted exactly/, `${label}: the total's note says it is exact`);
     console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
     await feed.getByTestId("button-feed-mode-mine").click();
     await feed.getByTestId("text-move-line").first().waitFor();

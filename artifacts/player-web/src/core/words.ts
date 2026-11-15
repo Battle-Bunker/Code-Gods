@@ -49,9 +49,11 @@ export const SCORE_SENTENCE = scoreSentence();
 export const totalSumNote = (one = "line") => `Your total is the sum of your points on every ${one}.`;
 /** Beside the formula's "others' bits". */
 /** Said once where the others' numbers show, while the room blurs them (v1 peerNoiseBits: keeps their rules secret). */
-export const BLURRED_NOTE = "While the game runs, the others' bits are deliberately blurred to keep their rules secret, so they and your points are estimates; the final count, when the game ends, is exact.";
+export const BLURRED_NOTE = "While the game runs, the others' bits on each object are deliberately blurred to keep their rules secret, so they and your points on each object are estimates. Your total in the standings is counted exactly.";
+/** Beside the total, while the room blurs the others' bits: the total itself is exact (W3 #662, the coordinator's call 15). */
+export const EXACT_TOTAL_NOTE = "Your total is counted exactly at every count, although the points shown on each object are estimates while the game runs.";
 /** Results, once a blurred game has ended (v1's wording). */
-export const BLURRED_ENDED_NOTE = "Final points are counted exactly now the game has ended. During the game your points were an estimate: how much the others want each object is blurred to keep their rules secret.";
+export const BLURRED_ENDED_NOTE = "Final points are counted exactly now the game has ended. During the game the totals were exact too, but the points on each object were estimates: how much the others want each object is blurred to keep their rules secret.";
 export const othersNote = (one = "line") => `Others' bits: every other player's rarity on this ${one}, added together. A ${one} scores when it is rare for you and for them.`;
 /** When the standings were counted (world seconds): a move's points join a total only at the next count. */
 export const countedNote = (worldSeconds: number | null | undefined, length?: number | null): string | null =>
