@@ -1,5 +1,5 @@
 // Whole Crossing · Example: the gradient's smallest prime factor
-// Main part: the x-axis crossing close to a whole number. Tie-breaker: the gradient's smallest prime factor.
+// Main part: the x-axis crossing close to the dealt whole numbers. Tie-breaker: the gradient's smallest prime factor.
 // What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 // no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 // the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -12,17 +12,21 @@
 // How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, null is no score.
 function score(m, c, p) {
   if (m === null) {               // the vertical line x = c
-    const k = whole(c);                             // the whole number nearest where it stands (x = c)
+    const t = Q.div(Q.sub(c, p.r), p.q), j = whole(t);
+    let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest
+    if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);
     const main = Q.neg(Q.abs(Q.sub(c, k)));
     const fk = factors(k);                          // its prime factors, smallest first
     return [main, null];
   }
   if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score
   const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis
-  const k = whole(x);                             // the whole number nearest the crossing
+  const t = Q.div(Q.sub(x, p.r), p.q), j = whole(t);
+  let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest
+  if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);
   const main = Q.neg(Q.abs(Q.sub(x, k)));
   const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)
-  return [main, fm[0] ?? 1];   // main: how far the line's x-axis crossing is from a whole number (closer is better); tie-breaker: the gradient's smallest prime factor big is better
+  return [main, fm[0] ?? 1];   // main: how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better); tie-breaker: the gradient's smallest prime factor big is better
 }
 
 const FAR = 3;      // how far one change may go
@@ -32,6 +36,7 @@ const PROTECT = [];    // lines where you promised not to lower the others, e.g.
 
 function agent(offer) {
   if (LEAVE.includes(offer.object)) return null;   // a deal: leave this line alone
+  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the line)
   // A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
   // sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)
   contested(offer, 3);

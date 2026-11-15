@@ -83,6 +83,11 @@ export interface FamilyEntry {
    * Without it, a vertical line scores nothing and a starter only tips it.
    */
   readonly vertical?: { readonly main: Lines; readonly defined?: readonly string[] };
+  /**
+   * A ladder with no top (design-principles.md 1 and 2): lines that add the step to the next rung up to `tries`, one
+   * jump through the valley between rungs, priced by its size. Every starter but the naive one takes them.
+   */
+  readonly rungs?: Lines;
 }
 
 const neg = (ts: string) => `Q.neg(${ts})`;
@@ -374,44 +379,67 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "prime-landing",
-    mainSays: "how far the y-intercept is from the nearest prime ending in the rule's digit, or minus one on the mirror (closer is better)",
+    rungs: {
+      ts: [
+        "// The next rung up (the ladder has no top): one jump through the valley between, priced by its size.",
+        "for (let t = Q.add(near(c, prime, p.ends), 10), i = 0; i < 100; t = Q.add(t, 10), i++) if (prime(t)) { tries.push([move(\"si.shift\", { k: Q.sub(t, c) }), m, t]); break; }",
+      ],
+      py: [
+        "# The next rung up (the ladder has no top): one jump through the valley between, priced by its size.",
+        "t = near(c, prime, p[\"ends\"]) + 10",
+        "for _ in range(100):",
+        "    if prime(t):",
+        "        tries.append((move(\"si.shift\", k=t - c), m, t))",
+        "        break",
+        "    t += 10",
+      ],
+    },
+    mainSays: "the y-intercept itself when it is a prime ending in the rule's digit (bigger is better: a ladder with no top), else minus how far it is from the nearest one",
     main: {
-      ts: ["const s = p.side ?? 1;                           // 1, or −1 on the mirror: minus a prime", "const landing = Q.mul(s, near(Q.mul(s, c), prime, p.ends));   // the (minus) prime ending in p.ends nearest", `const main = ${neg("Q.abs(Q.sub(c, landing))")};`],
-      py: ["s = p.get(\"side\", 1)                           # 1, or -1 on the mirror: minus a prime", "landing = s * near(s * c, prime, p[\"ends\"])   # the (minus) prime ending in p[\"ends\"] nearest", "main = -abs(c - landing)"],
+      ts: [
+        "const landing = near(c, prime, p.ends);         // the prime ending in p.ends nearest the y-intercept: the rung",
+        "const main = Q.eq(c, landing) ? landing : Q.neg(Q.abs(Q.sub(c, landing)));   // on a rung: the rung; else below every rung",
+      ],
+      py: [
+        "landing = near(c, prime, p[\"ends\"])             # the prime ending in p[\"ends\"] nearest the y-intercept: the rung",
+        "main = landing if c == landing else -abs(c - landing)   # on a rung: the rung; else below every rung",
+      ],
     },
     vertical: {
       main: {
         ts: [
-          "const landing = near(c, prime, p.ends);         // it lands on the x-axis: the prime ending in p.ends nearest",
-          "const main = Q.neg(Q.abs(Q.sub(c, landing)));",
+          "const landing = near(c, prime, p.ends);         // it lands on the x-axis: the rung nearest there",
+          "const main = Q.eq(c, landing) ? landing : Q.neg(Q.abs(Q.sub(c, landing)));",
         ],
         py: [
-          "landing = near(c, prime, p[\"ends\"])             # it lands on the x-axis: the prime ending in p[\"ends\"] nearest",
-          "main = -abs(c - landing)",
+          "landing = near(c, prime, p[\"ends\"])             # it lands on the x-axis: the rung nearest there",
+          "main = landing if c == landing else -abs(c - landing)",
         ],
       },
     },
     tieBreakers: {
-      "big-prime": { ts: "Q.abs(landing)", py: "abs(landing)", says: "a bigger prime is better", lenses: ["shift"], steps: 3, tryThis: "change FAR = 3 to 2: shorter steps cost less; does it still jump past wider gaps between primes?" },
-      "prime-gradient": {
-        pre: { ts: ["const mp = Q.mul(p.side ?? 1, near(Q.mul(p.side ?? 1, m), prime, p.ends));   // the (minus) prime ending in p.ends nearest the gradient"], py: ["mp = p.get(\"side\", 1) * near(p.get(\"side\", 1) * m, prime, p[\"ends\"])   # the (minus) prime ending in p[\"ends\"] nearest the gradient"] },
-        ts: neg("Q.abs(Q.sub(m, mp))"), py: "-abs(m - mp)", says: "a gradient close to such a prime too is better",
-        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
+      "shared-factor": {
+        pre: { ts: ["const wm = whole(Q.div(Q.sub(Q.mul(2, m), 1), 2));   // the gradient's whole part (rounded down)"], py: ["wm = whole((2 * m - 1) / 2)                # the gradient's whole part (rounded down)"] },
+        ts: "common(Q.sub(landing, 1), wm)", py: "common(landing - 1, wm)", says: "that prime minus 1 sharing a bigger factor with the gradient's whole part is better",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the rung stays.",
       },
-      "next-prime": {
-        pre: { ts: ["const y1 = Q.abs(Q.add(m, c));                 // y(1) = m + c, ignoring its sign"], py: ["y1 = abs(m + c)                            # y(1) = m + c, ignoring its sign"] },
-        ts: neg("Q.abs(Q.sub(y1, near(y1, prime, p.ends)))"), py: "-abs(y1 - near(y1, prime, p[\"ends\"]))", says: "y(1) (ignoring sign) close to such a prime too is better",
-        lenses: ["tilt", "shift"], steps: 3, tryThis: "remove the \"shift\" line: tilting keeps the landing and moves y(1) by k.",
-      },
-      "m-spf": {
-        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
-        ts: "fm[0] ?? 1", py: "fm[0] if fm else 1", says: "the gradient's smallest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
-      },
-      "m-gpf": {
-        pre: { ts: ["const fm = factors(m) ?? [];             // prime factors, smallest first ([] for 0, 1, -1 and fractions)"], py: ["fm = factors(m) or []               # prime factors, smallest first ([] for 0, 1, -1 and fractions)"] },
-        ts: "fm.at(-1) ?? 1", py: "fm[-1] if fm else 1", says: "the gradient's largest prime factor big is better",
-        lenses: ["shift", "tilt"], steps: 3, tryThis: "change FAR = 3 to 2: tilting never moves the y-intercept, so the landing stays.",
+      "climb-on": {
+        pre: {
+          ts: [
+            "let on = 0;                                     // y(1), y(2), ... new primes ending in p.ends, in a row",
+            "for (let n = 1; n <= 12; n++) { const t = Q.add(Q.mul(m, n), c); if (Q.eq(m, 0) || Q.eq(t, landing) || !prime(t) || !Q.toString(t).endsWith(String(p.ends))) break; on++; }",
+          ],
+          py: [
+            "on = 0                                          # y(1), y(2), ... new primes ending in p[\"ends\"], in a row",
+            "for n in range(1, 13):",
+            "    t = m * n + c",
+            "    if m == 0 or t == landing or not prime(t) or t % 10 != p[\"ends\"]:",
+            "        break",
+            "    on += 1",
+          ],
+        },
+        ts: "on", py: "on", says: "y(1), y(2), ... going on longer as primes ending in the rule's digit is better",
+        lenses: ["tilt", "shift"], steps: 3, tryThis: "remove the \"shift\" line: tilting keeps the rung and changes every step of the run.",
       },
     },
   },
@@ -476,12 +504,14 @@ export const CATALOGUE: readonly FamilyEntry[] = [
   },
   {
     family: "whole-crossing",
-    mainSays: "how far the line's x-axis crossing is from a whole number (closer is better)",
+    mainSays: "how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better)",
     main: {
       ts: [
         "if (Q.isZero(m)) return null;                   // a flat line never crosses: the worst score",
         "const x = Q.neg(Q.div(c, m));                   // where y = mx + c crosses the x-axis",
-        "const k = whole(x);                             // the whole number nearest the crossing",
+        "const t = Q.div(Q.sub(x, p.r), p.q), j = whole(t);",
+        "let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest",
+        "if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);",
         `const main = ${neg("Q.abs(Q.sub(x, k))")};`,
         "const fk = factors(k), fm = factors(m) ?? [];   // prime factors, smallest first ([] for 0, 1, -1)",
       ],
@@ -489,7 +519,11 @@ export const CATALOGUE: readonly FamilyEntry[] = [
         "if m == 0:                                      # a flat line never crosses: the worst score",
         "    return None",
         "x = -c / m                                      # where y = mx + c crosses the x-axis",
-        "k = whole(x)                                    # the whole number nearest the crossing",
+        "t = (x - p[\"r\"]) / p[\"q\"]",
+        "j = whole(t)",
+        "k = p[\"r\"] + p[\"q\"] * j   # the dealt number nearest",
+        "if 2 * (j - t) == 1 and abs(k - p[\"q\"]) <= abs(k):",
+        "    k = k - p[\"q\"]",
         "main = -abs(x - k)",
         "fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)",
       ],
@@ -497,12 +531,18 @@ export const CATALOGUE: readonly FamilyEntry[] = [
     vertical: {
       main: {
         ts: [
-          "const k = whole(c);                             // the whole number nearest where it stands (x = c)",
+          "const t = Q.div(Q.sub(c, p.r), p.q), j = whole(t);",
+          "let k = Q.add(p.r, Q.mul(p.q, j));   // the dealt number nearest",
+          "if (Q.eq(Q.mul(2, Q.sub(j, t)), 1) && Q.cmp(Q.abs(Q.sub(k, p.q)), Q.abs(k)) <= 0) k = Q.sub(k, p.q);",
           "const main = Q.neg(Q.abs(Q.sub(c, k)));",
           "const fk = factors(k);                          // its prime factors, smallest first",
         ],
         py: [
-          "k = whole(c)                                    # the whole number nearest where it stands (x = c)",
+          "t = (c - p[\"r\"]) / p[\"q\"]",
+          "j = whole(t)",
+          "k = p[\"r\"] + p[\"q\"] * j   # the dealt number nearest",
+          "if 2 * (j - t) == 1 and abs(k - p[\"q\"]) <= abs(k):",
+          "    k = k - p[\"q\"]",
           "main = -abs(c - k)",
           "fk = factors(k)                                 # its prime factors, smallest first",
         ],

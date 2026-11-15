@@ -395,7 +395,9 @@ back) or TRIAL (a declared experiment, measured and reported).
     and parked midway; an exact main is 7.6–8.0 bits across the four; its tie-breakers reading minus
     primes and squares on the mirror); Same on Both Rulers deals T = 6 and −6 (the reflection through the origin,
     which leaves every tie-breaker as it was); Prime Gradient deals its ending 1 and minus (y → −y, the y-intercept
-    near minus a prime too), Prime Staircase its ending 3 and a run of minus primes (y → −y). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
+    near minus a prime too), Prime Staircase its ending 3 and a run of minus primes (y → −y). Whole Crossing deals a residue (owner decision
+    41): the crossing close to a whole number leaving r when divided by 5, r = 1 … 4; r and 5 − r are mirrors (x → −x),
+    r = 1 and 2 measured peers (an exact main 3.85 and 4.23 bits; it was 1.35 for any whole number). Each mirror's symmetry is a unit test. Ending grids (1, 3, 7, 9) fail
     the audit at any floor: the code makes a prime cost about ½ bit per unit, so the first qualifying primes differ by
     up to 4 bits.
 
@@ -439,6 +441,13 @@ back) or TRIAL (a declared experiment, measured and reported).
     divided by q) on Whole Answer's x, Far Crossing, High Start and Steep Ratio; the number you divide by (k) on No
     Fractions; the gap ratio (k) on Double Gap. Right Angle and Forty-Five keep none. Only the numbers of equal reach
     and equal value are dealt (two-line-systems.md §8.3). `lines-pairs` stays non-default.
+
+19. **TRIAL** (declared 15 Nov): for a ladder main part (design-principles.md: a main with no top whose rungs are numbers
+    the code prices), the equal-opportunity audit (v2-params-equal) compares bits minus the rung's code cost within 0.5
+    bits, not the best and median knots: a climb pays Δφ to reach a rung, so equal bits per unit of cost is equal
+    opportunity per unit of energy. Play is the judge: pool-dynamics per dealt value, best to worst mean gain within
+    1.5 inside a family. First applied to Prime Landing's ladder (endings 1, 3, 7, 9: every rung's bits are its code
+    cost plus 1.0).
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

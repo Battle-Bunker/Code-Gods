@@ -136,6 +136,24 @@ function tablesTs(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
     "for (let i = 0; i < 4; i++) { LINE.push(\"row\" + i, \"col\" + i); LINES.push([4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]); }",
   );
   if (needs.has("boxes")) out.push("const BOXES = [0, 2, 8, 10].map(r => [r, r + 1, r + 4, r + 5]);   // the corner boxes' cells: top-left, top-right, bottom-left, bottom-right");
+  if (needs.has("lead")) out.push(
+    "",
+    "// For each base: every start (its first 1 to 8 digits) of its powers up to the 1000th, to the smallest exponent with it.",
+    "const LEAD = {};",
+    "function lead(base) {",
+    "  if (!LEAD[base]) {",
+    "    const t = LEAD[base] = new Map();",
+    "    let x = 1n;   // base to the k: exact while short, then its first 40 digits (the first 8 stay exact)",
+    "    for (let k = 0; k <= 1000; k++) {",
+    "      const s = String(x).slice(0, 8);",
+    "      for (let n = 1; n <= s.length; n++) if (!t.has(s.slice(0, n))) t.set(s.slice(0, n), k);",
+    "      x *= BigInt(base);",
+    "      if (x >= 10n ** 40n) x /= 10n;",
+    "    }",
+    "  }",
+    "  return LEAD[base];",
+    "}",
+  );
   if (edit) out.push(
     "",
     "// The board after adding f(0), f(1), ... to the cells listed; the board unchanged if a number would leave 0 ... 9",
@@ -180,6 +198,7 @@ function agentTs(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     "function agent(offer) {",
     ...(kind === "naive" ? [] : [
       "  if (LEAVE.includes(offer.object)) return null;   // a deal: leave this board alone",
+      "  if (saving(offer)) return null;   // under 10 s of your income in hand: save up for a move (the game still tells you the board)",
       "  // A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both",
       "  // sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)",
       "  contested(offer, 3);",
@@ -233,6 +252,22 @@ function tablesPy(e: GridFamilyEntry, lenses: readonly GridLensId[], edit = true
     "    LINES += [[4 * i, 4 * i + 1, 4 * i + 2, 4 * i + 3], [i, i + 4, i + 8, i + 12]]",
   );
   if (needs.has("boxes")) out.push("BOXES = [[r, r + 1, r + 4, r + 5] for r in (0, 2, 8, 10)]   # the corner boxes' cells: top-left, top-right, bottom-left, bottom-right");
+  if (needs.has("lead")) out.push(
+    "LEAD = {}   # for each base: every start (its first 1 to 8 digits) of its powers up to the 1000th, to the smallest exponent with it",
+    "", "",
+    "def lead(base):",
+    "    if base not in LEAD:",
+    "        t, x = {}, 1   # x: base to the k, exact while short, then its first 40 digits (the first 8 stay exact)",
+    "        for k in range(1001):",
+    "            s = str(x)[:8]",
+    "            for n in range(1, len(s) + 1):",
+    "                t.setdefault(s[:n], k)",
+    "            x *= base",
+    "            if x >= 10 ** 40:",
+    "                x //= 10",
+    "        LEAD[base] = t",
+    "    return LEAD[base]",
+  );
   if (edit) out.push(
     "", "",
     "def edit(b, cells, f):",
@@ -279,6 +314,8 @@ function agentPy(kind: AgentKind, e: GridFamilyEntry, tieBreaker: string | null,
     "def agent(offer):",
     ...(kind === "naive" ? [] : [
       "    if offer.object in LEAVE:   # a deal: leave this board alone",
+      "        return None",
+      "    if saving(offer):   # under 10 s of your income in hand: save up for a move (the game still tells you the board)",
       "        return None",
       "    # A tug-of-war (another player taking back your gains on this board, 3 times lately) burns energy on both",
       "    # sides: tell your owner, who can make a deal. (Leaving the board instead gives it away: try it and compare.)",

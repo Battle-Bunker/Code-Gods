@@ -108,8 +108,8 @@ export interface GridFamilyEntry {
   readonly tieBreakers: Readonly<Record<string, GridTieBreakerEntry>>;
   /** The Simple starter's moves besides adding to one cell, and the Bold starter's besides its two-cell moves. */
   readonly simple: readonly GridLensId[];
-  /** The tables the score reads (as GridLens.needs). */
-  readonly needs?: readonly ("lines" | "boxes")[];
+  /** The tables the score reads (as GridLens.needs); `lead`: the helper `lead(base)`, the starts of base's powers (Leading Digits). */
+  readonly needs?: readonly ("lines" | "boxes" | "lead")[];
 }
 
 const PRIMES_TS = "b.filter(x => [2, 3, 5, 7].includes(x)).length", PRIMES_PY = "len([x for x in b if x in (2, 3, 5, 7)])";
@@ -121,6 +121,41 @@ const CORNERS = { ts: "b[0] + b[3] + b[12] + b[15]", py: "b[0] + b[3] + b[12] + 
 const FIRST_COLUMN = { ts: "b[0] + b[4] + b[8] + b[12]", py: "b[0] + b[4] + b[8] + b[12]" };
 const oddTie = (lenses: readonly GridLensId[], tryThis: string, steps = 2): GridTieBreakerEntry =>
   ({ ts: "b.filter(x => x % 2).length", py: "len([x for x in b if x % 2])", says: "more odd numbers is better", lenses, steps, tryThis });
+
+/** The four readings (lib/v2-grid readings.ts): two rows (or columns) at a time read as one number, in the dealt layout. */
+const READINGS = {
+  ts: [
+    "const R = p.layout === \"halves\" ? [0, 1, 2, 3] : [0, 2, 1, 3];   // the rows (and columns) in reading order: the first two, then the other two",
+    "const read = (k, byRow) => [R[2 * k], R[2 * k + 1]].flatMap(r => [0, 1, 2, 3].map(j => (byRow ? b[4 * r + j] : b[4 * j + r]))).reduce((t, x) => t * 10 + x, 0);   // two rows (or two columns) as one number",
+    "const x = [read(0, true), read(1, true), read(0, false), read(1, false)];   // the four readings",
+  ],
+  py: [
+    "R = [0, 1, 2, 3] if p[\"layout\"] == \"halves\" else [0, 2, 1, 3]   # the rows (and columns) in reading order: the first two, then the other two",
+    "x = []   # the four readings: two rows (or two columns) as one number",
+    "for by_row in (True, False):",
+    "    for k in (0, 1):",
+    "        y = 0",
+    "        for r in R[2 * k:2 * k + 2]:",
+    "            for j in range(4):",
+    "                y = y * 10 + (b[4 * r + j] if by_row else b[4 * j + r])",
+    "        x.append(y)",
+  ],
+};
+/** One off the main part for each row (or column) holding the same numbers as an earlier one. */
+const REPEATS = {
+  ts: [
+    "const seen = new Set();",
+    "for (let i = 0; i < 8; i++) { const k = (i < 4 ? \"r\" : \"c\") + [0, 1, 2, 3].map(j => (i < 4 ? b[4 * i + j] : b[4 * j + i - 4])).sort(); if (seen.has(k)) main--; else seen.add(k); }   // a row (or column) holding the same numbers as an earlier one: one off",
+  ],
+  py: [
+    "seen = set()",
+    "for i in range(8):   # a row (or column) holding the same numbers as an earlier one: one off",
+    "    k = (i < 4, tuple(sorted(b[4 * i + j] if i < 4 else b[4 * j + i - 4] for j in range(4))))",
+    "    if k in seen:",
+    "        main -= 1",
+    "    seen.add(k)",
+  ],
+};
 
 /**
  * The beginner pool's eight families (owner decision 22), then the second pool's Box Totals, then the more-rules pool's seven
@@ -628,6 +663,71 @@ export const GRID_CATALOGUE: readonly GridFamilyEntry[] = [
         ts: "-patches.filter(x => b[x[0]] > 0).reduce((t, x) => t + Math.abs(x.length - b[x[0]]), 0)", py: "-sum(abs(len(x) - b[x[0]]) for x in patches if b[x[0]] > 0)",
         says: "wrong-size patches closer to their number in size is better", lenses: ["add", "swap"], steps: 2,
         tryThis: "remove the \"swap\" line: can single steps grow or shrink a patch toward its number?",
+      },
+    },
+  },
+  {
+    family: "divisibility", simple: ["swap"],
+    mainSays: "the q's dividing the four readings (or the two differences), added up, less the repeated rows and columns (more is better)",
+    main: {
+      ts: [
+        ...READINGS.ts,
+        "const nums = p.lens === \"powers\" ? x : [x[0] - x[1], x[2] - x[3]];   // the numbers counted: the readings, or the rows' and the columns' differences",
+        "let main = 0, leftover = 0;",
+        "for (let y of nums) { if (!y) continue; let v = 0; while (y % p.q === 0) { y /= p.q; v++; } main += v; for (const d of String(Math.abs(y))) leftover += +d; }   // count the q's dividing it; what is left: its digits",
+        ...REPEATS.ts,
+      ],
+      py: [
+        ...READINGS.py,
+        "nums = x if p[\"lens\"] == \"powers\" else [x[0] - x[1], x[2] - x[3]]   # the numbers counted: the readings, or the rows' and the columns' differences",
+        "main, leftover = 0, 0",
+        "for y in nums:   # count the q's dividing it; what is left: its digits",
+        "    if y:",
+        "        while y % p[\"q\"] == 0:",
+        "            y //= p[\"q\"]",
+        "            main += 1",
+        "        leftover += sum(int(d) for d in str(abs(y)))",
+        ...REPEATS.py,
+      ],
+    },
+    tieBreakers: {
+      "leftover-digits": {
+        ts: "leftover", py: "leftover",
+        says: "what is left after dividing out the q's, its digits added up, bigger is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "remove the \"swap\" line: can single steps change what is left without losing a q?",
+      },
+    },
+  },
+  {
+    family: "leading-digits", simple: ["swap"], needs: ["lead"],
+    mainSays: "the leading digits each reading shares with a power of b, added up, less the repeated rows and columns (more is better)",
+    main: {
+      ts: [
+        ...READINGS.ts,
+        "const t = lead(p.b);   // the starts of b's powers, each to its smallest exponent",
+        "let main = 0, exponents = 0;",
+        "for (const y of x) { const s = String(y); let n = 0; while (n < s.length && t.has(s.slice(0, n + 1))) n++; main += n; if (n) for (const d of String(t.get(s.slice(0, n)))) exponents += +d; }   // its digits matched, and that power's exponent's digits",
+        ...REPEATS.ts,
+      ],
+      py: [
+        ...READINGS.py,
+        "t = lead(p[\"b\"])   # the starts of b's powers, each to its smallest exponent",
+        "main, exponents = 0, 0",
+        "for y in x:   # its digits matched, and that power's exponent's digits",
+        "    s, n = str(y), 0",
+        "    while n < len(s) and s[:n + 1] in t:",
+        "        n += 1",
+        "    main += n",
+        "    if n:",
+        "        exponents += sum(int(d) for d in str(t[s[:n]]))",
+        ...REPEATS.py,
+      ],
+    },
+    tieBreakers: {
+      "exponent-digits": {
+        ts: "exponents", py: "exponents",
+        says: "the matched powers' exponents, their digits added up, bigger is better", lenses: ["add", "swap"], steps: 2,
+        tryThis: "change FAR = 2 to 1: single steps only; does it still find powers with bigger exponents?",
       },
     },
   },

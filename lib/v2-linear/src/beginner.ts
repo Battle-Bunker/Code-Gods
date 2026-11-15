@@ -4,11 +4,11 @@
  * dealable tie-breakers, every one valued by an exact sum (sums.ts). Every layer is graded (owner decision 13). A dealt
  * rule is the main layer plus one tie-breaker (decision 14 and its clarification).
  */
-import { Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
+import { gcd, Qn, q, ref, type ElementRef, type Q } from "@workspace/v2-core";
 import { lineParams } from "./line.ts";
 import { allUndefined, distance, family, gap, more, num, prime, undef, undealt, type Ctx, type L, type Shape } from "./layers.ts";
 import { gcdTerm } from "./rational.ts";
-import { distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
+import { nearestResidue, distanceToPrime, distanceToPrimeEnding, distanceToWhole, isPrimeEnding, nearestPrimeEnding, PRIME_ENDINGS, isPrime, largestPrimeFactor, nearbyPrimes, nearestInteger, nearestSquareRoot, primeFactorCount, smallestPrimeFactor } from "./numbers.ts";
 
 /** The smallest and largest prime factor of a whole number (|n|); 1 for 0, ±1 and fractions. */
 const spfQ = (x: Q): Q => q(x.d === 1n ? smallestPrimeFactor(x.n) : 1n);
@@ -61,13 +61,6 @@ type Ends = { ends: number; side?: 1 | -1 };
  * PRIME_ENDINGS (numbers.ts) stays the declared grid.
  */
 const ENDS_STAIRCASE: Ends[] = [{ ends: 3 }, { ends: 3, side: -1 }];   // and its mirror: minus primes (y → −y)
-/**
- * Prime Landing also deals its mirror (side −1: "minus a prime ending in 7"), so parameter drift (the coordinator's
- * trial call 18) has a peer to redraw. The mirror is an exact peer: the law is symmetric under y → −y (the line codes
- * are even in a and c), and side −1 reads the reflected line as side 1 reads the line (lib/v2-linear test
- * beginner.test.ts holds score(side −1, reflected) = score(side 1, line)).
- */
-const ENDS_LANDING: Ends[] = [{ ends: 7 }, { ends: 7, side: -1 }];
 /** "minus " for the mirror (side −1). */
 const minus = (p: Ends) => (p.side === -1 ? "minus " : "");
 /** x, or −x on the mirror. */
@@ -205,35 +198,59 @@ export const treasure = family<KT>("treasure", "Treasure", ["table", "si", "cart
 
 // ---------------------------------------------------------------- 6. Prime Landing (the owner's example 1, regraded)
 
+/**
+ * Prime Landing as a ladder (design-principles.md, owner decisions 26, 29, 30; the owner, 15 Nov: "long ladders that are
+ * hard to climb ... secondary rules that are entangled with the primary rule so that ... moving to a higher primary
+ * energy requires starting over to climb higher on the secondary dimension").
+ *
+ * Main part, unbounded: the y-intercept should be a prime ending in k, the bigger the better (u = c on such a prime);
+ * any other line scores below every rung, graded by its distance to the nearest one (u = −d). Every rung has a higher
+ * one, each rarer under the law (a prime coefficient costs the code about ½ bit a unit, so a rung's bits rise with it and
+ * the climb's price, Δφ, rises with them); a climber reaches the next rung only by landing on it, through no gentler
+ * slope. (A first version scored u = p − d; sampled to 5 million, it was "make c big": the primes did not matter.)
+ * Tie-breakers, read from that prime p: the factor p − 1 shares with the gradient's whole part (the best gradient
+ * depends on p, so a new rung restarts the climb), and how long y(1), y(2), … go on being primes ending in k from p.
+ * Dealt: k = 1, 3, 7, 9.
+ */
+const LANDING_ENDS: Ends[] = PRIME_ENDINGS.map(ends => ({ ends }));
 const landingShape: Shape<Ends> = {
-  main: withEnds(distance<Ends>("landing", "the y-intercept close to the dealt prime", "", "si"),
-    p => `The y-intercept should be as close as possible to ${minus(p)}${primeEnding(p)}.`),
+  main: withEnds(more<Ends>("landing", "the y-intercept on as big a dealt prime as possible", "", "si"),
+    p => `The y-intercept should be a prime ending in ${p.ends}, the bigger the better; any other line scores below them all, the closer to one the better.`),
   tieBreakers: [
-    prime(more<Ends>("big-prime", "that prime", "That prime should be as big as possible.", "si")),
-    withEnds(distance<Ends>("prime-gradient", "the gradient close to such a prime too", "", "si"), p => `The gradient should be as close as possible to ${minus(p)}${primeEnding(p)} too.`),
-    withEnds(distance<Ends>("next-prime", "y(1) close to such a prime too", "", "table"), p => `y(1) = m + c should be as close as possible to ${primeEnding(p)} too.`),
-    ...factorTies<Ends>("m", "the gradient"),
+    more<Ends>("shared-factor", "the factor that prime minus 1 shares with the gradient's whole part",
+      "That prime minus 1 and the whole part of the gradient should share as big a factor as possible (a whole part of 0 shares nothing).", "si"),
+    withEnds(more<Ends>("climb-on", "how long y(1), y(2), … go on being such primes", "", "table"),
+      p => `From that prime, y(1), y(2), y(3), … should go on being new primes ending in ${p.ends} for as long as possible.`),
   ],
 };
-export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, ENDS_LANDING, (ctx, pr) => {
-  // A vertical line never meets the y-axis: it lands on the x-axis instead, and that number should be close to a prime.
+/** The ladder's value: x itself on a prime ending in k, else minus its distance to the nearest one. */
+const rung = (x: Q, k: number): { p: bigint; u: Q } => {
+  const p = nearestPrimeEnding(x, k);
+  return { p, u: x.d === 1n && x.n === p ? x : Qn.neg(Qn.abs(Qn.sub(x, q(p)))) };
+};
+export const primeLanding = family<Ends>("prime-landing", "Prime Landing", ["si", "cart", "table", "gen"], landingShape, LANDING_ENDS, (ctx, pr) => {
+  // A vertical line never meets the y-axis: it lands on the x-axis instead, and that number climbs the same ladder.
   const vx = verticalAt(ctx);
-  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: distance to ${primeEnding(pr)}`, distanceToPrimeEnding(vx.x, pr.ends), vx.from);
-  const cRef = ref("si", "c"), mRef = ref("si", "m"), y1 = ref("table", "y", { x: 1 });
+  if (vx) return verticalMain(ctx, landingShape, `a vertical line lands on the x-axis at ${Qn.toWire(vx.x)}: the ladder of primes ending in ${pr.ends}`, rung(vx.x, pr.ends).u, vx.from);
+  const cRef = ref("si", "c"), mRef = ref("si", "m");
   const cv = ctx.read(cRef);
   const c = num(cv);
   if (c === null) return allUndefined(ctx, landingShape, cv, cRef);
-  const m = num(ctx.read(mRef))!, v1 = num(ctx.read(y1))!;
-  // On the mirror (side −1) the target is minus the prime ending in k nearest −c.
-  const p = nearestPrimeEnding(sided(pr, c), pr.ends), target = pr.side === -1 ? -p : p;
-  const mark = ref("cart", "yAxisMark", { y: target });
+  const m = num(ctx.read(mRef))!;
+  const { p, u } = rung(c, pr.ends);
+  const mark = ref("cart", "yAxisMark", { y: p });
   ctx.read(mark);
-  ctx.term("landing", `distance from the y-intercept to ${target}`, gap(c, q(target)), [cRef]);
-  ctx.term("big-prime", "that prime", q(p), [cRef]);
-  ctx.term("prime-gradient", `distance from the gradient to ${minus(pr)}${primeEnding(pr)}`, distanceToPrimeEnding(sided(pr, m), pr.ends), [mRef]);
-  ctx.term("next-prime", `distance from y(1) to ${primeEnding(pr)}`, distanceToPrimeEnding(Qn.abs(v1), pr.ends), [y1]);
-  ctx.term("m-spf", factorLabel("smallest", "the gradient", m), spfQ(m), [mRef]);
-  ctx.term("m-gpf", factorLabel("largest", "the gradient", m), gpfQ(m), [mRef]);
+  ctx.term("landing", Qn.isZero(Qn.sub(c, q(p))) ? `on the prime ${p}` : `off the prime ${p} by ${Qn.toWire(Qn.abs(Qn.sub(c, q(p))))}`, u, [cRef]);
+  const w = Qn.floor(m), aw = w < 0n ? -w : w;
+  ctx.term("shared-factor", `the factor ${p - 1n} shares with the gradient's whole part ${w}`, q(aw === 0n ? 0n : gcd(p - 1n, aw)), [cRef, mRef]);
+  const run: ElementRef[] = [], seen = new Set<bigint>([p]);   // new primes only: a flat line repeats p forever
+  for (let n = 1; n <= 12; n++) {
+    const r = ref("table", "y", { x: n }), v = num(ctx.read(r))!;
+    if (v.d !== 1n || !isPrimeEnding(v.n, pr.ends) || seen.has(v.n)) break;
+    seen.add(v.n);
+    run.push(r);
+  }
+  ctx.term("climb-on", `y(1), y(2), … primes ending in ${pr.ends} from ${p}`, q(run.length), run.length ? run : [ref("table", "y", { x: 1 })]);
   ctx.mark({ kind: "focus", ref: cRef });
   ctx.mark({ kind: "candidate", ref: mark, term: "landing" });
 });
@@ -291,8 +308,18 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
 
 // ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
-const crossingShape: Shape<object> = {
-  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "crossing"),
+/**
+ * The dealt residue (owner decision 41): the crossing should be close to a whole number that leaves r when divided by
+ * q. q = 5 and r = 1, 2, 3, 4 are dealt, so parameter drift has peers a few units apart. r and q − r are exact peers
+ * (the reflection x → −x keeps the law, sends the crossing to minus itself and r to q − r, and leaves every tie-breaker
+ * as it was); r = 1 and 2 are measured peers (docs/engine-v2/owner-decisions.md, call 18).
+ */
+type QR = { q: number; r: number };   // nearestResidue (numbers.ts) finds the target
+const CROSSINGS: QR[] = [1, 2, 3, 4].map(r => ({ q: 5, r }));
+const leaves = (p: QR) => `a whole number that leaves ${p.r} when divided by ${p.q}`;
+const crossingShape: Shape<QR> = {
+  main: { ...distance<QR>("crossing", "the x-axis crossing close to the dealt whole numbers", "", "crossing"),
+    sentence: p => `The line should cross the x-axis as close as possible to ${leaves(p)}.` },
   tieBreakers: [
     prime(more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing")),
     prime(more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing")),
@@ -305,12 +332,14 @@ const crossingShape: Shape<object> = {
       "That whole number and the gradient's top number (in lowest terms) should have as big a common factor as possible.", "crossing")),
   ],
 };
-export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, [{}], ctx => {
-  const xRef = ref("crossing", "x0"), kRef = ref("crossing", "near"), mRef = ref("si", "m");
+export const wholeCrossing = family<QR>("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, CROSSINGS, (ctx, p) => {
+  const xRef = ref("crossing", "x0"), mRef = ref("si", "m");
   const xv = ctx.read(xRef);
   const x = num(xv);
   if (x === null) return allUndefined(ctx, crossingShape, xv, xRef);   // a flat line never crosses (or lies along the axis)
-  const k = num(ctx.read(kRef))!;   // the whole number nearest the crossing (a half rounds up)
+  const k = q(nearestResidue(x, p));   // the dealt whole number nearest the crossing
+  const kRef = ref("crossing", "dealt", { q: q(p.q), r: q(p.r) });
+  ctx.read(kRef);
   ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${Qn.toWire(k)}`, gap(x, k), [xRef, kRef]);
   ctx.term("k-spf", factorLabel("smallest", "that whole number", k), spfQ(k), [kRef]);
   ctx.term("k-gpf", factorLabel("largest", "that whole number", k), gpfQ(k), [kRef]);
@@ -324,11 +353,7 @@ export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossi
   const gm = m === null ? null : gcdTerm(k.n, m.n, `common factor of ${k.n} and the gradient's top ${m.n}`);
   ctx.term("gcd-num-m", gm ? gm.label : "the gradient's top", gm ? gm.value : undef(mv), [kRef, mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
-  ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
-  // The nearest whole number on the x-axis, so the plane can draw the target (marks only).
-  const km = ref("cart", "xAxisMark", { x: k });
-  ctx.read(km);
-  ctx.mark({ kind: "candidate", ref: km, term: "crossing" });
+  ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });   // the target on the x-axis, for the plane to draw
 });
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)

@@ -76,7 +76,7 @@ export function medianLookBits(variant: string): number {
  * each variant, both languages (measured; the unit test v2-presets keeps it within 5%). The beginner game's start buys
  * STARTERS_AT_START of them at the scaled price (the coordinator's call 17), so it follows the power like the read weight.
  */
-export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 493, "line-q-lenses": 493, "grid-4-d10": 701 };
+export const MEDIAN_STARTER_BITS: Readonly<Record<string, number>> = { "line-q": 522, "line-q-lenses": 522, "grid-4-d10": 701 };
 export const STARTERS_AT_START = 3;
 /** The beginner start at this power: STARTERS_AT_START typical starters at the scaled summon price, to the nearest 10. */
 export function beginnerStart(variant: string, powerPerSecond: number): number {
@@ -146,6 +146,9 @@ export const PRESETS: readonly Preset[] = [
   { ...GRIDS, id: "grids-beginner-bidding", title: "Grids · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   // Grid starters are dearer: 900 to start, so a starter takes about the share of it a line starter takes of 600.
   fromPool("grids-more-rules", { ...V1_DEFAULT_BOARD, startingEnergy: 900 }),
+  // A readability playtest, not the default (docs/engine-v2/grid-params.md §13): Divisibility and Leading Digits, the
+  // board read as long numbers, on the beginner grid's game and economy.
+  fromPool("grids-arithmetic", { ...BEGINNER_WORLD, startingEnergy: GRIDS.startingEnergy }),
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

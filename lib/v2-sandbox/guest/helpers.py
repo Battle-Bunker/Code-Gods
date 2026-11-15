@@ -61,8 +61,11 @@
 #                                do not raise your own rarity it prices only the best two, so an act with nothing to
 #                                gain costs little. now is your score here; without the game's values it takes the step
 #                                best for your rule instead.
-#   allowance(offer)             the most one move should cost now: the agent's energy (no debt), and at most 15 seconds
-#                                of its income where the game says what it earns. climb never takes a dearer move.
+#   saving(offer)                True while the agent holds less than 10 seconds of its income: it should skip the act
+#                                (no reads: the game still tells you the line) and save up for a move. Free.
+#   allowance(offer)             the most one move should cost now: the agent's energy plus 5 seconds of its income (a
+#                                small debt), and at most 15 seconds of its income; without a known income, its energy.
+#                                climb never takes a dearer move.
 #   note(offer, text)            leave your owner a short note (they read it in the act log). At most 3 a turn.
 #   contested(offer, times)      True when pushback(offer) has reached times; it then leaves your owner a note naming
 #                                the tug-of-war and suggesting a deal with the other player.
@@ -519,11 +522,25 @@ def pair_steps(L, far, kinds):
 _ALLOWANCE_SECONDS = 15   # a move may cost at most this many seconds of the agent's income
 
 
+_CREDIT_SECONDS = 5   # it may go this many seconds of income into debt for a move
+
+
+_SAVE_SECONDS = 10   # below this many seconds of income in hand, an agent saves up rather than reads
+
+
+def saving(offer):
+    b = offer.budget()
+    income = getattr(b, "income", None)
+    return isinstance(income, (int, float)) and income > 0 and b.energy < _SAVE_SECONDS * income
+
+
 def allowance(offer):
     b = offer.budget()
-    cap = max(0, b.energy)
     income = getattr(b, "income", None)
-    return min(cap, _ALLOWANCE_SECONDS * income) if isinstance(income, (int, float)) and income > 0 else cap
+    if not (isinstance(income, (int, float)) and income > 0):
+        return max(0, b.energy)
+    # Its energy plus a few seconds' credit (reads alone can keep a busy agent's balance near 0), at most 15 s of income.
+    return min(max(0, b.energy) + _CREDIT_SECONDS * income, _ALLOWANCE_SECONDS * income)
 
 
 def climb(offer, options, now, most=None):
@@ -561,9 +578,16 @@ def climb(offer, options, now, most=None):
     # The best step it can pay for within its allowance (its energy, and a few seconds of its income).
     ranked.sort(key=lambda x: -x[0])
     cap = allowance(offer)
+    quoted = []
     for _, plan in ranked[:4]:
         p = price(offer, plan)
         if p is not None and p <= cap:
+            return _as_plan(plan)
+        quoted.append((p, plan))
+    # Nothing within it: a bigger step (the next rung of a ladder) paid from energy saved up in hand, no debt.
+    saved = offer.budget().energy
+    for p, plan in quoted:
+        if p is not None and p <= saved:
             return _as_plan(plan)
     return None
 

@@ -20,7 +20,7 @@ export const HELPERS: readonly { readonly name: string; readonly ts: string; rea
   { name: "energy", ts: "energy(offer)", py: "energy(offer)", says: "the agent's energy" },
   { name: "better", ts: "better(a, b)", py: "better(a, b)", says: "is score a better than score b (lists of parts, compared in order; null is worst)" },
   { name: "near", ts: "near(x, prime, k)", py: "near(x, prime, k)", says: "nearest whole to x passing a test (k: last digit); tie: smaller" },
-  { name: "prime", ts: "prime(n)", py: "prime(n)", says: "is n a prime whole number" },
+  { name: "prime", ts: "prime(n)", py: "prime(n)", says: "is n a prime" },
   { name: "square", ts: "square(n)", py: "square(n)", says: "is n a perfect square" },
   { name: "whole", ts: "whole(x)", py: "whole(x)", says: "the nearest whole number (a half rounds up)" },
   { name: "root", ts: "root(n)", py: "root(n)", says: "the whole square root, rounded down" },
@@ -136,7 +136,7 @@ const WORDS: Readonly<Record<string, PrimerWords>> = {
   },
 };
 
-/** An example agent's source without the deal knobs' lines (LEAVE, PROTECT, contested), for the primer. */
+/** An example agent's source without the deal knobs' lines (LEAVE, PROTECT, contested, saving), for the primer. */
 function withoutKnobs(source: string | undefined): string | undefined {
   if (source === undefined) return undefined;
   const lines = source.split("\n"), out: string[] = [];
@@ -144,6 +144,7 @@ function withoutKnobs(source: string | undefined): string | undefined {
     const l = lines[i]!;
     if (/^(LEAVE|PROTECT) = /.test(l) || /contested\(offer/.test(l) || /tug-of-war|Leaving the line|promise: on these lines/i.test(l)) continue;
     if (/^\s+if offer\.object in (LEAVE|PROTECT)/.test(l)) { i++; continue; }   // the test and its one-line body
+    if (/^\s+if saving\(offer\)/.test(l)) { i++; continue; }   // saving up for a move: the economy's, not the example's point
     out.push(l);
   }
   return out.join("\n");

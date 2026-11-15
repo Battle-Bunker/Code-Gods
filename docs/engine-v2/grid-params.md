@@ -266,3 +266,79 @@ different rows). With tie-breakers dealt the tables never reached an optimum, bu
 - **Dynamism** (30 tables, 3 climbers, 600 moves): the board never freezes (40 of 40 moves per window change it, about
   585 distinct boards, no window all stuck), no table reached all three main parts' tops, but opposed players churn at
   3–6 bits: someone reaches 20 bits in 6 of 30 tables with drift on, 4 with drift off (best 24.5).
+
+## 12. Divisibility: the first grid family built to the rule design check
+
+The design check (`design-principles.md`, 15 November) failed every dealt grid family on row 1 (each main part has an
+exact top that search finds), most on row 3 (tie-breakers not defined by the main part's attained value) and all on
+row 4 (one dealt instance). The prototypes (scratchpad p7–p9, analysis only) tried "as close as possible to a prime,
+square, semiprime …" for rows, columns and 8-digit readings, the largest prime among the row numbers, distinct primes,
+smoothness, roughness, leading digits of powers and the golden ratio. Every "close to P" form fails row 1: π favours
+small digits, so leading-zero rows (0003, 0007) make primes and squares dense, and a whole board of qualifying rows and
+columns sits at 17–30 bits where search finds it. A single 8-digit reading divisible by a high power has a formula top
+(2²⁶ = 67108864). What passes is the same goal on **overlapping readings**: every cell sits in a row reading and a
+column reading, so no formula meets all four at once.
+
+`lib/v2-grid/src/divisibility.ts` (dealt only by the §13 playtest preset). Card: "Read the top half and the bottom half row by row, and the left half
+and the right half column by column, each as one number: each should be divisible by as high a power of 3 as possible
+(count the 3s that divide it), and no two rows or two columns may hold the same numbers." Tie-breaker: "What is left of
+those numbers after dividing out their 3s should have digits adding up to as much as possible." Dealt: powers of 3 and
+matching (the two row numbers, and the two column numbers, differing by a high power of 2), each on halves or on
+alternate rows and columns. The view focuses the cells of the reading(s) with the highest power; it should also show
+each reading and its power (for example "12345678 = 3² × 1371742").
+
+| | Question | Evidence | Verdict |
+|---|---|---|---|
+| 1 | Unbounded main part? | Powers of 3: bound 64 levels, best found 28–34 (14 annealing runs of 10⁵–10⁶ moves and 8 seeded with known high multiples; at most 2 runs reach the best, the long runs had not converged). Matching: bound ≈ 52, best 28. Writing 3¹⁴ = 04782969 into one half gives 14 from that reading but leaves the other three at random; seeded runs end below annealing. | Pass on halves (operational reading: a long search still improves); alternate layouts not yet searched |
+| 2 | Ladder length? | Each level costs about log2 q bits (1.6 for 3, 1 for 2). A starter-like climber (150 tries of ±1 or a swap, 400 climbs, three seeds) passes a median of 4 levels and stops at 9.0–9.1 bits (powers, both layouts), 8.3 (matching, halves), 7.3 (matching, alternate); p90 11–14. | Pass; the four instances span 1.8 bits |
+| 3 | Tie-breaker defined by the main part's value? | It reads what is left of each number after dividing out its power. Prototype: it fell at 55–70% of main-part steps, and the best tie-breaker differs at two capped main-part levels (powers 165 vs 64, matching 71 vs 46). Test: swapping two cells lifts one reading from 3² to 3⁴ and changes what is left of it. | Pass |
+| 4 | Dealable instances? | 4 (two lenses × two layouts); a test requires at least 4. | Pass |
+| 5 | Perpendicular? | Depth-averaged PMI against the beginner eight's mains within ±0.48; between the four divisibility lenses near 0 (−0.50 at most). Measured on halves only. | Pass on halves; alternate to measure |
+| 6 | Opponents? | Roughness ("smallest prime factor as big as possible", PMI −2.47 against powers of 3, the weaker rule keeps 0.38) is the natural opponent but its balance is 2.8 and its reach 13.5 bits; distinct primes (−1.07) fails its own row 1. | Open: no balanced opponent yet |
+| 8 | What does it reach? | Starters 7–9 bits median, p90 up to 14; the top (64 levels) would be about 100 bits but is not found; nothing reachable near the hundreds. | Pass |
+| 9 | Balanced, keeps moving? | Not measured in seated play: needs value functions and starters, built when the coordinator switches the pool. | Open |
+
+The coordinator's next requirement before the beginner pool changes: at least four distinct goals, not one family with
+different q, each with a balanced opponent and a card a 12-year-old can follow. Leading digits (each reading starting
+like a power of 2 or 7) passes rows 1–3 at 10.3–10.6 bits but has no opponent; roughness is the opponent of powers but
+sits 3 bits above the band. The alternative, uncapped cells with the old lenses made unbounded, is being prototyped for
+the owner (p10).
+
+## 13. Grids · arithmetic (playtest preset)
+
+`grids-arithmetic` ("Grids · arithmetic") deals Divisibility (§12) and Leading Digits on 4×4, each family with its one
+tie-breaker on the attained number, so the owner can playtest how readable cards about long numbers are. It is a
+**readability playtest, not the default**: the default stays `lines-beginner`, and Grids · beginner is unchanged. It
+plays the beginner grid's game (ten minutes, three boards, exact readings, drift every 120 s) and economy (130 to start).
+Seating needs no rule for it: neither family is in a seating cluster (`seating.ts`), so only one family twice is
+forbidden, and with two families every table of two seats holds both.
+
+| Family | Dealt (4 each) | Tie-breaker |
+|---|---|---|
+| Divisibility (`divisibility.ts`) | powers q = 3 and matching q = 2, each on halves or alternate | leftover-digits |
+| Leading Digits (`leading-digits.ts`) | b ∈ {2, 7}, each on halves or alternate | exponent-digits |
+
+Leading Digits reads the same four readings (`divisibilityReadings`). Card (b = 2, halves): "Read the top half and the
+bottom half row by row, and the left half and the right half column by column, each as one number: each should start
+with the same digits as some power of 2 (up to the 1000th), for as many digits as possible, and no two rows or two
+columns may hold the same numbers." The main part adds, over the four readings, the leading digits each shares with the
+start of some 2^k, k = 0 … 1000 (2¹²⁹ starts 6805…, so 68051234 shares 4), less the repeated rows and columns. A reading
+with leading zeros is the shorter number; a reading of 0 counts nothing. The powers are exact (BigInt): a power with
+fewer digits than the reading shares only its own digits, so 20000000 shares one digit with 2, not eight (the
+prototype padded short powers with zeros). The tie-breaker adds up the digits of each reading's smallest matching
+exponent. The view cites the four readings, focuses those that match the most digits, and notes each one ("starts like
+2¹²⁹ = 6805…: 4 digits"). Value functions are sampled (2M plain draws); the starters in both languages build the table
+of starts themselves, keeping each power's first 40 digits.
+
+The check table for Leading Digits (b = 2, halves, from the prototype `leadMatch`, scratchpad p9, before the exact
+short powers):
+
+| | Question | Evidence | Verdict |
+|---|---|---|---|
+| 1 | Unbounded main part? | Bound 32 (four 8-digit readings, each a full start of a power); best found 28, with no top found (2 of 14 annealing runs reached 28). | Pass |
+| 2 | Ladder length? | A starter-like climber stops at 10.3 bits (b = 7: 10.6). | Pass |
+| 3 | Tie-breaker defined by the main part's value? | It reads the exponents attained; it fell at 45% of main-part steps; at two capped main-part levels the best tie-breaker is 96 and 94. | Weak |
+| 4 | Dealable instances? | 4 (b ∈ {2, 7} × two layouts). | Pass |
+| 5 | Perpendicular? | Maximum depth-averaged \|PMI\| against the beginner eight's mains 1.32. | Pass |
+| 6 | Opponents? | None yet. | Open |
+| 9 | Balanced, keeps moving? | Not measured in seated play: this preset is how it gets measured. | Open |

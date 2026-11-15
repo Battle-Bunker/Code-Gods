@@ -1,5 +1,5 @@
 # Whole Crossing · Example: the gradient's smallest prime factor
-# Main part: the x-axis crossing close to a whole number. Tie-breaker: the gradient's smallest prime factor.
+# Main part: the x-axis crossing close to the dealt whole numbers. Tie-breaker: the gradient's smallest prime factor.
 # What it does: reads the line once as y = mx + c (a small read), tries small steps in its own head (thinking costs
 # no energy, only time) and takes the one that raises your points most. Your points on a line are your rarity times
 # the others' rarity, so a step good for several rules beats one good only for yours, and a tug-of-war (another player pulling the line
@@ -13,17 +13,25 @@
 def score(m, c, p):
     # How good is the line y = mx + c for your rule? [main part, tie-breaker]: bigger is better, None is no score.
     if m is None:              # the vertical line x = c
-        k = whole(c)                                    # the whole number nearest where it stands (x = c)
+        t = (c - p["r"]) / p["q"]
+        j = whole(t)
+        k = p["r"] + p["q"] * j   # the dealt number nearest
+        if 2 * (j - t) == 1 and abs(k - p["q"]) <= abs(k):
+            k = k - p["q"]
         main = -abs(c - k)
         fk = factors(k)                                 # its prime factors, smallest first
         return [main, None]
     if m == 0:                                      # a flat line never crosses: the worst score
         return None
     x = -c / m                                      # where y = mx + c crosses the x-axis
-    k = whole(x)                                    # the whole number nearest the crossing
+    t = (x - p["r"]) / p["q"]
+    j = whole(t)
+    k = p["r"] + p["q"] * j   # the dealt number nearest
+    if 2 * (j - t) == 1 and abs(k - p["q"]) <= abs(k):
+        k = k - p["q"]
     main = -abs(x - k)
     fk, fm = factors(k), factors(m) or []           # prime factors, smallest first ([] for 0, 1, -1)
-    return [main, fm[0] if fm else 1]   # main: how far the line's x-axis crossing is from a whole number (closer is better); tie-breaker: the gradient's smallest prime factor big is better
+    return [main, fm[0] if fm else 1]   # main: how far the line's x-axis crossing is from a whole number leaving r when divided by q (closer is better); tie-breaker: the gradient's smallest prime factor big is better
 
 
 FAR = 3      # how far one change may go
@@ -34,6 +42,8 @@ PROTECT = []    # lines where you promised not to lower the others, e.g. [7]: on
 
 def agent(offer):
     if offer.object in LEAVE:   # a deal: leave this line alone
+        return None
+    if saving(offer):   # under 10 s of your income in hand: save up for a move (the game still tells you the line)
         return None
     # A tug-of-war (another player taking back your gains on this line, 3 times lately) burns energy on both
     # sides: tell your owner, who can make a deal. (Leaving the line instead gives it away: try it and compare.)

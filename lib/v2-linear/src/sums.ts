@@ -57,7 +57,7 @@ function areaBand(m: bigint, A: number, d: number): CRange[] {
 /** The plans, by family id. Rules on other object types, or families absent here, use the generic fallback. */
 export const lineSums: Readonly<Record<string, LineSums<any>>> = {
   "prime-gradient": { separable: { near: "m", prime: "m", "c-spf": "c", "c-gpf": "c" } },
-  "prime-landing": { separable: { landing: "c", "big-prime": "c", "m-spf": "m", "m-gpf": "m" } },
+  // Prime Landing is a ladder with entangled tie-breakers since 15 Nov (design-principles.md): valued by sampling.
   // n | y(n) = mn + c exactly when n | c on whole-number lines: the run depends on c alone.
   "divisibility-ladder": { separable: { ladder: "c", "m-spf": "m", "m-gpf": "m", steep: "m", "m-prime": "m" } },
   "m-meets-c": { bands: [{ atLeast: () => q(-1), ranges: m => [{ lo: m - 1n, hi: m + 1n }] }] },        // |m − c| ≤ 1
@@ -92,8 +92,8 @@ export const lineSums: Readonly<Record<string, LineSums<any>>> = {
     const t = isqrt(2n * abs(m));
     return t * t === 2n * abs(m) ? [{ lo: -BIG, hi: BIG, step: t }] : [];
   } }] },
-  // The x-axis crossing −c/m is whole exactly when m divides c.
-  "whole-crossing": { bands: [{ atLeast: () => q(0), ranges: m => (m === 0n ? [] : [{ lo: -BIG, hi: BIG, step: abs(m) }]) }] },
+  // Whole Crossing has no plan since its dealt residue (the crossing near a whole number leaving r when divided by q):
+  // valued by sampling (owner decision 22).
   // A run of one or more different primes ending in the dealt digit from y(0) needs c such a prime: every score from a
   // run of 1 is a sum over those primes.
   "prime-staircase": { bands: [{ atLeast: () => q(1), points: "same",

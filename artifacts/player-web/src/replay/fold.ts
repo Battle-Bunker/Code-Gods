@@ -132,7 +132,10 @@ export function indexReplay(file: unknown): ReplayIndex {
       case "drift": {
         for (const p of (d.seats as RawStart[] | undefined) ?? []) {
           const end = rules.get(p.memberId);
-          if (end) push(ix.ruleTimes, p.memberId, { at, row: drifted(end, p, p.card ?? null, Number(d.k ?? 0), world) });
+          if (!end) continue;
+          const before = ix.ruleTimes.get(p.memberId)?.at(-1)?.row;
+          const row = drifted(end, p, p.card ?? null, Number(d.k ?? 0), world);
+          push(ix.ruleTimes, p.memberId, { at, row: { ...row, previous: before ? { params: before.params, card: before.card } : null } });
         }
         break;
       }

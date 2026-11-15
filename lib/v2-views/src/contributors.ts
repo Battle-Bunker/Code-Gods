@@ -206,11 +206,15 @@ function contributor<S, P>(rule: RuleRef<S, P>, state: S, e: Evaluation, i: numb
   let distance: string | null = null;
   let ruler: RulerData | null = null;
   const kind = title + " " + term.label;
-  if (layer.sense === "min" && !isUndef(value)) {
+  // A distance, or a ladder (a count or size read through a reference: Prime Landing's rungs): the source on a ruler
+  // among the reference and its kind's qualifying neighbours.
+  if ((layer.sense === "min" || (reference && src)) && !isUndef(value)) {
     if (reference && src) {
-      // The size is the rule's own term (what it scores); only the direction comes from the source and reference.
+      // The size is the rule's own term for a distance (what it scores), the gap from the reference for a ladder; only
+      // the direction comes from the source and reference.
       const d = N(src) - reference.value;
-      distance = Qn.isZero(value) ? `on ${reference.text}` : `${readable(Qn.abs(value))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
+      const on = layer.sense === "min" ? Qn.isZero(value) : d === 0;
+      distance = on ? `on ${reference.text}` : `${layer.sense === "min" ? readable(Qn.abs(value)) : readableN(Math.abs(d))} ${d >= 0 ? "above" : "below"} ${reference.text}`;
       const lo = Math.min(N(src), reference.value), hi = Math.max(N(src), reference.value), span = Math.max(hi - lo, 2);
       // Wide enough to show a few qualifying neighbours when the dealt ending thins them out (7, 17, 37, 47, …).
       const filter = refFilter(rule.params, reference.value);

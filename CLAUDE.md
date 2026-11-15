@@ -73,6 +73,10 @@ query needs an entry in the query-cost gate (R8).
 - **What is wanted and what is the bug.** Hill climbing a combined landscape that improves several players' rules at
   once is wanted. The bug is when really high peaks are easy to find (by search, by a formula, or by being told the
   rules). The owner has little time for detailed decisions: learn the principles and make good calls.
+- **Every rule family passes `docs/engine-v2/design-principles.md` before it is dealt** (owner, 2026-11-15): an
+  unbounded main part, a long ladder, a tie-breaker defined by the main part's value (stepping up the main part restarts
+  the tie-breaker's climb), many dealable instances that are close to perpendicular, named adversaries. A pull request
+  that adds or changes a dealt rule carries that file's check table. The coordinator re-reads the file at every check-in.
 - Details, and what went wrong on 14 November: `.agents/memory/metastable-ecosystem.md`. Departures made during the
   rebuild: `docs/engine-v2/v1-audit.md`. Why optima were easy to find: `docs/engine-v2/landscape-analysis.md`.
 
