@@ -60,6 +60,9 @@ test("the beginner game (owner decisions 31, 32, 34): 600 s fixed, 3 objects, ex
   const ids = (await ada!.query("v2/spectate:objectIds", { gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
   assert.equal(ids.length, 3, "3 objects to start (decision 31)");
   await perform(ada!, "game.end", {}, { gameId });
+  // The derived weight is not a quarter: a client that echoes the preset's own back is accepted (W5).
+  const echoed = await perform(ada!, "room.settings", { overrides: { readPriceWeight: h.readPriceWeight } }, { roomId }).catch((e: any) => e.data);
+  assert.equal(echoed.ok, true, JSON.stringify(echoed));
 });
 
 test("a room dilated by 10 plays the same game ten times faster: every rate × 10, every length ÷ 10, energies kept (decision 37)", { timeout: 240_000 }, async () => {
